@@ -2,6 +2,8 @@ import {
   type ArtifactHeader,
   type ArtifactRef,
 } from "@rekon/kernel-artifacts";
+import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
+import { type IntelligenceSnapshot } from "@rekon/kernel-snapshot";
 import { type Resolver, defineCapability } from "@rekon/sdk";
 
 export type PreflightPacket = {
@@ -31,18 +33,6 @@ export type PreflightPacket = {
   nextSteps: string[];
 };
 
-type SnapshotLike = {
-  header: ArtifactHeader;
-  repo: {
-    id: string;
-    root: string;
-    branch?: string;
-    commit?: string;
-  };
-  inputs?: Record<string, ArtifactRef[]>;
-  evaluations?: Record<string, ArtifactRef[]>;
-};
-
 type EvidenceGraphLike = {
   facts?: Array<{
     kind: string;
@@ -68,17 +58,21 @@ export const preflightResolver: Resolver = {
       throw new Error("resolve.preflight requires input.path or input.paths.");
     }
 
-    const snapshot = await artifacts.read(snapshotRef) as SnapshotLike;
-    const evidenceRefs = snapshot.inputs?.EvidenceGraph ?? [];
+    const snapshot = await artifacts.read(snapshotRef) as IntelligenceSnapshot;
+    const evidenceRefs = snapshot.inputs.EvidenceGraph ?? [];
+    const ownershipMapRefs = snapshot.projections.OwnershipMap ?? [];
+    const observedRepoRefs = snapshot.projections.ObservedRepo ?? [];
     const evidenceGraphs = await Promise.all(evidenceRefs.map((ref) => artifacts.read(ref) as Promise<EvidenceGraphLike>));
+    const ownershipMaps = await Promise.all(ownershipMapRefs.map((ref) => artifacts.read(ref) as Promise<OwnershipMap>));
+    const observedRepos = await Promise.all(observedRepoRefs.map((ref) => artifacts.read(ref) as Promise<ObservedRepo>));
     const ownershipFacts = evidenceGraphs.flatMap((graph) => graph.facts ?? [])
       .filter((fact) => fact.kind === "ownership_hint");
     const matchedScopes = paths.map((path) => {
-      const match = findBestOwnershipMatch(path, ownershipFacts);
+      const match = findOwnershipMatch(path, ownershipMaps, observedRepos, ownershipFacts);
 
       return {
         path,
-        owner: typeof match?.value?.system === "string" ? match.value.system : undefined,
+        owner: match?.owner,
         confidence: typeof match?.confidence === "number" ? match.confidence : undefined,
       };
     });
@@ -108,7 +102,14 @@ export const preflightResolver: Resolver = {
           id: "@rekon/capability-resolver",
           version: "0.1.0",
         },
-        inputRefs: [snapshotRef, ...evidenceRefs, ...findingRefs, ...memoryRefs],
+        inputRefs: [
+          snapshotRef,
+          ...ownershipMapRefs,
+          ...observedRepoRefs,
+          ...evidenceRefs,
+          ...findingRefs,
+          ...memoryRefs,
+        ],
         freshness: {
           status: "fresh",
         },
@@ -188,7 +189,50 @@ function parsePaths(value: unknown): string[] {
   return [];
 }
 
-function findBestOwnershipMatch(
+function findOwnershipMatch(
+  path: string,
+  ownershipMaps: OwnershipMap[],
+  observedRepos: ObservedRepo[],
+  facts: Array<{ subject: string; value?: Record<string, unknown>; confidence?: number }>,
+): { owner?: string; confidence?: number } | undefined {
+  const ownershipMapMatch = ownershipMaps
+    .flatMap((map) => map.entries)
+    .filter((entry) => path === entry.path || path.startsWith(`${entry.path}/`))
+    .sort((left, right) => right.path.length - left.path.length || right.confidence - left.confidence)[0];
+
+  if (ownershipMapMatch) {
+    return {
+      owner: ownershipMapMatch.ownerSystem,
+      confidence: ownershipMapMatch.confidence,
+    };
+  }
+
+  const observedRepoMatch = observedRepos
+    .flatMap((repo) => repo.systems)
+    .flatMap((system) => system.paths.map((systemPath) => ({ system, systemPath })))
+    .filter((entry) => path === entry.systemPath || path.startsWith(`${entry.systemPath}/`))
+    .sort((left, right) => right.systemPath.length - left.systemPath.length || right.system.confidence - left.system.confidence)[0];
+
+  if (observedRepoMatch) {
+    return {
+      owner: observedRepoMatch.system.id,
+      confidence: observedRepoMatch.system.confidence,
+    };
+  }
+
+  const evidenceMatch = findBestEvidenceOwnershipMatch(path, facts);
+
+  if (!evidenceMatch) {
+    return undefined;
+  }
+
+  return {
+    owner: typeof evidenceMatch.value?.system === "string" ? evidenceMatch.value.system : undefined,
+    confidence: evidenceMatch.confidence,
+  };
+}
+
+function findBestEvidenceOwnershipMatch(
   path: string,
   facts: Array<{ subject: string; value?: Record<string, unknown>; confidence?: number }>,
 ) {

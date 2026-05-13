@@ -19,7 +19,11 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     assert.equal(JSON.parse(init.stdout).config, ".rekon/config.json");
     assert.deepEqual(
       JSON.parse(await readFile(join(root, ".rekon", "config.json"), "utf8")).capabilities,
-      [{ package: "@rekon/capability-js-ts" }],
+      [
+        { package: "@rekon/capability-js-ts" },
+        { package: "@rekon/capability-model" },
+        { package: "@rekon/capability-resolver" },
+      ],
     );
 
     const capabilities = runCli(["capabilities", "list", "--root", root, "--json"]);
@@ -36,9 +40,19 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     assert.equal(snapshot.status, 0, snapshot.stderr);
     assert.equal(JSON.parse(snapshot.stdout).artifact.type, "IntelligenceSnapshot");
 
+    const project = runCli(["project", "--root", root, "--json"]);
+    assert.equal(project.status, 0, project.stderr);
+    assert.deepEqual(
+      JSON.parse(project.stdout).artifacts.map((artifact) => artifact.type).sort(),
+      ["CapabilityMap", "ObservedRepo", "OwnershipMap"],
+    );
+
     const artifacts = runCli(["artifacts", "list", "--root", root, "--json"]);
     assert.equal(artifacts.status, 0, artifacts.stderr);
-    assert.equal(JSON.parse(artifacts.stdout).artifacts.length, 2);
+    assert.deepEqual(
+      JSON.parse(artifacts.stdout).artifacts.map((artifact) => artifact.type).sort(),
+      ["CapabilityMap", "EvidenceGraph", "IntelligenceSnapshot", "ObservedRepo", "OwnershipMap"],
+    );
 
     const show = runCli(["artifacts", "show", evidenceRef.id, "--root", root, "--json"]);
     assert.equal(show.status, 0, show.stderr);

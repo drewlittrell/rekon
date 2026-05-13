@@ -10,6 +10,7 @@ Current alpha responsibilities:
 - load built-in capability objects directly
 - enforce manifest-requested permissions
 - run evidence providers
+- run projectors
 - create an `IntelligenceSnapshot`
 - run registered resolvers
 

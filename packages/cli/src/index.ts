@@ -3,6 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import jsTsCapability from "@rekon/capability-js-ts";
+import modelCapability from "@rekon/capability-model";
 import resolverCapability from "@rekon/capability-resolver";
 import {
   type ArtifactIndexEntry,
@@ -61,6 +62,19 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "project") {
+    const runtime = await createDefaultRuntime(root);
+    const existingEvidence = await runtime.artifacts.list("EvidenceGraph");
+
+    if (existingEvidence.length === 0) {
+      await runtime.runObserve();
+    }
+
+    const refs = await runtime.runProject();
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
   if (command === "resolve" && subcommand === "preflight") {
     const path = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
     const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : "";
@@ -77,6 +91,12 @@ export async function main(argv: string[]): Promise<void> {
         changedFiles: [path],
         incremental: true,
       });
+    }
+
+    const existingOwnership = await runtime.artifacts.list("OwnershipMap");
+
+    if (existingOwnership.length === 0) {
+      await runtime.runProject();
     }
 
     const snapshotRef = await runtime.runSnapshot();
@@ -117,13 +137,20 @@ export async function main(argv: string[]): Promise<void> {
 async function createDefaultRuntime(root: string) {
   return createRuntime({
     repoRoot: root,
-    capabilities: [jsTsCapability, resolverCapability],
+    capabilities: [jsTsCapability, modelCapability, resolverCapability],
   });
 }
 
 async function writeConfigIfMissing(root: string): Promise<void> {
   const configPath = resolve(root, ".rekon", "config.json");
-  const defaultConfig = { capabilities: [{ package: "@rekon/capability-js-ts" }], permissions: {} };
+  const defaultConfig = {
+    capabilities: [
+      { package: "@rekon/capability-js-ts" },
+      { package: "@rekon/capability-model" },
+      { package: "@rekon/capability-resolver" },
+    ],
+    permissions: {},
+  };
 
   try {
     const existingConfig = JSON.parse(await readFile(configPath, "utf8")) as { capabilities?: unknown };
@@ -228,6 +255,7 @@ function usage(): string {
     "rekon init [--root <path>]",
     "rekon capabilities list [--root <path>] [--json]",
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
+    "rekon project [--root <path>] [--json]",
     "rekon snapshot [--root <path>] [--json]",
     "rekon resolve preflight --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",

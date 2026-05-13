@@ -13,6 +13,10 @@ import {
   createEvidenceGraph,
 } from "@rekon/kernel-evidence";
 import {
+  type IntelligenceSnapshot,
+  createIntelligenceSnapshot,
+} from "@rekon/kernel-snapshot";
+import {
   type CapabilityDefinition,
   type CapabilityPermission,
   type CapabilityRegistrySnapshot,
@@ -68,26 +72,12 @@ export type ArtifactWithHeader = {
 export type ArtifactCategory =
   | "evidence"
   | "snapshots"
+  | "projections"
   | "graphs"
   | "findings"
   | "resolver-packets"
   | "publications"
   | "actions";
-
-export type IntelligenceSnapshot = {
-  header: ArtifactHeader;
-  repo: RuntimeRepo;
-  inputs: Record<string, ArtifactRef[]>;
-  projections: Record<string, ArtifactRef[]>;
-  evaluations: Record<string, ArtifactRef[]>;
-  publications: Record<string, ArtifactRef[]>;
-  actions: Record<string, ArtifactRef[]>;
-  status: {
-    freshness: "fresh" | "stale" | "partial" | "unknown";
-    warnings: string[];
-    blockedReasons: string[];
-  };
-};
 
 export type RuntimeOptions = {
   repoRoot: string;
@@ -109,9 +99,15 @@ export type ResolveOptions = {
   input?: Record<string, unknown>;
 };
 
+export type ProjectOptions = {
+  projectorId?: string;
+  input?: Record<string, unknown>;
+};
+
 export type Runtime = RuntimeContext & {
   registry: CapabilityRegistrySnapshot;
   runObserve(options?: ObserveOptions): Promise<ArtifactRef>;
+  runProject(options?: ProjectOptions): Promise<ArtifactRef[]>;
   runSnapshot(): Promise<ArtifactRef>;
   runResolve(options?: ResolveOptions): Promise<ArtifactRef[]>;
 };
@@ -119,6 +115,9 @@ export type Runtime = RuntimeContext & {
 const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   EvidenceGraph: "evidence",
   IntelligenceSnapshot: "snapshots",
+  ObservedRepo: "projections",
+  OwnershipMap: "projections",
+  CapabilityMap: "projections",
   GraphSlice: "graphs",
   FindingReport: "findings",
   ResolverPacket: "resolver-packets",
@@ -187,6 +186,9 @@ export async function createRuntime(options: RuntimeOptions): Promise<Runtime> {
     async runObserve(observeOptions = {}) {
       return runObserve(context, registry.snapshot(), observeOptions);
     },
+    async runProject(projectOptions = {}) {
+      return runProject(context, registry.snapshot(), projectOptions);
+    },
     async runSnapshot() {
       return runSnapshot(context);
     },
@@ -207,6 +209,7 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
       await Promise.all([
         mkdir(join(workspaceRoot, "artifacts", "evidence"), { recursive: true }),
         mkdir(join(workspaceRoot, "artifacts", "snapshots"), { recursive: true }),
+        mkdir(join(workspaceRoot, "artifacts", "projections"), { recursive: true }),
         mkdir(join(workspaceRoot, "artifacts", "graphs"), { recursive: true }),
         mkdir(join(workspaceRoot, "artifacts", "findings"), { recursive: true }),
         mkdir(join(workspaceRoot, "artifacts", "resolver-packets"), { recursive: true }),
@@ -304,7 +307,7 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
   const artifacts = await context.artifacts.list();
   const latestEvidence = latestByType(artifacts, "EvidenceGraph");
   const inputRefs = latestEvidence ? [latestEvidence] : [];
-  const snapshot: IntelligenceSnapshot = {
+  const snapshot: IntelligenceSnapshot = createIntelligenceSnapshot({
     header: createRuntimeArtifactHeader({
       artifactType: "IntelligenceSnapshot",
       artifactId: `snapshot-${Date.now()}`,
@@ -323,9 +326,40 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
       warnings: latestEvidence ? [] : ["No EvidenceGraph artifacts are indexed."],
       blockedReasons: [],
     },
-  };
+  });
 
   return context.artifacts.write(snapshot, { category: "snapshots" });
+}
+
+export async function runProject(
+  context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
+  options: ProjectOptions = {},
+): Promise<ArtifactRef[]> {
+  const projectors = options.projectorId
+    ? registry.projectors.filter((projector) => projector.id === options.projectorId)
+    : registry.projectors;
+  const writtenRefs: ArtifactRef[] = [];
+
+  for (const projector of projectors) {
+    writtenRefs.push(...await projector.project({
+      artifacts: {
+        read: (ref: ArtifactRef) => context.artifacts.read(ref),
+        list: (type?: string) => context.artifacts.list(type),
+        write: (type: string, artifact: unknown) => {
+          const category = categoryForArtifactType(type);
+
+          return context.artifacts.write(artifact as ArtifactWithHeader, { category });
+        },
+      },
+      input: {
+        repo: context.repo,
+        ...(options.input ?? {}),
+      },
+    }));
+  }
+
+  return writtenRefs;
 }
 
 export async function runResolve(
@@ -353,6 +387,7 @@ async function runSingleResolver(
   return resolver.resolve({
     artifacts: {
       read: (ref: ArtifactRef) => context.artifacts.read(ref),
+      list: (type?: string) => context.artifacts.list(type),
       write: (type: string, artifact: unknown) => {
         const category = categoryForArtifactType(type);
 

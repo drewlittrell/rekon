@@ -14,3 +14,8 @@ All notable changes to Rekon will be documented in this file.
 - Added the built-in `@rekon/capability-js-ts` evidence provider.
 - Added the initial `@rekon/cli` commands for init, capability listing, observe, snapshot, artifact inspection, and preflight resolution.
 - Added the built-in `@rekon/capability-resolver` preflight resolver.
+- Added GitHub Actions CI for typecheck, test, build, and whitespace checks.
+- Added `@rekon/kernel-snapshot` as the public IntelligenceSnapshot contract used by runtime and resolver.
+- Added `@rekon/kernel-repo-model` for ObservedRepo, OwnershipMap, and CapabilityMap contracts.
+- Added `@rekon/capability-model` as a deterministic EvidenceGraph-to-model projector.
+- Added `rekon project` and updated preflight resolution to prefer OwnershipMap and ObservedRepo before raw evidence fallback.

@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@rekon/kernel-artifacts": "0.1.0-alpha.0",
+    "@rekon/kernel-repo-model": "0.1.0-alpha.0",
+    "@rekon/kernel-snapshot": "0.1.0-alpha.0",
     "@rekon/sdk": "0.1.0-alpha.0"
   }
 }

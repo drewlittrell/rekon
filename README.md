@@ -28,12 +28,14 @@ Rekon is in clean-slate alpha scaffolding. The repository currently establishes 
 - `@rekon/kernel-evidence`
 - `@rekon/kernel-snapshot`
 - `@rekon/kernel-graph`
+- `@rekon/kernel-repo-model`
 - `@rekon/kernel-rulebook`
 - `@rekon/kernel-findings`
 - `@rekon/sdk`
 - `@rekon/runtime`
 - `@rekon/cli`
 - `@rekon/capability-js-ts`
+- `@rekon/capability-model`
 - `@rekon/capability-policy`
 - `@rekon/capability-resolver`
 - `@rekon/capability-docs`
@@ -55,6 +57,7 @@ npm run build
 ```sh
 node packages/cli/dist/index.js init --root examples/simple-js-ts
 node packages/cli/dist/index.js observe --root examples/simple-js-ts --json
+node packages/cli/dist/index.js project --root examples/simple-js-ts --json
 node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
 node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 ```

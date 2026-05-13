@@ -51,6 +51,7 @@ export type ArtifactTypeDefinition = {
 
 export type ArtifactReader = {
   read(ref: ArtifactRef): Promise<unknown>;
+  list(type?: string): Promise<ArtifactRef[]>;
 };
 
 export type ArtifactWriter = {
@@ -62,6 +63,7 @@ export type Projector = {
   produces: string[];
   project(input: {
     artifacts: ArtifactReader & ArtifactWriter;
+    input?: Record<string, unknown>;
   }): Promise<ArtifactRef[]>;
 };
 

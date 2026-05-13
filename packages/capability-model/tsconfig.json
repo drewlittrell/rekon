@@ -11,8 +11,7 @@
   ],
   "references": [
     { "path": "../kernel-artifacts" },
-    { "path": "../kernel-evidence" },
-    { "path": "../kernel-snapshot" },
+    { "path": "../kernel-repo-model" },
     { "path": "../sdk" }
   ]
 }
