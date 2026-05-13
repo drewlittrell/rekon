@@ -49,3 +49,17 @@ rekon publish agents
 Every artifact written by the example includes schema version, producer, input
 refs, and provenance. The example capability uses the same `@rekon/sdk`
 registration contract as built-in capabilities.
+
+## Conformance Test
+
+Capability packages should validate their public contract in tests:
+
+```ts
+import { assertCapabilityConforms } from "@rekon/sdk";
+import capability from "./index.js";
+
+await assertCapabilityConforms(capability);
+```
+
+The Rekon repository runs this check against the example in
+`tests/contract/capabilities.test.mjs`.

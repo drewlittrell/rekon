@@ -34,3 +34,4 @@ All notable changes to Rekon will be documented in this file.
 - Updated CI to Node 24 with Node 24-compatible GitHub Actions.
 - Tightened the documented Node engine lanes to Node 20.12, 22, and 24.
 - Added repository-wide artifact contract tests for the CLI smoke flow, artifact headers, index paths, digests, and generated artifact public-safety checks.
+- Added SDK capability conformance helpers and contract tests for built-in and example capabilities.

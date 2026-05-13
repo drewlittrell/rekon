@@ -157,6 +157,30 @@ export type RuntimeCapabilityRegistry = CapabilityRegistry & {
   snapshot(): CapabilityRegistrySnapshot;
 };
 
+export type CapabilityValidationIssue = {
+  code: string;
+  message: string;
+  path?: string;
+};
+
+export type CapabilityValidationResult =
+  | {
+    ok: true;
+    registered: RegisteredCapability;
+    issues: [];
+  }
+  | {
+    ok: false;
+    issues: CapabilityValidationIssue[];
+  };
+
+export type CapabilityConformanceTestContext = {
+  providerContext?: import("@rekon/kernel-evidence").ProviderContext;
+  artifacts?: ArtifactReader & ArtifactWriter;
+  input?: Record<string, unknown>;
+  handlers?: string[];
+};
+
 const VALID_ROLES = new Set<CapabilityRole>([
   "evidence-provider",
   "projector",
@@ -209,6 +233,45 @@ export function defineCapability(definition: CapabilityDefinition): CapabilityDe
   }
 
   return definition;
+}
+
+export function validateCapability(capability: CapabilityDefinition): CapabilityValidationResult {
+  try {
+    const registry = createCapabilityRegistry();
+    const registered = registry.use(capability);
+    const issues = validateRegisteredCapability(registered, registry.snapshot().artifactTypes);
+
+    if (issues.length > 0) {
+      return { ok: false, issues };
+    }
+
+    return { ok: true, registered, issues: [] };
+  } catch (error) {
+    return {
+      ok: false,
+      issues: [
+        {
+          code: "capability.registration_failed",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      ],
+    };
+  }
+}
+
+export async function assertCapabilityConforms(
+  capability: CapabilityDefinition,
+  testContext: CapabilityConformanceTestContext = {},
+): Promise<RegisteredCapability> {
+  const result = validateCapability(capability);
+
+  if (!result.ok) {
+    throw new Error(formatCapabilityIssues(capability.manifest?.id ?? "unknown", result.issues));
+  }
+
+  await runConformanceHandlers(result.registered, testContext);
+
+  return result.registered;
 }
 
 export function createCapabilityRegistry(): RuntimeCapabilityRegistry {
@@ -345,6 +408,266 @@ function validateManifest(manifest: CapabilityManifest): void {
       throw new Error(`Unknown capability permission: ${permission}`);
     }
   }
+}
+
+function validateRegisteredCapability(
+  capability: RegisteredCapability,
+  artifactTypes: ArtifactTypeDefinition[],
+): CapabilityValidationIssue[] {
+  const issues: CapabilityValidationIssue[] = [];
+  const manifest = capability.manifest;
+  const artifactTypeNames = new Set(artifactTypes.map((artifactType) => artifactType.type));
+
+  if (!manifest.permissions || manifest.permissions.length === 0) {
+    issues.push({
+      code: "manifest.permissions_missing",
+      path: "manifest.permissions",
+      message: `Capability ${manifest.id} must declare permissions.`,
+    });
+  }
+
+  if (!manifest.invalidatedBy || manifest.invalidatedBy.length === 0) {
+    issues.push({
+      code: "manifest.invalidation_missing",
+      path: "manifest.invalidatedBy",
+      message: `Capability ${manifest.id} must declare invalidation rules.`,
+    });
+  }
+
+  for (const [index, rule] of (manifest.invalidatedBy ?? []).entries()) {
+    if (typeof rule.id !== "string" || rule.id.length === 0) {
+      issues.push({
+        code: "manifest.invalidation_rule_id_missing",
+        path: `manifest.invalidatedBy.${index}.id`,
+        message: `Capability ${manifest.id} has an invalid invalidation rule id.`,
+      });
+    }
+
+    const hasSource = (rule.inputs?.length ?? 0) > 0 || (rule.paths?.length ?? 0) > 0 || (rule.events?.length ?? 0) > 0;
+
+    if (!hasSource) {
+      issues.push({
+        code: "manifest.invalidation_rule_source_missing",
+        path: `manifest.invalidatedBy.${index}`,
+        message: `Capability ${manifest.id} invalidation rule ${rule.id} must declare inputs, paths, or events.`,
+      });
+    }
+  }
+
+  for (const artifactType of manifest.produces) {
+    if (!artifactTypeNames.has(artifactType)) {
+      issues.push({
+        code: "manifest.produces_unknown_artifact",
+        path: "manifest.produces",
+        message: `Capability ${manifest.id} produces unknown artifact type ${artifactType}.`,
+      });
+    }
+  }
+
+  const handlerIssues = [
+    ...capability.projectors.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "projector")),
+    ...capability.evaluators.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "evaluator")),
+    ...capability.resolvers.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "resolver")),
+    ...capability.publishers.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "publisher")),
+    ...capability.actuators.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "actuator")),
+    ...capability.learners.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "learner")),
+  ];
+
+  return [...issues, ...handlerIssues];
+}
+
+function validateProducedHandler(
+  capabilityId: string,
+  handlerId: string,
+  produces: string[],
+  manifestProduces: string[],
+  role: CapabilityRole,
+): CapabilityValidationIssue[] {
+  const issues: CapabilityValidationIssue[] = [];
+
+  if (!produces || produces.length === 0) {
+    issues.push({
+      code: "handler.produces_missing",
+      message: `${role} handler ${handlerId} in ${capabilityId} must declare produced artifact types.`,
+    });
+  }
+
+  for (const artifactType of produces) {
+    if (!manifestProduces.includes(artifactType)) {
+      issues.push({
+        code: "handler.produces_undeclared",
+        message: `${role} handler ${handlerId} produces ${artifactType}, but ${capabilityId} does not declare it.`,
+      });
+    }
+  }
+
+  return issues;
+}
+
+async function runConformanceHandlers(
+  capability: RegisteredCapability,
+  testContext: CapabilityConformanceTestContext,
+): Promise<void> {
+  const selectedHandlers = new Set(testContext.handlers ?? []);
+  const shouldRun = (handlerId: string): boolean => selectedHandlers.size === 0 || selectedHandlers.has(handlerId);
+
+  if (testContext.providerContext) {
+    for (const provider of capability.evidenceProviders.filter((handler) => shouldRun(handler.id))) {
+      if (provider.supports(testContext.providerContext)) {
+        const facts = await provider.extract(testContext.providerContext);
+        assertEvidenceFacts(provider.id, facts);
+      }
+    }
+  }
+
+  if (!testContext.artifacts) {
+    return;
+  }
+
+  const artifacts = createConformanceArtifactAccess(testContext.artifacts);
+  const input = testContext.input;
+
+  for (const projector of capability.projectors.filter((handler) => shouldRun(handler.id))) {
+    assertRefs(projector.id, projector.produces, await projector.project({ artifacts, input }));
+  }
+
+  for (const evaluator of capability.evaluators.filter((handler) => shouldRun(handler.id))) {
+    assertRefs(evaluator.id, evaluator.produces, await evaluator.evaluate({ artifacts, input }));
+  }
+
+  for (const resolver of capability.resolvers.filter((handler) => shouldRun(handler.id))) {
+    assertRefs(resolver.id, resolver.produces, await resolver.resolve({ artifacts, input }));
+  }
+
+  for (const publisher of capability.publishers.filter((handler) => shouldRun(handler.id))) {
+    assertRefs(publisher.id, publisher.produces, await publisher.publish({ artifacts, input }));
+  }
+
+  for (const actuator of capability.actuators.filter((handler) => shouldRun(handler.id))) {
+    assertRefs(actuator.id, actuator.produces, await actuator.act({ artifacts, input }));
+  }
+
+  for (const learner of capability.learners.filter((handler) => shouldRun(handler.id))) {
+    assertRefs(learner.id, learner.produces, await learner.learn({ artifacts, input }));
+  }
+}
+
+function createConformanceArtifactAccess(artifacts: ArtifactReader & ArtifactWriter): ArtifactReader & ArtifactWriter {
+  return {
+    read: (ref) => artifacts.read(ref),
+    list: (type) => artifacts.list(type),
+    async write(type, artifact) {
+      assertWrittenArtifactHeader(type, artifact);
+
+      return artifacts.write(type, artifact);
+    },
+  };
+}
+
+function assertWrittenArtifactHeader(type: string, artifact: unknown): void {
+  if (!artifact || typeof artifact !== "object" || !("header" in artifact)) {
+    throw new Error(`Artifact ${type} must include a header.`);
+  }
+
+  const header = (artifact as { header?: unknown }).header;
+
+  if (!header || typeof header !== "object") {
+    throw new Error(`Artifact ${type} header must be an object.`);
+  }
+
+  const candidate = header as {
+    artifactType?: unknown;
+    artifactId?: unknown;
+    schemaVersion?: unknown;
+    generatedAt?: unknown;
+    subject?: unknown;
+    producer?: unknown;
+    inputRefs?: unknown;
+    provenance?: unknown;
+  };
+
+  ensureHeaderString(candidate.artifactType, `${type}.header.artifactType`);
+  ensureHeaderString(candidate.artifactId, `${type}.header.artifactId`);
+  ensureHeaderString(candidate.schemaVersion, `${type}.header.schemaVersion`);
+  ensureHeaderString(candidate.generatedAt, `${type}.header.generatedAt`);
+
+  if (candidate.artifactType !== type) {
+    throw new Error(`Artifact header type ${String(candidate.artifactType)} does not match write type ${type}.`);
+  }
+
+  if (!candidate.subject || typeof candidate.subject !== "object") {
+    throw new Error(`Artifact ${type} header.subject is required.`);
+  }
+
+  if (!candidate.producer || typeof candidate.producer !== "object") {
+    throw new Error(`Artifact ${type} header.producer is required.`);
+  }
+
+  const producer = candidate.producer as { id?: unknown; version?: unknown };
+  ensureHeaderString(producer.id, `${type}.header.producer.id`);
+  ensureHeaderString(producer.version, `${type}.header.producer.version`);
+
+  if (!Array.isArray(candidate.inputRefs)) {
+    throw new Error(`Artifact ${type} header.inputRefs must be an array.`);
+  }
+
+  if (!candidate.provenance || typeof candidate.provenance !== "object") {
+    throw new Error(`Artifact ${type} header.provenance is required.`);
+  }
+}
+
+function assertEvidenceFacts(providerId: string, facts: unknown): void {
+  if (!Array.isArray(facts)) {
+    throw new Error(`Evidence provider ${providerId} must return an array of facts.`);
+  }
+
+  for (const [index, fact] of facts.entries()) {
+    if (!fact || typeof fact !== "object") {
+      throw new Error(`Evidence provider ${providerId} fact ${index} must be an object.`);
+    }
+
+    const candidate = fact as { id?: unknown; kind?: unknown; subject?: unknown; confidence?: unknown; provenance?: unknown };
+    ensureHeaderString(candidate.id, `${providerId}.facts.${index}.id`);
+    ensureHeaderString(candidate.kind, `${providerId}.facts.${index}.kind`);
+    ensureHeaderString(candidate.subject, `${providerId}.facts.${index}.subject`);
+
+    if (typeof candidate.confidence !== "number" || candidate.confidence < 0 || candidate.confidence > 1) {
+      throw new Error(`Evidence provider ${providerId} fact ${index} confidence must be between 0 and 1.`);
+    }
+
+    if (!candidate.provenance || typeof candidate.provenance !== "object") {
+      throw new Error(`Evidence provider ${providerId} fact ${index} provenance is required.`);
+    }
+  }
+}
+
+function assertRefs(handlerId: string, produces: string[], refs: ArtifactRef[]): void {
+  if (!Array.isArray(refs)) {
+    throw new Error(`Handler ${handlerId} must return ArtifactRef[].`);
+  }
+
+  for (const ref of refs) {
+    ensureHeaderString(ref.type, `${handlerId}.ref.type`);
+    ensureHeaderString(ref.id, `${handlerId}.ref.id`);
+    ensureHeaderString(ref.schemaVersion, `${handlerId}.ref.schemaVersion`);
+
+    if (!produces.includes(ref.type)) {
+      throw new Error(`Handler ${handlerId} returned ${ref.type}, but declares ${produces.join(", ")}.`);
+    }
+  }
+}
+
+function ensureHeaderString(value: unknown, path: string): void {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`${path} must be a non-empty string.`);
+  }
+}
+
+function formatCapabilityIssues(capabilityId: string, issues: CapabilityValidationIssue[]): string {
+  return [
+    `Capability ${capabilityId} failed conformance validation:`,
+    ...issues.map((issue) => `- ${issue.code}: ${issue.message}`),
+  ].join("\n");
 }
 
 function validateArtifactTypeDefinition(definition: ArtifactTypeDefinition): void {

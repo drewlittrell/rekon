@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertCapabilityConforms,
   createCapabilityRegistry,
   defineCapability,
+  validateCapability,
 } from "../dist/index.js";
 
 const provider = {
@@ -27,6 +29,12 @@ function sampleCapability(overrides = {}) {
       consumes: ["SourceFile"],
       produces: ["EvidenceGraph"],
       permissions: ["read:source", "write:artifacts"],
+      invalidatedBy: [
+        {
+          id: "source.changed",
+          paths: ["**/*"],
+        },
+      ],
       compatibility: {
         rekon: "^0.1.0",
       },
@@ -184,5 +192,141 @@ test("capabilities cannot request unknown permissions", () => {
       },
     }),
     /Unknown capability permission/,
+  );
+});
+
+test("validateCapability reports conformance issues without throwing", () => {
+  const result = validateCapability(sampleCapability({
+    manifest: {
+      invalidatedBy: [],
+    },
+  }));
+
+  assert.equal(result.ok, false);
+  assert.equal(result.issues[0].code, "manifest.invalidation_missing");
+});
+
+test("assertCapabilityConforms runs evidence providers when context is supplied", async () => {
+  await assertCapabilityConforms(sampleCapability(), {
+    providerContext: {
+      repoRoot: process.cwd(),
+      includeTests: false,
+    },
+  });
+});
+
+test("assertCapabilityConforms validates handler output headers", async () => {
+  const capability = sampleCapability({
+    manifest: {
+      roles: ["resolver"],
+      produces: ["ResolverPacket"],
+    },
+    register(capabilityRegistry) {
+      capabilityRegistry.resolver({
+        id: "sample.resolver",
+        produces: ["ResolverPacket"],
+        async resolve({ artifacts }) {
+          return [
+            await artifacts.write("ResolverPacket", {
+              header: {
+                artifactType: "ResolverPacket",
+                artifactId: "packet-1",
+                schemaVersion: "0.1.0",
+                generatedAt: new Date().toISOString(),
+                subject: {
+                  repoId: "repo",
+                },
+                producer: {
+                  id: "sample.resolver",
+                  version: "0.1.0",
+                },
+                inputRefs: [],
+                provenance: {
+                  confidence: 1,
+                },
+              },
+            }),
+          ];
+        },
+      });
+    },
+  });
+
+  const writes = [];
+  await assertCapabilityConforms(capability, {
+    artifacts: {
+      async read() {
+        return {};
+      },
+      async list() {
+        return [];
+      },
+      async write(type, artifact) {
+        writes.push({ type, artifact });
+        return {
+          type,
+          id: artifact.header.artifactId,
+          schemaVersion: artifact.header.schemaVersion,
+        };
+      },
+    },
+  });
+
+  assert.equal(writes.length, 1);
+});
+
+test("assertCapabilityConforms rejects sloppy output headers", async () => {
+  const capability = sampleCapability({
+    manifest: {
+      roles: ["resolver"],
+      produces: ["ResolverPacket"],
+    },
+    register(capabilityRegistry) {
+      capabilityRegistry.resolver({
+        id: "bad.resolver",
+        produces: ["ResolverPacket"],
+        async resolve({ artifacts }) {
+          return [
+            await artifacts.write("ResolverPacket", {
+              header: {
+                artifactType: "ResolverPacket",
+                artifactId: "packet-1",
+                schemaVersion: "0.1.0",
+                generatedAt: new Date().toISOString(),
+                subject: {
+                  repoId: "repo",
+                },
+                producer: {
+                  id: "bad.resolver",
+                  version: "0.1.0",
+                },
+                inputRefs: [],
+              },
+            }),
+          ];
+        },
+      });
+    },
+  });
+
+  await assert.rejects(
+    assertCapabilityConforms(capability, {
+      artifacts: {
+        async read() {
+          return {};
+        },
+        async list() {
+          return [];
+        },
+        async write(type, artifact) {
+          return {
+            type,
+            id: artifact.header.artifactId,
+            schemaVersion: artifact.header.schemaVersion,
+          };
+        },
+      },
+    }),
+    /header.provenance is required/,
   );
 });
