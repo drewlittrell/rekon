@@ -31,3 +31,6 @@ All notable changes to Rekon will be documented in this file.
 - Added local installed external capability loading from `.rekon/config.json`.
 - Added a complete `examples/custom-capability` TODO detector.
 - Added migration backlog and dogfood fixture documentation.
+- Updated CI to Node 24 with Node 24-compatible GitHub Actions.
+- Tightened the documented Node engine lanes to Node 20.12, 22, and 24.
+- Added repository-wide artifact contract tests for the CLI smoke flow, artifact headers, index paths, digests, and generated artifact public-safety checks.
