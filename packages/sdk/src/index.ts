@@ -72,6 +72,7 @@ export type Evaluator = {
   produces: string[];
   evaluate(input: {
     artifacts: ArtifactReader & ArtifactWriter;
+    input?: Record<string, unknown>;
   }): Promise<ArtifactRef[]>;
 };
 
@@ -89,6 +90,7 @@ export type Publisher = {
   produces: string[];
   publish(input: {
     artifacts: ArtifactReader & ArtifactWriter;
+    input?: Record<string, unknown>;
   }): Promise<ArtifactRef[]>;
 };
 
@@ -97,6 +99,7 @@ export type Actuator = {
   produces: string[];
   act(input: {
     artifacts: ArtifactReader & ArtifactWriter;
+    input?: Record<string, unknown>;
   }): Promise<ArtifactRef[]>;
 };
 
@@ -105,6 +108,7 @@ export type Learner = {
   produces: string[];
   learn(input: {
     artifacts: ArtifactReader & ArtifactWriter;
+    input?: Record<string, unknown>;
   }): Promise<ArtifactRef[]>;
 };
 
@@ -183,10 +187,18 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "FindingReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ResolverPacket", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "Publication", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "OperatorFeedbackEntry", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "MemoryEvent", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "ContextUsageEvent", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "OutcomeEvent", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "MemorySelection", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "IntentMap", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "WorkOrder", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "VerificationPlan", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "VerificationResult", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "ReconciliationPlan", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "ReconciliationLog", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "ActionLog", schemaVersion: "0.1.0", stability: "experimental" },
 ];
 
 export function defineCapability(definition: CapabilityDefinition): CapabilityDefinition {

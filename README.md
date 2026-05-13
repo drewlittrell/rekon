@@ -6,7 +6,7 @@ Rekon is for codebase intelligence, repository intelligence, architecture-aware 
 
 ## Status
 
-Rekon is in clean-slate alpha scaffolding. The repository currently establishes the public package boundaries, governance files, documentation spine, and workspace checks that future implementation work will build on.
+Rekon is in open-source alpha. The repository includes the public kernel contracts, SDK registry, local runtime, CLI, built-in capabilities, and a custom capability example needed to exercise the intelligence substrate end to end.
 
 ## Naming Contract
 
@@ -36,6 +36,7 @@ Rekon is in clean-slate alpha scaffolding. The repository currently establishes 
 - `@rekon/cli`
 - `@rekon/capability-js-ts`
 - `@rekon/capability-model`
+- `@rekon/capability-graph`
 - `@rekon/capability-policy`
 - `@rekon/capability-resolver`
 - `@rekon/capability-docs`
@@ -58,9 +59,18 @@ npm run build
 node packages/cli/dist/index.js init --root examples/simple-js-ts
 node packages/cli/dist/index.js observe --root examples/simple-js-ts --json
 node packages/cli/dist/index.js project --root examples/simple-js-ts --json
+node packages/cli/dist/index.js evaluate --root examples/simple-js-ts --json
 node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
 node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js publish agents --root examples/simple-js-ts --json
 ```
+
+## Capability Authoring
+
+Capabilities are authored through `@rekon/sdk`. Built-ins and community
+packages use the same `defineCapability()` contract. See
+`examples/custom-capability` for a TODO detector that registers an evidence
+provider, evaluator, and publisher.
 
 ## Architecture Rule
 

@@ -116,6 +116,13 @@ export default defineCapability({
     consumes: ["EvidenceGraph"],
     produces: ["ObservedRepo", "OwnershipMap", "CapabilityMap"],
     permissions: ["read:artifacts", "write:artifacts"],
+    invalidatedBy: [
+      {
+        id: "evidence.changed",
+        description: "Repository model projections are invalid when the evidence graph changes.",
+        inputs: ["EvidenceGraph"],
+      },
+    ],
     compatibility: {
       rekon: "^0.1.0",
     },

@@ -13,6 +13,7 @@
     { "path": "./packages/cli" },
     { "path": "./packages/capability-js-ts" },
     { "path": "./packages/capability-model" },
+    { "path": "./packages/capability-graph" },
     { "path": "./packages/capability-policy" },
     { "path": "./packages/capability-resolver" },
     { "path": "./packages/capability-docs" },

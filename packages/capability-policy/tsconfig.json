@@ -8,5 +8,11 @@
   },
   "include": [
     "src/**/*.ts"
+  ],
+  "references": [
+    { "path": "../kernel-artifacts" },
+    { "path": "../kernel-findings" },
+    { "path": "../sdk" },
+    { "path": "../runtime" }
   ]
 }

@@ -22,7 +22,13 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
       [
         { package: "@rekon/capability-js-ts" },
         { package: "@rekon/capability-model" },
+        { package: "@rekon/capability-graph" },
+        { package: "@rekon/capability-policy" },
         { package: "@rekon/capability-resolver" },
+        { package: "@rekon/capability-docs" },
+        { package: "@rekon/capability-memory" },
+        { package: "@rekon/capability-intent" },
+        { package: "@rekon/capability-reconcile" },
       ],
     );
 
@@ -44,19 +50,44 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     assert.equal(project.status, 0, project.stderr);
     assert.deepEqual(
       JSON.parse(project.stdout).artifacts.map((artifact) => artifact.type).sort(),
-      ["CapabilityMap", "ObservedRepo", "OwnershipMap"],
+      ["CapabilityMap", "GraphSlice", "GraphSlice", "GraphSlice", "ObservedRepo", "OwnershipMap"],
     );
 
-    const artifacts = runCli(["artifacts", "list", "--root", root, "--json"]);
-    assert.equal(artifacts.status, 0, artifacts.stderr);
-    assert.deepEqual(
-      JSON.parse(artifacts.stdout).artifacts.map((artifact) => artifact.type).sort(),
-      ["CapabilityMap", "EvidenceGraph", "IntelligenceSnapshot", "ObservedRepo", "OwnershipMap"],
-    );
+    const evaluate = runCli(["evaluate", "--root", root, "--json"]);
+    assert.equal(evaluate.status, 0, evaluate.stderr);
+    assert.deepEqual(JSON.parse(evaluate.stdout).artifacts.map((artifact) => artifact.type), ["FindingReport"]);
 
     const show = runCli(["artifacts", "show", evidenceRef.id, "--root", root, "--json"]);
     assert.equal(show.status, 0, show.stderr);
     assert.equal(JSON.parse(show.stdout).artifact.header.artifactType, "EvidenceGraph");
+
+    const memoryAdd = runCli([
+      "memory",
+      "add",
+      "--root",
+      root,
+      "--instruction",
+      "Preserve bootstrap behavior.",
+      "--path",
+      "src",
+      "--json",
+    ]);
+    assert.equal(memoryAdd.status, 0, memoryAdd.stderr);
+    assert.deepEqual(JSON.parse(memoryAdd.stdout).artifacts.map((artifact) => artifact.type), ["OperatorFeedbackEntry", "MemoryEvent"]);
+
+    const memorySelect = runCli([
+      "memory",
+      "select",
+      "--root",
+      root,
+      "--path",
+      "src/index.ts",
+      "--goal",
+      "modify bootstrap",
+      "--json",
+    ]);
+    assert.equal(memorySelect.status, 0, memorySelect.stderr);
+    assert.equal(JSON.parse(memorySelect.stdout).artifact.type, "MemorySelection");
 
     const preflight = runCli([
       "resolve",
@@ -73,6 +104,47 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     const preflightOutput = JSON.parse(preflight.stdout);
     assert.equal(preflightOutput.artifact.type, "ResolverPacket");
     assert.deepEqual(preflightOutput.packet.ownerSystems, ["src"]);
+    assert.equal(preflightOutput.packet.applicableMemory[0].instruction, "Preserve bootstrap behavior.");
+
+    const publish = runCli(["publish", "agents", "--root", root, "--json"]);
+    assert.equal(publish.status, 0, publish.stderr);
+    assert.deepEqual(JSON.parse(publish.stdout).artifacts.map((artifact) => artifact.type), ["Publication", "Publication"]);
+
+    const intent = runCli([
+      "intent",
+      "work-order",
+      "--root",
+      root,
+      "--path",
+      "src/index.ts",
+      "--goal",
+      "modify bootstrap",
+      "--json",
+    ]);
+    assert.equal(intent.status, 0, intent.stderr);
+    assert.deepEqual(JSON.parse(intent.stdout).artifacts.map((artifact) => artifact.type), ["IntentMap", "WorkOrder", "VerificationPlan"]);
+
+    const reconcile = runCli(["reconcile", "--root", root, "--operation", "docs_regeneration", "--json"]);
+    assert.equal(reconcile.status, 0, reconcile.stderr);
+    assert.deepEqual(JSON.parse(reconcile.stdout).artifacts.map((artifact) => artifact.type), ["ReconciliationPlan", "ReconciliationLog", "ActionLog"]);
+
+    const artifacts = runCli(["artifacts", "list", "--root", root, "--json"]);
+    assert.equal(artifacts.status, 0, artifacts.stderr);
+    const artifactTypes = JSON.parse(artifacts.stdout).artifacts.map((artifact) => artifact.type);
+    for (const type of [
+      "CapabilityMap",
+      "EvidenceGraph",
+      "FindingReport",
+      "GraphSlice",
+      "IntelligenceSnapshot",
+      "ObservedRepo",
+      "OwnershipMap",
+      "Publication",
+      "ResolverPacket",
+      "WorkOrder",
+    ]) {
+      assert.ok(artifactTypes.includes(type), `${type} should be listed`);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

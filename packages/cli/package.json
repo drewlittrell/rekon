@@ -21,9 +21,16 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@rekon/capability-docs": "0.1.0-alpha.0",
+    "@rekon/capability-graph": "0.1.0-alpha.0",
+    "@rekon/capability-intent": "0.1.0-alpha.0",
     "@rekon/capability-js-ts": "0.1.0-alpha.0",
+    "@rekon/capability-memory": "0.1.0-alpha.0",
     "@rekon/capability-model": "0.1.0-alpha.0",
+    "@rekon/capability-policy": "0.1.0-alpha.0",
+    "@rekon/capability-reconcile": "0.1.0-alpha.0",
     "@rekon/capability-resolver": "0.1.0-alpha.0",
-    "@rekon/runtime": "0.1.0-alpha.0"
+    "@rekon/runtime": "0.1.0-alpha.0",
+    "@rekon/sdk": "0.1.0-alpha.0"
   }
 }

@@ -55,6 +55,13 @@ export default defineCapability({
     consumes: ["SourceFile"],
     produces: ["EvidenceGraph"],
     permissions: ["read:source", "write:artifacts"],
+    invalidatedBy: [
+      {
+        id: "source.changed",
+        description: "JavaScript/TypeScript evidence is invalid when source files change.",
+        paths: ["**/*.{js,jsx,mjs,cjs,ts,tsx}"],
+      },
+    ],
     compatibility: {
       rekon: "^0.1.0",
     },

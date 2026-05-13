@@ -20,6 +20,9 @@ import {
   type CapabilityDefinition,
   type CapabilityPermission,
   type CapabilityRegistrySnapshot,
+  type Actuator,
+  type Learner,
+  type Publisher,
   type Resolver,
   createCapabilityRegistry,
 } from "@rekon/sdk";
@@ -104,12 +107,36 @@ export type ProjectOptions = {
   input?: Record<string, unknown>;
 };
 
+export type EvaluateOptions = {
+  evaluatorId?: string;
+  input?: Record<string, unknown>;
+};
+
+export type PublishOptions = {
+  publisherId?: string;
+  input?: Record<string, unknown>;
+};
+
+export type LearnOptions = {
+  learnerId?: string;
+  input?: Record<string, unknown>;
+};
+
+export type ActOptions = {
+  actuatorId?: string;
+  input?: Record<string, unknown>;
+};
+
 export type Runtime = RuntimeContext & {
   registry: CapabilityRegistrySnapshot;
   runObserve(options?: ObserveOptions): Promise<ArtifactRef>;
   runProject(options?: ProjectOptions): Promise<ArtifactRef[]>;
+  runEvaluate(options?: EvaluateOptions): Promise<ArtifactRef[]>;
   runSnapshot(): Promise<ArtifactRef>;
   runResolve(options?: ResolveOptions): Promise<ArtifactRef[]>;
+  runPublish(options?: PublishOptions): Promise<ArtifactRef[]>;
+  runLearn(options?: LearnOptions): Promise<ArtifactRef[]>;
+  runAct(options?: ActOptions): Promise<ArtifactRef[]>;
 };
 
 const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
@@ -122,6 +149,18 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   FindingReport: "findings",
   ResolverPacket: "resolver-packets",
   Publication: "publications",
+  OperatorFeedbackEntry: "actions",
+  MemoryEvent: "actions",
+  ContextUsageEvent: "actions",
+  OutcomeEvent: "actions",
+  MemorySelection: "publications",
+  IntentMap: "actions",
+  WorkOrder: "actions",
+  VerificationPlan: "actions",
+  VerificationResult: "actions",
+  ReconciliationPlan: "actions",
+  ReconciliationLog: "actions",
+  ActionLog: "actions",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [
@@ -189,11 +228,23 @@ export async function createRuntime(options: RuntimeOptions): Promise<Runtime> {
     async runProject(projectOptions = {}) {
       return runProject(context, registry.snapshot(), projectOptions);
     },
+    async runEvaluate(evaluateOptions = {}) {
+      return runEvaluate(context, registry.snapshot(), evaluateOptions);
+    },
     async runSnapshot() {
       return runSnapshot(context);
     },
     async runResolve(resolveOptions = {}) {
       return runResolve(context, registry.snapshot(), resolveOptions);
+    },
+    async runPublish(publishOptions = {}) {
+      return runPublish(context, registry.snapshot(), publishOptions);
+    },
+    async runLearn(learnOptions = {}) {
+      return runLearn(context, registry.snapshot(), learnOptions);
+    },
+    async runAct(actOptions = {}) {
+      return runAct(context, registry.snapshot(), actOptions);
     },
   };
 }
@@ -319,8 +370,20 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
     inputs: latestEvidence ? { EvidenceGraph: [latestEvidence] } : {},
     projections: groupRefsByType(artifacts, ["ObservedRepo", "OwnershipMap", "CapabilityMap", "GraphSlice"]),
     evaluations: groupRefsByType(artifacts, ["FindingReport"]),
-    publications: groupRefsByType(artifacts, ["Publication"]),
-    actions: groupRefsByType(artifacts, ["ActionLog", "VerificationResult"]),
+    publications: groupRefsByType(artifacts, ["Publication", "MemorySelection"]),
+    actions: groupRefsByType(artifacts, [
+      "OperatorFeedbackEntry",
+      "MemoryEvent",
+      "ContextUsageEvent",
+      "OutcomeEvent",
+      "IntentMap",
+      "WorkOrder",
+      "VerificationPlan",
+      "VerificationResult",
+      "ReconciliationPlan",
+      "ReconciliationLog",
+      "ActionLog",
+    ]),
     status: {
       freshness: latestEvidence ? "fresh" : "unknown",
       warnings: latestEvidence ? [] : ["No EvidenceGraph artifacts are indexed."],
@@ -329,6 +392,86 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
   });
 
   return context.artifacts.write(snapshot, { category: "snapshots" });
+}
+
+export async function runPublish(
+  context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
+  options: PublishOptions = {},
+): Promise<ArtifactRef[]> {
+  const publishers = options.publisherId
+    ? registry.publishers.filter((publisher) => publisher.id === options.publisherId)
+    : registry.publishers;
+  const writtenRefs: ArtifactRef[] = [];
+
+  for (const publisher of publishers) {
+    writtenRefs.push(...await runSinglePublisher(context, publisher, options.input ?? {}));
+  }
+
+  return writtenRefs;
+}
+
+export async function runLearn(
+  context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
+  options: LearnOptions = {},
+): Promise<ArtifactRef[]> {
+  const learners = options.learnerId
+    ? registry.learners.filter((learner) => learner.id === options.learnerId)
+    : registry.learners;
+  const writtenRefs: ArtifactRef[] = [];
+
+  for (const learner of learners) {
+    writtenRefs.push(...await runSingleLearner(context, learner, options.input ?? {}));
+  }
+
+  return writtenRefs;
+}
+
+export async function runAct(
+  context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
+  options: ActOptions = {},
+): Promise<ArtifactRef[]> {
+  const actuators = options.actuatorId
+    ? registry.actuators.filter((actuator) => actuator.id === options.actuatorId)
+    : registry.actuators;
+  const writtenRefs: ArtifactRef[] = [];
+
+  for (const actuator of actuators) {
+    writtenRefs.push(...await runSingleActuator(context, actuator, options.input ?? {}));
+  }
+
+  return writtenRefs;
+}
+
+export async function runEvaluate(
+  context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
+  options: EvaluateOptions = {},
+): Promise<ArtifactRef[]> {
+  const evaluators = options.evaluatorId
+    ? registry.evaluators.filter((evaluator) => evaluator.id === options.evaluatorId)
+    : registry.evaluators;
+  const writtenRefs: ArtifactRef[] = [];
+
+  for (const evaluator of evaluators) {
+    writtenRefs.push(...await evaluator.evaluate({
+      artifacts: {
+        read: (ref: ArtifactRef) => context.artifacts.read(ref),
+        list: (type?: string) => context.artifacts.list(type),
+        write: (type: string, artifact: unknown) => context.artifacts.write(artifact as ArtifactWithHeader, {
+          category: categoryForArtifactType(type),
+        }),
+      },
+      input: {
+        repo: context.repo,
+        ...(options.input ?? {}),
+      },
+    }));
+  }
+
+  return writtenRefs;
 }
 
 export async function runProject(
@@ -379,23 +522,72 @@ export async function runResolve(
   return writtenRefs;
 }
 
+async function runSinglePublisher(
+  context: RuntimeContext,
+  publisher: Publisher,
+  input: Record<string, unknown>,
+): Promise<ArtifactRef[]> {
+  return publisher.publish({
+    artifacts: runtimeArtifactAccess(context),
+    input: {
+      repo: context.repo,
+      ...input,
+    },
+  });
+}
+
+async function runSingleLearner(
+  context: RuntimeContext,
+  learner: Learner,
+  input: Record<string, unknown>,
+): Promise<ArtifactRef[]> {
+  return learner.learn({
+    artifacts: runtimeArtifactAccess(context),
+    input: {
+      repo: context.repo,
+      ...input,
+    },
+  });
+}
+
+async function runSingleActuator(
+  context: RuntimeContext,
+  actuator: Actuator,
+  input: Record<string, unknown>,
+): Promise<ArtifactRef[]> {
+  return actuator.act({
+    artifacts: runtimeArtifactAccess(context),
+    input: {
+      repo: context.repo,
+      ...input,
+    },
+  });
+}
+
 async function runSingleResolver(
   context: RuntimeContext,
   resolver: Resolver,
   input: Record<string, unknown>,
 ): Promise<ArtifactRef[]> {
   return resolver.resolve({
-    artifacts: {
-      read: (ref: ArtifactRef) => context.artifacts.read(ref),
-      list: (type?: string) => context.artifacts.list(type),
-      write: (type: string, artifact: unknown) => {
-        const category = categoryForArtifactType(type);
-
-        return context.artifacts.write(artifact as ArtifactWithHeader, { category });
-      },
+    artifacts: runtimeArtifactAccess(context),
+    input: {
+      repo: context.repo,
+      ...input,
     },
-    input,
   });
+}
+
+function runtimeArtifactAccess(context: RuntimeContext) {
+  return {
+    read: (ref: ArtifactRef) => context.artifacts.read(ref),
+    list: (type?: string) => context.artifacts.list(type),
+    write: (type: string, artifact: unknown) => {
+      const category = categoryForArtifactType(type);
+
+      return context.artifacts.write(artifact as ArtifactWithHeader, { category });
+    },
+  };
 }
 
 function createRuntimeArtifactHeader(input: {

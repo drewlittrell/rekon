@@ -150,6 +150,13 @@ export default defineCapability({
     consumes: ["IntelligenceSnapshot", "EvidenceGraph", "FindingReport", "MemorySelection"],
     produces: ["ResolverPacket"],
     permissions: ["read:artifacts", "write:artifacts"],
+    invalidatedBy: [
+      {
+        id: "snapshot.changed",
+        description: "Resolver packets are invalid when their snapshot or selected inputs change.",
+        inputs: ["IntelligenceSnapshot", "EvidenceGraph", "FindingReport", "MemorySelection"],
+      },
+    ],
     compatibility: {
       rekon: "^0.1.0",
     },

@@ -2,14 +2,21 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import docsCapability from "@rekon/capability-docs";
+import graphCapability from "@rekon/capability-graph";
+import intentCapability from "@rekon/capability-intent";
 import jsTsCapability from "@rekon/capability-js-ts";
+import memoryCapability from "@rekon/capability-memory";
 import modelCapability from "@rekon/capability-model";
+import policyCapability from "@rekon/capability-policy";
+import reconcileCapability from "@rekon/capability-reconcile";
 import resolverCapability from "@rekon/capability-resolver";
 import {
   type ArtifactIndexEntry,
   createLocalArtifactStore,
   createRuntime,
 } from "@rekon/runtime";
+import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main(process.argv.slice(2)).catch((error: unknown) => {
@@ -75,6 +82,80 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "evaluate") {
+    const runtime = await createDefaultRuntime(root);
+    const existingEvidence = await runtime.artifacts.list("EvidenceGraph");
+
+    if (existingEvidence.length === 0) {
+      await runtime.runObserve();
+    }
+
+    const refs = await runtime.runEvaluate();
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "publish" && subcommand === "agents") {
+    const runtime = await createDefaultRuntime(root);
+    await ensureSnapshotReady(runtime);
+    const refs = await runtime.runPublish({
+      publisherId: "@rekon/capability-docs.publisher",
+    });
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "memory" && subcommand === "add") {
+    const instruction = typeof parsed.flags.instruction === "string" ? parsed.flags.instruction : undefined;
+    const path = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
+
+    if (!instruction || !path) {
+      throw new Error("rekon memory add requires --instruction <text> and --path <path>.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    const refs = await runtime.runLearn({
+      learnerId: "@rekon/capability-memory.learner",
+      input: {
+        mode: "add",
+        instruction,
+        path,
+        goal: typeof parsed.flags.goal === "string" ? parsed.flags.goal : undefined,
+      },
+    });
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "memory" && subcommand === "list") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entries = await Promise.all((await store.list("OperatorFeedbackEntry")).map((ref) => store.read(ref)));
+    writeOutput({ entries }, json);
+    return;
+  }
+
+  if (command === "memory" && subcommand === "select") {
+    const path = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
+
+    if (!path) {
+      throw new Error("rekon memory select requires --path <path>.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    const refs = await runtime.runLearn({
+      learnerId: "@rekon/capability-memory.learner",
+      input: {
+        mode: "select",
+        path,
+        goal: typeof parsed.flags.goal === "string" ? parsed.flags.goal : "",
+      },
+    });
+    const selection = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
+    writeOutput({ artifact: refs[0], selection }, json);
+    return;
+  }
+
   if (command === "resolve" && subcommand === "preflight") {
     const path = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
     const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : "";
@@ -99,6 +180,25 @@ export async function main(argv: string[]): Promise<void> {
       await runtime.runProject();
     }
 
+    const existingFindings = await runtime.artifacts.list("FindingReport");
+
+    if (existingFindings.length === 0) {
+      await runtime.runEvaluate();
+    }
+
+    const memoryEntries = await runtime.artifacts.list("OperatorFeedbackEntry");
+
+    if (memoryEntries.length > 0) {
+      await runtime.runLearn({
+        learnerId: "@rekon/capability-memory.learner",
+        input: {
+          mode: "select",
+          path,
+          goal,
+        },
+      });
+    }
+
     const snapshotRef = await runtime.runSnapshot();
     const refs = await runtime.runResolve({
       resolverId: "resolve.preflight",
@@ -111,6 +211,46 @@ export async function main(argv: string[]): Promise<void> {
     const packet = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
 
     writeOutput({ artifact: refs[0], packet }, json);
+    return;
+  }
+
+  if (command === "intent" && subcommand === "work-order") {
+    const path = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
+    const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : "";
+
+    if (!path) {
+      throw new Error("rekon intent work-order requires --path <path>.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    const existingPreflight = await runtime.artifacts.list("ResolverPacket");
+
+    if (existingPreflight.length === 0) {
+      await ensurePreflight(runtime, path, goal);
+    }
+
+    const refs = await runtime.runAct({
+      actuatorId: "@rekon/capability-intent.work-order",
+      input: {
+        path,
+        goal,
+      },
+    });
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "reconcile") {
+    const runtime = await createDefaultRuntime(root);
+    const operations = parseRepeatableFlag(parsed.flags.operation);
+    const refs = await runtime.runAct({
+      actuatorId: "@rekon/capability-reconcile.actuator",
+      input: {
+        operations: operations.length > 0 ? operations : undefined,
+        dryRun: !parsed.flags.apply,
+      },
+    });
+    writeOutput({ artifacts: refs }, json);
     return;
   }
 
@@ -134,21 +274,50 @@ export async function main(argv: string[]): Promise<void> {
   throw new Error(`Unknown command: ${argv.join(" ")}`);
 }
 
+type RekonConfig = {
+  capabilities?: Array<{ package: string }>;
+  permissions?: Record<string, CapabilityPermission[]>;
+};
+
+const BUILT_IN_CAPABILITIES: Record<string, CapabilityDefinition> = {
+  "@rekon/capability-docs": docsCapability,
+  "@rekon/capability-graph": graphCapability,
+  "@rekon/capability-intent": intentCapability,
+  "@rekon/capability-js-ts": jsTsCapability,
+  "@rekon/capability-memory": memoryCapability,
+  "@rekon/capability-model": modelCapability,
+  "@rekon/capability-policy": policyCapability,
+  "@rekon/capability-reconcile": reconcileCapability,
+  "@rekon/capability-resolver": resolverCapability,
+};
+
+const DEFAULT_CAPABILITIES = [
+  "@rekon/capability-js-ts",
+  "@rekon/capability-model",
+  "@rekon/capability-graph",
+  "@rekon/capability-policy",
+  "@rekon/capability-resolver",
+  "@rekon/capability-docs",
+  "@rekon/capability-memory",
+  "@rekon/capability-intent",
+  "@rekon/capability-reconcile",
+];
+
 async function createDefaultRuntime(root: string) {
+  const config = await readConfig(root);
+  const capabilities = await loadConfiguredCapabilities(config);
+
   return createRuntime({
     repoRoot: root,
-    capabilities: [jsTsCapability, modelCapability, resolverCapability],
+    capabilities,
+    permissions: config.permissions,
   });
 }
 
 async function writeConfigIfMissing(root: string): Promise<void> {
   const configPath = resolve(root, ".rekon", "config.json");
   const defaultConfig = {
-    capabilities: [
-      { package: "@rekon/capability-js-ts" },
-      { package: "@rekon/capability-model" },
-      { package: "@rekon/capability-resolver" },
-    ],
+    capabilities: DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
     permissions: {},
   };
 
@@ -157,11 +326,132 @@ async function writeConfigIfMissing(root: string): Promise<void> {
 
     if (!Array.isArray(existingConfig.capabilities) || existingConfig.capabilities.length === 0) {
       await writeFile(configPath, `${JSON.stringify(defaultConfig, null, 2)}\n`, "utf8");
+    } else {
+      const existingCapabilities = existingConfig.capabilities.filter(isCapabilityConfigEntry);
+      const existingPackages = new Set(existingCapabilities.map((entry) => entry.package));
+      const mergedConfig = {
+        ...existingConfig,
+        capabilities: [
+          ...existingCapabilities,
+          ...DEFAULT_CAPABILITIES
+            .filter((packageName) => !existingPackages.has(packageName))
+            .map((packageName) => ({ package: packageName })),
+        ],
+        permissions: typeof (existingConfig as RekonConfig).permissions === "object"
+          ? (existingConfig as RekonConfig).permissions
+          : {},
+      };
+
+      await writeFile(configPath, `${JSON.stringify(mergedConfig, null, 2)}\n`, "utf8");
     }
   } catch {
     await mkdir(resolve(root, ".rekon"), { recursive: true });
     await writeFile(configPath, `${JSON.stringify(defaultConfig, null, 2)}\n`, "utf8");
   }
+}
+
+function isCapabilityConfigEntry(value: unknown): value is { package: string } {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "package" in value &&
+    typeof value.package === "string" &&
+    value.package.length > 0,
+  );
+}
+
+async function readConfig(root: string): Promise<RekonConfig> {
+  const configPath = resolve(root, ".rekon", "config.json");
+
+  try {
+    const parsed = JSON.parse(await readFile(configPath, "utf8")) as RekonConfig;
+
+    return {
+      capabilities: Array.isArray(parsed.capabilities) && parsed.capabilities.length > 0
+        ? parsed.capabilities
+        : DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
+      permissions: parsed.permissions ?? {},
+    };
+  } catch {
+    return {
+      capabilities: DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
+      permissions: {},
+    };
+  }
+}
+
+async function loadConfiguredCapabilities(config: RekonConfig): Promise<CapabilityDefinition[]> {
+  const entries = config.capabilities ?? DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName }));
+
+  return Promise.all(entries.map(async (entry) => {
+    const packageName = entry.package;
+    const builtIn = BUILT_IN_CAPABILITIES[packageName];
+
+    if (builtIn) {
+      return builtIn;
+    }
+
+    try {
+      const loaded = await import(packageName) as { default?: CapabilityDefinition };
+
+      if (!loaded.default) {
+        throw new Error(`Package ${packageName} does not export a default capability.`);
+      }
+
+      return loaded.default;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new Error(`Failed to load Rekon capability ${packageName}: ${message}`);
+    }
+  }));
+}
+
+async function ensureSnapshotReady(runtime: Awaited<ReturnType<typeof createDefaultRuntime>>): Promise<void> {
+  if ((await runtime.artifacts.list("EvidenceGraph")).length === 0) {
+    await runtime.runObserve();
+  }
+
+  if ((await runtime.artifacts.list("OwnershipMap")).length === 0) {
+    await runtime.runProject();
+  }
+
+  if ((await runtime.artifacts.list("FindingReport")).length === 0) {
+    await runtime.runEvaluate();
+  }
+
+  await runtime.runSnapshot();
+}
+
+async function ensurePreflight(
+  runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
+  path: string,
+  goal: string,
+): Promise<void> {
+  if ((await runtime.artifacts.list("EvidenceGraph")).length === 0) {
+    await runtime.runObserve({
+      changedFiles: [path],
+      incremental: true,
+    });
+  }
+
+  if ((await runtime.artifacts.list("OwnershipMap")).length === 0) {
+    await runtime.runProject();
+  }
+
+  if ((await runtime.artifacts.list("FindingReport")).length === 0) {
+    await runtime.runEvaluate();
+  }
+
+  const snapshotRef = await runtime.runSnapshot();
+  await runtime.runResolve({
+    resolverId: "resolve.preflight",
+    input: {
+      snapshotRef,
+      path,
+      goal,
+    },
+  });
 }
 
 async function findArtifactEntry(store: ReturnType<typeof createLocalArtifactStore>, id: string): Promise<ArtifactIndexEntry> {
@@ -256,8 +546,15 @@ function usage(): string {
     "rekon capabilities list [--root <path>] [--json]",
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
     "rekon project [--root <path>] [--json]",
+    "rekon evaluate [--root <path>] [--json]",
     "rekon snapshot [--root <path>] [--json]",
+    "rekon publish agents [--root <path>] [--json]",
+    "rekon memory add --instruction <text> --path <path> [--goal <goal>] [--root <path>] [--json]",
+    "rekon memory list [--root <path>] [--json]",
+    "rekon memory select --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon resolve preflight --path <path> --goal <goal> [--root <path>] [--json]",
+    "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
+    "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
   ].join("\n");

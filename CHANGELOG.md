@@ -19,3 +19,15 @@ All notable changes to Rekon will be documented in this file.
 - Added `@rekon/kernel-repo-model` for ObservedRepo, OwnershipMap, and CapabilityMap contracts.
 - Added `@rekon/capability-model` as a deterministic EvidenceGraph-to-model projector.
 - Added `rekon project` and updated preflight resolution to prefer OwnershipMap and ObservedRepo before raw evidence fallback.
+- Added `@rekon/kernel-rulebook` and `@rekon/kernel-findings` public contracts.
+- Added `@rekon/kernel-graph` graph node, edge, slice, validation, and composition helpers.
+- Added `@rekon/capability-graph` for import, symbol, and ownership graph slices.
+- Added `@rekon/capability-policy` for initial rule evaluation and finding reports.
+- Added runtime publish, learn, and act execution APIs.
+- Added `@rekon/capability-docs` publication artifacts and `rekon publish agents`.
+- Added `@rekon/capability-memory` feedback and selection artifacts plus `rekon memory` commands.
+- Added `@rekon/capability-intent` work-order and verification-plan artifacts.
+- Added `@rekon/capability-reconcile` artifact-only reconciliation plans and logs.
+- Added local installed external capability loading from `.rekon/config.json`.
+- Added a complete `examples/custom-capability` TODO detector.
+- Added migration backlog and dogfood fixture documentation.

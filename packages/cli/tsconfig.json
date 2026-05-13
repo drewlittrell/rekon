@@ -10,9 +10,16 @@
     "src/**/*.ts"
   ],
   "references": [
+    { "path": "../capability-docs" },
+    { "path": "../capability-graph" },
+    { "path": "../capability-intent" },
     { "path": "../capability-js-ts" },
+    { "path": "../capability-memory" },
     { "path": "../capability-model" },
+    { "path": "../capability-policy" },
+    { "path": "../capability-reconcile" },
     { "path": "../capability-resolver" },
-    { "path": "../runtime" }
+    { "path": "../runtime" },
+    { "path": "../sdk" }
   ]
 }

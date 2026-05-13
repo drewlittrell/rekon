@@ -1,0 +1,56 @@
+{
+  "generatedAt": "2026-05-13T18:07:27.739Z",
+  "target": "codebase-intel-classic",
+  "targetPath": "/Users/andrewlittrell/Code/codebase-intel",
+  "representativePaths": [
+    "services/AnalysisService.ts",
+    "services/FullScanHandler.ts",
+    "services/ContextHandler.ts",
+    "services/IssueDetectionService.ts",
+    "domain/issues/RulesResolver.ts",
+    "services/GraphBuildProvider.ts",
+    "packages/product-codebase-intel/src/replatform/replatform-observe.ts",
+    "packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts"
+  ],
+  "artifactCounts": {
+    "CapabilityMap": 1,
+    "EvidenceGraph": 1,
+    "FindingReport": 1,
+    "GraphSlice": 3,
+    "IntelligenceSnapshot": 2,
+    "MemoryEvent": 1,
+    "MemorySelection": 1,
+    "ObservedRepo": 1,
+    "OperatorFeedbackEntry": 1,
+    "OwnershipMap": 1,
+    "Publication": 2,
+    "ResolverPacket": 1
+  },
+  "evidenceFactCount": 743,
+  "evidenceFactKinds": [
+    "capability_hint",
+    "export",
+    "file",
+    "import",
+    "ownership_hint",
+    "symbol"
+  ],
+  "preflight": {
+    "path": "services/AnalysisService.ts",
+    "ownerSystems": [
+      "services"
+    ],
+    "riskTier": "low",
+    "requiredChecks": [
+      "npm run typecheck",
+      "npm run test",
+      "npm run build"
+    ],
+    "applicableMemoryCount": 1
+  },
+  "notes": [
+    "Dogfood ran against the classic repo as an external target only.",
+    "No code was imported from codebase-intel-classic.",
+    "The generated .rekon workspace was removed from the target after this summary was captured."
+  ]
+}
