@@ -20,9 +20,12 @@ verification.
 ## Authentication Prerequisite
 
 - Run `npm whoami` and confirm the logged-in user is the intended
-  publisher.
+  publisher. If `npm whoami` errors with `ENEEDAUTH`, run `npm login`
+  interactively before proceeding.
 - The publisher must have publish rights on `@rekon/*` (organization
-  member with publish role, or the org owner).
+  member with publish role, or the org owner). The `@rekon` scope is
+  not yet claimed on npm; the first publish under this scope will claim
+  it for the publishing account or organization.
 - 2FA-on-publish must be respected; the publisher will need to satisfy
   whatever auth challenge npm requires.
 - Do not commit npm tokens. CI publishing is out of scope for this batch.
@@ -115,16 +118,48 @@ EOF
 
 ## Dry-Run Command Template
 
-Before publishing for real, run a per-package dry-run:
+Before publishing for real, run a per-package dry-run from the repo root:
 
 ```sh
-cd packages/<dirname>
-npm publish --dry-run --access public
+npm publish --dry-run --access public --tag latest --workspace @rekon/<package>
 ```
 
 `npm publish --dry-run` does not publish. It prints the tarball contents
-and the integrity hash. Use this on a few representative packages
-(`kernel-artifacts`, `sdk`, `cli`) at least.
+and the integrity hash.
+
+`--tag latest` is **required**. npm refuses to publish a prerelease
+version (anything with a hyphen, e.g. `0.1.0-alpha.1`) without an
+explicit `--tag`. Passing `--tag latest` explicitly sets the same tag
+npm would have used for a non-prerelease version. If you want this alpha
+to be opt-in (consumers must run `npm install @rekon/cli@alpha`),
+substitute `--tag alpha`.
+
+Run the full sequence:
+
+```sh
+for pkg in \
+  @rekon/kernel-artifacts \
+  @rekon/kernel-evidence \
+  @rekon/kernel-snapshot \
+  @rekon/kernel-graph \
+  @rekon/kernel-repo-model \
+  @rekon/kernel-rulebook \
+  @rekon/kernel-findings \
+  @rekon/sdk \
+  @rekon/runtime \
+  @rekon/capability-js-ts \
+  @rekon/capability-model \
+  @rekon/capability-graph \
+  @rekon/capability-policy \
+  @rekon/capability-resolver \
+  @rekon/capability-docs \
+  @rekon/capability-memory \
+  @rekon/capability-intent \
+  @rekon/capability-reconcile \
+  @rekon/cli; do
+  npm publish --dry-run --access public --tag latest --workspace "$pkg"
+done
+```
 
 ## Publish Command Template
 
@@ -132,17 +167,24 @@ When the manual approval is in hand, publish per package in the order
 above:
 
 ```sh
-cd packages/<dirname>
-npm publish --access public --otp <one-time-password>
+npm publish --access public --tag latest --workspace @rekon/<package>
+```
+
+If npm 2FA on publish is enabled, provide `--otp <code>` per command:
+
+```sh
+npm publish --access public --tag latest --otp <code> --workspace @rekon/<package>
 ```
 
 Notes:
 
 - `--access public` is required because `@rekon/*` is a scoped name.
-- `--otp` may be required depending on the publisher's npm 2FA settings.
-- Do not pass `--tag`. The first release uses the default `latest` tag,
-  which is intentional for `0.1.0-alpha.1` as the alpha entry point. A
-  later `0.2.x` move may use a different tag policy.
+- `--tag latest` is required because `0.1.0-alpha.1` is a prerelease
+  version. Use `--tag alpha` instead if alpha consumers should opt in
+  via `@alpha`.
+- `--otp` may be required depending on the publisher's npm 2FA
+  settings. Each `npm publish` call is a separate registry write, so
+  expect a separate OTP challenge per package.
 
 ## Post-Publish Smoke
 
