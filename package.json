@@ -1,0 +1,23 @@
+{
+  "name": "rekon",
+  "version": "0.1.0-alpha.0",
+  "private": true,
+  "description": "Open-source intelligence substrate for codebases.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -b",
+    "test": "node --test",
+    "build": "npm run build --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

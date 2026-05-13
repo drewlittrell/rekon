@@ -1,0 +1,22 @@
+{
+  "name": "@rekon/cli",
+  "version": "0.1.0-alpha.0",
+  "description": "Rekon command line interface.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "rekon": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

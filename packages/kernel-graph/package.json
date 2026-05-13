@@ -1,0 +1,19 @@
+{
+  "name": "@rekon/kernel-graph",
+  "version": "0.1.0-alpha.0",
+  "description": "Rekon graph node, edge, and graph slice contracts.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

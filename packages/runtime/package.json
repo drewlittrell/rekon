@@ -1,0 +1,19 @@
+{
+  "name": "@rekon/runtime",
+  "version": "0.1.0-alpha.0",
+  "description": "Local Rekon runtime for loading capabilities and writing typed artifacts.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}
