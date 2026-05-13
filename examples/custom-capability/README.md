@@ -47,54 +47,45 @@ npm --prefix examples/custom-capability run test
 
 The test uses `assertCapabilityConforms()` from `@rekon/sdk`.
 
-## Run It Locally With The Runtime
+## Run It Through The CLI
 
-This path exercises all three handlers: evidence provider, evaluator, and
-publisher.
+The TODO capability is operable through the CLI. Install the example into the
+repo as an external capability, register it in `.rekon/config.json`, and run
+the standard CLI commands. No bespoke runtime script is required.
+
+### 1. Install the example package
 
 ```sh
 npm run build
 npm --prefix examples/custom-capability run build
-rm -rf /tmp/rekon-todo-example
-cp -R examples/simple-js-ts /tmp/rekon-todo-example
-printf '\n// TODO: replace demo greeting\n' >> /tmp/rekon-todo-example/src/index.ts
-node --input-type=module <<'NODE'
-import capability from "./examples/custom-capability/dist/index.js";
-import { createRuntime } from "./packages/runtime/dist/index.js";
-
-const runtime = await createRuntime({
-  repoRoot: "/tmp/rekon-todo-example",
-  capabilities: [capability],
-});
-
-await runtime.runObserve();
-await runtime.runEvaluate();
-const refs = await runtime.runPublish();
-console.log(JSON.stringify({ artifacts: refs }, null, 2));
-NODE
-```
-
-Expected behavior:
-
-- observe writes an `EvidenceGraph` containing `todo_comment` facts
-- evaluate writes a `FindingReport` containing TODO findings
-- publish writes a TODO `Publication`
-
-## Register It Through `.rekon/config.json`
-
-The CLI loads external capabilities from installed package names. Install the
-example package into this checkout without saving it to `package.json`:
-
-```sh
 npm install ./examples/custom-capability --no-save
 ```
 
-Initialize the example target and edit `examples/simple-js-ts/.rekon/config.json`:
+### 2. Register it in the target `.rekon/config.json`
+
+```sh
+rm -rf /tmp/rekon-todo-example
+cp -R examples/simple-js-ts /tmp/rekon-todo-example
+printf '\n// TODO: replace demo greeting\n' >> /tmp/rekon-todo-example/src/index.ts
+
+node packages/cli/dist/index.js init --root /tmp/rekon-todo-example
+```
+
+Edit `/tmp/rekon-todo-example/.rekon/config.json` to add the external
+capability and its permissions:
 
 ```json
 {
   "capabilities": [
     { "package": "@rekon/capability-js-ts" },
+    { "package": "@rekon/capability-model" },
+    { "package": "@rekon/capability-graph" },
+    { "package": "@rekon/capability-policy" },
+    { "package": "@rekon/capability-resolver" },
+    { "package": "@rekon/capability-docs" },
+    { "package": "@rekon/capability-memory" },
+    { "package": "@rekon/capability-intent" },
+    { "package": "@rekon/capability-reconcile" },
     { "package": "rekon-capability-todo-example" }
   ],
   "permissions": {
@@ -107,17 +98,31 @@ Initialize the example target and edit `examples/simple-js-ts/.rekon/config.json
 }
 ```
 
-Then run:
+### 3. Validate, inspect, and run
 
 ```sh
-node packages/cli/dist/index.js observe --root examples/simple-js-ts --json
-node packages/cli/dist/index.js evaluate --root examples/simple-js-ts --json
-node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --type FindingReport --json
+node packages/cli/dist/index.js config validate --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js capabilities list --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js capabilities inspect rekon-capability-todo-example --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js publish list --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js observe --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js evaluate --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js publish run todo.report --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js artifacts list --root /tmp/rekon-todo-example --type Publication --json
 ```
 
-Known limitation: the current CLI has `publish agents`, which targets the
-built-in docs publisher. The TODO publisher is runnable through the runtime
-example above until the CLI grows a generic publisher command.
+Expected behavior:
+
+- `config validate` returns `{ "valid": true, "issues": [] }`.
+- `capabilities list` includes `rekon-capability-todo-example`.
+- `capabilities inspect rekon-capability-todo-example` shows its evidence
+  provider, evaluator, and publisher handlers (`todo-comments`,
+  `todo.findings`, `todo.report`).
+- `publish list` includes the `todo.report` publisher under the external
+  capability.
+- `observe` writes an `EvidenceGraph` containing `todo_comment` facts.
+- `evaluate` writes a `FindingReport` containing TODO findings.
+- `publish run todo.report` writes a TODO `Publication`.
 
 ## Output Excerpt
 
@@ -135,12 +140,16 @@ example above until the CLI grows a generic publisher command.
 
 - `Failed to load Rekon capability`: run
   `npm install ./examples/custom-capability --no-save` from the repository root.
-- `TODO evaluator requires an EvidenceGraph artifact`: run `rekon observe`
-  first, using the source checkout command form shown above.
+- `Unknown publisher: todo.report`: run
+  `node packages/cli/dist/index.js publish list --root <repo> --json` to
+  confirm the external capability is registered. If absent, validate the
+  config with `rekon config validate` first.
+- `TODO evaluator requires an EvidenceGraph artifact`: run
+  `node packages/cli/dist/index.js observe --root <repo>` first.
 - No TODO findings: confirm the target source file contains `TODO` and rerun
   `observe` before `evaluate`.
 - Permission errors: ensure `.rekon/config.json` grants only the permissions
-  shown above.
+  shown above. `rekon config validate` will flag risky or unknown permissions.
 
 ## Safety
 

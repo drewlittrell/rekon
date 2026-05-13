@@ -65,8 +65,40 @@ export async function main(argv: string[]): Promise<void> {
 
   if (command === "capabilities" && subcommand === "list") {
     const runtime = await createDefaultRuntime(root);
-    const capabilities = runtime.registry.capabilities.map((capability) => capability.manifest);
+    const verbose = Boolean(parsed.flags.verbose);
+
+    if (!verbose) {
+      const capabilities = runtime.registry.capabilities.map((capability) => capability.manifest);
+      writeOutput({ capabilities }, json);
+      return;
+    }
+
+    const capabilities = runtime.registry.capabilities.map((capability) => ({
+      manifest: capability.manifest,
+      handlers: summarizeHandlers(capability),
+    }));
     writeOutput({ capabilities }, json);
+    return;
+  }
+
+  if (command === "capabilities" && subcommand === "inspect" && positional) {
+    const runtime = await createDefaultRuntime(root);
+    const capability = runtime.registry.capabilities.find(
+      (entry) => entry.manifest.id === positional,
+    );
+
+    if (!capability) {
+      throw new Error(`Unknown capability: ${positional}`);
+    }
+
+    writeOutput(
+      {
+        manifest: capability.manifest,
+        handlers: summarizeHandlers(capability),
+        artifactTypes: capability.artifactTypes.map((type) => type.type),
+      },
+      json,
+    );
     return;
   }
 
@@ -119,6 +151,36 @@ export async function main(argv: string[]): Promise<void> {
     await ensureSnapshotReady(runtime);
     const refs = await runtime.runPublish({
       publisherId: "@rekon/capability-docs.publisher",
+    });
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "publish" && subcommand === "list") {
+    const runtime = await createDefaultRuntime(root);
+    const publishers = listHandlers(runtime, "publishers").map((entry) => ({
+      id: entry.handlerId,
+      capabilityId: entry.capabilityId,
+      produces: entry.produces,
+    }));
+    writeOutput({ publishers }, json);
+    return;
+  }
+
+  if (command === "publish" && subcommand === "run" && positional) {
+    const runtime = await createDefaultRuntime(root);
+    const publisherId = positional;
+
+    if (!runtime.registry.publishers.some((publisher) => publisher.id === publisherId)) {
+      throw new Error(
+        `Unknown publisher: ${publisherId}. Use 'rekon publish list' to see registered publishers.`,
+      );
+    }
+
+    await ensureSnapshotReady(runtime);
+    const refs = await runtime.runPublish({
+      publisherId,
+      input: parseInputJsonFlag(parsed.flags["input-json"]),
     });
     writeOutput({ artifacts: refs }, json);
     return;
@@ -295,6 +357,17 @@ export async function main(argv: string[]): Promise<void> {
     await store.init();
     const result = await validateArtifactIndex(store);
 
+    writeOutput(result, json);
+
+    if (!result.valid) {
+      process.exitCode = 1;
+    }
+
+    return;
+  }
+
+  if (command === "config" && subcommand === "validate") {
+    const result = await validateConfig(root);
     writeOutput(result, json);
 
     if (!result.valid) {
@@ -505,6 +578,307 @@ async function findArtifactEntry(store: ReturnType<typeof createLocalArtifactSto
   return entry;
 }
 
+type HandlerRoleKey =
+  | "evidenceProviders"
+  | "projectors"
+  | "evaluators"
+  | "resolvers"
+  | "publishers"
+  | "actuators"
+  | "learners";
+
+type RegisteredCapabilityLike = {
+  manifest: { id: string };
+  evidenceProviders: { id: string; produces?: string[]; consumes?: string[] }[];
+  projectors: { id: string; produces?: string[] }[];
+  evaluators: { id: string; produces?: string[] }[];
+  resolvers: { id: string; produces?: string[] }[];
+  publishers: { id: string; produces?: string[] }[];
+  actuators: { id: string; produces?: string[] }[];
+  learners: { id: string; produces?: string[] }[];
+};
+
+function summarizeHandlers(capability: RegisteredCapabilityLike): Record<HandlerRoleKey, { id: string; produces?: string[] }[]> {
+  const map = <T extends { id: string; produces?: string[] }>(handlers: T[]) =>
+    handlers.map((handler) => ({
+      id: handler.id,
+      produces: handler.produces ?? [],
+    }));
+
+  return {
+    evidenceProviders: capability.evidenceProviders.map((handler) => ({ id: handler.id })),
+    projectors: map(capability.projectors),
+    evaluators: map(capability.evaluators),
+    resolvers: map(capability.resolvers),
+    publishers: map(capability.publishers),
+    actuators: map(capability.actuators),
+    learners: map(capability.learners),
+  };
+}
+
+function listHandlers(
+  runtime: { registry: { capabilities: RegisteredCapabilityLike[] } },
+  role: HandlerRoleKey,
+): { handlerId: string; capabilityId: string; produces: string[] }[] {
+  const result: { handlerId: string; capabilityId: string; produces: string[] }[] = [];
+
+  for (const capability of runtime.registry.capabilities) {
+    for (const handler of capability[role]) {
+      result.push({
+        handlerId: handler.id,
+        capabilityId: capability.manifest.id,
+        produces: handler.produces ?? [],
+      });
+    }
+  }
+
+  return result;
+}
+
+function parseInputJsonFlag(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "string" || value.length === 0) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`--input-json must be valid JSON: ${message}`);
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("--input-json must be a JSON object.");
+  }
+
+  return parsed as Record<string, unknown>;
+}
+
+type ConfigValidationIssue = {
+  code: string;
+  severity: "error" | "warning";
+  message: string;
+  path?: string;
+};
+
+type ConfigValidationResult = {
+  valid: boolean;
+  configPath: string;
+  configExists: boolean;
+  issues: ConfigValidationIssue[];
+};
+
+const KNOWN_PERMISSIONS: ReadonlySet<CapabilityPermission> = new Set([
+  "read:source",
+  "read:artifacts",
+  "write:artifacts",
+  "write:source",
+  "execute:commands",
+  "network:outbound",
+]);
+
+const RISKY_PERMISSIONS: ReadonlySet<CapabilityPermission> = new Set([
+  "write:source",
+  "execute:commands",
+  "network:outbound",
+]);
+
+async function validateConfig(root: string): Promise<ConfigValidationResult> {
+  const configPath = resolve(root, ".rekon", "config.json");
+  const issues: ConfigValidationIssue[] = [];
+  let raw: string;
+
+  try {
+    raw = await readFile(configPath, "utf8");
+  } catch {
+    return {
+      valid: false,
+      configPath,
+      configExists: false,
+      issues: [
+        {
+          code: "config-missing",
+          severity: "error",
+          message: `.rekon/config.json not found at ${configPath}. Run 'rekon init' to create one.`,
+        },
+      ],
+    };
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      valid: false,
+      configPath,
+      configExists: true,
+      issues: [
+        { code: "config-not-json", severity: "error", message: `config is not valid JSON: ${message}` },
+      ],
+    };
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return {
+      valid: false,
+      configPath,
+      configExists: true,
+      issues: [
+        { code: "config-not-object", severity: "error", message: "config must be a JSON object." },
+      ],
+    };
+  }
+
+  const config = parsed as Record<string, unknown>;
+  const capabilityPackages = new Set<string>();
+
+  if (!("capabilities" in config)) {
+    issues.push({
+      code: "capabilities-missing",
+      severity: "error",
+      message: "config.capabilities is required.",
+      path: "capabilities",
+    });
+  } else if (!Array.isArray(config.capabilities)) {
+    issues.push({
+      code: "capabilities-not-array",
+      severity: "error",
+      message: "config.capabilities must be an array.",
+      path: "capabilities",
+    });
+  } else if (config.capabilities.length === 0) {
+    issues.push({
+      code: "capabilities-empty",
+      severity: "warning",
+      message: "config.capabilities is empty; the runtime will use no capabilities.",
+      path: "capabilities",
+    });
+  } else {
+    for (let index = 0; index < config.capabilities.length; index += 1) {
+      const entry = config.capabilities[index];
+      const entryPath = `capabilities[${index}]`;
+
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        issues.push({
+          code: "capability-not-object",
+          severity: "error",
+          message: "capability entry must be an object with a 'package' field.",
+          path: entryPath,
+        });
+        continue;
+      }
+
+      const entryRecord = entry as Record<string, unknown>;
+      const packageName = entryRecord["package"];
+
+      if (typeof packageName !== "string" || packageName.length === 0) {
+        issues.push({
+          code: "capability-package-missing",
+          severity: "error",
+          message: "capability entry must declare a non-empty 'package' string.",
+          path: `${entryPath}.package`,
+        });
+        continue;
+      }
+
+      if (capabilityPackages.has(packageName)) {
+        issues.push({
+          code: "capability-package-duplicate",
+          severity: "warning",
+          message: `capability package '${packageName}' is listed more than once.`,
+          path: `${entryPath}.package`,
+        });
+      } else {
+        capabilityPackages.add(packageName);
+      }
+    }
+  }
+
+  const permissions = config.permissions;
+
+  if (permissions !== undefined) {
+    if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
+      issues.push({
+        code: "permissions-not-object",
+        severity: "error",
+        message: "config.permissions must be an object keyed by capability package.",
+        path: "permissions",
+      });
+    } else {
+      for (const [capabilityName, capabilityPermissions] of Object.entries(permissions)) {
+        const path = `permissions.${capabilityName}`;
+
+        if (!Array.isArray(capabilityPermissions)) {
+          issues.push({
+            code: "permissions-entry-not-array",
+            severity: "error",
+            message: `permissions.${capabilityName} must be an array of permission names.`,
+            path,
+          });
+          continue;
+        }
+
+        if (capabilityPackages.size > 0 && !capabilityPackages.has(capabilityName)) {
+          issues.push({
+            code: "permissions-unknown-capability",
+            severity: "warning",
+            message: `permissions reference '${capabilityName}' which is not listed in capabilities.`,
+            path,
+          });
+        }
+
+        for (let permissionIndex = 0; permissionIndex < capabilityPermissions.length; permissionIndex += 1) {
+          const permission = capabilityPermissions[permissionIndex];
+          const permissionPath = `${path}[${permissionIndex}]`;
+
+          if (typeof permission !== "string") {
+            issues.push({
+              code: "permission-not-string",
+              severity: "error",
+              message: "permission entries must be strings.",
+              path: permissionPath,
+            });
+            continue;
+          }
+
+          if (!KNOWN_PERMISSIONS.has(permission as CapabilityPermission)) {
+            issues.push({
+              code: "permission-unknown",
+              severity: "error",
+              message: `unknown permission '${permission}'. Known permissions: ${Array.from(KNOWN_PERMISSIONS).join(", ")}.`,
+              path: permissionPath,
+            });
+            continue;
+          }
+
+          if (RISKY_PERMISSIONS.has(permission as CapabilityPermission)) {
+            issues.push({
+              code: "permission-risky",
+              severity: "warning",
+              message: `permission '${permission}' is high-risk; confirm it is intentional for '${capabilityName}'.`,
+              path: permissionPath,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  const valid = issues.every((issue) => issue.severity !== "error");
+
+  return {
+    valid,
+    configPath,
+    configExists: true,
+    issues,
+  };
+}
+
 function parseArgs(argv: string[]): {
   positionals: string[];
   flags: Record<string, string | boolean | string[]>;
@@ -576,12 +950,16 @@ function writeOutput(value: unknown, json: boolean): void {
 function usage(): string {
   return [
     "rekon init [--root <path>]",
-    "rekon capabilities list [--root <path>] [--json]",
+    "rekon config validate [--root <path>] [--json]",
+    "rekon capabilities list [--root <path>] [--verbose] [--json]",
+    "rekon capabilities inspect <capability-id> [--root <path>] [--json]",
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
     "rekon project [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon snapshot [--root <path>] [--json]",
     "rekon publish agents [--root <path>] [--json]",
+    "rekon publish list [--root <path>] [--json]",
+    "rekon publish run <publisher-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon memory add --instruction <text> --path <path> [--goal <goal>] [--root <path>] [--json]",
     "rekon memory list [--root <path>] [--json]",
     "rekon memory select --path <path> --goal <goal> [--root <path>] [--json]",

@@ -91,13 +91,17 @@ as a package, the binary name is `rekon`.
 
 ```sh
 node packages/cli/dist/index.js init --root examples/simple-js-ts
+node packages/cli/dist/index.js config validate --root examples/simple-js-ts --json
 node packages/cli/dist/index.js capabilities list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js capabilities inspect @rekon/capability-resolver --root examples/simple-js-ts --json
 node packages/cli/dist/index.js observe --root examples/simple-js-ts --json
 node packages/cli/dist/index.js project --root examples/simple-js-ts --json
 node packages/cli/dist/index.js evaluate --root examples/simple-js-ts --json
 node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
 node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js publish list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish agents --root examples/simple-js-ts
+node packages/cli/dist/index.js publish run @rekon/capability-docs.publisher --root examples/simple-js-ts --json
 node packages/cli/dist/index.js memory add --root examples/simple-js-ts --instruction "Preserve bootstrap behavior." --path src
 node packages/cli/dist/index.js memory list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js memory select --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json

@@ -119,3 +119,15 @@ The registry rejects:
 - unknown permissions
 - role and handler mismatches
 - undeclared handler outputs
+
+The CLI can validate the loaded set against `.rekon/config.json`:
+
+```sh
+rekon config validate --root <repo> --json
+rekon capabilities list --root <repo> --json
+rekon capabilities inspect <capability-id> --root <repo> --json
+```
+
+`config validate` checks the config file's shape, capability entries,
+known-permission set, and flags risky permissions
+(`write:source`, `execute:commands`, `network:outbound`).

@@ -156,6 +156,34 @@ Install the capability package into the repo running Rekon, then add it to
 The CLI loads built-in package ids directly and attempts local package imports
 for external package names.
 
+Validate the config and inspect what was loaded:
+
+```sh
+rekon config validate --root <repo> --json
+rekon capabilities list --root <repo> --json
+rekon capabilities inspect <capability-id> --root <repo> --json
+```
+
+## Running External Handlers Through The CLI
+
+External and built-in handlers run through the same CLI. For publishers:
+
+```sh
+rekon publish list --root <repo> --json
+rekon publish run <publisher-id> --root <repo> [--input-json <json>] [--json]
+```
+
+`publish run` finds the publisher by id, ensures snapshot inputs are ready,
+and writes the produced `Publication` artifacts through the normal runtime
+artifact store. `rekon publish agents` remains a built-in shortcut for the
+`@rekon/capability-docs.publisher`.
+
+Resolvers, evaluators, learners, and actuators are exercised by the existing
+`rekon resolve preflight`, `rekon evaluate`, `rekon memory …`, `rekon intent
+work-order`, and `rekon reconcile` commands. Generic per-handler dispatch for
+roles beyond publisher is on the roadmap (see
+[../strategy/roadmap.md](../strategy/roadmap.md)).
+
 ## What Makes A Good Community Capability
 
 A good alpha capability:

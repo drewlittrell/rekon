@@ -17,6 +17,20 @@ All notable changes to Rekon will be documented in this file.
 - Updated `tests/docs/package-stability.test.mjs` to require `scripts/install-tarball-smoke.mjs` exists.
 - No artifact shape, kernel contract, SDK API, or capability behavior changes were made.
 - Documentation-only correction to the publish posture: `docs/release/npm-publish-plan.md` now defaults to `--tag alpha` for the first public alpha, with `--tag latest` documented as the explicit opt-in if alpha should become the default install target. `docs/release/0.1.0-alpha.1.md` updates the install command to `npm install --no-save @rekon/cli@alpha` and notes that bare `npm install @rekon/cli` will not pull the alpha while the `alpha` dist-tag is in use. `docs/release/alpha-release-checklist.md` adds explicit checklist items for the scope/dist-tag decision, `npm login`, and the dist-tag-specific post-publish smoke. The decision rationale and exact commands live in `.rekon-dev/review-packets/dist-tag-decision.md`.
+- Added generic capability execution CLI commands so external (and built-in) capabilities can be operated without bespoke runtime scripts:
+  - `rekon capabilities list --verbose` — adds per-capability handler summary including handler ids.
+  - `rekon capabilities inspect <capability-id>` — prints manifest, registered handlers, and artifact types.
+  - `rekon config validate` — lightweight validation of `.rekon/config.json` (shape, capabilities array, known permissions, risky-permission warnings). Returns `{ valid, configPath, configExists, issues }`.
+  - `rekon publish list` — lists all registered publishers as `{ id, capabilityId, produces }`.
+  - `rekon publish run <publisher-id> [--input-json <json>]` — executes the named publisher (built-in or external) after ensuring snapshot inputs are ready.
+- Kept `rekon publish agents` as the built-in docs publisher shortcut.
+- Updated `examples/custom-capability/README.md` to drop the runtime-script workaround for the external TODO publisher; the example now walks through the CLI flow end-to-end (`config validate`, `capabilities list`, `capabilities inspect`, `publish list`, `publish run todo.report`).
+- Bumped `examples/custom-capability/package.json` internal `@rekon/*` dependency ranges from `0.1.0-alpha.0` to `0.1.0-alpha.1` so the documented `npm install ./examples/custom-capability --no-save` flow resolves under the post-bump workspace.
+- Updated `docs/extensions/authoring-capabilities.md` and `docs/extensions/capability-manifest.md` with sections covering the new CLI surface.
+- Updated the root `README.md` CLI command list to include `config validate`, `capabilities inspect`, `publish list`, and `publish run`.
+- Added `tests/contract/generic-capability-execution.test.mjs` covering all new commands plus the `publish agents` shortcut, unknown-publisher / unknown-capability errors, and config-validate error paths.
+- Added `tests/integration/external-capability-cli.test.mjs` that exercises the full external capability flow through the CLI against a temp copy of `examples/simple-js-ts` (self-skips when `rekon-capability-todo-example` is not installed).
+- No kernel, SDK, runtime, or capability behavior changes. The runtime already supported `publisherId` filtering through `runPublish`; this batch exposes it via CLI.
 
 ## 0.1.0-alpha.0
 
