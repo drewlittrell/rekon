@@ -75,6 +75,27 @@ test("external TODO capability is operable through the CLI", async (t) => {
       "external TODO capability must appear in capabilities list",
     );
 
+    const evaluators = JSON.parse(
+      runCli(["evaluate", "list", "--root", root, "--json"]).stdout,
+    );
+
+    const todoEvaluator = evaluators.evaluators.find(
+      (entry) => entry.id === "todo.findings",
+    );
+
+    assert.ok(todoEvaluator, "evaluate list must include the external TODO evaluator");
+    assert.equal(todoEvaluator.capabilityId, "rekon-capability-todo-example");
+    assert.ok(todoEvaluator.produces.includes("FindingReport"));
+
+    const resolvers = JSON.parse(
+      runCli(["resolve", "list", "--root", root, "--json"]).stdout,
+    );
+
+    assert.ok(
+      resolvers.resolvers.some((entry) => entry.id === "resolve.preflight"),
+      "resolve list must include the built-in preflight resolver",
+    );
+
     const publishers = JSON.parse(
       runCli(["publish", "list", "--root", root, "--json"]).stdout,
     );
@@ -87,7 +108,23 @@ test("external TODO capability is operable through the CLI", async (t) => {
     assert.equal(todoPublisher.capabilityId, "rekon-capability-todo-example");
 
     runCli(["observe", "--root", root, "--json"]);
-    runCli(["evaluate", "--root", root, "--json"]);
+
+    const evaluateRun = JSON.parse(
+      runCli([
+        "evaluate",
+        "run",
+        "todo.findings",
+        "--root",
+        root,
+        "--json",
+      ]).stdout,
+    );
+
+    assert.ok(Array.isArray(evaluateRun.artifacts));
+    assert.ok(
+      evaluateRun.artifacts.some((artifact) => artifact.type === "FindingReport"),
+      "evaluate run todo.findings must emit a FindingReport",
+    );
 
     const publishResult = JSON.parse(
       runCli([

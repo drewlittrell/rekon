@@ -41,6 +41,14 @@ explicit NorthStar update.
 - Onboarding docs, custom capability example, artifact integrity tests,
   conformance test suite, optional `REKON_DOGFOOD_CLASSIC_ROOT` dogfood
   regression harness.
+- Generic per-handler CLI dispatch for evaluators, resolvers, and
+  publishers (`rekon evaluate list/run`, `rekon resolve list/run`,
+  `rekon publish list/run`). External capabilities operate through the same
+  CLI surface as built-ins; friendly workflow shortcuts (`evaluate`,
+  `resolve preflight`, `publish agents`) remain. Generic actuator and
+  learner dispatch are intentionally deferred — actuators because of
+  irreversibility risk, learners because explicit memory commands already
+  cover the surface.
 
 ## Committed Direction: Hardening Batches
 

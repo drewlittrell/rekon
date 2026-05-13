@@ -243,3 +243,23 @@ Authoring a capability should follow:
 The capability extension model is deliberately small. Most extension power
 should come from the artifact hierarchy and the lifecycle, not from special
 runtime hooks.
+
+## Generic CLI Dispatch
+
+Built-in and external handlers are operable through the same CLI surface for
+the safe-by-default roles:
+
+- `rekon evaluate list` / `rekon evaluate run <evaluator-id>`
+- `rekon resolve list` / `rekon resolve run <resolver-id>`
+- `rekon publish list` / `rekon publish run <publisher-id>`
+
+For each, the CLI lists every registered handler with `id`, `capabilityId`,
+and `produces`, then dispatches to a single named handler. The friendly
+workflow shortcuts (`rekon evaluate`, `rekon resolve preflight`, `rekon
+publish agents`) remain.
+
+Generic dispatch for the **actuator** and **learner** roles is intentionally
+deferred. Actuators may write source, execute commands, or perform
+irreversible operations; learners already have explicit `rekon memory …`
+commands. Both surfaces stay narrow until a real community capability needs
+a wider dispatch path and a permission model that makes the wider path safe.

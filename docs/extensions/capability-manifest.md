@@ -131,3 +131,20 @@ rekon capabilities inspect <capability-id> --root <repo> --json
 `config validate` checks the config file's shape, capability entries,
 known-permission set, and flags risky permissions
 (`write:source`, `execute:commands`, `network:outbound`).
+
+Handlers are also operable directly through the CLI:
+
+```sh
+rekon evaluate list --root <repo> --json
+rekon evaluate run <evaluator-id> --root <repo> [--input-json <json>] --json
+
+rekon resolve list --root <repo> --json
+rekon resolve run <resolver-id> --root <repo> [--input-json <json>] --json
+
+rekon publish list --root <repo> --json
+rekon publish run <publisher-id> --root <repo> [--input-json <json>] --json
+```
+
+Actuator and learner generic dispatch are intentionally deferred because
+actuators may perform irreversible operations and learners already have
+explicit memory commands.

@@ -166,23 +166,50 @@ rekon capabilities inspect <capability-id> --root <repo> --json
 
 ## Running External Handlers Through The CLI
 
-External and built-in handlers run through the same CLI. For publishers:
+External and built-in handlers run through the same CLI. Generic dispatch is
+available for evaluators, resolvers, and publishers:
 
 ```sh
+rekon evaluate list --root <repo> --json
+rekon evaluate run <evaluator-id> --root <repo> [--input-json <json>] [--json]
+
+rekon resolve list --root <repo> --json
+rekon resolve run <resolver-id> --root <repo> [--input-json <json>] [--json]
+
 rekon publish list --root <repo> --json
 rekon publish run <publisher-id> --root <repo> [--input-json <json>] [--json]
 ```
 
-`publish run` finds the publisher by id, ensures snapshot inputs are ready,
-and writes the produced `Publication` artifacts through the normal runtime
-artifact store. `rekon publish agents` remains a built-in shortcut for the
-`@rekon/capability-docs.publisher`.
+Each `run` command finds the handler by id, ensures the relevant inputs are
+ready, executes only that handler, and writes the produced artifacts through
+the normal runtime artifact store. For `resolve run`, if `--input-json` does
+not include a `snapshotRef`, the CLI injects the latest
+`IntelligenceSnapshot` automatically.
 
-Resolvers, evaluators, learners, and actuators are exercised by the existing
-`rekon resolve preflight`, `rekon evaluate`, `rekon memory …`, `rekon intent
-work-order`, and `rekon reconcile` commands. Generic per-handler dispatch for
-roles beyond publisher is on the roadmap (see
-[../strategy/roadmap.md](../strategy/roadmap.md)).
+Friendly shortcuts remain:
+
+- `rekon evaluate` (no subcommand) runs every registered evaluator.
+- `rekon resolve preflight` runs the built-in `resolve.preflight` resolver
+  with `path` / `goal` flags.
+- `rekon publish agents` runs `@rekon/capability-docs.publisher`.
+
+### Why Actuator And Learner Generic Run Are Deferred
+
+Generic per-handler dispatch is **intentionally not provided** for actuators
+and learners in the alpha:
+
+- **Actuators** may write source files, execute commands, or perform
+  irreversible operations. Exposing them behind a generic `rekon act run`
+  command would surface permission-gated behavior through a single dispatch
+  point without the workflow context that justifies it. Actuator execution
+  stays behind the explicit `rekon intent work-order` and `rekon reconcile`
+  workflows.
+- **Learners** already have explicit `rekon memory add`, `rekon memory list`,
+  and `rekon memory select` commands. A generic `rekon learn run` would not
+  add capability without diluting the deliberate memory surface.
+
+When a real community capability needs either, revisit the trade-off and
+update this section. Until then, keep the safe surface deliberately narrow.
 
 ## What Makes A Good Community Capability
 

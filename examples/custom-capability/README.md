@@ -104,9 +104,11 @@ capability and its permissions:
 node packages/cli/dist/index.js config validate --root /tmp/rekon-todo-example --json
 node packages/cli/dist/index.js capabilities list --root /tmp/rekon-todo-example --json
 node packages/cli/dist/index.js capabilities inspect rekon-capability-todo-example --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js evaluate list --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js resolve list --root /tmp/rekon-todo-example --json
 node packages/cli/dist/index.js publish list --root /tmp/rekon-todo-example --json
 node packages/cli/dist/index.js observe --root /tmp/rekon-todo-example --json
-node packages/cli/dist/index.js evaluate --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js evaluate run todo.findings --root /tmp/rekon-todo-example --json
 node packages/cli/dist/index.js publish run todo.report --root /tmp/rekon-todo-example --json
 node packages/cli/dist/index.js artifacts list --root /tmp/rekon-todo-example --type Publication --json
 ```
@@ -118,10 +120,15 @@ Expected behavior:
 - `capabilities inspect rekon-capability-todo-example` shows its evidence
   provider, evaluator, and publisher handlers (`todo-comments`,
   `todo.findings`, `todo.report`).
+- `evaluate list` includes the `todo.findings` evaluator under
+  `capabilityId: rekon-capability-todo-example`.
+- `resolve list` includes the built-in `resolve.preflight` resolver.
 - `publish list` includes the `todo.report` publisher under the external
   capability.
 - `observe` writes an `EvidenceGraph` containing `todo_comment` facts.
-- `evaluate` writes a `FindingReport` containing TODO findings.
+- `evaluate run todo.findings` writes a `FindingReport` containing TODO
+  findings (a scoped alternative to running every evaluator with bare
+  `evaluate`).
 - `publish run todo.report` writes a TODO `Publication`.
 
 ## Output Excerpt
@@ -144,6 +151,9 @@ Expected behavior:
   `node packages/cli/dist/index.js publish list --root <repo> --json` to
   confirm the external capability is registered. If absent, validate the
   config with `rekon config validate` first.
+- `Unknown evaluator: todo.findings`: same approach with
+  `rekon evaluate list`.
+- `Unknown resolver: <id>`: same approach with `rekon resolve list`.
 - `TODO evaluator requires an EvidenceGraph artifact`: run
   `node packages/cli/dist/index.js observe --root <repo>` first.
 - No TODO findings: confirm the target source file contains `TODO` and rerun

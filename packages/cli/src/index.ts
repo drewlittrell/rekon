@@ -133,6 +133,41 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "evaluate" && subcommand === "list") {
+    const runtime = await createDefaultRuntime(root);
+    const evaluators = listHandlers(runtime, "evaluators").map((entry) => ({
+      id: entry.handlerId,
+      capabilityId: entry.capabilityId,
+      produces: entry.produces,
+    }));
+    writeOutput({ evaluators }, json);
+    return;
+  }
+
+  if (command === "evaluate" && subcommand === "run" && positional) {
+    const runtime = await createDefaultRuntime(root);
+    const evaluatorId = positional;
+
+    if (!runtime.registry.evaluators.some((evaluator) => evaluator.id === evaluatorId)) {
+      throw new Error(
+        `Unknown evaluator: ${evaluatorId}. Use 'rekon evaluate list' to see registered evaluators.`,
+      );
+    }
+
+    const existingEvidence = await runtime.artifacts.list("EvidenceGraph");
+
+    if (existingEvidence.length === 0) {
+      await runtime.runObserve();
+    }
+
+    const refs = await runtime.runEvaluate({
+      evaluatorId,
+      input: parseInputJsonFlag(parsed.flags["input-json"]),
+    });
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
   if (command === "evaluate") {
     const runtime = await createDefaultRuntime(root);
     const existingEvidence = await runtime.artifacts.list("EvidenceGraph");
@@ -234,6 +269,55 @@ export async function main(argv: string[]): Promise<void> {
     });
     const selection = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
     writeOutput({ artifact: refs[0], selection }, json);
+    return;
+  }
+
+  if (command === "resolve" && subcommand === "list") {
+    const runtime = await createDefaultRuntime(root);
+    const resolvers = listHandlers(runtime, "resolvers").map((entry) => ({
+      id: entry.handlerId,
+      capabilityId: entry.capabilityId,
+      produces: entry.produces,
+    }));
+    writeOutput({ resolvers }, json);
+    return;
+  }
+
+  if (command === "resolve" && subcommand === "run" && positional) {
+    const runtime = await createDefaultRuntime(root);
+    const resolverId = positional;
+
+    if (!runtime.registry.resolvers.some((resolver) => resolver.id === resolverId)) {
+      throw new Error(
+        `Unknown resolver: ${resolverId}. Use 'rekon resolve list' to see registered resolvers.`,
+      );
+    }
+
+    const explicitInput = parseInputJsonFlag(parsed.flags["input-json"]) ?? {};
+    const input: Record<string, unknown> = { ...explicitInput };
+
+    if (input.snapshotRef === undefined) {
+      const snapshots = await runtime.artifacts.list("IntelligenceSnapshot");
+
+      if (snapshots.length === 0) {
+        await ensureSnapshotReady(runtime);
+      }
+
+      const latest = (await runtime.artifacts.list("IntelligenceSnapshot")).at(-1);
+
+      if (latest) {
+        input.snapshotRef = {
+          type: latest.type,
+          id: latest.id,
+          schemaVersion: latest.schemaVersion,
+        };
+      }
+    }
+
+    const refs = await runtime.runResolve({ resolverId, input });
+    const packet = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
+
+    writeOutput({ artifact: refs[0], packet, artifacts: refs }, json);
     return;
   }
 
@@ -956,6 +1040,8 @@ function usage(): string {
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
     "rekon project [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
+    "rekon evaluate list [--root <path>] [--json]",
+    "rekon evaluate run <evaluator-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon snapshot [--root <path>] [--json]",
     "rekon publish agents [--root <path>] [--json]",
     "rekon publish list [--root <path>] [--json]",
@@ -964,6 +1050,8 @@ function usage(): string {
     "rekon memory list [--root <path>] [--json]",
     "rekon memory select --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon resolve preflight --path <path> --goal <goal> [--root <path>] [--json]",
+    "rekon resolve list [--root <path>] [--json]",
+    "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",

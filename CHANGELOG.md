@@ -31,6 +31,16 @@ All notable changes to Rekon will be documented in this file.
 - Added `tests/contract/generic-capability-execution.test.mjs` covering all new commands plus the `publish agents` shortcut, unknown-publisher / unknown-capability errors, and config-validate error paths.
 - Added `tests/integration/external-capability-cli.test.mjs` that exercises the full external capability flow through the CLI against a temp copy of `examples/simple-js-ts` (self-skips when `rekon-capability-todo-example` is not installed).
 - No kernel, SDK, runtime, or capability behavior changes. The runtime already supported `publisherId` filtering through `runPublish`; this batch exposes it via CLI.
+- Extended generic capability execution to evaluators and resolvers:
+  - `rekon evaluate list` — lists every registered evaluator with `id`, `capabilityId`, and `produces`.
+  - `rekon evaluate run <evaluator-id> [--input-json <json>]` — runs a single evaluator, including external rule packs, and writes the produced `FindingReport`(s) through the normal artifact store.
+  - `rekon resolve list` — lists every registered resolver.
+  - `rekon resolve run <resolver-id> [--input-json <json>]` — runs a single resolver, injecting the latest `IntelligenceSnapshot` ref when `--input-json` omits `snapshotRef`. Returns the resulting `ResolverPacket` (with `resolutionTrace`) inline alongside the artifact refs.
+- `rekon evaluate` (no subcommand) still runs every registered evaluator; `rekon resolve preflight --path … --goal …` remains the friendly workflow shortcut.
+- Generic actuator and learner CLI dispatch are intentionally deferred: actuators may write source or run commands, learners already have explicit `rekon memory …` commands. The docs say so out loud in `docs/extensions/authoring-capabilities.md` and `docs/strategy/capability-model.md`.
+- Added `tests/contract/generic-evaluator-resolver-execution.test.mjs` with 9 tests: evaluator list, evaluator run, unknown evaluator, bare `evaluate` still works, resolver list, resolver run with auto-injected snapshot, resolver run with explicit snapshotRef, unknown resolver, and `resolve preflight` shortcut still works.
+- Extended `tests/integration/external-capability-cli.test.mjs` to assert `evaluate list` includes the external `todo.findings` evaluator and to run it via `evaluate run` before `publish run todo.report`.
+- Updated `docs/extensions/authoring-capabilities.md`, `docs/extensions/capability-manifest.md`, `docs/strategy/capability-model.md`, `docs/strategy/roadmap.md`, `examples/custom-capability/README.md`, and the root `README.md` to document the new commands and the explicit actuator/learner deferral.
 
 ## 0.1.0-alpha.0
 
