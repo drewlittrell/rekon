@@ -3,7 +3,8 @@
 ## Purpose
 
 `IntelligenceSnapshot` is Rekon's shared index of repository intelligence. It
-points to artifacts by `ArtifactRef`; it does not embed every artifact inline.
+points to the latest known artifacts by `ArtifactRef`; it does not embed every
+artifact inline.
 
 ## Produced By
 
@@ -63,5 +64,14 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 
 ## Freshness And Provenance
 
-The snapshot status summarizes indexed freshness. Publications and memory may
-enrich resolver output, but they do not rewrite lower-layer facts.
+The snapshot status summarizes indexed freshness:
+
+- `fresh`: latest evidence exists and index validation produced no warnings
+- `unknown`: no `EvidenceGraph` is indexed
+- `partial`: evidence exists, but index validation failed or an expected
+  projection family is incomplete after projection started
+- `stale`: reserved for future file-change invalidation
+
+Snapshot warnings explicitly name missing evidence, malformed index entries, or
+missing expected projection artifacts. Publications and memory may enrich
+resolver output, but they do not rewrite lower-layer facts.

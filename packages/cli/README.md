@@ -23,6 +23,7 @@ The CLI is the operator surface for the local lifecycle:
 - `rekon reconcile`
 - `rekon artifacts list`
 - `rekon artifacts show <id>`
+- `rekon artifacts validate`
 
 The CLI delegates lifecycle work to `@rekon/runtime`.
 

@@ -134,5 +134,11 @@ Show one artifact by id:
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 ```
 
+Validate the artifact index, headers, paths, and digests:
+
+```sh
+node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
+```
+
 Every artifact should include a header with schema version, producer metadata,
 input refs, freshness, and provenance.

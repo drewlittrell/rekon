@@ -11,6 +11,7 @@ Current alpha responsibilities:
 - initialize `.rekon/`
 - write and read typed JSON artifacts
 - maintain `.rekon/registry/artifacts.index.json`
+- validate artifact index entries, headers, paths, and digests
 - load built-in capability objects directly
 - enforce manifest-requested permissions
 - run evidence providers
@@ -31,6 +32,7 @@ The runtime executes the local lifecycle against `.rekon/`:
 - `createRuntime()`
 - `createLocalArtifactStore()`
 - `ArtifactStore`
+- `validateArtifactIndex()`
 - `PermissionPolicy`
 - lifecycle run methods
 

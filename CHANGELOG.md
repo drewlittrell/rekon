@@ -42,3 +42,9 @@ All notable changes to Rekon will be documented in this file.
 - Polished `examples/custom-capability` as the canonical TODO capability example, including conformance testing, runtime execution instructions, expected outputs, and troubleshooting.
 - Added lightweight docs contract tests for onboarding, extension authoring, artifact traceability, and contributor guidance.
 - No runtime behavior, artifact shape, or SDK public API changes were made in the alpha onboarding docs pass.
+- Updated process docs for solo alpha development to push directly to `main` after checks pass.
+- Added runtime artifact index validation for index shape, required fields, duplicate refs, path containment, header/index matching, and digest verification.
+- Added `rekon artifacts validate` for local artifact integrity checks.
+- Hardened snapshot status so missing evidence reports `unknown`, malformed indexes or incomplete projection families report `partial`, and clean evidence-backed snapshots report `fresh`.
+- Expanded full CLI smoke contract coverage to memory, intent, reconciliation, header freshness, index validation, and digest checks.
+- Added an optional `REKON_DOGFOOD_CLASSIC_ROOT` dogfood regression harness that skips cleanly when no classic checkout is configured.

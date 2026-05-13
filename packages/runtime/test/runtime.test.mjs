@@ -8,6 +8,7 @@ import { defineCapability } from "@rekon/sdk";
 import {
   createLocalArtifactStore,
   createRuntime,
+  validateArtifactIndex,
 } from "../dist/index.js";
 
 const silentLogger = {
@@ -48,6 +49,50 @@ test("local artifact store writes, reads, and lists artifacts", async () => {
     assert.deepEqual(await store.read(ref), artifact);
     assert.deepEqual(await store.readById("EvidenceGraph", "evidence-test"), artifact);
     assert.equal((await store.list("EvidenceGraph")).length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("artifact index validation checks paths, headers, digests, and duplicates", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const artifact = evidenceArtifact("evidence-test");
+    const ref = await store.write(artifact);
+
+    assert.deepEqual(await validateArtifactIndex(store), {
+      valid: true,
+      issues: [],
+    });
+
+    const indexPath = join(root, ".rekon/registry/artifacts.index.json");
+    const index = JSON.parse(await readFile(indexPath, "utf8"));
+    const originalEntry = { ...index[0] };
+    index[0].digest = "wrong";
+    index[0].schemaVersion = "9.9.9";
+    index[0].artifactType = "Other";
+    index.push({ ...originalEntry });
+    index.push({
+      ...originalEntry,
+      id: "outside",
+      artifactId: "outside",
+      path: "../outside.json",
+    });
+    await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+
+    const result = await validateArtifactIndex(store);
+
+    assert.equal(result.valid, false);
+    assert.ok(result.issues.some((issue) => issue.code === "index.entry.duplicate"));
+    assert.ok(result.issues.some((issue) => issue.code === "index.entry.outside_artifacts"));
+    assert.ok(result.issues.some((issue) => issue.code === "index.entry.outside_repo"));
+    assert.ok(result.issues.some((issue) => issue.code === "index.entry.artifact_type_mismatch"));
+    assert.ok(result.issues.some((issue) => issue.code === "artifact.header.schema_version_mismatch"));
+    assert.ok(result.issues.some((issue) => issue.code === "artifact.digest_mismatch"));
+    assert.equal(ref.type, "EvidenceGraph");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -119,6 +164,107 @@ test("runtime runs evidence providers and creates a snapshot", async () => {
   }
 });
 
+test("snapshot status is unknown when no evidence is indexed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      logger: silentLogger,
+    });
+    const snapshotRef = await runtime.runSnapshot();
+    const snapshot = await runtime.artifacts.read(snapshotRef);
+
+    assert.equal(snapshot.status.freshness, "unknown");
+    assert.ok(snapshot.status.warnings.includes("No EvidenceGraph artifacts are indexed."));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("snapshot status is fresh after observe only", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [evidenceCapability()],
+      logger: silentLogger,
+    });
+
+    await runtime.runObserve();
+    const snapshotRef = await runtime.runSnapshot();
+    const snapshot = await runtime.artifacts.read(snapshotRef);
+
+    assert.equal(snapshot.status.freshness, "fresh");
+    assert.deepEqual(snapshot.status.warnings, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("snapshot status is partial when projection families are incomplete", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [evidenceCapability()],
+      logger: silentLogger,
+    });
+
+    const evidenceRef = await runtime.runObserve();
+    await runtime.artifacts.write({
+      header: testHeader("ObservedRepo", "observed-test", [evidenceRef]),
+      repository: {
+        id: "fixture",
+        root,
+      },
+      systems: [],
+      layers: [],
+      capabilities: [],
+    }, { category: "projections" });
+
+    const snapshotRef = await runtime.runSnapshot();
+    const snapshot = await runtime.artifacts.read(snapshotRef);
+
+    assert.equal(snapshot.status.freshness, "partial");
+    assert.ok(snapshot.status.warnings.includes("Missing expected projection artifact OwnershipMap after projection started."));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("snapshot status reports malformed index entries", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [evidenceCapability()],
+      logger: silentLogger,
+    });
+
+    await runtime.runObserve();
+    const indexPath = join(root, ".rekon/registry/artifacts.index.json");
+    const index = JSON.parse(await readFile(indexPath, "utf8"));
+    index[0].digest = "wrong";
+    await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+
+    const snapshotRef = await runtime.runSnapshot();
+    const snapshot = await runtime.artifacts.read(snapshotRef);
+
+    assert.equal(snapshot.status.freshness, "partial");
+    assert.ok(snapshot.status.warnings.some((warning) => warning.includes("artifact.digest_mismatch")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("runtime denies source-writing capabilities unless configured", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
 
@@ -170,3 +316,76 @@ test("runtime denies source-writing capabilities unless configured", async () =>
     await rm(root, { recursive: true, force: true });
   }
 });
+
+function evidenceCapability() {
+  return defineCapability({
+    manifest: {
+      id: "@rekon/capability-test",
+      name: "Runtime Test",
+      version: "0.1.0",
+      roles: ["evidence-provider"],
+      consumes: ["SourceFile"],
+      produces: ["EvidenceGraph"],
+      permissions: ["read:source", "write:artifacts"],
+      compatibility: {
+        rekon: "^0.1.0",
+      },
+    },
+    register(registry) {
+      registry.evidenceProvider({
+        id: "runtime-test.provider",
+        kind: "repo",
+        supports() {
+          return true;
+        },
+        async extract() {
+          return [{
+            id: "fact-file-index",
+            kind: "file",
+            subject: "index.ts",
+            value: {
+              path: "index.ts",
+            },
+            confidence: 1,
+            provenance: {
+              source: "repo",
+              pack: "@rekon/capability-test",
+              file: "index.ts",
+              extractorVersion: "0.1.0",
+            },
+          }];
+        },
+      });
+    },
+  });
+}
+
+function evidenceArtifact(id) {
+  return {
+    header: testHeader("EvidenceGraph", id, []),
+    facts: [],
+  };
+}
+
+function testHeader(artifactType, artifactId, inputRefs) {
+  return {
+    artifactType,
+    artifactId,
+    schemaVersion: "0.1.0",
+    generatedAt: "2026-05-13T17:00:00.000Z",
+    subject: {
+      repoId: "fixture",
+    },
+    producer: {
+      id: "@rekon/runtime-test",
+      version: "0.1.0",
+    },
+    inputRefs,
+    freshness: {
+      status: "fresh",
+    },
+    provenance: {
+      confidence: 1,
+    },
+  };
+}

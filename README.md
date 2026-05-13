@@ -105,6 +105,7 @@ node packages/cli/dist/index.js intent work-order --root examples/simple-js-ts -
 node packages/cli/dist/index.js reconcile --root examples/simple-js-ts --operation docs_regeneration
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
+node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
 ```
 
 ## The `.rekon/` Workspace

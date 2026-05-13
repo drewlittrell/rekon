@@ -15,6 +15,17 @@ Artifact index entries in `.rekon/registry/artifacts.index.json` must point to
 existing files, mirror the artifact type and id, include the schema version, and
 store the deterministic digest of the written JSON payload.
 
+`rekon artifacts validate` checks the index and every indexed artifact:
+
+- the index file exists and is an array
+- every entry has `type`, `id`, `schemaVersion`, `path`, `digest`, and `writtenAt`
+- `type` and `id` match `header.artifactType` and `header.artifactId`
+- `schemaVersion` matches `header.schemaVersion`
+- the digest matches the parsed artifact payload using Rekon's current digest helper
+- duplicate `type:id` entries are reported
+- paths stay inside the repository root and under `.rekon/artifacts/`
+- paths and payloads do not reference `.codebase-intel` or `CODEBASE_INTEL`
+
 Contract tests run the public CLI smoke flow and validate every emitted artifact
 file and index entry. Generated artifacts must not reference `.codebase-intel`
 or `CODEBASE_INTEL`.

@@ -6,6 +6,10 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import test from "node:test";
 import { digestJson } from "../../packages/kernel-artifacts/dist/index.js";
+import {
+  createLocalArtifactStore,
+  validateArtifactIndex,
+} from "../../packages/runtime/dist/index.js";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
@@ -26,6 +30,7 @@ test("CLI smoke flow writes trustworthy indexed artifacts", async () => {
     runCli(["observe", "--root", root, "--json"]);
     runCli(["project", "--root", root, "--json"]);
     runCli(["snapshot", "--root", root, "--json"]);
+    runCli(["evaluate", "--root", root, "--json"]);
     runCli([
       "resolve",
       "preflight",
@@ -39,6 +44,29 @@ test("CLI smoke flow writes trustworthy indexed artifacts", async () => {
     ]);
     runCli(["publish", "agents", "--root", root, "--json"]);
     runCli([
+      "memory",
+      "add",
+      "--root",
+      root,
+      "--instruction",
+      "Preserve bootstrap behavior.",
+      "--path",
+      "src",
+      "--json",
+    ]);
+    runCli(["memory", "list", "--root", root, "--json"]);
+    runCli([
+      "memory",
+      "select",
+      "--root",
+      root,
+      "--path",
+      "src/index.ts",
+      "--goal",
+      "modify bootstrap",
+      "--json",
+    ]);
+    runCli([
       "intent",
       "work-order",
       "--root",
@@ -50,10 +78,15 @@ test("CLI smoke flow writes trustworthy indexed artifacts", async () => {
       "--json",
     ]);
     runCli(["reconcile", "--root", root, "--operation", "docs_regeneration", "--json"]);
+    runCli(["artifacts", "validate", "--root", root, "--json"]);
 
     const workspaceRoot = join(root, ".rekon");
     const indexPath = join(workspaceRoot, "registry/artifacts.index.json");
     const index = JSON.parse(await readFile(indexPath, "utf8"));
+    const store = createLocalArtifactStore(root);
+    const validation = await validateArtifactIndex(store);
+
+    assert.equal(validation.valid, true, JSON.stringify(validation.issues, null, 2));
 
     assert.ok(Array.isArray(index), "artifact index must be an array");
     assert.ok(index.length > 0, "artifact index must include emitted artifacts");
@@ -88,8 +121,12 @@ test("CLI smoke flow writes trustworthy indexed artifacts", async () => {
       "EvidenceGraph",
       "FindingReport",
       "GraphSlice",
+      "IntentMap",
       "IntelligenceSnapshot",
+      "MemoryEvent",
+      "MemorySelection",
       "ObservedRepo",
+      "OperatorFeedbackEntry",
       "OwnershipMap",
       "Publication",
       "ReconciliationLog",
@@ -163,6 +200,8 @@ function assertArtifactContract(artifact, entry) {
   assert.equal(typeof header.producer.version, "string", "header producer.version must be a string");
   assert.notEqual(header.producer.version.trim(), "", "header producer.version must be non-empty");
   assert.ok(Array.isArray(header.inputRefs), "header inputRefs must be an array");
+  assert.ok(header.freshness && typeof header.freshness === "object", "header freshness must be an object");
+  assert.match(header.freshness.status, /^(fresh|stale|partial|unknown)$/, "header freshness.status must be valid");
 
   for (const ref of header.inputRefs) {
     assert.equal(typeof ref.type, "string", "input ref type must be a string");

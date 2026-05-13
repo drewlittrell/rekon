@@ -1,11 +1,12 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   type ArtifactHeader,
   type ArtifactRef,
   assertArtifactHeader,
   digestJson,
   toArtifactRef,
+  validateArtifactHeader,
 } from "@rekon/kernel-artifacts";
 import {
   type EvidenceFact,
@@ -55,6 +56,20 @@ export type ArtifactIndexEntry = ArtifactRef & {
   artifactType: string;
   artifactId: string;
   writtenAt: string;
+};
+
+export type ArtifactIndexValidationIssue = {
+  code: string;
+  severity: "error" | "warning";
+  message: string;
+  artifactId?: string;
+  artifactType?: string;
+  path?: string;
+};
+
+export type ArtifactIndexValidationResult = {
+  valid: boolean;
+  issues: ArtifactIndexValidationIssue[];
 };
 
 export type ArtifactStore = {
@@ -319,6 +334,243 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
   };
 }
 
+export async function validateArtifactIndex(
+  store: ArtifactStore,
+): Promise<ArtifactIndexValidationResult> {
+  const indexPath = join(store.workspaceRoot, "registry", "artifacts.index.json");
+  const issues: ArtifactIndexValidationIssue[] = [];
+  let index: unknown;
+
+  try {
+    index = JSON.parse(await readFile(indexPath, "utf8")) as unknown;
+  } catch (error) {
+    issues.push({
+      code: "index.missing_or_unreadable",
+      severity: "error",
+      message: `Artifact index could not be read: ${error instanceof Error ? error.message : String(error)}`,
+      path: relative(store.root, indexPath),
+    });
+
+    return { valid: false, issues };
+  }
+
+  if (!Array.isArray(index)) {
+    return {
+      valid: false,
+      issues: [{
+        code: "index.invalid_shape",
+        severity: "error",
+        message: "Artifact index must be an array.",
+        path: relative(store.root, indexPath),
+      }],
+    };
+  }
+
+  const seen = new Set<string>();
+
+  for (const rawEntry of index) {
+    if (!isRecord(rawEntry)) {
+      issues.push({
+        code: "index.entry.invalid_shape",
+        severity: "error",
+        message: "Artifact index entry must be an object.",
+      });
+      continue;
+    }
+
+    const entry = rawEntry as Partial<ArtifactIndexEntry>;
+    const artifactType = stringValue(entry.type);
+    const artifactId = stringValue(entry.id);
+    const path = stringValue(entry.path);
+
+    for (const field of ["type", "id", "schemaVersion", "path", "digest", "writtenAt"] as const) {
+      if (!isNonEmptyString(entry[field])) {
+        issues.push({
+          code: `index.entry.missing_${field}`,
+          severity: "error",
+          message: `Artifact index entry is missing ${field}.`,
+          artifactId,
+          artifactType,
+          path,
+        });
+      }
+    }
+
+    if (isNonEmptyString(entry.artifactType) && entry.artifactType !== entry.type) {
+      issues.push({
+        code: "index.entry.artifact_type_mismatch",
+        severity: "error",
+        message: "Index artifactType must match type.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    if (isNonEmptyString(entry.artifactId) && entry.artifactId !== entry.id) {
+      issues.push({
+        code: "index.entry.artifact_id_mismatch",
+        severity: "error",
+        message: "Index artifactId must match id.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    if (artifactType && artifactId) {
+      const key = `${artifactType}:${artifactId}`;
+
+      if (seen.has(key)) {
+        issues.push({
+          code: "index.entry.duplicate",
+          severity: "error",
+          message: `Duplicate artifact index entry for ${key}.`,
+          artifactId,
+          artifactType,
+          path,
+        });
+      }
+
+      seen.add(key);
+    }
+
+    if (!path) {
+      continue;
+    }
+
+    if (isAbsolute(path)) {
+      issues.push({
+        code: "index.entry.absolute_path",
+        severity: "error",
+        message: "Artifact index paths must be relative to the repository root.",
+        artifactId,
+        artifactType,
+        path,
+      });
+      continue;
+    }
+
+    if (pathHasSegment(path, ".codebase-intel")) {
+      issues.push({
+        code: "index.entry.private_path",
+        severity: "error",
+        message: "Artifact index entries must not point to .codebase-intel.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    if (!path.startsWith(".rekon/artifacts/")) {
+      issues.push({
+        code: "index.entry.outside_artifacts",
+        severity: "error",
+        message: "Artifact index entries must point under .rekon/artifacts/.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    const absolutePath = resolve(store.root, path);
+
+    if (!isPathInside(absolutePath, store.root)) {
+      issues.push({
+        code: "index.entry.outside_repo",
+        severity: "error",
+        message: "Artifact index entry points outside the repository root.",
+        artifactId,
+        artifactType,
+        path,
+      });
+      continue;
+    }
+
+    let artifact: unknown;
+
+    try {
+      artifact = JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
+    } catch (error) {
+      issues.push({
+        code: "index.entry.artifact_unreadable",
+        severity: "error",
+        message: `Indexed artifact could not be read: ${error instanceof Error ? error.message : String(error)}`,
+        artifactId,
+        artifactType,
+        path,
+      });
+      continue;
+    }
+
+    const artifactRecord = isRecord(artifact) ? artifact : undefined;
+    const headerResult = validateArtifactHeader(artifactRecord?.header);
+
+    if (!headerResult.ok) {
+      issues.push(...headerResult.issues.map((issue) => ({
+        code: "artifact.header.invalid",
+        severity: "error" as const,
+        message: `Artifact header validation failed at ${issue.path}: ${issue.message}`,
+        artifactId,
+        artifactType,
+        path,
+      })));
+      continue;
+    }
+
+    const header = headerResult.value;
+
+    if (header.artifactType !== entry.type) {
+      issues.push({
+        code: "artifact.header.type_mismatch",
+        severity: "error",
+        message: "Artifact header artifactType must match index type.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    if (header.artifactId !== entry.id) {
+      issues.push({
+        code: "artifact.header.id_mismatch",
+        severity: "error",
+        message: "Artifact header artifactId must match index id.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    if (header.schemaVersion !== entry.schemaVersion) {
+      issues.push({
+        code: "artifact.header.schema_version_mismatch",
+        severity: "error",
+        message: "Artifact header schemaVersion must match index schemaVersion.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    if (isNonEmptyString(entry.digest) && digestJson(artifact) !== entry.digest) {
+      issues.push({
+        code: "artifact.digest_mismatch",
+        severity: "error",
+        message: "Artifact digest does not match indexed digest.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+  }
+
+  return {
+    valid: issues.every((issue) => issue.severity !== "error"),
+    issues,
+  };
+}
+
 export async function runObserve(
   context: RuntimeContext,
   registry: CapabilityRegistrySnapshot,
@@ -356,6 +608,8 @@ export async function runObserve(
 
 export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef> {
   const artifacts = await context.artifacts.list();
+  const indexValidation = await validateArtifactIndex(context.artifacts);
+  const status = createSnapshotStatus(artifacts, indexValidation);
   const latestEvidence = latestByType(artifacts, "EvidenceGraph");
   const inputRefs = latestEvidence ? [latestEvidence] : [];
   const snapshot: IntelligenceSnapshot = createIntelligenceSnapshot({
@@ -368,10 +622,10 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
     }),
     repo: context.repo,
     inputs: latestEvidence ? { EvidenceGraph: [latestEvidence] } : {},
-    projections: groupRefsByType(artifacts, ["ObservedRepo", "OwnershipMap", "CapabilityMap", "GraphSlice"]),
-    evaluations: groupRefsByType(artifacts, ["FindingReport"]),
-    publications: groupRefsByType(artifacts, ["Publication", "MemorySelection"]),
-    actions: groupRefsByType(artifacts, [
+    projections: groupLatestRefsByType(artifacts, ["ObservedRepo", "OwnershipMap", "CapabilityMap", "GraphSlice"]),
+    evaluations: groupLatestRefsByType(artifacts, ["FindingReport"]),
+    publications: groupLatestRefsByType(artifacts, ["Publication", "MemorySelection"]),
+    actions: groupLatestRefsByType(artifacts, [
       "OperatorFeedbackEntry",
       "MemoryEvent",
       "ContextUsageEvent",
@@ -384,11 +638,7 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
       "ReconciliationLog",
       "ActionLog",
     ]),
-    status: {
-      freshness: latestEvidence ? "fresh" : "unknown",
-      warnings: latestEvidence ? [] : ["No EvidenceGraph artifacts are indexed."],
-      blockedReasons: [],
-    },
+    status,
   });
 
   return context.artifacts.write(snapshot, { category: "snapshots" });
@@ -693,12 +943,93 @@ function groupRefsByType(entries: ArtifactIndexEntry[], types: string[]): Record
   }, {});
 }
 
+function groupLatestRefsByType(entries: ArtifactIndexEntry[], types: string[]): Record<string, ArtifactRef[]> {
+  return types.reduce<Record<string, ArtifactRef[]>>((grouped, type) => {
+    const latest = latestByType(entries, type);
+
+    if (latest) {
+      grouped[type] = [latest];
+    }
+
+    return grouped;
+  }, {});
+}
+
+function createSnapshotStatus(
+  artifacts: ArtifactIndexEntry[],
+  validation: ArtifactIndexValidationResult,
+): IntelligenceSnapshot["status"] {
+  const warnings = validation.issues.map((issue) => `${issue.code}: ${issue.message}`);
+  const types = new Set(artifacts.map((artifact) => artifact.type).filter(Boolean));
+
+  if (!types.has("EvidenceGraph")) {
+    warnings.push("No EvidenceGraph artifacts are indexed.");
+  }
+
+  for (const warning of missingExpectedProjectionWarnings(types)) {
+    warnings.push(warning);
+  }
+
+  return {
+    freshness: snapshotFreshness(types, warnings),
+    warnings,
+    blockedReasons: [],
+  };
+}
+
+function missingExpectedProjectionWarnings(types: Set<string>): string[] {
+  const projectionTypes = ["ObservedRepo", "OwnershipMap", "CapabilityMap", "GraphSlice"];
+  const projectionStarted = projectionTypes.some((type) => types.has(type));
+
+  if (!projectionStarted) {
+    return [];
+  }
+
+  return projectionTypes
+    .filter((type) => !types.has(type))
+    .map((type) => `Missing expected projection artifact ${type} after projection started.`);
+}
+
+function snapshotFreshness(types: Set<string>, warnings: string[]): IntelligenceSnapshot["status"]["freshness"] {
+  if (!types.has("EvidenceGraph")) {
+    return "unknown";
+  }
+
+  if (warnings.length > 0) {
+    return "partial";
+  }
+
+  return "fresh";
+}
+
 function categoryForArtifactType(artifactType: string): ArtifactCategory {
   return ARTIFACT_CATEGORY_BY_TYPE[artifactType] ?? "actions";
 }
 
 function normalizeArtifactForWrite(artifact: ArtifactWithHeader): ArtifactWithHeader {
   return JSON.parse(JSON.stringify(artifact)) as ArtifactWithHeader;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function pathHasSegment(path: string, segment: string): boolean {
+  return path.split(/[\\/]/).includes(segment);
+}
+
+function isPathInside(path: string, root: string): boolean {
+  const relativePath = relative(resolve(root), resolve(path));
+
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 function safeSegment(value: string): string {

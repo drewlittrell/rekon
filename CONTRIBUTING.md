@@ -73,12 +73,23 @@ Add a concise entry to `CHANGELOG.md` for:
 - capability manifest or permission changes;
 - docs/example changes that affect onboarding or extension authoring.
 
-## Branch and PR Expectations
+## Development Flow
 
-- Use focused branches with a short purpose, for example `codex/alpha-onboarding-docs`.
-- Keep generated `.rekon/` artifacts out of commits unless the task explicitly asks for fixtures.
-- Include verification commands and results in the PR or handoff.
-- Keep unrelated formatting or dependency churn out of the branch.
+During solo alpha development, push directly to `main` after the required checks
+pass. Do not create branches unless explicitly requested.
+
+Switch back to branches and PRs when:
+
+- external contributors arrive;
+- packages are published;
+- users rely on `main`;
+- risky source-writing actuator work begins;
+- breaking public API changes are planned;
+- release candidate work begins.
+
+Keep generated `.rekon/` artifacts out of commits unless the task explicitly
+asks for fixtures. Include verification commands and results in the handoff.
+Keep unrelated formatting or dependency churn out of the change.
 
 ## Security Notes
 

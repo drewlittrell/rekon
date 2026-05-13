@@ -33,6 +33,12 @@ Required checks:
 - npm run build
 - npm run lint if lint is configured
 
+Process:
+
+- During solo alpha development, push directly to `main` after required checks pass.
+- Do not create branches unless explicitly requested.
+- Switch to branches and PRs when external contributors arrive, packages are published, users rely on `main`, risky source-writing actuator work begins, breaking public API changes are planned, or release candidate work begins.
+
 Completion summary must include:
 
 - CHANGES MADE

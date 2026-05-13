@@ -65,3 +65,17 @@ tests, and users inspecting `.rekon/artifacts`.
 Freshness describes whether an artifact is current relative to its declared
 inputs. Provenance explains who produced the artifact and how much confidence
 the producer has in the output.
+
+Current producers are expected to set `freshness.status` when they write
+artifacts. Contract tests validate that emitted CLI smoke-flow artifacts include
+a valid freshness status.
+
+## Index Integrity
+
+The artifact header is cross-checked against
+`.rekon/registry/artifacts.index.json`. The index entry type, id, schema
+version, path, and digest must match the artifact on disk. Run:
+
+```sh
+node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
+```

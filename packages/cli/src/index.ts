@@ -15,6 +15,7 @@ import {
   type ArtifactIndexEntry,
   createLocalArtifactStore,
   createRuntime,
+  validateArtifactIndex,
 } from "@rekon/runtime";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 
@@ -268,6 +269,20 @@ export async function main(argv: string[]): Promise<void> {
     const entry = await findArtifactEntry(store, positional);
     const artifact = await store.read(entry);
     writeOutput({ artifact }, json);
+    return;
+  }
+
+  if (command === "artifacts" && subcommand === "validate") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const result = await validateArtifactIndex(store);
+
+    writeOutput(result, json);
+
+    if (!result.valid) {
+      process.exitCode = 1;
+    }
+
     return;
   }
 
@@ -557,5 +572,6 @@ function usage(): string {
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
+    "rekon artifacts validate [--root <path>] [--json]",
   ].join("\n");
 }
