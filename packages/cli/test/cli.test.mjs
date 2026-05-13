@@ -105,6 +105,9 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     assert.equal(preflightOutput.artifact.type, "ResolverPacket");
     assert.deepEqual(preflightOutput.packet.ownerSystems, ["src"]);
     assert.equal(preflightOutput.packet.applicableMemory[0].instruction, "Preserve bootstrap behavior.");
+    assert.ok(Array.isArray(preflightOutput.packet.resolutionTrace));
+    assert.ok(preflightOutput.packet.resolutionTrace.some((entry) => entry.step === "ownership.resolve"));
+    assert.ok(preflightOutput.packet.resolutionTrace.some((entry) => entry.step === "risk.evaluate"));
 
     const publish = runCli(["publish", "agents", "--root", root, "--json"]);
     assert.equal(publish.status, 0, publish.stderr);

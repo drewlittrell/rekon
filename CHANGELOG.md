@@ -35,3 +35,5 @@ All notable changes to Rekon will be documented in this file.
 - Tightened the documented Node engine lanes to Node 20.12, 22, and 24.
 - Added repository-wide artifact contract tests for the CLI smoke flow, artifact headers, index paths, digests, and generated artifact public-safety checks.
 - Added SDK capability conformance helpers and contract tests for built-in and example capabilities.
+- Added `resolve.preflight` `resolutionTrace` entries for ownership resolution, fallback behavior, finding/memory checks, and risk decisions.
+- Updated preflight ownership resolution to prefer `OwnershipMap`, then `ObservedRepo`, then ownership `GraphSlice`, then raw `EvidenceGraph` ownership hints.
