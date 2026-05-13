@@ -1,1 +1,441 @@
-export const packageName = "@rekon/kernel-artifacts";
+import { createHash } from "node:crypto";
+
+export type ArtifactRef = {
+  type: string;
+  id: string;
+  path?: string;
+  digest?: string;
+  schemaVersion: string;
+};
+
+export type ArtifactHeader = {
+  artifactType: string;
+  artifactId: string;
+  schemaVersion: string;
+  generatedAt: string;
+  snapshotId?: string;
+  subject: {
+    repoId: string;
+    ref?: string;
+    commit?: string;
+    paths?: string[];
+    systems?: string[];
+  };
+  producer: {
+    id: string;
+    version: string;
+  };
+  inputRefs: ArtifactRef[];
+  freshness?: {
+    status: "fresh" | "stale" | "partial" | "unknown";
+    invalidatedBy?: string[];
+  };
+  provenance?: {
+    confidence?: number;
+    notes?: string[];
+  };
+};
+
+export type JsonArtifact<TData = unknown> = {
+  header: ArtifactHeader;
+  data: TData;
+};
+
+export type ValidationIssue = {
+  path: string;
+  message: string;
+};
+
+export type ValidationResult<T> =
+  | {
+      ok: true;
+      value: T;
+      issues: [];
+    }
+  | {
+      ok: false;
+      issues: ValidationIssue[];
+    };
+
+export type ArtifactSchema<T> = {
+  validate(value: unknown): ValidationResult<T>;
+  parse(value: unknown): T;
+};
+
+const FRESHNESS_STATUSES = new Set(["fresh", "stale", "partial", "unknown"]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isIsoDateString(value: string): boolean {
+  const timestamp = Date.parse(value);
+
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+}
+
+function pushRequiredStringIssue(
+  issues: ValidationIssue[],
+  value: unknown,
+  path: string,
+): void {
+  if (!isNonEmptyString(value)) {
+    issues.push({ path, message: "Expected a non-empty string." });
+  }
+}
+
+function assertValid<T>(result: ValidationResult<T>, typeName: string): T {
+  if (result.ok) {
+    return result.value;
+  }
+
+  const details = result.issues
+    .map((issue) => `${issue.path}: ${issue.message}`)
+    .join("; ");
+
+  throw new TypeError(`${typeName} validation failed: ${details}`);
+}
+
+export function validateArtifactRef(value: unknown): ValidationResult<ArtifactRef> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      issues: [{ path: "$", message: "Expected an object." }],
+    };
+  }
+
+  pushRequiredStringIssue(issues, value.type, "$.type");
+  pushRequiredStringIssue(issues, value.id, "$.id");
+  pushRequiredStringIssue(issues, value.schemaVersion, "$.schemaVersion");
+
+  if (value.path !== undefined && typeof value.path !== "string") {
+    issues.push({ path: "$.path", message: "Expected a string when present." });
+  }
+
+  if (value.digest !== undefined && typeof value.digest !== "string") {
+    issues.push({ path: "$.digest", message: "Expected a string when present." });
+  }
+
+  if (issues.length > 0) {
+    return { ok: false, issues };
+  }
+
+  return { ok: true, value: value as ArtifactRef, issues: [] };
+}
+
+export function assertArtifactRef(value: unknown): ArtifactRef {
+  return assertValid(validateArtifactRef(value), "ArtifactRef");
+}
+
+export const artifactRefSchema: ArtifactSchema<ArtifactRef> = {
+  validate: validateArtifactRef,
+  parse: assertArtifactRef,
+};
+
+export function validateArtifactHeader(value: unknown): ValidationResult<ArtifactHeader> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      issues: [{ path: "$", message: "Expected an object." }],
+    };
+  }
+
+  pushRequiredStringIssue(issues, value.artifactType, "$.artifactType");
+  pushRequiredStringIssue(issues, value.artifactId, "$.artifactId");
+  pushRequiredStringIssue(issues, value.schemaVersion, "$.schemaVersion");
+
+  if (!isNonEmptyString(value.generatedAt)) {
+    issues.push({ path: "$.generatedAt", message: "Expected a non-empty ISO timestamp string." });
+  } else if (!isIsoDateString(value.generatedAt)) {
+    issues.push({ path: "$.generatedAt", message: "Expected an ISO timestamp string." });
+  }
+
+  if (value.snapshotId !== undefined && typeof value.snapshotId !== "string") {
+    issues.push({ path: "$.snapshotId", message: "Expected a string when present." });
+  }
+
+  if (!isRecord(value.subject)) {
+    issues.push({ path: "$.subject", message: "Expected an object." });
+  } else {
+    pushRequiredStringIssue(issues, value.subject.repoId, "$.subject.repoId");
+
+    if (value.subject.ref !== undefined && typeof value.subject.ref !== "string") {
+      issues.push({ path: "$.subject.ref", message: "Expected a string when present." });
+    }
+
+    if (value.subject.commit !== undefined && typeof value.subject.commit !== "string") {
+      issues.push({ path: "$.subject.commit", message: "Expected a string when present." });
+    }
+
+    if (value.subject.paths !== undefined && !isStringArray(value.subject.paths)) {
+      issues.push({ path: "$.subject.paths", message: "Expected an array of strings when present." });
+    }
+
+    if (value.subject.systems !== undefined && !isStringArray(value.subject.systems)) {
+      issues.push({ path: "$.subject.systems", message: "Expected an array of strings when present." });
+    }
+  }
+
+  if (!isRecord(value.producer)) {
+    issues.push({ path: "$.producer", message: "Expected an object." });
+  } else {
+    pushRequiredStringIssue(issues, value.producer.id, "$.producer.id");
+    pushRequiredStringIssue(issues, value.producer.version, "$.producer.version");
+  }
+
+  if (!Array.isArray(value.inputRefs)) {
+    issues.push({ path: "$.inputRefs", message: "Expected an array." });
+  } else {
+    value.inputRefs.forEach((inputRef, index) => {
+      const result = validateArtifactRef(inputRef);
+
+      if (!result.ok) {
+        for (const issue of result.issues) {
+          issues.push({
+            path: issue.path.replace("$", `$.inputRefs[${index}]`),
+            message: issue.message,
+          });
+        }
+      }
+    });
+  }
+
+  if (value.freshness !== undefined) {
+    if (!isRecord(value.freshness)) {
+      issues.push({ path: "$.freshness", message: "Expected an object when present." });
+    } else {
+      if (!FRESHNESS_STATUSES.has(String(value.freshness.status))) {
+        issues.push({
+          path: "$.freshness.status",
+          message: "Expected one of fresh, stale, partial, or unknown.",
+        });
+      }
+
+      if (
+        value.freshness.invalidatedBy !== undefined &&
+        !isStringArray(value.freshness.invalidatedBy)
+      ) {
+        issues.push({
+          path: "$.freshness.invalidatedBy",
+          message: "Expected an array of strings when present.",
+        });
+      }
+    }
+  }
+
+  if (value.provenance !== undefined) {
+    if (!isRecord(value.provenance)) {
+      issues.push({ path: "$.provenance", message: "Expected an object when present." });
+    } else {
+      if (
+        value.provenance.confidence !== undefined &&
+        (typeof value.provenance.confidence !== "number" ||
+          value.provenance.confidence < 0 ||
+          value.provenance.confidence > 1)
+      ) {
+        issues.push({
+          path: "$.provenance.confidence",
+          message: "Expected a number between 0 and 1 when present.",
+        });
+      }
+
+      if (value.provenance.notes !== undefined && !isStringArray(value.provenance.notes)) {
+        issues.push({
+          path: "$.provenance.notes",
+          message: "Expected an array of strings when present.",
+        });
+      }
+    }
+  }
+
+  if (issues.length > 0) {
+    return { ok: false, issues };
+  }
+
+  return { ok: true, value: value as ArtifactHeader, issues: [] };
+}
+
+export function assertArtifactHeader(value: unknown): ArtifactHeader {
+  return assertValid(validateArtifactHeader(value), "ArtifactHeader");
+}
+
+export const artifactHeaderSchema: ArtifactSchema<ArtifactHeader> = {
+  validate: validateArtifactHeader,
+  parse: assertArtifactHeader,
+};
+
+export function validateJsonArtifact<TData = unknown>(
+  value: unknown,
+): ValidationResult<JsonArtifact<TData>> {
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      issues: [{ path: "$", message: "Expected an object." }],
+    };
+  }
+
+  const headerResult = validateArtifactHeader(value.header);
+
+  if (!headerResult.ok) {
+    return {
+      ok: false,
+      issues: headerResult.issues.map((issue) => ({
+        path: issue.path.replace("$", "$.header"),
+        message: issue.message,
+      })),
+    };
+  }
+
+  if (!Object.hasOwn(value, "data")) {
+    return {
+      ok: false,
+      issues: [{ path: "$.data", message: "Expected a data property." }],
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      header: headerResult.value,
+      data: value.data as TData,
+    },
+    issues: [],
+  };
+}
+
+export function assertJsonArtifact<TData = unknown>(value: unknown): JsonArtifact<TData> {
+  return assertValid(validateJsonArtifact<TData>(value), "JsonArtifact");
+}
+
+export const jsonArtifactSchema: ArtifactSchema<JsonArtifact> = {
+  validate: validateJsonArtifact,
+  parse: assertJsonArtifact,
+};
+
+export function createArtifactRef(input: ArtifactRef): ArtifactRef {
+  return assertArtifactRef({ ...input });
+}
+
+export function createArtifactHeader(input: ArtifactHeader): ArtifactHeader {
+  return assertArtifactHeader(stripUndefinedObjectValues({
+    ...input,
+    subject: { ...input.subject },
+    producer: { ...input.producer },
+    inputRefs: input.inputRefs.map((inputRef) => ({ ...inputRef })),
+    freshness: input.freshness
+      ? {
+          ...input.freshness,
+          invalidatedBy: input.freshness.invalidatedBy
+            ? [...input.freshness.invalidatedBy]
+            : undefined,
+        }
+      : undefined,
+    provenance: input.provenance
+      ? {
+          ...input.provenance,
+          notes: input.provenance.notes ? [...input.provenance.notes] : undefined,
+      }
+      : undefined,
+  }));
+}
+
+export function createJsonArtifact<TData>(input: JsonArtifact<TData>): JsonArtifact<TData> {
+  return assertJsonArtifact<TData>({
+    header: createArtifactHeader(input.header),
+    data: input.data,
+  });
+}
+
+export function toArtifactRef(header: ArtifactHeader, input?: { path?: string; digest?: string }): ArtifactRef {
+  return createArtifactRef({
+    type: header.artifactType,
+    id: header.artifactId,
+    path: input?.path,
+    digest: input?.digest,
+    schemaVersion: header.schemaVersion,
+  });
+}
+
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(normalizeForDigest(value));
+}
+
+export function digestJson(value: unknown): string {
+  return createHash("sha256").update(canonicalJson(value)).digest("hex");
+}
+
+export function digestJsonArtifact(value: JsonArtifact): string {
+  return digestJson(createJsonArtifact(value));
+}
+
+function normalizeForDigest(value: unknown): unknown {
+  if (value === null) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeForDigest(item));
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (isRecord(value)) {
+    return Object.keys(value)
+      .sort()
+      .reduce<Record<string, unknown>>((normalized, key) => {
+        const item = value[key];
+
+        if (item !== undefined) {
+          normalized[key] = normalizeForDigest(item);
+        }
+
+        return normalized;
+      }, {});
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  throw new TypeError(`Cannot create a JSON digest for value of type ${typeof value}.`);
+}
+
+function stripUndefinedObjectValues<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedObjectValues(item)) as T;
+  }
+
+  if (isRecord(value)) {
+    return Object.entries(value).reduce<Record<string, unknown>>((stripped, [key, item]) => {
+      if (item !== undefined) {
+        stripped[key] = stripUndefinedObjectValues(item);
+      }
+
+      return stripped;
+    }, {}) as T;
+  }
+
+  return value;
+}

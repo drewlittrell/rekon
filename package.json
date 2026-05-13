@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "typecheck": "tsc -b",
-    "test": "node --test",
+    "test": "node scripts/test.mjs",
     "build": "npm run build --workspaces"
   },
   "devDependencies": {

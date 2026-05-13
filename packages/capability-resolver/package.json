@@ -1,7 +1,7 @@
 {
-  "name": "@rekon/kernel-artifacts",
+  "name": "@rekon/capability-resolver",
   "version": "0.1.0-alpha.0",
-  "description": "Rekon artifact headers, refs, schema metadata, and validation helpers.",
+  "description": "Built-in Rekon resolver capability.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -14,7 +14,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b",
     "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@rekon/kernel-artifacts": "0.1.0-alpha.0",
+    "@rekon/sdk": "0.1.0-alpha.0"
   }
 }

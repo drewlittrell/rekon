@@ -12,6 +12,7 @@
     { "path": "./packages/cli" },
     { "path": "./packages/capability-js-ts" },
     { "path": "./packages/capability-policy" },
+    { "path": "./packages/capability-resolver" },
     { "path": "./packages/capability-docs" },
     { "path": "./packages/capability-memory" },
     { "path": "./packages/capability-intent" },
