@@ -2,6 +2,12 @@
 
 Built-in Rekon resolver capability.
 
+## Stability
+
+Experimental alpha. Resolver packet fields are public alpha artifacts.
+
+## Purpose
+
 Initial resolver:
 
 - `resolve.preflight`
@@ -18,3 +24,19 @@ Ownership resolution is deterministic:
 4. raw `EvidenceGraph` `ownership_hint` fallback
 
 Every fallback and risk decision is recorded in `resolutionTrace`.
+
+## Lifecycle Fit
+
+Runs during `Resolve`, converting snapshots and indexed artifacts into a
+decision-ready packet for agents and humans.
+
+## Public Surface
+
+The default export is a Rekon capability definition with a resolver handler.
+The package also exports preflight packet types.
+
+## Import Boundary
+
+Resolvers should consume snapshots, artifact refs, and artifact readers. Do not
+scan source files directly unless the resolver explicitly declares and receives
+the needed permissions.

@@ -2,7 +2,15 @@
 
 Pure TypeScript contracts and helpers for Rekon artifacts.
 
-This package owns the universal artifact surface used by every Rekon producer and consumer:
+## Stability
+
+Stable alpha. The artifact header and ref contracts are the most conservative
+public API in Rekon.
+
+## Purpose
+
+This package owns the universal artifact surface used by every Rekon producer
+and consumer:
 
 - `ArtifactRef`
 - `ArtifactHeader`
@@ -10,7 +18,13 @@ This package owns the universal artifact surface used by every Rekon producer an
 - validation and parsing helpers
 - deterministic JSON digest helpers
 
-## Contract
+## Lifecycle Fit
+
+Every lifecycle phase emits or consumes artifacts. `@rekon/kernel-artifacts`
+defines the shared header, ref, producer, freshness, and provenance shape that
+lets those phases compose.
+
+## Public Surface
 
 Every generated Rekon artifact must include:
 
@@ -22,4 +36,7 @@ Every generated Rekon artifact must include:
 - input artifact refs
 - optional freshness and provenance metadata
 
-This package has no filesystem dependency. Artifact storage belongs in `@rekon/runtime`.
+## Import Boundary
+
+Import artifact types and helpers from this package root. Do not import runtime
+artifact-store code from here; filesystem storage belongs in `@rekon/runtime`.

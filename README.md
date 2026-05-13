@@ -1,26 +1,174 @@
 # Rekon
 
-Rekon is an open-source intelligence substrate for codebases: evidence in, typed artifacts out, extensible capabilities around a shared repository intelligence snapshot.
+Rekon is an open-source intelligence substrate for codebases: evidence in,
+typed artifacts out, extensible capabilities around a shared repository
+intelligence snapshot.
 
-Rekon is for codebase intelligence, repository intelligence, architecture-aware agent context, and governance for AI-assisted software work.
+Rekon is for codebase intelligence, repository intelligence,
+architecture-aware agent context, and governance for AI-assisted software work.
 
-## Status
+## What Rekon Is
 
-Rekon is in open-source alpha. The repository includes the public kernel contracts, SDK registry, local runtime, CLI, built-in capabilities, and a custom capability example needed to exercise the intelligence substrate end to end.
+Rekon is a local-first alpha substrate that observes a repository, writes typed
+artifacts under `.rekon/`, indexes those artifacts in an `IntelligenceSnapshot`,
+and lets capabilities project, evaluate, resolve, publish, learn, and act
+around that shared snapshot.
 
-## Naming Contract
+Naming is part of the public contract: product `Rekon`, CLI `rekon`, workspace
+`.rekon/`, environment prefix `REKON_`, and packages `@rekon/*`.
 
-- Product/system: Rekon
-- Repository: `rekon`
-- CLI binary: `rekon`
-- Workspace directory: `.rekon/`
-- Environment prefix: `REKON_`
-- SDK package: `@rekon/sdk`
-- Runtime package: `@rekon/runtime`
-- Kernel packages: `@rekon/kernel-*`
-- Capability packages: `@rekon/capability-*`
-- Package scope working convention: `@rekon/*`
-- Classic reference implementation: `codebase-intel-classic`
+The current alpha includes:
+
+- kernel packages for artifact, evidence, snapshot, graph, rulebook, findings,
+  and repository model contracts
+- a public SDK for authoring built-in and community capabilities
+- a local runtime and CLI
+- built-in JS/TS observation, model projection, graph projection, policy,
+  resolver, docs, memory, intent, and reconciliation capabilities
+- an explainable `resolve.preflight` packet with `resolutionTrace`
+- a TODO custom capability example
+
+## What Rekon Is Not
+
+Rekon is not a SaaS product, dashboard, marketplace, watcher, or auto-fixer in
+this alpha. It does not write source files by default. It does not import from
+the old `codebase-intel-classic` reference implementation. It does not treat
+published docs or memory as canonical architecture truth.
+
+## Why The Substrate Exists
+
+Agents and humans need durable codebase context that can be inspected, tested,
+and extended. Rekon makes that context explicit:
+
+- evidence facts keep provenance
+- derived artifacts point back to inputs
+- capabilities declare what they consume, produce, and require
+- resolver packets explain where answers came from
+- reconciliation is permissioned and artifact-first
+
+## Lifecycle
+
+The implemented alpha lifecycle is:
+
+`Observe -> Project -> Snapshot -> Evaluate -> Resolve -> Publish -> Learn -> Act`
+
+- `observe`: produce an `EvidenceGraph`
+- `project`: produce `ObservedRepo`, `OwnershipMap`, `CapabilityMap`, and
+  `GraphSlice` artifacts
+- `snapshot`: index artifacts in an `IntelligenceSnapshot`
+- `evaluate`: produce a `FindingReport`
+- `resolve`: produce an explainable `ResolverPacket`
+- `publish`: produce generated `Publication` artifacts
+- `learn`: record feedback and select applicable memory
+- `act`: produce work orders and safe reconciliation logs
+
+## First 10 Minutes
+
+```sh
+npm install
+npm run build
+
+node packages/cli/dist/index.js init --root examples/simple-js-ts
+node packages/cli/dist/index.js observe --root examples/simple-js-ts --json
+node packages/cli/dist/index.js project --root examples/simple-js-ts --json
+node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
+node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js publish agents --root examples/simple-js-ts
+```
+
+Then inspect the workspace:
+
+```sh
+node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
+```
+
+Full walkthrough: [docs/getting-started/first-10-minutes.md](docs/getting-started/first-10-minutes.md)
+
+## CLI Commands
+
+From a source checkout, use `node packages/cli/dist/index.js`. When installed
+as a package, the binary name is `rekon`.
+
+```sh
+node packages/cli/dist/index.js init --root examples/simple-js-ts
+node packages/cli/dist/index.js capabilities list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js observe --root examples/simple-js-ts --json
+node packages/cli/dist/index.js project --root examples/simple-js-ts --json
+node packages/cli/dist/index.js evaluate --root examples/simple-js-ts --json
+node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
+node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js publish agents --root examples/simple-js-ts
+node packages/cli/dist/index.js memory add --root examples/simple-js-ts --instruction "Preserve bootstrap behavior." --path src
+node packages/cli/dist/index.js memory list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js memory select --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js intent work-order --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js reconcile --root examples/simple-js-ts --operation docs_regeneration
+node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
+```
+
+## The `.rekon/` Workspace
+
+`rekon init` creates a local workspace in the target repo:
+
+```text
+.rekon/
+  artifacts/
+    evidence/
+    snapshots/
+    projections/
+    graphs/
+    findings/
+    resolver-packets/
+    publications/
+    actions/
+  registry/
+    artifacts.index.json
+    capabilities.index.json
+  cache/
+  config.json
+```
+
+Generated artifacts are local outputs. They are useful for inspection and tests,
+but docs and publications are not canonical truth.
+
+## Artifacts And Provenance
+
+Every Rekon artifact has an `ArtifactHeader` with schema version, generated
+time, subject repository, producer metadata, input refs, freshness, and
+provenance. The artifact index stores file paths and deterministic digests.
+
+Start with:
+
+- [Artifact contract](docs/artifacts/artifact-contract.md)
+- [Artifact model](docs/artifacts/index.md)
+- [Resolver packet](docs/artifacts/resolver-packet.md)
+
+## Capabilities
+
+Capabilities are extension packages registered through `@rekon/sdk`. Built-ins
+and community packages use the same contract:
+
+- manifest: roles, consumes, produces, permissions, invalidation, compatibility
+- handlers: evidence providers, projectors, evaluators, resolvers, publishers,
+  learners, and actuators
+- conformance: `validateCapability()` and `assertCapabilityConforms()`
+
+Start with:
+
+- [Authoring capabilities](docs/extensions/authoring-capabilities.md)
+- [Capability manifest](docs/extensions/capability-manifest.md)
+- [Security model](docs/extensions/security-model.md)
+- [Custom TODO example](examples/custom-capability/README.md)
+
+## Resolver Trace
+
+`resolve.preflight` writes a `ResolverPacket` with `resolutionTrace`. The trace
+explains ownership source precedence, fallbacks, finding and memory checks, and
+risk rules. This is the canonical example of Rekon's value: an answer with the
+artifact trail behind it.
+
+Read: [docs/concepts/resolvers.md](docs/concepts/resolvers.md)
 
 ## Packages
 
@@ -51,29 +199,23 @@ npm install
 npm run typecheck
 npm run test
 npm run build
+git diff --check
 ```
 
-## CLI Alpha Flow
+## Current Alpha Limitations
 
-```sh
-node packages/cli/dist/index.js init --root examples/simple-js-ts
-node packages/cli/dist/index.js observe --root examples/simple-js-ts --json
-node packages/cli/dist/index.js project --root examples/simple-js-ts --json
-node packages/cli/dist/index.js evaluate --root examples/simple-js-ts --json
-node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
-node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
-node packages/cli/dist/index.js publish agents --root examples/simple-js-ts --json
-```
-
-## Capability Authoring
-
-Capabilities are authored through `@rekon/sdk`. Built-ins and community
-packages use the same `defineCapability()` contract. See
-`examples/custom-capability` for a TODO detector that registers an evidence
-provider, evaluator, and publisher.
+- no watcher or freshness engine beyond current artifact metadata
+- no package marketplace or discovery
+- no cloud service, GitHub app, or dashboard
+- no source-writing reconciliation by default
+- no full `codebase-intel-classic` behavior port
+- schema validation is dependency-free and intentionally lightweight
 
 ## Architecture Rule
 
-Lower layers may feed upper layers. Upper layers may not silently become lower-layer truth.
+Lower layers may feed upper layers. Upper layers may not silently become
+lower-layer truth.
 
-Docs are publications, not canonical truth. Memory enriches resolver output; it does not rewrite architecture facts directly. Reconciliation may apply accepted changes, but only through explicit artifact writes and permissioned operations.
+Docs are publications, not canonical truth. Memory enriches resolver output; it
+does not rewrite architecture facts directly. Reconciliation may apply accepted
+changes only through explicit artifact writes and permissioned operations.

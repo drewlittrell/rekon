@@ -37,3 +37,8 @@ All notable changes to Rekon will be documented in this file.
 - Added SDK capability conformance helpers and contract tests for built-in and example capabilities.
 - Added `resolve.preflight` `resolutionTrace` entries for ownership resolution, fallback behavior, finding/memory checks, and risk decisions.
 - Updated preflight ownership resolution to prefer `OwnershipMap`, then `ObservedRepo`, then ownership `GraphSlice`, then raw `EvidenceGraph` ownership hints.
+- Reworked the root README as the alpha onboarding entry point with a 10-minute CLI walkthrough, lifecycle overview, artifact/provenance explanation, capability overview, and alpha limitations.
+- Added `docs/getting-started/first-10-minutes.md` and expanded artifact, resolver trace, extension authoring, manifest, security, package README, and contributing documentation.
+- Polished `examples/custom-capability` as the canonical TODO capability example, including conformance testing, runtime execution instructions, expected outputs, and troubleshooting.
+- Added lightweight docs contract tests for onboarding, extension authoring, artifact traceability, and contributor guidance.
+- No runtime behavior, artifact shape, or SDK public API changes were made in the alpha onboarding docs pass.

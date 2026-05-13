@@ -2,4 +2,27 @@
 
 Public Rulebook and Rule contracts for Rekon governance.
 
+## Stability
+
+Experimental alpha.
+
+## Purpose
+
 Rulebooks are typed artifacts with `ArtifactHeader`; rules declare severity, source, target artifact types, and an evaluator id.
+
+## Lifecycle Fit
+
+Rulebooks are inputs to `Evaluate`. Policy capabilities consume rulebooks and
+snapshots to produce finding reports.
+
+## Public Surface
+
+- `RuleSeverity`
+- `Rule`
+- `Rulebook`
+- rule and rulebook validation helpers
+
+## Import Boundary
+
+Import governance contracts from this package root. Evaluator implementations
+belong in capability packages, not in this kernel.

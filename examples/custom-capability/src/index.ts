@@ -7,6 +7,8 @@ import { type Evaluator, type Publisher, defineCapability } from "@rekon/sdk";
 
 const IGNORED_DIRS = new Set([".git", ".rekon", "node_modules", "dist", "build", "coverage"]);
 
+// Evidence providers are the only role here that reads source files. It emits
+// facts; it does not write artifacts directly.
 export const todoEvidenceProvider: EvidenceProvider = {
   id: "todo-comments",
   kind: "semantic",
@@ -62,6 +64,8 @@ export const todoEvidenceProvider: EvidenceProvider = {
   },
 };
 
+// Evaluators consume existing artifacts and write FindingReport artifacts.
+// This keeps TODO detection inspectable instead of hiding it in a prompt.
 export const todoEvaluator: Evaluator = {
   id: "todo.findings",
   produces: ["FindingReport"],
@@ -97,6 +101,8 @@ export const todoEvaluator: Evaluator = {
   },
 };
 
+// Publishers turn typed artifacts into user-facing publications. The
+// publication is guidance, not canonical truth.
 export const todoPublisher: Publisher = {
   id: "todo.report",
   produces: ["Publication"],
@@ -145,6 +151,7 @@ export default defineCapability({
     },
   },
   register(registry) {
+    // Built-ins and community capabilities register through the same SDK.
     registry.evidenceProvider(todoEvidenceProvider);
     registry.evaluator(todoEvaluator);
     registry.publisher(todoPublisher);
