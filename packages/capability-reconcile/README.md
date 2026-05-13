@@ -4,7 +4,12 @@ Built-in Rekon reconciliation capability.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+The default capability export and the `ReconciliationPlan` and
+`ReconciliationLog` artifact shapes are the public surface. Reconciliation
+internals are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

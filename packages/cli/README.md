@@ -4,7 +4,11 @@ Minimal Rekon command line interface.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+CLI command names, flags, and JSON output shapes are part of the public alpha
+contract. Internal command implementation is `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Lifecycle Fit
 

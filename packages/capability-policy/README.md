@@ -4,7 +4,11 @@ Built-in policy evaluator for Rekon.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+The default capability export and built-in rule metadata are the public surface.
+Rule evaluator internals are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

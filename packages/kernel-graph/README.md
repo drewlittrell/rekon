@@ -4,7 +4,11 @@ Pure graph contracts for Rekon graph slices.
 
 ## Stability
 
-Experimental alpha. Node and edge kinds are intentionally extensible.
+Label: `experimental, public`.
+
+Node and edge kinds are intentionally extensible. Symbols not re-exported from
+the package root are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

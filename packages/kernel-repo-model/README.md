@@ -4,7 +4,10 @@ Public repository model artifact contracts for Rekon.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+Symbols not re-exported from the package root are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

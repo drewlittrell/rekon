@@ -2,6 +2,13 @@
 
 Rekon is open-source from the first commit. Contributions should preserve public package boundaries and treat API, docs, examples, and generated artifacts as product surfaces.
 
+Before working on public API, capability shape, artifact contracts, or
+lifecycle behavior, read [docs/strategy/north-star.md](docs/strategy/north-star.md).
+Capability authors should also read [docs/strategy/capability-model.md](docs/strategy/capability-model.md).
+The [roadmap](docs/strategy/roadmap.md) and the
+[codebase-intel-classic migration plan](docs/strategy/codebase-intel-classic-migration.md)
+describe sequencing and where the classic reference fits.
+
 ## Setup
 
 Use Node `^20.12 || ^22 || ^24`.

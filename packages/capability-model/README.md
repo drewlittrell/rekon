@@ -4,7 +4,10 @@ Built-in Rekon model projector.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+The default capability export is the public surface. Projector internals are
+`internal`. See [docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

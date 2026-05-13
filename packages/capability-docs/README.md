@@ -4,7 +4,11 @@ Built-in Rekon publisher for generated documentation artifacts.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+The default capability export is the public surface. Publication template
+internals are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

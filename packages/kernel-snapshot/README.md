@@ -4,7 +4,11 @@ Public IntelligenceSnapshot contract for Rekon.
 
 ## Stability
 
-Stable alpha. The snapshot shape is a public kernel contract.
+Label: `experimental, public`.
+
+The snapshot shape is a public kernel contract and is scheduled to harden
+toward `stable`. Symbols not re-exported from the package root are
+`internal`. See [docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

@@ -4,8 +4,12 @@ Pure TypeScript contracts and helpers for Rekon artifacts.
 
 ## Stability
 
-Stable alpha. The artifact header and ref contracts are the most conservative
-public API in Rekon.
+Label: `experimental, public`.
+
+The artifact header and ref contracts are the most conservative public API in
+Rekon and are scheduled to move toward `stable` first. Symbols not re-exported
+from the package root are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

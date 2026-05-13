@@ -4,7 +4,12 @@ Built-in Rekon intent and work-order capability.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+The default capability export and the `IntentMap`, `WorkOrder`, and
+`VerificationPlan` artifact shapes are the public surface. Planning internals
+are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

@@ -4,6 +4,8 @@ This repository is Rekon.
 
 Rekon is open-source from the first commit. Treat public APIs, docs, package boundaries, examples, and contributor experience as product surfaces.
 
+Before any major architecture, public API, capability, or artifact-shape work, read [docs/strategy/north-star.md](docs/strategy/north-star.md). Use [docs/strategy/roadmap.md](docs/strategy/roadmap.md) for sequencing. If a planned change would contradict the NorthStar, stop and update the strategy docs before shipping.
+
 Before implementing:
 
 1. Identify the package boundary being changed.

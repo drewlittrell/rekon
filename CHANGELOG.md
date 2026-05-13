@@ -48,3 +48,14 @@ All notable changes to Rekon will be documented in this file.
 - Hardened snapshot status so missing evidence reports `unknown`, malformed indexes or incomplete projection families report `partial`, and clean evidence-backed snapshots report `fresh`.
 - Expanded full CLI smoke contract coverage to memory, intent, reconciliation, header freshness, index validation, and digest checks.
 - Added an optional `REKON_DOGFOOD_CLASSIC_ROOT` dogfood regression harness that skips cleanly when no classic checkout is configured.
+- Added durable NorthStar strategy docs in `docs/strategy/`: `north-star.md`, `capability-model.md`, `roadmap.md`, and `codebase-intel-classic-migration.md`.
+- Added `docs/release/alpha-release-checklist.md` for the `0.1.0-alpha.1` go/no-go criteria.
+- Added `docs/concepts/stability.md` describing the four stability labels (`stable`, `experimental`, `internal`, `deprecated`) and the alpha defaults for each package.
+- Added stability labels to every `packages/*/README.md`.
+- Linked strategy docs and the release checklist from `README.md`, and pointed `AGENTS.md` and `CONTRIBUTING.md` to the NorthStar.
+- Added `scripts/audit-package-exports.mjs` to inspect every workspace package for required fields, `@rekon/*` scope, license, forbidden tokens, and source imports from `codebase-intel`.
+- Added `scripts/publish-dry-run.mjs` to run `npm pack --dry-run --json` per workspace package, report tarball contents, and fail on missing READMEs, missing licenses, missing build output, accidental `.rekon/` or dogfood fixture inclusion, or other forbidden tokens. No package is ever published.
+- Added `scripts/install-smoke.mjs` to copy `examples/simple-js-ts` into a temp workspace, run the full golden CLI flow against the built CLI, and validate the resulting artifact index. Install-from-tarball smoke remains a deferred follow-up.
+- Added `scripts/audit-license.mjs` to verify the root LICENSE, the root `package.json` license, and every package license declare Apache-2.0.
+- Added docs tests for the new strategy docs, the alpha release checklist, the stability concept doc, and per-package stability labels.
+- No runtime behavior, artifact shape, or SDK public API changes were made in the alpha release readiness pass.

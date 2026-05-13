@@ -4,7 +4,11 @@ Built-in Rekon resolver capability.
 
 ## Stability
 
-Experimental alpha. Resolver packet fields are public alpha artifacts.
+Label: `experimental, public`.
+
+The default capability export and `ResolverPacket` field set are public alpha
+artifacts. Resolver internals are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

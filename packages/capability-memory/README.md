@@ -4,7 +4,11 @@ Built-in Rekon memory capability.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+The default capability export and memory artifact shapes are the public
+surface. Selection internals are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

@@ -4,7 +4,10 @@ Built-in Rekon JavaScript and TypeScript evidence capability.
 
 ## Stability
 
-Experimental alpha.
+Label: `experimental, public`.
+
+The default capability export is the public surface. Extractor internals are
+`internal`. See [docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

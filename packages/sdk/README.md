@@ -4,8 +4,12 @@ Public SDK for defining Rekon capabilities.
 
 ## Stability
 
-Experimental alpha. Capability manifests and conformance helpers are public
-extension contracts, but details can tighten before stable release.
+Label: `experimental, public`.
+
+Capability manifests, registry, and conformance helpers are public extension
+contracts. Details may tighten before a stable release. Symbols not re-exported
+from the package root are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 

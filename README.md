@@ -220,3 +220,20 @@ lower-layer truth.
 Docs are publications, not canonical truth. Memory enriches resolver output; it
 does not rewrite architecture facts directly. Reconciliation may apply accepted
 changes only through explicit artifact writes and permissioned operations.
+
+## Strategy Docs
+
+The durable plan for Rekon lives in [docs/strategy](docs/strategy):
+
+- [NorthStar](docs/strategy/north-star.md): why Rekon exists, what it is and is
+  not, lifecycle, artifact hierarchy, and architecture rule.
+- [Capability model](docs/strategy/capability-model.md): roles, manifest
+  contract, community extension model, and trust expectations.
+- [Roadmap](docs/strategy/roadmap.md): completed alpha spine, committed
+  direction, and future expansions.
+- [codebase-intel-classic migration](docs/strategy/codebase-intel-classic-migration.md):
+  mapping from the classic reference repo to Rekon roles and porting
+  criteria.
+
+The [alpha release checklist](docs/release/alpha-release-checklist.md) tracks
+the `0.1.0-alpha.1` go/no-go criteria.
