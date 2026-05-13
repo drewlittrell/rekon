@@ -2,6 +2,21 @@
 
 All notable changes to Rekon will be documented in this file.
 
+## 0.1.0-alpha.1
+
+- Bumped the workspace and every `@rekon/*` package to `0.1.0-alpha.1` (root, all 19 packages, all `@rekon/*` internal dependency ranges).
+- Recorded the public package boundary decision: all 19 packages are scheduled to publish under the `experimental, public` stability label. See `docs/release/public-package-boundaries.md`.
+- Excluded `.tsbuildinfo` from publish tarballs by relocating the TypeScript build info file out of `dist/` in every package tsconfig. `npm pack --dry-run` now reports six entries per package (README, package.json, four dist files).
+- Strengthened `scripts/publish-dry-run.mjs` to fail on `.tsbuildinfo` inclusion and to print a concise per-package summary. Existing guards against `.rekon/`, `.rekon-dev/`, dogfood fixtures, forbidden tokens, missing READMEs/licenses/dist outputs, and absolute paths remain.
+- Added `scripts/install-tarball-smoke.mjs`: packs all 19 workspace packages, installs them into a temp consumer project via `file:` dependencies, copies `examples/simple-js-ts` into the project, runs the golden CLI flow, and validates the artifact index. Tarballs and the consumer project are cleaned up at the end.
+- Added `docs/release/npm-publish-plan.md` with auth prerequisites, dependency-safe publish order, dry-run and publish command templates, post-publish smoke, and rollback/deprecate guidance. Explicit instruction: do not publish until manual approval.
+- Added `docs/release/0.1.0-alpha.1.md` release notes draft describing what Rekon is, what is included, install/use instructions, CLI flows, capability authoring, known limitations, verification commands, dogfood note, and publish status.
+- Updated `docs/release/alpha-release-checklist.md` to check off the items completed by this batch and to point at the new public package boundaries doc, npm publish plan, and release notes.
+- Fixed the `@rekon/cli` entry-point detection so the installed binary runs correctly when `process.argv[1]` points through a symlinked path (e.g., npm's `node_modules/.bin/rekon` symlink, macOS `/tmp` → `/private/tmp` resolution, or any global install location). The CLI now compares the realpath of `process.argv[1]` to the module's own file URL.
+- Added `tests/docs/release-readiness.test.mjs` covering: every workspace package at `0.1.0-alpha.1`, internal `@rekon/*` dependency ranges pinned to the same version, release readiness docs present, every workspace package listed (publish or deferred) in the public boundaries doc, npm publish plan requiring manual approval, release notes drafted, and the publish dry-run script guarding against `.tsbuildinfo`.
+- Updated `tests/docs/package-stability.test.mjs` to require `scripts/install-tarball-smoke.mjs` exists.
+- No artifact shape, kernel contract, SDK API, or capability behavior changes were made.
+
 ## 0.1.0-alpha.0
 
 - Initialized Rekon as an open-source monorepo.

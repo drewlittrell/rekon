@@ -1,6 +1,6 @@
 {
   "name": "@rekon/sdk",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Public SDK for defining Rekon capabilities.",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,7 +18,7 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/kernel-artifacts": "0.1.0-alpha.0",
-    "@rekon/kernel-evidence": "0.1.0-alpha.0"
+    "@rekon/kernel-artifacts": "0.1.0-alpha.1",
+    "@rekon/kernel-evidence": "0.1.0-alpha.1"
   }
 }

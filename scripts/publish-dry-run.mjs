@@ -12,6 +12,7 @@ const FORBIDDEN_PATH_FRAGMENTS = [
   ".rekon-dev/",
   "tests/fixtures/dogfood",
 ];
+const FORBIDDEN_FILE_SUFFIXES = [".tsbuildinfo"];
 
 const issues = [];
 const packageReports = [];
@@ -128,6 +129,17 @@ for (const dir of packageDirs) {
       }
     }
 
+    for (const suffix of FORBIDDEN_FILE_SUFFIXES) {
+      if (file.endsWith(suffix) || file.endsWith(`/${suffix}`)) {
+        report.issues.push(`tarball file ${file} ends with forbidden suffix ${suffix}`);
+        addIssue(
+          pkg.name ?? dir,
+          "forbidden-tarball-suffix",
+          `${pkg.name ?? dir}: tarball would include ${file} (forbidden suffix ${suffix})`,
+        );
+      }
+    }
+
     if (file.startsWith("/") || file.startsWith("..")) {
       report.issues.push(`tarball file ${file} is not relative to package root`);
       addIssue(
@@ -177,6 +189,16 @@ const summary = {
 };
 
 console.log(JSON.stringify(summary, null, 2));
+
+console.error("\nPer-package summary:");
+
+for (const report of packageReports) {
+  const status = report.issues.length === 0 ? "ok" : `${report.issues.length} issue(s)`;
+  const size = typeof report.size === "number" ? `${report.size} bytes` : "size unknown";
+  const entryCount = typeof report.entryCount === "number" ? `${report.entryCount} entries` : "entries unknown";
+
+  console.error(`  - ${report.name ?? report.directory}: ${status}, ${entryCount}, ${size}`);
+}
 
 if (issues.length > 0) {
   console.error(`\nPublish dry-run failed with ${issues.length} issue(s).`);

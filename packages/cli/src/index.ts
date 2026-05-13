@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import docsCapability from "@rekon/capability-docs";
 import graphCapability from "@rekon/capability-graph";
 import intentCapability from "@rekon/capability-intent";
@@ -19,11 +21,27 @@ import {
 } from "@rekon/runtime";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainEntry()) {
   main(process.argv.slice(2)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });
+}
+
+function isMainEntry(): boolean {
+  const entryArg = process.argv[1];
+
+  if (!entryArg) {
+    return false;
+  }
+
+  const modulePath = fileURLToPath(import.meta.url);
+
+  try {
+    return realpathSync(entryArg) === modulePath;
+  } catch {
+    return false;
+  }
 }
 
 export async function main(argv: string[]): Promise<void> {

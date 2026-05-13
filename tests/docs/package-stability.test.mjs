@@ -35,6 +35,7 @@ test("audit and release scripts exist", async () => {
     "audit-package-exports.mjs",
     "publish-dry-run.mjs",
     "install-smoke.mjs",
+    "install-tarball-smoke.mjs",
     "audit-license.mjs",
   ]) {
     assert.ok(scriptFiles.includes(expected), `scripts/${expected} must exist`);
