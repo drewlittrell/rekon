@@ -103,9 +103,18 @@ Document the following before release:
 - [x] A decision is recorded for which `@rekon/*` packages are public
       (see [public-package-boundaries.md](public-package-boundaries.md)).
 - [x] Workspace version is exactly `0.1.0-alpha.1`.
+- [ ] Confirm npm scope/org and dist-tag decision. Default is
+      `@rekon` scope with `--tag alpha`; record any deviation in
+      [dist-tag-decision.md](../../.rekon-dev/review-packets/dist-tag-decision.md)
+      before publishing.
+- [ ] `npm login` completed on the publishing workstation
+      (`npm whoami` returns the intended publisher).
 - [ ] A maintainer with `@rekon/*` publish rights has manually approved
       the publish per [npm-publish-plan.md](npm-publish-plan.md).
 - [ ] A release commit / tag exists for `0.1.0-alpha.1`.
+- [ ] Post-publish smoke planned with the chosen dist-tag:
+      `npm install --no-save @rekon/cli@alpha` for `--tag alpha`, or
+      `npm install --no-save @rekon/cli@0.1.0-alpha.1` for `--tag latest`.
 
 ## Rollback Notes
 
@@ -120,16 +129,21 @@ Document the following before release:
 
 ## Next Batch
 
-Release readiness work for `0.1.0-alpha.1` is complete. The next batch is
-the **Manual Publish Decision**:
+Release readiness work for `0.1.0-alpha.1` is complete and the
+**Manual Publish Decision** gate has been recorded
+([manual-publish-decision.md](../../.rekon-dev/review-packets/manual-publish-decision.md),
+[dist-tag-decision.md](../../.rekon-dev/review-packets/dist-tag-decision.md)).
 
-- Inspect the latest tarball and install-smoke results.
-- Confirm `@rekon` scope availability and publisher npm permissions.
-- Confirm npm 2FA / auth posture.
-- Decide publish vs defer.
-- If publish: follow [npm-publish-plan.md](npm-publish-plan.md) end-to-end
-  and tag the release commit.
-- If defer: open a precise blocker list and target `0.1.0-alpha.2` or
-  later.
+The remaining work is operational, not implementation:
 
-Until that batch runs, no `@rekon/*` package should be published.
+1. `npm login` on the publishing workstation.
+2. Confirm `@rekon` scope and identity per
+   [public-package-boundaries.md](public-package-boundaries.md).
+3. Confirm the dist-tag (`alpha` recommended, `latest` only on explicit
+   approval).
+4. Follow [npm-publish-plan.md](npm-publish-plan.md) end-to-end.
+5. Tag the release commit (`v0.1.0-alpha.1`).
+6. Run the post-publish smoke with the chosen dist-tag.
+
+Until those operational steps are done, no `@rekon/*` package will be
+published.

@@ -16,6 +16,7 @@ All notable changes to Rekon will be documented in this file.
 - Added `tests/docs/release-readiness.test.mjs` covering: every workspace package at `0.1.0-alpha.1`, internal `@rekon/*` dependency ranges pinned to the same version, release readiness docs present, every workspace package listed (publish or deferred) in the public boundaries doc, npm publish plan requiring manual approval, release notes drafted, and the publish dry-run script guarding against `.tsbuildinfo`.
 - Updated `tests/docs/package-stability.test.mjs` to require `scripts/install-tarball-smoke.mjs` exists.
 - No artifact shape, kernel contract, SDK API, or capability behavior changes were made.
+- Documentation-only correction to the publish posture: `docs/release/npm-publish-plan.md` now defaults to `--tag alpha` for the first public alpha, with `--tag latest` documented as the explicit opt-in if alpha should become the default install target. `docs/release/0.1.0-alpha.1.md` updates the install command to `npm install --no-save @rekon/cli@alpha` and notes that bare `npm install @rekon/cli` will not pull the alpha while the `alpha` dist-tag is in use. `docs/release/alpha-release-checklist.md` adds explicit checklist items for the scope/dist-tag decision, `npm login`, and the dist-tag-specific post-publish smoke. The decision rationale and exact commands live in `.rekon-dev/review-packets/dist-tag-decision.md`.
 
 ## 0.1.0-alpha.0
 

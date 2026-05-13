@@ -9,6 +9,27 @@ verification.
 > Publishing requires explicit manual approval from a maintainer with npm
 > publish rights on the `@rekon` scope.
 
+## dist-tag Decision
+
+npm requires `--tag` for every prerelease version (any version with a
+hyphen, e.g. `0.1.0-alpha.1`). The choice of tag is a public posture
+decision, not a workaround.
+
+**Default for `0.1.0-alpha.1`: `--tag alpha`.**
+
+- `--tag alpha` (recommended). Consumers opt in:
+  `npm install @rekon/cli@alpha`. The bare `npm install @rekon/cli`
+  resolves to nothing until a non-prerelease version exists. This
+  communicates "usable, but not the stable default".
+- `--tag latest`. Consumers get the alpha with bare
+  `npm install @rekon/cli`. Use this only if frictionless discovery
+  matters more than stability signaling. Once chosen, downgrading the
+  tag later is operationally awkward.
+
+If Drew explicitly approves `latest`, replace every `--tag alpha`
+command below with `--tag latest`, and update install docs in
+[0.1.0-alpha.1.md](0.1.0-alpha.1.md) and `README.md` to match.
+
 ## Scope Assumption
 
 - All public packages live under the `@rekon/*` npm scope.
@@ -121,18 +142,15 @@ EOF
 Before publishing for real, run a per-package dry-run from the repo root:
 
 ```sh
-npm publish --dry-run --access public --tag latest --workspace @rekon/<package>
+npm publish --dry-run --access public --tag alpha --workspace @rekon/<package>
 ```
 
 `npm publish --dry-run` does not publish. It prints the tarball contents
 and the integrity hash.
 
-`--tag latest` is **required**. npm refuses to publish a prerelease
-version (anything with a hyphen, e.g. `0.1.0-alpha.1`) without an
-explicit `--tag`. Passing `--tag latest` explicitly sets the same tag
-npm would have used for a non-prerelease version. If you want this alpha
-to be opt-in (consumers must run `npm install @rekon/cli@alpha`),
-substitute `--tag alpha`.
+`--tag` is **required**. npm refuses to publish a prerelease version
+without one. See the [dist-tag Decision](#dist-tag-decision) section for
+why this defaults to `alpha`.
 
 Run the full sequence:
 
@@ -157,7 +175,7 @@ for pkg in \
   @rekon/capability-intent \
   @rekon/capability-reconcile \
   @rekon/cli; do
-  npm publish --dry-run --access public --tag latest --workspace "$pkg"
+  npm publish --dry-run --access public --tag alpha --workspace "$pkg"
 done
 ```
 
@@ -167,21 +185,22 @@ When the manual approval is in hand, publish per package in the order
 above:
 
 ```sh
-npm publish --access public --tag latest --workspace @rekon/<package>
+npm publish --access public --tag alpha --workspace @rekon/<package>
 ```
 
 If npm 2FA on publish is enabled, provide `--otp <code>` per command:
 
 ```sh
-npm publish --access public --tag latest --otp <code> --workspace @rekon/<package>
+npm publish --access public --tag alpha --otp <code> --workspace @rekon/<package>
 ```
 
 Notes:
 
 - `--access public` is required because `@rekon/*` is a scoped name.
-- `--tag latest` is required because `0.1.0-alpha.1` is a prerelease
-  version. Use `--tag alpha` instead if alpha consumers should opt in
-  via `@alpha`.
+- `--tag alpha` is the documented default for this alpha. See
+  [dist-tag Decision](#dist-tag-decision). Substitute `--tag latest`
+  only if Drew explicitly approves making the alpha the default install
+  target.
 - `--otp` may be required depending on the publisher's npm 2FA
   settings. Each `npm publish` call is a separate registry write, so
   expect a separate OTP challenge per package.
@@ -189,25 +208,39 @@ Notes:
 ## Post-Publish Smoke
 
 After publishing every package, run from a clean directory outside the
-Rekon checkout:
+Rekon checkout. With `--tag alpha`, consumers must opt in via `@alpha`:
 
 ```sh
-mkdir /tmp/rekon-postpublish-smoke
-cd /tmp/rekon-postpublish-smoke
+tmpdir="$(mktemp -d)"
+cd "$tmpdir"
 
 npm init -y
-npm install --no-save @rekon/cli
+npm install --no-save @rekon/cli@alpha
 
 # Use the installed CLI on a tiny fixture
-mkdir fixture
-echo "console.log('hi');" > fixture/index.js
-node node_modules/.bin/rekon init --root fixture
-node node_modules/.bin/rekon observe --root fixture --json | head
-node node_modules/.bin/rekon project --root fixture --json | head
-node node_modules/.bin/rekon snapshot --root fixture --json | head
-node node_modules/.bin/rekon resolve preflight --root fixture --path index.js --goal "smoke" --json | head
-node node_modules/.bin/rekon artifacts validate --root fixture --json
+mkdir -p sample/src
+cat > sample/package.json <<'JSON'
+{ "type": "module" }
+JSON
+cat > sample/src/index.ts <<'TS'
+export function bootstrapApp() {
+  return "ok";
+}
+TS
+
+./node_modules/.bin/rekon init --root sample
+./node_modules/.bin/rekon observe --root sample --json | head
+./node_modules/.bin/rekon project --root sample --json | head
+./node_modules/.bin/rekon snapshot --root sample --json | head
+./node_modules/.bin/rekon evaluate --root sample --json | head
+./node_modules/.bin/rekon resolve preflight --root sample --path src/index.ts --goal "modify bootstrap" --json | head
+./node_modules/.bin/rekon publish agents --root sample
+./node_modules/.bin/rekon artifacts validate --root sample --json
 ```
+
+If the publish ran with `--tag latest` instead, the install command is
+`npm install --no-save @rekon/cli@0.1.0-alpha.1` (or just `@rekon/cli`).
+Everything else stays the same.
 
 Verify:
 
