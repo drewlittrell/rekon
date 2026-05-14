@@ -173,10 +173,19 @@ work order `stale` when a newer `CoherencyDelta` or
   defers the rest.
 - Not a watcher or scheduler. CLI/runtime only.
 
+## Consumed By
+
+- [Reconciliation suggestion plans](reconciliation-plans.md) read the
+  latest remediation work order (where `source === "coherency-delta"`)
+  to derive a classified set of reconciliation operations. Source-
+  write and command operations remain deferred; the work order is the
+  decision record, the suggestion plan is the operational mapping.
+
 ## Cross-References
 
 - [WorkOrder artifact](../artifacts/work-order.md)
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
+- [Reconciliation plans concept](reconciliation-plans.md)
 - [CoherencyDelta concept](coherency-delta.md)
 - [Finding lifecycle concept](finding-lifecycle.md)
 - [Resolvers](resolvers.md)

@@ -99,6 +99,20 @@ explicit NorthStar update.
   `--priority`, and `--limit` flags. Existing
   `@rekon/capability-intent.work-order` (resolver-based) is
   unchanged.
+- Reconciliation suggestion plans: `@rekon/capability-reconcile.actuator`
+  now supports a suggestion mode that consumes the latest remediation
+  `WorkOrder` (where `source === "coherency-delta"`) or
+  `CoherencyDelta` and classifies each item into a
+  `ReconciliationPlanOperation` with `class`
+  (`artifact-only`/`source-write-deferred`/`command-deferred`/
+  `manual-review`), `status`, and `requiresPermission`. Package-local
+  `ReconciliationPlan` gained an optional `summary` (per-class
+  counts) and a new `manual_review` operation for unclassified items.
+  `rekon reconcile suggest` invokes it with optional `--finding`,
+  `--priority`, `--limit`, and `--apply` flags; `--apply` applies
+  only artifact-only operations. Source-write and command operations
+  remain deferred regardless of `--apply`. Existing `rekon reconcile
+  --operation <name>` behavior is unchanged.
 
 ## Committed Direction: Hardening Batches
 

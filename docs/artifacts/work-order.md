@@ -24,6 +24,10 @@ optional `remediationItems` field differ.
 ## Consumed By
 
 - users and agents executing work
+- `@rekon/capability-reconcile.actuator` in suggestion mode reads the
+  latest remediation work order (where `source === "coherency-delta"`)
+  to classify reconciliation operations. See
+  [reconciliation-plan.md](reconciliation-plan.md).
 - future verification recorders and publishers
 
 ## Required Header Fields

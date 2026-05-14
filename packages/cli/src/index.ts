@@ -545,6 +545,50 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "reconcile" && subcommand === "suggest") {
+    const findingId = typeof parsed.flags.finding === "string" ? parsed.flags.finding : undefined;
+    const priorityFlag = typeof parsed.flags.priority === "string" ? parsed.flags.priority : undefined;
+    const limitFlag = typeof parsed.flags.limit === "string" ? Number.parseInt(parsed.flags.limit, 10) : undefined;
+    const apply = parsed.flags.apply === true;
+
+    if (priorityFlag && priorityFlag !== "p0" && priorityFlag !== "p1" && priorityFlag !== "p2") {
+      throw new Error("rekon reconcile suggest --priority must be one of p0, p1, p2.");
+    }
+
+    if (limitFlag !== undefined && (Number.isNaN(limitFlag) || limitFlag <= 0)) {
+      throw new Error("rekon reconcile suggest --limit must be a positive integer.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    await ensureCoherencyDeltaReady(runtime, root);
+
+    const refs = await runtime.runAct({
+      actuatorId: "@rekon/capability-reconcile.actuator",
+      input: {
+        mode: "suggestions",
+        findingId,
+        priority: priorityFlag,
+        limit: limitFlag,
+        apply,
+      },
+    });
+
+    const planRef = refs.find((ref) => ref.type === "ReconciliationPlan");
+    const plan = planRef ? await runtime.artifacts.read(planRef) as { summary?: unknown; operations?: unknown } : undefined;
+    const summary = plan?.summary;
+    const operations = Array.isArray(plan?.operations) ? plan?.operations : [];
+
+    writeOutput(
+      {
+        artifacts: refs,
+        summary,
+        operations,
+      },
+      json,
+    );
+    return;
+  }
+
   if (command === "reconcile") {
     const runtime = await createDefaultRuntime(root);
     const operations = parseRepeatableFlag(parsed.flags.operation);
@@ -1503,6 +1547,7 @@ function usage(): string {
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--root <path>] [--json]",
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
+    "rekon reconcile suggest [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--apply] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

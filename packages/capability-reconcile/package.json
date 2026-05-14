@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@rekon/kernel-artifacts": "0.1.0-alpha.1",
+    "@rekon/kernel-findings": "0.1.0-alpha.1",
     "@rekon/sdk": "0.1.0-alpha.1"
   },
   "devDependencies": {

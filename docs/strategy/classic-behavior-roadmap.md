@@ -117,6 +117,24 @@ scope:
   `IntentPreparationService` discipline (objective, scope, checks,
   anti-gaming) without porting the phase parser, semantic triage,
   elicitation state, or auto-apply machinery.
+- **Reconciliation plan suggestions.** ✅ Initial slice shipped.
+  `@rekon/capability-reconcile.actuator` now supports a suggestion
+  mode that consumes the latest remediation `WorkOrder` (where
+  `source === "coherency-delta"`) or `CoherencyDelta` and classifies
+  each remediation item into a `ReconciliationPlanOperation` with a
+  class (`artifact-only`, `source-write-deferred`,
+  `command-deferred`, `manual-review`), status, and
+  `requiresPermission` list. The package-local `ReconciliationPlan`
+  gained an optional `summary` and richer per-operation fields; a
+  new `manual_review` operation gives unknown items a first-class
+  home instead of being misclassified. `rekon reconcile suggest`
+  invokes it with optional `--finding`, `--priority`, `--limit`,
+  and `--apply` flags; `--apply` only applies artifact-only
+  operations. Existing `rekon reconcile --operation
+  docs_regeneration` behavior is unchanged. Aligned to classic
+  `PlanHandler` / `PlanExecutorService` discipline (deterministic-
+  first, deferred is first-class, dry-run is the default), without
+  the auto-apply path.
 
 ## Phase C — Later Maturity
 

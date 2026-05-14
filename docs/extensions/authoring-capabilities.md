@@ -204,6 +204,13 @@ Friendly shortcuts remain:
   `@rekon/capability-intent.remediation-work-order` to derive a
   governance work order from the latest `CoherencyDelta`. See
   [../concepts/remediation-work-orders.md](../concepts/remediation-work-orders.md).
+- `rekon reconcile suggest` runs
+  `@rekon/capability-reconcile.actuator` in suggestion mode to
+  classify the latest remediation work order (or `CoherencyDelta`)
+  into a `ReconciliationPlan` with per-operation class and
+  permission requirements. Source-write and command operations stay
+  deferred; `--apply` applies artifact-only operations only. See
+  [../concepts/reconciliation-plans.md](../concepts/reconciliation-plans.md).
 
 ### Why Actuator And Learner Generic Run Are Deferred
 

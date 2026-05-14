@@ -149,6 +149,11 @@ Output:
   active subset of `remediationQueue` to produce prioritized
   `WorkOrder` and `VerificationPlan` artifacts with explicit
   anti-gaming guardrails.
+- [Reconciliation suggestion plans](reconciliation-plans.md) classify
+  the remediation queue (or the upstream remediation work order's
+  items) into per-operation `ReconciliationPlanOperation` records.
+  Source-write and command operations are marked deferred; no source
+  is modified.
 
 ## What This Is Not
 

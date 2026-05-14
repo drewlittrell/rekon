@@ -26,7 +26,11 @@ projection, no remediation auto-apply.
 - `@rekon/capability-intent.remediation-work-order` (built-in)
   generates prioritized [remediation work orders](../concepts/remediation-work-orders.md)
   from the active subset of `CoherencyDelta.remediationQueue`.
-- Future reconciliation actuators that act on prioritized findings.
+- `@rekon/capability-reconcile.actuator` (built-in) in suggestion mode
+  classifies the remediation queue (or the upstream remediation work
+  order's items) into a [reconciliation plan](reconciliation-plan.md)
+  with per-operation class and permission requirements. Source-write
+  and command operations remain deferred.
 - Users and agents looking for a single artifact that summarizes
   current repository drift.
 
