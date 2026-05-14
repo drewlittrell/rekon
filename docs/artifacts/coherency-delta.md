@@ -19,7 +19,10 @@ projection, no remediation auto-apply.
 
 ## Consumed By
 
-- Future architecture-summary publishers.
+- `@rekon/capability-docs.architecture-summary` (built-in) renders the
+  [architecture summary publication](architecture-summary-publication.md)
+  from the latest CoherencyDelta plus the snapshot, ownership/
+  capability maps, and finding lifecycle.
 - Future intent / reconciliation actuators that act on prioritized
   findings.
 - Users and agents looking for a single artifact that summarizes

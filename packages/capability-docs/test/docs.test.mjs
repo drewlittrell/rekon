@@ -15,7 +15,9 @@ test("docs publisher writes metadata-bearing publication artifacts", async () =>
       capabilities: [docsCapability],
     });
     const snapshotRef = await runtime.runSnapshot();
-    const refs = await runtime.runPublish();
+    const refs = await runtime.runPublish({
+      publisherId: "@rekon/capability-docs.publisher",
+    });
 
     assert.deepEqual(refs.map((ref) => ref.type), ["Publication", "Publication"]);
 
@@ -25,6 +27,36 @@ test("docs publisher writes metadata-bearing publication artifacts", async () =>
     assert.equal(agents.kind, "agents");
     assert.match(agents.content, /Docs are publications, not canonical truth/);
     assert.equal(agents.header.inputRefs[0].type, "IntelligenceSnapshot");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("architecture summary publisher writes a Publication with the documented sections", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-arch-docs-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      capabilities: [docsCapability],
+    });
+    await runtime.runSnapshot();
+    const refs = await runtime.runPublish({
+      publisherId: "@rekon/capability-docs.architecture-summary",
+    });
+
+    assert.equal(refs.length, 1);
+    assert.equal(refs[0].type, "Publication");
+
+    const publication = await runtime.artifacts.read(refs[0]);
+    assert.equal(publication.kind, "architecture-summary");
+    assert.equal(publication.title, "Rekon Architecture Summary");
+    assert.match(publication.content, /# Rekon Architecture Summary/);
+    assert.match(publication.content, /## Repository Overview/);
+    assert.match(publication.content, /## Coherency Summary/);
+    assert.match(publication.content, /## Remediation Queue/);
+    assert.match(publication.content, /## Agent Guidance/);
+    assert.match(publication.content, /## Input Artifacts/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

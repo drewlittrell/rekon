@@ -78,6 +78,14 @@ explicit NorthStar update.
   `rekon coherency delta` writes the artifact. Active counts exclude
   accepted/ignored/resolved findings; remediation priority maps
   `critical`/`high` → `p0`, `medium` → `p1`, `low` → `p2`.
+- Architecture summary publisher: `@rekon/capability-docs` registers a
+  second publisher, `@rekon/capability-docs.architecture-summary`,
+  that consumes the latest `IntelligenceSnapshot`, `ObservedRepo`,
+  `OwnershipMap`, `CapabilityMap`, `CoherencyDelta`, and
+  `FindingLifecycleReport` and emits a Markdown governance summary
+  with repo overview, owner systems, capability map, coherency
+  summary, top affected paths, remediation queue, agent guidance, and
+  input refs. `rekon publish architecture` invokes it.
 
 ## Committed Direction: Hardening Batches
 

@@ -91,9 +91,19 @@ scope:
   `resolutionTrace`, `warnings`, `nextSteps`, and a
   `nextRequiredResolver` recommendation. Aligned to
   `lib/context/resolver.ts`'s phase model.
-- **Architecture-summary publisher.** A `Publication` capability that
-  summarizes ownership, capability map, and top findings. Aligned to
-  `services/ArchitectureDocsHandler.ts`.
+- **Architecture-summary publisher.** ✅ Initial slice shipped.
+  `@rekon/capability-docs` now registers a second publisher,
+  `@rekon/capability-docs.architecture-summary`, that consumes the
+  latest `IntelligenceSnapshot`, `ObservedRepo`, `OwnershipMap`,
+  `CapabilityMap`, `CoherencyDelta`, and `FindingLifecycleReport` and
+  emits a Markdown governance summary with repo overview, owner
+  systems, capability map, coherency summary, top affected paths,
+  remediation queue, agent guidance, and input refs.
+  `rekon publish architecture` invokes it; generic
+  `rekon publish run @rekon/capability-docs.architecture-summary` is
+  equivalent. Aligned to `services/ArchitectureDocsHandler.ts` and
+  the coherency assistant-doc projections; no per-system generated
+  doc tree, no AGENTS.md overwrite, no watcher.
 
 ## Phase C — Later Maturity
 

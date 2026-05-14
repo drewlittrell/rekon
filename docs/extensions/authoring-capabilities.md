@@ -192,6 +192,11 @@ Friendly shortcuts remain:
 - `rekon resolve preflight` runs the built-in `resolve.preflight` resolver
   with `path` / `goal` flags.
 - `rekon publish agents` runs `@rekon/capability-docs.publisher`.
+- `rekon publish architecture` runs
+  `@rekon/capability-docs.architecture-summary`, producing a Markdown
+  governance summary that consumes the latest snapshot, ownership/
+  capability maps, finding lifecycle, and coherency delta. See
+  [../artifacts/architecture-summary-publication.md](../artifacts/architecture-summary-publication.md).
 
 ### Why Actuator And Learner Generic Run Are Deferred
 

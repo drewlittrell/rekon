@@ -201,6 +201,16 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "publish" && subcommand === "architecture") {
+    const runtime = await createDefaultRuntime(root);
+    await ensureSnapshotReady(runtime);
+    const refs = await runtime.runPublish({
+      publisherId: "@rekon/capability-docs.architecture-summary",
+    });
+    writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
   if (command === "publish" && subcommand === "list") {
     const runtime = await createDefaultRuntime(root);
     const publishers = listHandlers(runtime, "publishers").map((entry) => ({
@@ -1407,6 +1417,7 @@ function usage(): string {
     "rekon evaluate run <evaluator-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon snapshot [--root <path>] [--json]",
     "rekon publish agents [--root <path>] [--json]",
+    "rekon publish architecture [--root <path>] [--json]",
     "rekon publish list [--root <path>] [--json]",
     "rekon publish run <publisher-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon memory add --instruction <text> --path <path> [--goal <goal>] [--root <path>] [--json]",

@@ -140,12 +140,19 @@ Output:
 }
 ```
 
+## Consumed By
+
+- The [architecture summary publication](architecture-summary-publication.md)
+  pulls the delta's summary, top paths, and remediation queue into a
+  single governance read for humans and agents.
+
 ## What This Is Not
 
 - Not a health score. Counts are explicit; no weighting yet.
 - Not trend analysis. Computing trend across deltas is future work.
-- Not assistant-doc projection. A future architecture-summary
-  publisher will consume the delta.
+- Not assistant-doc projection on its own. The architecture summary
+  publication renders the assistant-facing view from the delta plus
+  other artifacts.
 - Not remediation auto-apply. The queue lists work; it does not run it.
 - Not a watch alert pipeline.
 
