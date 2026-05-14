@@ -42,14 +42,19 @@ These classic wins exist today in Rekon (alpha spine):
 Small, focused batches that move classic wins forward without expanding
 scope:
 
-- **First external rule-pack example.** A community-style import-boundary
-  evaluator that consumes `EvidenceGraph` + `GraphSlice` and produces
-  `FindingReport`. Aligned to
-  `domain/issues/evaluators/imports/*`, `domain/issues/RulesResolver.ts`,
-  `services/issues/detection-phases.ts`.
+- **First external rule-pack example.** ✅ Shipped as
+  `examples/import-boundary-rule-pack`. Community-style evaluator-only
+  capability that consumes `EvidenceGraph` and produces a `FindingReport`
+  with `import_boundary.parent_relative_import` (medium) and
+  `import_boundary.generated_output_import` (high) findings. Aligned to
+  `domain/issues/evaluators/imports/*`,
+  `domain/issues/RulesResolver.ts`,
+  `services/issues/detection-phases.ts`. Operable end-to-end through
+  `rekon evaluate list` / `rekon evaluate run import-boundaries.evaluate`.
 - **Richer import governance.** Multiple import-related rules (no-dist,
   no-relative-node_modules, layer-boundary, package-public-surface)
-  shipped as rule-pack entries with stable ids.
+  shipped as rule-pack entries with stable ids — extend the rule pack
+  above or fork it.
 - **Freshness/invalidation engine.** A runtime feature that consumes
   capability `invalidatedBy` rules and updates artifact freshness on
   change events. Aligned to `lib/context-freshness.ts`,

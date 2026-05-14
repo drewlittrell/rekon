@@ -49,6 +49,11 @@ explicit NorthStar update.
   learner dispatch are intentionally deferred — actuators because of
   irreversibility risk, learners because explicit memory commands already
   cover the surface.
+- First migrated external rule pack: `examples/import-boundary-rule-pack`
+  ships an evaluator-only capability mapped to classic import-governance
+  behavior. It produces `import_boundary.parent_relative_import` (medium)
+  and `import_boundary.generated_output_import` (high) findings against
+  the JS/TS `EvidenceGraph`.
 
 ## Committed Direction: Hardening Batches
 

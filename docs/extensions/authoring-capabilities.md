@@ -224,8 +224,18 @@ A good alpha capability:
 - fails loudly when required inputs are unavailable
 - avoids source writes unless the runtime policy explicitly permits them
 
-## Reference Example
+## Reference Examples
 
-See [../../examples/custom-capability/README.md](../../examples/custom-capability/README.md)
-for a runnable TODO comment capability that implements an evidence provider,
-evaluator, and publisher.
+Two runnable external capability examples ship under `examples/`:
+
+- [TODO comment capability](../../examples/custom-capability/README.md) —
+  an evidence provider + evaluator + publisher in one package.
+- [Import boundary rule pack](../../examples/import-boundary-rule-pack/README.md) —
+  a realistic evaluator-only rule pack mapped to classic import
+  governance behavior (see
+  [../strategy/classic-behavior-distillation.md](../strategy/classic-behavior-distillation.md)).
+
+The rule-pack example is the recommended starting point for community
+evaluator authors. It demonstrates how to consume `EvidenceGraph`,
+produce a `FindingReport`, and be operated through
+`rekon evaluate list` / `rekon evaluate run <id>` end-to-end.

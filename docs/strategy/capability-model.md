@@ -211,6 +211,14 @@ artifact headers (schema version, producer metadata, input refs, provenance).
 - The runtime does not yet ship a marketplace or discovery layer.
   `.rekon/config.json` is the alpha discovery surface.
 
+Two reference external capabilities ship in this repo under `examples/`
+to demonstrate the pattern:
+
+- `examples/custom-capability/` — TODO comment capability
+  (evidence-provider + evaluator + publisher).
+- `examples/import-boundary-rule-pack/` — realistic evaluator-only rule
+  pack mapped to classic import-governance behavior.
+
 ## Trust And Security
 
 - Capabilities are executable code. Loading an external capability is a

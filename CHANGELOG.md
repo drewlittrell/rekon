@@ -53,6 +53,13 @@ All notable changes to Rekon will be documented in this file.
 - Updated `docs/strategy/north-star.md` and `docs/strategy/roadmap.md` to cross-link the new classic behavior docs.
 - Added `tests/docs/classic-behavior-distillation.test.mjs` covering: all six new strategy docs exist, every behavior family appears in the distillation, every principle appears in the wins doc, every required example appears in the translation doc, every refactor principle appears in the refactor doc, the roadmap defines phases A–D, the alignment map covers every behavior family row, `AGENTS.md` requires `CODEBASE-INTEL ALIGNMENT`, and `CONTRIBUTING.md` links the classic docs.
 - No kernel, SDK, runtime, CLI, capability, or artifact behavior changes. Docs/strategy/test pass only.
+- Added `examples/import-boundary-rule-pack/`: the first migrated external rule pack capability. Maps to `codebase-intel-classic` import governance (`domain/issues/evaluators/imports/*`, `domain/issues/RulesResolver.ts`, `services/issues/detection-phases.ts`). The package registers an evaluator with id `import-boundaries.evaluate` that consumes the latest `EvidenceGraph` and produces a `FindingReport` containing:
+  - `import_boundary.parent_relative_import` (severity: medium) — imports starting with `../`.
+  - `import_boundary.generated_output_import` (severity: high) — imports referencing `dist/` or `build/`.
+- The rule pack ships its own README, conformance test (`assertCapabilityConforms()` + synthetic-graph evaluator harness), and fixture under `fixtures/bad-imports/`. Package-level test command: `npm --prefix examples/import-boundary-rule-pack run test`.
+- Added `tests/integration/import-boundary-rule-pack-cli.test.mjs` that runs the full external rule-pack flow through the CLI (`config validate`, `capabilities list`, `capabilities inspect`, `observe`, `evaluate list`, `evaluate run import-boundaries.evaluate`, `artifacts validate`) and asserts that both finding types are emitted with the right severities. The test self-skips when `node_modules/rekon-capability-import-boundaries-example` is absent.
+- Updated `README.md`, `docs/extensions/authoring-capabilities.md`, `docs/strategy/capability-model.md`, `docs/strategy/roadmap.md`, `docs/strategy/classic-alignment-map.md`, and `docs/strategy/classic-behavior-roadmap.md` to reference the new external rule pack and mark Phase B's "first external rule-pack example" as shipped.
+- No SDK, runtime, kernel, CLI, or built-in capability behavior changes. No version bump. The example evaluator is an external capability and is not registered as a built-in.
 
 ## 0.1.0-alpha.0
 

@@ -169,6 +169,7 @@ Start with:
 - [Capability manifest](docs/extensions/capability-manifest.md)
 - [Security model](docs/extensions/security-model.md)
 - [Custom TODO example](examples/custom-capability/README.md)
+- [Import boundary rule pack example](examples/import-boundary-rule-pack/README.md)
 
 ## Resolver Trace
 
