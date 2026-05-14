@@ -28,6 +28,17 @@ and [../concepts/issue-adjudication.md](../concepts/issue-adjudication.md).
   `canonicalFindingId` / `memberFindingIds` / `groupingReasons`,
   and one remediation step per active group. See
   [coherency-delta.md](coherency-delta.md).
+- `@rekon/capability-resolver.issueResolver` (v2 adjudicated mode):
+  `resolve.issue` now prefers the latest `IssueAdjudicationReport`
+  group over raw findings. A unique group match populates
+  `IssuePacket.issueGroup`, `IssuePacket.matchSource =
+  "IssueAdjudicationReport"`, and `IssuePacket.verificationByFinding`
+  with per-member evidence (the top-level `verification` is the
+  worst status across members). Ambiguous group fragments warn and
+  do not silently choose. Missing report or no-match queries fall
+  back to raw `FindingReport` matching with an explicit
+  `issue.match / IssueAdjudicationReport` fallback trace entry.
+  See [../concepts/resolvers.md](../concepts/resolvers.md).
 - Future `resolve.issue` v2 may search adjudicated groups first,
   then fall back to `FindingReport` / `FindingLifecycleReport`.
 - For now, no other capability consumes the report yet — it is the

@@ -110,8 +110,17 @@ audited.
   active group. `rekon refresh` runs `issues.adjudicate` between
   `findings.lifecycle` and `coherency.delta`. See
   [coherency-delta.md](coherency-delta.md).
-- Future `resolve.issue` v2 may search adjudicated groups first
-  before falling back to `FindingReport` / lifecycle. Deferred.
+- As input to `resolve.issue` v2: when the latest
+  `IssueAdjudicationReport` exists, `resolve.issue` matches queries
+  against `group.id`, `canonicalFindingId`, member finding ids, and
+  unique substrings of the group's text. A unique match returns a
+  packet with `matchSource: "IssueAdjudicationReport"`,
+  `issueGroup` carrying member ids, grouping reasons, status
+  breakdown, and `verificationByFinding` aggregating per-member
+  verification (worst status wins). Ambiguous fragments warn
+  without silently choosing. Missing report or no-match queries
+  fall back to the raw `FindingReport` path with a fallback trace.
+  See [resolvers.md](resolvers.md).
 
 ## CLI Surface
 

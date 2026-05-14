@@ -77,10 +77,44 @@ Seam phase adds:
 Issue phase adds:
 
 - `query`, `issue` (matched finding summary), `relatedFindings`
+- `issueGroup` (v2 group mode only; carries the adjudicated group
+  summary including `canonicalFindingId`, `memberFindingIds`,
+  `groupingReasons`, `statusBreakdown`)
+- `matchSource` — `"IssueAdjudicationReport"` when the match came
+  from an adjudicated group, `"FindingReport"` when it came from
+  the raw fallback path, `undefined` when no match was found
 - `ownerSystems`, `matchedScopes`
 - `recommendedContext`, `requiredChecks`
 - `nextRequiredResolver` (`resolve.route` | `resolve.seam` |
   `resolve.preflight`)
+- `verification` — the worst-status `VerificationEvidenceSummary`
+  across all member findings in group mode, or the single-finding
+  summary in raw mode
+- `verificationByFinding` — per-member verification entries
+  (`findingId`, `status`, `verificationResultRef?`,
+  `verificationPlanRef?`, `workOrderRef?`); present only in group
+  mode
+
+When an [IssueAdjudicationReport](issue-adjudication-report.md)
+exists in the store, `resolve.issue` prefers adjudicated groups
+over raw findings (v2 group mode). Matching order against the
+latest report:
+
+1. exact `group.id`
+2. exact `group.canonicalFindingId`
+3. exact member `findingId` (any entry of `memberFindingIds`)
+4. unique substring across `group.id`, `canonicalFindingId`,
+   any member id, `type`, `title`, `description`, `ruleId`
+
+Ambiguous substring matches (more than one group) emit a warning
+and a `relatedFindings`-style list of candidate canonical
+findings; the resolver does **not** silently choose. When no
+adjudication report exists, or no group matches the query, the
+resolver falls back to the raw `FindingReport` / lifecycle
+matching unchanged. The fallback emits a trace entry citing the
+adjudication report (`sourceType:
+"IssueAdjudicationReport"`, `status: "fallback"`) so the trail
+explains why raw mode ran.
 
 When a [FindingStatusLedger](finding-status-ledger.md) is indexed,
 `resolve.issue` annotates the matched `issue` with effective status:
@@ -124,6 +158,16 @@ was found (`VerificationResult`, `VerificationPlan`, `WorkOrder`, or
 `Fallback`). Passing verification does **not** mutate the
 `FindingStatusLedger`, change `issue.status`, or hide the issue. See
 [../concepts/verification-results.md](../concepts/verification-results.md).
+
+In v2 group mode, verification is **aggregated across every
+member finding** by looking each id up through
+`lookupVerificationEvidence` and picking the worst status
+(`failed > partial > not-run > missing > passed`). The packet's
+top-level `verification` reflects the worst summary, while
+`verificationByFinding` carries one entry per member id so
+reviewers can see which finding contributed the worst evidence.
+Group mode never mutates findings or the status ledger; a passing
+aggregated verification still does not auto-resolve the group.
 
 `resolutionTrace` explains why the packet contains its ownership and risk
 answers. Trace entries include:

@@ -73,13 +73,38 @@ rekon resolve run <resolver-id> --root <repo> --input-json '<json>' --json
 `resolve.preflight`, and `resolve.issue` as registered handlers under
 `@rekon/capability-resolver`.
 
+`resolve.issue` prefers governed issue groups over raw findings.
+When an
+[IssueAdjudicationReport](../artifacts/issue-adjudication-report.md)
+exists in the store, the resolver matches the query against the
+latest report's `groups` first:
+
+1. exact `group.id`
+2. exact `group.canonicalFindingId`
+3. exact member `findingId`
+4. unique substring across `group.id`, `canonicalFindingId`, any
+   member id, `type`, `title`, `description`, `ruleId`
+
+A unique group match produces a packet with `matchSource:
+"IssueAdjudicationReport"`, `issueGroup` populated (carrying
+`canonicalFindingId`, `memberFindingIds`, `groupingReasons`,
+`statusBreakdown`), `issue` populated with the canonical
+finding's summary for backwards compatibility, and
+`verificationByFinding` carrying per-member verification
+evidence. Multi-match queries warn and refuse to silently choose.
+A missing report or a no-match query falls back to the raw
+`FindingReport` path with an explicit `issue.match` trace entry
+citing the adjudication report (or `Fallback` when no report
+exists). See [issue-adjudication.md](issue-adjudication.md).
+
 `resolve.issue` automatically reads the latest
 [FindingStatusLedger](../artifacts/finding-status-ledger.md) and
 annotates the matched issue with `status`, `statusSource`,
-`statusNote`, and `statusReason`. When the matched finding is
-`accepted`, `ignored`, or `resolved`, the resolver also adds a warning
-so an agent or operator can decide whether action is still required.
-See [finding-lifecycle.md](finding-lifecycle.md).
+`statusNote`, and `statusReason`. When the matched finding (or any
+adjudicated group) is `accepted`, `ignored`, `resolved`, or
+`mixed`, the resolver also adds a warning so an agent or
+operator can decide whether action is still required. See
+[finding-lifecycle.md](finding-lifecycle.md).
 
 `resolve.issue` also looks up associated verification evidence by
 matching the finding id against the `remediationItems` of the latest
@@ -97,6 +122,14 @@ finding or mutates the `FindingStatusLedger`; it only changes the
 recommended next step. See
 [../concepts/verification-results.md](verification-results.md) and
 [../artifacts/verification-result.md](../artifacts/verification-result.md).
+
+In v2 group mode, verification is aggregated across every member
+finding. The resolver calls `lookupVerificationEvidence` for each
+member id, picks the worst status
+(`failed > partial > not-run > missing > passed`), and exposes
+the per-finding breakdown in `verificationByFinding`. Group
+verification is never enough to auto-resolve a member finding or
+the group as a whole.
 
 Ownership source precedence is deterministic:
 

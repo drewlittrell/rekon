@@ -181,6 +181,16 @@ Recording a `VerificationResult` reinforces that:
   `resolutionTrace` entry. Passing verification never auto-resolves
   the finding or mutates `FindingStatusLedger`; it only changes the
   recommended next action.
+- In v2 group mode, when `resolve.issue` matches an
+  `IssueAdjudicationReport` group, it calls
+  `lookupVerificationEvidence` for **every** `memberFindingId` and
+  picks the worst status
+  (`failed > partial > not-run > missing > passed`) as the
+  packet's top-level `verification`. The per-member breakdown is
+  exposed as `IssuePacket.verificationByFinding`, so reviewers
+  can see which finding contributed the worst signal. Aggregated
+  group verification still does not auto-resolve any member
+  finding or the group as a whole.
 - `rekon intent remediation --skip-verified` calls the same helper
   for every candidate remediation item. Items whose chain resolves to
   `passed` are excluded from the new work order and reported via the

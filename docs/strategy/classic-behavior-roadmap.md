@@ -99,6 +99,33 @@ scope:
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy matching,
   false-positive scoring, automatic ignore/accept, and LLM review
   are deliberately deferred.
+- **resolve.issue v2 from IssueAdjudicationReport (P1.1 resolver
+  consumption slice).** ✅ Shipped. `resolve.issue` now prefers
+  the latest `IssueAdjudicationReport` group over raw findings.
+  Matching order: exact `group.id`, exact `canonicalFindingId`,
+  exact member `findingId`, unique substring across the group's
+  text. A unique match produces a packet with `matchSource:
+  "IssueAdjudicationReport"`, `issueGroup` populated
+  (`canonicalFindingId`, `memberFindingIds`, `groupingReasons`,
+  `statusBreakdown`), the back-compat `issue` field populated
+  with the canonical finding's summary, and
+  `verificationByFinding` aggregating per-member evidence (the
+  top-level `verification` is the worst-status summary
+  `failed > partial > not-run > missing > passed`). Ambiguous
+  group fragments warn and refuse to silently choose. Missing
+  report or no-match queries fall back to the raw `FindingReport`
+  path with an explicit fallback trace citing the adjudication
+  report. Ownership combines `group.systems` with the existing
+  OwnershipMap precedence; contradictions warn. Group-status
+  warnings appear for accepted / ignored / resolved / mixed.
+  Next-resolver decision: multi-owner → `resolve.seam`,
+  single-owner → `resolve.preflight`, no files → `resolve.route`.
+  Aligned to `services/IssueDetectionService.ts`,
+  `lib/issue-context.ts`, `services/ContextHandler.ts`.
+  Semantic / fuzzy matching, false-positive scoring, LLM review,
+  auto-resolution, and health scoring all remain deferred.
+  Publication consumption (architecture summary + agent contract)
+  is the recommended next slice.
 - **CoherencyDelta v2 from IssueAdjudicationReport (P1.1
   consumption slice).** ✅ Shipped. `buildCoherencyDelta` now
   consumes the latest `IssueAdjudicationReport` when one exists

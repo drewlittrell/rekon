@@ -12,6 +12,9 @@ import {
   type FindingStatusDecision,
   type FindingStatusDecisionReason,
   type FindingStatusLedger,
+  type IssueAdjudicationGroup,
+  type IssueAdjudicationReport,
+  type IssueAdjudicationStatus,
   findLatestDecisionForFinding,
 } from "@rekon/kernel-findings";
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
@@ -28,6 +31,7 @@ export type ResolutionTraceEntry = {
     | "GraphSlice"
     | "EvidenceGraph"
     | "FindingReport"
+    | "IssueAdjudicationReport"
     | "MemorySelection"
     | "ResolverInput"
     | "RiskRule"
@@ -282,10 +286,40 @@ export type IssueSummary = {
   statusReason?: FindingStatusDecisionReason;
 };
 
+export type IssueGroupSummary = {
+  id: string;
+  canonicalFindingId: string;
+  memberFindingIds: string[];
+  type: string;
+  ruleId?: string;
+  severity: string;
+  status: IssueAdjudicationStatus;
+  active: boolean;
+  title: string;
+  description: string;
+  files: string[];
+  subjects: string[];
+  systems?: string[];
+  suggestedAction?: string;
+  groupingKey?: string;
+  groupingReasons?: string[];
+  statusBreakdown?: Record<string, number>;
+};
+
+export type IssueVerificationByFinding = {
+  findingId: string;
+  status: VerificationEvidenceStatus;
+  verificationResultRef?: ArtifactRef;
+  verificationPlanRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+};
+
 export type IssuePacket = ResolverPacketBase & {
   phase: "issue";
   query: string;
   issue?: IssueSummary;
+  issueGroup?: IssueGroupSummary;
+  matchSource?: "IssueAdjudicationReport" | "FindingReport";
   ownerSystems: string[];
   matchedScopes: Array<{
     path: string;
@@ -302,6 +336,7 @@ export type IssuePacket = ResolverPacketBase & {
   recommendedContext: string[];
   requiredChecks: string[];
   verification?: VerificationEvidenceSummary;
+  verificationByFinding?: IssueVerificationByFinding[];
   nextRequiredResolver?: "resolve.route" | "resolve.seam" | "resolve.preflight";
 };
 
@@ -665,6 +700,57 @@ export const issueResolver: Resolver = {
       });
     }
 
+    // Prefer IssueAdjudicationReport when one exists. Group mode short-circuits
+    // the raw lookup; ambiguous group fragments also short-circuit (do not
+    // silently fall back to raw because the operator's query was deliberately
+    // group-level). Missing-report / no-match cases fall through to raw below.
+    const groupLookup = query.length > 0
+      ? await findIssueGroupMatches(artifacts, query)
+      : null;
+
+    if (groupLookup && groupLookup.match) {
+      return buildGroupIssuePacket({
+        artifacts,
+        snapshot,
+        snapshotRef,
+        query,
+        group: groupLookup.match,
+        candidateGroups: groupLookup.candidates,
+        reportRef: groupLookup.reportRef,
+        preTrace: trace,
+      });
+    }
+
+    if (groupLookup && groupLookup.matches.length > 1) {
+      return buildAmbiguousGroupIssuePacket({
+        artifacts,
+        snapshot,
+        snapshotRef,
+        query,
+        matches: groupLookup.matches,
+        reportRef: groupLookup.reportRef,
+        preTrace: trace,
+      });
+    }
+
+    if (groupLookup) {
+      trace.push({
+        step: "issue.match",
+        sourceType: "IssueAdjudicationReport",
+        sourceRef: groupLookup.reportRef,
+        status: "fallback",
+        message: `No adjudicated issue group matched query '${query}'; falling back to raw findings.`,
+        details: { groupCount: groupLookup.candidates.length },
+      });
+    } else if (query.length > 0) {
+      trace.push({
+        step: "issue.match",
+        sourceType: "Fallback",
+        status: "missing",
+        message: "No IssueAdjudicationReport indexed; using raw FindingReport fallback.",
+      });
+    }
+
     const { match: rawMatch, matches, candidates } = await findIssueMatches(artifacts, findingRefs, query);
     const match = rawMatch ? annotateIssueWithLedger(rawMatch, ledger) : null;
 
@@ -870,6 +956,7 @@ export const issueResolver: Resolver = {
       summary,
       query,
       issue: match ?? undefined,
+      matchSource: match ? "FindingReport" : undefined,
       ownerSystems: ownership.ownerSystems,
       matchedScopes: ownership.matchedScopes,
       relatedFindings,
@@ -901,6 +988,8 @@ export default defineCapability({
       "GraphSlice",
       "EvidenceGraph",
       "FindingReport",
+      "FindingStatusLedger",
+      "IssueAdjudicationReport",
       "MemorySelection",
       "WorkOrder",
       "VerificationPlan",
@@ -1096,6 +1185,553 @@ function annotateIssueWithLedger(
     statusNote: decision.note,
     statusReason: decision.reason,
   };
+}
+
+type GroupMatchResult = {
+  reportRef: ArtifactRef;
+  match: IssueAdjudicationGroup | null;
+  matches: IssueAdjudicationGroup[];
+  candidates: IssueAdjudicationGroup[];
+};
+
+async function findIssueGroupMatches(
+  artifacts: ArtifactReader,
+  query: string,
+): Promise<GroupMatchResult | null> {
+  const reportEntries = await artifacts.list("IssueAdjudicationReport");
+
+  if (reportEntries.length === 0) {
+    return null;
+  }
+
+  const sorted = [...reportEntries].sort((left, right) => right.id.localeCompare(left.id));
+  const latestEntry = sorted[0]!;
+  const report = (await artifacts.read(latestEntry)) as IssueAdjudicationReport;
+  const candidates = Array.isArray(report.groups) ? report.groups : [];
+  const reportRef: ArtifactRef = {
+    type: latestEntry.type,
+    id: latestEntry.id,
+    schemaVersion: latestEntry.schemaVersion,
+  };
+
+  if (query.length === 0) {
+    return { reportRef, match: null, matches: [], candidates };
+  }
+
+  const exactGroup = candidates.find((group) => group.id === query);
+  if (exactGroup) {
+    return { reportRef, match: exactGroup, matches: [exactGroup], candidates };
+  }
+
+  const exactCanonical = candidates.find((group) => group.canonicalFindingId === query);
+  if (exactCanonical) {
+    return { reportRef, match: exactCanonical, matches: [exactCanonical], candidates };
+  }
+
+  const exactMember = candidates.find((group) => group.memberFindingIds.includes(query));
+  if (exactMember) {
+    return { reportRef, match: exactMember, matches: [exactMember], candidates };
+  }
+
+  const lower = query.toLowerCase();
+  const matches = candidates.filter((group) => {
+    if (group.id.toLowerCase().includes(lower)) return true;
+    if (group.canonicalFindingId.toLowerCase().includes(lower)) return true;
+    if (group.memberFindingIds.some((id) => id.toLowerCase().includes(lower))) return true;
+    if (group.type.toLowerCase().includes(lower)) return true;
+    if ((group.title ?? "").toLowerCase().includes(lower)) return true;
+    if ((group.description ?? "").toLowerCase().includes(lower)) return true;
+    if ((group.ruleId ?? "").toLowerCase().includes(lower)) return true;
+    return false;
+  });
+
+  if (matches.length === 1) {
+    return { reportRef, match: matches[0]!, matches, candidates };
+  }
+
+  return { reportRef, match: null, matches, candidates };
+}
+
+function toIssueGroupSummary(group: IssueAdjudicationGroup): IssueGroupSummary {
+  return {
+    id: group.id,
+    canonicalFindingId: group.canonicalFindingId,
+    memberFindingIds: [...group.memberFindingIds],
+    type: group.type,
+    ruleId: group.ruleId,
+    severity: group.severity,
+    status: group.status,
+    active: group.active,
+    title: group.title,
+    description: group.description,
+    files: [...group.files],
+    subjects: [...group.subjects],
+    systems: group.systems ? [...group.systems] : undefined,
+    suggestedAction: group.suggestedAction,
+    groupingKey: group.groupingKey,
+    groupingReasons: [...group.groupingReasons],
+    statusBreakdown: { ...group.statusBreakdown },
+  };
+}
+
+const VERIFICATION_STATUS_RANK: Record<VerificationEvidenceStatus, number> = {
+  failed: 0,
+  partial: 1,
+  "not-run": 2,
+  missing: 3,
+  passed: 4,
+};
+
+function pickWorstVerification(
+  entries: VerificationEvidenceSummary[],
+): VerificationEvidenceSummary | undefined {
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  let worst = entries[0]!;
+  for (const candidate of entries.slice(1)) {
+    if (VERIFICATION_STATUS_RANK[candidate.status] < VERIFICATION_STATUS_RANK[worst.status]) {
+      worst = candidate;
+    }
+  }
+  return worst;
+}
+
+async function aggregateGroupVerification(
+  artifacts: ArtifactReader,
+  memberFindingIds: string[],
+): Promise<{
+  worst: VerificationEvidenceSummary | undefined;
+  perFinding: IssueVerificationByFinding[];
+}> {
+  const perFinding: IssueVerificationByFinding[] = [];
+  const summaries: VerificationEvidenceSummary[] = [];
+
+  for (const findingId of memberFindingIds) {
+    const summary = await lookupVerificationEvidence(artifacts, findingId);
+    summaries.push(summary);
+    perFinding.push({
+      findingId,
+      status: summary.status,
+      verificationResultRef: summary.verificationResultRef,
+      verificationPlanRef: summary.verificationPlanRef,
+      workOrderRef: summary.workOrderRef,
+    });
+  }
+
+  const worst = pickWorstVerification(summaries);
+  return { worst, perFinding };
+}
+
+async function buildGroupIssuePacket(args: {
+  artifacts: ArtifactReader & { write(type: string, artifact: unknown): Promise<ArtifactRef> };
+  snapshot: IntelligenceSnapshot;
+  snapshotRef: ArtifactRef;
+  query: string;
+  group: IssueAdjudicationGroup;
+  candidateGroups: IssueAdjudicationGroup[];
+  reportRef: ArtifactRef;
+  preTrace: ResolutionTraceEntry[];
+}): Promise<ArtifactRef[]> {
+  const { artifacts, snapshot, snapshotRef, query, group, candidateGroups, reportRef, preTrace } = args;
+  const trace: ResolutionTraceEntry[] = [...preTrace];
+  const warnings: string[] = [];
+
+  trace.push({
+    step: "issue.match",
+    sourceType: "IssueAdjudicationReport",
+    sourceRef: reportRef,
+    status: "used",
+    message: `Matched issue group ${group.id} (${group.memberFindingIds.length} member finding${group.memberFindingIds.length === 1 ? "" : "s"}).`,
+    paths: group.files,
+    details: {
+      groupId: group.id,
+      canonicalFindingId: group.canonicalFindingId,
+      memberFindingIds: group.memberFindingIds,
+      groupingReasons: group.groupingReasons,
+      type: group.type,
+      ruleId: group.ruleId,
+      severity: group.severity,
+      groupStatus: group.status,
+      active: group.active,
+    },
+  });
+
+  // Ownership resolution from group files.
+  let ownership: OwnershipResolution = {
+    matchedScopes: [],
+    ownerSystems: [],
+    trace: [],
+    warnings: [],
+  };
+  let nextRequiredResolver: IssuePacket["nextRequiredResolver"];
+
+  const declaredSystems = (group.systems ?? []).filter((system) => system.length > 0);
+
+  if (group.files.length > 0) {
+    ownership = await resolveOwnership({ artifacts, snapshot, paths: group.files });
+    trace.push(...ownership.trace);
+    warnings.push(...ownership.warnings);
+
+    if (declaredSystems.length > 0) {
+      trace.push({
+        step: "issue.ownership",
+        sourceType: "IssueAdjudicationReport",
+        sourceRef: reportRef,
+        status: "used",
+        message: "Combined IssueAdjudicationReport group.systems with ownership precedence.",
+        systems: declaredSystems,
+        details: {
+          declared: declaredSystems,
+          resolved: ownership.ownerSystems,
+        },
+      });
+
+      const declaredSet = new Set(declaredSystems);
+      const resolvedSet = new Set(ownership.ownerSystems);
+      const declaredNotResolved = declaredSystems.filter((system) => !resolvedSet.has(system));
+      const resolvedNotDeclared = ownership.ownerSystems.filter((system) => !declaredSet.has(system));
+
+      if (declaredNotResolved.length > 0 || resolvedNotDeclared.length > 0) {
+        warnings.push(
+          "Issue group systems differ from ownership resolution; inspect IssueAdjudicationReport and OwnershipMap.",
+        );
+      }
+    }
+
+    const combinedSystems: string[] = [];
+    for (const system of [...declaredSystems, ...ownership.ownerSystems]) {
+      if (!combinedSystems.includes(system)) {
+        combinedSystems.push(system);
+      }
+    }
+    ownership = { ...ownership, ownerSystems: combinedSystems };
+
+    if (ownership.ownerSystems.length > 1) {
+      nextRequiredResolver = "resolve.seam";
+    } else {
+      nextRequiredResolver = "resolve.preflight";
+    }
+  } else if (declaredSystems.length > 0) {
+    ownership = {
+      matchedScopes: [],
+      ownerSystems: [...declaredSystems],
+      trace: [],
+      warnings: [],
+    };
+    trace.push({
+      step: "issue.ownership",
+      sourceType: "IssueAdjudicationReport",
+      sourceRef: reportRef,
+      status: "used",
+      message: "Used IssueAdjudicationReport group.systems (no files to walk ownership through).",
+      systems: declaredSystems,
+    });
+    nextRequiredResolver = declaredSystems.length > 1 ? "resolve.seam" : "resolve.preflight";
+  } else {
+    nextRequiredResolver = "resolve.route";
+    trace.push({
+      step: "issue.ownership",
+      sourceType: "Fallback",
+      status: "warning",
+      message: "Issue group has no files or declared systems; routing must be re-established.",
+    });
+    warnings.push("Issue group has no file information; recommending route resolver.");
+  }
+
+  // Group-status warnings.
+  if (group.status === "accepted") {
+    warnings.push("Matched issue group is accepted risk/debt; verify policy before changing.");
+  } else if (group.status === "ignored") {
+    warnings.push("Matched issue group is ignored; verify before acting.");
+  } else if (group.status === "resolved") {
+    warnings.push("Matched issue group is marked resolved; confirm whether action is still needed.");
+  } else if (group.status === "mixed") {
+    warnings.push("Matched issue group has mixed member statuses; inspect statusBreakdown.");
+  }
+
+  // Verification aggregation across member findings.
+  const { worst: aggregatedVerification, perFinding } = await aggregateGroupVerification(
+    artifacts,
+    group.memberFindingIds,
+  );
+
+  if (aggregatedVerification) {
+    const verificationSourceType = pickVerificationSourceType(aggregatedVerification);
+    const verificationSourceRef = aggregatedVerification.verificationResultRef
+      ?? aggregatedVerification.verificationPlanRef
+      ?? aggregatedVerification.workOrderRef;
+    const verificationStatusEntry: ResolutionTraceEntry["status"] = aggregatedVerification.status === "passed"
+      ? "used"
+      : aggregatedVerification.status === "missing"
+        ? "missing"
+        : "warning";
+
+    trace.push({
+      step: "issue.verification",
+      sourceType: verificationSourceType,
+      sourceRef: verificationSourceRef,
+      status: verificationStatusEntry,
+      message: `${verificationTraceMessage(aggregatedVerification)} (worst of ${perFinding.length} member finding${perFinding.length === 1 ? "" : "s"}).`,
+      details: {
+        status: aggregatedVerification.status,
+        summary: aggregatedVerification.summary,
+        recordedBy: aggregatedVerification.recordedBy,
+        recordedAt: aggregatedVerification.recordedAt,
+        perFinding: perFinding.map((entry) => ({
+          findingId: entry.findingId,
+          status: entry.status,
+        })),
+      },
+    });
+
+    switch (aggregatedVerification.status) {
+      case "failed":
+        warnings.push(
+          "Associated verification failed for at least one member finding; inspect VerificationResult before acting.",
+        );
+        break;
+      case "partial":
+        warnings.push(
+          "Associated verification is partial for at least one member finding; missing checks remain.",
+        );
+        break;
+      case "not-run":
+        warnings.push("VerificationPlan exists but no VerificationResult has passed yet.");
+        break;
+      case "missing":
+        warnings.push("No verification evidence found for any member finding.");
+        break;
+      case "passed":
+        break;
+    }
+
+    for (const evidenceWarning of aggregatedVerification.warnings) {
+      if (!warnings.includes(evidenceWarning)) {
+        warnings.push(evidenceWarning);
+      }
+    }
+  }
+
+  // Build a back-compat IssueSummary from the canonical member.
+  const canonicalSummary: IssueSummary = {
+    id: group.canonicalFindingId,
+    type: group.type,
+    severity: group.severity,
+    title: group.title,
+    description: group.description,
+    files: [...group.files],
+    ruleId: group.ruleId,
+    suggestedAction: group.suggestedAction,
+  };
+
+  const relatedFindings = group.memberFindingIds
+    .filter((id) => id !== group.canonicalFindingId)
+    .slice(0, 5)
+    .map((id) => ({
+      id,
+      type: group.type,
+      severity: group.severity,
+      files: group.files,
+    }));
+
+  const otherGroupCount = candidateGroups.length - 1;
+
+  const nextStepTrace: ResolutionTraceEntry = {
+    step: "next.resolver",
+    sourceType: "Fallback",
+    status: nextRequiredResolver ? "used" : "warning",
+    message: nextRequiredResolver
+      ? `Next resolver: ${nextRequiredResolver}.`
+      : "No next resolver; issue resolution incomplete.",
+    details: { nextRequiredResolver },
+  };
+
+  const resolutionTrace = [...trace, nextStepTrace];
+  const summary = `Matched issue group ${group.id} (${group.memberFindingIds.length} member finding${group.memberFindingIds.length === 1 ? "" : "s"}, severity ${group.severity}).`;
+
+  const packet: IssuePacket = {
+    header: {
+      artifactType: "ResolverPacket",
+      artifactId: `issue-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      snapshotId: snapshot.header.artifactId,
+      subject: {
+        repoId: snapshot.repo.id,
+        ref: snapshot.repo.branch,
+        commit: snapshot.repo.commit,
+        paths: group.files,
+        systems: ownership.ownerSystems,
+      },
+      producer: {
+        id: "@rekon/capability-resolver",
+        version: "0.1.0",
+      },
+      inputRefs: appendInputRef(collectInputRefs(snapshot, snapshotRef), reportRef),
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: 0.8,
+        notes: ["resolve.issue", "IssueAdjudicationReport"],
+      },
+    },
+    resolverId: "resolve.issue",
+    phase: "issue",
+    summary,
+    query,
+    issue: canonicalSummary,
+    issueGroup: toIssueGroupSummary(group),
+    matchSource: "IssueAdjudicationReport",
+    ownerSystems: ownership.ownerSystems,
+    matchedScopes: ownership.matchedScopes,
+    relatedFindings,
+    recommendedContext: buildRecommendedContext(group.files, ownership.ownerSystems),
+    requiredChecks: ["npm run typecheck", "npm run test"],
+    verification: aggregatedVerification,
+    verificationByFinding: perFinding,
+    nextRequiredResolver,
+    warnings,
+    resolutionTrace,
+    nextSteps: groupIssueNextSteps(group, ownership.ownerSystems, aggregatedVerification, otherGroupCount),
+  };
+
+  const ref = await artifacts.write("ResolverPacket", packet);
+  return [ref];
+}
+
+async function buildAmbiguousGroupIssuePacket(args: {
+  artifacts: ArtifactReader & { write(type: string, artifact: unknown): Promise<ArtifactRef> };
+  snapshot: IntelligenceSnapshot;
+  snapshotRef: ArtifactRef;
+  query: string;
+  matches: IssueAdjudicationGroup[];
+  reportRef: ArtifactRef;
+  preTrace: ResolutionTraceEntry[];
+}): Promise<ArtifactRef[]> {
+  const { artifacts, snapshot, snapshotRef, query, matches, reportRef, preTrace } = args;
+  const trace: ResolutionTraceEntry[] = [...preTrace];
+  const warnings: string[] = [
+    `Issue query '${query}' matched ${matches.length} adjudicated groups; please refine.`,
+  ];
+
+  trace.push({
+    step: "issue.match",
+    sourceType: "IssueAdjudicationReport",
+    sourceRef: reportRef,
+    status: "warning",
+    message: `Issue query '${query}' matched ${matches.length} adjudicated groups.`,
+    details: {
+      matchedGroupIds: matches.map((group) => group.id),
+      matchedCanonicalFindingIds: matches.map((group) => group.canonicalFindingId),
+    },
+  });
+
+  const nextStepTrace: ResolutionTraceEntry = {
+    step: "next.resolver",
+    sourceType: "Fallback",
+    status: "warning",
+    message: "No next resolver; issue resolution incomplete (ambiguous group match).",
+    details: { nextRequiredResolver: undefined },
+  };
+
+  const relatedFindings = matches.slice(0, 5).map((group) => ({
+    id: group.canonicalFindingId,
+    type: group.type,
+    severity: group.severity,
+    files: group.files,
+  }));
+
+  const packet: IssuePacket = {
+    header: {
+      artifactType: "ResolverPacket",
+      artifactId: `issue-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      snapshotId: snapshot.header.artifactId,
+      subject: {
+        repoId: snapshot.repo.id,
+        ref: snapshot.repo.branch,
+        commit: snapshot.repo.commit,
+        paths: [],
+        systems: [],
+      },
+      producer: {
+        id: "@rekon/capability-resolver",
+        version: "0.1.0",
+      },
+      inputRefs: appendInputRef(collectInputRefs(snapshot, snapshotRef), reportRef),
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: 0.3,
+        notes: ["resolve.issue", "IssueAdjudicationReport"],
+      },
+    },
+    resolverId: "resolve.issue",
+    phase: "issue",
+    summary: `Ambiguous issue query '${query}'.`,
+    query,
+    matchSource: "IssueAdjudicationReport",
+    ownerSystems: [],
+    matchedScopes: [],
+    relatedFindings,
+    recommendedContext: [],
+    requiredChecks: ["npm run typecheck", "npm run test"],
+    warnings,
+    resolutionTrace: [...trace, nextStepTrace],
+    nextSteps: [
+      `Refine the query to match exactly one of: ${matches.map((group) => group.id).slice(0, 5).join(", ")}.`,
+    ],
+  };
+
+  const ref = await artifacts.write("ResolverPacket", packet);
+  return [ref];
+}
+
+function appendInputRef(refs: ArtifactRef[], extra: ArtifactRef): ArtifactRef[] {
+  if (refs.some((ref) => ref.type === extra.type && ref.id === extra.id)) {
+    return refs;
+  }
+  return [...refs, extra];
+}
+
+function groupIssueNextSteps(
+  group: IssueAdjudicationGroup,
+  ownerSystems: string[],
+  verification: VerificationEvidenceSummary | undefined,
+  otherGroupCount: number,
+): string[] {
+  const steps: string[] = [];
+
+  if (group.status === "accepted") {
+    steps.push("Confirm acceptance policy before changing this issue group.");
+  } else if (group.status === "ignored") {
+    steps.push("Re-check the ignore reason before acting on this issue group.");
+  } else if (group.status === "resolved") {
+    steps.push("Confirm whether further action is still needed for this resolved issue group.");
+  } else if (group.status === "mixed") {
+    steps.push("Inspect statusBreakdown before acting; some members are not active.");
+  }
+
+  if (verification && verification.status !== "missing" && verification.status !== "passed") {
+    steps.push(`Address verification: ${verification.status}.`);
+  }
+
+  if (ownerSystems.length === 0) {
+    steps.push("Run `rekon resolve route` to establish ownership.");
+  } else if (ownerSystems.length === 1) {
+    steps.push(`Run \`rekon resolve preflight --path <file> --goal "address ${group.type}"\`.`);
+  } else {
+    steps.push("Run `rekon resolve seam` because the group spans multiple owners.");
+  }
+
+  if (otherGroupCount > 0) {
+    steps.push(`${otherGroupCount} other adjudicated issue group${otherGroupCount === 1 ? "" : "s"} exist in this report.`);
+  }
+
+  steps.push(`Member finding ids: ${group.memberFindingIds.join(", ")}.`);
+
+  return steps;
 }
 
 async function findIssueMatches(

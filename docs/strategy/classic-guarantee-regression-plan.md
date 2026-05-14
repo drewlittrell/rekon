@@ -364,9 +364,21 @@ Implementation batches:
   `issues.adjudicate` between `findings.lifecycle` and
   `coherency.delta`. Pinned by
   `tests/contract/coherency-delta-adjudicated.test.mjs` (11 tests).
+- "resolve.issue v2 from IssueAdjudicationReport" (shipped) —
+  `resolve.issue` prefers adjudicated groups (matching exact
+  `group.id`, `canonicalFindingId`, member `findingId`, or
+  unique substring); a unique match populates
+  `IssuePacket.issueGroup`, `matchSource:
+  "IssueAdjudicationReport"`, and `verificationByFinding`
+  aggregating per-member evidence with worst-status wins.
+  Ambiguous fragments warn and refuse to silently choose.
+  Missing report or no-match queries fall back to raw findings
+  with an explicit fallback trace. Pinned by
+  `tests/contract/issue-resolver-adjudicated.test.mjs` (17 tests).
 - "Issue adjudication maturity" remains the future batch for
   cross-pack semantic dedupe, false-positive scoring, and
-  `resolve.issue` v2 integration.
+  publication-surface consumption (architecture summary + agent
+  contract should also consume adjudicated groups).
 
 ### P1.2 Memory ranking / curation
 

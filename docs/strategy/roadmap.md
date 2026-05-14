@@ -244,6 +244,24 @@ is the first stop before proposing a new capability batch.
   marks adjudication reports stale after newer
   `FindingLifecycleReport`. Semantic / fuzzy matching, LLM
   review, and `resolve.issue` v2 remain deferred.
+- resolve.issue v2 from IssueAdjudicationReport (P1.1 resolver
+  consumption slice): `resolve.issue` now prefers adjudicated
+  groups over raw findings. Unique group matches populate
+  `IssuePacket.issueGroup` (with `canonicalFindingId`,
+  `memberFindingIds`, `groupingReasons`, `statusBreakdown`),
+  `matchSource: "IssueAdjudicationReport"`, and
+  `verificationByFinding` aggregating per-member evidence (the
+  top-level `verification` is the worst-status summary across
+  members). Ambiguous fragments warn and refuse to silently
+  choose. Missing report or no-match queries fall back to raw
+  `FindingReport` matching with an explicit fallback trace.
+  Ownership combines `group.systems` with the existing
+  `OwnershipMap` precedence; contradictions warn. Group-status
+  warnings appear for accepted / ignored / resolved / mixed.
+  Next-resolver decision: multi-owner → `resolve.seam`,
+  single-owner → `resolve.preflight`, no files → `resolve.route`.
+  No artifact mutation; passing aggregated verification does not
+  auto-resolve any member finding.
 - CoherencyDelta v2 from IssueAdjudicationReport (P1.1 coherency
   consumption slice): `buildCoherencyDelta` now consumes the
   latest `IssueAdjudicationReport` when one exists, emitting one
