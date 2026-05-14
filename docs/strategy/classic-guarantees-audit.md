@@ -618,53 +618,75 @@ Classic shape that provided the guarantee:
   `packages/product-codebase-intel/src/replatform/replatform-delta-projections.ts`.
 
 What Rekon already preserves:
-- `@rekon/capability-docs` ships three publishers today:
-  - `.publisher` — `agents` + `repo-summary` publications.
+- `@rekon/capability-docs` ships four publishers today:
+  - `.publisher` — `agents` + `repo-summary` publications (indexed-
+    intelligence summary).
   - `.architecture-summary` — full governance + proof-loop
     publication (Work Orders, Reconciliation Plans, Verification
     Status, Proof Loop sections).
   - `.proof-report` — focused proof readout for the latest
     plan/result triple.
+  - **`.agent-contract` (v1 shipped)** — opinionated, agent-facing
+    operating contract. Reads snapshot/observed/ownership/
+    capability/coherency/lifecycle/work-order/reconciliation/
+    verification-plan/verification-result/memory-selection and
+    renders How To Use This Contract, Canonical Truth, Operating
+    Rules, Resolver Workflow, Ownership And Capabilities, Active
+    Governance State, Proof And Verification State, Memory
+    Guidance (with score+reasons), Required Checks, Do Not Do,
+    Next Recommended Actions, and Input Artifacts. `rekon publish
+    agent-contract` invokes it; generic dispatch is equivalent.
+    Writes only to `.rekon/artifacts/publications/agent-contract.md`;
+    root `AGENTS.md` is never overwritten.
 - Every publication cites `header.inputRefs`; preface text says
   publications are not canonical truth.
 
 What Rekon may be discounting:
-- Classic's *agent operating contract* doc was opinionated:
-  "these are the checks that must pass, these are the owners,
-  these are the rules you must not bypass." Rekon's `agents.md`
-  publication today is a thin summary of indexed intelligence; it
-  does not yet carry the same opinionated operating-contract
-  weight (required checks list, anti-gaming policy, "do not edit
-  X without preflight" rules).
+- Classic agent docs sometimes installed into root files
+  (`AGENTS.md`, `CLAUDE.md`) so agents reading those files
+  automatically saw the operating contract. The Rekon agent
+  contract is intentionally a publication only; an explicit
+  `rekon agent-contract export --output <path>` command can ship
+  later if the friction is real.
 
 Current gap:
-- The `agents` publication is a useful summary but is not yet a
-  full operating contract. Anti-gaming language lives in
-  remediation work orders and the proof report, not in the
-  agent-facing publication that an agent reads *before* it edits.
+- No optional export/install command. Operators who want the
+  contract surfaced as `AGENTS.rekon.md` (or similar) must copy
+  the markdown manually for now.
+- No PR/check publisher consumes the contract yet.
 
 Rekon equivalent guarantee:
 - A publication exists that explicitly tells an agent: "before
-  you edit code, run preflight; the required checks are X; the
-  governance rules are Y; do not modify tests, validators, or
-  rules to make a gate appear green." Cited from artifacts, not
-  hard-coded.
+  you edit code, follow the resolver flow; the required checks
+  are X; the operating rules are Y; do not modify tests /
+  validators / rules / status ledgers to make a gate appear
+  green; here is the ranked memory guidance with reasons." Cited
+  from artifacts, not hard-coded.
 
 Regression test needed:
-- After `rekon publish agents` (or a future `rekon publish
-  agent-contract`), the produced publication contains explicit
-  bullets for: required checks, anti-gaming guardrails, and the
-  expected next command before code edits. Currently the agents
-  publication has the indexed-intelligence summary; the operating
-  contract content is the gap.
+- Shipped in `tests/contract/agent-operating-contract-publisher.test.mjs`
+  (16 tests): publisher appears in `publish list`; emits a
+  `Publication` with `kind: "agent-contract"` to the documented
+  path; generic `publish run` dispatches the same handler; all 13
+  sections render; canonical-truth warning is present; operating
+  rules cover resolve-before-edit and anti-gaming; Memory Guidance
+  shows score+reasons when ranked memory exists; missing
+  MemorySelection recommends `rekon memory select`; partial /
+  failed verification surface visibly; Required Checks come from
+  `VerificationPlan` when present; `header.inputRefs` cite
+  MemorySelection / VerificationResult / WorkOrder /
+  VerificationPlan; publishing does not create a root `AGENTS.md`;
+  existing publishers still work; freshness marks the publication
+  stale after a newer MemorySelection.
 
-Priority: **P1**
+Priority: **P1 preserved (v1)**
 
-Next implementation slice: extend `@rekon/capability-docs.publisher`
-(the `agents` kind) to render an operating-contract section, or add
-a fourth `agent-contract` publisher. Either way it must consume
-the same artifacts (CoherencyDelta, WorkOrder, anti-gaming text)
-and never become canonical truth itself.
+Next implementation slice: optional `rekon agent-contract export
+--output <path>` command that writes the generated artifact to an
+explicit operator-chosen path. Still no overwrite by default; the
+export must require a clear path argument and refuse to write to
+root `AGENTS.md` / `CLAUDE.md` without explicit `--force`-style
+confirmation.
 
 ---
 

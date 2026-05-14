@@ -19,7 +19,13 @@ described in [../concepts/memory.md](../concepts/memory.md).
 
 - `@rekon/capability-resolver`'s `resolve.preflight` (reads the
   legacy `selections[*]` array to populate `applicableMemory`).
-- Future agent-operating-contract publishers and dashboards.
+- `@rekon/capability-docs.agent-contract` reads the ranked
+  `selected[*]` entries (those with `reasons`) to render the Memory
+  Guidance section of the
+  [agent operating contract](agent-contract-publication.md). Items
+  without `reasons` are intentionally excluded — the contract only
+  carries memory it can explain.
+- Future PR/check / dashboard surfaces.
 
 ## Required Header Fields
 

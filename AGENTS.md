@@ -37,6 +37,8 @@ Required checks:
 
 When agents need a coherent Rekon intelligence state for a target repo (architecture summary, resolvers, governance artifacts), prefer `rekon refresh --root <path> --json` over running the per-phase verbs manually. `rekon refresh` orchestrates the full lifecycle in the documented order and reports a structured per-step verdict. See [docs/concepts/refresh.md](docs/concepts/refresh.md) for the latest-major freshness rule and the `--skip-publish` / `--skip-freshness` opt-outs.
 
+When agents need a current operating contract for the target repo — durable operating rules, resolver workflow, current ownership/governance state, proof status, ranked memory guidance, required checks, and anti-gaming reminders, all generated from current artifacts — run `rekon publish agent-contract --root <path> --json`. The output Publication is written to `.rekon/artifacts/publications/agent-contract.md`. See [docs/concepts/agent-operating-contract.md](docs/concepts/agent-operating-contract.md). The publisher never overwrites the repository's root `AGENTS.md`.
+
 Process:
 
 - During solo alpha development, push directly to `main` after required checks pass.

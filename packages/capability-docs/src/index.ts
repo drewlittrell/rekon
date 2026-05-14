@@ -13,7 +13,7 @@ import { type Publisher, defineCapability } from "@rekon/sdk";
 
 export type PublicationArtifact = {
   header: ArtifactHeader;
-  kind: "agents" | "repo-summary" | "architecture-summary" | "proof-report";
+  kind: "agents" | "repo-summary" | "architecture-summary" | "proof-report" | "agent-contract";
   title?: string;
   path: string;
   format: "markdown";
@@ -103,6 +103,28 @@ type VerificationResultLike = {
   evidenceNotes?: string[];
   recordedBy?: string;
   recordedAt?: string;
+};
+
+type MemorySelectionItemLike = {
+  instruction?: string;
+  scope?: Record<string, unknown>;
+  confidence?: number;
+  reason?: string;
+  id?: string;
+  score?: number;
+  reasons?: string[];
+  match?: Record<string, unknown>;
+  priority?: "low" | "normal" | "high";
+  verification?: "verified" | "unverified" | "disputed";
+};
+
+type MemorySelectionLike = {
+  header: ArtifactHeader;
+  path?: string;
+  goal?: string;
+  selections?: MemorySelectionItemLike[];
+  selected?: MemorySelectionItemLike[];
+  rejected?: Array<{ id?: string; reasons?: string[] }>;
 };
 
 export const docsPublisher: Publisher = {
@@ -338,6 +360,86 @@ export const proofReportPublisher: Publisher = {
   },
 };
 
+export const agentContractPublisher: Publisher = {
+  id: "@rekon/capability-docs.agent-contract",
+  produces: ["Publication"],
+  async publish({ artifacts }) {
+    const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
+
+    if (!snapshotRef) {
+      throw new Error(
+        "Agent contract publisher requires an IntelligenceSnapshot. Run `rekon refresh` first.",
+      );
+    }
+
+    const snapshot = (await artifacts.read(snapshotRef)) as IntelligenceSnapshot;
+    const inputRefs: ArtifactRef[] = [snapshotRef];
+    const observedRepo = await readLatestArtifact<ObservedRepo>(artifacts, "ObservedRepo", inputRefs);
+    const ownershipMap = await readLatestArtifact<OwnershipMap>(artifacts, "OwnershipMap", inputRefs);
+    const capabilityMap = await readLatestArtifact<CapabilityMap>(artifacts, "CapabilityMap", inputRefs);
+    const coherencyDelta = await readLatestArtifact<CoherencyDelta>(artifacts, "CoherencyDelta", inputRefs);
+    const lifecycleReport = await readLatestArtifact<FindingLifecycleReport>(
+      artifacts,
+      "FindingLifecycleReport",
+      inputRefs,
+    );
+    const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
+    const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
+      artifacts,
+      "ReconciliationPlan",
+      inputRefs,
+    );
+    const latestVerificationPlanRef = await latestRef(artifacts, "VerificationPlan");
+    const verificationPlan = latestVerificationPlanRef
+      ? ((await artifacts.read(latestVerificationPlanRef)) as VerificationPlanLike)
+      : undefined;
+
+    if (latestVerificationPlanRef && !inputRefs.some((ref) => ref.type === latestVerificationPlanRef.type && ref.id === latestVerificationPlanRef.id)) {
+      inputRefs.push(latestVerificationPlanRef);
+    }
+
+    const verificationResult = await readLatestArtifact<VerificationResultLike>(
+      artifacts,
+      "VerificationResult",
+      inputRefs,
+    );
+    const memorySelection = await readLatestArtifact<MemorySelectionLike>(
+      artifacts,
+      "MemorySelection",
+      inputRefs,
+    );
+    const generatedAt = new Date().toISOString();
+    const publication: PublicationArtifact = {
+      header: createPublicationHeader("agent-contract", generatedAt, snapshot, inputRefs),
+      kind: "agent-contract",
+      title: "Rekon Agent Operating Contract",
+      path: ".rekon/artifacts/publications/agent-contract.md",
+      format: "markdown",
+      content: renderAgentContract({
+        snapshot,
+        observedRepo,
+        ownershipMap,
+        capabilityMap,
+        coherencyDelta,
+        lifecycleReport,
+        remediationWorkOrder: workOrders.remediation,
+        resolverWorkOrder: workOrders.resolver,
+        reconciliationPlan,
+        verificationPlan,
+        verificationPlanRef: latestVerificationPlanRef,
+        verificationResult,
+        memorySelection,
+        inputRefs,
+        generatedAt,
+      }),
+    };
+
+    const ref = await artifacts.write("Publication", publication);
+
+    return [ref];
+  },
+};
+
 export default defineCapability({
   manifest: {
     id: "@rekon/capability-docs",
@@ -356,6 +458,7 @@ export default defineCapability({
       "ReconciliationPlan",
       "VerificationPlan",
       "VerificationResult",
+      "MemorySelection",
     ],
     produces: ["Publication"],
     permissions: ["read:artifacts", "write:artifacts"],
@@ -382,6 +485,12 @@ export default defineCapability({
           "VerificationResult",
         ],
       },
+      {
+        id: "memory.changed",
+        description:
+          "Regenerate the agent contract when ranked memory selections change.",
+        inputs: ["MemorySelection"],
+      },
     ],
     compatibility: {
       rekon: "^0.1.0",
@@ -391,6 +500,7 @@ export default defineCapability({
     registry.publisher(docsPublisher);
     registry.publisher(architectureSummaryPublisher);
     registry.publisher(proofReportPublisher);
+    registry.publisher(agentContractPublisher);
   },
 });
 
@@ -1335,6 +1445,415 @@ function buildProofReportNextActions(
 
 function escapeCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\n+/g, " ");
+}
+
+type AgentContractInputs = {
+  snapshot: IntelligenceSnapshot;
+  observedRepo?: ObservedRepo;
+  ownershipMap?: OwnershipMap;
+  capabilityMap?: CapabilityMap;
+  coherencyDelta?: CoherencyDelta;
+  lifecycleReport?: FindingLifecycleReport;
+  remediationWorkOrder?: WorkOrderLike;
+  resolverWorkOrder?: WorkOrderLike;
+  reconciliationPlan?: ReconciliationPlanLike;
+  verificationPlan?: VerificationPlanLike;
+  verificationPlanRef?: ArtifactRef;
+  verificationResult?: VerificationResultLike;
+  memorySelection?: MemorySelectionLike;
+  inputRefs: ArtifactRef[];
+  generatedAt: string;
+};
+
+const DEFAULT_AGENT_CONTRACT_CHECKS = [
+  "npm run typecheck",
+  "npm run test",
+  "npm run build",
+  "rekon artifacts validate --json",
+  "rekon artifacts freshness --json",
+];
+
+const AGENT_CONTRACT_OPERATING_RULES = [
+  "Resolve route/seam/preflight before editing code.",
+  "Do not cross owner systems without resolving a seam.",
+  "Do not claim completion without a VerificationResult.",
+  "Do not weaken tests, validators, rules, status ledgers, or verification scripts to make work appear complete.",
+  "Do not mutate findings, status ledgers, or memory to hide unresolved work.",
+  "Publications are guidance; canonical truth lives in `.rekon/artifacts`.",
+];
+
+const AGENT_CONTRACT_DO_NOT_DO = [
+  "Do not bypass failing checks.",
+  "Do not remove tests or weaken validators to pass verification.",
+  "Do not change rules, findings, or status ledgers to hide work.",
+  "Do not ignore stale artifacts; re-run `rekon refresh` instead.",
+  "Do not apply source-writing reconciliation unless an explicit future capability enables it under `write:source` permission.",
+];
+
+function renderAgentContract(input: AgentContractInputs): string {
+  const {
+    snapshot,
+    observedRepo,
+    ownershipMap,
+    capabilityMap,
+    coherencyDelta,
+    lifecycleReport,
+    remediationWorkOrder,
+    resolverWorkOrder,
+    reconciliationPlan,
+    verificationPlan,
+    verificationPlanRef,
+    verificationResult,
+    memorySelection,
+    inputRefs,
+    generatedAt,
+  } = input;
+  const sections: string[] = [];
+
+  sections.push("# Rekon Agent Operating Contract");
+  sections.push("");
+  sections.push(`Generated: ${generatedAt}`);
+  sections.push(`Snapshot: ${snapshot.header.artifactId}`);
+  sections.push("");
+
+  // How To Use
+  sections.push("## How To Use This Contract");
+  sections.push("");
+  sections.push("- Read this before editing any code in this repository.");
+  sections.push("- Use it to orient your work, not to replace direct inspection of the artifacts it cites.");
+  sections.push("- This document is generated. Inspect the input artifacts when in doubt.");
+  sections.push("");
+
+  // Canonical Truth
+  sections.push("## Canonical Truth");
+  sections.push("");
+  sections.push("Canonical truth lives in `.rekon/artifacts`. This publication is generated from input artifacts and may be stale.");
+  sections.push("Run `rekon artifacts freshness --json` to verify freshness, and `rekon refresh` to rebuild the proof-loop state.");
+  sections.push("");
+
+  // Operating Rules
+  sections.push("## Operating Rules");
+  sections.push("");
+  for (const rule of AGENT_CONTRACT_OPERATING_RULES) {
+    sections.push(`- ${rule}`);
+  }
+  sections.push("");
+
+  // Resolver Workflow
+  sections.push("## Resolver Workflow");
+  sections.push("");
+  sections.push("Use the resolver flow before editing:");
+  sections.push("");
+  sections.push("```");
+  sections.push("route → seam (if cross-owner) → preflight");
+  sections.push("issue → seam/preflight (depending on owner spread)");
+  sections.push("```");
+  sections.push("");
+  sections.push("Commands:");
+  sections.push("");
+  sections.push("- `rekon resolve route --path <path> --goal <goal>`");
+  sections.push("- `rekon resolve seam --path <path> --goal <goal>`");
+  sections.push("- `rekon resolve preflight --path <path> --goal <goal>`");
+  sections.push("- `rekon resolve issue --issue <id-or-fragment>`");
+  sections.push("");
+  sections.push("Every resolver packet carries a `resolutionTrace` explaining which artifacts were consulted and why. Trust the trace over your inference.");
+  sections.push("");
+
+  // Ownership And Capabilities
+  sections.push("## Ownership And Capabilities");
+  sections.push("");
+  const systems = observedRepo?.systems ?? [];
+  const capabilities = capabilityMap?.entries ?? [];
+
+  if (systems.length === 0 && capabilities.length === 0) {
+    sections.push("No ownership/capability model found. Run `rekon refresh`.");
+    sections.push("");
+  } else {
+    if (systems.length > 0) {
+      sections.push("| System | Paths | Capabilities |");
+      sections.push("| --- | --- | --- |");
+      for (const system of systems.slice(0, 10)) {
+        sections.push(
+          `| ${system.id} | ${summarizeList(system.paths, 3)} | ${summarizeList(system.capabilities, 3)} |`,
+        );
+      }
+      if (systems.length > 10) {
+        sections.push(`| _… ${systems.length - 10} more systems_ | | |`);
+      }
+      sections.push("");
+    }
+    if (capabilities.length > 0) {
+      const truncated = capabilities.slice(0, 10);
+      sections.push("Capabilities:");
+      for (const cap of truncated) {
+        sections.push(
+          `- **${cap.capability}** — subjects: ${summarizeList(cap.subjects, 3)}; systems: ${summarizeList(cap.systems, 3)}`,
+        );
+      }
+      if (capabilities.length > 10) {
+        sections.push(`- _… ${capabilities.length - 10} more capabilities_`);
+      }
+      sections.push("");
+    }
+    if (ownershipMap) {
+      sections.push(`Ownership entries: ${ownershipMap.entries.length}.`);
+      sections.push("");
+    }
+  }
+
+  // Active Governance State
+  sections.push("## Active Governance State");
+  sections.push("");
+  if (!coherencyDelta) {
+    sections.push("No CoherencyDelta found. Run `rekon coherency delta` or `rekon refresh`.");
+    sections.push("");
+  } else {
+    const summary = coherencyDelta.summary;
+    sections.push(`- Active findings: ${summary.active}`);
+    sections.push(`- Accepted: ${summary.accepted}`);
+    sections.push(`- Ignored: ${summary.ignored}`);
+    sections.push(`- Resolved: ${summary.resolved}`);
+    sections.push("- By severity:");
+    for (const severity of ["critical", "high", "medium", "low"] as const) {
+      sections.push(`  - ${severity}: ${summary.bySeverity[severity] ?? 0}`);
+    }
+
+    if (summary.topPaths.length > 0) {
+      sections.push("");
+      sections.push("Top affected paths:");
+      for (const entry of summary.topPaths.slice(0, 5)) {
+        sections.push(`- \`${entry.path}\` (${entry.count})`);
+      }
+    }
+
+    const queue = coherencyDelta.remediationQueue ?? [];
+    if (queue.length > 0) {
+      sections.push("");
+      sections.push("Remediation queue:");
+      const counts: Record<string, number> = { p0: 0, p1: 0, p2: 0 };
+      for (const step of queue) {
+        counts[step.priority] = (counts[step.priority] ?? 0) + 1;
+      }
+      sections.push(`- P0: ${counts.p0 ?? 0}, P1: ${counts.p1 ?? 0}, P2: ${counts.p2 ?? 0}`);
+    }
+    sections.push("");
+
+    if (lifecycleReport) {
+      sections.push(
+        `Lifecycle: ${lifecycleReport.summary.active} active, ${lifecycleReport.summary.accepted} accepted, ${lifecycleReport.summary.ignored} ignored, ${lifecycleReport.summary.resolved} resolved.`,
+      );
+      sections.push("");
+    }
+  }
+
+  // Proof And Verification State
+  sections.push("## Proof And Verification State");
+  sections.push("");
+  const havePlan = Boolean(verificationPlan ?? verificationPlanRef);
+  const haveResult = Boolean(verificationResult);
+  const haveRemediationWO = Boolean(remediationWorkOrder);
+  const haveResolverWO = Boolean(resolverWorkOrder);
+  const haveReconciliation = Boolean(reconciliationPlan);
+  const resultStatus = verificationResult?.status;
+
+  sections.push(`- Remediation WorkOrder: ${haveRemediationWO ? "present" : "missing"}`);
+  sections.push(`- Resolver WorkOrder: ${haveResolverWO ? "present" : "missing"}`);
+  sections.push(`- ReconciliationPlan: ${haveReconciliation ? "present" : "missing"}`);
+  sections.push(`- VerificationPlan: ${havePlan ? "present" : "missing"}`);
+  sections.push(
+    `- VerificationResult: ${haveResult ? `status ${resultStatus ?? "not-run"}` : "missing"}`,
+  );
+
+  if (resultStatus === "failed" || resultStatus === "partial" || resultStatus === "not-run") {
+    sections.push("");
+    sections.push("> Verification is not complete.");
+  } else if (resultStatus === "passed") {
+    sections.push("");
+    sections.push("> Verification recorded as passed. This does not automatically resolve findings.");
+  }
+
+  if (verificationResult?.summary) {
+    const sum = verificationResult.summary;
+    sections.push("");
+    sections.push(
+      `Verification summary: passed ${sum.passed ?? 0} / failed ${sum.failed ?? 0} / skipped ${sum.skipped ?? 0} / not-run ${sum.notRun ?? 0}.`,
+    );
+  }
+
+  if (verificationPlanRef && verificationResult?.verificationPlanRef
+    && verificationResult.verificationPlanRef.id !== verificationPlanRef.id) {
+    sections.push("");
+    sections.push("> VerificationResult may be stale; the latest VerificationPlan differs.");
+  }
+  sections.push("");
+
+  // Memory Guidance
+  sections.push("## Memory Guidance");
+  sections.push("");
+  if (!memorySelection) {
+    sections.push("No MemorySelection found. Run `rekon memory select --path <path> --goal <goal>` to populate.");
+    sections.push("");
+  } else {
+    const selected = (memorySelection.selected ?? memorySelection.selections ?? []) as MemorySelectionItemLike[];
+    const rankedItems = selected.filter((item) => Array.isArray(item.reasons) && item.reasons.length > 0);
+
+    if (rankedItems.length === 0) {
+      sections.push("Latest MemorySelection contains no ranked entries with reasons.");
+      sections.push("Run `rekon memory select` after adding scoped memory with `rekon memory add --system <system> --priority high --verified`.");
+      sections.push("");
+    } else {
+      sections.push(`Memory query: \`${memorySelection.path ?? "(unknown)"}\``);
+      if (memorySelection.goal) {
+        sections.push(`Memory goal: \`${memorySelection.goal}\``);
+      }
+      sections.push("");
+      sections.push("| Score | Instruction | Scope | Reasons |");
+      sections.push("| --- | --- | --- | --- |");
+      for (const item of rankedItems.slice(0, 10)) {
+        const score = typeof item.score === "number" ? item.score.toFixed(2) : "—";
+        const reasons = (item.reasons ?? []).join("; ");
+        const scope = summarizeScope(item.scope);
+        const instruction = truncate(item.instruction ?? "—", 80);
+        sections.push(
+          `| ${score} | ${escapeCell(instruction)} | ${escapeCell(scope)} | ${escapeCell(reasons)} |`,
+        );
+      }
+      if (rankedItems.length > 10) {
+        sections.push(`| _… ${rankedItems.length - 10} more entries_ | | | |`);
+      }
+      sections.push("");
+      sections.push("Memory enriches guidance but does not rewrite ownership, rules, or findings.");
+      sections.push("");
+    }
+  }
+
+  // Required Checks
+  sections.push("## Required Checks");
+  sections.push("");
+  const requiredChecks = verificationPlan?.commands && verificationPlan.commands.length > 0
+    ? verificationPlan.commands
+    : DEFAULT_AGENT_CONTRACT_CHECKS;
+  for (const check of requiredChecks) {
+    sections.push(`- \`${check}\``);
+  }
+  sections.push("");
+
+  // Do Not Do
+  sections.push("## Do Not Do");
+  sections.push("");
+  for (const rule of AGENT_CONTRACT_DO_NOT_DO) {
+    sections.push(`- ${rule}`);
+  }
+  sections.push("");
+
+  // Next Recommended Actions
+  sections.push("## Next Recommended Actions");
+  sections.push("");
+  for (const action of buildAgentContractNextActions({
+    coherencyDelta,
+    haveRemediationWO,
+    haveResolverWO,
+    haveReconciliation,
+    havePlan,
+    haveResult,
+    resultStatus,
+    haveMemory: Boolean(memorySelection),
+  })) {
+    sections.push(`- ${action}`);
+  }
+  sections.push("");
+
+  // Input Artifacts
+  sections.push("## Input Artifacts");
+  sections.push("");
+  if (inputRefs.length === 0) {
+    sections.push("- _none_");
+  } else {
+    for (const ref of inputRefs) {
+      sections.push(`- ${formatRef(ref)}`);
+    }
+  }
+
+  return sections.join("\n");
+}
+
+function buildAgentContractNextActions(state: {
+  coherencyDelta?: CoherencyDelta;
+  haveRemediationWO: boolean;
+  haveResolverWO: boolean;
+  haveReconciliation: boolean;
+  havePlan: boolean;
+  haveResult: boolean;
+  resultStatus?: "passed" | "failed" | "partial" | "not-run";
+  haveMemory: boolean;
+}): string[] {
+  const actions: string[] = [];
+
+  if (!state.coherencyDelta) {
+    actions.push("Run `rekon refresh` to produce a coherent intelligence state.");
+    return actions;
+  }
+
+  const activeFindings = state.coherencyDelta.summary.active ?? 0;
+
+  if (activeFindings > 0 && !state.haveRemediationWO) {
+    actions.push("Run `rekon intent remediation` to plan work for active findings.");
+  }
+
+  if (state.haveRemediationWO && !state.haveReconciliation) {
+    actions.push("Run `rekon reconcile suggest` to classify reconciliation operations.");
+  }
+
+  if (state.havePlan && !state.haveResult) {
+    actions.push("Run `rekon verify record` to capture proof against the latest VerificationPlan.");
+  }
+
+  if (state.resultStatus === "failed" || state.resultStatus === "partial" || state.resultStatus === "not-run") {
+    actions.push("Address verification failures and re-run `rekon verify record`.");
+  }
+
+  if (!state.haveMemory) {
+    actions.push("Run `rekon memory select --path <path> --goal <goal>` to surface relevant memory guidance.");
+  }
+
+  if (actions.length === 0) {
+    actions.push("Proceed with scoped changes; re-run `rekon refresh` after completion to confirm coherent state.");
+  }
+
+  return actions;
+}
+
+function summarizeScope(scope: Record<string, unknown> | undefined): string {
+  if (!scope) {
+    return "—";
+  }
+
+  const parts: string[] = [];
+  const paths = scope.paths;
+
+  if (Array.isArray(paths) && paths.length > 0) {
+    parts.push(`paths: ${(paths as string[]).slice(0, 2).join(", ")}`);
+  }
+
+  const systems = scope.systems;
+
+  if (Array.isArray(systems) && systems.length > 0) {
+    parts.push(`systems: ${(systems as string[]).slice(0, 2).join(", ")}`);
+  }
+
+  const capabilities = scope.capabilities;
+
+  if (Array.isArray(capabilities) && capabilities.length > 0) {
+    parts.push(`capabilities: ${(capabilities as string[]).slice(0, 2).join(", ")}`);
+  }
+
+  const tags = scope.tags;
+
+  if (Array.isArray(tags) && tags.length > 0) {
+    parts.push(`tags: ${(tags as string[]).slice(0, 2).join(", ")}`);
+  }
+
+  return parts.length > 0 ? parts.join("; ") : "—";
 }
 
 function describeSnapshotCategories(snapshot: IntelligenceSnapshot): string {

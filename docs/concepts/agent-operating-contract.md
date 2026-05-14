@@ -1,0 +1,200 @@
+# Agent Operating Contract
+
+A coding agent that has not been told the operating contract of a
+repository will guess. It will infer architecture from whatever files
+it happens to read, miss current findings or proof state, ignore
+repo-specific rules, and repeat operator-corrected mistakes. The
+agent operating contract publication is the small, current, generated
+document that closes that gap.
+
+It is the Rekon-native preservation of the workflow guarantee classic
+`AGENTS.md` / `CLAUDE.md` style generated docs provided: surface the
+required checks, owner systems, anti-gaming policy, resolver flow,
+and current proof state in a medium agents reliably read — before
+they edit code.
+
+For the audit anchor, see the **Generated Docs / Agent Docs** entry
+in [../strategy/classic-guarantees-audit.md](../strategy/classic-guarantees-audit.md)
+and the **P1.3** guarantee in
+[../strategy/classic-guarantee-regression-plan.md](../strategy/classic-guarantee-regression-plan.md).
+
+## Why It Exists
+
+Before this batch the closest Rekon publication was the architecture
+summary, which is broad and audience-neutral, or the `agents` /
+`repo-summary` doc, which is a thin indexed-intelligence summary.
+Neither was an opinionated operating contract that an agent could
+read in 30 seconds and operate from.
+
+The agent operating contract is opinionated on purpose:
+
+- it states durable operating rules ("resolve before edit", "do not
+  claim completion without a VerificationResult", anti-gaming);
+- it surfaces the resolver flow as the way work starts;
+- it shows current ownership, capabilities, and governance state;
+- it includes ranked memory guidance with scores and reasons;
+- it lists required checks and a do-not-do list;
+- it recommends the next concrete command.
+
+Everything in the document derives from artifacts. The publication
+itself is downstream. It cites every input it read and can be
+regenerated from those inputs at any time.
+
+## How It Is Built
+
+`rekon publish agent-contract` invokes the
+`@rekon/capability-docs.agent-contract` publisher inside
+`@rekon/capability-docs`. The publisher:
+
+1. Reads the latest `IntelligenceSnapshot` (required; throws with
+   a "Run `rekon refresh` first" message when missing).
+2. Reads the latest `ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
+   `CoherencyDelta`, `FindingLifecycleReport` if present.
+3. Reads the latest remediation `WorkOrder` (where `source ===
+   "coherency-delta"`) and the latest resolver `WorkOrder` if either
+   exists.
+4. Reads the latest `ReconciliationPlan` if present.
+5. Reads the latest `VerificationPlan` ref directly (so it can flag
+   a stale-plan mismatch) and the latest `VerificationResult` if
+   present.
+6. Reads the latest `MemorySelection` if present.
+7. Renders the markdown contract.
+8. Writes a `Publication` artifact with `kind = "agent-contract"`
+   and full `header.inputRefs`.
+
+If an optional input is missing, the corresponding section renders
+the next command the operator should run instead of pretending the
+state is current.
+
+## Section Map
+
+| Section | Renders when... | Source artifacts |
+| --- | --- | --- |
+| How To Use This Contract | always | n/a |
+| Canonical Truth | always | n/a |
+| Operating Rules | always | n/a (durable rules) |
+| Resolver Workflow | always | n/a (durable flow) |
+| Ownership And Capabilities | `ObservedRepo` and/or `CapabilityMap` present | `ObservedRepo`, `OwnershipMap`, `CapabilityMap` |
+| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport` |
+| Proof And Verification State | always | `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, `VerificationResult` |
+| Memory Guidance | always (table only when ranked items exist) | `MemorySelection` |
+| Required Checks | always | `VerificationPlan.commands` (default fallback) |
+| Do Not Do | always | n/a (durable rules) |
+| Next Recommended Actions | always | derived from current state |
+| Input Artifacts | always | `header.inputRefs` |
+
+## Memory Guidance In Particular
+
+The Memory Guidance section reads the v1 ranked memory output.
+Entries that lack `reasons` are intentionally excluded; the
+publication only carries memory it can explain. Each row shows:
+
+- the clamped 0..1 score from the v1 ranker;
+- the operator-supplied instruction;
+- a compact scope summary (paths / systems / capabilities / tags);
+- the ranked reasons (`path-prefix-match: src`, `verified`,
+  `high-priority`, `fresh-within-30-days`, etc.).
+
+Memory enriches guidance but never rewrites ownership, rules, or
+findings. The architecture summary, the proof report, and the
+underlying canonical artifacts remain the source of truth for
+those.
+
+## Failure Visibility
+
+The Proof And Verification State section never hides incomplete
+proof. A `failed`, `partial`, or `not-run` `VerificationResult`
+surfaces an explicit `> Verification is not complete.` callout. A
+`passed` result surfaces `> Verification recorded as passed. This
+does not automatically resolve findings.` so an agent does not
+treat passing checks as automatic finding closure. When the latest
+`VerificationResult` references an older plan, the publication
+surfaces a stale-plan callout consistent with the architecture
+summary's behavior.
+
+## CLI Surface
+
+```sh
+rekon publish agent-contract --root <repo> --json
+rekon publish run @rekon/capability-docs.agent-contract --root <repo> --json
+rekon publish list --root <repo> --json
+```
+
+The shortcut and the generic dispatch produce the same artifact.
+
+## Root AGENTS.md Policy
+
+`rekon publish agent-contract` writes only to
+`.rekon/artifacts/publications/agent-contract.md`. It does not
+overwrite root `AGENTS.md`, inject into `CLAUDE.md`, or write any
+file outside `.rekon/`. A contract test
+(`publish agent-contract does not overwrite a root AGENTS.md`)
+pins this invariant. A future explicit export/install command may
+let operators publish the generated artifact to a chosen path with
+clear intent; that is deferred.
+
+## When To Use It
+
+- Before an agent edits any code in this repository.
+- After a `rekon refresh` so the contract reflects the latest
+  governance and proof state.
+- After adding or updating ranked memory (`rekon memory add` +
+  `rekon memory select`) so the new guidance surfaces.
+- Before a code review, to confirm the agent had the correct
+  operating context.
+
+## Relationship To Other Publications
+
+- The **agents** publication (`@rekon/capability-docs.publisher`,
+  `kind: "agents"`) remains a thin indexed-intelligence summary —
+  useful for orientation, not opinionated.
+- The **architecture summary** publication
+  (`@rekon/capability-docs.architecture-summary`,
+  `kind: "architecture-summary"`) is the broader governance read:
+  Repository Overview, Owner Systems, Capability Map, Coherency
+  Summary, Top Affected Paths, Remediation Queue, Work Orders,
+  Reconciliation Plans, Verification Status, Proof Loop, Agent
+  Guidance.
+- The **proof report** publication
+  (`@rekon/capability-docs.proof-report`, `kind: "proof-report"`)
+  is the focused proof readout for the latest plan / result.
+- The **agent operating contract** publication
+  (`@rekon/capability-docs.agent-contract`,
+  `kind: "agent-contract"`) is the agent-facing operating
+  contract — opinionated rules, ranked memory, anti-gaming
+  reminders, next command.
+
+Use them together. The contract is what an agent reads before
+editing; the others are deeper references the contract points at.
+
+## What This Is Not
+
+- Not canonical truth. Publications cite artifacts; artifacts are
+  the source of truth.
+- Not a watcher. The contract is regenerated on demand, not on file
+  events.
+- Not a root-file writer. No `AGENTS.md` overwrite by default.
+- Not a command runner. Required checks are listed; commands are
+  not executed.
+- Not a memory mutator. The ranked memory is consumed as-is; the
+  contract does not update operator feedback.
+- Not a CI publisher. PR/check surfaces remain Phase D.
+
+## Freshness
+
+`rekon artifacts freshness --type Publication --json` marks an
+older agent contract `stale` when any newer cited input artifact is
+indexed: `MemorySelection`, `VerificationResult`, `CoherencyDelta`,
+`WorkOrder`, `ReconciliationPlan`, ownership/capability map,
+snapshot. Rebuild with `rekon publish agent-contract`.
+
+## Cross-References
+
+- [Agent contract artifact](../artifacts/agent-contract-publication.md)
+- [Architecture summary publication](../artifacts/architecture-summary-publication.md)
+- [Proof report publication](../artifacts/proof-report-publication.md)
+- [MemorySelection](../artifacts/memory-selection.md)
+- [Memory concept](memory.md)
+- [Resolvers](resolvers.md)
+- [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
+- [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

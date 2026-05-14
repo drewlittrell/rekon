@@ -179,6 +179,16 @@ with the same legacy fields, and ranked entries surface with the
 same legacy fields plus the new `id` / `score` / `reasons` / `match`
 fields.
 
+## Publication Integration
+
+The [agent operating contract](agent-operating-contract.md) reads
+the latest `MemorySelection` and renders the ranked `selected[*]`
+entries (those with `reasons`) in its Memory Guidance section.
+Entries without `reasons` are intentionally excluded — the
+operating contract only carries memory it can explain. The
+architecture summary and proof report do not surface memory
+directly; they remain focused on governance and proof state.
+
 **Invariant:** memory cannot mutate `ownerSystems`, `risk`,
 `findings`, `status`, or `nextRequiredResolver` in a resolver
 packet. The contract test `preflight resolver includes selected

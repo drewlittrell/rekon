@@ -25,6 +25,10 @@ Proof Gates Beat Confidence Narratives").
 
 - Humans and agents reviewing whether the latest remediation work has
   proof.
+- The [agent operating contract](agent-contract-publication.md) reads
+  the same proof-loop artifacts and surfaces a passed/failed/partial
+  status line so an agent sees proof state in the operating contract
+  it reads before editing.
 - Future PR/check or dashboard surfaces (deferred).
 
 ## Required Header Fields

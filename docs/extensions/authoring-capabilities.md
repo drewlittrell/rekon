@@ -204,6 +204,15 @@ Friendly shortcuts remain:
   reconciliation context, and one Next Recommended Action line. The
   publisher does not execute commands or judge sufficiency. See
   [../artifacts/proof-report-publication.md](../artifacts/proof-report-publication.md).
+- `rekon publish agent-contract` runs
+  `@rekon/capability-docs.agent-contract`, producing an opinionated
+  agent-facing operating contract that combines current ownership,
+  governance state, proof status, ranked memory guidance (with
+  score and reasons), required checks, and anti-gaming reminders.
+  The publisher writes only to
+  `.rekon/artifacts/publications/agent-contract.md`; it does not
+  overwrite root `AGENTS.md` or any other root file. See
+  [../artifacts/agent-contract-publication.md](../artifacts/agent-contract-publication.md).
 - `rekon intent work-order` runs
   `@rekon/capability-intent.work-order` with `--path` / `--goal` flags
   to derive a resolver-based work order from a `ResolverPacket`.

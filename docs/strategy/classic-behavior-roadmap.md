@@ -244,6 +244,38 @@ scope:
   without porting the cache or per-phase checkpoint artifacts;
   Rekon's `inputRefs` + `artifacts.validate` +
   `artifacts.freshness` cover what those checkpoints recorded.
+- **Agent operating contract publication v1 (P1.3 closure).** ✅
+  Initial slice shipped. `@rekon/capability-docs` registers a
+  fourth publisher `@rekon/capability-docs.agent-contract`
+  (alongside `.publisher`, `.architecture-summary`, and
+  `.proof-report`). The publisher reads the latest available
+  `IntelligenceSnapshot`, `ObservedRepo`, `OwnershipMap`,
+  `CapabilityMap`, `CoherencyDelta`, `FindingLifecycleReport`,
+  `WorkOrder` (remediation and resolver), `ReconciliationPlan`,
+  `VerificationPlan`, `VerificationResult`, and `MemorySelection`,
+  and writes an opinionated Markdown operating contract with 13
+  sections (How To Use This Contract, Canonical Truth, Operating
+  Rules, Resolver Workflow, Ownership And Capabilities, Active
+  Governance State, Proof And Verification State, Memory Guidance,
+  Required Checks, Do Not Do, Next Recommended Actions, Input
+  Artifacts, plus title/metadata). Memory Guidance reads the v1
+  ranked `MemorySelection` and shows only items that carry
+  reasons (with score, scope, and the reason list). Failed /
+  partial / not-run verification renders an explicit "Verification
+  is not complete." callout; passing verification renders the
+  "does not automatically resolve findings" callout.
+  `PublicationArtifact.kind` widens to include `"agent-contract"`.
+  `rekon publish agent-contract` invokes the publisher; generic
+  `rekon publish run @rekon/capability-docs.agent-contract` is
+  equivalent. Root `AGENTS.md` is never overwritten — the
+  publication writes only to
+  `.rekon/artifacts/publications/agent-contract.md`. Manifest
+  `consumes` gains `MemorySelection`; new `memory.changed`
+  invalidation rule fires when ranked memory changes. Closes P1.3
+  from
+  [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
+  Optional export/install command (`rekon agent-contract export
+  --output <path>`) and PR/check integration remain future work.
 - **Memory ranking / curation v1 (P1.2 closure).** ✅ Initial
   slice shipped. `@rekon/capability-memory` now ranks
   `OperatorFeedbackEntry` recalls deterministically with reason

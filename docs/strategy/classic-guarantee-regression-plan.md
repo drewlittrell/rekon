@@ -392,22 +392,53 @@ Classic source:
   `services/ContextHandler.ts`.
 
 Current Rekon coverage:
-- `agents`, `repo-summary`, `architecture-summary`, `proof-report`
-  publications.
+- **v1 closed.** `@rekon/capability-docs.agent-contract` is the
+  fourth publisher inside `@rekon/capability-docs`. It reads the
+  latest `IntelligenceSnapshot`, `ObservedRepo`, `OwnershipMap`,
+  `CapabilityMap`, `CoherencyDelta`, `FindingLifecycleReport`,
+  `WorkOrder` (remediation and resolver), `ReconciliationPlan`,
+  `VerificationPlan`, `VerificationResult`, and `MemorySelection`
+  and writes a `Publication` with `kind: "agent-contract"`. The
+  rendered Markdown contains How To Use This Contract, Canonical
+  Truth, Operating Rules, Resolver Workflow, Ownership And
+  Capabilities, Active Governance State, Proof And Verification
+  State, Memory Guidance, Required Checks, Do Not Do, Next
+  Recommended Actions, and Input Artifacts sections. Memory
+  Guidance shows score and reasons; failed/partial/not-run
+  verification is visible; passing verification surfaces the
+  "does not automatically resolve findings" callout. Root
+  `AGENTS.md` is never overwritten — the publication writes only
+  to `.rekon/artifacts/publications/agent-contract.md`.
+- The existing `agents`, `repo-summary`, `architecture-summary`,
+  and `proof-report` publications are unchanged and continue to
+  cover their respective audiences.
 
 Missing coverage:
-- The `agents` publication is currently a thin summary; it does
-  not yet carry an opinionated operating-contract section.
+- Optional export/install command (`rekon agent-contract export
+  --output AGENTS.rekon.md`) is deferred.
+- Future PR/check integration could consume the published
+  artifact as a "what the agent saw" attestation.
 
 Proposed regression test:
-- `tests/contract/agent-operating-contract.test.mjs`: after
-  `rekon publish agents` (or a successor publisher), assert the
-  publication content contains explicit bullets for required
-  checks, anti-gaming guardrails, and the expected next command.
+- Shipped in `tests/contract/agent-operating-contract-publisher.test.mjs`
+  (16 tests): publish list includes the new publisher; the
+  publication exists with `kind: "agent-contract"` and writes to
+  the documented path; generic `publish run` dispatches the same
+  handler; all 13 sections render; canonical-truth warning is
+  present; operating rules cover resolve-before-edit and
+  anti-gaming; Memory Guidance shows score+reasons when ranked
+  memory exists; missing-MemorySelection recommends
+  `rekon memory select`; partial / failed verification surface
+  visibly; Required Checks come from `VerificationPlan` when
+  present; `header.inputRefs` cite MemorySelection /
+  VerificationResult / WorkOrder / VerificationPlan; the artifact
+  writes to `.rekon/artifacts/publications/agent-contract.md`;
+  publishing does not create a root `AGENTS.md`; existing
+  publishers still work; freshness marks the publication stale
+  after a newer MemorySelection.
 
 Implementation batch:
-- "Agent operating contract publication" — extension of
-  `@rekon/capability-docs.publisher` or a new fourth publisher.
+- "Agent operating contract publication v1" (shipped).
 
 ### P1.4 Path / event freshness
 

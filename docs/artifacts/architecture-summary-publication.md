@@ -22,6 +22,12 @@ classic generated architecture docs and assistant-doc projections.
   the sibling [proof report publication](proof-report-publication.md)
   produced by `@rekon/capability-docs.proof-report` and the
   `rekon publish proof` shortcut.
+- For an opinionated, agent-facing operating contract that combines
+  ownership, governance state, ranked memory guidance, required
+  checks, and anti-gaming rules, see the
+  [agent contract publication](agent-contract-publication.md) produced
+  by `@rekon/capability-docs.agent-contract` and the
+  `rekon publish agent-contract` shortcut.
 - Future surfaces (GitHub check publishers, dashboards) — these are
   out of scope for the alpha.
 

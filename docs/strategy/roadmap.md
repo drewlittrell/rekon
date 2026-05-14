@@ -182,6 +182,28 @@ is the first stop before proposing a new capability batch.
   include `"proof-report"`. `rekon publish proof` invokes it; generic
   dispatch works too. The publisher does not execute commands or
   judge verification sufficiency.
+- Agent operating contract publication v1 (P1.3 closure from the
+  Classic Guarantees Audit): `@rekon/capability-docs` registers a
+  fourth publisher `@rekon/capability-docs.agent-contract`
+  alongside `.publisher` / `.architecture-summary` /
+  `.proof-report`. The agent-contract publisher reads
+  snapshot/observed/ownership/capability/coherency/lifecycle/work-
+  order/reconciliation/verification-plan/verification-result/memory-
+  selection and writes an opinionated Markdown operating contract
+  with How To Use This Contract / Canonical Truth / Operating
+  Rules / Resolver Workflow / Ownership And Capabilities / Active
+  Governance State / Proof And Verification State / Memory
+  Guidance / Required Checks / Do Not Do / Next Recommended
+  Actions / Input Artifacts sections. Memory Guidance reads the
+  v1 ranked `MemorySelection` and surfaces only ranked entries
+  (with score, scope, and reasons). Failed / partial / not-run
+  verification surfaces an explicit "Verification is not
+  complete." callout; passing verification surfaces the "does not
+  automatically resolve findings" callout. `PublicationArtifact.
+  kind` widens to include `"agent-contract"`. `rekon publish
+  agent-contract` invokes it; generic dispatch works too. Root
+  `AGENTS.md` is never overwritten; the publication writes only
+  to `.rekon/artifacts/publications/agent-contract.md`.
 - Memory ranking / curation v1 (P1.2 closure from the Classic
   Guarantees Audit): `@rekon/capability-memory` now ranks
   `OperatorFeedbackEntry` recalls deterministically with reason
