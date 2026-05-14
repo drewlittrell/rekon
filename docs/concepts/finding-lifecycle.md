@@ -121,12 +121,18 @@ The resolver does not silently treat ignored/accepted findings as
 "no-op". It surfaces the decision so the agent or operator decides what
 to do.
 
+## Downstream Projection
+
+The `CoherencyDelta` artifact consumes the lifecycle report and
+produces severity/system summaries plus a remediation queue. Build one
+with `rekon coherency delta --root <repo> --json`. See
+[coherency-delta.md](coherency-delta.md) and
+[../artifacts/coherency-delta.md](../artifacts/coherency-delta.md).
+
 ## What This Is Not
 
-- This is not a coherency delta. Coherency delta — high-severity
-  diffs, top affected systems, remediation queue — comes after
-  lifecycle in the
-  [classic behavior roadmap](../strategy/classic-behavior-roadmap.md).
+- This is not a coherency delta itself. The delta is a separate
+  artifact built on top of this lifecycle projection; see above.
 - This is not LLM-driven issue review. Status decisions are operator
   decisions or system decisions written into a typed ledger.
 - This is not a false-positive classifier. The ledger records explicit

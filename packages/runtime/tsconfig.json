@@ -13,6 +13,7 @@
     { "path": "../kernel-artifacts" },
     { "path": "../kernel-evidence" },
     { "path": "../kernel-findings" },
+    { "path": "../kernel-repo-model" },
     { "path": "../kernel-snapshot" },
     { "path": "../sdk" }
   ]

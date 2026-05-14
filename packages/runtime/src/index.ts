@@ -18,12 +18,16 @@ import {
   createIntelligenceSnapshot,
 } from "@rekon/kernel-snapshot";
 import {
+  type CoherencyDelta,
+  type EffectiveFinding,
   type FindingLifecycleReport,
   type FindingReport,
   type FindingStatusLedger,
+  createCoherencyDelta,
   createFindingLifecycleReport,
   deriveFindingLifecycle,
 } from "@rekon/kernel-findings";
+import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
 import {
   type CapabilityDefinition,
   type CapabilityPermission,
@@ -201,6 +205,9 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   CapabilityMap: "projections",
   GraphSlice: "graphs",
   FindingReport: "findings",
+  FindingStatusLedger: "findings",
+  FindingLifecycleReport: "findings",
+  CoherencyDelta: "findings",
   ResolverPacket: "resolver-packets",
   Publication: "publications",
   OperatorFeedbackEntry: "actions",
@@ -842,6 +849,149 @@ export async function buildFindingLifecycleReport(
   });
 
   return lifecycleReport;
+}
+
+export type BuildCoherencyDeltaOptions = {
+  lifecycleReportId?: string;
+};
+
+export async function buildCoherencyDelta(
+  store: ArtifactStore,
+  options: BuildCoherencyDeltaOptions = {},
+): Promise<CoherencyDelta> {
+  const lifecycleEntries = await store.list("FindingLifecycleReport");
+  const sortedLifecycle = [...lifecycleEntries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+
+  let lifecycle: FindingLifecycleReport;
+  const inputRefs: ArtifactRef[] = [];
+
+  if (options.lifecycleReportId) {
+    const match = sortedLifecycle.find((entry) => entry.id === options.lifecycleReportId);
+
+    if (!match) {
+      throw new Error(`FindingLifecycleReport not found: ${options.lifecycleReportId}`);
+    }
+
+    lifecycle = (await store.read(match)) as FindingLifecycleReport;
+    inputRefs.push(indexEntryToRef(match));
+  } else if (sortedLifecycle[0]) {
+    lifecycle = (await store.read(sortedLifecycle[0])) as FindingLifecycleReport;
+    inputRefs.push(indexEntryToRef(sortedLifecycle[0]));
+  } else {
+    lifecycle = await buildFindingLifecycleReport(store);
+  }
+
+  for (const ref of lifecycle.header.inputRefs ?? []) {
+    if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+      inputRefs.push(ref);
+    }
+  }
+
+  const ownershipMap = await readLatest<OwnershipMap>(store, "OwnershipMap", inputRefs);
+  const observedRepo = await readLatest<ObservedRepo>(store, "ObservedRepo", inputRefs);
+
+  const systemsForFinding = (finding: EffectiveFinding): string[] => {
+    const files = finding.files ?? [];
+    if (files.length === 0) {
+      return [];
+    }
+
+    const systems = new Set<string>();
+
+    for (const file of files) {
+      const owner = resolveOwnerForPath(file, ownershipMap, observedRepo);
+      if (owner) {
+        systems.add(owner);
+      }
+    }
+
+    return [...systems];
+  };
+
+  const repoId = lifecycle.header.subject?.repoId ?? subjectRepoId(store);
+
+  return createCoherencyDelta({
+    header: {
+      artifactType: "CoherencyDelta",
+      artifactId: `coherency-delta-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId },
+      producer: { id: "@rekon/runtime.coherency", version: "0.1.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+    },
+    findings: lifecycle.findings,
+    resolvedFindings: lifecycle.resolvedFindings,
+    systemsForFinding,
+  });
+}
+
+async function readLatest<T>(
+  store: ArtifactStore,
+  type: string,
+  inputRefs: ArtifactRef[],
+): Promise<T | undefined> {
+  const entries = await store.list(type);
+  const sorted = [...entries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+  const latest = sorted[0];
+
+  if (!latest) {
+    return undefined;
+  }
+
+  const ref = indexEntryToRef(latest);
+
+  if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+    inputRefs.push(ref);
+  }
+
+  return (await store.read(latest)) as T;
+}
+
+function resolveOwnerForPath(
+  path: string,
+  ownershipMap: OwnershipMap | undefined,
+  observedRepo: ObservedRepo | undefined,
+): string | undefined {
+  if (ownershipMap) {
+    const match = ownershipMap.entries
+      .filter((entry) => pathMatches(path, entry.path))
+      .sort((left, right) => {
+        const lengthDiff = right.path.length - left.path.length;
+        if (lengthDiff !== 0) return lengthDiff;
+        return right.confidence - left.confidence;
+      })[0];
+
+    if (match) {
+      return match.ownerSystem;
+    }
+  }
+
+  if (observedRepo) {
+    const match = observedRepo.systems
+      .flatMap((system) => system.paths.map((systemPath) => ({ system, systemPath })))
+      .filter((entry) => pathMatches(path, entry.systemPath))
+      .sort((left, right) => {
+        const lengthDiff = right.systemPath.length - left.systemPath.length;
+        if (lengthDiff !== 0) return lengthDiff;
+        return right.system.confidence - left.system.confidence;
+      })[0];
+
+    if (match) {
+      return match.system.id;
+    }
+  }
+
+  return undefined;
+}
+
+function pathMatches(candidate: string, target: string): boolean {
+  return candidate === target || candidate.startsWith(`${target}/`);
 }
 
 function emptyFindingReport(store: ArtifactStore): FindingReport {

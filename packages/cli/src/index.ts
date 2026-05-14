@@ -15,6 +15,7 @@ import reconcileCapability from "@rekon/capability-reconcile";
 import resolverCapability from "@rekon/capability-resolver";
 import {
   type ArtifactIndexEntry,
+  buildCoherencyDelta,
   buildFindingLifecycleReport,
   createLocalArtifactStore,
   createRuntime,
@@ -663,6 +664,23 @@ export async function main(argv: string[]): Promise<void> {
     const ref = await store.write(ledger, { category: "findings" });
 
     writeOutput({ artifact: ref, decision }, json);
+    return;
+  }
+
+  if (command === "coherency" && subcommand === "delta") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const delta = await buildCoherencyDelta(store);
+    const ref = await store.write(delta, { category: "findings" });
+
+    writeOutput(
+      {
+        artifact: ref,
+        summary: delta.summary,
+        remediationQueue: delta.remediationQueue,
+      },
+      json,
+    );
     return;
   }
 
@@ -1410,5 +1428,6 @@ function usage(): string {
     "rekon findings lifecycle [--root <path>] [--json]",
     "rekon findings status list [--root <path>] [--json]",
     "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",
+    "rekon coherency delta [--root <path>] [--json]",
   ].join("\n");
 }

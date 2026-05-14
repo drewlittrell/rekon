@@ -71,6 +71,14 @@ scope:
   slice keeps id-based matching and explicit operator decisions.
   Aligned to `domain/issues/mergeIssues.ts` and the lifecycle wins
   distilled from `services/IssueDetectionService.ts`.
+- **Coherency delta lite.** ✅ Initial slice shipped:
+  `CoherencyDelta` artifact derived from `FindingLifecycleReport`,
+  with severity / type / system summaries, top affected paths, and a
+  basic `remediationQueue` (`p0`/`p1`/`p2` priority by severity).
+  `rekon coherency delta` CLI; `@rekon/runtime.buildCoherencyDelta`
+  helper. Health score, trend, watch alerts, assistant-doc
+  projection, and remediation auto-apply remain deferred. Aligned to
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`.
 - **Graph slice expansion (consumer-driven).** Add new `GraphSlice`
   producers (route, call, runtime) only when an evaluator/resolver
   consumes them.

@@ -120,6 +120,7 @@ node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts 
 node packages/cli/dist/index.js findings list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings lifecycle --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings status set <finding-id> --status ignored --reason false-positive --note "Generated fixture intentionally." --root examples/simple-js-ts --json
+node packages/cli/dist/index.js coherency delta --root examples/simple-js-ts --json
 ```
 
 ## The `.rekon/` Workspace

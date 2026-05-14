@@ -101,4 +101,12 @@ when a newer `FindingReport` or `FindingStatusLedger` exists.
 - [Finding lifecycle concept](../concepts/finding-lifecycle.md)
 - [FindingReport](finding-report.md)
 - [FindingStatusLedger](finding-status-ledger.md)
+- [CoherencyDelta](coherency-delta.md)
 - [ResolverPacket](resolver-packet.md)
+
+## Downstream Projections
+
+A `CoherencyDelta` projection consumes this report to produce
+severity/system summaries and a remediation queue. See
+[coherency-delta.md](coherency-delta.md) and
+[../concepts/coherency-delta.md](../concepts/coherency-delta.md).

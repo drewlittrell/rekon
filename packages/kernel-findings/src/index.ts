@@ -726,3 +726,383 @@ function requiredString(value: unknown, path: string, issues: ValidationIssue[])
 function prefixIssues(issues: ValidationIssue[], prefix: string): ValidationIssue[] {
   return issues.map((issue) => ({ path: issue.path.replace("$", prefix), message: issue.message }));
 }
+
+export type CoherencyDeltaSeverity = "critical" | "high" | "medium" | "low";
+
+export type CoherencyDeltaItemStatus =
+  | "new"
+  | "existing"
+  | "accepted"
+  | "ignored"
+  | "resolved";
+
+export type CoherencyDeltaItem = {
+  id: string;
+  findingId: string;
+  type: string;
+  severity: CoherencyDeltaSeverity;
+  title: string;
+  description: string;
+  files: string[];
+  systems: string[];
+  suggestedAction?: string;
+  status: CoherencyDeltaItemStatus;
+  active: boolean;
+  evidence?: ArtifactRef[];
+};
+
+export type CoherencyRemediationPriority = "p0" | "p1" | "p2";
+
+export type CoherencyRemediationStep = {
+  id: string;
+  priority: CoherencyRemediationPriority;
+  findingId: string;
+  title: string;
+  action: string;
+  files: string[];
+  systems: string[];
+  severity: CoherencyDeltaSeverity;
+};
+
+export type CoherencyDeltaSummary = {
+  total: number;
+  active: number;
+  resolved: number;
+  accepted: number;
+  ignored: number;
+  bySeverity: Record<string, number>;
+  byType: Record<string, number>;
+  bySystem: Record<string, number>;
+  topPaths: Array<{ path: string; count: number }>;
+};
+
+export type CoherencyDelta = {
+  header: ArtifactHeader;
+  summary: CoherencyDeltaSummary;
+  items: CoherencyDeltaItem[];
+  remediationQueue: CoherencyRemediationStep[];
+};
+
+const COHERENCY_SEVERITIES = new Set<CoherencyDeltaSeverity>([
+  "critical",
+  "high",
+  "medium",
+  "low",
+]);
+
+const COHERENCY_ITEM_STATUSES = new Set<CoherencyDeltaItemStatus>([
+  "new",
+  "existing",
+  "accepted",
+  "ignored",
+  "resolved",
+]);
+
+const COHERENCY_PRIORITIES = new Set<CoherencyRemediationPriority>(["p0", "p1", "p2"]);
+
+const SEVERITY_PRIORITY_RANK: Record<CoherencyDeltaSeverity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+const STATUS_PRIORITY_RANK: Record<CoherencyDeltaItemStatus, number> = {
+  new: 0,
+  existing: 1,
+  accepted: 2,
+  ignored: 3,
+  resolved: 4,
+};
+
+export function severityToPriority(
+  severity: CoherencyDeltaSeverity,
+): CoherencyRemediationPriority {
+  switch (severity) {
+    case "critical":
+    case "high":
+      return "p0";
+    case "medium":
+      return "p1";
+    case "low":
+      return "p2";
+  }
+}
+
+export type CoherencyDeltaInput = {
+  header: ArtifactHeader;
+  findings: EffectiveFinding[];
+  resolvedFindings: EffectiveFinding[];
+  systemsForFinding: (finding: EffectiveFinding) => string[];
+};
+
+export function createCoherencyDelta(input: CoherencyDeltaInput): CoherencyDelta {
+  const items: CoherencyDeltaItem[] = [];
+
+  for (const finding of input.findings) {
+    items.push(buildItem(finding, input.systemsForFinding(finding)));
+  }
+
+  for (const finding of input.resolvedFindings) {
+    items.push(buildItem(finding, input.systemsForFinding(finding)));
+  }
+
+  items.sort((left, right) => {
+    if (left.active !== right.active) {
+      return left.active ? -1 : 1;
+    }
+    const severityDiff = SEVERITY_PRIORITY_RANK[left.severity] - SEVERITY_PRIORITY_RANK[right.severity];
+    if (severityDiff !== 0) return severityDiff;
+    const statusDiff = STATUS_PRIORITY_RANK[left.status] - STATUS_PRIORITY_RANK[right.status];
+    if (statusDiff !== 0) return statusDiff;
+    return left.findingId.localeCompare(right.findingId);
+  });
+
+  const remediationQueue = items
+    .filter((item) => item.active)
+    .map((item) => ({
+      id: `remediation:${item.findingId}`,
+      priority: severityToPriority(item.severity),
+      findingId: item.findingId,
+      title: item.title,
+      action: item.suggestedAction ?? `Address ${item.type} in ${item.files.join(", ") || "affected files"}.`,
+      files: item.files,
+      systems: item.systems,
+      severity: item.severity,
+    }));
+
+  remediationQueue.sort((left, right) => {
+    const priorityDiff =
+      ["p0", "p1", "p2"].indexOf(left.priority) - ["p0", "p1", "p2"].indexOf(right.priority);
+    if (priorityDiff !== 0) return priorityDiff;
+    return left.findingId.localeCompare(right.findingId);
+  });
+
+  return assertCoherencyDelta({
+    header: input.header,
+    summary: summarizeDelta(items),
+    items,
+    remediationQueue,
+  });
+}
+
+export function validateCoherencyDelta(value: unknown): ValidationResult<CoherencyDelta> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  const header = validateArtifactHeader(value.header);
+
+  if (!header.ok) {
+    issues.push(...prefixIssues(header.issues, "$.header"));
+  } else if (header.value.artifactType !== "CoherencyDelta") {
+    issues.push({
+      path: "$.header.artifactType",
+      message: "Expected artifactType to be CoherencyDelta.",
+    });
+  }
+
+  if (!isRecord(value.summary) || typeof value.summary.total !== "number") {
+    issues.push({ path: "$.summary", message: "Expected a coherency summary." });
+  }
+
+  if (!Array.isArray(value.items)) {
+    issues.push({ path: "$.items", message: "Expected an array." });
+  } else {
+    value.items.forEach((item, index) =>
+      validateCoherencyItem(item, `$.items[${index}]`, issues),
+    );
+  }
+
+  if (!Array.isArray(value.remediationQueue)) {
+    issues.push({ path: "$.remediationQueue", message: "Expected an array." });
+  } else {
+    value.remediationQueue.forEach((step, index) =>
+      validateRemediationStep(step, `$.remediationQueue[${index}]`, issues),
+    );
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as CoherencyDelta, issues: [] };
+}
+
+export function assertCoherencyDelta(value: unknown): CoherencyDelta {
+  const result = validateCoherencyDelta(value);
+
+  if (result.ok) {
+    return result.value;
+  }
+
+  throw new TypeError(
+    `CoherencyDelta validation failed: ${result.issues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ")}`,
+  );
+}
+
+export const coherencyDeltaSchema: ArtifactSchema<CoherencyDelta> = {
+  validate: validateCoherencyDelta,
+  parse: assertCoherencyDelta,
+};
+
+function buildItem(finding: EffectiveFinding, systems: string[]): CoherencyDeltaItem {
+  const status = finding.effectiveStatus as CoherencyDeltaItemStatus;
+  const active = status === "new" || status === "existing";
+  const severity = coerceSeverity(finding.severity);
+  const files = uniqueSorted(finding.files ?? []);
+  const normalizedSystems = uniqueSorted(systems.length > 0 ? systems : []);
+
+  return {
+    id: `coherency:${finding.id}`,
+    findingId: finding.id,
+    type: finding.type,
+    severity,
+    title: finding.title,
+    description: finding.description,
+    files,
+    systems: normalizedSystems.length > 0 ? normalizedSystems : ["unknown"],
+    suggestedAction: finding.suggestedAction,
+    status,
+    active,
+    evidence: finding.evidence ? normalizeRefs(finding.evidence) : undefined,
+  };
+}
+
+function coerceSeverity(value: string): CoherencyDeltaSeverity {
+  if (
+    value === "critical" ||
+    value === "high" ||
+    value === "medium" ||
+    value === "low"
+  ) {
+    return value;
+  }
+  return "medium";
+}
+
+function summarizeDelta(items: CoherencyDeltaItem[]): CoherencyDeltaSummary {
+  const summary: CoherencyDeltaSummary = {
+    total: items.length,
+    active: 0,
+    resolved: 0,
+    accepted: 0,
+    ignored: 0,
+    bySeverity: {},
+    byType: {},
+    bySystem: {},
+    topPaths: [],
+  };
+  const pathCounts = new Map<string, number>();
+
+  for (const item of items) {
+    if (item.active) {
+      summary.active += 1;
+    } else if (item.status === "accepted") {
+      summary.accepted += 1;
+    } else if (item.status === "ignored") {
+      summary.ignored += 1;
+    } else if (item.status === "resolved") {
+      summary.resolved += 1;
+    }
+
+    summary.bySeverity[item.severity] = (summary.bySeverity[item.severity] ?? 0) + 1;
+    summary.byType[item.type] = (summary.byType[item.type] ?? 0) + 1;
+
+    for (const system of item.systems) {
+      summary.bySystem[system] = (summary.bySystem[system] ?? 0) + 1;
+    }
+
+    for (const file of item.files) {
+      pathCounts.set(file, (pathCounts.get(file) ?? 0) + 1);
+    }
+  }
+
+  summary.topPaths = [...pathCounts.entries()]
+    .sort((left, right) => {
+      if (left[1] !== right[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0]);
+    })
+    .slice(0, 10)
+    .map(([path, count]) => ({ path, count }));
+
+  return summary;
+}
+
+function validateCoherencyItem(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  requiredString(value.id, `${path}.id`, issues);
+  requiredString(value.findingId, `${path}.findingId`, issues);
+  requiredString(value.type, `${path}.type`, issues);
+  requiredString(value.title, `${path}.title`, issues);
+  requiredString(value.description, `${path}.description`, issues);
+
+  if (
+    typeof value.severity !== "string" ||
+    !COHERENCY_SEVERITIES.has(value.severity as CoherencyDeltaSeverity)
+  ) {
+    issues.push({ path: `${path}.severity`, message: "Expected critical, high, medium, or low." });
+  }
+
+  if (
+    typeof value.status !== "string" ||
+    !COHERENCY_ITEM_STATUSES.has(value.status as CoherencyDeltaItemStatus)
+  ) {
+    issues.push({
+      path: `${path}.status`,
+      message: "Expected new, existing, accepted, ignored, or resolved.",
+    });
+  }
+
+  if (typeof value.active !== "boolean") {
+    issues.push({ path: `${path}.active`, message: "Expected a boolean." });
+  }
+
+  if (!isStringArray(value.files)) {
+    issues.push({ path: `${path}.files`, message: "Expected an array of strings." });
+  }
+
+  if (!isStringArray(value.systems)) {
+    issues.push({ path: `${path}.systems`, message: "Expected an array of strings." });
+  }
+}
+
+function validateRemediationStep(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  requiredString(value.id, `${path}.id`, issues);
+  requiredString(value.findingId, `${path}.findingId`, issues);
+  requiredString(value.title, `${path}.title`, issues);
+  requiredString(value.action, `${path}.action`, issues);
+
+  if (
+    typeof value.priority !== "string" ||
+    !COHERENCY_PRIORITIES.has(value.priority as CoherencyRemediationPriority)
+  ) {
+    issues.push({ path: `${path}.priority`, message: "Expected one of p0, p1, p2." });
+  }
+
+  if (
+    typeof value.severity !== "string" ||
+    !COHERENCY_SEVERITIES.has(value.severity as CoherencyDeltaSeverity)
+  ) {
+    issues.push({ path: `${path}.severity`, message: "Expected critical, high, medium, or low." });
+  }
+
+  if (!isStringArray(value.files)) {
+    issues.push({ path: `${path}.files`, message: "Expected an array of strings." });
+  }
+
+  if (!isStringArray(value.systems)) {
+    issues.push({ path: `${path}.systems`, message: "Expected an array of strings." });
+  }
+}

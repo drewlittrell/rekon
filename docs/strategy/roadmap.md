@@ -70,6 +70,14 @@ explicit NorthStar update.
   state across runs. `resolve.issue` annotates matched findings with
   their effective status and warns on accepted/ignored/resolved
   matches.
+- Coherency delta lite: `@rekon/kernel-findings` adds `CoherencyDelta`
+  (items, severity/system/type summary, top paths, remediation
+  queue). `@rekon/runtime.buildCoherencyDelta` derives a delta from
+  the latest `FindingLifecycleReport`, assigning systems via
+  `OwnershipMap` then `ObservedRepo` then an `unknown` fallback.
+  `rekon coherency delta` writes the artifact. Active counts exclude
+  accepted/ignored/resolved findings; remediation priority maps
+  `critical`/`high` → `p0`, `medium` → `p1`, `low` → `p2`.
 
 ## Committed Direction: Hardening Batches
 
