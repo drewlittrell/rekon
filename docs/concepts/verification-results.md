@@ -153,6 +153,17 @@ Recording a `VerificationResult` reinforces that:
   claim and the plan it covers.
 - Not a real-time stream. The actuator records a single submission.
 
+## Surfaced In Publications
+
+- The [architecture summary publication](../artifacts/architecture-summary-publication.md)
+  reads the latest `VerificationResult` and renders its status,
+  summary counts, and recorded-by/recorded-at in the Verification
+  Status section. Failed and partial results surface "Verification is
+  not complete." The Proof Loop section's "Suggested next command"
+  walks the loop and recommends `rekon verify record` when no result
+  exists, or "address failures and re-run `rekon verify record`" when
+  a result is failed/partial/not-run.
+
 ## Freshness
 
 `rekon artifacts freshness --type VerificationResult --json` marks a

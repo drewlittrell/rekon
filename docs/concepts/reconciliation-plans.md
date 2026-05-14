@@ -159,10 +159,21 @@ Rebuild with `rekon reconcile suggest`.
   `--apply`.
 - Not a full classic `PlanExecutorService` port.
 - Not a verification runner. `verification_command_run` is deferred;
-  a future `VerificationResult` artifact and recorder capability will
-  record outcomes.
+  the [`VerificationResult`](../artifacts/verification-result.md)
+  artifact and `rekon verify record` capture operator-supplied
+  outcomes when the listed commands actually run.
 - Not a reconciliation marketplace. Operation classes are fixed in
   this alpha.
+
+## Surfaced In Publications
+
+- The [architecture summary publication](../artifacts/architecture-summary-publication.md)
+  reads the latest `ReconciliationPlan` and surfaces its summary
+  counts (artifact-only / source-write deferred / command deferred /
+  manual review / applied / deferred / denied) plus up to five top
+  operations with class, status, permission, and finding id. The
+  Proof Loop section reports "ReconciliationPlan: present / missing"
+  and recommends `rekon reconcile suggest` when missing.
 
 ## Cross-References
 

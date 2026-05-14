@@ -2,8 +2,10 @@
 
 A concise governance read of the repository in one Rekon-native
 publication. It rolls up the snapshot, owner systems, capability map,
-coherency delta, and finding lifecycle into a single markdown document
-that humans and agents can scan before editing code.
+coherency delta, finding lifecycle, plus the full proof loop —
+work orders, reconciliation plans, verification plans, and
+verification results — into a single markdown document that humans
+and agents can scan before editing code.
 
 This is the alpha "lite" form of the classic generated architecture
 docs and assistant-doc projections — see
@@ -14,11 +16,13 @@ Docs Are Publications, Not Truth").
 
 ## Why It Exists
 
-Before this batch, governance lived across many artifacts:
-`FindingReport`, `FindingStatusLedger`, `FindingLifecycleReport`,
-`CoherencyDelta`, `OwnershipMap`, `CapabilityMap`. Each is correct,
-but reading them all in one go was friction. The architecture summary
-collapses them into one publication:
+Before the architecture summary, governance lived across many
+artifacts: `FindingReport`, `FindingStatusLedger`,
+`FindingLifecycleReport`, `CoherencyDelta`, `OwnershipMap`,
+`CapabilityMap`. Each is correct, but reading them all in one go was
+friction. The architecture summary collapses them — and the
+downstream proof-loop artifacts (`WorkOrder`, `ReconciliationPlan`,
+`VerificationPlan`, `VerificationResult`) — into one publication:
 
 - one paragraph for repository overview;
 - one table for owner systems;
@@ -27,10 +31,18 @@ collapses them into one publication:
   breakdown);
 - top affected paths;
 - a prioritized remediation queue;
+- the latest work orders (remediation and resolver);
+- the latest reconciliation plan classification summary;
+- the latest verification status (passed / failed / partial /
+  not-run);
+- a proof-loop summary that suggests the next command to run;
 - short agent guidance.
 
 The publication does not replace any of the underlying artifacts. It
 is a derived projection and is regenerated from artifacts each time.
+It also does **not** execute verification commands, run reconciliation,
+or judge verification sufficiency. Failed and partial verification
+states are surfaced, not hidden.
 
 ## How It Is Built
 
@@ -41,13 +53,23 @@ is a derived projection and is regenerated from artifacts each time.
 1. Reads the latest `IntelligenceSnapshot` (required).
 2. Reads the latest `ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
    `CoherencyDelta`, and `FindingLifecycleReport` if available.
-3. Renders the markdown summary.
-4. Writes a `Publication` artifact with `kind = "architecture-summary"`
+3. Reads the latest remediation `WorkOrder` (where `source ===
+   "coherency-delta"`) and the latest resolver `WorkOrder` if either
+   exists.
+4. Reads the latest `ReconciliationPlan` if it exists.
+5. Reads the latest `VerificationPlan` and `VerificationResult` if
+   they exist. The latest plan is tracked even when no result is
+   recorded yet, so the Verification Status section can flag stale
+   results.
+6. Renders the markdown summary.
+7. Writes a `Publication` artifact with `kind = "architecture-summary"`
    and full `header.inputRefs`.
 
 The publisher does **not** call runtime helpers to build missing
 artifacts. If a `CoherencyDelta` is missing, the summary instructs the
-operator to run `rekon coherency delta`.
+operator to run `rekon coherency delta`; if no `VerificationResult`
+is recorded yet, it instructs the operator to run
+`rekon verify record`; and so on.
 
 ## CLI Surface
 
@@ -64,6 +86,8 @@ parity with `rekon publish agents`.
 
 - After a fresh evaluate + coherency-delta cycle, to capture a
   governance snapshot.
+- After running `rekon verify record`, to confirm the proof loop is
+  visible and the next suggested command is correct.
 - Before handing repo state to an agent that does not have time to
   read every underlying artifact.
 - When reviewing repository drift over time — read the latest
@@ -81,14 +105,20 @@ parity with `rekon publish agents`.
 - Not a dashboard.
 - Not a remediation auto-apply. The queue lists work; it does not run
   it.
+- Not a verification runner. The Verification Status section reports
+  the latest `VerificationResult`; it does not execute commands.
+- Not a verification judge. Failed and partial verification states
+  are surfaced verbatim, not scored or graded.
 
 ## Freshness
 
 Run `rekon artifacts freshness --type Publication --json` to inspect
 whether the latest architecture summary still reflects current inputs.
 A newer `IntelligenceSnapshot`, `CoherencyDelta`, `OwnershipMap`,
-`CapabilityMap`, `ObservedRepo`, or `FindingLifecycleReport` will mark
-the summary `stale`. Rebuild with `rekon publish architecture`.
+`CapabilityMap`, `ObservedRepo`, `FindingLifecycleReport`,
+`WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, or
+`VerificationResult` will mark the summary `stale`. Rebuild with
+`rekon publish architecture`.
 
 ## Cross-References
 

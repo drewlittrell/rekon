@@ -126,6 +126,21 @@ explicit NorthStar update.
   the helper is a recorder, not a runner. Closes the artifact loop
   `Finding -> Lifecycle -> CoherencyDelta -> WorkOrder ->
   ReconciliationPlan -> VerificationPlan -> VerificationResult`.
+- Architecture summary v2 / proof-loop publication:
+  `@rekon/capability-docs.architecture-summary` now reads the latest
+  `WorkOrder` (remediation and resolver), `ReconciliationPlan`,
+  `VerificationPlan`, and `VerificationResult` alongside the existing
+  snapshot/ownership/coherency inputs. The publication adds four new
+  sections — Work Orders, Reconciliation Plans, Verification Status,
+  Proof Loop — between the existing Remediation Queue and Agent
+  Guidance sections. The Verification Status section surfaces
+  `passed`/`failed`/`partial`/`not-run` and warns when the latest
+  `VerificationResult` references an older `VerificationPlan`. The
+  Proof Loop section reports governance / planning / verification
+  state and emits a single "Suggested next command:" line. Manifest
+  `consumes` and a new `proof-loop.changed` invalidation rule keep
+  freshness honest. The publication still does not execute commands
+  or judge verification sufficiency.
 
 ## Committed Direction: Hardening Batches
 

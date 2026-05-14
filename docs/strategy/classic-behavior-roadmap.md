@@ -148,6 +148,24 @@ scope:
   alpha. Aligned to classic intent proof-gate discipline (objective
   proof, failures as evidence, anti-gaming) without porting the
   command runner, CI integration, or semantic judgment.
+- **Architecture summary v2 / proof-loop publication.** ✅ Initial
+  slice shipped. `@rekon/capability-docs.architecture-summary` now
+  reads the latest `WorkOrder` (remediation and resolver),
+  `ReconciliationPlan`, `VerificationPlan`, and `VerificationResult`
+  alongside the existing snapshot/ownership/coherency inputs, and
+  renders four new sections — Work Orders, Reconciliation Plans,
+  Verification Status, Proof Loop — between the existing Remediation
+  Queue and Agent Guidance sections. The Verification Status section
+  surfaces `passed`/`failed`/`partial`/`not-run`, flags incomplete
+  verification, and warns when the latest `VerificationResult`
+  references an older plan. The Proof Loop section walks
+  `governance -> planning -> verification` and emits a single
+  "Suggested next command:" line. Manifest `consumes` now includes
+  `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, and
+  `VerificationResult`; a new `proof-loop.changed` invalidation rule
+  ensures the summary goes stale when any of those change. The
+  publication still does not execute commands or judge verification
+  sufficiency.
 
 ## Phase C — Later Maturity
 

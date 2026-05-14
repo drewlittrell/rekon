@@ -24,8 +24,11 @@ artifact with full provenance.
 ## Consumed By
 
 - humans and agents reviewing remediation proof
-- future architecture-summary publishers that surface verification
-  status alongside coherency and remediation state
+- `@rekon/capability-docs.architecture-summary` (built-in) surfaces
+  the latest `VerificationResult` and overall proof-loop state in the
+  [architecture summary publication](architecture-summary-publication.md).
+  Failed and partial results are visible in the Verification Status
+  and Proof Loop sections; the publisher does not execute commands.
 - future verification-driven reconciliation or freshness gates
 
 ## Required Header Fields

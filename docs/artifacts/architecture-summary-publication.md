@@ -4,9 +4,10 @@
 
 The architecture summary is a `Publication` artifact that summarizes
 repository structure, ownership, capabilities, active coherency
-findings, top affected paths, remediation priorities, and agent
-guidance. It is the alpha "lite" form of the classic generated
-architecture docs and assistant-doc projections.
+findings, top affected paths, remediation priorities, current
+proof-loop state (work orders, reconciliation plans, verification
+status), and agent guidance. It is the alpha "lite" form of the
+classic generated architecture docs and assistant-doc projections.
 
 ## Produced By
 
@@ -26,9 +27,11 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 `Publication`. The header carries:
 
 - `producer.id` = `@rekon/capability-docs`.
-- `inputRefs` cite the IntelligenceSnapshot, ObservedRepo,
-  OwnershipMap, CapabilityMap, CoherencyDelta, and
-  FindingLifecycleReport used to build the summary (when present).
+- `inputRefs` cite every artifact actually read to build the summary:
+  `IntelligenceSnapshot`, `ObservedRepo`, `OwnershipMap`,
+  `CapabilityMap`, `CoherencyDelta`, `FindingLifecycleReport`,
+  `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, and
+  `VerificationResult`. Missing artifacts are not cited.
 - `freshness.status` mirrors the snapshot's freshness.
 
 ## Shape
@@ -75,12 +78,33 @@ The publication content includes these sections, in order:
 6. **Remediation Queue** — table of remediation steps from
    `CoherencyDelta.remediationQueue` with priority, finding id,
    severity, systems, and the truncated action. Up to 20 rows.
-7. **Agent Guidance** — short bullet list reminding readers of the
-   route → seam → preflight flow and required checks.
-8. **Freshness** — instructs the operator to run
-   `rekon artifacts freshness --json`.
-9. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
-   header.
+7. **Work Orders** — table showing the latest remediation
+   (`source = "coherency-delta"`) and resolver work orders. Each row
+   reports source, goal, paths, owner systems, and selected item count
+   (for remediation orders) or `n/a` (for resolver orders). Missing
+   work orders are called out with a "run `rekon intent remediation`
+   or `rekon intent work-order`" hint.
+8. **Reconciliation Plans** — summary table (total / artifact-only /
+   source-write deferred / command deferred / manual review / applied
+   / deferred / denied) plus up to 5 top operations with class, status,
+   permissions, and finding. Missing plans recommend
+   `rekon reconcile suggest`.
+9. **Verification Status** — table of the latest `VerificationResult`
+   status, summary counts, recorded by, recorded at. Failed / partial
+   / not-run results display an explicit "Verification is not
+   complete." line. If the result references an older
+   `VerificationPlan` than the latest, the section says
+   "VerificationResult may be stale; latest VerificationPlan differs."
+10. **Proof Loop** — `Governance:` / `Planning:` / `Verification:`
+    state bullets plus a single "Suggested next command:" line that
+    walks the loop `coherency delta -> intent remediation -> reconcile
+    suggest -> verify record -> address failures -> publish`.
+11. **Agent Guidance** — short bullet list reminding readers of the
+    route → seam → preflight flow and required checks.
+12. **Freshness** — instructs the operator to run
+    `rekon artifacts freshness --json`.
+13. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
+    header.
 
 ## Inputs Consumed
 
@@ -92,11 +116,18 @@ The publisher reads the latest available of each:
 - `CapabilityMap` (optional).
 - `CoherencyDelta` (optional).
 - `FindingLifecycleReport` (optional).
+- `WorkOrder` (optional). The publisher reads up to two: the latest
+  remediation work order (where `source === "coherency-delta"`) and
+  the latest resolver work order.
+- `ReconciliationPlan` (optional).
+- `VerificationPlan` (optional). The publisher tracks the latest plan
+  even when no `VerificationResult` is recorded yet, so the
+  Verification Status section can flag stale results.
+- `VerificationResult` (optional).
 
 Every artifact actually read is cited in `header.inputRefs`. The
-publisher does not synthesize missing CoherencyDelta or
-FindingLifecycleReport; it surfaces the gap in the markdown body so
-operators know what to run next.
+publisher does not synthesize missing artifacts; each missing section
+calls out what to run next.
 
 ## Freshness And Provenance
 
@@ -107,7 +138,11 @@ summary `stale` once any newer input artifact lands:
 - newer `IntelligenceSnapshot`,
 - newer `CoherencyDelta`,
 - newer `OwnershipMap` / `ObservedRepo` / `CapabilityMap`,
-- newer `FindingLifecycleReport`.
+- newer `FindingLifecycleReport`,
+- newer `WorkOrder`,
+- newer `ReconciliationPlan`,
+- newer `VerificationPlan`,
+- newer `VerificationResult`.
 
 Rebuild with `rekon publish architecture` to refresh.
 

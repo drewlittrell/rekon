@@ -20,6 +20,83 @@ export type PublicationArtifact = {
   content: string;
 };
 
+// Local "Like" shapes intentionally avoid importing from downstream
+// capability packages so that capability-docs remains an upstream
+// publisher with no cycle into capability-intent or capability-reconcile.
+
+type RemediationItemLike = {
+  findingId?: string;
+  priority?: "p0" | "p1" | "p2";
+  title?: string;
+  action?: string;
+  files?: string[];
+  systems?: string[];
+  severity?: string;
+};
+
+type WorkOrderLike = {
+  header: ArtifactHeader;
+  goal?: string;
+  paths?: string[];
+  ownerSystems?: string[];
+  source?: string;
+  remediationItems?: RemediationItemLike[];
+};
+
+type ReconciliationPlanOperationLike = {
+  operation?: string;
+  status?: string;
+  class?: string;
+  source?: string;
+  findingId?: string;
+  priority?: string;
+  requiresPermission?: string[];
+  reason?: string;
+};
+
+type ReconciliationPlanLike = {
+  header: ArtifactHeader;
+  dryRun?: boolean;
+  operations?: ReconciliationPlanOperationLike[];
+  summary?: {
+    total?: number;
+    artifactOnly?: number;
+    deterministicDeferred?: number;
+    sourceWriteDeferred?: number;
+    commandDeferred?: number;
+    manualReview?: number;
+    applied?: number;
+    planned?: number;
+    deferred?: number;
+    denied?: number;
+  };
+};
+
+type VerificationPlanLike = {
+  header: ArtifactHeader;
+  workOrderRef?: ArtifactRef;
+  commands?: string[];
+  source?: string;
+};
+
+type VerificationResultLike = {
+  header: ArtifactHeader;
+  verificationPlanRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  status?: "passed" | "failed" | "partial" | "not-run";
+  commandResults?: Array<{ command?: string; status?: string }>;
+  summary?: {
+    total?: number;
+    passed?: number;
+    failed?: number;
+    skipped?: number;
+    notRun?: number;
+  };
+  evidenceNotes?: string[];
+  recordedBy?: string;
+  recordedAt?: string;
+};
+
 export const docsPublisher: Publisher = {
   id: "@rekon/capability-docs.publisher",
   produces: ["Publication"],
@@ -101,6 +178,26 @@ export const architectureSummaryPublisher: Publisher = {
       "FindingLifecycleReport",
       inputRefs,
     );
+    const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
+    const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
+      artifacts,
+      "ReconciliationPlan",
+      inputRefs,
+    );
+    const latestVerificationPlanRef = await latestRef(artifacts, "VerificationPlan");
+    const verificationPlan = latestVerificationPlanRef
+      ? (await artifacts.read(latestVerificationPlanRef)) as VerificationPlanLike
+      : undefined;
+
+    if (latestVerificationPlanRef && !inputRefs.some((ref) => ref.type === latestVerificationPlanRef.type && ref.id === latestVerificationPlanRef.id)) {
+      inputRefs.push(latestVerificationPlanRef);
+    }
+
+    const verificationResult = await readLatestArtifact<VerificationResultLike>(
+      artifacts,
+      "VerificationResult",
+      inputRefs,
+    );
 
     const generatedAt = new Date().toISOString();
     const publication: PublicationArtifact = {
@@ -116,6 +213,12 @@ export const architectureSummaryPublisher: Publisher = {
         capabilityMap,
         coherencyDelta,
         lifecycleReport,
+        remediationWorkOrder: workOrders.remediation,
+        resolverWorkOrder: workOrders.resolver,
+        reconciliationPlan,
+        latestVerificationPlanRef,
+        verificationPlan,
+        verificationResult,
         inputRefs,
         generatedAt,
       }),
@@ -141,6 +244,10 @@ export default defineCapability({
       "CapabilityMap",
       "CoherencyDelta",
       "FindingLifecycleReport",
+      "WorkOrder",
+      "ReconciliationPlan",
+      "VerificationPlan",
+      "VerificationResult",
     ],
     produces: ["Publication"],
     permissions: ["read:artifacts", "write:artifacts"],
@@ -155,6 +262,17 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary when coherency, ownership, or repo model changes.",
         inputs: ["CoherencyDelta", "OwnershipMap", "CapabilityMap", "ObservedRepo"],
+      },
+      {
+        id: "proof-loop.changed",
+        description:
+          "Regenerate the architecture summary when the proof loop changes (work orders, reconciliation plans, verification plans/results).",
+        inputs: [
+          "WorkOrder",
+          "ReconciliationPlan",
+          "VerificationPlan",
+          "VerificationResult",
+        ],
       },
     ],
     compatibility: {
@@ -298,6 +416,46 @@ async function readLatestArtifact<T>(
   return (await artifacts.read(ref)) as T;
 }
 
+async function readLatestWorkOrdersByFlavor(
+  artifacts: {
+    list(type?: string): Promise<ArtifactRef[]>;
+    read(ref: ArtifactRef): Promise<unknown>;
+  },
+  inputRefs: ArtifactRef[],
+): Promise<{ remediation?: WorkOrderLike; resolver?: WorkOrderLike }> {
+  const refs = [...await artifacts.list("WorkOrder")].sort((left, right) =>
+    right.id.localeCompare(left.id),
+  );
+  let remediation: WorkOrderLike | undefined;
+  let resolver: WorkOrderLike | undefined;
+
+  for (const ref of refs) {
+    if (remediation && resolver) {
+      break;
+    }
+
+    const workOrder = (await artifacts.read(ref)) as WorkOrderLike;
+    const source = workOrder?.source;
+
+    if (!remediation && source === "coherency-delta") {
+      remediation = workOrder;
+      if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+        inputRefs.push(ref);
+      }
+      continue;
+    }
+
+    if (!resolver && source !== "coherency-delta") {
+      resolver = workOrder;
+      if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+        inputRefs.push(ref);
+      }
+    }
+  }
+
+  return { remediation, resolver };
+}
+
 type ArchitectureSummaryInputs = {
   snapshot: IntelligenceSnapshot;
   observedRepo?: ObservedRepo;
@@ -305,6 +463,12 @@ type ArchitectureSummaryInputs = {
   capabilityMap?: CapabilityMap;
   coherencyDelta?: CoherencyDelta;
   lifecycleReport?: FindingLifecycleReport;
+  remediationWorkOrder?: WorkOrderLike;
+  resolverWorkOrder?: WorkOrderLike;
+  reconciliationPlan?: ReconciliationPlanLike;
+  latestVerificationPlanRef?: ArtifactRef;
+  verificationPlan?: VerificationPlanLike;
+  verificationResult?: VerificationResultLike;
   inputRefs: ArtifactRef[];
   generatedAt: string;
 };
@@ -462,6 +626,11 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     sections.push("");
   }
 
+  renderWorkOrdersSection(sections, input);
+  renderReconciliationPlansSection(sections, input);
+  renderVerificationStatusSection(sections, input);
+  renderProofLoopSection(sections, input);
+
   // Agent Guidance
   sections.push("## Agent Guidance");
   sections.push("");
@@ -492,6 +661,211 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   }
 
   return sections.join("\n");
+}
+
+function renderWorkOrdersSection(sections: string[], input: ArchitectureSummaryInputs): void {
+  sections.push("## Work Orders");
+  sections.push("");
+
+  const rows: string[] = [];
+
+  if (input.remediationWorkOrder) {
+    const wo = input.remediationWorkOrder;
+    const items = wo.remediationItems?.length ?? 0;
+    rows.push(
+      `| coherency-delta | ${truncate(wo.goal ?? "—", 60)} | ${summarizeList(wo.paths ?? [], 3)} | ${summarizeList(wo.ownerSystems ?? [], 3)} | ${items} |`,
+    );
+  }
+
+  if (input.resolverWorkOrder) {
+    const wo = input.resolverWorkOrder;
+    rows.push(
+      `| resolver | ${truncate(wo.goal ?? "—", 60)} | ${summarizeList(wo.paths ?? [], 3)} | ${summarizeList(wo.ownerSystems ?? [], 3)} | n/a |`,
+    );
+  }
+
+  if (rows.length === 0) {
+    sections.push(
+      "No WorkOrder found. Run `rekon intent remediation` or `rekon intent work-order`.",
+    );
+    sections.push("");
+    return;
+  }
+
+  sections.push("| Source | Goal | Paths | Systems | Selected Items |");
+  sections.push("| --- | --- | --- | --- | --- |");
+  for (const row of rows) {
+    sections.push(row);
+  }
+  sections.push("");
+}
+
+function renderReconciliationPlansSection(
+  sections: string[],
+  input: ArchitectureSummaryInputs,
+): void {
+  sections.push("## Reconciliation Plans");
+  sections.push("");
+
+  const plan = input.reconciliationPlan;
+
+  if (!plan) {
+    sections.push("No ReconciliationPlan found. Run `rekon reconcile suggest`.");
+    sections.push("");
+    return;
+  }
+
+  const summary = plan.summary;
+  const operations = plan.operations ?? [];
+  const total = summary?.total ?? operations.length;
+  const artifactOnly = summary?.artifactOnly ?? 0;
+  const sourceWriteDeferred = summary?.sourceWriteDeferred ?? 0;
+  const commandDeferred = summary?.commandDeferred ?? 0;
+  const manualReview = summary?.manualReview ?? 0;
+  const applied = summary?.applied ?? 0;
+  const deferred = summary?.deferred ?? 0;
+  const denied = summary?.denied ?? 0;
+
+  sections.push("| Total | Artifact-only | Source-write deferred | Command deferred | Manual review | Applied | Deferred | Denied |");
+  sections.push("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  sections.push(
+    `| ${total} | ${artifactOnly} | ${sourceWriteDeferred} | ${commandDeferred} | ${manualReview} | ${applied} | ${deferred} | ${denied} |`,
+  );
+  sections.push("");
+
+  if (operations.length === 0) {
+    sections.push("No operations classified in the latest plan.");
+    sections.push("");
+    return;
+  }
+
+  sections.push("| Operation | Class | Status | Permission | Finding |");
+  sections.push("| --- | --- | --- | --- | --- |");
+  for (const op of operations.slice(0, 5)) {
+    const permission = op.requiresPermission?.length ? op.requiresPermission.join(", ") : "—";
+    sections.push(
+      `| ${op.operation ?? "—"} | ${op.class ?? "—"} | ${op.status ?? "—"} | ${permission} | ${truncate(op.findingId ?? "—", 60)} |`,
+    );
+  }
+  if (operations.length > 5) {
+    sections.push(`| _… ${operations.length - 5} more operations_ | | | | |`);
+  }
+  sections.push("");
+}
+
+function renderVerificationStatusSection(
+  sections: string[],
+  input: ArchitectureSummaryInputs,
+): void {
+  sections.push("## Verification Status");
+  sections.push("");
+
+  const result = input.verificationResult;
+
+  if (!result) {
+    sections.push(
+      "No VerificationResult found. Run `rekon verify record` after executing a VerificationPlan.",
+    );
+    sections.push("");
+    return;
+  }
+
+  const summary = result.summary ?? { total: 0, passed: 0, failed: 0, skipped: 0, notRun: 0 };
+  const recordedBy = result.recordedBy ?? "—";
+  const recordedAt = result.recordedAt ?? result.header.generatedAt ?? "—";
+  const status = result.status ?? "not-run";
+
+  sections.push("| Status | Passed | Failed | Skipped | Not Run | Recorded By | Recorded At |");
+  sections.push("| --- | --- | --- | --- | --- | --- | --- |");
+  sections.push(
+    `| ${status} | ${summary.passed ?? 0} | ${summary.failed ?? 0} | ${summary.skipped ?? 0} | ${summary.notRun ?? 0} | ${recordedBy} | ${recordedAt} |`,
+  );
+  sections.push("");
+
+  if (status === "failed" || status === "partial" || status === "not-run") {
+    sections.push("Verification is not complete.");
+    sections.push("");
+  }
+
+  const latestPlanRef = input.latestVerificationPlanRef;
+
+  if (latestPlanRef && result.verificationPlanRef && result.verificationPlanRef.id !== latestPlanRef.id) {
+    sections.push("VerificationResult may be stale; latest VerificationPlan differs.");
+    sections.push("");
+  }
+}
+
+function renderProofLoopSection(sections: string[], input: ArchitectureSummaryInputs): void {
+  sections.push("## Proof Loop");
+  sections.push("");
+
+  const activeRemediation = input.coherencyDelta?.summary.active ?? 0;
+  const haveCoherency = Boolean(input.coherencyDelta);
+  const haveWorkOrder = Boolean(input.remediationWorkOrder ?? input.resolverWorkOrder);
+  const haveReconciliation = Boolean(input.reconciliationPlan);
+  const havePlan = Boolean(input.verificationPlan ?? input.latestVerificationPlanRef);
+  const haveResult = Boolean(input.verificationResult);
+  const resultStatus = input.verificationResult?.status;
+
+  sections.push("Governance:");
+  sections.push(`- CoherencyDelta: ${haveCoherency ? "present" : "missing"}`);
+  sections.push(`- Active remediation items: ${activeRemediation}`);
+  sections.push("");
+  sections.push("Planning:");
+  sections.push(`- WorkOrder: ${haveWorkOrder ? "present" : "missing"}`);
+  sections.push(`- ReconciliationPlan: ${haveReconciliation ? "present" : "missing"}`);
+  sections.push("");
+  sections.push("Verification:");
+  sections.push(`- VerificationPlan: ${havePlan ? "present" : "missing"}`);
+  sections.push(`- VerificationResult: ${haveResult ? `status ${resultStatus ?? "not-run"}` : "missing"}`);
+  sections.push("");
+
+  const nextCommand = pickNextProofLoopCommand({
+    haveCoherency,
+    haveWorkOrder,
+    haveReconciliation,
+    havePlan,
+    haveResult,
+    resultStatus,
+  });
+
+  sections.push(`Suggested next command: ${nextCommand}`);
+  sections.push("");
+}
+
+function pickNextProofLoopCommand(state: {
+  haveCoherency: boolean;
+  haveWorkOrder: boolean;
+  haveReconciliation: boolean;
+  havePlan: boolean;
+  haveResult: boolean;
+  resultStatus?: "passed" | "failed" | "partial" | "not-run";
+}): string {
+  if (!state.haveCoherency) {
+    return "`rekon coherency delta`";
+  }
+
+  if (!state.haveWorkOrder) {
+    return "`rekon intent remediation`";
+  }
+
+  if (!state.haveReconciliation) {
+    return "`rekon reconcile suggest`";
+  }
+
+  if (!state.havePlan) {
+    return "`rekon intent remediation` or `rekon intent work-order`";
+  }
+
+  if (!state.haveResult) {
+    return "`rekon verify record`";
+  }
+
+  if (state.resultStatus === "failed" || state.resultStatus === "partial" || state.resultStatus === "not-run") {
+    return "address failures and re-run `rekon verify record`";
+  }
+
+  return "re-run `rekon evaluate` -> `rekon findings lifecycle` -> `rekon coherency delta` -> `rekon publish architecture`";
 }
 
 function describeSnapshotCategories(snapshot: IntelligenceSnapshot): string {

@@ -184,6 +184,9 @@ work order `stale` when a newer `CoherencyDelta` or
   when recording operator-supplied outcomes for the paired
   `VerificationPlan`. Rekon does not execute the commands; the
   result is the proof artifact that closes the governance loop.
+- The [architecture summary publication](../artifacts/architecture-summary-publication.md)
+  surfaces the latest remediation and resolver work orders in its
+  Work Orders section, citing both kinds in `header.inputRefs`.
 
 ## Cross-References
 
