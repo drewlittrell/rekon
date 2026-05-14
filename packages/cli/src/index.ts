@@ -26,6 +26,7 @@ import {
   type ArtifactIndexEntry,
   buildCoherencyDelta,
   buildFindingLifecycleReport,
+  buildIssueAdjudicationReport,
   createLocalArtifactStore,
   createRuntime,
   validateArtifactFreshness,
@@ -1021,6 +1022,65 @@ export async function main(argv: string[]): Promise<void> {
         artifact: ref,
         summary: delta.summary,
         remediationQueue: delta.remediationQueue,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "issues" && subcommand === "adjudicate") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const report = await buildIssueAdjudicationReport(store);
+    const ref = await store.write(report, { category: "findings" });
+
+    writeOutput(
+      {
+        artifact: ref,
+        summary: report.summary,
+        groups: report.groups,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "issues" && subcommand === "list") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const statusFilter = parseIssueStatusFilter(parsed.flags.status);
+
+    const entries = await store.list("IssueAdjudicationReport");
+    const sorted = [...entries].sort((left, right) => right.id.localeCompare(left.id));
+    const latest = sorted[0];
+
+    let report;
+    let artifactRef;
+
+    if (latest) {
+      report = (await store.read(latest)) as Awaited<ReturnType<typeof buildIssueAdjudicationReport>>;
+      artifactRef = {
+        type: latest.type,
+        id: latest.id,
+        path: latest.path,
+        digest: latest.digest,
+        schemaVersion: latest.schemaVersion,
+      };
+    } else {
+      report = await buildIssueAdjudicationReport(store);
+      const newRef = await store.write(report, { category: "findings" });
+      artifactRef = newRef;
+    }
+
+    const groups = statusFilter
+      ? report.groups.filter((group) => group.status === statusFilter)
+      : report.groups;
+
+    writeOutput(
+      {
+        artifact: artifactRef,
+        summary: report.summary,
+        groups,
       },
       json,
     );
@@ -2498,6 +2558,28 @@ function parseRepeatableFlag(value: string | boolean | string[] | undefined): st
   return [];
 }
 
+const ISSUE_STATUS_FILTERS = new Set<string>([
+  "active",
+  "accepted",
+  "ignored",
+  "resolved",
+  "mixed",
+]);
+
+function parseIssueStatusFilter(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length === 0) {
+    return undefined;
+  }
+
+  if (!ISSUE_STATUS_FILTERS.has(value)) {
+    throw new Error(
+      `rekon issues list --status must be one of ${[...ISSUE_STATUS_FILTERS].join(", ")}.`,
+    );
+  }
+
+  return value;
+}
+
 function writeOutput(value: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(value, null, 2));
@@ -2557,6 +2639,8 @@ function usage(): string {
     "rekon findings status list [--root <path>] [--json]",
     "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",
     "rekon coherency delta [--root <path>] [--json]",
+    "rekon issues adjudicate [--root <path>] [--json]",
+    "rekon issues list [--status active|accepted|ignored|resolved|mixed] [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
   ].join("\n");
 }

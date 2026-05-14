@@ -309,22 +309,56 @@ Classic source:
   `domain/issues/mergeIssues.ts`.
 
 Current Rekon coverage:
-- Per-pack lifecycle and status preservation.
-- Coherency delta rollup excludes accepted/ignored/resolved.
+- v1 shipped: `IssueAdjudicationReport` groups duplicate /
+  overlapping findings into canonical issue groups using
+  deterministic key equality (type | ruleId | files | subjects |
+  singleton fallback). Status / lifecycle context is preserved in
+  per-group `statusBreakdown`. No finding is dropped (singletons
+  emit singleton groups with `"singleton-no-grouping-key"`).
+  Adjudication is a projection — raw `FindingReport`,
+  `FindingStatusLedger`, and `FindingLifecycleReport` are never
+  mutated. New CLI: `rekon issues adjudicate`, `rekon issues
+  list`. See [../concepts/issue-adjudication.md](../concepts/issue-adjudication.md)
+  and [../artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md).
+- Per-pack lifecycle and status preservation (existing).
+- Coherency delta rollup excludes accepted/ignored/resolved
+  (existing).
 
 Missing coverage:
-- Cross-pack dedupe.
+- Semantic / fuzzy / embedding matching (deliberately deferred —
+  this batch is deterministic only).
 - False-positive scoring beyond operator marking.
-- Ownership hydration happens at coherency-delta time, not at
-  lifecycle time.
+- Automatic ignore / accept (deliberately deferred — operator
+  decisions remain in `FindingStatusLedger`).
+- `CoherencyDelta` v2 that operates on adjudicated groups instead
+  of raw lifecycle findings.
+- `resolve.issue` v2 that searches adjudicated groups first.
+- LLM-driven issue review / dedupe.
 
-Proposed regression test:
-- `tests/contract/finding-dedupe.test.mjs`: synthetic two-pack
-  fixture where both packs emit a finding with the same
-  `subjects[0]`; assert the `CoherencyDelta` has one active item.
+Regression test:
+- `tests/contract/issue-adjudication.test.mjs` (15 tests):
+  duplicate findings sharing type / rule / files / subjects
+  produce one group; singleton-no-grouping-key fallback fires
+  when files and subjects are empty; subject-only grouping when
+  files are empty; no finding is dropped; highest severity wins;
+  accepted / ignored / resolved statuses survive in
+  `statusBreakdown`; mixed group with active + ignored is
+  `active: true` and status `mixed`; `createIssueAdjudicationReport`
+  produces a valid artifact; CLI `issues adjudicate` writes the
+  report; CLI `issues list` returns groups and supports
+  `--status`; CLI `issues list` builds a fresh report if none
+  exists; adjudication does not mutate `FindingReport` /
+  `FindingStatusLedger` / `FindingLifecycleReport` (bytes-on-disk
+  check); freshness marks the report stale after a newer
+  `FindingLifecycleReport`; artifacts validate stays clean;
+  runtime helper carries lifecycle ref in `inputRefs`.
 
-Implementation batch:
-- "Issue adjudication maturity" batch, post-audit.
+Implementation batches:
+- "Issue adjudication / dedupe v1" (shipped) — deterministic
+  grouping projection above `FindingLifecycleReport`.
+- "Issue adjudication maturity" remains the future batch for
+  cross-pack semantic dedupe, false-positive scoring, and
+  `CoherencyDelta` v2 / `resolve.issue` v2 integration.
 
 ### P1.2 Memory ranking / curation
 

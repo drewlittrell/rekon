@@ -138,13 +138,21 @@ with `rekon coherency delta --root <repo> --json`. See
 - This is not a false-positive classifier. The ledger records explicit
   decisions; classifying false positives without human input is out of
   scope for the alpha.
-- This is not finding dedupe or semantic merge. Findings match by id.
+- This is not finding dedupe or semantic merge. The lifecycle
+  report matches findings by id. Deterministic
+  *adjudication* (group-by-key-equality dedupe) is a separate
+  projection — see
+  [docs/concepts/issue-adjudication.md](issue-adjudication.md)
+  and
+  [docs/artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md).
 
 ## Cross-References
 
 - [docs/artifacts/finding-report.md](../artifacts/finding-report.md)
 - [docs/artifacts/finding-status-ledger.md](../artifacts/finding-status-ledger.md)
 - [docs/artifacts/finding-lifecycle-report.md](../artifacts/finding-lifecycle-report.md)
+- [docs/artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md)
+- [docs/concepts/issue-adjudication.md](issue-adjudication.md)
 - [docs/artifacts/resolver-packet.md](../artifacts/resolver-packet.md)
 - [docs/concepts/resolvers.md](resolvers.md)
 - [docs/strategy/classic-behavior-distillation.md](../strategy/classic-behavior-distillation.md)

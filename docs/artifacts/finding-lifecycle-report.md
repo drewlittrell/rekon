@@ -101,6 +101,8 @@ when a newer `FindingReport` or `FindingStatusLedger` exists.
 - [Finding lifecycle concept](../concepts/finding-lifecycle.md)
 - [FindingReport](finding-report.md)
 - [FindingStatusLedger](finding-status-ledger.md)
+- [IssueAdjudicationReport](issue-adjudication-report.md)
+- [Issue adjudication concept](../concepts/issue-adjudication.md)
 - [CoherencyDelta](coherency-delta.md)
 - [ResolverPacket](resolver-packet.md)
 
@@ -110,3 +112,9 @@ A `CoherencyDelta` projection consumes this report to produce
 severity/system summaries and a remediation queue. See
 [coherency-delta.md](coherency-delta.md) and
 [../concepts/coherency-delta.md](../concepts/coherency-delta.md).
+
+An `IssueAdjudicationReport` projection consumes this report to
+group duplicate findings into canonical issue groups with
+explicit grouping reasons, without mutating the lifecycle data.
+See [issue-adjudication-report.md](issue-adjudication-report.md)
+and [../concepts/issue-adjudication.md](../concepts/issue-adjudication.md).

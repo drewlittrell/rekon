@@ -85,6 +85,22 @@ scope:
   helper. Health score, trend, watch alerts, assistant-doc
   projection, and remediation auto-apply remain deferred. Aligned to
   `packages/product-codebase-intel/src/replatform/replatform-delta.ts`.
+- **Issue adjudication / dedupe v1 (P1.1 first slice).** ✅
+  Shipped. `IssueAdjudicationReport` groups duplicate / overlapping
+  findings from `FindingLifecycleReport` into canonical issue
+  groups using deterministic key equality
+  (`type | ruleId | files | subjects | singleton`). Status /
+  lifecycle context survives grouping in `statusBreakdown`; no
+  finding is dropped; raw findings, status ledgers, and lifecycle
+  reports are **never** mutated. New CLI: `rekon issues
+  adjudicate`, `rekon issues list`. The runtime helper
+  `@rekon/runtime.buildIssueAdjudicationReport` underpins both.
+  Aligned to `services/IssueDetectionService.ts`,
+  `domain/issues/mergeIssues.ts`. Semantic / fuzzy matching,
+  false-positive scoring, automatic ignore/accept, and LLM review
+  are deliberately deferred. `CoherencyDelta` v2 (consuming
+  adjudicated groups instead of raw lifecycle findings) is the
+  recommended next slice.
 - **Graph slice expansion (consumer-driven).** Add new `GraphSlice`
   producers (route, call, runtime) only when an evaluator/resolver
   consumes them.

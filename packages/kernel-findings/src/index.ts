@@ -361,6 +361,467 @@ export const findingLifecycleReportSchema: ArtifactSchema<FindingLifecycleReport
   parse: assertFindingLifecycleReport,
 };
 
+export type IssueAdjudicationStatus =
+  | "active"
+  | "accepted"
+  | "ignored"
+  | "resolved"
+  | "mixed";
+
+export type IssueAdjudicationGroup = {
+  id: string;
+  canonicalFindingId: string;
+  memberFindingIds: string[];
+  type: string;
+  ruleId?: string;
+  severity: FindingSeverity;
+  status: IssueAdjudicationStatus;
+  active: boolean;
+  title: string;
+  description: string;
+  files: string[];
+  subjects: string[];
+  systems?: string[];
+  suggestedAction?: string;
+  evidence?: ArtifactRef[];
+  groupingKey: string;
+  groupingReasons: string[];
+  statusBreakdown: Record<string, number>;
+};
+
+export type IssueAdjudicationSummary = {
+  totalGroups: number;
+  activeGroups: number;
+  acceptedGroups: number;
+  ignoredGroups: number;
+  resolvedGroups: number;
+  mixedGroups: number;
+  totalFindings: number;
+  groupedFindings: number;
+  bySeverity: Record<string, number>;
+  byType: Record<string, number>;
+};
+
+export type IssueAdjudicationReport = {
+  header: ArtifactHeader;
+  summary: IssueAdjudicationSummary;
+  groups: IssueAdjudicationGroup[];
+};
+
+export type IssueAdjudicationInput = {
+  findings: EffectiveFinding[];
+  resolvedFindings?: EffectiveFinding[];
+  systemsForFinding?: (finding: EffectiveFinding) => string[] | undefined;
+};
+
+const SEVERITY_RANK: Record<FindingSeverity, number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
+const ISSUE_ADJUDICATION_STATUSES = new Set<IssueAdjudicationStatus>([
+  "active",
+  "accepted",
+  "ignored",
+  "resolved",
+  "mixed",
+]);
+
+export function deriveIssueAdjudication(input: IssueAdjudicationInput): {
+  groups: IssueAdjudicationGroup[];
+  summary: IssueAdjudicationSummary;
+} {
+  const members: EffectiveFinding[] = [
+    ...input.findings,
+    ...(input.resolvedFindings ?? []),
+  ];
+  const buckets = new Map<string, { reasons: string[]; members: EffectiveFinding[] }>();
+
+  for (const finding of members) {
+    const { key, reasons } = computeGroupingKey(finding);
+    const bucket = buckets.get(key);
+
+    if (bucket) {
+      bucket.members.push(finding);
+    } else {
+      buckets.set(key, { reasons, members: [finding] });
+    }
+  }
+
+  const groups: IssueAdjudicationGroup[] = [];
+
+  for (const [groupingKey, bucket] of buckets) {
+    const canonical = pickCanonicalFinding(bucket.members);
+    const memberIds = bucket.members.map((finding) => finding.id);
+    const sortedMemberIds = [...new Set(memberIds)].sort((left, right) =>
+      left.localeCompare(right),
+    );
+    const severity = pickHighestSeverity(bucket.members);
+    const statusBreakdown = countBy(bucket.members, (finding) => finding.effectiveStatus);
+    const status = pickGroupStatus(bucket.members);
+    const active = bucket.members.some(
+      (finding) => finding.effectiveStatus === "new" || finding.effectiveStatus === "existing",
+    );
+    const files = unionSorted(bucket.members.map((finding) => finding.files ?? []));
+    const subjects = unionSorted(bucket.members.map((finding) => finding.subjects ?? []));
+    const evidence = mergeEvidence(bucket.members);
+    const systems = input.systemsForFinding
+      ? unionSorted(bucket.members.map((finding) => input.systemsForFinding!(finding) ?? []))
+      : undefined;
+    const suggestedAction = canonical.suggestedAction;
+    const groupId = `issue-${canonical.id}`;
+
+    groups.push({
+      id: groupId,
+      canonicalFindingId: canonical.id,
+      memberFindingIds: sortedMemberIds,
+      type: canonical.type,
+      ruleId: canonical.ruleId,
+      severity,
+      status,
+      active,
+      title: canonical.title,
+      description: canonical.description,
+      files,
+      subjects,
+      systems: systems && systems.length > 0 ? systems : undefined,
+      suggestedAction,
+      evidence: evidence.length > 0 ? evidence : undefined,
+      groupingKey,
+      groupingReasons: bucket.reasons,
+      statusBreakdown,
+    });
+  }
+
+  groups.sort((left, right) => {
+    if (left.active !== right.active) {
+      return left.active ? -1 : 1;
+    }
+
+    const severityDiff = SEVERITY_RANK[right.severity] - SEVERITY_RANK[left.severity];
+    if (severityDiff !== 0) {
+      return severityDiff;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+
+  return { groups, summary: summarizeAdjudication(groups, members.length) };
+}
+
+export function createIssueAdjudicationReport(input: {
+  header: ArtifactHeader;
+  findings: EffectiveFinding[];
+  resolvedFindings?: EffectiveFinding[];
+  systemsForFinding?: (finding: EffectiveFinding) => string[] | undefined;
+}): IssueAdjudicationReport {
+  const { groups, summary } = deriveIssueAdjudication({
+    findings: input.findings,
+    resolvedFindings: input.resolvedFindings,
+    systemsForFinding: input.systemsForFinding,
+  });
+
+  return assertIssueAdjudicationReport({
+    header: input.header,
+    summary,
+    groups,
+  });
+}
+
+export function validateIssueAdjudicationReport(
+  value: unknown,
+): ValidationResult<IssueAdjudicationReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  const header = validateArtifactHeader(value.header);
+
+  if (!header.ok) {
+    issues.push(...prefixIssues(header.issues, "$.header"));
+  } else if (header.value.artifactType !== "IssueAdjudicationReport") {
+    issues.push({
+      path: "$.header.artifactType",
+      message: "Expected artifactType to be IssueAdjudicationReport.",
+    });
+  }
+
+  if (!isRecord(value.summary) || typeof (value.summary as Record<string, unknown>).totalGroups !== "number") {
+    issues.push({ path: "$.summary", message: "Expected an adjudication summary." });
+  }
+
+  if (!Array.isArray(value.groups)) {
+    issues.push({ path: "$.groups", message: "Expected an array." });
+  } else {
+    value.groups.forEach((group, index) =>
+      validateAdjudicationGroup(group, `$.groups[${index}]`, issues),
+    );
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as IssueAdjudicationReport, issues: [] };
+}
+
+export function assertIssueAdjudicationReport(value: unknown): IssueAdjudicationReport {
+  const result = validateIssueAdjudicationReport(value);
+
+  if (result.ok) {
+    return result.value;
+  }
+
+  throw new TypeError(
+    `IssueAdjudicationReport validation failed: ${result.issues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ")}`,
+  );
+}
+
+export const issueAdjudicationReportSchema: ArtifactSchema<IssueAdjudicationReport> = {
+  validate: validateIssueAdjudicationReport,
+  parse: assertIssueAdjudicationReport,
+};
+
+function computeGroupingKey(finding: EffectiveFinding): { key: string; reasons: string[] } {
+  const reasons: string[] = ["same-type"];
+  const type = finding.type;
+  const ruleId = finding.ruleId ?? "";
+  const files = uniqueSorted(finding.files ?? []);
+  const subjects = uniqueSorted(finding.subjects ?? []);
+
+  if (ruleId.length > 0) {
+    reasons.push("same-rule");
+  }
+
+  let locationSegment: string;
+
+  if (files.length > 0) {
+    reasons.push("same-files");
+    locationSegment = `files=${files.join(",")}`;
+  } else if (subjects.length > 0) {
+    reasons.push("same-subjects");
+    locationSegment = `subjects=${subjects.join(",")}`;
+  } else {
+    reasons.push("singleton-no-grouping-key");
+    locationSegment = `singleton=${finding.id}`;
+  }
+
+  return {
+    key: `${type}|${ruleId}|${locationSegment}`,
+    reasons,
+  };
+}
+
+function pickCanonicalFinding(members: EffectiveFinding[]): EffectiveFinding {
+  return [...members].sort((left, right) => {
+    const leftActive = left.effectiveStatus === "new" || left.effectiveStatus === "existing";
+    const rightActive = right.effectiveStatus === "new" || right.effectiveStatus === "existing";
+
+    if (leftActive !== rightActive) {
+      return leftActive ? -1 : 1;
+    }
+
+    const severityDiff = SEVERITY_RANK[right.severity] - SEVERITY_RANK[left.severity];
+    if (severityDiff !== 0) {
+      return severityDiff;
+    }
+
+    return left.id.localeCompare(right.id);
+  })[0]!;
+}
+
+function pickHighestSeverity(members: EffectiveFinding[]): FindingSeverity {
+  let best: FindingSeverity = "low";
+
+  for (const finding of members) {
+    if (SEVERITY_RANK[finding.severity] > SEVERITY_RANK[best]) {
+      best = finding.severity;
+    }
+  }
+
+  return best;
+}
+
+function pickGroupStatus(members: EffectiveFinding[]): IssueAdjudicationStatus {
+  const statuses = new Set(members.map((finding) => finding.effectiveStatus));
+  const allActive = [...statuses].every((status) => status === "new" || status === "existing");
+
+  if (allActive) {
+    return "active";
+  }
+
+  if (statuses.size === 1) {
+    const only = [...statuses][0];
+
+    if (only === "accepted" || only === "ignored" || only === "resolved") {
+      return only;
+    }
+  }
+
+  return "mixed";
+}
+
+function unionSorted(lists: ReadonlyArray<ReadonlyArray<string>>): string[] {
+  const set = new Set<string>();
+
+  for (const list of lists) {
+    for (const value of list) {
+      if (typeof value === "string" && value.length > 0) {
+        set.add(value);
+      }
+    }
+  }
+
+  return [...set].sort((left, right) => left.localeCompare(right));
+}
+
+function mergeEvidence(members: EffectiveFinding[]): ArtifactRef[] {
+  const seen = new Set<string>();
+  const refs: ArtifactRef[] = [];
+
+  for (const finding of members) {
+    for (const ref of finding.evidence ?? []) {
+      const key = `${ref.type}|${ref.id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push(ref);
+      }
+    }
+  }
+
+  return refs;
+}
+
+function summarizeAdjudication(
+  groups: IssueAdjudicationGroup[],
+  totalFindings: number,
+): IssueAdjudicationSummary {
+  const bySeverity: Record<string, number> = {};
+  const byType: Record<string, number> = {};
+  let activeGroups = 0;
+  let acceptedGroups = 0;
+  let ignoredGroups = 0;
+  let resolvedGroups = 0;
+  let mixedGroups = 0;
+  let groupedFindings = 0;
+
+  for (const group of groups) {
+    bySeverity[group.severity] = (bySeverity[group.severity] ?? 0) + 1;
+    byType[group.type] = (byType[group.type] ?? 0) + 1;
+    groupedFindings += group.memberFindingIds.length;
+
+    switch (group.status) {
+      case "active":
+        activeGroups += 1;
+        break;
+      case "accepted":
+        acceptedGroups += 1;
+        break;
+      case "ignored":
+        ignoredGroups += 1;
+        break;
+      case "resolved":
+        resolvedGroups += 1;
+        break;
+      case "mixed":
+        mixedGroups += 1;
+        break;
+    }
+  }
+
+  return {
+    totalGroups: groups.length,
+    activeGroups,
+    acceptedGroups,
+    ignoredGroups,
+    resolvedGroups,
+    mixedGroups,
+    totalFindings,
+    groupedFindings,
+    bySeverity,
+    byType,
+  };
+}
+
+function validateAdjudicationGroup(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  requiredString(value.id, `${path}.id`, issues);
+  requiredString(value.canonicalFindingId, `${path}.canonicalFindingId`, issues);
+  requiredString(value.type, `${path}.type`, issues);
+  requiredString(value.title, `${path}.title`, issues);
+  requiredString(value.description, `${path}.description`, issues);
+  requiredString(value.groupingKey, `${path}.groupingKey`, issues);
+
+  if (!isStringArray(value.memberFindingIds) || value.memberFindingIds.length === 0) {
+    issues.push({ path: `${path}.memberFindingIds`, message: "Expected a non-empty array of strings." });
+  }
+
+  if (!isStringArray(value.files)) {
+    issues.push({ path: `${path}.files`, message: "Expected an array of strings." });
+  }
+
+  if (!isStringArray(value.subjects)) {
+    issues.push({ path: `${path}.subjects`, message: "Expected an array of strings." });
+  }
+
+  if (!isStringArray(value.groupingReasons) || value.groupingReasons.length === 0) {
+    issues.push({ path: `${path}.groupingReasons`, message: "Expected a non-empty array of strings." });
+  }
+
+  if (typeof value.severity !== "string" || !SEVERITIES.has(value.severity as FindingSeverity)) {
+    issues.push({ path: `${path}.severity`, message: "Expected a valid finding severity." });
+  }
+
+  if (typeof value.status !== "string" || !ISSUE_ADJUDICATION_STATUSES.has(value.status as IssueAdjudicationStatus)) {
+    issues.push({ path: `${path}.status`, message: "Expected a valid adjudication status." });
+  }
+
+  if (typeof value.active !== "boolean") {
+    issues.push({ path: `${path}.active`, message: "Expected a boolean." });
+  }
+
+  if (!isRecord(value.statusBreakdown)) {
+    issues.push({ path: `${path}.statusBreakdown`, message: "Expected an object." });
+  }
+
+  if (value.ruleId !== undefined && typeof value.ruleId !== "string") {
+    issues.push({ path: `${path}.ruleId`, message: "Expected a string when present." });
+  }
+
+  if (value.systems !== undefined && !isStringArray(value.systems)) {
+    issues.push({ path: `${path}.systems`, message: "Expected an array of strings when present." });
+  }
+
+  if (value.suggestedAction !== undefined && typeof value.suggestedAction !== "string") {
+    issues.push({ path: `${path}.suggestedAction`, message: "Expected a string when present." });
+  }
+
+  if (value.evidence !== undefined) {
+    if (!Array.isArray(value.evidence)) {
+      issues.push({ path: `${path}.evidence`, message: "Expected an array of artifact refs when present." });
+    } else {
+      value.evidence.forEach((ref, index) => {
+        const refResult = validateArtifactRef(ref);
+        if (!refResult.ok) {
+          issues.push(...prefixIssues(refResult.issues, `${path}.evidence[${index}]`));
+        }
+      });
+    }
+  }
+}
+
 export type FindingLifecycleInput = {
   latestReport: FindingReport;
   previousReports?: FindingReport[];

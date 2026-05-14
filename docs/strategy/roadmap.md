@@ -225,6 +225,26 @@ is the first stop before proposing a new capability batch.
   `ownerSystems`, `risk`, `findings`, `status`, or
   `nextRequiredResolver`. Promotion / curation engine and
   context-usage analytics remain Phase C.
+- Issue adjudication / dedupe v1 (P1.1 first slice from the
+  Classic Guarantees Audit): `IssueAdjudicationReport` groups
+  duplicate / overlapping findings from
+  `FindingLifecycleReport` into canonical issue groups via
+  deterministic key equality
+  (`type | ruleId | files | subjects | singleton`). Status /
+  lifecycle context survives in per-group `statusBreakdown`; no
+  finding is dropped (singletons emit singleton groups with
+  `singleton-no-grouping-key`); raw `FindingReport`,
+  `FindingStatusLedger`, and `FindingLifecycleReport` are never
+  mutated. New CLI: `rekon issues adjudicate`,
+  `rekon issues list [--status …]`. New runtime helper
+  `buildIssueAdjudicationReport`. New pure helpers
+  `deriveIssueAdjudication`, `createIssueAdjudicationReport`,
+  `validateIssueAdjudicationReport`,
+  `assertIssueAdjudicationReport`, and schema export. Freshness
+  marks adjudication reports stale after newer
+  `FindingLifecycleReport`. Semantic / fuzzy matching, LLM
+  review, `CoherencyDelta` v2, and `resolve.issue` v2 remain
+  deferred.
 - Memory usage evidence / curation v1 (next slice of P1.2):
   `@rekon/capability-memory` now records explicit operator
   feedback about how selected memory was actually used.

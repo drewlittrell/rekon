@@ -168,6 +168,18 @@ Output:
 These are intentionally deferred. See
 [../strategy/classic-behavior-roadmap.md](../strategy/classic-behavior-roadmap.md).
 
+> **Future input.** `CoherencyDelta` v1 consumes
+> `FindingLifecycleReport` directly. A separate deterministic
+> projection layer — `IssueAdjudicationReport` — now groups
+> duplicate / overlapping findings into canonical issue groups
+> (see
+> [issue-adjudication.md](issue-adjudication.md) and
+> [../artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md)).
+> A future `CoherencyDelta` v2 will consume those adjudicated
+> groups instead of raw lifecycle findings so the remediation
+> queue counts governed issues, not lint noise. This batch does
+> not change `CoherencyDelta`.
+
 ## Cross-References
 
 - [CoherencyDelta artifact](../artifacts/coherency-delta.md)
@@ -175,6 +187,8 @@ These are intentionally deferred. See
 - [FindingReport](../artifacts/finding-report.md)
 - [FindingStatusLedger](../artifacts/finding-status-ledger.md)
 - [FindingLifecycleReport](../artifacts/finding-lifecycle-report.md)
+- [IssueAdjudicationReport](../artifacts/issue-adjudication-report.md)
+- [Issue adjudication concept](issue-adjudication.md)
 - [Classic wins](../strategy/classic-wins.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

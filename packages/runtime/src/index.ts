@@ -23,8 +23,10 @@ import {
   type FindingLifecycleReport,
   type FindingReport,
   type FindingStatusLedger,
+  type IssueAdjudicationReport,
   createCoherencyDelta,
   createFindingLifecycleReport,
+  createIssueAdjudicationReport,
   deriveFindingLifecycle,
 } from "@rekon/kernel-findings";
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
@@ -210,6 +212,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   CoherencyDelta: "findings",
   ResolverPacket: "resolver-packets",
   Publication: "publications",
+  IssueAdjudicationReport: "findings",
   OperatorFeedbackEntry: "actions",
   MemoryEvent: "actions",
   ContextUsageEvent: "actions",
@@ -922,6 +925,83 @@ export async function buildCoherencyDelta(
       generatedAt: new Date().toISOString(),
       subject: { repoId },
       producer: { id: "@rekon/runtime.coherency", version: "0.1.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+    },
+    findings: lifecycle.findings,
+    resolvedFindings: lifecycle.resolvedFindings,
+    systemsForFinding,
+  });
+}
+
+export type BuildIssueAdjudicationOptions = {
+  lifecycleReportId?: string;
+};
+
+export async function buildIssueAdjudicationReport(
+  store: ArtifactStore,
+  options: BuildIssueAdjudicationOptions = {},
+): Promise<IssueAdjudicationReport> {
+  const lifecycleEntries = await store.list("FindingLifecycleReport");
+  const sortedLifecycle = [...lifecycleEntries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+
+  let lifecycle: FindingLifecycleReport;
+  const inputRefs: ArtifactRef[] = [];
+
+  if (options.lifecycleReportId) {
+    const match = sortedLifecycle.find((entry) => entry.id === options.lifecycleReportId);
+
+    if (!match) {
+      throw new Error(`FindingLifecycleReport not found: ${options.lifecycleReportId}`);
+    }
+
+    lifecycle = (await store.read(match)) as FindingLifecycleReport;
+    inputRefs.push(indexEntryToRef(match));
+  } else if (sortedLifecycle[0]) {
+    lifecycle = (await store.read(sortedLifecycle[0])) as FindingLifecycleReport;
+    inputRefs.push(indexEntryToRef(sortedLifecycle[0]));
+  } else {
+    lifecycle = await buildFindingLifecycleReport(store);
+  }
+
+  for (const ref of lifecycle.header.inputRefs ?? []) {
+    if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+      inputRefs.push(ref);
+    }
+  }
+
+  const ownershipMap = await readLatest<OwnershipMap>(store, "OwnershipMap", inputRefs);
+  const observedRepo = await readLatest<ObservedRepo>(store, "ObservedRepo", inputRefs);
+
+  const systemsForFinding = (finding: EffectiveFinding): string[] | undefined => {
+    const files = finding.files ?? [];
+    if (files.length === 0) {
+      return undefined;
+    }
+
+    const systems = new Set<string>();
+    for (const file of files) {
+      const owner = resolveOwnerForPath(file, ownershipMap, observedRepo);
+      if (owner) {
+        systems.add(owner);
+      }
+    }
+
+    return systems.size > 0 ? [...systems] : undefined;
+  };
+
+  const repoId = lifecycle.header.subject?.repoId ?? subjectRepoId(store);
+
+  return createIssueAdjudicationReport({
+    header: {
+      artifactType: "IssueAdjudicationReport",
+      artifactId: `issue-adjudication-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId },
+      producer: { id: "@rekon/runtime.issues", version: "0.1.0" },
       inputRefs,
       freshness: { status: "fresh" },
     },
