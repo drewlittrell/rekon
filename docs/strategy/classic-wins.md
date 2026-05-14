@@ -148,4 +148,7 @@ Cross-references:
 - [classic-to-rekon-translation.md](classic-to-rekon-translation.md)
 - [classic-refactor-principles.md](classic-refactor-principles.md)
 - [classic-behavior-roadmap.md](classic-behavior-roadmap.md)
+- [classic-guarantees-audit.md](classic-guarantees-audit.md)
+- [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md)
+- [classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md)
 - [north-star.md](north-star.md)

@@ -50,7 +50,18 @@ Completion summary must include:
 - RISKS / FOLLOW-UP
 - NEXT STEP
 
-For major capability work, include a CODEBASE-INTEL ALIGNMENT section that names:
+For any major capability, resolver, publisher, actuator, memory, freshness, issue, or orchestration work, include the following two sections in the review packet:
+
+PURPOSE PRESERVATION CHECK
+
+- Original problem (what failure mode caused the classic subsystem to exist)
+- Classic workflow guarantee (what the classic implementation guaranteed operationally — more specific than "it generated docs" or "it detected issues")
+- Classic shape that provided the guarantee (services / handlers / modules)
+- Rekon equivalent guarantee (the artifact / capability / command / workflow that preserves the same guarantee)
+- What would mean we failed (specific failure modes ruled out by this batch)
+- Regression test for the original problem (concrete test or dogfood check that proves Rekon still solves the original problem)
+
+CODEBASE-INTEL ALIGNMENT
 
 - Classic capability or failure mode being addressed
 - Relevant classic files/systems (e.g., `services/IssueDetectionService.ts`, `lib/context/resolver.ts`, `packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts`)
@@ -59,4 +70,13 @@ For major capability work, include a CODEBASE-INTEL ALIGNMENT section that names
 - What Rekon does not port yet
 - How this advances migration phase per [docs/strategy/classic-behavior-roadmap.md](docs/strategy/classic-behavior-roadmap.md)
 
-Do not implement a new Rekon capability only because it is generally useful. Every capability should distill, generalize, or prepare migration for a proven `codebase-intel-classic` behavior unless explicitly marked as experimental exploration. Use [docs/strategy/classic-behavior-distillation.md](docs/strategy/classic-behavior-distillation.md), [docs/strategy/classic-wins.md](docs/strategy/classic-wins.md), [docs/strategy/classic-refactor-principles.md](docs/strategy/classic-refactor-principles.md), and [docs/strategy/classic-alignment-map.md](docs/strategy/classic-alignment-map.md) as the anchors.
+Anchor every proposal in the existing strategy docs:
+
+- [docs/strategy/classic-guarantees-audit.md](docs/strategy/classic-guarantees-audit.md) is the per-subsystem source of truth for workflow guarantees.
+- [docs/strategy/classic-guarantee-regression-plan.md](docs/strategy/classic-guarantee-regression-plan.md) is the P0/P1/P2 test plan.
+- [docs/strategy/classic-subsystem-purpose-map.md](docs/strategy/classic-subsystem-purpose-map.md) is the quick-reference map; read it first.
+- [docs/strategy/classic-behavior-distillation.md](docs/strategy/classic-behavior-distillation.md), [docs/strategy/classic-wins.md](docs/strategy/classic-wins.md), [docs/strategy/classic-refactor-principles.md](docs/strategy/classic-refactor-principles.md), and [docs/strategy/classic-alignment-map.md](docs/strategy/classic-alignment-map.md) carry the underlying behavior cards, wins, refactor rules, and role-mapping table.
+
+Do not implement a new Rekon capability only because it is generally useful. Every capability should distill, generalize, or prepare migration for a proven `codebase-intel-classic` behavior unless explicitly marked as experimental exploration.
+
+Do not call classic orchestration "weight" unless the work order identifies which guarantee is preserved elsewhere. Implementation coupling may be simplified; workflow guarantees must be preserved or explicitly deferred. If your batch defers a guarantee, say so and name the entry in [classic-guarantees-audit.md](docs/strategy/classic-guarantees-audit.md) you are deferring.

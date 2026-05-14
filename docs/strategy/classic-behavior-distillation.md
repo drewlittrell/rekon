@@ -18,6 +18,16 @@ See also:
 - [classic-behavior-roadmap.md](classic-behavior-roadmap.md) — phased
   migration plan.
 - [classic-alignment-map.md](classic-alignment-map.md) — quick lookup table.
+- [classic-guarantees-audit.md](classic-guarantees-audit.md) —
+  per-subsystem workflow guarantee + gap audit; identifies what
+  classic actually *guaranteed* operationally, not just what each
+  subsystem did.
+- [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md) —
+  P0/P1/P2 regression tests that would prove the original problem
+  is still solved.
+- [classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md) —
+  quick-reference purpose-map table to consult before proposing
+  capability work.
 - [codebase-intel-classic-migration.md](codebase-intel-classic-migration.md) —
   the durable role-mapping rules.
 

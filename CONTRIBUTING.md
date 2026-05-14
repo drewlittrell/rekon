@@ -57,6 +57,20 @@ Run `npm run lint` when linting is configured.
 - Keep kernel packages pure and side-effect free.
 - Prefer package-local changes over cross-package shortcuts.
 
+## Preserving Classic Workflow Guarantees
+
+When proposing to migrate or reinterpret a classic subsystem, contributors must identify the original problem and the workflow guarantee the classic implementation provided. A contribution that recreates a feature but loses the guarantee is incomplete.
+
+Use these strategy docs as the anchor:
+
+- [docs/strategy/classic-guarantees-audit.md](docs/strategy/classic-guarantees-audit.md) — per-subsystem original problem, classic workflow guarantee, what Rekon already preserves, gap, regression test, and next slice.
+- [docs/strategy/classic-guarantee-regression-plan.md](docs/strategy/classic-guarantee-regression-plan.md) — P0/P1/P2 regression tests.
+- [docs/strategy/classic-subsystem-purpose-map.md](docs/strategy/classic-subsystem-purpose-map.md) — quick-reference table to consult first.
+
+Implementation coupling may be simplified; workflow guarantees must be preserved or explicitly deferred. Do not call classic orchestration "weight" unless the work order identifies which guarantee is preserved elsewhere.
+
+Every major contribution (capability, resolver, publisher, actuator, memory, freshness, issue, orchestration) must include a `PURPOSE PRESERVATION CHECK` section in its review packet that names the original problem, the classic workflow guarantee, the Rekon equivalent, and the regression test that proves the original problem is still solved. See [AGENTS.md](AGENTS.md) for the exact required fields.
+
 ## Authoring Capabilities
 
 Start with [docs/extensions/authoring-capabilities.md](docs/extensions/authoring-capabilities.md)

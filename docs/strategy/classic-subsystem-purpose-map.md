@@ -1,0 +1,53 @@
+# Classic Subsystem Purpose Map
+
+This is the quick-reference table future builders should read before
+proposing capability work. For the full per-subsystem audit see
+[classic-guarantees-audit.md](classic-guarantees-audit.md); for the
+operational test plan see
+[classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
+
+| # | Classic subsystem | Original problem | Classic guarantee | Rekon equivalent today | Gap | Priority | Next slice |
+| - | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Full Scan / Refresh Orchestration (`services/FullScanHandler.ts`) | Multi-phase intelligence pipelines accumulate partial-state failures when operators forget phases. | One command produced a coherent state: every phase ran in order, every downstream consumer saw a fresh upstream, per-phase checkpoints made partial failures inspectable. | Per-phase CLI verbs (`observe` / `project` / `snapshot` / `evaluate` / `findings lifecycle` / `coherency delta` / `publish architecture` / `artifacts validate` / `artifacts freshness`) plus `ensure*Ready` helpers. | No single command orchestrates the whole loop; partial state surfaces only retroactively via freshness. | **P0** | `rekon refresh` orchestration command. |
+| 2 | Evidence And Repo Observation (`replatform-observe.ts`, `packages/pack-language-*/**`) | Untrusted facts produce untrusted analysis; provenance loss breaks reproducibility. | Deterministic per-fact `EvidenceFact`s with provider/subject/kind/provenance; one canonical `EvidenceGraph` that downstream layers cite. | `@rekon/kernel-evidence` + `@rekon/capability-js-ts` + community packs; `rekon observe` writes the `EvidenceGraph`. | Multi-pack determinism test is absent; cross-language correlation untested. | **P1** | Multi-pack determinism + correlation fixture when a second built-in evidence provider lands. |
+| 3 | Deterministic + Semantic Analysis (`DeterministicHybridPipeline.ts`) | Pure LLM analysis is non-deterministic; mixing deterministic and semantic silently overrides facts. | Deterministic-first; semantic opt-in with `model`+`version` in provenance; viability gate before any semantic fact contributes. | No semantic provider yet; `semantic-provider` role reserved behind `network:outbound`. | Gate logic + permission enforcement not implemented (no consumer yet). | **P2** | Defer; document gate before the first semantic provider proposal. |
+| 4 | Graph Intelligence (`GraphBuildProvider.ts`, `domain/graph/producers/**`) | Graph questions need real edges, not invented ones; re-deriving from evidence each time is slow and inconsistent. | Named slices derived from evidence; per-slice metadata; reproducible. | `@rekon/kernel-graph` + `@rekon/capability-graph` (import / symbol / ownership). | Route / call / runtime slices missing; structural slice-citation test missing. | **P1** | Route / call slice projectors when the first consumer demands them. |
+| 5 | Rule Engine / Compiled Invariants (`RulesResolver.ts`, `services/RuleCompilationHandler.ts`) | Hand-written analyses scatter logic and drift silently. | Rules compile to `Rulebook` entries with stable ids, severities, scopes, action templates; every finding cites the rule. | `@rekon/kernel-rulebook` + `@rekon/capability-policy` + `examples/import-boundary-rule-pack`. | No YAML-compiled rulebook path; packs ship hand-written evaluators. | **P1** | Compiled-rulebook capability when a second community pack demands it. |
+| 6 | Issue Detection / Adjudication (`IssueDetectionService.ts`) | Raw evaluator output is lint noise; same defect fires multiple times; status decisions get lost. | Multi-phase adjudication: dedupe, false-positive filtering, ownership hydration, status preservation, prioritized remediation, filtered audit. | `FindingReport` → `FindingStatusLedger` → `FindingLifecycleReport` → `CoherencyDelta` chain; status preserved across runs. | Cross-pack dedupe partial; false-positive scoring beyond operator marking absent; ownership hydration runs at delta time, not lifecycle time. | **P1** | Issue adjudication maturity batch. |
+| 7 | Coherency Delta / Remediation Roll-up (`replatform-delta.ts`) | Adjudicated findings still need one rolled-up artifact for drift status and remediation priority. | Single artifact with summary, items, prioritized remediation queue; canonical input for proof loop. | `@rekon/kernel-findings.CoherencyDelta` consumed by architecture summary, remediation work orders, reconciliation suggestions, proof report. | Trend (delta-over-delta) not computed; no health score or per-system weighting. | **P0 preserved / P1 trend** | `CoherencyDeltaHistory` when a real trend consumer demands it. |
+| 8 | Resolver / Context / Preflight (`lib/context/resolver.ts`, `services/ContextHandler.ts`) | Agents edit blind without ownership, findings, memory, risk, and next-step. | Explainable `ResolverPacket` with full `resolutionTrace`; ownership precedence; risk rules; relevant findings; applicable memory; recommended next resolver. | `@rekon/capability-resolver` ships `resolve.route` / `seam` / `preflight` / `issue` with traces; `resolve.issue` is verification-aware. | Live invalidation / streaming context deferred. | **P0 preserved / P2 live invalidation** | Phase C `rekon watch` for live updates. |
+| 9 | Generated Docs / Agent Docs (`ArchitectureDocsHandler.ts`, `lib/agent-docs.ts`) | Agents that have not been told the operating contract guess. | Generated docs surface required checks, owner systems, anti-gaming policy before the agent edits, in a medium agents read. | Three publishers (`agents` / `architecture-summary` / `proof-report`); all cite inputs; preface says publications are not canonical truth. | `agents` publication is a thin summary; lacks an opinionated operating-contract section. | **P1** | Agent operating contract publication (extend `agents` publisher or add a fourth). |
+| 10 | Operator Feedback / Memory (`lib/operator-feedback.ts`, `lib/memory/**`) | Repo-specific knowledge grows faster than rules can encode it; without memory, agents lose it each run. | Scoped capture, reliability/freshness/specificity scoring, recall ranking, curation/promotion to durable knowledge, context-usage tracking. | `@rekon/capability-memory` learner; capture / list / select; `MemorySelection` artifacts consumed by resolvers. | Ranking, freshness decay, reliability weighting, curation, and promotion are not at classic depth. | **P1** | Memory ranking / curation v1. |
+| 11 | Intent Preparation / Proof Gates (`IntentPreparationService.ts`) | Agents declare work complete by narrative; gate-gaming happens when implementation and verification are not separated. | Phase parsing, actionability assessment, gate-quality scoring, anti-gaming language, completion evidence binding. | `IntentMap` / `WorkOrder` / `VerificationPlan` / `VerificationResult` artifacts with anti-gaming guardrails; passing verification does not auto-resolve findings; `resolve.issue` and `intent remediation --skip-verified` consume verification evidence without mutating findings. | Phase parser, actionability engine, gate-quality classifier, elicitation, parallel scheduling deferred. | **P1** | Phase / actionability engine when the alpha graduates to a workflow that needs it. |
+| 12 | Reconciliation / Deterministic Operations (`PlanExecutorService.ts`) | Auto-fix pipelines that silently source-write produce invisible regressions. | Deterministic-first, dry-run default, explicit per-operation permission, deferred-as-first-class, post-apply verification gate. | `@rekon/capability-reconcile.actuator` (manual + suggestion modes); operations classified by source-write / command / manual-review / artifact-only; `--apply` is artifact-only. | Source-write apply deferred; post-apply verification gate scaffold absent because there is no apply path yet. | **P0 preserved / P2 source-write apply** | Phase C deterministic source-write apply with post-apply verification gate. |
+| 13 | Watcher / Freshness / Live Context Trust (`WatchHandler.ts`, `lib/context-freshness.ts`) | Static answers go stale silently as source changes. | Event-driven watcher proves freshness or invalidates context after source changes. | Lineage-driven freshness via `@rekon/runtime.validateArtifactFreshness`; `rekon artifacts freshness` reports per-artifact status. | No daemon, no path/event freshness, no live invalidation. | **P1 path/event / P2 daemon** | Path / event freshness batch; daemon is Phase C. |
+| 14 | GitHub / CI / PR Surfaces (`commands/saas.ts`, classic check publishers) | Intelligence that only runs locally never reaches PR review. | CI/check-run publishers map `FindingReport` severities onto check semantics; verification failures block merge. | None (Phase D). | The whole CI surface. | **P2** | Phase D; before it lands, gate must require `VerificationResult` evidence (no narrative success). |
+| 15 | SaaS / Dashboard Surfaces (`commands/saas.ts`, `packages/product-codebase-intel/src/saas/**`) | Org-level governance signal needs aggregated views. | Hosted surfaces consume Rekon artifacts as-is; they do not introduce new canonical truth. | None (Phase D, out of substrate scope). | The whole hosted surface. | **P2** | Phase D; preserve "dashboard is a consumer" guarantee before any hosted-surface proposal. |
+
+## Reading The Priority Column
+
+- **P0** — the original problem is not yet adequately solved by
+  Rekon. Close before serious external users.
+- **P0 preserved** — Rekon already preserves the guarantee for the
+  current scope; future expansion may add a new gap.
+- **P1** — partial coverage with a real gap. Close before beta.
+- **P2** — explicitly deferred (Phase C or D). Document the
+  guarantee so it does not silently regress when the deferred batch
+  lands.
+
+## How To Use This Map
+
+Before proposing a new capability, resolver, publisher, actuator,
+memory, freshness, issue, or orchestration batch:
+
+1. Find the row that covers your area.
+2. Read the corresponding subsystem entry in
+   [classic-guarantees-audit.md](classic-guarantees-audit.md).
+3. Identify which workflow guarantee your work must preserve.
+4. Include a `PURPOSE PRESERVATION CHECK` section in the review
+   packet citing the original problem, the classic guarantee, and
+   the regression test that would prove the original problem is
+   still solved.
+
+If your batch deliberately defers a guarantee, name the entry above
+and update it once your batch lands.

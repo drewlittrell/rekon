@@ -13,6 +13,15 @@ The NorthStar (see [north-star.md](north-star.md)) constrains what may
 appear here. Anything that contradicts the NorthStar must come with an
 explicit NorthStar update.
 
+Implementation slices must preserve the workflow guarantees identified
+in
+[classic-guarantees-audit.md](classic-guarantees-audit.md) and the
+P0/P1/P2 regression plan in
+[classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
+The quick-reference
+[classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md)
+is the first stop before proposing a new capability batch.
+
 ## Completed Alpha Spine
 
 - Kernel packages:

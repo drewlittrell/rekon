@@ -230,7 +230,15 @@ and the durable distillation of hard-won classic behavior lives in
 [docs/strategy/classic-to-rekon-translation.md](classic-to-rekon-translation.md),
 [docs/strategy/classic-refactor-principles.md](classic-refactor-principles.md),
 [docs/strategy/classic-behavior-roadmap.md](classic-behavior-roadmap.md),
-and [docs/strategy/classic-alignment-map.md](classic-alignment-map.md).
+[docs/strategy/classic-alignment-map.md](classic-alignment-map.md),
+[docs/strategy/classic-guarantees-audit.md](classic-guarantees-audit.md),
+[docs/strategy/classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md),
+and [docs/strategy/classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md).
+
+The guarantees-audit triple is the anchor for purpose preservation:
+treat each classic subsystem as a problem-solution artifact, not as
+"weight to remove." Implementation coupling may be simplified;
+workflow guarantees must be preserved or explicitly deferred.
 
 The intent is consistent: more capability roles, more language and framework
 packs, richer runtime truth, a freshness engine, more publication surfaces,

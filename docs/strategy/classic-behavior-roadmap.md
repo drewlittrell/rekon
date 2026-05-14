@@ -6,6 +6,12 @@ Each phase moves wins forward without copying the accidents.
 This document complements [roadmap.md](roadmap.md). The general roadmap
 covers all Rekon work; this document is the classic-aligned subset.
 
+For the per-subsystem workflow-guarantee audit and the P0/P1/P2
+regression plan that the next phases must preserve, see
+[classic-guarantees-audit.md](classic-guarantees-audit.md),
+[classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md),
+and [classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md).
+
 ## Phase A — Already Represented In Rekon
 
 These classic wins exist today in Rekon (alpha spine):
@@ -208,6 +214,18 @@ scope:
   `"proof-report"`. Aligned to classic agent-doc proof visibility
   without porting CI/check-run publishers, the semantic verification
   judge, or auto-completion projection.
+- **Classic guarantees audit.** ✅ Initial slice shipped (docs/tests
+  only). The audit doc names the original problem, classic workflow
+  guarantee, current Rekon equivalent, gap, regression test, and
+  next implementation slice for each of the 15 major classic
+  subsystems. The companion regression plan lists 7 P0, 6 P1, and 5
+  P2 guarantees with concrete proposed tests. The quick-reference
+  purpose map is the table future builders read first. `AGENTS.md`
+  and `CONTRIBUTING.md` now require a `PURPOSE PRESERVATION CHECK`
+  for major batches and explicitly say "do not call classic
+  orchestration weight unless the work order identifies which
+  guarantee is preserved elsewhere." No runtime behavior changed
+  in this batch.
 
 ## Phase C — Later Maturity
 

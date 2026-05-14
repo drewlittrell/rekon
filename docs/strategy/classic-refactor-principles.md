@@ -111,10 +111,35 @@ rule against the proposed port:
 If the answers are concrete and short, the port is ready. If they need
 hand-waving, stop and update the substrate or the distillation.
 
+### Preserve The Workflow Guarantee, Not Just The Feature
+
+Each classic subsystem encodes a workflow guarantee, not just a
+feature. Before reinterpreting a subsystem in Rekon-native form,
+identify the original problem and the workflow guarantee the classic
+shape provided. A port that recreates the feature but loses the
+guarantee is incomplete.
+
+The audit, regression plan, and quick-reference map make this rule
+operational:
+
+- [classic-guarantees-audit.md](classic-guarantees-audit.md) lists
+  the workflow guarantee for each subsystem.
+- [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md)
+  proposes the regression test that would prove the original
+  problem is still solved.
+- [classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md)
+  is the quick-reference table to consult first.
+
+Do not call classic orchestration "weight" unless the work order
+identifies which guarantee is preserved elsewhere.
+
 Cross-references:
 
 - [classic-behavior-distillation.md](classic-behavior-distillation.md)
 - [classic-wins.md](classic-wins.md)
 - [classic-to-rekon-translation.md](classic-to-rekon-translation.md)
+- [classic-guarantees-audit.md](classic-guarantees-audit.md)
+- [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md)
+- [classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md)
 - [capability-model.md](capability-model.md)
 - [north-star.md](north-star.md)
