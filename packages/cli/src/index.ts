@@ -494,6 +494,57 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "intent" && subcommand === "remediation") {
+    const findingId = typeof parsed.flags.finding === "string" ? parsed.flags.finding : undefined;
+    const priorityFlag = typeof parsed.flags.priority === "string" ? parsed.flags.priority : undefined;
+    const limitFlag = typeof parsed.flags.limit === "string" ? Number.parseInt(parsed.flags.limit, 10) : undefined;
+
+    if (priorityFlag && priorityFlag !== "p0" && priorityFlag !== "p1" && priorityFlag !== "p2") {
+      throw new Error("rekon intent remediation --priority must be one of p0, p1, p2.");
+    }
+
+    if (limitFlag !== undefined && (Number.isNaN(limitFlag) || limitFlag <= 0)) {
+      throw new Error("rekon intent remediation --limit must be a positive integer.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    await ensureCoherencyDeltaReady(runtime, root);
+
+    const refs = await runtime.runAct({
+      actuatorId: "@rekon/capability-intent.remediation-work-order",
+      input: {
+        findingId,
+        priority: priorityFlag,
+        limit: limitFlag,
+      },
+    });
+
+    if (refs.length === 0) {
+      writeOutput(
+        {
+          artifacts: [],
+          selectedItems: [],
+          message: "No active remediation items in latest CoherencyDelta.",
+        },
+        json,
+      );
+      return;
+    }
+
+    const workOrderRef = refs.find((ref) => ref.type === "WorkOrder");
+    const workOrder = workOrderRef ? await runtime.artifacts.read(workOrderRef) as { remediationItems?: unknown[] } : undefined;
+    const selectedItems = Array.isArray(workOrder?.remediationItems) ? workOrder?.remediationItems : [];
+
+    writeOutput(
+      {
+        artifacts: refs,
+        selectedItems,
+      },
+      json,
+    );
+    return;
+  }
+
   if (command === "reconcile") {
     const runtime = await createDefaultRuntime(root);
     const operations = parseRepeatableFlag(parsed.flags.operation);
@@ -969,6 +1020,26 @@ async function ensureSnapshotForResolver(
   };
 }
 
+async function ensureCoherencyDeltaReady(
+  runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
+  root: string,
+): Promise<void> {
+  await ensureSnapshotReady(runtime);
+
+  const store = createLocalArtifactStore(root);
+  await store.init();
+
+  if ((await store.list("FindingLifecycleReport")).length === 0) {
+    const lifecycle = await buildFindingLifecycleReport(store);
+    await store.write(lifecycle, { category: "findings" });
+  }
+
+  if ((await store.list("CoherencyDelta")).length === 0) {
+    const delta = await buildCoherencyDelta(store);
+    await store.write(delta, { category: "findings" });
+  }
+}
+
 async function ensurePreflight(
   runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
   path: string,
@@ -1430,6 +1501,7 @@ function usage(): string {
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
+    "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--root <path>] [--json]",
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",

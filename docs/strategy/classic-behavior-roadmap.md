@@ -104,6 +104,19 @@ scope:
   equivalent. Aligned to `services/ArchitectureDocsHandler.ts` and
   the coherency assistant-doc projections; no per-system generated
   doc tree, no AGENTS.md overwrite, no watcher.
+- **Remediation work orders from CoherencyDelta.** ✅ Initial slice
+  shipped. `@rekon/capability-intent` registers a second actuator,
+  `@rekon/capability-intent.remediation-work-order`, that reads the
+  latest `CoherencyDelta` and produces prioritized `IntentMap`,
+  `WorkOrder`, and `VerificationPlan` artifacts from the active
+  `remediationQueue`. The work order excludes accepted/ignored/
+  resolved findings, includes explicit anti-gaming guardrails, and
+  ships validate/freshness commands in its verification plan.
+  `rekon intent remediation` invokes it with optional `--finding`,
+  `--priority`, and `--limit` flags. Aligned to classic
+  `IntentPreparationService` discipline (objective, scope, checks,
+  anti-gaming) without porting the phase parser, semantic triage,
+  elicitation state, or auto-apply machinery.
 
 ## Phase C — Later Maturity
 
@@ -120,8 +133,11 @@ Larger investments, gated by Phase B outcomes and real demand:
 - **Memory promotion / curation.** A capability that promotes durable,
   verified memory into `Rulebook` entries through a permissioned
   actuator. Aligned to `lib/operator-feedback.ts` promotion semantics.
-- **Intent phase preparation.** Anti-gaming gate evidence (behavior,
-  semantic, artifact) + work-unit phase preparation. Aligned to
+- **Intent phase preparation (deep slice).** Phase artifact renderer,
+  semantic triage, actionability question engine, elicitation state,
+  and parallel work-unit scheduling. The remediation work order
+  actuator covers the surface-level discipline (objective, scope,
+  required checks, anti-gaming); the deeper port still lives in
   `packages/product-codebase-intel/src/intent/**`.
 - **Deterministic source-write reconciliation.** Source writes behind
   explicit `write:source` permission per operation, with dry-run still

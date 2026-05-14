@@ -23,8 +23,10 @@ projection, no remediation auto-apply.
   [architecture summary publication](architecture-summary-publication.md)
   from the latest CoherencyDelta plus the snapshot, ownership/
   capability maps, and finding lifecycle.
-- Future intent / reconciliation actuators that act on prioritized
-  findings.
+- `@rekon/capability-intent.remediation-work-order` (built-in)
+  generates prioritized [remediation work orders](../concepts/remediation-work-orders.md)
+  from the active subset of `CoherencyDelta.remediationQueue`.
+- Future reconciliation actuators that act on prioritized findings.
 - Users and agents looking for a single artifact that summarizes
   current repository drift.
 

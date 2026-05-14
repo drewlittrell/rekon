@@ -2,13 +2,24 @@
 
 ## Purpose
 
-`WorkOrder` is an action-oriented artifact derived from a preflight packet. It
-turns resolved intelligence into scoped work guidance and verification
-requirements.
+`WorkOrder` is an action-oriented artifact that turns scoped intelligence into
+work guidance and verification requirements. Rekon generates two flavors of
+work order:
+
+- **Resolver work order.** Derived from a `ResolverPacket`. Drives a specific
+  agent task with a goal, paths, owner systems, and required checks.
+- **Remediation work order.** Derived from a `CoherencyDelta` remediation
+  queue. Drives prioritized governance work (P0/P1/P2 findings) with stronger
+  anti-gaming guardrails.
+
+Both flavors share the same `WorkOrder` artifact type; only `source` and the
+optional `remediationItems` field differ.
 
 ## Produced By
 
-- `@rekon/capability-intent`
+- `@rekon/capability-intent.work-order` — resolver-based work order.
+- `@rekon/capability-intent.remediation-work-order` — remediation work order
+  built from `CoherencyDelta`.
 
 ## Consumed By
 
@@ -32,8 +43,24 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 - `relevantMemory`
 - `antiGamingInstruction`
 - `markdown`
+- `source` — `"resolver"` or `"coherency-delta"` (optional)
+- `remediationItems` — present only on remediation work orders
 
-## Example
+`remediationItems` shape:
+
+```ts
+type RemediationWorkOrderItem = {
+  findingId: string;
+  priority: "p0" | "p1" | "p2";
+  title: string;
+  action: string;
+  files: string[];
+  systems: string[];
+  severity: string;
+};
+```
+
+## Example — resolver work order
 
 ```json
 {
@@ -57,11 +84,65 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
   "paths": ["src/index.ts"],
   "ownerSystems": ["src"],
   "requiredChecks": ["npm run typecheck", "npm run test", "npm run build"],
-  "antiGamingInstruction": "Do not bypass failing checks, delete tests, or weaken validation to make verification pass."
+  "antiGamingInstruction": "Do not bypass failing checks, delete tests, or weaken validation to make verification pass.",
+  "source": "resolver"
+}
+```
+
+## Example — remediation work order
+
+```json
+{
+  "header": {
+    "artifactType": "WorkOrder",
+    "artifactId": "work-order-456",
+    "schemaVersion": "0.1.0",
+    "generatedAt": "2026-05-14T11:00:00.000Z",
+    "subject": { "repoId": "simple-js-ts" },
+    "producer": { "id": "@rekon/capability-intent", "version": "0.1.0" },
+    "inputRefs": [
+      { "type": "IntentMap", "id": "intent-map-...", "schemaVersion": "0.1.0" },
+      { "type": "CoherencyDelta", "id": "coherency-delta-...", "schemaVersion": "0.1.0" },
+      { "type": "FindingLifecycleReport", "id": "finding-lifecycle-report-...", "schemaVersion": "0.1.0" }
+    ],
+    "provenance": { "confidence": 0.7 }
+  },
+  "goal": "Resolve active coherency findings from the latest CoherencyDelta.",
+  "source": "coherency-delta",
+  "remediationItems": [
+    {
+      "findingId": "import_boundary.generated_output_import:src/feature/handler.ts:../../dist/generated",
+      "priority": "p0",
+      "title": "Import from generated/build output",
+      "action": "Replace generated-output import with a source import or package entrypoint import.",
+      "files": ["src/feature/handler.ts"],
+      "systems": ["src"],
+      "severity": "high"
+    }
+  ],
+  "requiredChecks": [
+    "npm run typecheck",
+    "npm run test",
+    "npm run build",
+    "rekon artifacts validate --json",
+    "rekon artifacts freshness --json"
+  ]
 }
 ```
 
 ## Freshness And Provenance
 
-Work orders are invalid when their input preflight packet changes. They are
-guidance artifacts, not source changes.
+Resolver work orders are invalid when their input `ResolverPacket` changes.
+Remediation work orders are invalid when their `CoherencyDelta` or
+`FindingLifecycleReport` changes.
+
+Work orders are guidance artifacts, not source changes. The intent capability
+does not modify code or run the verification commands; it only writes the
+plan.
+
+## Cross-References
+
+- [Remediation work orders concept](../concepts/remediation-work-orders.md)
+- [VerificationPlan](verification-plan.md)
+- [CoherencyDelta](coherency-delta.md)
+- [ResolverPacket](resolver-packet.md)

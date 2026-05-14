@@ -113,6 +113,7 @@ node packages/cli/dist/index.js memory add --root examples/simple-js-ts --instru
 node packages/cli/dist/index.js memory list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js memory select --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 node packages/cli/dist/index.js intent work-order --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js intent remediation --root examples/simple-js-ts --json
 node packages/cli/dist/index.js reconcile --root examples/simple-js-ts --operation docs_regeneration
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json

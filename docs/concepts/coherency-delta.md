@@ -145,6 +145,10 @@ Output:
 - The [architecture summary publication](architecture-summary-publication.md)
   pulls the delta's summary, top paths, and remediation queue into a
   single governance read for humans and agents.
+- [Remediation work orders](remediation-work-orders.md) consume the
+  active subset of `remediationQueue` to produce prioritized
+  `WorkOrder` and `VerificationPlan` artifacts with explicit
+  anti-gaming guardrails.
 
 ## What This Is Not
 

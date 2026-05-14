@@ -86,6 +86,19 @@ explicit NorthStar update.
   with repo overview, owner systems, capability map, coherency
   summary, top affected paths, remediation queue, agent guidance, and
   input refs. `rekon publish architecture` invokes it.
+- Remediation work orders: `@rekon/capability-intent` registers a
+  second actuator, `@rekon/capability-intent.remediation-work-order`,
+  that consumes the latest `CoherencyDelta` (and optional
+  `FindingLifecycleReport` / `ResolverPacket`) to produce
+  `IntentMap`, `WorkOrder`, and `VerificationPlan` artifacts from the
+  active `remediationQueue`. Accepted/ignored/resolved findings are
+  excluded. The work order includes explicit anti-gaming guardrails;
+  the verification plan adds `rekon artifacts validate` and `rekon
+  artifacts freshness` to the standard typecheck/test/build commands.
+  `rekon intent remediation` invokes it with optional `--finding`,
+  `--priority`, and `--limit` flags. Existing
+  `@rekon/capability-intent.work-order` (resolver-based) is
+  unchanged.
 
 ## Committed Direction: Hardening Batches
 

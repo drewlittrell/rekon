@@ -197,6 +197,13 @@ Friendly shortcuts remain:
   governance summary that consumes the latest snapshot, ownership/
   capability maps, finding lifecycle, and coherency delta. See
   [../artifacts/architecture-summary-publication.md](../artifacts/architecture-summary-publication.md).
+- `rekon intent work-order` runs
+  `@rekon/capability-intent.work-order` with `--path` / `--goal` flags
+  to derive a resolver-based work order from a `ResolverPacket`.
+- `rekon intent remediation` runs
+  `@rekon/capability-intent.remediation-work-order` to derive a
+  governance work order from the latest `CoherencyDelta`. See
+  [../concepts/remediation-work-orders.md](../concepts/remediation-work-orders.md).
 
 ### Why Actuator And Learner Generic Run Are Deferred
 
@@ -207,8 +214,8 @@ and learners in the alpha:
   irreversible operations. Exposing them behind a generic `rekon act run`
   command would surface permission-gated behavior through a single dispatch
   point without the workflow context that justifies it. Actuator execution
-  stays behind the explicit `rekon intent work-order` and `rekon reconcile`
-  workflows.
+  stays behind the explicit `rekon intent work-order`,
+  `rekon intent remediation`, and `rekon reconcile` workflows.
 - **Learners** already have explicit `rekon memory add`, `rekon memory list`,
   and `rekon memory select` commands. A generic `rekon learn run` would not
   add capability without diluting the deliberate memory surface.
