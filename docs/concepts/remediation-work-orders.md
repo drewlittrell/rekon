@@ -180,11 +180,17 @@ work order `stale` when a newer `CoherencyDelta` or
   to derive a classified set of reconciliation operations. Source-
   write and command operations remain deferred; the work order is the
   decision record, the suggestion plan is the operational mapping.
+- [Verification results](verification-results.md) cite the work order
+  when recording operator-supplied outcomes for the paired
+  `VerificationPlan`. Rekon does not execute the commands; the
+  result is the proof artifact that closes the governance loop.
 
 ## Cross-References
 
 - [WorkOrder artifact](../artifacts/work-order.md)
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
+- [VerificationResult artifact](../artifacts/verification-result.md)
+- [Verification results concept](verification-results.md)
 - [Reconciliation plans concept](reconciliation-plans.md)
 - [CoherencyDelta concept](coherency-delta.md)
 - [Finding lifecycle concept](finding-lifecycle.md)

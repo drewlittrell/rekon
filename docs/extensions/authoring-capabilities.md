@@ -211,6 +211,13 @@ Friendly shortcuts remain:
   permission requirements. Source-write and command operations stay
   deferred; `--apply` applies artifact-only operations only. See
   [../concepts/reconciliation-plans.md](../concepts/reconciliation-plans.md).
+- `rekon verify record` records operator-supplied
+  [`VerificationResult`](../artifacts/verification-result.md)
+  artifacts against the latest `VerificationPlan` (or a plan
+  selected with `--plan <id|type:id>`). Rekon does not execute
+  commands; the recorder validates and writes the operator's
+  reported outcomes. See
+  [../concepts/verification-results.md](../concepts/verification-results.md).
 
 ### Why Actuator And Learner Generic Run Are Deferred
 

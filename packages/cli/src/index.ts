@@ -6,7 +6,11 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import docsCapability from "@rekon/capability-docs";
 import graphCapability from "@rekon/capability-graph";
-import intentCapability from "@rekon/capability-intent";
+import intentCapability, {
+  createVerificationResult,
+  type VerificationCommandResult,
+  type VerificationPlanLike,
+} from "@rekon/capability-intent";
 import jsTsCapability from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability from "@rekon/capability-model";
@@ -789,7 +793,186 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "verify" && subcommand === "record") {
+    const planFlag = typeof parsed.flags.plan === "string" ? parsed.flags.plan : undefined;
+    const resultJsonFlag = typeof parsed.flags["result-json"] === "string" ? parsed.flags["result-json"] : undefined;
+
+    if (!resultJsonFlag) {
+      throw new Error("rekon verify record requires --result-json <json>.");
+    }
+
+    let parsedResult: unknown;
+
+    try {
+      parsedResult = JSON.parse(resultJsonFlag);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`rekon verify record --result-json is not valid JSON: ${message}`);
+    }
+
+    if (!parsedResult || typeof parsedResult !== "object") {
+      throw new Error("rekon verify record --result-json must be a JSON object.");
+    }
+
+    const resultObject = parsedResult as {
+      recordedBy?: unknown;
+      evidenceNotes?: unknown;
+      commands?: unknown;
+    };
+    const commands = parseCommandResults(resultObject.commands);
+    const recordedBy = typeof resultObject.recordedBy === "string" && resultObject.recordedBy.length > 0
+      ? resultObject.recordedBy
+      : "operator";
+    const evidenceNotes = parseStringArray(resultObject.evidenceNotes);
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const { entry, warnings } = await resolveVerificationPlanEntry(store, planFlag);
+    const planArtifact = await store.read(entry) as VerificationPlanLike;
+    const planRef = {
+      type: entry.type,
+      id: entry.id,
+      schemaVersion: entry.schemaVersion,
+    };
+    const verificationResult = createVerificationResult({
+      verificationPlan: planArtifact,
+      verificationPlanRef: planRef,
+      commandResults: commands,
+      evidenceNotes,
+      recordedBy,
+    });
+    const ref = await store.write(verificationResult, { category: "actions" });
+
+    writeOutput(
+      {
+        artifact: ref,
+        status: verificationResult.status,
+        summary: verificationResult.summary,
+        commandResults: verificationResult.commandResults,
+        warnings,
+      },
+      json,
+    );
+    return;
+  }
+
   throw new Error(`Unknown command: ${argv.join(" ")}`);
+}
+
+function parseCommandResults(value: unknown): VerificationCommandResult[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const results: VerificationCommandResult[] = [];
+
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
+
+    const item = candidate as Record<string, unknown>;
+    const command = typeof item.command === "string" ? item.command : "";
+
+    if (command.length === 0) {
+      continue;
+    }
+
+    const statusRaw = typeof item.status === "string" ? item.status : "not-run";
+    const status = isVerificationCommandStatus(statusRaw) ? statusRaw : "not-run";
+    const result: VerificationCommandResult = { command, status };
+
+    if (typeof item.exitCode === "number" && Number.isFinite(item.exitCode)) {
+      result.exitCode = Math.trunc(item.exitCode);
+    }
+
+    if (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0) {
+      result.durationMs = item.durationMs;
+    }
+
+    if (typeof item.startedAt === "string" && item.startedAt.length > 0) {
+      result.startedAt = item.startedAt;
+    }
+
+    if (typeof item.completedAt === "string" && item.completedAt.length > 0) {
+      result.completedAt = item.completedAt;
+    }
+
+    if (typeof item.stdoutDigest === "string" && item.stdoutDigest.length > 0) {
+      result.stdoutDigest = item.stdoutDigest;
+    }
+
+    if (typeof item.stderrDigest === "string" && item.stderrDigest.length > 0) {
+      result.stderrDigest = item.stderrDigest;
+    }
+
+    if (typeof item.notes === "string" && item.notes.length > 0) {
+      result.notes = item.notes;
+    }
+
+    results.push(result);
+  }
+
+  return results;
+}
+
+function isVerificationCommandStatus(value: string): value is "passed" | "failed" | "skipped" | "not-run" {
+  return value === "passed" || value === "failed" || value === "skipped" || value === "not-run";
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+}
+
+async function resolveVerificationPlanEntry(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  planFlag: string | undefined,
+): Promise<{ entry: ArtifactIndexEntry; warnings: string[] }> {
+  const warnings: string[] = [];
+  const allPlans = await store.list("VerificationPlan");
+
+  if (allPlans.length === 0) {
+    throw new Error("No VerificationPlan artifacts found. Run `rekon intent work-order` or `rekon intent remediation` first.");
+  }
+
+  if (!planFlag) {
+    const latest = sortByWrittenAtDesc(allPlans)[0];
+
+    if (!latest) {
+      throw new Error("No VerificationPlan artifacts found. Run `rekon intent work-order` or `rekon intent remediation` first.");
+    }
+
+    warnings.push("No --plan provided; recorded against latest VerificationPlan.");
+    return { entry: latest, warnings };
+  }
+
+  const [requestedType, requestedId] = planFlag.includes(":")
+    ? planFlag.split(":", 2)
+    : [undefined, planFlag];
+  const match = allPlans.find((candidate) => {
+    if (requestedType && requestedType !== candidate.type) {
+      return false;
+    }
+
+    return candidate.id === requestedId;
+  });
+
+  if (!match) {
+    const known = allPlans.map((candidate) => candidate.id).slice(0, 10).join(", ");
+
+    throw new Error(`VerificationPlan not found for --plan ${planFlag}. Known plan ids: ${known || "none"}.`);
+  }
+
+  return { entry: match, warnings };
+}
+
+function sortByWrittenAtDesc<T extends { writtenAt: string }>(entries: T[]): T[] {
+  return [...entries].sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
 }
 
 type RekonConfig = {
@@ -1557,5 +1740,6 @@ function usage(): string {
     "rekon findings status list [--root <path>] [--json]",
     "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",
     "rekon coherency delta [--root <path>] [--json]",
+    "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
   ].join("\n");
 }

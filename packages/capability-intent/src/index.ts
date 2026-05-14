@@ -47,6 +47,248 @@ export type WorkOrder = {
   remediationItems?: RemediationWorkOrderItem[];
 };
 
+export type VerificationCommandStatus = "passed" | "failed" | "skipped" | "not-run";
+
+export type VerificationResultStatus = "passed" | "failed" | "partial" | "not-run";
+
+export type VerificationCommandResult = {
+  command: string;
+  status: VerificationCommandStatus;
+  exitCode?: number;
+  durationMs?: number;
+  startedAt?: string;
+  completedAt?: string;
+  stdoutDigest?: string;
+  stderrDigest?: string;
+  notes?: string;
+};
+
+export type VerificationResultSummary = {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  notRun: number;
+};
+
+export type VerificationResult = {
+  header: ArtifactHeader;
+  verificationPlanRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  status: VerificationResultStatus;
+  commandResults: VerificationCommandResult[];
+  summary: VerificationResultSummary;
+  evidenceNotes: string[];
+  recordedBy?: string;
+  recordedAt: string;
+};
+
+export type VerificationPlanLike = {
+  header: ArtifactHeader;
+  workOrderRef?: ArtifactRef;
+  commands?: string[];
+  successCriteria?: string[];
+  source?: string;
+};
+
+export type CreateVerificationResultInput = {
+  verificationPlan: VerificationPlanLike;
+  verificationPlanRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  commandResults: VerificationCommandResult[];
+  evidenceNotes?: string[];
+  recordedBy?: string;
+  extraInputRefs?: ArtifactRef[];
+  generatedAt?: string;
+};
+
+export function createVerificationResult(input: CreateVerificationResultInput): VerificationResult {
+  const planCommands = Array.isArray(input.verificationPlan.commands)
+    ? input.verificationPlan.commands
+    : [];
+  const submittedByCommand = new Map<string, VerificationCommandResult>();
+
+  for (const submitted of input.commandResults) {
+    if (typeof submitted.command === "string" && submitted.command.length > 0) {
+      submittedByCommand.set(submitted.command, normalizeCommandResult(submitted));
+    }
+  }
+
+  const orderedResults: VerificationCommandResult[] = [];
+  const seen = new Set<string>();
+
+  for (const command of planCommands) {
+    if (seen.has(command)) {
+      continue;
+    }
+    seen.add(command);
+
+    const submitted = submittedByCommand.get(command);
+    orderedResults.push(submitted ?? { command, status: "not-run" });
+  }
+
+  for (const submitted of input.commandResults) {
+    if (!seen.has(submitted.command)) {
+      seen.add(submitted.command);
+      orderedResults.push(normalizeCommandResult(submitted));
+    }
+  }
+
+  const summary = summarizeCommandResults(orderedResults);
+  const overallStatus = deriveOverallStatus(orderedResults, planCommands.length);
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const workOrderRef = input.workOrderRef ?? input.verificationPlan.workOrderRef;
+  const inputRefs: ArtifactRef[] = [input.verificationPlanRef];
+
+  if (workOrderRef) {
+    inputRefs.push(workOrderRef);
+  }
+
+  if (Array.isArray(input.extraInputRefs)) {
+    for (const ref of input.extraInputRefs) {
+      inputRefs.push(ref);
+    }
+  }
+
+  const subject = input.verificationPlan.header.subject;
+
+  return {
+    header: {
+      artifactType: "VerificationResult",
+      artifactId: `verification-result-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      snapshotId: input.verificationPlan.header.snapshotId,
+      subject: {
+        repoId: subject.repoId,
+        ref: subject.ref,
+        commit: subject.commit,
+        paths: subject.paths,
+        systems: subject.systems,
+      },
+      producer: {
+        id: "@rekon/capability-intent",
+        version: "0.1.0",
+      },
+      inputRefs,
+      freshness: {
+        status: "fresh",
+      },
+      provenance: {
+        confidence: 0.9,
+        notes: ["Verification results are operator-supplied evidence; Rekon does not execute commands."],
+      },
+    },
+    verificationPlanRef: input.verificationPlanRef,
+    workOrderRef,
+    status: overallStatus,
+    commandResults: orderedResults,
+    summary,
+    evidenceNotes: input.evidenceNotes ?? [],
+    recordedBy: input.recordedBy,
+    recordedAt: generatedAt,
+  };
+}
+
+function normalizeCommandResult(value: VerificationCommandResult): VerificationCommandResult {
+  const status = isCommandStatus(value.status) ? value.status : "not-run";
+  const normalized: VerificationCommandResult = {
+    command: value.command,
+    status,
+  };
+
+  if (typeof value.exitCode === "number" && Number.isFinite(value.exitCode)) {
+    normalized.exitCode = Math.trunc(value.exitCode);
+  }
+
+  if (typeof value.durationMs === "number" && Number.isFinite(value.durationMs) && value.durationMs >= 0) {
+    normalized.durationMs = value.durationMs;
+  }
+
+  if (typeof value.startedAt === "string" && value.startedAt.length > 0) {
+    normalized.startedAt = value.startedAt;
+  }
+
+  if (typeof value.completedAt === "string" && value.completedAt.length > 0) {
+    normalized.completedAt = value.completedAt;
+  }
+
+  if (typeof value.stdoutDigest === "string" && value.stdoutDigest.length > 0) {
+    normalized.stdoutDigest = value.stdoutDigest;
+  }
+
+  if (typeof value.stderrDigest === "string" && value.stderrDigest.length > 0) {
+    normalized.stderrDigest = value.stderrDigest;
+  }
+
+  if (typeof value.notes === "string" && value.notes.length > 0) {
+    normalized.notes = value.notes;
+  }
+
+  return normalized;
+}
+
+function isCommandStatus(value: unknown): value is VerificationCommandStatus {
+  return value === "passed" || value === "failed" || value === "skipped" || value === "not-run";
+}
+
+function summarizeCommandResults(results: VerificationCommandResult[]): VerificationResultSummary {
+  const summary: VerificationResultSummary = {
+    total: results.length,
+    passed: 0,
+    failed: 0,
+    skipped: 0,
+    notRun: 0,
+  };
+
+  for (const result of results) {
+    switch (result.status) {
+      case "passed":
+        summary.passed += 1;
+        break;
+      case "failed":
+        summary.failed += 1;
+        break;
+      case "skipped":
+        summary.skipped += 1;
+        break;
+      case "not-run":
+        summary.notRun += 1;
+        break;
+    }
+  }
+
+  return summary;
+}
+
+function deriveOverallStatus(
+  results: VerificationCommandResult[],
+  planCommandCount: number,
+): VerificationResultStatus {
+  if (results.length === 0) {
+    return "not-run";
+  }
+
+  if (results.every((result) => result.status === "not-run")) {
+    return "not-run";
+  }
+
+  if (results.some((result) => result.status === "failed")) {
+    return "failed";
+  }
+
+  const passedCount = results.filter((result) => result.status === "passed").length;
+  const planAllCovered = planCommandCount === 0
+    ? true
+    : results.every((result) => result.status !== "not-run");
+
+  if (planAllCovered && passedCount === results.length) {
+    return "passed";
+  }
+
+  return "partial";
+}
+
 const REMEDIATION_REQUIRED_CHECKS = [
   "npm run typecheck",
   "npm run test",

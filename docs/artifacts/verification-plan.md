@@ -16,8 +16,10 @@ intent capability writes the plan but does not execute the commands.
 ## Consumed By
 
 - humans and agents executing work
-- future verification recorders, which can write `VerificationResult`
-  artifacts after running the commands
+- `@rekon/capability-intent` via `createVerificationResult` and the
+  `rekon verify record` CLI to write
+  [`VerificationResult`](verification-result.md) artifacts that
+  record the outcome of each command in the plan.
 
 ## Required Header Fields
 
@@ -113,7 +115,9 @@ new work order.
 
 ## Cross-References
 
+- [VerificationResult](verification-result.md)
 - [WorkOrder](work-order.md)
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
+- [Verification results concept](../concepts/verification-results.md)
 - [CoherencyDelta](coherency-delta.md)
 - [ResolverPacket](resolver-packet.md)

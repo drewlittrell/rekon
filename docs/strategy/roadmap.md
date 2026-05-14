@@ -113,6 +113,19 @@ explicit NorthStar update.
   only artifact-only operations. Source-write and command operations
   remain deferred regardless of `--apply`. Existing `rekon reconcile
   --operation <name>` behavior is unchanged.
+- Verification result recording: `@rekon/capability-intent` adds the
+  package-local `VerificationResult`, `VerificationCommandResult`,
+  and `VerificationResultSummary` types plus a new exported helper
+  `createVerificationResult(input)`. `rekon verify record` records
+  operator-supplied outcomes against a `VerificationPlan` (latest
+  by default, or selected via `--plan <id|type:id>`). The result
+  cites the plan and any paired `WorkOrder` in `header.inputRefs`,
+  derives an overall status (`passed`/`failed`/`partial`/`not-run`),
+  fills missing plan commands as `not-run`, and stores digest/notes
+  rather than raw stdout/stderr. Rekon does not execute commands;
+  the helper is a recorder, not a runner. Closes the artifact loop
+  `Finding -> Lifecycle -> CoherencyDelta -> WorkOrder ->
+  ReconciliationPlan -> VerificationPlan -> VerificationResult`.
 
 ## Committed Direction: Hardening Batches
 

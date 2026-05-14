@@ -135,6 +135,19 @@ scope:
   `PlanHandler` / `PlanExecutorService` discipline (deterministic-
   first, deferred is first-class, dry-run is the default), without
   the auto-apply path.
+- **Verification result recording.** ✅ Initial slice shipped.
+  `@rekon/capability-intent` exports `createVerificationResult(...)`
+  and the package-local `VerificationResult` /
+  `VerificationCommandResult` types. `rekon verify record` records
+  operator-supplied outcomes against a `VerificationPlan`, deriving
+  an overall status (`passed` / `failed` / `partial` / `not-run`),
+  filling missing plan commands as `not-run`, and citing the plan
+  (and any paired `WorkOrder`) in `header.inputRefs`. Raw
+  stdout/stderr is not stored; digests and notes are. Failures are
+  preserved as evidence. Rekon does not execute commands in this
+  alpha. Aligned to classic intent proof-gate discipline (objective
+  proof, failures as evidence, anti-gaming) without porting the
+  command runner, CI integration, or semantic judgment.
 
 ## Phase C — Later Maturity
 

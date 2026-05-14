@@ -28,7 +28,9 @@ optional `remediationItems` field differ.
   latest remediation work order (where `source === "coherency-delta"`)
   to classify reconciliation operations. See
   [reconciliation-plan.md](reconciliation-plan.md).
-- future verification recorders and publishers
+- `@rekon/capability-intent` via `rekon verify record` cites the
+  work order when recording [`VerificationResult`](verification-result.md)
+  outcomes against the paired `VerificationPlan`.
 
 ## Required Header Fields
 
@@ -148,5 +150,7 @@ plan.
 
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [VerificationPlan](verification-plan.md)
+- [VerificationResult](verification-result.md)
+- [Verification results concept](../concepts/verification-results.md)
 - [CoherencyDelta](coherency-delta.md)
 - [ResolverPacket](resolver-packet.md)
