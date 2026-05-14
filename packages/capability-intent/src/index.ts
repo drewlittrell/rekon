@@ -102,6 +102,180 @@ export type CreateVerificationResultInput = {
   generatedAt?: string;
 };
 
+export type VerificationEvidenceStatus =
+  | "passed"
+  | "failed"
+  | "partial"
+  | "not-run"
+  | "missing";
+
+export type VerificationEvidenceSummary = {
+  status: VerificationEvidenceStatus;
+  verificationResultRef?: ArtifactRef;
+  verificationPlanRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  recordedAt?: string;
+  recordedBy?: string;
+  summary?: {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    notRun: number;
+  };
+  matchedFindingIds: string[];
+  warnings: string[];
+};
+
+type WorkOrderEvidenceLike = {
+  header: ArtifactHeader;
+  source?: string;
+  remediationItems?: Array<{ findingId?: string }>;
+};
+
+type VerificationPlanEvidenceLike = {
+  header: ArtifactHeader;
+  workOrderRef?: ArtifactRef;
+};
+
+type VerificationResultEvidenceLike = {
+  header: ArtifactHeader;
+  verificationPlanRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  status?: VerificationResultStatus;
+  summary?: {
+    total?: number;
+    passed?: number;
+    failed?: number;
+    skipped?: number;
+    notRun?: number;
+  };
+  recordedAt?: string;
+  recordedBy?: string;
+};
+
+export async function lookupVerificationEvidence(
+  artifacts: ArtifactReader,
+  findingId: string,
+): Promise<VerificationEvidenceSummary> {
+  const warnings: string[] = [];
+
+  if (typeof findingId !== "string" || findingId.length === 0) {
+    return {
+      status: "missing",
+      matchedFindingIds: [],
+      warnings: ["lookupVerificationEvidence called without a findingId."],
+    };
+  }
+
+  const workOrderRefs = sortByIdDesc(await artifacts.list("WorkOrder"));
+  let matchedWorkOrderRef: ArtifactRef | undefined;
+  let matchedWorkOrder: WorkOrderEvidenceLike | undefined;
+  const matchedFindingIds = new Set<string>();
+
+  for (const ref of workOrderRefs) {
+    const workOrder = (await artifacts.read(ref)) as WorkOrderEvidenceLike;
+    const items = workOrder?.remediationItems ?? [];
+
+    if (!items.some((item) => item.findingId === findingId)) {
+      continue;
+    }
+
+    matchedFindingIds.add(findingId);
+
+    if (!matchedWorkOrderRef) {
+      matchedWorkOrderRef = ref;
+      matchedWorkOrder = workOrder;
+    }
+  }
+
+  if (!matchedWorkOrderRef || !matchedWorkOrder) {
+    return {
+      status: "missing",
+      matchedFindingIds: [],
+      warnings: ["No remediation WorkOrder references this finding."],
+    };
+  }
+
+  const planRefs = sortByIdDesc(await artifacts.list("VerificationPlan"));
+  let matchedPlanRef: ArtifactRef | undefined;
+
+  for (const ref of planRefs) {
+    const plan = (await artifacts.read(ref)) as VerificationPlanEvidenceLike;
+
+    if (plan?.workOrderRef && plan.workOrderRef.id === matchedWorkOrderRef.id) {
+      matchedPlanRef = ref;
+      break;
+    }
+  }
+
+  if (!matchedPlanRef) {
+    warnings.push("Remediation WorkOrder exists but no VerificationPlan references it.");
+    return {
+      status: "missing",
+      workOrderRef: matchedWorkOrderRef,
+      matchedFindingIds: Array.from(matchedFindingIds),
+      warnings,
+    };
+  }
+
+  const resultRefs = sortByIdDesc(await artifacts.list("VerificationResult"));
+  let matchedResultRef: ArtifactRef | undefined;
+  let matchedResult: VerificationResultEvidenceLike | undefined;
+
+  for (const ref of resultRefs) {
+    const result = (await artifacts.read(ref)) as VerificationResultEvidenceLike;
+
+    if (result?.verificationPlanRef && result.verificationPlanRef.id === matchedPlanRef.id) {
+      matchedResultRef = ref;
+      matchedResult = result;
+      break;
+    }
+  }
+
+  if (!matchedResultRef || !matchedResult) {
+    return {
+      status: "not-run",
+      workOrderRef: matchedWorkOrderRef,
+      verificationPlanRef: matchedPlanRef,
+      matchedFindingIds: Array.from(matchedFindingIds),
+      warnings,
+    };
+  }
+
+  const status: VerificationEvidenceStatus = matchedResult.status === "passed"
+    || matchedResult.status === "failed"
+    || matchedResult.status === "partial"
+    || matchedResult.status === "not-run"
+    ? matchedResult.status
+    : "missing";
+  const summary = matchedResult.summary
+    ? {
+      total: matchedResult.summary.total ?? 0,
+      passed: matchedResult.summary.passed ?? 0,
+      failed: matchedResult.summary.failed ?? 0,
+      skipped: matchedResult.summary.skipped ?? 0,
+      notRun: matchedResult.summary.notRun ?? 0,
+    }
+    : undefined;
+
+  return {
+    status,
+    verificationResultRef: matchedResultRef,
+    verificationPlanRef: matchedPlanRef,
+    workOrderRef: matchedWorkOrderRef,
+    recordedAt: matchedResult.recordedAt,
+    recordedBy: matchedResult.recordedBy,
+    summary,
+    matchedFindingIds: Array.from(matchedFindingIds),
+    warnings,
+  };
+}
+
+function sortByIdDesc(refs: ArtifactRef[]): ArtifactRef[] {
+  return [...refs].sort((left, right) => right.id.localeCompare(left.id));
+}
+
 export function createVerificationResult(input: CreateVerificationResultInput): VerificationResult {
   const planCommands = Array.isArray(input.verificationPlan.commands)
     ? input.verificationPlan.commands
@@ -370,6 +544,7 @@ export type RemediationActuatorInput = {
   findingId?: string;
   priority?: CoherencyRemediationPriority;
   limit?: number;
+  excludeFindingIds?: string[];
 };
 
 export type RemediationActuatorResult = {
@@ -675,8 +850,11 @@ function parseRemediationInput(input?: Record<string, unknown>): RemediationActu
   const limit = typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
     ? Math.floor(input.limit)
     : undefined;
+  const excludeFindingIds = Array.isArray(input.excludeFindingIds)
+    ? input.excludeFindingIds.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : undefined;
 
-  return { findingId, priority, limit };
+  return { findingId, priority, limit, excludeFindingIds };
 }
 
 function isRemediationPriority(value: unknown): value is CoherencyRemediationPriority {
@@ -695,6 +873,11 @@ function filterRemediationSteps(
 
   if (options.priority) {
     steps = steps.filter((step) => step.priority === options.priority);
+  }
+
+  if (options.excludeFindingIds && options.excludeFindingIds.length > 0) {
+    const exclude = new Set(options.excludeFindingIds);
+    steps = steps.filter((step) => !exclude.has(step.findingId));
   }
 
   const limit = options.limit ?? 5;

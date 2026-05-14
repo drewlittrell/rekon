@@ -114,6 +114,7 @@ node packages/cli/dist/index.js memory list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js memory select --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 node packages/cli/dist/index.js intent work-order --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 node packages/cli/dist/index.js intent remediation --root examples/simple-js-ts --json
+node packages/cli/dist/index.js intent remediation --root examples/simple-js-ts --skip-verified --json
 node packages/cli/dist/index.js reconcile --root examples/simple-js-ts --operation docs_regeneration
 node packages/cli/dist/index.js reconcile suggest --root examples/simple-js-ts --json
 node packages/cli/dist/index.js verify record --root examples/simple-js-ts --result-json '{"recordedBy":"operator","commands":[{"command":"npm run typecheck","status":"passed","exitCode":0}]}' --json

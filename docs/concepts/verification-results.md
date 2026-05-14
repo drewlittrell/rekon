@@ -164,6 +164,23 @@ Recording a `VerificationResult` reinforces that:
   exists, or "address failures and re-run `rekon verify record`" when
   a result is failed/partial/not-run.
 
+## Surfaced In Resolvers And Remediation
+
+- `resolve.issue` chains `findingId -> WorkOrder.remediationItems ->
+  VerificationPlan.workOrderRef -> VerificationResult.verificationPlanRef`
+  via the exported `lookupVerificationEvidence(artifacts, findingId)`
+  helper from `@rekon/capability-intent`. The matching `VerificationResult`
+  populates `IssuePacket.verification`, adds a status-specific warning
+  (except for `passed`), and writes an `issue.verification`
+  `resolutionTrace` entry. Passing verification never auto-resolves
+  the finding or mutates `FindingStatusLedger`; it only changes the
+  recommended next action.
+- `rekon intent remediation --skip-verified` calls the same helper
+  for every candidate remediation item. Items whose chain resolves to
+  `passed` are excluded from the new work order and reported via the
+  CLI's `skippedVerified` array. `failed`, `partial`, `not-run`, and
+  `missing` items remain selected. The flag is opt-in.
+
 ## Freshness
 
 `rekon artifacts freshness --type VerificationResult --json` marks a

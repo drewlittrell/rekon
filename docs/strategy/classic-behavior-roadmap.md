@@ -166,6 +166,27 @@ scope:
   ensures the summary goes stale when any of those change. The
   publication still does not execute commands or judge verification
   sufficiency.
+- **Verification-aware issue and remediation context.** ✅ Initial
+  slice shipped. `@rekon/capability-intent` exports
+  `lookupVerificationEvidence(artifacts, findingId)` plus the
+  `VerificationEvidenceStatus` and `VerificationEvidenceSummary`
+  types. The helper chains `findingId ->
+  WorkOrder.remediationItems -> VerificationPlan.workOrderRef ->
+  VerificationResult.verificationPlanRef` and returns a typed
+  evidence summary with one of five statuses (`passed`, `failed`,
+  `partial`, `not-run`, `missing`).
+  `@rekon/capability-resolver.resolve.issue` attaches
+  `IssuePacket.verification`, adds status-specific warnings (except
+  for `passed`), and writes an `issue.verification`
+  `resolutionTrace` entry. Passing verification never mutates the
+  `FindingStatusLedger`, `issue.status`, or relatedFindings.
+  `rekon intent remediation --skip-verified` (opt-in flag) excludes
+  candidate remediation items whose chain resolves to `passed` and
+  reports skipped items via `skippedVerified`. Failed, partial,
+  not-run, and missing items remain selected. Aligned to classic
+  intent proof-gate discipline (failed proof is first-class, passing
+  proof informs but does not auto-resolve) without porting the
+  command runner, semantic judge, or CI integration.
 
 ## Phase C — Later Maturity
 

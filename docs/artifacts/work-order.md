@@ -31,6 +31,13 @@ optional `remediationItems` field differ.
 - `@rekon/capability-intent` via `rekon verify record` cites the
   work order when recording [`VerificationResult`](verification-result.md)
   outcomes against the paired `VerificationPlan`.
+- `@rekon/capability-resolver`'s `resolve.issue` walks
+  `remediationItems` to find verification evidence for a finding (see
+  [verification-result.md](verification-result.md) and
+  [../concepts/verification-results.md](../concepts/verification-results.md)).
+- `rekon intent remediation --skip-verified` reads
+  `remediationItems` indirectly via `lookupVerificationEvidence` when
+  deciding which findings already have passing proof.
 
 ## Required Header Fields
 

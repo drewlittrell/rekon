@@ -1,4 +1,9 @@
 import {
+  type VerificationEvidenceStatus,
+  type VerificationEvidenceSummary,
+  lookupVerificationEvidence,
+} from "@rekon/capability-intent";
+import {
   type ArtifactHeader,
   type ArtifactRef,
 } from "@rekon/kernel-artifacts";
@@ -13,6 +18,8 @@ import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
 import { type IntelligenceSnapshot } from "@rekon/kernel-snapshot";
 import { type ArtifactReader, type Resolver, defineCapability } from "@rekon/sdk";
 
+export { type VerificationEvidenceStatus, type VerificationEvidenceSummary };
+
 export type ResolutionTraceEntry = {
   step: string;
   sourceType:
@@ -24,6 +31,9 @@ export type ResolutionTraceEntry = {
     | "MemorySelection"
     | "ResolverInput"
     | "RiskRule"
+    | "WorkOrder"
+    | "VerificationPlan"
+    | "VerificationResult"
     | "Fallback";
   sourceRef?: ArtifactRef;
   status: "used" | "checked" | "missing" | "skipped" | "fallback" | "warning";
@@ -291,6 +301,7 @@ export type IssuePacket = ResolverPacketBase & {
   }>;
   recommendedContext: string[];
   requiredChecks: string[];
+  verification?: VerificationEvidenceSummary;
   nextRequiredResolver?: "resolve.route" | "resolve.seam" | "resolve.preflight";
 };
 
@@ -754,6 +765,59 @@ export const issueResolver: Resolver = {
       summary = "No issue resolved.";
     }
 
+    let verification: VerificationEvidenceSummary | undefined;
+
+    if (match) {
+      verification = await lookupVerificationEvidence(artifacts, match.id);
+
+      const verificationSourceType = pickVerificationSourceType(verification);
+      const verificationSourceRef = verification.verificationResultRef
+        ?? verification.verificationPlanRef
+        ?? verification.workOrderRef;
+      const verificationStatusEntry: ResolutionTraceEntry["status"] = verification.status === "passed"
+        ? "used"
+        : verification.status === "missing"
+          ? "missing"
+          : "warning";
+
+      trace.push({
+        step: "issue.verification",
+        sourceType: verificationSourceType,
+        sourceRef: verificationSourceRef,
+        status: verificationStatusEntry,
+        message: verificationTraceMessage(verification),
+        details: {
+          status: verification.status,
+          summary: verification.summary,
+          recordedBy: verification.recordedBy,
+          recordedAt: verification.recordedAt,
+        },
+      });
+
+      switch (verification.status) {
+        case "failed":
+          warnings.push("Associated verification failed; inspect VerificationResult before acting.");
+          break;
+        case "partial":
+          warnings.push("Associated verification is partial; missing checks remain.");
+          break;
+        case "not-run":
+          warnings.push("VerificationPlan exists but no VerificationResult has passed yet.");
+          break;
+        case "missing":
+          warnings.push("No verification evidence found for this finding.");
+          break;
+        case "passed":
+          break;
+      }
+
+      for (const evidenceWarning of verification.warnings) {
+        if (!warnings.includes(evidenceWarning)) {
+          warnings.push(evidenceWarning);
+        }
+      }
+    }
+
     const relatedFindings = matches
       .filter((candidate) => !match || candidate.id !== match.id)
       .slice(0, 5)
@@ -811,10 +875,11 @@ export const issueResolver: Resolver = {
       relatedFindings,
       recommendedContext: buildRecommendedContext(match?.files ?? [], ownership.ownerSystems),
       requiredChecks: ["npm run typecheck", "npm run test"],
+      verification,
       nextRequiredResolver,
       warnings,
       resolutionTrace,
-      nextSteps: issueNextSteps(match, ownership.ownerSystems),
+      nextSteps: issueNextSteps(match, ownership.ownerSystems, verification),
     };
 
     const ref = await artifacts.write("ResolverPacket", packet);
@@ -829,7 +894,18 @@ export default defineCapability({
     name: "Resolver Capability",
     version: "0.1.0",
     roles: ["resolver"],
-    consumes: ["IntelligenceSnapshot", "OwnershipMap", "ObservedRepo", "GraphSlice", "EvidenceGraph", "FindingReport", "MemorySelection"],
+    consumes: [
+      "IntelligenceSnapshot",
+      "OwnershipMap",
+      "ObservedRepo",
+      "GraphSlice",
+      "EvidenceGraph",
+      "FindingReport",
+      "MemorySelection",
+      "WorkOrder",
+      "VerificationPlan",
+      "VerificationResult",
+    ],
     produces: ["ResolverPacket"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -837,6 +913,11 @@ export default defineCapability({
         id: "snapshot.changed",
         description: "Resolver packets are invalid when their snapshot or selected inputs change.",
         inputs: ["IntelligenceSnapshot", "OwnershipMap", "ObservedRepo", "GraphSlice", "EvidenceGraph", "FindingReport", "MemorySelection"],
+      },
+      {
+        id: "verification.changed",
+        description: "Issue resolver packets are invalid when associated verification evidence changes.",
+        inputs: ["WorkOrder", "VerificationPlan", "VerificationResult"],
       },
     ],
     compatibility: {
@@ -917,7 +998,11 @@ function seamNextSteps(
   ];
 }
 
-function issueNextSteps(match: IssueSummary | null, ownerSystems: string[]): string[] {
+function issueNextSteps(
+  match: IssueSummary | null,
+  ownerSystems: string[],
+  verification?: VerificationEvidenceSummary,
+): string[] {
   if (!match) {
     return [
       "Refine the issue query and re-run resolve.issue.",
@@ -935,6 +1020,24 @@ function issueNextSteps(match: IssueSummary | null, ownerSystems: string[]): str
     steps.push(`Run preflight against the matched files (owner: ${ownerSystems[0]}).`);
   } else {
     steps.push("Run route resolution; matched finding has no associated files.");
+  }
+
+  if (verification) {
+    switch (verification.status) {
+      case "missing":
+        steps.push("Run `rekon intent remediation` to plan work and `rekon verify record` to capture proof.");
+        break;
+      case "not-run":
+        steps.push("Run `rekon verify record` against the existing VerificationPlan to capture proof.");
+        break;
+      case "partial":
+      case "failed":
+        steps.push("Address verification failures and re-run `rekon verify record`.");
+        break;
+      case "passed":
+        steps.push("Associated verification has passed; confirm whether the finding is now stale.");
+        break;
+    }
   }
 
   return steps;
@@ -1748,4 +1851,37 @@ function buildWarnings(paths: string[], ownerSystems: string[]): string[] {
 
 function isString(value: unknown): value is string {
   return typeof value === "string";
+}
+
+function pickVerificationSourceType(
+  verification: VerificationEvidenceSummary,
+): ResolutionTraceEntry["sourceType"] {
+  if (verification.verificationResultRef) {
+    return "VerificationResult";
+  }
+
+  if (verification.verificationPlanRef) {
+    return "VerificationPlan";
+  }
+
+  if (verification.workOrderRef) {
+    return "WorkOrder";
+  }
+
+  return "Fallback";
+}
+
+function verificationTraceMessage(verification: VerificationEvidenceSummary): string {
+  switch (verification.status) {
+    case "passed":
+      return "VerificationResult linked to remediation work is `passed`.";
+    case "failed":
+      return "VerificationResult linked to remediation work is `failed`.";
+    case "partial":
+      return "VerificationResult linked to remediation work is `partial`.";
+    case "not-run":
+      return "Remediation work has a VerificationPlan but no VerificationResult has been recorded.";
+    case "missing":
+      return "No remediation WorkOrder or VerificationPlan references this finding.";
+  }
 }

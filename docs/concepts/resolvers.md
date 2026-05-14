@@ -81,6 +81,23 @@ annotates the matched issue with `status`, `statusSource`,
 so an agent or operator can decide whether action is still required.
 See [finding-lifecycle.md](finding-lifecycle.md).
 
+`resolve.issue` also looks up associated verification evidence by
+matching the finding id against the `remediationItems` of the latest
+`WorkOrder` (where `source === "coherency-delta"`), then chaining
+through the paired `VerificationPlan` to the latest
+`VerificationResult`. The resolved packet exposes
+`verification: VerificationEvidenceSummary` with one of five statuses
+— `passed`, `failed`, `partial`, `not-run`, or `missing` — plus
+references to the underlying `WorkOrder`, `VerificationPlan`, and
+`VerificationResult` artifacts. Each status emits a corresponding
+`warnings[]` entry (except `passed`, which is informational), and a
+new `issue.verification` `resolutionTrace` step records the source
+type and status. Passing verification **never** auto-resolves the
+finding or mutates the `FindingStatusLedger`; it only changes the
+recommended next step. See
+[../concepts/verification-results.md](verification-results.md) and
+[../artifacts/verification-result.md](../artifacts/verification-result.md).
+
 Ownership source precedence is deterministic:
 
 `OwnershipMap -> ObservedRepo -> ownership GraphSlice -> EvidenceGraph`

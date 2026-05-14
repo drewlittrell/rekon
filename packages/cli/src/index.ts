@@ -8,7 +8,9 @@ import docsCapability from "@rekon/capability-docs";
 import graphCapability from "@rekon/capability-graph";
 import intentCapability, {
   createVerificationResult,
+  lookupVerificationEvidence,
   type VerificationCommandResult,
+  type VerificationEvidenceSummary,
   type VerificationPlanLike,
 } from "@rekon/capability-intent";
 import jsTsCapability from "@rekon/capability-js-ts";
@@ -502,6 +504,7 @@ export async function main(argv: string[]): Promise<void> {
     const findingId = typeof parsed.flags.finding === "string" ? parsed.flags.finding : undefined;
     const priorityFlag = typeof parsed.flags.priority === "string" ? parsed.flags.priority : undefined;
     const limitFlag = typeof parsed.flags.limit === "string" ? Number.parseInt(parsed.flags.limit, 10) : undefined;
+    const skipVerified = parsed.flags["skip-verified"] === true;
 
     if (priorityFlag && priorityFlag !== "p0" && priorityFlag !== "p1" && priorityFlag !== "p2") {
       throw new Error("rekon intent remediation --priority must be one of p0, p1, p2.");
@@ -514,21 +517,53 @@ export async function main(argv: string[]): Promise<void> {
     const runtime = await createDefaultRuntime(root);
     await ensureCoherencyDeltaReady(runtime, root);
 
+    const skippedVerified: Array<{
+      findingId: string;
+      status: "passed";
+      verificationResultRef?: { type: string; id: string; schemaVersion: string };
+    }> = [];
+
+    if (skipVerified) {
+      const candidateIds = await collectRemediationCandidateIds(runtime, {
+        findingId,
+        priority: priorityFlag,
+      });
+
+      for (const candidateId of candidateIds) {
+        const evidence = await lookupVerificationEvidence(runtime.artifacts, candidateId);
+
+        if (evidence.status === "passed") {
+          skippedVerified.push({
+            findingId: candidateId,
+            status: "passed",
+            verificationResultRef: evidence.verificationResultRef,
+          });
+        }
+      }
+    }
+
+    const excludeFindingIds = skippedVerified.map((entry) => entry.findingId);
     const refs = await runtime.runAct({
       actuatorId: "@rekon/capability-intent.remediation-work-order",
       input: {
         findingId,
         priority: priorityFlag,
         limit: limitFlag,
+        excludeFindingIds: excludeFindingIds.length > 0 ? excludeFindingIds : undefined,
       },
     });
 
     if (refs.length === 0) {
+      const message = skippedVerified.length > 0
+        ? "No active remediation items remain after skipping verified items."
+        : "No active remediation items in latest CoherencyDelta.";
+
       writeOutput(
         {
           artifacts: [],
           selectedItems: [],
-          message: "No active remediation items in latest CoherencyDelta.",
+          skippedVerified: skipVerified ? skippedVerified : undefined,
+          message,
         },
         json,
       );
@@ -543,6 +578,7 @@ export async function main(argv: string[]): Promise<void> {
       {
         artifacts: refs,
         selectedItems,
+        skippedVerified: skipVerified ? skippedVerified : undefined,
       },
       json,
     );
@@ -1267,6 +1303,39 @@ async function ensureCoherencyDeltaReady(
   }
 }
 
+async function collectRemediationCandidateIds(
+  runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
+  filters: { findingId?: string; priority?: string },
+): Promise<string[]> {
+  const refs = (await runtime.artifacts.list("CoherencyDelta")).sort(
+    (left, right) => right.id.localeCompare(left.id),
+  );
+  const latest = refs[0];
+
+  if (!latest) {
+    return [];
+  }
+
+  const delta = await runtime.artifacts.read(latest) as {
+    remediationQueue?: Array<{ findingId?: string; priority?: string }>;
+  };
+  const queue = Array.isArray(delta?.remediationQueue) ? delta.remediationQueue : [];
+
+  return queue
+    .filter((entry) => {
+      if (filters.findingId && entry.findingId !== filters.findingId) {
+        return false;
+      }
+
+      if (filters.priority && entry.priority !== filters.priority) {
+        return false;
+      }
+
+      return typeof entry.findingId === "string" && entry.findingId.length > 0;
+    })
+    .map((entry) => entry.findingId as string);
+}
+
 async function ensurePreflight(
   runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
   path: string,
@@ -1728,7 +1797,7 @@ function usage(): string {
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
-    "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--root <path>] [--json]",
+    "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--skip-verified] [--root <path>] [--json]",
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
     "rekon reconcile suggest [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--apply] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",

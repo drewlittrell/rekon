@@ -97,6 +97,34 @@ The resolver also adds a warning when the matched finding is ignored
 or resolved ("confirm whether action is still needed"). See
 [../concepts/finding-lifecycle.md](../concepts/finding-lifecycle.md).
 
+`resolve.issue` also attaches a `verification:
+VerificationEvidenceSummary` field to the packet when a matched
+finding has any associated remediation work:
+
+- `verification.status` — `passed`, `failed`, `partial`, `not-run`,
+  or `missing`.
+- `verification.verificationResultRef` / `verificationPlanRef` /
+  `workOrderRef` — the artifacts the lookup walked through, in order
+  `findingId -> WorkOrder.remediationItems -> VerificationPlan.workOrderRef
+  -> VerificationResult.verificationPlanRef`.
+- `verification.summary` — passed/failed/skipped/notRun counts from
+  the linked `VerificationResult`.
+- `verification.recordedAt` / `verification.recordedBy` — provenance
+  from the linked `VerificationResult`.
+- `verification.matchedFindingIds` — the finding ids matched against
+  the remediation work order's `remediationItems`.
+- `verification.warnings` — non-fatal notes from the lookup itself
+  (e.g. "Remediation WorkOrder exists but no VerificationPlan
+  references it.").
+
+Each status (except `passed`) appends a warning to the packet's
+top-level `warnings[]`; an `issue.verification` entry is added to the
+`resolutionTrace` with `sourceType` set to the deepest artifact that
+was found (`VerificationResult`, `VerificationPlan`, `WorkOrder`, or
+`Fallback`). Passing verification does **not** mutate the
+`FindingStatusLedger`, change `issue.status`, or hide the issue. See
+[../concepts/verification-results.md](../concepts/verification-results.md).
+
 `resolutionTrace` explains why the packet contains its ownership and risk
 answers. Trace entries include:
 

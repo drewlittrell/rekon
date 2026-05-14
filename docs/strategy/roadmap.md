@@ -141,6 +141,22 @@ explicit NorthStar update.
   `consumes` and a new `proof-loop.changed` invalidation rule keep
   freshness honest. The publication still does not execute commands
   or judge verification sufficiency.
+- Verification-aware issue and remediation context:
+  `@rekon/capability-intent` adds the
+  `lookupVerificationEvidence(artifacts, findingId)` helper and the
+  `VerificationEvidenceStatus` / `VerificationEvidenceSummary` types.
+  The helper chains `findingId -> WorkOrder.remediationItems ->
+  VerificationPlan.workOrderRef ->
+  VerificationResult.verificationPlanRef` and returns a typed evidence
+  summary. `@rekon/capability-resolver.resolve.issue` now imports the
+  helper to attach `IssuePacket.verification`, add status-specific
+  warnings, and append an `issue.verification` `resolutionTrace`
+  step. `rekon intent remediation --skip-verified` (opt-in) excludes
+  candidate remediation items whose chain resolves to `passed` via the
+  new `RemediationActuatorInput.excludeFindingIds`. Passing
+  verification never auto-resolves findings, mutates the
+  `FindingStatusLedger`, or executes commands; failed / partial /
+  not-run / missing remain selected so agents still see open work.
 
 ## Committed Direction: Hardening Batches
 

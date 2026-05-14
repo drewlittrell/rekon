@@ -92,10 +92,18 @@ The Markdown body always contains, in order:
 rekon intent remediation --root <repo> --json
 rekon intent remediation --root <repo> --priority p0 --limit 3 --json
 rekon intent remediation --root <repo> --finding <finding-id> --json
+rekon intent remediation --root <repo> --skip-verified --json
 ```
 
 `--limit` defaults to 5 when omitted. `--priority` accepts `p0`,
 `p1`, or `p2`. `--finding` matches `findingId` exactly.
+`--skip-verified` excludes remediation items whose associated
+`WorkOrder` -> `VerificationPlan` -> `VerificationResult` chain has a
+`passed` status. Findings with `failed`, `partial`, `not-run`, or
+`missing` verification remain selected. The CLI builds the skip list
+by calling `lookupVerificationEvidence` for each candidate `findingId`
+before dispatching the actuator and reports excluded items via
+`skippedVerified`. `--skip-verified` is opt-in and never default.
 
 Output shape:
 
@@ -120,6 +128,24 @@ Output shape:
 }
 ```
 
+With `--skip-verified` the response also includes a `skippedVerified`
+list naming each excluded finding plus the `VerificationResult` that
+backs the skip:
+
+```json
+{
+  "artifacts": [...],
+  "selectedItems": [...],
+  "skippedVerified": [
+    {
+      "findingId": "...",
+      "status": "passed",
+      "verificationResultRef": { "type": "VerificationResult", "id": "...", "schemaVersion": "0.1.0" }
+    }
+  ]
+}
+```
+
 When no work is selected:
 
 ```json
@@ -127,6 +153,17 @@ When no work is selected:
   "artifacts": [],
   "selectedItems": [],
   "message": "No active remediation items in latest CoherencyDelta."
+}
+```
+
+When `--skip-verified` skips everything:
+
+```json
+{
+  "artifacts": [],
+  "selectedItems": [],
+  "skippedVerified": [...],
+  "message": "No active remediation items remain after skipping verified items."
 }
 ```
 

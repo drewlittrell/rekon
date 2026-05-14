@@ -202,8 +202,12 @@ Friendly shortcuts remain:
   to derive a resolver-based work order from a `ResolverPacket`.
 - `rekon intent remediation` runs
   `@rekon/capability-intent.remediation-work-order` to derive a
-  governance work order from the latest `CoherencyDelta`. See
-  [../concepts/remediation-work-orders.md](../concepts/remediation-work-orders.md).
+  governance work order from the latest `CoherencyDelta`. The
+  optional `--skip-verified` flag chains
+  `findingId -> WorkOrder -> VerificationPlan -> VerificationResult`
+  for every candidate item and excludes those whose chain resolves to
+  `passed`, reporting them in a top-level `skippedVerified` array.
+  See [../concepts/remediation-work-orders.md](../concepts/remediation-work-orders.md).
 - `rekon reconcile suggest` runs
   `@rekon/capability-reconcile.actuator` in suggestion mode to
   classify the latest remediation work order (or `CoherencyDelta`)
