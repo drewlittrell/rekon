@@ -226,6 +226,24 @@ scope:
   orchestration weight unless the work order identifies which
   guarantee is preserved elsewhere." No runtime behavior changed
   in this batch.
+- **`rekon refresh` (P0.1 closure).** ✅ Initial slice shipped.
+  `rekon refresh` orchestrates the full Rekon lifecycle —
+  `init` → `config.validate` → `observe` → `project` → `snapshot`
+  → `evaluate` → `findings.lifecycle` → `coherency.delta` →
+  `publish.architecture` → `artifacts.validate` →
+  `artifacts.freshness` — in the documented order. Stops on the
+  first failure, records per-step status and artifact refs, and
+  exposes `--skip-publish` and `--skip-freshness` opt-outs.
+  Freshness is judged by **latest major artifact of each type**
+  with historical `newer-input-exists` issues filtered, so a second
+  back-to-back refresh still reports `passed` even though the
+  artifact store keeps prior `FindingReport` / lifecycle entries
+  on disk. Closes guarantee P0.1 from
+  [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
+  The classic `FullScanHandler` workflow guarantee is preserved
+  without porting the cache or per-phase checkpoint artifacts;
+  Rekon's `inputRefs` + `artifacts.validate` +
+  `artifacts.freshness` cover what those checkpoints recorded.
 
 ## Phase C — Later Maturity
 

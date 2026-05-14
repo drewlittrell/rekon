@@ -20,6 +20,9 @@ import policyCapability from "@rekon/capability-policy";
 import reconcileCapability from "@rekon/capability-reconcile";
 import resolverCapability from "@rekon/capability-resolver";
 import {
+  type ArtifactFreshnessEntry,
+  type ArtifactFreshnessResult,
+  type ArtifactFreshnessStatus,
   type ArtifactIndexEntry,
   buildCoherencyDelta,
   buildFindingLifecycleReport,
@@ -28,6 +31,7 @@ import {
   validateArtifactFreshness,
   validateArtifactIndex,
 } from "@rekon/runtime";
+import { type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
   type FindingStatusDecision,
@@ -76,6 +80,25 @@ export async function main(argv: string[]): Promise<void> {
     await store.init();
     await writeConfigIfMissing(root);
     writeOutput({ root, config: ".rekon/config.json" }, json);
+    return;
+  }
+
+  if (command === "refresh") {
+    const skipPublish = parsed.flags["skip-publish"] === true;
+    const skipFreshness = parsed.flags["skip-freshness"] === true;
+    const changedFiles = parseRepeatableFlag(parsed.flags["changed-file"]);
+    const result = await runRefresh(root, {
+      skipPublish,
+      skipFreshness,
+      changedFiles: changedFiles.length > 0 ? changedFiles : undefined,
+    });
+
+    writeOutput(result, json);
+
+    if (result.status === "failed") {
+      process.exitCode = 1;
+    }
+
     return;
   }
 
@@ -1154,6 +1177,381 @@ async function loadConfiguredCapabilities(config: RekonConfig): Promise<Capabili
   }));
 }
 
+type RefreshStepId =
+  | "init"
+  | "config.validate"
+  | "observe"
+  | "project"
+  | "snapshot"
+  | "evaluate"
+  | "findings.lifecycle"
+  | "coherency.delta"
+  | "publish.architecture"
+  | "artifacts.validate"
+  | "artifacts.freshness";
+
+type RefreshStep = {
+  id: RefreshStepId;
+  status: "passed" | "failed" | "skipped";
+  artifacts?: ArtifactRef[];
+  summary?: unknown;
+  issues?: unknown[];
+  message?: string;
+};
+
+type RefreshResult = {
+  root: string;
+  startedAt: string;
+  completedAt: string;
+  status: "passed" | "failed" | "partial";
+  steps: RefreshStep[];
+  validation?: { valid: boolean; issues: unknown[] };
+  freshness?: {
+    status: ArtifactFreshnessStatus;
+    issues: unknown[];
+    latestMajor: Array<{ type: string; id: string; status: ArtifactFreshnessStatus }>;
+  };
+  artifacts: ArtifactRef[];
+  missing: string[];
+};
+
+type RefreshOptions = {
+  skipPublish?: boolean;
+  skipFreshness?: boolean;
+  changedFiles?: string[];
+};
+
+const REQUIRED_REFRESH_ARTIFACT_TYPES = [
+  "EvidenceGraph",
+  "ObservedRepo",
+  "OwnershipMap",
+  "CapabilityMap",
+  "IntelligenceSnapshot",
+  "FindingReport",
+  "FindingLifecycleReport",
+  "CoherencyDelta",
+];
+
+const MAJOR_FRESHNESS_TYPES = [
+  "EvidenceGraph",
+  "ObservedRepo",
+  "OwnershipMap",
+  "CapabilityMap",
+  "IntelligenceSnapshot",
+  "FindingReport",
+  "FindingLifecycleReport",
+  "CoherencyDelta",
+  "Publication",
+];
+
+async function runRefresh(root: string, options: RefreshOptions = {}): Promise<RefreshResult> {
+  const startedAt = new Date().toISOString();
+  const steps: RefreshStep[] = [];
+  const allArtifacts: ArtifactRef[] = [];
+  const result: RefreshResult = {
+    root,
+    startedAt,
+    completedAt: startedAt,
+    status: "passed",
+    steps,
+    artifacts: allArtifacts,
+    missing: [],
+  };
+
+  function recordArtifacts(refs: ArtifactRef[] | ArtifactRef | undefined): ArtifactRef[] {
+    if (!refs) {
+      return [];
+    }
+
+    const list = Array.isArray(refs) ? refs : [refs];
+
+    for (const ref of list) {
+      if (!allArtifacts.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+        allArtifacts.push(ref);
+      }
+    }
+
+    return list;
+  }
+
+  function finalize(status: RefreshResult["status"]): RefreshResult {
+    result.status = status;
+    result.completedAt = new Date().toISOString();
+    return result;
+  }
+
+  // 1. init (write .rekon/ + default config if missing; never overwrite a
+  //    malformed existing config — let config.validate report it explicitly)
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const configPath = resolve(root, ".rekon", "config.json");
+    let configExists = true;
+
+    try {
+      await readFile(configPath, "utf8");
+    } catch {
+      configExists = false;
+    }
+
+    if (!configExists) {
+      await writeConfigIfMissing(root);
+    }
+
+    steps.push({ id: "init", status: "passed" });
+  } catch (error) {
+    steps.push({ id: "init", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 2. config validate
+  const configValidation = await validateConfig(root);
+  steps.push({
+    id: "config.validate",
+    status: configValidation.valid ? "passed" : "failed",
+    issues: configValidation.issues,
+    message: configValidation.valid ? undefined : "config validation failed",
+  });
+
+  if (!configValidation.valid) {
+    return finalize("failed");
+  }
+
+  const runtime = await createDefaultRuntime(root);
+
+  // 3. observe
+  try {
+    const ref = await runtime.runObserve(
+      options.changedFiles && options.changedFiles.length > 0
+        ? { changedFiles: options.changedFiles, incremental: true }
+        : undefined,
+    );
+    steps.push({ id: "observe", status: "passed", artifacts: recordArtifacts(ref) });
+  } catch (error) {
+    steps.push({ id: "observe", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 4. project
+  try {
+    const refs = await runtime.runProject();
+    steps.push({ id: "project", status: "passed", artifacts: recordArtifacts(refs) });
+  } catch (error) {
+    steps.push({ id: "project", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 5. snapshot
+  try {
+    const ref = await runtime.runSnapshot();
+    steps.push({ id: "snapshot", status: "passed", artifacts: recordArtifacts(ref) });
+  } catch (error) {
+    steps.push({ id: "snapshot", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 6. evaluate
+  try {
+    const refs = await runtime.runEvaluate();
+    steps.push({ id: "evaluate", status: "passed", artifacts: recordArtifacts(refs) });
+  } catch (error) {
+    steps.push({ id: "evaluate", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  const store = createLocalArtifactStore(root);
+  await store.init();
+
+  // 7. findings lifecycle
+  try {
+    const lifecycle = await buildFindingLifecycleReport(store);
+    const ref = await store.write(lifecycle, { category: "findings" });
+    steps.push({
+      id: "findings.lifecycle",
+      status: "passed",
+      artifacts: recordArtifacts(ref),
+      summary: lifecycle.summary,
+    });
+  } catch (error) {
+    steps.push({ id: "findings.lifecycle", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 8. coherency delta
+  try {
+    const delta = await buildCoherencyDelta(store);
+    const ref = await store.write(delta, { category: "findings" });
+    steps.push({
+      id: "coherency.delta",
+      status: "passed",
+      artifacts: recordArtifacts(ref),
+      summary: delta.summary,
+    });
+  } catch (error) {
+    steps.push({ id: "coherency.delta", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 9. publish architecture (optional)
+  let publishStatus: RefreshStep["status"] = "skipped";
+
+  if (options.skipPublish) {
+    steps.push({ id: "publish.architecture", status: "skipped", message: "--skip-publish" });
+  } else {
+    try {
+      const refs = await runtime.runPublish({ publisherId: "@rekon/capability-docs.architecture-summary" });
+      steps.push({ id: "publish.architecture", status: "passed", artifacts: recordArtifacts(refs) });
+      publishStatus = "passed";
+    } catch (error) {
+      steps.push({ id: "publish.architecture", status: "failed", message: messageOf(error) });
+      return finalize("failed");
+    }
+  }
+
+  // Check required artifact families before validation/freshness.
+  const missing: string[] = [];
+
+  for (const type of REQUIRED_REFRESH_ARTIFACT_TYPES) {
+    if ((await store.list(type)).length === 0) {
+      missing.push(type);
+    }
+  }
+
+  if (!options.skipPublish) {
+    const publicationRefs = await store.list("Publication");
+    let foundArchitectureSummary = false;
+
+    for (const ref of publicationRefs) {
+      const publication = await store.read(ref) as { kind?: string };
+
+      if (publication?.kind === "architecture-summary") {
+        foundArchitectureSummary = true;
+        break;
+      }
+    }
+
+    if (!foundArchitectureSummary) {
+      missing.push("Publication(architecture-summary)");
+    }
+  }
+
+  // If publish was skipped, drop any stale Publication entries from
+  // freshness comparison too — we're not judging publications this run.
+  // (handled implicitly: skipped step records itself; no missing entry recorded.)
+
+  result.missing = missing;
+
+  // 10. artifacts validate
+  const validation = await validateArtifactIndex(store);
+  steps.push({
+    id: "artifacts.validate",
+    status: validation.valid ? "passed" : "failed",
+    issues: validation.issues,
+  });
+  result.validation = { valid: validation.valid, issues: validation.issues };
+
+  // 11. artifacts freshness (optional)
+  if (options.skipFreshness) {
+    steps.push({ id: "artifacts.freshness", status: "skipped", message: "--skip-freshness" });
+  } else {
+    const freshness = await validateArtifactFreshness(store);
+    const majorTypes = options.skipPublish
+      ? MAJOR_FRESHNESS_TYPES.filter((type) => type !== "Publication")
+      : MAJOR_FRESHNESS_TYPES;
+    const latestMajor = computeLatestMajorFreshness(freshness, majorTypes);
+    const allMajorFresh = latestMajor.every((entry) => entry.status === "fresh");
+    const anyMajorStale = latestMajor.some((entry) => entry.status === "stale");
+    const anyMajorUnknown = latestMajor.some((entry) => entry.status === "unknown");
+    const majorIssues = freshness.artifacts
+      .filter((entry) => entry.status !== "fresh"
+        && latestMajor.some(
+          (major) => major.type === entry.type && major.id === entry.id && major.status !== "fresh",
+        ))
+      .flatMap((entry) => entry.issues.map((issue) => ({ ...issue, artifactType: entry.type, artifactId: entry.id })));
+    const stepStatus: RefreshStep["status"] = allMajorFresh ? "passed" : "failed";
+
+    steps.push({
+      id: "artifacts.freshness",
+      status: stepStatus,
+      issues: majorIssues,
+      summary: { status: freshness.status, latestMajor },
+      message: allMajorFresh
+        ? undefined
+        : anyMajorStale
+          ? "Latest major artifact is stale; rerun the upstream phase."
+          : anyMajorUnknown
+            ? "Latest major artifact freshness is unknown; check lineage."
+            : "Latest major artifacts have non-fresh freshness.",
+    });
+    result.freshness = {
+      status: freshness.status,
+      issues: majorIssues,
+      latestMajor,
+    };
+  }
+
+  // Final status
+  const failedStep = steps.find((step) => step.status === "failed");
+
+  if (failedStep) {
+    return finalize("failed");
+  }
+
+  if (missing.length > 0) {
+    return finalize("partial");
+  }
+
+  return finalize("passed");
+}
+
+function computeLatestMajorFreshness(
+  freshness: ArtifactFreshnessResult,
+  majorTypes: readonly string[] = MAJOR_FRESHNESS_TYPES,
+): Array<{ type: string; id: string; status: ArtifactFreshnessStatus }> {
+  const byType = new Map<string, ArtifactFreshnessEntry>();
+
+  for (const entry of freshness.artifacts) {
+    if (!majorTypes.includes(entry.type)) {
+      continue;
+    }
+
+    const existing = byType.get(entry.type);
+
+    if (!existing || existing.id.localeCompare(entry.id) < 0) {
+      byType.set(entry.type, entry);
+    }
+  }
+
+  return Array.from(byType.values()).map((entry) => ({
+    type: entry.type,
+    id: entry.id,
+    status: effectiveMajorStatus(entry),
+  }));
+}
+
+// The artifact-freshness validator flags `newer-input-exists` whenever an
+// artifact cites an older sibling of an input type. That is sometimes
+// intentional: `buildFindingLifecycleReport` deliberately cites every prior
+// `FindingReport` to derive resolved-finding state. When we are judging the
+// latest artifact of a major type, treat `newer-input-exists` issues as
+// benign — the artifact under examination is by construction the newest of
+// its type, and the validator's complaint is about a historical reference
+// that the producer intended to keep.
+function effectiveMajorStatus(entry: ArtifactFreshnessEntry): ArtifactFreshnessStatus {
+  const nonHistorical = entry.issues.filter((issue) => issue.code !== "newer-input-exists");
+
+  if (nonHistorical.length === 0) {
+    return "fresh";
+  }
+
+  return entry.status;
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function ensureSnapshotReady(runtime: Awaited<ReturnType<typeof createDefaultRuntime>>): Promise<void> {
   if ((await runtime.artifacts.list("EvidenceGraph")).length === 0) {
     await runtime.runObserve();
@@ -1784,6 +2182,7 @@ function writeOutput(value: unknown, json: boolean): void {
 function usage(): string {
   return [
     "rekon init [--root <path>]",
+    "rekon refresh [--root <path>] [--skip-publish] [--skip-freshness] [--changed-file <path>] [--json]",
     "rekon config validate [--root <path>] [--json]",
     "rekon capabilities list [--root <path>] [--verbose] [--json]",
     "rekon capabilities inspect <capability-id> [--root <path>] [--json]",

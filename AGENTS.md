@@ -35,6 +35,8 @@ Required checks:
 - npm run build
 - npm run lint if lint is configured
 
+When agents need a coherent Rekon intelligence state for a target repo (architecture summary, resolvers, governance artifacts), prefer `rekon refresh --root <path> --json` over running the per-phase verbs manually. `rekon refresh` orchestrates the full lifecycle in the documented order and reports a structured per-step verdict. See [docs/concepts/refresh.md](docs/concepts/refresh.md) for the latest-major freshness rule and the `--skip-publish` / `--skip-freshness` opt-outs.
+
 Process:
 
 - During solo alpha development, push directly to `main` after required checks pass.

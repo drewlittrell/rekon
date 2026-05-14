@@ -182,6 +182,24 @@ is the first stop before proposing a new capability batch.
   include `"proof-report"`. `rekon publish proof` invokes it; generic
   dispatch works too. The publisher does not execute commands or
   judge verification sufficiency.
+- `rekon refresh` (P0.1 closure from the Classic Guarantees Audit):
+  new CLI command that orchestrates the full Rekon lifecycle in the
+  documented order — `init` → `config.validate` → `observe` →
+  `project` → `snapshot` → `evaluate` → `findings.lifecycle` →
+  `coherency.delta` → `publish.architecture` →
+  `artifacts.validate` → `artifacts.freshness`. Stops on the first
+  failure, records per-step status and artifact refs, and reports a
+  final `passed` / `partial` / `failed` verdict. Flags
+  `--skip-publish` and `--skip-freshness` are explicit opt-outs and
+  always recorded in the step list; lifecycle steps are never
+  silently skipped. Freshness is judged by **latest major
+  artifact of each type** with historical `newer-input-exists`
+  issues filtered, so the verdict reflects "is the current
+  intelligence state coherent?" rather than "is every historical
+  artifact still current?" Preserves the classic `FullScanHandler`
+  workflow guarantee without porting the cache or per-phase
+  checkpoint artifacts. See
+  [../concepts/refresh.md](../concepts/refresh.md).
 
 ## Committed Direction: Hardening Batches
 

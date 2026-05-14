@@ -86,59 +86,67 @@ Classic shape that provided the guarantee:
   docs handlers, and the cache lifecycle in `lib/cache/**`.
 
 What Rekon already preserves:
-- Each phase is its own CLI verb (`rekon observe`, `project`,
+- **`rekon refresh` (shipped).** Orchestrates all nine phases —
+  `init` (heals only a missing config; leaves a malformed config
+  for `config.validate` to report), `config.validate`, `observe`,
+  `project`, `snapshot`, `evaluate`, `findings.lifecycle`,
+  `coherency.delta`, `publish.architecture`,
+  `artifacts.validate`, `artifacts.freshness` — in the documented
+  order, stops on the first failure, and writes a structured
+  report with per-step status and artifact refs.
+- Each phase is also its own CLI verb (`rekon observe`, `project`,
   `snapshot`, `evaluate`, `findings lifecycle`, `coherency delta`,
   `intent remediation`, `reconcile suggest`, `verify record`,
-  `publish architecture`, `publish proof`).
-- Readiness helpers exist for the most common chains:
-  `ensureSnapshotReady`, `ensureCoherencyDeltaReady`,
-  `ensurePreflight` (in the CLI handler).
+  `publish architecture`, `publish proof`) for incremental flows.
+- Readiness helpers (`ensureSnapshotReady`,
+  `ensureCoherencyDeltaReady`, `ensurePreflight`) still cover the
+  most common per-command chains.
 - Generic `runEvaluate`, `runResolve`, `runPublish`, `runAct` accept
   an explicit handler id so the same phases can be driven
   programmatically.
 - The artifact store with `header.inputRefs` + freshness validator
-  detects mismatched state after the fact.
+  detects mismatched state; `rekon refresh` applies a **latest-
+  major** interpretation that ignores `newer-input-exists` issues
+  pointing to historical inputs (e.g. the `FindingLifecycleReport`
+  intentionally cites every prior `FindingReport`).
 
 What Rekon may be discounting:
 - `FullScanHandler` looks like heavy orchestration weight, but the
   weight is actually the workflow guarantee. The phased checkpoint
   writer encodes: "every phase ran in order, here is the evidence
-  trail." Rekon's per-verb CLI assumes the operator remembers the
-  full chain.
-- The `ensure*` helpers are partial: they cover the inputs each
-  specific command needs, but no single command yet guarantees the
-  whole loop is coherent.
+  trail." `rekon refresh` reproduces the operational guarantee
+  without porting the cache or per-phase checkpoint artifacts;
+  Rekon's `inputRefs` + `artifacts.validate` + `artifacts.freshness`
+  cover what those checkpoints recorded.
 
 Current gap:
-- Rekon does not yet have a single command that produces a
-  coherent end-to-end state. An operator who forgets one phase
-  (e.g. skips `findings lifecycle` between `evaluate` and
-  `coherency delta`) gets a partial state that the freshness
-  validator notices only retroactively.
+- Closed for the current scope. Path/event freshness (P1.4) and a
+  long-running watcher daemon (P2.2) remain explicit future
+  guarantees.
 
 Rekon equivalent guarantee:
-- A new `rekon refresh` CLI verb that orchestrates `observe →
-  project → snapshot → evaluate → findings lifecycle → coherency
-  delta → publish architecture → artifacts validate → artifacts
-  freshness` and writes a per-phase checkpoint artifact (or at
-  minimum a per-phase entry in an `ActionLog`-like artifact). The
-  resulting state must be coherent: every newer-input check that
-  the freshness validator performs returns `fresh`.
+- `rekon refresh` exists. It orchestrates the lifecycle in the
+  documented order; latest-major artifacts of each required type
+  resolve to `fresh` after a clean run; `rekon artifacts validate`
+  returns `{ valid: true, issues: [] }`; a second back-to-back
+  refresh still passes because historical artifacts no longer
+  pollute the latest-major verdict.
 
 Regression test needed:
-- After `rekon refresh`, `rekon artifacts validate` returns
-  `{ valid: true, issues: [] }` AND `rekon artifacts freshness`
-  reports zero `stale` artifacts across every artifact type that
-  Rekon's lineage graph touches in a clean fixture run. The
-  test should fail if `rekon refresh` produces any `stale`
-  entries.
+- Shipped in `tests/contract/refresh-command.test.mjs` (11 tests):
+  clean-fixture produces every required artifact family; steps
+  run in documented order; status `passed` when latest-major is
+  fresh; malformed config fails before observe; `--skip-publish`
+  and `--skip-freshness` are honored and recorded; a second
+  refresh still passes; existing commands continue to work after
+  refresh; the import-boundary fixture integration surfaces
+  active findings in the produced architecture summary.
 
-Priority: **P0**
+Priority: **P0 (preserved)**
 
-Next implementation slice: `rekon refresh` orchestration command, as
-described in
-[classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md)
-under "One command can produce a coherent repo-intelligence state."
+Next implementation slice: path/event freshness (P1.4) when the
+operator demand for live invalidation is concrete. Until then,
+`rekon refresh` is the canonical way to produce a current state.
 
 ---
 

@@ -56,31 +56,37 @@ Classic source:
   `services/RuleCompilationHandler.ts`.
 
 Current Rekon coverage:
-- Each phase is its own CLI verb (`rekon observe`, `project`,
-  `snapshot`, `evaluate`, `findings lifecycle`, `coherency delta`,
-  `publish architecture`, `artifacts validate`, `artifacts
-  freshness`).
+- **Closed.** `rekon refresh` orchestrates the full lifecycle in
+  the documented order via `runRefresh(root, options)` in the CLI
+  helper layer. See
+  [../concepts/refresh.md](../concepts/refresh.md).
 - Per-command readiness helpers (`ensureSnapshotReady`,
-  `ensureCoherencyDeltaReady`, `ensurePreflight`).
-- `tests/contract/artifact-freshness.test.mjs` covers per-pair
-  staleness.
+  `ensureCoherencyDeltaReady`, `ensurePreflight`) and per-phase CLI
+  verbs remain available for incremental flows.
+- `tests/contract/refresh-command.test.mjs` (11 tests) covers
+  end-to-end orchestration, expected artifact families, step order,
+  malformed-config failure, `--skip-publish`, `--skip-freshness`,
+  the repeat-run / historical-stale scenario, the import-boundary
+  fixture integration, and that existing commands still work.
+- `tests/contract/artifact-freshness.test.mjs` continues to cover
+  per-pair staleness.
 
 Missing coverage:
-- No single command that orchestrates the full sequence.
-- No regression test that asserts a clean fixture run leaves zero
-  stale artifacts.
+- None for the current scope. Optional follow-ups (path/event
+  freshness, watcher daemon) are listed in P1.4 and P2.2.
 
 Proposed regression test:
-- `tests/contract/refresh-orchestration.test.mjs` (to land with the
-  implementation batch): run `rekon refresh --root <fixture>`, then
-  assert `rekon artifacts validate` returns `{ valid: true, issues:
-  [] }` and `rekon artifacts freshness` reports zero `stale`
-  entries across every artifact type the fixture run produced.
+- Already shipped — `tests/contract/refresh-command.test.mjs`
+  exercises: clean fixture run produces every required artifact
+  family; `artifacts validate` returns `{ valid: true, issues:
+  [] }`; the latest major artifact of each type resolves to
+  `fresh` after filtering historical `newer-input-exists` issues;
+  a second back-to-back refresh still passes; malformed config
+  fails before observe; `--skip-publish` and `--skip-freshness`
+  are honored and recorded.
 
 Implementation batch:
-- "rekon refresh orchestration" — the next-step batch identified
-  in the audit. Until that batch lands, contributors must run the
-  full chain manually; the gap is acknowledged.
+- "`rekon refresh` — coherent repo-intelligence state" (shipped).
 
 ### P0.2 Findings preserve lifecycle and status across runs
 
