@@ -187,6 +187,27 @@ scope:
   intent proof-gate discipline (failed proof is first-class, passing
   proof informs but does not auto-resolve) without porting the
   command runner, semantic judge, or CI integration.
+- **Proof report publication.** ✅ Initial slice shipped.
+  `@rekon/capability-docs` registers a third publisher
+  `@rekon/capability-docs.proof-report` (alongside the existing
+  `.publisher` and `.architecture-summary`). The publisher reads the
+  latest available `IntelligenceSnapshot`, `WorkOrder` (remediation
+  and resolver), `VerificationPlan`, `VerificationResult`,
+  `CoherencyDelta`, `ReconciliationPlan`, and
+  `FindingLifecycleReport`, and emits a focused Markdown readout with
+  Proof Status, Work Order, Verification Plan, Verification Results,
+  Failed / Missing Evidence, Remediation Context, Reconciliation
+  Context, Next Recommended Action, and Input Artifacts sections.
+  Failed / partial / not-run states render an explicit "Verification
+  is not complete." callout; passed renders "This does not
+  automatically resolve findings." When no `VerificationPlan` exists,
+  the publication is a short stub recommending the next command.
+  `rekon publish proof` invokes it; generic
+  `rekon publish run @rekon/capability-docs.proof-report` is
+  equivalent. `PublicationArtifact.kind` widens to include
+  `"proof-report"`. Aligned to classic agent-doc proof visibility
+  without porting CI/check-run publishers, the semantic verification
+  judge, or auto-completion projection.
 
 ## Phase C — Later Maturity
 

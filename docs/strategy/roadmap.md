@@ -157,6 +157,22 @@ explicit NorthStar update.
   verification never auto-resolves findings, mutates the
   `FindingStatusLedger`, or executes commands; failed / partial /
   not-run / missing remain selected so agents still see open work.
+- Proof report publication: `@rekon/capability-docs` registers a
+  third publisher `@rekon/capability-docs.proof-report` (alongside
+  `.publisher` and `.architecture-summary`). The proof report is a
+  focused Markdown readout of the latest `VerificationPlan` and
+  `VerificationResult` plus surrounding work-order, remediation, and
+  reconciliation context. Rendered sections: Proof Status, Work
+  Order, Verification Plan, Verification Results, Failed / Missing
+  Evidence, Remediation Context, Reconciliation Context, Next
+  Recommended Action, Input Artifacts. Failed / partial / not-run
+  states surface "Verification is not complete."; passed surfaces a
+  no-auto-resolve callout. When no `VerificationPlan` exists, the
+  publication is a stub recommending `rekon intent work-order` or
+  `rekon intent remediation`. `PublicationArtifact.kind` widens to
+  include `"proof-report"`. `rekon publish proof` invokes it; generic
+  dispatch works too. The publisher does not execute commands or
+  judge verification sufficiency.
 
 ## Committed Direction: Hardening Batches
 

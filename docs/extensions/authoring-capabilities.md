@@ -197,6 +197,13 @@ Friendly shortcuts remain:
   governance summary that consumes the latest snapshot, ownership/
   capability maps, finding lifecycle, and coherency delta. See
   [../artifacts/architecture-summary-publication.md](../artifacts/architecture-summary-publication.md).
+- `rekon publish proof` runs
+  `@rekon/capability-docs.proof-report`, producing a focused proof
+  readout: latest `VerificationPlan`, `VerificationResult`,
+  per-command status, failed / missing evidence, remediation /
+  reconciliation context, and one Next Recommended Action line. The
+  publisher does not execute commands or judge sufficiency. See
+  [../artifacts/proof-report-publication.md](../artifacts/proof-report-publication.md).
 - `rekon intent work-order` runs
   `@rekon/capability-intent.work-order` with `--path` / `--goal` flags
   to derive a resolver-based work order from a `ResolverPacket`.

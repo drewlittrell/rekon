@@ -163,6 +163,12 @@ Recording a `VerificationResult` reinforces that:
   walks the loop and recommends `rekon verify record` when no result
   exists, or "address failures and re-run `rekon verify record`" when
   a result is failed/partial/not-run.
+- The [proof report publication](proof-report-publication.md) is a
+  focused readout of the same evidence. It renders the per-command
+  results table, an explicit Failed / Missing Evidence bullet list,
+  and a single Next Recommended Action line. Use it when the
+  architecture summary is too broad for the audience and you need a
+  small artifact dedicated to proof state.
 
 ## Surfaced In Resolvers And Remediation
 

@@ -126,6 +126,7 @@ node packages/cli/dist/index.js findings lifecycle --root examples/simple-js-ts 
 node packages/cli/dist/index.js findings status set <finding-id> --status ignored --reason false-positive --note "Generated fixture intentionally." --root examples/simple-js-ts --json
 node packages/cli/dist/index.js coherency delta --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish architecture --root examples/simple-js-ts --json
+node packages/cli/dist/index.js publish proof --root examples/simple-js-ts --json
 ```
 
 ## The `.rekon/` Workspace

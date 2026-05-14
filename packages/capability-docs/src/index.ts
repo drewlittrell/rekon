@@ -13,7 +13,7 @@ import { type Publisher, defineCapability } from "@rekon/sdk";
 
 export type PublicationArtifact = {
   header: ArtifactHeader;
-  kind: "agents" | "repo-summary" | "architecture-summary";
+  kind: "agents" | "repo-summary" | "architecture-summary" | "proof-report";
   title?: string;
   path: string;
   format: "markdown";
@@ -79,12 +79,20 @@ type VerificationPlanLike = {
   source?: string;
 };
 
+type VerificationCommandResultLike = {
+  command?: string;
+  status?: "passed" | "failed" | "skipped" | "not-run";
+  exitCode?: number;
+  durationMs?: number;
+  notes?: string;
+};
+
 type VerificationResultLike = {
   header: ArtifactHeader;
   verificationPlanRef: ArtifactRef;
   workOrderRef?: ArtifactRef;
   status?: "passed" | "failed" | "partial" | "not-run";
-  commandResults?: Array<{ command?: string; status?: string }>;
+  commandResults?: VerificationCommandResultLike[];
   summary?: {
     total?: number;
     passed?: number;
@@ -230,6 +238,106 @@ export const architectureSummaryPublisher: Publisher = {
   },
 };
 
+export const proofReportPublisher: Publisher = {
+  id: "@rekon/capability-docs.proof-report",
+  produces: ["Publication"],
+  async publish({ artifacts }) {
+    const inputRefs: ArtifactRef[] = [];
+    const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
+    const snapshot = snapshotRef
+      ? (await artifacts.read(snapshotRef)) as IntelligenceSnapshot
+      : undefined;
+
+    if (snapshotRef) {
+      inputRefs.push(snapshotRef);
+    }
+
+    const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
+    const verificationPlanRef = await latestRef(artifacts, "VerificationPlan");
+    const verificationPlan = verificationPlanRef
+      ? (await artifacts.read(verificationPlanRef)) as VerificationPlanLike
+      : undefined;
+
+    if (verificationPlanRef && !inputRefs.some((ref) => ref.type === verificationPlanRef.type && ref.id === verificationPlanRef.id)) {
+      inputRefs.push(verificationPlanRef);
+    }
+
+    const verificationResult = await readLatestArtifact<VerificationResultLike>(
+      artifacts,
+      "VerificationResult",
+      inputRefs,
+    );
+    const coherencyDelta = await readLatestArtifact<CoherencyDelta>(
+      artifacts,
+      "CoherencyDelta",
+      inputRefs,
+    );
+    const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
+      artifacts,
+      "ReconciliationPlan",
+      inputRefs,
+    );
+    const lifecycleReport = await readLatestArtifact<FindingLifecycleReport>(
+      artifacts,
+      "FindingLifecycleReport",
+      inputRefs,
+    );
+
+    const generatedAt = new Date().toISOString();
+    const subject = pickProofReportSubject({
+      snapshot,
+      verificationPlan,
+      remediationWorkOrder: workOrders.remediation,
+      resolverWorkOrder: workOrders.resolver,
+    });
+    const header: ArtifactHeader = {
+      artifactType: "Publication",
+      artifactId: `proof-report-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      snapshotId: snapshot?.header.artifactId,
+      subject,
+      producer: {
+        id: "@rekon/capability-docs",
+        version: "0.1.0",
+      },
+      inputRefs,
+      freshness: {
+        status: snapshot?.status.freshness ?? "fresh",
+      },
+      provenance: {
+        confidence: 1,
+        notes: [
+          "Proof reports are publications. Canonical evidence lives in VerificationResult artifacts.",
+        ],
+      },
+    };
+    const publication: PublicationArtifact = {
+      header,
+      kind: "proof-report",
+      title: "Rekon Proof Report",
+      path: ".rekon/artifacts/publications/proof-report.md",
+      format: "markdown",
+      content: renderProofReport({
+        generatedAt,
+        remediationWorkOrder: workOrders.remediation,
+        resolverWorkOrder: workOrders.resolver,
+        verificationPlan,
+        verificationPlanRef,
+        verificationResult,
+        coherencyDelta,
+        reconciliationPlan,
+        lifecycleReport,
+        inputRefs,
+      }),
+    };
+
+    const ref = await artifacts.write("Publication", publication);
+
+    return [ref];
+  },
+};
+
 export default defineCapability({
   manifest: {
     id: "@rekon/capability-docs",
@@ -282,6 +390,7 @@ export default defineCapability({
   register(registry) {
     registry.publisher(docsPublisher);
     registry.publisher(architectureSummaryPublisher);
+    registry.publisher(proofReportPublisher);
   },
 });
 
@@ -866,6 +975,366 @@ function pickNextProofLoopCommand(state: {
   }
 
   return "re-run `rekon evaluate` -> `rekon findings lifecycle` -> `rekon coherency delta` -> `rekon publish architecture`";
+}
+
+type ProofReportInputs = {
+  generatedAt: string;
+  remediationWorkOrder?: WorkOrderLike;
+  resolverWorkOrder?: WorkOrderLike;
+  verificationPlan?: VerificationPlanLike;
+  verificationPlanRef?: ArtifactRef;
+  verificationResult?: VerificationResultLike;
+  coherencyDelta?: CoherencyDelta;
+  reconciliationPlan?: ReconciliationPlanLike;
+  lifecycleReport?: FindingLifecycleReport;
+  inputRefs: ArtifactRef[];
+};
+
+function pickProofReportSubject(input: {
+  snapshot?: IntelligenceSnapshot;
+  verificationPlan?: VerificationPlanLike;
+  remediationWorkOrder?: WorkOrderLike;
+  resolverWorkOrder?: WorkOrderLike;
+}): ArtifactHeader["subject"] {
+  if (input.snapshot) {
+    return {
+      repoId: input.snapshot.repo.id,
+      ref: input.snapshot.repo.branch,
+      commit: input.snapshot.repo.commit,
+    };
+  }
+
+  const candidate = input.verificationPlan?.header.subject
+    ?? input.remediationWorkOrder?.header.subject
+    ?? input.resolverWorkOrder?.header.subject;
+
+  if (candidate) {
+    return {
+      repoId: candidate.repoId,
+      ref: candidate.ref,
+      commit: candidate.commit,
+      paths: candidate.paths,
+      systems: candidate.systems,
+    };
+  }
+
+  return { repoId: "unknown" };
+}
+
+function renderProofReport(input: ProofReportInputs): string {
+  const {
+    generatedAt,
+    remediationWorkOrder,
+    resolverWorkOrder,
+    verificationPlan,
+    verificationPlanRef,
+    verificationResult,
+    coherencyDelta,
+    reconciliationPlan,
+    lifecycleReport: _lifecycleReport,
+    inputRefs,
+  } = input;
+  const sections: string[] = [];
+
+  sections.push("# Rekon Proof Report");
+  sections.push("");
+  sections.push(`Generated: ${generatedAt}`);
+  sections.push("");
+  sections.push(
+    "Proof reports are publications. Canonical evidence lives in VerificationResult artifacts.",
+  );
+  sections.push("");
+
+  if (!verificationPlan) {
+    sections.push(
+      "No VerificationPlan found. Run `rekon intent work-order` or `rekon intent remediation` first.",
+    );
+    sections.push("");
+    sections.push("## Input Artifacts");
+    sections.push("");
+
+    if (inputRefs.length === 0) {
+      sections.push("- _none_");
+    } else {
+      for (const ref of inputRefs) {
+        sections.push(`- ${formatRef(ref)}`);
+      }
+    }
+
+    return sections.join("\n");
+  }
+
+  // Proof Status
+  sections.push("## Proof Status");
+  sections.push("");
+
+  if (!verificationResult) {
+    sections.push("No VerificationResult found.");
+    sections.push("");
+    sections.push(
+      "> Verification is not complete. Run `rekon verify record` against the latest VerificationPlan.",
+    );
+    sections.push("");
+  } else {
+    const status = verificationResult.status ?? "not-run";
+    const summary = verificationResult.summary ?? { passed: 0, failed: 0, skipped: 0, notRun: 0 };
+    sections.push("| Status | Passed | Failed | Skipped | Not Run |");
+    sections.push("| --- | --- | --- | --- | --- |");
+    sections.push(
+      `| ${status} | ${summary.passed ?? 0} | ${summary.failed ?? 0} | ${summary.skipped ?? 0} | ${summary.notRun ?? 0} |`,
+    );
+    sections.push("");
+
+    if (status === "failed" || status === "partial" || status === "not-run") {
+      sections.push("> Verification is not complete.");
+      sections.push("");
+    } else if (status === "passed") {
+      sections.push(
+        "> Verification recorded as passed. This does not automatically resolve findings.",
+      );
+      sections.push("");
+    }
+
+    if (verificationResult.recordedBy || verificationResult.recordedAt) {
+      sections.push(
+        `Recorded by ${verificationResult.recordedBy ?? "—"} at ${verificationResult.recordedAt ?? "—"}.`,
+      );
+      sections.push("");
+    }
+  }
+
+  // Work Order
+  sections.push("## Work Order");
+  sections.push("");
+
+  const workOrder = remediationWorkOrder ?? resolverWorkOrder;
+
+  if (!workOrder) {
+    sections.push("No WorkOrder found.");
+    sections.push("");
+  } else {
+    const source = workOrder.source ?? (remediationWorkOrder ? "coherency-delta" : "resolver");
+    sections.push("| Source | Goal | Paths | Systems |");
+    sections.push("| --- | --- | --- | --- |");
+    sections.push(
+      `| ${source} | ${truncate(workOrder.goal ?? "—", 60)} | ${summarizeList(workOrder.paths ?? [], 3)} | ${summarizeList(workOrder.ownerSystems ?? [], 3)} |`,
+    );
+    sections.push("");
+  }
+
+  // Verification Plan
+  sections.push("## Verification Plan");
+  sections.push("");
+
+  const commands = verificationPlan.commands ?? [];
+
+  if (commands.length === 0) {
+    sections.push("No commands listed in the latest VerificationPlan.");
+    sections.push("");
+  } else {
+    sections.push(`Plan id: \`${verificationPlanRef?.id ?? "unknown"}\``);
+    sections.push("");
+    sections.push("| Command |");
+    sections.push("| --- |");
+    for (const command of commands) {
+      sections.push(`| ${escapeCell(command)} |`);
+    }
+    sections.push("");
+  }
+
+  // Verification Results
+  sections.push("## Verification Results");
+  sections.push("");
+
+  if (!verificationResult) {
+    sections.push("No VerificationResult found. Run `rekon verify record` to capture proof.");
+    sections.push("");
+  } else {
+    const results = verificationResult.commandResults ?? [];
+
+    if (results.length === 0) {
+      sections.push("VerificationResult has no command results.");
+      sections.push("");
+    } else {
+      sections.push("| Command | Status | Exit Code | Notes |");
+      sections.push("| --- | --- | --- | --- |");
+      for (const row of results) {
+        const exitCode = typeof row.exitCode === "number" ? String(row.exitCode) : "—";
+        const status = row.status ?? "—";
+        sections.push(
+          `| ${escapeCell(row.command ?? "—")} | ${status} | ${exitCode} | ${escapeCell(row.notes ?? "")} |`,
+        );
+      }
+      sections.push("");
+    }
+  }
+
+  // Failed / Missing Evidence
+  sections.push("## Failed / Missing Evidence");
+  sections.push("");
+
+  if (!verificationResult) {
+    sections.push("- No VerificationResult exists; every plan command is effectively `not-run`.");
+    sections.push("");
+  } else {
+    const failed = (verificationResult.commandResults ?? []).filter((row) => row.status === "failed");
+    const skipped = (verificationResult.commandResults ?? []).filter((row) => row.status === "skipped");
+    const planCommandSet = new Set(commands);
+    const recordedCommandSet = new Set((verificationResult.commandResults ?? []).map((row) => row.command));
+    const notRun = Array.from(planCommandSet).filter(
+      (command) => {
+        if (!recordedCommandSet.has(command)) {
+          return true;
+        }
+
+        const matched = (verificationResult.commandResults ?? []).find((row) => row.command === command);
+        return matched?.status === "not-run";
+      },
+    );
+
+    if (failed.length === 0 && skipped.length === 0 && notRun.length === 0) {
+      sections.push("- All recorded commands passed; no missing evidence.");
+      sections.push("");
+    } else {
+      for (const row of failed) {
+        sections.push(`- Failed: \`${row.command ?? "—"}\`${row.notes ? ` — ${row.notes}` : ""}`);
+      }
+      for (const row of skipped) {
+        sections.push(`- Skipped: \`${row.command ?? "—"}\`${row.notes ? ` — ${row.notes}` : ""}`);
+      }
+      for (const command of notRun) {
+        sections.push(`- Not-run: \`${command}\``);
+      }
+      sections.push("");
+    }
+  }
+
+  // Remediation Context
+  sections.push("## Remediation Context");
+  sections.push("");
+
+  const remediationItems = remediationWorkOrder?.remediationItems
+    ?? (coherencyDelta?.remediationQueue ?? []).map((step) => ({
+      findingId: step.findingId,
+      priority: step.priority,
+      severity: step.severity,
+      systems: step.systems,
+      files: step.files,
+      title: step.title,
+      action: step.action,
+    }));
+
+  if (!remediationItems || remediationItems.length === 0) {
+    sections.push("No remediation items linked to this proof loop.");
+    sections.push("");
+  } else {
+    sections.push("| Priority | Finding | Severity | Systems | Files |");
+    sections.push("| --- | --- | --- | --- | --- |");
+    for (const item of remediationItems.slice(0, 10)) {
+      sections.push(
+        `| ${item.priority ?? "—"} | ${truncate(item.findingId ?? "—", 50)} | ${item.severity ?? "—"} | ${summarizeList(item.systems ?? [], 3)} | ${summarizeList(item.files ?? [], 3)} |`,
+      );
+    }
+    if (remediationItems.length > 10) {
+      sections.push(`| _… ${remediationItems.length - 10} more remediation items_ | | | | |`);
+    }
+    sections.push("");
+  }
+
+  // Reconciliation Context
+  sections.push("## Reconciliation Context");
+  sections.push("");
+
+  if (!reconciliationPlan) {
+    sections.push("No ReconciliationPlan linked to this proof loop.");
+    sections.push("");
+  } else {
+    const operations = reconciliationPlan.operations ?? [];
+
+    if (operations.length === 0) {
+      sections.push("ReconciliationPlan has no classified operations.");
+      sections.push("");
+    } else {
+      sections.push("| Operation | Class | Status | Permission |");
+      sections.push("| --- | --- | --- | --- |");
+      for (const op of operations.slice(0, 10)) {
+        const permission = op.requiresPermission?.length ? op.requiresPermission.join(", ") : "—";
+        sections.push(
+          `| ${op.operation ?? "—"} | ${op.class ?? "—"} | ${op.status ?? "—"} | ${permission} |`,
+        );
+      }
+      if (operations.length > 10) {
+        sections.push(`| _… ${operations.length - 10} more operations_ | | | |`);
+      }
+      sections.push("");
+    }
+  }
+
+  // Next Recommended Action
+  sections.push("## Next Recommended Action");
+  sections.push("");
+
+  for (const line of buildProofReportNextActions(verificationPlan, verificationResult)) {
+    sections.push(`- ${line}`);
+  }
+  sections.push("");
+
+  // Input Artifacts
+  sections.push("## Input Artifacts");
+  sections.push("");
+
+  if (inputRefs.length === 0) {
+    sections.push("- _none_");
+  } else {
+    for (const ref of inputRefs) {
+      sections.push(`- ${formatRef(ref)}`);
+    }
+  }
+
+  return sections.join("\n");
+}
+
+function buildProofReportNextActions(
+  verificationPlan: VerificationPlanLike | undefined,
+  verificationResult: VerificationResultLike | undefined,
+): string[] {
+  if (!verificationPlan) {
+    return [
+      "Run `rekon intent work-order` or `rekon intent remediation` to plan work and a VerificationPlan.",
+    ];
+  }
+
+  if (!verificationResult) {
+    return [
+      "Run `rekon verify record` to capture proof against the latest VerificationPlan.",
+    ];
+  }
+
+  const status = verificationResult.status ?? "not-run";
+
+  switch (status) {
+    case "failed":
+      return [
+        "Fix the failing checks and record a new VerificationResult with `rekon verify record`.",
+        "Do not modify tests or validators to make the gate appear green.",
+      ];
+    case "partial":
+    case "not-run":
+      return [
+        "Complete the missing checks and record an updated VerificationResult with `rekon verify record`.",
+      ];
+    case "passed":
+      return [
+        "Re-run `rekon evaluate` -> `rekon findings lifecycle` -> `rekon coherency delta` to confirm addressed findings are no longer active.",
+        "Re-run `rekon publish architecture` if you want the architecture summary to reflect the latest proof.",
+      ];
+    default:
+      return ["Inspect the latest VerificationResult and decide the next step manually."];
+  }
+}
+
+function escapeCell(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\n+/g, " ");
 }
 
 function describeSnapshotCategories(snapshot: IntelligenceSnapshot): string {

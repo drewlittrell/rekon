@@ -93,6 +93,12 @@ parity with `rekon publish agents`.
 - When reviewing repository drift over time — read the latest
   publication and compare to the previous one.
 
+For a smaller readout focused only on proof state, see the sibling
+[proof report publication](proof-report-publication.md). The two
+publications complement each other: the architecture summary covers
+the broader governance loop; the proof report zooms into the latest
+plan / result.
+
 ## What This Is Not
 
 - Not canonical architecture truth. Generated docs never are. The

@@ -18,6 +18,10 @@ classic generated architecture docs and assistant-doc projections.
 
 - Humans and agents who want a single concise governance read of the
   current repository state.
+- For a smaller readout focused only on verification/proof state, see
+  the sibling [proof report publication](proof-report-publication.md)
+  produced by `@rekon/capability-docs.proof-report` and the
+  `rekon publish proof` shortcut.
 - Future surfaces (GitHub check publishers, dashboards) — these are
   out of scope for the alpha.
 
