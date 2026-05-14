@@ -216,6 +216,8 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "ContextUsageEvent", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "OutcomeEvent", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "MemorySelection", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "MemoryUsageLedger", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "MemoryCurationReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "IntentMap", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "WorkOrder", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "VerificationPlan", schemaVersion: "0.1.0", stability: "experimental" },

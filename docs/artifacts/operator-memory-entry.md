@@ -154,5 +154,8 @@ operators update it, they should also update `updatedAt`.
 
 - [Memory concept](../concepts/memory.md)
 - [MemorySelection](memory-selection.md)
+- [Memory usage ledger](memory-usage-ledger.md)
+- [Memory curation report](memory-curation-report.md)
+- [Memory curation concept](../concepts/memory-curation.md)
 - [Memory artifacts overview](memory-artifacts.md)
 - [Resolvers](../concepts/resolvers.md)

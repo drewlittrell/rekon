@@ -117,6 +117,9 @@ node packages/cli/dist/index.js publish run @rekon/capability-docs.publisher --r
 node packages/cli/dist/index.js memory add --root examples/simple-js-ts --instruction "Preserve bootstrap behavior." --path src --system src --priority high --verified --reliability 0.9 --rationale "Repeated operator correction." --json
 node packages/cli/dist/index.js memory list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js memory select --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js memory usage record <memory-entry-id> --root examples/simple-js-ts --outcome helpful --note "Helped scope the change." --json
+node packages/cli/dist/index.js memory usage list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js memory curation --root examples/simple-js-ts --json
 node packages/cli/dist/index.js intent work-order --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 node packages/cli/dist/index.js intent remediation --root examples/simple-js-ts --json
 node packages/cli/dist/index.js intent remediation --root examples/simple-js-ts --skip-verified --json

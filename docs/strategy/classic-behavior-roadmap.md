@@ -300,6 +300,21 @@ scope:
   [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
   Promotion / curation engine, supersession chains, usage
   analytics, and decay policies remain future work.
+- **Memory usage evidence / curation v1.** Shipped. Records
+  explicit operator feedback about how selected memory was used:
+  `MemoryUsageLedger` carries per-event `outcome`
+  (`helpful` / `ignored` / `harmful` / `stale` / `unclear`) with
+  required notes for harmful/stale/ignored. `MemoryCurationReport`
+  derives deterministic recommendations (keep / reinforce / review
+  / deprecate / supersede-candidate) **without mutating**
+  `OperatorFeedbackEntry.status`. New CLI surface: `rekon memory
+  usage record`, `rekon memory usage list`, `rekon memory
+  curation`. The agent-contract publication renders a short
+  "Memory Curation Status" line citing the latest report. Closes
+  the next slice of the operator-feedback guarantee under P1.2 in
+  [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
+  Automatic promotion, automatic deprecation, supersession chains,
+  and LLM summarization remain future work.
 
 ## Phase C — Later Maturity
 

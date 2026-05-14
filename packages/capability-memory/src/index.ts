@@ -86,9 +86,90 @@ export type MemorySelection = {
   rejected: MemorySelectionRejection[];
 };
 
+export type MemoryUsageOutcome = "helpful" | "ignored" | "harmful" | "stale" | "unclear";
+
+export type MemoryUsageContext = {
+  path?: string;
+  goal?: string;
+  resolverId?: string;
+  publicationId?: string;
+  workOrderId?: string;
+};
+
+export type MemoryUsageEvent = {
+  id: string;
+  memoryEntryId: string;
+  memorySelectionId?: string;
+  outcome: MemoryUsageOutcome;
+  note: string;
+  usedAt: string;
+  usedBy?: string;
+  context?: MemoryUsageContext;
+  evidence?: ArtifactRef[];
+};
+
+export type MemoryUsageLedger = {
+  header: ArtifactHeader;
+  events: MemoryUsageEvent[];
+};
+
+export type MemoryCurationRecommendation =
+  | "keep"
+  | "reinforce"
+  | "review"
+  | "deprecate"
+  | "supersede-candidate";
+
+export type MemoryCurationItem = {
+  memoryEntryId: string;
+  instruction: string;
+  recommendation: MemoryCurationRecommendation;
+  helpfulCount: number;
+  ignoredCount: number;
+  harmfulCount: number;
+  staleCount: number;
+  unclearCount: number;
+  score: number;
+  reasons: string[];
+};
+
+export type MemoryCurationReport = {
+  header: ArtifactHeader;
+  summary: {
+    totalMemories: number;
+    totalUsageEvents: number;
+    keep: number;
+    reinforce: number;
+    review: number;
+    deprecate: number;
+    supersedeCandidate: number;
+  };
+  items: MemoryCurationItem[];
+};
+
+const MEMORY_USAGE_OUTCOMES: ReadonlyArray<MemoryUsageOutcome> = [
+  "helpful",
+  "ignored",
+  "harmful",
+  "stale",
+  "unclear",
+];
+
+const MEMORY_USAGE_NOTE_REQUIRED: ReadonlyArray<MemoryUsageOutcome> = [
+  "harmful",
+  "stale",
+  "ignored",
+];
+
 export const memoryLearner: Learner = {
   id: "@rekon/capability-memory.learner",
-  produces: ["OperatorFeedbackEntry", "MemoryEvent", "MemorySelection"],
+  produces: [
+    "OperatorFeedbackEntry",
+    "MemoryEvent",
+    "MemorySelection",
+    "MemoryUsageLedger",
+    "MemoryCurationReport",
+  ],
   async learn({ artifacts, input }) {
     const mode = typeof input?.mode === "string" ? input.mode : "select";
     const repo = parseRepo(input?.repo);
@@ -101,6 +182,14 @@ export const memoryLearner: Learner = {
       return runSelect(artifacts, repo, input ?? {});
     }
 
+    if (mode === "usage-record") {
+      return runUsageRecord(artifacts, repo, input ?? {});
+    }
+
+    if (mode === "curation") {
+      return runCuration(artifacts, repo, input ?? {});
+    }
+
     throw new Error(`Unknown memory learner mode: ${mode}`);
   },
 };
@@ -111,14 +200,26 @@ export default defineCapability({
     name: "Memory Capability",
     version: "0.1.0",
     roles: ["learner"],
-    consumes: ["OperatorFeedbackEntry", "ResolverPacket"],
-    produces: ["OperatorFeedbackEntry", "MemoryEvent", "MemorySelection"],
+    consumes: ["OperatorFeedbackEntry", "ResolverPacket", "MemoryUsageLedger"],
+    produces: [
+      "OperatorFeedbackEntry",
+      "MemoryEvent",
+      "MemorySelection",
+      "MemoryUsageLedger",
+      "MemoryCurationReport",
+    ],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
       {
         id: "operator.feedback.changed",
         description: "Memory selections are invalid when feedback entries change.",
         inputs: ["OperatorFeedbackEntry"],
+      },
+      {
+        id: "memory.usage.changed",
+        description:
+          "Memory curation reports are invalid when new usage events are recorded.",
+        inputs: ["MemoryUsageLedger"],
       },
     ],
     compatibility: {
@@ -235,6 +336,365 @@ async function runSelect(
   };
 
   return [await artifacts.write("MemorySelection", selection)];
+}
+
+async function runUsageRecord(
+  artifacts: ArtifactReader & {
+    write(type: string, artifact: unknown): Promise<ArtifactRef>;
+  },
+  repo: { id: string },
+  input: Record<string, unknown>,
+): Promise<ArtifactRef[]> {
+  const memoryEntryId = requiredString(input.memoryEntryId, "memoryEntryId");
+  const outcome = parseUsageOutcome(input.outcome);
+  if (!outcome) {
+    throw new Error(
+      `memory usage outcome must be one of ${MEMORY_USAGE_OUTCOMES.join(", ")}.`,
+    );
+  }
+
+  const note = typeof input.note === "string" ? input.note.trim() : "";
+  if (MEMORY_USAGE_NOTE_REQUIRED.includes(outcome) && note.length === 0) {
+    throw new Error(`memory usage note is required when outcome is ${outcome}.`);
+  }
+
+  const memorySelectionId = typeof input.memorySelectionId === "string"
+    && input.memorySelectionId.length > 0
+    ? input.memorySelectionId
+    : typeof input.selectionId === "string" && input.selectionId.length > 0
+    ? input.selectionId
+    : undefined;
+  const usedBy = typeof input.usedBy === "string" && input.usedBy.length > 0
+    ? input.usedBy
+    : undefined;
+  const context = parseUsageContext(input.context, input);
+  const evidence = parseEvidenceRefs(input.evidence);
+
+  const ledgerRefs = await artifacts.list("MemoryUsageLedger");
+  const existingLedger = await readLatestLedger(artifacts, ledgerRefs);
+  const previousEvents = existingLedger?.events ?? [];
+
+  const event: MemoryUsageEvent = {
+    id: `memory-usage-${Date.now()}-${previousEvents.length + 1}`,
+    memoryEntryId,
+    memorySelectionId,
+    outcome,
+    note,
+    usedAt: new Date().toISOString(),
+    usedBy,
+    context,
+    evidence: evidence.length > 0 ? evidence : undefined,
+  };
+
+  const entryRefs = await artifacts.list("OperatorFeedbackEntry");
+  const inputRefs = [...entryRefs];
+  if (memorySelectionId) {
+    const selectionRefs = await artifacts.list("MemorySelection");
+    const match = selectionRefs.find((ref) => ref.id === memorySelectionId);
+    if (match) {
+      inputRefs.push(match);
+    }
+  }
+  for (const ref of evidence) {
+    inputRefs.push(ref);
+  }
+
+  const ledger: MemoryUsageLedger = {
+    header: createHeader(
+      "MemoryUsageLedger",
+      `memory-usage-ledger-${Date.now()}`,
+      repo.id,
+      inputRefs,
+    ),
+    events: [...previousEvents, event],
+  };
+
+  validateMemoryUsageLedger(ledger);
+
+  return [await artifacts.write("MemoryUsageLedger", ledger)];
+}
+
+async function runCuration(
+  artifacts: ArtifactReader & {
+    write(type: string, artifact: unknown): Promise<ArtifactRef>;
+  },
+  repo: { id: string },
+  _input: Record<string, unknown>,
+): Promise<ArtifactRef[]> {
+  const entries = await readFeedbackEntries(artifacts);
+  const ledgerRefs = await artifacts.list("MemoryUsageLedger");
+  const ledger = await readLatestLedger(artifacts, ledgerRefs);
+
+  const entryRefs = await artifacts.list("OperatorFeedbackEntry");
+  const inputRefs: ArtifactRef[] = [...entryRefs];
+  if (ledgerRefs.length > 0) {
+    const latestLedgerRef = ledgerRefs.reduce((a, b) => (a.id > b.id ? a : b));
+    inputRefs.push(latestLedgerRef);
+  }
+
+  const report = createMemoryCurationReport({
+    repoId: repo.id,
+    entries,
+    events: ledger?.events ?? [],
+    inputRefs,
+  });
+
+  return [await artifacts.write("MemoryCurationReport", report)];
+}
+
+async function readLatestLedger(
+  artifacts: { read(ref: ArtifactRef): Promise<unknown> },
+  refs: ArtifactRef[],
+): Promise<MemoryUsageLedger | undefined> {
+  if (refs.length === 0) {
+    return undefined;
+  }
+
+  const sorted = [...refs].sort((left, right) => right.id.localeCompare(left.id));
+  const latest = sorted[0];
+  if (!latest) {
+    return undefined;
+  }
+  return (await artifacts.read(latest)) as MemoryUsageLedger;
+}
+
+export function createMemoryUsageLedger(input: {
+  repoId: string;
+  events: MemoryUsageEvent[];
+  inputRefs?: ArtifactRef[];
+}): MemoryUsageLedger {
+  const ledger: MemoryUsageLedger = {
+    header: createHeader(
+      "MemoryUsageLedger",
+      `memory-usage-ledger-${Date.now()}`,
+      input.repoId,
+      input.inputRefs ?? [],
+    ),
+    events: [...input.events],
+  };
+  validateMemoryUsageLedger(ledger);
+  return ledger;
+}
+
+export function validateMemoryUsageLedger(ledger: MemoryUsageLedger): void {
+  if (!ledger || typeof ledger !== "object") {
+    throw new Error("MemoryUsageLedger must be an object.");
+  }
+  if (!Array.isArray(ledger.events)) {
+    throw new Error("MemoryUsageLedger.events must be an array.");
+  }
+
+  for (const event of ledger.events) {
+    if (!event || typeof event !== "object") {
+      throw new Error("MemoryUsageEvent must be an object.");
+    }
+    if (typeof event.id !== "string" || event.id.length === 0) {
+      throw new Error("MemoryUsageEvent.id is required.");
+    }
+    if (typeof event.memoryEntryId !== "string" || event.memoryEntryId.length === 0) {
+      throw new Error("MemoryUsageEvent.memoryEntryId is required.");
+    }
+    if (typeof event.usedAt !== "string" || event.usedAt.length === 0) {
+      throw new Error("MemoryUsageEvent.usedAt is required.");
+    }
+    if (!MEMORY_USAGE_OUTCOMES.includes(event.outcome)) {
+      throw new Error(
+        `MemoryUsageEvent.outcome must be one of ${MEMORY_USAGE_OUTCOMES.join(", ")}.`,
+      );
+    }
+    if (
+      MEMORY_USAGE_NOTE_REQUIRED.includes(event.outcome)
+      && (typeof event.note !== "string" || event.note.trim().length === 0)
+    ) {
+      throw new Error(
+        `MemoryUsageEvent.note is required when outcome is ${event.outcome}.`,
+      );
+    }
+  }
+}
+
+export function createMemoryCurationReport(input: {
+  repoId: string;
+  entries: OperatorFeedbackEntry[];
+  events: MemoryUsageEvent[];
+  inputRefs?: ArtifactRef[];
+}): MemoryCurationReport {
+  const items = deriveMemoryCuration(input.entries, input.events);
+  const summary = {
+    totalMemories: input.entries.length,
+    totalUsageEvents: input.events.length,
+    keep: items.filter((item) => item.recommendation === "keep").length,
+    reinforce: items.filter((item) => item.recommendation === "reinforce").length,
+    review: items.filter((item) => item.recommendation === "review").length,
+    deprecate: items.filter((item) => item.recommendation === "deprecate").length,
+    supersedeCandidate: items.filter(
+      (item) => item.recommendation === "supersede-candidate",
+    ).length,
+  };
+
+  return {
+    header: createHeader(
+      "MemoryCurationReport",
+      `memory-curation-${Date.now()}`,
+      input.repoId,
+      input.inputRefs ?? [],
+    ),
+    summary,
+    items,
+  };
+}
+
+export function deriveMemoryCuration(
+  entries: OperatorFeedbackEntry[],
+  events: MemoryUsageEvent[],
+): MemoryCurationItem[] {
+  const byEntry = new Map<string, MemoryUsageEvent[]>();
+  for (const event of events) {
+    const list = byEntry.get(event.memoryEntryId) ?? [];
+    list.push(event);
+    byEntry.set(event.memoryEntryId, list);
+  }
+
+  const items: MemoryCurationItem[] = [];
+  for (const entry of entries) {
+    const id = entry.header.artifactId;
+    const entryEvents = byEntry.get(id) ?? [];
+    const helpfulCount = entryEvents.filter((e) => e.outcome === "helpful").length;
+    const ignoredCount = entryEvents.filter((e) => e.outcome === "ignored").length;
+    const harmfulCount = entryEvents.filter((e) => e.outcome === "harmful").length;
+    const staleCount = entryEvents.filter((e) => e.outcome === "stale").length;
+    const unclearCount = entryEvents.filter((e) => e.outcome === "unclear").length;
+    const reasons: string[] = [];
+
+    let recommendation: MemoryCurationRecommendation;
+    if (harmfulCount >= 2) {
+      recommendation = "deprecate";
+      reasons.push(`harmful-count: ${harmfulCount}`);
+    } else if (harmfulCount >= 1) {
+      recommendation = "review";
+      reasons.push(`harmful-count: ${harmfulCount}`);
+    } else if (staleCount >= 2) {
+      recommendation = "supersede-candidate";
+      reasons.push(`stale-count: ${staleCount}`);
+    } else if (helpfulCount >= 2) {
+      recommendation = "reinforce";
+      reasons.push(`helpful-count: ${helpfulCount}`);
+    } else if (helpfulCount >= 1 && ignoredCount === 0) {
+      recommendation = "keep";
+      reasons.push(`helpful-count: ${helpfulCount}`);
+    } else if (ignoredCount >= 2 && helpfulCount === 0) {
+      recommendation = "review";
+      reasons.push(`ignored-count: ${ignoredCount}`);
+    } else {
+      recommendation = "review";
+      if (entryEvents.length === 0) {
+        reasons.push("no-usage-events");
+      } else {
+        reasons.push(`unclear-signals: helpful=${helpfulCount}, ignored=${ignoredCount}, harmful=${harmfulCount}, stale=${staleCount}, unclear=${unclearCount}`);
+      }
+    }
+
+    const score = computeCurationScore({
+      helpfulCount,
+      ignoredCount,
+      harmfulCount,
+      staleCount,
+      unclearCount,
+    });
+
+    items.push({
+      memoryEntryId: id,
+      instruction: entry.instruction,
+      recommendation,
+      helpfulCount,
+      ignoredCount,
+      harmfulCount,
+      staleCount,
+      unclearCount,
+      score,
+      reasons,
+    });
+  }
+
+  items.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+
+    return left.memoryEntryId.localeCompare(right.memoryEntryId);
+  });
+
+  return items;
+}
+
+function computeCurationScore(counts: {
+  helpfulCount: number;
+  ignoredCount: number;
+  harmfulCount: number;
+  staleCount: number;
+  unclearCount: number;
+}): number {
+  const raw = counts.helpfulCount * 1
+    - counts.ignoredCount * 0.25
+    - counts.harmfulCount * 1
+    - counts.staleCount * 0.5
+    - counts.unclearCount * 0.1;
+  return Number(raw.toFixed(3));
+}
+
+function parseUsageOutcome(value: unknown): MemoryUsageOutcome | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  return MEMORY_USAGE_OUTCOMES.find((candidate) => candidate === value);
+}
+
+function parseUsageContext(
+  contextInput: unknown,
+  input: Record<string, unknown>,
+): MemoryUsageContext | undefined {
+  const context: MemoryUsageContext = {};
+  if (contextInput && typeof contextInput === "object") {
+    const record = contextInput as Record<string, unknown>;
+    assignStringContextField(context, "path", record.path);
+    assignStringContextField(context, "goal", record.goal);
+    assignStringContextField(context, "resolverId", record.resolverId);
+    assignStringContextField(context, "publicationId", record.publicationId);
+    assignStringContextField(context, "workOrderId", record.workOrderId);
+  }
+
+  assignStringContextField(context, "path", input.path);
+  assignStringContextField(context, "goal", input.goal);
+  assignStringContextField(context, "resolverId", input.resolverId);
+  assignStringContextField(context, "publicationId", input.publicationId);
+  assignStringContextField(context, "workOrderId", input.workOrderId);
+
+  return Object.keys(context).length > 0 ? context : undefined;
+}
+
+function assignStringContextField(
+  context: MemoryUsageContext,
+  key: keyof MemoryUsageContext,
+  value: unknown,
+): void {
+  if (typeof value === "string" && value.length > 0 && context[key] === undefined) {
+    context[key] = value;
+  }
+}
+
+function parseEvidenceRefs(value: unknown): ArtifactRef[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((candidate): candidate is ArtifactRef => {
+    return (
+      candidate !== null
+      && typeof candidate === "object"
+      && typeof (candidate as ArtifactRef).type === "string"
+      && typeof (candidate as ArtifactRef).id === "string"
+    );
+  });
 }
 
 type RankInput = {

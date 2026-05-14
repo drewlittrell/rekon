@@ -228,8 +228,11 @@ context-usage analytics, decay policies beyond simple freshness.
 - **Not a chat log promoter.** No automatic extraction from agent
   transcripts.
 - **Not a global / org-wide store.** Each `.rekon/` is independent.
-- **Not a curation engine.** Promotion to `Rulebook`, supersession
-  chains, and usage analytics are explicit future work.
+- **Not an automatic curation engine.** `rekon memory curation`
+  produces a `MemoryCurationReport` that *recommends* keep /
+  reinforce / review / deprecate / supersede-candidate, but **never**
+  mutates `OperatorFeedbackEntry.status`. Operators apply curation
+  decisions explicitly.
 
 ## When To Use Memory
 
@@ -260,11 +263,33 @@ node packages/cli/dist/index.js resolve preflight \
   --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 ```
 
+## Recording And Curating Memory Quality
+
+Selection is not usage. After a memory helps or hurts, record the
+outcome explicitly so future curation runs can recommend keep /
+reinforce / review / deprecate / supersede-candidate. See
+[memory-curation.md](memory-curation.md) for the full concept.
+
+```sh
+node packages/cli/dist/index.js memory usage record <memory-entry-id> \
+  --root examples/simple-js-ts --outcome helpful \
+  --note "Helped scope the change." --json
+
+node packages/cli/dist/index.js memory usage list \
+  --root examples/simple-js-ts --json
+
+node packages/cli/dist/index.js memory curation \
+  --root examples/simple-js-ts --json
+```
+
 ## Cross-References
 
 - [Memory artifacts](../artifacts/memory-artifacts.md)
 - [Operator memory entry](../artifacts/operator-memory-entry.md)
 - [Memory selection](../artifacts/memory-selection.md)
+- [Memory usage ledger](../artifacts/memory-usage-ledger.md)
+- [Memory curation report](../artifacts/memory-curation-report.md)
+- [Memory curation concept](memory-curation.md)
 - [Resolvers](resolvers.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

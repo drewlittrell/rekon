@@ -407,6 +407,95 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "memory" && subcommand === "usage" && positional === "record") {
+    const memoryEntryId = typeof parsed.positionals[3] === "string" ? parsed.positionals[3] : undefined;
+
+    if (!memoryEntryId) {
+      throw new Error("rekon memory usage record requires a memory entry id positional argument.");
+    }
+
+    const outcomeFlag = typeof parsed.flags.outcome === "string" ? parsed.flags.outcome : undefined;
+
+    if (!outcomeFlag) {
+      throw new Error(
+        "rekon memory usage record requires --outcome helpful|ignored|harmful|stale|unclear.",
+      );
+    }
+
+    const note = typeof parsed.flags.note === "string" ? parsed.flags.note : "";
+    const selectionId = typeof parsed.flags.selection === "string" ? parsed.flags.selection : undefined;
+    const usedBy = typeof parsed.flags["used-by"] === "string" ? parsed.flags["used-by"] : undefined;
+    const contextPath = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
+    const contextGoal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : undefined;
+    const resolverId = typeof parsed.flags["resolver-id"] === "string" ? parsed.flags["resolver-id"] : undefined;
+    const publicationId = typeof parsed.flags["publication-id"] === "string" ? parsed.flags["publication-id"] : undefined;
+    const workOrderId = typeof parsed.flags["work-order-id"] === "string" ? parsed.flags["work-order-id"] : undefined;
+
+    const runtime = await createDefaultRuntime(root);
+    const refs = await runtime.runLearn({
+      learnerId: "@rekon/capability-memory.learner",
+      input: {
+        mode: "usage-record",
+        memoryEntryId,
+        outcome: outcomeFlag,
+        note,
+        memorySelectionId: selectionId,
+        usedBy,
+        path: contextPath,
+        goal: contextGoal,
+        resolverId,
+        publicationId,
+        workOrderId,
+      },
+    });
+    const ledger = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
+    writeOutput({ artifact: refs[0], ledger }, json);
+    return;
+  }
+
+  if (command === "memory" && subcommand === "usage" && positional === "list") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const refs = await store.list("MemoryUsageLedger");
+
+    if (refs.length === 0) {
+      writeOutput({ artifact: null, events: [] }, json);
+      return;
+    }
+
+    const latest = [...refs].sort((left, right) => right.id.localeCompare(left.id))[0]!;
+    const ledger = (await store.read(latest)) as { events?: unknown[] };
+    writeOutput({ artifact: latest, events: ledger.events ?? [] }, json);
+    return;
+  }
+
+  if (command === "memory" && subcommand === "curation") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entryRefs = await store.list("OperatorFeedbackEntry");
+
+    if (entryRefs.length === 0) {
+      writeOutput(
+        {
+          artifact: null,
+          summary: { totalMemories: 0 },
+          message: "No memory entries found.",
+        },
+        json,
+      );
+      return;
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    const refs = await runtime.runLearn({
+      learnerId: "@rekon/capability-memory.learner",
+      input: { mode: "curation" },
+    });
+    const report = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
+    writeOutput({ artifact: refs[0], report }, json);
+    return;
+  }
+
   if (command === "resolve" && subcommand === "list") {
     const runtime = await createDefaultRuntime(root);
     const resolvers = listHandlers(runtime, "resolvers").map((entry) => ({
@@ -2446,6 +2535,9 @@ function usage(): string {
     "rekon memory add --instruction <text> --path <path> [--goal <goal>] [--system <system>] [--capability <capability>] [--tag <tag>] [--layer <layer>] [--priority low|normal|high] [--reliability <0..1>] [--verified] [--rationale <text>] [--root <path>] [--json]",
     "rekon memory list [--root <path>] [--json]",
     "rekon memory select --path <path> [--goal <goal>] [--system <system>] [--capability <capability>] [--tag <tag>] [--limit <n>] [--root <path>] [--json]",
+    "rekon memory usage record <memory-entry-id> --outcome helpful|ignored|harmful|stale|unclear [--note <note>] [--selection <selection-id>] [--path <path>] [--goal <goal>] [--used-by <name>] [--root <path>] [--json]",
+    "rekon memory usage list [--root <path>] [--json]",
+    "rekon memory curation [--root <path>] [--json]",
     "rekon resolve preflight --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon resolve route --path <path> [--path <path>] [--goal <goal>] [--concern <concern>] [--root <path>] [--json]",
     "rekon resolve seam --path <path> [--path <path>] [--primary-owner <owner>] [--goal <goal>] [--root <path>] [--json]",

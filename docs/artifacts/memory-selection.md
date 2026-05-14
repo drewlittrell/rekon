@@ -192,12 +192,18 @@ update automatically.
   guidance; the resolver packet's `ownerSystems`, `risk`,
   `findings`, `status`, and `nextRequiredResolver` are derived from
   `OwnershipMap` / `FindingReport` / risk rules, never from memory.
-- Not a usage log. Future `MemoryUsageEvent` artifacts could record
-  whether memory was actually used; this is deferred.
+- Not a usage log. Recording how a selected memory was actually
+  used lives in [MemoryUsageLedger](memory-usage-ledger.md), and
+  `rekon memory select` **does not** automatically write usage
+  events. Recording is explicit via
+  `rekon memory usage record`.
 
 ## Cross-References
 
 - [Memory concept](../concepts/memory.md)
 - [OperatorFeedbackEntry](operator-memory-entry.md)
+- [Memory usage ledger](memory-usage-ledger.md)
+- [Memory curation report](memory-curation-report.md)
+- [Memory curation concept](../concepts/memory-curation.md)
 - [Memory artifacts overview](memory-artifacts.md)
 - [Resolvers](../concepts/resolvers.md)

@@ -225,6 +225,19 @@ is the first stop before proposing a new capability batch.
   `ownerSystems`, `risk`, `findings`, `status`, or
   `nextRequiredResolver`. Promotion / curation engine and
   context-usage analytics remain Phase C.
+- Memory usage evidence / curation v1 (next slice of P1.2):
+  `@rekon/capability-memory` now records explicit operator
+  feedback about how selected memory was actually used.
+  `MemoryUsageLedger` carries `MemoryUsageEvent` rows
+  (`helpful` / `ignored` / `harmful` / `stale` / `unclear`) with
+  required notes for harmful/stale/ignored. `MemoryCurationReport`
+  derives deterministic recommendations (`keep` / `reinforce` /
+  `review` / `deprecate` / `supersede-candidate`) without
+  mutating `OperatorFeedbackEntry.status`. New CLI surface:
+  `rekon memory usage record`, `rekon memory usage list`, `rekon
+  memory curation`. The agent-contract publication surfaces a
+  short Memory Curation Status line citing the latest report. No
+  automatic promotion or deprecation; no LLM summarization.
 - `rekon refresh` (P0.1 closure from the Classic Guarantees Audit):
   new CLI command that orchestrates the full Rekon lifecycle in the
   documented order — `init` → `config.validate` → `observe` →

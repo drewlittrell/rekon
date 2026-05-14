@@ -127,6 +127,24 @@ type MemorySelectionLike = {
   rejected?: Array<{ id?: string; reasons?: string[] }>;
 };
 
+type MemoryCurationReportLike = {
+  header: ArtifactHeader;
+  summary?: {
+    totalMemories?: number;
+    totalUsageEvents?: number;
+    keep?: number;
+    reinforce?: number;
+    review?: number;
+    deprecate?: number;
+    supersedeCandidate?: number;
+  };
+  items?: Array<{
+    memoryEntryId?: string;
+    instruction?: string;
+    recommendation?: string;
+  }>;
+};
+
 export const docsPublisher: Publisher = {
   id: "@rekon/capability-docs.publisher",
   produces: ["Publication"],
@@ -408,6 +426,11 @@ export const agentContractPublisher: Publisher = {
       "MemorySelection",
       inputRefs,
     );
+    const memoryCurationReport = await readLatestArtifact<MemoryCurationReportLike>(
+      artifacts,
+      "MemoryCurationReport",
+      inputRefs,
+    );
     const generatedAt = new Date().toISOString();
     const publication: PublicationArtifact = {
       header: createPublicationHeader("agent-contract", generatedAt, snapshot, inputRefs),
@@ -429,6 +452,7 @@ export const agentContractPublisher: Publisher = {
         verificationPlanRef: latestVerificationPlanRef,
         verificationResult,
         memorySelection,
+        memoryCurationReport,
         inputRefs,
         generatedAt,
       }),
@@ -459,6 +483,7 @@ export default defineCapability({
       "VerificationPlan",
       "VerificationResult",
       "MemorySelection",
+      "MemoryCurationReport",
     ],
     produces: ["Publication"],
     permissions: ["read:artifacts", "write:artifacts"],
@@ -490,6 +515,12 @@ export default defineCapability({
         description:
           "Regenerate the agent contract when ranked memory selections change.",
         inputs: ["MemorySelection"],
+      },
+      {
+        id: "memory.curation.changed",
+        description:
+          "Regenerate the agent contract when memory curation recommendations change.",
+        inputs: ["MemoryCurationReport"],
       },
     ],
     compatibility: {
@@ -1461,6 +1492,7 @@ type AgentContractInputs = {
   verificationPlanRef?: ArtifactRef;
   verificationResult?: VerificationResultLike;
   memorySelection?: MemorySelectionLike;
+  memoryCurationReport?: MemoryCurationReportLike;
   inputRefs: ArtifactRef[];
   generatedAt: string;
 };
@@ -1505,6 +1537,7 @@ function renderAgentContract(input: AgentContractInputs): string {
     verificationPlanRef,
     verificationResult,
     memorySelection,
+    memoryCurationReport,
     inputRefs,
     generatedAt,
   } = input;
@@ -1725,6 +1758,27 @@ function renderAgentContract(input: AgentContractInputs): string {
       sections.push("Memory enriches guidance but does not rewrite ownership, rules, or findings.");
       sections.push("");
     }
+  }
+
+  if (memoryCurationReport?.summary) {
+    const summary = memoryCurationReport.summary;
+    const review = summary.review ?? 0;
+    const reinforce = summary.reinforce ?? 0;
+    const deprecate = summary.deprecate ?? 0;
+    const supersedeCandidate = summary.supersedeCandidate ?? 0;
+    sections.push("### Memory Curation Status");
+    sections.push("");
+    sections.push(`- memories needing review: ${review}`);
+    sections.push(`- reinforce candidates: ${reinforce}`);
+    if (deprecate > 0) {
+      sections.push(`- deprecate candidates: ${deprecate}`);
+    }
+    if (supersedeCandidate > 0) {
+      sections.push(`- supersede candidates: ${supersedeCandidate}`);
+    }
+    sections.push("");
+    sections.push("Curation recommendations are suggestions. Run `rekon memory curation` to refresh.");
+    sections.push("");
   }
 
   // Required Checks

@@ -215,6 +215,8 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   ContextUsageEvent: "actions",
   OutcomeEvent: "actions",
   MemorySelection: "publications",
+  MemoryUsageLedger: "actions",
+  MemoryCurationReport: "publications",
   IntentMap: "actions",
   WorkOrder: "actions",
   VerificationPlan: "actions",

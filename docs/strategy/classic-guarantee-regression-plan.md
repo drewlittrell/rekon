@@ -357,26 +357,37 @@ Current Rekon coverage:
   algorithm and CLI surface.
 
 Missing coverage:
-- Promotion / curation engine (automatic promotion of consistently
-  used + verified memory into `Rulebook` entries).
-- Supersession chains.
-- Context-usage analytics.
+- Automatic promotion of consistently used + verified memory into
+  `Rulebook` entries.
+- Automatic deprecation / supersession chains (the v2 batch adds
+  **recommendations** but never mutates memory automatically).
+- Long-horizon context-usage analytics.
 - Decay policies beyond simple freshness scoring.
 
 Proposed regression test:
-- Shipped in `tests/contract/memory-ranking-curation.test.mjs`
-  (10 tests): path-specific verified outranks broad stale;
-  deprecated and superseded are rejected; disputed is rejected;
-  high priority cannot beat an exact verified path match against
-  a non-matching system; stale memory receives the freshness
-  penalty but stays selected so curators can act on it; the
-  resolver consumes selected memory but does not mutate
-  `ownerSystems` or finding status; verified memory with a
-  `verificationResultRef` carries the `verified` reason.
+- v1 ranking pinned in
+  `tests/contract/memory-ranking-curation.test.mjs` (10 tests).
+- v2 usage / curation pinned in
+  `tests/contract/memory-usage-curation.test.mjs` (13 tests):
+  usage record writes `MemoryUsageLedger`; harmful / stale /
+  ignored without a `--note` is rejected; usage list returns the
+  recorded events; curation recommends `reinforce` for repeated
+  helpful memory, `review` for a single harmful event, `deprecate`
+  for repeated harmful, `supersede-candidate` for repeated stale;
+  curation does not mutate `OperatorFeedbackEntry.status`;
+  `memory select` does not auto-record usage; freshness invalidates
+  the curation report when a newer `MemoryUsageLedger` lands; the
+  agent-contract publication includes the Memory Curation Status
+  line.
 
-Implementation batch:
-- "Memory ranking / curation v1" (shipped). Promotion / curation
-  engine is the natural follow-up batch.
+Implementation batches:
+- "Memory ranking / curation v1" (shipped) — deterministic scoring.
+- "Memory usage evidence / curation v1" (shipped) —
+  `MemoryUsageLedger` + `MemoryCurationReport` + `rekon memory
+  usage record` / `usage list` / `curation`. **Recommendations,
+  not automatic mutation.**
+- Promotion / supersession engine is the next batch and will
+  remain explicit (no auto-mutation).
 
 ### P1.3 Agent-operating-contract publication
 
