@@ -1,0 +1,145 @@
+# Finding Lifecycle
+
+Findings are governance artifacts in Rekon, not throwaway lint output.
+This document explains how Rekon preserves and explains finding state
+across runs: `new`, `existing`, `accepted`, `ignored`, and `resolved`.
+
+This is one of the durable wins distilled from
+`codebase-intel-classic`: issues should survive across runs, false
+positives must be explainable, and accepted-risk decisions must be
+auditable. See
+[../strategy/classic-behavior-distillation.md](../strategy/classic-behavior-distillation.md)
+and [../strategy/classic-wins.md](../strategy/classic-wins.md).
+
+## Three Artifact Types
+
+Three artifacts make up the lifecycle:
+
+- **`FindingReport`** — raw evaluator output, written by an
+  `evaluator` capability. Never mutated after the fact.
+- **`FindingStatusLedger`** — append-style history of operator/system
+  status decisions: `accepted`, `ignored`, `resolved`. Each decision
+  carries a note, optional reason, timestamp, and source.
+- **`FindingLifecycleReport`** — derived projection that combines the
+  latest `FindingReport`, any previous reports, and the latest
+  `FindingStatusLedger` into per-finding effective status plus an
+  aggregate summary.
+
+Raw `FindingReport`s are append-only. Status decisions go in the
+ledger. Lifecycle projections read both and compute the current view.
+
+## Statuses
+
+| Status | Meaning |
+| --- | --- |
+| `new` | First time the finding has appeared. |
+| `existing` | Present in a previous report and still present. |
+| `accepted` | Operator decision: known debt or risk; not fixed. Requires a note. |
+| `ignored` | Operator decision: false-positive or not-actionable. Requires a note. |
+| `resolved` | Present in a previous report and absent from the latest report (derived), or explicitly marked fixed via a status decision. Requires a note when set explicitly. |
+
+`accepted` and `ignored` are operator decisions; they survive across
+runs until cleared. `resolved` is usually derived (the finding stopped
+appearing), but can also be set explicitly with a note (e.g., "Fixed in
+PR #42").
+
+## Decision Reasons
+
+`FindingStatusDecision.reason` is one of:
+
+- `accepted-risk`
+- `false-positive`
+- `fixed`
+- `not-actionable`
+- `other`
+
+Reasons are optional but encouraged. Combined with the required `note`,
+they give future readers enough to understand the call.
+
+## Lifecycle Derivation Rules
+
+`deriveFindingLifecycle({ latestReport, previousReports, ledger })`:
+
+1. Latest `FindingReport` is the active report unless overridden.
+2. Findings in the latest report compare against the union of all
+   previous reports' findings (by `id`):
+   - Present in a previous report → `existing`.
+   - Not present in any previous report → `new`.
+3. Status decisions in the ledger override the derived status:
+   - `accepted`, `ignored`, or `resolved` ledger decision → that
+     status is the `effectiveStatus`, with `statusSource: "ledger"`.
+   - The derived status is preserved as fallback when no ledger
+     decision applies to the finding (`statusSource: "derived"`).
+4. Findings present in a previous report but absent from the latest:
+   - Derived `effectiveStatus: "resolved"`, `statusSource: "derived"`.
+   - Listed under `resolvedFindings` in the lifecycle report.
+   - Ledger decisions (e.g., `accepted` on a finding that no longer
+     appears) still override the derived `resolved` status.
+5. Ignored decisions must have a non-empty note (kernel-level
+   validation rejects them otherwise).
+6. The decisions array in the lifecycle report mirrors the ledger, so
+   downstream consumers can see every decision, not just the latest per
+   finding.
+
+Matching uses `finding.id` for the alpha. Fuzzy/semantic matching is
+deferred.
+
+## CLI Surface
+
+```sh
+rekon findings list --root <repo> --json [--status <status>]
+rekon findings lifecycle --root <repo> --json
+rekon findings status list --root <repo> --json
+rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] --root <repo> --json
+```
+
+- `findings list` reads the latest `FindingReport` (and any
+  `FindingStatusLedger`), applies lifecycle derivation, and prints
+  the effective findings.
+- `findings lifecycle` writes a `FindingLifecycleReport` artifact
+  through the runtime store, with `inputRefs` to the reports and ledger
+  used.
+- `findings status list` prints the decisions in the latest ledger.
+- `findings status set` appends or replaces a decision for the given
+  finding id and writes a new `FindingStatusLedger`. Ignored and
+  resolved decisions require `--note`.
+
+## Resolver Integration
+
+`resolve.issue` reads the latest `FindingStatusLedger` automatically
+when matching a finding. If the matched finding has an `accepted`,
+`ignored`, or `resolved` ledger decision, the resolver:
+
+- includes `status`, `statusSource`, `statusNote`, and `statusReason`
+  on the matched `issue`;
+- adds a warning summarizing the decision:
+  - `ignored` → "Matched finding is ignored; verify before acting."
+  - `accepted` → "Matched finding is accepted risk/debt; verify policy before changing."
+  - `resolved` → "Matched finding is marked resolved; confirm whether action is still needed."
+
+The resolver does not silently treat ignored/accepted findings as
+"no-op". It surfaces the decision so the agent or operator decides what
+to do.
+
+## What This Is Not
+
+- This is not a coherency delta. Coherency delta — high-severity
+  diffs, top affected systems, remediation queue — comes after
+  lifecycle in the
+  [classic behavior roadmap](../strategy/classic-behavior-roadmap.md).
+- This is not LLM-driven issue review. Status decisions are operator
+  decisions or system decisions written into a typed ledger.
+- This is not a false-positive classifier. The ledger records explicit
+  decisions; classifying false positives without human input is out of
+  scope for the alpha.
+- This is not finding dedupe or semantic merge. Findings match by id.
+
+## Cross-References
+
+- [docs/artifacts/finding-report.md](../artifacts/finding-report.md)
+- [docs/artifacts/finding-status-ledger.md](../artifacts/finding-status-ledger.md)
+- [docs/artifacts/finding-lifecycle-report.md](../artifacts/finding-lifecycle-report.md)
+- [docs/artifacts/resolver-packet.md](../artifacts/resolver-packet.md)
+- [docs/concepts/resolvers.md](resolvers.md)
+- [docs/strategy/classic-behavior-distillation.md](../strategy/classic-behavior-distillation.md)
+- [docs/strategy/classic-wins.md](../strategy/classic-wins.md)

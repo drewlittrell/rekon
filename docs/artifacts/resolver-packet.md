@@ -82,6 +82,21 @@ Issue phase adds:
 - `nextRequiredResolver` (`resolve.route` | `resolve.seam` |
   `resolve.preflight`)
 
+When a [FindingStatusLedger](finding-status-ledger.md) is indexed,
+`resolve.issue` annotates the matched `issue` with effective status:
+
+- `issue.status` — `accepted`, `ignored`, or `resolved` from the
+  latest ledger decision.
+- `issue.statusSource` — `ledger` when a decision overrode the
+  raw-report status.
+- `issue.statusNote` and `issue.statusReason` — the decision's note
+  and optional reason.
+
+The resolver also adds a warning when the matched finding is ignored
+("verify before acting"), accepted ("verify policy before changing"),
+or resolved ("confirm whether action is still needed"). See
+[../concepts/finding-lifecycle.md](../concepts/finding-lifecycle.md).
+
 `resolutionTrace` explains why the packet contains its ownership and risk
 answers. Trace entries include:
 

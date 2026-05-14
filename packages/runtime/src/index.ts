@@ -18,6 +18,13 @@ import {
   createIntelligenceSnapshot,
 } from "@rekon/kernel-snapshot";
 import {
+  type FindingLifecycleReport,
+  type FindingReport,
+  type FindingStatusLedger,
+  createFindingLifecycleReport,
+  deriveFindingLifecycle,
+} from "@rekon/kernel-findings";
+import {
   type CapabilityDefinition,
   type CapabilityPermission,
   type CapabilityRegistrySnapshot,
@@ -607,6 +614,7 @@ const CANONICAL_INPUT_TYPES = new Set([
   "EvidenceGraph",
   "Rulebook",
   "OperatorFeedbackEntry",
+  "FindingStatusLedger",
 ]);
 
 export async function validateArtifactFreshness(
@@ -742,6 +750,128 @@ function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFre
   }
 
   return "fresh";
+}
+
+export type BuildFindingLifecycleOptions = {
+  reportId?: string;
+  ledgerId?: string;
+};
+
+export async function buildFindingLifecycleReport(
+  store: ArtifactStore,
+  options: BuildFindingLifecycleOptions = {},
+): Promise<FindingLifecycleReport> {
+  const reportEntries = await store.list("FindingReport");
+  const sortedReports = [...reportEntries].sort((left, right) =>
+    left.writtenAt.localeCompare(right.writtenAt),
+  );
+
+  let latestEntry = sortedReports.at(-1);
+
+  if (options.reportId) {
+    latestEntry = sortedReports.find((entry) => entry.id === options.reportId);
+
+    if (!latestEntry) {
+      throw new Error(`FindingReport not found: ${options.reportId}`);
+    }
+  }
+
+  const previousEntries = latestEntry
+    ? sortedReports.filter((entry) => entry.id !== latestEntry!.id)
+    : [];
+
+  const latestReport = latestEntry
+    ? ((await store.read(latestEntry)) as FindingReport)
+    : emptyFindingReport(store);
+  const previousReports = await Promise.all(
+    previousEntries.map((entry) => store.read(entry) as Promise<FindingReport>),
+  );
+
+  let ledger: FindingStatusLedger | undefined;
+  const ledgerEntries = await store.list("FindingStatusLedger");
+  const sortedLedgers = [...ledgerEntries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+
+  if (options.ledgerId) {
+    const match = sortedLedgers.find((entry) => entry.id === options.ledgerId);
+
+    if (!match) {
+      throw new Error(`FindingStatusLedger not found: ${options.ledgerId}`);
+    }
+
+    ledger = (await store.read(match)) as FindingStatusLedger;
+  } else if (sortedLedgers[0]) {
+    ledger = (await store.read(sortedLedgers[0])) as FindingStatusLedger;
+  }
+
+  const { findings, resolvedFindings, decisions } = deriveFindingLifecycle({
+    latestReport,
+    previousReports,
+    ledger,
+  });
+
+  const inputRefs: ArtifactRef[] = [];
+
+  if (latestEntry) {
+    inputRefs.push(indexEntryToRef(latestEntry));
+  }
+
+  for (const entry of previousEntries) {
+    inputRefs.push(indexEntryToRef(entry));
+  }
+
+  if (ledger && sortedLedgers[0]) {
+    inputRefs.push(indexEntryToRef(sortedLedgers[0]));
+  }
+
+  const lifecycleReport = createFindingLifecycleReport({
+    header: {
+      artifactType: "FindingLifecycleReport",
+      artifactId: `finding-lifecycle-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: subjectRepoId(store) },
+      producer: { id: "@rekon/runtime.findings", version: "0.1.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+    },
+    findings,
+    resolvedFindings,
+    decisions,
+  });
+
+  return lifecycleReport;
+}
+
+function emptyFindingReport(store: ArtifactStore): FindingReport {
+  return {
+    header: {
+      artifactType: "FindingReport",
+      artifactId: "empty-finding-report",
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: subjectRepoId(store) },
+      producer: { id: "@rekon/runtime.findings", version: "0.1.0" },
+      inputRefs: [],
+      freshness: { status: "unknown" },
+    },
+    summary: { total: 0, bySeverity: {}, byType: {} },
+    findings: [],
+  };
+}
+
+function subjectRepoId(store: ArtifactStore): string {
+  return store.root.split(/[\\/]/).filter(Boolean).at(-1) ?? "repo";
+}
+
+function indexEntryToRef(entry: ArtifactIndexEntry): ArtifactRef {
+  return {
+    type: entry.type,
+    id: entry.id,
+    schemaVersion: entry.schemaVersion,
+    path: entry.path,
+  };
 }
 
 function aggregateFreshnessStatus(entries: ArtifactFreshnessEntry[]): ArtifactFreshnessStatus {

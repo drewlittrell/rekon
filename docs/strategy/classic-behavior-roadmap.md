@@ -62,8 +62,15 @@ scope:
   today as `validateArtifactFreshness()` and
   `rekon artifacts freshness`; path/event-driven invalidation is part
   of the future watcher.
-- **Issue lifecycle and status.** Issue merge / dedupe / filter semantics
-  on `FindingReport`. Aligned to `domain/issues/mergeIssues.ts`.
+- **Issue lifecycle and status.** ✅ Initial slice shipped:
+  `FindingStatusLedger` + `FindingLifecycleReport` + CLI commands
+  (`rekon findings list`, `rekon findings lifecycle`,
+  `rekon findings status list/set`) + `resolve.issue` annotates
+  matched findings with their effective status. Issue merge / dedupe
+  / fuzzy semantic matching across runs remains future work; this
+  slice keeps id-based matching and explicit operator decisions.
+  Aligned to `domain/issues/mergeIssues.ts` and the lifecycle wins
+  distilled from `services/IssueDetectionService.ts`.
 - **Graph slice expansion (consumer-driven).** Add new `GraphSlice`
   producers (route, call, runtime) only when an evaluator/resolver
   consumes them.

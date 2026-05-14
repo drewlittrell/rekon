@@ -2,6 +2,13 @@ import {
   type ArtifactHeader,
   type ArtifactRef,
 } from "@rekon/kernel-artifacts";
+import {
+  type FindingStatus,
+  type FindingStatusDecision,
+  type FindingStatusDecisionReason,
+  type FindingStatusLedger,
+  findLatestDecisionForFinding,
+} from "@rekon/kernel-findings";
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
 import { type IntelligenceSnapshot } from "@rekon/kernel-snapshot";
 import { type ArtifactReader, type Resolver, defineCapability } from "@rekon/sdk";
@@ -259,6 +266,10 @@ export type IssueSummary = {
   files: string[];
   ruleId?: string;
   suggestedAction?: string;
+  status?: FindingStatus;
+  statusSource?: "report" | "ledger" | "derived";
+  statusNote?: string;
+  statusReason?: FindingStatusDecisionReason;
 };
 
 export type IssuePacket = ResolverPacketBase & {
@@ -628,7 +639,23 @@ export const issueResolver: Resolver = {
       });
     }
 
-    const { match, matches, candidates } = await findIssueMatches(artifacts, findingRefs, query);
+    const ledger = await readLatestLedgerFromArtifacts(artifacts);
+    const ledgerRef = ledger
+      ? { type: "FindingStatusLedger", id: ledger.header.artifactId, schemaVersion: ledger.header.schemaVersion }
+      : undefined;
+
+    if (ledger) {
+      trace.push({
+        step: "issue.lookup",
+        sourceType: "Fallback",
+        sourceRef: ledgerRef,
+        status: "used",
+        message: "Applied finding status ledger when annotating matches.",
+      });
+    }
+
+    const { match: rawMatch, matches, candidates } = await findIssueMatches(artifacts, findingRefs, query);
+    const match = rawMatch ? annotateIssueWithLedger(rawMatch, ledger) : null;
 
     for (const ref of findingRefs) {
       trace.push({
@@ -715,6 +742,14 @@ export const issueResolver: Resolver = {
       }
 
       summary = `Matched finding ${match.id} (${match.severity}).`;
+
+      if (match.status === "ignored") {
+        warnings.push("Matched finding is ignored; verify before acting.");
+      } else if (match.status === "accepted") {
+        warnings.push("Matched finding is accepted risk/debt; verify policy before changing.");
+      } else if (match.status === "resolved") {
+        warnings.push("Matched finding is marked resolved; confirm whether action is still needed.");
+      }
     } else {
       summary = "No issue resolved.";
     }
@@ -903,6 +938,61 @@ function issueNextSteps(match: IssueSummary | null, ownerSystems: string[]): str
   }
 
   return steps;
+}
+
+async function readLatestLedgerFromArtifacts(
+  artifacts: ArtifactReader,
+): Promise<FindingStatusLedger | undefined> {
+  const entries = await artifacts.list("FindingStatusLedger");
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  const sorted = [...entries].sort((left, right) => {
+    const leftWritten = (left as { writtenAt?: string }).writtenAt ?? "";
+    const rightWritten = (right as { writtenAt?: string }).writtenAt ?? "";
+
+    if (leftWritten !== rightWritten) {
+      return rightWritten.localeCompare(leftWritten);
+    }
+
+    return right.id.localeCompare(left.id);
+  });
+
+  const latest = sorted[0];
+
+  if (!latest) {
+    return undefined;
+  }
+
+  return (await artifacts.read(latest)) as FindingStatusLedger;
+}
+
+function annotateIssueWithLedger(
+  issue: IssueSummary,
+  ledger: FindingStatusLedger | undefined,
+): IssueSummary {
+  if (!ledger) {
+    return issue;
+  }
+
+  const decision: FindingStatusDecision | undefined = findLatestDecisionForFinding(
+    ledger,
+    issue.id,
+  );
+
+  if (!decision) {
+    return issue;
+  }
+
+  return {
+    ...issue,
+    status: decision.status,
+    statusSource: "ledger",
+    statusNote: decision.note,
+    statusReason: decision.reason,
+  };
 }
 
 async function findIssueMatches(

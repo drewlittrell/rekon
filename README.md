@@ -117,6 +117,9 @@ node packages/cli/dist/index.js reconcile --root examples/simple-js-ts --operati
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings lifecycle --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings status set <finding-id> --status ignored --reason false-positive --note "Generated fixture intentionally." --root examples/simple-js-ts --json
 ```
 
 ## The `.rekon/` Workspace

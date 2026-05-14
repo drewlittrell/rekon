@@ -61,6 +61,15 @@ explicit NorthStar update.
   `resolutionTrace`, `warnings`, `nextSteps`, and a
   `nextRequiredResolver` recommendation so the route → seam →
   preflight → (issue) flow stays explicit.
+- Finding lifecycle: `@rekon/kernel-findings` ships
+  `FindingStatusDecision`, `FindingStatusLedger`, `EffectiveFinding`,
+  and `FindingLifecycleReport`. `@rekon/runtime` adds
+  `buildFindingLifecycleReport`. CLI commands `rekon findings list`,
+  `rekon findings lifecycle`, `rekon findings status list`, and
+  `rekon findings status set` preserve `accepted`/`ignored`/`resolved`
+  state across runs. `resolve.issue` annotates matched findings with
+  their effective status and warns on accepted/ignored/resolved
+  matches.
 
 ## Committed Direction: Hardening Batches
 

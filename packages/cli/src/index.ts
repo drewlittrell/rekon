@@ -15,12 +15,20 @@ import reconcileCapability from "@rekon/capability-reconcile";
 import resolverCapability from "@rekon/capability-resolver";
 import {
   type ArtifactIndexEntry,
+  buildFindingLifecycleReport,
   createLocalArtifactStore,
   createRuntime,
   validateArtifactFreshness,
   validateArtifactIndex,
 } from "@rekon/runtime";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
+import {
+  type FindingStatusDecision,
+  type FindingStatusDecisionReason,
+  type FindingStatusDecisionStatus,
+  type FindingStatusLedger,
+  createFindingStatusLedger,
+} from "@rekon/kernel-findings";
 
 if (isMainEntry()) {
   main(process.argv.slice(2)).catch((error: unknown) => {
@@ -545,6 +553,119 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "findings" && subcommand === "list") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const lifecycle = await buildFindingLifecycleReport(store);
+    const statusFilter = typeof parsed.flags.status === "string" ? parsed.flags.status : undefined;
+    const findings = statusFilter
+      ? lifecycle.findings.filter((finding) => finding.effectiveStatus === statusFilter)
+      : lifecycle.findings;
+
+    writeOutput(
+      {
+        summary: lifecycle.summary,
+        findings: findings.map((finding) => ({
+          id: finding.id,
+          type: finding.type,
+          severity: finding.severity,
+          title: finding.title,
+          files: finding.files ?? [],
+          effectiveStatus: finding.effectiveStatus,
+          statusSource: finding.statusSource,
+          statusReason: finding.statusReason,
+          statusNote: finding.statusNote,
+        })),
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "findings" && subcommand === "lifecycle") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const lifecycle = await buildFindingLifecycleReport(store);
+    const ref = await store.write(lifecycle, { category: "findings" });
+
+    writeOutput({ artifact: ref, summary: lifecycle.summary }, json);
+    return;
+  }
+
+  if (command === "findings" && subcommand === "status" && positional === "list") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const ledger = await readLatestLedger(store);
+
+    writeOutput({ decisions: ledger?.decisions ?? [] }, json);
+    return;
+  }
+
+  if (command === "findings" && subcommand === "status" && positional === "set") {
+    const findingId = typeof parsed.positionals[3] === "string" ? parsed.positionals[3] : undefined;
+    const status = typeof parsed.flags.status === "string" ? parsed.flags.status : undefined;
+    const note = typeof parsed.flags.note === "string" ? parsed.flags.note : undefined;
+    const reasonFlag = typeof parsed.flags.reason === "string" ? parsed.flags.reason : undefined;
+
+    if (!findingId) {
+      throw new Error("rekon findings status set requires <finding-id>.");
+    }
+
+    if (!status || !isFindingStatusDecisionStatus(status)) {
+      throw new Error(
+        "rekon findings status set requires --status with one of accepted, ignored, resolved.",
+      );
+    }
+
+    if (status === "ignored" && (!note || note.trim().length === 0)) {
+      throw new Error("Ignored findings require --note <reason>.");
+    }
+
+    if (status === "resolved" && (!note || note.trim().length === 0)) {
+      throw new Error("Resolved findings require --note <reason>.");
+    }
+
+    const reason: FindingStatusDecisionReason | undefined = isFindingStatusDecisionReason(reasonFlag)
+      ? reasonFlag
+      : undefined;
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const previous = await readLatestLedger(store);
+    const updatedAt = new Date().toISOString();
+    const decision: FindingStatusDecision = {
+      id: `decision-${Date.now()}-${findingId.replace(/[^A-Za-z0-9_.-]+/g, "-")}`,
+      findingId,
+      status,
+      note: note ?? "",
+      reason,
+      updatedAt,
+      source: "operator",
+    };
+
+    const decisions = previous?.decisions
+      ? [...previous.decisions.filter((entry) => entry.findingId !== findingId), decision]
+      : [decision];
+    const repoId = subjectRepoIdFromStore(store);
+    const ledger = createFindingStatusLedger({
+      header: {
+        artifactType: "FindingStatusLedger",
+        artifactId: `finding-status-ledger-${Date.now()}`,
+        schemaVersion: "0.1.0",
+        generatedAt: updatedAt,
+        subject: { repoId },
+        producer: { id: "@rekon/cli.findings", version: "0.1.0" },
+        inputRefs: [],
+        freshness: { status: "fresh" },
+      },
+      decisions,
+    });
+    const ref = await store.write(ledger, { category: "findings" });
+
+    writeOutput({ artifact: ref, decision }, json);
+    return;
+  }
+
   throw new Error(`Unknown command: ${argv.join(" ")}`);
 }
 
@@ -737,6 +858,47 @@ async function snapshotIsStaleOrMissing(
   }
 
   return false;
+}
+
+async function readLatestLedger(
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<FindingStatusLedger | undefined> {
+  const entries = await store.list("FindingStatusLedger");
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  const latest = entries.sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  )[0];
+
+  if (!latest) {
+    return undefined;
+  }
+
+  return (await store.read(latest)) as FindingStatusLedger;
+}
+
+function subjectRepoIdFromStore(
+  store: ReturnType<typeof createLocalArtifactStore>,
+): string {
+  return store.root.split(/[\\/]/).filter(Boolean).at(-1) ?? "repo";
+}
+
+function isFindingStatusDecisionStatus(value: string): value is FindingStatusDecisionStatus {
+  return value === "accepted" || value === "ignored" || value === "resolved";
+}
+
+function isFindingStatusDecisionReason(value: unknown): value is FindingStatusDecisionReason {
+  return (
+    typeof value === "string" &&
+    (value === "accepted-risk" ||
+      value === "false-positive" ||
+      value === "fixed" ||
+      value === "not-actionable" ||
+      value === "other")
+  );
 }
 
 async function ensureSnapshotForResolver(
@@ -1244,5 +1406,9 @@ function usage(): string {
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",
     "rekon artifacts freshness [--root <path>] [--type <type>] [--id <id>] [--json]",
+    "rekon findings list [--root <path>] [--status <status>] [--json]",
+    "rekon findings lifecycle [--root <path>] [--json]",
+    "rekon findings status list [--root <path>] [--json]",
+    "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",
   ].join("\n");
 }

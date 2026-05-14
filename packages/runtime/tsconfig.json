@@ -12,6 +12,7 @@
   "references": [
     { "path": "../kernel-artifacts" },
     { "path": "../kernel-evidence" },
+    { "path": "../kernel-findings" },
     { "path": "../kernel-snapshot" },
     { "path": "../sdk" }
   ]

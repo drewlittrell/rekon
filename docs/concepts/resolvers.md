@@ -73,6 +73,14 @@ rekon resolve run <resolver-id> --root <repo> --input-json '<json>' --json
 `resolve.preflight`, and `resolve.issue` as registered handlers under
 `@rekon/capability-resolver`.
 
+`resolve.issue` automatically reads the latest
+[FindingStatusLedger](../artifacts/finding-status-ledger.md) and
+annotates the matched issue with `status`, `statusSource`,
+`statusNote`, and `statusReason`. When the matched finding is
+`accepted`, `ignored`, or `resolved`, the resolver also adds a warning
+so an agent or operator can decide whether action is still required.
+See [finding-lifecycle.md](finding-lifecycle.md).
+
 Ownership source precedence is deterministic:
 
 `OwnershipMap -> ObservedRepo -> ownership GraphSlice -> EvidenceGraph`

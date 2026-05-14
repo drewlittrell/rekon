@@ -72,3 +72,12 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 
 Finding reports should point to the artifacts they evaluated. Resolver packets
 attach relevant findings by path.
+
+## Lifecycle
+
+`FindingReport` artifacts are raw evaluator output. They are never
+mutated. Lifecycle state — `accepted`, `ignored`, `resolved` — lives in
+the separate [FindingStatusLedger](finding-status-ledger.md) artifact,
+and the derived view ships as
+[FindingLifecycleReport](finding-lifecycle-report.md). See
+[../concepts/finding-lifecycle.md](../concepts/finding-lifecycle.md).
