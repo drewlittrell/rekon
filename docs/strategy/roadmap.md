@@ -243,7 +243,25 @@ is the first stop before proposing a new capability batch.
   `assertIssueAdjudicationReport`, and schema export. Freshness
   marks adjudication reports stale after newer
   `FindingLifecycleReport`. Semantic / fuzzy matching, LLM
-  review, `CoherencyDelta` v2, and `resolve.issue` v2 remain
+  review, and `resolve.issue` v2 remain deferred.
+- CoherencyDelta v2 from IssueAdjudicationReport (P1.1 coherency
+  consumption slice): `buildCoherencyDelta` now consumes the
+  latest `IssueAdjudicationReport` when one exists, emitting one
+  delta item per group with `issueGroupId` /
+  `canonicalFindingId` / `memberFindingIds` / `groupingReasons`,
+  and one remediation step per active group (id
+  `remediation:group:<group-id>`). The legacy lifecycle path
+  remains as fallback when no adjudication report exists; no
+  breaking change. `CoherencyDeltaInput` accepts optional
+  `issueGroups` / `systemsForIssueGroup`; existing
+  lifecycle-mode callers continue to pass `findings` /
+  `resolvedFindings` / `systemsForFinding` unchanged. Group
+  status maps to item status:
+  `active → existing+active`; `mixed+active → existing+active`;
+  `accepted / ignored / resolved → same+inactive`. `rekon
+  refresh` runs `issues.adjudicate` between `findings.lifecycle`
+  and `coherency.delta` so every refreshed delta is group-aware.
+  Health scoring, trend, and remediation auto-apply remain
   deferred.
 - Memory usage evidence / curation v1 (next slice of P1.2):
   `@rekon/capability-memory` now records explicit operator

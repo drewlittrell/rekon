@@ -168,17 +168,20 @@ Output:
 These are intentionally deferred. See
 [../strategy/classic-behavior-roadmap.md](../strategy/classic-behavior-roadmap.md).
 
-> **Future input.** `CoherencyDelta` v1 consumes
-> `FindingLifecycleReport` directly. A separate deterministic
-> projection layer — `IssueAdjudicationReport` — now groups
-> duplicate / overlapping findings into canonical issue groups
-> (see
+> **Adjudicated input (v2).** When an `IssueAdjudicationReport`
+> exists in the store, `buildCoherencyDelta` now consumes
+> **adjudicated groups** instead of raw lifecycle findings. The
+> remediation queue therefore counts **governed issues**, not
+> duplicate lint rows. Each delta item carries `issueGroupId`,
+> `canonicalFindingId`, `memberFindingIds`, and `groupingReasons`
+> so raw findings remain traceable. When no adjudication report
+> exists yet (legacy fixtures, deliberate pinning), the delta
+> falls back to the v1 lifecycle path with no breaking change. See
 > [issue-adjudication.md](issue-adjudication.md) and
-> [../artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md)).
-> A future `CoherencyDelta` v2 will consume those adjudicated
-> groups instead of raw lifecycle findings so the remediation
-> queue counts governed issues, not lint noise. This batch does
-> not change `CoherencyDelta`.
+> [../artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md)
+> for the grouping rules. `rekon refresh` now runs
+> `issues.adjudicate` between `findings.lifecycle` and
+> `coherency.delta` so every refreshed delta is group-aware.
 
 ## Cross-References
 

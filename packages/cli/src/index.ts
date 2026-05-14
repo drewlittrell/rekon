@@ -1410,6 +1410,7 @@ type RefreshStepId =
   | "snapshot"
   | "evaluate"
   | "findings.lifecycle"
+  | "issues.adjudicate"
   | "coherency.delta"
   | "publish.architecture"
   | "artifacts.validate"
@@ -1454,6 +1455,7 @@ const REQUIRED_REFRESH_ARTIFACT_TYPES = [
   "IntelligenceSnapshot",
   "FindingReport",
   "FindingLifecycleReport",
+  "IssueAdjudicationReport",
   "CoherencyDelta",
 ];
 
@@ -1465,6 +1467,7 @@ const MAJOR_FRESHNESS_TYPES = [
   "IntelligenceSnapshot",
   "FindingReport",
   "FindingLifecycleReport",
+  "IssueAdjudicationReport",
   "CoherencyDelta",
   "Publication",
 ];
@@ -1603,7 +1606,22 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // 8. coherency delta
+  // 8. issues adjudicate (groups duplicate findings before coherency rolls them up)
+  try {
+    const adjudication = await buildIssueAdjudicationReport(store);
+    const ref = await store.write(adjudication, { category: "findings" });
+    steps.push({
+      id: "issues.adjudicate",
+      status: "passed",
+      artifacts: recordArtifacts(ref),
+      summary: adjudication.summary,
+    });
+  } catch (error) {
+    steps.push({ id: "issues.adjudicate", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 9. coherency delta (now sourced from the latest IssueAdjudicationReport)
   try {
     const delta = await buildCoherencyDelta(store);
     const ref = await store.write(delta, { category: "findings" });

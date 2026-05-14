@@ -80,6 +80,7 @@ Flags:
     { "id": "snapshot", "status": "passed", "artifacts": [...] },
     { "id": "evaluate", "status": "passed", "artifacts": [...] },
     { "id": "findings.lifecycle", "status": "passed", "artifacts": [...], "summary": {...} },
+    { "id": "issues.adjudicate", "status": "passed", "artifacts": [...], "summary": {...} },
     { "id": "coherency.delta", "status": "passed", "artifacts": [...], "summary": {...} },
     { "id": "publish.architecture", "status": "passed", "artifacts": [...] },
     { "id": "artifacts.validate", "status": "passed", "issues": [] },
@@ -131,15 +132,26 @@ Notes:
    `FindingReport` artifacts.
 7. **findings.lifecycle** — builds the `FindingLifecycleReport`
    from the latest report and the latest status ledger.
-8. **coherency.delta** — builds the `CoherencyDelta` from the
-   lifecycle report.
-9. **publish.architecture** — invokes
-   `@rekon/capability-docs.architecture-summary` to write the
-   architecture summary publication. Skipped when `--skip-publish`
-   is set.
-10. **artifacts.validate** — runs the artifact-index integrity
+8. **issues.adjudicate** — builds the `IssueAdjudicationReport`
+   from the latest `FindingLifecycleReport` (or from the latest
+   `FindingReport` plus status ledger when no lifecycle exists).
+   Groups duplicate / overlapping findings deterministically; no
+   findings are dropped. See
+   [issue-adjudication.md](issue-adjudication.md).
+9. **coherency.delta** — builds the `CoherencyDelta`. When an
+   `IssueAdjudicationReport` exists, the delta consumes its
+   groups directly (v2 adjudicated mode); each delta item carries
+   `issueGroupId` / `memberFindingIds` / `groupingReasons`. When
+   no adjudication report exists, the delta falls back to the
+   legacy lifecycle path with no breaking change. See
+   [coherency-delta.md](coherency-delta.md).
+10. **publish.architecture** — invokes
+    `@rekon/capability-docs.architecture-summary` to write the
+    architecture summary publication. Skipped when
+    `--skip-publish` is set.
+11. **artifacts.validate** — runs the artifact-index integrity
     validator. Status: `passed` when `{ valid: true, issues: [] }`.
-11. **artifacts.freshness** — runs the per-artifact freshness
+12. **artifacts.freshness** — runs the per-artifact freshness
     validator AND applies the latest-major interpretation (see
     below). Skipped when `--skip-freshness` is set.
 
@@ -158,7 +170,8 @@ not what we mean by "the repo's intelligence state is current."
 - Find the **latest artifact of each major type** in the store
   (`EvidenceGraph`, `ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
   `IntelligenceSnapshot`, `FindingReport`,
-  `FindingLifecycleReport`, `CoherencyDelta`, and `Publication`).
+  `FindingLifecycleReport`, `IssueAdjudicationReport`,
+  `CoherencyDelta`, and `Publication`).
 - For each of those latest artifacts, ignore `newer-input-exists`
   issues. (The artifact is by construction the newest of its type;
   those issues are about historical inputs the producer

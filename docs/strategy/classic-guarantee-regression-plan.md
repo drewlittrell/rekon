@@ -356,9 +356,17 @@ Regression test:
 Implementation batches:
 - "Issue adjudication / dedupe v1" (shipped) — deterministic
   grouping projection above `FindingLifecycleReport`.
+- "CoherencyDelta v2 from IssueAdjudicationReport" (shipped) —
+  `buildCoherencyDelta` consumes adjudicated groups when one
+  exists; emits one delta item / one remediation step per group
+  with `issueGroupId` / `memberFindingIds` / `groupingReasons`;
+  legacy lifecycle path remains as fallback; `rekon refresh` runs
+  `issues.adjudicate` between `findings.lifecycle` and
+  `coherency.delta`. Pinned by
+  `tests/contract/coherency-delta-adjudicated.test.mjs` (11 tests).
 - "Issue adjudication maturity" remains the future batch for
   cross-pack semantic dedupe, false-positive scoring, and
-  `CoherencyDelta` v2 / `resolve.issue` v2 integration.
+  `resolve.issue` v2 integration.
 
 ### P1.2 Memory ranking / curation
 

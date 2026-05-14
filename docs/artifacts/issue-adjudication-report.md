@@ -22,8 +22,12 @@ and [../concepts/issue-adjudication.md](../concepts/issue-adjudication.md).
 
 ## Consumed By
 
-- Future `CoherencyDelta` v2 will operate on adjudicated groups
-  instead of raw lifecycle findings.
+- `@rekon/runtime.buildCoherencyDelta` now consumes the latest
+  `IssueAdjudicationReport` when one exists (v2 adjudicated mode):
+  it emits one delta item per group with `issueGroupId` /
+  `canonicalFindingId` / `memberFindingIds` / `groupingReasons`,
+  and one remediation step per active group. See
+  [coherency-delta.md](coherency-delta.md).
 - Future `resolve.issue` v2 may search adjudicated groups first,
   then fall back to `FindingReport` / `FindingLifecycleReport`.
 - For now, no other capability consumes the report yet — it is the

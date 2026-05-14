@@ -1210,6 +1210,12 @@ export type CoherencyDeltaItem = {
   status: CoherencyDeltaItemStatus;
   active: boolean;
   evidence?: ArtifactRef[];
+  // Group-aware fields (present only when the item was derived from an
+  // IssueAdjudicationGroup; absent for lifecycle-finding-derived items).
+  issueGroupId?: string;
+  canonicalFindingId?: string;
+  memberFindingIds?: string[];
+  groupingReasons?: string[];
 };
 
 export type CoherencyRemediationPriority = "p0" | "p1" | "p2";
@@ -1292,20 +1298,38 @@ export function severityToPriority(
 
 export type CoherencyDeltaInput = {
   header: ArtifactHeader;
-  findings: EffectiveFinding[];
-  resolvedFindings: EffectiveFinding[];
-  systemsForFinding: (finding: EffectiveFinding) => string[];
+  // Lifecycle-finding-based input (the legacy v1 shape). Either supply
+  // these three together, or supply `issueGroups` for v2 group-based
+  // input. When both are present, `issueGroups` (non-empty) wins.
+  findings?: EffectiveFinding[];
+  resolvedFindings?: EffectiveFinding[];
+  systemsForFinding?: (finding: EffectiveFinding) => string[];
+  // v2 group-based input. When supplied non-empty, the delta is built
+  // from adjudicated groups so duplicate / overlapping findings collapse
+  // into a single delta item and a single remediation step.
+  issueGroups?: IssueAdjudicationGroup[];
+  systemsForIssueGroup?: (group: IssueAdjudicationGroup) => string[];
 };
 
 export function createCoherencyDelta(input: CoherencyDeltaInput): CoherencyDelta {
   const items: CoherencyDeltaItem[] = [];
+  const groupMode = Array.isArray(input.issueGroups) && input.issueGroups.length > 0;
 
-  for (const finding of input.findings) {
-    items.push(buildItem(finding, input.systemsForFinding(finding)));
-  }
+  if (groupMode) {
+    const groupSystems = input.systemsForIssueGroup;
+    for (const group of input.issueGroups!) {
+      const callbackSystems = groupSystems ? groupSystems(group) : [];
+      items.push(buildItemFromIssueGroup(group, callbackSystems));
+    }
+  } else {
+    const systemsForFinding = input.systemsForFinding ?? (() => []);
+    for (const finding of input.findings ?? []) {
+      items.push(buildItem(finding, systemsForFinding(finding)));
+    }
 
-  for (const finding of input.resolvedFindings) {
-    items.push(buildItem(finding, input.systemsForFinding(finding)));
+    for (const finding of input.resolvedFindings ?? []) {
+      items.push(buildItem(finding, systemsForFinding(finding)));
+    }
   }
 
   items.sort((left, right) => {
@@ -1322,7 +1346,9 @@ export function createCoherencyDelta(input: CoherencyDeltaInput): CoherencyDelta
   const remediationQueue = items
     .filter((item) => item.active)
     .map((item) => ({
-      id: `remediation:${item.findingId}`,
+      id: item.issueGroupId
+        ? `remediation:group:${item.issueGroupId}`
+        : `remediation:${item.findingId}`,
       priority: severityToPriority(item.severity),
       findingId: item.findingId,
       title: item.title,
@@ -1430,6 +1456,56 @@ function buildItem(finding: EffectiveFinding, systems: string[]): CoherencyDelta
     active,
     evidence: finding.evidence ? normalizeRefs(finding.evidence) : undefined,
   };
+}
+
+function buildItemFromIssueGroup(
+  group: IssueAdjudicationGroup,
+  callbackSystems: string[],
+): CoherencyDeltaItem {
+  const { status, active } = mapGroupStatusToItem(group);
+  const severity = coerceSeverity(group.severity);
+  const files = uniqueSorted(group.files ?? []);
+  const declared = uniqueSorted(group.systems ?? []);
+  const computed = uniqueSorted(callbackSystems);
+  const combined = uniqueSorted([...declared, ...computed]);
+
+  return {
+    id: `coherency:group:${group.id}`,
+    findingId: group.canonicalFindingId,
+    type: group.type,
+    severity,
+    title: group.title,
+    description: group.description,
+    files,
+    systems: combined.length > 0 ? combined : ["unknown"],
+    suggestedAction: group.suggestedAction,
+    status,
+    active,
+    evidence: group.evidence ? normalizeRefs(group.evidence) : undefined,
+    issueGroupId: group.id,
+    canonicalFindingId: group.canonicalFindingId,
+    memberFindingIds: [...group.memberFindingIds],
+    groupingReasons: [...group.groupingReasons],
+  };
+}
+
+function mapGroupStatusToItem(
+  group: IssueAdjudicationGroup,
+): { status: CoherencyDeltaItemStatus; active: boolean } {
+  switch (group.status) {
+    case "active":
+      return { status: "existing", active: true };
+    case "accepted":
+      return { status: "accepted", active: false };
+    case "ignored":
+      return { status: "ignored", active: false };
+    case "resolved":
+      return { status: "resolved", active: false };
+    case "mixed":
+      return group.active
+        ? { status: "existing", active: true }
+        : { status: "accepted", active: false };
+  }
 }
 
 function coerceSeverity(value: string): CoherencyDeltaSeverity {

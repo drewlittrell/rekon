@@ -37,10 +37,18 @@ projection, no remediation auto-apply.
 ## Required Header Fields
 
 All standard `ArtifactHeader` fields are required. `artifactType` is
-`CoherencyDelta`. `inputRefs` should cite the
-`FindingLifecycleReport`, the `FindingReport`(s) it consumed, the
-`FindingStatusLedger` (if used), and any `OwnershipMap` /
-`ObservedRepo` used for system assignment.
+`CoherencyDelta`. `inputRefs` cite the upstream source:
+
+- **v2 (preferred) — adjudicated mode**: the latest
+  `IssueAdjudicationReport` plus every ref that report itself
+  carried (transitively the `FindingLifecycleReport`,
+  `FindingReport`(s), `FindingStatusLedger`). Plus any
+  `OwnershipMap` / `ObservedRepo` used for system assignment.
+- **v1 — legacy lifecycle mode** (used when no
+  `IssueAdjudicationReport` exists, or when the caller pins a
+  specific `lifecycleReportId`): the `FindingLifecycleReport`, the
+  `FindingReport`(s) it consumed, the `FindingStatusLedger` (if
+  used), and any `OwnershipMap` / `ObservedRepo`.
 
 ## Shape
 
@@ -67,6 +75,13 @@ type CoherencyDeltaItem = {
   status: CoherencyDeltaItemStatus;
   active: boolean;
   evidence?: ArtifactRef[];
+  // v2 group-aware fields (present only when the item was derived
+  // from an IssueAdjudicationGroup; absent for lifecycle-derived
+  // items). `findingId` mirrors `canonicalFindingId` in group mode.
+  issueGroupId?: string;
+  canonicalFindingId?: string;
+  memberFindingIds?: string[];
+  groupingReasons?: string[];
 };
 
 type CoherencyRemediationStep = {
@@ -135,16 +150,70 @@ The runtime helper assigns systems per finding via:
 Findings without any associated files are tagged with `"unknown"` as a
 single-element system list so summaries always count them somewhere.
 
+## Adjudicated Mode (v2)
+
+When `buildCoherencyDelta` finds an `IssueAdjudicationReport` in
+the store, it builds items from the report's `groups` instead of
+raw lifecycle findings. The result:
+
+- one item per adjudicated group, not one item per duplicate
+  finding;
+- one `remediationQueue` step per active group (id
+  `remediation:group:<group-id>`), not one per member;
+- each item carries `issueGroupId`, `canonicalFindingId`,
+  `memberFindingIds`, and `groupingReasons` so raw findings remain
+  traceable;
+- `findingId` mirrors `canonicalFindingId` for backward
+  compatibility with existing consumers that key on `findingId`.
+
+Group status maps to item status as follows:
+
+| Group status | Item status | Item active |
+| --- | --- | --- |
+| `active` | `existing` | `true` |
+| `accepted` | `accepted` | `false` |
+| `ignored` | `ignored` | `false` |
+| `resolved` | `resolved` | `false` |
+| `mixed` (with `group.active`) | `existing` | `true` |
+| `mixed` (without `group.active`) | `accepted` | `false` |
+
+Group-aware item ids are `coherency:group:<group-id>` so they do
+not collide with lifecycle-derived items (`coherency:<finding-id>`).
+Group-aware remediation step ids are `remediation:group:<group-id>`.
+
+`rekon refresh` runs `issues.adjudicate` between
+`findings.lifecycle` and `coherency.delta` so the delta picks up
+the freshest adjudication report on every refresh.
+
+## Legacy Lifecycle Mode (v1)
+
+If no `IssueAdjudicationReport` exists yet, or the caller passes
+`lifecycleReportId` to pin a specific lifecycle report,
+`buildCoherencyDelta` falls back to the legacy lifecycle path:
+
+- one item per `EffectiveFinding`,
+- one remediation step per active finding (id
+  `remediation:<finding-id>`),
+- no group-aware fields on items.
+
+This preserves backward compatibility for any caller that has not
+yet adopted adjudication.
+
 ## Freshness And Provenance
 
 `CoherencyDelta` lives under the `findings` category in the artifact
-store. Its `inputRefs` include the consumed `FindingLifecycleReport`,
-its upstream `FindingReport`(s) and `FindingStatusLedger`, plus
-`OwnershipMap` / `ObservedRepo` if they participated.
+store. In v2 (adjudicated) mode, `inputRefs` carry the
+`IssueAdjudicationReport` plus every ref it itself carried — so
+lineage flows transitively to the `FindingLifecycleReport`,
+`FindingReport`(s), `FindingStatusLedger`, and any `OwnershipMap`
+/ `ObservedRepo`. In v1 (legacy) mode, `inputRefs` cite the
+`FindingLifecycleReport` and its upstream refs directly.
 
-`rekon artifacts freshness` will mark a `CoherencyDelta` `stale` when
-any of those inputs has a newer indexed sibling. Rebuild the delta with
-`rekon coherency delta` to refresh.
+`rekon artifacts freshness` will mark a `CoherencyDelta` `stale`
+when any of those inputs has a newer indexed sibling — including a
+newer `IssueAdjudicationReport`. Rebuild the delta with `rekon
+coherency delta` to refresh (or rerun `rekon refresh` for the full
+lifecycle).
 
 ## What This Is Not
 

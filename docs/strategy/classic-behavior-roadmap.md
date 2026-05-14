@@ -98,9 +98,29 @@ scope:
   Aligned to `services/IssueDetectionService.ts`,
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy matching,
   false-positive scoring, automatic ignore/accept, and LLM review
-  are deliberately deferred. `CoherencyDelta` v2 (consuming
-  adjudicated groups instead of raw lifecycle findings) is the
-  recommended next slice.
+  are deliberately deferred.
+- **CoherencyDelta v2 from IssueAdjudicationReport (P1.1
+  consumption slice).** ✅ Shipped. `buildCoherencyDelta` now
+  consumes the latest `IssueAdjudicationReport` when one exists
+  and emits one delta item per group with `issueGroupId` /
+  `canonicalFindingId` / `memberFindingIds` / `groupingReasons`,
+  plus one remediation step per active group (id
+  `remediation:group:<group-id>`). Duplicate findings collapse
+  into one row in the governance rollup instead of inflating
+  active counts and remediation steps. Status / lifecycle context
+  survives via group → item status mapping
+  (`active → existing+active`; `mixed+active → existing+active`;
+  `accepted/ignored/resolved → same+inactive`). Raw findings
+  remain inspectable via `memberFindingIds` and via the unchanged
+  `FindingLifecycleReport` artifact. If no adjudication report
+  exists, the legacy lifecycle path is preserved with no breaking
+  change. `rekon refresh` runs `issues.adjudicate` between
+  `findings.lifecycle` and `coherency.delta` so every refreshed
+  delta is group-aware. Aligned to
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`,
+  `services/IssueDetectionService.ts`. Health scoring, trend, and
+  remediation auto-apply remain deferred. `resolve.issue` v2 from
+  `IssueAdjudicationReport` is the recommended next slice.
 - **Graph slice expansion (consumer-driven).** Add new `GraphSlice`
   producers (route, call, runtime) only when an evaluator/resolver
   consumes them.

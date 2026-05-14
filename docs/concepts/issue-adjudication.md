@@ -103,8 +103,15 @@ audited.
   raw finding rows).
 - Before reviewing finding noise, to deduplicate the queue you
   reason about.
-- As future input to `CoherencyDelta` v2 and `resolve.issue` v2
-  (both deferred to follow-up batches).
+- As input to `CoherencyDelta` v2: `buildCoherencyDelta` now
+  consumes the latest `IssueAdjudicationReport` when one exists and
+  emits one delta item per group with `memberFindingIds` /
+  `groupingReasons` traceability, plus one remediation step per
+  active group. `rekon refresh` runs `issues.adjudicate` between
+  `findings.lifecycle` and `coherency.delta`. See
+  [coherency-delta.md](coherency-delta.md).
+- Future `resolve.issue` v2 may search adjudicated groups first
+  before falling back to `FindingReport` / lifecycle. Deferred.
 
 ## CLI Surface
 
@@ -138,9 +145,12 @@ The standard freshness flow then signals "rebuild".
   candidates for future work orders.
 - **Not a status writer.** Status decisions remain in
   `FindingStatusLedger`.
-- **Not a `CoherencyDelta` replacement.** The current
-  `CoherencyDelta` still consumes the lifecycle report directly.
-  v2 will consume adjudicated groups; that batch is deferred.
+- **Not a `CoherencyDelta` replacement.** `CoherencyDelta` is the
+  rolled-up governance summary; adjudication is the dedupe layer
+  beneath it. In v2 the delta now consumes adjudicated groups
+  when one exists (legacy lifecycle fallback remains), but the
+  delta still computes severity / type / system rollups and the
+  remediation queue — adjudication does not.
 - **Not an LLM call.** All rules are deterministic.
 
 ## Cross-References

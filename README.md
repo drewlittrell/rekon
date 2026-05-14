@@ -75,8 +75,9 @@ node packages/cli/dist/index.js publish agents --root examples/simple-js-ts
 ```
 
 `rekon refresh` runs the full lifecycle (observe → project → snapshot →
-evaluate → findings lifecycle → coherency delta → publish architecture →
-artifacts validate → artifacts freshness) in one step. Use the
+evaluate → findings lifecycle → issues adjudicate → coherency delta →
+publish architecture → artifacts validate → artifacts freshness) in one
+step. Use the
 individual verbs (`rekon observe`, `rekon project`, ...) when you need
 to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md).
 

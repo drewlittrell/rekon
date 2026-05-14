@@ -23,6 +23,7 @@ import {
   type FindingLifecycleReport,
   type FindingReport,
   type FindingStatusLedger,
+  type IssueAdjudicationGroup,
   type IssueAdjudicationReport,
   createCoherencyDelta,
   createFindingLifecycleReport,
@@ -864,6 +865,70 @@ export async function buildCoherencyDelta(
   store: ArtifactStore,
   options: BuildCoherencyDeltaOptions = {},
 ): Promise<CoherencyDelta> {
+  // Prefer the latest IssueAdjudicationReport when no explicit
+  // lifecycleReportId is requested. This is the v2 group-mode path
+  // that lets the delta summarize governed issue groups instead of
+  // raw lifecycle findings. If no adjudication report exists, fall
+  // through to the legacy lifecycle path below.
+  if (!options.lifecycleReportId) {
+    const adjudicationEntries = await store.list("IssueAdjudicationReport");
+    const sortedAdjudication = [...adjudicationEntries].sort((left, right) =>
+      right.writtenAt.localeCompare(left.writtenAt),
+    );
+    const latestAdjudication = sortedAdjudication[0];
+
+    if (latestAdjudication) {
+      const report = (await store.read(latestAdjudication)) as IssueAdjudicationReport;
+      const inputRefs: ArtifactRef[] = [indexEntryToRef(latestAdjudication)];
+
+      for (const ref of report.header.inputRefs ?? []) {
+        if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+          inputRefs.push(ref);
+        }
+      }
+
+      const ownershipMap = await readLatest<OwnershipMap>(store, "OwnershipMap", inputRefs);
+      const observedRepo = await readLatest<ObservedRepo>(store, "ObservedRepo", inputRefs);
+
+      const systemsForIssueGroup = (group: IssueAdjudicationGroup): string[] => {
+        if (group.systems && group.systems.length > 0) {
+          return group.systems;
+        }
+        const files = group.files ?? [];
+        if (files.length === 0) {
+          return [];
+        }
+        const systems = new Set<string>();
+        for (const file of files) {
+          const owner = resolveOwnerForPath(file, ownershipMap, observedRepo);
+          if (owner) {
+            systems.add(owner);
+          }
+        }
+        return [...systems];
+      };
+
+      const repoId = report.header.subject?.repoId ?? subjectRepoId(store);
+
+      return createCoherencyDelta({
+        header: {
+          artifactType: "CoherencyDelta",
+          artifactId: `coherency-delta-${Date.now()}`,
+          schemaVersion: "0.1.0",
+          generatedAt: new Date().toISOString(),
+          subject: { repoId },
+          producer: { id: "@rekon/runtime.coherency", version: "0.1.0" },
+          inputRefs,
+          freshness: { status: "fresh" },
+        },
+        issueGroups: report.groups,
+        systemsForIssueGroup,
+      });
+    }
+  }
+
+  // Legacy lifecycle path (used when no adjudication report exists,
+  // or when the caller pins a specific lifecycle report id).
   const lifecycleEntries = await store.list("FindingLifecycleReport");
   const sortedLifecycle = [...lifecycleEntries].sort((left, right) =>
     right.writtenAt.localeCompare(left.writtenAt),
