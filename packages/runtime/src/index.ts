@@ -72,6 +72,38 @@ export type ArtifactIndexValidationResult = {
   issues: ArtifactIndexValidationIssue[];
 };
 
+export type ArtifactFreshnessStatus = "fresh" | "stale" | "partial" | "unknown";
+
+export type ArtifactFreshnessIssue = {
+  code: string;
+  severity: "error" | "warning";
+  message: string;
+  artifactType?: string;
+  artifactId?: string;
+  path?: string;
+  inputType?: string;
+  inputId?: string;
+};
+
+export type ArtifactFreshnessEntry = {
+  type: string;
+  id: string;
+  status: ArtifactFreshnessStatus;
+  issues: ArtifactFreshnessIssue[];
+};
+
+export type ArtifactFreshnessResult = {
+  status: ArtifactFreshnessStatus;
+  checkedAt: string;
+  issues: ArtifactFreshnessIssue[];
+  artifacts: ArtifactFreshnessEntry[];
+};
+
+export type ArtifactFreshnessOptions = {
+  artifactType?: string;
+  artifactId?: string;
+};
+
 export type ArtifactStore = {
   root: string;
   workspaceRoot: string;
@@ -569,6 +601,167 @@ export async function validateArtifactIndex(
     valid: issues.every((issue) => issue.severity !== "error"),
     issues,
   };
+}
+
+const CANONICAL_INPUT_TYPES = new Set([
+  "EvidenceGraph",
+  "Rulebook",
+  "OperatorFeedbackEntry",
+]);
+
+export async function validateArtifactFreshness(
+  store: ArtifactStore,
+  options: ArtifactFreshnessOptions = {},
+): Promise<ArtifactFreshnessResult> {
+  const checkedAt = new Date().toISOString();
+  const indexEntries = await store.list();
+  const latestByTypeMap = new Map<string, ArtifactIndexEntry>();
+
+  for (const entry of indexEntries) {
+    const current = latestByTypeMap.get(entry.type);
+
+    if (!current || current.writtenAt.localeCompare(entry.writtenAt) < 0) {
+      latestByTypeMap.set(entry.type, entry);
+    }
+  }
+
+  const filtered = indexEntries.filter((entry) => {
+    if (options.artifactType && entry.type !== options.artifactType) {
+      return false;
+    }
+
+    if (options.artifactId && entry.id !== options.artifactId) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const artifacts: ArtifactFreshnessEntry[] = [];
+  const aggregateIssues: ArtifactFreshnessIssue[] = [];
+
+  for (const entry of filtered) {
+    const entryIssues: ArtifactFreshnessIssue[] = [];
+    let artifact: ArtifactWithHeader;
+
+    try {
+      artifact = (await store.read(entry)) as ArtifactWithHeader;
+    } catch (error) {
+      entryIssues.push({
+        code: "artifact.unreadable",
+        severity: "error",
+        message: `Artifact could not be read: ${error instanceof Error ? error.message : String(error)}`,
+        artifactType: entry.type,
+        artifactId: entry.id,
+        path: entry.path,
+      });
+      const status: ArtifactFreshnessStatus = "unknown";
+      artifacts.push({ type: entry.type, id: entry.id, status, issues: entryIssues });
+      aggregateIssues.push(...entryIssues);
+      continue;
+    }
+
+    const inputRefs = Array.isArray(artifact.header?.inputRefs) ? artifact.header.inputRefs : [];
+
+    if (inputRefs.length === 0 && !CANONICAL_INPUT_TYPES.has(entry.type)) {
+      entryIssues.push({
+        code: "lineage.unknown",
+        severity: "warning",
+        message: `Artifact ${entry.type}:${entry.id} declares no inputRefs; lineage cannot be verified.`,
+        artifactType: entry.type,
+        artifactId: entry.id,
+        path: entry.path,
+      });
+    }
+
+    for (const ref of inputRefs) {
+      const matchedInput = indexEntries.find(
+        (candidate) => candidate.type === ref.type && candidate.id === ref.id,
+      );
+
+      if (!matchedInput) {
+        entryIssues.push({
+          code: "input.missing",
+          severity: "warning",
+          message: `Artifact ${entry.type}:${entry.id} references missing input ${ref.type}:${ref.id}.`,
+          artifactType: entry.type,
+          artifactId: entry.id,
+          path: entry.path,
+          inputType: ref.type,
+          inputId: ref.id,
+        });
+        continue;
+      }
+
+      const newest = latestByTypeMap.get(ref.type);
+
+      if (newest && newest.id !== ref.id && newest.writtenAt.localeCompare(matchedInput.writtenAt) > 0) {
+        entryIssues.push({
+          code: "newer-input-exists",
+          severity: "warning",
+          message: `${entry.type}:${entry.id} references ${ref.type}:${ref.id}, but newer ${ref.type}:${newest.id} exists.`,
+          artifactType: entry.type,
+          artifactId: entry.id,
+          path: entry.path,
+          inputType: ref.type,
+          inputId: ref.id,
+        });
+      }
+    }
+
+    const status = freshnessStatusForIssues(entryIssues);
+    artifacts.push({ type: entry.type, id: entry.id, status, issues: entryIssues });
+    aggregateIssues.push(...entryIssues);
+  }
+
+  const aggregateStatus = aggregateFreshnessStatus(artifacts);
+
+  return {
+    status: aggregateStatus,
+    checkedAt,
+    issues: aggregateIssues,
+    artifacts,
+  };
+}
+
+function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFreshnessStatus {
+  if (issues.some((issue) => issue.code === "artifact.unreadable")) {
+    return "unknown";
+  }
+
+  if (issues.some((issue) => issue.code === "input.missing")) {
+    return "partial";
+  }
+
+  if (issues.some((issue) => issue.code === "newer-input-exists")) {
+    return "stale";
+  }
+
+  if (issues.some((issue) => issue.code === "lineage.unknown")) {
+    return "unknown";
+  }
+
+  return "fresh";
+}
+
+function aggregateFreshnessStatus(entries: ArtifactFreshnessEntry[]): ArtifactFreshnessStatus {
+  if (entries.length === 0) {
+    return "unknown";
+  }
+
+  if (entries.some((entry) => entry.status === "unknown")) {
+    return "unknown";
+  }
+
+  if (entries.some((entry) => entry.status === "partial")) {
+    return "partial";
+  }
+
+  if (entries.some((entry) => entry.status === "stale")) {
+    return "stale";
+  }
+
+  return "fresh";
 }
 
 export async function runObserve(

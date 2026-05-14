@@ -165,6 +165,24 @@ After `evaluate run import-boundaries.evaluate`, the latest
   `write:artifacts`. If `config validate` warns about risky permissions,
   remove anything beyond those two.
 
+## Freshness
+
+The evaluator's `FindingReport` cites the `EvidenceGraph` it evaluated.
+After `rekon observe` runs again (e.g., because someone changed the
+imports), older `FindingReport` artifacts become stale because a newer
+`EvidenceGraph` exists. Inspect freshness against the temp workspace:
+
+```sh
+node packages/cli/dist/index.js artifacts freshness --root /tmp/rekon-import-boundary-example --json
+node packages/cli/dist/index.js artifacts freshness --root /tmp/rekon-import-boundary-example --type FindingReport --json
+```
+
+The CLI returns the per-artifact `status` (`fresh` / `stale` /
+`partial` / `unknown`) and explains which input changed. Re-running
+`rekon evaluate run import-boundaries.evaluate` writes a fresh
+`FindingReport` against the latest evidence. See
+[docs/concepts/freshness-and-invalidation.md](../../docs/concepts/freshness-and-invalidation.md).
+
 ## Safety
 
 The capability never writes source files, never executes commands, and

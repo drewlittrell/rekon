@@ -64,14 +64,22 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 
 ## Freshness And Provenance
 
-The snapshot status summarizes indexed freshness:
+The snapshot status summarizes the runtime's view at write time:
 
 - `fresh`: latest evidence exists and index validation produced no warnings
 - `unknown`: no `EvidenceGraph` is indexed
 - `partial`: evidence exists, but index validation failed or an expected
   projection family is incomplete after projection started
-- `stale`: reserved for future file-change invalidation
+- `stale`: reserved for future file-change invalidation work informed by
+  `validateArtifactFreshness()`
 
 Snapshot warnings explicitly name missing evidence, malformed index entries, or
 missing expected projection artifacts. Publications and memory may enrich
 resolver output, but they do not rewrite lower-layer facts.
+
+The per-snapshot `status.freshness` is independent of the index-wide
+`rekon artifacts freshness` check. The snapshot status reflects what the
+runtime thought when it wrote the snapshot. `rekon artifacts freshness`
+re-evaluates lineage across every indexed artifact after the fact and can
+mark older snapshots `stale` once newer artifacts arrive. See
+[docs/concepts/freshness-and-invalidation.md](../concepts/freshness-and-invalidation.md).

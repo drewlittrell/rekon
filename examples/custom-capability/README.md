@@ -161,6 +161,21 @@ Expected behavior:
 - Permission errors: ensure `.rekon/config.json` grants only the permissions
   shown above. `rekon config validate` will flag risky or unknown permissions.
 
+## Freshness
+
+After the flow above, inspect freshness against the temp workspace:
+
+```sh
+node packages/cli/dist/index.js artifacts freshness --root /tmp/rekon-todo-example --json
+node packages/cli/dist/index.js artifacts freshness --root /tmp/rekon-todo-example --type Publication --json
+```
+
+Re-run `rekon observe` after adding another `TODO` comment to the source.
+Older `EvidenceGraph`/`FindingReport`/`Publication` artifacts will appear
+as `stale` with `newer-input-exists` issues; the latest of each remains
+`fresh`. See
+[docs/concepts/freshness-and-invalidation.md](../../docs/concepts/freshness-and-invalidation.md).
+
 ## Safety
 
 This example never writes source files and never executes commands. It writes

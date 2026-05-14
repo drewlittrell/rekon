@@ -66,9 +66,26 @@ Freshness describes whether an artifact is current relative to its declared
 inputs. Provenance explains who produced the artifact and how much confidence
 the producer has in the output.
 
-Current producers are expected to set `freshness.status` when they write
-artifacts. Contract tests validate that emitted CLI smoke-flow artifacts include
-a valid freshness status.
+`freshness.status` is a per-artifact declaration set by the producer at
+write time. It is not a runtime evaluation. Today's runtime evaluates
+freshness after the fact, against the artifact index, via
+`validateArtifactFreshness()` (`rekon artifacts freshness`). The per-artifact
+`status` field reflects what the producer thought was true when it wrote
+the artifact; the index-wide check tells you what is still true now.
+
+See [docs/concepts/freshness-and-invalidation.md](../concepts/freshness-and-invalidation.md)
+for the full statuses, checks, and CLI surface.
+
+## Integrity Versus Freshness
+
+`rekon artifacts validate` and `rekon artifacts freshness` answer
+different questions:
+
+- `validate` — index/header/digest integrity. An artifact can be valid
+  but stale.
+- `freshness` — does the artifact's lineage still match the latest
+  inputs? Reports `fresh`, `stale`, `partial`, or `unknown` per artifact
+  and in aggregate.
 
 ## Index Integrity
 
@@ -78,4 +95,5 @@ version, path, and digest must match the artifact on disk. Run:
 
 ```sh
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
+node packages/cli/dist/index.js artifacts freshness --root examples/simple-js-ts --json
 ```

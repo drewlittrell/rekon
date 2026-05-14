@@ -176,9 +176,15 @@ reference:
 - `paths`: changes to source paths or globs.
 - `events`: external events (e.g., dependency updates).
 
-The alpha runtime does not yet implement a watcher-driven freshness engine.
-Capabilities should still declare invalidation rules now so future runtimes
-can interpret them.
+The alpha runtime evaluates `inputs` indirectly through artifact lineage
+(`header.inputRefs`) via `validateArtifactFreshness()` (CLI: `rekon
+artifacts freshness`). `paths` and `events` rules are public intent: they
+describe what *should* trigger regeneration. A future watcher / freshness
+engine will evaluate them.
+
+Capabilities should declare invalidation rules now so future runtimes can
+interpret them without retroactive manifest edits. See
+[../concepts/freshness-and-invalidation.md](../concepts/freshness-and-invalidation.md).
 
 ## Artifact Types
 

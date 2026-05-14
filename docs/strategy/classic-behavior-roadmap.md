@@ -58,7 +58,10 @@ scope:
 - **Freshness/invalidation engine.** A runtime feature that consumes
   capability `invalidatedBy` rules and updates artifact freshness on
   change events. Aligned to `lib/context-freshness.ts`,
-  `lib/watcher-lifecycle.ts`.
+  `lib/watcher-lifecycle.ts`. Initial lineage-based freshness ships
+  today as `validateArtifactFreshness()` and
+  `rekon artifacts freshness`; path/event-driven invalidation is part
+  of the future watcher.
 - **Issue lifecycle and status.** Issue merge / dedupe / filter semantics
   on `FindingReport`. Aligned to `domain/issues/mergeIssues.ts`.
 - **Graph slice expansion (consumer-driven).** Add new `GraphSlice`

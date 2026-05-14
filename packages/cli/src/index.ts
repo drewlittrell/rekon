@@ -17,6 +17,7 @@ import {
   type ArtifactIndexEntry,
   createLocalArtifactStore,
   createRuntime,
+  validateArtifactFreshness,
   validateArtifactIndex,
 } from "@rekon/runtime";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
@@ -450,6 +451,20 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "artifacts" && subcommand === "freshness") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const artifactType = typeof parsed.flags.type === "string" ? parsed.flags.type : undefined;
+    const artifactId = typeof parsed.flags.id === "string" ? parsed.flags.id : undefined;
+    const result = await validateArtifactFreshness(store, {
+      artifactType,
+      artifactId,
+    });
+
+    writeOutput(result, json);
+    return;
+  }
+
   if (command === "config" && subcommand === "validate") {
     const result = await validateConfig(root);
     writeOutput(result, json);
@@ -610,7 +625,49 @@ async function ensureSnapshotReady(runtime: Awaited<ReturnType<typeof createDefa
     await runtime.runEvaluate();
   }
 
-  await runtime.runSnapshot();
+  if (await snapshotIsStaleOrMissing(runtime)) {
+    await runtime.runSnapshot();
+  }
+}
+
+async function snapshotIsStaleOrMissing(
+  runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
+): Promise<boolean> {
+  const snapshots = await runtime.artifacts.list("IntelligenceSnapshot");
+  const latestSnapshot = snapshots.sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  )[0];
+
+  if (!latestSnapshot) {
+    return true;
+  }
+
+  const inputTypes = [
+    "EvidenceGraph",
+    "ObservedRepo",
+    "OwnershipMap",
+    "CapabilityMap",
+    "GraphSlice",
+    "FindingReport",
+    "MemorySelection",
+  ];
+
+  for (const type of inputTypes) {
+    const entries = await runtime.artifacts.list(type);
+    const latest = entries.sort((left, right) =>
+      right.writtenAt.localeCompare(left.writtenAt),
+    )[0];
+
+    if (!latest) {
+      continue;
+    }
+
+    if (latest.writtenAt.localeCompare(latestSnapshot.writtenAt) > 0) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function ensurePreflight(
@@ -633,7 +690,24 @@ async function ensurePreflight(
     await runtime.runEvaluate();
   }
 
-  const snapshotRef = await runtime.runSnapshot();
+  let snapshotRef: { type: string; id: string; schemaVersion: string };
+
+  if (await snapshotIsStaleOrMissing(runtime)) {
+    snapshotRef = await runtime.runSnapshot();
+  } else {
+    const snapshots = await runtime.artifacts.list("IntelligenceSnapshot");
+    const latest = snapshots.sort((left, right) =>
+      right.writtenAt.localeCompare(left.writtenAt),
+    )[0];
+    snapshotRef = latest
+      ? {
+        type: latest.type,
+        id: latest.id,
+        schemaVersion: latest.schemaVersion,
+      }
+      : await runtime.runSnapshot();
+  }
+
   await runtime.runResolve({
     resolverId: "resolve.preflight",
     input: {
@@ -1057,5 +1131,6 @@ function usage(): string {
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",
+    "rekon artifacts freshness [--root <path>] [--type <type>] [--id <id>] [--json]",
   ].join("\n");
 }

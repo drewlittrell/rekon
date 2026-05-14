@@ -85,14 +85,33 @@ invalidatedBy: [
     description: "Evidence changes when source files change.",
     paths: ["**/*"],
   },
+  {
+    id: "evidence.changed",
+    description: "Findings change when evidence changes.",
+    inputs: ["EvidenceGraph"],
+  },
 ]
 ```
 
 Rules can reference:
 
-- `inputs`
-- `paths`
-- `events`
+- `inputs` — artifact types whose change should invalidate this output.
+  The current alpha freshness validator evaluates `inputs` indirectly
+  through `header.inputRefs`: if a consumer ref'd an older artifact of
+  a declared input type and a newer one exists, the consumer goes
+  `stale`.
+- `paths` — file globs whose change should invalidate this output.
+  Public intent for the future watcher; the alpha does not evaluate
+  path-based invalidation.
+- `events` — named events (reserved for future runtime support).
+
+Declare conservative `invalidatedBy` rules now. A future watcher /
+freshness engine will evaluate `paths` and `events` without requiring
+retroactive manifest edits.
+
+See [docs/concepts/freshness-and-invalidation.md](../concepts/freshness-and-invalidation.md)
+for the full freshness model and the `rekon artifacts freshness` CLI
+surface.
 
 ## Compatibility
 
