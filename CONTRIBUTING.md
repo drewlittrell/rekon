@@ -9,6 +9,22 @@ The [roadmap](docs/strategy/roadmap.md) and the
 [codebase-intel-classic migration plan](docs/strategy/codebase-intel-classic-migration.md)
 describe sequencing and where the classic reference fits.
 
+Before proposing a migrated capability, also read:
+
+- [docs/strategy/classic-alignment-map.md](docs/strategy/classic-alignment-map.md)
+- [docs/strategy/classic-behavior-distillation.md](docs/strategy/classic-behavior-distillation.md)
+- [docs/strategy/classic-wins.md](docs/strategy/classic-wins.md)
+- [docs/strategy/classic-to-rekon-translation.md](docs/strategy/classic-to-rekon-translation.md)
+- [docs/strategy/classic-refactor-principles.md](docs/strategy/classic-refactor-principles.md)
+- [docs/strategy/classic-behavior-roadmap.md](docs/strategy/classic-behavior-roadmap.md)
+
+A proposal to port classic behavior must identify what is good, what is
+accidental, and how Rekon will preserve the win without copying the old
+shape. The proposal should also include a `CODEBASE-INTEL ALIGNMENT`
+section (per [AGENTS.md](AGENTS.md)) covering the classic capability,
+relevant source areas, what Rekon keeps, simplifies, and does not port,
+and which phase of the classic behavior roadmap the work advances.
+
 ## Setup
 
 Use Node `^20.12 || ^22 || ^24`.

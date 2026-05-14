@@ -49,3 +49,14 @@ Completion summary must include:
 - INTENTIONALLY UNTOUCHED
 - RISKS / FOLLOW-UP
 - NEXT STEP
+
+For major capability work, include a CODEBASE-INTEL ALIGNMENT section that names:
+
+- Classic capability or failure mode being addressed
+- Relevant classic files/systems (e.g., `services/IssueDetectionService.ts`, `lib/context/resolver.ts`, `packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts`)
+- What Rekon keeps from the classic behavior
+- What Rekon simplifies
+- What Rekon does not port yet
+- How this advances migration phase per [docs/strategy/classic-behavior-roadmap.md](docs/strategy/classic-behavior-roadmap.md)
+
+Do not implement a new Rekon capability only because it is generally useful. Every capability should distill, generalize, or prepare migration for a proven `codebase-intel-classic` behavior unless explicitly marked as experimental exploration. Use [docs/strategy/classic-behavior-distillation.md](docs/strategy/classic-behavior-distillation.md), [docs/strategy/classic-wins.md](docs/strategy/classic-wins.md), [docs/strategy/classic-refactor-principles.md](docs/strategy/classic-refactor-principles.md), and [docs/strategy/classic-alignment-map.md](docs/strategy/classic-alignment-map.md) as the anchors.

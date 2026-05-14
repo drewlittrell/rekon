@@ -186,9 +186,28 @@ or be deferred.
   not precede it.
 - Hosted surfaces come last.
 
+## Classic Behavior Alignment
+
+Most committed-direction and future-expansion items above trace back to
+hard-won behavior in `codebase-intel-classic`. The dedicated distillation
+docs explain which wins each item preserves and how:
+
+- [classic-behavior-distillation.md](classic-behavior-distillation.md)
+- [classic-wins.md](classic-wins.md)
+- [classic-to-rekon-translation.md](classic-to-rekon-translation.md)
+- [classic-refactor-principles.md](classic-refactor-principles.md)
+- [classic-behavior-roadmap.md](classic-behavior-roadmap.md)
+- [classic-alignment-map.md](classic-alignment-map.md)
+
 ## Cross-References
 
 - [NorthStar](north-star.md)
 - [Capability model](capability-model.md)
 - [codebase-intel-classic migration](codebase-intel-classic-migration.md)
+- [Classic behavior distillation](classic-behavior-distillation.md)
+- [Classic wins](classic-wins.md)
+- [Classic-to-Rekon translation](classic-to-rekon-translation.md)
+- [Classic refactor principles](classic-refactor-principles.md)
+- [Classic behavior roadmap](classic-behavior-roadmap.md)
+- [Classic alignment map](classic-alignment-map.md)
 - [Alpha release checklist](../release/alpha-release-checklist.md)

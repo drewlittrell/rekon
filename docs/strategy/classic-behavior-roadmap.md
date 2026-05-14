@@ -1,0 +1,127 @@
+# Classic Behavior Roadmap
+
+A phased plan for distilling `codebase-intel-classic` behavior into Rekon.
+Each phase moves wins forward without copying the accidents.
+
+This document complements [roadmap.md](roadmap.md). The general roadmap
+covers all Rekon work; this document is the classic-aligned subset.
+
+## Phase A — Already Represented In Rekon
+
+These classic wins exist today in Rekon (alpha spine):
+
+- `EvidenceGraph` via `@rekon/capability-js-ts` and the kernel-evidence
+  contract.
+- `ObservedRepo`, `OwnershipMap`, `CapabilityMap` via
+  `@rekon/capability-model`.
+- `GraphSlice` (import, symbol, ownership) via
+  `@rekon/capability-graph`.
+- `Rulebook` + `Finding` + `FindingReport` via
+  `@rekon/capability-policy` and `@rekon/kernel-rulebook` +
+  `@rekon/kernel-findings`.
+- `ResolverPacket` with `resolutionTrace` via
+  `@rekon/capability-resolver`'s `resolve.preflight` resolver.
+- `Publication` via `@rekon/capability-docs`.
+- `OperatorFeedbackEntry`, `MemoryEvent`, `MemorySelection` via
+  `@rekon/capability-memory`.
+- `IntentMap`, `WorkOrder`, `VerificationPlan` via
+  `@rekon/capability-intent`.
+- `ReconciliationPlan`, `ReconciliationLog`, `ActionLog` via
+  `@rekon/capability-reconcile`.
+- Capability manifests with `consumes`, `produces`, `permissions`,
+  `invalidatedBy`, `compatibility`, plus the `validateCapability()` and
+  `assertCapabilityConforms()` helpers in `@rekon/sdk`.
+- CLI generic dispatch for `evaluator`, `resolver`, and `publisher` roles
+  (`rekon evaluate list/run`, `rekon resolve list/run`,
+  `rekon publish list/run`).
+- Artifact index integrity validation via `rekon artifacts validate`.
+- Optional `REKON_DOGFOOD_CLASSIC_ROOT` dogfood regression harness.
+
+## Phase B — Next Distillations
+
+Small, focused batches that move classic wins forward without expanding
+scope:
+
+- **First external rule-pack example.** A community-style import-boundary
+  evaluator that consumes `EvidenceGraph` + `GraphSlice` and produces
+  `FindingReport`. Aligned to
+  `domain/issues/evaluators/imports/*`, `domain/issues/RulesResolver.ts`,
+  `services/issues/detection-phases.ts`.
+- **Richer import governance.** Multiple import-related rules (no-dist,
+  no-relative-node_modules, layer-boundary, package-public-surface)
+  shipped as rule-pack entries with stable ids.
+- **Freshness/invalidation engine.** A runtime feature that consumes
+  capability `invalidatedBy` rules and updates artifact freshness on
+  change events. Aligned to `lib/context-freshness.ts`,
+  `lib/watcher-lifecycle.ts`.
+- **Issue lifecycle and status.** Issue merge / dedupe / filter semantics
+  on `FindingReport`. Aligned to `domain/issues/mergeIssues.ts`.
+- **Graph slice expansion (consumer-driven).** Add new `GraphSlice`
+  producers (route, call, runtime) only when an evaluator/resolver
+  consumes them.
+- **Route / seam / issue resolvers.** Additional resolver handlers within
+  `@rekon/capability-resolver` or community packs. Aligned to
+  `lib/context/resolver.ts`'s phase model.
+- **Architecture-summary publisher.** A `Publication` capability that
+  summarizes ownership, capability map, and top findings. Aligned to
+  `services/ArchitectureDocsHandler.ts`.
+
+## Phase C — Later Maturity
+
+Larger investments, gated by Phase B outcomes and real demand:
+
+- **Semantic augmentation as an opt-in capability role.** A
+  `semantic-provider` / `evaluator` capability that calls an LLM under
+  explicit `network:outbound` permission, records model/version in
+  provenance, and never silently overwrites deterministic facts.
+- **Full rulebook compilation.** A capability that compiles YAML
+  invariants into `Rulebook` entries and registers evaluators dynamically.
+  Aligned to `services/InvariantsCompilationHandler.ts`,
+  `lib/analysis/RuleCompilationRunner.ts`.
+- **Memory promotion / curation.** A capability that promotes durable,
+  verified memory into `Rulebook` entries through a permissioned
+  actuator. Aligned to `lib/operator-feedback.ts` promotion semantics.
+- **Intent phase preparation.** Anti-gaming gate evidence (behavior,
+  semantic, artifact) + work-unit phase preparation. Aligned to
+  `packages/product-codebase-intel/src/intent/**`.
+- **Deterministic source-write reconciliation.** Source writes behind
+  explicit `write:source` permission per operation, with dry-run still
+  the default. Aligned to
+  `packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts`.
+- **Watcher.** A long-running `rekon watch` subcommand that consumes
+  freshness rules and emits `WatcherProof` artifacts.
+- **GitHub / CI publishers.** A `publisher` capability that maps
+  `FindingReport` severities onto GitHub check semantics. Aligned to
+  classic GitHub governance payloads.
+
+## Phase D — Deferred Surfaces
+
+These belong outside the local substrate. They consume Rekon as a
+dependency rather than living inside the alpha:
+
+- **Dashboard.** Optional hosted UI that reads `Publication` and
+  `FindingReport` artifacts.
+- **SaaS surface.** Hosted version of Rekon for organization-wide use.
+- **Marketplace / discovery.** Capability marketplace and trust model.
+
+## Sequencing Notes
+
+- Phase B work should land in small batches, each with a
+  `CODEBASE-INTEL ALIGNMENT` section per `AGENTS.md`.
+- Do not skip ahead to Phase C without Phase B's freshness, issue
+  lifecycle, and rule-pack distillations in place.
+- Phase D surfaces should never be implemented inside the substrate
+  repo; they consume `@rekon/*` packages.
+- A new Rekon capability should generally trace back to a classic-behavior
+  distillation. Pure speculative capabilities are allowed but should be
+  marked as experimental exploration and reviewed against the wins.
+
+Cross-references:
+
+- [classic-behavior-distillation.md](classic-behavior-distillation.md)
+- [classic-wins.md](classic-wins.md)
+- [classic-to-rekon-translation.md](classic-to-rekon-translation.md)
+- [classic-refactor-principles.md](classic-refactor-principles.md)
+- [classic-alignment-map.md](classic-alignment-map.md)
+- [roadmap.md](roadmap.md)
+- [codebase-intel-classic-migration.md](codebase-intel-classic-migration.md)

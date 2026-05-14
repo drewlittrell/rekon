@@ -223,13 +223,22 @@ The post-alpha direction is captured in
 [docs/strategy/roadmap.md](roadmap.md). The capability roles and contract
 are captured in [docs/strategy/capability-model.md](capability-model.md).
 Migration from `codebase-intel-classic` is captured in
-[docs/strategy/codebase-intel-classic-migration.md](codebase-intel-classic-migration.md).
+[docs/strategy/codebase-intel-classic-migration.md](codebase-intel-classic-migration.md),
+and the durable distillation of hard-won classic behavior lives in
+[docs/strategy/classic-behavior-distillation.md](classic-behavior-distillation.md),
+[docs/strategy/classic-wins.md](classic-wins.md),
+[docs/strategy/classic-to-rekon-translation.md](classic-to-rekon-translation.md),
+[docs/strategy/classic-refactor-principles.md](classic-refactor-principles.md),
+[docs/strategy/classic-behavior-roadmap.md](classic-behavior-roadmap.md),
+and [docs/strategy/classic-alignment-map.md](classic-alignment-map.md).
 
 The intent is consistent: more capability roles, more language and framework
 packs, richer runtime truth, a freshness engine, more publication surfaces,
 memory curation and promotion, intent and reconciliation maturity, and (much
 later) optional hosted surfaces. All of these should remain compatible with
-the artifact hierarchy and the architecture rule above.
+the artifact hierarchy and the architecture rule above. Each should also
+trace back to a classic-behavior distillation rather than appear as an
+unanchored speculative feature.
 
 If a future capability or surface would violate the NorthStar, update this
 document explicitly before shipping that change.
