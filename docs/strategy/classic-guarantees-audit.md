@@ -690,40 +690,70 @@ Classic shape that provided the guarantee:
   `schemas/memory-kind-taxonomy.schema.ts`.
 
 What Rekon already preserves:
-- `@rekon/capability-memory` registers a learner.
+- `@rekon/capability-memory` registers a learner with two modes
+  (`add` and `select`).
 - `rekon memory add`, `rekon memory list`, and `rekon memory
-  select` cover capture and basic scope-based recall.
-- `MemorySelection` artifacts are written and consumed by
-  resolvers.
+  select` cover capture, listing, and ranked selection.
+- **v1 ranking shipped.** Selection is a deterministic, reason-
+  attached score over scope match (path / system / capability /
+  tags), verification status, reliability, priority, freshness,
+  and specificity. The output includes a `rejected` array
+  surfacing entries filtered for `deprecated` / `superseded` /
+  `disputed` / `scope-mismatch`. `OperatorFeedbackEntry` gained
+  optional scope dimensions (`systems`, `capabilities`, `layers`,
+  `tags`), quality signals (`reliability`, `priority`),
+  provenance (`createdAt`, `updatedAt`, `source`, `status`),
+  verification (`verification.status`, `verification.verifiedAt`,
+  `verification.verificationResultRef`), and a `rationale`.
+- `MemorySelection.selections[*]` is preserved (legacy field) so
+  the resolver and any older consumer continue to work.
+- Resolver invariant pinned: memory does not mutate
+  `ownerSystems`, `risk`, `findings`, `status`, or
+  `nextRequiredResolver`. See the contract test "preflight
+  resolver includes selected memory but does not mutate
+  ownerSystems or finding status."
 
 What Rekon may be discounting:
-- Classic memory was a *quality* system: reliability scoring,
-  freshness decay, specificity weighting, promotion to durable
-  knowledge. Rekon's alpha memory is more "operator-supplied
-  notes that the resolver may pull in." That's a real gap
-  because as memory volume grows, recall quality becomes the
-  whole game.
+- Classic memory had a *quality* system at depth: usage analytics
+  (selected-but-not-used demotion), supersession chains, decay
+  policies, and automatic promotion of consistently used +
+  verified entries to durable `Rulebook` rules. Rekon v1 closes
+  the ranking and rejection layer; the promotion / curation
+  engine and usage analytics remain future work.
 
 Current gap:
-- No ranking by reliability / freshness / specificity.
-- No curation / promotion to `Rulebook` entries.
+- No promotion / curation engine that lifts memory into
+  `Rulebook` entries.
+- No supersession chain (`status: "superseded"` is supported but
+  there is no link back to the superseding entry).
 - No context-usage feedback loop ("memory X was selected but
   unused N times → demote").
+- No decay policies beyond simple freshness scoring.
 
 Rekon equivalent guarantee:
-- `MemorySelection` artifacts are ranked by an explainable score
-  that combines scope match, freshness, and operator-marked
-  reliability. Curation can promote durable memory into rulebook
-  entries through a permissioned actuator.
+- `MemorySelection` artifacts are ranked by an explainable
+  deterministic score combining scope, verification, reliability,
+  priority, freshness, and specificity. Rejected entries are
+  surfaced with reasons. Memory never appears in canonical
+  artifacts (ownership / findings / coherency / verification).
 
 Regression test needed:
-- Multiple memory entries at the same scope rank deterministically;
-  a memory marked unreliable falls out of selection.
+- Shipped in `tests/contract/memory-ranking-curation.test.mjs`
+  (10 tests). Specifically: path-specific verified memory
+  outranks broad stale memory; deprecated / superseded entries
+  are rejected; disputed entries are rejected; high priority
+  cannot beat an exact verified path match against a non-matching
+  system; stale memory receives the freshness penalty but stays
+  selected so curators can act on it; the resolver consumes
+  selected memory but does not mutate `ownerSystems` or finding
+  status; verified memory with a `verificationResultRef` carries
+  the `verified` reason.
 
-Priority: **P1**
+Priority: **P1 preserved (v1)**
 
-Next implementation slice: Memory ranking / curation v1 — the next
-batch identified in the previous review packet.
+Next implementation slice: memory promotion / curation engine
+(usage analytics, supersession chains, decay, promotion to
+`Rulebook` entries). Phase C.
 
 ---
 

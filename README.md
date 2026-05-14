@@ -114,7 +114,7 @@ node packages/cli/dist/index.js resolve run resolve.preflight --root examples/si
 node packages/cli/dist/index.js publish list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish agents --root examples/simple-js-ts
 node packages/cli/dist/index.js publish run @rekon/capability-docs.publisher --root examples/simple-js-ts --json
-node packages/cli/dist/index.js memory add --root examples/simple-js-ts --instruction "Preserve bootstrap behavior." --path src
+node packages/cli/dist/index.js memory add --root examples/simple-js-ts --instruction "Preserve bootstrap behavior." --path src --system src --priority high --verified --reliability 0.9 --rationale "Repeated operator correction." --json
 node packages/cli/dist/index.js memory list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js memory select --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 node packages/cli/dist/index.js intent work-order --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json

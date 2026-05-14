@@ -182,6 +182,27 @@ is the first stop before proposing a new capability batch.
   include `"proof-report"`. `rekon publish proof` invokes it; generic
   dispatch works too. The publisher does not execute commands or
   judge verification sufficiency.
+- Memory ranking / curation v1 (P1.2 closure from the Classic
+  Guarantees Audit): `@rekon/capability-memory` now ranks
+  `OperatorFeedbackEntry` recalls deterministically with reason
+  attribution. The score blends scope match (path / system /
+  capability / tags), verification status, reliability, priority,
+  freshness, and specificity. `OperatorFeedbackEntry` gained
+  optional scope dimensions, quality signals (`verification`,
+  `reliability`, `priority`), provenance (`createdAt` /
+  `updatedAt` / `source` / `status`), and a `rationale`.
+  `MemorySelection` gained `query`, `selected` (with per-item
+  `score` / `reasons` / `match`), and `rejected` (surfacing
+  deprecated / superseded / disputed / scope-mismatch). The
+  legacy `selections[*]` array is preserved so
+  `resolve.preflight` consumes memory without changes. `rekon
+  memory add` / `rekon memory select` expose the new flags
+  (`--system`, `--capability`, `--tag`, `--layer`, `--priority`,
+  `--reliability`, `--verified`, `--rationale`, `--limit`).
+  Resolver invariant pinned: memory never mutates
+  `ownerSystems`, `risk`, `findings`, `status`, or
+  `nextRequiredResolver`. Promotion / curation engine and
+  context-usage analytics remain Phase C.
 - `rekon refresh` (P0.1 closure from the Classic Guarantees Audit):
   new CLI command that orchestrates the full Rekon lifecycle in the
   documented order — `init` → `config.validate` → `observe` →

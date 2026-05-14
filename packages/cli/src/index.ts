@@ -288,6 +288,27 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error("rekon memory add requires --instruction <text> and --path <path>.");
     }
 
+    const systems = parseRepeatableFlag(parsed.flags.system);
+    const capabilities = parseRepeatableFlag(parsed.flags.capability);
+    const tags = parseRepeatableFlag(parsed.flags.tag);
+    const layers = parseRepeatableFlag(parsed.flags.layer);
+    const priorityFlag = typeof parsed.flags.priority === "string" ? parsed.flags.priority : undefined;
+
+    if (priorityFlag && priorityFlag !== "low" && priorityFlag !== "normal" && priorityFlag !== "high") {
+      throw new Error("rekon memory add --priority must be one of low, normal, high.");
+    }
+
+    const reliabilityFlag = typeof parsed.flags.reliability === "string"
+      ? Number.parseFloat(parsed.flags.reliability)
+      : undefined;
+
+    if (reliabilityFlag !== undefined && (Number.isNaN(reliabilityFlag) || reliabilityFlag < 0 || reliabilityFlag > 1)) {
+      throw new Error("rekon memory add --reliability must be a number between 0 and 1.");
+    }
+
+    const verifiedFlag = parsed.flags.verified === true || parsed.flags.verified === "true";
+    const rationale = typeof parsed.flags.rationale === "string" ? parsed.flags.rationale : undefined;
+
     const runtime = await createDefaultRuntime(root);
     const refs = await runtime.runLearn({
       learnerId: "@rekon/capability-memory.learner",
@@ -296,6 +317,14 @@ export async function main(argv: string[]): Promise<void> {
         instruction,
         path,
         goal: typeof parsed.flags.goal === "string" ? parsed.flags.goal : undefined,
+        systems: systems.length > 0 ? systems : undefined,
+        capabilities: capabilities.length > 0 ? capabilities : undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        layers: layers.length > 0 ? layers : undefined,
+        priority: priorityFlag,
+        reliability: reliabilityFlag,
+        verified: verifiedFlag ? true : undefined,
+        rationale,
       },
     });
     writeOutput({ artifacts: refs }, json);
@@ -317,6 +346,13 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error("rekon memory select requires --path <path>.");
     }
 
+    const tags = parseRepeatableFlag(parsed.flags.tag);
+    const limitFlag = typeof parsed.flags.limit === "string" ? Number.parseInt(parsed.flags.limit, 10) : undefined;
+
+    if (limitFlag !== undefined && (Number.isNaN(limitFlag) || limitFlag <= 0)) {
+      throw new Error("rekon memory select --limit must be a positive integer.");
+    }
+
     const runtime = await createDefaultRuntime(root);
     const refs = await runtime.runLearn({
       learnerId: "@rekon/capability-memory.learner",
@@ -324,6 +360,10 @@ export async function main(argv: string[]): Promise<void> {
         mode: "select",
         path,
         goal: typeof parsed.flags.goal === "string" ? parsed.flags.goal : "",
+        system: typeof parsed.flags.system === "string" ? parsed.flags.system : undefined,
+        capability: typeof parsed.flags.capability === "string" ? parsed.flags.capability : undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        limit: limitFlag,
       },
     });
     const selection = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
@@ -2197,9 +2237,9 @@ function usage(): string {
     "rekon publish proof [--root <path>] [--json]",
     "rekon publish list [--root <path>] [--json]",
     "rekon publish run <publisher-id> [--root <path>] [--input-json <json>] [--json]",
-    "rekon memory add --instruction <text> --path <path> [--goal <goal>] [--root <path>] [--json]",
+    "rekon memory add --instruction <text> --path <path> [--goal <goal>] [--system <system>] [--capability <capability>] [--tag <tag>] [--layer <layer>] [--priority low|normal|high] [--reliability <0..1>] [--verified] [--rationale <text>] [--root <path>] [--json]",
     "rekon memory list [--root <path>] [--json]",
-    "rekon memory select --path <path> --goal <goal> [--root <path>] [--json]",
+    "rekon memory select --path <path> [--goal <goal>] [--system <system>] [--capability <capability>] [--tag <tag>] [--limit <n>] [--root <path>] [--json]",
     "rekon resolve preflight --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon resolve route --path <path> [--path <path>] [--goal <goal>] [--concern <concern>] [--root <path>] [--json]",
     "rekon resolve seam --path <path> [--path <path>] [--primary-owner <owner>] [--goal <goal>] [--root <path>] [--json]",

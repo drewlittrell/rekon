@@ -244,6 +244,30 @@ scope:
   without porting the cache or per-phase checkpoint artifacts;
   Rekon's `inputRefs` + `artifacts.validate` +
   `artifacts.freshness` cover what those checkpoints recorded.
+- **Memory ranking / curation v1 (P1.2 closure).** ✅ Initial
+  slice shipped. `@rekon/capability-memory` now ranks
+  `OperatorFeedbackEntry` recalls deterministically with reason
+  attribution. The score blends scope match (path / system /
+  capability / tags), verification status, reliability, priority,
+  freshness, and specificity. `OperatorFeedbackEntry` gained
+  optional `scope.systems` / `scope.capabilities` /
+  `scope.layers` / `scope.tags`, `verification`, `reliability`,
+  `priority`, `createdAt` / `updatedAt`, `source`, and `status`.
+  `MemorySelection` gained `query`, `selected` (with per-item
+  `id` / `score` / `reasons` / `match` / `priority` /
+  `verification`), and `rejected` (surfacing `deprecated-rejected`
+  / `superseded-rejected` / `disputed-rejected` /
+  `scope-mismatch`). The legacy `selections[*]` array is
+  preserved so the resolver continues to consume memory without
+  changes. `rekon memory add` and `rekon memory select` expose
+  the new flags (`--system`, `--capability`, `--tag`, `--layer`,
+  `--priority`, `--reliability`, `--verified`, `--rationale`,
+  `--limit`). Resolver invariant pinned: memory does not mutate
+  `ownerSystems`, `risk`, `findings`, `status`, or
+  `nextRequiredResolver`. Closes P1.2 from
+  [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
+  Promotion / curation engine, supersession chains, usage
+  analytics, and decay policies remain future work.
 
 ## Phase C — Later Maturity
 

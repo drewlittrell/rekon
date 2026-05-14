@@ -340,20 +340,43 @@ Classic source:
   `schemas/memory-kind-taxonomy.schema.ts`.
 
 Current Rekon coverage:
-- Basic capture / list / select.
+- **v1 closed.** `@rekon/capability-memory` v1 ships a
+  deterministic ranking algorithm that scores entries on scope
+  match (path / system / capability / tags), verification status,
+  reliability, priority, freshness, and specificity. Selection
+  output includes per-entry `score` / `reasons` /
+  `match` plus a `rejected` array naming deprecated / superseded /
+  disputed / scope-mismatched entries. `OperatorFeedbackEntry`
+  gained `scope.systems` / `scope.capabilities` / `scope.layers` /
+  `scope.tags`, `verification`, `reliability`, `priority`,
+  `createdAt` / `updatedAt`, `source`, `status`. `rekon memory
+  add` and `rekon memory select` expose the new flags. The
+  resolver continues to read the legacy `selections[*]` array
+  unchanged.
+- See [../concepts/memory.md](../concepts/memory.md) for the full
+  algorithm and CLI surface.
 
 Missing coverage:
-- Ranking; freshness decay; reliability weighting; curation /
-  promotion.
+- Promotion / curation engine (automatic promotion of consistently
+  used + verified memory into `Rulebook` entries).
+- Supersession chains.
+- Context-usage analytics.
+- Decay policies beyond simple freshness scoring.
 
 Proposed regression test:
-- `tests/contract/memory-ranking.test.mjs`: multiple memory
-  entries at the same scope; assert deterministic ranking; assert
-  an unreliable memory falls out of selection.
+- Shipped in `tests/contract/memory-ranking-curation.test.mjs`
+  (10 tests): path-specific verified outranks broad stale;
+  deprecated and superseded are rejected; disputed is rejected;
+  high priority cannot beat an exact verified path match against
+  a non-matching system; stale memory receives the freshness
+  penalty but stays selected so curators can act on it; the
+  resolver consumes selected memory but does not mutate
+  `ownerSystems` or finding status; verified memory with a
+  `verificationResultRef` carries the `verified` reason.
 
 Implementation batch:
-- "Memory ranking / curation v1" — explicitly named in the
-  classic-behavior roadmap.
+- "Memory ranking / curation v1" (shipped). Promotion / curation
+  engine is the natural follow-up batch.
 
 ### P1.3 Agent-operating-contract publication
 
