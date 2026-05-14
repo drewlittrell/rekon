@@ -39,6 +39,8 @@ When agents need a coherent Rekon intelligence state for a target repo (architec
 
 When agents need a current operating contract for the target repo — durable operating rules, resolver workflow, current ownership/governance state, proof status, ranked memory guidance, required checks, and anti-gaming reminders, all generated from current artifacts — run `rekon publish agent-contract --root <path> --json`. The output Publication is written to `.rekon/artifacts/publications/agent-contract.md`. See [docs/concepts/agent-operating-contract.md](docs/concepts/agent-operating-contract.md). The publisher never overwrites the repository's root `AGENTS.md`.
 
+To materialize the generated contract to a repo-local path, run `rekon agent-contract export --root <path> --output <output-path> [--force] --json`. The export is safe by default: it refuses to overwrite existing files, protected agent-instruction paths (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*.md`, `.github/copilot-instructions.md`), and any path outside the repo root unless `--force` is provided. The written file carries a generated preamble citing the source Publication and pointing to `.rekon/artifacts` as canonical truth.
+
 Process:
 
 - During solo alpha development, push directly to `main` after required checks pass.

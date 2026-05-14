@@ -133,7 +133,16 @@ node packages/cli/dist/index.js coherency delta --root examples/simple-js-ts --j
 node packages/cli/dist/index.js publish architecture --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish proof --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish agent-contract --root examples/simple-js-ts --json
+node packages/cli/dist/index.js agent-contract export --root examples/simple-js-ts --output AGENTS.rekon.md --json
 ```
+
+`rekon agent-contract export` materializes the latest
+`agent-contract` Publication to an operator-chosen path under the
+repo root. It refuses to overwrite existing files, protected
+agent-instruction paths (`AGENTS.md`, `CLAUDE.md`,
+`.cursor/rules/*.md`, `.github/copilot-instructions.md`), and any
+path outside the repo root unless `--force` is provided. See
+[docs/concepts/agent-operating-contract.md](docs/concepts/agent-operating-contract.md).
 
 ## The `.rekon/` Workspace
 
