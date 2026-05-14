@@ -322,6 +322,75 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "resolve" && subcommand === "route") {
+    const paths = parseRepeatableFlag(parsed.flags.path);
+    const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : "";
+    const concern = typeof parsed.flags.concern === "string" ? parsed.flags.concern : undefined;
+
+    if (paths.length === 0) {
+      throw new Error("rekon resolve route requires --path <path>.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    const snapshotRef = await ensureSnapshotForResolver(runtime, paths);
+    const input: Record<string, unknown> = { snapshotRef, paths, goal };
+
+    if (concern !== undefined) {
+      input.concern = concern;
+    }
+
+    const refs = await runtime.runResolve({ resolverId: "resolve.route", input });
+    const packet = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
+
+    writeOutput({ artifact: refs[0], packet, artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "resolve" && subcommand === "seam") {
+    const paths = parseRepeatableFlag(parsed.flags.path);
+    const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : "";
+    const primaryOwner = typeof parsed.flags["primary-owner"] === "string"
+      ? parsed.flags["primary-owner"]
+      : undefined;
+
+    if (paths.length === 0) {
+      throw new Error("rekon resolve seam requires --path <path>.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    const snapshotRef = await ensureSnapshotForResolver(runtime, paths);
+    const input: Record<string, unknown> = { snapshotRef, paths, goal };
+
+    if (primaryOwner !== undefined) {
+      input.primaryOwner = primaryOwner;
+    }
+
+    const refs = await runtime.runResolve({ resolverId: "resolve.seam", input });
+    const packet = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
+
+    writeOutput({ artifact: refs[0], packet, artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "resolve" && subcommand === "issue") {
+    const issue = typeof parsed.flags.issue === "string" ? parsed.flags.issue : undefined;
+
+    if (!issue) {
+      throw new Error("rekon resolve issue requires --issue <id-or-fragment>.");
+    }
+
+    const runtime = await createDefaultRuntime(root);
+    const snapshotRef = await ensureSnapshotForResolver(runtime, []);
+    const refs = await runtime.runResolve({
+      resolverId: "resolve.issue",
+      input: { snapshotRef, issue },
+    });
+    const packet = refs[0] ? await runtime.artifacts.read(refs[0]) : null;
+
+    writeOutput({ artifact: refs[0], packet, artifacts: refs }, json);
+    return;
+  }
+
   if (command === "resolve" && subcommand === "preflight") {
     const path = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
     const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : "";
@@ -668,6 +737,46 @@ async function snapshotIsStaleOrMissing(
   }
 
   return false;
+}
+
+async function ensureSnapshotForResolver(
+  runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
+  paths: string[],
+): Promise<{ type: string; id: string; schemaVersion: string }> {
+  if ((await runtime.artifacts.list("EvidenceGraph")).length === 0) {
+    await runtime.runObserve(
+      paths.length > 0
+        ? { changedFiles: paths, incremental: true }
+        : undefined,
+    );
+  }
+
+  if ((await runtime.artifacts.list("OwnershipMap")).length === 0) {
+    await runtime.runProject();
+  }
+
+  if ((await runtime.artifacts.list("FindingReport")).length === 0) {
+    await runtime.runEvaluate();
+  }
+
+  if (await snapshotIsStaleOrMissing(runtime)) {
+    return runtime.runSnapshot();
+  }
+
+  const snapshots = await runtime.artifacts.list("IntelligenceSnapshot");
+  const latest = snapshots.sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  )[0];
+
+  if (!latest) {
+    return runtime.runSnapshot();
+  }
+
+  return {
+    type: latest.type,
+    id: latest.id,
+    schemaVersion: latest.schemaVersion,
+  };
 }
 
 async function ensurePreflight(
@@ -1124,6 +1233,9 @@ function usage(): string {
     "rekon memory list [--root <path>] [--json]",
     "rekon memory select --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon resolve preflight --path <path> --goal <goal> [--root <path>] [--json]",
+    "rekon resolve route --path <path> [--path <path>] [--goal <goal>] [--concern <concern>] [--root <path>] [--json]",
+    "rekon resolve seam --path <path> [--path <path>] [--primary-owner <owner>] [--goal <goal>] [--root <path>] [--json]",
+    "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",

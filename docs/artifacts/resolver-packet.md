@@ -2,12 +2,24 @@
 
 ## Purpose
 
-`ResolverPacket` is a resolved output artifact.
+`ResolverPacket` is a resolved output artifact written by every resolver
+phase: `resolve.route`, `resolve.seam`, `resolve.preflight`, and
+`resolve.issue`. Every packet shares an explainable header + trace
+contract; each phase adds a phase-specific payload.
 
-The initial packet is `resolve.preflight`, which takes a goal and path, then
-returns owner systems, matched scopes, risk, required checks, relevant findings,
-recommended context, applicable memory, warnings, resolution trace, and next
-steps.
+Phases:
+
+- `route` — given a goal and paths, decide owner spread and whether to
+  proceed directly to preflight or stage a seam first.
+- `seam` — designate the primary owner across multiple owners and record
+  secondary owners, or escalate when a primary cannot be chosen.
+- `preflight` — resolve ownership, attach findings and memory, evaluate
+  risk, and emit recommended context.
+- `issue` — find a `Finding` by id or fragment, resolve ownership for the
+  finding's files, and recommend the next resolver.
+
+See [../concepts/resolvers.md](../concepts/resolvers.md) for the phase
+flow and CLI surface.
 
 ## Produced By
 
@@ -26,6 +38,17 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 
 ## Common Fields
 
+Shared across phases:
+
+- `resolverId` (e.g., `resolve.route`)
+- `phase` (`route` / `seam` / `preflight` / `issue`)
+- `summary`
+- `warnings`
+- `nextSteps`
+- `resolutionTrace`
+
+Preflight phase adds:
+
 - `goal`
 - `paths`
 - `ownerSystems`
@@ -35,9 +58,29 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 - `relevantFindings`
 - `recommendedContext`
 - `applicableMemory`
-- `warnings`
-- `resolutionTrace`
-- `nextSteps`
+
+Route phase adds:
+
+- `goal`, `concern`, `paths`, `ownerSystems`, `matchedScopes`
+- `routing` (`status`, `primaryOwner`, `candidateOwners`, `needsSeam`,
+  `rationale`)
+- `recommendedContext`, `requiredChecks`
+- `nextRequiredResolver` (`resolve.seam` | `resolve.preflight`)
+
+Seam phase adds:
+
+- `goal`, `paths`, `ownerSystems`, `primaryOwner`, `secondaryOwners`
+- `seam` (`status`, `rationale`, `escalate`)
+- `recommendedContext`, `requiredChecks`
+- `nextRequiredResolver` (`resolve.preflight` when resolved)
+
+Issue phase adds:
+
+- `query`, `issue` (matched finding summary), `relatedFindings`
+- `ownerSystems`, `matchedScopes`
+- `recommendedContext`, `requiredChecks`
+- `nextRequiredResolver` (`resolve.route` | `resolve.seam` |
+  `resolve.preflight`)
 
 `resolutionTrace` explains why the packet contains its ownership and risk
 answers. Trace entries include:

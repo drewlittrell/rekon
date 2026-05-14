@@ -101,6 +101,9 @@ node packages/cli/dist/index.js evaluate list --root examples/simple-js-ts --jso
 node packages/cli/dist/index.js evaluate run @rekon/capability-policy.evaluator --root examples/simple-js-ts --json
 node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
 node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js resolve route --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js resolve seam --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
+node packages/cli/dist/index.js resolve issue --root examples/simple-js-ts --issue no-such-issue --json
 node packages/cli/dist/index.js resolve list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js resolve run resolve.preflight --root examples/simple-js-ts --input-json '{"path":"src/index.ts","goal":"modify bootstrap"}' --json
 node packages/cli/dist/index.js publish list --root examples/simple-js-ts --json

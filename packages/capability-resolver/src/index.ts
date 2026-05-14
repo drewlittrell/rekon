@@ -197,6 +197,597 @@ export const preflightResolver: Resolver = {
   },
 };
 
+export type ResolverPhase = "route" | "seam" | "preflight" | "issue";
+
+export type ResolverPacketBase = {
+  header: ArtifactHeader;
+  resolverId: string;
+  phase: ResolverPhase;
+  summary: string;
+  warnings: string[];
+  nextSteps: string[];
+  resolutionTrace: ResolutionTraceEntry[];
+};
+
+export type RoutePacket = ResolverPacketBase & {
+  phase: "route";
+  goal: string;
+  concern?: string;
+  paths: string[];
+  ownerSystems: string[];
+  matchedScopes: Array<{
+    path: string;
+    owner?: string;
+    confidence?: number;
+    source?: string;
+  }>;
+  routing: {
+    status: "single-owner" | "cross-owner" | "unresolved";
+    primaryOwner?: string;
+    candidateOwners: string[];
+    needsSeam: boolean;
+    rationale: string;
+  };
+  recommendedContext: string[];
+  requiredChecks: string[];
+  nextRequiredResolver?: "resolve.seam" | "resolve.preflight";
+};
+
+export type SeamPacket = ResolverPacketBase & {
+  phase: "seam";
+  goal: string;
+  paths: string[];
+  ownerSystems: string[];
+  primaryOwner?: string;
+  secondaryOwners: string[];
+  seam: {
+    status: "resolved" | "needs-primary-owner" | "unresolved";
+    rationale: string;
+    escalate: boolean;
+  };
+  requiredChecks: string[];
+  recommendedContext: string[];
+  nextRequiredResolver?: "resolve.preflight";
+};
+
+export type IssueSummary = {
+  id: string;
+  type: string;
+  severity: string;
+  title?: string;
+  description: string;
+  files: string[];
+  ruleId?: string;
+  suggestedAction?: string;
+};
+
+export type IssuePacket = ResolverPacketBase & {
+  phase: "issue";
+  query: string;
+  issue?: IssueSummary;
+  ownerSystems: string[];
+  matchedScopes: Array<{
+    path: string;
+    owner?: string;
+    confidence?: number;
+    source?: string;
+  }>;
+  relatedFindings: Array<{
+    id: string;
+    type: string;
+    severity: string;
+    files?: string[];
+  }>;
+  recommendedContext: string[];
+  requiredChecks: string[];
+  nextRequiredResolver?: "resolve.route" | "resolve.seam" | "resolve.preflight";
+};
+
+export const routeResolver: Resolver = {
+  id: "resolve.route",
+  produces: ["ResolverPacket"],
+  async resolve({ artifacts, input }) {
+    const snapshotRef = parseArtifactRef(input?.snapshotRef);
+    const goal = typeof input?.goal === "string" ? input.goal : "";
+    const concern = typeof input?.concern === "string" ? input.concern : undefined;
+    const paths = parsePaths(input?.path ?? input?.paths);
+
+    if (!snapshotRef) {
+      throw new Error("resolve.route requires input.snapshotRef.");
+    }
+
+    if (paths.length === 0) {
+      throw new Error("resolve.route requires input.path or input.paths.");
+    }
+
+    const snapshot = (await artifacts.read(snapshotRef)) as IntelligenceSnapshot;
+    const resolverInputTrace: ResolutionTraceEntry = {
+      step: "resolver.input",
+      sourceType: "ResolverInput",
+      status: "used",
+      message: "Resolved route request inputs.",
+      paths,
+      details: { goal, concern },
+    };
+    const ownership = await resolveOwnership({ artifacts, snapshot, paths });
+    const { matchedScopes, ownerSystems } = ownership;
+    const candidateOwners = [...ownerSystems];
+
+    let routingStatus: RoutePacket["routing"]["status"];
+    let nextRequiredResolver: RoutePacket["nextRequiredResolver"];
+    let needsSeam = false;
+    let primaryOwner: string | undefined;
+    let rationale: string;
+
+    if (ownerSystems.length === 1) {
+      routingStatus = "single-owner";
+      primaryOwner = ownerSystems[0];
+      rationale = `All requested paths route to a single owner (${primaryOwner}); proceed to preflight.`;
+      nextRequiredResolver = "resolve.preflight";
+    } else if (ownerSystems.length > 1) {
+      routingStatus = "cross-owner";
+      needsSeam = true;
+      rationale = `Requested paths span ${ownerSystems.length} owner systems (${ownerSystems.join(", ")}); seam resolution required before preflight.`;
+      nextRequiredResolver = "resolve.seam";
+    } else {
+      routingStatus = "unresolved";
+      rationale = "No owner system could be resolved for the requested paths; proceeding to preflight at elevated risk.";
+      nextRequiredResolver = "resolve.preflight";
+    }
+
+    const routingTrace: ResolutionTraceEntry = {
+      step: "routing.decide",
+      sourceType: "RiskRule",
+      status: routingStatus === "unresolved" ? "warning" : "used",
+      message: rationale,
+      paths,
+      systems: ownerSystems,
+      details: {
+        routingStatus,
+        candidateOwners,
+        primaryOwner,
+        needsSeam,
+        nextRequiredResolver,
+      },
+    };
+    const nextStepTrace: ResolutionTraceEntry = {
+      step: "next.resolver",
+      sourceType: "Fallback",
+      status: "used",
+      message: `Next resolver: ${nextRequiredResolver}.`,
+      paths,
+      details: { nextRequiredResolver },
+    };
+
+    const warnings = [...ownership.warnings];
+
+    if (routingStatus === "unresolved") {
+      warnings.push("Routing unresolved; preflight will run at elevated risk.");
+    }
+
+    const resolutionTrace = [
+      resolverInputTrace,
+      ...ownership.trace,
+      routingTrace,
+      nextStepTrace,
+    ];
+
+    const summary = routingStatus === "single-owner"
+      ? `Single-owner route to ${primaryOwner}.`
+      : routingStatus === "cross-owner"
+        ? `Cross-owner route across ${ownerSystems.join(", ")}.`
+        : "Route unresolved.";
+
+    const packet: RoutePacket = {
+      header: {
+        artifactType: "ResolverPacket",
+        artifactId: `route-${Date.now()}`,
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        snapshotId: snapshot.header.artifactId,
+        subject: {
+          repoId: snapshot.repo.id,
+          ref: snapshot.repo.branch,
+          commit: snapshot.repo.commit,
+          paths,
+          systems: ownerSystems,
+        },
+        producer: {
+          id: "@rekon/capability-resolver",
+          version: "0.1.0",
+        },
+        inputRefs: collectInputRefs(snapshot, snapshotRef),
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: ownerSystems.length > 0 ? 0.75 : 0.4,
+          notes: ["resolve.route"],
+        },
+      },
+      resolverId: "resolve.route",
+      phase: "route",
+      summary,
+      goal,
+      concern,
+      paths,
+      ownerSystems,
+      matchedScopes,
+      routing: {
+        status: routingStatus,
+        primaryOwner,
+        candidateOwners,
+        needsSeam,
+        rationale,
+      },
+      recommendedContext: buildRecommendedContext(paths, ownerSystems),
+      requiredChecks: ["npm run typecheck", "npm run test"],
+      nextRequiredResolver,
+      warnings,
+      resolutionTrace,
+      nextSteps: routeNextSteps(routingStatus, primaryOwner, ownerSystems),
+    };
+
+    const ref = await artifacts.write("ResolverPacket", packet);
+
+    return [ref];
+  },
+};
+
+export const seamResolver: Resolver = {
+  id: "resolve.seam",
+  produces: ["ResolverPacket"],
+  async resolve({ artifacts, input }) {
+    const snapshotRef = parseArtifactRef(input?.snapshotRef);
+    const goal = typeof input?.goal === "string" ? input.goal : "";
+    const paths = parsePaths(input?.path ?? input?.paths);
+    const requestedPrimaryOwner = typeof input?.primaryOwner === "string" && input.primaryOwner.length > 0
+      ? input.primaryOwner
+      : undefined;
+
+    if (!snapshotRef) {
+      throw new Error("resolve.seam requires input.snapshotRef.");
+    }
+
+    if (paths.length === 0) {
+      throw new Error("resolve.seam requires input.path or input.paths.");
+    }
+
+    const snapshot = (await artifacts.read(snapshotRef)) as IntelligenceSnapshot;
+    const resolverInputTrace: ResolutionTraceEntry = {
+      step: "resolver.input",
+      sourceType: "ResolverInput",
+      status: "used",
+      message: "Resolved seam request inputs.",
+      paths,
+      details: { goal, requestedPrimaryOwner },
+    };
+    const ownership = await resolveOwnership({ artifacts, snapshot, paths });
+    const { matchedScopes, ownerSystems } = ownership;
+    const warnings = [...ownership.warnings];
+
+    let seamStatus: SeamPacket["seam"]["status"];
+    let escalate = false;
+    let primaryOwner: string | undefined;
+    let secondaryOwners: string[] = [];
+    let rationale: string;
+    let nextRequiredResolver: SeamPacket["nextRequiredResolver"];
+
+    if (ownerSystems.length === 0) {
+      seamStatus = "unresolved";
+      escalate = true;
+      rationale = "No owner system was resolved for the requested paths; seam cannot be drawn.";
+      warnings.push("Seam unresolved because ownership could not be determined.");
+    } else if (ownerSystems.length === 1) {
+      seamStatus = "resolved";
+      primaryOwner = ownerSystems[0];
+      secondaryOwners = [];
+      rationale = `Single owner system (${primaryOwner}); no seam required.`;
+      nextRequiredResolver = "resolve.preflight";
+    } else if (requestedPrimaryOwner && ownerSystems.includes(requestedPrimaryOwner)) {
+      seamStatus = "resolved";
+      primaryOwner = requestedPrimaryOwner;
+      secondaryOwners = ownerSystems.filter((owner) => owner !== requestedPrimaryOwner).sort();
+      rationale = `Primary owner ${primaryOwner} validated against resolved systems; ${secondaryOwners.length} secondary owner(s) recorded.`;
+      nextRequiredResolver = "resolve.preflight";
+    } else if (requestedPrimaryOwner) {
+      seamStatus = "unresolved";
+      escalate = true;
+      rationale = `Requested primary owner '${requestedPrimaryOwner}' is not among resolved owner systems (${ownerSystems.join(", ")}).`;
+      warnings.push(
+        `Primary owner '${requestedPrimaryOwner}' is not among resolved owner systems (${ownerSystems.join(", ")}); escalation required.`,
+      );
+    } else {
+      seamStatus = "needs-primary-owner";
+      escalate = true;
+      rationale = `Multiple owner systems (${ownerSystems.join(", ")}); primary owner must be designated to proceed.`;
+      warnings.push("Seam needs primary owner before preflight can run.");
+    }
+
+    const seamTrace: ResolutionTraceEntry = {
+      step: "seam.resolve",
+      sourceType: "RiskRule",
+      status: seamStatus === "resolved" ? "used" : "warning",
+      message: rationale,
+      paths,
+      systems: ownerSystems,
+      details: {
+        seamStatus,
+        primaryOwner,
+        secondaryOwners,
+        escalate,
+        nextRequiredResolver,
+      },
+    };
+
+    const nextStepTrace: ResolutionTraceEntry = {
+      step: "next.resolver",
+      sourceType: "Fallback",
+      status: nextRequiredResolver ? "used" : "warning",
+      message: nextRequiredResolver
+        ? `Next resolver: ${nextRequiredResolver}.`
+        : "No next resolver; seam unresolved or needs a primary owner.",
+      paths,
+      details: { nextRequiredResolver },
+    };
+
+    const resolutionTrace = [
+      resolverInputTrace,
+      ...ownership.trace,
+      seamTrace,
+      nextStepTrace,
+    ];
+
+    const summary = seamStatus === "resolved"
+      ? `Seam resolved with primary owner ${primaryOwner}.`
+      : seamStatus === "needs-primary-owner"
+        ? "Seam needs a primary owner."
+        : "Seam unresolved.";
+
+    const packet: SeamPacket = {
+      header: {
+        artifactType: "ResolverPacket",
+        artifactId: `seam-${Date.now()}`,
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        snapshotId: snapshot.header.artifactId,
+        subject: {
+          repoId: snapshot.repo.id,
+          ref: snapshot.repo.branch,
+          commit: snapshot.repo.commit,
+          paths,
+          systems: ownerSystems,
+        },
+        producer: {
+          id: "@rekon/capability-resolver",
+          version: "0.1.0",
+        },
+        inputRefs: collectInputRefs(snapshot, snapshotRef),
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: seamStatus === "resolved" ? 0.8 : 0.4,
+          notes: ["resolve.seam"],
+        },
+      },
+      resolverId: "resolve.seam",
+      phase: "seam",
+      summary,
+      goal,
+      paths,
+      ownerSystems,
+      primaryOwner,
+      secondaryOwners,
+      seam: {
+        status: seamStatus,
+        rationale,
+        escalate,
+      },
+      requiredChecks: ["npm run typecheck", "npm run test"],
+      recommendedContext: buildRecommendedContext(paths, ownerSystems),
+      nextRequiredResolver,
+      warnings,
+      resolutionTrace,
+      nextSteps: seamNextSteps(seamStatus, primaryOwner, secondaryOwners),
+    };
+
+    const ref = await artifacts.write("ResolverPacket", packet);
+
+    return [ref];
+  },
+};
+
+export const issueResolver: Resolver = {
+  id: "resolve.issue",
+  produces: ["ResolverPacket"],
+  async resolve({ artifacts, input }) {
+    const snapshotRef = parseArtifactRef(input?.snapshotRef);
+    const query = typeof input?.issue === "string" ? input.issue.trim() : "";
+
+    if (!snapshotRef) {
+      throw new Error("resolve.issue requires input.snapshotRef.");
+    }
+
+    const snapshot = (await artifacts.read(snapshotRef)) as IntelligenceSnapshot;
+    const resolverInputTrace: ResolutionTraceEntry = {
+      step: "resolver.input",
+      sourceType: "ResolverInput",
+      status: query.length > 0 ? "used" : "warning",
+      message: query.length > 0
+        ? `Resolved issue request for query '${query}'.`
+        : "resolve.issue called without an issue id or fragment.",
+      details: { query },
+    };
+
+    const findingRefs = Object.values(snapshot.evaluations ?? {}).flat();
+    const trace: ResolutionTraceEntry[] = [resolverInputTrace];
+
+    if (findingRefs.length === 0) {
+      trace.push({
+        step: "issue.lookup",
+        sourceType: "FindingReport",
+        status: "missing",
+        message: "No FindingReport artifacts are indexed; issue cannot be resolved.",
+      });
+    }
+
+    const { match, matches, candidates } = await findIssueMatches(artifacts, findingRefs, query);
+
+    for (const ref of findingRefs) {
+      trace.push({
+        step: "issue.lookup",
+        sourceType: "FindingReport",
+        sourceRef: ref,
+        status: "checked",
+        message: "Searched FindingReport for matching issue.",
+      });
+    }
+
+    const warnings: string[] = [];
+    let ownership: OwnershipResolution = {
+      matchedScopes: [],
+      ownerSystems: [],
+      trace: [],
+      warnings: [],
+    };
+    let nextRequiredResolver: IssuePacket["nextRequiredResolver"];
+    let summary: string;
+
+    if (query.length === 0) {
+      warnings.push("resolve.issue called without an issue id or fragment.");
+      summary = "Issue query missing.";
+      trace.push({
+        step: "issue.match",
+        sourceType: "Fallback",
+        status: "warning",
+        message: "Query was empty; nothing to look up.",
+      });
+    } else if (!match && matches.length === 0) {
+      warnings.push(`No finding matched query '${query}'.`);
+      summary = `No finding matched query '${query}'.`;
+      trace.push({
+        step: "issue.match",
+        sourceType: "Fallback",
+        status: "warning",
+        message: `No finding matched query '${query}'.`,
+        details: { findingCount: candidates.length },
+      });
+    } else if (!match && matches.length > 1) {
+      warnings.push(`Issue query '${query}' matched ${matches.length} findings; please refine.`);
+      summary = `Ambiguous issue query '${query}'.`;
+      trace.push({
+        step: "issue.match",
+        sourceType: "Fallback",
+        status: "warning",
+        message: `Issue query '${query}' matched ${matches.length} findings.`,
+        details: {
+          matchedFindingIds: matches.map((candidate) => candidate.id),
+        },
+      });
+    } else if (match) {
+      trace.push({
+        step: "issue.match",
+        sourceType: "FindingReport",
+        status: "used",
+        message: `Matched finding ${match.id}.`,
+        paths: match.files ?? [],
+        details: { ruleId: match.ruleId, severity: match.severity, type: match.type },
+      });
+
+      const files = match.files ?? [];
+
+      if (files.length > 0) {
+        ownership = await resolveOwnership({ artifacts, snapshot, paths: files });
+        trace.push(...ownership.trace);
+        warnings.push(...ownership.warnings);
+
+        if (ownership.ownerSystems.length > 1) {
+          nextRequiredResolver = "resolve.seam";
+        } else {
+          nextRequiredResolver = "resolve.preflight";
+        }
+      } else {
+        nextRequiredResolver = "resolve.route";
+        trace.push({
+          step: "issue.ownership",
+          sourceType: "Fallback",
+          status: "warning",
+          message: "Matched finding has no associated files; routing must be re-established.",
+        });
+        warnings.push("Matched finding has no file information; recommending route resolver.");
+      }
+
+      summary = `Matched finding ${match.id} (${match.severity}).`;
+    } else {
+      summary = "No issue resolved.";
+    }
+
+    const relatedFindings = matches
+      .filter((candidate) => !match || candidate.id !== match.id)
+      .slice(0, 5)
+      .map((candidate) => ({
+        id: candidate.id,
+        type: candidate.type,
+        severity: candidate.severity,
+        files: candidate.files,
+      }));
+
+    const nextStepTrace: ResolutionTraceEntry = {
+      step: "next.resolver",
+      sourceType: "Fallback",
+      status: nextRequiredResolver ? "used" : "warning",
+      message: nextRequiredResolver
+        ? `Next resolver: ${nextRequiredResolver}.`
+        : "No next resolver; issue resolution incomplete.",
+      details: { nextRequiredResolver },
+    };
+
+    const resolutionTrace = [...trace, nextStepTrace];
+
+    const packet: IssuePacket = {
+      header: {
+        artifactType: "ResolverPacket",
+        artifactId: `issue-${Date.now()}`,
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        snapshotId: snapshot.header.artifactId,
+        subject: {
+          repoId: snapshot.repo.id,
+          ref: snapshot.repo.branch,
+          commit: snapshot.repo.commit,
+          paths: match?.files ?? [],
+          systems: ownership.ownerSystems,
+        },
+        producer: {
+          id: "@rekon/capability-resolver",
+          version: "0.1.0",
+        },
+        inputRefs: collectInputRefs(snapshot, snapshotRef),
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: match ? 0.7 : 0.3,
+          notes: ["resolve.issue"],
+        },
+      },
+      resolverId: "resolve.issue",
+      phase: "issue",
+      summary,
+      query,
+      issue: match ?? undefined,
+      ownerSystems: ownership.ownerSystems,
+      matchedScopes: ownership.matchedScopes,
+      relatedFindings,
+      recommendedContext: buildRecommendedContext(match?.files ?? [], ownership.ownerSystems),
+      requiredChecks: ["npm run typecheck", "npm run test"],
+      nextRequiredResolver,
+      warnings,
+      resolutionTrace,
+      nextSteps: issueNextSteps(match, ownership.ownerSystems),
+    };
+
+    const ref = await artifacts.write("ResolverPacket", packet);
+
+    return [ref];
+  },
+};
+
 export default defineCapability({
   manifest: {
     id: "@rekon/capability-resolver",
@@ -219,8 +810,188 @@ export default defineCapability({
   },
   register(registry) {
     registry.resolver(preflightResolver);
+    registry.resolver(routeResolver);
+    registry.resolver(seamResolver);
+    registry.resolver(issueResolver);
   },
 });
+
+function collectInputRefs(snapshot: IntelligenceSnapshot, snapshotRef: ArtifactRef): ArtifactRef[] {
+  return [
+    snapshotRef,
+    ...(snapshot.projections.OwnershipMap ?? []),
+    ...(snapshot.projections.ObservedRepo ?? []),
+    ...(snapshot.projections.GraphSlice ?? []),
+    ...(snapshot.inputs.EvidenceGraph ?? []),
+    ...Object.values(snapshot.evaluations ?? {}).flat(),
+    ...Object.values((snapshot as { publications?: Record<string, ArtifactRef[]> }).publications ?? {})
+      .flat()
+      .filter((ref) => ref.type === "MemorySelection"),
+  ];
+}
+
+function routeNextSteps(
+  status: RoutePacket["routing"]["status"],
+  primaryOwner: string | undefined,
+  ownerSystems: string[],
+): string[] {
+  if (status === "single-owner" && primaryOwner) {
+    return [
+      `Run preflight against the requested paths (owner: ${primaryOwner}).`,
+      "Keep changes scoped to the requested paths.",
+    ];
+  }
+
+  if (status === "cross-owner") {
+    return [
+      `Run seam resolution to designate a primary owner among ${ownerSystems.join(", ")}.`,
+      "Record secondary owners explicitly before preflight.",
+    ];
+  }
+
+  return [
+    "Confirm ownership manually before editing.",
+    "Run preflight with reduced confidence and treat results as advisory.",
+  ];
+}
+
+function seamNextSteps(
+  status: SeamPacket["seam"]["status"],
+  primaryOwner: string | undefined,
+  secondaryOwners: string[],
+): string[] {
+  if (status === "resolved" && primaryOwner) {
+    return [
+      `Run preflight with primary owner ${primaryOwner}.`,
+      secondaryOwners.length > 0
+        ? `Coordinate with secondary owner(s): ${secondaryOwners.join(", ")}.`
+        : "No secondary owners recorded.",
+    ];
+  }
+
+  if (status === "needs-primary-owner") {
+    return [
+      "Designate a primary owner.",
+      "Re-run resolve.seam with --primary-owner once chosen.",
+    ];
+  }
+
+  return [
+    "Confirm ownership manually before editing.",
+    "Escalate the seam decision before running preflight.",
+  ];
+}
+
+function issueNextSteps(match: IssueSummary | null, ownerSystems: string[]): string[] {
+  if (!match) {
+    return [
+      "Refine the issue query and re-run resolve.issue.",
+      "Use `rekon evaluate` to refresh FindingReport artifacts if needed.",
+    ];
+  }
+
+  const steps = [
+    `Read the matched finding (${match.id}) and its suggested action.`,
+  ];
+
+  if (ownerSystems.length > 1) {
+    steps.push(`Run seam resolution against owners: ${ownerSystems.join(", ")}.`);
+  } else if (ownerSystems.length === 1) {
+    steps.push(`Run preflight against the matched files (owner: ${ownerSystems[0]}).`);
+  } else {
+    steps.push("Run route resolution; matched finding has no associated files.");
+  }
+
+  return steps;
+}
+
+async function findIssueMatches(
+  artifacts: { read(ref: ArtifactRef): Promise<unknown> },
+  refs: ArtifactRef[],
+  query: string,
+): Promise<{
+  match: IssueSummary | null;
+  matches: IssueSummary[];
+  candidates: IssueSummary[];
+}> {
+  const candidates: IssueSummary[] = [];
+
+  for (const ref of refs) {
+    const report = (await artifacts.read(ref)) as { findings?: unknown[] };
+
+    for (const candidate of report.findings ?? []) {
+      const summary = parseFindingSummary(candidate);
+
+      if (summary) {
+        candidates.push(summary);
+      }
+    }
+  }
+
+  if (query.length === 0) {
+    return { match: null, matches: [], candidates };
+  }
+
+  const exact = candidates.find((candidate) => candidate.id === query);
+
+  if (exact) {
+    return { match: exact, matches: [exact], candidates };
+  }
+
+  const lower = query.toLowerCase();
+  const matches = candidates.filter((candidate) => {
+    return (
+      candidate.id.toLowerCase().includes(lower) ||
+      candidate.type.toLowerCase().includes(lower) ||
+      (candidate.title && candidate.title.toLowerCase().includes(lower)) ||
+      candidate.description.toLowerCase().includes(lower) ||
+      (candidate.ruleId && candidate.ruleId.toLowerCase().includes(lower))
+    );
+  });
+
+  if (matches.length === 1) {
+    return { match: matches[0]!, matches, candidates };
+  }
+
+  return { match: null, matches, candidates };
+}
+
+function parseFindingSummary(value: unknown): IssueSummary | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as {
+    id?: unknown;
+    type?: unknown;
+    severity?: unknown;
+    title?: unknown;
+    description?: unknown;
+    files?: unknown;
+    ruleId?: unknown;
+    suggestedAction?: unknown;
+  };
+
+  if (typeof candidate.id !== "string" || typeof candidate.type !== "string") {
+    return null;
+  }
+
+  const files = Array.isArray(candidate.files)
+    ? candidate.files.filter((file): file is string => typeof file === "string")
+    : [];
+
+  return {
+    id: candidate.id,
+    type: candidate.type,
+    severity: typeof candidate.severity === "string" ? candidate.severity : "unknown",
+    title: typeof candidate.title === "string" ? candidate.title : undefined,
+    description: typeof candidate.description === "string" ? candidate.description : "",
+    files,
+    ruleId: typeof candidate.ruleId === "string" ? candidate.ruleId : undefined,
+    suggestedAction:
+      typeof candidate.suggestedAction === "string" ? candidate.suggestedAction : undefined,
+  };
+}
 
 function parseArtifactRef(value: unknown): ArtifactRef | null {
   if (!value || typeof value !== "object") {

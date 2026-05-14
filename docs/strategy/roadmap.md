@@ -54,6 +54,13 @@ explicit NorthStar update.
   behavior. It produces `import_boundary.parent_relative_import` (medium)
   and `import_boundary.generated_output_import` (high) findings against
   the JS/TS `EvidenceGraph`.
+- Resolver phase expansion: `@rekon/capability-resolver` registers
+  `resolve.route`, `resolve.seam`, `resolve.preflight`, and
+  `resolve.issue`. CLI friendly shortcuts and generic dispatch both
+  cover all four. Each packet shares `resolverId`, `phase`,
+  `resolutionTrace`, `warnings`, `nextSteps`, and a
+  `nextRequiredResolver` recommendation so the route → seam →
+  preflight → (issue) flow stays explicit.
 
 ## Committed Direction: Hardening Batches
 

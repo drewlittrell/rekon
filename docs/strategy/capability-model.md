@@ -64,11 +64,16 @@ declared role must register at least one handler.
   memory selections.
 - **Produces.** `ResolverPacket` artifacts with a `resolutionTrace` that
   explains source precedence, fallbacks, and risk decisions.
-- **Examples.** `@rekon/capability-resolver`, future resolvers
-  (`risk.evaluate`, `ownership.lookup`, `architecture.context`).
+- **Examples.** `@rekon/capability-resolver` registers four resolver
+  handlers — `resolve.route`, `resolve.seam`, `resolve.preflight`, and
+  `resolve.issue` — wired into a route → seam → preflight (or issue →
+  …) flow via each packet's `nextRequiredResolver`. Future resolvers
+  may add `risk.evaluate`, `ownership.lookup`,
+  `architecture.context`.
 - **Permission expectations.** `read:artifacts`, `write:artifacts`.
-- **Artifact expectations.** Every packet includes an auditable trace and
-  refers to its input artifacts.
+- **Artifact expectations.** Every packet includes an auditable trace,
+  refers to its input artifacts, and shares `resolverId`, `phase`,
+  `summary`, `warnings`, `nextSteps`, and `resolutionTrace`.
 
 ### publisher
 

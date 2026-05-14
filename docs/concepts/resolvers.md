@@ -3,13 +3,75 @@
 Resolvers consume an `IntelligenceSnapshot` and related typed artifacts to
 produce resolved outputs for users and agents.
 
-The first built-in resolver is `resolve.preflight`. It resolves ownership,
-attaches findings and memory, evaluates simple risk, and writes a
-`ResolverPacket`.
+`@rekon/capability-resolver` registers four resolver handlers:
 
-Resolver packets must be explainable. `resolve.preflight` includes a
+- `resolve.route` — given a goal and paths, decide who owns the touched
+  code and whether the change is a single-owner walk to preflight or a
+  cross-owner walk that needs a seam first.
+- `resolve.seam` — given paths that span owners, designate the primary
+  owner, record secondary owners, and escalate when a primary owner cannot
+  be chosen.
+- `resolve.preflight` — the original resolver. Resolves ownership,
+  attaches findings and memory, evaluates simple risk, and writes a
+  `ResolverPacket`.
+- `resolve.issue` — given an issue id or fragment, find the matching
+  `Finding`, resolve ownership for the finding's files, and recommend the
+  next resolver based on owner spread.
+
+Every resolver packet must be explainable. Each one includes a
 `resolutionTrace` showing which artifact sources were checked, which source
-won, why fallback happened, and which risk rule selected the final tier.
+won, why fallback happened, and which decision selected the next resolver.
+
+## Resolver Phase Flow
+
+The resolvers compose into a phased flow:
+
+```
+                resolve.route
+                  /        \
+   single-owner /            \ cross-owner
+              ↓                ↓
+       resolve.preflight    resolve.seam
+                                ↓
+                         resolve.preflight
+```
+
+For findings-driven entry:
+
+```
+   resolve.issue
+       ↓
+   (matched finding)
+       ↓
+   one owner  → resolve.preflight
+   many owners → resolve.seam → resolve.preflight
+   no files   → resolve.route
+```
+
+Each packet records `nextRequiredResolver` so an agent or operator can
+walk the flow without guessing.
+
+## CLI Surface
+
+Friendly shortcuts:
+
+```sh
+rekon resolve route --path <path> [--path <path>] [--goal <goal>] [--concern <concern>] --root <repo> --json
+rekon resolve seam --path <path> [--path <path>] [--primary-owner <owner>] [--goal <goal>] --root <repo> --json
+rekon resolve preflight --path <path> --goal <goal> --root <repo> --json
+rekon resolve issue --issue <id-or-fragment> --root <repo> --json
+```
+
+Generic dispatch (works for every registered resolver):
+
+```sh
+rekon resolve list --root <repo> --json
+rekon resolve run <resolver-id> --root <repo> --input-json '<json>' --json
+```
+
+`resolve list` reports `resolve.route`, `resolve.seam`,
+`resolve.preflight`, and `resolve.issue` as registered handlers under
+`@rekon/capability-resolver`.
 
 Ownership source precedence is deterministic:
 

@@ -67,8 +67,14 @@ scope:
 - **Graph slice expansion (consumer-driven).** Add new `GraphSlice`
   producers (route, call, runtime) only when an evaluator/resolver
   consumes them.
-- **Route / seam / issue resolvers.** Additional resolver handlers within
-  `@rekon/capability-resolver` or community packs. Aligned to
+- **Route / seam / issue resolvers.** ✅ Shipped in
+  `@rekon/capability-resolver`: `resolve.route`, `resolve.seam`, and
+  `resolve.issue` resolver handlers alongside the existing
+  `resolve.preflight`. Friendly CLI shortcuts (`rekon resolve route`,
+  `rekon resolve seam`, `rekon resolve issue`) and generic dispatch
+  both work. Each packet carries `resolverId`, `phase`,
+  `resolutionTrace`, `warnings`, `nextSteps`, and a
+  `nextRequiredResolver` recommendation. Aligned to
   `lib/context/resolver.ts`'s phase model.
 - **Architecture-summary publisher.** A `Publication` capability that
   summarizes ownership, capability map, and top findings. Aligned to
