@@ -1194,6 +1194,50 @@ type GroupMatchResult = {
   candidates: IssueAdjudicationGroup[];
 };
 
+type AdjudicationStaleness = {
+  status: "fresh" | "stale";
+  citedLifecycleId?: string;
+  latestLifecycleId?: string;
+};
+
+async function detectAdjudicationStaleness(
+  artifacts: ArtifactReader,
+  reportRef: ArtifactRef,
+): Promise<AdjudicationStaleness> {
+  const report = (await artifacts.read(reportRef)) as {
+    header?: { inputRefs?: ArtifactRef[] };
+  };
+  const citedLifecycle = (report.header?.inputRefs ?? []).find(
+    (ref) => ref.type === "FindingLifecycleReport",
+  );
+  const lifecycleEntries = await artifacts.list("FindingLifecycleReport");
+  if (lifecycleEntries.length === 0) {
+    return { status: "fresh", citedLifecycleId: citedLifecycle?.id };
+  }
+  const sorted = [...lifecycleEntries].sort((left, right) =>
+    right.id.localeCompare(left.id),
+  );
+  const latest = sorted[0]!;
+  if (!citedLifecycle) {
+    return {
+      status: "stale",
+      latestLifecycleId: latest.id,
+    };
+  }
+  if (citedLifecycle.id !== latest.id) {
+    return {
+      status: "stale",
+      citedLifecycleId: citedLifecycle.id,
+      latestLifecycleId: latest.id,
+    };
+  }
+  return {
+    status: "fresh",
+    citedLifecycleId: citedLifecycle.id,
+    latestLifecycleId: latest.id,
+  };
+}
+
 async function findIssueGroupMatches(
   artifacts: ArtifactReader,
   query: string,
@@ -1357,6 +1401,41 @@ async function buildGroupIssuePacket(args: {
       active: group.active,
     },
   });
+
+  // Freshness guardrail: warn when the adjudication source is stale
+  // relative to the latest FindingLifecycleReport.
+  const staleness = await detectAdjudicationStaleness(artifacts, reportRef);
+  if (staleness.status === "stale") {
+    warnings.push(
+      "IssueAdjudicationReport may be stale; run `rekon issues adjudicate` or `rekon refresh` before relying on group counts.",
+    );
+    trace.push({
+      step: "issue.freshness",
+      sourceType: "IssueAdjudicationReport",
+      sourceRef: reportRef,
+      status: "warning",
+      message: staleness.citedLifecycleId
+        ? `IssueAdjudicationReport cites FindingLifecycleReport:${staleness.citedLifecycleId} but the latest FindingLifecycleReport is ${staleness.latestLifecycleId}.`
+        : `A FindingLifecycleReport (${staleness.latestLifecycleId}) exists but the IssueAdjudicationReport did not cite one.`,
+      details: {
+        citedLifecycleId: staleness.citedLifecycleId,
+        latestLifecycleId: staleness.latestLifecycleId,
+        recommendedCommand: "rekon refresh",
+      },
+    });
+  } else {
+    trace.push({
+      step: "issue.freshness",
+      sourceType: "IssueAdjudicationReport",
+      sourceRef: reportRef,
+      status: "used",
+      message: "IssueAdjudicationReport is fresh relative to the latest FindingLifecycleReport.",
+      details: {
+        citedLifecycleId: staleness.citedLifecycleId,
+        latestLifecycleId: staleness.latestLifecycleId,
+      },
+    });
+  }
 
   // Ownership resolution from group files.
   let ownership: OwnershipResolution = {

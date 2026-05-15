@@ -244,6 +244,27 @@ is the first stop before proposing a new capability batch.
   marks adjudication reports stale after newer
   `FindingLifecycleReport`. Semantic / fuzzy matching, LLM
   review, and `resolve.issue` v2 remain deferred.
+- Stale-source freshness guardrails for adjudication + coherency
+  (P1.1 trust slice): the surfaces that consume
+  `IssueAdjudicationReport` and `CoherencyDelta` now render
+  inline freshness warnings, not just rely on `rekon artifacts
+  freshness`. Architecture summary emits `## Input Freshness
+  Warnings` when adjudication / coherency is stale (including
+  the transitive case + the lifecycle-mode-delta-while-
+  adjudication-exists case). The agent operating contract
+  renders a `### Governance Freshness` subsection with
+  `Issue adjudication: fresh / stale / missing` and
+  `Coherency delta: fresh / stale / missing`; on stale it adds a
+  blockquote callout instructing agents not to treat governed
+  issue counts as current until `rekon refresh` (or
+  `rekon issues adjudicate && rekon coherency delta`) has run.
+  `resolve.issue` (group mode) emits an `issue.freshness`
+  `resolutionTrace` entry (`status: "warning"` when stale,
+  `"used"` when fresh) plus a `packet.warnings[]` entry
+  recommending `rekon issues adjudicate` or `rekon refresh`. All
+  guardrails are read-only. No artifact mutation. No
+  auto-regeneration. No watcher / daemon. No Publication shape
+  change.
 - Publications use adjudicated issue groups (P1.1 publication
   consumption slice): both
   `@rekon/capability-docs.architecture-summary` and

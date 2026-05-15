@@ -168,6 +168,16 @@ Output:
 These are intentionally deferred. See
 [../strategy/classic-behavior-roadmap.md](../strategy/classic-behavior-roadmap.md).
 
+> **Stale-source guardrails.** Downstream surfaces that consume
+> `CoherencyDelta` (architecture summary, agent operating
+> contract, `resolve.issue` group mode) now render explicit
+> stale-source warnings when the delta was built from raw
+> lifecycle but adjudication now exists, when its cited
+> `IssueAdjudicationReport` is not the latest, or when the
+> adjudication is transitively stale relative to the latest
+> `FindingLifecycleReport`. See
+> [freshness-and-invalidation.md](freshness-and-invalidation.md).
+
 > **Adjudicated input (v2).** When an `IssueAdjudicationReport`
 > exists in the store, `buildCoherencyDelta` now consumes
 > **adjudicated groups** instead of raw lifecycle findings. The

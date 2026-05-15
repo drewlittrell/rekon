@@ -206,6 +206,61 @@ The snapshot's status answers a different question than
 moment of writing the snapshot. The freshness validator answers the
 question after the fact, against the full index.
 
+## Surface-Level Freshness Guardrails
+
+`rekon artifacts freshness` is the authoritative freshness oracle,
+but agents and humans act on **rendered outputs**, not on the
+freshness artifact. So the surfaces that consume adjudication +
+coherency state also surface their own input-freshness warnings:
+
+- **Architecture summary publication** renders an
+  `## Input Freshness Warnings` section after Governed Issue
+  Groups when the latest `IssueAdjudicationReport` is older than
+  the latest `FindingLifecycleReport`, the latest `CoherencyDelta`
+  is older than the latest `IssueAdjudicationReport`, the
+  `CoherencyDelta` was built from raw lifecycle while
+  adjudication now exists, or the chain is transitively stale.
+  The section recommends `rekon refresh` (or a more specific
+  command). When the chain is clean the section is omitted.
+- **Agent operating contract publication** always renders a
+  `### Governance Freshness` subsection under Active Governance
+  State showing `Issue adjudication: fresh / stale / missing`
+  and `Coherency delta: fresh / stale / missing`. When stale, a
+  blockquote lists the underlying warnings and includes
+  "Do not treat governed issue counts as current until
+  `rekon refresh` (or `rekon issues adjudicate && rekon coherency
+  delta`) has run."
+- **resolve.issue (group mode)** emits an `issue.freshness`
+  trace entry (`status: "warning"` when the cited
+  `FindingLifecycleReport` is not the latest, `status: "used"`
+  when fresh) and adds an "IssueAdjudicationReport may be stale;
+  run `rekon issues adjudicate` or `rekon refresh` before
+  relying on group counts." entry to `packet.warnings` when
+  stale.
+
+These guardrails are read-only. They **do not mutate** any
+artifact, **do not auto-regenerate** missing or stale inputs,
+and **do not block** the rendered output. They make staleness
+visible where reviewers act so it cannot be silently consumed.
+
+Detection rules:
+
+- `IssueAdjudicationReport` is **stale** when its
+  `header.inputRefs` cite a `FindingLifecycleReport` whose id is
+  not the latest indexed lifecycle id, or when no lifecycle is
+  cited but a lifecycle exists in the store.
+- `CoherencyDelta` is **stale** when (a) it cites an
+  `IssueAdjudicationReport` whose id is not the latest, (b) it
+  was built from raw lifecycle (no `IssueAdjudicationReport` in
+  its `inputRefs`, no `issueGroupId` on any item) and an
+  `IssueAdjudicationReport` now exists, or (c) its cited
+  adjudication is transitively stale.
+
+No file-system watching, mtime invalidation, or daemon behavior
+is introduced. The path to deeper trust infrastructure
+(watchers, path/event invalidation) remains deferred to future
+phases.
+
 ## Dogfood Regression
 
 The optional dogfood regression is gated by `REKON_DOGFOOD_CLASSIC_ROOT`.

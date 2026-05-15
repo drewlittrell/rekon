@@ -131,6 +131,18 @@ the per-finding breakdown in `verificationByFinding`. Group
 verification is never enough to auto-resolve a member finding or
 the group as a whole.
 
+Group mode also emits an `issue.freshness` trace entry that
+records whether the matched `IssueAdjudicationReport` is still
+fresh relative to the latest indexed `FindingLifecycleReport`.
+When the cited lifecycle id is not the latest, the entry's
+`status` is `"warning"` and the packet's `warnings[]` adds
+"IssueAdjudicationReport may be stale; run `rekon issues
+adjudicate` or `rekon refresh` before relying on group counts."
+When the chain is fresh, the entry's `status` is `"used"` and no
+extra warning is added. The resolver never blocks on staleness —
+it only surfaces it. See
+[freshness-and-invalidation.md](freshness-and-invalidation.md).
+
 Ownership source precedence is deterministic:
 
 `OwnershipMap -> ObservedRepo -> ownership GraphSlice -> EvidenceGraph`

@@ -194,6 +194,19 @@ an older adjudication report `stale` once a newer
 `FindingLifecycleReport` (or transitively-cited input) lands. The
 freshness check uses the standard `header.inputRefs` walk.
 
+Beyond the freshness artifact, the surfaces that consume this
+report also surface stale-source warnings inline:
+
+- The architecture summary renders an
+  `## Input Freshness Warnings` section.
+- The agent operating contract renders a
+  `### Governance Freshness` subsection (with explicit fresh /
+  stale / missing labels).
+- `resolve.issue` emits an `issue.freshness` `resolutionTrace`
+  entry plus a `packet.warnings[]` entry.
+
+See [../concepts/freshness-and-invalidation.md](../concepts/freshness-and-invalidation.md).
+
 ## What This Is Not
 
 - **Not a mutator.** Raw `FindingReport`, `FindingStatusLedger`,

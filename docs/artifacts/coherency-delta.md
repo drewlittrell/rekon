@@ -215,6 +215,14 @@ newer `IssueAdjudicationReport`. Rebuild the delta with `rekon
 coherency delta` to refresh (or rerun `rekon refresh` for the full
 lifecycle).
 
+Downstream surfaces also render stale-source warnings inline:
+the architecture summary emits `## Input Freshness Warnings`, the
+agent operating contract renders a `### Governance Freshness`
+subsection, and `resolve.issue` (group mode) emits an
+`issue.freshness` trace plus a `packet.warnings[]` entry when
+the adjudication source is stale. See
+[../concepts/freshness-and-invalidation.md](../concepts/freshness-and-invalidation.md).
+
 ## What This Is Not
 
 - This is not a health score. Severity counts are explicit; weighting

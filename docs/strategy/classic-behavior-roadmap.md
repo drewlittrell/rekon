@@ -99,6 +99,31 @@ scope:
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy matching,
   false-positive scoring, automatic ignore/accept, and LLM review
   are deliberately deferred.
+- **Stale-source freshness guardrails for adjudication + coherency
+  (P1.1 trust slice).** ✅ Shipped. The surfaces that consume
+  `IssueAdjudicationReport` and `CoherencyDelta` now render their
+  own inline freshness warnings, not just rely on
+  `rekon artifacts freshness`. Architecture summary renders
+  `## Input Freshness Warnings` when adjudication is older than
+  the latest `FindingLifecycleReport`, when coherency cites an
+  older adjudication, when coherency was built from raw lifecycle
+  while adjudication now exists, or when staleness is transitive.
+  The agent operating contract always renders a
+  `### Governance Freshness` subsection showing
+  `Issue adjudication: fresh / stale / missing` and
+  `Coherency delta: fresh / stale / missing`; on stale it adds a
+  blockquote telling agents not to treat governed issue counts as
+  current until `rekon refresh` runs. `resolve.issue` (group
+  mode) emits an `issue.freshness` `resolutionTrace` entry
+  (`status: "warning"` when stale, `"used"` when fresh) and adds
+  a `packet.warnings[]` entry recommending `rekon issues
+  adjudicate` or `rekon refresh`. All guardrails are read-only.
+  No artifact mutation; no auto-regeneration; no watcher/daemon.
+  Aligned to `services/WatchHandler.ts`,
+  `lib/context-freshness.ts`, `services/ContextHandler.ts`,
+  `services/IssueDetectionService.ts`. The path to deeper trust
+  infrastructure (watchers, path/event invalidation) remains
+  deferred.
 - **Publications use adjudicated issue groups (P1.1 publication
   consumption slice).** ✅ Shipped. Both
   `@rekon/capability-docs.architecture-summary` and

@@ -59,7 +59,14 @@ states are surfaced, not hidden.
    with its member finding ids; the Coherency Summary section is
    also labeled as group-aware vs. raw-finding mode depending on
    whether the `CoherencyDelta` was built from adjudicated
-   groups.
+   groups. The publisher also runs a small `detectGovernanceFreshness`
+   helper across the latest `FindingLifecycleReport` /
+   `IssueAdjudicationReport` / `CoherencyDelta` and, when any
+   adjudication / coherency input is stale, renders an
+   `## Input Freshness Warnings` section recommending the next
+   rebuild command. The section is omitted when the chain is
+   clean — silence is the success signal. See
+   [freshness-and-invalidation.md](freshness-and-invalidation.md).
 3. Reads the latest remediation `WorkOrder` (where `source ===
    "coherency-delta"`) and the latest resolver `WorkOrder` if either
    exists.

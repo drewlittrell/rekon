@@ -157,6 +157,25 @@ an older adjudication report stale when a newer
 `FindingLifecycleReport` (or any transitively-cited input) lands.
 The standard freshness flow then signals "rebuild".
 
+The surfaces that consume the report also surface stale-source
+warnings where reviewers act:
+
+- The architecture summary publication emits an
+  `## Input Freshness Warnings` section when the latest
+  adjudication report or coherency delta is stale.
+- The agent operating contract publication always shows a
+  `### Governance Freshness` subsection with
+  `Issue adjudication: fresh / stale / missing` and
+  `Coherency delta: fresh / stale / missing`; on stale, it adds
+  a blockquote callout that tells agents not to treat governed
+  issue counts as current until `rekon refresh` runs.
+- `resolve.issue` (group mode) emits an `issue.freshness` trace
+  entry and a `packet.warnings[]` entry when the cited
+  `FindingLifecycleReport` is not the latest.
+
+See [freshness-and-invalidation.md](freshness-and-invalidation.md)
+for the detection rules.
+
 ## What This Is Not
 
 - **Not mutation.** Raw `FindingReport`, `FindingStatusLedger`,

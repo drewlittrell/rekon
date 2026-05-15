@@ -252,6 +252,7 @@ export const architectureSummaryPublisher: Publisher = {
       "VerificationResult",
       inputRefs,
     );
+    const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
     const publication: PublicationArtifact = {
@@ -274,6 +275,7 @@ export const architectureSummaryPublisher: Publisher = {
         latestVerificationPlanRef,
         verificationPlan,
         verificationResult,
+        freshness,
         inputRefs,
         generatedAt,
       }),
@@ -466,6 +468,7 @@ export const agentContractPublisher: Publisher = {
         verificationResult,
         memorySelection,
         memoryCurationReport,
+        freshness: await detectGovernanceFreshness(artifacts),
         inputRefs,
         generatedAt,
       }),
@@ -657,6 +660,146 @@ function latestById(refs: ArtifactRef[]): ArtifactRef | undefined {
   return [...refs].sort((left, right) => right.id.localeCompare(left.id))[0];
 }
 
+type GovernanceFreshness = {
+  adjudication: {
+    status: "fresh" | "stale" | "missing";
+    artifactId?: string;
+    citedLifecycleId?: string;
+    latestLifecycleId?: string;
+  };
+  coherency: {
+    status: "fresh" | "stale" | "missing";
+    artifactId?: string;
+    citedAdjudicationId?: string;
+    builtFrom?: "adjudication" | "lifecycle";
+    latestAdjudicationId?: string;
+  };
+  warnings: string[];
+  recommendedCommand?: string;
+};
+
+async function detectGovernanceFreshness(
+  artifacts: {
+    list(type?: string): Promise<ArtifactRef[]>;
+    read(ref: ArtifactRef): Promise<unknown>;
+  },
+): Promise<GovernanceFreshness> {
+  const warnings: string[] = [];
+
+  const adjudicationEntries = await artifacts.list("IssueAdjudicationReport");
+  const latestAdjudication = latestById(adjudicationEntries);
+
+  const lifecycleEntries = await artifacts.list("FindingLifecycleReport");
+  const latestLifecycle = latestById(lifecycleEntries);
+
+  const adjudication: GovernanceFreshness["adjudication"] = {
+    status: "missing",
+  };
+
+  if (latestAdjudication) {
+    adjudication.artifactId = latestAdjudication.id;
+    const adjudicationBody = (await artifacts.read(latestAdjudication)) as {
+      header?: { inputRefs?: ArtifactRef[] };
+    };
+    const citedLifecycle = (adjudicationBody.header?.inputRefs ?? []).find(
+      (ref) => ref.type === "FindingLifecycleReport",
+    );
+    if (citedLifecycle) {
+      adjudication.citedLifecycleId = citedLifecycle.id;
+    }
+    if (latestLifecycle) {
+      adjudication.latestLifecycleId = latestLifecycle.id;
+    }
+    if (
+      citedLifecycle
+      && latestLifecycle
+      && citedLifecycle.id !== latestLifecycle.id
+    ) {
+      adjudication.status = "stale";
+      warnings.push(
+        `IssueAdjudicationReport:${latestAdjudication.id} may be stale: it cites FindingLifecycleReport:${citedLifecycle.id} but the latest FindingLifecycleReport is ${latestLifecycle.id}.`,
+      );
+    } else {
+      adjudication.status = "fresh";
+    }
+  }
+
+  const coherencyEntries = await artifacts.list("CoherencyDelta");
+  const latestCoherency = latestById(coherencyEntries);
+
+  const coherency: GovernanceFreshness["coherency"] = {
+    status: "missing",
+  };
+
+  if (latestCoherency) {
+    coherency.artifactId = latestCoherency.id;
+    const coherencyBody = (await artifacts.read(latestCoherency)) as {
+      header?: { inputRefs?: ArtifactRef[] };
+      items?: Array<{ issueGroupId?: string }>;
+    };
+    const citedAdjudication = (coherencyBody.header?.inputRefs ?? []).find(
+      (ref) => ref.type === "IssueAdjudicationReport",
+    );
+    const itemsCameFromAdjudication = (coherencyBody.items ?? []).some(
+      (item) => Boolean(item.issueGroupId),
+    );
+    coherency.builtFrom = citedAdjudication || itemsCameFromAdjudication
+      ? "adjudication"
+      : "lifecycle";
+
+    if (citedAdjudication) {
+      coherency.citedAdjudicationId = citedAdjudication.id;
+    }
+    if (latestAdjudication) {
+      coherency.latestAdjudicationId = latestAdjudication.id;
+    }
+
+    if (coherency.builtFrom === "adjudication") {
+      if (
+        citedAdjudication
+        && latestAdjudication
+        && citedAdjudication.id !== latestAdjudication.id
+      ) {
+        coherency.status = "stale";
+        warnings.push(
+          `CoherencyDelta:${latestCoherency.id} may be stale: it cites IssueAdjudicationReport:${citedAdjudication.id} but the latest IssueAdjudicationReport is ${latestAdjudication.id}.`,
+        );
+      } else if (adjudication.status === "stale") {
+        coherency.status = "stale";
+        warnings.push(
+          `CoherencyDelta:${latestCoherency.id} may be transitively stale: its IssueAdjudicationReport is stale relative to the latest FindingLifecycleReport.`,
+        );
+      } else {
+        coherency.status = "fresh";
+      }
+    } else {
+      // lifecycle-mode delta
+      if (latestAdjudication) {
+        coherency.status = "stale";
+        warnings.push(
+          `CoherencyDelta:${latestCoherency.id} was built from raw FindingLifecycleReport but an IssueAdjudicationReport:${latestAdjudication.id} now exists; rebuild for governed issue-group counts.`,
+        );
+      } else {
+        coherency.status = "fresh";
+      }
+    }
+  }
+
+  let recommendedCommand: string | undefined;
+  if (warnings.length > 0) {
+    recommendedCommand = "rekon refresh";
+  } else if (adjudication.status === "missing" && latestLifecycle) {
+    recommendedCommand = "rekon issues adjudicate";
+  }
+
+  return {
+    adjudication,
+    coherency,
+    warnings,
+    recommendedCommand,
+  };
+}
+
 function formatRef(ref: ArtifactRef): string {
   return `${ref.type}:${ref.id}@${ref.schemaVersion}`;
 }
@@ -740,6 +883,7 @@ type ArchitectureSummaryInputs = {
   latestVerificationPlanRef?: ArtifactRef;
   verificationPlan?: VerificationPlanLike;
   verificationResult?: VerificationResultLike;
+  freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
 };
@@ -753,6 +897,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     coherencyDelta,
     issueAdjudicationReport,
     lifecycleReport,
+    freshness,
     inputRefs,
     generatedAt,
   } = input;
@@ -906,6 +1051,24 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
       );
       sections.push("");
     }
+  }
+
+  // Freshness Warnings (only when there are warnings — keep clean output silent)
+  if (freshness && freshness.warnings.length > 0) {
+    sections.push("## Input Freshness Warnings");
+    sections.push("");
+    sections.push(
+      "Counts above may not reflect the latest governance state. Inputs flagged as stale:",
+    );
+    sections.push("");
+    for (const warning of freshness.warnings) {
+      sections.push(`- ${warning}`);
+    }
+    sections.push("");
+    sections.push(
+      `Recommended command: \`${freshness.recommendedCommand ?? "rekon refresh"}\`.`,
+    );
+    sections.push("");
   }
 
   // Top Affected Paths
@@ -1573,6 +1736,7 @@ type AgentContractInputs = {
   verificationResult?: VerificationResultLike;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
+  freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
 };
@@ -1620,6 +1784,7 @@ function renderAgentContract(input: AgentContractInputs): string {
     verificationResult,
     memorySelection,
     memoryCurationReport,
+    freshness,
     inputRefs,
     generatedAt,
   } = input;
@@ -1810,6 +1975,42 @@ function renderAgentContract(input: AgentContractInputs): string {
       "Use `rekon resolve issue --issue <group-id>` for adjudicated issue context. Raw member findings remain traceable via `memberFindingIds` on each group.",
     );
     sections.push("");
+  }
+
+  // Governance Freshness — show even when fresh so agents can rely on the read.
+  sections.push("### Governance Freshness");
+  sections.push("");
+  if (!freshness) {
+    sections.push("- Issue adjudication: unknown");
+    sections.push("- Coherency delta: unknown");
+    sections.push("");
+  } else {
+    sections.push(`- Issue adjudication: ${freshness.adjudication.status}`);
+    sections.push(`- Coherency delta: ${freshness.coherency.status}`);
+    sections.push("");
+    if (freshness.warnings.length > 0) {
+      sections.push("> Input freshness warnings:");
+      for (const warning of freshness.warnings) {
+        sections.push(`> - ${warning}`);
+      }
+      sections.push("");
+      sections.push(
+        "> Do not treat governed issue counts as current until `rekon refresh` (or `rekon issues adjudicate && rekon coherency delta`) has run.",
+      );
+      sections.push("");
+      if (freshness.recommendedCommand) {
+        sections.push(`Recommended command: \`${freshness.recommendedCommand}\`.`);
+        sections.push("");
+      }
+    } else if (
+      freshness.adjudication.status === "missing"
+      || freshness.coherency.status === "missing"
+    ) {
+      if (freshness.recommendedCommand) {
+        sections.push(`Recommended command: \`${freshness.recommendedCommand}\`.`);
+        sections.push("");
+      }
+    }
   }
 
   // Proof And Verification State
