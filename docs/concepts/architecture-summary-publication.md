@@ -52,7 +52,14 @@ states are surfaced, not hidden.
 
 1. Reads the latest `IntelligenceSnapshot` (required).
 2. Reads the latest `ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
-   `CoherencyDelta`, and `FindingLifecycleReport` if available.
+   `CoherencyDelta`, `IssueAdjudicationReport`, and
+   `FindingLifecycleReport` if available. When an
+   `IssueAdjudicationReport` is indexed, the summary renders a
+   `Governed Issue Groups` section listing each adjudicated group
+   with its member finding ids; the Coherency Summary section is
+   also labeled as group-aware vs. raw-finding mode depending on
+   whether the `CoherencyDelta` was built from adjudicated
+   groups.
 3. Reads the latest remediation `WorkOrder` (where `source ===
    "coherency-delta"`) and the latest resolver `WorkOrder` if either
    exists.

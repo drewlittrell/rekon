@@ -39,6 +39,23 @@ and [../concepts/issue-adjudication.md](../concepts/issue-adjudication.md).
   back to raw `FindingReport` matching with an explicit
   `issue.match / IssueAdjudicationReport` fallback trace entry.
   See [../concepts/resolvers.md](../concepts/resolvers.md).
+- `@rekon/capability-docs.architecture-summary` and
+  `@rekon/capability-docs.agent-contract`: both publications now
+  surface a "Governed Issue Groups" section when an
+  `IssueAdjudicationReport` exists. The architecture summary
+  emits a table of every group (id, status, severity, type,
+  member count + truncated member ids, files); the agent contract
+  emits a short subsection under Active Governance State with
+  per-group active counts, the top 5 active groups, the line
+  `Use \`rekon resolve issue --issue <group-id>\``, and (in the
+  Do Not Do list) the rule "Do not treat raw finding count as
+  governed issue count when an IssueAdjudicationReport exists".
+  Both publications cite the report in `header.inputRefs` and
+  flag the Coherency Summary as group-aware vs. raw when the
+  `CoherencyDelta` reflects adjudicated groups. See
+  [../artifacts/architecture-summary-publication.md](../artifacts/architecture-summary-publication.md)
+  and
+  [../artifacts/agent-contract-publication.md](../artifacts/agent-contract-publication.md).
 - Future `resolve.issue` v2 may search adjudicated groups first,
   then fall back to `FindingReport` / `FindingLifecycleReport`.
 - For now, no other capability consumes the report yet — it is the

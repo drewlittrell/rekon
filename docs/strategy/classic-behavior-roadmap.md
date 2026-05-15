@@ -99,6 +99,31 @@ scope:
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy matching,
   false-positive scoring, automatic ignore/accept, and LLM review
   are deliberately deferred.
+- **Publications use adjudicated issue groups (P1.1 publication
+  consumption slice).** ✅ Shipped. Both
+  `@rekon/capability-docs.architecture-summary` and
+  `@rekon/capability-docs.agent-contract` now read the latest
+  `IssueAdjudicationReport` when one exists, cite it in
+  `header.inputRefs`, and render a "Governed Issue Groups"
+  section. The architecture summary emits a full group table
+  (`Group | Status | Severity | Type | Members | Files`) so
+  duplicate / overlapping findings collapse into one governed
+  row; member finding ids stay traceable via the `Members`
+  column. The agent contract emits a short subsection under
+  `Active Governance State` listing the top 5 active groups with
+  member counts, plus a `rekon resolve issue --issue <group-id>`
+  instruction. Both publications label the Coherency Summary as
+  group-aware vs. raw-finding depending on whether `CoherencyDelta`
+  was built from adjudicated groups. The agent contract's Do Not
+  Do list adds "Do not treat raw finding count as governed
+  issue count when an IssueAdjudicationReport exists". When no
+  adjudication report is indexed, both publications emit a "run
+  `rekon issues adjudicate`" hint. Aligned to
+  `services/ArchitectureDocsHandler.ts`, `lib/agent-docs.ts`,
+  `services/ContextHandler.ts`. PR/check publisher surfaces,
+  health scoring, trend, and dashboard remain deferred.
+  `CoherencyDelta` / `IssueAdjudicationReport` freshness +
+  stale-source guardrails is the recommended next slice.
 - **resolve.issue v2 from IssueAdjudicationReport (P1.1 resolver
   consumption slice).** ✅ Shipped. `resolve.issue` now prefers
   the latest `IssueAdjudicationReport` group over raw findings.

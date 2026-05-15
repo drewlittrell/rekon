@@ -86,10 +86,21 @@ The publication contains, in fixed order:
    `CapabilityMap`, ownership entry count from `OwnershipMap`. When
    missing: "Run `rekon refresh`."
 7. **Active Governance State** — active/accepted/ignored/resolved
-   counts, severity breakdown, top affected paths, remediation queue
-   priorities (`P0/P1/P2`), plus the lifecycle summary line when
-   present. When missing: "Run `rekon coherency delta` or `rekon
-   refresh`."
+   counts, severity breakdown, top affected paths, remediation
+   queue priorities (`P0/P1/P2`), plus the lifecycle summary line
+   when present. The counts are labeled `governed issue groups`
+   when the `CoherencyDelta` was built from an
+   `IssueAdjudicationReport`, otherwise `findings`. A short
+   preface states which mode is in effect. When the
+   `CoherencyDelta` is missing: "Run `rekon coherency delta` or
+   `rekon refresh`." The **Governed Issue Groups** subsection
+   follows: active/accepted/ignored/resolved/mixed group counts,
+   the member-finding total, the top 5 active groups by id with
+   severity / title / member count, and the line `Use
+   `rekon resolve issue --issue <group-id>` for adjudicated issue
+   context.` When no `IssueAdjudicationReport` is indexed, the
+   subsection emits a "run `rekon refresh`" hint and warns the
+   reader that raw lifecycle totals may overstate drift.
 8. **Proof And Verification State** — presence/missing for
    remediation WorkOrder, resolver WorkOrder, ReconciliationPlan,
    VerificationPlan, VerificationResult; explicit "Verification is

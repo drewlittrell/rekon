@@ -244,6 +244,29 @@ is the first stop before proposing a new capability batch.
   marks adjudication reports stale after newer
   `FindingLifecycleReport`. Semantic / fuzzy matching, LLM
   review, and `resolve.issue` v2 remain deferred.
+- Publications use adjudicated issue groups (P1.1 publication
+  consumption slice): both
+  `@rekon/capability-docs.architecture-summary` and
+  `@rekon/capability-docs.agent-contract` now read the latest
+  `IssueAdjudicationReport`, cite it in `header.inputRefs`, and
+  render a Governed Issue Groups section. The architecture
+  summary shows a full group table (`Group | Status | Severity |
+  Type | Members | Files`) where the Members column carries the
+  count plus the first few member finding ids. The agent
+  contract shows a short Governed Issue Groups subsection under
+  Active Governance State with the top 5 active groups + the
+  line `Use \`rekon resolve issue --issue <group-id>\``. Both
+  publications label the Coherency Summary as group-aware vs.
+  raw-finding when the `CoherencyDelta` was built from
+  adjudicated groups. The agent contract's Do Not Do list adds
+  "Do not treat raw finding count as governed issue count when
+  an IssueAdjudicationReport exists". When no adjudication
+  report is indexed, both publications emit a `rekon issues
+  adjudicate` / `rekon refresh` hint. Manifest adds
+  `IssueAdjudicationReport` to `consumes` and a new
+  `issue-adjudication.changed` invalidation rule so publications
+  go stale when adjudication advances. No artifact mutation. No
+  Publication shape change.
 - resolve.issue v2 from IssueAdjudicationReport (P1.1 resolver
   consumption slice): `resolve.issue` now prefers adjudicated
   groups over raw findings. Unique group matches populate

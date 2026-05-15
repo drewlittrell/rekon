@@ -282,7 +282,17 @@ test("rekon refresh against the import-boundary fixture surfaces active findings
       const pub = JSON.parse(await readFile(join(root, ref.path), "utf8"));
       if (pub.kind === "architecture-summary") {
         foundArchitectureSummary = true;
-        assert.ok(pub.content.includes("Active findings:"));
+        // After issues.adjudicate joined the refresh pipeline,
+        // CoherencyDelta is built from IssueAdjudicationReport and
+        // the Coherency Summary section labels its unit as
+        // "Active governed issue groups". Either label is valid;
+        // when no adjudication report exists, the legacy
+        // "Active findings:" label is still used.
+        assert.ok(
+          pub.content.includes("Active findings:") ||
+            pub.content.includes("Active governed issue groups:"),
+          "expected architecture summary to surface active counts under either governed-group or raw-finding label",
+        );
         break;
       }
     }

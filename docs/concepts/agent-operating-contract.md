@@ -75,7 +75,7 @@ state is current.
 | Operating Rules | always | n/a (durable rules) |
 | Resolver Workflow | always | n/a (durable flow) |
 | Ownership And Capabilities | `ObservedRepo` and/or `CapabilityMap` present | `ObservedRepo`, `OwnershipMap`, `CapabilityMap` |
-| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport` |
+| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport` (Governed Issue Groups subsection) |
 | Proof And Verification State | always | `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, `VerificationResult` |
 | Memory Guidance | always (table only when ranked items exist) | `MemorySelection` |
 | Required Checks | always | `VerificationPlan.commands` (default fallback) |

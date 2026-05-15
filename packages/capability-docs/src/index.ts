@@ -2,6 +2,7 @@ import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
   type FindingLifecycleReport,
+  type IssueAdjudicationReport,
 } from "@rekon/kernel-findings";
 import {
   type CapabilityMap,
@@ -221,6 +222,11 @@ export const architectureSummaryPublisher: Publisher = {
       "CoherencyDelta",
       inputRefs,
     );
+    const issueAdjudicationReport = await readLatestArtifact<IssueAdjudicationReport>(
+      artifacts,
+      "IssueAdjudicationReport",
+      inputRefs,
+    );
     const lifecycleReport = await readLatestArtifact<FindingLifecycleReport>(
       artifacts,
       "FindingLifecycleReport",
@@ -260,6 +266,7 @@ export const architectureSummaryPublisher: Publisher = {
         ownershipMap,
         capabilityMap,
         coherencyDelta,
+        issueAdjudicationReport,
         lifecycleReport,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
@@ -396,6 +403,11 @@ export const agentContractPublisher: Publisher = {
     const ownershipMap = await readLatestArtifact<OwnershipMap>(artifacts, "OwnershipMap", inputRefs);
     const capabilityMap = await readLatestArtifact<CapabilityMap>(artifacts, "CapabilityMap", inputRefs);
     const coherencyDelta = await readLatestArtifact<CoherencyDelta>(artifacts, "CoherencyDelta", inputRefs);
+    const issueAdjudicationReport = await readLatestArtifact<IssueAdjudicationReport>(
+      artifacts,
+      "IssueAdjudicationReport",
+      inputRefs,
+    );
     const lifecycleReport = await readLatestArtifact<FindingLifecycleReport>(
       artifacts,
       "FindingLifecycleReport",
@@ -444,6 +456,7 @@ export const agentContractPublisher: Publisher = {
         ownershipMap,
         capabilityMap,
         coherencyDelta,
+        issueAdjudicationReport,
         lifecycleReport,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
@@ -477,6 +490,7 @@ export default defineCapability({
       "OwnershipMap",
       "CapabilityMap",
       "CoherencyDelta",
+      "IssueAdjudicationReport",
       "FindingLifecycleReport",
       "WorkOrder",
       "ReconciliationPlan",
@@ -498,6 +512,12 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary when coherency, ownership, or repo model changes.",
         inputs: ["CoherencyDelta", "OwnershipMap", "CapabilityMap", "ObservedRepo"],
+      },
+      {
+        id: "issue-adjudication.changed",
+        description:
+          "Regenerate publications when adjudicated issue groups change so governed counts stay current.",
+        inputs: ["IssueAdjudicationReport"],
       },
       {
         id: "proof-loop.changed",
@@ -712,6 +732,7 @@ type ArchitectureSummaryInputs = {
   ownershipMap?: OwnershipMap;
   capabilityMap?: CapabilityMap;
   coherencyDelta?: CoherencyDelta;
+  issueAdjudicationReport?: IssueAdjudicationReport;
   lifecycleReport?: FindingLifecycleReport;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
@@ -730,6 +751,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     ownershipMap,
     capabilityMap,
     coherencyDelta,
+    issueAdjudicationReport,
     lifecycleReport,
     inputRefs,
     generatedAt,
@@ -811,6 +833,9 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   sections.push("## Coherency Summary");
   sections.push("");
 
+  const coherencyIsGrouped = coherencyDeltaCameFromAdjudication(coherencyDelta);
+  const coherencyUnit = coherencyIsGrouped ? "governed issue groups" : "findings";
+
   if (!coherencyDelta) {
     sections.push(
       "No CoherencyDelta found. Run `rekon coherency delta` for governance summary.",
@@ -818,7 +843,16 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     sections.push("");
   } else {
     const summary = coherencyDelta.summary;
-    sections.push(`- Active findings: ${summary.active}`);
+    if (coherencyIsGrouped) {
+      sections.push(
+        "Counts reflect adjudicated issue groups (CoherencyDelta was built from the latest IssueAdjudicationReport).",
+      );
+    } else {
+      sections.push(
+        "Counts reflect raw lifecycle findings (no IssueAdjudicationReport was indexed when CoherencyDelta was built).",
+      );
+    }
+    sections.push(`- Active ${coherencyUnit}: ${summary.active}`);
     sections.push(`- Accepted: ${summary.accepted}`);
     sections.push(`- Ignored: ${summary.ignored}`);
     sections.push(`- Resolved: ${summary.resolved}`);
@@ -827,6 +861,51 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
       sections.push(`  - ${severity}: ${summary.bySeverity[severity] ?? 0}`);
     }
     sections.push("");
+  }
+
+  // Governed Issue Groups
+  sections.push("## Governed Issue Groups");
+  sections.push("");
+
+  if (!issueAdjudicationReport) {
+    sections.push(
+      "No IssueAdjudicationReport found. Run `rekon issues adjudicate` or `rekon refresh` for governed issue context. Raw lifecycle counts above may overstate drift when duplicate findings exist.",
+    );
+    sections.push("");
+  } else {
+    const adj = issueAdjudicationReport.summary;
+    sections.push(`- Total groups: ${adj.totalGroups}`);
+    sections.push(`- Active groups: ${adj.activeGroups}`);
+    sections.push(`- Accepted groups: ${adj.acceptedGroups}`);
+    sections.push(`- Ignored groups: ${adj.ignoredGroups}`);
+    sections.push(`- Resolved groups: ${adj.resolvedGroups}`);
+    sections.push(`- Mixed groups: ${adj.mixedGroups}`);
+    sections.push(`- Total member findings: ${adj.groupedFindings} (across ${adj.totalGroups} group${adj.totalGroups === 1 ? "" : "s"})`);
+    sections.push("");
+
+    const groups = issueAdjudicationReport.groups ?? [];
+    if (groups.length === 0) {
+      sections.push("No adjudicated issue groups recorded.");
+      sections.push("");
+    } else {
+      sections.push("| Group | Status | Severity | Type | Members | Files |");
+      sections.push("| --- | --- | --- | --- | --- | --- |");
+      for (const group of groups.slice(0, 20)) {
+        const memberSummary = summarizeMembers(group.memberFindingIds);
+        const filesSummary = summarizeList(group.files ?? [], 3);
+        sections.push(
+          `| ${truncate(group.id, 40)} | ${group.status} | ${group.severity} | ${truncate(group.type, 40)} | ${memberSummary} | ${filesSummary} |`,
+        );
+      }
+      if (groups.length > 20) {
+        sections.push(`| _… ${groups.length - 20} more groups_ | | | | | |`);
+      }
+      sections.push("");
+      sections.push(
+        "Use `rekon resolve issue --issue <group-id>` for adjudicated issue context. Raw member findings remain traceable via `memberFindingIds` on each group and in the resolver packet.",
+      );
+      sections.push("");
+    }
   }
 
   // Top Affected Paths
@@ -1484,6 +1563,7 @@ type AgentContractInputs = {
   ownershipMap?: OwnershipMap;
   capabilityMap?: CapabilityMap;
   coherencyDelta?: CoherencyDelta;
+  issueAdjudicationReport?: IssueAdjudicationReport;
   lifecycleReport?: FindingLifecycleReport;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
@@ -1520,6 +1600,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not change rules, findings, or status ledgers to hide work.",
   "Do not ignore stale artifacts; re-run `rekon refresh` instead.",
   "Do not apply source-writing reconciliation unless an explicit future capability enables it under `write:source` permission.",
+  "Do not treat raw finding count as governed issue count when an IssueAdjudicationReport exists; use governed issue groups (memberFindingIds preserves raw traceability).",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -1529,6 +1610,7 @@ function renderAgentContract(input: AgentContractInputs): string {
     ownershipMap,
     capabilityMap,
     coherencyDelta,
+    issueAdjudicationReport,
     lifecycleReport,
     remediationWorkOrder,
     resolverWorkOrder,
@@ -1637,12 +1719,24 @@ function renderAgentContract(input: AgentContractInputs): string {
   // Active Governance State
   sections.push("## Active Governance State");
   sections.push("");
+  const coherencyIsGrouped = coherencyDeltaCameFromAdjudication(coherencyDelta);
+  const coherencyUnit = coherencyIsGrouped ? "governed issue groups" : "findings";
+
   if (!coherencyDelta) {
     sections.push("No CoherencyDelta found. Run `rekon coherency delta` or `rekon refresh`.");
     sections.push("");
   } else {
     const summary = coherencyDelta.summary;
-    sections.push(`- Active findings: ${summary.active}`);
+    if (coherencyIsGrouped) {
+      sections.push(
+        "Counts below reflect adjudicated issue groups (CoherencyDelta was built from the latest IssueAdjudicationReport).",
+      );
+    } else {
+      sections.push(
+        "Counts below reflect raw lifecycle findings. Run `rekon issues adjudicate` or `rekon refresh` so governed issue groups can be summarized here.",
+      );
+    }
+    sections.push(`- Active ${coherencyUnit}: ${summary.active}`);
     sections.push(`- Accepted: ${summary.accepted}`);
     sections.push(`- Ignored: ${summary.ignored}`);
     sections.push(`- Resolved: ${summary.resolved}`);
@@ -1677,6 +1771,45 @@ function renderAgentContract(input: AgentContractInputs): string {
       );
       sections.push("");
     }
+  }
+
+  sections.push("### Governed Issue Groups");
+  sections.push("");
+
+  if (!issueAdjudicationReport) {
+    sections.push(
+      "No IssueAdjudicationReport found. Run `rekon refresh` before relying on issue counts above; raw lifecycle totals may overstate drift when duplicate findings exist.",
+    );
+    sections.push("");
+  } else {
+    const adj = issueAdjudicationReport.summary;
+    sections.push(`- Active governed groups: ${adj.activeGroups}`);
+    sections.push(`- Accepted: ${adj.acceptedGroups}, Ignored: ${adj.ignoredGroups}, Resolved: ${adj.resolvedGroups}, Mixed: ${adj.mixedGroups}`);
+    sections.push(`- Total groups: ${adj.totalGroups} covering ${adj.groupedFindings} member finding${adj.groupedFindings === 1 ? "" : "s"}.`);
+
+    const activeGroups = (issueAdjudicationReport.groups ?? []).filter((group) => group.active);
+
+    if (activeGroups.length > 0) {
+      sections.push("");
+      sections.push("Top active groups:");
+      for (const group of activeGroups.slice(0, 5)) {
+        const memberCount = group.memberFindingIds?.length ?? 0;
+        const title = truncate(group.title ?? group.type ?? group.id, 80);
+        sections.push(
+          `- \`${group.id}\` — ${group.severity} — ${title} — members: ${memberCount}`,
+        );
+      }
+      sections.push("");
+    } else {
+      sections.push("");
+      sections.push("No active governed issue groups.");
+      sections.push("");
+    }
+
+    sections.push(
+      "Use `rekon resolve issue --issue <group-id>` for adjudicated issue context. Raw member findings remain traceable via `memberFindingIds` on each group.",
+    );
+    sections.push("");
   }
 
   // Proof And Verification State
@@ -1939,6 +2072,26 @@ function summarizeList(values: string[], maxItems: number): string {
   }
 
   return `${values.slice(0, maxItems).join(", ")} _(+${values.length - maxItems} more)_`;
+}
+
+function summarizeMembers(memberFindingIds: string[] | undefined): string {
+  const members = memberFindingIds ?? [];
+  if (members.length === 0) {
+    return "_none_";
+  }
+  if (members.length <= 3) {
+    return `${members.length}: ${members.join(", ")}`;
+  }
+  return `${members.length}: ${members.slice(0, 3).join(", ")} _(+${members.length - 3} more)_`;
+}
+
+function coherencyDeltaCameFromAdjudication(
+  delta: CoherencyDelta | undefined,
+): boolean {
+  if (!delta || delta.items.length === 0) {
+    return false;
+  }
+  return delta.items.some((item) => Boolean(item.issueGroupId));
 }
 
 function truncate(value: string, max: number): string {

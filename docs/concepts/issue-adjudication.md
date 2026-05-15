@@ -121,6 +121,21 @@ audited.
   without silently choosing. Missing report or no-match queries
   fall back to the raw `FindingReport` path with a fallback trace.
   See [resolvers.md](resolvers.md).
+- As input to the architecture summary and agent operating
+  contract publications: both publications now surface a
+  "Governed Issue Groups" section when an
+  `IssueAdjudicationReport` is indexed. The architecture summary
+  shows a full group table (status / severity / type / member
+  count + ids / files); the agent contract shows a short
+  Active-Governance-State subsection with active group counts,
+  top 5 active groups, and a `rekon resolve issue --issue
+  <group-id>` instruction. Both publications cite the
+  adjudication report in `inputRefs` and flag the Coherency
+  Summary as group-aware vs. raw. The agent contract's Do Not
+  Do list also warns "Do not treat raw finding count as governed
+  issue count when an IssueAdjudicationReport exists". See
+  [architecture-summary-publication.md](architecture-summary-publication.md)
+  and [agent-operating-contract.md](agent-operating-contract.md).
 
 ## CLI Surface
 

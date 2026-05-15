@@ -375,10 +375,22 @@ Implementation batches:
   Missing report or no-match queries fall back to raw findings
   with an explicit fallback trace. Pinned by
   `tests/contract/issue-resolver-adjudicated.test.mjs` (17 tests).
+- "Publications use adjudicated issue groups" (shipped) —
+  `@rekon/capability-docs.architecture-summary` and
+  `@rekon/capability-docs.agent-contract` now consume
+  `IssueAdjudicationReport`, cite it in `header.inputRefs`,
+  render a Governed Issue Groups section showing group counts +
+  member finding ids, and label coherency counts as
+  group-aware vs. raw-finding. The agent contract adds a
+  `rekon resolve issue --issue <group-id>` instruction and a
+  Do Not Do entry against treating raw finding count as
+  governed issue count. Manifest gains an
+  `issue-adjudication.changed` invalidation rule. Pinned by
+  `tests/contract/publications-adjudicated-issues.test.mjs`
+  (11 tests).
 - "Issue adjudication maturity" remains the future batch for
   cross-pack semantic dedupe, false-positive scoring, and
-  publication-surface consumption (architecture summary + agent
-  contract should also consume adjudicated groups).
+  freshness / stale-source guardrails.
 
 ### P1.2 Memory ranking / curation
 
