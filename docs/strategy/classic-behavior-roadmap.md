@@ -99,6 +99,42 @@ scope:
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy matching,
   false-positive scoring, automatic ignore/accept, and LLM review
   are deliberately deferred.
+- **Operator-assisted issue merge decision ledger (P1.1
+  merge-decisions slice).** ✅ Shipped.
+  `IssueMergeDecisionLedger` records explicit
+  `accepted` / `rejected` decisions on
+  `IssueMergeCandidate` records with required notes and
+  optional reasons (`same-root-cause` / `separate-issues` /
+  `false-positive-candidate` / `other`). The runtime helper
+  `recordIssueMergeDecision` validates the candidate id against
+  the latest `IssueAdjudicationReport`, refuses unknown ids
+  with a listing of available candidates, and writes a fresh
+  ledger artifact that cites the adjudication report plus prior
+  ledger. New CLI surface: `rekon issues merge candidates` /
+  `rekon issues merge decide <id> --decision … --note … [--reason …] [--decided-by …]` /
+  `rekon issues merge decisions`. `rekon issues list` and
+  `rekon issues adjudicate` now annotate the
+  `mergeCandidates` array with `decision` / `decisionId` /
+  `decisionNote` / `decisionReason` / `decisionDecidedAt` /
+  `decisionDecidedBy` fields when a ledger exists. Pure helpers:
+  `createIssueMergeDecisionLedger`,
+  `validateIssueMergeDecisionLedger`,
+  `assertIssueMergeDecisionLedger`,
+  `issueMergeDecisionLedgerSchema`,
+  `findLatestIssueMergeDecision`,
+  `applyIssueMergeDecisionsToCandidates`. Ledger is registered
+  as a built-in artifact type and is treated as a canonical
+  input by `validateArtifactFreshness` (alongside
+  `OperatorFeedbackEntry` and `FindingStatusLedger`). Decisions
+  **never** merge groups; `CoherencyDelta`, `resolve.issue`,
+  and the publications continue to operate on actual
+  `IssueAdjudicationGroup` records. A future `CoherencyDelta`
+  v3 may opt in to consuming accepted decisions; that is the
+  recommended next slice. Aligned to
+  `services/IssueDetectionService.ts`,
+  `domain/issues/mergeIssues.ts`. Semantic / fuzzy / embedding
+  matching, LLM review, false-positive scoring, and automatic
+  candidate-merge approval all remain deferred.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

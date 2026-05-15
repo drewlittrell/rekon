@@ -244,6 +244,22 @@ is the first stop before proposing a new capability batch.
   marks adjudication reports stale after newer
   `FindingLifecycleReport`. Semantic / fuzzy matching, LLM
   review, and `resolve.issue` v2 remain deferred.
+- Operator-assisted issue merge decision ledger (P1.1
+  merge-decisions slice): `IssueMergeDecisionLedger` records
+  explicit `accepted` / `rejected` decisions on
+  `IssueMergeCandidate` records with required notes and
+  optional reasons. New runtime helper
+  `recordIssueMergeDecision`. New CLI: `rekon issues merge
+  candidates` / `rekon issues merge decide <id> --decision …
+  --note … [--reason …] [--decided-by …]` / `rekon issues
+  merge decisions`. `rekon issues list` and `rekon issues
+  adjudicate` now annotate `mergeCandidates` with
+  `decision` / `decisionId` / `decisionNote` /
+  `decisionReason` / `decisionDecidedAt` / `decisionDecidedBy`
+  fields when a ledger exists. Decisions never merge groups;
+  `CoherencyDelta`, `resolve.issue`, and the publications keep
+  operating on actual `IssueAdjudicationGroup` records. Ledger
+  is treated as canonical input by freshness.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

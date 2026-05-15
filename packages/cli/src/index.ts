@@ -29,6 +29,7 @@ import {
   buildIssueAdjudicationReport,
   createLocalArtifactStore,
   createRuntime,
+  recordIssueMergeDecision,
   validateArtifactFreshness,
   validateArtifactIndex,
 } from "@rekon/runtime";
@@ -39,6 +40,10 @@ import {
   type FindingStatusDecisionReason,
   type FindingStatusDecisionStatus,
   type FindingStatusLedger,
+  type IssueAdjudicationReport,
+  type IssueMergeDecisionLedger,
+  type IssueMergeDecisionReason,
+  applyIssueMergeDecisionsToCandidates,
   createFindingStatusLedger,
 } from "@rekon/kernel-findings";
 
@@ -54,6 +59,16 @@ const PROTECTED_AGENT_DOC_RELATIVE_PATTERNS: ReadonlyArray<RegExp> = [
   /^\.cursor\/rules\/[^/]+\.md$/i,
   /^\.github\/copilot-instructions\.md$/i,
 ];
+
+// Top-of-module to avoid TDZ when called during main()'s synchronous
+// prefix (before the first await in command dispatches that read flags
+// up front, e.g. `issues merge decide`).
+const ISSUE_MERGE_DECISION_REASONS = new Set<string>([
+  "same-root-cause",
+  "separate-issues",
+  "false-positive-candidate",
+  "other",
+]);
 
 if (isMainEntry()) {
   main(process.argv.slice(2)).catch((error: unknown) => {
@@ -1033,13 +1048,18 @@ export async function main(argv: string[]): Promise<void> {
     await store.init();
     const report = await buildIssueAdjudicationReport(store);
     const ref = await store.write(report, { category: "findings" });
+    const ledger = await readLatestMergeDecisionLedger(store);
+    const mergeCandidates = applyIssueMergeDecisionsToCandidates(
+      report.mergeCandidates,
+      ledger,
+    );
 
     writeOutput(
       {
         artifact: ref,
         summary: report.summary,
         groups: report.groups,
-        mergeCandidates: report.mergeCandidates ?? [],
+        mergeCandidates,
       },
       json,
     );
@@ -1077,12 +1097,123 @@ export async function main(argv: string[]): Promise<void> {
       ? report.groups.filter((group) => group.status === statusFilter)
       : report.groups;
 
+    const ledger = await readLatestMergeDecisionLedger(store);
+    const mergeCandidates = applyIssueMergeDecisionsToCandidates(
+      report.mergeCandidates,
+      ledger,
+    );
+
     writeOutput(
       {
         artifact: artifactRef,
         summary: report.summary,
         groups,
-        mergeCandidates: report.mergeCandidates ?? [],
+        mergeCandidates,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "issues" && subcommand === "merge" && positional === "candidates") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const entries = await store.list("IssueAdjudicationReport");
+    const sorted = [...entries].sort((left, right) => right.id.localeCompare(left.id));
+    const latest = sorted[0];
+    if (!latest) {
+      throw new Error(
+        "No IssueAdjudicationReport found. Run `rekon issues adjudicate` or `rekon refresh`.",
+      );
+    }
+    const report = (await store.read(latest)) as IssueAdjudicationReport;
+    const ledger = await readLatestMergeDecisionLedger(store);
+    const mergeCandidates = applyIssueMergeDecisionsToCandidates(
+      report.mergeCandidates,
+      ledger,
+    );
+
+    writeOutput(
+      {
+        artifact: {
+          type: latest.type,
+          id: latest.id,
+          path: latest.path,
+          digest: latest.digest,
+          schemaVersion: latest.schemaVersion,
+        },
+        ledger: ledger
+          ? { type: "IssueMergeDecisionLedger", id: ledger.header.artifactId, schemaVersion: ledger.header.schemaVersion }
+          : null,
+        mergeCandidates,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "issues" && subcommand === "merge" && positional === "decide") {
+    const candidateId = typeof parsed.positionals[3] === "string" ? parsed.positionals[3] : undefined;
+    if (!candidateId) {
+      throw new Error("rekon issues merge decide requires a candidate id positional argument.");
+    }
+    const decisionFlag = typeof parsed.flags.decision === "string" ? parsed.flags.decision : undefined;
+    if (!decisionFlag || (decisionFlag !== "accepted" && decisionFlag !== "rejected")) {
+      throw new Error(
+        "rekon issues merge decide requires --decision accepted|rejected.",
+      );
+    }
+    const note = typeof parsed.flags.note === "string" ? parsed.flags.note : "";
+    if (note.trim().length === 0) {
+      throw new Error("rekon issues merge decide requires --note <note>.");
+    }
+    const reasonFlag = typeof parsed.flags.reason === "string" ? parsed.flags.reason : undefined;
+    const reason = parseIssueMergeDecisionReason(reasonFlag);
+    const decidedBy = typeof parsed.flags["decided-by"] === "string" ? parsed.flags["decided-by"] : undefined;
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const ledger = await recordIssueMergeDecision(store, {
+      candidateId,
+      decision: decisionFlag,
+      note,
+      reason,
+      decidedBy,
+    });
+    const latestDecision = ledger.decisions[ledger.decisions.length - 1];
+
+    writeOutput(
+      {
+        artifact: {
+          type: "IssueMergeDecisionLedger",
+          id: ledger.header.artifactId,
+          schemaVersion: ledger.header.schemaVersion,
+        },
+        decision: latestDecision,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "issues" && subcommand === "merge" && positional === "decisions") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const ledger = await readLatestMergeDecisionLedger(store);
+    if (!ledger) {
+      writeOutput({ ledger: null, decisions: [] }, json);
+      return;
+    }
+    writeOutput(
+      {
+        ledger: {
+          type: "IssueMergeDecisionLedger",
+          id: ledger.header.artifactId,
+          schemaVersion: ledger.header.schemaVersion,
+        },
+        decisions: ledger.decisions,
       },
       json,
     );
@@ -2600,6 +2731,34 @@ function parseIssueStatusFilter(value: unknown): string | undefined {
   return value;
 }
 
+function parseIssueMergeDecisionReason(
+  value: unknown,
+): IssueMergeDecisionReason | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    return undefined;
+  }
+  if (!ISSUE_MERGE_DECISION_REASONS.has(value)) {
+    throw new Error(
+      `rekon issues merge decide --reason must be one of ${[...ISSUE_MERGE_DECISION_REASONS].join(", ")}.`,
+    );
+  }
+  return value as IssueMergeDecisionReason;
+}
+
+async function readLatestMergeDecisionLedger(
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<IssueMergeDecisionLedger | undefined> {
+  const entries = await store.list("IssueMergeDecisionLedger");
+  if (entries.length === 0) return undefined;
+  const sorted = [...entries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+  return (await store.read(sorted[0]!)) as IssueMergeDecisionLedger;
+}
+
 function writeOutput(value: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(value, null, 2));
@@ -2661,6 +2820,9 @@ function usage(): string {
     "rekon coherency delta [--root <path>] [--json]",
     "rekon issues adjudicate [--root <path>] [--json]",
     "rekon issues list [--status active|accepted|ignored|resolved|mixed] [--root <path>] [--json]",
+    "rekon issues merge candidates [--root <path>] [--json]",
+    "rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note> [--reason <reason>] [--decided-by <name>] [--root <path>] [--json]",
+    "rekon issues merge decisions [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
   ].join("\n");
 }

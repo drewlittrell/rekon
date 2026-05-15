@@ -107,10 +107,28 @@ Anti-gaming:
 - `CoherencyDelta` keeps counting the underlying groups
   separately. The remediation queue keeps one step per active
   group.
-- No LLM, embeddings, or fuzzy matching. The next slice
-  (operator-assisted merge decision ledger) will let humans
-  explicitly accept or reject candidates; it will not introduce
-  automatic semantic merging either.
+- No LLM, embeddings, or fuzzy matching.
+
+### Operator decisions on candidates
+
+Operators can accept or reject merge candidates explicitly via
+`rekon issues merge decide`. Decisions persist in an
+`IssueMergeDecisionLedger` artifact and surface inline on each
+candidate when `rekon issues list` / `rekon issues adjudicate`
+/ `rekon issues merge candidates` are read. The annotation adds
+optional `decision`, `decisionId`, `decisionNote`,
+`decisionReason`, `decisionDecidedAt`, and `decisionDecidedBy`
+fields to the candidate; the underlying candidate scoring is
+unchanged.
+
+Decisions **do not** merge groups. `CoherencyDelta`,
+`resolve.issue`, and the publications all continue to operate
+on actual `IssueAdjudicationGroup` records. A future
+`CoherencyDelta` v3 (or other consumer) can choose to consume
+accepted decisions; that is deferred.
+
+See [issue-merge-decisions.md](issue-merge-decisions.md) and
+[../artifacts/issue-merge-decision-ledger.md](../artifacts/issue-merge-decision-ledger.md).
 
 The report exposes a sorted, capped `mergeCandidates` array (max
 50 by default) and a `summary.mergeCandidates` count. Both are

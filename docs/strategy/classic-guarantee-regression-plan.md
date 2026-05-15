@@ -375,6 +375,16 @@ Implementation batches:
   Missing report or no-match queries fall back to raw findings
   with an explicit fallback trace. Pinned by
   `tests/contract/issue-resolver-adjudicated.test.mjs` (17 tests).
+- "Operator-assisted issue merge decision ledger" (shipped) —
+  `IssueMergeDecisionLedger` records `accepted` / `rejected`
+  decisions on merge candidates with required notes + optional
+  reasons. `rekon issues merge decide` writes the ledger;
+  `rekon issues list` annotates candidates with the latest
+  decision. Decisions never merge groups (CoherencyDelta /
+  resolve.issue / publications unchanged). Ledger is treated as
+  canonical input by freshness. Pinned by
+  `tests/contract/issue-merge-decision-ledger.test.mjs` (14
+  tests).
 - "Issue adjudication v2: deterministic cross-rule merge hints"
   (shipped) — `IssueAdjudicationReport.mergeCandidates` emits
   advisory `IssueMergeCandidate` records for pairs of distinct

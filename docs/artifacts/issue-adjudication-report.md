@@ -258,6 +258,21 @@ group's combined text doesn't match any bucket, the
   semantic dedupe, that is explicitly a future capability under
   `network:outbound` permission.
 
+### Operator decisions
+
+Operators can accept or reject merge candidates as durable
+artifacts via `rekon issues merge decide`. Decisions are stored
+in an `IssueMergeDecisionLedger` and surfaced inline on each
+candidate as `decision` / `decisionId` / `decisionNote` /
+`decisionReason` / `decisionDecidedAt` / `decisionDecidedBy`
+fields when `rekon issues list`, `rekon issues adjudicate`, or
+`rekon issues merge candidates` is read. Decisions **do not**
+merge the underlying groups — `CoherencyDelta` still counts one
+delta item per active group. See
+[../concepts/issue-merge-decisions.md](../concepts/issue-merge-decisions.md)
+and
+[issue-merge-decision-ledger.md](issue-merge-decision-ledger.md).
+
 ## Canonical Finding Selection
 
 For each group, the **canonical** finding (used for `title`,
@@ -339,6 +354,8 @@ See [../concepts/freshness-and-invalidation.md](../concepts/freshness-and-invali
 ## Cross-References
 
 - [Issue adjudication concept](../concepts/issue-adjudication.md)
+- [Issue merge decisions concept](../concepts/issue-merge-decisions.md)
+- [Issue merge decision ledger](issue-merge-decision-ledger.md)
 - [Finding report](finding-report.md)
 - [Finding lifecycle report](finding-lifecycle-report.md)
 - [Finding status ledger](finding-status-ledger.md)

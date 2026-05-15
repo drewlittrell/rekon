@@ -25,9 +25,14 @@ import {
   type FindingStatusLedger,
   type IssueAdjudicationGroup,
   type IssueAdjudicationReport,
+  type IssueMergeDecision,
+  type IssueMergeDecisionLedger,
+  type IssueMergeDecisionReason,
+  type IssueMergeDecisionStatus,
   createCoherencyDelta,
   createFindingLifecycleReport,
   createIssueAdjudicationReport,
+  createIssueMergeDecisionLedger,
   deriveFindingLifecycle,
 } from "@rekon/kernel-findings";
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
@@ -214,6 +219,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   ResolverPacket: "resolver-packets",
   Publication: "publications",
   IssueAdjudicationReport: "findings",
+  IssueMergeDecisionLedger: "findings",
   OperatorFeedbackEntry: "actions",
   MemoryEvent: "actions",
   ContextUsageEvent: "actions",
@@ -628,6 +634,7 @@ const CANONICAL_INPUT_TYPES = new Set([
   "Rulebook",
   "OperatorFeedbackEntry",
   "FindingStatusLedger",
+  "IssueMergeDecisionLedger",
 ]);
 
 export async function validateArtifactFreshness(
@@ -1074,6 +1081,113 @@ export async function buildIssueAdjudicationReport(
     resolvedFindings: lifecycle.resolvedFindings,
     systemsForFinding,
   });
+}
+
+export type RecordIssueMergeDecisionOptions = {
+  candidateId: string;
+  decision: IssueMergeDecisionStatus;
+  note: string;
+  reason?: IssueMergeDecisionReason;
+  decidedBy?: string;
+  evidence?: ArtifactRef[];
+};
+
+export async function recordIssueMergeDecision(
+  store: ArtifactStore,
+  options: RecordIssueMergeDecisionOptions,
+): Promise<IssueMergeDecisionLedger> {
+  if (!options.candidateId || options.candidateId.length === 0) {
+    throw new Error("recordIssueMergeDecision requires options.candidateId.");
+  }
+  if (options.decision !== "accepted" && options.decision !== "rejected") {
+    throw new Error("recordIssueMergeDecision decision must be 'accepted' or 'rejected'.");
+  }
+  if (typeof options.note !== "string" || options.note.trim().length === 0) {
+    throw new Error("recordIssueMergeDecision requires a non-empty note.");
+  }
+
+  // Resolve the candidate from the latest adjudication report.
+  const adjudicationEntries = await store.list("IssueAdjudicationReport");
+  const sortedAdjudication = [...adjudicationEntries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+  const latestAdjudicationEntry = sortedAdjudication[0];
+  if (!latestAdjudicationEntry) {
+    throw new Error(
+      "recordIssueMergeDecision requires an IssueAdjudicationReport. Run `rekon issues adjudicate` or `rekon refresh`.",
+    );
+  }
+  const adjudication = (await store.read(latestAdjudicationEntry)) as IssueAdjudicationReport;
+  const candidates = adjudication.mergeCandidates ?? [];
+  const candidate = candidates.find((entry) => entry.id === options.candidateId);
+  if (!candidate) {
+    const available = candidates.map((entry) => entry.id);
+    const detail = available.length === 0
+      ? "no merge candidates exist in the latest IssueAdjudicationReport"
+      : `available candidate ids: ${available.join(", ")}`;
+    throw new Error(
+      `Merge candidate not found: ${options.candidateId} (${detail}).`,
+    );
+  }
+
+  // Load the latest ledger (if any) to preserve prior decisions.
+  const ledgerEntries = await store.list("IssueMergeDecisionLedger");
+  const sortedLedgers = [...ledgerEntries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+  const latestLedgerEntry = sortedLedgers[0];
+  const priorLedger = latestLedgerEntry
+    ? ((await store.read(latestLedgerEntry)) as IssueMergeDecisionLedger)
+    : undefined;
+  const priorDecisions = priorLedger?.decisions ?? [];
+
+  const decidedAt = new Date().toISOString();
+  const newDecision: IssueMergeDecision = {
+    id: `merge-decision-${Date.now()}`,
+    candidateId: options.candidateId,
+    decision: options.decision,
+    note: options.note.trim(),
+    reason: options.reason,
+    groupIds: [...candidate.groupIds],
+    memberFindingIds: [...candidate.memberFindingIds],
+    decidedAt,
+    decidedBy: options.decidedBy,
+    source: "operator",
+    evidence: options.evidence ? options.evidence.map((ref) => ({ ...ref })) : undefined,
+  };
+
+  const decisions = [...priorDecisions, newDecision];
+
+  const adjudicationRef = indexEntryToRef(latestAdjudicationEntry);
+  const inputRefs: ArtifactRef[] = [adjudicationRef];
+  if (latestLedgerEntry) {
+    inputRefs.push(indexEntryToRef(latestLedgerEntry));
+  }
+  if (options.evidence) {
+    for (const ref of options.evidence) {
+      if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+        inputRefs.push(ref);
+      }
+    }
+  }
+
+  const ledger = createIssueMergeDecisionLedger({
+    header: {
+      artifactType: "IssueMergeDecisionLedger",
+      artifactId: `issue-merge-decision-ledger-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: decidedAt,
+      subject: { repoId: subjectRepoId(store) },
+      producer: { id: "@rekon/runtime.issues", version: "0.1.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+    },
+    decisions,
+  });
+
+  await store.write(ledger);
+
+  return ledger;
 }
 
 async function readLatest<T>(

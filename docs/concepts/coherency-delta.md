@@ -180,13 +180,18 @@ These are intentionally deferred. See
 
 > **Merge candidates are advisory only.** v2 adjudication can
 > emit `IssueMergeCandidate` records that link two groups likely
-> describing the same underlying issue. `CoherencyDelta` does
-> **not** treat candidates as merged groups: the delta keeps one
-> item per actual `IssueAdjudicationGroup` and one
-> `remediationQueue` step per active group. Candidates surface
-> in the adjudication report and in `rekon issues list`, not in
-> coherency counts. See
-> [issue-adjudication.md](issue-adjudication.md).
+> describing the same underlying issue, and operators can
+> explicitly accept or reject those candidates via
+> `rekon issues merge decide`. **Neither candidates nor accepted
+> decisions** affect `CoherencyDelta`: the delta keeps one item
+> per actual `IssueAdjudicationGroup` and one
+> `remediationQueue` step per active group. Candidates and
+> decisions surface in `rekon issues list` and `rekon issues
+> merge candidates`, not in coherency counts. A future
+> `CoherencyDelta` v3 may opt in to consuming accepted
+> decisions; that is deferred. See
+> [issue-adjudication.md](issue-adjudication.md) and
+> [issue-merge-decisions.md](issue-merge-decisions.md).
 
 > **Adjudicated input (v2).** When an `IssueAdjudicationReport`
 > exists in the store, `buildCoherencyDelta` now consumes

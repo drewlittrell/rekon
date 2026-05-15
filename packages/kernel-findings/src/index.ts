@@ -415,6 +415,33 @@ export type IssueMergeCandidateReason =
   | "same-suggested-action"
   | "shared-system";
 
+export type IssueMergeDecisionStatus = "accepted" | "rejected";
+
+export type IssueMergeDecisionReason =
+  | "same-root-cause"
+  | "separate-issues"
+  | "false-positive-candidate"
+  | "other";
+
+export type IssueMergeDecision = {
+  id: string;
+  candidateId: string;
+  decision: IssueMergeDecisionStatus;
+  note: string;
+  reason?: IssueMergeDecisionReason;
+  groupIds: string[];
+  memberFindingIds: string[];
+  decidedAt: string;
+  decidedBy?: string;
+  source: "operator" | "system";
+  evidence?: ArtifactRef[];
+};
+
+export type IssueMergeDecisionLedger = {
+  header: ArtifactHeader;
+  decisions: IssueMergeDecision[];
+};
+
 export type IssueMergeCandidate = {
   id: string;
   groupIds: string[];
@@ -424,6 +451,12 @@ export type IssueMergeCandidate = {
   confidence: number;
   status: "candidate";
   note: string;
+  decision?: IssueMergeDecisionStatus;
+  decisionId?: string;
+  decisionNote?: string;
+  decisionReason?: IssueMergeDecisionReason;
+  decisionDecidedAt?: string;
+  decisionDecidedBy?: string;
 };
 
 export type IssueAdjudicationReport = {
@@ -443,6 +476,18 @@ const ISSUE_MERGE_CANDIDATE_STRENGTHS = new Set<IssueMergeCandidateStrength>([
   "strong",
   "medium",
   "weak",
+]);
+
+const ISSUE_MERGE_DECISION_STATUSES = new Set<IssueMergeDecisionStatus>([
+  "accepted",
+  "rejected",
+]);
+
+const ISSUE_MERGE_DECISION_REASONS = new Set<IssueMergeDecisionReason>([
+  "same-root-cause",
+  "separate-issues",
+  "false-positive-candidate",
+  "other",
 ]);
 
 const ISSUE_MERGE_CANDIDATE_REASONS = new Set<IssueMergeCandidateReason>([
@@ -1183,6 +1228,235 @@ function validateMergeCandidate(
       path: `${path}.reasons`,
       message: "Expected a non-empty array of known merge-candidate reasons.",
     });
+  }
+
+  if (value.decision !== undefined) {
+    if (
+      typeof value.decision !== "string"
+      || !ISSUE_MERGE_DECISION_STATUSES.has(value.decision as IssueMergeDecisionStatus)
+    ) {
+      issues.push({
+        path: `${path}.decision`,
+        message: 'Expected "accepted" or "rejected" when present.',
+      });
+    }
+  }
+}
+
+export function createIssueMergeDecisionLedger(input: {
+  header: ArtifactHeader;
+  decisions: IssueMergeDecision[];
+}): IssueMergeDecisionLedger {
+  const normalized = input.decisions.map((decision) => normalizeMergeDecision(decision));
+  const sorted = [...normalized].sort((left, right) => {
+    const candidateDiff = left.candidateId.localeCompare(right.candidateId);
+    if (candidateDiff !== 0) return candidateDiff;
+    return left.decidedAt.localeCompare(right.decidedAt);
+  });
+  return assertIssueMergeDecisionLedger({
+    header: input.header,
+    decisions: sorted,
+  });
+}
+
+export function validateIssueMergeDecisionLedger(
+  value: unknown,
+): ValidationResult<IssueMergeDecisionLedger> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  const header = validateArtifactHeader(value.header);
+
+  if (!header.ok) {
+    issues.push(...prefixIssues(header.issues, "$.header"));
+  } else if (header.value.artifactType !== "IssueMergeDecisionLedger") {
+    issues.push({
+      path: "$.header.artifactType",
+      message: "Expected artifactType to be IssueMergeDecisionLedger.",
+    });
+  }
+
+  if (!Array.isArray(value.decisions)) {
+    issues.push({ path: "$.decisions", message: "Expected an array." });
+  } else {
+    value.decisions.forEach((decision, index) =>
+      validateMergeDecision(decision, `$.decisions[${index}]`, issues),
+    );
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as IssueMergeDecisionLedger, issues: [] };
+}
+
+export function assertIssueMergeDecisionLedger(value: unknown): IssueMergeDecisionLedger {
+  const result = validateIssueMergeDecisionLedger(value);
+
+  if (result.ok) {
+    return result.value;
+  }
+
+  throw new TypeError(
+    `IssueMergeDecisionLedger validation failed: ${result.issues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ")}`,
+  );
+}
+
+export const issueMergeDecisionLedgerSchema: ArtifactSchema<IssueMergeDecisionLedger> = {
+  validate: validateIssueMergeDecisionLedger,
+  parse: assertIssueMergeDecisionLedger,
+};
+
+export function findLatestIssueMergeDecision(
+  ledger: IssueMergeDecisionLedger | undefined,
+  candidateId: string,
+): IssueMergeDecision | undefined {
+  if (!ledger) return undefined;
+  let latest: IssueMergeDecision | undefined;
+  for (const decision of ledger.decisions) {
+    if (decision.candidateId !== candidateId) continue;
+    if (!latest || decision.decidedAt.localeCompare(latest.decidedAt) > 0) {
+      latest = decision;
+    }
+  }
+  return latest;
+}
+
+export function applyIssueMergeDecisionsToCandidates(
+  candidates: IssueMergeCandidate[] | undefined,
+  ledger: IssueMergeDecisionLedger | undefined,
+): IssueMergeCandidate[] {
+  if (!candidates || candidates.length === 0) {
+    return [];
+  }
+  if (!ledger) {
+    return candidates.map((candidate) => ({ ...candidate }));
+  }
+
+  return candidates.map((candidate) => {
+    const decision = findLatestIssueMergeDecision(ledger, candidate.id);
+    if (!decision) {
+      return { ...candidate };
+    }
+    return {
+      ...candidate,
+      decision: decision.decision,
+      decisionId: decision.id,
+      decisionNote: decision.note,
+      decisionReason: decision.reason,
+      decisionDecidedAt: decision.decidedAt,
+      decisionDecidedBy: decision.decidedBy,
+    };
+  });
+}
+
+function normalizeMergeDecision(decision: IssueMergeDecision): IssueMergeDecision {
+  return {
+    ...decision,
+    note: typeof decision.note === "string" ? decision.note.trim() : decision.note,
+    groupIds: Array.isArray(decision.groupIds) ? [...decision.groupIds] : decision.groupIds,
+    memberFindingIds: Array.isArray(decision.memberFindingIds)
+      ? [...decision.memberFindingIds]
+      : decision.memberFindingIds,
+    evidence: Array.isArray(decision.evidence)
+      ? decision.evidence.map((ref) => ({ ...ref }))
+      : decision.evidence,
+  };
+}
+
+function validateMergeDecision(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  requiredString(value.id, `${path}.id`, issues);
+  requiredString(value.candidateId, `${path}.candidateId`, issues);
+  requiredString(value.decidedAt, `${path}.decidedAt`, issues);
+
+  if (typeof value.note !== "string" || value.note.trim().length === 0) {
+    issues.push({
+      path: `${path}.note`,
+      message: "Expected a non-empty note explaining the merge decision.",
+    });
+  }
+
+  if (
+    typeof value.decision !== "string"
+    || !ISSUE_MERGE_DECISION_STATUSES.has(value.decision as IssueMergeDecisionStatus)
+  ) {
+    issues.push({
+      path: `${path}.decision`,
+      message: 'Expected decision to be "accepted" or "rejected".',
+    });
+  }
+
+  if (
+    !Array.isArray(value.groupIds)
+    || value.groupIds.length === 0
+    || !value.groupIds.every((entry) => typeof entry === "string")
+  ) {
+    issues.push({
+      path: `${path}.groupIds`,
+      message: "Expected a non-empty array of group ids (strings).",
+    });
+  }
+
+  if (!isStringArray(value.memberFindingIds)) {
+    issues.push({
+      path: `${path}.memberFindingIds`,
+      message: "Expected an array of strings (may be empty).",
+    });
+  }
+
+  if (value.reason !== undefined) {
+    if (
+      typeof value.reason !== "string"
+      || !ISSUE_MERGE_DECISION_REASONS.has(value.reason as IssueMergeDecisionReason)
+    ) {
+      issues.push({
+        path: `${path}.reason`,
+        message: "Expected a known IssueMergeDecisionReason when present.",
+      });
+    }
+  }
+
+  if (value.source !== "operator" && value.source !== "system") {
+    issues.push({
+      path: `${path}.source`,
+      message: 'Expected "operator" or "system".',
+    });
+  }
+
+  if (value.decidedBy !== undefined && typeof value.decidedBy !== "string") {
+    issues.push({
+      path: `${path}.decidedBy`,
+      message: "Expected a string when present.",
+    });
+  }
+
+  if (value.evidence !== undefined) {
+    if (!Array.isArray(value.evidence)) {
+      issues.push({
+        path: `${path}.evidence`,
+        message: "Expected an array of artifact refs when present.",
+      });
+    } else {
+      value.evidence.forEach((ref, index) => {
+        const refResult = validateArtifactRef(ref);
+        if (!refResult.ok) {
+          issues.push(...prefixIssues(refResult.issues, `${path}.evidence[${index}]`));
+        }
+      });
+    }
   }
 }
 
