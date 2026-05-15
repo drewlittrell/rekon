@@ -380,10 +380,28 @@ Implementation batches:
   decisions on merge candidates with required notes + optional
   reasons. `rekon issues merge decide` writes the ledger;
   `rekon issues list` annotates candidates with the latest
-  decision. Decisions never merge groups (CoherencyDelta /
-  resolve.issue / publications unchanged). Ledger is treated as
-  canonical input by freshness. Pinned by
+  decision. Decisions never mutate
+  `IssueAdjudicationReport.groups`, `FindingReport`,
+  `FindingStatusLedger`, or `FindingLifecycleReport`. Ledger is
+  treated as canonical input by freshness. Pinned by
   `tests/contract/issue-merge-decision-ledger.test.mjs` (14
+  tests).
+- "CoherencyDelta v3 respects accepted merge decisions"
+  (shipped) — `buildCoherencyDelta` reads the latest
+  `IssueMergeDecisionLedger` and collapses accepted-merged
+  groups into single merged rollup items (carrying
+  `mergedIssueGroupIds` / `mergeDecisionIds` /
+  `mergeCandidateIds` plus a union of member finding ids) with
+  one merged remediation step per accepted set. The latest
+  decision per `candidateId` wins (rejected supersedes earlier
+  accepted, and vice versa). Rejected decisions and
+  decision-less candidates keep groups separate.
+  `IssueAdjudicationReport.groups` is **not** mutated; the
+  rollup is a derived projection. New pure helper
+  `rollupIssueGroupsByAcceptedMergeDecisions(input)`.
+  `inputRefs` cite the ledger when used, so freshness marks the
+  delta `stale` after a newer ledger. Pinned by
+  `tests/contract/coherency-delta-merge-decisions.test.mjs` (12
   tests).
 - "Issue adjudication v2: deterministic cross-rule merge hints"
   (shipped) — `IssueAdjudicationReport.mergeCandidates` emits

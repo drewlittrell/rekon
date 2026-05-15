@@ -321,7 +321,7 @@ test("rekon issues list includes annotated mergeCandidates after a decision", as
   });
 });
 
-test("accepted decision does not merge groups (CoherencyDelta keeps both)", async () => {
+test("accepted decision does not mutate IssueAdjudicationReport groups (CoherencyDelta v3 merges them in the projection)", async () => {
   await withCrossRuleFixture(async (root) => {
     const candidates = JSON.parse(
       runCli(["issues", "merge", "candidates", "--root", root, "--json"]).stdout,
@@ -342,17 +342,27 @@ test("accepted decision does not merge groups (CoherencyDelta keeps both)", asyn
       "--json",
     ]);
 
-    const delta = JSON.parse(
-      runCli(["coherency", "delta", "--root", root, "--json"]).stdout,
-    );
-    assert.equal(delta.summary.total, 2, "two cross-rule findings remain as two delta items");
-    assert.equal(delta.summary.active, 2);
-    assert.equal(delta.remediationQueue.length, 2);
-
     const adj = JSON.parse(
       runCli(["issues", "list", "--root", root, "--json"]).stdout,
     );
-    assert.equal(adj.summary.totalGroups, 2, "adjudication still reports two groups");
+    assert.equal(
+      adj.summary.totalGroups,
+      2,
+      "adjudication still reports two groups (no mutation of upstream artifact)",
+    );
+
+    // CoherencyDelta v3 collapses accepted-merged groups into a single rollup
+    // item / remediation step, while raw group ids stay traceable on the item.
+    const delta = JSON.parse(
+      runCli(["coherency", "delta", "--root", root, "--json"]).stdout,
+    );
+    assert.equal(delta.summary.total, 1, "accepted decision should produce one merged delta item");
+    assert.equal(delta.summary.active, 1);
+    assert.equal(delta.remediationQueue.length, 1);
+    assert.ok(
+      delta.remediationQueue[0].id.startsWith("remediation:merged:"),
+      `expected merged remediation id, got ${delta.remediationQueue[0].id}`,
+    );
   });
 });
 

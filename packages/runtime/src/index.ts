@@ -894,6 +894,31 @@ export async function buildCoherencyDelta(
         }
       }
 
+      // Pick up the latest IssueMergeDecisionLedger (if any) so accepted
+      // operator decisions can roll up the corresponding issue groups in
+      // the delta. Citing the ledger in inputRefs also makes freshness
+      // mark the delta stale when a newer ledger lands.
+      const ledgerEntries = await store.list("IssueMergeDecisionLedger");
+      const sortedLedger = [...ledgerEntries].sort((left, right) =>
+        right.writtenAt.localeCompare(left.writtenAt),
+      );
+      const latestLedgerEntry = sortedLedger[0];
+      let mergeDecisions: IssueMergeDecision[] | undefined;
+      if (latestLedgerEntry) {
+        const ledger = (await store.read(latestLedgerEntry)) as IssueMergeDecisionLedger;
+        if (ledger.decisions && ledger.decisions.length > 0) {
+          mergeDecisions = ledger.decisions;
+          const ledgerRef = indexEntryToRef(latestLedgerEntry);
+          if (
+            !inputRefs.some(
+              (existing) => existing.type === ledgerRef.type && existing.id === ledgerRef.id,
+            )
+          ) {
+            inputRefs.push(ledgerRef);
+          }
+        }
+      }
+
       const ownershipMap = await readLatest<OwnershipMap>(store, "OwnershipMap", inputRefs);
       const observedRepo = await readLatest<ObservedRepo>(store, "ObservedRepo", inputRefs);
 
@@ -929,6 +954,8 @@ export async function buildCoherencyDelta(
           freshness: { status: "fresh" },
         },
         issueGroups: report.groups,
+        mergeCandidates: report.mergeCandidates,
+        mergeDecisions,
         systemsForIssueGroup,
       });
     }

@@ -39,11 +39,14 @@ projection, no remediation auto-apply.
 All standard `ArtifactHeader` fields are required. `artifactType` is
 `CoherencyDelta`. `inputRefs` cite the upstream source:
 
-- **v2 (preferred) — adjudicated mode**: the latest
-  `IssueAdjudicationReport` plus every ref that report itself
-  carried (transitively the `FindingLifecycleReport`,
-  `FindingReport`(s), `FindingStatusLedger`). Plus any
-  `OwnershipMap` / `ObservedRepo` used for system assignment.
+- **v3 (preferred when present) — adjudicated mode + operator merge
+  decisions**: the latest `IssueAdjudicationReport`, every ref that
+  report itself carried (transitively the `FindingLifecycleReport`,
+  `FindingReport`(s), `FindingStatusLedger`), the latest
+  `IssueMergeDecisionLedger` (only when it carries any decisions),
+  and any `OwnershipMap` / `ObservedRepo` used for system assignment.
+- **v2 — adjudicated mode (no decisions yet)**: same as v3 but with
+  no `IssueMergeDecisionLedger` in `inputRefs`. Items are one-per-group.
 - **v1 — legacy lifecycle mode** (used when no
   `IssueAdjudicationReport` exists, or when the caller pins a
   specific `lifecycleReportId`): the `FindingLifecycleReport`, the
@@ -82,6 +85,13 @@ type CoherencyDeltaItem = {
   canonicalFindingId?: string;
   memberFindingIds?: string[];
   groupingReasons?: string[];
+  // v3 merge-aware fields (present only when accepted decisions in
+  // the IssueMergeDecisionLedger collapsed two or more groups into
+  // a single rollup item). Raw group ids and member finding ids are
+  // still traceable on every item.
+  mergedIssueGroupIds?: string[];
+  mergeDecisionIds?: string[];
+  mergeCandidateIds?: string[];
 };
 
 type CoherencyRemediationStep = {
@@ -185,6 +195,53 @@ Group-aware remediation step ids are `remediation:group:<group-id>`.
 `findings.lifecycle` and `coherency.delta` so the delta picks up
 the freshest adjudication report on every refresh.
 
+## Merge-Decision Aware Mode (v3)
+
+When an `IssueMergeDecisionLedger` exists with at least one decision,
+`buildCoherencyDelta` honors **accepted** decisions when forming the
+delta projection. Concretely:
+
+- The latest decision per `candidateId` wins; a later `rejected`
+  decision supersedes an earlier `accepted` decision (and vice versa).
+- Each accepted decision connects the issue groups it references in
+  `groupIds` (taken from the `IssueMergeCandidate` when present, or
+  the decision's own `groupIds`).
+- Connected components of accepted decisions become a single
+  **merged rollup item**. Three groups linked by two accepted
+  decisions collapse into one item.
+- Groups not linked by any accepted decision become singleton items
+  (identical to v2 behavior).
+
+Merged rollup items carry:
+
+- `id` of the form `coherency:rollup:merged:<sorted-group-ids-joined-by-+>`
+  for multi-group rollups, or the regular `coherency:group:<group-id>`
+  shape for singletons.
+- `mergedIssueGroupIds` — all group ids included in the merged rollup,
+  sorted.
+- `mergeDecisionIds` — sorted ids of every accepted decision used.
+- `mergeCandidateIds` — sorted ids of every merge candidate used.
+- `memberFindingIds` — the union of member finding ids across the
+  bucket.
+- `issueGroupId` and `canonicalFindingId` — the canonical group's id
+  (highest-severity-active group; deterministic tiebreaker by id).
+- `groupingReasons` — `"operator-accepted-merge"` plus the union of
+  the underlying groups' grouping reasons.
+- Worst severity across the bucket; status `existing` (if any group
+  is active) or the strongest inactive status otherwise.
+
+Merged remediation steps use the id form
+`remediation:merged:<sorted-group-ids-joined-by-+>` so the queue
+collapses to one step per accepted merged set.
+
+**Rejected decisions are respected.** A rejected decision (or the
+absence of any accepted decision for a candidate) keeps the
+referenced groups separate, exactly as in v2.
+
+**No artifact mutation.** `IssueAdjudicationReport.groups` is
+untouched on disk. The rollup is a derived projection in
+`CoherencyDelta` only.
+
 ## Legacy Lifecycle Mode (v1)
 
 If no `IssueAdjudicationReport` exists yet, or the caller passes
@@ -211,9 +268,10 @@ lineage flows transitively to the `FindingLifecycleReport`,
 
 `rekon artifacts freshness` will mark a `CoherencyDelta` `stale`
 when any of those inputs has a newer indexed sibling — including a
-newer `IssueAdjudicationReport`. Rebuild the delta with `rekon
-coherency delta` to refresh (or rerun `rekon refresh` for the full
-lifecycle).
+newer `IssueAdjudicationReport` or a newer `IssueMergeDecisionLedger`
+(once any decisions have been recorded). Rebuild the delta with
+`rekon coherency delta` to refresh (or rerun `rekon refresh` for the
+full lifecycle).
 
 Downstream surfaces also render stale-source warnings inline:
 the architecture summary emits `## Input Freshness Warnings`, the
@@ -242,5 +300,8 @@ the adjudication source is stale. See
 - [FindingReport](finding-report.md)
 - [FindingStatusLedger](finding-status-ledger.md)
 - [FindingLifecycleReport](finding-lifecycle-report.md)
+- [IssueAdjudicationReport](issue-adjudication-report.md)
+- [IssueMergeDecisionLedger](issue-merge-decision-ledger.md)
+- [Issue merge decisions concept](../concepts/issue-merge-decisions.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

@@ -178,19 +178,18 @@ These are intentionally deferred. See
 > `FindingLifecycleReport`. See
 > [freshness-and-invalidation.md](freshness-and-invalidation.md).
 
-> **Merge candidates are advisory only.** v2 adjudication can
-> emit `IssueMergeCandidate` records that link two groups likely
-> describing the same underlying issue, and operators can
-> explicitly accept or reject those candidates via
-> `rekon issues merge decide`. **Neither candidates nor accepted
-> decisions** affect `CoherencyDelta`: the delta keeps one item
-> per actual `IssueAdjudicationGroup` and one
-> `remediationQueue` step per active group. Candidates and
-> decisions surface in `rekon issues list` and `rekon issues
-> merge candidates`, not in coherency counts. A future
-> `CoherencyDelta` v3 may opt in to consuming accepted
-> decisions; that is deferred. See
-> [issue-adjudication.md](issue-adjudication.md) and
+> **Merge decisions affect the projection, not the source.** v2
+> adjudication emits advisory `IssueMergeCandidate` records, and
+> operators record explicit `IssueMergeDecisionLedger` decisions
+> via `rekon issues merge decide`. In v3, `CoherencyDelta` honors
+> **accepted** decisions: linked groups collapse into a single
+> merged rollup item and a single remediation step, with raw group
+> ids/member finding ids still traceable on the item
+> (`mergedIssueGroupIds`, `mergeDecisionIds`, `mergeCandidateIds`,
+> `memberFindingIds`). **Rejected** decisions, or candidates with
+> no decision, keep groups separate. `IssueAdjudicationReport` is
+> not mutated — the rollup is a derived projection in the delta
+> only. See [issue-adjudication.md](issue-adjudication.md) and
 > [issue-merge-decisions.md](issue-merge-decisions.md).
 
 > **Adjudicated input (v2).** When an `IssueAdjudicationReport`

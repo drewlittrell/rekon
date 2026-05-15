@@ -126,15 +126,46 @@ scope:
   as a built-in artifact type and is treated as a canonical
   input by `validateArtifactFreshness` (alongside
   `OperatorFeedbackEntry` and `FindingStatusLedger`). Decisions
-  **never** merge groups; `CoherencyDelta`, `resolve.issue`,
-  and the publications continue to operate on actual
-  `IssueAdjudicationGroup` records. A future `CoherencyDelta`
-  v3 may opt in to consuming accepted decisions; that is the
-  recommended next slice. Aligned to
-  `services/IssueDetectionService.ts`,
+  do **not** mutate `IssueAdjudicationReport.groups`,
+  `FindingReport`, `FindingStatusLedger`, or
+  `FindingLifecycleReport`. In v3, `CoherencyDelta` honors
+  accepted decisions (see next bullet); `resolve.issue` and the
+  publications continue to operate on raw groups in this batch.
+  Aligned to `services/IssueDetectionService.ts`,
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy / embedding
   matching, LLM review, false-positive scoring, and automatic
   candidate-merge approval all remain deferred.
+- **CoherencyDelta v3 respects accepted merge decisions (P1.1
+  coherency-merge slice).** ✅ Shipped. `buildCoherencyDelta`
+  now reads the latest `IssueMergeDecisionLedger` (when it
+  carries any decisions) and resolves the latest decision per
+  `candidateId`. Accepted decisions form connected components
+  across the linked `IssueAdjudicationGroup.id` values via a
+  deterministic union-find; rejected decisions, and candidates
+  with no decision, keep groups separate. Connected components
+  collapse into a single merged `CoherencyDeltaItem`
+  (`id: coherency:rollup:merged:<sorted-group-ids-joined-by-+>`)
+  carrying `mergedIssueGroupIds`, `mergeDecisionIds`,
+  `mergeCandidateIds`, a union of `memberFindingIds`, the worst
+  severity in the bucket, the canonical group's
+  `issueGroupId` / `canonicalFindingId`, and a
+  `groupingReasons` array that includes
+  `operator-accepted-merge`. The active merged rollup emits one
+  remediation step keyed by
+  `remediation:merged:<sorted-group-ids-joined-by-+>`. Groups
+  not linked by accepted decisions preserve v2 single-group
+  item / step behavior. `IssueAdjudicationReport.groups` is
+  **not** mutated; the rollup is a derived projection.
+  `inputRefs` cite the adjudication report and the ledger
+  (only when decisions exist) so `rekon artifacts freshness`
+  marks the delta `stale` on a newer `IssueMergeDecisionLedger`.
+  New pure helper
+  `rollupIssueGroupsByAcceptedMergeDecisions(input)` and three
+  additive optional `CoherencyDeltaItem` fields. Aligned to
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta-projections.ts`,
+  `services/issues/**`. Publication / resolver awareness of
+  accepted merged rollups is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional
@@ -160,8 +191,9 @@ scope:
   `services/IssueDetectionService.ts`,
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy / embedding
   matching, LLM review, false-positive scoring, and automatic
-  merge approval all remain deferred. Operator-assisted issue
-  merge decision ledger is the recommended next slice.
+  merge approval all remain deferred. Operator-assisted merge
+  decisions + CoherencyDelta v3 respects accepted merge
+  decisions both shipped after this slice.
 - **Stale-source freshness guardrails for adjudication + coherency
   (P1.1 trust slice).** ✅ Shipped. The surfaces that consume
   `IssueAdjudicationReport` and `CoherencyDelta` now render their

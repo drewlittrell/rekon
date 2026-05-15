@@ -1326,6 +1326,134 @@ export function findLatestIssueMergeDecision(
   return latest;
 }
 
+export type IssueGroupRollup = {
+  id: string;
+  groupIds: string[];
+  decisionIds: string[];
+  candidateIds: string[];
+  groups: IssueAdjudicationGroup[];
+};
+
+export function rollupIssueGroupsByAcceptedMergeDecisions(input: {
+  groups: IssueAdjudicationGroup[];
+  mergeCandidates?: IssueMergeCandidate[];
+  decisions?: IssueMergeDecision[];
+}): IssueGroupRollup[] {
+  const groups = input.groups ?? [];
+  if (groups.length === 0) return [];
+
+  const candidatesById = new Map<string, IssueMergeCandidate>();
+  for (const candidate of input.mergeCandidates ?? []) {
+    candidatesById.set(candidate.id, candidate);
+  }
+
+  // Resolve the latest decision per candidateId so a later "rejected"
+  // supersedes an earlier "accepted" and vice versa.
+  const latestByCandidate = new Map<string, IssueMergeDecision>();
+  for (const decision of input.decisions ?? []) {
+    const existing = latestByCandidate.get(decision.candidateId);
+    if (!existing || decision.decidedAt.localeCompare(existing.decidedAt) > 0) {
+      latestByCandidate.set(decision.candidateId, decision);
+    }
+  }
+
+  // Union-find over groupIds; only "accepted" latest decisions connect them.
+  const parent = new Map<string, string>();
+  const candidateForGroup = new Map<string, Set<string>>();
+  const decisionForGroup = new Map<string, Set<string>>();
+
+  const find = (id: string): string => {
+    let current = id;
+    while (parent.get(current) !== current) {
+      const next = parent.get(current) ?? current;
+      parent.set(current, parent.get(next) ?? next);
+      current = parent.get(current) ?? current;
+    }
+    return current;
+  };
+
+  const union = (left: string, right: string): void => {
+    const rootLeft = find(left);
+    const rootRight = find(right);
+    if (rootLeft === rootRight) return;
+    // Deterministic: smaller id wins as the new root.
+    if (rootLeft.localeCompare(rootRight) <= 0) {
+      parent.set(rootRight, rootLeft);
+    } else {
+      parent.set(rootLeft, rootRight);
+    }
+  };
+
+  for (const group of groups) {
+    parent.set(group.id, group.id);
+  }
+
+  for (const [candidateId, decision] of latestByCandidate) {
+    if (decision.decision !== "accepted") continue;
+    const candidate = candidatesById.get(candidateId);
+    const linkedGroupIds = candidate?.groupIds ?? decision.groupIds ?? [];
+    const validGroupIds = linkedGroupIds.filter((id) => parent.has(id));
+    if (validGroupIds.length < 2) continue;
+    const first = validGroupIds[0]!;
+    for (let i = 1; i < validGroupIds.length; i += 1) {
+      union(first, validGroupIds[i]!);
+    }
+    for (const groupId of validGroupIds) {
+      let candidateSet = candidateForGroup.get(groupId);
+      if (!candidateSet) {
+        candidateSet = new Set();
+        candidateForGroup.set(groupId, candidateSet);
+      }
+      candidateSet.add(candidateId);
+
+      let decisionSet = decisionForGroup.get(groupId);
+      if (!decisionSet) {
+        decisionSet = new Set();
+        decisionForGroup.set(groupId, decisionSet);
+      }
+      decisionSet.add(decision.id);
+    }
+  }
+
+  // Bucket groups by root.
+  const bucketByRoot = new Map<string, IssueAdjudicationGroup[]>();
+  for (const group of groups) {
+    const root = find(group.id);
+    let bucket = bucketByRoot.get(root);
+    if (!bucket) {
+      bucket = [];
+      bucketByRoot.set(root, bucket);
+    }
+    bucket.push(group);
+  }
+
+  const rollups: IssueGroupRollup[] = [];
+  for (const bucket of bucketByRoot.values()) {
+    const sortedBucket = [...bucket].sort((left, right) => left.id.localeCompare(right.id));
+    const groupIds = sortedBucket.map((group) => group.id);
+    const candidateIdSet = new Set<string>();
+    const decisionIdSet = new Set<string>();
+    for (const groupId of groupIds) {
+      for (const candidateId of candidateForGroup.get(groupId) ?? []) {
+        candidateIdSet.add(candidateId);
+      }
+      for (const decisionId of decisionForGroup.get(groupId) ?? []) {
+        decisionIdSet.add(decisionId);
+      }
+    }
+    const candidateIds = [...candidateIdSet].sort((left, right) => left.localeCompare(right));
+    const decisionIds = [...decisionIdSet].sort((left, right) => left.localeCompare(right));
+
+    const id =
+      groupIds.length === 1 ? groupIds[0]! : `merged:${groupIds.join("+")}`;
+
+    rollups.push({ id, groupIds, decisionIds, candidateIds, groups: sortedBucket });
+  }
+
+  rollups.sort((left, right) => left.id.localeCompare(right.id));
+  return rollups;
+}
+
 export function applyIssueMergeDecisionsToCandidates(
   candidates: IssueMergeCandidate[] | undefined,
   ledger: IssueMergeDecisionLedger | undefined,
@@ -1854,6 +1982,11 @@ export type CoherencyDeltaItem = {
   canonicalFindingId?: string;
   memberFindingIds?: string[];
   groupingReasons?: string[];
+  // Merge-aware fields (present only when accepted IssueMergeDecisionLedger
+  // decisions collapsed two or more issue groups into a single rollup item).
+  mergedIssueGroupIds?: string[];
+  mergeDecisionIds?: string[];
+  mergeCandidateIds?: string[];
 };
 
 export type CoherencyRemediationPriority = "p0" | "p1" | "p2";
@@ -1947,13 +2080,30 @@ export type CoherencyDeltaInput = {
   // into a single delta item and a single remediation step.
   issueGroups?: IssueAdjudicationGroup[];
   systemsForIssueGroup?: (group: IssueAdjudicationGroup) => string[];
+  // v3 merge-aware input. When supplied alongside `issueGroups`, accepted
+  // decisions in `mergeDecisions` collapse the referenced issue groups into
+  // a single rollup item. Rejected decisions keep groups separate. Raw
+  // group ids and member finding ids remain traceable on every item.
+  mergeCandidates?: IssueMergeCandidate[];
+  mergeDecisions?: IssueMergeDecision[];
 };
 
 export function createCoherencyDelta(input: CoherencyDeltaInput): CoherencyDelta {
   const items: CoherencyDeltaItem[] = [];
   const groupMode = Array.isArray(input.issueGroups) && input.issueGroups.length > 0;
+  const hasDecisions = Array.isArray(input.mergeDecisions) && input.mergeDecisions.length > 0;
 
-  if (groupMode) {
+  if (groupMode && hasDecisions) {
+    const groupSystems = input.systemsForIssueGroup;
+    const rollups = rollupIssueGroupsByAcceptedMergeDecisions({
+      groups: input.issueGroups!,
+      mergeCandidates: input.mergeCandidates,
+      decisions: input.mergeDecisions,
+    });
+    for (const rollup of rollups) {
+      items.push(buildItemFromRollup(rollup, groupSystems));
+    }
+  } else if (groupMode) {
     const groupSystems = input.systemsForIssueGroup;
     for (const group of input.issueGroups!) {
       const callbackSystems = groupSystems ? groupSystems(group) : [];
@@ -1983,18 +2133,26 @@ export function createCoherencyDelta(input: CoherencyDeltaInput): CoherencyDelta
 
   const remediationQueue = items
     .filter((item) => item.active)
-    .map((item) => ({
-      id: item.issueGroupId
-        ? `remediation:group:${item.issueGroupId}`
-        : `remediation:${item.findingId}`,
-      priority: severityToPriority(item.severity),
-      findingId: item.findingId,
-      title: item.title,
-      action: item.suggestedAction ?? `Address ${item.type} in ${item.files.join(", ") || "affected files"}.`,
-      files: item.files,
-      systems: item.systems,
-      severity: item.severity,
-    }));
+    .map((item) => {
+      let remediationId: string;
+      if (item.mergedIssueGroupIds && item.mergedIssueGroupIds.length > 1) {
+        remediationId = `remediation:merged:${item.mergedIssueGroupIds.join("+")}`;
+      } else if (item.issueGroupId) {
+        remediationId = `remediation:group:${item.issueGroupId}`;
+      } else {
+        remediationId = `remediation:${item.findingId}`;
+      }
+      return {
+        id: remediationId,
+        priority: severityToPriority(item.severity),
+        findingId: item.findingId,
+        title: item.title,
+        action: item.suggestedAction ?? `Address ${item.type} in ${item.files.join(", ") || "affected files"}.`,
+        files: item.files,
+        systems: item.systems,
+        severity: item.severity,
+      };
+    });
 
   remediationQueue.sort((left, right) => {
     const priorityDiff =
@@ -2124,6 +2282,116 @@ function buildItemFromIssueGroup(
     canonicalFindingId: group.canonicalFindingId,
     memberFindingIds: [...group.memberFindingIds],
     groupingReasons: [...group.groupingReasons],
+  };
+}
+
+function buildItemFromRollup(
+  rollup: IssueGroupRollup,
+  systemsForIssueGroup?: (group: IssueAdjudicationGroup) => string[],
+): CoherencyDeltaItem {
+  const groups = rollup.groups;
+  if (groups.length === 1) {
+    const only = groups[0]!;
+    const callbackSystems = systemsForIssueGroup ? systemsForIssueGroup(only) : [];
+    return buildItemFromIssueGroup(only, callbackSystems);
+  }
+
+  // Multi-group merged rollup: union members, files, systems; pick worst
+  // severity; derive a stable canonical group as the highest-severity-active
+  // group (deterministic tiebreaker: smaller id wins).
+  const sortedBySeverityActive = [...groups].sort((left, right) => {
+    if (left.active !== right.active) {
+      return left.active ? -1 : 1;
+    }
+    const severityDiff =
+      SEVERITY_PRIORITY_RANK[coerceSeverity(left.severity)] -
+      SEVERITY_PRIORITY_RANK[coerceSeverity(right.severity)];
+    if (severityDiff !== 0) return severityDiff;
+    return left.id.localeCompare(right.id);
+  });
+  const canonical = sortedBySeverityActive[0]!;
+
+  const memberFindingIds = uniqueSorted(groups.flatMap((group) => group.memberFindingIds));
+  const files = uniqueSorted(groups.flatMap((group) => group.files ?? []));
+
+  const declaredSystems = uniqueSorted(groups.flatMap((group) => group.systems ?? []));
+  const computedSystems = systemsForIssueGroup
+    ? uniqueSorted(groups.flatMap((group) => systemsForIssueGroup(group)))
+    : [];
+  const combinedSystems = uniqueSorted([...declaredSystems, ...computedSystems]);
+
+  const evidenceRefs: ArtifactRef[] = [];
+  const seenEvidence = new Set<string>();
+  for (const group of groups) {
+    if (!Array.isArray(group.evidence)) continue;
+    for (const ref of group.evidence) {
+      const key = `${ref.type}:${ref.id}`;
+      if (seenEvidence.has(key)) continue;
+      seenEvidence.add(key);
+      evidenceRefs.push({ ...ref });
+    }
+  }
+
+  const worstSeverity = coerceSeverity(canonical.severity);
+
+  // Rollup status / activeness across groups.
+  const anyActive = groups.some((group) => group.active);
+  let status: CoherencyDeltaItemStatus;
+  let active: boolean;
+  if (anyActive) {
+    status = "existing";
+    active = true;
+  } else if (groups.some((group) => group.status === "resolved")) {
+    status = "resolved";
+    active = false;
+  } else if (groups.some((group) => group.status === "accepted")) {
+    status = "accepted";
+    active = false;
+  } else {
+    status = "ignored";
+    active = false;
+  }
+
+  // Suggested action: prefer canonical (highest severity active) if present,
+  // else first non-empty across the bucket.
+  let suggestedAction = canonical.suggestedAction;
+  if (!suggestedAction) {
+    for (const group of groups) {
+      if (group.suggestedAction) {
+        suggestedAction = group.suggestedAction;
+        break;
+      }
+    }
+  }
+
+  const groupingReasons = uniqueSorted([
+    "operator-accepted-merge",
+    ...groups.flatMap((group) => group.groupingReasons ?? []),
+  ]);
+
+  const title = `Merged issue group: ${canonical.title}`;
+  const description = `Operator-accepted merge of ${groups.length} issue groups.`;
+
+  return {
+    id: `coherency:rollup:${rollup.id}`,
+    findingId: canonical.canonicalFindingId,
+    type: canonical.type,
+    severity: worstSeverity,
+    title,
+    description,
+    files,
+    systems: combinedSystems.length > 0 ? combinedSystems : ["unknown"],
+    suggestedAction,
+    status,
+    active,
+    evidence: evidenceRefs.length > 0 ? evidenceRefs : undefined,
+    issueGroupId: canonical.id,
+    canonicalFindingId: canonical.canonicalFindingId,
+    memberFindingIds,
+    groupingReasons,
+    mergedIssueGroupIds: rollup.groupIds,
+    mergeDecisionIds: rollup.decisionIds,
+    mergeCandidateIds: rollup.candidateIds,
   };
 }
 

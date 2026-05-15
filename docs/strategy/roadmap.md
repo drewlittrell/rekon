@@ -256,10 +256,34 @@ is the first stop before proposing a new capability batch.
   adjudicate` now annotate `mergeCandidates` with
   `decision` / `decisionId` / `decisionNote` /
   `decisionReason` / `decisionDecidedAt` / `decisionDecidedBy`
-  fields when a ledger exists. Decisions never merge groups;
-  `CoherencyDelta`, `resolve.issue`, and the publications keep
-  operating on actual `IssueAdjudicationGroup` records. Ledger
-  is treated as canonical input by freshness.
+  fields when a ledger exists. Decisions never mutate
+  `IssueAdjudicationReport.groups`; in v3, `CoherencyDelta`
+  honors accepted decisions as a derived projection (see next
+  bullet). Ledger is treated as canonical input by freshness.
+- CoherencyDelta v3 respects accepted merge decisions (P1.1
+  coherency-merge slice): `buildCoherencyDelta` now reads the
+  latest `IssueMergeDecisionLedger`, resolves the latest
+  decision per `candidateId`, and collapses
+  accepted-merged `IssueAdjudicationGroup` records into a
+  single merged `CoherencyDeltaItem`
+  (`id: coherency:rollup:merged:<sorted-group-ids-joined-by-+>`)
+  carrying `mergedIssueGroupIds`, `mergeDecisionIds`,
+  `mergeCandidateIds`, a union of `memberFindingIds`, the worst
+  severity, the canonical group's `issueGroupId` /
+  `canonicalFindingId`, and a `groupingReasons` array that
+  includes `operator-accepted-merge`. The active merged rollup
+  emits exactly one remediation step keyed by
+  `remediation:merged:<sorted-group-ids-joined-by-+>`. Rejected
+  decisions (and candidates with no decision) keep groups as
+  separate items, identical to v2. `IssueAdjudicationReport`
+  is **not** mutated; the rollup is a derived projection in the
+  delta only. New pure helper
+  `rollupIssueGroupsByAcceptedMergeDecisions(input)`. `inputRefs`
+  cite the ledger when used, so `rekon artifacts freshness`
+  marks the delta `stale` on a newer
+  `IssueMergeDecisionLedger`. `resolve.issue` and the
+  publications still operate on raw groups in this batch;
+  wiring them up to accepted merged rollups is the next slice.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

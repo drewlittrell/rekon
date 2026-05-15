@@ -5,14 +5,16 @@
 `IssueMergeDecisionLedger` records explicit operator decisions
 about advisory `IssueMergeCandidate` records produced by v2
 adjudication. Operators can accept or reject candidates, leaving
-durable, auditable artifacts that downstream surfaces can
-annotate or (eventually, in a future batch) consume to influence
-governance rollups.
+durable, auditable artifacts. Accepted decisions reshape the
+`CoherencyDelta` projection (v3) into merged rollup items;
+rejected decisions keep groups separate.
 
-A decision **never** merges groups. `CoherencyDelta`,
-`resolve.issue`, and the publications continue to count and
-route the underlying groups separately. Decisions are advisory
-metadata about candidates, not adjudication mutation.
+A decision **never** mutates `IssueAdjudicationReport.groups`.
+`resolve.issue` and the publications continue to operate on the
+raw groups; only `CoherencyDelta` consumes the ledger in this
+batch. Accepted-merge rollups are a derived view, not an
+artifact rewrite — raw group ids and member finding ids remain
+traceable on every delta item.
 
 See [../concepts/issue-merge-decisions.md](../concepts/issue-merge-decisions.md)
 for the wider concept and lifecycle, and the **Issue Detection /
@@ -27,16 +29,20 @@ for the classic guarantee this artifact preserves.
 
 ## Consumed By
 
+- `@rekon/runtime.buildCoherencyDelta` reads the latest ledger
+  and uses accepted decisions to collapse linked
+  `IssueAdjudicationGroup` records into merged
+  `CoherencyDelta.items[]` (and a single merged
+  `remediationQueue` step per accepted set). See
+  [coherency-delta.md](coherency-delta.md).
 - `@rekon/capability-resolver.issueResolver` and the
-  `@rekon/capability-docs` publishers read no decisions in this
-  batch — they continue to operate on raw adjudication groups.
+  `@rekon/capability-docs` publishers continue to operate on raw
+  adjudication groups in this batch.
 - The CLI commands `rekon issues list`, `rekon issues merge
   candidates`, and `rekon issues adjudicate` annotate the
   `mergeCandidates` array with `decision` / `decisionId` /
   `decisionNote` / `decisionReason` / `decisionDecidedAt` /
   `decisionDecidedBy` fields when a ledger exists.
-- A future `CoherencyDelta` v3 may consume accepted decisions to
-  influence rollup counts. That work is deferred.
 
 ## Required Header Fields
 
@@ -157,21 +163,23 @@ adjudication report anyway, so transitive lineage holds.
 
 ## What This Is Not
 
-- **Not a mutator.** Decisions never modify
-  `IssueAdjudicationReport.groups`, `CoherencyDelta.items`,
-  `CoherencyDelta.remediationQueue`, `FindingReport`,
-  `FindingStatusLedger`, or `FindingLifecycleReport`.
-- **Not an automatic merge.** Accepted decisions annotate
-  candidates but do not consolidate the underlying groups in
-  this batch.
+- **Not a source mutator.** Decisions never modify
+  `IssueAdjudicationReport.groups`, `FindingReport`,
+  `FindingStatusLedger`, or `FindingLifecycleReport`. Already-written
+  `CoherencyDelta` artifacts also stay untouched on disk; only
+  newly-built deltas reflect the latest accepted decisions.
+- **Not an automatic merge of source artifacts.** Accepted
+  decisions reshape the `CoherencyDelta` projection (v3) and
+  surface as annotations on candidates; they do not collapse the
+  underlying `IssueAdjudicationGroup` records.
 - **Not a finding-status surface.** Status decisions remain in
   `FindingStatusLedger`. The merge ledger is strictly about
   candidate-pair relationships.
 - **Not an LLM / semantic / fuzzy classifier.** Decisions are
   explicit operator inputs.
-- **Not a remediation planner.** Candidates and decisions are
-  inputs to a future coherency / remediation rollup, not work
-  orders themselves.
+- **Not yet wired into publications or resolver behavior.** The
+  next slice extends accepted decisions to the architecture
+  summary, the agent operating contract, and `resolve.issue`.
 
 ## Cross-References
 

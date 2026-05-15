@@ -4,6 +4,48 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped CoherencyDelta v3 respects accepted merge decisions (P1.1
+  coherency-merge slice). `@rekon/runtime.buildCoherencyDelta` now
+  reads the latest `IssueMergeDecisionLedger` (when it carries any
+  decisions), resolves the latest decision per `candidateId`, and
+  collapses accepted-merged `IssueAdjudicationGroup` records into
+  a single merged `CoherencyDeltaItem`
+  (`id: coherency:rollup:merged:<sorted-group-ids-joined-by-+>`)
+  with one merged remediation step
+  (`id: remediation:merged:<sorted-group-ids-joined-by-+>`).
+  Merged items carry additive optional fields
+  `mergedIssueGroupIds`, `mergeDecisionIds`, `mergeCandidateIds`,
+  a union of `memberFindingIds`, the worst severity in the bucket,
+  the canonical group's `issueGroupId` / `canonicalFindingId`, and
+  a `groupingReasons` array that includes
+  `"operator-accepted-merge"`. Rejected decisions (and candidates
+  with no decision) keep groups separate, identical to v2 behavior.
+  Latest decision per `candidateId` wins: a later `rejected`
+  supersedes an earlier `accepted` and vice versa. The
+  `IssueAdjudicationReport.groups` artifact is **not** mutated —
+  the rollup is a derived projection in `CoherencyDelta` only.
+  Added pure helper
+  `rollupIssueGroupsByAcceptedMergeDecisions(input)` in
+  `@rekon/kernel-findings`, and three new optional fields on
+  `CoherencyDeltaItem` (`mergedIssueGroupIds`,
+  `mergeDecisionIds`, `mergeCandidateIds`). `inputRefs` cite the
+  ledger when used, so `rekon artifacts freshness` marks the
+  delta `stale` after a newer `IssueMergeDecisionLedger`. Docs
+  updated across the CoherencyDelta artifact + concept,
+  IssueMergeDecisionLedger artifact + concept, IssueAdjudicationReport
+  artifact + concept, and four strategy docs
+  (`classic-subsystem-purpose-map.md`,
+  `classic-behavior-roadmap.md`,
+  `classic-guarantee-regression-plan.md`, `roadmap.md`). 12 new
+  contract tests in
+  `tests/contract/coherency-delta-merge-decisions.test.mjs`. One
+  existing test in `issue-merge-decision-ledger.test.mjs` was
+  updated to reflect the v3 invariants (accepted decisions still
+  do not mutate `IssueAdjudicationReport.groups`, but
+  `CoherencyDelta` now merges the linked groups in its
+  projection). No artifact mutation of upstream sources, no LLM,
+  no fuzzy / embedding / semantic matching, no new capability
+  role, no version bump, no npm publish.
 - Bumped the workspace and every `@rekon/*` package to `0.1.0-alpha.1` (root, all 19 packages, all `@rekon/*` internal dependency ranges).
 - Recorded the public package boundary decision: all 19 packages are scheduled to publish under the `experimental, public` stability label. See `docs/release/public-package-boundaries.md`.
 - Excluded `.tsbuildinfo` from publish tarballs by relocating the TypeScript build info file out of `dist/` in every package tsconfig. `npm pack --dry-run` now reports six entries per package (README, package.json, four dist files).

@@ -249,11 +249,13 @@ group's combined text doesn't match any bucket, the
 ### Anti-gaming reminders
 
 - Merge candidates are **never** counted as merged groups by
-  `CoherencyDelta`. The remediation queue continues to count
-  one step per active group.
+  default. Only operator-accepted decisions in
+  `IssueMergeDecisionLedger` reshape downstream rollups (currently
+  `CoherencyDelta` v3) — a candidate alone is advisory.
 - Merge candidates do **not** mutate `FindingReport`,
   `FindingStatusLedger`, `FindingLifecycleReport`, or any group.
-  They are advisory metadata only.
+  Accepted decisions also do not mutate `IssueAdjudicationReport`;
+  the merged view is a derived projection in `CoherencyDelta`.
 - No LLM, embeddings, or fuzzy matching. If you need
   semantic dedupe, that is explicitly a future capability under
   `network:outbound` permission.
@@ -266,12 +268,16 @@ in an `IssueMergeDecisionLedger` and surfaced inline on each
 candidate as `decision` / `decisionId` / `decisionNote` /
 `decisionReason` / `decisionDecidedAt` / `decisionDecidedBy`
 fields when `rekon issues list`, `rekon issues adjudicate`, or
-`rekon issues merge candidates` is read. Decisions **do not**
-merge the underlying groups — `CoherencyDelta` still counts one
-delta item per active group. See
-[../concepts/issue-merge-decisions.md](../concepts/issue-merge-decisions.md)
-and
-[issue-merge-decision-ledger.md](issue-merge-decision-ledger.md).
+`rekon issues merge candidates` is read. Decisions do **not**
+mutate `IssueAdjudicationReport.groups`; the upstream groups
+remain inspectable. In `CoherencyDelta` v3, the **latest**
+accepted decision per `candidateId` collapses the linked groups
+into a single merged rollup item with one remediation step. Raw
+group ids and member finding ids stay traceable on the merged
+item. Rejected decisions keep groups separate. See
+[../concepts/issue-merge-decisions.md](../concepts/issue-merge-decisions.md),
+[issue-merge-decision-ledger.md](issue-merge-decision-ledger.md),
+and [coherency-delta.md](coherency-delta.md).
 
 ## Canonical Finding Selection
 

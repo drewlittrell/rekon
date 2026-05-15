@@ -103,10 +103,13 @@ Activity filter:
 
 Anti-gaming:
 
-- Merge candidates **never** become merged groups automatically.
-- `CoherencyDelta` keeps counting the underlying groups
-  separately. The remediation queue keeps one step per active
-  group.
+- Merge candidates alone **never** become merged groups
+  automatically. Only an operator-accepted
+  `IssueMergeDecisionLedger` decision causes downstream rollups to
+  collapse the linked groups, and even then only as a projection
+  in `CoherencyDelta` v3.
+- `IssueAdjudicationReport.groups` stays untouched on disk —
+  raw groups are always inspectable.
 - No LLM, embeddings, or fuzzy matching.
 
 ### Operator decisions on candidates
@@ -121,14 +124,19 @@ optional `decision`, `decisionId`, `decisionNote`,
 fields to the candidate; the underlying candidate scoring is
 unchanged.
 
-Decisions **do not** merge groups. `CoherencyDelta`,
-`resolve.issue`, and the publications all continue to operate
-on actual `IssueAdjudicationGroup` records. A future
-`CoherencyDelta` v3 (or other consumer) can choose to consume
-accepted decisions; that is deferred.
+Decisions never mutate `IssueAdjudicationReport.groups`. In
+`CoherencyDelta` v3, the latest accepted decision per
+`candidateId` collapses the linked groups into a single merged
+rollup item with one remediation step (`mergedIssueGroupIds`,
+`mergeDecisionIds`, `mergeCandidateIds`, and `memberFindingIds`
+make the rollup traceable). Rejected decisions keep groups
+separate. `resolve.issue` and the publications still operate on
+the raw groups in this batch; wiring them up to merged rollups
+is the next slice.
 
-See [issue-merge-decisions.md](issue-merge-decisions.md) and
-[../artifacts/issue-merge-decision-ledger.md](../artifacts/issue-merge-decision-ledger.md).
+See [issue-merge-decisions.md](issue-merge-decisions.md),
+[../artifacts/issue-merge-decision-ledger.md](../artifacts/issue-merge-decision-ledger.md),
+and [coherency-delta.md](coherency-delta.md).
 
 The report exposes a sorted, capped `mergeCandidates` array (max
 50 by default) and a `summary.mergeCandidates` count. Both are
