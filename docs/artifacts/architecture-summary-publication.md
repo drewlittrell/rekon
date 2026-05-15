@@ -96,37 +96,50 @@ The publication content includes these sections, in order:
    section instructs the operator to run `rekon issues
    adjudicate` or `rekon refresh` and warns that raw lifecycle
    counts above may overstate drift when duplicate findings exist.
-6. **Top Affected Paths** — table of paths from
+6. **Accepted Issue Merge Roll-ups** — derived from
+   `CoherencyDelta` v3. Renders one row per merged rollup item
+   (items where `mergedIssueGroupIds.length > 1`): `Roll-up |
+   Groups | Decision IDs | Member Findings | Severity | Status |
+   Active`. Raw group ids and decision ids are visible so
+   operators can trace the roll-up back to its accepted decisions
+   and the underlying `IssueAdjudicationReport` groups. When no
+   accepted roll-ups exist, the section says so explicitly
+   without implying anything about the existence of merge
+   candidates. When no `CoherencyDelta` is indexed, the section
+   instructs the operator to run `rekon coherency delta`. See
+   [coherency-delta.md](coherency-delta.md),
+   [../concepts/issue-merge-decisions.md](../concepts/issue-merge-decisions.md).
+7. **Top Affected Paths** — table of paths from
    `CoherencyDelta.summary.topPaths`. Up to 10 rows.
-7. **Remediation Queue** — table of remediation steps from
+8. **Remediation Queue** — table of remediation steps from
    `CoherencyDelta.remediationQueue` with priority, finding id,
    severity, systems, and the truncated action. Up to 20 rows.
-8. **Work Orders** — table showing the latest remediation
+9. **Work Orders** — table showing the latest remediation
    (`source = "coherency-delta"`) and resolver work orders. Each row
    reports source, goal, paths, owner systems, and selected item count
    (for remediation orders) or `n/a` (for resolver orders). Missing
    work orders are called out with a "run `rekon intent remediation`
    or `rekon intent work-order`" hint.
-9. **Reconciliation Plans** — summary table (total / artifact-only /
-   source-write deferred / command deferred / manual review / applied
-   / deferred / denied) plus up to 5 top operations with class, status,
-   permissions, and finding. Missing plans recommend
-   `rekon reconcile suggest`.
-10. **Verification Status** — table of the latest `VerificationResult`
+10. **Reconciliation Plans** — summary table (total / artifact-only /
+    source-write deferred / command deferred / manual review / applied
+    / deferred / denied) plus up to 5 top operations with class, status,
+    permissions, and finding. Missing plans recommend
+    `rekon reconcile suggest`.
+11. **Verification Status** — table of the latest `VerificationResult`
     status, summary counts, recorded by, recorded at. Failed / partial
     / not-run results display an explicit "Verification is not
     complete." line. If the result references an older
     `VerificationPlan` than the latest, the section says
     "VerificationResult may be stale; latest VerificationPlan differs."
-11. **Proof Loop** — `Governance:` / `Planning:` / `Verification:`
+12. **Proof Loop** — `Governance:` / `Planning:` / `Verification:`
     state bullets plus a single "Suggested next command:" line that
     walks the loop `coherency delta -> intent remediation -> reconcile
     suggest -> verify record -> address failures -> publish`.
-12. **Agent Guidance** — short bullet list reminding readers of the
+13. **Agent Guidance** — short bullet list reminding readers of the
     route → seam → preflight flow and required checks.
-13. **Freshness** — instructs the operator to run
+14. **Freshness** — instructs the operator to run
     `rekon artifacts freshness --json`.
-14. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
+15. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
     header.
 
 ## Inputs Consumed

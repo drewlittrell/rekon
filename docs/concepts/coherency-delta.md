@@ -189,7 +189,17 @@ These are intentionally deferred. See
 > `memberFindingIds`). **Rejected** decisions, or candidates with
 > no decision, keep groups separate. `IssueAdjudicationReport` is
 > not mutated — the rollup is a derived projection in the delta
-> only. See [issue-adjudication.md](issue-adjudication.md) and
+> only. The `@rekon/capability-docs.architecture-summary` and
+> `@rekon/capability-docs.agent-contract` publishers render an
+> `Accepted Issue Merge Roll-ups` section/subsection sourced from
+> these merged rollup items; `@rekon/capability-resolver` attaches
+> an `IssueMergeRollupSummary` to `resolve.issue` packets when the
+> matched group is part of an accepted rollup, warns to inspect
+> sibling groups, and cites `CoherencyDelta` in
+> `header.inputRefs`. Neither surface reads
+> `IssueMergeDecisionLedger` directly — everything flows through
+> `CoherencyDelta`. See
+> [issue-adjudication.md](issue-adjudication.md) and
 > [issue-merge-decisions.md](issue-merge-decisions.md).
 
 > **Adjudicated input (v2).** When an `IssueAdjudicationReport`

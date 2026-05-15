@@ -165,7 +165,48 @@ scope:
   `packages/product-codebase-intel/src/replatform/replatform-delta.ts`,
   `packages/product-codebase-intel/src/replatform/replatform-delta-projections.ts`,
   `services/issues/**`. Publication / resolver awareness of
-  accepted merged rollups is the recommended next slice.
+  accepted merged rollups shipped after this slice (see next
+  bullet).
+- **Publication and resolver awareness of accepted merge
+  decisions (P1.1 merge-awareness slice).** ✅ Shipped.
+  Publications now surface operator-accepted merge roll-ups in
+  the places humans and agents actually read:
+  `@rekon/capability-docs.architecture-summary` renders an
+  `## Accepted Issue Merge Roll-ups` section listing every
+  `CoherencyDelta` v3 merged rollup item
+  (`mergedIssueGroupIds.length > 1`) with rollup id, member
+  group ids, decision ids, member finding counts, severity,
+  status, and active flag;
+  `@rekon/capability-docs.agent-contract` renders an
+  `### Accepted Issue Merge Roll-ups` subsection under
+  `Active Governance State` plus an explicit `Do Not Do`
+  reminder "Do not treat accepted merge roll-ups as automatic
+  mutation of raw issue groups; inspect mergedIssueGroupIds and
+  memberFindingIds before editing, and consult both member
+  groups for context."
+  `@rekon/capability-resolver.issueResolver` adds an optional
+  `mergeRollup: IssueMergeRollupSummary` field on `IssuePacket`
+  (carrying rollup id, merged group ids, decision/candidate ids,
+  unioned member finding ids, severity, status, active) and
+  attaches it when the matched group is part of an accepted
+  merged rollup in the latest `CoherencyDelta`. The packet also
+  gains a sibling-group warning, an `issue.merge` /
+  `sourceType: "CoherencyDelta"` / `status: "used"` trace entry,
+  and `header.inputRefs` cites the `CoherencyDelta`. Rejected
+  decisions never produce a `mergeRollup`; the raw fallback
+  path is unchanged. All three surfaces read merged rollup
+  metadata from `CoherencyDelta` only — none reads
+  `IssueMergeDecisionLedger` directly. Manifest update:
+  `@rekon/capability-resolver` adds `CoherencyDelta` to
+  `consumes`. New `ResolutionTraceEntry.sourceType` enum value
+  `"CoherencyDelta"`. Aligned to
+  `services/IssueDetectionService.ts`,
+  `domain/issues/mergeIssues.ts`,
+  `services/ContextHandler.ts`,
+  `services/ArchitectureDocsHandler.ts`. Semantic / fuzzy /
+  embedding matching, LLM review, false-positive scoring, and
+  PR / GitHub / dashboard surfaces remain deferred. Issue merge
+  decision freshness guardrails is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

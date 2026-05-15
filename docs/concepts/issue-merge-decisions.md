@@ -133,6 +133,34 @@ annotation adds optional `decision`, `decisionId`,
 `decisionDecidedBy` fields to each candidate; the underlying
 candidate fields are unchanged.
 
+## Downstream Surfaces
+
+Accepted decisions feed into `CoherencyDelta` v3, and from there
+into the surfaces operators and agents actually read:
+
+- **Architecture summary** (`@rekon/capability-docs.architecture-summary`)
+  renders an `Accepted Issue Merge Roll-ups` table with rollup id,
+  member group ids, decision ids, member finding counts, severity,
+  status, and active flag.
+- **Agent operating contract** (`@rekon/capability-docs.agent-contract`)
+  renders an `Accepted Issue Merge Roll-ups` subsection plus a
+  matching `Do Not Do` reminder that merged roll-ups are
+  projections, not source mutations.
+- **`resolve.issue`** (`@rekon/capability-resolver.issueResolver`)
+  attaches an `IssueMergeRollupSummary` to the packet when the
+  matched group is part of an accepted rollup, warns to inspect
+  sibling group(s) before acting, adds an `issue.merge` trace
+  entry, and cites the source `CoherencyDelta` in
+  `header.inputRefs`.
+
+All three surfaces read merged rollup metadata from
+`CoherencyDelta` only — they never read
+`IssueMergeDecisionLedger` directly, so the rollup display always
+matches whatever the latest delta projection shows. Rejected
+decisions never produce a rollup (they don't reach
+`CoherencyDelta` as merged), so the downstream surfaces naturally
+keep the underlying groups separate.
+
 ## Freshness
 
 `rekon artifacts freshness --type IssueMergeDecisionLedger`
@@ -151,10 +179,11 @@ own.
   `FindingStatusLedger`.
 - **Not an LLM / semantic classifier.** Decisions are
   deterministic operator inputs.
-- **Not yet wired into publications or resolver behavior.** The
-  next slice ("Publication and resolver awareness of accepted
-  merge decisions") extends accepted decisions to the architecture
-  summary, the agent operating contract, and `resolve.issue`.
+- **Not consumed directly by publications or resolvers.** The
+  architecture summary, agent operating contract, and
+  `resolve.issue` read merged rollup metadata from
+  `CoherencyDelta` only. They never reach into
+  `IssueMergeDecisionLedger` directly.
 
 ## Cross-References
 

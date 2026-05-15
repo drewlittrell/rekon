@@ -1053,6 +1053,40 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     }
   }
 
+  // Accepted Issue Merge Roll-ups — derived from CoherencyDelta v3.
+  sections.push("## Accepted Issue Merge Roll-ups");
+  sections.push("");
+
+  const mergedRollups = coherencyDelta
+    ? collectMergedRollups(coherencyDelta)
+    : [];
+
+  if (!coherencyDelta) {
+    sections.push(
+      "No CoherencyDelta found; accepted merge roll-ups cannot be displayed. Run `rekon coherency delta` after recording any operator merge decisions.",
+    );
+    sections.push("");
+  } else if (mergedRollups.length === 0) {
+    sections.push("No accepted issue merge roll-ups in latest CoherencyDelta.");
+    sections.push("");
+  } else {
+    sections.push("| Roll-up | Groups | Decision IDs | Member Findings | Severity | Status | Active |");
+    sections.push("| --- | --- | --- | --- | --- | --- | --- |");
+    for (const rollup of mergedRollups.slice(0, 20)) {
+      sections.push(
+        `| ${truncate(rollup.rollupId, 50)} | ${summarizeList(rollup.mergedIssueGroupIds, 3)} | ${summarizeList(rollup.mergeDecisionIds, 3)} | ${summarizeMembers(rollup.memberFindingIds)} | ${rollup.severity} | ${rollup.status} | ${rollup.active ? "yes" : "no"} |`,
+      );
+    }
+    if (mergedRollups.length > 20) {
+      sections.push(`| _… ${mergedRollups.length - 20} more roll-ups_ | | | | | | |`);
+    }
+    sections.push("");
+    sections.push(
+      "Roll-ups reflect operator-accepted merge decisions; underlying issue groups remain in `IssueAdjudicationReport` and are still inspectable. Use `rekon resolve issue --issue <group-id>` for context on any member group.",
+    );
+    sections.push("");
+  }
+
   // Freshness Warnings (only when there are warnings — keep clean output silent)
   if (freshness && freshness.warnings.length > 0) {
     sections.push("## Input Freshness Warnings");
@@ -1765,6 +1799,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not ignore stale artifacts; re-run `rekon refresh` instead.",
   "Do not apply source-writing reconciliation unless an explicit future capability enables it under `write:source` permission.",
   "Do not treat raw finding count as governed issue count when an IssueAdjudicationReport exists; use governed issue groups (memberFindingIds preserves raw traceability).",
+  "Do not treat accepted merge roll-ups as automatic mutation of raw issue groups; inspect mergedIssueGroupIds and memberFindingIds before editing, and consult both member groups for context.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -1973,6 +2008,40 @@ function renderAgentContract(input: AgentContractInputs): string {
 
     sections.push(
       "Use `rekon resolve issue --issue <group-id>` for adjudicated issue context. Raw member findings remain traceable via `memberFindingIds` on each group.",
+    );
+    sections.push("");
+  }
+
+  // Accepted Issue Merge Roll-ups — derived from CoherencyDelta v3.
+  sections.push("### Accepted Issue Merge Roll-ups");
+  sections.push("");
+
+  const mergedRollups = coherencyDelta
+    ? collectMergedRollups(coherencyDelta)
+    : [];
+
+  if (!coherencyDelta) {
+    sections.push(
+      "No CoherencyDelta found; accepted merge roll-ups cannot be displayed. Run `rekon coherency delta` after recording any operator merge decisions.",
+    );
+    sections.push("");
+  } else if (mergedRollups.length === 0) {
+    sections.push("No accepted issue merge roll-ups in latest CoherencyDelta.");
+    sections.push("");
+  } else {
+    for (const rollup of mergedRollups.slice(0, 10)) {
+      const groups = summarizeList(rollup.mergedIssueGroupIds, 4);
+      const decisions = summarizeList(rollup.mergeDecisionIds, 2);
+      sections.push(
+        `- \`${rollup.rollupId}\` — groups: ${groups} — members: ${rollup.memberFindingIds.length} — decision${rollup.mergeDecisionIds.length === 1 ? "" : "s"}: ${decisions} — severity: ${rollup.severity} — ${rollup.active ? "active" : "inactive"}`,
+      );
+    }
+    if (mergedRollups.length > 10) {
+      sections.push(`- _… ${mergedRollups.length - 10} more roll-ups_`);
+    }
+    sections.push("");
+    sections.push(
+      "When working on a merged roll-up, inspect every member group and finding id before editing. Use `rekon resolve issue --issue <group-id>` for context on any member group.",
     );
     sections.push("");
   }
@@ -2293,6 +2362,46 @@ function coherencyDeltaCameFromAdjudication(
     return false;
   }
   return delta.items.some((item) => Boolean(item.issueGroupId));
+}
+
+type MergeRollupRow = {
+  rollupId: string;
+  issueGroupId?: string;
+  mergedIssueGroupIds: string[];
+  mergeDecisionIds: string[];
+  mergeCandidateIds: string[];
+  memberFindingIds: string[];
+  severity: string;
+  status: string;
+  active: boolean;
+};
+
+function collectMergedRollups(delta: CoherencyDelta): MergeRollupRow[] {
+  const rows: MergeRollupRow[] = [];
+  for (const item of delta.items ?? []) {
+    const groupIds = item.mergedIssueGroupIds;
+    if (!Array.isArray(groupIds) || groupIds.length < 2) {
+      continue;
+    }
+    rows.push({
+      rollupId: item.issueGroupId ?? item.id,
+      issueGroupId: item.issueGroupId,
+      mergedIssueGroupIds: [...groupIds],
+      mergeDecisionIds: [...(item.mergeDecisionIds ?? [])],
+      mergeCandidateIds: [...(item.mergeCandidateIds ?? [])],
+      memberFindingIds: [...(item.memberFindingIds ?? [])],
+      severity: item.severity,
+      status: item.status,
+      active: item.active,
+    });
+  }
+  rows.sort((left, right) => {
+    if (left.active !== right.active) {
+      return left.active ? -1 : 1;
+    }
+    return left.rollupId.localeCompare(right.rollupId);
+  });
+  return rows;
 }
 
 function truncate(value: string, max: number): string {

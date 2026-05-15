@@ -100,7 +100,19 @@ The publication contains, in fixed order:
    `rekon resolve issue --issue <group-id>` for adjudicated issue
    context.` When no `IssueAdjudicationReport` is indexed, the
    subsection emits a "run `rekon refresh`" hint and warns the
-   reader that raw lifecycle totals may overstate drift.
+   reader that raw lifecycle totals may overstate drift. The
+   **Accepted Issue Merge Roll-ups** subsection follows: one
+   bullet per merged rollup item derived from `CoherencyDelta`
+   v3 (where `mergedIssueGroupIds.length > 1`), naming the
+   rollup id, member group ids, member finding count, decision
+   id(s), severity, and active flag, plus the instruction to
+   "inspect every member group and finding id before editing"
+   and "Use `rekon resolve issue --issue <group-id>` for context
+   on any member group." When no accepted roll-ups exist, the
+   subsection says so explicitly; when no `CoherencyDelta`
+   exists, it instructs the operator to run `rekon coherency
+   delta`. See
+   [../concepts/issue-merge-decisions.md](../concepts/issue-merge-decisions.md).
 8. **Proof And Verification State** — presence/missing for
    remediation WorkOrder, resolver WorkOrder, ReconciliationPlan,
    VerificationPlan, VerificationResult; explicit "Verification is

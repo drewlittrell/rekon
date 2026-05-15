@@ -94,6 +94,24 @@ Issue phase adds:
   (`findingId`, `status`, `verificationResultRef?`,
   `verificationPlanRef?`, `workOrderRef?`); present only in group
   mode
+- `mergeRollup` — `IssueMergeRollupSummary` populated only when
+  the matched group is part of an operator-accepted merged
+  rollup in the latest `CoherencyDelta` (v3). Carries the rollup
+  id, the underlying `mergedIssueGroupIds` (always > 1 when
+  present), the `mergeDecisionIds` / `mergeCandidateIds` that
+  produced it, the unioned `memberFindingIds`, the worst severity
+  in the bucket, the rollup status, and the active flag. Absent
+  when no merged rollup contains the matched group, when the
+  latest decision is `rejected`, or when there is no
+  `CoherencyDelta` in the store. When `mergeRollup` is present
+  the packet also adds a `Matched issue group is part of an
+  operator-accepted merged roll-up; inspect sibling group(s) …
+  before acting.` warning and an `issue.merge` /
+  `sourceType: "CoherencyDelta"` / `status: "used"` entry to
+  `resolutionTrace`. The packet's `header.inputRefs` also adds
+  the `CoherencyDelta` ref the rollup came from. The resolver
+  does not read `IssueMergeDecisionLedger` directly; all rollup
+  metadata flows through `CoherencyDelta` only.
 
 When an [IssueAdjudicationReport](issue-adjudication-report.md)
 exists in the store, `resolve.issue` prefers adjudicated groups

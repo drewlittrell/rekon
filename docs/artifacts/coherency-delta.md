@@ -22,7 +22,20 @@ projection, no remediation auto-apply.
 - `@rekon/capability-docs.architecture-summary` (built-in) renders the
   [architecture summary publication](architecture-summary-publication.md)
   from the latest CoherencyDelta plus the snapshot, ownership/
-  capability maps, and finding lifecycle.
+  capability maps, and finding lifecycle. v3 adds an
+  `Accepted Issue Merge Roll-ups` section derived from merged
+  rollup items (`mergedIssueGroupIds.length > 1`).
+- `@rekon/capability-docs.agent-contract` (built-in) renders the
+  [agent operating contract](agent-contract-publication.md). v3 adds
+  an `Accepted Issue Merge Roll-ups` subsection under
+  `Active Governance State` plus a `Do Not Do` reminder that merged
+  roll-ups are projections, not source mutations.
+- `@rekon/capability-resolver.issueResolver` (built-in) attaches an
+  `IssueMergeRollupSummary` to `resolve.issue` packets when the
+  matched group is part of an accepted merged rollup; the packet
+  warns operators to inspect sibling group(s) before acting and
+  cites the source `CoherencyDelta` in `header.inputRefs`. Rejected
+  decisions never produce a `mergeRollup`.
 - `@rekon/capability-intent.remediation-work-order` (built-in)
   generates prioritized [remediation work orders](../concepts/remediation-work-orders.md)
   from the active subset of `CoherencyDelta.remediationQueue`.

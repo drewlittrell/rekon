@@ -4,6 +4,63 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped publication and resolver awareness of accepted merge
+  decisions (P1.1 merge-awareness slice). The architecture
+  summary, agent operating contract, and `resolve.issue` now
+  surface `CoherencyDelta` v3 merged rollup items in the places
+  humans and agents actually read:
+  `@rekon/capability-docs.architecture-summary` adds an
+  `## Accepted Issue Merge Roll-ups` section with one row per
+  merged rollup item (rollup id, member group ids, decision ids,
+  member finding count, severity, status, active flag).
+  `@rekon/capability-docs.agent-contract` adds an
+  `### Accepted Issue Merge Roll-ups` subsection under
+  `Active Governance State` with the same metadata in bullet
+  form plus an instruction to inspect every member group and
+  finding id before editing, and adds a new `Do Not Do`
+  reminder against treating accepted merge roll-ups as automatic
+  mutation of raw issue groups.
+  `@rekon/capability-resolver.issueResolver` adds a new optional
+  `mergeRollup: IssueMergeRollupSummary` field on `IssuePacket`
+  (rollup id, merged group ids, decision/candidate ids, unioned
+  member finding ids, severity, status, active) and attaches it
+  when the matched group is part of an accepted merged rollup in
+  the latest `CoherencyDelta`. The packet also gains a
+  sibling-group warning ("Matched issue group is part of an
+  operator-accepted merged roll-up; inspect sibling group(s) …
+  before acting."), a new `issue.merge` /
+  `sourceType: "CoherencyDelta"` / `status: "used"`
+  `resolutionTrace` entry, and `header.inputRefs` cites the
+  source `CoherencyDelta`. Rejected decisions never produce a
+  `mergeRollup` (they don't reach `CoherencyDelta` as merged), so
+  the resolver naturally keeps groups separate. None of the three
+  surfaces reads `IssueMergeDecisionLedger` directly — all rollup
+  metadata flows through `CoherencyDelta` only, keeping the
+  display consistent with the latest delta projection.
+  `IssueAdjudicationReport.groups` is **not** mutated; raw groups
+  remain inspectable. Manifest:
+  `@rekon/capability-resolver.consumes` gains `CoherencyDelta`.
+  Public API additions: new exported type
+  `IssueMergeRollupSummary` from `@rekon/capability-resolver`;
+  `IssuePacket.mergeRollup` is additive optional;
+  `ResolutionTraceEntry.sourceType` gains literal
+  `"CoherencyDelta"`. Internal helpers
+  (`findMergeRollupForGroup`, `toMergeRollupSummary`,
+  `collectMergedRollups`) are local to their packages. Docs
+  updated across architecture-summary-publication artifact +
+  concept, agent-contract-publication artifact + concept,
+  resolver-packet artifact, resolvers concept,
+  coherency-delta artifact + concept,
+  `issue-merge-decisions.md` concept (new
+  `Downstream Surfaces` section), and four strategy docs
+  (classic-subsystem-purpose-map, classic-behavior-roadmap,
+  classic-guarantee-regression-plan, roadmap). 10 new contract
+  tests in
+  `tests/contract/merge-decision-publication-resolver-awareness.test.mjs`.
+  Full suite: 458 passed / 1 skipped. No artifact mutation, no
+  LLM, no fuzzy / embedding / semantic matching, no new
+  capability role, no SDK API break beyond the additive optional
+  field, no schemaVersion bump, no version bump, no npm publish.
 - Shipped CoherencyDelta v3 respects accepted merge decisions (P1.1
   coherency-merge slice). `@rekon/runtime.buildCoherencyDelta` now
   reads the latest `IssueMergeDecisionLedger` (when it carries any

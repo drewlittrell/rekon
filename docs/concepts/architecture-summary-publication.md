@@ -59,8 +59,16 @@ states are surfaced, not hidden.
    with its member finding ids; the Coherency Summary section is
    also labeled as group-aware vs. raw-finding mode depending on
    whether the `CoherencyDelta` was built from adjudicated
-   groups. The publisher also runs a small `detectGovernanceFreshness`
-   helper across the latest `FindingLifecycleReport` /
+   groups. When `CoherencyDelta` v3 contains operator-accepted
+   merged rollup items (`mergedIssueGroupIds.length > 1`), the
+   summary also renders an `Accepted Issue Merge Roll-ups`
+   table showing each rollup id, the underlying group ids, the
+   decision ids that produced it, member finding counts, severity,
+   status, and active flag — derived from `CoherencyDelta` only
+   (the publisher does not read `IssueMergeDecisionLedger`
+   directly). The publisher also runs a small
+   `detectGovernanceFreshness` helper across the latest
+   `FindingLifecycleReport` /
    `IssueAdjudicationReport` / `CoherencyDelta` and, when any
    adjudication / coherency input is stale, renders an
    `## Input Freshness Warnings` section recommending the next

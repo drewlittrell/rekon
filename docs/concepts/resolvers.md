@@ -143,6 +143,24 @@ extra warning is added. The resolver never blocks on staleness —
 it only surfaces it. See
 [freshness-and-invalidation.md](freshness-and-invalidation.md).
 
+Group mode also reads the latest `CoherencyDelta` to detect
+operator-accepted merge roll-ups. When the matched group is
+part of a merged rollup item (`mergedIssueGroupIds.length > 1`),
+the resolver attaches a `mergeRollup` summary to the packet
+(carrying the rollup id, member group ids, decision ids,
+candidate ids, the unioned `memberFindingIds`, severity, status,
+and active flag), adds a warning naming the sibling group(s),
+and pushes an `issue.merge` / `sourceType: "CoherencyDelta"` /
+`status: "used"` entry into `resolutionTrace`. The packet's
+`header.inputRefs` cite the `CoherencyDelta` the rollup came
+from. Rejected decisions, and groups not in any merged rollup,
+never produce a `mergeRollup`. The resolver never reads
+`IssueMergeDecisionLedger` directly — all rollup metadata flows
+through `CoherencyDelta`, keeping the resolver consistent with
+whatever the latest delta projection shows. See
+[issue-merge-decisions.md](issue-merge-decisions.md) and
+[coherency-delta.md](coherency-delta.md).
+
 Ownership source precedence is deterministic:
 
 `OwnershipMap -> ObservedRepo -> ownership GraphSlice -> EvidenceGraph`

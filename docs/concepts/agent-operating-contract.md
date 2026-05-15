@@ -75,7 +75,7 @@ state is current.
 | Operating Rules | always | n/a (durable rules) |
 | Resolver Workflow | always | n/a (durable flow) |
 | Ownership And Capabilities | `ObservedRepo` and/or `CapabilityMap` present | `ObservedRepo`, `OwnershipMap`, `CapabilityMap` |
-| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport` (Governed Issue Groups + Governance Freshness subsections) |
+| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Governance Freshness subsections) |
 | Proof And Verification State | always | `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, `VerificationResult` |
 | Memory Guidance | always (table only when ranked items exist) | `MemorySelection` |
 | Required Checks | always | `VerificationPlan.commands` (default fallback) |
@@ -111,6 +111,28 @@ treat passing checks as automatic finding closure. When the latest
 `VerificationResult` references an older plan, the publication
 surfaces a stale-plan callout consistent with the architecture
 summary's behavior.
+
+## Accepted Issue Merge Roll-ups
+
+When `CoherencyDelta` v3 carries merged rollup items derived from
+operator-accepted `IssueMergeDecisionLedger` decisions, the
+contract renders an `Accepted Issue Merge Roll-ups` subsection
+under `Active Governance State`. Each bullet names the rollup id,
+its underlying group ids, the decision id(s) that produced it,
+the member finding count, the worst severity in the bucket, and
+whether the rollup is active. The subsection also instructs
+agents to inspect every member group and finding id before
+editing and points them at `rekon resolve issue --issue
+<group-id>` for context on any member group. The contract reads
+this signal from `CoherencyDelta` only — it does not consume the
+ledger directly, so the rollup display stays in lockstep with
+whatever `CoherencyDelta` was indexed last. The `Do Not Do`
+section adds an explicit reminder that a merged rollup does not
+mutate the raw `IssueAdjudicationReport` groups; agents must
+still inspect `mergedIssueGroupIds` and `memberFindingIds` before
+acting. See
+[issue-merge-decisions.md](issue-merge-decisions.md) and
+[coherency-delta.md](coherency-delta.md).
 
 ## CLI Surface
 

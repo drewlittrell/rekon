@@ -281,9 +281,36 @@ is the first stop before proposing a new capability batch.
   `rollupIssueGroupsByAcceptedMergeDecisions(input)`. `inputRefs`
   cite the ledger when used, so `rekon artifacts freshness`
   marks the delta `stale` on a newer
-  `IssueMergeDecisionLedger`. `resolve.issue` and the
-  publications still operate on raw groups in this batch;
-  wiring them up to accepted merged rollups is the next slice.
+  `IssueMergeDecisionLedger`. Publication and resolver
+  awareness shipped immediately after this slice (see next
+  bullet).
+- Publication and resolver awareness of accepted merge decisions
+  (P1.1 merge-awareness slice):
+  `@rekon/capability-docs.architecture-summary` renders an
+  `## Accepted Issue Merge Roll-ups` section sourced from
+  `CoherencyDelta` v3 merged rollup items
+  (`mergedIssueGroupIds.length > 1`) with rollup id, member
+  group ids, decision ids, member finding counts, severity,
+  status, and active flag.
+  `@rekon/capability-docs.agent-contract` renders an
+  `### Accepted Issue Merge Roll-ups` subsection under
+  `Active Governance State` plus a `Do Not Do` reminder against
+  treating roll-ups as automatic mutation of raw issue groups.
+  `@rekon/capability-resolver.issueResolver` adds a new
+  optional `mergeRollup: IssueMergeRollupSummary` field on
+  `IssuePacket` (rollup id, merged group ids,
+  decision/candidate ids, unioned member finding ids, severity,
+  status, active) and attaches it when the matched group is in
+  an accepted merged rollup in the latest `CoherencyDelta`.
+  The packet adds a sibling-group warning, an `issue.merge`
+  `CoherencyDelta` `resolutionTrace` step, and cites the
+  source `CoherencyDelta` in `header.inputRefs`. Rejected
+  decisions never produce a rollup. All three surfaces read
+  merged rollup metadata from `CoherencyDelta` only — none
+  reads `IssueMergeDecisionLedger` directly. Manifest update:
+  `@rekon/capability-resolver` adds `CoherencyDelta` to
+  `consumes`. New `ResolutionTraceEntry.sourceType` enum value
+  `"CoherencyDelta"`.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

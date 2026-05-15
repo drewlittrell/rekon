@@ -8,6 +8,8 @@ import {
   type ArtifactRef,
 } from "@rekon/kernel-artifacts";
 import {
+  type CoherencyDelta,
+  type CoherencyDeltaItem,
   type FindingStatus,
   type FindingStatusDecision,
   type FindingStatusDecisionReason,
@@ -32,6 +34,7 @@ export type ResolutionTraceEntry = {
     | "EvidenceGraph"
     | "FindingReport"
     | "IssueAdjudicationReport"
+    | "CoherencyDelta"
     | "MemorySelection"
     | "ResolverInput"
     | "RiskRule"
@@ -314,6 +317,18 @@ export type IssueVerificationByFinding = {
   workOrderRef?: ArtifactRef;
 };
 
+export type IssueMergeRollupSummary = {
+  rollupId: string;
+  issueGroupId?: string;
+  mergedIssueGroupIds: string[];
+  mergeDecisionIds: string[];
+  mergeCandidateIds: string[];
+  memberFindingIds: string[];
+  severity: string;
+  status: string;
+  active: boolean;
+};
+
 export type IssuePacket = ResolverPacketBase & {
   phase: "issue";
   query: string;
@@ -338,6 +353,7 @@ export type IssuePacket = ResolverPacketBase & {
   verification?: VerificationEvidenceSummary;
   verificationByFinding?: IssueVerificationByFinding[];
   nextRequiredResolver?: "resolve.route" | "resolve.seam" | "resolve.preflight";
+  mergeRollup?: IssueMergeRollupSummary;
 };
 
 export const routeResolver: Resolver = {
@@ -990,6 +1006,7 @@ export default defineCapability({
       "FindingReport",
       "FindingStatusLedger",
       "IssueAdjudicationReport",
+      "CoherencyDelta",
       "MemorySelection",
       "WorkOrder",
       "VerificationPlan",
@@ -1593,6 +1610,37 @@ async function buildGroupIssuePacket(args: {
     }
   }
 
+  // Operator-accepted merge roll-up awareness. If the latest CoherencyDelta
+  // collapses this group into a merged rollup via an accepted decision,
+  // surface the rollup on the IssuePacket so callers can inspect sibling
+  // groups before acting. Rejected decisions never produce a merged rollup
+  // in CoherencyDelta, so this lookup naturally returns null for them.
+  let mergeRollup: IssueMergeRollupSummary | undefined;
+  let mergeRollupRef: ArtifactRef | undefined;
+  const rollupLookup = await findMergeRollupForGroup(artifacts, group.id);
+  if (rollupLookup) {
+    mergeRollup = toMergeRollupSummary(rollupLookup.item);
+    mergeRollupRef = rollupLookup.deltaRef;
+    const otherGroups = mergeRollup.mergedIssueGroupIds.filter((id) => id !== group.id);
+    warnings.push(
+      `Matched issue group is part of an operator-accepted merged roll-up (${mergeRollup.rollupId}); inspect sibling group${otherGroups.length === 1 ? "" : "s"} ${otherGroups.join(", ")} before acting.`,
+    );
+    trace.push({
+      step: "issue.merge",
+      sourceType: "CoherencyDelta",
+      sourceRef: mergeRollupRef,
+      status: "used",
+      message: `Matched group ${group.id} is part of merged roll-up ${mergeRollup.rollupId} (${mergeRollup.mergedIssueGroupIds.length} groups, ${mergeRollup.memberFindingIds.length} member finding${mergeRollup.memberFindingIds.length === 1 ? "" : "s"}).`,
+      details: {
+        rollupId: mergeRollup.rollupId,
+        mergedIssueGroupIds: mergeRollup.mergedIssueGroupIds,
+        mergeDecisionIds: mergeRollup.mergeDecisionIds,
+        mergeCandidateIds: mergeRollup.mergeCandidateIds,
+        memberFindingCount: mergeRollup.memberFindingIds.length,
+      },
+    });
+  }
+
   // Build a back-compat IssueSummary from the canonical member.
   const canonicalSummary: IssueSummary = {
     id: group.canonicalFindingId,
@@ -1648,11 +1696,18 @@ async function buildGroupIssuePacket(args: {
         id: "@rekon/capability-resolver",
         version: "0.1.0",
       },
-      inputRefs: appendInputRef(collectInputRefs(snapshot, snapshotRef), reportRef),
+      inputRefs: mergeRollupRef
+        ? appendInputRef(
+            appendInputRef(collectInputRefs(snapshot, snapshotRef), reportRef),
+            mergeRollupRef,
+          )
+        : appendInputRef(collectInputRefs(snapshot, snapshotRef), reportRef),
       freshness: { status: "fresh" },
       provenance: {
         confidence: 0.8,
-        notes: ["resolve.issue", "IssueAdjudicationReport"],
+        notes: mergeRollup
+          ? ["resolve.issue", "IssueAdjudicationReport", "CoherencyDelta"]
+          : ["resolve.issue", "IssueAdjudicationReport"],
       },
     },
     resolverId: "resolve.issue",
@@ -1670,6 +1725,7 @@ async function buildGroupIssuePacket(args: {
     verification: aggregatedVerification,
     verificationByFinding: perFinding,
     nextRequiredResolver,
+    mergeRollup,
     warnings,
     resolutionTrace,
     nextSteps: groupIssueNextSteps(group, ownership.ownerSystems, aggregatedVerification, otherGroupCount),
@@ -1772,6 +1828,57 @@ function appendInputRef(refs: ArtifactRef[], extra: ArtifactRef): ArtifactRef[] 
     return refs;
   }
   return [...refs, extra];
+}
+
+type MergeRollupLookup = {
+  deltaRef: ArtifactRef;
+  item: CoherencyDeltaItem;
+};
+
+async function findMergeRollupForGroup(
+  artifacts: ArtifactReader,
+  groupId: string,
+): Promise<MergeRollupLookup | null> {
+  const entries = await artifacts.list("CoherencyDelta");
+  if (entries.length === 0) {
+    return null;
+  }
+  // ArtifactRefs are time-ordered by id (timestamp-suffixed) in the indexer,
+  // matching the pattern used elsewhere in this file for IssueAdjudicationReport.
+  const sorted = [...entries].sort((left, right) => right.id.localeCompare(left.id));
+  const latest = sorted[0]!;
+  const delta = (await artifacts.read(latest)) as CoherencyDelta;
+  const item = (delta.items ?? []).find(
+    (candidate) =>
+      Array.isArray(candidate.mergedIssueGroupIds)
+      && candidate.mergedIssueGroupIds.length > 1
+      && candidate.mergedIssueGroupIds.includes(groupId),
+  );
+  if (!item) {
+    return null;
+  }
+  return {
+    deltaRef: {
+      type: latest.type,
+      id: latest.id,
+      schemaVersion: latest.schemaVersion,
+    },
+    item,
+  };
+}
+
+function toMergeRollupSummary(item: CoherencyDeltaItem): IssueMergeRollupSummary {
+  return {
+    rollupId: item.issueGroupId ?? item.id,
+    issueGroupId: item.issueGroupId,
+    mergedIssueGroupIds: [...(item.mergedIssueGroupIds ?? [])],
+    mergeDecisionIds: [...(item.mergeDecisionIds ?? [])],
+    mergeCandidateIds: [...(item.mergeCandidateIds ?? [])],
+    memberFindingIds: [...(item.memberFindingIds ?? [])],
+    severity: item.severity,
+    status: item.status,
+    active: item.active,
+  };
 }
 
 function groupIssueNextSteps(

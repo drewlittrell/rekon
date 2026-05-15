@@ -414,6 +414,24 @@ Implementation batches:
   is unchanged. Pinned by
   `tests/contract/issue-adjudication-merge-candidates.test.mjs`
   (12 tests).
+- "Publication and resolver awareness of accepted merge
+  decisions" (shipped) — `@rekon/capability-docs.architecture-summary`
+  and `@rekon/capability-docs.agent-contract` now render an
+  `Accepted Issue Merge Roll-ups` section/subsection sourced
+  from `CoherencyDelta` v3 merged rollup items; the agent
+  contract `Do Not Do` adds a reminder that merged roll-ups are
+  projections, not source mutations. `@rekon/capability-resolver.issueResolver`
+  attaches an optional `mergeRollup: IssueMergeRollupSummary`
+  on `IssuePacket` when the matched group is part of an
+  accepted merged rollup in the latest `CoherencyDelta`, adds a
+  sibling-group warning, an `issue.merge` /
+  `sourceType: "CoherencyDelta"` / `status: "used"` trace entry,
+  and cites `CoherencyDelta` in `header.inputRefs`. Rejected
+  decisions never produce a `mergeRollup`. None of these
+  surfaces read `IssueMergeDecisionLedger` directly; everything
+  flows through `CoherencyDelta`. Pinned by
+  `tests/contract/merge-decision-publication-resolver-awareness.test.mjs`
+  (10 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume
