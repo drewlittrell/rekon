@@ -178,6 +178,16 @@ These are intentionally deferred. See
 > `FindingLifecycleReport`. See
 > [freshness-and-invalidation.md](freshness-and-invalidation.md).
 
+> **Merge candidates are advisory only.** v2 adjudication can
+> emit `IssueMergeCandidate` records that link two groups likely
+> describing the same underlying issue. `CoherencyDelta` does
+> **not** treat candidates as merged groups: the delta keeps one
+> item per actual `IssueAdjudicationGroup` and one
+> `remediationQueue` step per active group. Candidates surface
+> in the adjudication report and in `rekon issues list`, not in
+> coherency counts. See
+> [issue-adjudication.md](issue-adjudication.md).
+
 > **Adjudicated input (v2).** When an `IssueAdjudicationReport`
 > exists in the store, `buildCoherencyDelta` now consumes
 > **adjudicated groups** instead of raw lifecycle findings. The

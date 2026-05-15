@@ -400,12 +400,37 @@ export type IssueAdjudicationSummary = {
   groupedFindings: number;
   bySeverity: Record<string, number>;
   byType: Record<string, number>;
+  mergeCandidates?: number;
+};
+
+export type IssueMergeCandidateStrength = "strong" | "medium" | "weak";
+
+export type IssueMergeCandidateReason =
+  | "same-file"
+  | "overlapping-files"
+  | "same-subject"
+  | "overlapping-subjects"
+  | "same-severity"
+  | "related-type-prefix"
+  | "same-suggested-action"
+  | "shared-system";
+
+export type IssueMergeCandidate = {
+  id: string;
+  groupIds: string[];
+  memberFindingIds: string[];
+  strength: IssueMergeCandidateStrength;
+  reasons: IssueMergeCandidateReason[];
+  confidence: number;
+  status: "candidate";
+  note: string;
 };
 
 export type IssueAdjudicationReport = {
   header: ArtifactHeader;
   summary: IssueAdjudicationSummary;
   groups: IssueAdjudicationGroup[];
+  mergeCandidates?: IssueMergeCandidate[];
 };
 
 export type IssueAdjudicationInput = {
@@ -413,6 +438,34 @@ export type IssueAdjudicationInput = {
   resolvedFindings?: EffectiveFinding[];
   systemsForFinding?: (finding: EffectiveFinding) => string[] | undefined;
 };
+
+const ISSUE_MERGE_CANDIDATE_STRENGTHS = new Set<IssueMergeCandidateStrength>([
+  "strong",
+  "medium",
+  "weak",
+]);
+
+const ISSUE_MERGE_CANDIDATE_REASONS = new Set<IssueMergeCandidateReason>([
+  "same-file",
+  "overlapping-files",
+  "same-subject",
+  "overlapping-subjects",
+  "same-severity",
+  "related-type-prefix",
+  "same-suggested-action",
+  "shared-system",
+]);
+
+const STRENGTH_RANK: Record<IssueMergeCandidateStrength, number> = {
+  strong: 0,
+  medium: 1,
+  weak: 2,
+};
+
+const MERGE_CANDIDATE_MIN_CONFIDENCE = 0.45;
+const MERGE_CANDIDATE_STRONG_THRESHOLD = 0.7;
+const MERGE_CANDIDATE_MEDIUM_THRESHOLD = 0.45;
+const MERGE_CANDIDATE_MAX = 50;
 
 const SEVERITY_RANK: Record<FindingSeverity, number> = {
   critical: 4,
@@ -432,6 +485,7 @@ const ISSUE_ADJUDICATION_STATUSES = new Set<IssueAdjudicationStatus>([
 export function deriveIssueAdjudication(input: IssueAdjudicationInput): {
   groups: IssueAdjudicationGroup[];
   summary: IssueAdjudicationSummary;
+  mergeCandidates: IssueMergeCandidate[];
 } {
   const members: EffectiveFinding[] = [
     ...input.findings,
@@ -508,7 +562,233 @@ export function deriveIssueAdjudication(input: IssueAdjudicationInput): {
     return left.id.localeCompare(right.id);
   });
 
-  return { groups, summary: summarizeAdjudication(groups, members.length) };
+  const mergeCandidates = deriveMergeCandidates(groups);
+  const summary = summarizeAdjudication(groups, members.length);
+  summary.mergeCandidates = mergeCandidates.length;
+
+  return { groups, summary, mergeCandidates };
+}
+
+export function deriveMergeCandidates(
+  groups: IssueAdjudicationGroup[],
+): IssueMergeCandidate[] {
+  const candidates: IssueMergeCandidate[] = [];
+
+  for (let leftIdx = 0; leftIdx < groups.length; leftIdx += 1) {
+    for (let rightIdx = leftIdx + 1; rightIdx < groups.length; rightIdx += 1) {
+      const left = groups[leftIdx]!;
+      const right = groups[rightIdx]!;
+
+      // Skip pairs where both groups are inactive — keeps noise down.
+      if (!left.active && !right.active) {
+        continue;
+      }
+
+      // Skip pairs that already share the same grouping key (would have
+      // been merged into one group by deterministic grouping).
+      if (left.groupingKey === right.groupingKey) {
+        continue;
+      }
+
+      const evaluation = evaluateMergeCandidate(left, right);
+
+      if (evaluation.confidence < MERGE_CANDIDATE_MIN_CONFIDENCE) {
+        continue;
+      }
+
+      // Mixed-activity pairs require strong confidence to surface.
+      if (
+        (left.active !== right.active)
+        && evaluation.confidence < MERGE_CANDIDATE_STRONG_THRESHOLD
+      ) {
+        continue;
+      }
+
+      const cappedConfidence = Math.min(1, evaluation.confidence);
+      const strength = strengthForConfidence(cappedConfidence);
+      const sortedGroupIds = [left.id, right.id].sort((a, b) => a.localeCompare(b));
+      const sortedMemberIds = unionSorted([left.memberFindingIds, right.memberFindingIds]);
+
+      const eitherInactive = !left.active || !right.active;
+      const noteParts = [
+        `Possible cross-rule overlap between ${left.id} (${left.type}) and ${right.id} (${right.type}).`,
+        eitherInactive
+          ? "One or more candidate groups are accepted, ignored, or resolved; review before acting."
+          : null,
+      ].filter((part): part is string => Boolean(part));
+
+      candidates.push({
+        id: `merge-candidate:${sortedGroupIds.join(":")}`,
+        groupIds: sortedGroupIds,
+        memberFindingIds: sortedMemberIds,
+        strength,
+        reasons: evaluation.reasons,
+        confidence: Number(cappedConfidence.toFixed(3)),
+        status: "candidate",
+        note: noteParts.join(" "),
+      });
+    }
+  }
+
+  candidates.sort((left, right) => {
+    if (left.strength !== right.strength) {
+      return STRENGTH_RANK[left.strength] - STRENGTH_RANK[right.strength];
+    }
+    if (left.confidence !== right.confidence) {
+      return right.confidence - left.confidence;
+    }
+    return left.id.localeCompare(right.id);
+  });
+
+  return candidates.slice(0, MERGE_CANDIDATE_MAX);
+}
+
+function evaluateMergeCandidate(
+  left: IssueAdjudicationGroup,
+  right: IssueAdjudicationGroup,
+): { confidence: number; reasons: IssueMergeCandidateReason[] } {
+  const reasons: IssueMergeCandidateReason[] = [];
+  let confidence = 0;
+
+  // Files
+  const leftFiles = new Set(left.files ?? []);
+  const rightFiles = new Set(right.files ?? []);
+  if (leftFiles.size > 0 && rightFiles.size > 0) {
+    if (sameSet(leftFiles, rightFiles)) {
+      reasons.push("same-file");
+      confidence += 0.35;
+    } else if (anyOverlap(leftFiles, rightFiles)) {
+      reasons.push("overlapping-files");
+      confidence += 0.35;
+    }
+  }
+
+  // Subjects
+  const leftSubjects = new Set(left.subjects ?? []);
+  const rightSubjects = new Set(right.subjects ?? []);
+  if (leftSubjects.size > 0 && rightSubjects.size > 0) {
+    if (sameSet(leftSubjects, rightSubjects)) {
+      reasons.push("same-subject");
+      confidence += 0.3;
+    } else if (anyOverlap(leftSubjects, rightSubjects)) {
+      reasons.push("overlapping-subjects");
+      confidence += 0.3;
+    }
+  }
+
+  // Severity
+  if (left.severity === right.severity) {
+    reasons.push("same-severity");
+    confidence += 0.1;
+  }
+
+  // Related type prefix (only when both types contain ".")
+  const leftPrefix = typePrefix(left.type);
+  const rightPrefix = typePrefix(right.type);
+  if (
+    leftPrefix
+    && rightPrefix
+    && leftPrefix === rightPrefix
+    && left.type !== right.type
+  ) {
+    reasons.push("related-type-prefix");
+    confidence += 0.15;
+  }
+
+  // Suggested action category
+  const leftCategory = suggestedActionCategory(left);
+  const rightCategory = suggestedActionCategory(right);
+  if (leftCategory && rightCategory && leftCategory === rightCategory) {
+    reasons.push("same-suggested-action");
+    confidence += 0.15;
+  }
+
+  // Shared system
+  const leftSystems = new Set(left.systems ?? []);
+  const rightSystems = new Set(right.systems ?? []);
+  if (
+    leftSystems.size > 0
+    && rightSystems.size > 0
+    && anyOverlap(leftSystems, rightSystems)
+  ) {
+    reasons.push("shared-system");
+    confidence += 0.15;
+  }
+
+  // A candidate must have at least two signals.
+  if (reasons.length < 2) {
+    return { confidence: 0, reasons: [] };
+  }
+
+  return { confidence, reasons };
+}
+
+function typePrefix(type: string): string | undefined {
+  const dot = type.indexOf(".");
+  if (dot <= 0) {
+    return undefined;
+  }
+  return type.slice(0, dot);
+}
+
+const SUGGESTED_ACTION_KEYWORD_BUCKETS: Array<{
+  category: string;
+  keywords: string[];
+}> = [
+  { category: "import", keywords: ["import"] },
+  {
+    category: "generated-output",
+    keywords: ["generated", "dist", "build"],
+  },
+  { category: "verification", keywords: ["test", "verify"] },
+  {
+    category: "documentation",
+    keywords: ["doc", "documentation", "readme", "agents"],
+  },
+  {
+    category: "ownership-boundary",
+    keywords: ["owner", "system", "boundary"],
+  },
+];
+
+function suggestedActionCategory(group: IssueAdjudicationGroup): string | undefined {
+  const haystack = [group.suggestedAction ?? "", group.title ?? "", group.type ?? ""]
+    .join(" ")
+    .toLowerCase();
+  if (haystack.trim().length === 0) {
+    return undefined;
+  }
+  for (const bucket of SUGGESTED_ACTION_KEYWORD_BUCKETS) {
+    if (bucket.keywords.some((keyword) => haystack.includes(keyword))) {
+      return bucket.category;
+    }
+  }
+  return undefined;
+}
+
+function strengthForConfidence(confidence: number): IssueMergeCandidateStrength {
+  if (confidence >= MERGE_CANDIDATE_STRONG_THRESHOLD) {
+    return "strong";
+  }
+  if (confidence >= MERGE_CANDIDATE_MEDIUM_THRESHOLD) {
+    return "medium";
+  }
+  return "weak";
+}
+
+function sameSet<T>(left: Set<T>, right: Set<T>): boolean {
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
+}
+
+function anyOverlap<T>(left: Set<T>, right: Set<T>): boolean {
+  for (const value of left) {
+    if (right.has(value)) return true;
+  }
+  return false;
 }
 
 export function createIssueAdjudicationReport(input: {
@@ -517,7 +797,7 @@ export function createIssueAdjudicationReport(input: {
   resolvedFindings?: EffectiveFinding[];
   systemsForFinding?: (finding: EffectiveFinding) => string[] | undefined;
 }): IssueAdjudicationReport {
-  const { groups, summary } = deriveIssueAdjudication({
+  const { groups, summary, mergeCandidates } = deriveIssueAdjudication({
     findings: input.findings,
     resolvedFindings: input.resolvedFindings,
     systemsForFinding: input.systemsForFinding,
@@ -527,6 +807,7 @@ export function createIssueAdjudicationReport(input: {
     header: input.header,
     summary,
     groups,
+    mergeCandidates: mergeCandidates.length > 0 ? mergeCandidates : undefined,
   });
 }
 
@@ -560,6 +841,16 @@ export function validateIssueAdjudicationReport(
     value.groups.forEach((group, index) =>
       validateAdjudicationGroup(group, `$.groups[${index}]`, issues),
     );
+  }
+
+  if (value.mergeCandidates !== undefined) {
+    if (!Array.isArray(value.mergeCandidates)) {
+      issues.push({ path: "$.mergeCandidates", message: "Expected an array when present." });
+    } else {
+      value.mergeCandidates.forEach((candidate, index) =>
+        validateMergeCandidate(candidate, `$.mergeCandidates[${index}]`, issues),
+      );
+    }
   }
 
   return issues.length > 0
@@ -819,6 +1110,79 @@ function validateAdjudicationGroup(
         }
       });
     }
+  }
+}
+
+function validateMergeCandidate(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  requiredString(value.id, `${path}.id`, issues);
+  requiredString(value.note, `${path}.note`, issues);
+
+  if (value.status !== "candidate") {
+    issues.push({
+      path: `${path}.status`,
+      message: 'Expected status to be "candidate".',
+    });
+  }
+
+  if (
+    typeof value.strength !== "string"
+    || !ISSUE_MERGE_CANDIDATE_STRENGTHS.has(value.strength as IssueMergeCandidateStrength)
+  ) {
+    issues.push({ path: `${path}.strength`, message: "Expected strong, medium, or weak." });
+  }
+
+  if (
+    typeof value.confidence !== "number"
+    || Number.isNaN(value.confidence)
+    || value.confidence < 0
+    || value.confidence > 1
+  ) {
+    issues.push({
+      path: `${path}.confidence`,
+      message: "Expected a number in [0, 1].",
+    });
+  }
+
+  if (
+    !Array.isArray(value.groupIds)
+    || value.groupIds.length < 2
+    || !value.groupIds.every((entry) => typeof entry === "string")
+  ) {
+    issues.push({
+      path: `${path}.groupIds`,
+      message: "Expected an array of at least two group ids (strings).",
+    });
+  }
+
+  if (!isStringArray(value.memberFindingIds) || value.memberFindingIds.length === 0) {
+    issues.push({
+      path: `${path}.memberFindingIds`,
+      message: "Expected a non-empty array of strings.",
+    });
+  }
+
+  if (
+    !Array.isArray(value.reasons)
+    || value.reasons.length === 0
+    || !value.reasons.every(
+      (entry) =>
+        typeof entry === "string"
+        && ISSUE_MERGE_CANDIDATE_REASONS.has(entry as IssueMergeCandidateReason),
+    )
+  ) {
+    issues.push({
+      path: `${path}.reasons`,
+      message: "Expected a non-empty array of known merge-candidate reasons.",
+    });
   }
 }
 

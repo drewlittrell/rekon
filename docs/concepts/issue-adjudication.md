@@ -67,6 +67,55 @@ Group key components:
 used (`"same-type"` / `"same-rule"` / `"same-files"` /
 `"same-subjects"` / `"singleton-no-grouping-key"`).
 
+## Merge Candidates (v2)
+
+Exact grouping alone leaves real overlap on the table: two
+different rules can fire on the same file/subject/severity and
+the deterministic key splits them. v2 adjudication adds **merge
+candidates**: advisory `IssueMergeCandidate` records that link
+two groups via deterministic signals, without merging them.
+
+Signals (in priority order):
+
+- `same-file` / `overlapping-files`
+- `same-subject` / `overlapping-subjects`
+- `same-severity`
+- `related-type-prefix` (e.g., both groups under
+  `import_boundary.*`)
+- `same-suggested-action` (deterministic keyword bucket:
+  `import` / `generated-output` / `verification` /
+  `documentation` / `ownership-boundary`)
+- `shared-system`
+
+A pair needs at least two signals and a confidence
+`>= 0.45` to qualify. Confidence is capped at `1.0`. Strength
+labels:
+
+- `strong` (`>= 0.70`)
+- `medium` (`>= 0.45`)
+- `weak` (below the emit floor; not surfaced by default)
+
+Activity filter:
+
+- Both groups inactive → skip (noise reduction).
+- Mixed activity → emit only at `strong` (`>= 0.70`).
+- Both active → emit at `>= 0.45`.
+
+Anti-gaming:
+
+- Merge candidates **never** become merged groups automatically.
+- `CoherencyDelta` keeps counting the underlying groups
+  separately. The remediation queue keeps one step per active
+  group.
+- No LLM, embeddings, or fuzzy matching. The next slice
+  (operator-assisted merge decision ledger) will let humans
+  explicitly accept or reject candidates; it will not introduce
+  automatic semantic merging either.
+
+The report exposes a sorted, capped `mergeCandidates` array (max
+50 by default) and a `summary.mergeCandidates` count. Both are
+optional fields — when no candidates qualify, they are omitted.
+
 ## Status Derivation
 
 Group status is derived from members' `effectiveStatus`:

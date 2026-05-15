@@ -1039,6 +1039,7 @@ export async function main(argv: string[]): Promise<void> {
         artifact: ref,
         summary: report.summary,
         groups: report.groups,
+        mergeCandidates: report.mergeCandidates ?? [],
       },
       json,
     );
@@ -1081,6 +1082,7 @@ export async function main(argv: string[]): Promise<void> {
         artifact: artifactRef,
         summary: report.summary,
         groups,
+        mergeCandidates: report.mergeCandidates ?? [],
       },
       json,
     );

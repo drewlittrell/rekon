@@ -244,6 +244,24 @@ is the first stop before proposing a new capability batch.
   marks adjudication reports stale after newer
   `FindingLifecycleReport`. Semantic / fuzzy matching, LLM
   review, and `resolve.issue` v2 remain deferred.
+- Issue adjudication v2: deterministic cross-rule merge hints
+  (P1.1 merge-hints slice): `IssueAdjudicationReport` now
+  exposes an optional `mergeCandidates: IssueMergeCandidate[]`
+  field and a `summary.mergeCandidates` count. The adjudicator
+  inspects every pair of distinct groups and emits advisory
+  candidates when at least two deterministic signals fire
+  (`same-file` / `overlapping-files` / `same-subject` /
+  `overlapping-subjects` / `same-severity` /
+  `related-type-prefix` / `same-suggested-action` /
+  `shared-system`). Confidence is capped at 1.0; strengths are
+  `strong` / `medium` / `weak`. Both-inactive pairs are skipped;
+  mixed-activity pairs require `strong`. Candidates **never**
+  merge groups — `CoherencyDelta` keeps one item per actual
+  group, the remediation queue keeps one step per active group,
+  and no artifact is mutated. CLI: `rekon issues adjudicate` /
+  `rekon issues list` now expose a `mergeCandidates` array.
+  Exported helper: `deriveMergeCandidates(groups)`. No
+  semantic / fuzzy / embedding / LLM matching.
 - Stale-source freshness guardrails for adjudication + coherency
   (P1.1 trust slice): the surfaces that consume
   `IssueAdjudicationReport` and `CoherencyDelta` now render

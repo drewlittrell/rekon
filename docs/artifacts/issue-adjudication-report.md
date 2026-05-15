@@ -101,6 +101,29 @@ type IssueAdjudicationGroup = {
   statusBreakdown: Record<string, number>;
 };
 
+type IssueMergeCandidateStrength = "strong" | "medium" | "weak";
+
+type IssueMergeCandidateReason =
+  | "same-file"
+  | "overlapping-files"
+  | "same-subject"
+  | "overlapping-subjects"
+  | "same-severity"
+  | "related-type-prefix"
+  | "same-suggested-action"
+  | "shared-system";
+
+type IssueMergeCandidate = {
+  id: string;
+  groupIds: string[];          // sorted; always two ids
+  memberFindingIds: string[];  // sorted union across the two groups
+  strength: IssueMergeCandidateStrength;
+  reasons: IssueMergeCandidateReason[];
+  confidence: number;          // [0, 1], deterministic
+  status: "candidate";
+  note: string;
+};
+
 type IssueAdjudicationReport = {
   header: ArtifactHeader;
   summary: {
@@ -114,8 +137,10 @@ type IssueAdjudicationReport = {
     groupedFindings: number;
     bySeverity: Record<string, number>;
     byType: Record<string, number>;
+    mergeCandidates?: number;
   };
   groups: IssueAdjudicationGroup[];
+  mergeCandidates?: IssueMergeCandidate[];
 };
 ```
 
@@ -143,6 +168,95 @@ The `groupingReasons` field on every group explains the key:
   fallback key was used.
 
 Singletons are still emitted as groups so no finding is dropped.
+
+## Merge Candidates (v2)
+
+After the deterministic grouping above runs, the adjudicator
+inspects every pair of distinct groups and emits **advisory**
+merge candidates for pairs that share enough deterministic
+signals to be worth a human's attention but cannot be merged
+automatically (different `type` or `ruleId`).
+
+A merge candidate is **never** a merged group. The two groups
+remain separate in `groups[]`. `CoherencyDelta`, `resolve.issue`,
+and the publications continue to count and route them
+independently. Operators (or a future operator-assisted merge
+ledger) decide whether to act.
+
+### Detection signals
+
+The adjudicator scores each pair against six deterministic
+signals (no semantic / fuzzy / embedding matching):
+
+| Signal | Trigger | Weight |
+| --- | --- | --- |
+| `same-file` | both groups' files are identical non-empty sets | `+0.35` |
+| `overlapping-files` | any shared file between non-empty sets | `+0.35` |
+| `same-subject` | both groups' subjects are identical non-empty sets | `+0.30` |
+| `overlapping-subjects` | any shared subject between non-empty sets | `+0.30` |
+| `same-severity` | severities match exactly | `+0.10` |
+| `related-type-prefix` | types share their prefix before `.` and types differ | `+0.15` |
+| `same-suggested-action` | both action / title / type texts map to the same fixed category | `+0.15` |
+| `shared-system` | any overlap in declared `systems` | `+0.15` |
+
+A pair needs at least **two** signals to qualify and a total
+confidence `>= 0.45`. Confidence is capped at `1.0` for display.
+
+`strength` is derived from the capped confidence:
+
+```
+confidence >= 0.70 → strong
+confidence >= 0.45 → medium
+otherwise          → weak (not emitted under the default floor)
+```
+
+### Activity filtering
+
+- Pairs where **both groups are inactive** (no `new` / `existing`
+  member in either) are skipped entirely — review noise reduction.
+- Pairs where **exactly one group is inactive** must reach
+  `strong` confidence (`>= 0.70`) before they are emitted; the
+  candidate's `note` calls out that an inactive group is
+  involved.
+- Pairs where **both groups are active** emit at the standard
+  `>= 0.45` floor.
+
+### Ordering and limit
+
+`mergeCandidates` is sorted by `strength` (strong → medium →
+weak), then `confidence` descending, then `id` ascending. The
+report caps the array at **50** candidates; further pairs are
+dropped silently from the artifact but remain implied by the
+underlying groups.
+
+### Suggested-action categories
+
+`same-suggested-action` uses a deterministic keyword map:
+
+| Category | Triggering keywords (case-insensitive substring) |
+| --- | --- |
+| `import` | `import` |
+| `generated-output` | `generated`, `dist`, `build` |
+| `verification` | `test`, `verify` |
+| `documentation` | `doc`, `documentation`, `readme`, `agents` |
+| `ownership-boundary` | `owner`, `system`, `boundary` |
+
+The category is computed from a concatenation of
+`suggestedAction`, `title`, and `type` (lowercased). When a
+group's combined text doesn't match any bucket, the
+`same-suggested-action` signal is skipped for that pair.
+
+### Anti-gaming reminders
+
+- Merge candidates are **never** counted as merged groups by
+  `CoherencyDelta`. The remediation queue continues to count
+  one step per active group.
+- Merge candidates do **not** mutate `FindingReport`,
+  `FindingStatusLedger`, `FindingLifecycleReport`, or any group.
+  They are advisory metadata only.
+- No LLM, embeddings, or fuzzy matching. If you need
+  semantic dedupe, that is explicitly a future capability under
+  `network:outbound` permission.
 
 ## Canonical Finding Selection
 

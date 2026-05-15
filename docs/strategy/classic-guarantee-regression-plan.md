@@ -375,6 +375,17 @@ Implementation batches:
   Missing report or no-match queries fall back to raw findings
   with an explicit fallback trace. Pinned by
   `tests/contract/issue-resolver-adjudicated.test.mjs` (17 tests).
+- "Issue adjudication v2: deterministic cross-rule merge hints"
+  (shipped) — `IssueAdjudicationReport.mergeCandidates` emits
+  advisory `IssueMergeCandidate` records for pairs of distinct
+  groups sharing at least two deterministic signals
+  (file / subject / severity / type-prefix /
+  suggested-action / system). Confidence capped at 1.0;
+  strength labels strong / medium / weak; both-inactive pairs
+  skipped; mixed-activity pairs require strong. `CoherencyDelta`
+  is unchanged. Pinned by
+  `tests/contract/issue-adjudication-merge-candidates.test.mjs`
+  (12 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

@@ -99,6 +99,33 @@ scope:
   `domain/issues/mergeIssues.ts`. Semantic / fuzzy matching,
   false-positive scoring, automatic ignore/accept, and LLM review
   are deliberately deferred.
+- **Issue adjudication v2: deterministic cross-rule merge hints
+  (P1.1 merge-hints slice).** ✅ Shipped.
+  `IssueAdjudicationReport` now exposes an optional
+  `mergeCandidates: IssueMergeCandidate[]` field plus
+  `summary.mergeCandidates: number`. After deterministic exact
+  grouping runs, the adjudicator inspects every pair of distinct
+  groups and emits advisory candidates for pairs that share at
+  least two signals out of: `same-file` /
+  `overlapping-files` (+0.35), `same-subject` /
+  `overlapping-subjects` (+0.30), `same-severity` (+0.10),
+  `related-type-prefix` (+0.15), `same-suggested-action`
+  (+0.15, deterministic keyword bucket only), `shared-system`
+  (+0.15). Confidence is capped at 1.0; strength is `strong`
+  (`>= 0.70`), `medium` (`>= 0.45`), or `weak`. Both-inactive
+  pairs are skipped entirely; mixed-activity pairs require
+  `strong`. `CoherencyDelta` is unchanged — candidates are
+  advisory only and do not merge groups, do not affect
+  remediation queue counts, and do not mutate any artifact. The
+  CLI surface (`rekon issues adjudicate`, `rekon issues list`)
+  now includes a `mergeCandidates` array in JSON output. New
+  exported helper `deriveMergeCandidates(groups)` lets future
+  consumers re-compute hints from any group set. Aligned to
+  `services/IssueDetectionService.ts`,
+  `domain/issues/mergeIssues.ts`. Semantic / fuzzy / embedding
+  matching, LLM review, false-positive scoring, and automatic
+  merge approval all remain deferred. Operator-assisted issue
+  merge decision ledger is the recommended next slice.
 - **Stale-source freshness guardrails for adjudication + coherency
   (P1.1 trust slice).** ✅ Shipped. The surfaces that consume
   `IssueAdjudicationReport` and `CoherencyDelta` now render their
