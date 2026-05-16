@@ -550,6 +550,30 @@ Implementation batches:
   invalidation rule. Pinned by
   `tests/contract/publications-filter-policy-suggestions.test.mjs`
   (13 tests).
+- "Filter policy suggestion apply safety v2" (shipped) —
+  `rekon findings filter-policy apply` now supports
+  `--dry-run` / `--preview` for non-mutating plan + diff
+  inspection. The structured plan reports the proposed rule,
+  `addedFindingFilters` / `replacedFindingFilters` /
+  `beforeCount` / `afterCount` diff, warnings, blockers
+  (`low-confidence-suggestion`, `broad-path-pattern`,
+  `duplicate-rule-id`, `config-missing`),
+  `wouldRefuse`, and the result of running
+  `validateFindingFilterPolicyRules` against the projected
+  config. Broad `pathPattern` rules (`*`, `**`,
+  `**/*`, `*/**`, `.`, `./**`, `src/**`, `packages/**`,
+  `tests/**`, etc., or any single top-level `<segment>/**`)
+  require `--force`; the deterministic
+  `isBroadFindingFilterPolicyRule` predicate is exported
+  from `@rekon/kernel-findings`. Duplicate rule ids are
+  **replaced** under `--force`, not appended. Proposed
+  configs are validated for both dry-run and actual apply;
+  validation failures refuse the write even with `--force`.
+  Malformed `.rekon/config.json` is never overwritten.
+  Unrelated config fields are preserved. `suggest` and
+  `list` remain non-mutating. Pinned by
+  `tests/contract/finding-filter-policy-apply-safety.test.mjs`
+  (21 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

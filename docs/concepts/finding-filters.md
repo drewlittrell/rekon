@@ -237,9 +237,14 @@ The alert list is empty when filtering looks healthy.
   suggestions (deterministic, no LLM, no fuzzy matching).
   `rekon findings filter-policy list` reads the latest
   report. `rekon findings filter-policy apply <id>` is the
-  **only** command that mutates `.rekon/config.json`, and it
-  refuses low-confidence or duplicate-id rules without
-  `--force`. See
+  **only** command that mutates `.rekon/config.json`. It
+  refuses low-confidence rules, broad `pathPattern` rules
+  (`*`, `**`, `src/**`, etc.), and duplicate ids without
+  `--force`; with `--force` a duplicate id **replaces** the
+  existing rule (it never appends a second). Run with
+  `--dry-run` (alias `--preview`) first to inspect the
+  exact proposed rule, structured config diff, and
+  validation result without writing anything. See
   [finding-filter-policy-suggestions.md](finding-filter-policy-suggestions.md).
 - **Visible in publications.** The architecture summary
   renders a `## Finding Filter Policy Suggestions` section

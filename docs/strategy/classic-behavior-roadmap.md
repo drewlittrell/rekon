@@ -563,6 +563,83 @@ scope:
   mutating command. Filter policy suggestion apply safety
   v2 (dry-run / diff preview / broad-pattern guard) is the
   recommended next slice.
+- **Filter policy suggestion apply safety v2 (P1.1
+  filter-policy-apply-safety v2 slice).** ✅ Shipped.
+  `rekon findings filter-policy apply` now accepts two new
+  flags: `--dry-run` and `--preview` (aliases). Dry-run runs
+  the full apply plan — looks up the suggestion, loads
+  `.rekon/config.json`, computes the projected
+  `findingFilters`, validates it, and emits a JSON plan with
+  the proposed rule, structured config diff, warnings,
+  blockers, and `wouldRefuse` — without touching the
+  filesystem. The diff shape:
+  `addedFindingFilters: FindingFilterPolicyRule[]` +
+  `replacedFindingFilters: { before, after }[]` +
+  `beforeCount` + `afterCount`. Three deterministic
+  force-gated blockers:
+  - `low-confidence-suggestion` — fires when the suggestion
+    has `confidence: "low"`.
+  - `broad-path-pattern` — fires when
+    `isBroadFindingFilterPolicyRule(rule)` returns `true`.
+    The deterministic predicate flags `pathPattern` values
+    of `*`, `**`, `**/*`, `*/**`, `.`, `./**`, or a single
+    top-level directory (`src/**`, `packages/**`,
+    `apps/**`, `lib/**`, `tests/**`, `test/**`, or any other
+    `<segment>/**`). Two segments or more (`src/generated/**`)
+    is not broad. A rule that adds `type` / `ruleId` /
+    `severity` / `titleIncludes` / `descriptionIncludes` is
+    not broad regardless of `pathPattern`. A rule with no
+    `pathPattern` AND no narrow matcher (the v2 high-volume
+    suggestion shape) is also broad.
+  - `duplicate-rule-id` — fires when `findingFilters` already
+    contains a rule with the suggestion's id. With `--force`
+    the existing rule is **replaced** with the suggested
+    rule (recorded in `replacedFindingFilters`), not
+    appended. Without `--force`, apply refuses with a clear
+    error.
+  Both dry-run and apply run
+  `validateFindingFilterPolicyRules` against the projected
+  `findingFilters`. Validation failure refuses the write
+  even with `--force` (the high-volume-filtered-pattern
+  suggestion deliberately lacks a matcher and therefore
+  cannot be applied directly without operator augmentation).
+  Malformed `.rekon/config.json` (existing file that is not
+  valid JSON or not a JSON object) is never overwritten —
+  both dry-run and apply fail with an explicit
+  "Failed to parse" message. Unrelated top-level config
+  fields are preserved on write. New exports from
+  `@rekon/kernel-findings`: `isBroadFindingFilterPolicyRule`,
+  `planFindingFilterPolicyApply`, plus shape types
+  `FindingFilterPolicyApplyPlan`,
+  `FindingFilterPolicyApplyDiff`,
+  `FindingFilterPolicyApplyWarning`,
+  `FindingFilterPolicyApplyBlocker`,
+  `FindingFilterPolicyApplyWarningCode`,
+  `FindingFilterPolicyApplyBlockerCode`,
+  `PlanFindingFilterPolicyApplyInput`. New CLI helpers in
+  `packages/cli/src/index.ts`: `loadConfigForApply`,
+  `parseFindingFiltersFromConfig`, `buildAppliedConfig`,
+  `formatApplyRefusalMessage`. 21 new contract tests in
+  `tests/contract/finding-filter-policy-apply-safety.test.mjs`
+  (5 pure-helper tests for `isBroadFindingFilterPolicyRule`
+  / `planFindingFilterPolicyApply`, 16 CLI behavior tests).
+  Pre-existing
+  `tests/contract/finding-filter-policy-suggestions.test.mjs`
+  updated to match the new error-shape and to document that
+  `--force` on a high-volume rule still fails validation
+  (since the rule has no matcher). Aligned to
+  `services/IssueDetectionService.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/report-persistence.ts`,
+  `services/issues/filter-health.ts`, `config issueExclude`,
+  `filtered-issues.json`. No new artifact type. No artifact
+  `schemaVersion` bump. No publication shape change. No new
+  capability role. No version bump. No npm publish.
+  Configured filter policy freshness / publication
+  guardrails (warn or rebuild lifecycle / adjudication /
+  coherency / publications when filter policy applies
+  invalidate the governed surface) is the recommended next
+  slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

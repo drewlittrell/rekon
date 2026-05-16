@@ -37,8 +37,11 @@ for the layered model.
 - `rekon findings filter-policy list` returns the latest
   report verbatim.
 - `rekon findings filter-policy apply <id>` looks up the
-  suggestion by id, runs the safety checks, and appends the
-  suggested rule to `.rekon/config.json` `findingFilters`.
+  suggestion by id, runs the safety checks (dry-run /
+  preview, broad-pattern force guard, duplicate-id replace,
+  proposed-config validation), and writes the suggested
+  rule to `.rekon/config.json` `findingFilters` when not in
+  `--dry-run` mode.
 - `@rekon/capability-docs.architecture-summary` renders a
   `## Finding Filter Policy Suggestions` section sourced
   from this artifact, including a per-suggestion table, the
@@ -130,7 +133,7 @@ segment (`generated/x.ts` → `generated/**`).
 ```sh
 rekon findings filter-policy suggest [--recent-limit <n>] [--root <repo>] [--json]
 rekon findings filter-policy list [--root <repo>] [--json]
-rekon findings filter-policy apply <suggestion-id> [--force] [--root <repo>] [--json]
+rekon findings filter-policy apply <suggestion-id> [--dry-run|--preview] [--force] [--root <repo>] [--json]
 ```
 
 - `suggest` reads the latest N filter reports (default 5,
@@ -141,29 +144,60 @@ rekon findings filter-policy apply <suggestion-id> [--force] [--root <repo>] [--
   `FindingFilterPolicySuggestionReport`. When nothing is
   indexed, returns a friendly empty payload with a hint to
   run `suggest`.
-- `apply <id>` looks up the suggestion by id and appends its
-  `suggestedRule` to `.rekon/config.json` `findingFilters`.
-  Refuses (non-zero exit) when the suggestion is
-  low-confidence unless `--force` is passed. Refuses
-  duplicate rule ids unless `--force`. Preserves every other
-  field in the config (including unknown extensions).
+- `apply <id> --dry-run` (alias `--preview`) computes the
+  proposed rule and a structured config diff, validates the
+  projected `findingFilters`, surfaces every warning /
+  blocker / validation issue, and exits **without writing**.
+  Recommended before every real apply.
+- `apply <id>` (without `--dry-run`) looks up the suggestion
+  and writes its `suggestedRule` into
+  `.rekon/config.json` `findingFilters`. Refuses (non-zero
+  exit) when the suggestion is low-confidence, when the
+  rule's `pathPattern` is broad, or when an existing rule
+  shares the suggested id — each gated by `--force`. With
+  `--force`, a duplicate id **replaces** the existing rule
+  (not append). Preserves every other field in the config.
   Creates a default config file if one doesn't exist yet.
+  Validates the projected `findingFilters` and refuses to
+  write when validation fails (even with `--force`).
 
 ## Apply Safety Rules
 
-1. **Low-confidence requires `--force`.** v1 only emits
-   `high-volume-filtered-pattern` at low confidence.
-2. **Duplicate rule id requires `--force`.** The
-   suggestion-rule id is deterministic, so the same
-   suggestion run twice will always collide on
-   `applied-rule.id`.
-3. **Preserve unrelated config fields.** Only
+1. **Dry-run / preview is non-mutating.** `--dry-run` and
+   `--preview` are aliases. They never touch the filesystem
+   beyond reading and report the full plan + warnings +
+   blockers + validation result.
+2. **Low-confidence requires `--force`.** v2 only emits
+   `high-volume-filtered-pattern` at low confidence; that
+   rule deliberately omits a `pathPattern` so it cannot be
+   applied directly — operators must narrow the rule first.
+3. **Broad `pathPattern` requires `--force`.** A rule is
+   broad when its `pathPattern` is `*`, `**`, `**/*`,
+   `*/**`, `.`, `./**`, or a single top-level directory
+   (`src/**`, `packages/**`, `tests/**`, etc.) and the rule
+   adds no narrower matcher (`type`, `ruleId`, `severity`,
+   `titleIncludes`, `descriptionIncludes`). Two segments or
+   more (`src/generated/**`) is not broad.
+4. **Duplicate rule id requires `--force` and replaces the
+   existing rule.** With `--force`, the existing rule is
+   replaced, not duplicated. The diff records this as
+   `replacedFindingFilters[].before / .after`.
+5. **Proposed config is validated.** Both dry-run and apply
+   run `validateFindingFilterPolicyRules` against the
+   projected `findingFilters`. Validation failures refuse
+   the write — `--force` does not bypass validation.
+6. **Malformed `.rekon/config.json` is never overwritten.**
+   When the file exists but cannot be parsed as a JSON
+   object, both dry-run and apply fail with a clear
+   "Failed to parse" error and leave the file unchanged.
+7. **Preserve unrelated config fields.** Only
    `findingFilters` is mutated; every other top-level key is
    carried through unchanged.
-4. **Atomic-on-disk write.** The config is rewritten as
+8. **Atomic-on-disk write.** The config is rewritten as
    `<JSON>\n` in a single `writeFile` call.
-5. **No automatic application.** `suggest` and `list` never
-   mutate the config.
+9. **No automatic application.** `suggest` and `list` never
+   mutate the config; only `apply` writes (and only when
+   `--dry-run` / `--preview` is not set).
 
 ## What This Is Not
 

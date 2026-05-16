@@ -270,21 +270,34 @@ test("rekon findings filter-policy apply refuses a low-confidence suggestion wit
       `expected low-confidence rejection, got ${failed.stderr || failed.stdout}`,
     );
 
-    // --force should succeed.
-    const forced = JSON.parse(
-      runCli([
-        "findings",
-        "filter-policy",
-        "apply",
-        lowConfidence.id,
-        "--force",
-        "--root",
-        root,
-        "--json",
-      ]).stdout,
+    // The v2 high-volume-filtered-pattern suggestion deliberately
+    // omits a pathPattern (it is a review prompt, not a directly
+    // applicable rule). --force bypasses the low-confidence
+    // blocker but the proposed config still fails validation
+    // because the rule has no matcher. Apply-safety v2 surfaces
+    // that case via the validation block. The
+    // tests/contract/finding-filter-policy-apply-safety.test.mjs
+    // suite covers --force success on a synthetic narrow
+    // low-confidence suggestion.
+    const forced = runCliExpectFailure([
+      "findings",
+      "filter-policy",
+      "apply",
+      lowConfidence.id,
+      "--force",
+      "--root",
+      root,
+      "--json",
+    ]);
+    assert.ok(
+      !((forced.stderr || forced.stdout).includes("low-confidence")),
+      "--force should bypass the low-confidence blocker",
     );
-    assert.equal(forced.applied, true);
-    assert.equal(forced.force, true);
+    assert.ok(
+      (forced.stderr || forced.stdout).includes("must specify at least one matcher")
+      || (forced.stderr || forced.stdout).includes("findingFilters"),
+      `expected validation rejection, got ${forced.stderr || forced.stdout}`,
+    );
   });
 });
 

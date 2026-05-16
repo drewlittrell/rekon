@@ -1725,6 +1725,229 @@ function validateFindingFilterPolicySuggestion(
   }
 }
 
+// ---------- FindingFilterPolicy apply safety v2 ----------
+//
+// Deterministic helpers that gate explicit operator-driven
+// applies of a `FindingFilterPolicyRule` against
+// `.rekon/config.json`. These helpers describe *what the apply
+// would do* — they never read or write the filesystem.
+//
+// The classic codebase-intel guarantee being preserved here is
+// that operators can promote recurring false positives into
+// durable policy without losing auditability or accidentally
+// suppressing real findings via an over-broad rule.
+
+/**
+ * Patterns that match a single broad directory (`<segment>/**`),
+ * the whole repo (`**`, `**\/*`, `*\/**`, `*`), or the current
+ * working directory (`.`, `./**`). Broad rules with no narrower
+ * matcher require `--force` because they can silently suppress
+ * unrelated real findings. See
+ * `docs/concepts/finding-filter-policy-suggestions.md`.
+ */
+const FINDING_FILTER_POLICY_BROAD_PATH_PATTERNS = new Set<string>([
+  "*",
+  "**",
+  "**/*",
+  "*/**",
+  ".",
+  "./**",
+  "src/**",
+  "packages/**",
+  "apps/**",
+  "lib/**",
+  "tests/**",
+  "test/**",
+]);
+
+/**
+ * Returns `true` when `rule` would suppress findings broadly
+ * enough to deserve an explicit `--force` gate. A rule is broad
+ * when, taken together, its matchers only narrow the surface to
+ * "a single top-level directory" or wider. A rule that adds a
+ * `type` / `ruleId` / `severity` / `titleIncludes` /
+ * `descriptionIncludes` matcher on top of a broad pathPattern
+ * is **not** considered broad — the extra matcher narrows it.
+ */
+export function isBroadFindingFilterPolicyRule(
+  rule: FindingFilterPolicyRule,
+): boolean {
+  const hasNarrowMatcher = Boolean(
+    rule.type
+      || rule.ruleId
+      || rule.severity
+      || (typeof rule.titleIncludes === "string" && rule.titleIncludes.length > 0)
+      || (typeof rule.descriptionIncludes === "string"
+        && rule.descriptionIncludes.length > 0),
+  );
+  if (hasNarrowMatcher) {
+    return false;
+  }
+  const pattern = typeof rule.pathPattern === "string" ? rule.pathPattern.trim() : "";
+  if (pattern.length === 0) {
+    // No pathPattern, no other matcher → matches everything by
+    // default; treat as broad.
+    return true;
+  }
+  if (FINDING_FILTER_POLICY_BROAD_PATH_PATTERNS.has(pattern)) {
+    return true;
+  }
+  // Single top-level segment + `/**` (e.g. "src/**") even when
+  // not in the explicit list above. We deliberately keep two
+  // segments (`src/generated/**`) outside the broad set.
+  const segments = pattern.split("/").filter((segment) => segment.length > 0);
+  if (segments.length === 2 && segments[1] === "**") {
+    return true;
+  }
+  if (segments.length === 1 && segments[0] === "**") {
+    return true;
+  }
+  return false;
+}
+
+export type FindingFilterPolicyApplyWarningCode =
+  | "low-confidence-suggestion"
+  | "duplicate-rule-id"
+  | "broad-path-pattern"
+  | "config-missing";
+
+export type FindingFilterPolicyApplyWarning = {
+  code: FindingFilterPolicyApplyWarningCode;
+  message: string;
+};
+
+export type FindingFilterPolicyApplyBlockerCode =
+  | "low-confidence-suggestion"
+  | "duplicate-rule-id"
+  | "broad-path-pattern";
+
+export type FindingFilterPolicyApplyBlocker = {
+  code: FindingFilterPolicyApplyBlockerCode;
+  message: string;
+};
+
+export type FindingFilterPolicyApplyDiff = {
+  addedFindingFilters: FindingFilterPolicyRule[];
+  replacedFindingFilters: {
+    before: FindingFilterPolicyRule;
+    after: FindingFilterPolicyRule;
+  }[];
+  beforeCount: number;
+  afterCount: number;
+};
+
+export type FindingFilterPolicyApplyPlan = {
+  /** Suggestion id being evaluated. */
+  suggestionId: string;
+  /** Concrete rule that would land in `findingFilters`. */
+  rule: FindingFilterPolicyRule;
+  /** Sorted, deterministic diff against the existing rules. */
+  diff: FindingFilterPolicyApplyDiff;
+  /** Existing rules **after** the proposed change. */
+  proposedRules: FindingFilterPolicyRule[];
+  /** Warnings to surface to the operator (always returned). */
+  warnings: FindingFilterPolicyApplyWarning[];
+  /**
+   * Blockers that would refuse an actual apply when `--force` is
+   * not provided. Empty when the apply is safe.
+   */
+  blockers: FindingFilterPolicyApplyBlocker[];
+  /** Convenience flag: any blocker is present. */
+  requiresForce: boolean;
+  /** Whether the suggestion is low-confidence (`confidence: "low"`). */
+  isLowConfidence: boolean;
+  /** Whether an existing rule with the same id would be replaced. */
+  isDuplicateRuleId: boolean;
+  /** Whether the proposed rule is too broad to apply without `--force`. */
+  isBroadPattern: boolean;
+};
+
+export type PlanFindingFilterPolicyApplyInput = {
+  suggestion: FindingFilterPolicySuggestion;
+  /** Existing `findingFilters` from `.rekon/config.json`. */
+  existingRules: ReadonlyArray<FindingFilterPolicyRule>;
+};
+
+/**
+ * Pure deterministic apply planner. Reports what an apply would
+ * do (added vs. replaced rule, before/after counts, warnings,
+ * blockers, whether `--force` is required) without touching the
+ * filesystem. The CLI is responsible for honoring `force` and
+ * actually writing the config.
+ */
+export function planFindingFilterPolicyApply(
+  input: PlanFindingFilterPolicyApplyInput,
+): FindingFilterPolicyApplyPlan {
+  const { suggestion, existingRules } = input;
+  const rule: FindingFilterPolicyRule = { ...suggestion.suggestedRule };
+  const beforeCount = existingRules.length;
+
+  const isLowConfidence = suggestion.confidence === "low";
+  const isBroadPattern = isBroadFindingFilterPolicyRule(rule);
+  const duplicateIndex = existingRules.findIndex(
+    (entry) => entry.id === rule.id,
+  );
+  const isDuplicateRuleId = duplicateIndex >= 0;
+
+  const proposedRules: FindingFilterPolicyRule[] = [...existingRules];
+  const addedFindingFilters: FindingFilterPolicyRule[] = [];
+  const replacedFindingFilters: {
+    before: FindingFilterPolicyRule;
+    after: FindingFilterPolicyRule;
+  }[] = [];
+
+  if (isDuplicateRuleId) {
+    const before = { ...existingRules[duplicateIndex]! };
+    proposedRules[duplicateIndex] = rule;
+    replacedFindingFilters.push({ before, after: { ...rule } });
+  } else {
+    proposedRules.push(rule);
+    addedFindingFilters.push({ ...rule });
+  }
+
+  const warnings: FindingFilterPolicyApplyWarning[] = [];
+  const blockers: FindingFilterPolicyApplyBlocker[] = [];
+
+  if (isLowConfidence) {
+    const message
+      = "Suggestion is low-confidence; --force is required to apply it.";
+    warnings.push({ code: "low-confidence-suggestion", message });
+    blockers.push({ code: "low-confidence-suggestion", message });
+  }
+
+  if (isBroadPattern) {
+    const message
+      = "Broad finding filter policies can suppress real findings. Review FindingFilterReport evidence before applying.";
+    warnings.push({ code: "broad-path-pattern", message });
+    blockers.push({ code: "broad-path-pattern", message });
+  }
+
+  if (isDuplicateRuleId) {
+    const message
+      = `findingFilters already contains a rule with id '${rule.id}'. --force replaces it with the suggested rule.`;
+    warnings.push({ code: "duplicate-rule-id", message });
+    blockers.push({ code: "duplicate-rule-id", message });
+  }
+
+  return {
+    suggestionId: suggestion.id,
+    rule,
+    diff: {
+      addedFindingFilters,
+      replacedFindingFilters,
+      beforeCount,
+      afterCount: proposedRules.length,
+    },
+    proposedRules,
+    warnings,
+    blockers,
+    requiresForce: blockers.length > 0,
+    isLowConfidence,
+    isDuplicateRuleId,
+    isBroadPattern,
+  };
+}
+
 export type FindingStatusDecisionReason =
   | "accepted-risk"
   | "false-positive"

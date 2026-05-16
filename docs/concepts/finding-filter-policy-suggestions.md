@@ -62,8 +62,8 @@ The CLI side runs the same code path:
 - `rekon findings filter-policy list` → returns the latest
   indexed suggestion report (or a friendly empty payload
   pointing back at `suggest`).
-- `rekon findings filter-policy apply <id> [--force]` →
-  the only mutating command (see the safety section below).
+- `rekon findings filter-policy apply <id> [--dry-run|--preview] [--force]`
+  → the only mutating command (see the safety section below).
 
 ## Suggestion Reasons
 
@@ -97,23 +97,63 @@ All thresholds are deterministic constants:
 `rekon findings filter-policy apply <id>` is the only
 command that mutates `.rekon/config.json`. Safety rules:
 
-1. **Low-confidence suggestions require `--force`.** v1
+1. **`--dry-run` / `--preview` previews the change.** The two
+   flags are aliases. They compute the exact proposed rule
+   and a structured config diff
+   (`addedFindingFilters` / `replacedFindingFilters` /
+   `beforeCount` / `afterCount`), validate the proposed
+   config, and exit without writing. Use this every time
+   before an actual apply. The output also lists every
+   blocker that would refuse the actual apply, so the
+   operator can decide whether `--force` is appropriate.
+2. **Low-confidence suggestions require `--force`.** v2
    only emits `high-volume-filtered-pattern` at low
    confidence, and that suggestion intentionally has no
    `pathPattern`. Operators must narrow the rule before
-   applying.
-2. **Duplicate rule ids require `--force`.** Re-applying
-   the same suggestion twice would otherwise silently
-   produce a duplicate.
-3. **Unknown config fields are preserved.** The command
+   applying; an unmodified high-volume suggestion still
+   fails validation under `--force` because it has no
+   matcher.
+3. **Broad `pathPattern` requires `--force`.** A rule is
+   "broad" when its `pathPattern` is one of `*`, `**`,
+   `**/*`, `*/**`, `.`, `./**`, or a single top-level
+   directory (`src/**`, `packages/**`, `tests/**`, etc.) and
+   the rule has no narrower matcher (`type`, `ruleId`,
+   `severity`, `titleIncludes`, `descriptionIncludes`). Two
+   path segments or more (`src/generated/**`) is not broad.
+   See `isBroadFindingFilterPolicyRule(rule)` in
+   `@rekon/kernel-findings` for the exact predicate.
+4. **Duplicate rule ids require `--force` and *replace*.**
+   With `--force`, the apply path replaces the existing
+   rule with the suggested rule (not append). The diff
+   records the replacement as
+   `replacedFindingFilters[].before / .after`.
+5. **Proposed config is validated before write.** Both
+   dry-run and actual apply run
+   `validateFindingFilterPolicyRules` on the projected
+   `findingFilters` list. If validation fails (missing
+   matcher, missing evidence, invalid reason, etc.), the
+   command refuses to write and surfaces the validation
+   issues in the JSON output (`validation.issues`).
+6. **Malformed `.rekon/config.json` is never overwritten.**
+   When the file exists but cannot be parsed as a JSON
+   object, both dry-run and apply fail with a clear
+   "Failed to parse" message and the file is left
+   byte-for-byte unchanged.
+7. **Unknown config fields are preserved.** The command
    only touches `findingFilters`; every other top-level
    key (`capabilities`, `permissions`, project extensions,
    etc.) is carried through unchanged.
-4. **Default config is created if missing.** Same shape
+8. **Default config is created if missing.** Same shape
    as `rekon init`, so the suggestion lands in a
-   well-formed file.
-5. **Suggest / list are read-only.** Neither command
+   well-formed file. Dry-run reports `config-missing` in
+   `warnings` but does **not** write the suggested rule.
+9. **Suggest / list are read-only.** Neither command
    mutates the config under any flag combination.
+10. **Force never bypasses validation.** `--force` only
+    overrides the low-confidence / broad / duplicate
+    blockers. A proposed config that fails
+    `validateFindingFilterPolicyRules` still refuses to
+    write, even with `--force`.
 
 ## Audit Trail
 
@@ -183,11 +223,43 @@ operators back to `rekon findings filter-policy suggest`.
 ```sh
 rekon findings filter-policy suggest [--recent-limit <n>] [--root <repo>] [--json]
 rekon findings filter-policy list [--root <repo>] [--json]
-rekon findings filter-policy apply <suggestion-id> [--force] [--root <repo>] [--json]
+rekon findings filter-policy apply <suggestion-id> [--dry-run|--preview] [--force] [--root <repo>] [--json]
 ```
 
-`apply` JSON output names the applied rule + config path so
-operators can confirm the write landed where expected.
+`apply` JSON output is now a structured plan for both dry-run
+and actual apply:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `applied` | `boolean` | `true` only when the config was actually written |
+| `dryRun` | `boolean` | `true` for `--dry-run` / `--preview` |
+| `configPath` | `string` | Absolute path to `.rekon/config.json` |
+| `suggestionId` | `string` | The id from the suggestion report |
+| `rule` | object | The rule that would land in `findingFilters` |
+| `diff.addedFindingFilters` | array | Rules appended (empty on duplicate-id replace) |
+| `diff.replacedFindingFilters` | array | `{ before, after }` records on duplicate-id replace |
+| `diff.beforeCount` / `diff.afterCount` | `number` | `findingFilters.length` before / after |
+| `warnings[]` | array | `{ code, message }` for low-confidence / broad / duplicate / config-missing |
+| `blockers[]` | array | Subset of warnings that would refuse the actual apply without `--force` |
+| `requiresForce` | `boolean` | `true` when any blocker is present |
+| `isLowConfidence` / `isDuplicateRuleId` / `isBroadPattern` | `boolean` | Convenience flags |
+| `validation.valid` / `validation.issues` | mixed | Result of running `validateFindingFilterPolicyRules` over the proposed `findingFilters` |
+| `wouldRefuse` | `boolean` | `true` when actual apply would refuse without `--force` |
+
+`appliedRule` is kept as a legacy alias of `rule` on the actual
+apply path for back-compat.
+
+Recommended operator workflow:
+
+1. `rekon findings filter-policy list --json` — pick a
+   suggestion id.
+2. `rekon findings filter-policy apply <id> --dry-run --json` —
+   inspect `rule`, `diff`, `warnings`, `validation`.
+3. If `requiresForce` is `false` and `validation.valid` is
+   `true`, drop the `--dry-run` to apply.
+4. Otherwise, review `blockers` (low-confidence / broad /
+   duplicate). Re-run with `--force` only after reviewing
+   the `FindingFilterReport` evidence.
 
 ## Freshness
 

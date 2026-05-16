@@ -39,6 +39,7 @@ import {
 import { type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
+  type FindingFilterPolicyApplyPlan,
   type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestion,
   type FindingFilterPolicySuggestionReport,
@@ -50,6 +51,8 @@ import {
   type IssueMergeDecisionLedger,
   type IssueMergeDecisionReason,
   applyIssueMergeDecisionsToCandidates,
+  isBroadFindingFilterPolicyRule,
+  planFindingFilterPolicyApply,
   validateFindingFilterPolicyRules,
   createFindingStatusLedger,
 } from "@rekon/kernel-findings";
@@ -1067,6 +1070,18 @@ export async function main(argv: string[]): Promise<void> {
       );
     }
     const force = Boolean(parsed.flags.force);
+    // `--dry-run` and `--preview` are aliases.
+    const dryRun = Boolean(parsed.flags["dry-run"]) || Boolean(parsed.flags.preview);
+
+    // Detect config-missing before `store.init()` runs because
+    // the store bootstraps a default `.rekon/config.json` as
+    // part of init. The apply plan needs to know whether the
+    // file existed prior to this invocation so dry-run can warn
+    // the operator and actual apply can mention that a default
+    // config was synthesized.
+    const configPath = resolve(root, ".rekon", "config.json");
+    const { parsedConfig, configMissing } = await loadConfigForApply(root, configPath);
+
     const store = createLocalArtifactStore(root);
     await store.init();
     const entries = await store.list("FindingFilterPolicySuggestionReport");
@@ -1087,70 +1102,102 @@ export async function main(argv: string[]): Promise<void> {
         `Suggestion '${suggestionId}' not found in latest FindingFilterPolicySuggestionReport (${reportBody.header.artifactId}). Available ids: ${available || "(none)"}.`,
       );
     }
-    if (suggestion.confidence === "low" && !force) {
-      throw new Error(
-        `Suggestion '${suggestionId}' is low-confidence. Re-run with --force to apply.`,
-      );
+
+    const existingRules = parseFindingFiltersFromConfig(parsedConfig);
+    const plan = planFindingFilterPolicyApply({ suggestion, existingRules });
+
+    const allWarnings: { code: string; message: string }[] = [...plan.warnings];
+    if (configMissing) {
+      allWarnings.push({
+        code: "config-missing",
+        message:
+          ".rekon/config.json was missing; "
+          + (dryRun
+            ? "no file will be created during dry-run."
+            : "a default config was written before applying the suggestion."),
+      });
     }
 
-    const configPath = resolve(root, ".rekon", "config.json");
-    let parsedConfig: Record<string, unknown>;
-    try {
-      const raw = await readFile(configPath, "utf8");
-      const parsedRaw = JSON.parse(raw);
-      if (!parsedRaw || typeof parsedRaw !== "object" || Array.isArray(parsedRaw)) {
-        throw new Error("config.json must be a JSON object.");
-      }
-      parsedConfig = parsedRaw as Record<string, unknown>;
-    } catch (error) {
-      if (
-        error instanceof Error
-        && "code" in error
-        && (error as NodeJS.ErrnoException).code === "ENOENT"
-      ) {
-        // Initialize a default config so the operator gets a
-        // well-formed file and the suggestion has somewhere to
-        // land. Mirrors rekon init's behavior.
-        await writeConfigIfMissing(root);
-        const raw = await readFile(configPath, "utf8");
-        parsedConfig = JSON.parse(raw) as Record<string, unknown>;
-      } else {
-        throw error;
-      }
-    }
+    const refusalBlockers = force ? [] : plan.blockers;
 
-    const existingRules = Array.isArray(parsedConfig.findingFilters)
-      ? (parsedConfig.findingFilters as Record<string, unknown>[])
-      : [];
-    if (
-      existingRules.some(
-        (rule) => typeof rule?.id === "string" && rule.id === suggestion.suggestedRule.id,
-      )
-      && !force
-    ) {
-      throw new Error(
-        `findingFilters already contains a rule with id '${suggestion.suggestedRule.id}'. Re-run with --force to append anyway.`,
-      );
-    }
+    // Validate the proposed config shape. We run the validator
+    // up-front so dry-run can surface shape problems; the actual
+    // apply path still refuses to write when validation fails.
+    const validation = validateFindingFilterPolicyRules(plan.proposedRules);
+    const validationFailed = validation.issues.length > 0;
+    const validationError = validationFailed
+      ? `Proposed findingFilters configuration is invalid: ${validation.issues
+          .map((issue) => `${issue.path}: ${issue.message}`)
+          .join("; ")}.`
+      : null;
 
-    const appendedConfig: Record<string, unknown> = {
-      ...parsedConfig,
-      findingFilters: [...existingRules, { ...suggestion.suggestedRule }],
+    const baseResult = {
+      dryRun,
+      configPath,
+      suggestionId: suggestion.id,
+      rule: plan.rule,
+      diff: plan.diff,
+      warnings: allWarnings,
+      force,
+      confidence: suggestion.confidence,
+      requiresForce: plan.requiresForce,
+      isLowConfidence: plan.isLowConfidence,
+      isDuplicateRuleId: plan.isDuplicateRuleId,
+      isBroadPattern: plan.isBroadPattern,
+      validation: {
+        valid: !validationFailed,
+        issues: validation.issues,
+      },
     };
+
+    if (dryRun) {
+      // Dry-run / preview: never write. Report what would happen,
+      // including blockers, validation, and whether `--force`
+      // would be needed.
+      writeOutput(
+        {
+          ...baseResult,
+          applied: false,
+          wouldRefuse: refusalBlockers.length > 0 || validationFailed,
+          blockers: refusalBlockers,
+        },
+        json,
+      );
+      return;
+    }
+
+    // Real apply path. Surface --force-required blockers BEFORE
+    // validation so operators see the clear "low-confidence" /
+    // "broad-path-pattern" / "duplicate-rule-id" message rather
+    // than a downstream validation error.
+    if (refusalBlockers.length > 0) {
+      throw new Error(formatApplyRefusalMessage(refusalBlockers, suggestion.id));
+    }
+
+    if (validationFailed) {
+      throw new Error(`${validationError} Refusing to write.`);
+    }
+
+    if (configMissing) {
+      // For an actual apply we need a real config file on disk
+      // before we write the appended rule. Mirrors `rekon init`.
+      await writeConfigIfMissing(root);
+    }
+
+    const writtenConfig = buildAppliedConfig(parsedConfig, plan);
     await writeFile(
       configPath,
-      `${JSON.stringify(appendedConfig, null, 2)}\n`,
+      `${JSON.stringify(writtenConfig, null, 2)}\n`,
       "utf8",
     );
 
     writeOutput(
       {
+        ...baseResult,
         applied: true,
-        configPath,
-        suggestionId: suggestion.id,
-        appliedRule: suggestion.suggestedRule,
-        force,
-        confidence: suggestion.confidence,
+        wouldRefuse: false,
+        blockers: [],
+        appliedRule: plan.rule, // legacy alias kept for back-compat
       },
       json,
     );
@@ -1681,6 +1728,104 @@ async function writeConfigIfMissing(root: string): Promise<void> {
     await mkdir(resolve(root, ".rekon"), { recursive: true });
     await writeFile(configPath, `${JSON.stringify(defaultConfig, null, 2)}\n`, "utf8");
   }
+}
+
+/**
+ * Load `.rekon/config.json` for `rekon findings filter-policy
+ * apply`. When the file is missing, returns the default config
+ * shape (matching `writeConfigIfMissing`) and reports
+ * `configMissing: true` so the caller can warn / dry-run / write
+ * as appropriate. Throws when the file exists but is not valid
+ * JSON or not a JSON object — those cases must never be
+ * silently overwritten.
+ */
+async function loadConfigForApply(
+  root: string,
+  configPath: string,
+): Promise<{ parsedConfig: Record<string, unknown>; configMissing: boolean }> {
+  try {
+    const raw = await readFile(configPath, "utf8");
+    let parsedRaw: unknown;
+    try {
+      parsedRaw = JSON.parse(raw);
+    } catch (parseError) {
+      const detail = parseError instanceof Error ? parseError.message : String(parseError);
+      throw new Error(
+        `Failed to parse ${configPath}: ${detail}. Refusing to write.`,
+      );
+    }
+    if (!parsedRaw || typeof parsedRaw !== "object" || Array.isArray(parsedRaw)) {
+      throw new Error(
+        `${configPath} must be a JSON object. Refusing to write.`,
+      );
+    }
+    return { parsedConfig: parsedRaw as Record<string, unknown>, configMissing: false };
+  } catch (error) {
+    if (
+      error instanceof Error
+      && "code" in error
+      && (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      // Return a synthesized default config so dry-run can show
+      // exactly what would be created; the apply path writes it
+      // through `writeConfigIfMissing` only when not in dry-run.
+      return {
+        parsedConfig: {
+          capabilities: DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
+          permissions: {},
+        },
+        configMissing: true,
+      };
+    }
+    throw error;
+  }
+}
+
+function parseFindingFiltersFromConfig(
+  config: Record<string, unknown>,
+): FindingFilterPolicyRule[] {
+  if (!Array.isArray(config.findingFilters)) {
+    return [];
+  }
+  // We accept whatever objects the validator will inspect; the
+  // planner only reads `id` / `pathPattern` / `type` etc. and
+  // round-trips them as `FindingFilterPolicyRule`. Anything
+  // that's not an object is dropped here and will be flagged
+  // by `validateFindingFilterPolicyRules` if the on-disk file
+  // is malformed in a less obvious way.
+  return (config.findingFilters as unknown[])
+    .filter((entry): entry is Record<string, unknown> =>
+      Boolean(entry) && typeof entry === "object" && !Array.isArray(entry),
+    )
+    .map((entry) => entry as unknown as FindingFilterPolicyRule);
+}
+
+function buildAppliedConfig(
+  parsedConfig: Record<string, unknown>,
+  plan: FindingFilterPolicyApplyPlan,
+): Record<string, unknown> {
+  // Preserve every unrelated top-level field; only the
+  // `findingFilters` array changes, and it's rewritten to the
+  // planner's `proposedRules` (which already accounts for
+  // appended-vs-replaced).
+  return {
+    ...parsedConfig,
+    findingFilters: plan.proposedRules.map((rule) => ({ ...rule })),
+  };
+}
+
+function formatApplyRefusalMessage(
+  blockers: ReadonlyArray<{ code: string; message: string }>,
+  suggestionId: string,
+): string {
+  const lines = blockers.map((blocker) => `- ${blocker.message}`).join("\n");
+  return [
+    `Refusing to apply suggestion '${suggestionId}' without --force.`,
+    "Blocking reason(s):",
+    lines,
+    "Re-run with --force after reviewing FindingFilterReport evidence, or",
+    "preview the proposed change with `--dry-run` / `--preview`.",
+  ].join("\n");
 }
 
 function isCapabilityConfigEntry(value: unknown): value is { package: string } {
@@ -3119,7 +3264,7 @@ function usage(): string {
     "rekon findings filter-health [--root <path>] [--json]",
     "rekon findings filter-policy suggest [--recent-limit <n>] [--root <path>] [--json]",
     "rekon findings filter-policy list [--root <path>] [--json]",
-    "rekon findings filter-policy apply <suggestion-id> [--force] [--root <path>] [--json]",
+    "rekon findings filter-policy apply <suggestion-id> [--dry-run|--preview] [--force] [--root <path>] [--json]",
     "rekon findings status list [--root <path>] [--json]",
     "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",
     "rekon coherency delta [--root <path>] [--json]",

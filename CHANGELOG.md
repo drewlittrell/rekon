@@ -4,6 +4,145 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped filter policy suggestion apply safety v2 (P1.1
+  filter-policy-apply-safety v2 slice).
+  `rekon findings filter-policy apply` is now safer and more
+  transparent. Two new flags: `--dry-run` and `--preview`
+  (aliases). Dry-run runs the full apply plan (suggestion
+  lookup, config load, projected `findingFilters`,
+  validation) and prints a structured JSON plan **without
+  writing**:
+  - `applied: false`, `dryRun: true`.
+  - `rule` — the exact rule that would land in
+    `findingFilters`.
+  - `diff.addedFindingFilters: FindingFilterPolicyRule[]` —
+    rules appended when the id is new.
+  - `diff.replacedFindingFilters: { before, after }[]` —
+    populated when the suggestion id collides with an
+    existing rule (with `--force`, the existing rule is
+    **replaced**, not duplicated).
+  - `diff.beforeCount` / `diff.afterCount`.
+  - `warnings[]` — `{ code, message }` records for
+    `low-confidence-suggestion`, `broad-path-pattern`,
+    `duplicate-rule-id`, and `config-missing`.
+  - `blockers[]` — subset of warnings that would refuse the
+    actual apply without `--force`.
+  - `requiresForce` / `wouldRefuse` /
+    `isLowConfidence` / `isDuplicateRuleId` /
+    `isBroadPattern` — convenience flags.
+  - `validation.valid` / `validation.issues` — the result of
+    running `validateFindingFilterPolicyRules` against the
+    projected config.
+  Three deterministic force-gated blockers:
+  - **`low-confidence-suggestion`** — fires when the
+    suggestion has `confidence: "low"`. Preserves the
+    existing low-confidence gate.
+  - **`broad-path-pattern`** — fires when
+    `isBroadFindingFilterPolicyRule(rule)` returns `true`.
+    The new deterministic predicate flags `pathPattern`
+    values of `*`, `**`, `**/*`, `*/**`, `.`, `./**`, or any
+    single top-level `<segment>/**` (`src/**`,
+    `packages/**`, `apps/**`, `lib/**`, `tests/**`,
+    `test/**`, etc.). A rule that lacks both a `pathPattern`
+    and any narrow matcher (`type`, `ruleId`, `severity`,
+    `titleIncludes`, `descriptionIncludes`) is also broad.
+    Two-segment patterns (`src/generated/**`) are not
+    broad. A `pathPattern: "src/**"` paired with a narrow
+    matcher (e.g. `type: "myrule"`) is not broad either —
+    the extra matcher narrows it.
+  - **`duplicate-rule-id`** — fires when `findingFilters`
+    already contains a rule with the suggestion id. With
+    `--force`, the apply path **replaces** the existing
+    rule (recorded in `diff.replacedFindingFilters`),
+    not appends a duplicate. Without `--force`, apply
+    refuses with a clear error.
+  Both dry-run and apply now validate the projected
+  `findingFilters` using
+  `validateFindingFilterPolicyRules`. Validation failures
+  refuse the write even with `--force`; the
+  high-volume-filtered-pattern suggestion deliberately lacks
+  a matcher and therefore cannot be applied directly under
+  `--force` (operators must augment the rule). Malformed
+  `.rekon/config.json` (file exists but isn't valid JSON
+  / isn't a JSON object) is never overwritten — both
+  dry-run and apply fail with an explicit "Failed to parse"
+  message. Unrelated top-level config fields are preserved
+  on write. The actual apply path emits `applied: true` plus
+  the same plan + diff + warnings + validation shape; the
+  legacy `appliedRule` alias is retained for back-compat.
+  Apply now also surfaces `config-missing` in warnings when
+  `.rekon/config.json` was absent before the invocation —
+  dry-run never creates the file (the runtime store still
+  bootstraps a default for subsequent rekon commands, but
+  no rule is written), and the actual apply creates a
+  default config before writing the appended rule.
+  New exports from `@rekon/kernel-findings`:
+  `isBroadFindingFilterPolicyRule`,
+  `planFindingFilterPolicyApply`, plus shape types
+  `FindingFilterPolicyApplyPlan`,
+  `FindingFilterPolicyApplyDiff`,
+  `FindingFilterPolicyApplyWarning`,
+  `FindingFilterPolicyApplyBlocker`,
+  `FindingFilterPolicyApplyWarningCode`,
+  `FindingFilterPolicyApplyBlockerCode`,
+  `PlanFindingFilterPolicyApplyInput`. New file-local CLI
+  helpers in `packages/cli/src/index.ts`
+  (`loadConfigForApply`, `parseFindingFiltersFromConfig`,
+  `buildAppliedConfig`, `formatApplyRefusalMessage`).
+  21 new contract tests in
+  `tests/contract/finding-filter-policy-apply-safety.test.mjs`
+  cover: 5 pure-helper tests for
+  `isBroadFindingFilterPolicyRule` + `planFindingFilterPolicyApply`
+  (repository-wide patterns, single top-level patterns,
+  two-segment narrow patterns, extra-matcher narrowing,
+  no-matcher implicit broad), and 16 CLI behavior tests
+  (`--dry-run` returns plan + diff and does not mutate
+  config; `--preview` is an alias; actual apply appends a
+  new non-broad high-confidence rule; dry-run reports
+  config-missing when the file is absent and does not add
+  findingFilters; apply writes the rule when config was
+  missing and the workspace was just bootstrapped;
+  malformed config causes dry-run / apply to fail without
+  writing; broad pattern dry-run succeeds with warning;
+  broad pattern apply fails without `--force`; broad
+  pattern apply succeeds with `--force` and surfaces
+  warning; low-confidence dry-run succeeds with warning;
+  low-confidence apply fails without `--force`;
+  low-confidence apply succeeds with `--force` on a narrow
+  rule; duplicate id dry-run reports duplicate +
+  `replacedFindingFilters`; duplicate id apply fails
+  without `--force`; duplicate id apply with `--force`
+  replaces the existing rule; unrelated config fields are
+  preserved; `rekon config validate` passes after apply;
+  `suggest` / `list` still do not mutate config). The
+  pre-existing
+  `tests/contract/finding-filter-policy-suggestions.test.mjs`
+  was updated to match the new error shape and to document
+  that `--force` on a high-volume-filtered-pattern rule
+  still fails validation (since the rule has no matcher).
+  Full suite: 569 passed / 1 skipped / 0 failed. Docs
+  updated:
+  `docs/concepts/finding-filter-policy-suggestions.md`
+  (Apply Safety section now lists all 10 safety rules + a
+  table documenting the dry-run JSON shape +
+  recommended operator workflow),
+  `docs/artifacts/finding-filter-policy-suggestion-report.md`
+  (CLI Surface + Apply Safety Rules expanded),
+  `docs/concepts/finding-filters.md` (Promotable bullet
+  expanded with broad-pattern + dry-run guidance),
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (Implementation Order step 7 flipped to shipped + new
+  step 8 "Configured filter policy freshness /
+  publication guardrails"), four strategy docs
+  (subsystem-purpose-map, behavior-roadmap,
+  guarantee-regression-plan, roadmap), README, and
+  CHANGELOG. Review packet:
+  `.rekon-dev/review-packets/finding-filter-policy-apply-safety-v2.md`.
+  No new artifact type. No artifact `schemaVersion` bump.
+  No publication shape change. No new capability role. No
+  new CLI subcommand (only new flags). No LLM, semantic,
+  fuzzy, or embedding matching. No version bump. No npm
+  publish.
 - Shipped filter policy suggestions surfaced in architecture
   summary / agent contract (P1.1
   filter-policy-suggestions-publications v2 slice).

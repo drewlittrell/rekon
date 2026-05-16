@@ -458,6 +458,49 @@ is the first stop before proposing a new capability batch.
   `rekon findings filter-policy apply` remains the **only**
   command that mutates `.rekon/config.json`. No LLM, semantic,
   fuzzy, or embedding matching.
+- Filter policy suggestion apply safety v2 (P1.1
+  filter-policy-apply-safety v2 slice):
+  `rekon findings filter-policy apply` now supports two new
+  flags — `--dry-run` and its alias `--preview` — for a
+  non-mutating preview of the exact proposed rule, a
+  structured config diff
+  (`addedFindingFilters: FindingFilterPolicyRule[]` +
+  `replacedFindingFilters: { before, after }[]` +
+  `beforeCount` + `afterCount`), every warning / blocker
+  the actual apply would surface, and the validation result
+  from running `validateFindingFilterPolicyRules` over the
+  projected `findingFilters`. Three deterministic
+  force-gated blockers: `low-confidence-suggestion`,
+  `broad-path-pattern` (via the new
+  `isBroadFindingFilterPolicyRule(rule)` predicate; flags
+  `*`, `**`, `**/*`, `*/**`, `.`, `./**`, any single
+  top-level `<segment>/**` like `src/**` / `packages/**` /
+  `tests/**`, and any rule that lacks both a `pathPattern`
+  and a narrow matcher), `duplicate-rule-id` (with `--force`
+  the existing rule is **replaced** by the suggested rule,
+  not appended). Both dry-run and apply validate the
+  projected config and refuse to write on validation
+  failure even under `--force`. Malformed
+  `.rekon/config.json` is never overwritten. Unrelated
+  top-level config fields are preserved. `suggest` /
+  `list` remain non-mutating. New exports from
+  `@rekon/kernel-findings`: `isBroadFindingFilterPolicyRule`,
+  `planFindingFilterPolicyApply`, plus shape types
+  `FindingFilterPolicyApplyPlan`,
+  `FindingFilterPolicyApplyDiff`,
+  `FindingFilterPolicyApplyWarning`,
+  `FindingFilterPolicyApplyBlocker`,
+  `FindingFilterPolicyApplyWarningCode`,
+  `FindingFilterPolicyApplyBlockerCode`,
+  `PlanFindingFilterPolicyApplyInput`. New file-local CLI
+  helpers (`loadConfigForApply`,
+  `parseFindingFiltersFromConfig`, `buildAppliedConfig`,
+  `formatApplyRefusalMessage`). 21 new contract tests in
+  `tests/contract/finding-filter-policy-apply-safety.test.mjs`.
+  No new artifact type. No artifact `schemaVersion` bump.
+  No publication shape change. No new capability role. No
+  new CLI subcommand. No LLM, semantic, fuzzy, or embedding
+  matching.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

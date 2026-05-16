@@ -238,10 +238,38 @@ review packets unless an ADR promotes them. Promotion requires:
    `finding-filter-policy-suggestions.changed` invalidation
    rule. Config is never mutated by publication; `apply`
    remains the only mutating command.
-7. **(future)** Filter policy suggestion apply safety v2 —
-   dry-run / preview for config mutations, exact config diff
-   before apply, optional broad-pattern `--force` guard.
-8. **(future)** Merge-decision freshness guardrails,
+7. **(shipped)** Filter policy suggestion apply safety v2.
+   `rekon findings filter-policy apply` now accepts
+   `--dry-run` (alias `--preview`) for non-mutating
+   inspection of the proposed rule and a structured config
+   diff (`addedFindingFilters` / `replacedFindingFilters` /
+   `beforeCount` / `afterCount`). Three force-gated
+   blockers: `low-confidence-suggestion`, `broad-path-pattern`
+   (deterministic `isBroadFindingFilterPolicyRule` predicate
+   over `pathPattern` + narrow-matcher fields), and
+   `duplicate-rule-id`. With `--force`, duplicate ids
+   **replace** the existing rule rather than appending a
+   duplicate. Both dry-run and apply run
+   `validateFindingFilterPolicyRules` on the projected
+   `findingFilters`; validation failure refuses the write
+   even with `--force`. Malformed `.rekon/config.json` is
+   never overwritten. New exports from
+   `@rekon/kernel-findings`:
+   `isBroadFindingFilterPolicyRule`,
+   `planFindingFilterPolicyApply`, plus types
+   `FindingFilterPolicyApplyPlan`,
+   `FindingFilterPolicyApplyDiff`,
+   `FindingFilterPolicyApplyWarning`,
+   `FindingFilterPolicyApplyBlocker`,
+   `PlanFindingFilterPolicyApplyInput`. No publication shape
+   change. No new artifact type.
+8. **(future)** Configured filter policy freshness /
+   publication guardrails — when active lifecycle /
+   adjudication / coherency artifacts were built before a
+   filter-policy `apply`, publications and `rekon refresh`
+   should warn or rebuild so the governed surface stays
+   coherent with the current policy set.
+9. **(future)** Merge-decision freshness guardrails,
    `GraphOntologyValidator`-style filters, persistent
    exclusion lists, and any further product-extension
    expansion.
