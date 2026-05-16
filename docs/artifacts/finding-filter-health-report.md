@@ -50,6 +50,21 @@ type FindingFilterHealthReport = {
     highConfidenceFiltered: number;
     lowConfidenceFiltered: number;
     byReason: Record<string, number>;
+    /**
+     * Mirror of FindingFilterReport.summary.byPolicy when the
+     * upstream filter run loaded any configured policies.
+     */
+    byPolicy?: Record<string, number>;
+    /**
+     * Count of findings filtered by configured policies (i.e.
+     * source === "policy"). 0 when no policies fired.
+     */
+    policyFiltered: number;
+    /**
+     * Sorted policy ids that matched zero findings. Used to
+     * emit the `unused-policy-filter` alert.
+     */
+    unusedPolicies: string[];
   };
   alerts: FindingFilterHealthAlert[];
 };
@@ -61,6 +76,9 @@ type FindingFilterHealthReport = {
 | --- | --- | --- |
 | `high-filter-rate` | `filterRate > 0.8` (configurable via `highFilterRateThreshold`) | warning |
 | `low-confidence-filtered` | any `FilteredFinding.confidence === "low"` | warning |
+| `policy-over-filtering` | configured policies suppressed more than 80 % of findings | warning |
+| `low-confidence-policy-filter` | a configured policy hit at `confidence: "low"` | warning |
+| `unused-policy-filter` | a configured policy matched zero findings | warning |
 
 Alerts are sorted by `code` for stable output. The list is empty
 when filtering looks healthy.
@@ -94,8 +112,10 @@ Output:
   no weighted score, no trend.
 - **Not a watcher.** It does not poll; it reports the latest
   filter report at call time.
-- **Not configurable in v1.** Custom alert thresholds beyond
-  `highFilterRateThreshold` are deferred.
+- **Not configurable beyond `highFilterRateThreshold`.** Custom
+  per-reason thresholds and severity escalation remain
+  deferred. Configured exclusion policies live in
+  `.rekon/config.json` `findingFilters`, not in this artifact.
 
 ## Freshness
 

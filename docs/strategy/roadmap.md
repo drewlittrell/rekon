@@ -355,6 +355,29 @@ is the first stop before proposing a new capability batch.
   `FindingReport`), the lifecycle transparently falls back to
   the raw report and does not cite the stale filter. No new
   CLI surface; no SDK API removal; no schemaVersion bump.
+- Filter policy / configured exclusions v1 (P1.1 filter policy
+  v1 slice): `.rekon/config.json` accepts an optional
+  `findingFilters` array of project-specific policy rules.
+  Each entry has `id` / `reason` / `evidence` / optional
+  `confidence` plus at least one deterministic matcher:
+  `pathPattern` (simple glob), `type`, `ruleId`, `severity`,
+  `titleIncludes`, `descriptionIncludes`. Policy rules run
+  before built-in deterministic filters, in declared order;
+  first match wins. Filtered entries record `source: "policy"`
+  plus `policyId` so the audit trail names the rule.
+  `FindingFilterReport.summary.byPolicy` reports per-policy
+  counts; `FindingFilterHealthReport` adds `byPolicy` /
+  `policyFiltered` / `unusedPolicies` plus three policy-aware
+  alerts (`policy-over-filtering`,
+  `low-confidence-policy-filter`, `unused-policy-filter`).
+  `rekon config validate` enforces the policy schema (rejects
+  duplicate ids, missing matchers, unknown reasons, absolute /
+  traversal `pathPattern`). New exported helper
+  `validateFindingFilterPolicyRules` and additive runtime /
+  CLI options. The raw `FindingReport` is never mutated. No
+  LLM, semantic, fuzzy, or embedding matching;
+  `GraphOntologyValidator` port and persistent exclusion
+  lists remain deferred.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

@@ -22,6 +22,7 @@ import {
   type EffectiveFinding,
   type Finding,
   type FindingFilterHealthReport,
+  type FindingFilterPolicyRule,
   type FindingFilterReport,
   type FindingLifecycleReport,
   type FindingReport,
@@ -782,6 +783,14 @@ function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFre
 
 export type BuildFindingFilterReportOptions = {
   findingReportId?: string;
+  /**
+   * Configured exclusion policies (typically loaded from
+   * `.rekon/config.json` `findingFilters`). When supplied,
+   * policy rules run **before** built-in deterministic filters
+   * and filtered entries record `source: "policy"` with
+   * `policyId` so the audit trail names the rule that matched.
+   */
+  policies?: FindingFilterPolicyRule[];
 };
 
 export async function buildFindingFilterReport(
@@ -818,9 +827,10 @@ export async function buildFindingFilterReport(
     : [];
 
   const filteredAt = new Date().toISOString();
-  const { keptFindings, filteredFindings } = applyFindingFilters({
+  const { keptFindings, filteredFindings, policyUsage } = applyFindingFilters({
     findings,
     filteredAt,
+    policies: options.policies,
   });
 
   const filterReport = createFindingFilterReport({
@@ -836,6 +846,7 @@ export async function buildFindingFilterReport(
     },
     keptFindings,
     filteredFindings,
+    policyUsage,
   });
 
   return filterReport;
@@ -852,6 +863,14 @@ export type BuildFindingFilterHealthReportOptions = {
    * indexed. When false, throw a clear error instead.
    */
   buildIfMissing?: boolean;
+  /**
+   * Configured exclusion policies. Used to detect
+   * `unused-policy-filter` alerts (policy ids supplied here that
+   * matched zero findings in the latest filter report). If the
+   * `buildIfMissing` path runs, these are also forwarded to
+   * `buildFindingFilterReport`.
+   */
+  policies?: FindingFilterPolicyRule[];
 };
 
 export async function buildFindingFilterHealthReport(
@@ -879,7 +898,7 @@ export async function buildFindingFilterHealthReport(
       "buildFindingFilterHealthReport requires a FindingFilterReport. Run `rekon findings filter` or `rekon refresh` first.",
     );
   } else {
-    filterReport = await buildFindingFilterReport(store);
+    filterReport = await buildFindingFilterReport(store, { policies: options.policies });
     latestEntry = await store
       .write(filterReport, { category: "findings" })
       .then((ref) => ({
@@ -913,6 +932,7 @@ export async function buildFindingFilterHealthReport(
     },
     filterReport,
     highFilterRateThreshold: options.highFilterRateThreshold,
+    policies: options.policies,
   });
 }
 

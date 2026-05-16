@@ -84,6 +84,12 @@ type FilteredFinding = {
   confidence: FindingFilterConfidence;
   filteredAt: string;
   source: "system" | "operator" | "policy";
+  /**
+   * Set when this finding was filtered by a configured
+   * .rekon/config.json findingFilters policy rule. Always
+   * paired with source: "policy".
+   */
+  policyId?: string;
 };
 
 type FindingFilterReport = {
@@ -95,11 +101,40 @@ type FindingFilterReport = {
     byConfidence: Record<string, number>;
     byType: Record<string, number>;
     bySeverity: Record<string, number>;
+    /**
+     * Per-policy filtered count when configured findingFilters
+     * policies ran. Keys are policy ids; absent policies are
+     * recorded as 0 so unused-policy alerts work.
+     */
+    byPolicy?: Record<string, number>;
   };
   keptFindings: Finding[];
   filteredFindings: FilteredFinding[];
 };
 ```
+
+## Configured Exclusion Policies
+
+Operators can add project-specific exclusion rules in
+`.rekon/config.json` under `findingFilters`. Each rule has an
+`id`, `reason`, `evidence` string, optional `confidence`
+(defaults to `medium`), and at least one matcher among:
+`pathPattern` (relative glob — `*` per-segment, `**` across
+segments, `?` per-character), `type`, `ruleId`, `severity`,
+`titleIncludes`, `descriptionIncludes`. Path patterns are
+project-relative; absolute paths and `..` traversal are
+rejected at validation time.
+
+Policy rules run **before** built-in deterministic filters, in
+declared order. The first matching policy wins. When a policy
+matches, the filtered entry records `source: "policy"` plus a
+`policyId` so the audit trail names the rule that suppressed
+the finding.
+
+See [finding-filters concept](../concepts/finding-filters.md)
+and [finding-filter-health-report](finding-filter-health-report.md)
+for the policy-aware alerts (`policy-over-filtering`,
+`low-confidence-policy-filter`, `unused-policy-filter`).
 
 ## Deterministic v1 Filter Rules
 
@@ -113,9 +148,9 @@ first):
 | `external-file` | path segment is `node_modules`, `vendor`, or `third_party` | high |
 | `test-file` | path segment is `test`, `tests`, `__tests__`, or `__test__`, or filename ends with `.test.{ts,tsx,js,jsx,mjs,cjs}` or `.spec.{ts,tsx,js,jsx,mjs,cjs}` | high |
 | `canary-file` | path contains `canary` | high |
-| `explicit-exclusion` | reserved for future config-driven exclusions | n/a in v1 |
+| `explicit-exclusion` | emitted by configured policy rules in `.rekon/config.json` `findingFilters` (operator-supplied) | policy-provided (defaults to medium) |
 | `content-filter` | finding text mentions "generated output" **and** file is in a generated path | medium |
-| `policy-exception` | reserved | n/a in v1 |
+| `policy-exception` | emitted by configured policy rules in `.rekon/config.json` `findingFilters` (operator-supplied) | policy-provided (defaults to medium) |
 | `other` | reserved | low when used |
 
 If a finding has no `files`, no rule matches and it is **kept**.
@@ -140,9 +175,12 @@ between `evaluate` and `findings.lifecycle`.
   `filteredFindings`. `FindingReport` is unchanged on disk.
 - **Not a graph / ontology validator.** The classic
   `GraphOntologyValidator` port is deferred.
-- **Not configurable yet.** v1 ships built-in deterministic
-  rules. Configurable filters via `.rekon/config.json` are an
-  open question.
+- **Configurable via `.rekon/config.json findingFilters`.**
+  Operators can add deterministic path/type/ruleId/severity/
+  title/description matchers as policies; see
+  [finding-filters concept](../concepts/finding-filters.md).
+  Persistent exclusion lists across runs and richer policy
+  languages remain deferred.
 - **Consumed by lifecycle (and transitively by adjudication +
   coherency) as of the filter-aware lifecycle slice.** Raw
   `FindingReport` data still flows for runs where no current

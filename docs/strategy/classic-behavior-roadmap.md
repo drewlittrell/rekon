@@ -311,8 +311,64 @@ scope:
   `services/issues/report-persistence.ts`,
   `domain/issues/mergeIssues.ts`,
   `packages/product-codebase-intel/src/replatform/replatform-delta.ts`.
-  Filter policy / configured exclusions v1 is the recommended
-  next slice.
+  Filter policy / configured exclusions v1 followed in the next
+  slice (see next bullet).
+- **Filter policy / configured exclusions v1 (P1.1 filter
+  policy v1 slice).** ✅ Shipped. `.rekon/config.json` now
+  accepts an optional `findingFilters` array. Each entry is a
+  project-specific policy rule with `id`, `reason`,
+  `evidence`, optional `confidence`, plus at least one
+  deterministic matcher: `pathPattern` (relative glob with
+  `*` per-segment, `**` across segments, `?` per-character),
+  `type`, `ruleId`, `severity`, `titleIncludes`,
+  `descriptionIncludes`. Path patterns are project-relative;
+  absolute paths and `..` traversal are rejected at
+  validation time. Policy rules run **before** built-in
+  deterministic filters, in declared order — the first
+  matching rule wins. Filtered entries record
+  `source: "policy"` plus `policyId` so the audit trail names
+  the rule that suppressed each finding. The raw
+  `FindingReport` is **not** mutated. New types in
+  `@rekon/kernel-findings`: `FindingFilterPolicyRule`,
+  `FindingFilterPolicyValidationIssue`,
+  `ApplyFindingFiltersOptions` (now an exported alias for the
+  `applyFindingFilters` argument). Two new exported helpers:
+  `validateFindingFilterPolicyRules(value)` (used by
+  `rekon config validate` to enforce schema; returns
+  sanitized rules + sorted issues) and the existing
+  `applyFindingFilters` now accepts an optional
+  `policies: FindingFilterPolicyRule[]` array.
+  `FindingFilterReport.summary.byPolicy` and
+  `FindingFilterHealthReport.summary.byPolicy` /
+  `summary.policyFiltered` / `summary.unusedPolicies` report
+  per-policy diagnostics. Three new policy-aware
+  `FindingFilterHealthReport` alerts:
+  `policy-over-filtering` (configured policies suppressed
+  more than 80 % of findings),
+  `low-confidence-policy-filter` (any policy hit at
+  `confidence: "low"`), `unused-policy-filter` (any
+  configured policy matched zero findings). New runtime
+  helper options: `BuildFindingFilterReportOptions.policies`
+  and `BuildFindingFilterHealthReportOptions.policies`. CLI:
+  `rekon findings filter` and `rekon findings filter-health`
+  load `.rekon/config.json` `findingFilters` and pass them
+  through; output includes `policyFilters: <count>`.
+  `rekon refresh` loads the policies once and forwards them
+  to both filter steps. `rekon config validate` enforces the
+  policy schema and rejects duplicate ids, missing matchers,
+  unknown reasons, and absolute / traversal `pathPattern`.
+  19 new contract tests in
+  `tests/contract/finding-filter-policy.test.mjs`. Aligned to
+  `services/IssueDetectionService.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/filter-health.ts`,
+  `services/issues/report-persistence.ts`,
+  `domain/issues/mergeIssues.ts`, classic `issueExclude`
+  config. No LLM, semantic, fuzzy, or embedding matching;
+  `GraphOntologyValidator` port and persistent exclusion
+  lists remain deferred. Filter health / issue adjudication
+  surfaces in publications is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

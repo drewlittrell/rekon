@@ -78,6 +78,70 @@ side of that guarantee but did not yet have a filter layer.
 Both artifacts live under the `findings/` category in
 `.rekon/artifacts/`.
 
+## Configured Exclusion Policies
+
+Operators can extend the built-in deterministic filters with
+project-specific exclusions via `.rekon/config.json`:
+
+```json
+{
+  "findingFilters": [
+    {
+      "id": "generated-src",
+      "reason": "generated-file",
+      "evidence": "Generated source is excluded from active governance.",
+      "pathPattern": "src/generated/**",
+      "confidence": "high"
+    },
+    {
+      "id": "legacy-module",
+      "reason": "policy-exception",
+      "evidence": "Legacy module is being deprecated; suppress until removal.",
+      "pathPattern": "src/legacy/**",
+      "type": "import_boundary.parent_relative_import",
+      "confidence": "medium"
+    }
+  ]
+}
+```
+
+Each entry requires `id`, `reason`, and `evidence`, plus at
+least one matcher: `pathPattern`, `type`, `ruleId`, `severity`,
+`titleIncludes`, or `descriptionIncludes`. Path patterns are
+project-relative; absolute paths and `..` traversal are
+rejected. Path matching supports a small deterministic glob
+vocabulary: `*` matches a single path segment, `**` matches
+zero or more segments, and `?` matches one character.
+
+Policy rules run **before** built-in deterministic filters, in
+declared order. The first matching policy wins. When a policy
+matches, the filtered entry records:
+
+- `source: "policy"`
+- `policyId`: the rule's `id`
+- `reason`: the rule's `reason`
+- `evidence`: the rule's `evidence` string
+- `confidence`: the rule's `confidence` (defaults to `medium`)
+
+`rekon config validate` enforces the schema and rejects
+duplicate ids, missing matchers, unknown reasons, and absolute
+or traversal `pathPattern` values.
+
+`FindingFilterReport.summary.byPolicy` reports the number of
+findings each configured policy suppressed (including zero for
+policies that never matched). `FindingFilterHealthReport` adds
+three policy-aware alerts:
+
+- `policy-over-filtering` — configured policies suppress more
+  than 80 % of findings (review for over-broad patterns).
+- `low-confidence-policy-filter` — at least one policy hit with
+  `confidence: "low"`.
+- `unused-policy-filter` — at least one configured policy
+  matched zero findings (remove or refine the matcher).
+
+The built-in deterministic rules below still run when no policy
+matches a finding.
+
 ## Reasons
 
 v1 ships deterministic, path-aware rules. There is no LLM,
@@ -97,8 +161,10 @@ first):
 - **`content-filter`** — finding text mentions "generated
   output" **and** file is in a generated path. Confidence:
   medium.
-- **`explicit-exclusion`** / **`policy-exception`** — reserved
-  for future config-driven exclusions; not used by v1.
+- **`explicit-exclusion`** / **`policy-exception`** — emitted
+  by configured exclusion policies (see "Configured Exclusion
+  Policies" above). Both reasons are operator-supplied via
+  `.rekon/config.json` `findingFilters`.
 - **`other`** — reserved escape hatch; not used by v1.
 
 Findings with no `files` are kept by default (no rule has
@@ -136,7 +202,10 @@ The alert list is empty when filtering looks healthy.
 - **Not a delete.** Filtered findings are preserved with audit
   evidence in `FindingFilterReport.filteredFindings`.
 - **Not LLM / fuzzy / semantic.** v1 is purely deterministic
-  path / content rules.
+  path / content rules. Configured exclusion policies are
+  deterministic matchers (path glob / type / ruleId / severity /
+  title / description substring); operators describe the
+  intent, not the model.
 - **Not a graph / ontology validator.** The classic
   `GraphOntologyValidator` is deferred.
 - **Consumed by lifecycle / adjudication / coherency.**

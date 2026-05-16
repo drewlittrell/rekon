@@ -138,6 +138,12 @@ export type FilteredFinding = {
   confidence: FindingFilterConfidence;
   filteredAt: string;
   source: FindingFilterSource;
+  /**
+   * Set when this finding was filtered by a configured
+   * `FindingFilterPolicyRule`. Always paired with
+   * `source === "policy"`.
+   */
+  policyId?: string;
 };
 
 export type FindingFilterSummary = {
@@ -147,6 +153,12 @@ export type FindingFilterSummary = {
   byConfidence: Record<string, number>;
   byType: Record<string, number>;
   bySeverity: Record<string, number>;
+  /**
+   * Count of filtered findings per configured policy id.
+   * Present when a non-empty policy ruleset was supplied; absent
+   * when no policies ran. Keys are policy ids.
+   */
+  byPolicy?: Record<string, number>;
 };
 
 export type FindingFilterReport = {
@@ -154,6 +166,26 @@ export type FindingFilterReport = {
   summary: FindingFilterSummary;
   keptFindings: Finding[];
   filteredFindings: FilteredFinding[];
+};
+
+/**
+ * A configured exclusion rule. Loaded from `.rekon/config.json`
+ * `findingFilters` and applied before built-in deterministic
+ * filters. Filtered findings are recorded with `source: "policy"`
+ * and `policyId` so the audit trail names the rule that suppressed
+ * each finding.
+ */
+export type FindingFilterPolicyRule = {
+  id: string;
+  reason: FindingFilterReason;
+  evidence: string;
+  confidence?: FindingFilterConfidence;
+  pathPattern?: string;
+  type?: string;
+  ruleId?: string;
+  severity?: FindingSeverity;
+  titleIncludes?: string;
+  descriptionIncludes?: string;
 };
 
 const FINDING_FILTER_REASONS = new Set<FindingFilterReason>([
@@ -191,6 +223,7 @@ type FilterMatch = {
   evidence: string;
   filePath?: string;
   confidence: FindingFilterConfidence;
+  policyId?: string;
 };
 
 /**
@@ -307,21 +340,156 @@ function findBestFilterMatch(finding: Finding): FilterMatch | null {
   return best;
 }
 
+/**
+ * Match a configured `pathPattern` against a single file path.
+ * Supports a small deterministic glob vocabulary:
+ *
+ * - `*` matches zero or more characters within a single path
+ *   segment (`/`-delimited).
+ * - `**` matches zero or more segments, including the leading
+ *   and trailing `/` boundaries.
+ * - Anything else is matched literally.
+ *
+ * Matching is case-sensitive on the pattern side because path
+ * conventions on the JS/TS side are case-sensitive.
+ */
+function matchPathPattern(pattern: string, filePath: string): boolean {
+  if (pattern.length === 0) return false;
+  // Build a deterministic regex from the pattern. We escape regex
+  // metacharacters, then expand `**` and `*` tokens explicitly so
+  // that `**` can match `/` while `*` cannot.
+  let regex = "^";
+  let i = 0;
+  while (i < pattern.length) {
+    const char = pattern[i]!;
+    if (char === "*") {
+      if (pattern[i + 1] === "*") {
+        // `**` — zero or more path segments. Greedy on `.*`. If
+        // followed by `/`, swallow the slash too so `dir/**/*.ts`
+        // and `dir/**/file.ts` both match `dir/file.ts`.
+        if (pattern[i + 2] === "/") {
+          regex += "(?:.*/)?";
+          i += 3;
+        } else {
+          regex += ".*";
+          i += 2;
+        }
+        continue;
+      }
+      // single `*` — zero or more chars that are not a path slash.
+      regex += "[^/]*";
+      i += 1;
+      continue;
+    }
+    if (char === "?") {
+      regex += "[^/]";
+      i += 1;
+      continue;
+    }
+    if (/[.+^${}()|\[\]\\]/.test(char)) {
+      regex += `\\${char}`;
+      i += 1;
+      continue;
+    }
+    regex += char;
+    i += 1;
+  }
+  regex += "$";
+  return new RegExp(regex).test(filePath);
+}
+
+function policyFilterMatch(
+  finding: Finding,
+  policy: FindingFilterPolicyRule,
+): FilterMatch | null {
+  const files = Array.isArray(finding.files) ? finding.files : [];
+
+  // pathPattern matcher — when present, at least one file must match.
+  let matchedPath: string | undefined;
+  if (policy.pathPattern && policy.pathPattern.length > 0) {
+    matchedPath = files.find((file) => matchPathPattern(policy.pathPattern!, file));
+    if (!matchedPath) return null;
+  }
+
+  // type matcher
+  if (policy.type && finding.type !== policy.type) return null;
+
+  // ruleId matcher
+  if (policy.ruleId && finding.ruleId !== policy.ruleId) return null;
+
+  // severity matcher
+  if (policy.severity && finding.severity !== policy.severity) return null;
+
+  // titleIncludes / descriptionIncludes — case-insensitive substring.
+  if (policy.titleIncludes && policy.titleIncludes.length > 0) {
+    const haystack = (finding.title ?? "").toLowerCase();
+    if (!haystack.includes(policy.titleIncludes.toLowerCase())) return null;
+  }
+  if (policy.descriptionIncludes && policy.descriptionIncludes.length > 0) {
+    const haystack = (finding.description ?? "").toLowerCase();
+    if (!haystack.includes(policy.descriptionIncludes.toLowerCase())) return null;
+  }
+
+  return {
+    reason: policy.reason,
+    evidence: policy.evidence,
+    filePath: matchedPath,
+    confidence: policy.confidence ?? "medium",
+    policyId: policy.id,
+  };
+}
+
 export type ApplyFindingFiltersResult = {
   keptFindings: Finding[];
   filteredFindings: FilteredFinding[];
+  /**
+   * Count of filtered findings per supplied policy id (whether
+   * the policy ran or not). Always present when `options.policies`
+   * was supplied (so callers can detect unused policies);
+   * `undefined` when no policies ran.
+   */
+  policyUsage?: Record<string, number>;
 };
 
-export function applyFindingFilters(input: {
+export type ApplyFindingFiltersOptions = {
   findings: Finding[];
   filteredAt?: string;
-}): ApplyFindingFiltersResult {
+  /**
+   * Configured exclusion rules from `.rekon/config.json`
+   * `findingFilters`. Policy rules run **before** built-in
+   * deterministic filters, in supplied order. The first matching
+   * policy wins; if no policy matches, the built-in filters run.
+   */
+  policies?: FindingFilterPolicyRule[];
+};
+
+export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFindingFiltersResult {
   const filteredAt = input.filteredAt ?? new Date().toISOString();
   const keptFindings: Finding[] = [];
   const filteredFindings: FilteredFinding[] = [];
+  const policies = Array.isArray(input.policies) ? input.policies : [];
+  const policyUsage: Record<string, number> | undefined = policies.length > 0 ? {} : undefined;
+  if (policyUsage) {
+    for (const policy of policies) {
+      // Initialize every policy id at 0 so unused policies surface
+      // in the usage map.
+      policyUsage[policy.id] = 0;
+    }
+  }
 
   for (const finding of input.findings ?? []) {
-    const match = findBestFilterMatch(finding);
+    // Policy filters run first; the first match wins.
+    let match: FilterMatch | null = null;
+    for (const policy of policies) {
+      const candidate = policyFilterMatch(finding, policy);
+      if (candidate) {
+        match = candidate;
+        break;
+      }
+    }
+    if (!match) {
+      match = findBestFilterMatch(finding);
+    }
     if (!match) {
       keptFindings.push(finding);
       continue;
@@ -334,20 +502,270 @@ export function applyFindingFilters(input: {
       filePath: match.filePath,
       confidence: match.confidence,
       filteredAt,
-      source: "system",
+      source: match.policyId ? "policy" : "system",
+      policyId: match.policyId,
     });
+    if (policyUsage && match.policyId) {
+      policyUsage[match.policyId] = (policyUsage[match.policyId] ?? 0) + 1;
+    }
   }
 
   keptFindings.sort((left, right) => left.id.localeCompare(right.id));
   filteredFindings.sort((left, right) => left.findingId.localeCompare(right.findingId));
-  return { keptFindings, filteredFindings };
+  return { keptFindings, filteredFindings, policyUsage };
+}
+
+export type FindingFilterPolicyValidationIssue = {
+  policyIndex: number;
+  policyId?: string;
+  code: string;
+  message: string;
+  path: string;
+};
+
+const SEVERITIES_PUBLIC: ReadonlyArray<FindingSeverity> = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+];
+
+/**
+ * Validate a candidate `findingFilters` payload (from a loaded
+ * config or test fixture). Returns issue records suitable for
+ * surfacing through `rekon config validate` — the CLI maps each
+ * issue into its `ConfigValidationIssue` shape. Returns a
+ * deterministic, sorted issue list.
+ */
+export function validateFindingFilterPolicyRules(value: unknown): {
+  rules: FindingFilterPolicyRule[];
+  issues: FindingFilterPolicyValidationIssue[];
+} {
+  const issues: FindingFilterPolicyValidationIssue[] = [];
+  const rules: FindingFilterPolicyRule[] = [];
+
+  if (!Array.isArray(value)) {
+    return {
+      rules,
+      issues: [
+        {
+          policyIndex: -1,
+          code: "finding-filters-not-array",
+          message: "findingFilters must be an array when present.",
+          path: "findingFilters",
+        },
+      ],
+    };
+  }
+
+  const seenIds = new Set<string>();
+
+  for (let index = 0; index < value.length; index += 1) {
+    const entry = value[index];
+    const entryPath = `findingFilters[${index}]`;
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      issues.push({
+        policyIndex: index,
+        code: "finding-filter-not-object",
+        message: "findingFilters entry must be an object.",
+        path: entryPath,
+      });
+      continue;
+    }
+    const candidate = entry as Record<string, unknown>;
+    const policyId = typeof candidate.id === "string" ? candidate.id : undefined;
+    const idForIssue = policyId;
+
+    if (typeof candidate.id !== "string" || candidate.id.trim().length === 0) {
+      issues.push({
+        policyIndex: index,
+        policyId: idForIssue,
+        code: "finding-filter-id-missing",
+        message: "findingFilters[].id is required and must be a non-empty string.",
+        path: `${entryPath}.id`,
+      });
+    } else if (seenIds.has(candidate.id)) {
+      issues.push({
+        policyIndex: index,
+        policyId: idForIssue,
+        code: "finding-filter-id-duplicate",
+        message: `findingFilters[].id '${candidate.id}' is listed more than once.`,
+        path: `${entryPath}.id`,
+      });
+    } else {
+      seenIds.add(candidate.id);
+    }
+
+    if (
+      typeof candidate.reason !== "string"
+      || !FINDING_FILTER_REASONS.has(candidate.reason as FindingFilterReason)
+    ) {
+      issues.push({
+        policyIndex: index,
+        policyId: idForIssue,
+        code: "finding-filter-reason-invalid",
+        message: `findingFilters[].reason must be one of ${[...FINDING_FILTER_REASONS].join(", ")}.`,
+        path: `${entryPath}.reason`,
+      });
+    }
+
+    if (typeof candidate.evidence !== "string" || candidate.evidence.trim().length === 0) {
+      issues.push({
+        policyIndex: index,
+        policyId: idForIssue,
+        code: "finding-filter-evidence-missing",
+        message: "findingFilters[].evidence is required and must be a non-empty string.",
+        path: `${entryPath}.evidence`,
+      });
+    }
+
+    if (
+      candidate.confidence !== undefined
+      && (
+        typeof candidate.confidence !== "string"
+        || !FINDING_FILTER_CONFIDENCES.has(candidate.confidence as FindingFilterConfidence)
+      )
+    ) {
+      issues.push({
+        policyIndex: index,
+        policyId: idForIssue,
+        code: "finding-filter-confidence-invalid",
+        message: "findingFilters[].confidence must be one of high, medium, low.",
+        path: `${entryPath}.confidence`,
+      });
+    }
+
+    if (
+      candidate.severity !== undefined
+      && (
+        typeof candidate.severity !== "string"
+        || !SEVERITIES_PUBLIC.includes(candidate.severity as FindingSeverity)
+      )
+    ) {
+      issues.push({
+        policyIndex: index,
+        policyId: idForIssue,
+        code: "finding-filter-severity-invalid",
+        message: "findingFilters[].severity must be one of critical, high, medium, low.",
+        path: `${entryPath}.severity`,
+      });
+    }
+
+    for (const stringField of [
+      "pathPattern",
+      "type",
+      "ruleId",
+      "titleIncludes",
+      "descriptionIncludes",
+    ] as const) {
+      const fieldValue = candidate[stringField];
+      if (fieldValue !== undefined && typeof fieldValue !== "string") {
+        issues.push({
+          policyIndex: index,
+          policyId: idForIssue,
+          code: `finding-filter-${stringField}-invalid`,
+          message: `findingFilters[].${stringField} must be a string when present.`,
+          path: `${entryPath}.${stringField}`,
+        });
+      }
+    }
+
+    if (typeof candidate.pathPattern === "string") {
+      // Reject absolute paths and parent-traversal patterns. Patterns
+      // are project-relative.
+      const pattern = candidate.pathPattern;
+      const isAbsolute = pattern.startsWith("/")
+        || /^[a-zA-Z]:[\\/]/.test(pattern);
+      const hasTraversal = pattern
+        .split("/")
+        .some((segment) => segment === "..");
+      if (isAbsolute) {
+        issues.push({
+          policyIndex: index,
+          policyId: idForIssue,
+          code: "finding-filter-path-pattern-absolute",
+          message: "findingFilters[].pathPattern must be relative; absolute paths are rejected.",
+          path: `${entryPath}.pathPattern`,
+        });
+      } else if (hasTraversal) {
+        issues.push({
+          policyIndex: index,
+          policyId: idForIssue,
+          code: "finding-filter-path-pattern-traversal",
+          message: "findingFilters[].pathPattern must not include parent traversal ('..').",
+          path: `${entryPath}.pathPattern`,
+        });
+      }
+    }
+
+    // At least one matcher must be present.
+    const hasMatcher = [
+      candidate.pathPattern,
+      candidate.type,
+      candidate.ruleId,
+      candidate.severity,
+      candidate.titleIncludes,
+      candidate.descriptionIncludes,
+    ].some((field) => typeof field === "string" && field.length > 0);
+    if (!hasMatcher) {
+      issues.push({
+        policyIndex: index,
+        policyId: idForIssue,
+        code: "finding-filter-no-matcher",
+        message: "findingFilters[] entry must specify at least one matcher (pathPattern, type, ruleId, severity, titleIncludes, descriptionIncludes).",
+        path: entryPath,
+      });
+    }
+
+    // If this candidate has the required scalars, accept it as a
+    // structurally valid rule (downstream callers may still reject
+    // on other issues).
+    if (
+      typeof candidate.id === "string"
+      && candidate.id.trim().length > 0
+      && typeof candidate.reason === "string"
+      && FINDING_FILTER_REASONS.has(candidate.reason as FindingFilterReason)
+      && typeof candidate.evidence === "string"
+      && candidate.evidence.trim().length > 0
+      && hasMatcher
+    ) {
+      const rule: FindingFilterPolicyRule = {
+        id: candidate.id,
+        reason: candidate.reason as FindingFilterReason,
+        evidence: candidate.evidence,
+      };
+      if (typeof candidate.confidence === "string"
+        && FINDING_FILTER_CONFIDENCES.has(candidate.confidence as FindingFilterConfidence)) {
+        rule.confidence = candidate.confidence as FindingFilterConfidence;
+      }
+      if (typeof candidate.pathPattern === "string") rule.pathPattern = candidate.pathPattern;
+      if (typeof candidate.type === "string") rule.type = candidate.type;
+      if (typeof candidate.ruleId === "string") rule.ruleId = candidate.ruleId;
+      if (typeof candidate.severity === "string"
+        && SEVERITIES_PUBLIC.includes(candidate.severity as FindingSeverity)) {
+        rule.severity = candidate.severity as FindingSeverity;
+      }
+      if (typeof candidate.titleIncludes === "string") rule.titleIncludes = candidate.titleIncludes;
+      if (typeof candidate.descriptionIncludes === "string") {
+        rule.descriptionIncludes = candidate.descriptionIncludes;
+      }
+      rules.push(rule);
+    }
+  }
+
+  issues.sort((left, right) => {
+    if (left.policyIndex !== right.policyIndex) return left.policyIndex - right.policyIndex;
+    return left.code.localeCompare(right.code);
+  });
+  return { rules, issues };
 }
 
 export function summarizeFindingFilterReport(
   keptFindings: Finding[],
   filteredFindings: FilteredFinding[],
+  policyUsage?: Record<string, number>,
 ): FindingFilterSummary {
-  return {
+  const summary: FindingFilterSummary = {
     totalFiltered: filteredFindings.length,
     kept: keptFindings.length,
     byReason: countBy(filteredFindings, (entry) => entry.reason),
@@ -355,12 +773,27 @@ export function summarizeFindingFilterReport(
     byType: countBy(filteredFindings, (entry) => entry.finding.type),
     bySeverity: countBy(filteredFindings, (entry) => entry.finding.severity),
   };
+  if (policyUsage && Object.keys(policyUsage).length > 0) {
+    // Sorted by policy id for deterministic output.
+    const sorted: Record<string, number> = {};
+    for (const key of Object.keys(policyUsage).sort((left, right) => left.localeCompare(right))) {
+      sorted[key] = policyUsage[key] ?? 0;
+    }
+    summary.byPolicy = sorted;
+  }
+  return summary;
 }
 
 export function createFindingFilterReport(input: {
   header: ArtifactHeader;
   keptFindings: Finding[];
   filteredFindings: FilteredFinding[];
+  /**
+   * Optional policy-usage counts (typically from
+   * `applyFindingFilters(...).policyUsage`). Populates the
+   * `summary.byPolicy` field when present.
+   */
+  policyUsage?: Record<string, number>;
 }): FindingFilterReport {
   const keptFindings = [...input.keptFindings].sort((left, right) =>
     left.id.localeCompare(right.id),
@@ -370,7 +803,7 @@ export function createFindingFilterReport(input: {
   );
   return assertFindingFilterReport({
     header: input.header,
-    summary: summarizeFindingFilterReport(keptFindings, filteredFindings),
+    summary: summarizeFindingFilterReport(keptFindings, filteredFindings, input.policyUsage),
     keptFindings,
     filteredFindings,
   });
@@ -480,6 +913,19 @@ function validateFilteredFinding(
   if (value.filePath !== undefined && typeof value.filePath !== "string") {
     issues.push({ path: `${path}.filePath`, message: "Expected a string when present." });
   }
+  if (value.policyId !== undefined) {
+    if (typeof value.policyId !== "string" || value.policyId.length === 0) {
+      issues.push({
+        path: `${path}.policyId`,
+        message: "Expected a non-empty string when present.",
+      });
+    } else if (value.source !== "policy") {
+      issues.push({
+        path: `${path}.policyId`,
+        message: "policyId requires source === 'policy'.",
+      });
+    }
+  }
   validateFinding(value.finding, `${path}.finding`, issues);
 }
 
@@ -498,6 +944,22 @@ export type FindingFilterHealthSummary = {
   highConfidenceFiltered: number;
   lowConfidenceFiltered: number;
   byReason: Record<string, number>;
+  /**
+   * Mirror of `FindingFilterReport.summary.byPolicy` when the
+   * upstream filter report ran any configured policies. Present
+   * only when the filter report carries a non-empty `byPolicy`.
+   */
+  byPolicy?: Record<string, number>;
+  /**
+   * Count of findings filtered by configured policies (i.e.
+   * `source === "policy"`). 0 when no policies fired.
+   */
+  policyFiltered: number;
+  /**
+   * Policy ids that were supplied but matched zero findings. Used
+   * to emit the `unused-policy-filter` alert.
+   */
+  unusedPolicies: string[];
 };
 
 export type FindingFilterHealthReport = {
@@ -513,6 +975,16 @@ const FINDING_FILTER_HEALTH_ALERT_SEVERITIES = new Set<
 export function buildFindingFilterHealth(input: {
   filterReport: FindingFilterReport;
   highFilterRateThreshold?: number;
+  /**
+   * Optional configured policies that were supplied to the
+   * filter report run. Used to detect `unused-policy-filter`
+   * alerts (policy ids that matched zero findings). When
+   * omitted, the health report relies on
+   * `filterReport.summary.byPolicy` for usage counts but cannot
+   * emit `unused-policy-filter` (it does not know the full
+   * supplied set).
+   */
+  policies?: FindingFilterPolicyRule[];
 }): { summary: FindingFilterHealthSummary; alerts: FindingFilterHealthAlert[] } {
   const report = input.filterReport;
   const threshold = input.highFilterRateThreshold ?? 0.8;
@@ -525,6 +997,33 @@ export function buildFindingFilterHealth(input: {
     (entry) => entry.confidence === "low",
   ).length;
 
+  const policyFiltered = report.filteredFindings.filter(
+    (entry) => entry.source === "policy",
+  ).length;
+  const lowConfidencePolicyFiltered = report.filteredFindings.filter(
+    (entry) => entry.source === "policy" && entry.confidence === "low",
+  ).length;
+  const byPolicy = report.summary.byPolicy
+    ? { ...report.summary.byPolicy }
+    : undefined;
+
+  // Unused policies: policy ids supplied as `byPolicy` keys (or
+  // via `input.policies`) that matched zero findings.
+  const unusedSet = new Set<string>();
+  if (byPolicy) {
+    for (const [policyId, count] of Object.entries(byPolicy)) {
+      if (count === 0) unusedSet.add(policyId);
+    }
+  }
+  if (Array.isArray(input.policies)) {
+    for (const policy of input.policies) {
+      if (!byPolicy || !(policy.id in byPolicy)) {
+        unusedSet.add(policy.id);
+      }
+    }
+  }
+  const unusedPolicies = [...unusedSet].sort((left, right) => left.localeCompare(right));
+
   const summary: FindingFilterHealthSummary = {
     totalFindings,
     totalFiltered: report.summary.totalFiltered,
@@ -532,7 +1031,12 @@ export function buildFindingFilterHealth(input: {
     highConfidenceFiltered,
     lowConfidenceFiltered,
     byReason: { ...report.summary.byReason },
+    policyFiltered,
+    unusedPolicies,
   };
+  if (byPolicy) {
+    summary.byPolicy = byPolicy;
+  }
 
   const alerts: FindingFilterHealthAlert[] = [];
   if (totalFindings > 0 && filterRate > threshold) {
@@ -549,6 +1053,30 @@ export function buildFindingFilterHealth(input: {
       message: `${lowConfidenceFiltered} finding${lowConfidenceFiltered === 1 ? "" : "s"} filtered with low confidence; inspect FindingFilterReport.filteredFindings to confirm suppression.`,
     });
   }
+  // Policy-aware alerts. `policy-over-filtering` fires when
+  // configured policies dominate the suppression — useful to
+  // catch over-broad pathPatterns.
+  if (totalFindings > 0 && policyFiltered / totalFindings > threshold) {
+    alerts.push({
+      code: "policy-over-filtering",
+      severity: "warning",
+      message: `Configured policies suppressed ${policyFiltered} of ${totalFindings} findings (${((policyFiltered / totalFindings) * 100).toFixed(1)}%). Review .rekon/config.json findingFilters for over-broad patterns.`,
+    });
+  }
+  if (lowConfidencePolicyFiltered > 0) {
+    alerts.push({
+      code: "low-confidence-policy-filter",
+      severity: "warning",
+      message: `${lowConfidencePolicyFiltered} finding${lowConfidencePolicyFiltered === 1 ? "" : "s"} filtered by a configured low-confidence policy; consider raising the rule confidence or narrowing the matcher.`,
+    });
+  }
+  if (unusedPolicies.length > 0) {
+    alerts.push({
+      code: "unused-policy-filter",
+      severity: "warning",
+      message: `Configured policy ${unusedPolicies.length === 1 ? "id" : "ids"} ${unusedPolicies.join(", ")} matched zero findings; remove or refine the matcher.`,
+    });
+  }
 
   alerts.sort((left, right) => left.code.localeCompare(right.code));
   return { summary, alerts };
@@ -558,10 +1086,12 @@ export function createFindingFilterHealthReport(input: {
   header: ArtifactHeader;
   filterReport: FindingFilterReport;
   highFilterRateThreshold?: number;
+  policies?: FindingFilterPolicyRule[];
 }): FindingFilterHealthReport {
   const built = buildFindingFilterHealth({
     filterReport: input.filterReport,
     highFilterRateThreshold: input.highFilterRateThreshold,
+    policies: input.policies,
   });
   return assertFindingFilterHealthReport({
     header: input.header,

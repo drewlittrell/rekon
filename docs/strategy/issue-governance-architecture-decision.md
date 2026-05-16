@@ -160,12 +160,27 @@ review packets unless an ADR promotes them. Promotion requires:
    flow into issue groups and coherency rollups. Filtered
    findings remain auditable but no longer become active
    governed issue groups or coherency items.
-3. **(next slice)** Filter policy / configured exclusions v1:
-   add explicit config-backed finding filter policies
-   (`.rekon/config.json`) so operators can extend the
-   deterministic v1 ruleset with project-specific exclusions
-   without losing the audit trail.
-4. **(future)** Merge-decision freshness guardrails,
+3. **(shipped)** Filter policy / configured exclusions v1:
+   `.rekon/config.json` accepts a `findingFilters` array of
+   project-specific policy rules. Each rule names a
+   `FindingFilterReason`, supplies `evidence`, and matches
+   findings by deterministic `pathPattern` (simple glob),
+   `type`, `ruleId`, `severity`, `titleIncludes`, and/or
+   `descriptionIncludes`. Policy rules run **before** built-in
+   deterministic filters, in declared order; the first
+   matching rule wins. Filtered entries record
+   `source: "policy"` plus a `policyId` so the audit trail
+   names the rule. `FindingFilterReport.summary.byPolicy` /
+   `FindingFilterHealthReport.summary.byPolicy` report
+   per-policy counts. Three new health alerts:
+   `policy-over-filtering`, `low-confidence-policy-filter`,
+   `unused-policy-filter`. `rekon config validate` enforces
+   the policy schema and rejects duplicates / missing
+   matchers / absolute or traversal pathPattern.
+4. **(future)** Filter health / issue adjudication surfaces in
+   publications (architecture summary + agent contract render
+   filter-health alerts and filtered counts).
+5. **(future)** Merge-decision freshness guardrails,
    `GraphOntologyValidator`-style filters, persistent
    exclusion lists, and any further product-extension
    expansion.
@@ -175,9 +190,11 @@ review packets unless an ADR promotes them. Promotion requires:
 - When should `CoherencyDelta` switch from
   lifecycle / adjudication input to a final
   filtered-governed projection? Likely after step 2 lands.
-- Should finding filters be configurable via
+- ~~Should finding filters be configurable via
   `.rekon/config.json` (allowlist / denylist paths, custom
-  reasons)? Deferred until v1 shape proves stable.
+  reasons)? Deferred until v1 shape proves stable.~~ Resolved
+  by Filter policy / configured exclusions v1 (`findingFilters`
+  array in `.rekon/config.json`).
 - What filter-health alerts matter before beta? v1 ships two:
   high-filter-rate (`filterRate > 0.8`) and
   low-confidence-filtered (`> 0`). Severity-aware alerts and

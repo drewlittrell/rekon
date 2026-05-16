@@ -4,6 +4,62 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped filter policy / configured exclusions v1 (P1.1
+  filter policy v1 slice). `.rekon/config.json` now accepts
+  an optional `findingFilters` array of project-specific
+  policy rules. Each entry requires `id`, `reason`, and
+  `evidence`, plus at least one deterministic matcher among
+  `pathPattern` (simple glob — `*` per segment, `**` across
+  segments, `?` per character), `type`, `ruleId`, `severity`,
+  `titleIncludes`, `descriptionIncludes`. Path patterns are
+  project-relative; absolute paths and `..` traversal are
+  rejected at validation time. Optional `confidence` defaults
+  to `medium`. Policy rules run **before** built-in
+  deterministic filters, in declared order — the first
+  matching rule wins. Filtered entries record
+  `source: "policy"` plus a `policyId` so the audit trail
+  names the rule that suppressed each finding. The raw
+  `FindingReport` is **not** mutated; filtered findings stay
+  auditable in `FindingFilterReport.filteredFindings`. Two
+  new exported helpers in `@rekon/kernel-findings`:
+  `validateFindingFilterPolicyRules(value)` (used by
+  `rekon config validate`; returns sanitized rules + a sorted
+  issue list) and an updated `applyFindingFilters(...)` that
+  accepts an optional `policies: FindingFilterPolicyRule[]`.
+  New exported types: `FindingFilterPolicyRule`,
+  `FindingFilterPolicyValidationIssue`,
+  `ApplyFindingFiltersOptions`.
+  `FindingFilterReport.summary.byPolicy` reports per-policy
+  filtered counts (including zero for unused policies).
+  `FindingFilterHealthReport.summary` gains `byPolicy`,
+  `policyFiltered`, and `unusedPolicies`; three new
+  policy-aware alerts: `policy-over-filtering` (configured
+  policies suppress > 80 % of findings),
+  `low-confidence-policy-filter` (any policy hit at
+  `confidence: "low"`), and `unused-policy-filter` (any
+  configured policy matched zero findings). New runtime
+  helper options: `BuildFindingFilterReportOptions.policies`
+  and `BuildFindingFilterHealthReportOptions.policies`. The
+  CLI loads `.rekon/config.json` `findingFilters` once per
+  invocation (and once per `rekon refresh`) and forwards the
+  rules to both runtime helpers; output includes
+  `policyFilters: <count>`. `rekon config validate` now
+  validates `findingFilters` and rejects duplicate ids,
+  missing matchers, unknown reasons, and absolute /
+  traversal `pathPattern` values. Docs updated across
+  `finding-filter-report` artifact, `finding-filter-health-report`
+  artifact, `finding-filters` concept, `refresh` concept,
+  `issue-governance-architecture-decision` ADR
+  (Implementation Order + Open Questions), four strategy
+  docs (subsystem-purpose-map, behavior-roadmap,
+  guarantee-regression-plan, roadmap), and CHANGELOG. 19 new
+  contract tests in
+  `tests/contract/finding-filter-policy.test.mjs`. Full
+  suite: 502 passed / 1 skipped. No LLM, semantic, fuzzy, or
+  embedding matching; `GraphOntologyValidator` port and
+  persistent exclusion lists remain deferred. No SDK API
+  removal; no artifact schemaVersion bump; no new capability
+  role; no version bump; no npm publish.
 - Shipped filter-aware lifecycle / adjudication (P1.1
   filter-aware lifecycle v1 slice).
   `@rekon/runtime.buildFindingLifecycleReport` now lists the

@@ -38,6 +38,7 @@ import {
 import { type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
+  type FindingFilterPolicyRule,
   type FindingStatusDecision,
   type FindingStatusDecisionReason,
   type FindingStatusDecisionStatus,
@@ -46,6 +47,7 @@ import {
   type IssueMergeDecisionLedger,
   type IssueMergeDecisionReason,
   applyIssueMergeDecisionsToCandidates,
+  validateFindingFilterPolicyRules,
   createFindingStatusLedger,
 } from "@rekon/kernel-findings";
 
@@ -957,20 +959,37 @@ export async function main(argv: string[]): Promise<void> {
   if (command === "findings" && subcommand === "filter") {
     const store = createLocalArtifactStore(root);
     await store.init();
-    const report = await buildFindingFilterReport(store);
+    const policies = await loadFindingFilterPolicies(root);
+    const report = await buildFindingFilterReport(store, { policies });
     const ref = await store.write(report, { category: "findings" });
 
-    writeOutput({ artifact: ref, summary: report.summary }, json);
+    writeOutput(
+      {
+        artifact: ref,
+        summary: report.summary,
+        policyFilters: policies.length,
+      },
+      json,
+    );
     return;
   }
 
   if (command === "findings" && subcommand === "filter-health") {
     const store = createLocalArtifactStore(root);
     await store.init();
-    const health = await buildFindingFilterHealthReport(store);
+    const policies = await loadFindingFilterPolicies(root);
+    const health = await buildFindingFilterHealthReport(store, { policies });
     const ref = await store.write(health, { category: "findings" });
 
-    writeOutput({ artifact: ref, summary: health.summary, alerts: health.alerts }, json);
+    writeOutput(
+      {
+        artifact: ref,
+        summary: health.summary,
+        alerts: health.alerts,
+        policyFilters: policies.length,
+      },
+      json,
+    );
     return;
   }
 
@@ -1750,13 +1769,20 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   const store = createLocalArtifactStore(root);
   await store.init();
 
-  // 7a. findings filter — system / policy false-positive audit. Filter
-  // artifacts are produced so suppression is auditable; lifecycle /
-  // adjudication still read FindingReport directly until the
-  // filter-aware lifecycle slice ships next. See
+  // Load configured findingFilters policies once per refresh; both
+  // findings.filter and findings.filter-health pass them through to
+  // the runtime helpers so the audit trail names policy rules and
+  // filter-health can detect unused / over-broad policies.
+  const findingFilterPolicies = await loadFindingFilterPolicies(root);
+
+  // 7a. findings filter — system / policy false-positive audit. The
+  // raw FindingReport is never mutated; filtered findings stay
+  // auditable in FindingFilterReport.filteredFindings. See
   // docs/strategy/issue-governance-architecture-decision.md.
   try {
-    const filterReport = await buildFindingFilterReport(store);
+    const filterReport = await buildFindingFilterReport(store, {
+      policies: findingFilterPolicies,
+    });
     const ref = await store.write(filterReport, { category: "findings" });
     steps.push({
       id: "findings.filter",
@@ -1770,9 +1796,12 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   }
 
   // 7b. findings filter health — high-filter-rate /
-  // low-confidence-filtered diagnostics over the latest filter report.
+  // low-confidence-filtered + policy-aware diagnostics over the
+  // latest filter report.
   try {
-    const health = await buildFindingFilterHealthReport(store);
+    const health = await buildFindingFilterHealthReport(store, {
+      policies: findingFilterPolicies,
+    });
     const ref = await store.write(health, { category: "findings" });
     steps.push({
       id: "findings.filter-health",
@@ -2526,6 +2555,36 @@ const RISKY_PERMISSIONS: ReadonlySet<CapabilityPermission> = new Set([
   "network:outbound",
 ]);
 
+/**
+ * Read `.rekon/config.json` and return the structurally-valid
+ * `findingFilters` policies. Invalid entries are dropped at the
+ * loader boundary (operators run `rekon config validate` for a
+ * full diagnostic; the filter path stays best-effort so a
+ * malformed config doesn't blow up the whole refresh). Returns
+ * an empty array when the config is missing, unparseable, or
+ * has no `findingFilters` field.
+ */
+async function loadFindingFilterPolicies(root: string): Promise<FindingFilterPolicyRule[]> {
+  const configPath = resolve(root, ".rekon", "config.json");
+  let raw: string;
+  try {
+    raw = await readFile(configPath, "utf8");
+  } catch {
+    return [];
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+  const config = parsed as Record<string, unknown>;
+  if (!("findingFilters" in config)) return [];
+  const result = validateFindingFilterPolicyRules(config.findingFilters);
+  return result.rules;
+}
+
 async function validateConfig(root: string): Promise<ConfigValidationResult> {
   const configPath = resolve(root, ".rekon", "config.json");
   const issues: ConfigValidationIssue[] = [];
@@ -2707,6 +2766,18 @@ async function validateConfig(root: string): Promise<ConfigValidationResult> {
           }
         }
       }
+    }
+  }
+
+  if ("findingFilters" in config) {
+    const result = validateFindingFilterPolicyRules(config.findingFilters);
+    for (const issue of result.issues) {
+      issues.push({
+        code: issue.code,
+        severity: "error",
+        message: issue.message,
+        path: issue.path,
+      });
     }
   }
 

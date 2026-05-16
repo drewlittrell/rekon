@@ -475,6 +475,23 @@ Implementation batches:
   cite the stale filter. Pinned by
   `tests/contract/filter-aware-lifecycle-adjudication.test.mjs`
   (7 tests).
+- "Filter policy / configured exclusions v1" (shipped) —
+  `.rekon/config.json` accepts an optional `findingFilters`
+  array; entries are deterministic policy rules with
+  `id` / `reason` / `evidence` / optional `confidence` plus at
+  least one of `pathPattern` / `type` / `ruleId` / `severity` /
+  `titleIncludes` / `descriptionIncludes`. Policy rules run
+  before built-in deterministic filters; first match wins.
+  Filtered entries record `source: "policy"` + `policyId`.
+  `FindingFilterReport.summary.byPolicy` reports per-policy
+  counts; `FindingFilterHealthReport` adds
+  `policy-over-filtering`, `low-confidence-policy-filter`, and
+  `unused-policy-filter` alerts plus `summary.byPolicy` /
+  `summary.policyFiltered` / `summary.unusedPolicies`.
+  `rekon config validate` enforces the policy schema. The raw
+  `FindingReport` is **not** mutated; filtered findings remain
+  auditable. Pinned by
+  `tests/contract/finding-filter-policy.test.mjs` (19 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

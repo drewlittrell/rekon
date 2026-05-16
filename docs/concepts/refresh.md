@@ -134,17 +134,22 @@ Notes:
    everything above.
 6. **evaluate** — runs every registered evaluator and writes
    `FindingReport` artifacts.
-7. **findings.filter** — runs the deterministic v1
-   filter rules (`generated-file` / `external-file` / `test-file`
-   / `canary-file` / `content-filter`) over the latest
-   `FindingReport` and writes a `FindingFilterReport`. The
-   `FindingReport` is **not** mutated; filtered findings remain
-   auditable in `FindingFilterReport.filteredFindings`. See
+7. **findings.filter** — loads configured exclusion policies
+   from `.rekon/config.json` `findingFilters` (when present),
+   runs them and the deterministic v1 rules (`generated-file`
+   / `external-file` / `test-file` / `canary-file` /
+   `content-filter`) over the latest `FindingReport`, and writes
+   a `FindingFilterReport`. Configured policies run first;
+   when a policy matches, the filtered entry records
+   `source: "policy"` plus `policyId`. The raw `FindingReport`
+   is **not** mutated; filtered findings remain auditable in
+   `FindingFilterReport.filteredFindings`. See
    [finding-filters.md](finding-filters.md).
 8. **findings.filter-health** — summarizes the latest filter
-   report into a `FindingFilterHealthReport` with `filterRate`
-   plus deterministic v1 alerts (`high-filter-rate`,
-   `low-confidence-filtered`).
+   report into a `FindingFilterHealthReport` with `filterRate`,
+   `byPolicy`, and deterministic alerts (`high-filter-rate`,
+   `low-confidence-filtered`, `policy-over-filtering`,
+   `low-confidence-policy-filter`, `unused-policy-filter`).
 9. **findings.lifecycle** — builds the `FindingLifecycleReport`
    from the latest report and the latest status ledger. The
    lifecycle is now **filter-aware**: when the latest
