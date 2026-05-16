@@ -241,6 +241,14 @@ The alert list is empty when filtering looks healthy.
   refuses low-confidence or duplicate-id rules without
   `--force`. See
   [finding-filter-policy-suggestions.md](finding-filter-policy-suggestions.md).
+- **Visible in publications.** The architecture summary
+  renders a `## Finding Filter Policy Suggestions` section
+  with a per-suggestion table; the agent contract renders a
+  `### Finding Filter Policy Suggestions` subsection with an
+  advisory blockquote and `Do Not Do` reminders so agents
+  never apply suggestions on their own. Both surfaces show
+  a stale banner when the suggestion report cites filter
+  reports older than the latest indexed `FindingFilterReport`.
 
 ## CLI Surface
 

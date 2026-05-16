@@ -4,6 +4,85 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped filter policy suggestions surfaced in architecture
+  summary / agent contract (P1.1
+  filter-policy-suggestions-publications v2 slice).
+  `@rekon/capability-docs.architecture-summary` now reads the
+  latest `FindingFilterPolicySuggestionReport`, cites it in
+  `header.inputRefs`, and renders a
+  `## Finding Filter Policy Suggestions` section after
+  `## Finding Filter Health`. The section lists total /
+  by-reason / by-confidence counts, a per-suggestion table
+  with columns `Suggestion | Confidence | Reason |
+  Suggested Rule | Affected Findings | Evidence` (capped at
+  20 rows), a `--force` warning when any suggestion is
+  low-confidence or duplicates an existing `findingFilters`
+  rule id, and an audit-pointer footer clarifying that
+  suggestions are advisory and that
+  `rekon findings filter-policy apply <suggestion-id>` is the
+  only command that mutates `.rekon/config.json`. Missing
+  suggestion reports emit explicit
+  `rekon findings filter-policy suggest` /
+  `rekon refresh` hints.
+  `@rekon/capability-docs.agent-contract` adds a matching
+  `### Finding Filter Policy Suggestions` subsection under
+  `Active Governance State` with an advisory blockquote,
+  top suggestions (capped at 5; each rendered as
+  `<id> — <reason> (<confidence>) → <suggested rule preview>
+  (<affected count> finding(s))`), and two new `Do Not Do`
+  reminders:
+  - "Do not apply filter policy suggestions without explicit
+    operator approval; run
+    `rekon findings filter-policy apply <id>` only when the
+    operator instructs it."
+  - "Do not treat filter policy suggestions as already-applied
+    config; they are advisory until
+    `rekon findings filter-policy apply` writes them to
+    `.rekon/config.json`."
+  Both publications additionally render an inline
+  **Stale Suggestions** banner when the cited suggestion
+  report's `header.inputRefs` does not reference the latest
+  `FindingFilterReport` artifact id (so an operator can see at
+  a glance that the suggestions were derived from older filter
+  data and that `rekon findings filter-policy suggest` should
+  be rerun). New exports from `@rekon/capability-docs`:
+  - `FilterPolicySuggestionStaleness` (type) —
+    `{ stale, latestFilterReportId?, citedFilterReportIds }`.
+  - `computeFilterPolicySuggestionStale(suggestion, filterReport?)`
+    — file-local stale-detection helper (deterministic, no
+    network, no LLM).
+  Manifest update: `@rekon/capability-docs.consumes` adds
+  `FindingFilterPolicySuggestionReport`; new
+  `finding-filter-policy-suggestions.changed` invalidation rule
+  invalidates both publications when the suggestion report
+  changes. Stale-suggestion detection is a targeted local
+  check; it does **not** extend the global
+  `detectGovernanceFreshness` helper. The `Do Not Do` block on
+  the agent contract grows from one to three filter-related
+  reminders (one from filter-health v1 + two new
+  policy-suggestion reminders). Docs updated:
+  `agent-contract-publication` artifact + concept,
+  `architecture-summary-publication` artifact + concept,
+  `finding-filter-policy-suggestion-report` artifact (new
+  "Consumed By" entries), `finding-filter-policy-suggestions`
+  concept (new "Surfaced In Publications" section),
+  `finding-filters` concept (new "Visible in publications"
+  bullet), `issue-governance-architecture-decision` ADR
+  (Implementation Order step 6 flipped to shipped + new
+  step 7), four strategy docs (subsystem-purpose-map,
+  behavior-roadmap, guarantee-regression-plan, roadmap), and
+  CHANGELOG. 13 new contract tests in
+  `tests/contract/publications-filter-policy-suggestions.test.mjs`
+  cover: architecture-summary inputRefs / counts / row rendering
+  / `--force` warning / missing-report branch / stale banner;
+  agent-contract inputRefs / subsection / advisory blockquote /
+  Do Not Do reminders / missing-report branch / stale banner;
+  regression coverage for the unrelated agents and proof
+  publishers, plus a hardened `rekon artifacts validate`
+  invariant. Full suite: 542 passed / 1 skipped / 0 failed. No
+  LLM, semantic, fuzzy, or embedding matching; no new CLI
+  surface; no artifact schemaVersion bump; no new capability
+  role; no version bump; no npm publish.
 - Shipped filter policy / exclusion persistence v2 (P1.1
   filter-policy-suggestions v2 slice). New
   `FindingFilterPolicySuggestionReport` artifact records

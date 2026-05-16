@@ -2,6 +2,7 @@ import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
   type FindingFilterHealthReport,
+  type FindingFilterPolicySuggestionReport,
   type FindingFilterReport,
   type FindingLifecycleReport,
   type IssueAdjudicationReport,
@@ -247,6 +248,21 @@ export const architectureSummaryPublisher: Publisher = {
       "FindingFilterHealthReport",
       inputRefs,
     );
+    // Filter policy suggestions (P1.1 filter-policy-suggestions
+    // publication surfaces). The publication renders the report
+    // when present and emits stale-source guidance when the
+    // suggestion report cites older filter reports than the
+    // latest indexed one.
+    const findingFilterPolicySuggestionReport =
+      await readLatestArtifact<FindingFilterPolicySuggestionReport>(
+        artifacts,
+        "FindingFilterPolicySuggestionReport",
+        inputRefs,
+      );
+    const findingFilterPolicySuggestionStale = computeFilterPolicySuggestionStale(
+      findingFilterPolicySuggestionReport,
+      findingFilterReport,
+    );
     const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
     const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
       artifacts,
@@ -286,6 +302,8 @@ export const architectureSummaryPublisher: Publisher = {
         lifecycleReport,
         findingFilterReport,
         findingFilterHealthReport,
+        findingFilterPolicySuggestionReport,
+        findingFilterPolicySuggestionStale,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -446,6 +464,20 @@ export const agentContractPublisher: Publisher = {
       "FindingFilterHealthReport",
       inputRefs,
     );
+    // Filter policy suggestions (P1.1 filter-policy-suggestions
+    // publication surfaces). Agent contract makes the durable-
+    // policy candidate path visible and reminds the agent that
+    // applying suggestions requires explicit operator approval.
+    const findingFilterPolicySuggestionReport =
+      await readLatestArtifact<FindingFilterPolicySuggestionReport>(
+        artifacts,
+        "FindingFilterPolicySuggestionReport",
+        inputRefs,
+      );
+    const findingFilterPolicySuggestionStale = computeFilterPolicySuggestionStale(
+      findingFilterPolicySuggestionReport,
+      findingFilterReport,
+    );
     const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
     const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
       artifacts,
@@ -493,6 +525,8 @@ export const agentContractPublisher: Publisher = {
         lifecycleReport,
         findingFilterReport,
         findingFilterHealthReport,
+        findingFilterPolicySuggestionReport,
+        findingFilterPolicySuggestionStale,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -530,6 +564,7 @@ export default defineCapability({
       "FindingLifecycleReport",
       "FindingFilterReport",
       "FindingFilterHealthReport",
+      "FindingFilterPolicySuggestionReport",
       "WorkOrder",
       "ReconciliationPlan",
       "VerificationPlan",
@@ -562,6 +597,12 @@ export default defineCapability({
         description:
           "Regenerate publications when filtering / filter-health changes so the rendered filter-health section stays current.",
         inputs: ["FindingFilterReport", "FindingFilterHealthReport"],
+      },
+      {
+        id: "finding-filter-policy-suggestions.changed",
+        description:
+          "Regenerate publications when filter-policy suggestions change so the rendered suggestions section stays current.",
+        inputs: ["FindingFilterPolicySuggestionReport"],
       },
       {
         id: "proof-loop.changed",
@@ -920,6 +961,8 @@ type ArchitectureSummaryInputs = {
   lifecycleReport?: FindingLifecycleReport;
   findingFilterReport?: FindingFilterReport;
   findingFilterHealthReport?: FindingFilterHealthReport;
+  findingFilterPolicySuggestionReport?: FindingFilterPolicySuggestionReport;
+  findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -942,6 +985,8 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     lifecycleReport,
     findingFilterReport,
     findingFilterHealthReport,
+    findingFilterPolicySuggestionReport,
+    findingFilterPolicySuggestionStale,
     freshness,
     inputRefs,
     generatedAt,
@@ -1138,6 +1183,18 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   // findings are not deleted; the section always points back at the
   // FindingFilterReport audit.
   appendArchitectureFindingFilterHealth(sections, findingFilterReport, findingFilterHealthReport);
+
+  // Finding Filter Policy Suggestions — surfaces the
+  // FindingFilterPolicySuggestionReport so operators can see when
+  // repeated filtered findings imply a durable findingFilters rule.
+  // The section is always advisory; config is never mutated by
+  // publication.
+  appendArchitectureFindingFilterPolicySuggestions(
+    sections,
+    findingFilterPolicySuggestionReport,
+    findingFilterPolicySuggestionStale,
+    findingFilterReport,
+  );
 
   // Freshness Warnings (only when there are warnings — keep clean output silent)
   if (freshness && freshness.warnings.length > 0) {
@@ -1816,6 +1873,8 @@ type AgentContractInputs = {
   lifecycleReport?: FindingLifecycleReport;
   findingFilterReport?: FindingFilterReport;
   findingFilterHealthReport?: FindingFilterHealthReport;
+  findingFilterPolicySuggestionReport?: FindingFilterPolicySuggestionReport;
+  findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -1855,6 +1914,8 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat raw finding count as governed issue count when an IssueAdjudicationReport exists; use governed issue groups (memberFindingIds preserves raw traceability).",
   "Do not treat accepted merge roll-ups as automatic mutation of raw issue groups; inspect mergedIssueGroupIds and memberFindingIds before editing, and consult both member groups for context.",
   "Do not treat a clean active-governance surface as proof that no raw findings exist; inspect FindingFilterReport when filter-health warnings exist or the filter rate is high.",
+  "Do not apply filter policy suggestions without explicit operator approval; run `rekon findings filter-policy apply <id>` only when the operator instructs it.",
+  "Do not treat filter policy suggestions as already-applied config; they are advisory until `rekon findings filter-policy apply` writes them to `.rekon/config.json`.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -1868,6 +1929,8 @@ function renderAgentContract(input: AgentContractInputs): string {
     lifecycleReport,
     findingFilterReport,
     findingFilterHealthReport,
+    findingFilterPolicySuggestionReport,
+    findingFilterPolicySuggestionStale,
     remediationWorkOrder,
     resolverWorkOrder,
     reconciliationPlan,
@@ -2109,6 +2172,18 @@ function renderAgentContract(input: AgentContractInputs): string {
   // filter-health warnings so agents do not treat a clean active
   // surface as proof of a clean codebase.
   appendAgentContractFindingFilterHealth(sections, findingFilterReport, findingFilterHealthReport);
+
+  // Finding Filter Policy Suggestions — agent-facing subsection
+  // mirroring the architecture summary's Finding Filter Policy
+  // Suggestions section. Surfaces advisory durable-policy
+  // candidates and reminds the agent that applying suggestions
+  // requires explicit operator approval.
+  appendAgentContractFindingFilterPolicySuggestions(
+    sections,
+    findingFilterPolicySuggestionReport,
+    findingFilterPolicySuggestionStale,
+    findingFilterReport,
+  );
 
   // Governance Freshness — show even when fresh so agents can rely on the read.
   sections.push("### Governance Freshness");
@@ -2637,6 +2712,205 @@ function appendAgentContractFindingFilterHealth(
 
   sections.push(
     "If filter rate is high or policy warnings exist, inspect `FindingFilterReport.filteredFindings` before claiming the repo has no active issues. Filtered findings remain auditable (each entry records reason, evidence, confidence, source, and optional policyId).",
+  );
+  sections.push("");
+}
+
+/**
+ * Lightweight staleness check for a
+ * `FindingFilterPolicySuggestionReport`. The suggestion deriver
+ * folds in the latest N filter reports (default 5), so a fresh
+ * report cites the latest indexed `FindingFilterReport` in its
+ * own `header.inputRefs`. When the latest filter report id
+ * is **not** cited, the suggestion report is stale — the operator
+ * has run a newer filter pass without re-running
+ * `rekon findings filter-policy suggest`.
+ *
+ * Local check only — keeps publication freshness handling
+ * self-contained instead of expanding the global freshness
+ * helper. Returns `null` when there's nothing to compare.
+ */
+export type FilterPolicySuggestionStaleness = {
+  stale: boolean;
+  latestFilterReportId?: string;
+  citedFilterReportIds: string[];
+};
+
+function computeFilterPolicySuggestionStale(
+  suggestionReport: FindingFilterPolicySuggestionReport | undefined,
+  latestFilterReport: FindingFilterReport | undefined,
+): FilterPolicySuggestionStaleness | undefined {
+  if (!suggestionReport) return undefined;
+  if (!latestFilterReport) return { stale: false, citedFilterReportIds: [] };
+  const citedFilterReportIds = (suggestionReport.header.inputRefs ?? [])
+    .filter((ref) => ref.type === "FindingFilterReport")
+    .map((ref) => ref.id);
+  const latestFilterReportId = latestFilterReport.header.artifactId;
+  const stale = !citedFilterReportIds.includes(latestFilterReportId);
+  return { stale, latestFilterReportId, citedFilterReportIds };
+}
+
+function summarizeSuggestedRule(rule: {
+  id: string;
+  reason: string;
+  pathPattern?: string;
+  type?: string;
+  ruleId?: string;
+  severity?: string;
+  titleIncludes?: string;
+  descriptionIncludes?: string;
+  confidence?: string;
+}): string {
+  const parts = [`id=\`${rule.id}\``, `reason=\`${rule.reason}\``];
+  if (rule.pathPattern) parts.push(`pathPattern=\`${rule.pathPattern}\``);
+  if (rule.type) parts.push(`type=\`${rule.type}\``);
+  if (rule.ruleId) parts.push(`ruleId=\`${rule.ruleId}\``);
+  if (rule.severity) parts.push(`severity=\`${rule.severity}\``);
+  if (rule.titleIncludes) parts.push(`titleIncludes=\`${rule.titleIncludes}\``);
+  if (rule.descriptionIncludes) parts.push(`descriptionIncludes=\`${rule.descriptionIncludes}\``);
+  return parts.join(", ");
+}
+
+function summarizeAffectedFindings(ids: string[] | undefined): string {
+  const list = Array.isArray(ids) ? ids : [];
+  if (list.length === 0) return "_none_";
+  const head = list.slice(0, 3).join(", ");
+  if (list.length <= 3) return `${list.length}: ${head}`;
+  return `${list.length}: ${head} _(+${list.length - 3} more)_`;
+}
+
+function summarizeEvidence(ids: string[] | undefined): string {
+  const list = Array.isArray(ids) ? ids : [];
+  if (list.length === 0) return "_none_";
+  if (list.length === 1) return `1 report: \`${list[0]}\``;
+  return `${list.length} reports`;
+}
+
+function appendArchitectureFindingFilterPolicySuggestions(
+  sections: string[],
+  suggestionReport: FindingFilterPolicySuggestionReport | undefined,
+  staleness: FilterPolicySuggestionStaleness | undefined,
+  filterReport: FindingFilterReport | undefined,
+): void {
+  sections.push("## Finding Filter Policy Suggestions");
+  sections.push("");
+
+  if (!suggestionReport) {
+    if (!filterReport) {
+      sections.push(
+        "No FindingFilterPolicySuggestionReport indexed yet. Run `rekon findings filter` first, then `rekon findings filter-policy suggest`.",
+      );
+    } else {
+      sections.push(
+        "No FindingFilterPolicySuggestionReport indexed. Run `rekon findings filter-policy suggest` to surface candidate `findingFilters` rules from recent filter reports.",
+      );
+    }
+    sections.push("");
+    return;
+  }
+
+  if (staleness?.stale) {
+    sections.push(
+      `> Finding filter policy suggestions may be stale: a newer FindingFilterReport (\`${staleness.latestFilterReportId ?? "unknown"}\`) exists. Re-run \`rekon findings filter-policy suggest\` before relying on these suggestions.`,
+    );
+    sections.push("");
+  }
+
+  const summary = suggestionReport.summary;
+  sections.push(`- Total suggestions: ${summary.totalSuggestions}`);
+  sections.push(`- High confidence: ${summary.highConfidence}`);
+  sections.push(`- Medium confidence: ${summary.mediumConfidence}`);
+  sections.push(`- Low confidence: ${summary.lowConfidence}`);
+  sections.push("");
+
+  if (summary.totalSuggestions === 0) {
+    sections.push("No filter policy suggestions in latest report.");
+    sections.push("");
+  } else {
+    sections.push("| Suggestion | Confidence | Reason | Suggested Rule | Affected Findings | Evidence |");
+    sections.push("| --- | --- | --- | --- | --- | --- |");
+    for (const suggestion of suggestionReport.suggestions.slice(0, 20)) {
+      const ruleSummary = summarizeSuggestedRule(suggestion.suggestedRule);
+      const affected = summarizeAffectedFindings(suggestion.affectedFindingIds);
+      const evidence = summarizeEvidence(suggestion.sourceFilterReportIds);
+      sections.push(
+        `| \`${suggestion.id}\` | ${suggestion.confidence} | ${suggestion.reason} | ${escapeCell(ruleSummary)} | ${escapeCell(affected)} | ${escapeCell(evidence)} |`,
+      );
+    }
+    if (suggestionReport.suggestions.length > 20) {
+      sections.push(`| _… ${suggestionReport.suggestions.length - 20} more suggestions_ | | | | | |`);
+    }
+    sections.push("");
+
+    if (summary.lowConfidence > 0) {
+      sections.push(
+        "Low-confidence suggestions require explicit `--force` to apply via `rekon findings filter-policy apply`.",
+      );
+      sections.push("");
+    }
+  }
+
+  sections.push(
+    "Suggestions are advisory and do not mutate `.rekon/config.json`. Apply explicitly with `rekon findings filter-policy apply <suggestion-id>` (use `--force` for low-confidence or duplicate-rule-id cases). See `docs/concepts/finding-filter-policy-suggestions.md`.",
+  );
+  sections.push("");
+}
+
+function appendAgentContractFindingFilterPolicySuggestions(
+  sections: string[],
+  suggestionReport: FindingFilterPolicySuggestionReport | undefined,
+  staleness: FilterPolicySuggestionStaleness | undefined,
+  filterReport: FindingFilterReport | undefined,
+): void {
+  sections.push("### Finding Filter Policy Suggestions");
+  sections.push("");
+
+  if (!suggestionReport) {
+    if (!filterReport) {
+      sections.push(
+        "No FindingFilterPolicySuggestionReport indexed. Run `rekon findings filter` followed by `rekon findings filter-policy suggest` before applying durable filter policy.",
+      );
+    } else {
+      sections.push(
+        "No FindingFilterPolicySuggestionReport indexed. Run `rekon findings filter-policy suggest` to surface candidate `findingFilters` rules from recent filter reports.",
+      );
+    }
+    sections.push("");
+    return;
+  }
+
+  const summary = suggestionReport.summary;
+  sections.push(`- Suggestions available: ${summary.totalSuggestions}`);
+  sections.push(`- High confidence: ${summary.highConfidence}`);
+  sections.push(`- Low confidence requiring \`--force\`: ${summary.lowConfidence}`);
+  sections.push("");
+
+  if (staleness?.stale) {
+    sections.push(
+      `> Suggestion report may be stale: latest FindingFilterReport (\`${staleness.latestFilterReportId ?? "unknown"}\`) is not cited. Re-run \`rekon findings filter-policy suggest\` before acting.`,
+    );
+    sections.push("");
+  }
+
+  if (summary.totalSuggestions > 0) {
+    sections.push(
+      "> Filter policy suggestions are advisory. Do not assume they are applied.",
+    );
+    sections.push("");
+    for (const suggestion of suggestionReport.suggestions.slice(0, 5)) {
+      const affected = suggestion.affectedFindingIds?.length ?? 0;
+      sections.push(
+        `- \`${suggestion.id}\` — ${suggestion.confidence} — ${suggestion.reason} — affected findings: ${affected}`,
+      );
+    }
+    if (suggestionReport.suggestions.length > 5) {
+      sections.push(`- _… ${suggestionReport.suggestions.length - 5} more suggestions_`);
+    }
+    sections.push("");
+  }
+
+  sections.push(
+    "Ask the operator before applying filter policy suggestions. Do not mutate `.rekon/config.json` unless explicitly instructed. The operator-driven step is `rekon findings filter-policy apply <suggestion-id>` (use `--force` for low-confidence or duplicate-rule-id cases).",
   );
   sections.push("");
 }

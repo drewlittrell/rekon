@@ -134,6 +134,34 @@ Combined with the suggestion report's own
 `header.inputRefs`, every suggestion is fully traceable
 back to the filter audit that produced it.
 
+## Surfaced In Publications
+
+`@rekon/capability-docs.architecture-summary` renders a
+`## Finding Filter Policy Suggestions` section with one row
+per suggestion (id, confidence, reason, suggested-rule
+summary, affected finding count, evidence-report count) plus
+total / high / medium / low counts, an explicit
+`--force` note when low-confidence suggestions exist, and a
+closing audit-pointer paragraph naming the
+`rekon findings filter-policy apply <suggestion-id>`
+command.
+
+`@rekon/capability-docs.agent-contract` renders a
+`### Finding Filter Policy Suggestions` subsection with the
+same counts plus an advisory blockquote ("Filter policy
+suggestions are advisory. Do not assume they are applied.")
+and up to five suggestion bullets. The agent-contract
+`Do Not Do` list gains two reminders so agents never apply
+suggestions without operator approval or treat them as
+already-applied config.
+
+Both publications cite the suggestion report in
+`header.inputRefs`. When the suggestion report does **not**
+cite the latest `FindingFilterReport`, both surfaces emit a
+stale banner ("Finding filter policy suggestions may be
+stale" / "Suggestion report may be stale") pointing
+operators back to `rekon findings filter-policy suggest`.
+
 ## What This Is Not
 
 - **Not automatic mutation.** Suggestions are advisory

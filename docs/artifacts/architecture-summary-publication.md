@@ -125,37 +125,57 @@ The publication content includes these sections, in order:
    command-shaped hint (`rekon findings filter` /
    `rekon findings filter-health` / `rekon refresh`). See
    [../concepts/finding-filters.md](../concepts/finding-filters.md).
-8. **Top Affected Paths** — table of paths from
+8. **Finding Filter Policy Suggestions** — derived from
+   [`FindingFilterPolicySuggestionReport`](finding-filter-policy-suggestion-report.md).
+   Renders total / high / medium / low suggestion counts plus
+   a `Suggestion | Confidence | Reason | Suggested Rule |
+   Affected Findings | Evidence` table (capped at 20 rows with
+   an overflow line). When low-confidence suggestions exist,
+   the section explicitly notes that `--force` is required to
+   apply them. The section always closes with the audit
+   pointer "Suggestions are advisory and do not mutate
+   `.rekon/config.json`. Apply explicitly with
+   `rekon findings filter-policy apply <suggestion-id>`." When
+   the suggestion report is missing, the section emits an
+   explicit `rekon findings filter-policy suggest` hint
+   (skipping ahead to `rekon findings filter` first if no
+   filter report exists yet). When the latest
+   `FindingFilterReport` is **not** cited in the suggestion
+   report's `inputRefs`, the section emits a stale banner
+   pointing operators back to
+   `rekon findings filter-policy suggest`. See
+   [../concepts/finding-filter-policy-suggestions.md](../concepts/finding-filter-policy-suggestions.md).
+9. **Top Affected Paths** — table of paths from
    `CoherencyDelta.summary.topPaths`. Up to 10 rows.
-9. **Remediation Queue** — table of remediation steps from
-   `CoherencyDelta.remediationQueue` with priority, finding id,
-   severity, systems, and the truncated action. Up to 20 rows.
-10. **Work Orders** — table showing the latest remediation
+10. **Remediation Queue** — table of remediation steps from
+    `CoherencyDelta.remediationQueue` with priority, finding id,
+    severity, systems, and the truncated action. Up to 20 rows.
+11. **Work Orders** — table showing the latest remediation
     (`source = "coherency-delta"`) and resolver work orders. Each row
     reports source, goal, paths, owner systems, and selected item count
     (for remediation orders) or `n/a` (for resolver orders). Missing
     work orders are called out with a "run `rekon intent remediation`
     or `rekon intent work-order`" hint.
-11. **Reconciliation Plans** — summary table (total / artifact-only /
+12. **Reconciliation Plans** — summary table (total / artifact-only /
     source-write deferred / command deferred / manual review / applied
     / deferred / denied) plus up to 5 top operations with class, status,
     permissions, and finding. Missing plans recommend
     `rekon reconcile suggest`.
-12. **Verification Status** — table of the latest `VerificationResult`
+13. **Verification Status** — table of the latest `VerificationResult`
     status, summary counts, recorded by, recorded at. Failed / partial
     / not-run results display an explicit "Verification is not
     complete." line. If the result references an older
     `VerificationPlan` than the latest, the section says
     "VerificationResult may be stale; latest VerificationPlan differs."
-13. **Proof Loop** — `Governance:` / `Planning:` / `Verification:`
+14. **Proof Loop** — `Governance:` / `Planning:` / `Verification:`
     state bullets plus a single "Suggested next command:" line that
     walks the loop `coherency delta -> intent remediation -> reconcile
     suggest -> verify record -> address failures -> publish`.
-14. **Agent Guidance** — short bullet list reminding readers of the
+15. **Agent Guidance** — short bullet list reminding readers of the
     route → seam → preflight flow and required checks.
-15. **Freshness** — instructs the operator to run
+16. **Freshness** — instructs the operator to run
     `rekon artifacts freshness --json`.
-16. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
+17. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
     header.
 
 ## Inputs Consumed

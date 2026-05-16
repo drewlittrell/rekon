@@ -529,6 +529,27 @@ Implementation batches:
   suggestions. Pinned by
   `tests/contract/finding-filter-policy-suggestions.test.mjs`
   (15 tests).
+- "Filter policy suggestions surfaced in publications v2"
+  (shipped) — `@rekon/capability-docs.architecture-summary`
+  renders a `## Finding Filter Policy Suggestions` section
+  sourced from `FindingFilterPolicySuggestionReport` with
+  total / high / medium / low counts, a per-suggestion
+  table (id, confidence, reason, suggested-rule summary,
+  affected finding count, evidence), explicit `--force`
+  guidance for low-confidence suggestions, and a stale
+  banner when the report doesn't cite the latest
+  `FindingFilterReport`. `@rekon/capability-docs.agent-contract`
+  renders a `### Finding Filter Policy Suggestions`
+  subsection with the same counts, an advisory blockquote,
+  up to five suggestion bullets, and two new `Do Not Do`
+  reminders against applying suggestions without operator
+  approval. Both publications cite the suggestion report
+  in `header.inputRefs`. Manifest `consumes` adds
+  `FindingFilterPolicySuggestionReport`; new
+  `finding-filter-policy-suggestions.changed`
+  invalidation rule. Pinned by
+  `tests/contract/publications-filter-policy-suggestions.test.mjs`
+  (13 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

@@ -497,7 +497,72 @@ scope:
   `GraphOntologyValidator` port and persistent exclusion
   lists beyond config-backed rules remain deferred. Filter
   policy suggestions surfaced in architecture summary /
-  agent contract is the recommended next slice.
+  agent contract shipped immediately after this slice (see
+  next bullet).
+- **Filter policy suggestions surfaced in architecture
+  summary / agent contract (P1.1
+  filter-policy-suggestions-publications v2 slice).**
+  ✅ Shipped.
+  `@rekon/capability-docs.architecture-summary` now reads
+  the latest `FindingFilterPolicySuggestionReport`, cites it
+  in `header.inputRefs`, and renders a
+  `## Finding Filter Policy Suggestions` section with total
+  / high / medium / low counts plus a `Suggestion |
+  Confidence | Reason | Suggested Rule | Affected Findings |
+  Evidence` table (cap 20 rows). Always closes with
+  "Suggestions are advisory and do not mutate
+  `.rekon/config.json`. Apply explicitly with
+  `rekon findings filter-policy apply <suggestion-id>`."
+  When low-confidence suggestions exist, the section
+  explicitly notes that `--force` is required to apply
+  them. When the report does not cite the latest
+  `FindingFilterReport`, the section emits a stale banner
+  pointing operators back to
+  `rekon findings filter-policy suggest`. Missing-report
+  branches emit explicit suggest-command hints.
+  `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Policy Suggestions` subsection under
+  `Active Governance State` with `Suggestions available`,
+  `High confidence`, and
+  `Low confidence requiring --force` counts; when
+  suggestions exist, emits an advisory blockquote ("Filter
+  policy suggestions are advisory. Do not assume they are
+  applied.") plus up to five
+  `<id> — <confidence> — <reason> — affected findings: <n>`
+  bullets; always closes with "Ask the operator before
+  applying filter policy suggestions. Do not mutate
+  `.rekon/config.json` unless explicitly instructed." The
+  agent contract `Do Not Do` list gains two new reminders:
+  "Do not apply filter policy suggestions without explicit
+  operator approval; run `rekon findings filter-policy
+  apply <id>` only when the operator instructs it." and
+  "Do not treat filter policy suggestions as
+  already-applied config; they are advisory until
+  `rekon findings filter-policy apply` writes them to
+  `.rekon/config.json`."
+  Both publications cite `FindingFilterPolicySuggestionReport`
+  in `header.inputRefs`. Manifest update:
+  `@rekon/capability-docs.consumes` adds
+  `FindingFilterPolicySuggestionReport`; new
+  `finding-filter-policy-suggestions.changed`
+  invalidation rule (inputs:
+  `FindingFilterPolicySuggestionReport`). New small helper
+  `computeFilterPolicySuggestionStale(suggestionReport,
+  latestFilterReport)` and renderer helpers
+  `appendArchitectureFindingFilterPolicySuggestions` /
+  `appendAgentContractFindingFilterPolicySuggestions`,
+  plus three tiny utilities (`summarizeSuggestedRule`,
+  `summarizeAffectedFindings`, `summarizeEvidence`). 13 new
+  contract tests in
+  `tests/contract/publications-filter-policy-suggestions.test.mjs`.
+  Aligned to `services/IssueDetectionService.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/report-persistence.ts`,
+  `services/issues/filter-health.ts`. Config is never
+  mutated by publication; `apply` remains the only
+  mutating command. Filter policy suggestion apply safety
+  v2 (dry-run / diff preview / broad-pattern guard) is the
+  recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

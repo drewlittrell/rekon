@@ -128,6 +128,31 @@ The publication contains, in fixed order:
    claiming the repo has no active issues." Missing artifacts
    produce `rekon findings filter` / `rekon refresh` hints.
    See [../concepts/finding-filters.md](../concepts/finding-filters.md).
+   The **Finding Filter Policy Suggestions** subsection
+   follows, sourced from
+   [`FindingFilterPolicySuggestionReport`](finding-filter-policy-suggestion-report.md).
+   When the report exists, the subsection lists `Suggestions
+   available`, `High confidence`, and
+   `Low confidence requiring --force` counts, followed by an
+   advisory blockquote ("Filter policy suggestions are
+   advisory. Do not assume they are applied.") and up to five
+   `<id> — <confidence> — <reason> — affected findings: <n>`
+   bullets. Always closes with "Ask the operator before
+   applying filter policy suggestions. Do not mutate
+   `.rekon/config.json` unless explicitly instructed.…" The
+   `Do Not Do` section adds two reminders: "Do not apply
+   filter policy suggestions without explicit operator
+   approval; run `rekon findings filter-policy apply <id>`
+   only when the operator instructs it." and "Do not treat
+   filter policy suggestions as already-applied config; they
+   are advisory until `rekon findings filter-policy apply`
+   writes them to `.rekon/config.json`." When the suggestion
+   report does not cite the latest `FindingFilterReport`, the
+   subsection emits a stale banner pointing operators back to
+   `rekon findings filter-policy suggest`. Missing report
+   emits an explicit `rekon findings filter-policy suggest`
+   hint. See
+   [../concepts/finding-filter-policy-suggestions.md](../concepts/finding-filter-policy-suggestions.md).
 8. **Proof And Verification State** — presence/missing for
    remediation WorkOrder, resolver WorkOrder, ReconciliationPlan,
    VerificationPlan, VerificationResult; explicit "Verification is

@@ -74,6 +74,18 @@ states are surfaced, not hidden.
    `FindingFilterReport.filteredFindings`. Missing filter
    artifacts produce explicit `rekon findings filter` /
    `rekon findings filter-health` / `rekon refresh` hints.
+   When a `FindingFilterPolicySuggestionReport` is indexed,
+   the publisher also renders a `Finding Filter Policy
+   Suggestions` section with total / high / medium / low
+   counts, one row per suggestion (id, confidence, reason,
+   suggested rule summary, affected finding count, evidence),
+   and an explicit
+   `rekon findings filter-policy apply <suggestion-id>`
+   pointer. Low-confidence suggestions trigger an explicit
+   `--force` note. When the suggestion report does **not**
+   cite the latest `FindingFilterReport`, the section emits a
+   stale banner pointing operators back to
+   `rekon findings filter-policy suggest`.
    The publisher also runs a small
    `detectGovernanceFreshness` helper across the latest
    `FindingLifecycleReport` /

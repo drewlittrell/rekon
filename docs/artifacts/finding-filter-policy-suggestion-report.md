@@ -39,6 +39,19 @@ for the layered model.
 - `rekon findings filter-policy apply <id>` looks up the
   suggestion by id, runs the safety checks, and appends the
   suggested rule to `.rekon/config.json` `findingFilters`.
+- `@rekon/capability-docs.architecture-summary` renders a
+  `## Finding Filter Policy Suggestions` section sourced
+  from this artifact, including a per-suggestion table, the
+  `--force` requirement for low-confidence suggestions, the
+  explicit
+  `rekon findings filter-policy apply <suggestion-id>`
+  pointer, and a stale banner when the report cites filter
+  reports older than the latest indexed one.
+- `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Policy Suggestions` subsection that
+  warns suggestions are advisory and adds two `Do Not Do`
+  reminders against applying suggestions without operator
+  approval or treating them as already-applied config.
 - Operators / agents auditing whether recurring filtering
   should become durable policy.
 

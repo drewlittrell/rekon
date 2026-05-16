@@ -427,6 +427,37 @@ is the first stop before proposing a new capability batch.
   semantic, fuzzy, or embedding matching;
   `GraphOntologyValidator` port and persistent exclusion
   lists beyond config-backed rules remain deferred.
+- Filter policy suggestions surfaced in architecture summary /
+  agent contract (P1.1 filter-policy-suggestions-publications
+  v2 slice): `@rekon/capability-docs.architecture-summary`
+  renders a `## Finding Filter Policy Suggestions` section
+  sourced from the latest `FindingFilterPolicySuggestionReport`
+  with total / by-reason / by-confidence counts, a
+  per-suggestion table (suggestion id, confidence, reason,
+  suggested rule preview, affected-finding count, evidence
+  summary; capped at 20 rows), a `--force` warning for low /
+  duplicate suggestions, and an audit-pointer line clarifying
+  that suggestions never mutate `.rekon/config.json`.
+  `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Policy Suggestions` subsection with an
+  advisory blockquote, top suggestions (capped at 5), and two
+  new `Do Not Do` reminders: never apply suggestions without
+  explicit operator approval, never treat suggestions as
+  already-applied config. Both publications cite
+  `FindingFilterPolicySuggestionReport` in `header.inputRefs`,
+  so `rekon artifacts freshness` flags them stale when newer
+  suggestion reports land; both publications additionally
+  render an inline stale-suggestion banner when the cited
+  suggestion report doesn't reference the latest
+  `FindingFilterReport`. Manifest update:
+  `@rekon/capability-docs.consumes` adds
+  `FindingFilterPolicySuggestionReport`; new
+  `finding-filter-policy-suggestions.changed` invalidation
+  rule. New exported helper `computeFilterPolicySuggestionStale`
+  / type `FilterPolicySuggestionStaleness`. No new CLI surface;
+  `rekon findings filter-policy apply` remains the **only**
+  command that mutates `.rekon/config.json`. No LLM, semantic,
+  fuzzy, or embedding matching.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

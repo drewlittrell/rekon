@@ -75,7 +75,7 @@ state is current.
 | Operating Rules | always | n/a (durable rules) |
 | Resolver Workflow | always | n/a (durable flow) |
 | Ownership And Capabilities | `ObservedRepo` and/or `CapabilityMap` present | `ObservedRepo`, `OwnershipMap`, `CapabilityMap` |
-| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport`, `FindingFilterReport`, `FindingFilterHealthReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Finding Filter Health + Governance Freshness subsections) |
+| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport`, `FindingFilterReport`, `FindingFilterHealthReport`, `FindingFilterPolicySuggestionReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Finding Filter Health + Finding Filter Policy Suggestions + Governance Freshness subsections) |
 | Proof And Verification State | always | `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, `VerificationResult` |
 | Memory Guidance | always (table only when ranked items exist) | `MemorySelection` |
 | Required Checks | always | `VerificationPlan.commands` (default fallback) |
@@ -156,6 +156,37 @@ active-governance surface as proof that no raw findings exist;
 inspect FindingFilterReport when filter-health warnings exist or
 the filter rate is high." See
 [finding-filters.md](finding-filters.md).
+
+## Finding Filter Policy Suggestions
+
+The contract renders a `Finding Filter Policy Suggestions`
+subsection under `Active Governance State` whenever a
+[`FindingFilterPolicySuggestionReport`](../artifacts/finding-filter-policy-suggestion-report.md)
+is indexed. The subsection lists suggestions-available,
+high-confidence, and low-confidence-requiring-`--force` counts.
+When suggestions exist, the contract emits an advisory
+blockquote ("Filter policy suggestions are advisory. Do not
+assume they are applied.") and up to five
+`<id> — <confidence> — <reason> — affected findings: <n>`
+bullets. The subsection always closes with "Ask the operator
+before applying filter policy suggestions. Do not mutate
+`.rekon/config.json` unless explicitly instructed."
+
+When the suggestion report does **not** cite the latest
+`FindingFilterReport` in its `header.inputRefs`, the
+subsection emits a stale banner pointing operators back to
+`rekon findings filter-policy suggest`. Missing-report
+branches emit explicit suggest-command guidance instead.
+
+The `Do Not Do` list gains two reminders so agents never
+mutate config on their own initiative: "Do not apply filter
+policy suggestions without explicit operator approval; run
+`rekon findings filter-policy apply <id>` only when the
+operator instructs it." and "Do not treat filter policy
+suggestions as already-applied config; they are advisory
+until `rekon findings filter-policy apply` writes them to
+`.rekon/config.json`." See
+[finding-filter-policy-suggestions.md](finding-filter-policy-suggestions.md).
 
 ## CLI Surface
 

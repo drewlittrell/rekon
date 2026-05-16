@@ -214,11 +214,34 @@ review packets unless an ADR promotes them. Promotion requires:
    all other commands are read-only. Existing
    `findingFilters` rules suppress duplicate suggestions by
    `pathPattern` / `type`.
-6. **(future)** Filter policy suggestions surfaced in
-   architecture summary / agent contract — let users and
-   agents know when repeated filtered findings imply a
-   policy suggestion. Still no automatic config mutation.
-7. **(future)** Merge-decision freshness guardrails,
+6. **(shipped)** Filter policy suggestions surfaced in
+   architecture summary / agent contract.
+   `@rekon/capability-docs.architecture-summary` renders a
+   `## Finding Filter Policy Suggestions` section sourced
+   from `FindingFilterPolicySuggestionReport` (total / high /
+   medium / low counts, per-suggestion table, explicit
+   `rekon findings filter-policy apply <id>` pointer,
+   low-confidence `--force` note).
+   `@rekon/capability-docs.agent-contract` renders a
+   `### Finding Filter Policy Suggestions` subsection with
+   the same counts plus an advisory blockquote and up to
+   five suggestion bullets, and adds two `Do Not Do`
+   reminders against applying suggestions without operator
+   approval or treating them as already-applied config.
+   Both publications cite the suggestion report in
+   `header.inputRefs`. When the suggestion report does not
+   cite the latest `FindingFilterReport`, both surfaces emit
+   a stale banner pointing operators back to
+   `rekon findings filter-policy suggest`. Manifest update:
+   `capability-docs.consumes` adds
+   `FindingFilterPolicySuggestionReport`; new
+   `finding-filter-policy-suggestions.changed` invalidation
+   rule. Config is never mutated by publication; `apply`
+   remains the only mutating command.
+7. **(future)** Filter policy suggestion apply safety v2 —
+   dry-run / preview for config mutations, exact config diff
+   before apply, optional broad-pattern `--force` guard.
+8. **(future)** Merge-decision freshness guardrails,
    `GraphOntologyValidator`-style filters, persistent
    exclusion lists, and any further product-extension
    expansion.
