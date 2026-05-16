@@ -217,14 +217,20 @@ These are intentionally deferred. See
 > `issues.adjudicate` between `findings.lifecycle` and
 > `coherency.delta` so every refreshed delta is group-aware.
 
-> **Filter layer is not yet a CoherencyDelta input.** The
-> [issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
-> places a `FindingFilterReport` audit layer between raw
-> findings and the lifecycle / adjudication chain. The delta
-> still rolls up the lifecycle / adjudication output today.
-> Filtered findings remain visible in the delta counts; their
-> audit trail lives in `FindingFilterReport`. Filter-aware
-> coherency follows after filter-aware lifecycle / adjudication.
+> **Filter-aware via lifecycle / adjudication.** As of the
+> filter-aware lifecycle slice, `FindingLifecycleReport`
+> consumes `FindingFilterReport.keptFindings` when a current
+> filter report exists. `IssueAdjudicationReport` therefore
+> groups only kept findings, and `CoherencyDelta` items /
+> remediation queue entries roll up only kept governed issues.
+> Filtered findings remain auditable in
+> `FindingFilterReport.filteredFindings` but never appear as
+> active coherency items. When no current filter report exists,
+> the lifecycle (and thus the delta) transparently falls back to
+> the raw `FindingReport`. The delta itself does **not** read
+> `FindingFilterReport` directly — the lifecycle is the filter
+> boundary. See the
+> [issue governance architecture decision](../strategy/issue-governance-architecture-decision.md).
 
 ## Cross-References
 

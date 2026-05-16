@@ -456,11 +456,25 @@ Implementation batches:
   `rekon findings filter` / `rekon findings filter-health`.
   `rekon refresh` adds `findings.filter` and
   `findings.filter-health` steps between `evaluate` and
-  `findings.lifecycle`. Lifecycle / adjudication / coherency
-  still consume `FindingReport` directly — filter-aware
-  lifecycle / adjudication is the recommended next slice.
-  Pinned by `tests/contract/finding-filters.test.mjs` (18
-  tests).
+  `findings.lifecycle`. Pinned by
+  `tests/contract/finding-filters.test.mjs` (18 tests).
+- "Filter-aware lifecycle / adjudication" (shipped) —
+  `@rekon/runtime.buildFindingLifecycleReport` uses
+  `FindingFilterReport.keptFindings` as the active latest set
+  when the filter report cites the latest `FindingReport` in
+  its `inputRefs` (current-enough check); the lifecycle cites
+  the filter report (and the filter's upstream raw
+  `FindingReport`) in its own `inputRefs`. The raw
+  `FindingReport` is never mutated; filtered findings remain
+  auditable in `FindingFilterReport.filteredFindings`.
+  `IssueAdjudicationReport` and `CoherencyDelta` are filter-
+  aware transitively — only kept findings become governed
+  issue groups, coherency items, and remediation steps. When
+  the latest filter is missing or stale, the lifecycle falls
+  back to the raw `FindingReport` transparently and does not
+  cite the stale filter. Pinned by
+  `tests/contract/filter-aware-lifecycle-adjudication.test.mjs`
+  (7 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

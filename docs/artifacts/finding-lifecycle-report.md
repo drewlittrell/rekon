@@ -98,20 +98,40 @@ when a newer `FindingReport` or `FindingStatusLedger` exists.
 
 ## Relationship To Filtering
 
-`FindingLifecycleReport` currently reads `FindingReport`
-directly, alongside the latest `FindingStatusLedger`. The
-[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
-introduces a `FindingFilterReport` layer between
-`FindingReport` and this artifact: deterministic system /
-policy filters suppress false positives with auditable reason /
-evidence / confidence. In the current shipped slice, the filter
-report is produced but the lifecycle still consumes the raw
-`FindingReport`. The next slice
-("filter-aware lifecycle / adjudication") will let
-`FindingLifecycleReport` prefer
-`FindingFilterReport.keptFindings` when present. Until then,
-filtered findings remain visible in the lifecycle counts; their
-audit trail is in `FindingFilterReport`.
+`FindingLifecycleReport` reads
+[`FindingFilterReport.keptFindings`](finding-filter-report.md)
+as the active surface when a **current** filter report exists.
+"Current" means the filter report cites the latest
+`FindingReport` in its `header.inputRefs`. This is the filter-
+aware lifecycle slice of the
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md).
+
+Filter-aware lifecycle behavior:
+
+- The latest set comes from `FindingFilterReport.keptFindings`;
+  filtered findings stay auditable in
+  `FindingFilterReport.filteredFindings` and do **not** appear
+  as active lifecycle findings.
+- `inputRefs` cite the `FindingFilterReport` plus the transitive
+  raw `FindingReport` from the filter report's own
+  `inputRefs`, so lineage to the raw report stays intact.
+- Previous-report comparison (for the `new` vs. `existing` vs.
+  `resolved` lifecycle states) still walks prior `FindingReport`
+  entries as before — the filter projection only swaps the
+  **latest** set, not the historical sequence.
+- When the latest filter report is missing or stale (does not
+  cite the latest `FindingReport`), the lifecycle falls back to
+  the raw `FindingReport` transparently and does **not** cite
+  the stale filter. Staleness is also visible via
+  `rekon artifacts freshness` because the filter report itself
+  is flagged stale relative to the newer `FindingReport`.
+- The lifecycle continues to apply the latest
+  `FindingStatusLedger` for operator status decisions; status
+  decisions remain a separate concern from system / policy
+  filtering.
+
+Raw `FindingReport` is never mutated; the kept-vs-filtered
+projection is layered above it.
 
 ## Cross-References
 

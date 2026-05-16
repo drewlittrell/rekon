@@ -37,11 +37,18 @@ for the layered governance model that situates it.
 - `@rekon/runtime.buildFindingFilterHealthReport` reads the
   latest `FindingFilterReport` to derive
   `FindingFilterHealthReport`.
-- Future "filter-aware lifecycle / adjudication" slice will let
-  `FindingLifecycleReport` and `IssueAdjudicationReport` prefer
-  `keptFindings` from the latest filter report (when present)
-  before falling back to `FindingReport`. That slice is
-  intentionally deferred.
+- `@rekon/runtime.buildFindingLifecycleReport` reads the latest
+  `FindingFilterReport` when it cites the latest `FindingReport`
+  in its `inputRefs` (current-enough check) and uses
+  `keptFindings` as the active surface for lifecycle. The raw
+  `FindingReport` is **not** consulted for the latest set when a
+  current filter is present; filtered findings simply do not
+  become active lifecycle findings. When the filter report is
+  missing or stale relative to the latest `FindingReport`,
+  lifecycle falls back to the raw report transparently and does
+  not cite the stale filter. `IssueAdjudicationReport` and
+  `CoherencyDelta` benefit transitively: only kept findings
+  flow into governed issue groups and coherency rollups.
 - Operators / agents inspecting why a particular finding
   disappeared from the active governance surface.
 
@@ -136,10 +143,12 @@ between `evaluate` and `findings.lifecycle`.
 - **Not configurable yet.** v1 ships built-in deterministic
   rules. Configurable filters via `.rekon/config.json` are an
   open question.
-- **Not consumed by lifecycle / adjudication / coherency yet.**
-  Filter artifacts are produced and auditable today; downstream
-  consumption is the next slice
-  ([filter-aware lifecycle / adjudication](../strategy/issue-governance-architecture-decision.md)).
+- **Consumed by lifecycle (and transitively by adjudication +
+  coherency) as of the filter-aware lifecycle slice.** Raw
+  `FindingReport` data still flows for runs where no current
+  filter report exists, but in the standard `rekon refresh`
+  path the lifecycle uses `keptFindings` and the filter report
+  is load-bearing for the active governance surface.
 
 ## Cross-References
 

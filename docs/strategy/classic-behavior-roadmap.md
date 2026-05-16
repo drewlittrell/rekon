@@ -264,15 +264,55 @@ scope:
   `findings.filter-health` steps between `evaluate` and
   `findings.lifecycle`; `REQUIRED_REFRESH_ARTIFACT_TYPES` adds
   `FindingFilterReport` and `FindingFilterHealthReport`.
-  Lifecycle / adjudication / coherency still consume
-  `FindingReport` directly — filter-aware lifecycle /
-  adjudication is the recommended next slice. Aligned to
+  Lifecycle / adjudication / coherency consumed `FindingReport`
+  directly in this batch; the filter-aware lifecycle slice
+  (next bullet) ports them over. Aligned to
   `services/IssueDetectionService.ts`,
   `services/issues/content-filters.ts`,
   `services/issues/issue-result-filters.ts`,
   `services/issues/filter-health.ts`,
   `services/issues/report-persistence.ts`,
   `domain/issues/mergeIssues.ts`.
+- **Filter-aware lifecycle / adjudication (P1.1 filter-aware
+  lifecycle v1 slice).** ✅ Shipped.
+  `@rekon/runtime.buildFindingLifecycleReport` now lists the
+  latest `FindingFilterReport` and uses its `keptFindings` as
+  the active latest set when the filter report cites the
+  latest `FindingReport.id` in its `header.inputRefs`
+  (current-enough check). The lifecycle synthesizes a
+  `FindingReport`-shaped object that reuses the raw report's
+  header (so previous-report lifecycle comparison stays
+  stable) but swaps in `keptFindings` as the active surface;
+  the raw `FindingReport` on disk is **not** mutated. The
+  lifecycle's own `header.inputRefs` cite the
+  `FindingFilterReport` (so `rekon artifacts freshness` flags
+  lifecycle stale when a newer filter arrives) plus the
+  filter report's transitive raw `FindingReport` lineage. When
+  the latest filter is missing or stale (does not cite the
+  latest `FindingReport`), the lifecycle falls back to the raw
+  `FindingReport` transparently and does **not** cite a stale
+  filter. `IssueAdjudicationReport` and `CoherencyDelta` are
+  filter-aware **transitively** — adjudication consumes the
+  lifecycle, and the delta consumes the adjudication, so only
+  kept findings flow into governed issue groups, coherency
+  items, and the remediation queue. Filtered findings remain
+  auditable in `FindingFilterReport.filteredFindings`. No
+  schemaVersion bump; no new CLI surface; `rekon refresh` step
+  order unchanged. 7 new contract tests in
+  `tests/contract/filter-aware-lifecycle-adjudication.test.mjs`
+  covering keptFindings preference, raw-fallback,
+  stale-filter rejection, transitive adjudication / coherency
+  effects, end-to-end CLI rebuild, refresh on a clean
+  fixture, and `artifacts validate` cleanliness. Aligned to
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/filter-health.ts`,
+  `services/issues/report-persistence.ts`,
+  `domain/issues/mergeIssues.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`.
+  Filter policy / configured exclusions v1 is the recommended
+  next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

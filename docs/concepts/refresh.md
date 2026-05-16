@@ -147,9 +147,16 @@ Notes:
    `low-confidence-filtered`).
 9. **findings.lifecycle** — builds the `FindingLifecycleReport`
    from the latest report and the latest status ledger. The
-   lifecycle currently reads `FindingReport` directly; the
-   filter-aware variant ports it over to
-   `FindingFilterReport.keptFindings` in the next slice.
+   lifecycle is now **filter-aware**: when the latest
+   `FindingFilterReport` cites the latest `FindingReport` in
+   its `inputRefs`, the lifecycle uses `keptFindings` as the
+   active surface and cites the filter report in
+   `header.inputRefs`. Filtered findings stay auditable in
+   `FindingFilterReport.filteredFindings` but do not appear as
+   active lifecycle findings. When no current filter report
+   exists (or the latest filter is stale relative to the
+   latest report), the lifecycle falls back to the raw
+   `FindingReport` transparently.
 8. **issues.adjudicate** — builds the `IssueAdjudicationReport`
    from the latest `FindingLifecycleReport` (or from the latest
    `FindingReport` plus status ledger when no lifecycle exists).

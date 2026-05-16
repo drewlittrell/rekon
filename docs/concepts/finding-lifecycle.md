@@ -148,17 +148,20 @@ with `rekon coherency delta --root <repo> --json`. See
 
 ## Relationship To Filtering
 
-`FindingFilterReport` (the new filter layer between
-`FindingReport` and the lifecycle / adjudication chain) is
-produced today but **not yet consumed** by lifecycle. The
-lifecycle still operates over the full `FindingReport`; filtered
-findings remain visible in the lifecycle counts, and their
-audit trail lives in `FindingFilterReport`. The
+`FindingLifecycleReport` now consumes
+`FindingFilterReport.keptFindings` when a current filter report
+exists (filter-aware lifecycle slice). "Current" means the
+filter report cites the latest `FindingReport` in its
+`header.inputRefs`. Filtered findings stay auditable in
+`FindingFilterReport.filteredFindings` and do **not** appear as
+active lifecycle findings — they neither flow into issue groups
+nor into `CoherencyDelta` items / remediation steps. When no
+filter report exists or the latest filter is stale relative to
+the latest `FindingReport`, the lifecycle falls back to the raw
+`FindingReport` transparently. See the
 [issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
-plans for `FindingLifecycleReport` to prefer
-`FindingFilterReport.keptFindings` in the next slice; until
-then, treat filtered findings as a separate audit trail rather
-than as gone-from-lifecycle.
+and [finding-filters.md](finding-filters.md) for the layered
+model.
 
 ## Cross-References
 

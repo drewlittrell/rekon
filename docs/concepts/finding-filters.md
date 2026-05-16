@@ -139,9 +139,15 @@ The alert list is empty when filtering looks healthy.
   path / content rules.
 - **Not a graph / ontology validator.** The classic
   `GraphOntologyValidator` is deferred.
-- **Not yet consumed by lifecycle / adjudication / coherency.**
-  Those layers still read `FindingReport` directly; the next
-  slice ports them over to `keptFindings`.
+- **Consumed by lifecycle / adjudication / coherency.**
+  `FindingLifecycleReport` reads `keptFindings` from the latest
+  current filter report; `IssueAdjudicationReport` groups those
+  kept findings; `CoherencyDelta` rolls up only governed kept
+  issues. Filtered findings remain auditable in
+  `FindingFilterReport.filteredFindings` and do not flow into
+  active governance. When the latest filter report does not
+  cite the latest `FindingReport`, the lifecycle transparently
+  falls back to the raw report.
 
 ## CLI Surface
 

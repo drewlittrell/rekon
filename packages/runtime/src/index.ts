@@ -944,12 +944,49 @@ export async function buildFindingLifecycleReport(
     ? sortedReports.filter((entry) => entry.id !== latestEntry!.id)
     : [];
 
-  const latestReport = latestEntry
+  const rawLatestReport = latestEntry
     ? ((await store.read(latestEntry)) as FindingReport)
     : emptyFindingReport(store);
   const previousReports = await Promise.all(
     previousEntries.map((entry) => store.read(entry) as Promise<FindingReport>),
   );
+
+  // Filter-aware lifecycle (P1.1 filter-aware lifecycle slice). When a
+  // FindingFilterReport cites the latest FindingReport in its inputRefs,
+  // treat it as the source of truth for the active surface — the lifecycle
+  // builds from FindingFilterReport.keptFindings instead of the raw
+  // FindingReport.findings. Filtered findings remain auditable in the
+  // upstream FindingFilterReport; they simply do not appear as active
+  // lifecycle findings (and therefore do not become governed issue groups
+  // or active CoherencyDelta items downstream). When the filter report is
+  // missing or stale relative to the latest FindingReport, fall back to
+  // the raw FindingReport with no filter inputRef cited — staleness
+  // already surfaces via `rekon artifacts freshness`. See
+  // docs/strategy/issue-governance-architecture-decision.md.
+  const filterReportEntries = await store.list("FindingFilterReport");
+  const sortedFilterEntries = [...filterReportEntries].sort((left, right) =>
+    left.writtenAt.localeCompare(right.writtenAt),
+  );
+  const latestFilterEntry = sortedFilterEntries.at(-1);
+  let usedFilterEntry: ArtifactIndexEntry | undefined;
+  let usedFilterReport: FindingFilterReport | undefined;
+  if (latestFilterEntry && latestEntry) {
+    const candidate = (await store.read(latestFilterEntry)) as FindingFilterReport;
+    const filterInputRefs = Array.isArray(candidate.header?.inputRefs)
+      ? candidate.header.inputRefs
+      : [];
+    const citesLatestReport = filterInputRefs.some(
+      (ref) => ref.type === "FindingReport" && ref.id === latestEntry!.id,
+    );
+    if (citesLatestReport) {
+      usedFilterEntry = latestFilterEntry;
+      usedFilterReport = candidate;
+    }
+  }
+
+  const effectiveLatestReport: FindingReport = usedFilterReport
+    ? syntheticFindingReportFromKept(rawLatestReport, usedFilterReport.keptFindings)
+    : rawLatestReport;
 
   let ledger: FindingStatusLedger | undefined;
   const ledgerEntries = await store.list("FindingStatusLedger");
@@ -970,7 +1007,7 @@ export async function buildFindingLifecycleReport(
   }
 
   const { findings, resolvedFindings, decisions } = deriveFindingLifecycle({
-    latestReport,
+    latestReport: effectiveLatestReport,
     previousReports,
     ledger,
   });
@@ -979,6 +1016,23 @@ export async function buildFindingLifecycleReport(
 
   if (latestEntry) {
     inputRefs.push(indexEntryToRef(latestEntry));
+  }
+
+  if (usedFilterEntry) {
+    // Cite the filter report so freshness flags lifecycle stale when a
+    // newer filter (e.g. after a refresh) arrives. Also pull in the
+    // filter report's own inputRefs so raw FindingReport lineage stays
+    // transitively visible even when only the filter ref is followed.
+    inputRefs.push(indexEntryToRef(usedFilterEntry));
+    if (usedFilterReport) {
+      for (const ref of usedFilterReport.header.inputRefs ?? []) {
+        if (
+          !inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)
+        ) {
+          inputRefs.push(ref);
+        }
+      }
+    }
   }
 
   for (const entry of previousEntries) {
@@ -1006,6 +1060,37 @@ export async function buildFindingLifecycleReport(
   });
 
   return lifecycleReport;
+}
+
+/**
+ * Build a synthetic FindingReport that reuses the raw report's header
+ * (so lifecycle ids remain stable for previous-report comparison) but
+ * swaps in the filter report's keptFindings as the active surface. The
+ * raw FindingReport on disk is **not** mutated.
+ */
+function syntheticFindingReportFromKept(
+  raw: FindingReport,
+  kept: Finding[] | undefined,
+): FindingReport {
+  const findings = Array.isArray(kept) ? kept : [];
+  return {
+    header: raw.header,
+    summary: {
+      total: findings.length,
+      bySeverity: countByKey(findings, (finding) => finding.severity),
+      byType: countByKey(findings, (finding) => finding.type),
+    },
+    findings,
+  };
+}
+
+function countByKey<T>(items: T[], pick: (item: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    const key = pick(item);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export type BuildCoherencyDeltaOptions = {

@@ -4,6 +4,48 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped filter-aware lifecycle / adjudication (P1.1
+  filter-aware lifecycle v1 slice).
+  `@rekon/runtime.buildFindingLifecycleReport` now lists the
+  latest `FindingFilterReport` and uses its `keptFindings` as
+  the active latest set whenever the filter report cites the
+  latest `FindingReport` in its `header.inputRefs`
+  (current-enough check). The lifecycle synthesizes a
+  `FindingReport`-shaped object that reuses the raw report's
+  header (so previous-report lifecycle comparison stays stable)
+  but swaps in `keptFindings` as the active surface; the raw
+  `FindingReport` on disk is **not** mutated. The lifecycle's
+  own `header.inputRefs` cite the `FindingFilterReport` plus
+  the filter report's transitive raw `FindingReport` lineage,
+  so `rekon artifacts freshness` marks lifecycle stale when a
+  newer filter arrives, and lineage to the raw report stays
+  intact. When the latest filter report is missing or stale —
+  i.e., does not cite the latest `FindingReport` — the
+  lifecycle falls back to the raw `FindingReport` transparently
+  and does **not** cite the stale filter. `IssueAdjudicationReport`
+  and `CoherencyDelta` are filter-aware **transitively**: only
+  kept findings become governed issue groups, coherency items,
+  and remediation queue entries. Filtered findings stay
+  auditable in `FindingFilterReport.filteredFindings`. No new
+  CLI surface; no SDK API removal; no artifact schemaVersion
+  bump; no new capability role; no version bump; no npm
+  publish. 7 new contract tests in
+  `tests/contract/filter-aware-lifecycle-adjudication.test.mjs`
+  covering keptFindings preference, raw-fallback when no filter
+  exists, stale-filter rejection, transitive adjudication +
+  coherency exclusion of filtered findings, end-to-end CLI
+  rebuild path, `rekon refresh` on a clean fixture still
+  produces a filter-aware lifecycle, and `artifacts validate`
+  cleanliness. Full suite: 483 passed / 1 skipped. Docs
+  updated across `finding-filter-report` artifact,
+  `finding-lifecycle-report` artifact, `issue-adjudication-report`
+  artifact, `coherency-delta` artifact, `finding-filters`
+  concept, `finding-lifecycle` concept, `issue-adjudication`
+  concept, `coherency-delta` concept, `refresh` concept,
+  `issue-governance-architecture-decision` ADR (implementation
+  order + lifecycle layer), four strategy docs (subsystem-
+  purpose-map, behavior-roadmap, guarantee-regression-plan,
+  roadmap), and this CHANGELOG.
 - Shipped the issue-governance architecture decision +
   false-positive filtering audit (P1.1 filtering v1 slice).
   Added the

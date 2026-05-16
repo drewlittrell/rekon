@@ -269,12 +269,29 @@ If no `IssueAdjudicationReport` exists yet, or the caller passes
 This preserves backward compatibility for any caller that has not
 yet adopted adjudication.
 
+## Filter Awareness (Transitive)
+
+`CoherencyDelta` is filter-aware **transitively** through the
+`IssueAdjudicationReport → FindingLifecycleReport → FindingFilterReport`
+chain. The lifecycle helper consumes
+`FindingFilterReport.keptFindings` when a current filter report
+exists, so only kept findings flow into governed issue groups and
+therefore into delta items / remediation queue entries. Filtered
+findings stay auditable in
+`FindingFilterReport.filteredFindings` but never become active
+coherency items. The delta itself does **not** read
+`FindingFilterReport` directly. See
+[../concepts/finding-filters.md](../concepts/finding-filters.md)
+and
+[../strategy/issue-governance-architecture-decision.md](../strategy/issue-governance-architecture-decision.md).
+
 ## Freshness And Provenance
 
 `CoherencyDelta` lives under the `findings` category in the artifact
 store. In v2 (adjudicated) mode, `inputRefs` carry the
 `IssueAdjudicationReport` plus every ref it itself carried — so
 lineage flows transitively to the `FindingLifecycleReport`,
+`FindingFilterReport` (when the lifecycle used kept findings),
 `FindingReport`(s), `FindingStatusLedger`, and any `OwnershipMap`
 / `ObservedRepo`. In v1 (legacy) mode, `inputRefs` cite the
 `FindingLifecycleReport` and its upstream refs directly.

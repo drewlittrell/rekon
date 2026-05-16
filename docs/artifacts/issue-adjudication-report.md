@@ -359,15 +359,15 @@ See [../concepts/freshness-and-invalidation.md](../concepts/freshness-and-invali
 
 ## Relationship To Filtering
 
-The
-[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
-places a `FindingFilterReport` layer between `FindingReport`
-and the lifecycle / adjudication chain. In the current slice
-the filter report is produced and auditable but
-`IssueAdjudicationReport` still reads `FindingLifecycleReport`
-(which still reads `FindingReport`) directly. Filter-aware
-adjudication is the next slice and will prefer
-`FindingFilterReport.keptFindings` when present.
+`IssueAdjudicationReport` is filter-aware **transitively**: it
+consumes `FindingLifecycleReport`, which itself reads
+`FindingFilterReport.keptFindings` when a current filter
+report exists. Filtered findings stay auditable in
+`FindingFilterReport.filteredFindings` and do **not** appear
+as members of any `IssueAdjudicationGroup`. Adjudication
+itself does not read `FindingFilterReport` directly — the
+lifecycle is the boundary. See the
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md).
 
 ## Cross-References
 

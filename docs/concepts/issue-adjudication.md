@@ -273,15 +273,16 @@ for the detection rules.
 
 ## Relationship To Filtering
 
-The
-[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
-places a `FindingFilterReport` layer between raw findings and
-this adjudication chain. In the current slice, adjudication
-operates over the full lifecycle / finding report set; filtered
-findings still surface as candidates for grouping. Filter-aware
-adjudication is the next slice and will prefer
-`FindingFilterReport.keptFindings` when present. Until then,
-the filter report is an audit-only artifact.
+Adjudication is filter-aware **transitively**:
+`buildFindingLifecycleReport` now consumes
+`FindingFilterReport.keptFindings` when a current filter
+report exists, so the lifecycle hands adjudication only kept
+findings. Filtered findings stay auditable in
+`FindingFilterReport.filteredFindings` and never become
+`IssueAdjudicationGroup` members. Adjudication itself does not
+read `FindingFilterReport` directly — the lifecycle is the
+filter boundary. See the
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md).
 
 ## Cross-References
 

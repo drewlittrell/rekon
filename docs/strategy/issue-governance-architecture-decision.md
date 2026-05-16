@@ -29,10 +29,16 @@ without mutating them.
    Append-only; never mutated.
 4. **`FindingLifecycleReport`** — run-to-run lifecycle (new /
    existing / resolved) plus the effective status produced by
-   joining `FindingReport` × `FindingStatusLedger`. Today this
-   layer reads `FindingReport` directly; once filter-aware
-   lifecycle ships (next slice), it can prefer
-   `FindingFilterReport.keptFindings` when present.
+   joining `FindingReport` × `FindingStatusLedger`. **As of the
+   filter-aware lifecycle slice**, the lifecycle prefers
+   `FindingFilterReport.keptFindings` as the active latest set
+   when the filter report cites the latest `FindingReport` in
+   its `inputRefs`. The filter report is cited in the
+   lifecycle's own `inputRefs` so freshness flags lifecycle
+   stale when a newer filter arrives. When no current filter
+   report exists, the lifecycle falls back to the raw
+   `FindingReport` transparently and does not cite a stale
+   filter.
 5. **`IssueAdjudicationReport`** — groups kept findings into
    governed `IssueAdjudicationGroup` records. Deterministic
    grouping first (current shape). The `mergeCandidates` field is
@@ -143,23 +149,26 @@ review packets unless an ADR promotes them. Promotion requires:
 
 ## Implementation Order
 
-1. **(this batch)** ADR + `FindingFilterReport` +
+1. **(shipped)** ADR + `FindingFilterReport` +
    `FindingFilterHealthReport` v1 + CLI + refresh wiring.
-   Lifecycle / adjudication / coherency still read
-   `FindingReport` directly. Filter artifacts are produced and
-   auditable but not yet wired into downstream consumers.
-2. **(next slice)** Filter-aware lifecycle / adjudication:
-   `FindingLifecycleReport` and `IssueAdjudicationReport`
-   consume `keptFindings` from the latest
-   `FindingFilterReport` when present, falling back to
-   `FindingReport` when none exists. Filtered findings remain
-   auditable but do not become active governed issue groups.
-3. **(future)** Filter-aware `CoherencyDelta`: counts /
-   remediation queue derived strictly from the kept,
-   adjudicated, optionally merge-rolled-up projection.
+   Filter artifacts are produced and auditable.
+2. **(shipped)** Filter-aware lifecycle:
+   `FindingLifecycleReport` consumes
+   `FindingFilterReport.keptFindings` when the latest filter
+   report cites the latest `FindingReport`. Adjudication and
+   `CoherencyDelta` benefit transitively — only kept findings
+   flow into issue groups and coherency rollups. Filtered
+   findings remain auditable but no longer become active
+   governed issue groups or coherency items.
+3. **(next slice)** Filter policy / configured exclusions v1:
+   add explicit config-backed finding filter policies
+   (`.rekon/config.json`) so operators can extend the
+   deterministic v1 ruleset with project-specific exclusions
+   without losing the audit trail.
 4. **(future)** Merge-decision freshness guardrails,
-   GraphOntologyValidator-style filters, and any further
-   product-extension expansion.
+   `GraphOntologyValidator`-style filters, persistent
+   exclusion lists, and any further product-extension
+   expansion.
 
 ## Open Questions
 

@@ -336,11 +336,25 @@ is the first stop before proposing a new capability batch.
   `rekon findings filter` / `rekon findings filter-health`.
   `rekon refresh` adds `findings.filter` and
   `findings.filter-health` steps between `evaluate` and
-  `findings.lifecycle`. Lifecycle / adjudication / coherency
-  still consume `FindingReport` directly — filter-aware
-  lifecycle / adjudication is the next slice. No LLM, semantic,
-  fuzzy, or embedding matching; `GraphOntologyValidator` port
-  deferred.
+  `findings.lifecycle`. No LLM, semantic, fuzzy, or embedding
+  matching; `GraphOntologyValidator` port deferred.
+- Filter-aware lifecycle / adjudication (P1.1 filter-aware
+  lifecycle v1 slice): `@rekon/runtime.buildFindingLifecycleReport`
+  now lists the latest `FindingFilterReport` and uses its
+  `keptFindings` as the active latest set when the filter
+  report cites the latest `FindingReport` in its `inputRefs`
+  (current-enough check). Lifecycle cites the filter report
+  (and the filter's upstream raw `FindingReport`) in its own
+  `inputRefs` so freshness propagates and lineage stays intact.
+  Raw `FindingReport` is never mutated; filtered findings stay
+  auditable in `FindingFilterReport.filteredFindings`.
+  `IssueAdjudicationReport` and `CoherencyDelta` benefit
+  transitively — only kept findings become governed issue
+  groups, coherency items, and remediation steps. When the
+  latest filter is missing or stale (does not cite the latest
+  `FindingReport`), the lifecycle transparently falls back to
+  the raw report and does not cite the stale filter. No new
+  CLI surface; no SDK API removal; no schemaVersion bump.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`
