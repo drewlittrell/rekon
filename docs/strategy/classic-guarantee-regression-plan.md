@@ -432,6 +432,35 @@ Implementation batches:
   flows through `CoherencyDelta`. Pinned by
   `tests/contract/merge-decision-publication-resolver-awareness.test.mjs`
   (10 tests).
+- "Issue governance ADR + false-positive filtering audit"
+  (shipped) — explicit ADR
+  ([issue-governance-architecture-decision.md](issue-governance-architecture-decision.md))
+  formalizes the layered model
+  (FindingReport → FindingFilterReport → FindingStatusLedger →
+  FindingLifecycleReport → IssueAdjudicationReport →
+  CoherencyDelta) and labels `IssueMergeCandidate` /
+  `IssueMergeDecisionLedger` / accepted-merge rollups as Rekon
+  product extensions, not classic parity. Two new artifact
+  types: `FindingFilterReport` records system / policy
+  suppression with `reason` / `evidence` / `filePath` /
+  `confidence` / `filteredAt` / `source` for every filtered
+  finding, while preserving the raw `FindingReport` and a
+  `keptFindings` projection; `FindingFilterHealthReport`
+  summarizes `filterRate` / `highConfidenceFiltered` /
+  `lowConfidenceFiltered` / `byReason` and emits `high-filter-rate`
+  + `low-confidence-filtered` alerts. Deterministic v1 filter
+  rules (`generated-file` / `external-file` / `test-file` /
+  `canary-file` / `content-filter` with priority order
+  `generated > external > test > canary > content`); no LLM,
+  semantic, fuzzy, or embedding matching. New CLI:
+  `rekon findings filter` / `rekon findings filter-health`.
+  `rekon refresh` adds `findings.filter` and
+  `findings.filter-health` steps between `evaluate` and
+  `findings.lifecycle`. Lifecycle / adjudication / coherency
+  still consume `FindingReport` directly — filter-aware
+  lifecycle / adjudication is the recommended next slice.
+  Pinned by `tests/contract/finding-filters.test.mjs` (18
+  tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

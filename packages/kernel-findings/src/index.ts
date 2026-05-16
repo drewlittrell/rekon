@@ -106,6 +106,539 @@ export const findingReportSchema: ArtifactSchema<FindingReport> = {
   parse: assertFindingReport,
 };
 
+// ---------- FindingFilterReport (v1) ----------
+//
+// System / policy filtering audit. Records filtered findings with
+// reason / evidence / confidence so suppression is auditable.
+// Filtering is a projection over `FindingReport`; it does not
+// mutate raw findings. Lifecycle / adjudication / coherency keep
+// reading `FindingReport` until the next slice (filter-aware
+// lifecycle) ports them over to `keptFindings`.
+
+export type FindingFilterReason =
+  | "test-file"
+  | "generated-file"
+  | "external-file"
+  | "canary-file"
+  | "explicit-exclusion"
+  | "content-filter"
+  | "policy-exception"
+  | "other";
+
+export type FindingFilterConfidence = "high" | "medium" | "low";
+
+export type FindingFilterSource = "system" | "operator" | "policy";
+
+export type FilteredFinding = {
+  findingId: string;
+  finding: Finding;
+  reason: FindingFilterReason;
+  evidence: string;
+  filePath?: string;
+  confidence: FindingFilterConfidence;
+  filteredAt: string;
+  source: FindingFilterSource;
+};
+
+export type FindingFilterSummary = {
+  totalFiltered: number;
+  kept: number;
+  byReason: Record<string, number>;
+  byConfidence: Record<string, number>;
+  byType: Record<string, number>;
+  bySeverity: Record<string, number>;
+};
+
+export type FindingFilterReport = {
+  header: ArtifactHeader;
+  summary: FindingFilterSummary;
+  keptFindings: Finding[];
+  filteredFindings: FilteredFinding[];
+};
+
+const FINDING_FILTER_REASONS = new Set<FindingFilterReason>([
+  "test-file",
+  "generated-file",
+  "external-file",
+  "canary-file",
+  "explicit-exclusion",
+  "content-filter",
+  "policy-exception",
+  "other",
+]);
+
+const FINDING_FILTER_CONFIDENCES = new Set<FindingFilterConfidence>([
+  "high",
+  "medium",
+  "low",
+]);
+
+// Priority ranks: lower number = stronger filter reason, used when a
+// finding could be filtered for multiple deterministic reasons.
+const FINDING_FILTER_REASON_PRIORITY: Record<FindingFilterReason, number> = {
+  "generated-file": 0,
+  "external-file": 1,
+  "test-file": 2,
+  "canary-file": 3,
+  "explicit-exclusion": 4,
+  "content-filter": 5,
+  "policy-exception": 6,
+  other: 7,
+};
+
+type FilterMatch = {
+  reason: FindingFilterReason;
+  evidence: string;
+  filePath?: string;
+  confidence: FindingFilterConfidence;
+};
+
+/**
+ * Returns true when any path segment exactly equals one of `segments`,
+ * regardless of whether the path has a leading slash. Treats both
+ * `node_modules/leftpad/x.js` and `/repo/node_modules/leftpad/x.js` as
+ * "external" when `segments` includes `node_modules`.
+ */
+function pathHasSegment(path: string, segments: ReadonlyArray<string>): boolean {
+  const parts = path.split("/").filter((part) => part.length > 0);
+  return parts.some((part) => segments.includes(part));
+}
+
+function pathHas(path: string, fragment: string): boolean {
+  return path.includes(fragment);
+}
+
+function pathFilterMatch(filePath: string): FilterMatch | null {
+  const lower = filePath.toLowerCase();
+  if (
+    pathHasSegment(lower, ["dist", "build", "generated"])
+    || pathHas(lower, "__generated__")
+    || pathHas(lower, ".generated.")
+  ) {
+    return {
+      reason: "generated-file",
+      evidence: `File path '${filePath}' matched generated-file rule.`,
+      filePath,
+      confidence: "high",
+    };
+  }
+  if (pathHasSegment(lower, ["node_modules", "vendor", "third_party"])) {
+    return {
+      reason: "external-file",
+      evidence: `File path '${filePath}' matched external-file rule.`,
+      filePath,
+      confidence: "high",
+    };
+  }
+  if (
+    pathHasSegment(lower, ["test", "tests", "__tests__", "__test__"])
+    || lower.endsWith(".test.ts")
+    || lower.endsWith(".test.tsx")
+    || lower.endsWith(".test.js")
+    || lower.endsWith(".test.jsx")
+    || lower.endsWith(".test.mjs")
+    || lower.endsWith(".test.cjs")
+    || lower.endsWith(".spec.ts")
+    || lower.endsWith(".spec.tsx")
+    || lower.endsWith(".spec.js")
+    || lower.endsWith(".spec.jsx")
+    || lower.endsWith(".spec.mjs")
+    || lower.endsWith(".spec.cjs")
+  ) {
+    return {
+      reason: "test-file",
+      evidence: `File path '${filePath}' matched test-file rule.`,
+      filePath,
+      confidence: "high",
+    };
+  }
+  if (pathHas(lower, "canary")) {
+    return {
+      reason: "canary-file",
+      evidence: `File path '${filePath}' matched canary-file rule.`,
+      filePath,
+      confidence: "high",
+    };
+  }
+  return null;
+}
+
+function contentFilterMatch(
+  finding: Finding,
+  filePath: string,
+): FilterMatch | null {
+  const lower = filePath.toLowerCase();
+  const text = `${finding.type ?? ""} ${finding.title ?? ""} ${finding.description ?? ""}`.toLowerCase();
+  if (
+    text.includes("generated output")
+    && (
+      pathHasSegment(lower, ["dist", "build", "generated"])
+      || pathHas(lower, "__generated__")
+      || pathHas(lower, ".generated.")
+    )
+  ) {
+    return {
+      reason: "content-filter",
+      evidence: `Finding description mentions 'generated output' and file '${filePath}' is in a generated path.`,
+      filePath,
+      confidence: "medium",
+    };
+  }
+  return null;
+}
+
+function findBestFilterMatch(finding: Finding): FilterMatch | null {
+  const files = Array.isArray(finding.files) ? finding.files : [];
+  let best: FilterMatch | null = null;
+  const considerCandidate = (candidate: FilterMatch | null): void => {
+    if (!candidate) return;
+    if (
+      !best
+      || FINDING_FILTER_REASON_PRIORITY[candidate.reason]
+        < FINDING_FILTER_REASON_PRIORITY[best.reason]
+    ) {
+      best = candidate;
+    }
+  };
+  for (const filePath of files) {
+    considerCandidate(pathFilterMatch(filePath));
+    considerCandidate(contentFilterMatch(finding, filePath));
+  }
+  return best;
+}
+
+export type ApplyFindingFiltersResult = {
+  keptFindings: Finding[];
+  filteredFindings: FilteredFinding[];
+};
+
+export function applyFindingFilters(input: {
+  findings: Finding[];
+  filteredAt?: string;
+}): ApplyFindingFiltersResult {
+  const filteredAt = input.filteredAt ?? new Date().toISOString();
+  const keptFindings: Finding[] = [];
+  const filteredFindings: FilteredFinding[] = [];
+
+  for (const finding of input.findings ?? []) {
+    const match = findBestFilterMatch(finding);
+    if (!match) {
+      keptFindings.push(finding);
+      continue;
+    }
+    filteredFindings.push({
+      findingId: finding.id,
+      finding,
+      reason: match.reason,
+      evidence: match.evidence,
+      filePath: match.filePath,
+      confidence: match.confidence,
+      filteredAt,
+      source: "system",
+    });
+  }
+
+  keptFindings.sort((left, right) => left.id.localeCompare(right.id));
+  filteredFindings.sort((left, right) => left.findingId.localeCompare(right.findingId));
+  return { keptFindings, filteredFindings };
+}
+
+export function summarizeFindingFilterReport(
+  keptFindings: Finding[],
+  filteredFindings: FilteredFinding[],
+): FindingFilterSummary {
+  return {
+    totalFiltered: filteredFindings.length,
+    kept: keptFindings.length,
+    byReason: countBy(filteredFindings, (entry) => entry.reason),
+    byConfidence: countBy(filteredFindings, (entry) => entry.confidence),
+    byType: countBy(filteredFindings, (entry) => entry.finding.type),
+    bySeverity: countBy(filteredFindings, (entry) => entry.finding.severity),
+  };
+}
+
+export function createFindingFilterReport(input: {
+  header: ArtifactHeader;
+  keptFindings: Finding[];
+  filteredFindings: FilteredFinding[];
+}): FindingFilterReport {
+  const keptFindings = [...input.keptFindings].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+  const filteredFindings = [...input.filteredFindings].sort((left, right) =>
+    left.findingId.localeCompare(right.findingId),
+  );
+  return assertFindingFilterReport({
+    header: input.header,
+    summary: summarizeFindingFilterReport(keptFindings, filteredFindings),
+    keptFindings,
+    filteredFindings,
+  });
+}
+
+export function validateFindingFilterReport(
+  value: unknown,
+): ValidationResult<FindingFilterReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  const header = validateArtifactHeader(value.header);
+  if (!header.ok) {
+    issues.push(...prefixIssues(header.issues, "$.header"));
+  } else if (header.value.artifactType !== "FindingFilterReport") {
+    issues.push({
+      path: "$.header.artifactType",
+      message: "Expected artifactType to be FindingFilterReport.",
+    });
+  }
+
+  if (!isRecord(value.summary) || typeof value.summary.totalFiltered !== "number") {
+    issues.push({ path: "$.summary", message: "Expected a finding-filter summary." });
+  }
+
+  if (!Array.isArray(value.keptFindings)) {
+    issues.push({ path: "$.keptFindings", message: "Expected an array." });
+  } else {
+    value.keptFindings.forEach((finding, index) =>
+      validateFinding(finding, `$.keptFindings[${index}]`, issues),
+    );
+  }
+
+  if (!Array.isArray(value.filteredFindings)) {
+    issues.push({ path: "$.filteredFindings", message: "Expected an array." });
+  } else {
+    value.filteredFindings.forEach((entry, index) =>
+      validateFilteredFinding(entry, `$.filteredFindings[${index}]`, issues),
+    );
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as FindingFilterReport, issues: [] };
+}
+
+export function assertFindingFilterReport(value: unknown): FindingFilterReport {
+  const result = validateFindingFilterReport(value);
+  if (result.ok) return result.value;
+  throw new TypeError(
+    `FindingFilterReport validation failed: ${result.issues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ")}`,
+  );
+}
+
+export const findingFilterReportSchema: ArtifactSchema<FindingFilterReport> = {
+  validate: validateFindingFilterReport,
+  parse: assertFindingFilterReport,
+};
+
+function validateFilteredFinding(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  requiredString(value.findingId, `${path}.findingId`, issues);
+  requiredString(value.evidence, `${path}.evidence`, issues);
+  requiredString(value.filteredAt, `${path}.filteredAt`, issues);
+  if (
+    typeof value.reason !== "string"
+    || !FINDING_FILTER_REASONS.has(value.reason as FindingFilterReason)
+  ) {
+    issues.push({
+      path: `${path}.reason`,
+      message: "Expected a known FindingFilterReason.",
+    });
+  }
+  if (
+    typeof value.confidence !== "string"
+    || !FINDING_FILTER_CONFIDENCES.has(value.confidence as FindingFilterConfidence)
+  ) {
+    issues.push({
+      path: `${path}.confidence`,
+      message: "Expected one of high, medium, low.",
+    });
+  }
+  if (typeof value.source !== "string") {
+    issues.push({ path: `${path}.source`, message: "Expected a string." });
+  } else if (
+    value.source !== "system"
+    && value.source !== "operator"
+    && value.source !== "policy"
+  ) {
+    issues.push({
+      path: `${path}.source`,
+      message: "Expected one of system, operator, policy.",
+    });
+  }
+  if (value.filePath !== undefined && typeof value.filePath !== "string") {
+    issues.push({ path: `${path}.filePath`, message: "Expected a string when present." });
+  }
+  validateFinding(value.finding, `${path}.finding`, issues);
+}
+
+// ---------- FindingFilterHealthReport (v1) ----------
+
+export type FindingFilterHealthAlert = {
+  code: string;
+  severity: "warning" | "error";
+  message: string;
+};
+
+export type FindingFilterHealthSummary = {
+  totalFindings: number;
+  totalFiltered: number;
+  filterRate: number;
+  highConfidenceFiltered: number;
+  lowConfidenceFiltered: number;
+  byReason: Record<string, number>;
+};
+
+export type FindingFilterHealthReport = {
+  header: ArtifactHeader;
+  summary: FindingFilterHealthSummary;
+  alerts: FindingFilterHealthAlert[];
+};
+
+const FINDING_FILTER_HEALTH_ALERT_SEVERITIES = new Set<
+  FindingFilterHealthAlert["severity"]
+>(["warning", "error"]);
+
+export function buildFindingFilterHealth(input: {
+  filterReport: FindingFilterReport;
+  highFilterRateThreshold?: number;
+}): { summary: FindingFilterHealthSummary; alerts: FindingFilterHealthAlert[] } {
+  const report = input.filterReport;
+  const threshold = input.highFilterRateThreshold ?? 0.8;
+  const totalFindings = report.summary.kept + report.summary.totalFiltered;
+  const filterRate = totalFindings === 0 ? 0 : report.summary.totalFiltered / totalFindings;
+  const highConfidenceFiltered = report.filteredFindings.filter(
+    (entry) => entry.confidence === "high",
+  ).length;
+  const lowConfidenceFiltered = report.filteredFindings.filter(
+    (entry) => entry.confidence === "low",
+  ).length;
+
+  const summary: FindingFilterHealthSummary = {
+    totalFindings,
+    totalFiltered: report.summary.totalFiltered,
+    filterRate: Math.round(filterRate * 10000) / 10000,
+    highConfidenceFiltered,
+    lowConfidenceFiltered,
+    byReason: { ...report.summary.byReason },
+  };
+
+  const alerts: FindingFilterHealthAlert[] = [];
+  if (totalFindings > 0 && filterRate > threshold) {
+    alerts.push({
+      code: "high-filter-rate",
+      severity: "warning",
+      message: `Filter rate ${(filterRate * 100).toFixed(1)}% exceeds threshold ${(threshold * 100).toFixed(1)}%. Review which filters are suppressing the most findings.`,
+    });
+  }
+  if (lowConfidenceFiltered > 0) {
+    alerts.push({
+      code: "low-confidence-filtered",
+      severity: "warning",
+      message: `${lowConfidenceFiltered} finding${lowConfidenceFiltered === 1 ? "" : "s"} filtered with low confidence; inspect FindingFilterReport.filteredFindings to confirm suppression.`,
+    });
+  }
+
+  alerts.sort((left, right) => left.code.localeCompare(right.code));
+  return { summary, alerts };
+}
+
+export function createFindingFilterHealthReport(input: {
+  header: ArtifactHeader;
+  filterReport: FindingFilterReport;
+  highFilterRateThreshold?: number;
+}): FindingFilterHealthReport {
+  const built = buildFindingFilterHealth({
+    filterReport: input.filterReport,
+    highFilterRateThreshold: input.highFilterRateThreshold,
+  });
+  return assertFindingFilterHealthReport({
+    header: input.header,
+    summary: built.summary,
+    alerts: built.alerts,
+  });
+}
+
+export function validateFindingFilterHealthReport(
+  value: unknown,
+): ValidationResult<FindingFilterHealthReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  const header = validateArtifactHeader(value.header);
+  if (!header.ok) {
+    issues.push(...prefixIssues(header.issues, "$.header"));
+  } else if (header.value.artifactType !== "FindingFilterHealthReport") {
+    issues.push({
+      path: "$.header.artifactType",
+      message: "Expected artifactType to be FindingFilterHealthReport.",
+    });
+  }
+
+  if (!isRecord(value.summary) || typeof value.summary.totalFiltered !== "number") {
+    issues.push({ path: "$.summary", message: "Expected a finding-filter-health summary." });
+  }
+
+  if (!Array.isArray(value.alerts)) {
+    issues.push({ path: "$.alerts", message: "Expected an array." });
+  } else {
+    value.alerts.forEach((alert, index) => {
+      if (!isRecord(alert)) {
+        issues.push({ path: `$.alerts[${index}]`, message: "Expected an object." });
+        return;
+      }
+      requiredString(alert.code, `$.alerts[${index}].code`, issues);
+      requiredString(alert.message, `$.alerts[${index}].message`, issues);
+      if (
+        typeof alert.severity !== "string"
+        || !FINDING_FILTER_HEALTH_ALERT_SEVERITIES.has(
+          alert.severity as FindingFilterHealthAlert["severity"],
+        )
+      ) {
+        issues.push({
+          path: `$.alerts[${index}].severity`,
+          message: "Expected one of warning, error.",
+        });
+      }
+    });
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as FindingFilterHealthReport, issues: [] };
+}
+
+export function assertFindingFilterHealthReport(
+  value: unknown,
+): FindingFilterHealthReport {
+  const result = validateFindingFilterHealthReport(value);
+  if (result.ok) return result.value;
+  throw new TypeError(
+    `FindingFilterHealthReport validation failed: ${result.issues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ")}`,
+  );
+}
+
+export const findingFilterHealthReportSchema: ArtifactSchema<FindingFilterHealthReport> = {
+  validate: validateFindingFilterHealthReport,
+  parse: assertFindingFilterHealthReport,
+};
+
 export type FindingStatusDecisionReason =
   | "accepted-risk"
   | "false-positive"

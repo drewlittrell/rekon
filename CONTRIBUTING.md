@@ -17,6 +17,7 @@ Before proposing a migrated capability, also read:
 - [docs/strategy/classic-to-rekon-translation.md](docs/strategy/classic-to-rekon-translation.md)
 - [docs/strategy/classic-refactor-principles.md](docs/strategy/classic-refactor-principles.md)
 - [docs/strategy/classic-behavior-roadmap.md](docs/strategy/classic-behavior-roadmap.md)
+- [docs/strategy/issue-governance-architecture-decision.md](docs/strategy/issue-governance-architecture-decision.md)
 
 A proposal to port classic behavior must identify what is good, what is
 accidental, and how Rekon will preserve the win without copying the old
@@ -24,6 +25,12 @@ shape. The proposal should also include a `CODEBASE-INTEL ALIGNMENT`
 section (per [AGENTS.md](AGENTS.md)) covering the classic capability,
 relevant source areas, what Rekon keeps, simplifies, and does not port,
 and which phase of the classic behavior roadmap the work advances.
+
+For issue-governance work, identify whether the batch is a classic
+guarantee preservation, a Rekon reinterpretation, or a Rekon product
+extension. See the
+[issue governance architecture decision](docs/strategy/issue-governance-architecture-decision.md)
+for the layered model and the product-extension boundary.
 
 ## Setup
 

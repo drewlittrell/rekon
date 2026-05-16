@@ -311,6 +311,36 @@ is the first stop before proposing a new capability batch.
   `@rekon/capability-resolver` adds `CoherencyDelta` to
   `consumes`. New `ResolutionTraceEntry.sourceType` enum value
   `"CoherencyDelta"`.
+- Issue governance ADR + false-positive filtering audit (P1.1
+  filtering v1 slice): the
+  [issue-governance-architecture-decision ADR](issue-governance-architecture-decision.md)
+  formalizes the layered model
+  (FindingReport → FindingFilterReport →
+  FindingStatusLedger → FindingLifecycleReport →
+  IssueAdjudicationReport → CoherencyDelta) and explicitly
+  labels `IssueMergeCandidate` / `IssueMergeDecisionLedger` /
+  accepted-merge rollups as Rekon product extensions, not
+  classic parity. Two new artifacts in
+  `@rekon/kernel-findings`: `FindingFilterReport` records
+  deterministic system / policy filtering (`generated-file` /
+  `external-file` / `test-file` / `canary-file` /
+  `content-filter`) over `FindingReport`, with `reason` /
+  `evidence` / optional `filePath` / `confidence` /
+  `filteredAt` / `source` per filtered entry and a
+  `keptFindings` projection; raw `FindingReport` is never
+  mutated. `FindingFilterHealthReport` summarizes
+  `filterRate` and emits `high-filter-rate` /
+  `low-confidence-filtered` alerts. New runtime helpers
+  `buildFindingFilterReport` and
+  `buildFindingFilterHealthReport`. New CLI:
+  `rekon findings filter` / `rekon findings filter-health`.
+  `rekon refresh` adds `findings.filter` and
+  `findings.filter-health` steps between `evaluate` and
+  `findings.lifecycle`. Lifecycle / adjudication / coherency
+  still consume `FindingReport` directly — filter-aware
+  lifecycle / adjudication is the next slice. No LLM, semantic,
+  fuzzy, or embedding matching; `GraphOntologyValidator` port
+  deferred.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

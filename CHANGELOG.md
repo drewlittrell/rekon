@@ -4,6 +4,88 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped the issue-governance architecture decision +
+  false-positive filtering audit (P1.1 filtering v1 slice).
+  Added the
+  [issue-governance-architecture-decision ADR](docs/strategy/issue-governance-architecture-decision.md)
+  that formalizes Rekon's layered issue-governance model
+  (FindingReport → FindingFilterReport → FindingStatusLedger →
+  FindingLifecycleReport → IssueAdjudicationReport →
+  CoherencyDelta) and explicitly labels `IssueMergeCandidate`,
+  `IssueMergeDecisionLedger`, accepted-merge rollups in
+  `CoherencyDelta`, and publication / resolver awareness of
+  those rollups as **Rekon product extensions** — useful and
+  supported, but not classic codebase-intel parity. Future work
+  must label batches as classic-guarantee preservation, Rekon
+  reinterpretation, or Rekon product extension. AGENTS.md +
+  CONTRIBUTING.md updated with the same instruction. Two new
+  artifact types ship in `@rekon/kernel-findings` and
+  `@rekon/sdk`: `FindingFilterReport` records system / policy
+  false-positive suppression over `FindingReport` with `reason`,
+  `evidence`, optional `filePath`, `confidence`
+  (`high` / `medium` / `low`), `filteredAt`, and `source`
+  (`system` / `operator` / `policy`) per filtered finding, plus
+  a `keptFindings` projection alongside the filtered list. The
+  raw `FindingReport` is **not** mutated. Deterministic v1
+  filter rules with priority
+  `generated > external > test > canary > content`:
+  `generated-file` (path segment `dist` / `build` / `generated`,
+  or `__generated__` / `.generated.` substring; confidence
+  high), `external-file` (path segment `node_modules` /
+  `vendor` / `third_party`; high), `test-file` (path segment
+  `test` / `tests` / `__tests__` / `__test__`, or filename
+  ending with `.test.{ts,tsx,js,jsx,mjs,cjs}` /
+  `.spec.{ts,tsx,js,jsx,mjs,cjs}`; high), `canary-file` (path
+  contains `canary`; high), `content-filter` (finding text
+  mentions "generated output" plus generated path; medium).
+  `explicit-exclusion` and `policy-exception` reasons reserved
+  for future config-driven exclusions. No LLM, semantic, fuzzy,
+  or embedding matching; `GraphOntologyValidator` port deferred.
+  `FindingFilterHealthReport` summarizes the latest filter
+  report (`totalFindings`, `totalFiltered`, `filterRate`,
+  `highConfidenceFiltered`, `lowConfidenceFiltered`, `byReason`)
+  and emits deterministic alerts `high-filter-rate` (when
+  `filterRate > 0.8`) and `low-confidence-filtered` (when any
+  low-confidence entry exists). New `@rekon/kernel-findings`
+  helpers: `applyFindingFilters`,
+  `summarizeFindingFilterReport`,
+  `createFindingFilterReport`, `validateFindingFilterReport`,
+  `assertFindingFilterReport`, `findingFilterReportSchema`,
+  `buildFindingFilterHealth`,
+  `createFindingFilterHealthReport`,
+  `validateFindingFilterHealthReport`,
+  `assertFindingFilterHealthReport`,
+  `findingFilterHealthReportSchema`. New `@rekon/runtime`
+  helpers: `buildFindingFilterReport(store, options?)` and
+  `buildFindingFilterHealthReport(store, options?)`. New CLI:
+  `rekon findings filter` and `rekon findings filter-health`.
+  `rekon refresh` adds `findings.filter` and
+  `findings.filter-health` steps between `evaluate` and
+  `findings.lifecycle`; `REQUIRED_REFRESH_ARTIFACT_TYPES`
+  extended with `FindingFilterReport` and
+  `FindingFilterHealthReport`. `FindingFilterReport` /
+  `FindingFilterHealthReport` registered as
+  experimental in `@rekon/sdk` and categorized under
+  `findings` in `@rekon/runtime`. `rekon artifacts freshness`
+  marks each artifact `stale` when its upstream input is
+  superseded. Lifecycle / adjudication / coherency still
+  consume `FindingReport` directly — filter-aware lifecycle /
+  adjudication is the recommended next slice. Docs added:
+  `docs/strategy/issue-governance-architecture-decision.md`,
+  `docs/artifacts/finding-filter-report.md`,
+  `docs/artifacts/finding-filter-health-report.md`,
+  `docs/concepts/finding-filters.md`. Docs updated across
+  finding-report / finding-lifecycle-report /
+  issue-adjudication-report artifact docs;
+  finding-lifecycle / issue-adjudication / coherency-delta /
+  refresh concept docs; four strategy docs
+  (subsystem-purpose-map, behavior-roadmap,
+  guarantee-regression-plan, roadmap), classic-alignment-map;
+  README, AGENTS.md, CONTRIBUTING.md. 18 new contract tests in
+  `tests/contract/finding-filters.test.mjs`. Existing
+  `refresh-command` and `coherency-delta-adjudicated` tests
+  updated for the new refresh step order. Full suite: 476
+  passed / 1 skipped. No version bump. No npm publish.
 - Shipped publication and resolver awareness of accepted merge
   decisions (P1.1 merge-awareness slice). The architecture
   summary, agent operating contract, and `resolve.issue` now

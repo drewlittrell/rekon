@@ -271,11 +271,27 @@ for the detection rules.
   remediation queue — adjudication does not.
 - **Not an LLM call.** All rules are deterministic.
 
+## Relationship To Filtering
+
+The
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+places a `FindingFilterReport` layer between raw findings and
+this adjudication chain. In the current slice, adjudication
+operates over the full lifecycle / finding report set; filtered
+findings still surface as candidates for grouping. Filter-aware
+adjudication is the next slice and will prefer
+`FindingFilterReport.keptFindings` when present. Until then,
+the filter report is an audit-only artifact.
+
 ## Cross-References
 
 - [Issue adjudication report](../artifacts/issue-adjudication-report.md)
 - [Finding lifecycle](finding-lifecycle.md)
+- [Finding filters](finding-filters.md)
+- [Finding filter report](../artifacts/finding-filter-report.md)
+- [Finding filter health report](../artifacts/finding-filter-health-report.md)
 - [Coherency delta](coherency-delta.md)
+- [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)
 - [Resolvers](resolvers.md)

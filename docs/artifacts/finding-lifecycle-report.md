@@ -96,10 +96,31 @@ the `FindingReport` and `FindingStatusLedger` artifacts in its
 `inputRefs`. `rekon artifacts freshness` will mark the report stale
 when a newer `FindingReport` or `FindingStatusLedger` exists.
 
+## Relationship To Filtering
+
+`FindingLifecycleReport` currently reads `FindingReport`
+directly, alongside the latest `FindingStatusLedger`. The
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+introduces a `FindingFilterReport` layer between
+`FindingReport` and this artifact: deterministic system /
+policy filters suppress false positives with auditable reason /
+evidence / confidence. In the current shipped slice, the filter
+report is produced but the lifecycle still consumes the raw
+`FindingReport`. The next slice
+("filter-aware lifecycle / adjudication") will let
+`FindingLifecycleReport` prefer
+`FindingFilterReport.keptFindings` when present. Until then,
+filtered findings remain visible in the lifecycle counts; their
+audit trail is in `FindingFilterReport`.
+
 ## Cross-References
 
 - [Finding lifecycle concept](../concepts/finding-lifecycle.md)
 - [FindingReport](finding-report.md)
+- [FindingFilterReport](finding-filter-report.md)
+- [FindingFilterHealthReport](finding-filter-health-report.md)
+- [Finding filters concept](../concepts/finding-filters.md)
+- [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
 - [FindingStatusLedger](finding-status-ledger.md)
 - [IssueAdjudicationReport](issue-adjudication-report.md)
 - [Issue adjudication concept](../concepts/issue-adjudication.md)

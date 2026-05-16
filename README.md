@@ -75,7 +75,7 @@ node packages/cli/dist/index.js publish agents --root examples/simple-js-ts
 ```
 
 `rekon refresh` runs the full lifecycle (observe → project → snapshot →
-evaluate → findings lifecycle → issues adjudicate → coherency delta →
+evaluate → findings filter → findings filter-health → findings lifecycle → issues adjudicate → coherency delta →
 publish architecture → artifacts validate → artifacts freshness) in one
 step. Use the
 individual verbs (`rekon observe`, `rekon project`, ...) when you need
@@ -132,6 +132,8 @@ node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/s
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings lifecycle --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings filter --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings filter-health --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings status set <finding-id> --status ignored --reason false-positive --note "Generated fixture intentionally." --root examples/simple-js-ts --json
 node packages/cli/dist/index.js coherency delta --root examples/simple-js-ts --json
 node packages/cli/dist/index.js issues adjudicate --root examples/simple-js-ts --json

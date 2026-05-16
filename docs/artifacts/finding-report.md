@@ -13,6 +13,12 @@ policy or community evaluators.
 
 ## Consumed By
 
+- `@rekon/runtime.buildFindingFilterReport` — the next layer in
+  the governance chain. It produces a
+  [`FindingFilterReport`](finding-filter-report.md) recording
+  which findings were suppressed by deterministic system /
+  policy filters, with reason / evidence / confidence. The
+  `FindingReport` is **not** mutated by filtering.
 - `@rekon/capability-resolver`
 - `@rekon/capability-docs`
 - intent/work-order generation

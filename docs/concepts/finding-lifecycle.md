@@ -146,9 +146,26 @@ with `rekon coherency delta --root <repo> --json`. See
   and
   [docs/artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md).
 
+## Relationship To Filtering
+
+`FindingFilterReport` (the new filter layer between
+`FindingReport` and the lifecycle / adjudication chain) is
+produced today but **not yet consumed** by lifecycle. The
+lifecycle still operates over the full `FindingReport`; filtered
+findings remain visible in the lifecycle counts, and their
+audit trail lives in `FindingFilterReport`. The
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+plans for `FindingLifecycleReport` to prefer
+`FindingFilterReport.keptFindings` in the next slice; until
+then, treat filtered findings as a separate audit trail rather
+than as gone-from-lifecycle.
+
 ## Cross-References
 
 - [docs/artifacts/finding-report.md](../artifacts/finding-report.md)
+- [docs/artifacts/finding-filter-report.md](../artifacts/finding-filter-report.md)
+- [docs/artifacts/finding-filter-health-report.md](../artifacts/finding-filter-health-report.md)
+- [docs/concepts/finding-filters.md](finding-filters.md)
 - [docs/artifacts/finding-status-ledger.md](../artifacts/finding-status-ledger.md)
 - [docs/artifacts/finding-lifecycle-report.md](../artifacts/finding-lifecycle-report.md)
 - [docs/artifacts/issue-adjudication-report.md](../artifacts/issue-adjudication-report.md)
@@ -157,3 +174,4 @@ with `rekon coherency delta --root <repo> --json`. See
 - [docs/concepts/resolvers.md](resolvers.md)
 - [docs/strategy/classic-behavior-distillation.md](../strategy/classic-behavior-distillation.md)
 - [docs/strategy/classic-wins.md](../strategy/classic-wins.md)
+- [docs/strategy/issue-governance-architecture-decision.md](../strategy/issue-governance-architecture-decision.md)

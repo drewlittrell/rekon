@@ -18,10 +18,12 @@ and the **P0.1** guarantee in
 
 ## Why It Exists
 
-The Rekon lifecycle has nine phases:
+The Rekon lifecycle has eleven phases:
 
 ```
-observe → project → snapshot → evaluate → findings lifecycle
+observe → project → snapshot → evaluate
+        → findings filter → findings filter-health
+        → findings lifecycle → issues adjudicate
         → coherency delta → publish architecture
         → artifacts validate → artifacts freshness
 ```
@@ -79,6 +81,8 @@ Flags:
     { "id": "project", "status": "passed", "artifacts": [...] },
     { "id": "snapshot", "status": "passed", "artifacts": [...] },
     { "id": "evaluate", "status": "passed", "artifacts": [...] },
+    { "id": "findings.filter", "status": "passed", "artifacts": [...], "summary": {...} },
+    { "id": "findings.filter-health", "status": "passed", "artifacts": [...], "summary": {...} },
     { "id": "findings.lifecycle", "status": "passed", "artifacts": [...], "summary": {...} },
     { "id": "issues.adjudicate", "status": "passed", "artifacts": [...], "summary": {...} },
     { "id": "coherency.delta", "status": "passed", "artifacts": [...], "summary": {...} },
@@ -130,8 +134,22 @@ Notes:
    everything above.
 6. **evaluate** — runs every registered evaluator and writes
    `FindingReport` artifacts.
-7. **findings.lifecycle** — builds the `FindingLifecycleReport`
-   from the latest report and the latest status ledger.
+7. **findings.filter** — runs the deterministic v1
+   filter rules (`generated-file` / `external-file` / `test-file`
+   / `canary-file` / `content-filter`) over the latest
+   `FindingReport` and writes a `FindingFilterReport`. The
+   `FindingReport` is **not** mutated; filtered findings remain
+   auditable in `FindingFilterReport.filteredFindings`. See
+   [finding-filters.md](finding-filters.md).
+8. **findings.filter-health** — summarizes the latest filter
+   report into a `FindingFilterHealthReport` with `filterRate`
+   plus deterministic v1 alerts (`high-filter-rate`,
+   `low-confidence-filtered`).
+9. **findings.lifecycle** — builds the `FindingLifecycleReport`
+   from the latest report and the latest status ledger. The
+   lifecycle currently reads `FindingReport` directly; the
+   filter-aware variant ports it over to
+   `FindingFilterReport.keptFindings` in the next slice.
 8. **issues.adjudicate** — builds the `IssueAdjudicationReport`
    from the latest `FindingLifecycleReport` (or from the latest
    `FindingReport` plus status ledger when no lifecycle exists).

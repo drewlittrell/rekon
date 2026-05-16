@@ -21,6 +21,8 @@ const EXPECTED_STEP_ORDER = [
   "project",
   "snapshot",
   "evaluate",
+  "findings.filter",
+  "findings.filter-health",
   "findings.lifecycle",
   "issues.adjudicate",
   "coherency.delta",
@@ -36,6 +38,8 @@ const REQUIRED_ARTIFACT_TYPES = [
   "CapabilityMap",
   "IntelligenceSnapshot",
   "FindingReport",
+  "FindingFilterReport",
+  "FindingFilterHealthReport",
   "FindingLifecycleReport",
   "IssueAdjudicationReport",
   "CoherencyDelta",
@@ -231,7 +235,18 @@ test("rekon refresh records artifact refs on each producing step", async () => {
     );
 
     const stepsWithRefs = result.steps.filter((step) =>
-      ["observe", "project", "snapshot", "evaluate", "findings.lifecycle", "issues.adjudicate", "coherency.delta", "publish.architecture"].includes(step.id),
+      [
+        "observe",
+        "project",
+        "snapshot",
+        "evaluate",
+        "findings.filter",
+        "findings.filter-health",
+        "findings.lifecycle",
+        "issues.adjudicate",
+        "coherency.delta",
+        "publish.architecture",
+      ].includes(step.id),
     );
 
     for (const step of stepsWithRefs) {

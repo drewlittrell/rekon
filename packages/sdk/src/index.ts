@@ -209,6 +209,8 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "GraphSlice", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "Rulebook", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "FindingFilterReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "FindingFilterHealthReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "IssueAdjudicationReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "IssueMergeDecisionLedger", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ResolverPacket", schemaVersion: "0.1.0", stability: "experimental" },

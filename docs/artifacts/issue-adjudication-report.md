@@ -357,14 +357,30 @@ See [../concepts/freshness-and-invalidation.md](../concepts/freshness-and-invali
 - **Not a remediation planner.** Adjudication groups are inputs to
   future remediation work, not work orders themselves.
 
+## Relationship To Filtering
+
+The
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+places a `FindingFilterReport` layer between `FindingReport`
+and the lifecycle / adjudication chain. In the current slice
+the filter report is produced and auditable but
+`IssueAdjudicationReport` still reads `FindingLifecycleReport`
+(which still reads `FindingReport`) directly. Filter-aware
+adjudication is the next slice and will prefer
+`FindingFilterReport.keptFindings` when present.
+
 ## Cross-References
 
 - [Issue adjudication concept](../concepts/issue-adjudication.md)
 - [Issue merge decisions concept](../concepts/issue-merge-decisions.md)
 - [Issue merge decision ledger](issue-merge-decision-ledger.md)
 - [Finding report](finding-report.md)
+- [Finding filter report](finding-filter-report.md)
+- [Finding filter health report](finding-filter-health-report.md)
+- [Finding filters concept](../concepts/finding-filters.md)
 - [Finding lifecycle report](finding-lifecycle-report.md)
 - [Finding status ledger](finding-status-ledger.md)
 - [Coherency delta](coherency-delta.md)
+- [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

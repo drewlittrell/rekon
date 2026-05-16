@@ -205,8 +205,74 @@ scope:
   `services/ContextHandler.ts`,
   `services/ArchitectureDocsHandler.ts`. Semantic / fuzzy /
   embedding matching, LLM review, false-positive scoring, and
-  PR / GitHub / dashboard surfaces remain deferred. Issue merge
-  decision freshness guardrails is the recommended next slice.
+  PR / GitHub / dashboard surfaces remain deferred. Issue
+  governance ADR + false-positive filtering audit (next bullet)
+  shipped as the next slice ahead of merge-decision freshness
+  guardrails.
+- **Issue governance ADR + false-positive filtering audit
+  (P1.1 filtering v1 slice).** ✅ Shipped. The
+  [issue-governance-architecture-decision ADR](issue-governance-architecture-decision.md)
+  documents Rekon's layered issue-governance model
+  (FindingReport → FindingFilterReport → FindingStatusLedger →
+  FindingLifecycleReport → IssueAdjudicationReport →
+  CoherencyDelta) and explicitly labels
+  `IssueMergeCandidate` / `IssueMergeDecisionLedger` /
+  accepted-merge rollups / publication + resolver awareness of
+  rollups as Rekon **product extensions**, not classic parity.
+  Two new artifact types ship in `@rekon/kernel-findings` and
+  `@rekon/sdk`:
+  - `FindingFilterReport` records system / policy false-positive
+    suppression as a projection over `FindingReport`. The raw
+    report is never mutated; filtered findings remain in
+    `filteredFindings` with `reason`, `evidence`, optional
+    `filePath`, `confidence`, `filteredAt`, and `source`. The
+    `keptFindings` projection lives alongside the filtered list
+    so downstream consumers can opt in later.
+  - `FindingFilterHealthReport` summarizes the latest filter
+    report (`totalFindings`, `totalFiltered`, `filterRate`,
+    `highConfidenceFiltered`, `lowConfidenceFiltered`,
+    `byReason`) and emits deterministic v1 alerts
+    (`high-filter-rate` at `filterRate > 0.8`,
+    `low-confidence-filtered` for any low-confidence entry).
+  Deterministic v1 filter rules: `generated-file` (path segment
+  is `dist`, `build`, `generated`, or contains `__generated__`
+  / `.generated.`; confidence high), `external-file`
+  (`node_modules` / `vendor` / `third_party`; high),
+  `test-file` (`test` / `tests` / `__tests__` / `__test__`
+  segment, or filename ends with `.test.{ts,tsx,js,jsx,mjs,cjs}`
+  / `.spec.{ts,tsx,js,jsx,mjs,cjs}`; high), `canary-file`
+  (path contains `canary`; high), and `content-filter`
+  (finding text mentions "generated output" plus generated
+  path; medium). Priority order
+  `generated > external > test > canary > content`.
+  `explicit-exclusion` and `policy-exception` reasons reserved
+  for future config-driven exclusions. No LLM, semantic, fuzzy,
+  or embedding matching; `GraphOntologyValidator` port deferred.
+  New helpers in `@rekon/kernel-findings`:
+  `applyFindingFilters`, `summarizeFindingFilterReport`,
+  `createFindingFilterReport`, `validateFindingFilterReport`,
+  `assertFindingFilterReport`, `findingFilterReportSchema`,
+  `buildFindingFilterHealth`,
+  `createFindingFilterHealthReport`,
+  `validateFindingFilterHealthReport`,
+  `assertFindingFilterHealthReport`,
+  `findingFilterHealthReportSchema`. New runtime helpers
+  `buildFindingFilterReport` and
+  `buildFindingFilterHealthReport`. New CLI:
+  `rekon findings filter` and `rekon findings filter-health`.
+  `rekon refresh` adds `findings.filter` and
+  `findings.filter-health` steps between `evaluate` and
+  `findings.lifecycle`; `REQUIRED_REFRESH_ARTIFACT_TYPES` adds
+  `FindingFilterReport` and `FindingFilterHealthReport`.
+  Lifecycle / adjudication / coherency still consume
+  `FindingReport` directly — filter-aware lifecycle /
+  adjudication is the recommended next slice. Aligned to
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/filter-health.ts`,
+  `services/issues/report-persistence.ts`,
+  `domain/issues/mergeIssues.ts`.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

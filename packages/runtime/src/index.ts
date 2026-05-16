@@ -20,6 +20,9 @@ import {
 import {
   type CoherencyDelta,
   type EffectiveFinding,
+  type Finding,
+  type FindingFilterHealthReport,
+  type FindingFilterReport,
   type FindingLifecycleReport,
   type FindingReport,
   type FindingStatusLedger,
@@ -29,7 +32,10 @@ import {
   type IssueMergeDecisionLedger,
   type IssueMergeDecisionReason,
   type IssueMergeDecisionStatus,
+  applyFindingFilters,
   createCoherencyDelta,
+  createFindingFilterHealthReport,
+  createFindingFilterReport,
   createFindingLifecycleReport,
   createIssueAdjudicationReport,
   createIssueMergeDecisionLedger,
@@ -213,6 +219,8 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   CapabilityMap: "projections",
   GraphSlice: "graphs",
   FindingReport: "findings",
+  FindingFilterReport: "findings",
+  FindingFilterHealthReport: "findings",
   FindingStatusLedger: "findings",
   FindingLifecycleReport: "findings",
   CoherencyDelta: "findings",
@@ -770,6 +778,142 @@ function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFre
   }
 
   return "fresh";
+}
+
+export type BuildFindingFilterReportOptions = {
+  findingReportId?: string;
+};
+
+export async function buildFindingFilterReport(
+  store: ArtifactStore,
+  options: BuildFindingFilterReportOptions = {},
+): Promise<FindingFilterReport> {
+  const reportEntries = await store.list("FindingReport");
+  if (reportEntries.length === 0) {
+    throw new Error(
+      "buildFindingFilterReport requires at least one FindingReport. Run `rekon evaluate` or `rekon refresh` first.",
+    );
+  }
+  const sortedReports = [...reportEntries].sort((left, right) =>
+    left.writtenAt.localeCompare(right.writtenAt),
+  );
+
+  let latestEntry = sortedReports.at(-1);
+  if (options.findingReportId) {
+    latestEntry = sortedReports.find((entry) => entry.id === options.findingReportId);
+    if (!latestEntry) {
+      throw new Error(`FindingReport not found: ${options.findingReportId}`);
+    }
+  }
+  if (!latestEntry) {
+    throw new Error("buildFindingFilterReport could not resolve a FindingReport entry.");
+  }
+
+  // Apply filters across every FindingReport entry the filter run cares
+  // about. The "latest" entry is typically enough, but we cite it in
+  // inputRefs and pull its findings union to be deterministic.
+  const latestReport = (await store.read(latestEntry)) as FindingReport;
+  const findings: Finding[] = Array.isArray(latestReport.findings)
+    ? latestReport.findings
+    : [];
+
+  const filteredAt = new Date().toISOString();
+  const { keptFindings, filteredFindings } = applyFindingFilters({
+    findings,
+    filteredAt,
+  });
+
+  const filterReport = createFindingFilterReport({
+    header: {
+      artifactType: "FindingFilterReport",
+      artifactId: `finding-filter-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: subjectRepoId(store) },
+      producer: { id: "@rekon/runtime.findings", version: "0.1.0" },
+      inputRefs: [indexEntryToRef(latestEntry)],
+      freshness: { status: "fresh" },
+    },
+    keptFindings,
+    filteredFindings,
+  });
+
+  return filterReport;
+}
+
+export type BuildFindingFilterHealthReportOptions = {
+  filterReportId?: string;
+  /**
+   * Filter rate above which a high-filter-rate alert fires. Defaults to 0.8.
+   */
+  highFilterRateThreshold?: number;
+  /**
+   * When true (default), build the latest FindingFilterReport if none is
+   * indexed. When false, throw a clear error instead.
+   */
+  buildIfMissing?: boolean;
+};
+
+export async function buildFindingFilterHealthReport(
+  store: ArtifactStore,
+  options: BuildFindingFilterHealthReportOptions = {},
+): Promise<FindingFilterHealthReport> {
+  const entries = await store.list("FindingFilterReport");
+  const sorted = [...entries].sort((left, right) =>
+    left.writtenAt.localeCompare(right.writtenAt),
+  );
+  let latestEntry = sorted.at(-1);
+
+  if (options.filterReportId) {
+    latestEntry = sorted.find((entry) => entry.id === options.filterReportId);
+    if (!latestEntry) {
+      throw new Error(`FindingFilterReport not found: ${options.filterReportId}`);
+    }
+  }
+
+  let filterReport: FindingFilterReport;
+  if (latestEntry) {
+    filterReport = (await store.read(latestEntry)) as FindingFilterReport;
+  } else if (options.buildIfMissing === false) {
+    throw new Error(
+      "buildFindingFilterHealthReport requires a FindingFilterReport. Run `rekon findings filter` or `rekon refresh` first.",
+    );
+  } else {
+    filterReport = await buildFindingFilterReport(store);
+    latestEntry = await store
+      .write(filterReport, { category: "findings" })
+      .then((ref) => ({
+        ...ref,
+        artifactType: "FindingFilterReport",
+        artifactId: filterReport.header.artifactId,
+        writtenAt: new Date().toISOString(),
+      } as ArtifactIndexEntry));
+  }
+
+  const inputRefs: ArtifactRef[] = [];
+  if (latestEntry) {
+    inputRefs.push(indexEntryToRef(latestEntry));
+  }
+  for (const ref of filterReport.header.inputRefs ?? []) {
+    if (!inputRefs.some((existing) => existing.type === ref.type && existing.id === ref.id)) {
+      inputRefs.push(ref);
+    }
+  }
+
+  return createFindingFilterHealthReport({
+    header: {
+      artifactType: "FindingFilterHealthReport",
+      artifactId: `finding-filter-health-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: subjectRepoId(store) },
+      producer: { id: "@rekon/runtime.findings", version: "0.1.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+    },
+    filterReport,
+    highFilterRateThreshold: options.highFilterRateThreshold,
+  });
 }
 
 export type BuildFindingLifecycleOptions = {

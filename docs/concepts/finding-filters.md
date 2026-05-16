@@ -1,0 +1,166 @@
+# Finding Filters
+
+Rekon's evaluator output is raw lint-style detection. Some
+findings are valid governance signals and some are false
+positives — for example, a finding that fires on a path under
+`dist/`, `node_modules/`, or `tests/` is almost certainly not
+something a human should triage. Without an explicit filter
+layer, those false positives pollute lifecycle counts,
+adjudication groups, the coherency rollup, and the remediation
+queue.
+
+`FindingFilterReport` is Rekon's auditable filter layer. It
+preserves the classic codebase-intel guarantee that false
+positives have a paper trail.
+
+## Why Filtering Is Separate From Status
+
+Operator status decisions (`accepted`, `ignored`, `resolved`)
+live in `FindingStatusLedger` and reflect human judgment about a
+finding's lifecycle. System / policy suppression of false
+positives is a different concern: it answers "should this
+finding ever have been an active governance signal?" and is
+deterministic, not a judgment call.
+
+Mixing the two is a mistake we explicitly avoid:
+
+- A test-file false positive should never be marked `ignored`
+  by a human just to remove it from the surface; instead, the
+  filter layer should suppress it and the status ledger should
+  stay empty.
+- An accepted-risk finding should not be suppressed by a filter
+  — it remains an active governance signal that the operator
+  has decided to live with.
+
+The
+[issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+formalizes this split.
+
+## Why It Exists
+
+Classic codebase-intel proved the following for trustworthy
+issue governance:
+
+- False positives need an audit trail (reason, evidence,
+  confidence).
+- Filtered findings must remain inspectable so an operator can
+  debug filters or recover a wrongly-suppressed finding.
+- Coherency rollups should operate on governed (kept,
+  adjudicated) findings rather than raw detector noise.
+
+Rekon's prior shape covered the lifecycle / status / adjudication
+side of that guarantee but did not yet have a filter layer.
+`FindingFilterReport` fills that gap.
+
+## Filter Pipeline
+
+`buildFindingFilterReport`:
+
+1. Reads the latest `FindingReport` (or a pinned report id).
+2. Walks every file on every finding and finds the
+   highest-priority filter match (see "Reasons" below).
+3. Emits a `FindingFilterReport` artifact that:
+   - lists every filtered finding with reason, evidence, file
+     path, and confidence;
+   - lists every kept finding so downstream consumers can opt
+     in to the filtered projection;
+   - cites the source `FindingReport` in `header.inputRefs`.
+
+`buildFindingFilterHealthReport`:
+
+1. Reads the latest `FindingFilterReport` (or builds one if
+   missing).
+2. Computes `filterRate`, `highConfidenceFiltered`,
+   `lowConfidenceFiltered`, and the reason breakdown.
+3. Emits a `FindingFilterHealthReport` with deterministic v1
+   alerts (`high-filter-rate`, `low-confidence-filtered`).
+
+Both artifacts live under the `findings/` category in
+`.rekon/artifacts/`.
+
+## Reasons
+
+v1 ships deterministic, path-aware rules. There is no LLM,
+semantic matching, or fuzzy matching. Priority order (strongest
+first):
+
+- **`generated-file`** — path segment is `dist`, `build`, or
+  `generated`, or path contains `__generated__` or
+  `.generated.`. Confidence: high.
+- **`external-file`** — path segment is `node_modules`,
+  `vendor`, or `third_party`. Confidence: high.
+- **`test-file`** — path segment is `test`, `tests`,
+  `__tests__`, or `__test__`, or filename ends with
+  `.test.{ts,tsx,js,jsx,mjs,cjs}` or
+  `.spec.{ts,tsx,js,jsx,mjs,cjs}`. Confidence: high.
+- **`canary-file`** — path contains `canary`. Confidence: high.
+- **`content-filter`** — finding text mentions "generated
+  output" **and** file is in a generated path. Confidence:
+  medium.
+- **`explicit-exclusion`** / **`policy-exception`** — reserved
+  for future config-driven exclusions; not used by v1.
+- **`other`** — reserved escape hatch; not used by v1.
+
+Findings with no `files` are kept by default (no rule has
+anything to match against).
+
+## Audit Guarantee
+
+- `FindingReport` is **never** mutated by filtering.
+- Filtered findings remain in
+  `FindingFilterReport.filteredFindings` with the full original
+  payload, so a future operator can review or recover them.
+- The filter run timestamps each entry (`filteredAt`) and labels
+  the source (`system` / `operator` / `policy`).
+- `rekon artifacts freshness` marks the filter report `stale`
+  when a newer `FindingReport` is written.
+
+## Health Alerts
+
+v1 ships two alerts:
+
+- **`high-filter-rate`** — fires when `filterRate > 0.8`.
+  Inspect which reasons dominate `byReason` — a 90 %+ filter
+  rate usually means the evaluator is mis-targeting paths.
+- **`low-confidence-filtered`** — fires when any filtered
+  finding has confidence `low`. v1 deterministic rules emit
+  `high` or `medium`; this alert exists so a future expansion
+  surfaces low-confidence suppression for review.
+
+The alert list is empty when filtering looks healthy.
+
+## What This Is Not
+
+- **Not an operator status decision.** Status decisions belong
+  in `FindingStatusLedger`.
+- **Not a delete.** Filtered findings are preserved with audit
+  evidence in `FindingFilterReport.filteredFindings`.
+- **Not LLM / fuzzy / semantic.** v1 is purely deterministic
+  path / content rules.
+- **Not a graph / ontology validator.** The classic
+  `GraphOntologyValidator` is deferred.
+- **Not yet consumed by lifecycle / adjudication / coherency.**
+  Those layers still read `FindingReport` directly; the next
+  slice ports them over to `keptFindings`.
+
+## CLI Surface
+
+```sh
+rekon findings filter --root <repo> --json
+rekon findings filter-health --root <repo> --json
+```
+
+`rekon refresh` runs both steps automatically between
+`evaluate` and `findings.lifecycle`. `rekon artifacts validate`
+and `rekon artifacts freshness` cover both artifact types.
+
+## Cross-References
+
+- [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+- [FindingFilterReport artifact](../artifacts/finding-filter-report.md)
+- [FindingFilterHealthReport artifact](../artifacts/finding-filter-health-report.md)
+- [FindingReport artifact](../artifacts/finding-report.md)
+- [Finding lifecycle concept](finding-lifecycle.md)
+- [Issue adjudication concept](issue-adjudication.md)
+- [Coherency delta concept](coherency-delta.md)
+- [Refresh pipeline](refresh.md)

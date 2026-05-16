@@ -287,6 +287,8 @@ test("rekon refresh runs issues.adjudicate between findings.lifecycle and cohere
         "project",
         "snapshot",
         "evaluate",
+        "findings.filter",
+        "findings.filter-health",
         "findings.lifecycle",
         "issues.adjudicate",
         "coherency.delta",

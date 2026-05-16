@@ -86,3 +86,11 @@ Anchor every proposal in the existing strategy docs:
 Do not implement a new Rekon capability only because it is generally useful. Every capability should distill, generalize, or prepare migration for a proven `codebase-intel-classic` behavior unless explicitly marked as experimental exploration.
 
 Do not call classic orchestration "weight" unless the work order identifies which guarantee is preserved elsewhere. Implementation coupling may be simplified; workflow guarantees must be preserved or explicitly deferred. If your batch defers a guarantee, say so and name the entry in [classic-guarantees-audit.md](docs/strategy/classic-guarantees-audit.md) you are deferring.
+
+For issue-governance work (anything touching `FindingReport`, `FindingFilterReport`, `FindingStatusLedger`, `FindingLifecycleReport`, `IssueAdjudicationReport`, `IssueMergeDecisionLedger`, or `CoherencyDelta`), identify in the review packet whether the batch is one of:
+
+- **classic guarantee preservation** — restores or extends a guarantee codebase-intel-classic already provided. Cite the corresponding classic source files and the [issue governance ADR](docs/strategy/issue-governance-architecture-decision.md) layer.
+- **Rekon reinterpretation** — preserves the same workflow guarantee but with a different artifact / capability shape. Explain the substitution.
+- **Rekon product extension** — net-new behavior not present in classic. `IssueMergeCandidate`, `IssueMergeDecisionLedger`, accepted-merge rollups, and publication / resolver awareness of those rollups are the canonical examples. Product extensions are allowed but must be labeled explicitly; do not call them "classic parity" in CHANGELOG / strategy docs unless a new ADR promotes them.
+
+See [docs/strategy/issue-governance-architecture-decision.md](docs/strategy/issue-governance-architecture-decision.md) for the layered model.

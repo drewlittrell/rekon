@@ -25,6 +25,8 @@ import {
   type ArtifactFreshnessStatus,
   type ArtifactIndexEntry,
   buildCoherencyDelta,
+  buildFindingFilterHealthReport,
+  buildFindingFilterReport,
   buildFindingLifecycleReport,
   buildIssueAdjudicationReport,
   createLocalArtifactStore,
@@ -952,6 +954,26 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "findings" && subcommand === "filter") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const report = await buildFindingFilterReport(store);
+    const ref = await store.write(report, { category: "findings" });
+
+    writeOutput({ artifact: ref, summary: report.summary }, json);
+    return;
+  }
+
+  if (command === "findings" && subcommand === "filter-health") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const health = await buildFindingFilterHealthReport(store);
+    const ref = await store.write(health, { category: "findings" });
+
+    writeOutput({ artifact: ref, summary: health.summary, alerts: health.alerts }, json);
+    return;
+  }
+
   if (command === "findings" && subcommand === "status" && positional === "list") {
     const store = createLocalArtifactStore(root);
     await store.init();
@@ -1542,6 +1564,8 @@ type RefreshStepId =
   | "project"
   | "snapshot"
   | "evaluate"
+  | "findings.filter"
+  | "findings.filter-health"
   | "findings.lifecycle"
   | "issues.adjudicate"
   | "coherency.delta"
@@ -1587,6 +1611,8 @@ const REQUIRED_REFRESH_ARTIFACT_TYPES = [
   "CapabilityMap",
   "IntelligenceSnapshot",
   "FindingReport",
+  "FindingFilterReport",
+  "FindingFilterHealthReport",
   "FindingLifecycleReport",
   "IssueAdjudicationReport",
   "CoherencyDelta",
@@ -1723,6 +1749,45 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
 
   const store = createLocalArtifactStore(root);
   await store.init();
+
+  // 7a. findings filter — system / policy false-positive audit. Filter
+  // artifacts are produced so suppression is auditable; lifecycle /
+  // adjudication still read FindingReport directly until the
+  // filter-aware lifecycle slice ships next. See
+  // docs/strategy/issue-governance-architecture-decision.md.
+  try {
+    const filterReport = await buildFindingFilterReport(store);
+    const ref = await store.write(filterReport, { category: "findings" });
+    steps.push({
+      id: "findings.filter",
+      status: "passed",
+      artifacts: recordArtifacts(ref),
+      summary: filterReport.summary,
+    });
+  } catch (error) {
+    steps.push({ id: "findings.filter", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 7b. findings filter health — high-filter-rate /
+  // low-confidence-filtered diagnostics over the latest filter report.
+  try {
+    const health = await buildFindingFilterHealthReport(store);
+    const ref = await store.write(health, { category: "findings" });
+    steps.push({
+      id: "findings.filter-health",
+      status: "passed",
+      artifacts: recordArtifacts(ref),
+      summary: { ...health.summary, alerts: health.alerts.length },
+    });
+  } catch (error) {
+    steps.push({
+      id: "findings.filter-health",
+      status: "failed",
+      message: messageOf(error),
+    });
+    return finalize("failed");
+  }
 
   // 7. findings lifecycle
   try {
@@ -2815,6 +2880,8 @@ function usage(): string {
     "rekon artifacts freshness [--root <path>] [--type <type>] [--id <id>] [--json]",
     "rekon findings list [--root <path>] [--status <status>] [--json]",
     "rekon findings lifecycle [--root <path>] [--json]",
+    "rekon findings filter [--root <path>] [--json]",
+    "rekon findings filter-health [--root <path>] [--json]",
     "rekon findings status list [--root <path>] [--json]",
     "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",
     "rekon coherency delta [--root <path>] [--json]",
