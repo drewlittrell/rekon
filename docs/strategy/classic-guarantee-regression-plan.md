@@ -492,6 +492,24 @@ Implementation batches:
   `FindingReport` is **not** mutated; filtered findings remain
   auditable. Pinned by
   `tests/contract/finding-filter-policy.test.mjs` (19 tests).
+- "Filter health / issue adjudication surfaces in
+  publications v1" (shipped) —
+  `@rekon/capability-docs.architecture-summary` renders a
+  `## Finding Filter Health` section sourced from
+  `FindingFilterReport` + `FindingFilterHealthReport` with
+  kept / filtered counts, filter rate, per-reason +
+  per-policy tables, full alert list, and an audit pointer
+  back to `FindingFilterReport.filteredFindings`.
+  `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Health` subsection that visibly warns
+  when alerts exist and adds a `Do Not Do` reminder against
+  treating a clean active-governance surface as proof that
+  no raw findings exist. Both publications cite the filter
+  artifacts in `header.inputRefs`, so freshness flags them
+  stale on newer filter / health reports. Missing filter
+  artifacts emit explicit command hints. Pinned by
+  `tests/contract/publications-filter-health.test.mjs` (12
+  tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

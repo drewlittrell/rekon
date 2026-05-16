@@ -368,7 +368,57 @@ scope:
   config. No LLM, semantic, fuzzy, or embedding matching;
   `GraphOntologyValidator` port and persistent exclusion
   lists remain deferred. Filter health / issue adjudication
-  surfaces in publications is the recommended next slice.
+  surfaces in publications shipped immediately after this
+  slice (see next bullet).
+- **Filter health / issue adjudication surfaces in
+  publications (P1.1 filter-health-publications v1 slice).**
+  ✅ Shipped.
+  `@rekon/capability-docs.architecture-summary` now renders a
+  `## Finding Filter Health` section sourced from
+  `FindingFilterReport` + `FindingFilterHealthReport`. The
+  section lists total / kept / filtered counts, filter rate,
+  policy-filtered totals, a Filter Reasons table (per-reason
+  counts sorted by descending count), a Policy Filters table
+  (per-`findingFilters` policy counts plus any unused policy
+  ids), and a Filter Health Alerts table (severity / code /
+  message). Always closes with "Filtered findings are not
+  deleted. Inspect `FindingFilterReport.filteredFindings`
+  for the full audit." Missing filter artifacts emit
+  `rekon findings filter` / `rekon findings filter-health` /
+  `rekon refresh` hints.
+  `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Health` subsection under
+  `Active Governance State` listing kept / filtered counts,
+  filter rate, active policy count, and warning count. When
+  any alerts exist, the subsection emits a blockquote
+  "Filter-health warnings exist. Do not assume active
+  governance is complete until filtered findings are
+  reviewed." plus up to five alert bullets. Always closes
+  with the inspect-FindingFilterReport hint. The `Do Not Do`
+  list gains "Do not treat a clean active-governance surface
+  as proof that no raw findings exist; inspect
+  FindingFilterReport when filter-health warnings exist or
+  the filter rate is high."
+  Both publications cite `FindingFilterReport` and
+  `FindingFilterHealthReport` in `header.inputRefs`, so
+  `rekon artifacts freshness` marks them stale on a newer
+  filter / health report. Manifest update:
+  `@rekon/capability-docs.consumes` adds `FindingFilterReport`
+  and `FindingFilterHealthReport`; new `finding-filter.changed`
+  invalidation rule (inputs:
+  `FindingFilterReport`, `FindingFilterHealthReport`).
+  Two new file-local helpers in `packages/capability-docs`:
+  `appendArchitectureFindingFilterHealth` and
+  `appendAgentContractFindingFilterHealth`, plus a tiny
+  `sortedCountEntries(counts, limit)` utility. 12 new
+  contract tests in
+  `tests/contract/publications-filter-health.test.mjs`.
+  Aligned to `services/IssueDetectionService.ts`,
+  `services/issues/filter-health.ts`,
+  `services/issues/report-persistence.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/issue-result-filters.ts`. Filter policy /
+  exclusion persistence v2 is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

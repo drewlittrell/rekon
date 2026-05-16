@@ -217,6 +217,18 @@ The alert list is empty when filtering looks healthy.
   active governance. When the latest filter report does not
   cite the latest `FindingReport`, the lifecycle transparently
   falls back to the raw report.
+- **Surfaced in publications.**
+  `@rekon/capability-docs.architecture-summary` renders a
+  `## Finding Filter Health` section (kept / filtered counts,
+  filter rate, per-reason / per-policy tables, full alert
+  list, audit pointer to `filteredFindings`).
+  `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Health` subsection under
+  `Active Governance State` that visibly warns when alerts
+  exist and instructs agents to inspect
+  `FindingFilterReport.filteredFindings` before claiming the
+  repo has no active issues. The agent contract's `Do Not Do`
+  list adds a clean-active-governance reminder.
 
 ## CLI Surface
 

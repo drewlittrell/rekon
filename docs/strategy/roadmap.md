@@ -378,6 +378,22 @@ is the first stop before proposing a new capability batch.
   LLM, semantic, fuzzy, or embedding matching;
   `GraphOntologyValidator` port and persistent exclusion
   lists remain deferred.
+- Filter health / issue adjudication surfaces in
+  publications v1 (P1.1 filter-health-publications v1 slice):
+  `@rekon/capability-docs.architecture-summary` renders a
+  `## Finding Filter Health` section sourced from
+  `FindingFilterReport` + `FindingFilterHealthReport` (kept /
+  filtered counts, filter rate, per-reason / per-policy
+  tables, alert list, audit pointer to `filteredFindings`).
+  `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Health` subsection that visibly warns
+  when alerts exist and adds a clean-active-governance
+  `Do Not Do` reminder. Both publications cite the filter
+  artifacts in `header.inputRefs`, so freshness flags them
+  stale on newer filter / health reports. Manifest update:
+  `@rekon/capability-docs.consumes` adds `FindingFilterReport`
+  and `FindingFilterHealthReport`; new `finding-filter.changed`
+  invalidation rule.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

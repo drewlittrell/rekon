@@ -4,6 +4,69 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped filter health / issue adjudication surfaces in
+  publications v1 (P1.1 filter-health-publications v1 slice).
+  `@rekon/capability-docs.architecture-summary` and
+  `@rekon/capability-docs.agent-contract` now read the latest
+  `FindingFilterReport` and `FindingFilterHealthReport`, cite
+  them in `header.inputRefs`, and surface filter behavior to
+  the surfaces operators and agents actually read.
+  Architecture summary adds a `## Finding Filter Health`
+  section after `## Accepted Issue Merge Roll-ups`. The
+  section lists total / kept / filtered counts, filter rate,
+  policy-filtered total, a **Filter Reasons** table (per
+  reason, sorted by descending count), a **Policy Filters**
+  table (per `findingFilters` policy id, with any unused
+  policy ids listed below the table), and a **Filter Health
+  Alerts** table (severity / code / message per alert).
+  Always closes with "Filtered findings are not deleted.
+  Inspect `FindingFilterReport.filteredFindings` for the
+  full audit." Missing filter artifacts emit explicit
+  `rekon findings filter` / `rekon findings filter-health` /
+  `rekon refresh` hints.
+  Agent contract adds a `### Finding Filter Health`
+  subsection under `Active Governance State` listing
+  kept / filtered counts, filter rate, active policy count,
+  and warning count. When any alerts exist, the subsection
+  emits a blockquote ("Filter-health warnings exist. Do not
+  assume active governance is complete until filtered
+  findings are reviewed.") followed by up to five
+  `<code> — <message>` bullets. Always closes with the
+  inspect-`FindingFilterReport.filteredFindings` hint. The
+  agent contract `Do Not Do` list gains: "Do not treat a
+  clean active-governance surface as proof that no raw
+  findings exist; inspect FindingFilterReport when
+  filter-health warnings exist or the filter rate is high."
+  Manifest update: `@rekon/capability-docs.consumes` adds
+  `FindingFilterReport` and `FindingFilterHealthReport`; new
+  `finding-filter.changed` invalidation rule (inputs:
+  `FindingFilterReport`, `FindingFilterHealthReport`). Two
+  new file-local helpers in `packages/capability-docs`:
+  `appendArchitectureFindingFilterHealth(sections, filter,
+  health)` and `appendAgentContractFindingFilterHealth(...)`,
+  plus a small `sortedCountEntries(counts, limit)` utility
+  that returns up to 10 entries sorted descending by count
+  then by id. `ArchitectureSummaryInputs` and
+  `AgentContractInputs` gain optional
+  `findingFilterReport?` and `findingFilterHealthReport?`.
+  12 new contract tests in
+  `tests/contract/publications-filter-health.test.mjs`
+  covering: section/subsection rendering, on-disk
+  inputRefs, alert visibility (including the agent-contract
+  warnings blockquote), missing-artifact command guidance
+  for both publications, freshness goes stale on a newer
+  `FindingFilterHealthReport`, `publish agents` /
+  `publish proof` still work, and `artifacts validate`
+  cleanliness. Full suite: 514 passed / 1 skipped. Docs
+  updated across architecture-summary-publication
+  (artifact + concept), agent-contract-publication
+  (artifact + concept), finding-filter-report,
+  finding-filter-health-report, finding-filters concept,
+  issue-governance-architecture-decision ADR
+  (Implementation Order), four strategy docs, and CHANGELOG.
+  No SDK API change; no artifact schemaVersion bump; no new
+  capability role; no CLI subcommand change; no version
+  bump; no npm publish.
 - Shipped filter policy / configured exclusions v1 (P1.1
   filter policy v1 slice). `.rekon/config.json` now accepts
   an optional `findingFilters` array of project-specific

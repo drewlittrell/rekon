@@ -75,7 +75,7 @@ state is current.
 | Operating Rules | always | n/a (durable rules) |
 | Resolver Workflow | always | n/a (durable flow) |
 | Ownership And Capabilities | `ObservedRepo` and/or `CapabilityMap` present | `ObservedRepo`, `OwnershipMap`, `CapabilityMap` |
-| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Governance Freshness subsections) |
+| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport`, `FindingFilterReport`, `FindingFilterHealthReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Finding Filter Health + Governance Freshness subsections) |
 | Proof And Verification State | always | `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, `VerificationResult` |
 | Memory Guidance | always (table only when ranked items exist) | `MemorySelection` |
 | Required Checks | always | `VerificationPlan.commands` (default fallback) |
@@ -133,6 +133,29 @@ still inspect `mergedIssueGroupIds` and `memberFindingIds` before
 acting. See
 [issue-merge-decisions.md](issue-merge-decisions.md) and
 [coherency-delta.md](coherency-delta.md).
+
+## Finding Filter Health
+
+The contract renders a `Finding Filter Health` subsection under
+`Active Governance State` so agents see when active governance is
+heavily filtered. Sourced from
+[`FindingFilterReport`](../artifacts/finding-filter-report.md) +
+[`FindingFilterHealthReport`](../artifacts/finding-filter-health-report.md).
+The subsection lists kept / filtered counts, filter rate, active
+policy count, and warning count. When the health report carries
+any alerts, a blockquote "Filter-health warnings exist. Do not
+assume active governance is complete until filtered findings are
+reviewed." precedes a bulleted list of up to five alert
+`code` + `message` entries. The subsection always closes with
+"If filter rate is high or policy warnings exist, inspect
+`FindingFilterReport.filteredFindings` before claiming the repo
+has no active issues." Missing filter artifacts produce explicit
+`rekon findings filter` / `rekon refresh` hints. The `Do Not Do`
+section adds an explicit reminder: "Do not treat a clean
+active-governance surface as proof that no raw findings exist;
+inspect FindingFilterReport when filter-health warnings exist or
+the filter rate is high." See
+[finding-filters.md](finding-filters.md).
 
 ## CLI Surface
 

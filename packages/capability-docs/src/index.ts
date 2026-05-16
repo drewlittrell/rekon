@@ -1,6 +1,8 @@
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
+  type FindingFilterHealthReport,
+  type FindingFilterReport,
   type FindingLifecycleReport,
   type IssueAdjudicationReport,
 } from "@rekon/kernel-findings";
@@ -232,6 +234,19 @@ export const architectureSummaryPublisher: Publisher = {
       "FindingLifecycleReport",
       inputRefs,
     );
+    // Finding filter audit + health (P1.1 filter-health publication surfaces).
+    // When present, both artifacts are cited in inputRefs so freshness flags
+    // the publication stale when a newer filter run lands.
+    const findingFilterReport = await readLatestArtifact<FindingFilterReport>(
+      artifacts,
+      "FindingFilterReport",
+      inputRefs,
+    );
+    const findingFilterHealthReport = await readLatestArtifact<FindingFilterHealthReport>(
+      artifacts,
+      "FindingFilterHealthReport",
+      inputRefs,
+    );
     const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
     const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
       artifacts,
@@ -269,6 +284,8 @@ export const architectureSummaryPublisher: Publisher = {
         coherencyDelta,
         issueAdjudicationReport,
         lifecycleReport,
+        findingFilterReport,
+        findingFilterHealthReport,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -415,6 +432,20 @@ export const agentContractPublisher: Publisher = {
       "FindingLifecycleReport",
       inputRefs,
     );
+    // Finding filter audit + health surfaces (P1.1 filter-health
+    // publication surfaces). The agent contract uses both to make
+    // suppression visible and to discourage agents from treating a
+    // clean active surface as a clean codebase.
+    const findingFilterReport = await readLatestArtifact<FindingFilterReport>(
+      artifacts,
+      "FindingFilterReport",
+      inputRefs,
+    );
+    const findingFilterHealthReport = await readLatestArtifact<FindingFilterHealthReport>(
+      artifacts,
+      "FindingFilterHealthReport",
+      inputRefs,
+    );
     const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
     const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
       artifacts,
@@ -460,6 +491,8 @@ export const agentContractPublisher: Publisher = {
         coherencyDelta,
         issueAdjudicationReport,
         lifecycleReport,
+        findingFilterReport,
+        findingFilterHealthReport,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -495,6 +528,8 @@ export default defineCapability({
       "CoherencyDelta",
       "IssueAdjudicationReport",
       "FindingLifecycleReport",
+      "FindingFilterReport",
+      "FindingFilterHealthReport",
       "WorkOrder",
       "ReconciliationPlan",
       "VerificationPlan",
@@ -521,6 +556,12 @@ export default defineCapability({
         description:
           "Regenerate publications when adjudicated issue groups change so governed counts stay current.",
         inputs: ["IssueAdjudicationReport"],
+      },
+      {
+        id: "finding-filter.changed",
+        description:
+          "Regenerate publications when filtering / filter-health changes so the rendered filter-health section stays current.",
+        inputs: ["FindingFilterReport", "FindingFilterHealthReport"],
       },
       {
         id: "proof-loop.changed",
@@ -877,6 +918,8 @@ type ArchitectureSummaryInputs = {
   coherencyDelta?: CoherencyDelta;
   issueAdjudicationReport?: IssueAdjudicationReport;
   lifecycleReport?: FindingLifecycleReport;
+  findingFilterReport?: FindingFilterReport;
+  findingFilterHealthReport?: FindingFilterHealthReport;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -897,6 +940,8 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     coherencyDelta,
     issueAdjudicationReport,
     lifecycleReport,
+    findingFilterReport,
+    findingFilterHealthReport,
     freshness,
     inputRefs,
     generatedAt,
@@ -1086,6 +1131,13 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     );
     sections.push("");
   }
+
+  // Finding Filter Health — surfaces FindingFilterReport +
+  // FindingFilterHealthReport so users see what was filtered, by which
+  // policies, and whether any filter-health warnings exist. Filtered
+  // findings are not deleted; the section always points back at the
+  // FindingFilterReport audit.
+  appendArchitectureFindingFilterHealth(sections, findingFilterReport, findingFilterHealthReport);
 
   // Freshness Warnings (only when there are warnings — keep clean output silent)
   if (freshness && freshness.warnings.length > 0) {
@@ -1762,6 +1814,8 @@ type AgentContractInputs = {
   coherencyDelta?: CoherencyDelta;
   issueAdjudicationReport?: IssueAdjudicationReport;
   lifecycleReport?: FindingLifecycleReport;
+  findingFilterReport?: FindingFilterReport;
+  findingFilterHealthReport?: FindingFilterHealthReport;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -1800,6 +1854,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not apply source-writing reconciliation unless an explicit future capability enables it under `write:source` permission.",
   "Do not treat raw finding count as governed issue count when an IssueAdjudicationReport exists; use governed issue groups (memberFindingIds preserves raw traceability).",
   "Do not treat accepted merge roll-ups as automatic mutation of raw issue groups; inspect mergedIssueGroupIds and memberFindingIds before editing, and consult both member groups for context.",
+  "Do not treat a clean active-governance surface as proof that no raw findings exist; inspect FindingFilterReport when filter-health warnings exist or the filter rate is high.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -1811,6 +1866,8 @@ function renderAgentContract(input: AgentContractInputs): string {
     coherencyDelta,
     issueAdjudicationReport,
     lifecycleReport,
+    findingFilterReport,
+    findingFilterHealthReport,
     remediationWorkOrder,
     resolverWorkOrder,
     reconciliationPlan,
@@ -2045,6 +2102,13 @@ function renderAgentContract(input: AgentContractInputs): string {
     );
     sections.push("");
   }
+
+  // Finding Filter Health — agent-facing subsection mirroring the
+  // architecture summary's Finding Filter Health section. Surfaces
+  // kept/filtered counts, configured-policy activity, and
+  // filter-health warnings so agents do not treat a clean active
+  // surface as proof of a clean codebase.
+  appendAgentContractFindingFilterHealth(sections, findingFilterReport, findingFilterHealthReport);
 
   // Governance Freshness — show even when fresh so agents can rely on the read.
   sections.push("### Governance Freshness");
@@ -2410,4 +2474,169 @@ function truncate(value: string, max: number): string {
   }
 
   return `${value.slice(0, max - 1)}…`;
+}
+
+/**
+ * Sort a record of counts by descending count, then by id for ties.
+ * Returns up to `limit` entries so the publication tables stay
+ * compact without dropping the audit pointer to the underlying
+ * artifact.
+ */
+function sortedCountEntries(
+  counts: Record<string, number> | undefined,
+  limit = 10,
+): Array<[string, number]> {
+  if (!counts) return [];
+  return Object.entries(counts)
+    .sort((left, right) => {
+      if (left[1] !== right[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0]);
+    })
+    .slice(0, limit);
+}
+
+function appendArchitectureFindingFilterHealth(
+  sections: string[],
+  filterReport: FindingFilterReport | undefined,
+  healthReport: FindingFilterHealthReport | undefined,
+): void {
+  sections.push("## Finding Filter Health");
+  sections.push("");
+
+  if (!filterReport) {
+    sections.push(
+      "No FindingFilterReport found. Run `rekon findings filter` or `rekon refresh` to produce the filter audit.",
+    );
+    sections.push("");
+    return;
+  }
+  if (!healthReport) {
+    sections.push(
+      "No FindingFilterHealthReport found. Run `rekon findings filter-health` or `rekon refresh` to produce filter-health diagnostics.",
+    );
+    sections.push("");
+    return;
+  }
+
+  const summary = healthReport.summary;
+  const filterSummary = filterReport.summary;
+  const filterRatePercent = (summary.filterRate * 100).toFixed(1);
+  const policyFiltered = summary.policyFiltered ?? 0;
+
+  sections.push(`- Total findings: ${summary.totalFindings}`);
+  sections.push(`- Kept findings: ${filterSummary.kept}`);
+  sections.push(`- Filtered findings: ${summary.totalFiltered}`);
+  sections.push(`- Filter rate: ${filterRatePercent}%`);
+  sections.push(`- Policy-filtered findings: ${policyFiltered}`);
+  sections.push("");
+
+  const reasonRows = sortedCountEntries(summary.byReason);
+  if (reasonRows.length > 0) {
+    sections.push("### Filter Reasons");
+    sections.push("");
+    sections.push("| Reason | Count |");
+    sections.push("| --- | --- |");
+    for (const [reason, count] of reasonRows) {
+      sections.push(`| ${reason} | ${count} |`);
+    }
+    sections.push("");
+  }
+
+  const policyRows = sortedCountEntries(summary.byPolicy);
+  sections.push("### Policy Filters");
+  sections.push("");
+  if (!summary.byPolicy || Object.keys(summary.byPolicy).length === 0) {
+    sections.push(
+      "No `findingFilters` policies configured. Configure project-specific exclusions under `.rekon/config.json` `findingFilters`.",
+    );
+    sections.push("");
+  } else {
+    sections.push("| Policy | Count |");
+    sections.push("| --- | --- |");
+    for (const [policyId, count] of policyRows) {
+      sections.push(`| ${policyId} | ${count} |`);
+    }
+    sections.push("");
+    if (Array.isArray(summary.unusedPolicies) && summary.unusedPolicies.length > 0) {
+      sections.push(
+        `Unused policy ${summary.unusedPolicies.length === 1 ? "id" : "ids"}: ${summary.unusedPolicies.join(", ")}.`,
+      );
+      sections.push("");
+    }
+  }
+
+  sections.push("### Filter Health Alerts");
+  sections.push("");
+  if (!healthReport.alerts || healthReport.alerts.length === 0) {
+    sections.push("No filter-health alerts.");
+    sections.push("");
+  } else {
+    sections.push("| Severity | Code | Message |");
+    sections.push("| --- | --- | --- |");
+    for (const alert of healthReport.alerts) {
+      sections.push(`| ${alert.severity} | ${alert.code} | ${alert.message.replace(/\|/g, "\\|")} |`);
+    }
+    sections.push("");
+  }
+
+  sections.push(
+    "Filtered findings are not deleted. Inspect `FindingFilterReport.filteredFindings` for the full audit (each entry records reason, evidence, confidence, source, and optional policyId).",
+  );
+  sections.push("");
+}
+
+function appendAgentContractFindingFilterHealth(
+  sections: string[],
+  filterReport: FindingFilterReport | undefined,
+  healthReport: FindingFilterHealthReport | undefined,
+): void {
+  sections.push("### Finding Filter Health");
+  sections.push("");
+
+  if (!filterReport) {
+    sections.push(
+      "No FindingFilterReport found. Run `rekon findings filter` or `rekon refresh` before relying on active governance counts.",
+    );
+    sections.push("");
+    return;
+  }
+  if (!healthReport) {
+    sections.push(
+      "No FindingFilterHealthReport found. Run `rekon findings filter-health` or `rekon refresh` to surface filter diagnostics.",
+    );
+    sections.push("");
+    return;
+  }
+
+  const summary = healthReport.summary;
+  const filterSummary = filterReport.summary;
+  const filterRatePercent = (summary.filterRate * 100).toFixed(1);
+  const policyCount = summary.byPolicy ? Object.keys(summary.byPolicy).length : 0;
+  const alertCount = healthReport.alerts?.length ?? 0;
+
+  sections.push(`- Kept findings: ${filterSummary.kept}`);
+  sections.push(`- Filtered findings: ${summary.totalFiltered}`);
+  sections.push(`- Filter rate: ${filterRatePercent}%`);
+  sections.push(`- Policy filters active: ${policyCount}`);
+  sections.push(`- Warnings: ${alertCount}`);
+  sections.push("");
+
+  if (alertCount > 0) {
+    sections.push(
+      "> Filter-health warnings exist. Do not assume active governance is complete until filtered findings are reviewed.",
+    );
+    sections.push("");
+    for (const alert of healthReport.alerts.slice(0, 5)) {
+      sections.push(`- \`${alert.code}\` — ${alert.message}`);
+    }
+    if (healthReport.alerts.length > 5) {
+      sections.push(`- _… ${healthReport.alerts.length - 5} more alerts_`);
+    }
+    sections.push("");
+  }
+
+  sections.push(
+    "If filter rate is high or policy warnings exist, inspect `FindingFilterReport.filteredFindings` before claiming the repo has no active issues. Filtered findings remain auditable (each entry records reason, evidence, confidence, source, and optional policyId).",
+  );
+  sections.push("");
 }

@@ -177,10 +177,27 @@ review packets unless an ADR promotes them. Promotion requires:
    `unused-policy-filter`. `rekon config validate` enforces
    the policy schema and rejects duplicates / missing
    matchers / absolute or traversal pathPattern.
-4. **(future)** Filter health / issue adjudication surfaces in
-   publications (architecture summary + agent contract render
-   filter-health alerts and filtered counts).
-5. **(future)** Merge-decision freshness guardrails,
+4. **(shipped)** Filter health / issue adjudication surfaces
+   in publications. `@rekon/capability-docs.architecture-summary`
+   renders a `## Finding Filter Health` section sourced from
+   `FindingFilterReport` + `FindingFilterHealthReport` (kept /
+   filtered counts, filter rate, per-reason / per-policy
+   tables, alert list, audit pointer to `filteredFindings`).
+   `@rekon/capability-docs.agent-contract` renders a
+   `### Finding Filter Health` subsection under
+   `Active Governance State` that visibly warns when alerts
+   exist and instructs agents to inspect
+   `FindingFilterReport.filteredFindings` before claiming the
+   repo has no active issues. Both publications cite the
+   filter artifacts in `header.inputRefs`, so freshness flags
+   them stale on newer filter / health reports. The agent
+   contract's `Do Not Do` list adds a clean-active-governance
+   reminder.
+5. **(future)** Filter policy / exclusion persistence v2 —
+   preserve repeated filtered findings into explicit
+   config-backed policy suggestions; still no automatic
+   mutation.
+6. **(future)** Merge-decision freshness guardrails,
    `GraphOntologyValidator`-style filters, persistent
    exclusion lists, and any further product-extension
    expansion.

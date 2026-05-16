@@ -66,7 +66,15 @@ states are surfaced, not hidden.
    decision ids that produced it, member finding counts, severity,
    status, and active flag — derived from `CoherencyDelta` only
    (the publisher does not read `IssueMergeDecisionLedger`
-   directly). The publisher also runs a small
+   directly). The publisher additionally reads the latest
+   `FindingFilterReport` and `FindingFilterHealthReport` and
+   renders a `Finding Filter Health` section with kept /
+   filtered counts, filter rate, per-reason / per-policy
+   tables, the full alert list, and an audit pointer back to
+   `FindingFilterReport.filteredFindings`. Missing filter
+   artifacts produce explicit `rekon findings filter` /
+   `rekon findings filter-health` / `rekon refresh` hints.
+   The publisher also runs a small
    `detectGovernanceFreshness` helper across the latest
    `FindingLifecycleReport` /
    `IssueAdjudicationReport` / `CoherencyDelta` and, when any

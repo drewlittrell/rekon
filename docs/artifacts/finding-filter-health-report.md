@@ -19,11 +19,16 @@ is healthy.
 
 ## Consumed By
 
+- `@rekon/capability-docs.architecture-summary` renders the
+  `## Finding Filter Health` section (filter-rate, per-reason
+  / per-policy tables, alerts list) using this artifact +
+  [`FindingFilterReport`](finding-filter-report.md).
+- `@rekon/capability-docs.agent-contract` renders the
+  `### Finding Filter Health` subsection under
+  `Active Governance State`, visibly warning when any alerts
+  exist.
 - Operators / agents who want a one-shot view of filter health
   without reading the full filter audit.
-- Future surfaces (e.g. agent contract, architecture summary)
-  may opt in to rendering filter-health alerts — out of scope
-  for this slice.
 
 ## Required Header Fields
 

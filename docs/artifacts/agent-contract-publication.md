@@ -113,6 +113,21 @@ The publication contains, in fixed order:
    exists, it instructs the operator to run `rekon coherency
    delta`. See
    [../concepts/issue-merge-decisions.md](../concepts/issue-merge-decisions.md).
+   The **Finding Filter Health** subsection follows, sourced
+   from [`FindingFilterReport`](finding-filter-report.md) +
+   [`FindingFilterHealthReport`](finding-filter-health-report.md).
+   When both artifacts exist, the subsection lists kept /
+   filtered counts, filter rate, active policy count, and
+   warning count. When `FindingFilterHealthReport.alerts` is
+   non-empty, a blockquote line "Filter-health warnings exist.
+   Do not assume active governance is complete until filtered
+   findings are reviewed." precedes a bulleted list of up to
+   five alert `code` + `message` entries. The subsection always
+   closes with "If filter rate is high or policy warnings exist,
+   inspect `FindingFilterReport.filteredFindings` before
+   claiming the repo has no active issues." Missing artifacts
+   produce `rekon findings filter` / `rekon refresh` hints.
+   See [../concepts/finding-filters.md](../concepts/finding-filters.md).
 8. **Proof And Verification State** — presence/missing for
    remediation WorkOrder, resolver WorkOrder, ReconciliationPlan,
    VerificationPlan, VerificationResult; explicit "Verification is

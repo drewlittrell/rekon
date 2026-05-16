@@ -49,6 +49,14 @@ for the layered governance model that situates it.
   not cite the stale filter. `IssueAdjudicationReport` and
   `CoherencyDelta` benefit transitively: only kept findings
   flow into governed issue groups and coherency rollups.
+- `@rekon/capability-docs.architecture-summary` renders a
+  `## Finding Filter Health` section sourced from this artifact
+  plus [`FindingFilterHealthReport`](finding-filter-health-report.md).
+- `@rekon/capability-docs.agent-contract` renders a
+  `### Finding Filter Health` subsection under
+  `Active Governance State` and adds a `Do Not Do` reminder
+  against treating a clean active-governance surface as proof
+  that no raw findings exist.
 - Operators / agents inspecting why a particular finding
   disappeared from the active governance surface.
 
