@@ -510,6 +510,25 @@ Implementation batches:
   artifacts emit explicit command hints. Pinned by
   `tests/contract/publications-filter-health.test.mjs` (12
   tests).
+- "Filter policy / exclusion persistence v2" (shipped) —
+  `FindingFilterPolicySuggestionReport` records candidate
+  `findingFilters` rules derived deterministically from
+  the latest N (default 5) `FindingFilterReport` artifacts,
+  with reason, confidence, rationale, affected finding ids
+  / paths / types, and evidence refs back to the source
+  filter reports. Four reasons:
+  `repeated-filtered-policy-gap`, `repeated-filtered-path`,
+  `repeated-filtered-type`, and
+  `high-volume-filtered-pattern`. New CLI:
+  `rekon findings filter-policy suggest` /
+  `rekon findings filter-policy list` /
+  `rekon findings filter-policy apply <id> [--force]`.
+  `apply` is the only mutating command and refuses
+  low-confidence + duplicate-id rules without `--force`.
+  Existing `findingFilters` rules suppress duplicate
+  suggestions. Pinned by
+  `tests/contract/finding-filter-policy-suggestions.test.mjs`
+  (15 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

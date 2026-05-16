@@ -193,11 +193,32 @@ review packets unless an ADR promotes them. Promotion requires:
    them stale on newer filter / health reports. The agent
    contract's `Do Not Do` list adds a clean-active-governance
    reminder.
-5. **(future)** Filter policy / exclusion persistence v2 —
-   preserve repeated filtered findings into explicit
-   config-backed policy suggestions; still no automatic
-   mutation.
-6. **(future)** Merge-decision freshness guardrails,
+5. **(shipped)** Filter policy / exclusion persistence v2.
+   `FindingFilterPolicySuggestionReport` records candidate
+   `findingFilters` rules derived deterministically from
+   the latest N `FindingFilterReport` artifacts (default 5),
+   with reason, confidence, rationale, affected finding ids
+   / paths / types, and evidence refs back to the source
+   filter reports. Four suggestion reasons:
+   `repeated-filtered-policy-gap` (high; computed first so
+   it wins over `repeated-filtered-path` at the same
+   pathPattern), `repeated-filtered-path` (high ≥ 3 / medium
+   = 2), `repeated-filtered-type` (medium), and
+   `high-volume-filtered-pattern` (low review prompt with
+   no `pathPattern`). New CLI:
+   `rekon findings filter-policy suggest` /
+   `rekon findings filter-policy list` /
+   `rekon findings filter-policy apply <id> [--force]`.
+   `apply` is the only mutating command and refuses
+   low-confidence + duplicate-id rules without `--force`;
+   all other commands are read-only. Existing
+   `findingFilters` rules suppress duplicate suggestions by
+   `pathPattern` / `type`.
+6. **(future)** Filter policy suggestions surfaced in
+   architecture summary / agent contract — let users and
+   agents know when repeated filtered findings imply a
+   policy suggestion. Still no automatic config mutation.
+7. **(future)** Merge-decision freshness guardrails,
    `GraphOntologyValidator`-style filters, persistent
    exclusion lists, and any further product-extension
    expansion.

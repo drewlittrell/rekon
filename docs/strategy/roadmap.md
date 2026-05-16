@@ -394,6 +394,39 @@ is the first stop before proposing a new capability batch.
   `@rekon/capability-docs.consumes` adds `FindingFilterReport`
   and `FindingFilterHealthReport`; new `finding-filter.changed`
   invalidation rule.
+- Filter policy / exclusion persistence v2 (P1.1
+  filter-policy-suggestions v2 slice):
+  `FindingFilterPolicySuggestionReport` records candidate
+  `findingFilters` rules derived deterministically from the
+  latest N `FindingFilterReport` artifacts (default 5). Four
+  reasons: `repeated-filtered-policy-gap` (high; computed
+  first so it wins for the same pathPattern over
+  `repeated-filtered-path`), `repeated-filtered-path` (high
+  ≥ 3 / medium = 2), `repeated-filtered-type` (medium),
+  `high-volume-filtered-pattern` (low review prompt). Path
+  prefix uses first-two-segments; existing `findingFilters`
+  rules suppress duplicate suggestions. New CLI:
+  `rekon findings filter-policy suggest` (read-only) /
+  `rekon findings filter-policy list` (read-only) /
+  `rekon findings filter-policy apply <id> [--force]`
+  (only mutating command). `apply` appends the suggested
+  rule to `.rekon/config.json findingFilters`, preserves
+  every other top-level field, refuses low-confidence +
+  duplicate-id rules without `--force`, and creates a
+  default config when missing. New exports:
+  `FindingFilterPolicySuggestionReport` + sibling types and
+  helpers (`deriveFindingFilterPolicySuggestions`,
+  `createFindingFilterPolicySuggestionReport`,
+  `validateFindingFilterPolicySuggestionReport`,
+  `assertFindingFilterPolicySuggestionReport`,
+  `findingFilterPolicySuggestionReportSchema`). New
+  runtime helper
+  `buildFindingFilterPolicySuggestionReport`. Registered
+  in `BUILT_IN_ARTIFACT_TYPES` and
+  `ARTIFACT_CATEGORY_BY_TYPE: "findings"`. No LLM,
+  semantic, fuzzy, or embedding matching;
+  `GraphOntologyValidator` port and persistent exclusion
+  lists beyond config-backed rules remain deferred.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

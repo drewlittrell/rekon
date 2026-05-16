@@ -23,6 +23,7 @@ import {
   type Finding,
   type FindingFilterHealthReport,
   type FindingFilterPolicyRule,
+  type FindingFilterPolicySuggestionReport,
   type FindingFilterReport,
   type FindingLifecycleReport,
   type FindingReport,
@@ -36,10 +37,12 @@ import {
   applyFindingFilters,
   createCoherencyDelta,
   createFindingFilterHealthReport,
+  createFindingFilterPolicySuggestionReport,
   createFindingFilterReport,
   createFindingLifecycleReport,
   createIssueAdjudicationReport,
   createIssueMergeDecisionLedger,
+  deriveFindingFilterPolicySuggestions,
   deriveFindingLifecycle,
 } from "@rekon/kernel-findings";
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
@@ -222,6 +225,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   FindingReport: "findings",
   FindingFilterReport: "findings",
   FindingFilterHealthReport: "findings",
+  FindingFilterPolicySuggestionReport: "findings",
   FindingStatusLedger: "findings",
   FindingLifecycleReport: "findings",
   CoherencyDelta: "findings",
@@ -933,6 +937,83 @@ export async function buildFindingFilterHealthReport(
     filterReport,
     highFilterRateThreshold: options.highFilterRateThreshold,
     policies: options.policies,
+  });
+}
+
+export type BuildFindingFilterPolicySuggestionReportOptions = {
+  /**
+   * Pin to specific `FindingFilterReport` artifact ids. When
+   * omitted, the helper uses the latest `recentLimit` reports
+   * (default 5) by `writtenAt`.
+   */
+  filterReportIds?: string[];
+  /**
+   * How many recent filter reports to fold into the suggestion
+   * derivation when no explicit ids are supplied. Defaults to 5.
+   * Capped at the number of indexed reports.
+   */
+  recentLimit?: number;
+  /**
+   * Current `findingFilters` policies. Used for coverage checks
+   * so the helper never proposes a duplicate of an existing
+   * rule.
+   */
+  policies?: FindingFilterPolicyRule[];
+};
+
+export async function buildFindingFilterPolicySuggestionReport(
+  store: ArtifactStore,
+  options: BuildFindingFilterPolicySuggestionReportOptions = {},
+): Promise<FindingFilterPolicySuggestionReport> {
+  const entries = await store.list("FindingFilterReport");
+  if (entries.length === 0) {
+    throw new Error(
+      "buildFindingFilterPolicySuggestionReport requires at least one FindingFilterReport. Run `rekon findings filter` or `rekon refresh` first.",
+    );
+  }
+  const sorted = [...entries].sort((left, right) =>
+    left.writtenAt.localeCompare(right.writtenAt),
+  );
+
+  let selected: typeof sorted;
+  if (options.filterReportIds && options.filterReportIds.length > 0) {
+    const wanted = new Set(options.filterReportIds);
+    selected = sorted.filter((entry) => wanted.has(entry.id));
+    if (selected.length === 0) {
+      throw new Error(
+        `buildFindingFilterPolicySuggestionReport: no FindingFilterReport matched the supplied ids (${[...wanted].join(", ")}).`,
+      );
+    }
+  } else {
+    const limit = Math.max(1, Math.min(options.recentLimit ?? 5, sorted.length));
+    selected = sorted.slice(-limit);
+  }
+
+  const filterReports: FindingFilterReport[] = [];
+  const filterReportRefs: ArtifactRef[] = [];
+  for (const entry of selected) {
+    filterReports.push((await store.read(entry)) as FindingFilterReport);
+    filterReportRefs.push(indexEntryToRef(entry));
+  }
+
+  const suggestions = deriveFindingFilterPolicySuggestions({
+    filterReports,
+    filterReportRefs,
+    policies: options.policies,
+  });
+
+  return createFindingFilterPolicySuggestionReport({
+    header: {
+      artifactType: "FindingFilterPolicySuggestionReport",
+      artifactId: `finding-filter-policy-suggestions-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: subjectRepoId(store) },
+      producer: { id: "@rekon/runtime.findings", version: "0.1.0" },
+      inputRefs: filterReportRefs,
+      freshness: { status: "fresh" },
+    },
+    suggestions,
   });
 }
 

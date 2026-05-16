@@ -418,7 +418,86 @@ scope:
   `services/issues/report-persistence.ts`,
   `services/issues/content-filters.ts`,
   `services/issues/issue-result-filters.ts`. Filter policy /
-  exclusion persistence v2 is the recommended next slice.
+  exclusion persistence v2 shipped immediately after this
+  slice (see next bullet).
+- **Filter policy / exclusion persistence v2 (P1.1
+  filter-policy-suggestions v2 slice).** ✅ Shipped.
+  New `FindingFilterPolicySuggestionReport` artifact
+  records candidate `findingFilters` rules derived
+  deterministically from the latest N `FindingFilterReport`
+  artifacts (default 5, configurable via `--recent-limit`).
+  New `@rekon/kernel-findings` exports:
+  `FindingFilterPolicySuggestion`,
+  `FindingFilterPolicySuggestionReason`,
+  `FindingFilterPolicySuggestionConfidence`,
+  `FindingFilterPolicySuggestionSummary`,
+  `FindingFilterPolicySuggestionReport`,
+  `DeriveFindingFilterPolicySuggestionsInput`,
+  `deriveFindingFilterPolicySuggestions(input)`,
+  `summarizeFindingFilterPolicySuggestions(suggestions)`,
+  `createFindingFilterPolicySuggestionReport(input)`,
+  `validateFindingFilterPolicySuggestionReport(value)`,
+  `assertFindingFilterPolicySuggestionReport(value)`,
+  `findingFilterPolicySuggestionReportSchema`. Four
+  deterministic suggestion reasons:
+  `repeated-filtered-policy-gap` (≥ 3 built-in-filtered
+  findings under a path prefix not covered by an existing
+  rule; high confidence; computed first so it wins over
+  `repeated-filtered-path` at the same pathPattern);
+  `repeated-filtered-path` (≥ 2 filtered findings under a
+  prefix; high confidence ≥ 3 / medium = 2);
+  `repeated-filtered-type` (≥ 3 filtered findings sharing
+  `finding.type`; medium); and
+  `high-volume-filtered-pattern` (one reason > 80 % of
+  filtered findings with ≥ 5 findings; low confidence
+  review prompt with no `pathPattern`). Path-prefix
+  heuristic uses the first two segments; coverage check
+  drops any suggestion whose `pathPattern` / `type` is
+  already covered by an existing `findingFilters` rule.
+  Suggestion + rule ids are deterministic
+  (`policy-suggestion:<reason>:<hash>` /
+  `suggested-<hash>`) so reruns over the same inputs stay
+  stable. New runtime helper
+  `buildFindingFilterPolicySuggestionReport(store,
+  options?)` reads the latest N filter reports (or the
+  pinned set), runs the derivation, and writes the report
+  to the `findings` category with `inputRefs` citing every
+  consumed `FindingFilterReport`. Registered in
+  `BUILT_IN_ARTIFACT_TYPES` (experimental) and
+  `ARTIFACT_CATEGORY_BY_TYPE: "findings"`. New CLI:
+  `rekon findings filter-policy suggest` /
+  `rekon findings filter-policy list` /
+  `rekon findings filter-policy apply <suggestion-id>
+  [--force]`. `apply` is the only mutating command: it
+  reads `.rekon/config.json`, appends the suggested rule to
+  `findingFilters`, preserves every other top-level field
+  (including project extensions), writes
+  `<JSON>\n` atomically, and creates a default config when
+  one doesn't exist. `apply` refuses low-confidence
+  suggestions and duplicate rule ids without `--force`;
+  `suggest` / `list` are strictly read-only. 15 new
+  contract tests in
+  `tests/contract/finding-filter-policy-suggestions.test.mjs`
+  covering all four suggestion rules, coverage-based
+  deduplication, evidence + sourceFilterReportIds, CLI
+  happy paths (suggest writes report without mutating
+  config; list returns latest; apply appends rule),
+  low-confidence rejection + --force override,
+  duplicate-id rejection + --force override, unrelated
+  config field preservation, post-apply
+  `rekon config validate` success, and `artifacts validate`
+  cleanliness. Aligned to
+  `services/IssueDetectionService.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/report-persistence.ts`,
+  `services/issues/filter-health.ts`, the classic
+  `issueExclude` config, `filtered-issues.json`. No LLM,
+  semantic, fuzzy, or embedding matching;
+  `GraphOntologyValidator` port and persistent exclusion
+  lists beyond config-backed rules remain deferred. Filter
+  policy suggestions surfaced in architecture summary /
+  agent contract is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

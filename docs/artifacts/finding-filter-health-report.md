@@ -28,7 +28,10 @@ is healthy.
   `Active Governance State`, visibly warning when any alerts
   exist.
 - Operators / agents who want a one-shot view of filter health
-  without reading the full filter audit.
+  without reading the full filter audit. When recurring
+  filtered findings warrant durable policy, run
+  `rekon findings filter-policy suggest` to materialize a
+  [`FindingFilterPolicySuggestionReport`](finding-filter-policy-suggestion-report.md).
 
 ## Required Header Fields
 

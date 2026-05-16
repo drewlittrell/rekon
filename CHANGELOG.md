@@ -4,6 +4,88 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped filter policy / exclusion persistence v2 (P1.1
+  filter-policy-suggestions v2 slice). New
+  `FindingFilterPolicySuggestionReport` artifact records
+  candidate `findingFilters` rules derived deterministically
+  from the latest N `FindingFilterReport` artifacts (default
+  5, configurable via `--recent-limit`). The artifact lists
+  each suggestion's `id`, `reason`, `suggestedRule`,
+  `confidence`, `rationale`, affected finding ids / paths /
+  types, the source `FindingFilterReport` ids, and evidence
+  refs back to those reports. Four deterministic suggestion
+  reasons:
+  - **`repeated-filtered-policy-gap`** (high confidence;
+    computed first so it wins over `repeated-filtered-path`
+    at the same pathPattern) — ≥ 3 built-in-filtered
+    findings share a path prefix and no existing
+    `findingFilters` rule covers it.
+  - **`repeated-filtered-path`** (high ≥ 3 / medium = 2) —
+    ≥ 2 filtered findings share a path prefix.
+  - **`repeated-filtered-type`** (medium) — ≥ 3 filtered
+    findings share `finding.type`.
+  - **`high-volume-filtered-pattern`** (low review prompt
+    with no `pathPattern`) — one filter reason accounts for
+    > 80 % of filtered findings and the bucket has ≥ 5
+    findings.
+  Path-prefix heuristic uses the first two segments
+  (`src/generated/foo.ts`, `src/generated/bar.ts` →
+  `src/generated/**`). Coverage check drops any suggestion
+  whose `pathPattern` / `type` is already covered by an
+  existing `findingFilters` rule. Suggestion + rule ids are
+  deterministic (`policy-suggestion:<reason>:<hash>` /
+  `suggested-<hash>`) so reruns over the same inputs stay
+  stable. New exports from `@rekon/kernel-findings`:
+  `FindingFilterPolicySuggestion`,
+  `FindingFilterPolicySuggestionReason`,
+  `FindingFilterPolicySuggestionConfidence`,
+  `FindingFilterPolicySuggestionSummary`,
+  `FindingFilterPolicySuggestionReport`,
+  `DeriveFindingFilterPolicySuggestionsInput`,
+  `deriveFindingFilterPolicySuggestions(input)`,
+  `summarizeFindingFilterPolicySuggestions(suggestions)`,
+  `createFindingFilterPolicySuggestionReport(input)`,
+  `validateFindingFilterPolicySuggestionReport(value)`,
+  `assertFindingFilterPolicySuggestionReport(value)`,
+  `findingFilterPolicySuggestionReportSchema`. New runtime
+  helper
+  `buildFindingFilterPolicySuggestionReport(store, options?)`
+  reads the latest N filter reports (or a pinned set), runs
+  the derivation, and writes the report to the `findings`
+  category with `inputRefs` citing every consumed
+  `FindingFilterReport`. Registered as an experimental
+  built-in artifact type in `@rekon/sdk`.
+  New CLI commands:
+  `rekon findings filter-policy suggest` (read-only) /
+  `rekon findings filter-policy list` (read-only) /
+  `rekon findings filter-policy apply <suggestion-id>
+  [--force]` (the only mutating command). `apply` reads
+  `.rekon/config.json`, appends the suggested rule to
+  `findingFilters`, preserves every other top-level field
+  (including project extensions), writes
+  `<JSON>\n` in one `writeFile`, and creates a default
+  config when one doesn't exist. `apply` refuses
+  low-confidence suggestions and duplicate rule ids without
+  `--force`; `suggest` / `list` never mutate the config.
+  Docs added: new artifact spec
+  (`docs/artifacts/finding-filter-policy-suggestion-report.md`)
+  + new concept doc
+  (`docs/concepts/finding-filter-policy-suggestions.md`).
+  Docs updated:
+  `finding-filter-report` / `finding-filter-health-report`
+  artifacts, `finding-filters` concept,
+  `issue-governance-architecture-decision` ADR
+  (Implementation Order step 5 flipped to shipped + new
+  step 6), four strategy docs (subsystem-purpose-map,
+  behavior-roadmap, guarantee-regression-plan, roadmap),
+  and CHANGELOG. 15 new contract tests in
+  `tests/contract/finding-filter-policy-suggestions.test.mjs`.
+  Full suite: 529 passed / 1 skipped / 0 failed. No LLM,
+  semantic, fuzzy, or embedding matching;
+  `GraphOntologyValidator` port and persistent exclusion
+  lists beyond config-backed rules remain deferred. No SDK
+  API removal; no artifact schemaVersion bump; no new
+  capability role; no version bump; no npm publish.
 - Shipped filter health / issue adjudication surfaces in
   publications v1 (P1.1 filter-health-publications v1 slice).
   `@rekon/capability-docs.architecture-summary` and

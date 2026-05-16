@@ -57,6 +57,11 @@ for the layered governance model that situates it.
   `Active Governance State` and adds a `Do Not Do` reminder
   against treating a clean active-governance surface as proof
   that no raw findings exist.
+- `@rekon/runtime.buildFindingFilterPolicySuggestionReport`
+  reads the latest N filter reports (default 5) and emits
+  [`FindingFilterPolicySuggestionReport`](finding-filter-policy-suggestion-report.md)
+  candidates — proposed `findingFilters` rules that capture
+  recurring filtered findings without mutating the config.
 - Operators / agents inspecting why a particular finding
   disappeared from the active governance surface.
 

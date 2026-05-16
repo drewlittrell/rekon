@@ -229,6 +229,18 @@ The alert list is empty when filtering looks healthy.
   `FindingFilterReport.filteredFindings` before claiming the
   repo has no active issues. The agent contract's `Do Not Do`
   list adds a clean-active-governance reminder.
+- **Promotable to durable policy via suggestions.** Repeated
+  filtered findings can be turned into project-specific
+  `findingFilters` rules via
+  [`FindingFilterPolicySuggestionReport`](../artifacts/finding-filter-policy-suggestion-report.md).
+  `rekon findings filter-policy suggest` generates the
+  suggestions (deterministic, no LLM, no fuzzy matching).
+  `rekon findings filter-policy list` reads the latest
+  report. `rekon findings filter-policy apply <id>` is the
+  **only** command that mutates `.rekon/config.json`, and it
+  refuses low-confidence or duplicate-id rules without
+  `--force`. See
+  [finding-filter-policy-suggestions.md](finding-filter-policy-suggestions.md).
 
 ## CLI Surface
 

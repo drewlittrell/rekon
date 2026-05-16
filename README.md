@@ -134,6 +134,8 @@ node packages/cli/dist/index.js findings list --root examples/simple-js-ts --jso
 node packages/cli/dist/index.js findings lifecycle --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings filter --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings filter-health --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings filter-policy suggest --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings filter-policy list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings status set <finding-id> --status ignored --reason false-positive --note "Generated fixture intentionally." --root examples/simple-js-ts --json
 node packages/cli/dist/index.js coherency delta --root examples/simple-js-ts --json
 node packages/cli/dist/index.js issues adjudicate --root examples/simple-js-ts --json

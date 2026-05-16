@@ -1169,6 +1169,562 @@ export const findingFilterHealthReportSchema: ArtifactSchema<FindingFilterHealth
   parse: assertFindingFilterHealthReport,
 };
 
+// ---------- FindingFilterPolicySuggestionReport (v2) ----------
+//
+// Advisory artifact that proposes `findingFilters` rules for
+// recurring filtered findings. Suggestions are derived
+// deterministically from one or more `FindingFilterReport`
+// artifacts plus the current `findingFilters` policy set; they
+// never mutate the config. Operators apply a suggestion
+// explicitly via `rekon findings filter-policy apply <id>`.
+
+export type FindingFilterPolicySuggestionReason =
+  | "repeated-filtered-path"
+  | "repeated-filtered-type"
+  | "repeated-filtered-policy-gap"
+  | "high-volume-filtered-pattern";
+
+export type FindingFilterPolicySuggestionConfidence =
+  | "high"
+  | "medium"
+  | "low";
+
+export type FindingFilterPolicySuggestion = {
+  id: string;
+  reason: FindingFilterPolicySuggestionReason;
+  suggestedRule: FindingFilterPolicyRule;
+  confidence: FindingFilterPolicySuggestionConfidence;
+  rationale: string;
+  affectedFindingIds: string[];
+  affectedPaths: string[];
+  affectedTypes: string[];
+  sourceFilterReportIds: string[];
+  evidence: ArtifactRef[];
+};
+
+export type FindingFilterPolicySuggestionSummary = {
+  totalSuggestions: number;
+  highConfidence: number;
+  mediumConfidence: number;
+  lowConfidence: number;
+  byReason: Record<string, number>;
+};
+
+export type FindingFilterPolicySuggestionReport = {
+  header: ArtifactHeader;
+  summary: FindingFilterPolicySuggestionSummary;
+  suggestions: FindingFilterPolicySuggestion[];
+};
+
+const FINDING_FILTER_POLICY_SUGGESTION_REASONS = new Set<FindingFilterPolicySuggestionReason>([
+  "repeated-filtered-path",
+  "repeated-filtered-type",
+  "repeated-filtered-policy-gap",
+  "high-volume-filtered-pattern",
+]);
+
+const FINDING_FILTER_POLICY_SUGGESTION_CONFIDENCES = new Set<FindingFilterPolicySuggestionConfidence>(
+  ["high", "medium", "low"],
+);
+
+// Thresholds — kept conservative and deterministic; documented in
+// docs/concepts/finding-filter-policy-suggestions.md.
+const SUGGESTION_MIN_REPEATED_PATH = 2;
+const SUGGESTION_HIGH_CONFIDENCE_PATH = 3;
+const SUGGESTION_MIN_REPEATED_TYPE = 3;
+const SUGGESTION_HIGH_VOLUME_THRESHOLD = 5;
+const SUGGESTION_HIGH_VOLUME_DOMINANCE = 0.8;
+
+/**
+ * Pick the first two path segments (or the whole path when it's
+ * a single segment) so the suggested pathPattern captures the
+ * common prefix without being overly specific. Returns null for
+ * empty / unusable paths.
+ */
+function suggestionPathPrefix(filePath: string): string | null {
+  const parts = filePath.split("/").filter((segment) => segment.length > 0);
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0]!;
+  return `${parts[0]}/${parts[1]}`;
+}
+
+function uniqueSortedArray(values: ReadonlyArray<string>): string[] {
+  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+
+function hashSuggestionId(parts: ReadonlyArray<string>): string {
+  // Tiny deterministic non-cryptographic hash so suggestion ids
+  // stay stable across runs over the same inputs. djb2-ish.
+  let hash = 5381;
+  for (const part of parts) {
+    for (let i = 0; i < part.length; i += 1) {
+      hash = ((hash * 33) ^ part.charCodeAt(i)) >>> 0;
+    }
+    hash = ((hash * 33) ^ 47) >>> 0; // separator
+  }
+  return hash.toString(36);
+}
+
+function ruleCoversPath(rule: FindingFilterPolicyRule, pathPattern: string): boolean {
+  if (rule.pathPattern && rule.pathPattern === pathPattern) {
+    return true;
+  }
+  return false;
+}
+
+function ruleCoversType(rule: FindingFilterPolicyRule, type: string): boolean {
+  return Boolean(rule.type && rule.type === type);
+}
+
+export type DeriveFindingFilterPolicySuggestionsInput = {
+  filterReports: FindingFilterReport[];
+  filterReportRefs?: ArtifactRef[];
+  /**
+   * Current `findingFilters` policies. Used for coverage checks so
+   * we never propose a duplicate of an existing rule.
+   */
+  policies?: FindingFilterPolicyRule[];
+};
+
+/**
+ * Deterministic suggestion derivation. Pure / side-effect free.
+ *
+ * Rules implemented:
+ * - **repeated-filtered-path**: at least
+ *   `SUGGESTION_MIN_REPEATED_PATH` (2) filtered findings share a
+ *   first-two-segment path prefix and that prefix is not already
+ *   covered by an existing policy. Confidence is `high` for >= 3
+ *   findings, `medium` for exactly 2. Suggested rule's `reason`
+ *   mirrors the dominant filter reason in the bucket
+ *   (defaulting to `explicit-exclusion` for ambiguous buckets).
+ * - **repeated-filtered-type**: at least
+ *   `SUGGESTION_MIN_REPEATED_TYPE` (3) filtered findings share a
+ *   `finding.type` and no existing policy covers that type.
+ *   Confidence is `medium`. Suggested rule uses
+ *   `explicit-exclusion` reason by default.
+ * - **repeated-filtered-policy-gap**: at least
+ *   `SUGGESTION_HIGH_CONFIDENCE_PATH` (3) findings filtered by
+ *   built-in path filters (`generated-file` / `external-file` /
+ *   `test-file` / `canary-file` / `content-filter`) share a path
+ *   prefix that no existing policy covers — meaning operators are
+ *   relying on built-in rules where an explicit policy would be
+ *   more durable. Confidence is `high`. Suggested rule mirrors
+ *   the built-in reason.
+ * - **high-volume-filtered-pattern**: one reason accounts for
+ *   more than `SUGGESTION_HIGH_VOLUME_DOMINANCE` (0.8) of all
+ *   filtered findings and the bucket has at least
+ *   `SUGGESTION_HIGH_VOLUME_THRESHOLD` (5) findings. Confidence
+ *   is `low` — emitted as a review prompt with no `pathPattern`
+ *   (operators must narrow it themselves before applying).
+ *
+ * Suggestion ids are stable: `policy-suggestion:<reason>:<hash>`
+ * where the hash is derived from the matched dimension
+ * (pathPattern / type / reason) plus the rule reason.
+ */
+export function deriveFindingFilterPolicySuggestions(
+  input: DeriveFindingFilterPolicySuggestionsInput,
+): FindingFilterPolicySuggestion[] {
+  const filterReports = Array.isArray(input.filterReports) ? input.filterReports : [];
+  const policies = Array.isArray(input.policies) ? input.policies : [];
+  const reportIds = filterReports.map((report) => report.header.artifactId);
+  const refs = Array.isArray(input.filterReportRefs) && input.filterReportRefs.length > 0
+    ? input.filterReportRefs
+    : filterReports.map((report) => ({
+        type: "FindingFilterReport",
+        id: report.header.artifactId,
+        schemaVersion: report.header.schemaVersion,
+      }));
+
+  // Walk every filtered finding once and bucket by suggestion
+  // dimension. Each bucket tracks the original entries so the
+  // emitted suggestion can cite finding ids + paths.
+  type Bucket = {
+    findingIds: Set<string>;
+    paths: Set<string>;
+    types: Set<string>;
+    reasons: Map<FindingFilterReason, number>;
+  };
+  const pathBuckets = new Map<string, Bucket>();
+  const typeBuckets = new Map<string, Bucket>();
+  const builtInPathBuckets = new Map<string, Bucket>();
+  const reasonTotals = new Map<FindingFilterReason, Bucket>();
+  let totalFilteredEntries = 0;
+
+  function getBucket(map: Map<string, Bucket>, key: string): Bucket {
+    let bucket = map.get(key);
+    if (!bucket) {
+      bucket = {
+        findingIds: new Set(),
+        paths: new Set(),
+        types: new Set(),
+        reasons: new Map(),
+      };
+      map.set(key, bucket);
+    }
+    return bucket;
+  }
+
+  for (const report of filterReports) {
+    for (const entry of report.filteredFindings ?? []) {
+      totalFilteredEntries += 1;
+      const filePaths = Array.isArray(entry.finding?.files)
+        ? entry.finding.files
+        : entry.filePath
+          ? [entry.filePath]
+          : [];
+
+      // Path-prefix buckets cover repeated-filtered-path and
+      // repeated-filtered-policy-gap.
+      for (const filePath of filePaths) {
+        const prefix = suggestionPathPrefix(filePath);
+        if (!prefix) continue;
+        const pattern = `${prefix}/**`;
+        const bucket = getBucket(pathBuckets, pattern);
+        bucket.findingIds.add(entry.findingId);
+        bucket.paths.add(filePath);
+        if (entry.finding?.type) bucket.types.add(entry.finding.type);
+        bucket.reasons.set(entry.reason, (bucket.reasons.get(entry.reason) ?? 0) + 1);
+
+        // Built-in path filters fold into a separate bucket so
+        // repeated-filtered-policy-gap can target them explicitly.
+        if (
+          entry.source !== "policy"
+          && (
+            entry.reason === "generated-file"
+            || entry.reason === "external-file"
+            || entry.reason === "test-file"
+            || entry.reason === "canary-file"
+            || entry.reason === "content-filter"
+          )
+        ) {
+          const gapBucket = getBucket(builtInPathBuckets, pattern);
+          gapBucket.findingIds.add(entry.findingId);
+          gapBucket.paths.add(filePath);
+          if (entry.finding?.type) gapBucket.types.add(entry.finding.type);
+          gapBucket.reasons.set(entry.reason, (gapBucket.reasons.get(entry.reason) ?? 0) + 1);
+        }
+      }
+
+      // Type bucket covers repeated-filtered-type.
+      if (entry.finding?.type) {
+        const tb = getBucket(typeBuckets, entry.finding.type);
+        tb.findingIds.add(entry.findingId);
+        for (const filePath of filePaths) tb.paths.add(filePath);
+        tb.types.add(entry.finding.type);
+        tb.reasons.set(entry.reason, (tb.reasons.get(entry.reason) ?? 0) + 1);
+      }
+
+      // Reason totals for high-volume-filtered-pattern.
+      const rb = getBucket(reasonTotals, entry.reason);
+      rb.findingIds.add(entry.findingId);
+      for (const filePath of filePaths) rb.paths.add(filePath);
+      if (entry.finding?.type) rb.types.add(entry.finding.type);
+      rb.reasons.set(entry.reason, (rb.reasons.get(entry.reason) ?? 0) + 1);
+    }
+  }
+
+  function dominantReason(bucket: Bucket): FindingFilterReason {
+    let best: FindingFilterReason | null = null;
+    let bestCount = -1;
+    for (const [reason, count] of bucket.reasons) {
+      if (count > bestCount || (count === bestCount && best !== null && reason.localeCompare(best) < 0)) {
+        best = reason;
+        bestCount = count;
+      }
+    }
+    return best ?? "explicit-exclusion";
+  }
+
+  function buildEvidence(bucket: Bucket): {
+    sourceFilterReportIds: string[];
+    evidenceRefs: ArtifactRef[];
+  } {
+    // Every bucket comes from across the supplied filterReports;
+    // when we can't disambiguate which report a finding came from
+    // we cite all of them, which keeps lineage honest.
+    return {
+      sourceFilterReportIds: [...reportIds],
+      evidenceRefs: refs.map((ref) => ({ ...ref })),
+    };
+  }
+
+  const suggestions: FindingFilterPolicySuggestion[] = [];
+  const policyGapPaths = new Set<string>();
+
+  // --- repeated-filtered-policy-gap ---
+  // Computed first so its higher-information `repeated-filtered-
+  // policy-gap` suggestion wins for any pathPattern that the
+  // repeated-filtered-path branch would otherwise emit.
+  for (const [pathPattern, bucket] of builtInPathBuckets) {
+    const count = bucket.findingIds.size;
+    if (count < SUGGESTION_HIGH_CONFIDENCE_PATH) continue;
+    if (policies.some((policy) => ruleCoversPath(policy, pathPattern))) continue;
+    const reason = dominantReason(bucket);
+    const hash = hashSuggestionId([pathPattern, reason, "repeated-filtered-policy-gap"]);
+    const ruleId = `suggested-${hash}`;
+    const { sourceFilterReportIds, evidenceRefs } = buildEvidence(bucket);
+    suggestions.push({
+      id: `policy-suggestion:repeated-filtered-policy-gap:${hash}`,
+      reason: "repeated-filtered-policy-gap",
+      suggestedRule: {
+        id: ruleId,
+        reason,
+        evidence: `Built-in filters suppressed ${count} finding${count === 1 ? "" : "s"} under '${pathPattern}'; promoting to an explicit policy makes the suppression durable.`,
+        confidence: "high",
+        pathPattern,
+      },
+      confidence: "high",
+      rationale: `Built-in filters keep suppressing findings under '${pathPattern}'. Promote to a configured findingFilters rule so the suppression is durable and auditable.`,
+      affectedFindingIds: uniqueSortedArray([...bucket.findingIds]),
+      affectedPaths: uniqueSortedArray([...bucket.paths]),
+      affectedTypes: uniqueSortedArray([...bucket.types]),
+      sourceFilterReportIds,
+      evidence: evidenceRefs,
+    });
+    policyGapPaths.add(pathPattern);
+  }
+
+  // --- repeated-filtered-path ---
+  // Skip when policy-gap already emitted a higher-information
+  // suggestion at the same pathPattern.
+  for (const [pathPattern, bucket] of pathBuckets) {
+    const count = bucket.findingIds.size;
+    if (count < SUGGESTION_MIN_REPEATED_PATH) continue;
+    if (policies.some((policy) => ruleCoversPath(policy, pathPattern))) continue;
+    if (policyGapPaths.has(pathPattern)) continue;
+    const reason = dominantReason(bucket);
+    const confidence: FindingFilterPolicySuggestionConfidence =
+      count >= SUGGESTION_HIGH_CONFIDENCE_PATH ? "high" : "medium";
+    const hash = hashSuggestionId([pathPattern, reason, "repeated-filtered-path"]);
+    const ruleId = `suggested-${hash}`;
+    const { sourceFilterReportIds, evidenceRefs } = buildEvidence(bucket);
+    suggestions.push({
+      id: `policy-suggestion:repeated-filtered-path:${hash}`,
+      reason: "repeated-filtered-path",
+      suggestedRule: {
+        id: ruleId,
+        reason,
+        evidence: `Filtered ${count} finding${count === 1 ? "" : "s"} share path prefix '${pathPattern}' across ${reportIds.length} filter report${reportIds.length === 1 ? "" : "s"}.`,
+        confidence,
+        pathPattern,
+      },
+      confidence,
+      rationale: `${count} filtered finding${count === 1 ? "" : "s"} matched path prefix '${pathPattern}'; consider a durable findingFilters rule.`,
+      affectedFindingIds: uniqueSortedArray([...bucket.findingIds]),
+      affectedPaths: uniqueSortedArray([...bucket.paths]),
+      affectedTypes: uniqueSortedArray([...bucket.types]),
+      sourceFilterReportIds,
+      evidence: evidenceRefs,
+    });
+  }
+
+  // --- repeated-filtered-type ---
+  for (const [type, bucket] of typeBuckets) {
+    const count = bucket.findingIds.size;
+    if (count < SUGGESTION_MIN_REPEATED_TYPE) continue;
+    if (policies.some((policy) => ruleCoversType(policy, type))) continue;
+    const hash = hashSuggestionId([type, "repeated-filtered-type"]);
+    const ruleId = `suggested-${hash}`;
+    const reason: FindingFilterReason = "explicit-exclusion";
+    const { sourceFilterReportIds, evidenceRefs } = buildEvidence(bucket);
+    suggestions.push({
+      id: `policy-suggestion:repeated-filtered-type:${hash}`,
+      reason: "repeated-filtered-type",
+      suggestedRule: {
+        id: ruleId,
+        reason,
+        evidence: `Filtered ${count} finding${count === 1 ? "" : "s"} share type '${type}' across ${reportIds.length} filter report${reportIds.length === 1 ? "" : "s"}.`,
+        confidence: "medium",
+        type,
+      },
+      confidence: "medium",
+      rationale: `${count} filtered finding${count === 1 ? "" : "s"} matched type '${type}'; consider a durable findingFilters rule.`,
+      affectedFindingIds: uniqueSortedArray([...bucket.findingIds]),
+      affectedPaths: uniqueSortedArray([...bucket.paths]),
+      affectedTypes: uniqueSortedArray([...bucket.types]),
+      sourceFilterReportIds,
+      evidence: evidenceRefs,
+    });
+  }
+
+  // --- high-volume-filtered-pattern ---
+  if (totalFilteredEntries >= SUGGESTION_HIGH_VOLUME_THRESHOLD) {
+    for (const [reason, bucket] of reasonTotals) {
+      const count = bucket.findingIds.size;
+      const share = totalFilteredEntries === 0 ? 0 : count / totalFilteredEntries;
+      if (count < SUGGESTION_HIGH_VOLUME_THRESHOLD) continue;
+      if (share <= SUGGESTION_HIGH_VOLUME_DOMINANCE) continue;
+      const hash = hashSuggestionId([reason, "high-volume-filtered-pattern"]);
+      const ruleId = `suggested-${hash}`;
+      const { sourceFilterReportIds, evidenceRefs } = buildEvidence(bucket);
+      suggestions.push({
+        id: `policy-suggestion:high-volume-filtered-pattern:${hash}`,
+        reason: "high-volume-filtered-pattern",
+        suggestedRule: {
+          id: ruleId,
+          reason,
+          evidence: `Reason '${reason}' accounts for ${count} of ${totalFilteredEntries} filtered findings (${(share * 100).toFixed(1)}%). Review the underlying signal before applying.`,
+          confidence: "low",
+        },
+        confidence: "low",
+        rationale: `Reason '${reason}' dominates the filtered surface (${(share * 100).toFixed(1)}% of filtered findings). Treat this as a review prompt — narrow the suggested rule before applying.`,
+        affectedFindingIds: uniqueSortedArray([...bucket.findingIds]),
+        affectedPaths: uniqueSortedArray([...bucket.paths]),
+        affectedTypes: uniqueSortedArray([...bucket.types]),
+        sourceFilterReportIds,
+        evidence: evidenceRefs,
+      });
+    }
+  }
+
+  // Deterministic order: by reason rank then suggestion id.
+  const reasonRank: Record<FindingFilterPolicySuggestionReason, number> = {
+    "repeated-filtered-policy-gap": 0,
+    "repeated-filtered-path": 1,
+    "repeated-filtered-type": 2,
+    "high-volume-filtered-pattern": 3,
+  };
+  suggestions.sort((left, right) => {
+    const reasonDiff = reasonRank[left.reason] - reasonRank[right.reason];
+    if (reasonDiff !== 0) return reasonDiff;
+    return left.id.localeCompare(right.id);
+  });
+  return suggestions;
+}
+
+export function summarizeFindingFilterPolicySuggestions(
+  suggestions: FindingFilterPolicySuggestion[],
+): FindingFilterPolicySuggestionSummary {
+  return {
+    totalSuggestions: suggestions.length,
+    highConfidence: suggestions.filter((s) => s.confidence === "high").length,
+    mediumConfidence: suggestions.filter((s) => s.confidence === "medium").length,
+    lowConfidence: suggestions.filter((s) => s.confidence === "low").length,
+    byReason: countBy(suggestions, (s) => s.reason),
+  };
+}
+
+export function createFindingFilterPolicySuggestionReport(input: {
+  header: ArtifactHeader;
+  suggestions: FindingFilterPolicySuggestion[];
+}): FindingFilterPolicySuggestionReport {
+  const suggestions = [...input.suggestions];
+  return assertFindingFilterPolicySuggestionReport({
+    header: input.header,
+    summary: summarizeFindingFilterPolicySuggestions(suggestions),
+    suggestions,
+  });
+}
+
+export function validateFindingFilterPolicySuggestionReport(
+  value: unknown,
+): ValidationResult<FindingFilterPolicySuggestionReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  const header = validateArtifactHeader(value.header);
+  if (!header.ok) {
+    issues.push(...prefixIssues(header.issues, "$.header"));
+  } else if (header.value.artifactType !== "FindingFilterPolicySuggestionReport") {
+    issues.push({
+      path: "$.header.artifactType",
+      message: "Expected artifactType to be FindingFilterPolicySuggestionReport.",
+    });
+  }
+
+  if (!isRecord(value.summary) || typeof value.summary.totalSuggestions !== "number") {
+    issues.push({ path: "$.summary", message: "Expected a finding-filter-policy-suggestion summary." });
+  }
+
+  if (!Array.isArray(value.suggestions)) {
+    issues.push({ path: "$.suggestions", message: "Expected an array." });
+  } else {
+    value.suggestions.forEach((entry, index) =>
+      validateFindingFilterPolicySuggestion(entry, `$.suggestions[${index}]`, issues),
+    );
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as FindingFilterPolicySuggestionReport, issues: [] };
+}
+
+export function assertFindingFilterPolicySuggestionReport(
+  value: unknown,
+): FindingFilterPolicySuggestionReport {
+  const result = validateFindingFilterPolicySuggestionReport(value);
+  if (result.ok) return result.value;
+  throw new TypeError(
+    `FindingFilterPolicySuggestionReport validation failed: ${result.issues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ")}`,
+  );
+}
+
+export const findingFilterPolicySuggestionReportSchema: ArtifactSchema<FindingFilterPolicySuggestionReport> = {
+  validate: validateFindingFilterPolicySuggestionReport,
+  parse: assertFindingFilterPolicySuggestionReport,
+};
+
+function validateFindingFilterPolicySuggestion(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  requiredString(value.id, `${path}.id`, issues);
+  requiredString(value.rationale, `${path}.rationale`, issues);
+  if (
+    typeof value.reason !== "string"
+    || !FINDING_FILTER_POLICY_SUGGESTION_REASONS.has(
+      value.reason as FindingFilterPolicySuggestionReason,
+    )
+  ) {
+    issues.push({
+      path: `${path}.reason`,
+      message: "Expected a known FindingFilterPolicySuggestionReason.",
+    });
+  }
+  if (
+    typeof value.confidence !== "string"
+    || !FINDING_FILTER_POLICY_SUGGESTION_CONFIDENCES.has(
+      value.confidence as FindingFilterPolicySuggestionConfidence,
+    )
+  ) {
+    issues.push({
+      path: `${path}.confidence`,
+      message: "Expected one of high, medium, low.",
+    });
+  }
+  if (!isStringArray(value.affectedFindingIds)) {
+    issues.push({ path: `${path}.affectedFindingIds`, message: "Expected an array of strings." });
+  }
+  if (!isStringArray(value.affectedPaths)) {
+    issues.push({ path: `${path}.affectedPaths`, message: "Expected an array of strings." });
+  }
+  if (!isStringArray(value.affectedTypes)) {
+    issues.push({ path: `${path}.affectedTypes`, message: "Expected an array of strings." });
+  }
+  if (!isStringArray(value.sourceFilterReportIds)) {
+    issues.push({
+      path: `${path}.sourceFilterReportIds`,
+      message: "Expected an array of strings.",
+    });
+  }
+  if (!Array.isArray(value.evidence)) {
+    issues.push({ path: `${path}.evidence`, message: "Expected an array of artifact refs." });
+  }
+  if (!isRecord(value.suggestedRule)) {
+    issues.push({ path: `${path}.suggestedRule`, message: "Expected an object." });
+  }
+}
+
 export type FindingStatusDecisionReason =
   | "accepted-risk"
   | "false-positive"

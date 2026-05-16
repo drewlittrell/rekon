@@ -26,6 +26,7 @@ import {
   type ArtifactIndexEntry,
   buildCoherencyDelta,
   buildFindingFilterHealthReport,
+  buildFindingFilterPolicySuggestionReport,
   buildFindingFilterReport,
   buildFindingLifecycleReport,
   buildIssueAdjudicationReport,
@@ -39,6 +40,8 @@ import { type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
   type FindingFilterPolicyRule,
+  type FindingFilterPolicySuggestion,
+  type FindingFilterPolicySuggestionReport,
   type FindingStatusDecision,
   type FindingStatusDecisionReason,
   type FindingStatusDecisionStatus,
@@ -987,6 +990,167 @@ export async function main(argv: string[]): Promise<void> {
         summary: health.summary,
         alerts: health.alerts,
         policyFilters: policies.length,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "findings" && subcommand === "filter-policy" && positional === "suggest") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const policies = await loadFindingFilterPolicies(root);
+    const recentLimitRaw = parsed.flags["recent-limit"];
+    const recentLimit =
+      typeof recentLimitRaw === "string" && recentLimitRaw.trim().length > 0
+        ? Number.parseInt(recentLimitRaw, 10)
+        : undefined;
+    if (recentLimitRaw !== undefined && (Number.isNaN(recentLimit) || (recentLimit ?? 0) <= 0)) {
+      throw new Error("--recent-limit must be a positive integer.");
+    }
+    const report = await buildFindingFilterPolicySuggestionReport(store, {
+      policies,
+      recentLimit,
+    });
+    const ref = await store.write(report, { category: "findings" });
+
+    writeOutput(
+      {
+        artifact: ref,
+        summary: report.summary,
+        suggestions: report.suggestions,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "findings" && subcommand === "filter-policy" && positional === "list") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entries = await store.list("FindingFilterPolicySuggestionReport");
+    if (entries.length === 0) {
+      writeOutput(
+        {
+          artifact: null,
+          summary: null,
+          suggestions: [],
+          message:
+            "No FindingFilterPolicySuggestionReport indexed. Run `rekon findings filter-policy suggest` to generate one.",
+        },
+        json,
+      );
+      return;
+    }
+    const sorted = [...entries].sort((left, right) =>
+      right.writtenAt.localeCompare(left.writtenAt),
+    );
+    const latest = sorted[0]!;
+    const reportBody = (await store.read(latest)) as FindingFilterPolicySuggestionReport;
+    writeOutput(
+      {
+        artifact: latest,
+        summary: reportBody.summary,
+        suggestions: reportBody.suggestions,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "findings" && subcommand === "filter-policy" && positional === "apply") {
+    const suggestionId =
+      typeof parsed.positionals[3] === "string" ? parsed.positionals[3] : undefined;
+    if (!suggestionId) {
+      throw new Error(
+        "rekon findings filter-policy apply requires <suggestion-id>. Run `rekon findings filter-policy list` to find ids.",
+      );
+    }
+    const force = Boolean(parsed.flags.force);
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entries = await store.list("FindingFilterPolicySuggestionReport");
+    if (entries.length === 0) {
+      throw new Error(
+        "No FindingFilterPolicySuggestionReport indexed. Run `rekon findings filter-policy suggest` first.",
+      );
+    }
+    const sorted = [...entries].sort((left, right) =>
+      right.writtenAt.localeCompare(left.writtenAt),
+    );
+    const latest = sorted[0]!;
+    const reportBody = (await store.read(latest)) as FindingFilterPolicySuggestionReport;
+    const suggestion = reportBody.suggestions.find((entry) => entry.id === suggestionId);
+    if (!suggestion) {
+      const available = reportBody.suggestions.map((entry) => entry.id).join(", ");
+      throw new Error(
+        `Suggestion '${suggestionId}' not found in latest FindingFilterPolicySuggestionReport (${reportBody.header.artifactId}). Available ids: ${available || "(none)"}.`,
+      );
+    }
+    if (suggestion.confidence === "low" && !force) {
+      throw new Error(
+        `Suggestion '${suggestionId}' is low-confidence. Re-run with --force to apply.`,
+      );
+    }
+
+    const configPath = resolve(root, ".rekon", "config.json");
+    let parsedConfig: Record<string, unknown>;
+    try {
+      const raw = await readFile(configPath, "utf8");
+      const parsedRaw = JSON.parse(raw);
+      if (!parsedRaw || typeof parsedRaw !== "object" || Array.isArray(parsedRaw)) {
+        throw new Error("config.json must be a JSON object.");
+      }
+      parsedConfig = parsedRaw as Record<string, unknown>;
+    } catch (error) {
+      if (
+        error instanceof Error
+        && "code" in error
+        && (error as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+        // Initialize a default config so the operator gets a
+        // well-formed file and the suggestion has somewhere to
+        // land. Mirrors rekon init's behavior.
+        await writeConfigIfMissing(root);
+        const raw = await readFile(configPath, "utf8");
+        parsedConfig = JSON.parse(raw) as Record<string, unknown>;
+      } else {
+        throw error;
+      }
+    }
+
+    const existingRules = Array.isArray(parsedConfig.findingFilters)
+      ? (parsedConfig.findingFilters as Record<string, unknown>[])
+      : [];
+    if (
+      existingRules.some(
+        (rule) => typeof rule?.id === "string" && rule.id === suggestion.suggestedRule.id,
+      )
+      && !force
+    ) {
+      throw new Error(
+        `findingFilters already contains a rule with id '${suggestion.suggestedRule.id}'. Re-run with --force to append anyway.`,
+      );
+    }
+
+    const appendedConfig: Record<string, unknown> = {
+      ...parsedConfig,
+      findingFilters: [...existingRules, { ...suggestion.suggestedRule }],
+    };
+    await writeFile(
+      configPath,
+      `${JSON.stringify(appendedConfig, null, 2)}\n`,
+      "utf8",
+    );
+
+    writeOutput(
+      {
+        applied: true,
+        configPath,
+        suggestionId: suggestion.id,
+        appliedRule: suggestion.suggestedRule,
+        force,
+        confidence: suggestion.confidence,
       },
       json,
     );
@@ -2953,6 +3117,9 @@ function usage(): string {
     "rekon findings lifecycle [--root <path>] [--json]",
     "rekon findings filter [--root <path>] [--json]",
     "rekon findings filter-health [--root <path>] [--json]",
+    "rekon findings filter-policy suggest [--recent-limit <n>] [--root <path>] [--json]",
+    "rekon findings filter-policy list [--root <path>] [--json]",
+    "rekon findings filter-policy apply <suggestion-id> [--force] [--root <path>] [--json]",
     "rekon findings status list [--root <path>] [--json]",
     "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",
     "rekon coherency delta [--root <path>] [--json]",
