@@ -263,12 +263,39 @@ review packets unless an ADR promotes them. Promotion requires:
    `FindingFilterPolicyApplyBlocker`,
    `PlanFindingFilterPolicyApplyInput`. No publication shape
    change. No new artifact type.
-8. **(future)** Configured filter policy freshness /
-   publication guardrails — when active lifecycle /
-   adjudication / coherency artifacts were built before a
-   filter-policy `apply`, publications and `rekon refresh`
-   should warn or rebuild so the governed surface stays
-   coherent with the current policy set.
+8. **(shipped)** Configured filter policy freshness /
+   publication guardrails.
+   `FindingFilterReport` now records an order-sensitive
+   `policyFingerprint: { digest, ruleCount, ruleIds }` of the
+   `findingFilters` policy set used during the run. New
+   exported helper `fingerprintFindingFilterPolicies(policies)`
+   in `@rekon/kernel-findings`. `buildFindingFilterReport`
+   always stamps the fingerprint (including the empty-policy
+   fingerprint when no rules are configured). The architecture
+   summary and agent contract publishers load
+   `.rekon/config.json` `findingFilters`, fingerprint them via
+   `loadCurrentFindingFilterPolicies(repoRoot)`, and compare
+   against the latest `FindingFilterReport.policyFingerprint`
+   via `computeFilterPolicyStaleness`. Status is
+   `fresh` / `stale` / `missing` / `unknown`. On `stale`, both
+   publications render a "Run `rekon refresh`" warning; the
+   agent contract adds a third filter-related `Do Not Do`
+   reminder against acting on stale active governance after a
+   policy change. `rekon findings filter-policy apply` now
+   includes `currentPolicyFingerprint` /
+   `projectedPolicyFingerprint` (dry-run) and
+   `policyFingerprint` (apply) in its JSON output so operators
+   can see exactly which fingerprint the next refresh should
+   stamp. Validator accepts the new optional
+   `policyFingerprint` field on `FindingFilterReport`; older
+   reports without the field collapse to `status: "unknown"`
+   so they explicitly prompt a `rekon refresh`. New exports
+   from `@rekon/capability-docs`:
+   `FilterPolicyStaleness` (type),
+   `computeFilterPolicyStaleness`,
+   `loadCurrentFindingFilterPolicies`. No artifact
+   `schemaVersion` bump (additive optional field). No new
+   artifact type. No watcher / daemon.
 9. **(future)** Merge-decision freshness guardrails,
    `GraphOntologyValidator`-style filters, persistent
    exclusion lists, and any further product-extension

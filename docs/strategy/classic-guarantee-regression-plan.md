@@ -574,6 +574,28 @@ Implementation batches:
   `list` remain non-mutating. Pinned by
   `tests/contract/finding-filter-policy-apply-safety.test.mjs`
   (21 tests).
+- "Configured filter policy freshness / publication
+  guardrails" (shipped) — `FindingFilterReport` carries an
+  optional, order-sensitive
+  `policyFingerprint: { digest, ruleCount, ruleIds }` of the
+  `findingFilters` policy set the run used. New exports
+  `fingerprintFindingFilterPolicies(policies)` (kernel) and
+  `computeFilterPolicyStaleness({ currentFingerprint,
+  filterReport })` + `loadCurrentFindingFilterPolicies(root)`
+  (capability-docs). `buildFindingFilterReport` always stamps
+  the fingerprint (including empty-policy runs). Architecture
+  summary renders `## Finding Filter Policy Freshness` with
+  status `fresh` / `stale` / `missing` / `unknown` plus
+  current vs. report fingerprint; agent contract renders the
+  matching subsection plus a third filter-related `Do Not Do`
+  reminder. `rekon findings filter-policy apply` JSON output
+  now includes `currentPolicyFingerprint`,
+  `projectedPolicyFingerprint` (dry-run), and
+  `policyFingerprint` (actual apply). `rekon refresh` after a
+  config change clears the stale warning. Raw `FindingReport`
+  is never mutated. Pinned by
+  `tests/contract/filter-policy-freshness-guardrails.test.mjs`
+  (19 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

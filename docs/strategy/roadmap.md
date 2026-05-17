@@ -501,6 +501,50 @@ is the first stop before proposing a new capability batch.
   No publication shape change. No new capability role. No
   new CLI subcommand. No LLM, semantic, fuzzy, or embedding
   matching.
+- Configured filter policy freshness / publication guardrails
+  (P1.1 filter-policy-freshness v2 slice):
+  `FindingFilterReport` now carries an additive optional
+  `policyFingerprint: { digest, ruleCount, ruleIds }` — an
+  order-sensitive fingerprint of the `findingFilters` policy
+  set the filter run used. New exported helper
+  `fingerprintFindingFilterPolicies(policies)` in
+  `@rekon/kernel-findings`. `buildFindingFilterReport` always
+  stamps the fingerprint (including the empty-policy
+  fingerprint when no rules are configured). New exports
+  from `@rekon/capability-docs`:
+  `FilterPolicyStaleness` (type),
+  `computeFilterPolicyStaleness({ currentFingerprint,
+  filterReport })` (pure compute), and
+  `loadCurrentFindingFilterPolicies(repoRoot)` (async loader
+  that reads `.rekon/config.json findingFilters`, validates
+  it, and returns the fingerprint of the *valid* subset).
+  Architecture summary publication renders a new
+  `## Finding Filter Policy Freshness` section (between
+  `## Finding Filter Health` and `## Finding Filter Policy
+  Suggestions`); agent contract renders the matching
+  `### Finding Filter Policy Freshness` subsection. Status is
+  `fresh` / `stale` / `missing` / `unknown`. On `stale`, both
+  publications emit a "Run `rekon refresh`" warning; the
+  agent contract adds a third filter-related `Do Not Do`
+  reminder: "Do not rely on active issue / coherency counts
+  after `.rekon/config.json` `findingFilters` changed until
+  `rekon refresh` has rebuilt the filter chain with the
+  current policy set." `rekon findings filter-policy apply`
+  JSON output gains `currentPolicyFingerprint`,
+  `projectedPolicyFingerprint` (dry-run), and
+  `policyFingerprint` (apply). The publishers'
+  `publish({ artifacts })` signatures changed to
+  `publish({ artifacts, input })` so the runtime-injected
+  `repo.root` flows through to the loader. Existing
+  `finding-filter.changed` invalidation rule's description
+  expanded to mention the new freshness section; no new
+  invalidation rule (policyFingerprint drift is part of the
+  filter report change). 19 new contract tests in
+  `tests/contract/filter-policy-freshness-guardrails.test.mjs`.
+  No `schemaVersion` bump (additive optional field). No new
+  artifact type. No new capability role. No watcher /
+  daemon. No new CLI subcommand. No LLM, semantic, fuzzy,
+  or embedding matching.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

@@ -44,6 +44,7 @@ import {
   createIssueMergeDecisionLedger,
   deriveFindingFilterPolicySuggestions,
   deriveFindingLifecycle,
+  fingerprintFindingFilterPolicies,
 } from "@rekon/kernel-findings";
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
 import {
@@ -837,6 +838,14 @@ export async function buildFindingFilterReport(
     policies: options.policies,
   });
 
+  // Always stamp the run with a policy fingerprint — including
+  // the empty-policy fingerprint when no rules were supplied.
+  // Downstream surfaces distinguish that from "no fingerprint
+  // recorded" (`status: "unknown"`, signaling an older filter
+  // report). See `fingerprintFindingFilterPolicies` /
+  // `computeFilterPolicyStaleness`.
+  const policyFingerprint = fingerprintFindingFilterPolicies(options.policies ?? []);
+
   const filterReport = createFindingFilterReport({
     header: {
       artifactType: "FindingFilterReport",
@@ -851,6 +860,7 @@ export async function buildFindingFilterReport(
     keptFindings,
     filteredFindings,
     policyUsage,
+    policyFingerprint,
   });
 
   return filterReport;

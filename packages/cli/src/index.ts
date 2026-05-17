@@ -40,6 +40,7 @@ import { type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
   type FindingFilterPolicyApplyPlan,
+  type FindingFilterPolicyFingerprint,
   type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestion,
   type FindingFilterPolicySuggestionReport,
@@ -51,6 +52,7 @@ import {
   type IssueMergeDecisionLedger,
   type IssueMergeDecisionReason,
   applyIssueMergeDecisionsToCandidates,
+  fingerprintFindingFilterPolicies,
   isBroadFindingFilterPolicyRule,
   planFindingFilterPolicyApply,
   validateFindingFilterPolicyRules,
@@ -1131,6 +1133,15 @@ export async function main(argv: string[]): Promise<void> {
           .join("; ")}.`
       : null;
 
+    // Fingerprint the current + projected policy sets so operators
+    // can see exactly which policy state the apply would land
+    // (`policyFingerprint`) and what the active `findingFilters`
+    // looked like before the apply (`currentPolicyFingerprint`).
+    // Downstream `computeFilterPolicyStaleness` compares the same
+    // digest against the latest `FindingFilterReport`.
+    const currentPolicyFingerprint = fingerprintFindingFilterPolicies(existingRules);
+    const projectedPolicyFingerprint = fingerprintFindingFilterPolicies(plan.proposedRules);
+
     const baseResult = {
       dryRun,
       configPath,
@@ -1148,18 +1159,22 @@ export async function main(argv: string[]): Promise<void> {
         valid: !validationFailed,
         issues: validation.issues,
       },
+      currentPolicyFingerprint,
     };
 
     if (dryRun) {
       // Dry-run / preview: never write. Report what would happen,
-      // including blockers, validation, and whether `--force`
-      // would be needed.
+      // including blockers, validation, the projected policy
+      // fingerprint (so the operator can compare against the
+      // latest FindingFilterReport), and whether `--force` would
+      // be needed.
       writeOutput(
         {
           ...baseResult,
           applied: false,
           wouldRefuse: refusalBlockers.length > 0 || validationFailed,
           blockers: refusalBlockers,
+          projectedPolicyFingerprint,
         },
         json,
       );
@@ -1197,6 +1212,11 @@ export async function main(argv: string[]): Promise<void> {
         applied: true,
         wouldRefuse: false,
         blockers: [],
+        // After the write, the projected fingerprint becomes the
+        // current policy fingerprint. The next `rekon refresh` /
+        // `rekon findings filter` run will stamp this same
+        // fingerprint onto the new `FindingFilterReport`.
+        policyFingerprint: projectedPolicyFingerprint,
         appliedRule: plan.rule, // legacy alias kept for back-compat
       },
       json,

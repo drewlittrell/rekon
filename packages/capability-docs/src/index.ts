@@ -1,11 +1,17 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
   type FindingFilterHealthReport,
+  type FindingFilterPolicyFingerprint,
+  type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestionReport,
   type FindingFilterReport,
   type FindingLifecycleReport,
   type IssueAdjudicationReport,
+  fingerprintFindingFilterPolicies,
+  validateFindingFilterPolicyRules,
 } from "@rekon/kernel-findings";
 import {
   type CapabilityMap,
@@ -194,7 +200,7 @@ export const docsPublisher: Publisher = {
 export const architectureSummaryPublisher: Publisher = {
   id: "@rekon/capability-docs.architecture-summary",
   produces: ["Publication"],
-  async publish({ artifacts }) {
+  async publish({ artifacts, input }) {
     const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
 
     if (!snapshotRef) {
@@ -263,6 +269,19 @@ export const architectureSummaryPublisher: Publisher = {
       findingFilterPolicySuggestionReport,
       findingFilterReport,
     );
+    // Filter-policy freshness (P1.1 filter-policy-freshness v2):
+    // compare the fingerprint of the current `.rekon/config.json`
+    // `findingFilters` against the fingerprint stamped on the
+    // latest FindingFilterReport. The publisher reads config
+    // directly so the warning is rendered into the markdown body.
+    const repoRoot = resolveRepoRoot(input);
+    const currentPolicies = repoRoot
+      ? await loadCurrentFindingFilterPolicies(repoRoot)
+      : undefined;
+    const findingFilterPolicyStaleness = computeFilterPolicyStaleness({
+      currentFingerprint: currentPolicies?.fingerprint,
+      filterReport: findingFilterReport,
+    });
     const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
     const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
       artifacts,
@@ -304,6 +323,7 @@ export const architectureSummaryPublisher: Publisher = {
         findingFilterHealthReport,
         findingFilterPolicySuggestionReport,
         findingFilterPolicySuggestionStale,
+        findingFilterPolicyStaleness,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -425,7 +445,7 @@ export const proofReportPublisher: Publisher = {
 export const agentContractPublisher: Publisher = {
   id: "@rekon/capability-docs.agent-contract",
   produces: ["Publication"],
-  async publish({ artifacts }) {
+  async publish({ artifacts, input }) {
     const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
 
     if (!snapshotRef) {
@@ -478,6 +498,19 @@ export const agentContractPublisher: Publisher = {
       findingFilterPolicySuggestionReport,
       findingFilterReport,
     );
+    // Filter-policy freshness — mirrors the architecture summary
+    // (P1.1 filter-policy-freshness v2). Agent contract surfaces
+    // the warning under `Active Governance State` and adds a
+    // Do Not Do reminder against acting on stale governance
+    // after a policy change.
+    const repoRoot = resolveRepoRoot(input);
+    const currentPolicies = repoRoot
+      ? await loadCurrentFindingFilterPolicies(repoRoot)
+      : undefined;
+    const findingFilterPolicyStaleness = computeFilterPolicyStaleness({
+      currentFingerprint: currentPolicies?.fingerprint,
+      filterReport: findingFilterReport,
+    });
     const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
     const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
       artifacts,
@@ -527,6 +560,7 @@ export const agentContractPublisher: Publisher = {
         findingFilterHealthReport,
         findingFilterPolicySuggestionReport,
         findingFilterPolicySuggestionStale,
+        findingFilterPolicyStaleness,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -595,7 +629,7 @@ export default defineCapability({
       {
         id: "finding-filter.changed",
         description:
-          "Regenerate publications when filtering / filter-health changes so the rendered filter-health section stays current.",
+          "Regenerate publications when filtering / filter-health changes so the rendered filter-health and policy-freshness sections stay current. The latest FindingFilterReport stamps a `policyFingerprint`; the publication's Finding Filter Policy Freshness section compares it against the current `.rekon/config.json` `findingFilters` fingerprint and warns on drift.",
         inputs: ["FindingFilterReport", "FindingFilterHealthReport"],
       },
       {
@@ -890,6 +924,18 @@ function countRefs(groups: Record<string, ArtifactRef[]>): number {
   return Object.values(groups).reduce((total, refs) => total + refs.length, 0);
 }
 
+/**
+ * Pull the repo root out of the runtime-injected publisher input.
+ * Returns `undefined` when the input shape doesn't match — keeps
+ * the publishers usable in synthetic tests that omit `repo`.
+ */
+function resolveRepoRoot(input: Record<string, unknown> | undefined): string | undefined {
+  const repo = input?.repo;
+  if (!repo || typeof repo !== "object") return undefined;
+  const root = (repo as { root?: unknown }).root;
+  return typeof root === "string" && root.length > 0 ? root : undefined;
+}
+
 async function readLatestArtifact<T>(
   artifacts: {
     list(type?: string): Promise<ArtifactRef[]>;
@@ -963,6 +1009,7 @@ type ArchitectureSummaryInputs = {
   findingFilterHealthReport?: FindingFilterHealthReport;
   findingFilterPolicySuggestionReport?: FindingFilterPolicySuggestionReport;
   findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
+  findingFilterPolicyStaleness?: FilterPolicyStaleness;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -987,6 +1034,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     findingFilterHealthReport,
     findingFilterPolicySuggestionReport,
     findingFilterPolicySuggestionStale,
+    findingFilterPolicyStaleness,
     freshness,
     inputRefs,
     generatedAt,
@@ -1183,6 +1231,14 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   // findings are not deleted; the section always points back at the
   // FindingFilterReport audit.
   appendArchitectureFindingFilterHealth(sections, findingFilterReport, findingFilterHealthReport);
+
+  // Finding Filter Policy Freshness — compares the current
+  // `.rekon/config.json` `findingFilters` fingerprint against the
+  // fingerprint stamped on the latest `FindingFilterReport`. When
+  // they diverge, the operator changed policy after the filter
+  // run and active governance may be stale until
+  // `rekon refresh`. See P1.1 filter-policy-freshness v2.
+  appendArchitectureFindingFilterPolicyFreshness(sections, findingFilterPolicyStaleness);
 
   // Finding Filter Policy Suggestions — surfaces the
   // FindingFilterPolicySuggestionReport so operators can see when
@@ -1875,6 +1931,7 @@ type AgentContractInputs = {
   findingFilterHealthReport?: FindingFilterHealthReport;
   findingFilterPolicySuggestionReport?: FindingFilterPolicySuggestionReport;
   findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
+  findingFilterPolicyStaleness?: FilterPolicyStaleness;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -1916,6 +1973,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat a clean active-governance surface as proof that no raw findings exist; inspect FindingFilterReport when filter-health warnings exist or the filter rate is high.",
   "Do not apply filter policy suggestions without explicit operator approval; run `rekon findings filter-policy apply <id>` only when the operator instructs it.",
   "Do not treat filter policy suggestions as already-applied config; they are advisory until `rekon findings filter-policy apply` writes them to `.rekon/config.json`.",
+  "Do not rely on active issue / coherency counts after `.rekon/config.json` `findingFilters` changed until `rekon refresh` has rebuilt the filter chain with the current policy set.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -1931,6 +1989,7 @@ function renderAgentContract(input: AgentContractInputs): string {
     findingFilterHealthReport,
     findingFilterPolicySuggestionReport,
     findingFilterPolicySuggestionStale,
+    findingFilterPolicyStaleness,
     remediationWorkOrder,
     resolverWorkOrder,
     reconciliationPlan,
@@ -2172,6 +2231,13 @@ function renderAgentContract(input: AgentContractInputs): string {
   // filter-health warnings so agents do not treat a clean active
   // surface as proof of a clean codebase.
   appendAgentContractFindingFilterHealth(sections, findingFilterReport, findingFilterHealthReport);
+
+  // Finding Filter Policy Freshness — agent-facing subsection.
+  // Warns that `.rekon/config.json` `findingFilters` changed
+  // after the latest FindingFilterReport and active governance
+  // may be stale until `rekon refresh`. P1.1
+  // filter-policy-freshness v2.
+  appendAgentContractFindingFilterPolicyFreshness(sections, findingFilterPolicyStaleness);
 
   // Finding Filter Policy Suggestions — agent-facing subsection
   // mirroring the architecture summary's Finding Filter Policy
@@ -2716,6 +2782,92 @@ function appendAgentContractFindingFilterHealth(
   sections.push("");
 }
 
+function formatPolicyFingerprintCell(
+  fingerprint: FindingFilterPolicyFingerprint | undefined,
+): string {
+  if (!fingerprint) return "_unavailable_";
+  const shortDigest = fingerprint.digest.slice(0, 12);
+  return `\`${shortDigest}\` (${fingerprint.ruleCount} rule${
+    fingerprint.ruleCount === 1 ? "" : "s"
+  })`;
+}
+
+function appendArchitectureFindingFilterPolicyFreshness(
+  sections: string[],
+  staleness: FilterPolicyStaleness | undefined,
+): void {
+  sections.push("## Finding Filter Policy Freshness");
+  sections.push("");
+  if (!staleness) {
+    sections.push(
+      "No FindingFilterReport indexed; filter policy freshness cannot be evaluated. Run `rekon refresh`.",
+    );
+    sections.push("");
+    return;
+  }
+  sections.push(`- Status: \`${staleness.status}\``);
+  sections.push(`- Current config policy fingerprint: ${formatPolicyFingerprintCell(staleness.currentFingerprint)}`);
+  sections.push(`- FindingFilterReport policy fingerprint: ${formatPolicyFingerprintCell(staleness.reportFingerprint)}`);
+  sections.push("");
+  if (staleness.status === "stale") {
+    sections.push(
+      "> `.rekon/config.json` `findingFilters` changed after the latest FindingFilterReport was produced. Active governance (lifecycle / adjudication / coherency / publications) may be stale. Run `rekon refresh` to rebuild the filter chain with the current policy set.",
+    );
+    sections.push("");
+  } else if (staleness.status === "missing") {
+    sections.push(
+      "No FindingFilterReport found. Run `rekon refresh` (or `rekon findings filter`) before relying on active governance counts.",
+    );
+    sections.push("");
+  } else if (staleness.status === "unknown") {
+    sections.push(
+      "Latest FindingFilterReport predates filter-policy-freshness v2 and does not record a policy fingerprint. Run `rekon refresh` to regenerate the filter chain with a fingerprinted FindingFilterReport.",
+    );
+    sections.push("");
+  } else {
+    sections.push("Finding filter policy fingerprint matches the latest FindingFilterReport.");
+    sections.push("");
+  }
+}
+
+function appendAgentContractFindingFilterPolicyFreshness(
+  sections: string[],
+  staleness: FilterPolicyStaleness | undefined,
+): void {
+  sections.push("### Finding Filter Policy Freshness");
+  sections.push("");
+  if (!staleness) {
+    sections.push(
+      "No FindingFilterReport indexed; filter policy freshness cannot be evaluated. Run `rekon refresh` before relying on active governance counts.",
+    );
+    sections.push("");
+    return;
+  }
+  sections.push(`- Status: \`${staleness.status}\``);
+  sections.push(`- Current config policy fingerprint: ${formatPolicyFingerprintCell(staleness.currentFingerprint)}`);
+  sections.push(`- FindingFilterReport policy fingerprint: ${formatPolicyFingerprintCell(staleness.reportFingerprint)}`);
+  sections.push("");
+  if (staleness.status === "stale") {
+    sections.push(
+      "> Do not rely on active governance until `rekon refresh` rebuilds findings with the current `findingFilters` config. The latest FindingFilterReport was produced against an older policy set.",
+    );
+    sections.push("");
+  } else if (staleness.status === "missing") {
+    sections.push(
+      "> No FindingFilterReport found. Run `rekon refresh` (or `rekon findings filter`) before relying on active governance counts.",
+    );
+    sections.push("");
+  } else if (staleness.status === "unknown") {
+    sections.push(
+      "> Latest FindingFilterReport predates filter-policy-freshness v2. Run `rekon refresh` to regenerate the filter chain with a fingerprinted FindingFilterReport before trusting active governance counts.",
+    );
+    sections.push("");
+  } else {
+    sections.push("Finding filter policy fingerprint matches the latest FindingFilterReport.");
+    sections.push("");
+  }
+}
+
 /**
  * Lightweight staleness check for a
  * `FindingFilterPolicySuggestionReport`. The suggestion deriver
@@ -2748,6 +2900,128 @@ function computeFilterPolicySuggestionStale(
   const latestFilterReportId = latestFilterReport.header.artifactId;
   const stale = !citedFilterReportIds.includes(latestFilterReportId);
   return { stale, latestFilterReportId, citedFilterReportIds };
+}
+
+/**
+ * Filter-policy freshness status. Compares the current
+ * `.rekon/config.json findingFilters` fingerprint against the
+ * fingerprint stamped on the latest `FindingFilterReport`. Surfaced
+ * in the architecture summary and agent contract so an operator
+ * who changes filter policy after a filter run sees an explicit
+ * "Run `rekon refresh`" warning instead of stale active
+ * governance.
+ */
+export type FilterPolicyStaleness = {
+  status: "fresh" | "stale" | "missing" | "unknown";
+  currentFingerprint?: FindingFilterPolicyFingerprint;
+  reportFingerprint?: FindingFilterPolicyFingerprint;
+  warnings: string[];
+  recommendedCommand?: string;
+};
+
+/**
+ * Pure compute. Compares two fingerprints (current config vs.
+ * latest filter report's `policyFingerprint`) and returns the
+ * staleness shape. Use `loadCurrentFindingFilterPolicies` to
+ * obtain the current fingerprint from disk.
+ */
+export function computeFilterPolicyStaleness(input: {
+  currentFingerprint?: FindingFilterPolicyFingerprint;
+  filterReport?: FindingFilterReport;
+}): FilterPolicyStaleness {
+  const { currentFingerprint, filterReport } = input;
+  if (!filterReport) {
+    return {
+      status: "missing",
+      currentFingerprint,
+      warnings: [
+        "No FindingFilterReport indexed. Run `rekon refresh` (or `rekon findings filter`) before relying on active governance counts.",
+      ],
+      recommendedCommand: "rekon refresh",
+    };
+  }
+  const reportFingerprint = filterReport.policyFingerprint;
+  if (!reportFingerprint) {
+    return {
+      status: "unknown",
+      currentFingerprint,
+      warnings: [
+        "Latest FindingFilterReport predates filter-policy-freshness v2 and does not record a policy fingerprint. Run `rekon refresh` to regenerate.",
+      ],
+      recommendedCommand: "rekon refresh",
+    };
+  }
+  if (!currentFingerprint || currentFingerprint.digest === reportFingerprint.digest) {
+    return {
+      status: "fresh",
+      currentFingerprint: currentFingerprint ?? reportFingerprint,
+      reportFingerprint,
+      warnings: [],
+    };
+  }
+  return {
+    status: "stale",
+    currentFingerprint,
+    reportFingerprint,
+    warnings: [
+      "`.rekon/config.json` `findingFilters` changed after the latest FindingFilterReport was produced. Active governance (lifecycle / adjudication / coherency / publications) may be stale until `rekon refresh` rebuilds the filter chain with the current policy set.",
+    ],
+    recommendedCommand: "rekon refresh",
+  };
+}
+
+/**
+ * Async wrapper: reads `.rekon/config.json` from disk, extracts
+ * `findingFilters`, validates them, and returns the
+ * `FindingFilterPolicyFingerprint` of the *valid* rule subset.
+ * Missing config, missing `findingFilters`, or invalid rules
+ * collapse to the empty-policy fingerprint — that matches what
+ * `applyFindingFilters` would actually run. Returns `undefined`
+ * when the file exists but is unreadable / unparseable (caller
+ * decides how to surface that; the publishers treat it as
+ * `unknown`).
+ */
+export async function loadCurrentFindingFilterPolicies(
+  repoRoot: string,
+): Promise<{
+  rules: FindingFilterPolicyRule[];
+  fingerprint: FindingFilterPolicyFingerprint;
+} | undefined> {
+  const configPath = resolve(repoRoot, ".rekon", "config.json");
+  let raw: string;
+  try {
+    raw = await readFile(configPath, "utf8");
+  } catch (error) {
+    if (
+      error instanceof Error
+      && "code" in error
+      && (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      // Missing config = no configured policies — distinct from
+      // unreadable. Returns the empty-policy fingerprint so the
+      // staleness check still works against an empty filter
+      // report fingerprint.
+      const rules: FindingFilterPolicyRule[] = [];
+      return { rules, fingerprint: fingerprintFindingFilterPolicies(rules) };
+    }
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const candidate = (parsed as Record<string, unknown>).findingFilters;
+  if (candidate === undefined) {
+    const rules: FindingFilterPolicyRule[] = [];
+    return { rules, fingerprint: fingerprintFindingFilterPolicies(rules) };
+  }
+  const { rules } = validateFindingFilterPolicyRules(candidate);
+  return { rules, fingerprint: fingerprintFindingFilterPolicies(rules) };
 }
 
 function summarizeSuggestedRule(rule: {

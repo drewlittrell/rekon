@@ -105,6 +105,12 @@ type FilteredFinding = {
   policyId?: string;
 };
 
+type FindingFilterPolicyFingerprint = {
+  digest: string;
+  ruleCount: number;
+  ruleIds: string[];
+};
+
 type FindingFilterReport = {
   header: ArtifactHeader;
   summary: {
@@ -123,8 +129,57 @@ type FindingFilterReport = {
   };
   keptFindings: Finding[];
   filteredFindings: FilteredFinding[];
+  /**
+   * Order-sensitive fingerprint of the `findingFilters` policy
+   * set the filter run used. Populated by
+   * `buildFindingFilterReport` from the policies the runtime
+   * loaded out of `.rekon/config.json`. Always present on
+   * reports produced by filter-policy-freshness v2 or later;
+   * absent on older reports (treated as `unknown` by downstream
+   * staleness checks). Empty-policy runs record a fingerprint
+   * with `ruleCount: 0` and `ruleIds: []` — distinct from "no
+   * fingerprint recorded".
+   */
+  policyFingerprint?: FindingFilterPolicyFingerprint;
 };
 ```
+
+## Policy Fingerprint
+
+Each `FindingFilterReport` produced by filter-policy-freshness
+v2 carries an order-sensitive fingerprint of the
+`findingFilters` policy set that the filter run used. Order
+matters because `applyFindingFilters` runs policies in declared
+order and the first match wins, so two policy sets with the
+same rules in a different order produce different fingerprints.
+
+`fingerprintFindingFilterPolicies(policies)` is exported from
+`@rekon/kernel-findings`. The fingerprint shape is
+`{ digest: string; ruleCount: number; ruleIds: string[] }`.
+`digest` is a SHA-256 over the canonical JSON of the policy
+array; `ruleIds` is the rule-id list in declared order.
+
+Downstream surfaces compare this fingerprint against the
+current `.rekon/config.json` `findingFilters` to detect policy
+drift. The architecture summary renders a
+**Finding Filter Policy Freshness** section
+(status: `fresh` / `stale` / `missing` / `unknown`); the agent
+contract renders the same as a subsection plus a
+**Do Not Do** reminder against acting on stale active
+governance after a policy change. When the fingerprints
+diverge, both publications recommend
+`rekon refresh` to rebuild the filter chain.
+
+`rekon findings filter-policy apply` also reports the projected
+fingerprint in its JSON output:
+
+- `--dry-run` returns `currentPolicyFingerprint` (state before
+  apply) and `projectedPolicyFingerprint` (state if the
+  suggestion were applied).
+- Actual apply returns `currentPolicyFingerprint` plus
+  `policyFingerprint` (the state immediately after the write;
+  this is the fingerprint the next `rekon refresh` will stamp
+  onto the new `FindingFilterReport`).
 
 ## Configured Exclusion Policies
 

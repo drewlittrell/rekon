@@ -640,6 +640,103 @@ scope:
   coherency / publications when filter policy applies
   invalidate the governed surface) is the recommended next
   slice.
+- **Configured filter policy freshness / publication
+  guardrails (P1.1 filter-policy-freshness v2 slice).**
+  ✅ Shipped.
+  `FindingFilterReport` now carries an optional, order-sensitive
+  `policyFingerprint: { digest, ruleCount, ruleIds }` of the
+  `findingFilters` policy set the run used. New exported helper
+  `fingerprintFindingFilterPolicies(policies)` in
+  `@rekon/kernel-findings` (canonicalizes each rule, preserves
+  array order, drops undefined matchers). `buildFindingFilterReport`
+  always stamps the fingerprint — including the empty-policy
+  fingerprint when no rules are configured — so future
+  comparisons distinguish "no fingerprint recorded" (older
+  reports → `unknown`) from "ran with zero policies"
+  (`ruleCount: 0`). Validator accepts the additive field
+  (digest is a non-empty string; ruleCount is a non-negative
+  integer; `ruleIds.length === ruleCount`). No schemaVersion
+  bump.
+  `@rekon/capability-docs.architecture-summary` and
+  `@rekon/capability-docs.agent-contract` now read
+  `.rekon/config.json` `findingFilters` via the new
+  `loadCurrentFindingFilterPolicies(repoRoot)` helper,
+  fingerprint the result, and compare against the latest
+  `FindingFilterReport.policyFingerprint` via
+  `computeFilterPolicyStaleness`. Status is one of:
+  - **`fresh`** — fingerprints match; section reports
+    "Finding filter policy fingerprint matches the latest
+    FindingFilterReport."
+  - **`stale`** — fingerprints diverge; section emits a
+    blockquote: "`.rekon/config.json` `findingFilters` changed
+    after the latest FindingFilterReport was produced. Active
+    governance may be stale. Run `rekon refresh` to rebuild
+    the filter chain with the current policy set." Agent
+    contract additionally warns: "Do not rely on active
+    governance until `rekon refresh` rebuilds findings with
+    the current `findingFilters` config."
+  - **`missing`** — no `FindingFilterReport` indexed; section
+    instructs `rekon refresh` (or `rekon findings filter`).
+  - **`unknown`** — latest `FindingFilterReport` predates
+    filter-policy-freshness v2; section instructs
+    `rekon refresh` to regenerate a fingerprinted report.
+  Architecture summary renders `## Finding Filter Policy
+  Freshness` between `## Finding Filter Health` and
+  `## Finding Filter Policy Suggestions`; agent contract
+  renders the matching `### Finding Filter Policy Freshness`
+  subsection under `Active Governance State`. Both sections
+  always list the current vs. report fingerprint (12-char
+  short-digest + rule count). The agent contract's `Do Not Do`
+  list gains a third filter-related reminder: "Do not rely on
+  active issue / coherency counts after `.rekon/config.json`
+  `findingFilters` changed until `rekon refresh` has rebuilt
+  the filter chain with the current policy set." Both
+  publishers gracefully degrade when `input.repo.root` is
+  absent (helps synthetic tests).
+  `rekon findings filter-policy apply` JSON output gains
+  three new fingerprint fields:
+  `currentPolicyFingerprint` (state before apply, always
+  emitted), `projectedPolicyFingerprint` (dry-run only;
+  what the apply would land), and `policyFingerprint`
+  (actual apply only; the fingerprint the next
+  `rekon refresh` will stamp onto the new
+  `FindingFilterReport`).
+  Manifest update: the existing
+  `finding-filter.changed` invalidation rule's description
+  expanded to mention the new Finding Filter Policy
+  Freshness section. No new invalidation rule (the existing
+  `finding-filter.changed` rule already invalidates
+  publications when `FindingFilterReport` changes, and the
+  `policyFingerprint` change is part of that artifact). The
+  publishers' `publish({ artifacts })` signatures changed to
+  `publish({ artifacts, input })` so the runtime-injected
+  `repo.root` flows through to the loader.
+  19 new contract tests in
+  `tests/contract/filter-policy-freshness-guardrails.test.mjs`
+  cover: 4 pure-helper tests for `fingerprintFindingFilterPolicies`
+  (deterministic, order-sensitive, empty-array stable,
+  undefined-matcher-insensitive), 4 pure-helper tests for
+  `computeFilterPolicyStaleness` (missing / unknown / fresh /
+  stale), 3 loader / refresh integration tests, 2 apply-CLI
+  fingerprint tests (dry-run + apply), 4 end-to-end
+  publication tests (architecture fresh after refresh,
+  architecture stale after config change, agent contract
+  stale + Do Not Do reminder, refresh-clears-stale), and 2
+  integrity tests (raw `FindingReport` byte-identical,
+  `rekon artifacts validate` clean). Aligned to
+  `services/IssueDetectionService.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/filter-health.ts`,
+  `services/issues/report-persistence.ts`, `config issueExclude`.
+  No new artifact type. No artifact `schemaVersion` bump
+  (additive optional field). No new capability role. No
+  watcher / daemon / file-system event loop. No version
+  bump. No npm publish. Classic issue filtering parity v2
+  (content / result filter expansion: more deterministic
+  content filters and issue-result filters; still no
+  GraphOntologyValidator or LLM) is the recommended next
+  slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

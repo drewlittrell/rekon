@@ -125,7 +125,21 @@ The publication content includes these sections, in order:
    command-shaped hint (`rekon findings filter` /
    `rekon findings filter-health` / `rekon refresh`). See
    [../concepts/finding-filters.md](../concepts/finding-filters.md).
-8. **Finding Filter Policy Suggestions** — derived from
+8. **Finding Filter Policy Freshness** — derived from
+   [`FindingFilterReport.policyFingerprint`](finding-filter-report.md)
+   plus the current `.rekon/config.json` `findingFilters`.
+   Renders a status (`fresh` / `stale` / `missing` / `unknown`)
+   plus both fingerprints (current config vs. report) so the
+   operator can see at a glance whether
+   `rekon refresh` should be re-run. `stale` fires when the
+   operator changed `findingFilters` after the latest filter
+   run; the section emits a blockquote recommending
+   `rekon refresh`. `missing` / `unknown` emit the same
+   recommendation. `fresh` says "Finding filter policy
+   fingerprint matches the latest FindingFilterReport." See
+   [../concepts/finding-filters.md](../concepts/finding-filters.md)
+   "Policy Fingerprint and Freshness".
+9. **Finding Filter Policy Suggestions** — derived from
    [`FindingFilterPolicySuggestionReport`](finding-filter-policy-suggestion-report.md).
    Renders total / high / medium / low suggestion counts plus
    a `Suggestion | Confidence | Reason | Suggested Rule |
@@ -145,37 +159,37 @@ The publication content includes these sections, in order:
    pointing operators back to
    `rekon findings filter-policy suggest`. See
    [../concepts/finding-filter-policy-suggestions.md](../concepts/finding-filter-policy-suggestions.md).
-9. **Top Affected Paths** — table of paths from
-   `CoherencyDelta.summary.topPaths`. Up to 10 rows.
-10. **Remediation Queue** — table of remediation steps from
+10. **Top Affected Paths** — table of paths from
+    `CoherencyDelta.summary.topPaths`. Up to 10 rows.
+11. **Remediation Queue** — table of remediation steps from
     `CoherencyDelta.remediationQueue` with priority, finding id,
     severity, systems, and the truncated action. Up to 20 rows.
-11. **Work Orders** — table showing the latest remediation
+12. **Work Orders** — table showing the latest remediation
     (`source = "coherency-delta"`) and resolver work orders. Each row
     reports source, goal, paths, owner systems, and selected item count
     (for remediation orders) or `n/a` (for resolver orders). Missing
     work orders are called out with a "run `rekon intent remediation`
     or `rekon intent work-order`" hint.
-12. **Reconciliation Plans** — summary table (total / artifact-only /
+13. **Reconciliation Plans** — summary table (total / artifact-only /
     source-write deferred / command deferred / manual review / applied
     / deferred / denied) plus up to 5 top operations with class, status,
     permissions, and finding. Missing plans recommend
     `rekon reconcile suggest`.
-13. **Verification Status** — table of the latest `VerificationResult`
+14. **Verification Status** — table of the latest `VerificationResult`
     status, summary counts, recorded by, recorded at. Failed / partial
     / not-run results display an explicit "Verification is not
     complete." line. If the result references an older
     `VerificationPlan` than the latest, the section says
     "VerificationResult may be stale; latest VerificationPlan differs."
-14. **Proof Loop** — `Governance:` / `Planning:` / `Verification:`
+15. **Proof Loop** — `Governance:` / `Planning:` / `Verification:`
     state bullets plus a single "Suggested next command:" line that
     walks the loop `coherency delta -> intent remediation -> reconcile
     suggest -> verify record -> address failures -> publish`.
-15. **Agent Guidance** — short bullet list reminding readers of the
+16. **Agent Guidance** — short bullet list reminding readers of the
     route → seam → preflight flow and required checks.
-16. **Freshness** — instructs the operator to run
+17. **Freshness** — instructs the operator to run
     `rekon artifacts freshness --json`.
-17. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
+18. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
     header.
 
 ## Inputs Consumed

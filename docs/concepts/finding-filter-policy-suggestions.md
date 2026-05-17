@@ -202,6 +202,17 @@ stale banner ("Finding filter policy suggestions may be
 stale" / "Suggestion report may be stale") pointing
 operators back to `rekon findings filter-policy suggest`.
 
+Both publications also render a separate
+`Finding Filter Policy Freshness` section / subsection
+(filter-policy-freshness v2) that compares the current
+`.rekon/config.json` `findingFilters` fingerprint against the
+fingerprint stamped on the latest `FindingFilterReport`. When
+an operator runs `rekon findings filter-policy apply` and then
+publishes without first running `rekon refresh`, the freshness
+status is `stale` and both surfaces recommend
+`rekon refresh`. See [finding-filters.md](finding-filters.md)
+"Policy Fingerprint and Freshness" for the full status model.
+
 ## What This Is Not
 
 - **Not automatic mutation.** Suggestions are advisory

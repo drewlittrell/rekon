@@ -86,6 +86,17 @@ states are surfaced, not hidden.
    cite the latest `FindingFilterReport`, the section emits a
    stale banner pointing operators back to
    `rekon findings filter-policy suggest`.
+   The publisher additionally renders a `Finding Filter
+   Policy Freshness` section that compares the current
+   `.rekon/config.json` `findingFilters` fingerprint (loaded
+   via the new `loadCurrentFindingFilterPolicies(root)`
+   helper) against the fingerprint stamped on the latest
+   `FindingFilterReport`. Status is one of
+   `fresh` / `stale` / `missing` / `unknown`. On `stale` /
+   `missing` / `unknown`, the section emits a blockquote
+   recommending `rekon refresh`. The helper
+   `computeFilterPolicyStaleness` is exported so other
+   surfaces and tests can reuse the same comparison.
    The publisher also runs a small
    `detectGovernanceFreshness` helper across the latest
    `FindingLifecycleReport` /

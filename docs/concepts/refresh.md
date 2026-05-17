@@ -257,6 +257,14 @@ If a required artifact family is missing after a successful run
   publications or call resolvers.
 - After a significant batch of source changes, before any
   governance review.
+- **After any change to `.rekon/config.json` `findingFilters`**
+  (including after `rekon findings filter-policy apply`). The
+  refresh rebuilds the filter chain with the current policy
+  set, restamps the `FindingFilterReport.policyFingerprint`,
+  and clears the stale-policy warning in the architecture
+  summary and agent contract. See
+  [finding-filters.md](finding-filters.md) "Policy
+  Fingerprint and Freshness".
 - When you suspect the workspace has drifted (mixed-version
   artifacts) and you want a clean baseline.
 

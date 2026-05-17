@@ -153,6 +153,19 @@ The publication contains, in fixed order:
    emits an explicit `rekon findings filter-policy suggest`
    hint. See
    [../concepts/finding-filter-policy-suggestions.md](../concepts/finding-filter-policy-suggestions.md).
+   The **Finding Filter Policy Freshness** subsection follows,
+   comparing the current `.rekon/config.json` `findingFilters`
+   fingerprint against the fingerprint stamped on the latest
+   `FindingFilterReport`. Status is `fresh` / `stale` /
+   `missing` / `unknown`. On `stale`, the subsection emits a
+   blockquote: "Do not rely on active governance until
+   `rekon refresh` rebuilds findings with the current
+   `findingFilters` config." `missing` / `unknown` emit the
+   same recommendation. The `Do Not Do` section adds a third
+   filter-related reminder: "Do not rely on active issue /
+   coherency counts after `.rekon/config.json` `findingFilters`
+   changed until `rekon refresh` has rebuilt the filter chain
+   with the current policy set."
 8. **Proof And Verification State** — presence/missing for
    remediation WorkOrder, resolver WorkOrder, ReconciliationPlan,
    VerificationPlan, VerificationResult; explicit "Verification is

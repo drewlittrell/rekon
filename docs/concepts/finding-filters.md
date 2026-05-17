@@ -181,6 +181,41 @@ anything to match against).
 - `rekon artifacts freshness` marks the filter report `stale`
   when a newer `FindingReport` is written.
 
+## Policy Fingerprint and Freshness
+
+Each `FindingFilterReport` written by filter-policy-freshness
+v2 carries an order-sensitive
+`policyFingerprint: { digest, ruleCount, ruleIds }` of the
+`findingFilters` policy set the run used. The CLI / publishers
+compare this fingerprint against the current
+`.rekon/config.json` `findingFilters` to detect drift:
+
+- **fresh** — current config fingerprint matches the report
+  fingerprint.
+- **stale** — fingerprints diverge; the operator changed
+  `findingFilters` after the filter run. Active governance
+  (lifecycle / adjudication / coherency / publications) may be
+  stale until `rekon refresh` rebuilds the filter chain.
+- **missing** — no `FindingFilterReport` indexed yet. Run
+  `rekon refresh` (or `rekon findings filter`).
+- **unknown** — latest `FindingFilterReport` predates
+  filter-policy-freshness v2. Run `rekon refresh` to regenerate
+  a fingerprinted report.
+
+`@rekon/capability-docs.architecture-summary` renders a
+`## Finding Filter Policy Freshness` section with the status
+and both fingerprints (current vs. report).
+`@rekon/capability-docs.agent-contract` renders the same as a
+`### Finding Filter Policy Freshness` subsection and adds a
+`Do Not Do` reminder against acting on stale active
+governance after a policy change.
+
+`rekon findings filter-policy apply` now reports
+`currentPolicyFingerprint`, `projectedPolicyFingerprint`
+(dry-run), and `policyFingerprint` (actual apply) so operators
+can confirm what `rekon refresh` should next see in the
+`FindingFilterReport`.
+
 ## Health Alerts
 
 v1 ships two alerts:

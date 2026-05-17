@@ -75,7 +75,7 @@ state is current.
 | Operating Rules | always | n/a (durable rules) |
 | Resolver Workflow | always | n/a (durable flow) |
 | Ownership And Capabilities | `ObservedRepo` and/or `CapabilityMap` present | `ObservedRepo`, `OwnershipMap`, `CapabilityMap` |
-| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport`, `FindingFilterReport`, `FindingFilterHealthReport`, `FindingFilterPolicySuggestionReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Finding Filter Health + Finding Filter Policy Suggestions + Governance Freshness subsections) |
+| Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport`, `FindingFilterReport`, `FindingFilterHealthReport`, `FindingFilterPolicySuggestionReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Finding Filter Health + Finding Filter Policy Freshness + Finding Filter Policy Suggestions + Governance Freshness subsections) |
 | Proof And Verification State | always | `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, `VerificationResult` |
 | Memory Guidance | always (table only when ranked items exist) | `MemorySelection` |
 | Required Checks | always | `VerificationPlan.commands` (default fallback) |
@@ -187,6 +187,32 @@ suggestions as already-applied config; they are advisory
 until `rekon findings filter-policy apply` writes them to
 `.rekon/config.json`." See
 [finding-filter-policy-suggestions.md](finding-filter-policy-suggestions.md).
+
+## Finding Filter Policy Freshness
+
+The contract renders a `Finding Filter Policy Freshness`
+subsection under `Active Governance State` whenever a
+`FindingFilterReport` is indexed. It compares the current
+`.rekon/config.json` `findingFilters` fingerprint against the
+fingerprint stamped on the latest `FindingFilterReport`.
+Status is one of `fresh` / `stale` / `missing` / `unknown`.
+
+When the operator changes `findingFilters` after the latest
+filter run, the subsection's status becomes `stale` and the
+contract emits a blockquote: "Do not rely on active
+governance until `rekon refresh` rebuilds findings with the
+current `findingFilters` config." `missing` (no
+`FindingFilterReport` indexed) and `unknown` (older
+`FindingFilterReport` without a `policyFingerprint`) emit
+the same recommendation.
+
+The `Do Not Do` list gains a third filter-related reminder:
+"Do not rely on active issue / coherency counts after
+`.rekon/config.json` `findingFilters` changed until `rekon
+refresh` has rebuilt the filter chain with the current
+policy set." See
+[finding-filters.md](finding-filters.md) "Policy Fingerprint
+and Freshness".
 
 ## CLI Surface
 

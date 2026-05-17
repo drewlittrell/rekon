@@ -4,6 +4,7 @@ import {
   type ArtifactSchema,
   type ValidationIssue,
   type ValidationResult,
+  digestJson,
   validateArtifactHeader,
   validateArtifactRef,
 } from "@rekon/kernel-artifacts";
@@ -166,6 +167,34 @@ export type FindingFilterReport = {
   summary: FindingFilterSummary;
   keptFindings: Finding[];
   filteredFindings: FilteredFinding[];
+  /**
+   * Order-sensitive fingerprint of the `findingFilters` policy
+   * set the filter run used. Populated by `buildFindingFilterReport`
+   * (and `createFindingFilterReport` when callers supply
+   * `policyFingerprint`). Downstream surfaces (architecture
+   * summary, agent contract) compare this fingerprint against the
+   * current `.rekon/config.json` `findingFilters` to detect that
+   * the operator changed policy after the filter report was
+   * produced.
+   *
+   * Absent on filter reports written before
+   * filter-policy-freshness v2 landed; consumers treat that as
+   * `status: "unknown"` (run `rekon refresh` to regenerate).
+   */
+  policyFingerprint?: FindingFilterPolicyFingerprint;
+};
+
+/**
+ * Order-sensitive fingerprint of a `findingFilters` policy set.
+ * Policy rule order matters because the first matching rule wins
+ * (see `applyFindingFilters`). `digest` is a SHA-256 over the
+ * canonical JSON of the rule array; `ruleIds` is the rule-id list
+ * in declared order.
+ */
+export type FindingFilterPolicyFingerprint = {
+  digest: string;
+  ruleCount: number;
+  ruleIds: string[];
 };
 
 /**
@@ -531,6 +560,55 @@ const SEVERITIES_PUBLIC: ReadonlyArray<FindingSeverity> = [
 ];
 
 /**
+ * Compute a deterministic, order-sensitive fingerprint of a
+ * `findingFilters` policy set. Used by `buildFindingFilterReport`
+ * to stamp each `FindingFilterReport` with the policy set it
+ * used, and by downstream surfaces to detect when the operator
+ * changed `.rekon/config.json` `findingFilters` after the latest
+ * filter run.
+ *
+ * Order matters because `applyFindingFilters` runs policies in
+ * declared order and the first match wins. Two policy sets with
+ * the same rules in a different order produce different
+ * fingerprints — that is intentional and matches runtime
+ * behavior.
+ *
+ * The empty policy set is represented by `digest` over an empty
+ * array, `ruleCount: 0`, `ruleIds: []` — distinct from "no
+ * fingerprint recorded" (which means the filter report predates
+ * filter-policy-freshness v2 and should be regenerated).
+ */
+export function fingerprintFindingFilterPolicies(
+  policies: ReadonlyArray<FindingFilterPolicyRule>,
+): FindingFilterPolicyFingerprint {
+  // Canonicalize each rule into a plain object so undefined
+  // matchers don't alter the digest. Preserve array order
+  // (digestJson keeps array order; only object keys are sorted).
+  const canonical = policies.map((rule) => {
+    const result: Record<string, unknown> = {
+      id: rule.id,
+      reason: rule.reason,
+      evidence: rule.evidence,
+    };
+    if (rule.confidence !== undefined) result.confidence = rule.confidence;
+    if (rule.pathPattern !== undefined) result.pathPattern = rule.pathPattern;
+    if (rule.type !== undefined) result.type = rule.type;
+    if (rule.ruleId !== undefined) result.ruleId = rule.ruleId;
+    if (rule.severity !== undefined) result.severity = rule.severity;
+    if (rule.titleIncludes !== undefined) result.titleIncludes = rule.titleIncludes;
+    if (rule.descriptionIncludes !== undefined) {
+      result.descriptionIncludes = rule.descriptionIncludes;
+    }
+    return result;
+  });
+  return {
+    digest: digestJson(canonical),
+    ruleCount: policies.length,
+    ruleIds: policies.map((rule) => rule.id),
+  };
+}
+
+/**
  * Validate a candidate `findingFilters` payload (from a loaded
  * config or test fixture). Returns issue records suitable for
  * surfacing through `rekon config validate` — the CLI maps each
@@ -794,6 +872,17 @@ export function createFindingFilterReport(input: {
    * `summary.byPolicy` field when present.
    */
   policyUsage?: Record<string, number>;
+  /**
+   * Order-sensitive fingerprint of the `findingFilters` policy
+   * set the filter run used. When supplied, downstream surfaces
+   * can detect policy drift against the current
+   * `.rekon/config.json`. Pass the empty-policy fingerprint
+   * (via `fingerprintFindingFilterPolicies([])`) for runs with
+   * no configured policies — it is distinct from "no fingerprint
+   * recorded" and signals that the run knew about the policy
+   * model.
+   */
+  policyFingerprint?: FindingFilterPolicyFingerprint;
 }): FindingFilterReport {
   const keptFindings = [...input.keptFindings].sort((left, right) =>
     left.id.localeCompare(right.id),
@@ -801,12 +890,16 @@ export function createFindingFilterReport(input: {
   const filteredFindings = [...input.filteredFindings].sort((left, right) =>
     left.findingId.localeCompare(right.findingId),
   );
-  return assertFindingFilterReport({
+  const report: FindingFilterReport = {
     header: input.header,
     summary: summarizeFindingFilterReport(keptFindings, filteredFindings, input.policyUsage),
     keptFindings,
     filteredFindings,
-  });
+  };
+  if (input.policyFingerprint) {
+    report.policyFingerprint = input.policyFingerprint;
+  }
+  return assertFindingFilterReport(report);
 }
 
 export function validateFindingFilterReport(
@@ -848,9 +941,44 @@ export function validateFindingFilterReport(
     );
   }
 
+  if (value.policyFingerprint !== undefined) {
+    validatePolicyFingerprint(value.policyFingerprint, "$.policyFingerprint", issues);
+  }
+
   return issues.length > 0
     ? { ok: false, issues }
     : { ok: true, value: value as FindingFilterReport, issues: [] };
+}
+
+function validatePolicyFingerprint(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.digest !== "string" || value.digest.length === 0) {
+    issues.push({ path: `${path}.digest`, message: "Expected a non-empty string." });
+  }
+  if (typeof value.ruleCount !== "number" || !Number.isInteger(value.ruleCount) || value.ruleCount < 0) {
+    issues.push({
+      path: `${path}.ruleCount`,
+      message: "Expected a non-negative integer.",
+    });
+  }
+  if (!isStringArray(value.ruleIds)) {
+    issues.push({ path: `${path}.ruleIds`, message: "Expected an array of strings." });
+  } else if (
+    typeof value.ruleCount === "number"
+    && (value.ruleIds as string[]).length !== value.ruleCount
+  ) {
+    issues.push({
+      path: `${path}.ruleIds`,
+      message: "Expected ruleIds.length to match ruleCount.",
+    });
+  }
 }
 
 export function assertFindingFilterReport(value: unknown): FindingFilterReport {
