@@ -480,6 +480,15 @@ classified as **policy**, not built-in.
   exact proposed rule, structured config diff, and
   validation result without writing anything. See
   [finding-filter-policy-suggestions.md](finding-filter-policy-suggestions.md).
+- **Auditable via `rekon findings filter-policy status`.**
+  Read-only operator workflow surface that combines the
+  current policy set with the latest filter / health /
+  suggestion reports. Reports per-policy usage counts,
+  freshness, warnings (`unused-policy`, `dominant-policy`,
+  `low-confidence-policy`, `broad-policy`,
+  `stale-policy-fingerprint`), and suggestions. Never
+  mutates `.rekon/config.json`. See
+  [finding-filter-policy-status.md](finding-filter-policy-status.md).
 - **Visible in publications.** The architecture summary
   renders a `## Finding Filter Policy Suggestions` section
   with a per-suggestion table; the agent contract renders a

@@ -4,6 +4,133 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped filter policy operator workflow polish (P1.1
+  filter-policy-status v1 slice). New CLI surface
+  `rekon findings filter-policy status [--policy <id>]
+  [--warnings-only] [--unused-only]` is a read-only operator
+  workflow that combines the configured `findingFilters`
+  policy set with the latest `FindingFilterReport`,
+  `FindingFilterHealthReport`, and
+  `FindingFilterPolicySuggestionReport` into a single
+  structured JSON document so operators can audit
+  policy health without manually combining several
+  artifacts. The command is **strictly read-only**.
+  `.rekon/config.json` is never mutated;
+  `rekon findings filter-policy apply` remains the only
+  command that writes config. Malformed config fails
+  clearly with a "Failed to parse" error and leaves the
+  file unchanged.
+
+  Per-policy entries report:
+  - `id`, `reason`, optional `confidence`, full `matchers`
+    block.
+  - `usageCount` (from
+    `FindingFilterReport.summary.byPolicy`).
+  - `usageRate` (from
+    `FindingFilterHealthReport.summary.filterRateByPolicy`
+    or recomputed from `usageCount / totalFindings`).
+  - `filteredFindingIds` — sorted list of finding ids the
+    policy suppressed in the latest filter run.
+  - `warnings[]` and `recommendedActions[]` derived
+    deterministically.
+  - Convenience flags `isUnused`, `isDominant`,
+    `isLowConfidence`, `isBroadPattern`.
+
+  Per-policy warning codes:
+  - **`unused-policy`** — `usageCount === 0`.
+  - **`dominant-policy`** — id matches
+    `healthReport.summary.dominantPolicy.policyId` OR
+    `usageRate >= 0.5` AND `totalFindings >= 5`.
+  - **`low-confidence-policy`** —
+    `rule.confidence === "low"` OR a
+    `low-confidence-policy-filter` health alert exists AND
+    the policy is the dominant policy.
+  - **`broad-policy`** —
+    `isBroadFindingFilterPolicyRule(rule)` returns `true`
+    (reuses the apply-safety v2 predicate).
+  - **`stale-policy-fingerprint`** — propagated to every
+    policy when the current vs. report fingerprint
+    digests diverge.
+
+  Global warnings:
+  - **`missing-filter-report`** — no
+    `FindingFilterReport` indexed yet.
+  - **`missing-filter-health`** — `FindingFilterReport`
+    exists but `FindingFilterHealthReport` does not.
+
+  Freshness mirrors filter-policy-freshness v2 with four
+  states: `fresh` / `stale` / `missing-report` / `unknown`.
+  On stale / missing / unknown, the response includes a
+  `recommendedCommand` (typically `rekon refresh`).
+
+  Suggestions are rendered as advisory records with
+  `dryRunCommand` + `applyCommand` strings. Low-confidence
+  suggestions append `--force` to both. The status command
+  **never** applies suggestions on its own initiative.
+
+  Optional flags filter the rendered `policies` array
+  without touching `summary` counts (always computed over
+  the full policy set). The CLI emits a
+  `renderedPolicyCount` field at the top level so callers
+  can see how many entries the filter left.
+
+  New exports from `@rekon/kernel-findings`:
+  - `summarizeFindingFilterPolicyStatus(input)` — pure
+    deterministic helper.
+  - `FindingFilterPolicyStatusResult` (type).
+  - `FindingFilterPolicyStatusEntry` (type).
+  - `FindingFilterPolicyStatusSuggestion` (type).
+  - `FindingFilterPolicyStatusSummary` (type).
+  - `FindingFilterPolicyStatusWarning` (type).
+  - `FindingFilterPolicyStatusFreshness` (union type).
+  - `SummarizeFindingFilterPolicyStatusInput` (type).
+
+  New file-local CLI helper
+  `readLatestArtifactOrUndefined<T>(store, artifactType)`
+  factors out the read-the-latest pattern shared by this
+  command and future read-only surfaces.
+
+  18 new contract tests in
+  `tests/contract/finding-filter-policy-status.test.mjs`
+  cover: 11 pure-helper tests (total / used / unused
+  counts; current + report fingerprints; freshness fresh /
+  stale + recommended `rekon refresh`; every per-policy
+  warning; missing filter / health global warnings;
+  suggestions with `--force` appended for low-confidence)
+  plus 7 CLI behavior tests (no-mutation guarantee on
+  fresh + populated workspaces, malformed-config failure
+  without write, `--policy` / `--warnings-only` /
+  `--unused-only` narrowing, existing
+  `suggest` / `list` behavior unchanged, and
+  `rekon artifacts validate` cleanliness). Full suite:
+  **647 passed / 1 skipped / 0 failed**.
+
+  Docs:
+  - New
+    `docs/concepts/finding-filter-policy-status.md`.
+  - `docs/concepts/finding-filter-policy-suggestions.md`
+    — CLI surface lists the new command; new bullet in
+    the pipeline list.
+  - `docs/concepts/finding-filters.md` — new "Auditable
+    via `rekon findings filter-policy status`" bullet.
+  - `docs/artifacts/finding-filter-health-report.md` —
+    Consumed By entry naming the new command.
+  - `docs/strategy/issue-governance-architecture-decision.md`
+    — Implementation Order step 11 flipped to shipped;
+    new step 12 "Filter policy explicit disable / remove
+    workflow" and step 13 "`GraphOntologyValidator`-lite
+    parity audit".
+  - Four strategy docs (subsystem-purpose-map,
+    behavior-roadmap, guarantee-regression-plan, roadmap).
+  - README adds an example invocation.
+  - CHANGELOG. Review packet:
+    `.rekon-dev/review-packets/finding-filter-policy-status-v1.md`.
+
+  No artifact `schemaVersion` bump. No new artifact type.
+  No new capability role. No new write permission. No
+  LLM, semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator`. No watcher / daemon. No
+  version bump. No npm publish.
 - Shipped filter-health diagnostics v2 (P1.1
   filter-health-diagnostics v2 slice).
   `FindingFilterHealthReport.summary` gains six additive

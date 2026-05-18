@@ -954,6 +954,98 @@ scope:
   low-confidence policy warnings; optional
   `rekon findings filter-policy status`) is the
   recommended next slice.
+- **Filter policy operator workflow polish (P1.1
+  filter-policy-status v1 slice).** ✅ Shipped.
+  New CLI surface `rekon findings filter-policy status
+  [--policy <id>] [--warnings-only] [--unused-only]`
+  combines the configured `findingFilters` policy set with
+  the latest `FindingFilterReport` /
+  `FindingFilterHealthReport` /
+  `FindingFilterPolicySuggestionReport` into a single
+  read-only JSON document. Per-policy entries report:
+  - `id`, `reason`, `confidence?`, `matchers`
+    (`pathPattern` / `type` / `ruleId` / `severity` /
+    `titleIncludes` / `descriptionIncludes`).
+  - `usageCount` (from
+    `FindingFilterReport.summary.byPolicy`) and `usageRate`
+    (from `FindingFilterHealthReport.summary.filterRateByPolicy`,
+    or recomputed from `usageCount / totalFindings`).
+  - `filteredFindingIds` — sorted list of finding ids this
+    policy suppressed in the latest filter run.
+  - `warnings[]` and `recommendedActions[]` derived
+    deterministically from the data.
+  - Convenience flags `isUnused`, `isDominant`,
+    `isLowConfidence`, `isBroadPattern`.
+  Per-policy warnings:
+  - **`unused-policy`** — `usageCount === 0`.
+  - **`dominant-policy`** — id matches
+    `healthReport.summary.dominantPolicy.policyId` OR
+    `usageRate >= 0.5` AND `totalFindings >= 5`.
+  - **`low-confidence-policy`** —
+    `rule.confidence === "low"` OR a
+    `low-confidence-policy-filter` health alert exists AND
+    the policy is the dominant policy.
+  - **`broad-policy`** —
+    `isBroadFindingFilterPolicyRule(rule)` returns `true`
+    (reuses the apply-safety v2 predicate).
+  - **`stale-policy-fingerprint`** — propagated to every
+    policy when the current vs. report fingerprint digests
+    diverge.
+  Global warnings:
+  - **`missing-filter-report`** — no `FindingFilterReport`
+    indexed yet. Policy usage counts unavailable.
+  - **`missing-filter-health`** — `FindingFilterReport`
+    exists but `FindingFilterHealthReport` does not.
+    Alerts unavailable.
+  Freshness mirrors filter-policy-freshness v2:
+  `fresh` / `stale` / `missing-report` / `unknown`. On
+  stale / missing / unknown, the response includes a
+  `recommendedCommand` (typically `rekon refresh`).
+  Suggestions render as advisory records with
+  `dryRunCommand` + `applyCommand` strings; low-confidence
+  suggestions get `--force` appended to both. The status
+  command **never** applies suggestions on its own
+  initiative.
+  Optional flags `--policy <id>` / `--warnings-only` /
+  `--unused-only` narrow the rendered `policies` array;
+  `summary` counts always reflect the full policy set so
+  operators see both the global state and the narrowed
+  view. The CLI emits a `renderedPolicyCount` field so
+  callers can tell how many entries the filter left.
+  New exported pure helper
+  `summarizeFindingFilterPolicyStatus(input)` from
+  `@rekon/kernel-findings` (no filesystem access, no
+  mutation). New exported types
+  `FindingFilterPolicyStatusResult`,
+  `FindingFilterPolicyStatusEntry`,
+  `FindingFilterPolicyStatusSuggestion`,
+  `FindingFilterPolicyStatusSummary`,
+  `FindingFilterPolicyStatusWarning`,
+  `FindingFilterPolicyStatusFreshness`,
+  `SummarizeFindingFilterPolicyStatusInput`. New file-local
+  CLI helper `readLatestArtifactOrUndefined<T>(store,
+  artifactType)`.
+  Command is read-only. `.rekon/config.json` is never
+  mutated. `rekon findings filter-policy apply` remains
+  the only mutating command. Malformed config fails
+  clearly with a "Failed to parse" error and leaves the
+  file unchanged.
+  18 new contract tests in
+  `tests/contract/finding-filter-policy-status.test.mjs`
+  (11 pure-helper + 7 CLI behavior). Full suite: 647
+  passed / 1 skipped / 0 failed.
+  Aligned to `services/IssueDetectionService.ts`,
+  `services/issues/issue-result-filters.ts`,
+  `services/issues/filter-health.ts`,
+  `services/issues/report-persistence.ts`. No artifact
+  `schemaVersion` bump. No new artifact type. No new
+  capability role. No LLM, semantic, fuzzy, or embedding
+  matching. No GraphOntologyValidator. No version bump.
+  No npm publish.
+  `GraphOntologyValidator`-lite parity audit (identify
+  which classic graph / ontology false-positive checks
+  are worth reinterpreting; decision memo before
+  implementation) is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

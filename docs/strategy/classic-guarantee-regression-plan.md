@@ -662,6 +662,33 @@ Implementation batches:
   `FindingFilterHealthReport` are not mutated. Pinned by
   `tests/contract/finding-filter-health-diagnostics-v2.test.mjs`
   (17 tests).
+- "Filter policy operator workflow polish" (shipped) — new
+  CLI surface `rekon findings filter-policy status
+  [--policy <id>] [--warnings-only] [--unused-only]`
+  combines the configured `findingFilters` policy set with
+  the latest `FindingFilterReport` /
+  `FindingFilterHealthReport` /
+  `FindingFilterPolicySuggestionReport` into a single
+  read-only JSON document. Per-policy entries report
+  usage counts, usage rates, filtered finding ids, and
+  deterministic warnings (`unused-policy`,
+  `dominant-policy`, `low-confidence-policy`,
+  `broad-policy`, `stale-policy-fingerprint`). Global
+  warnings (`missing-filter-report`,
+  `missing-filter-health`) appear when the corresponding
+  artifact is absent. Suggestions render as advisory
+  `dryRunCommand` / `applyCommand` strings; low-confidence
+  suggestions get `--force` appended. Freshness mirrors
+  filter-policy-freshness v2 (`fresh` / `stale` /
+  `missing-report` / `unknown`). The command is strictly
+  read-only; `.rekon/config.json` is never mutated and
+  `rekon findings filter-policy apply` remains the only
+  mutating command. Malformed config fails clearly without
+  writing. New exported pure helper
+  `summarizeFindingFilterPolicyStatus` from
+  `@rekon/kernel-findings`. Pinned by
+  `tests/contract/finding-filter-policy-status.test.mjs`
+  (18 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

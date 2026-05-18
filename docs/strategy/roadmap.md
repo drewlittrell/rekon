@@ -641,6 +641,46 @@ is the first stop before proposing a new capability batch.
   No new capability role. No new CLI subcommand or flag.
   No LLM, semantic, fuzzy, or embedding matching. No
   GraphOntologyValidator.
+- Filter policy operator workflow polish (P1.1
+  filter-policy-status v1 slice): new CLI surface
+  `rekon findings filter-policy status [--policy <id>]
+  [--warnings-only] [--unused-only]` combines the
+  configured `findingFilters` policy set with the latest
+  `FindingFilterReport` / `FindingFilterHealthReport` /
+  `FindingFilterPolicySuggestionReport` into a single
+  read-only JSON document — per-policy `usageCount` /
+  `usageRate` / `filteredFindingIds`, deterministic
+  warnings (`unused-policy`, `dominant-policy`,
+  `low-confidence-policy`, `broad-policy`,
+  `stale-policy-fingerprint`), and global warnings
+  (`missing-filter-report`, `missing-filter-health`).
+  Suggestions render as advisory `dryRunCommand` /
+  `applyCommand` strings; low-confidence suggestions get
+  `--force` appended. Freshness mirrors
+  filter-policy-freshness v2
+  (`fresh` / `stale` / `missing-report` / `unknown`).
+  Optional flags narrow the rendered `policies` array;
+  summary counts always reflect the full policy set.
+  New pure helper `summarizeFindingFilterPolicyStatus`
+  exported from `@rekon/kernel-findings` + shape types
+  (`FindingFilterPolicyStatusResult` /
+  `FindingFilterPolicyStatusEntry` /
+  `FindingFilterPolicyStatusSuggestion` /
+  `FindingFilterPolicyStatusSummary` /
+  `FindingFilterPolicyStatusWarning` /
+  `FindingFilterPolicyStatusFreshness` /
+  `SummarizeFindingFilterPolicyStatusInput`). New
+  file-local CLI helper `readLatestArtifactOrUndefined`.
+  Command is strictly read-only;
+  `.rekon/config.json` is never mutated;
+  `rekon findings filter-policy apply` remains the only
+  mutating command. Malformed config fails clearly with a
+  "Failed to parse" error and leaves the file unchanged.
+  18 new contract tests in
+  `tests/contract/finding-filter-policy-status.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact type.
+  No new capability role. No LLM, semantic, fuzzy, or
+  embedding matching. No GraphOntologyValidator.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

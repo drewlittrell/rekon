@@ -32,6 +32,11 @@ is healthy.
   filtered findings warrant durable policy, run
   `rekon findings filter-policy suggest` to materialize a
   [`FindingFilterPolicySuggestionReport`](finding-filter-policy-suggestion-report.md).
+- `rekon findings filter-policy status` consumes this report
+  (alongside `FindingFilterReport` and
+  `FindingFilterPolicySuggestionReport`) to produce a
+  per-policy operator workflow surface. See
+  [finding-filter-policy-status](../concepts/finding-filter-policy-status.md).
 
 ## Required Header Fields
 

@@ -136,6 +136,7 @@ node packages/cli/dist/index.js findings filter --root examples/simple-js-ts --j
 node packages/cli/dist/index.js findings filter-health --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings filter-policy suggest --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings filter-policy list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js findings filter-policy status --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings filter-policy apply <suggestion-id> --dry-run --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings filter-policy apply <suggestion-id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js findings status set <finding-id> --status ignored --reason false-positive --note "Generated fixture intentionally." --root examples/simple-js-ts --json

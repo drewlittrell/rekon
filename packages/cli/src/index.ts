@@ -39,11 +39,13 @@ import {
 import { type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
+  type FindingFilterHealthReport,
   type FindingFilterPolicyApplyPlan,
   type FindingFilterPolicyFingerprint,
   type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestion,
   type FindingFilterPolicySuggestionReport,
+  type FindingFilterReport,
   type FindingResultFilterOptions,
   type FindingStatusDecision,
   type FindingStatusDecisionReason,
@@ -56,6 +58,7 @@ import {
   fingerprintFindingFilterPolicies,
   isBroadFindingFilterPolicyRule,
   planFindingFilterPolicyApply,
+  summarizeFindingFilterPolicyStatus,
   validateFindingFilterPolicyRules,
   validateFindingResultFilterOptions,
   createFindingStatusLedger,
@@ -1074,6 +1077,107 @@ export async function main(argv: string[]): Promise<void> {
         artifact: latest,
         summary: reportBody.summary,
         suggestions: reportBody.suggestions,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "findings" && subcommand === "filter-policy" && positional === "status") {
+    // Read-only operator workflow surface (P1.1
+    // filter-policy-status v1). Combines configured policies +
+    // the latest FindingFilterReport / FindingFilterHealthReport
+    // / FindingFilterPolicySuggestionReport into a single
+    // structured status response. No mutation. Uses the
+    // best-effort `loadFindingFilterPolicies` so a malformed
+    // config doesn't blow up the report — `rekon config
+    // validate` remains the full diagnostic. When the config
+    // file is unparseable, fail clearly without writing.
+    const configPath = resolve(root, ".rekon", "config.json");
+    try {
+      const raw = await readFile(configPath, "utf8");
+      try {
+        const parsedConfig: unknown = JSON.parse(raw);
+        if (!parsedConfig || typeof parsedConfig !== "object" || Array.isArray(parsedConfig)) {
+          throw new Error(
+            `${configPath} must be a JSON object. Run \`rekon config validate\` for details.`,
+          );
+        }
+      } catch (parseError) {
+        if (parseError instanceof SyntaxError) {
+          throw new Error(
+            `Failed to parse ${configPath}: ${parseError.message}. Run \`rekon config validate\` for details.`,
+          );
+        }
+        throw parseError;
+      }
+    } catch (error) {
+      if (
+        !(
+          error instanceof Error
+          && "code" in error
+          && (error as NodeJS.ErrnoException).code === "ENOENT"
+        )
+      ) {
+        throw error;
+      }
+      // Missing config: treat as "zero configured policies" and
+      // continue — `loadFindingFilterPolicies` will return [].
+    }
+
+    const policies = await loadFindingFilterPolicies(root);
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const filterReport = await readLatestArtifactOrUndefined<FindingFilterReport>(
+      store,
+      "FindingFilterReport",
+    );
+    const healthReport = await readLatestArtifactOrUndefined<FindingFilterHealthReport>(
+      store,
+      "FindingFilterHealthReport",
+    );
+    const suggestionReport
+      = await readLatestArtifactOrUndefined<FindingFilterPolicySuggestionReport>(
+        store,
+        "FindingFilterPolicySuggestionReport",
+      );
+
+    const result = summarizeFindingFilterPolicyStatus({
+      configPath,
+      policies,
+      filterReport,
+      healthReport,
+      suggestionReport,
+    });
+
+    // Optional filtering. Applied AFTER the helper computes
+    // the full status so summary counts always reflect the
+    // whole policy set; only the rendered list narrows.
+    const policyFlag = typeof parsed.flags.policy === "string" ? parsed.flags.policy : undefined;
+    const warningsOnly = Boolean(parsed.flags["warnings-only"]);
+    const unusedOnly = Boolean(parsed.flags["unused-only"]);
+
+    let renderedPolicies = result.policies;
+    if (policyFlag) {
+      renderedPolicies = renderedPolicies.filter((entry) => entry.id === policyFlag);
+    }
+    if (warningsOnly) {
+      renderedPolicies = renderedPolicies.filter((entry) => entry.warnings.length > 0);
+    }
+    if (unusedOnly) {
+      renderedPolicies = renderedPolicies.filter((entry) => entry.isUnused);
+    }
+
+    writeOutput(
+      {
+        ...result,
+        policies: renderedPolicies,
+        // The original (unfiltered) summary stays intact; the
+        // CLI surfaces the filtered list separately so the
+        // operator can see both the global counts and the
+        // narrowed view.
+        renderedPolicyCount: renderedPolicies.length,
       },
       json,
     );
@@ -2635,6 +2739,28 @@ async function readLatestLedger(
   return (await store.read(latest)) as FindingStatusLedger;
 }
 
+/**
+ * Generic read-the-latest-of-this-artifact-type helper used
+ * by the read-only operator surfaces (`rekon findings
+ * filter-policy status` is the first; future surfaces can
+ * reuse this). Returns `undefined` when no artifact of that
+ * type is indexed. Sorts by `writtenAt` so the most recent
+ * write wins.
+ */
+async function readLatestArtifactOrUndefined<T>(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  artifactType: string,
+): Promise<T | undefined> {
+  const entries = await store.list(artifactType);
+  if (entries.length === 0) return undefined;
+  const sorted = [...entries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+  const latest = sorted[0];
+  if (!latest) return undefined;
+  return (await store.read(latest)) as T;
+}
+
 function subjectRepoIdFromStore(
   store: ReturnType<typeof createLocalArtifactStore>,
 ): string {
@@ -3373,6 +3499,7 @@ function usage(): string {
     "rekon findings filter-health [--root <path>] [--json]",
     "rekon findings filter-policy suggest [--recent-limit <n>] [--root <path>] [--json]",
     "rekon findings filter-policy list [--root <path>] [--json]",
+    "rekon findings filter-policy status [--policy <id>] [--warnings-only] [--unused-only] [--root <path>] [--json]",
     "rekon findings filter-policy apply <suggestion-id> [--dry-run|--preview] [--force] [--root <path>] [--json]",
     "rekon findings status list [--root <path>] [--json]",
     "rekon findings status set <finding-id> --status accepted|ignored|resolved --note <note> [--reason <reason>] [--root <path>] [--json]",

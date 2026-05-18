@@ -3379,6 +3379,364 @@ export function planFindingFilterPolicyApply(
   };
 }
 
+// ---------- Filter policy status (operator workflow v1) ----------
+//
+// Pure deterministic summary of the operator's current
+// `findingFilters` policy set. Combines:
+//   - the configured policies (loaded from
+//     `.rekon/config.json` by the CLI),
+//   - the latest `FindingFilterReport` (usage counts +
+//     filtered-finding ids + report-side fingerprint),
+//   - the latest `FindingFilterHealthReport` (alerts +
+//     dominant policy + filterRateByPolicy + unusedPolicies),
+//   - the latest `FindingFilterPolicySuggestionReport`
+//     (advisory candidates).
+//
+// Read-only. Returns a structured `FindingFilterPolicyStatusResult`
+// the CLI's `rekon findings filter-policy status` command
+// emits as JSON. No artifact is mutated. No config is mutated.
+
+export type FindingFilterPolicyStatusFreshness = "fresh" | "stale" | "missing-report" | "unknown";
+
+export type FindingFilterPolicyStatusWarning = {
+  code: string;
+  severity: "warning" | "error";
+  message: string;
+};
+
+export type FindingFilterPolicyStatusEntry = {
+  id: string;
+  reason: FindingFilterReason;
+  confidence?: FindingFilterConfidence;
+  matchers: {
+    pathPattern?: string;
+    type?: string;
+    ruleId?: string;
+    severity?: FindingSeverity;
+    titleIncludes?: string;
+    descriptionIncludes?: string;
+  };
+  /** Number of findings this policy suppressed in the latest filter run. */
+  usageCount: number;
+  /**
+   * `usageCount / totalFindings` rounded to four decimals.
+   * `0` when no findings were filtered or `totalFindings === 0`.
+   */
+  usageRate: number;
+  /**
+   * Finding ids this policy suppressed in the latest filter
+   * run, sorted ascending. Empty when the policy was unused or
+   * no filter report exists.
+   */
+  filteredFindingIds: string[];
+  /** Deterministic per-policy warnings (see header comments). */
+  warnings: FindingFilterPolicyStatusWarning[];
+  /** Operator-facing next-step suggestions for this policy. */
+  recommendedActions: string[];
+  /**
+   * Convenience flags so callers / publications can quickly
+   * route on policy state without iterating warnings.
+   */
+  isUnused: boolean;
+  isDominant: boolean;
+  isLowConfidence: boolean;
+  isBroadPattern: boolean;
+};
+
+export type FindingFilterPolicyStatusSuggestion = {
+  id: string;
+  confidence: FindingFilterPolicySuggestionConfidence;
+  reason: FindingFilterPolicySuggestionReason;
+  affectedFindingCount: number;
+  dryRunCommand: string;
+  applyCommand: string;
+};
+
+export type FindingFilterPolicyStatusSummary = {
+  totalPolicies: number;
+  usedPolicies: number;
+  unusedPolicies: number;
+  dominantPolicies: number;
+  lowConfidencePolicies: number;
+  broadPolicies: number;
+  policiesWithWarnings: number;
+  suggestionsAvailable: number;
+};
+
+export type FindingFilterPolicyStatusResult = {
+  configPath: string;
+  currentPolicyFingerprint: FindingFilterPolicyFingerprint;
+  reportPolicyFingerprint?: FindingFilterPolicyFingerprint;
+  freshness: {
+    status: FindingFilterPolicyStatusFreshness;
+    message: string;
+    recommendedCommand?: string;
+  };
+  summary: FindingFilterPolicyStatusSummary;
+  policies: FindingFilterPolicyStatusEntry[];
+  suggestions: FindingFilterPolicyStatusSuggestion[];
+  /**
+   * Global warnings that apply to the whole policy set rather
+   * than to a single policy (e.g. `missing-filter-report`,
+   * `missing-filter-health`).
+   */
+  globalWarnings: FindingFilterPolicyStatusWarning[];
+};
+
+export type SummarizeFindingFilterPolicyStatusInput = {
+  /** Absolute path to `.rekon/config.json` (echoed back so the CLI doesn't have to). */
+  configPath: string;
+  /** Configured `findingFilters` rules from `.rekon/config.json`. */
+  policies: ReadonlyArray<FindingFilterPolicyRule>;
+  /** Latest `FindingFilterReport`. */
+  filterReport?: FindingFilterReport;
+  /** Latest `FindingFilterHealthReport`. */
+  healthReport?: FindingFilterHealthReport;
+  /** Latest `FindingFilterPolicySuggestionReport`. */
+  suggestionReport?: FindingFilterPolicySuggestionReport;
+};
+
+/**
+ * Pure deterministic summarizer. Combines the policy set with
+ * the latest filter / health / suggestion artifacts and returns
+ * a `FindingFilterPolicyStatusResult` ready for the CLI to
+ * render as JSON. No filesystem access, no mutation.
+ *
+ * Per-policy warnings (deterministic):
+ *   - `unused-policy` — `usageCount === 0`.
+ *   - `dominant-policy` — id matches
+ *     `healthReport.summary.dominantPolicy.policyId`, OR
+ *     `usageRate >= 0.5` with `totalFindings >= 5`.
+ *   - `low-confidence-policy` — `rule.confidence === "low"`, OR
+ *     a health alert `low-confidence-policy-filter` exists and
+ *     the policy is the dominant policy.
+ *   - `broad-policy` — `isBroadFindingFilterPolicyRule(rule)`.
+ *   - `stale-policy-fingerprint` — added to **every** policy
+ *     when the current vs. report fingerprint digests diverge.
+ *     Diagnostic; the freshness root carries the same signal.
+ *
+ * Global warnings (deterministic):
+ *   - `missing-filter-report` — no `filterReport`.
+ *   - `missing-filter-health` — `filterReport` exists but
+ *     `healthReport` does not.
+ *
+ * `recommendedActions` for each policy come from the warning
+ * set and are listed in a stable order.
+ */
+export function summarizeFindingFilterPolicyStatus(
+  input: SummarizeFindingFilterPolicyStatusInput,
+): FindingFilterPolicyStatusResult {
+  const { configPath, policies, filterReport, healthReport, suggestionReport } = input;
+  const currentPolicyFingerprint = fingerprintFindingFilterPolicies(policies);
+  const reportPolicyFingerprint = filterReport?.policyFingerprint;
+
+  // Freshness ----
+  let freshness: FindingFilterPolicyStatusResult["freshness"];
+  if (!filterReport) {
+    freshness = {
+      status: "missing-report",
+      message:
+        "No FindingFilterReport indexed. Run `rekon refresh` (or `rekon findings filter`) before relying on policy usage counts.",
+      recommendedCommand: "rekon refresh",
+    };
+  } else if (!reportPolicyFingerprint) {
+    freshness = {
+      status: "unknown",
+      message:
+        "Latest FindingFilterReport predates filter-policy-freshness v2 and does not record a policy fingerprint. Run `rekon refresh` to regenerate.",
+      recommendedCommand: "rekon refresh",
+    };
+  } else if (reportPolicyFingerprint.digest === currentPolicyFingerprint.digest) {
+    freshness = {
+      status: "fresh",
+      message: "Current `findingFilters` fingerprint matches the latest FindingFilterReport.",
+    };
+  } else {
+    freshness = {
+      status: "stale",
+      message:
+        "`.rekon/config.json` `findingFilters` changed after the latest FindingFilterReport was produced. Run `rekon refresh` to rebuild the filter chain with the current policy set.",
+      recommendedCommand: "rekon refresh",
+    };
+  }
+
+  // Lookup tables from the health report ----
+  const dominantPolicyId = healthReport?.summary.dominantPolicy?.policyId;
+  const filterRateByPolicy = healthReport?.summary.filterRateByPolicy ?? {};
+  const lowConfidencePolicyAlert = (healthReport?.alerts ?? []).some(
+    (alert) => alert.code === "low-confidence-policy-filter",
+  );
+  const totalFindings = healthReport?.summary.totalFindings ?? 0;
+
+  // Per-finding ids per policy ----
+  const filteredIdsByPolicy = new Map<string, string[]>();
+  for (const entry of filterReport?.filteredFindings ?? []) {
+    if (entry.policyId) {
+      const list = filteredIdsByPolicy.get(entry.policyId) ?? [];
+      list.push(entry.findingId);
+      filteredIdsByPolicy.set(entry.policyId, list);
+    }
+  }
+  for (const list of filteredIdsByPolicy.values()) {
+    list.sort((left, right) => left.localeCompare(right));
+  }
+
+  const isStale = freshness.status === "stale";
+
+  // Per-policy entries ----
+  const entries: FindingFilterPolicyStatusEntry[] = policies.map((policy) => {
+    const usageCount = filterReport?.summary.byPolicy?.[policy.id] ?? 0;
+    const rawRate = filterRateByPolicy[policy.id];
+    const usageRate
+      = typeof rawRate === "number"
+        ? rawRate
+        : totalFindings > 0
+          ? Math.round((usageCount / totalFindings) * 10000) / 10000
+          : 0;
+    const filteredFindingIds = filteredIdsByPolicy.get(policy.id) ?? [];
+    const isUnused = usageCount === 0;
+    const isDominant
+      = (typeof dominantPolicyId === "string" && dominantPolicyId === policy.id)
+      || (totalFindings >= 5 && usageRate >= 0.5);
+    const isLowConfidence
+      = policy.confidence === "low"
+      || (lowConfidencePolicyAlert
+        && typeof dominantPolicyId === "string"
+        && dominantPolicyId === policy.id);
+    const isBroadPattern = isBroadFindingFilterPolicyRule(policy);
+
+    const warnings: FindingFilterPolicyStatusWarning[] = [];
+    const recommendedActions: string[] = [];
+    if (isUnused) {
+      warnings.push({
+        code: "unused-policy",
+        severity: "warning",
+        message: `Configured policy '${policy.id}' matched zero findings; review whether it is still needed.`,
+      });
+      recommendedActions.push(
+        "Review whether this policy is still needed; consider removing it from `.rekon/config.json findingFilters`.",
+      );
+    }
+    if (isDominant) {
+      warnings.push({
+        code: "dominant-policy",
+        severity: "warning",
+        message: `Configured policy '${policy.id}' suppressed ${usageCount} of ${totalFindings} findings (${(usageRate * 100).toFixed(1)}%). Inspect FindingFilterReport.filteredFindings before trusting active governance.`,
+      });
+      recommendedActions.push(
+        "Inspect `FindingFilterReport.filteredFindings` for this policy before trusting active governance counts.",
+      );
+    }
+    if (isLowConfidence) {
+      warnings.push({
+        code: "low-confidence-policy",
+        severity: "warning",
+        message: `Configured policy '${policy.id}' is low-confidence; tighten the matcher or review the evidence.`,
+      });
+      recommendedActions.push(
+        "Consider tightening the matcher or reviewing the evidence; raise the rule confidence when applicable.",
+      );
+    }
+    if (isBroadPattern) {
+      warnings.push({
+        code: "broad-policy",
+        severity: "warning",
+        message: `Configured policy '${policy.id}' has a broad matcher (pathPattern '${policy.pathPattern ?? ""}' with no narrow matcher). Narrow it before relying on the suppression.`,
+      });
+      recommendedActions.push(
+        "Narrow `pathPattern` / `type` / `ruleId` / `severity` / `titleIncludes` / `descriptionIncludes` before relying on this policy.",
+      );
+    }
+    if (isStale) {
+      warnings.push({
+        code: "stale-policy-fingerprint",
+        severity: "warning",
+        message:
+          "Current `findingFilters` fingerprint differs from the latest FindingFilterReport; rerun `rekon refresh`.",
+      });
+      recommendedActions.push("Run `rekon refresh` to rebuild the filter chain with the current policy set.");
+    }
+
+    return {
+      id: policy.id,
+      reason: policy.reason,
+      confidence: policy.confidence,
+      matchers: {
+        pathPattern: policy.pathPattern,
+        type: policy.type,
+        ruleId: policy.ruleId,
+        severity: policy.severity,
+        titleIncludes: policy.titleIncludes,
+        descriptionIncludes: policy.descriptionIncludes,
+      },
+      usageCount,
+      usageRate,
+      filteredFindingIds,
+      warnings,
+      recommendedActions,
+      isUnused,
+      isDominant,
+      isLowConfidence,
+      isBroadPattern,
+    };
+  });
+
+  // Suggestions ----
+  const suggestions: FindingFilterPolicyStatusSuggestion[] = (
+    suggestionReport?.suggestions ?? []
+  ).map((suggestion) => {
+    const forceFlag = suggestion.confidence === "low" ? " --force" : "";
+    return {
+      id: suggestion.id,
+      confidence: suggestion.confidence,
+      reason: suggestion.reason,
+      affectedFindingCount: suggestion.affectedFindingIds.length,
+      dryRunCommand: `rekon findings filter-policy apply ${suggestion.id} --dry-run${forceFlag} --json`,
+      applyCommand: `rekon findings filter-policy apply ${suggestion.id}${forceFlag} --json`,
+    };
+  });
+
+  // Global warnings ----
+  const globalWarnings: FindingFilterPolicyStatusWarning[] = [];
+  if (!filterReport) {
+    globalWarnings.push({
+      code: "missing-filter-report",
+      severity: "warning",
+      message:
+        "No FindingFilterReport indexed. Policy usage counts are unavailable until the filter step runs.",
+    });
+  } else if (!healthReport) {
+    globalWarnings.push({
+      code: "missing-filter-health",
+      severity: "warning",
+      message:
+        "No FindingFilterHealthReport indexed. Filter-health alerts (dominance / unused / low-confidence) are unavailable until the health step runs.",
+    });
+  }
+
+  const summary: FindingFilterPolicyStatusSummary = {
+    totalPolicies: entries.length,
+    usedPolicies: entries.filter((entry) => !entry.isUnused).length,
+    unusedPolicies: entries.filter((entry) => entry.isUnused).length,
+    dominantPolicies: entries.filter((entry) => entry.isDominant).length,
+    lowConfidencePolicies: entries.filter((entry) => entry.isLowConfidence).length,
+    broadPolicies: entries.filter((entry) => entry.isBroadPattern).length,
+    policiesWithWarnings: entries.filter((entry) => entry.warnings.length > 0).length,
+    suggestionsAvailable: suggestions.length,
+  };
+
+  return {
+    configPath,
+    currentPolicyFingerprint,
+    reportPolicyFingerprint,
+    freshness,
+    summary,
+    policies: entries,
+    suggestions,
+    globalWarnings,
+  };
+}
+
 export type FindingStatusDecisionReason =
   | "accepted-risk"
   | "false-positive"

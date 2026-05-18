@@ -64,6 +64,13 @@ The CLI side runs the same code path:
   pointing back at `suggest`).
 - `rekon findings filter-policy apply <id> [--dry-run|--preview] [--force]`
   → the only mutating command (see the safety section below).
+- `rekon findings filter-policy status` →
+  read-only operator workflow surface that combines the
+  current policy set with the latest filter / health /
+  suggestion reports into a single status response (per-
+  policy usage counts, warnings, freshness, suggestions,
+  apply commands). See
+  [finding-filter-policy-status.md](finding-filter-policy-status.md).
 
 ## Suggestion Reasons
 
@@ -234,6 +241,7 @@ status is `stale` and both surfaces recommend
 ```sh
 rekon findings filter-policy suggest [--recent-limit <n>] [--root <repo>] [--json]
 rekon findings filter-policy list [--root <repo>] [--json]
+rekon findings filter-policy status [--policy <id>] [--warnings-only] [--unused-only] [--root <repo>] [--json]
 rekon findings filter-policy apply <suggestion-id> [--dry-run|--preview] [--force] [--root <repo>] [--json]
 ```
 

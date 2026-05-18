@@ -362,14 +362,40 @@ review packets unless an ADR promotes them. Promotion requires:
     `FindingReport` / `FindingFilterReport` /
     `FindingFilterHealthReport` are not mutated. No
     `schemaVersion` bump.
-11. **(future)** Filter policy operator workflow polish —
-    list active policies with usage counts, surface unused /
-    stale / low-confidence policy warnings, optional
-    `rekon findings filter-policy status`.
-12. **(future)** Merge-decision freshness guardrails,
-    `GraphOntologyValidator`-style filters, persistent
-    exclusion lists, and any further product-extension
-    expansion.
+11. **(shipped)** Filter policy operator workflow polish.
+    New CLI surface `rekon findings filter-policy status
+    [--policy <id>] [--warnings-only] [--unused-only]`
+    combines the configured `findingFilters` set with the
+    latest `FindingFilterReport` /
+    `FindingFilterHealthReport` /
+    `FindingFilterPolicySuggestionReport` into a single
+    read-only JSON document. Per-policy entries report
+    usage count, usage rate, filtered finding ids,
+    warnings (`unused-policy`, `dominant-policy`,
+    `low-confidence-policy`, `broad-policy`,
+    `stale-policy-fingerprint`), and recommended actions.
+    Global warnings (`missing-filter-report`,
+    `missing-filter-health`) appear when the corresponding
+    artifact is absent. Suggestions are included as
+    advisory `dryRunCommand` / `applyCommand` strings;
+    low-confidence suggestions get `--force` appended. The
+    pure helper `summarizeFindingFilterPolicyStatus` is
+    exported from `@rekon/kernel-findings`. The command is
+    read-only; `.rekon/config.json` is never mutated and
+    `rekon findings filter-policy apply` remains the only
+    mutating command. Malformed config fails clearly
+    without writing. No artifact `schemaVersion` bump. No
+    new artifact type.
+12. **(future)** Filter policy explicit disable / remove
+    workflow — safe, explicit config mutation; dry-run /
+    diff first.
+13. **(future)** `GraphOntologyValidator`-lite parity
+    audit — identify which classic graph / ontology
+    false-positive checks are worth reinterpreting; decision
+    memo before implementation.
+14. **(future)** Merge-decision freshness guardrails,
+    persistent exclusion lists, and any further
+    product-extension expansion.
 
 ## Open Questions
 
