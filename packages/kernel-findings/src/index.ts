@@ -24,6 +24,17 @@ export type Finding = {
   suggestedAction?: string;
   evidence?: ArtifactRef[];
   status?: FindingStatus;
+  /**
+   * Optional structured detail bag for detectors. Consumed by the
+   * classic-inspired content filters (e.g. `details.stubName`,
+   * `details.imports`, `details.envVars`,
+   * `details.decisionConcerns`, `details.concernTag`,
+   * `details.minCapabilityConfidence`, `details.otherExports`,
+   * `details.system`). Always optional and additive — the field
+   * is treated as opaque by downstream consumers that don't
+   * specifically know how to interpret it.
+   */
+  details?: Record<string, unknown>;
 };
 
 export type FindingReport = {
@@ -124,6 +135,31 @@ export type FindingFilterReason =
   | "explicit-exclusion"
   | "content-filter"
   | "policy-exception"
+  // Classic-inspired content filters (stub/import family) ----
+  | "empty-constructor-stub"
+  | "storage-retrieval-placeholder"
+  | "client-safe-infra"
+  | "same-directory-import"
+  | "svg-namespace-url"
+  | "client-env-node-env"
+  // Classic-inspired content filters (architecture family) ----
+  | "speculative-anti-pattern"
+  | "archetype-inference-note"
+  | "hardcoded-config-not-dde"
+  | "ui-http-provider-abstraction"
+  | "ui-hook-uses-http-not-db"
+  // Classic-inspired content filters (rule-id family) ----
+  | "module-gate-verified-caller"
+  | "route-handler-with-service"
+  | "route-http-middleware-only"
+  | "external-api-comment-only"
+  | "factory-file-creates-deps"
+  | "nextjs-route-convention"
+  // Classic-inspired result filters ----
+  | "below-min-confidence"
+  | "below-min-severity"
+  | "outside-selected-system"
+  | "configured-path-exclusion"
   | "other";
 
 export type FindingFilterConfidence = "high" | "medium" | "low";
@@ -225,6 +261,31 @@ const FINDING_FILTER_REASONS = new Set<FindingFilterReason>([
   "explicit-exclusion",
   "content-filter",
   "policy-exception",
+  // content (stub/import family)
+  "empty-constructor-stub",
+  "storage-retrieval-placeholder",
+  "client-safe-infra",
+  "same-directory-import",
+  "svg-namespace-url",
+  "client-env-node-env",
+  // content (architecture family)
+  "speculative-anti-pattern",
+  "archetype-inference-note",
+  "hardcoded-config-not-dde",
+  "ui-http-provider-abstraction",
+  "ui-hook-uses-http-not-db",
+  // content (rule-id family)
+  "module-gate-verified-caller",
+  "route-handler-with-service",
+  "route-http-middleware-only",
+  "external-api-comment-only",
+  "factory-file-creates-deps",
+  "nextjs-route-convention",
+  // result filters
+  "below-min-confidence",
+  "below-min-severity",
+  "outside-selected-system",
+  "configured-path-exclusion",
   "other",
 ]);
 
@@ -236,6 +297,11 @@ const FINDING_FILTER_CONFIDENCES = new Set<FindingFilterConfidence>([
 
 // Priority ranks: lower number = stronger filter reason, used when a
 // finding could be filtered for multiple deterministic reasons.
+// Classic-inspired content reasons rank below the broad path heuristics
+// because they're more specific — but priority is only consulted when a
+// finding could match multiple **path-based** reasons. Content filters
+// are resolved by `applyFindingContentFilters` before path filters and
+// short-circuit on the first match.
 const FINDING_FILTER_REASON_PRIORITY: Record<FindingFilterReason, number> = {
   "generated-file": 0,
   "external-file": 1,
@@ -244,7 +310,32 @@ const FINDING_FILTER_REASON_PRIORITY: Record<FindingFilterReason, number> = {
   "explicit-exclusion": 4,
   "content-filter": 5,
   "policy-exception": 6,
-  other: 7,
+  // Classic-inspired content reasons (stub/import)
+  "empty-constructor-stub": 10,
+  "storage-retrieval-placeholder": 10,
+  "client-safe-infra": 10,
+  "same-directory-import": 10,
+  "svg-namespace-url": 10,
+  "client-env-node-env": 10,
+  // Classic-inspired content reasons (architecture)
+  "speculative-anti-pattern": 11,
+  "archetype-inference-note": 11,
+  "hardcoded-config-not-dde": 11,
+  "ui-http-provider-abstraction": 11,
+  "ui-hook-uses-http-not-db": 11,
+  // Classic-inspired content reasons (rule-id)
+  "module-gate-verified-caller": 12,
+  "route-handler-with-service": 12,
+  "route-http-middleware-only": 12,
+  "external-api-comment-only": 12,
+  "factory-file-creates-deps": 12,
+  "nextjs-route-convention": 12,
+  // Result filters (applied last, after content + path filters)
+  "below-min-confidence": 20,
+  "below-min-severity": 20,
+  "outside-selected-system": 20,
+  "configured-path-exclusion": 20,
+  other: 30,
 };
 
 type FilterMatch = {
@@ -369,6 +460,816 @@ function findBestFilterMatch(finding: Finding): FilterMatch | null {
   return best;
 }
 
+// ---------- Classic-inspired deterministic content filters ----------
+//
+// Filters here mirror codebase-intel-classic's content-filter,
+// content-filter-stub-and-import, content-filter-architecture, and
+// content-filter-ruleid pipelines. Each filter is a deterministic
+// structural check over `Finding` (no LLM, no regex over source code,
+// no file IO). When a filter matches, the finding is suppressed with
+// a `source: "system"` filter entry whose `reason` / `evidence` /
+// `confidence` describe why. Filtered findings remain in
+// `FindingFilterReport.filteredFindings` and never mutate the raw
+// `FindingReport`.
+
+export type FindingContentFilterContext = {
+  finding: Finding;
+  /** Convenience alias for `finding.ruleId`. */
+  ruleId?: string;
+};
+
+export type FindingContentFilterDecision = {
+  reason: FindingFilterReason;
+  evidence: string;
+  filePath?: string;
+  confidence: FindingFilterConfidence;
+};
+
+/**
+ * Run every classic-inspired deterministic content filter in
+ * priority order and return the first match, or `null` when no
+ * filter applies. Synchronous and side-effect-free — safe to call
+ * from any filter pipeline.
+ */
+export function applyFindingContentFilters(
+  ctx: FindingContentFilterContext,
+): FindingContentFilterDecision | null {
+  const finding = ctx.finding;
+  for (const fn of CONTENT_FILTER_FNS) {
+    const decision = fn(finding);
+    if (decision) return decision;
+  }
+  return null;
+}
+
+const CONTENT_FILTER_FNS: ReadonlyArray<
+  (finding: Finding) => FindingContentFilterDecision | null
+> = [
+  // ----- Stub / import family -----
+  contentFilterEmptyConstructorStub,
+  contentFilterStorageRetrievalPlaceholder,
+  contentFilterClientSafeInfra,
+  contentFilterSameDirectoryImport,
+  contentFilterSvgNamespaceUrl,
+  contentFilterNodeEnvClient,
+  // ----- Architecture family -----
+  contentFilterSpeculativeAntiPattern,
+  contentFilterArchetypeInferenceNote,
+  contentFilterHardcodedConfigNotDde,
+  contentFilterUiHttpProviderAbstraction,
+  contentFilterUiHookUsesHttpNotDb,
+  // ----- Rule-id family -----
+  contentFilterModuleGateVerifiedCaller,
+  contentFilterRouteHandlerWithService,
+  contentFilterRouteHttpMiddlewareOnly,
+  contentFilterExternalApiCommentOnly,
+  contentFilterFactoryFileCreatesDeps,
+  contentFilterNextjsRouteConvention,
+];
+
+// -- Small accessors over the loosely-typed `details` bag. --
+
+function details(finding: Finding): Record<string, unknown> {
+  const value = finding.details;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function stringArrayField(record: Record<string, unknown>, key: string): string[] {
+  const value = record[key];
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+function firstFile(finding: Finding): string | undefined {
+  const files = Array.isArray(finding.files) ? finding.files : [];
+  return files[0];
+}
+
+// -- A. empty constructor stub ----
+
+function contentFilterEmptyConstructorStub(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "stub") return null;
+  const det = details(finding);
+  if (stringField(det, "stubName") !== "constructor") return null;
+  const stubReason = stringField(det, "stubReason");
+  if (stubReason !== "empty_body") return null;
+  return {
+    reason: "empty-constructor-stub",
+    evidence:
+      "Empty constructor body is valid TypeScript when used for parameter property shorthand.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- B. storage retrieval placeholder ----
+
+function contentFilterStorageRetrievalPlaceholder(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "stub") return null;
+  const det = details(finding);
+  const stubName = stringField(det, "stubName") ?? "";
+  if (!stubName.startsWith("getStored")) return null;
+  const stubReason = (stringField(det, "stubReason") ?? "").toLowerCase();
+  if (!stubReason.includes("null") && !stubReason.includes("undefined")) return null;
+  return {
+    reason: "storage-retrieval-placeholder",
+    evidence:
+      `Storage retrieval ${stubName} returns null/undefined; treated as placeholder rather than incomplete logic.`,
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- C. client-safe infra import ----
+
+const CLIENT_SAFE_FRAGMENTS: ReadonlyArray<string> = [
+  "/Client",
+  "Client.ts",
+  "ClientBridge",
+  "ClientLogger",
+  "ClientPreferences",
+];
+
+function contentFilterClientSafeInfra(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "imports.no_server_only_in_client") return null;
+  const det = details(finding);
+  const evidence = stringArrayField(det, "evidence");
+  if (evidence.length === 0) return null;
+  const allClientSafe = evidence.every((entry) =>
+    CLIENT_SAFE_FRAGMENTS.some((fragment) => entry.includes(fragment)),
+  );
+  if (!allClientSafe) return null;
+  return {
+    reason: "client-safe-infra",
+    evidence:
+      "All imports referenced by this finding are client-safe infrastructure modules.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- D. same-directory import ----
+
+function contentFilterSameDirectoryImport(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "imports.use_at_alias") return null;
+  const det = details(finding);
+  const evidence = stringArrayField(det, "evidence");
+  if (evidence.length === 0) return null;
+  const allLocal
+    = evidence.every((entry) => entry.startsWith("./") && !entry.includes("../"));
+  if (!allLocal) return null;
+  return {
+    reason: "same-directory-import",
+    evidence:
+      "Same-directory relative imports do not warrant a @-alias rewrite.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- E. SVG namespace URL ----
+
+const SVG_NAMESPACE_FRAGMENTS: ReadonlyArray<string> = [
+  "http://www.w3.org/2000/svg",
+  "http://www.w3.org/1999/xlink",
+];
+
+function contentFilterSvgNamespaceUrl(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "external_apis.no_hardcoded_api_urls_outside_providers") {
+    return null;
+  }
+  const det = details(finding);
+  const evidence = stringArrayField(det, "evidence");
+  if (evidence.length === 0) return null;
+  const allSvg = evidence.every((entry) =>
+    SVG_NAMESPACE_FRAGMENTS.some((fragment) => entry.includes(fragment)),
+  );
+  if (!allSvg) return null;
+  return {
+    reason: "svg-namespace-url",
+    evidence:
+      "Hardcoded URLs are SVG / XLink namespace declarations, not external API endpoints.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- F. NODE_ENV client env ----
+
+function contentFilterNodeEnvClient(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "security.api_keys_server_side_only") return null;
+  const det = details(finding);
+  // Prefer `envVars`, fall back to `evidence` when detectors don't
+  // surface a dedicated key list.
+  const envVars = stringArrayField(det, "envVars");
+  const evidenceList = stringArrayField(det, "evidence");
+  const candidates = envVars.length > 0 ? envVars : evidenceList;
+  if (candidates.length === 0) return null;
+  const allNodeEnv = candidates.every((entry) => entry.includes("NODE_ENV"));
+  if (!allNodeEnv) return null;
+  return {
+    reason: "client-env-node-env",
+    evidence:
+      "Only NODE_ENV is referenced; client-side NODE_ENV reads are standard.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- G. speculative anti-pattern ----
+
+function contentFilterSpeculativeAntiPattern(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "anti_pattern") return null;
+  const description = (finding.description ?? "").toLowerCase();
+  if (
+    !description.includes("may indicate business logic")
+    && !description.includes("might indicate business logic")
+  ) {
+    return null;
+  }
+  return {
+    reason: "speculative-anti-pattern",
+    evidence:
+      "Description hedges with may/might-indicate-business-logic; treated as speculative noise.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- H. archetype inference note ----
+
+function contentFilterArchetypeInferenceNote(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  const files = Array.isArray(finding.files) ? finding.files : [];
+  if (files.length > 0) return null;
+  const description = finding.description ?? "";
+  if (!description.startsWith("Topology contract inferred from archetype")) return null;
+  return {
+    reason: "archetype-inference-note",
+    evidence:
+      "Archetype-inferred topology note is informational, not an actionable architecture issue.",
+    filePath: undefined,
+    confidence: "high",
+  };
+}
+
+// -- I. hardcoded config not DDE ----
+
+const HARDCODED_CONFIG_FRAGMENTS: ReadonlyArray<string> = [
+  "hardcoded",
+  "magic number",
+  "timeout",
+  "delay",
+  "limit",
+  "navigation",
+  "should be configurable",
+  "should be externalized",
+  "should use design token",
+];
+
+const BUSINESS_DECISION_FRAGMENTS: ReadonlyArray<string> = [
+  "dde",
+  "gate",
+  "policy",
+  "routing decision",
+  "feature flag",
+  "business logic",
+  "decision logic",
+];
+
+function contentFilterHardcodedConfigNotDde(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "architecture.decisions.go_through_dde_gates") return null;
+  const det = details(finding);
+  const capabilities = stringArrayField(det, "decisionCapabilities");
+  if (capabilities.length > 0) return null;
+  const concerns = stringArrayField(det, "decisionConcerns");
+  if (concerns.length === 0) return null;
+  const allConfigish = concerns.every((concern) => {
+    const lower = concern.toLowerCase();
+    const isConfig = HARDCODED_CONFIG_FRAGMENTS.some((fragment) => lower.includes(fragment));
+    const isBusiness = BUSINESS_DECISION_FRAGMENTS.some((fragment) => lower.includes(fragment));
+    return isConfig && !isBusiness;
+  });
+  if (!allConfigish) return null;
+  return {
+    reason: "hardcoded-config-not-dde",
+    evidence:
+      "Concerns are configuration-related (hardcoded values / magic numbers / timeouts); not DDE gate territory.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- J. UI HTTP provider abstraction ----
+
+function contentFilterUiHttpProviderAbstraction(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  const det = details(finding);
+  if (stringField(det, "concernTag") !== "ui_http_direct_call") return null;
+  const file = firstFile(finding) ?? "";
+  const isUiHook = file.includes("/hooks/") || file.includes("/use");
+  if (!isUiHook) return null;
+  return {
+    reason: "ui-http-provider-abstraction",
+    evidence:
+      "UI hook calls an HTTP provider abstraction rather than performing a raw network request.",
+    filePath: file || undefined,
+    confidence: "high",
+  };
+}
+
+// -- K. UI hook uses HTTP not DB ----
+
+function contentFilterUiHookUsesHttpNotDb(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  const description = (finding.description ?? "").toLowerCase();
+  const mentionsDb = description.includes("database") || description.includes(" db ");
+  const mentionsHook = description.includes("hook") || description.includes(" use");
+  const mentionsUi = description.includes("ui component") || description.includes("ui hook");
+  if (!(mentionsDb && mentionsHook && mentionsUi)) return null;
+  const mentionsUseAdminish
+    = description.includes("use admin")
+    || description.includes("use fetch")
+    || description.includes("use api")
+    || description.includes("use query")
+    || description.includes("useadmin")
+    || description.includes("usefetch")
+    || description.includes("useapi")
+    || description.includes("usequery");
+  const hedges
+    = description.includes("likely")
+    || description.includes("probably")
+    || description.includes("appears to");
+  if (!mentionsUseAdminish && !hedges) return null;
+  return {
+    reason: "ui-hook-uses-http-not-db",
+    evidence:
+      "UI hook description mentions HTTP-style access (useAdmin/useFetch/etc.) rather than direct DB access.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- L. module gate verified caller ----
+
+const MODULE_GATE_RULE_IDS: ReadonlySet<string> = new Set([
+  "architecture.gates.must_have_production_caller",
+  "architecture.gates.applies_to_must_have_production_evaluator",
+  "architecture.gates.modules_must_not_create_custom_scopes",
+]);
+
+function contentFilterModuleGateVerifiedCaller(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (!finding.ruleId || !MODULE_GATE_RULE_IDS.has(finding.ruleId)) return null;
+  const file = firstFile(finding) ?? "";
+  const det = details(finding);
+  const owner = det.owner;
+  const ownerKind
+    = owner && typeof owner === "object" && !Array.isArray(owner)
+      ? stringField(owner as Record<string, unknown>, "kind")
+      : undefined;
+  const isModule
+    = file.includes("GateEvaluator") || file.includes("/modules/") || ownerKind === "module";
+  if (!isModule) return null;
+  return {
+    reason: "module-gate-verified-caller",
+    evidence:
+      "Module gate evaluator finding originates inside a verified-caller module path; classic suppresses these.",
+    filePath: file || undefined,
+    confidence: "medium",
+  };
+}
+
+// -- M. route handler with service ----
+
+const ROUTE_HANDLER_RULE_IDS: ReadonlySet<string> = new Set([
+  "architecture.layering.delegates_orchestrates_decides_persists",
+  "routes.construct_and_inject_deps",
+]);
+
+function contentFilterRouteHandlerWithService(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (!finding.ruleId || !ROUTE_HANDLER_RULE_IDS.has(finding.ruleId)) return null;
+  const file = firstFile(finding) ?? "";
+  if (!file.endsWith("route.ts")) return null;
+  const det = details(finding);
+  const imports = stringArrayField(det, "imports");
+  const hasHandlerImport = imports.some(
+    (entry) => entry.includes("/handler") || entry.endsWith("handler"),
+  );
+  if (!hasHandlerImport) return null;
+  return {
+    reason: "route-handler-with-service",
+    evidence:
+      "route.ts is a thin Next.js entry that delegates to a sibling handler module.",
+    filePath: file || undefined,
+    confidence: "high",
+  };
+}
+
+// -- N. route HTTP middleware only ----
+
+function contentFilterRouteHttpMiddlewareOnly(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "routes.construct_and_inject_deps") return null;
+  const file = firstFile(finding) ?? "";
+  if (!file.endsWith("route.ts")) return null;
+  const det = details(finding);
+  const imports = stringArrayField(det, "imports");
+  const infraImports = imports.filter((entry) => entry.includes("/infra/"));
+  if (infraImports.length === 0) return null;
+  const allHttpOrIdentity = infraImports.every(
+    (entry) => entry.includes("/infra/http/") || entry.includes("/infra/Identity"),
+  );
+  if (!allHttpOrIdentity) return null;
+  return {
+    reason: "route-http-middleware-only",
+    evidence:
+      "route.ts only depends on HTTP / Identity middleware infrastructure; no business-layer construction.",
+    filePath: file || undefined,
+    confidence: "high",
+  };
+}
+
+// -- O. external API comment only ----
+
+const EXTERNAL_API_FRAGMENTS: ReadonlyArray<string> = [
+  "openai",
+  "openrouter",
+  "@openai/",
+];
+
+function contentFilterExternalApiCommentOnly(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "external_apis.calls_go_through_providers") return null;
+  const det = details(finding);
+  const imports = stringArrayField(det, "imports");
+  const mentionsExternalSdk = imports.some((entry) => {
+    const lower = entry.toLowerCase();
+    return EXTERNAL_API_FRAGMENTS.some((fragment) => lower.includes(fragment));
+  });
+  if (mentionsExternalSdk) return null;
+  return {
+    reason: "external-api-comment-only",
+    evidence:
+      "External-API rule fired without any matching SDK import; treated as a comment-only mention.",
+    filePath: firstFile(finding),
+    confidence: "high",
+  };
+}
+
+// -- P. factory file creates deps ----
+
+const FACTORY_RULE_IDS: ReadonlySet<string> = new Set([
+  "dependency_injection.services_must_not_call_factories",
+  "dependency_injection.services_must_not_instantiate_infra",
+]);
+
+function contentFilterFactoryFileCreatesDeps(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (!finding.ruleId || !FACTORY_RULE_IDS.has(finding.ruleId)) return null;
+  const file = firstFile(finding) ?? "";
+  const isFactoryPath
+    = file.includes("Factory.ts")
+    || file.includes("factory.ts")
+    || (file.startsWith("core/services/") && file.includes("/init/"));
+  if (!isFactoryPath) return null;
+  return {
+    reason: "factory-file-creates-deps",
+    evidence:
+      "Factory / init file is allowed to instantiate infrastructure; classic exempts it from DI rules.",
+    filePath: file || undefined,
+    confidence: "high",
+  };
+}
+
+// -- Q. Next.js route convention ----
+
+const NEXTJS_ROUTE_EXPORTS: ReadonlySet<string> = new Set([
+  "runtime",
+  "dynamic",
+  "revalidate",
+  "fetchCache",
+  "preferredRegion",
+]);
+
+function contentFilterNextjsRouteConvention(
+  finding: Finding,
+): FindingContentFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "routes.single_http_handler_export") return null;
+  const file = firstFile(finding) ?? "";
+  if (!file.endsWith("route.ts")) return null;
+  const det = details(finding);
+  const otherExports = stringArrayField(det, "otherExports");
+  if (otherExports.length === 0) return null;
+  const allConventionExports = otherExports.every((entry) =>
+    NEXTJS_ROUTE_EXPORTS.has(entry),
+  );
+  if (!allConventionExports) return null;
+  return {
+    reason: "nextjs-route-convention",
+    evidence:
+      "All non-handler exports are Next.js route configuration (runtime / dynamic / revalidate / fetchCache / preferredRegion).",
+    filePath: file || undefined,
+    confidence: "high",
+  };
+}
+
+// ---------- Classic-inspired result filters ----------
+//
+// Result filters run AFTER content + path + policy filters and
+// represent the operator-configured surface filter (minConfidence /
+// severity / systems / pathExcludes). Result-filtered findings are
+// recorded with `source: "system"` and a result-filter reason so
+// they remain auditable; they are not silently deleted.
+
+export type FindingResultFilterOptions = {
+  minConfidence?: number;
+  severity?: FindingSeverity;
+  systems?: string[];
+  pathExcludes?: string[];
+};
+
+const FINDING_RESULT_FILTER_SEVERITY_RANK: Record<FindingSeverity, number> = {
+  critical: 3,
+  high: 2,
+  medium: 1,
+  low: 0,
+};
+
+/**
+ * Apply configured result filters to a single finding. Returns the
+ * first matching result-filter decision (`below-min-confidence` >
+ * `below-min-severity` > `outside-selected-system` >
+ * `configured-path-exclusion`) or `null` when no result filter
+ * matches.
+ */
+export function applyFindingResultFilters(
+  finding: Finding,
+  options: FindingResultFilterOptions,
+): FindingContentFilterDecision | null {
+  // 1. minConfidence
+  if (typeof options.minConfidence === "number") {
+    const det = details(finding);
+    const raw = det.minCapabilityConfidence;
+    const value = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isFinite(value) && value < options.minConfidence) {
+      return {
+        reason: "below-min-confidence",
+        evidence:
+          `Finding minimum capability confidence ${value} is below configured minimum ${options.minConfidence}.`,
+        filePath: firstFile(finding),
+        confidence: "high",
+      };
+    }
+  }
+
+  // 2. severity
+  if (options.severity) {
+    const threshold = FINDING_RESULT_FILTER_SEVERITY_RANK[options.severity];
+    const findingRank = FINDING_RESULT_FILTER_SEVERITY_RANK[finding.severity];
+    if (findingRank < threshold) {
+      return {
+        reason: "below-min-severity",
+        evidence:
+          `Finding severity '${finding.severity}' is below configured minimum severity '${options.severity}'.`,
+        filePath: firstFile(finding),
+        confidence: "high",
+      };
+    }
+  }
+
+  // 3. systems — read from `details.system` / `details.ownerSystems`.
+  if (options.systems && options.systems.length > 0) {
+    const allowed = new Set(options.systems.filter((entry) => entry.length > 0));
+    if (allowed.size > 0) {
+      const det = details(finding);
+      const single = stringField(det, "system");
+      const owners = stringArrayField(det, "ownerSystems");
+      const declared = single ? [single, ...owners] : owners;
+      if (declared.length > 0) {
+        const overlapping = declared.some((entry) => allowed.has(entry));
+        if (!overlapping) {
+          return {
+            reason: "outside-selected-system",
+            evidence:
+              `Finding system${declared.length === 1 ? "" : "s"} '${declared.join(", ")}' is outside selected systems '${[...allowed].join(", ")}'.`,
+            filePath: firstFile(finding),
+            confidence: "high",
+          };
+        }
+      }
+    }
+  }
+
+  // 4. pathExcludes — same matchPathPattern vocabulary as policies.
+  if (options.pathExcludes && options.pathExcludes.length > 0) {
+    const files = Array.isArray(finding.files) ? finding.files : [];
+    for (const pattern of options.pathExcludes) {
+      if (pattern.length === 0) continue;
+      const matched = files.find((file) => matchPathPattern(pattern, file));
+      if (matched) {
+        return {
+          reason: "configured-path-exclusion",
+          evidence:
+            `File '${matched}' matches configured result-filter pathExcludes pattern '${pattern}'.`,
+          filePath: matched,
+          confidence: "high",
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Deterministic structural validation for `findingResultFilters`.
+ * Returns the cleaned options + a list of issues. Used by
+ * `rekon config validate` and by the CLI loader before invoking
+ * `applyFindingFilters`.
+ */
+export function validateFindingResultFilterOptions(value: unknown): {
+  options: FindingResultFilterOptions;
+  issues: FindingFilterPolicyValidationIssue[];
+} {
+  const issues: FindingFilterPolicyValidationIssue[] = [];
+  if (!isRecord(value)) {
+    return {
+      options: {},
+      issues: [
+        {
+          policyIndex: -1,
+          code: "finding-result-filters-not-object",
+          message: "findingResultFilters must be an object when present.",
+          path: "findingResultFilters",
+        },
+      ],
+    };
+  }
+
+  const options: FindingResultFilterOptions = {};
+
+  if (value.minConfidence !== undefined) {
+    const raw = value.minConfidence;
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || raw > 1) {
+      issues.push({
+        policyIndex: -1,
+        code: "finding-result-filters-min-confidence-invalid",
+        message: "findingResultFilters.minConfidence must be a number in [0, 1].",
+        path: "findingResultFilters.minConfidence",
+      });
+    } else {
+      options.minConfidence = raw;
+    }
+  }
+
+  if (value.severity !== undefined) {
+    if (typeof value.severity !== "string" || !SEVERITIES.has(value.severity as FindingSeverity)) {
+      issues.push({
+        policyIndex: -1,
+        code: "finding-result-filters-severity-invalid",
+        message: "findingResultFilters.severity must be one of critical, high, medium, low.",
+        path: "findingResultFilters.severity",
+      });
+    } else {
+      options.severity = value.severity as FindingSeverity;
+    }
+  }
+
+  if (value.systems !== undefined) {
+    if (!Array.isArray(value.systems)) {
+      issues.push({
+        policyIndex: -1,
+        code: "finding-result-filters-systems-invalid",
+        message: "findingResultFilters.systems must be an array of non-empty strings.",
+        path: "findingResultFilters.systems",
+      });
+    } else {
+      const cleaned: string[] = [];
+      let bad = false;
+      for (let index = 0; index < value.systems.length; index += 1) {
+        const entry = value.systems[index];
+        if (typeof entry !== "string" || entry.trim().length === 0) {
+          issues.push({
+            policyIndex: -1,
+            code: "finding-result-filters-systems-entry-invalid",
+            message: "findingResultFilters.systems entries must be non-empty strings.",
+            path: `findingResultFilters.systems[${index}]`,
+          });
+          bad = true;
+        } else {
+          cleaned.push(entry);
+        }
+      }
+      if (!bad && cleaned.length > 0) {
+        options.systems = cleaned;
+      }
+    }
+  }
+
+  if (value.pathExcludes !== undefined) {
+    if (!Array.isArray(value.pathExcludes)) {
+      issues.push({
+        policyIndex: -1,
+        code: "finding-result-filters-path-excludes-invalid",
+        message:
+          "findingResultFilters.pathExcludes must be an array of relative, non-traversing glob patterns.",
+        path: "findingResultFilters.pathExcludes",
+      });
+    } else {
+      const cleaned: string[] = [];
+      let bad = false;
+      for (let index = 0; index < value.pathExcludes.length; index += 1) {
+        const entry = value.pathExcludes[index];
+        const path = `findingResultFilters.pathExcludes[${index}]`;
+        if (typeof entry !== "string" || entry.trim().length === 0) {
+          issues.push({
+            policyIndex: -1,
+            code: "finding-result-filters-path-excludes-entry-invalid",
+            message: "findingResultFilters.pathExcludes entries must be non-empty strings.",
+            path,
+          });
+          bad = true;
+          continue;
+        }
+        if (entry.startsWith("/")) {
+          issues.push({
+            policyIndex: -1,
+            code: "finding-result-filters-path-excludes-absolute",
+            message: "findingResultFilters.pathExcludes entries must be project-relative.",
+            path,
+          });
+          bad = true;
+          continue;
+        }
+        if (entry.split("/").some((segment) => segment === "..")) {
+          issues.push({
+            policyIndex: -1,
+            code: "finding-result-filters-path-excludes-traversal",
+            message: "findingResultFilters.pathExcludes entries must not contain '..' traversal.",
+            path,
+          });
+          bad = true;
+          continue;
+        }
+        cleaned.push(entry);
+      }
+      if (!bad && cleaned.length > 0) {
+        options.pathExcludes = cleaned;
+      }
+    }
+  }
+
+  return { options, issues };
+}
+
 /**
  * Match a configured `pathPattern` against a single file path.
  * Supports a small deterministic glob vocabulary:
@@ -490,6 +1391,16 @@ export type ApplyFindingFiltersOptions = {
    * policy wins; if no policy matches, the built-in filters run.
    */
   policies?: FindingFilterPolicyRule[];
+  /**
+   * Operator-configured result filters
+   * (`findingResultFilters` in `.rekon/config.json`). Result
+   * filters run **after** policy + classic content + built-in
+   * path filters — so the deterministic suppression layer keeps
+   * priority. Result-filtered findings are still recorded in
+   * `filteredFindings` with `source: "system"`; they are not
+   * silently deleted.
+   */
+  resultFilters?: FindingResultFilterOptions;
 };
 
 export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFindingFiltersResult {
@@ -506,8 +1417,10 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
     }
   }
 
+  const resultFilters = input.resultFilters;
+
   for (const finding of input.findings ?? []) {
-    // Policy filters run first; the first match wins.
+    // 1. Policy filters run first; the first match wins.
     let match: FilterMatch | null = null;
     for (const policy of policies) {
       const candidate = policyFilterMatch(finding, policy);
@@ -516,8 +1429,34 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
         break;
       }
     }
+    // 2. Classic-inspired deterministic content filters.
+    if (!match) {
+      const decision = applyFindingContentFilters({ finding });
+      if (decision) {
+        match = {
+          reason: decision.reason,
+          evidence: decision.evidence,
+          filePath: decision.filePath,
+          confidence: decision.confidence,
+        };
+      }
+    }
+    // 3. Built-in path / content filters (generated/external/test/canary).
     if (!match) {
       match = findBestFilterMatch(finding);
+    }
+    // 4. Operator-configured result filters (minConfidence /
+    //    severity / systems / pathExcludes).
+    if (!match && resultFilters) {
+      const decision = applyFindingResultFilters(finding, resultFilters);
+      if (decision) {
+        match = {
+          reason: decision.reason,
+          evidence: decision.evidence,
+          filePath: decision.filePath,
+          confidence: decision.confidence,
+        };
+      }
     }
     if (!match) {
       keptFindings.push(finding);
@@ -1088,6 +2027,20 @@ export type FindingFilterHealthSummary = {
    * to emit the `unused-policy-filter` alert.
    */
   unusedPolicies: string[];
+  /**
+   * Count of findings suppressed by classic-inspired content
+   * filters (`empty-constructor-stub` /
+   * `route-handler-with-service` / etc.). Always present;
+   * `0` when no content filter fired.
+   */
+  contentFiltered: number;
+  /**
+   * Count of findings suppressed by operator-configured result
+   * filters (`below-min-confidence` / `below-min-severity` /
+   * `outside-selected-system` / `configured-path-exclusion`).
+   * Always present; `0` when no result filter fired.
+   */
+  resultFiltered: number;
 };
 
 export type FindingFilterHealthReport = {
@@ -1131,6 +2084,12 @@ export function buildFindingFilterHealth(input: {
   const lowConfidencePolicyFiltered = report.filteredFindings.filter(
     (entry) => entry.source === "policy" && entry.confidence === "low",
   ).length;
+  const contentFiltered = report.filteredFindings.filter((entry) =>
+    CLASSIC_CONTENT_FILTER_REASONS.has(entry.reason),
+  ).length;
+  const resultFiltered = report.filteredFindings.filter((entry) =>
+    RESULT_FILTER_REASONS.has(entry.reason),
+  ).length;
   const byPolicy = report.summary.byPolicy
     ? { ...report.summary.byPolicy }
     : undefined;
@@ -1161,6 +2120,8 @@ export function buildFindingFilterHealth(input: {
     byReason: { ...report.summary.byReason },
     policyFiltered,
     unusedPolicies,
+    contentFiltered,
+    resultFiltered,
   };
   if (byPolicy) {
     summary.byPolicy = byPolicy;
@@ -1206,9 +2167,77 @@ export function buildFindingFilterHealth(input: {
     });
   }
 
+  // Classic-inspired alerts (v2).
+  //
+  // `content-filter-high-volume` fires when one classic-inspired
+  // content reason accounts for >= 5 findings AND > 50 % of total
+  // findings — same intent as the policy-over-filtering check but
+  // applied to the deterministic content layer.
+  if (totalFindings > 0) {
+    for (const [reason, count] of Object.entries(report.summary.byReason)) {
+      if (
+        CLASSIC_CONTENT_FILTER_REASONS.has(reason as FindingFilterReason)
+        && count >= 5
+        && count / totalFindings > 0.5
+      ) {
+        alerts.push({
+          code: "content-filter-high-volume",
+          severity: "warning",
+          message:
+            `Content filter '${reason}' suppressed ${count} of ${totalFindings} findings (${((count / totalFindings) * 100).toFixed(1)}%). Inspect FindingFilterReport.filteredFindings before trusting active governance counts.`,
+        });
+        break;
+      }
+    }
+  }
+
+  // `result-filter-over-filtering` fires when configured
+  // findingResultFilters dominate suppression — useful to catch
+  // an over-aggressive minConfidence / severity floor or an
+  // over-broad pathExcludes pattern.
+  if (totalFindings > 0 && resultFiltered / totalFindings > threshold) {
+    alerts.push({
+      code: "result-filter-over-filtering",
+      severity: "warning",
+      message:
+        `Configured result filters suppressed ${resultFiltered} of ${totalFindings} findings (${((resultFiltered / totalFindings) * 100).toFixed(1)}%). Review .rekon/config.json findingResultFilters before trusting active governance counts.`,
+    });
+  }
+
   alerts.sort((left, right) => left.code.localeCompare(right.code));
   return { summary, alerts };
 }
+
+// Buckets reused by `buildFindingFilterHealth` to count content
+// vs. result suppression independently of byPolicy and to gate the
+// new `content-filter-high-volume` / `result-filter-over-filtering`
+// alerts.
+const CLASSIC_CONTENT_FILTER_REASONS = new Set<FindingFilterReason>([
+  "empty-constructor-stub",
+  "storage-retrieval-placeholder",
+  "client-safe-infra",
+  "same-directory-import",
+  "svg-namespace-url",
+  "client-env-node-env",
+  "speculative-anti-pattern",
+  "archetype-inference-note",
+  "hardcoded-config-not-dde",
+  "ui-http-provider-abstraction",
+  "ui-hook-uses-http-not-db",
+  "module-gate-verified-caller",
+  "route-handler-with-service",
+  "route-http-middleware-only",
+  "external-api-comment-only",
+  "factory-file-creates-deps",
+  "nextjs-route-convention",
+]);
+
+const RESULT_FILTER_REASONS = new Set<FindingFilterReason>([
+  "below-min-confidence",
+  "below-min-severity",
+  "outside-selected-system",
+  "configured-path-exclusion",
+]);
 
 export function createFindingFilterHealthReport(input: {
   header: ArtifactHeader;

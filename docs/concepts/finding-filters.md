@@ -165,10 +165,122 @@ first):
   by configured exclusion policies (see "Configured Exclusion
   Policies" above). Both reasons are operator-supplied via
   `.rekon/config.json` `findingFilters`.
+- **Classic-inspired content filters (v2)** — deterministic
+  structural checks over `Finding.type` / `ruleId` /
+  `details` that mirror codebase-intel-classic's content
+  filtering pipeline. Each filter is synchronous,
+  side-effect-free, and produces a `source: "system"` audit
+  entry. See "Classic Content Filters" below.
+- **Classic-inspired result filters (v2)** — operator-
+  configured surface filters from
+  `.rekon/config.json findingResultFilters`. Reasons:
+  `below-min-confidence`, `below-min-severity`,
+  `outside-selected-system`, `configured-path-exclusion`.
+  Result-filtered findings are recorded with
+  `source: "system"` and a result-filter reason so they
+  remain auditable; they are **not** silently deleted. See
+  "Classic Result Filters" below.
 - **`other`** — reserved escape hatch; not used by v1.
 
 Findings with no `files` are kept by default (no rule has
 anything to match against).
+
+## Classic Content Filters
+
+v2 ports a deterministic subset of codebase-intel-classic's
+content-filtering pipeline. Every filter inspects the
+`Finding` structurally (type, `ruleId`, optional `details`
+bag) — no source-code regex, no LLM, no file-system access.
+
+Filter pipeline order:
+
+1. **Policy filters** (`findingFilters`).
+2. **Classic content filters** (this section).
+3. **Built-in path heuristics** (`generated-file` /
+   `external-file` / `test-file` / `canary-file` /
+   `content-filter`).
+4. **Result filters** (next section).
+
+The pipeline short-circuits on the first match. Classic
+content filters land at priority `10`-`12`; broad path
+heuristics at `0`-`5`. Priority only matters when path
+heuristics would otherwise out-rank a content reason — the
+content layer always runs first so its specific signals win.
+
+Filter cases (matched in the listed order):
+
+| Reason | Trigger |
+| --- | --- |
+| `empty-constructor-stub` | `type === "stub"`, `details.stubName === "constructor"`, `details.stubReason === "empty_body"` |
+| `storage-retrieval-placeholder` | `type === "stub"`, `details.stubName` starts with `getStored`, `details.stubReason` mentions `null` / `undefined` |
+| `client-safe-infra` | architecture finding under `imports.no_server_only_in_client` where every evidence fragment is `Client*` / `*Client.ts` / `ClientBridge` / `ClientLogger` / `ClientPreferences` |
+| `same-directory-import` | architecture finding under `imports.use_at_alias` where every evidence path starts with `./` and contains no `..` |
+| `svg-namespace-url` | architecture finding under `external_apis.no_hardcoded_api_urls_outside_providers` where every evidence URL is `http://www.w3.org/2000/svg` / `http://www.w3.org/1999/xlink` |
+| `client-env-node-env` | architecture finding under `security.api_keys_server_side_only` where every `details.envVars` / `details.evidence` entry is `NODE_ENV` |
+| `speculative-anti-pattern` | `type === "anti_pattern"` and description hedges with "may indicate business logic" / "might indicate business logic" |
+| `archetype-inference-note` | architecture finding with empty `files[]` and description starting with "Topology contract inferred from archetype" |
+| `hardcoded-config-not-dde` | architecture finding under `architecture.decisions.go_through_dde_gates` with empty `decisionCapabilities` and `decisionConcerns` that all match config-shaped fragments (`hardcoded`, `magic number`, `timeout`, `delay`, `limit`, `navigation`, `should be configurable`, `should be externalized`, `should use design token`) without any business-decision fragments (`dde`, `gate`, `policy`, `routing decision`, `feature flag`, `business logic`, `decision logic`) |
+| `ui-http-provider-abstraction` | architecture finding with `details.concernTag === "ui_http_direct_call"` and file path under `/hooks/` or containing `/use*` |
+| `ui-hook-uses-http-not-db` | architecture finding mentioning database/db + hook/use + UI hook, plus a `useAdmin` / `useFetch` / `useApi` / `useQuery` shape or hedge wording (`likely` / `probably` / `appears to`) |
+| `module-gate-verified-caller` | architecture finding under a module-gate rule (`architecture.gates.must_have_production_caller`, `architecture.gates.applies_to_must_have_production_evaluator`, `architecture.gates.modules_must_not_create_custom_scopes`) with a `GateEvaluator` / `/modules/` file or `details.owner.kind === "module"` |
+| `route-handler-with-service` | architecture finding under `architecture.layering.delegates_orchestrates_decides_persists` or `routes.construct_and_inject_deps`, file ends with `route.ts`, `details.imports` includes a sibling `*/handler` module |
+| `route-http-middleware-only` | architecture finding under `routes.construct_and_inject_deps`, file ends with `route.ts`, all `details.imports` referencing infra live under `/infra/http/` or `/infra/Identity` |
+| `external-api-comment-only` | architecture finding under `external_apis.calls_go_through_providers` where `details.imports` has no `openai` / `openrouter` / `@openai/*` reference |
+| `factory-file-creates-deps` | architecture finding under `dependency_injection.services_must_not_call_factories` or `dependency_injection.services_must_not_instantiate_infra` with a `Factory.ts` / `factory.ts` file or path under `core/services/**/init/**` |
+| `nextjs-route-convention` | architecture finding under `routes.single_http_handler_export`, file ends with `route.ts`, `details.otherExports` entirely in `runtime` / `dynamic` / `revalidate` / `fetchCache` / `preferredRegion` |
+
+The `Finding.details?: Record<string, unknown>` field is
+additive — detectors that don't surface structured detail
+simply never hit any classic content filter.
+
+## Classic Result Filters
+
+Operator-configured result filters from
+`.rekon/config.json findingResultFilters`:
+
+```json
+{
+  "findingResultFilters": {
+    "minConfidence": 0.7,
+    "severity": "medium",
+    "systems": ["runtime", "src"],
+    "pathExcludes": ["fixtures/**"]
+  }
+}
+```
+
+Fields:
+
+- **`minConfidence`** — number in `[0, 1]`. Suppresses any
+  finding whose `details.minCapabilityConfidence` is below
+  this floor. Reason: `below-min-confidence`.
+- **`severity`** — one of `critical` / `high` / `medium` /
+  `low`. Suppresses any finding ranked below this floor
+  (critical > high > medium > low). Reason:
+  `below-min-severity`.
+- **`systems`** — non-empty list of allowed system ids.
+  Compared against `details.system` (single) and
+  `details.ownerSystems` (list). Suppresses any finding
+  whose declared systems don't overlap the allowed set.
+  Reason: `outside-selected-system`.
+- **`pathExcludes`** — list of project-relative glob
+  patterns. Same vocabulary as `findingFilters[].pathPattern`
+  (`*` per-segment, `**` across segments, `?` per-character).
+  Absolute paths and `..` traversal are rejected at
+  validation time. Reason: `configured-path-exclusion`.
+
+Validator: `validateFindingResultFilterOptions`. Surfaced
+through `rekon config validate` — invalid entries are
+errors, not warnings.
+
+Result filters run **after** content + path + policy
+filters so deterministic suppression keeps priority. Result-
+filtered findings still appear in
+`FindingFilterReport.filteredFindings` with
+`source: "system"` and the matching reason — they are not
+silently deleted, and operator status decisions
+(`accepted` / `ignored` / `resolved`) are **not** used as a
+substitute.
 
 ## Audit Guarantee
 
@@ -218,15 +330,42 @@ can confirm what `rekon refresh` should next see in the
 
 ## Health Alerts
 
-v1 ships two alerts:
+`FindingFilterHealthReport.alerts` is deterministic; v2 ships
+seven alert codes:
 
 - **`high-filter-rate`** — fires when `filterRate > 0.8`.
   Inspect which reasons dominate `byReason` — a 90 %+ filter
   rate usually means the evaluator is mis-targeting paths.
 - **`low-confidence-filtered`** — fires when any filtered
-  finding has confidence `low`. v1 deterministic rules emit
-  `high` or `medium`; this alert exists so a future expansion
-  surfaces low-confidence suppression for review.
+  finding has confidence `low`.
+- **`policy-over-filtering`** — fires when configured
+  `findingFilters` policies suppress more than 80 % of total
+  findings (review for over-broad `pathPattern`s).
+- **`low-confidence-policy-filter`** — fires when a configured
+  policy with `confidence: "low"` suppressed at least one
+  finding.
+- **`unused-policy-filter`** — fires when a configured policy
+  matched zero findings.
+- **`content-filter-high-volume`** *(v2)* — fires when one
+  classic-inspired content reason accounts for `>= 5`
+  findings AND `> 50 %` of total findings. Useful for
+  catching over-broad content rules.
+- **`result-filter-over-filtering`** *(v2)* — fires when
+  configured `findingResultFilters` suppress more than 80 %
+  of total findings. Useful for catching an over-aggressive
+  `minConfidence` / `severity` floor or an over-broad
+  `pathExcludes` pattern.
+
+`FindingFilterHealthReport.summary` additionally carries two
+new counts (always present):
+
+- **`contentFiltered`** — findings suppressed by a classic-
+  inspired content filter (`empty-constructor-stub`,
+  `route-handler-with-service`, etc.).
+- **`resultFiltered`** — findings suppressed by an operator-
+  configured result filter (`below-min-confidence` /
+  `below-min-severity` / `outside-selected-system` /
+  `configured-path-exclusion`).
 
 The alert list is empty when filtering looks healthy.
 

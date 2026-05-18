@@ -596,6 +596,45 @@ Implementation batches:
   is never mutated. Pinned by
   `tests/contract/filter-policy-freshness-guardrails.test.mjs`
   (19 tests).
+- "Classic issue filtering parity v2 — content/result filter
+  expansion" (shipped) — `FindingFilterReason` extended
+  additively with 17 classic-inspired content reasons
+  (`empty-constructor-stub`,
+  `storage-retrieval-placeholder`, `client-safe-infra`,
+  `same-directory-import`, `svg-namespace-url`,
+  `client-env-node-env`, `speculative-anti-pattern`,
+  `archetype-inference-note`, `hardcoded-config-not-dde`,
+  `ui-http-provider-abstraction`,
+  `ui-hook-uses-http-not-db`,
+  `module-gate-verified-caller`,
+  `route-handler-with-service`,
+  `route-http-middleware-only`,
+  `external-api-comment-only`,
+  `factory-file-creates-deps`,
+  `nextjs-route-convention`) plus 4 result-filter reasons
+  (`below-min-confidence`, `below-min-severity`,
+  `outside-selected-system`, `configured-path-exclusion`).
+  New `Finding.details?: Record<string, unknown>` additive
+  optional field. New exports
+  `applyFindingContentFilters({ finding })`,
+  `applyFindingResultFilters(finding, options)`,
+  `FindingResultFilterOptions`,
+  `validateFindingResultFilterOptions`. Filter pipeline
+  order: policy → classic content → built-in path →
+  result; pipeline short-circuits on the first match.
+  `.rekon/config.json` accepts a new optional
+  `findingResultFilters` block (`minConfidence` /
+  `severity` / `systems` / `pathExcludes`) validated by
+  `rekon config validate`. Result-filtered findings are
+  recorded with `source: "system"` and a result-filter
+  reason — never silently deleted, never operator status
+  decisions. Filter-health gains
+  `content-filter-high-volume` and
+  `result-filter-over-filtering` alerts plus
+  `contentFiltered` / `resultFiltered` summary counts. Raw
+  `FindingReport` is never mutated. Pinned by
+  `tests/contract/finding-content-result-filters.test.mjs`
+  (24 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

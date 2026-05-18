@@ -44,6 +44,7 @@ import {
   type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestion,
   type FindingFilterPolicySuggestionReport,
+  type FindingResultFilterOptions,
   type FindingStatusDecision,
   type FindingStatusDecisionReason,
   type FindingStatusDecisionStatus,
@@ -56,6 +57,7 @@ import {
   isBroadFindingFilterPolicyRule,
   planFindingFilterPolicyApply,
   validateFindingFilterPolicyRules,
+  validateFindingResultFilterOptions,
   createFindingStatusLedger,
 } from "@rekon/kernel-findings";
 
@@ -968,7 +970,8 @@ export async function main(argv: string[]): Promise<void> {
     const store = createLocalArtifactStore(root);
     await store.init();
     const policies = await loadFindingFilterPolicies(root);
-    const report = await buildFindingFilterReport(store, { policies });
+    const resultFilters = await loadFindingResultFilters(root);
+    const report = await buildFindingFilterReport(store, { policies, resultFilters });
     const ref = await store.write(report, { category: "findings" });
 
     writeOutput(
@@ -976,6 +979,7 @@ export async function main(argv: string[]): Promise<void> {
         artifact: ref,
         summary: report.summary,
         policyFilters: policies.length,
+        resultFilters: resultFilters ?? null,
       },
       json,
     );
@@ -986,7 +990,11 @@ export async function main(argv: string[]): Promise<void> {
     const store = createLocalArtifactStore(root);
     await store.init();
     const policies = await loadFindingFilterPolicies(root);
-    const health = await buildFindingFilterHealthReport(store, { policies });
+    const resultFilters = await loadFindingResultFilters(root);
+    const health = await buildFindingFilterHealthReport(store, {
+      policies,
+      resultFilters,
+    });
     const ref = await store.write(health, { category: "findings" });
 
     writeOutput(
@@ -995,6 +1003,7 @@ export async function main(argv: string[]): Promise<void> {
         summary: health.summary,
         alerts: health.alerts,
         policyFilters: policies.length,
+        resultFilters: resultFilters ?? null,
       },
       json,
     );
@@ -2101,16 +2110,21 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   // Load configured findingFilters policies once per refresh; both
   // findings.filter and findings.filter-health pass them through to
   // the runtime helpers so the audit trail names policy rules and
-  // filter-health can detect unused / over-broad policies.
+  // filter-health can detect unused / over-broad policies. Result
+  // filters (minConfidence/severity/systems/pathExcludes) come from
+  // the same config and ride alongside.
   const findingFilterPolicies = await loadFindingFilterPolicies(root);
+  const findingResultFilters = await loadFindingResultFilters(root);
 
-  // 7a. findings filter — system / policy false-positive audit. The
-  // raw FindingReport is never mutated; filtered findings stay
-  // auditable in FindingFilterReport.filteredFindings. See
+  // 7a. findings filter — system / policy / content / result false-
+  // positive audit. The raw FindingReport is never mutated; every
+  // filtered finding stays auditable in
+  // FindingFilterReport.filteredFindings. See
   // docs/strategy/issue-governance-architecture-decision.md.
   try {
     const filterReport = await buildFindingFilterReport(store, {
       policies: findingFilterPolicies,
+      resultFilters: findingResultFilters,
     });
     const ref = await store.write(filterReport, { category: "findings" });
     steps.push({
@@ -2126,10 +2140,13 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
 
   // 7b. findings filter health — high-filter-rate /
   // low-confidence-filtered + policy-aware diagnostics over the
-  // latest filter report.
+  // latest filter report. Result filters ride through so the
+  // `content-filter-high-volume` and `result-filter-over-filtering`
+  // alerts can fire when the rebuild path runs.
   try {
     const health = await buildFindingFilterHealthReport(store, {
       policies: findingFilterPolicies,
+      resultFilters: findingResultFilters,
     });
     const ref = await store.write(health, { category: "findings" });
     steps.push({
@@ -2914,6 +2931,45 @@ async function loadFindingFilterPolicies(root: string): Promise<FindingFilterPol
   return result.rules;
 }
 
+/**
+ * Best-effort loader for `.rekon/config.json`
+ * `findingResultFilters`. Mirrors `loadFindingFilterPolicies`:
+ * invalid entries are dropped at the loader boundary; operators
+ * run `rekon config validate` for a full diagnostic. Returns
+ * `undefined` when no result filters are configured (so callers
+ * can skip the result-filter stage entirely).
+ */
+async function loadFindingResultFilters(
+  root: string,
+): Promise<FindingResultFilterOptions | undefined> {
+  const configPath = resolve(root, ".rekon", "config.json");
+  let raw: string;
+  try {
+    raw = await readFile(configPath, "utf8");
+  } catch {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+  const config = parsed as Record<string, unknown>;
+  if (!("findingResultFilters" in config)) return undefined;
+  const { options } = validateFindingResultFilterOptions(config.findingResultFilters);
+  // Treat an empty / fully-invalid result-filter block as "no
+  // result filters configured" so we don't add an unnecessary
+  // pipeline stage.
+  const hasAny
+    = options.minConfidence !== undefined
+    || options.severity !== undefined
+    || (Array.isArray(options.systems) && options.systems.length > 0)
+    || (Array.isArray(options.pathExcludes) && options.pathExcludes.length > 0);
+  return hasAny ? options : undefined;
+}
+
 async function validateConfig(root: string): Promise<ConfigValidationResult> {
   const configPath = resolve(root, ".rekon", "config.json");
   const issues: ConfigValidationIssue[] = [];
@@ -3100,6 +3156,18 @@ async function validateConfig(root: string): Promise<ConfigValidationResult> {
 
   if ("findingFilters" in config) {
     const result = validateFindingFilterPolicyRules(config.findingFilters);
+    for (const issue of result.issues) {
+      issues.push({
+        code: issue.code,
+        severity: "error",
+        message: issue.message,
+        path: issue.path,
+      });
+    }
+  }
+
+  if ("findingResultFilters" in config) {
+    const result = validateFindingResultFilterOptions(config.findingResultFilters);
     for (const issue of result.issues) {
       issues.push({
         code: issue.code,

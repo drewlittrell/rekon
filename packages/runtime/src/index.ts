@@ -34,6 +34,7 @@ import {
   type IssueMergeDecisionLedger,
   type IssueMergeDecisionReason,
   type IssueMergeDecisionStatus,
+  type FindingResultFilterOptions,
   applyFindingFilters,
   createCoherencyDelta,
   createFindingFilterHealthReport,
@@ -796,6 +797,16 @@ export type BuildFindingFilterReportOptions = {
    * `policyId` so the audit trail names the rule that matched.
    */
   policies?: FindingFilterPolicyRule[];
+  /**
+   * Operator-configured result filters (typically loaded from
+   * `.rekon/config.json` `findingResultFilters`). Result filters
+   * run **after** policy + classic content + built-in path
+   * filters; result-filtered findings are recorded with
+   * `source: "system"` and a result-filter reason so they
+   * remain auditable. Optional — when omitted, no result
+   * filters apply.
+   */
+  resultFilters?: FindingResultFilterOptions;
 };
 
 export async function buildFindingFilterReport(
@@ -836,6 +847,7 @@ export async function buildFindingFilterReport(
     findings,
     filteredAt,
     policies: options.policies,
+    resultFilters: options.resultFilters,
   });
 
   // Always stamp the run with a policy fingerprint — including
@@ -885,6 +897,13 @@ export type BuildFindingFilterHealthReportOptions = {
    * `buildFindingFilterReport`.
    */
   policies?: FindingFilterPolicyRule[];
+  /**
+   * Operator-configured result filters
+   * (`findingResultFilters`). Only consulted when the
+   * `buildIfMissing` path runs; the cached filter report on
+   * disk reflects the result filters it was built with.
+   */
+  resultFilters?: FindingResultFilterOptions;
 };
 
 export async function buildFindingFilterHealthReport(
@@ -912,7 +931,10 @@ export async function buildFindingFilterHealthReport(
       "buildFindingFilterHealthReport requires a FindingFilterReport. Run `rekon findings filter` or `rekon refresh` first.",
     );
   } else {
-    filterReport = await buildFindingFilterReport(store, { policies: options.policies });
+    filterReport = await buildFindingFilterReport(store, {
+      policies: options.policies,
+      resultFilters: options.resultFilters,
+    });
     latestEntry = await store
       .write(filterReport, { category: "findings" })
       .then((ref) => ({

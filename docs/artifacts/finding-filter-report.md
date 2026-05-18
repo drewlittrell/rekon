@@ -223,6 +223,79 @@ first):
 
 If a finding has no `files`, no rule matches and it is **kept**.
 
+## Classic-Inspired Content / Result Filters (v2)
+
+v2 adds two new filter layers between policy filters and the
+broad path heuristics:
+
+- **Classic content filters** — deterministic structural
+  checks over `Finding.type` / `ruleId` /
+  `Finding.details?: Record<string, unknown>`. Reasons:
+  `empty-constructor-stub`,
+  `storage-retrieval-placeholder`,
+  `client-safe-infra`, `same-directory-import`,
+  `svg-namespace-url`, `client-env-node-env`,
+  `speculative-anti-pattern`,
+  `archetype-inference-note`,
+  `hardcoded-config-not-dde`,
+  `ui-http-provider-abstraction`,
+  `ui-hook-uses-http-not-db`,
+  `module-gate-verified-caller`,
+  `route-handler-with-service`,
+  `route-http-middleware-only`,
+  `external-api-comment-only`,
+  `factory-file-creates-deps`,
+  `nextjs-route-convention`. All emit `source: "system"`.
+- **Classic result filters** — operator-configured
+  `findingResultFilters` block (see below). Reasons:
+  `below-min-confidence`, `below-min-severity`,
+  `outside-selected-system`, `configured-path-exclusion`.
+
+Pipeline order (first match wins):
+
+1. Policy filters (`findingFilters`).
+2. Classic content filters.
+3. Built-in path heuristics.
+4. Result filters (`findingResultFilters`).
+
+All four layers record filtered findings into
+`filteredFindings` with reason / evidence / confidence /
+filteredAt / source. `FindingReport` is never mutated.
+`Finding.details` is additive — detectors that don't carry
+structured detail simply never hit the classic content
+layer.
+
+### Configured Result Filters
+
+Operators add `findingResultFilters` to `.rekon/config.json`:
+
+```json
+{
+  "findingResultFilters": {
+    "minConfidence": 0.7,
+    "severity": "medium",
+    "systems": ["runtime", "src"],
+    "pathExcludes": ["fixtures/**"]
+  }
+}
+```
+
+Validation: `validateFindingResultFilterOptions`. Enforced
+by `rekon config validate` (errors include
+`finding-result-filters-min-confidence-invalid`,
+`finding-result-filters-severity-invalid`,
+`finding-result-filters-systems-entry-invalid`,
+`finding-result-filters-path-excludes-absolute`,
+`finding-result-filters-path-excludes-traversal`). Result
+filters are not operator status decisions and never delete
+findings — they emit auditable filter entries with
+`source: "system"`.
+
+See
+[../concepts/finding-filters.md](../concepts/finding-filters.md)
+"Classic Content Filters" and "Classic Result Filters" for
+the full per-case table.
+
 ## CLI Surface
 
 ```sh

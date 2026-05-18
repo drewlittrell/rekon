@@ -73,12 +73,25 @@ type FindingFilterHealthReport = {
      * emit the `unused-policy-filter` alert.
      */
     unusedPolicies: string[];
+    /**
+     * Count of findings suppressed by a classic-inspired
+     * content filter (see "Classic Content Filters" in
+     * `docs/concepts/finding-filters.md`). Always present;
+     * `0` when no content filter fired. (v2)
+     */
+    contentFiltered: number;
+    /**
+     * Count of findings suppressed by an operator-configured
+     * result filter (`findingResultFilters`). Always present;
+     * `0` when no result filter fired. (v2)
+     */
+    resultFiltered: number;
   };
   alerts: FindingFilterHealthAlert[];
 };
 ```
 
-## v1 Alerts
+## Alerts
 
 | Code | Trigger | Severity |
 | --- | --- | --- |
@@ -87,6 +100,8 @@ type FindingFilterHealthReport = {
 | `policy-over-filtering` | configured policies suppressed more than 80 % of findings | warning |
 | `low-confidence-policy-filter` | a configured policy hit at `confidence: "low"` | warning |
 | `unused-policy-filter` | a configured policy matched zero findings | warning |
+| `content-filter-high-volume` *(v2)* | one classic-inspired content reason accounts for `>= 5` findings AND `> 50 %` of total findings | warning |
+| `result-filter-over-filtering` *(v2)* | configured `findingResultFilters` suppressed more than 80 % of total findings | warning |
 
 Alerts are sorted by `code` for stable output. The list is empty
 when filtering looks healthy.

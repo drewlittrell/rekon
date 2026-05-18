@@ -4,6 +4,167 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped classic issue filtering parity v2 — content/result
+  filter expansion (P1.1 classic-content-result-filters v2
+  slice). `FindingFilterReason` extended additively with 17
+  classic-inspired content reasons that mirror
+  codebase-intel-classic's content-filtering pipeline plus 4
+  result-filter reasons for the operator-configured surface
+  filter (`minConfidence` / `severity` / `systems` /
+  `pathExcludes`). Every filtered finding remains auditable
+  via `FindingFilterReport.filteredFindings`; raw
+  `FindingReport` is never mutated; operator status decisions
+  (`accepted` / `ignored` / `resolved`) remain in
+  `FindingStatusLedger` and are not used as a substitute.
+
+  Content filter reasons (17 cases, all `source: "system"`):
+  - **Stub/import family (6):**
+    `empty-constructor-stub`,
+    `storage-retrieval-placeholder`,
+    `client-safe-infra`, `same-directory-import`,
+    `svg-namespace-url`, `client-env-node-env`.
+  - **Architecture family (5):**
+    `speculative-anti-pattern`,
+    `archetype-inference-note`,
+    `hardcoded-config-not-dde`,
+    `ui-http-provider-abstraction`,
+    `ui-hook-uses-http-not-db`.
+  - **Rule-id family (6):**
+    `module-gate-verified-caller`,
+    `route-handler-with-service`,
+    `route-http-middleware-only`,
+    `external-api-comment-only`,
+    `factory-file-creates-deps`,
+    `nextjs-route-convention`.
+
+  Result filter reasons (4 cases):
+  - `below-min-confidence` — finding's
+    `details.minCapabilityConfidence` is below the
+    configured floor.
+  - `below-min-severity` — finding's severity is below the
+    configured floor (critical > high > medium > low).
+  - `outside-selected-system` — finding's `details.system` /
+    `details.ownerSystems` don't overlap the allowed list.
+  - `configured-path-exclusion` — finding's files match an
+    operator-configured glob pattern.
+
+  `Finding` gains an additive optional
+  `details?: Record<string, unknown>` field for detectors to
+  surface structured detail (`stubName`, `stubReason`,
+  `imports`, `envVars`, `evidence`, `decisionConcerns`,
+  `decisionCapabilities`, `concernTag`, `owner.kind`,
+  `otherExports`, `minCapabilityConfidence`, `system`,
+  `ownerSystems`). The field is treated as opaque by
+  downstream consumers that don't specifically know how to
+  interpret it. No schemaVersion bump.
+
+  New exports from `@rekon/kernel-findings`:
+  - `FindingContentFilterContext` (type).
+  - `FindingContentFilterDecision` (type).
+  - `FindingResultFilterOptions` (type).
+  - `applyFindingContentFilters({ finding })` — pure
+    deterministic function returning the first matching
+    decision or `null`. Synchronous, side-effect-free.
+  - `applyFindingResultFilters(finding, options)` — pure
+    deterministic function over
+    `FindingResultFilterOptions`.
+  - `validateFindingResultFilterOptions(value)` — structural
+    validator returning `{ options, issues }` (issue codes:
+    `finding-result-filters-not-object`,
+    `finding-result-filters-min-confidence-invalid`,
+    `finding-result-filters-severity-invalid`,
+    `finding-result-filters-systems-invalid`,
+    `finding-result-filters-systems-entry-invalid`,
+    `finding-result-filters-path-excludes-invalid`,
+    `finding-result-filters-path-excludes-entry-invalid`,
+    `finding-result-filters-path-excludes-absolute`,
+    `finding-result-filters-path-excludes-traversal`).
+
+  `applyFindingFilters` now runs filters in fixed priority
+  order: **policy → classic content → built-in path →
+  result**. The pipeline short-circuits on the first match.
+  Classic content filters land at priority `10`-`12`;
+  result filters at `20`; broad path heuristics at `0`-`5`.
+
+  Operators add `findingResultFilters` to
+  `.rekon/config.json`:
+  ```json
+  {
+    "findingResultFilters": {
+      "minConfidence": 0.7,
+      "severity": "medium",
+      "systems": ["runtime", "src"],
+      "pathExcludes": ["fixtures/**"]
+    }
+  }
+  ```
+  `rekon config validate` enforces: `minConfidence` is a
+  number in `[0, 1]`; `severity` is one of
+  `critical` / `high` / `medium` / `low`; `systems` is an
+  array of non-empty strings; `pathExcludes` is an array of
+  project-relative glob patterns (absolute paths and `..`
+  traversal are rejected). The CLI loader is best-effort:
+  invalid entries are dropped at the loader boundary so a
+  malformed config doesn't blow up refresh —
+  `rekon config validate` is the full diagnostic.
+  `rekon findings filter` / `rekon findings filter-health` /
+  `rekon refresh` all load and pass result filters through.
+  `BuildFindingFilterReportOptions` and
+  `BuildFindingFilterHealthReportOptions` gain optional
+  `resultFilters?: FindingResultFilterOptions` (additive).
+
+  `FindingFilterHealthReport.summary` gains two additive
+  counts: `contentFiltered` (findings suppressed by a
+  classic content filter) and `resultFiltered` (findings
+  suppressed by a result filter). Two new alerts:
+  - **`content-filter-high-volume`** — one classic content
+    reason accounts for `>= 5` findings AND `> 50 %` of
+    total findings.
+  - **`result-filter-over-filtering`** — configured
+    `findingResultFilters` suppress more than 80 % of total
+    findings.
+
+  24 new contract tests in
+  `tests/contract/finding-content-result-filters.test.mjs`
+  cover: 10 content-filter helper tests (cases A, D, E, F,
+  G, I, M, O, Q + normal-finding kept), 7 result-filter
+  helper tests (`minConfidence` / `severity` / `systems` /
+  `pathExcludes` + non-silent-drop +
+  `validateFindingResultFilterOptions` accept + reject),
+  and 7 end-to-end CLI tests covering `rekon config validate`
+  acceptance + rejection, `rekon findings filter` loading
+  result filters and writing audit entries, lifecycle /
+  adjudication / coherency excluding result-filtered
+  findings, raw `FindingReport` integrity,
+  `rekon artifacts validate` cleanliness, and the new
+  `content-filter-high-volume` /
+  `result-filter-over-filtering` alerts. Full suite: 612
+  passed / 1 skipped / 0 failed.
+
+  Docs updated:
+  - `docs/concepts/finding-filters.md` — "Classic Content
+    Filters" table (17 cases) + "Classic Result Filters"
+    section; "Health Alerts" expanded to 7 alerts.
+  - `docs/artifacts/finding-filter-report.md` — new
+    "Classic-Inspired Content / Result Filters (v2)"
+    section documenting pipeline order, `Finding.details`,
+    and configured `findingResultFilters`.
+  - `docs/artifacts/finding-filter-health-report.md` —
+    shape gains `contentFiltered` / `resultFiltered`
+    counts; alerts table includes the two new v2 alerts.
+  - `docs/strategy/issue-governance-architecture-decision.md`
+    — Implementation Order step 9 flipped to shipped + new
+    step 10 "Filter-health diagnostics v2".
+  - Four strategy docs (subsystem-purpose-map,
+    behavior-roadmap, guarantee-regression-plan, roadmap).
+  - CHANGELOG. Review packet:
+    `.rekon-dev/review-packets/finding-content-result-filters-v2.md`.
+
+  No artifact `schemaVersion` bump (additive optional
+  field). No new artifact type. No new capability role. No
+  new CLI subcommand or flag. No LLM, semantic, fuzzy, or
+  embedding matching. No `GraphOntologyValidator`. No
+  watcher / daemon. No version bump. No npm publish.
 - Shipped configured filter policy freshness / publication
   guardrails (P1.1 filter-policy-freshness v2 slice).
   `FindingFilterReport` now carries an additive optional

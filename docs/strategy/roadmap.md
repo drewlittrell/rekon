@@ -545,6 +545,56 @@ is the first stop before proposing a new capability batch.
   artifact type. No new capability role. No watcher /
   daemon. No new CLI subcommand. No LLM, semantic, fuzzy,
   or embedding matching.
+- Classic issue filtering parity v2 — content/result filter
+  expansion (P1.1 classic-content-result-filters v2 slice):
+  `Finding` gains an additive optional
+  `details?: Record<string, unknown>`.
+  `FindingFilterReason` extended with 17 classic-inspired
+  content reasons (stub/import family:
+  `empty-constructor-stub`,
+  `storage-retrieval-placeholder`, `client-safe-infra`,
+  `same-directory-import`, `svg-namespace-url`,
+  `client-env-node-env`; architecture family:
+  `speculative-anti-pattern`, `archetype-inference-note`,
+  `hardcoded-config-not-dde`,
+  `ui-http-provider-abstraction`,
+  `ui-hook-uses-http-not-db`; rule-id family:
+  `module-gate-verified-caller`,
+  `route-handler-with-service`,
+  `route-http-middleware-only`,
+  `external-api-comment-only`,
+  `factory-file-creates-deps`,
+  `nextjs-route-convention`) plus 4 result-filter reasons
+  (`below-min-confidence`, `below-min-severity`,
+  `outside-selected-system`, `configured-path-exclusion`).
+  New exports from `@rekon/kernel-findings`:
+  `applyFindingContentFilters({ finding })`,
+  `applyFindingResultFilters(finding, options)`,
+  `FindingContentFilterContext`,
+  `FindingContentFilterDecision`,
+  `FindingResultFilterOptions`,
+  `validateFindingResultFilterOptions`.
+  `applyFindingFilters` runs filters in priority order:
+  policy → classic content → built-in path → result.
+  `.rekon/config.json` accepts a new optional
+  `findingResultFilters` block (`minConfidence` /
+  `severity` / `systems` / `pathExcludes`) validated by
+  `rekon config validate`. `rekon findings filter` /
+  `rekon findings filter-health` / `rekon refresh` all
+  load and pass result filters through.
+  `FindingFilterHealthReport.summary` gains
+  `contentFiltered` / `resultFiltered` counts; two new
+  alerts `content-filter-high-volume` and
+  `result-filter-over-filtering`. Result-filtered findings
+  record `source: "system"` with full audit entry; raw
+  `FindingReport` is never mutated; operator status
+  decisions remain in `FindingStatusLedger`. 24 new
+  contract tests in
+  `tests/contract/finding-content-result-filters.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact type.
+  No new capability role. No new CLI subcommand or flag.
+  No LLM, semantic, fuzzy, or embedding matching. No
+  GraphOntologyValidator.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

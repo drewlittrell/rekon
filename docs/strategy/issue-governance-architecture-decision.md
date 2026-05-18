@@ -296,10 +296,49 @@ review packets unless an ADR promotes them. Promotion requires:
    `loadCurrentFindingFilterPolicies`. No artifact
    `schemaVersion` bump (additive optional field). No new
    artifact type. No watcher / daemon.
-9. **(future)** Merge-decision freshness guardrails,
-   `GraphOntologyValidator`-style filters, persistent
-   exclusion lists, and any further product-extension
-   expansion.
+9. **(shipped)** Classic issue filtering parity v2 —
+   content / result filter expansion. `FindingFilterReason`
+   union gains 17 classic-inspired content reasons
+   (`empty-constructor-stub`,
+   `storage-retrieval-placeholder`, `client-safe-infra`,
+   `same-directory-import`, `svg-namespace-url`,
+   `client-env-node-env`, `speculative-anti-pattern`,
+   `archetype-inference-note`, `hardcoded-config-not-dde`,
+   `ui-http-provider-abstraction`,
+   `ui-hook-uses-http-not-db`,
+   `module-gate-verified-caller`,
+   `route-handler-with-service`,
+   `route-http-middleware-only`,
+   `external-api-comment-only`,
+   `factory-file-creates-deps`,
+   `nextjs-route-convention`) plus 4 result-filter reasons
+   (`below-min-confidence`, `below-min-severity`,
+   `outside-selected-system`, `configured-path-exclusion`).
+   New exported helpers
+   `applyFindingContentFilters({ finding })` and
+   `applyFindingResultFilters(finding, options)` are pure
+   deterministic functions over a new additive optional
+   `Finding.details?: Record<string, unknown>`. New
+   exported `validateFindingResultFilterOptions` is wired
+   into `rekon config validate`. `applyFindingFilters` runs
+   filters in priority order: policy → classic content →
+   built-in path → result. Result-filtered findings record
+   `source: "system"` and a result-filter reason — they are
+   not silently deleted and are not operator status
+   decisions. New filter-health alerts
+   `content-filter-high-volume` and
+   `result-filter-over-filtering`; new summary counts
+   `contentFiltered` / `resultFiltered`. No artifact
+   `schemaVersion` bump; no new artifact type; no LLM /
+   semantic / fuzzy matching; `GraphOntologyValidator` port
+   still deferred.
+10. **(future)** Filter-health diagnostics v2 — richer
+    over-filtering / unused-policy / low-confidence / stale-
+    fingerprint alerts.
+11. **(future)** Merge-decision freshness guardrails,
+    `GraphOntologyValidator`-style filters, persistent
+    exclusion lists, and any further product-extension
+    expansion.
 
 ## Open Questions
 

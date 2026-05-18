@@ -737,6 +737,110 @@ scope:
   content filters and issue-result filters; still no
   GraphOntologyValidator or LLM) is the recommended next
   slice.
+- **Classic issue filtering parity v2 — content/result
+  filter expansion (P1.1 classic-content-result-filters v2
+  slice).** ✅ Shipped.
+  `Finding` gains an additive optional
+  `details?: Record<string, unknown>` so detectors can
+  surface structured detail (`stubName`, `stubReason`,
+  `imports`, `envVars`, `evidence`, `decisionConcerns`,
+  `decisionCapabilities`, `concernTag`, `owner.kind`,
+  `otherExports`, `minCapabilityConfidence`, `system`,
+  `ownerSystems`) for the classic-inspired filters to
+  match against. `FindingFilterReason` extended additively
+  with 17 classic-inspired content reasons:
+  - **Stub/import family (6):**
+    `empty-constructor-stub`,
+    `storage-retrieval-placeholder`,
+    `client-safe-infra`, `same-directory-import`,
+    `svg-namespace-url`, `client-env-node-env`.
+  - **Architecture family (5):**
+    `speculative-anti-pattern`,
+    `archetype-inference-note`,
+    `hardcoded-config-not-dde`,
+    `ui-http-provider-abstraction`,
+    `ui-hook-uses-http-not-db`.
+  - **Rule-id family (6):**
+    `module-gate-verified-caller`,
+    `route-handler-with-service`,
+    `route-http-middleware-only`,
+    `external-api-comment-only`,
+    `factory-file-creates-deps`,
+    `nextjs-route-convention`.
+  Plus 4 classic-inspired result-filter reasons:
+  `below-min-confidence`, `below-min-severity`,
+  `outside-selected-system`,
+  `configured-path-exclusion`. New exported helpers:
+  - `applyFindingContentFilters({ finding })` — pure
+    deterministic function returning the first matching
+    `{ reason, evidence, filePath, confidence }`.
+  - `applyFindingResultFilters(finding, options)` — pure
+    deterministic function over
+    `FindingResultFilterOptions`
+    (`minConfidence` / `severity` / `systems` /
+    `pathExcludes`).
+  - `validateFindingResultFilterOptions(value)` —
+    structural validator wired into `rekon config validate`.
+  Filter priority is fixed: `applyFindingFilters` runs
+  **policy → classic content → built-in path → result**.
+  The pipeline short-circuits on the first match. Every
+  filtered finding (including result-filtered) is recorded
+  with `source: "system"` (or `"policy"` for policy hits)
+  and stays in `FindingFilterReport.filteredFindings`. Raw
+  `FindingReport` is never mutated.
+  Operators add `findingResultFilters` to
+  `.rekon/config.json`:
+  ```json
+  {
+    "findingResultFilters": {
+      "minConfidence": 0.7,
+      "severity": "medium",
+      "systems": ["runtime", "src"],
+      "pathExcludes": ["fixtures/**"]
+    }
+  }
+  ```
+  `rekon config validate` enforces: `minConfidence` is a
+  number in `[0, 1]`; `severity` is one of `critical` /
+  `high` / `medium` / `low`; `systems` is an array of
+  non-empty strings; `pathExcludes` is an array of
+  project-relative glob patterns (absolute paths and `..`
+  traversal are rejected). The CLI loader is best-effort
+  (invalid entries are dropped at the loader boundary so a
+  malformed config doesn't blow up refresh —
+  `rekon config validate` is the full diagnostic).
+  `rekon findings filter` / `rekon findings filter-health`
+  / `rekon refresh` all load and pass result filters
+  through.
+  `FindingFilterHealthReport.summary` gains two additive
+  counts: `contentFiltered` (findings suppressed by a
+  classic content filter) and `resultFiltered` (findings
+  suppressed by a result filter). Two new alerts:
+  - **`content-filter-high-volume`** — one classic content
+    reason accounts for `>= 5` findings AND `> 50 %` of
+    total findings.
+  - **`result-filter-over-filtering`** — configured
+    `findingResultFilters` suppress more than 80 % of total
+    findings.
+  Result filters are explicitly NOT operator status
+  decisions: `accepted` / `ignored` / `resolved` remain in
+  `FindingStatusLedger` and are unaffected.
+  Tests: new
+  `tests/contract/finding-content-result-filters.test.mjs`
+  (24 tests). Full suite: 612 passed / 1 skipped / 0 failed.
+  Aligned to `services/IssueDetectionService.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/content-filter-stub-and-import.ts`,
+  `services/issues/content-filter-architecture.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/issue-result-filters.ts`. No new
+  artifact type. No artifact `schemaVersion` bump. No new
+  capability role. No new CLI subcommand or flag. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  GraphOntologyValidator. No version bump. No npm publish.
+  Filter-health diagnostics v2 (richer over-filtering /
+  unused-policy / low-confidence / stale-fingerprint
+  alerts) is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional
