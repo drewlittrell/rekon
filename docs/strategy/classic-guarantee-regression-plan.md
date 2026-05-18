@@ -635,6 +635,33 @@ Implementation batches:
   `FindingReport` is never mutated. Pinned by
   `tests/contract/finding-content-result-filters.test.mjs`
   (24 tests).
+- "Filter-health diagnostics v2" (shipped) —
+  `FindingFilterHealthReport.summary` gains additive
+  `builtInPathFiltered`, `filterRateByReason`,
+  `filterRateByPolicy`, `dominantReason`, `dominantPolicy`,
+  and `policyFingerprint`. Six new deterministic alerts:
+  `reason-over-filtering`, `policy-dominance`,
+  `content-filter-dominance`, `result-filter-dominance`,
+  `policy-fingerprint-missing`, `stale-policy-fingerprint`.
+  Dominance alerts: 50 % threshold with a 5-finding minimum
+  corpus and alphabetic tiebreak. New exported classifiers
+  `isPolicyFiltered` / `isResultFiltered` /
+  `isClassicContentFiltered` / `isBuiltInPathFiltered`
+  (policy takes precedence; the other three are mutually
+  exclusive over the remainder). `buildFindingFilterHealth`
+  / `createFindingFilterHealthReport` / runtime
+  `buildFindingFilterHealthReport` accept optional
+  `currentPolicyFingerprint`. `rekon findings filter-health`
+  + `rekon refresh` fingerprint current policies and forward
+  them so the report can emit stale / missing fingerprint
+  alerts locally. Architecture summary + agent contract
+  surface the new alert codes via their existing generic
+  Filter Health tables — no publication shape change.
+  Diagnostic only: filtering decisions are not affected; raw
+  `FindingReport` / `FindingFilterReport` /
+  `FindingFilterHealthReport` are not mutated. Pinned by
+  `tests/contract/finding-filter-health-diagnostics-v2.test.mjs`
+  (17 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

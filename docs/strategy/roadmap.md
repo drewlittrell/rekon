@@ -595,6 +595,52 @@ is the first stop before proposing a new capability batch.
   No new capability role. No new CLI subcommand or flag.
   No LLM, semantic, fuzzy, or embedding matching. No
   GraphOntologyValidator.
+- Filter-health diagnostics v2 (P1.1
+  filter-health-diagnostics v2 slice):
+  `FindingFilterHealthReport.summary` gains six additive
+  diagnostic fields:
+  - `builtInPathFiltered: number` — findings suppressed by
+    built-in path / content heuristics (sum of the four
+    bucket counts equals `totalFiltered`).
+  - `filterRateByReason: Record<string, number>` — per-reason
+    rate rounded to four decimals.
+  - `filterRateByPolicy?: Record<string, number>` —
+    per-policy rate (present when `byPolicy` is non-empty).
+  - `dominantReason?: { reason, count, rate }` /
+    `dominantPolicy?: { policyId, count, rate }` — dominant
+    reason / policy with alphabetic tiebreak.
+  - `policyFingerprint?: FindingFilterPolicyFingerprint` —
+    mirror of the upstream filter report's fingerprint.
+  Six new deterministic alerts: `reason-over-filtering`,
+  `policy-dominance`, `content-filter-dominance`,
+  `result-filter-dominance`, `policy-fingerprint-missing`,
+  `stale-policy-fingerprint`. Dominance alerts use a 50 %
+  threshold with a 5-finding minimum corpus.
+  New exported classifiers from `@rekon/kernel-findings`:
+  `isPolicyFiltered`, `isResultFiltered`,
+  `isClassicContentFiltered`, `isBuiltInPathFiltered`.
+  Policy takes precedence; the other three buckets are
+  mutually exclusive over the remainder.
+  `buildFindingFilterHealth` /
+  `createFindingFilterHealthReport` (kernel) and
+  `buildFindingFilterHealthReport` (runtime) accept an
+  optional
+  `currentPolicyFingerprint: FindingFilterPolicyFingerprint`.
+  `rekon findings filter-health` + `rekon refresh` fingerprint
+  the current `.rekon/config.json findingFilters` and
+  forward it; the filter-health CLI JSON also echoes
+  `currentPolicyFingerprint`. Architecture summary + agent
+  contract surface the new alert codes via their existing
+  generic Filter Health tables — no publication shape
+  change. Filtering decisions are not affected. Raw
+  `FindingReport` / `FindingFilterReport` /
+  `FindingFilterHealthReport` are not mutated. 17 new
+  contract tests in
+  `tests/contract/finding-filter-health-diagnostics-v2.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact type.
+  No new capability role. No new CLI subcommand or flag.
+  No LLM, semantic, fuzzy, or embedding matching. No
+  GraphOntologyValidator.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

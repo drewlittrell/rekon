@@ -330,14 +330,14 @@ can confirm what `rekon refresh` should next see in the
 
 ## Health Alerts
 
-`FindingFilterHealthReport.alerts` is deterministic; v2 ships
-seven alert codes:
+`FindingFilterHealthReport.alerts` is deterministic.
+Diagnostics v2 ships thirteen alert codes:
 
 - **`high-filter-rate`** — fires when `filterRate > 0.8`.
   Inspect which reasons dominate `byReason` — a 90 %+ filter
   rate usually means the evaluator is mis-targeting paths.
 - **`low-confidence-filtered`** — fires when any filtered
-  finding has confidence `low`.
+  finding has confidence `low`. Message includes the count.
 - **`policy-over-filtering`** — fires when configured
   `findingFilters` policies suppress more than 80 % of total
   findings (review for over-broad `pathPattern`s).
@@ -345,29 +345,89 @@ seven alert codes:
   policy with `confidence: "low"` suppressed at least one
   finding.
 - **`unused-policy-filter`** — fires when a configured policy
-  matched zero findings.
+  matched zero findings. Message lists the unused policy id(s).
 - **`content-filter-high-volume`** *(v2)* — fires when one
   classic-inspired content reason accounts for `>= 5`
-  findings AND `> 50 %` of total findings. Useful for
-  catching over-broad content rules.
+  findings AND `> 50 %` of total findings.
 - **`result-filter-over-filtering`** *(v2)* — fires when
   configured `findingResultFilters` suppress more than 80 %
-  of total findings. Useful for catching an over-aggressive
-  `minConfidence` / `severity` floor or an over-broad
-  `pathExcludes` pattern.
+  of total findings.
+- **`reason-over-filtering`** *(diagnostics v2)* — fires when
+  `totalFindings >= 5` AND the dominant reason's rate is
+  `>= 50 %`. Catches a single reason doing more than half the
+  suppression even when the overall filter rate is moderate.
+- **`policy-dominance`** *(diagnostics v2)* — fires when
+  `totalFindings >= 5` AND the dominant policy's rate is
+  `>= 50 %`. Same intent as `reason-over-filtering` but
+  applied to configured policies.
+- **`content-filter-dominance`** *(diagnostics v2)* — fires
+  when `totalFindings >= 5` AND the classic content filter
+  bucket accounts for `>= 50 %` of total findings.
+- **`result-filter-dominance`** *(diagnostics v2)* — fires
+  when `totalFindings >= 5` AND the result-filter bucket
+  accounts for `>= 50 %` of total findings.
+- **`policy-fingerprint-missing`** *(diagnostics v2)* — fires
+  when `policyFiltered > 0` AND the upstream
+  `FindingFilterReport` has no `policyFingerprint` (report
+  predates filter-policy-freshness v2). Rerun
+  `rekon refresh` to regenerate a fingerprinted report.
+- **`stale-policy-fingerprint`** *(diagnostics v2)* — fires
+  when the caller supplied `currentPolicyFingerprint` that
+  does not match `FindingFilterReport.policyFingerprint`.
+  Rerun `rekon refresh`. (Mirrors the freshness warning the
+  architecture summary / agent contract render.)
 
-`FindingFilterHealthReport.summary` additionally carries two
-new counts (always present):
+`FindingFilterHealthReport.summary` additionally carries
+counts and rates that downstream surfaces can render
+without re-deriving from the raw filter report:
 
-- **`contentFiltered`** — findings suppressed by a classic-
-  inspired content filter (`empty-constructor-stub`,
-  `route-handler-with-service`, etc.).
-- **`resultFiltered`** — findings suppressed by an operator-
-  configured result filter (`below-min-confidence` /
-  `below-min-severity` / `outside-selected-system` /
-  `configured-path-exclusion`).
+- **`contentFiltered`** *(v2)* — findings suppressed by a
+  classic-inspired content filter.
+- **`resultFiltered`** *(v2)* — findings suppressed by an
+  operator-configured result filter.
+- **`builtInPathFiltered`** *(diagnostics v2)* — findings
+  suppressed by built-in path / content heuristics. The four
+  counts (policy + content + result + built-in path) sum to
+  `totalFiltered`.
+- **`filterRateByReason`** *(diagnostics v2)* — per-reason
+  rate (`byReason[reason] / totalFindings`), rounded to four
+  decimals.
+- **`filterRateByPolicy`** *(diagnostics v2)* — per-policy
+  rate, present when `byPolicy` is non-empty.
+- **`dominantReason`** *(diagnostics v2)* —
+  `{ reason, count, rate }` for the reason that suppressed
+  the most findings (alphabetic tiebreak).
+- **`dominantPolicy`** *(diagnostics v2)* —
+  `{ policyId, count, rate }` for the policy that suppressed
+  the most findings (alphabetic tiebreak).
+- **`policyFingerprint`** *(diagnostics v2)* — mirror of the
+  upstream `FindingFilterReport.policyFingerprint`. Present
+  when the filter report carries one.
 
 The alert list is empty when filtering looks healthy.
+
+### Classification helpers
+
+Diagnostics v2 exports four pure deterministic classifiers
+that mirror the bucketing the health report performs:
+
+- `isPolicyFiltered(entry)` — `source === "policy"` or
+  `policyId` set.
+- `isResultFiltered(entry)` — non-policy entry whose reason
+  is in the result-filter set
+  (`below-min-confidence` / `below-min-severity` /
+  `outside-selected-system` / `configured-path-exclusion`).
+- `isClassicContentFiltered(entry)` — non-policy entry whose
+  reason is in the 17-case classic content set.
+- `isBuiltInPathFiltered(entry)` — non-policy entry whose
+  reason is in the built-in path / content set
+  (`generated-file`, `external-file`, `test-file`,
+  `canary-file`, `content-filter`, `explicit-exclusion`,
+  `policy-exception`, `other`).
+
+Policy always wins: a filtered entry whose `reason` happens
+to be `policy-exception` but whose `source === "policy"` is
+classified as **policy**, not built-in.
 
 ## What This Is Not
 

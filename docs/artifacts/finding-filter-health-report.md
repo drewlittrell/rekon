@@ -86,6 +86,48 @@ type FindingFilterHealthReport = {
      * `0` when no result filter fired. (v2)
      */
     resultFiltered: number;
+    /**
+     * Count of findings suppressed by a built-in path / content
+     * heuristic (`generated-file`, `external-file`, `test-file`,
+     * `canary-file`, `content-filter`, `explicit-exclusion`,
+     * `policy-exception`, `other`). Always present; `0` when no
+     * built-in path filter fired. Result + content + policy +
+     * built-in counts sum to `totalFiltered`. (diagnostics v2)
+     */
+    builtInPathFiltered: number;
+    /**
+     * Per-reason filter rate
+     * (`byReason[reason] / totalFindings`), rounded to four
+     * decimals. Always present; empty when no findings were
+     * filtered. (diagnostics v2)
+     */
+    filterRateByReason: Record<string, number>;
+    /**
+     * Per-policy filter rate
+     * (`byPolicy[id] / totalFindings`), rounded to four
+     * decimals. Present when `byPolicy` is non-empty.
+     * (diagnostics v2)
+     */
+    filterRateByPolicy?: Record<string, number>;
+    /**
+     * Reason that suppressed the most findings (alphabetic
+     * tiebreak). Present when at least one finding was filtered.
+     * (diagnostics v2)
+     */
+    dominantReason?: { reason: string; count: number; rate: number };
+    /**
+     * Policy id that suppressed the most findings (alphabetic
+     * tiebreak). Present when at least one policy filter fired.
+     * (diagnostics v2)
+     */
+    dominantPolicy?: { policyId: string; count: number; rate: number };
+    /**
+     * Mirror of `FindingFilterReport.policyFingerprint` when the
+     * upstream filter report carries one. Lets downstream
+     * surfaces inspect filter-policy health without re-reading
+     * the filter report directly. (diagnostics v2)
+     */
+    policyFingerprint?: FindingFilterPolicyFingerprint;
   };
   alerts: FindingFilterHealthAlert[];
 };
@@ -102,6 +144,18 @@ type FindingFilterHealthReport = {
 | `unused-policy-filter` | a configured policy matched zero findings | warning |
 | `content-filter-high-volume` *(v2)* | one classic-inspired content reason accounts for `>= 5` findings AND `> 50 %` of total findings | warning |
 | `result-filter-over-filtering` *(v2)* | configured `findingResultFilters` suppressed more than 80 % of total findings | warning |
+| `reason-over-filtering` *(diagnostics v2)* | `totalFindings >= 5` AND `dominantReason.rate >= 0.5` — one reason is doing more than half the suppression | warning |
+| `policy-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `dominantPolicy.rate >= 0.5` — one configured policy is doing more than half the suppression | warning |
+| `content-filter-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `contentFiltered / totalFindings >= 0.5` — classic content filters are dominating | warning |
+| `result-filter-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `resultFiltered / totalFindings >= 0.5` — operator-configured result filters are dominating | warning |
+| `policy-fingerprint-missing` *(diagnostics v2)* | `policyFiltered > 0` AND the upstream `FindingFilterReport` has no `policyFingerprint` (filter report predates filter-policy-freshness v2) | warning |
+| `stale-policy-fingerprint` *(diagnostics v2)* | caller supplied `currentPolicyFingerprint` that does not match `report.policyFingerprint` — operator changed config after the filter run | warning |
+
+The two new policy-fingerprint alerts mirror the freshness
+guardrails that the architecture summary / agent contract
+publishers already render. They surface here too so any
+non-publication consumer of `FindingFilterHealthReport` sees the
+same diagnostic.
 
 Alerts are sorted by `code` for stable output. The list is empty
 when filtering looks healthy.

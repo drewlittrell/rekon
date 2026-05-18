@@ -991,9 +991,16 @@ export async function main(argv: string[]): Promise<void> {
     await store.init();
     const policies = await loadFindingFilterPolicies(root);
     const resultFilters = await loadFindingResultFilters(root);
+    // Diagnostics v2: fingerprint the current policy set and
+    // forward it so the report can emit
+    // `stale-policy-fingerprint` / `policy-fingerprint-missing`
+    // alerts when the operator's `.rekon/config.json
+    // findingFilters` has drifted from the latest filter run.
+    const currentPolicyFingerprint = fingerprintFindingFilterPolicies(policies);
     const health = await buildFindingFilterHealthReport(store, {
       policies,
       resultFilters,
+      currentPolicyFingerprint,
     });
     const ref = await store.write(health, { category: "findings" });
 
@@ -1004,6 +1011,7 @@ export async function main(argv: string[]): Promise<void> {
         alerts: health.alerts,
         policyFilters: policies.length,
         resultFilters: resultFilters ?? null,
+        currentPolicyFingerprint,
       },
       json,
     );
@@ -2143,10 +2151,23 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   // latest filter report. Result filters ride through so the
   // `content-filter-high-volume` and `result-filter-over-filtering`
   // alerts can fire when the rebuild path runs.
+  //
+  // Diagnostics v2: fingerprint the current policy set so the
+  // report can emit `stale-policy-fingerprint` /
+  // `policy-fingerprint-missing` when the operator's
+  // `.rekon/config.json findingFilters` has drifted from the
+  // latest filter run. Within `rekon refresh` the upstream
+  // `findings.filter` step just rebuilt the filter report with
+  // the same policies, so the alert normally stays silent — but
+  // a partial refresh that skipped `findings.filter` or a
+  // pre-existing filter report from an older policy set would
+  // still surface here.
+  const refreshPolicyFingerprint = fingerprintFindingFilterPolicies(findingFilterPolicies);
   try {
     const health = await buildFindingFilterHealthReport(store, {
       policies: findingFilterPolicies,
       resultFilters: findingResultFilters,
+      currentPolicyFingerprint: refreshPolicyFingerprint,
     });
     const ref = await store.write(health, { category: "findings" });
     steps.push({

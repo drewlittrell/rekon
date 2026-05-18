@@ -2041,6 +2041,46 @@ export type FindingFilterHealthSummary = {
    * Always present; `0` when no result filter fired.
    */
   resultFiltered: number;
+  // ---------- Diagnostics v2 ----------
+  /**
+   * Count of findings suppressed by built-in path / content
+   * heuristics (`generated-file`, `external-file`, `test-file`,
+   * `canary-file`, `content-filter`, `explicit-exclusion`,
+   * `policy-exception`, `other`). Always present; `0` when no
+   * built-in path filter fired. Result + content + policy +
+   * built-in counts sum to `totalFiltered`.
+   */
+  builtInPathFiltered: number;
+  /**
+   * Per-reason filter rate (`byReason[reason] / totalFindings`),
+   * rounded to four decimals. Useful for downstream rendering
+   * (the architecture summary's Filter Reasons table can sort by
+   * rate). Always present; empty when no findings were filtered.
+   */
+  filterRateByReason: Record<string, number>;
+  /**
+   * Per-policy filter rate (`byPolicy[id] / totalFindings`),
+   * rounded to four decimals. Present when `byPolicy` is
+   * non-empty.
+   */
+  filterRateByPolicy?: Record<string, number>;
+  /**
+   * Reason that suppressed the most findings (alphabetic
+   * tiebreak). Present when at least one finding was filtered.
+   */
+  dominantReason?: { reason: string; count: number; rate: number };
+  /**
+   * Policy id that suppressed the most findings (alphabetic
+   * tiebreak). Present when at least one policy filter fired.
+   */
+  dominantPolicy?: { policyId: string; count: number; rate: number };
+  /**
+   * Mirror of `FindingFilterReport.policyFingerprint` (when the
+   * upstream filter report carries one). Lets downstream surfaces
+   * inspect filter-policy health without re-reading the filter
+   * report directly.
+   */
+  policyFingerprint?: FindingFilterPolicyFingerprint;
 };
 
 export type FindingFilterHealthReport = {
@@ -2066,6 +2106,19 @@ export function buildFindingFilterHealth(input: {
    * supplied set).
    */
   policies?: FindingFilterPolicyRule[];
+  /**
+   * Optional fingerprint of the **current**
+   * `.rekon/config.json findingFilters`. When supplied and
+   * non-matching against `filterReport.policyFingerprint`, the
+   * health report emits `stale-policy-fingerprint`. When the
+   * filter report has policy-filtered entries but no
+   * `policyFingerprint`, the health report emits
+   * `policy-fingerprint-missing`. Mirrors the freshness check
+   * that the capability-docs publishers perform, but kept
+   * report-local so non-publication consumers see the same
+   * diagnostic.
+   */
+  currentPolicyFingerprint?: FindingFilterPolicyFingerprint;
 }): { summary: FindingFilterHealthSummary; alerts: FindingFilterHealthAlert[] } {
   const report = input.filterReport;
   const threshold = input.highFilterRateThreshold ?? 0.8;
@@ -2078,18 +2131,16 @@ export function buildFindingFilterHealth(input: {
     (entry) => entry.confidence === "low",
   ).length;
 
-  const policyFiltered = report.filteredFindings.filter(
-    (entry) => entry.source === "policy",
-  ).length;
+  // Classification (diagnostics v2). Policy takes precedence;
+  // result / content / built-in are mutually exclusive over the
+  // remaining filtered entries.
+  const policyFiltered = report.filteredFindings.filter(isPolicyFiltered).length;
   const lowConfidencePolicyFiltered = report.filteredFindings.filter(
-    (entry) => entry.source === "policy" && entry.confidence === "low",
+    (entry) => isPolicyFiltered(entry) && entry.confidence === "low",
   ).length;
-  const contentFiltered = report.filteredFindings.filter((entry) =>
-    CLASSIC_CONTENT_FILTER_REASONS.has(entry.reason),
-  ).length;
-  const resultFiltered = report.filteredFindings.filter((entry) =>
-    RESULT_FILTER_REASONS.has(entry.reason),
-  ).length;
+  const contentFiltered = report.filteredFindings.filter(isClassicContentFiltered).length;
+  const resultFiltered = report.filteredFindings.filter(isResultFiltered).length;
+  const builtInPathFiltered = report.filteredFindings.filter(isBuiltInPathFiltered).length;
   const byPolicy = report.summary.byPolicy
     ? { ...report.summary.byPolicy }
     : undefined;
@@ -2111,6 +2162,58 @@ export function buildFindingFilterHealth(input: {
   }
   const unusedPolicies = [...unusedSet].sort((left, right) => left.localeCompare(right));
 
+  // Per-reason / per-policy filter rates (rounded to 4 dp).
+  const filterRateByReason: Record<string, number> = {};
+  for (const [reason, count] of Object.entries(report.summary.byReason)) {
+    filterRateByReason[reason] = totalFindings === 0
+      ? 0
+      : Math.round((count / totalFindings) * 10000) / 10000;
+  }
+  let filterRateByPolicy: Record<string, number> | undefined;
+  if (byPolicy && Object.keys(byPolicy).length > 0) {
+    filterRateByPolicy = {};
+    for (const [policyId, count] of Object.entries(byPolicy)) {
+      filterRateByPolicy[policyId] = totalFindings === 0
+        ? 0
+        : Math.round((count / totalFindings) * 10000) / 10000;
+    }
+  }
+
+  // Dominant reason / policy — deterministic alphabetic tiebreak
+  // so output stays stable.
+  let dominantReason: { reason: string; count: number; rate: number } | undefined;
+  const reasonEntries = Object.entries(report.summary.byReason)
+    .filter(([, count]) => count > 0)
+    .sort((left, right) => {
+      if (right[1] !== left[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0]);
+    });
+  if (reasonEntries.length > 0) {
+    const [reason, count] = reasonEntries[0]!;
+    dominantReason = {
+      reason,
+      count,
+      rate: filterRateByReason[reason] ?? 0,
+    };
+  }
+  let dominantPolicy: { policyId: string; count: number; rate: number } | undefined;
+  if (byPolicy && Object.keys(byPolicy).length > 0) {
+    const policyEntries = Object.entries(byPolicy)
+      .filter(([, count]) => count > 0)
+      .sort((left, right) => {
+        if (right[1] !== left[1]) return right[1] - left[1];
+        return left[0].localeCompare(right[0]);
+      });
+    if (policyEntries.length > 0) {
+      const [policyId, count] = policyEntries[0]!;
+      dominantPolicy = {
+        policyId,
+        count,
+        rate: (filterRateByPolicy ?? {})[policyId] ?? 0,
+      };
+    }
+  }
+
   const summary: FindingFilterHealthSummary = {
     totalFindings,
     totalFiltered: report.summary.totalFiltered,
@@ -2122,9 +2225,23 @@ export function buildFindingFilterHealth(input: {
     unusedPolicies,
     contentFiltered,
     resultFiltered,
+    builtInPathFiltered,
+    filterRateByReason,
   };
   if (byPolicy) {
     summary.byPolicy = byPolicy;
+  }
+  if (filterRateByPolicy) {
+    summary.filterRateByPolicy = filterRateByPolicy;
+  }
+  if (dominantReason) {
+    summary.dominantReason = dominantReason;
+  }
+  if (dominantPolicy) {
+    summary.dominantPolicy = dominantPolicy;
+  }
+  if (report.policyFingerprint) {
+    summary.policyFingerprint = report.policyFingerprint;
   }
 
   const alerts: FindingFilterHealthAlert[] = [];
@@ -2204,6 +2321,104 @@ export function buildFindingFilterHealth(input: {
     });
   }
 
+  // ---------- Diagnostics v2 alerts ----------
+  //
+  // Dominance thresholds are deliberately lower than the
+  // over-filtering thresholds above (0.5 vs. 0.8) and require a
+  // minimum corpus size (5 findings). They surface a different
+  // failure mode: one reason / category dominates the
+  // suppression even when the overall filter rate is moderate,
+  // which usually means a single rule or detector is doing the
+  // bulk of the work and deserves review.
+  const DOMINANCE_THRESHOLD = 0.5;
+  const DOMINANCE_MIN_CORPUS = 5;
+
+  if (
+    totalFindings >= DOMINANCE_MIN_CORPUS
+    && dominantReason
+    && dominantReason.rate >= DOMINANCE_THRESHOLD
+  ) {
+    alerts.push({
+      code: "reason-over-filtering",
+      severity: "warning",
+      message:
+        `Filter reason '${dominantReason.reason}' suppressed ${dominantReason.count} of ${totalFindings} findings (${(dominantReason.rate * 100).toFixed(1)}%). Inspect FindingFilterReport.filteredFindings before trusting active governance counts.`,
+    });
+  }
+
+  if (
+    totalFindings >= DOMINANCE_MIN_CORPUS
+    && dominantPolicy
+    && dominantPolicy.rate >= DOMINANCE_THRESHOLD
+  ) {
+    alerts.push({
+      code: "policy-dominance",
+      severity: "warning",
+      message:
+        `Configured policy '${dominantPolicy.policyId}' suppressed ${dominantPolicy.count} of ${totalFindings} findings (${(dominantPolicy.rate * 100).toFixed(1)}%). Review .rekon/config.json findingFilters for over-broad matchers.`,
+    });
+  }
+
+  if (
+    totalFindings >= DOMINANCE_MIN_CORPUS
+    && contentFiltered / totalFindings >= DOMINANCE_THRESHOLD
+  ) {
+    alerts.push({
+      code: "content-filter-dominance",
+      severity: "warning",
+      message:
+        `Classic content filters suppressed ${contentFiltered} of ${totalFindings} findings (${((contentFiltered / totalFindings) * 100).toFixed(1)}%). Inspect FindingFilterReport.filteredFindings before trusting active governance counts.`,
+    });
+  }
+
+  if (
+    totalFindings >= DOMINANCE_MIN_CORPUS
+    && resultFiltered / totalFindings >= DOMINANCE_THRESHOLD
+  ) {
+    alerts.push({
+      code: "result-filter-dominance",
+      severity: "warning",
+      message:
+        `Operator-configured result filters suppressed ${resultFiltered} of ${totalFindings} findings (${((resultFiltered / totalFindings) * 100).toFixed(1)}%). Review .rekon/config.json findingResultFilters for an over-aggressive floor or pattern.`,
+    });
+  }
+
+  // ---------- Policy fingerprint health (diagnostics v2) ----------
+  //
+  // Two cases:
+  //
+  //   - policy-fingerprint-missing — the upstream filter report
+  //     has policy-filtered entries but no `policyFingerprint`.
+  //     This means the report predates filter-policy-freshness v2;
+  //     downstream surfaces (architecture summary / agent
+  //     contract) treat it as `status: "unknown"`. Surface here
+  //     too so operators reading raw filter-health output see
+  //     the same diagnostic.
+  //   - stale-policy-fingerprint — the caller supplied a current
+  //     fingerprint that does not match the report's. The
+  //     operator changed `.rekon/config.json findingFilters`
+  //     after the latest filter run; rerun `rekon refresh`.
+  if (policyFiltered > 0 && !report.policyFingerprint) {
+    alerts.push({
+      code: "policy-fingerprint-missing",
+      severity: "warning",
+      message:
+        "FindingFilterReport has policy-filtered entries but no policyFingerprint; rerun `rekon refresh` to regenerate a fingerprinted report.",
+    });
+  }
+  if (
+    input.currentPolicyFingerprint
+    && report.policyFingerprint
+    && input.currentPolicyFingerprint.digest !== report.policyFingerprint.digest
+  ) {
+    alerts.push({
+      code: "stale-policy-fingerprint",
+      severity: "warning",
+      message:
+        ".rekon/config.json findingFilters changed after the latest FindingFilterReport was produced; rerun `rekon refresh` to rebuild the filter chain with the current policy set.",
+    });
+  }
+
   alerts.sort((left, right) => left.code.localeCompare(right.code));
   return { summary, alerts };
 }
@@ -2239,16 +2454,75 @@ const RESULT_FILTER_REASONS = new Set<FindingFilterReason>([
   "configured-path-exclusion",
 ]);
 
+// Built-in path / content reasons (v1 path heuristics + the
+// `explicit-exclusion` / `policy-exception` reasons that pre-date
+// the policy `source` field). Used by `isBuiltInPathFiltered`
+// when classifying a filtered finding into one of four buckets
+// (policy / content / result / built-in-path).
+const BUILT_IN_PATH_FILTER_REASONS = new Set<FindingFilterReason>([
+  "generated-file",
+  "external-file",
+  "test-file",
+  "canary-file",
+  "content-filter",
+  "explicit-exclusion",
+  "policy-exception",
+  "other",
+]);
+
+// ---------- Filter classification helpers (diagnostics v2) ----------
+//
+// Deterministic classifiers over a `FilteredFinding` entry.
+// Used by `buildFindingFilterHealth` to compute per-category
+// counts (`policyFiltered` / `contentFiltered` / `resultFiltered` /
+// `builtInPathFiltered`) and by downstream surfaces / tests that
+// want the same classification logic.
+//
+// Policy takes precedence: any filtered entry with
+// `source === "policy"` (or a `policyId`) is policy-filtered,
+// regardless of its `reason`. The remaining buckets are mutually
+// exclusive based on the reason set.
+
+export function isPolicyFiltered(entry: FilteredFinding): boolean {
+  return entry.source === "policy" || (typeof entry.policyId === "string" && entry.policyId.length > 0);
+}
+
+export function isResultFiltered(entry: FilteredFinding): boolean {
+  if (isPolicyFiltered(entry)) return false;
+  return RESULT_FILTER_REASONS.has(entry.reason);
+}
+
+export function isClassicContentFiltered(entry: FilteredFinding): boolean {
+  if (isPolicyFiltered(entry)) return false;
+  return CLASSIC_CONTENT_FILTER_REASONS.has(entry.reason);
+}
+
+export function isBuiltInPathFiltered(entry: FilteredFinding): boolean {
+  if (isPolicyFiltered(entry)) return false;
+  if (RESULT_FILTER_REASONS.has(entry.reason)) return false;
+  if (CLASSIC_CONTENT_FILTER_REASONS.has(entry.reason)) return false;
+  return BUILT_IN_PATH_FILTER_REASONS.has(entry.reason);
+}
+
 export function createFindingFilterHealthReport(input: {
   header: ArtifactHeader;
   filterReport: FindingFilterReport;
   highFilterRateThreshold?: number;
   policies?: FindingFilterPolicyRule[];
+  /**
+   * Optional current `.rekon/config.json findingFilters`
+   * fingerprint; forwarded to `buildFindingFilterHealth` so the
+   * report can emit `stale-policy-fingerprint` /
+   * `policy-fingerprint-missing` alerts. Diagnostic-only — no
+   * filtering decisions are changed.
+   */
+  currentPolicyFingerprint?: FindingFilterPolicyFingerprint;
 }): FindingFilterHealthReport {
   const built = buildFindingFilterHealth({
     filterReport: input.filterReport,
     highFilterRateThreshold: input.highFilterRateThreshold,
     policies: input.policies,
+    currentPolicyFingerprint: input.currentPolicyFingerprint,
   });
   return assertFindingFilterHealthReport({
     header: input.header,

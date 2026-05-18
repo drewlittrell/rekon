@@ -332,10 +332,41 @@ review packets unless an ADR promotes them. Promotion requires:
    `schemaVersion` bump; no new artifact type; no LLM /
    semantic / fuzzy matching; `GraphOntologyValidator` port
    still deferred.
-10. **(future)** Filter-health diagnostics v2 — richer
-    over-filtering / unused-policy / low-confidence / stale-
-    fingerprint alerts.
-11. **(future)** Merge-decision freshness guardrails,
+10. **(shipped)** Filter-health diagnostics v2.
+    `FindingFilterHealthReport.summary` gains
+    `builtInPathFiltered`, `filterRateByReason`,
+    `filterRateByPolicy`, `dominantReason`, `dominantPolicy`,
+    and `policyFingerprint` (additive). Six new deterministic
+    alerts: `reason-over-filtering`, `policy-dominance`,
+    `content-filter-dominance`, `result-filter-dominance`,
+    `policy-fingerprint-missing`, `stale-policy-fingerprint`.
+    Dominance alerts use a 50 % threshold with a 5-finding
+    minimum corpus and an alphabetic tiebreak. New exported
+    classifiers: `isPolicyFiltered`, `isResultFiltered`,
+    `isClassicContentFiltered`, `isBuiltInPathFiltered` —
+    policy takes precedence; the other three buckets are
+    mutually exclusive over the remainder.
+    `buildFindingFilterHealth` / `createFindingFilterHealthReport`
+    / `buildFindingFilterHealthReport` (runtime) gain an
+    optional `currentPolicyFingerprint:
+    FindingFilterPolicyFingerprint`. `rekon findings
+    filter-health` and `rekon refresh` fingerprint the current
+    `.rekon/config.json findingFilters` (via the existing
+    `loadFindingFilterPolicies` + `fingerprintFindingFilterPolicies`)
+    and forward it so the report can emit
+    `stale-policy-fingerprint` / `policy-fingerprint-missing`
+    locally. Architecture summary + agent contract render the
+    new alert codes automatically via their existing generic
+    Filter Health tables — no publication shape change.
+    Filtering decisions are not affected. Raw
+    `FindingReport` / `FindingFilterReport` /
+    `FindingFilterHealthReport` are not mutated. No
+    `schemaVersion` bump.
+11. **(future)** Filter policy operator workflow polish —
+    list active policies with usage counts, surface unused /
+    stale / low-confidence policy warnings, optional
+    `rekon findings filter-policy status`.
+12. **(future)** Merge-decision freshness guardrails,
     `GraphOntologyValidator`-style filters, persistent
     exclusion lists, and any further product-extension
     expansion.

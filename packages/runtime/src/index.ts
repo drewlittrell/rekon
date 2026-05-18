@@ -22,6 +22,7 @@ import {
   type EffectiveFinding,
   type Finding,
   type FindingFilterHealthReport,
+  type FindingFilterPolicyFingerprint,
   type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestionReport,
   type FindingFilterReport,
@@ -904,6 +905,16 @@ export type BuildFindingFilterHealthReportOptions = {
    * disk reflects the result filters it was built with.
    */
   resultFilters?: FindingResultFilterOptions;
+  /**
+   * Optional fingerprint of the current
+   * `.rekon/config.json findingFilters`. Forwarded to
+   * `createFindingFilterHealthReport` so the report emits
+   * `stale-policy-fingerprint` /
+   * `policy-fingerprint-missing` alerts when the current
+   * policy set has drifted from the report's. Diagnostic-only
+   * — does not change filtering behavior.
+   */
+  currentPolicyFingerprint?: FindingFilterPolicyFingerprint;
 };
 
 export async function buildFindingFilterHealthReport(
@@ -969,6 +980,7 @@ export async function buildFindingFilterHealthReport(
     filterReport,
     highFilterRateThreshold: options.highFilterRateThreshold,
     policies: options.policies,
+    currentPolicyFingerprint: options.currentPolicyFingerprint,
   });
 }
 

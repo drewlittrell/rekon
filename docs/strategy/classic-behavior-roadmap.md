@@ -841,6 +841,119 @@ scope:
   Filter-health diagnostics v2 (richer over-filtering /
   unused-policy / low-confidence / stale-fingerprint
   alerts) is the recommended next slice.
+- **Filter-health diagnostics v2 (P1.1
+  filter-health-diagnostics v2 slice).** ✅ Shipped.
+  `FindingFilterHealthReport.summary` gains six additive
+  diagnostic fields:
+  - `builtInPathFiltered: number` — findings suppressed by
+    built-in path / content heuristics
+    (`generated-file` / `external-file` / `test-file` /
+    `canary-file` / `content-filter` / `explicit-exclusion` /
+    `policy-exception` / `other`). Combined with the
+    pre-existing `policyFiltered` / `contentFiltered` /
+    `resultFiltered` counts, all four buckets sum to
+    `totalFiltered`.
+  - `filterRateByReason: Record<string, number>` — per-reason
+    rate (`byReason[reason] / totalFindings`), rounded to
+    four decimals. Always present; empty when nothing was
+    filtered.
+  - `filterRateByPolicy?: Record<string, number>` —
+    per-policy rate. Present when `byPolicy` is non-empty.
+  - `dominantReason?: { reason, count, rate }` — the reason
+    that suppressed the most findings (alphabetic tiebreak).
+  - `dominantPolicy?: { policyId, count, rate }` — the
+    configured policy id that suppressed the most findings
+    (alphabetic tiebreak).
+  - `policyFingerprint?: FindingFilterPolicyFingerprint` —
+    mirror of the upstream
+    `FindingFilterReport.policyFingerprint` so health
+    consumers don't have to re-read the filter report.
+  Six new deterministic alerts:
+  - **`reason-over-filtering`** — `totalFindings >= 5` AND
+    `dominantReason.rate >= 0.5`. One reason is doing more
+    than half the suppression even when the overall filter
+    rate is moderate.
+  - **`policy-dominance`** — `totalFindings >= 5` AND
+    `dominantPolicy.rate >= 0.5`. Same intent as
+    `reason-over-filtering` but applied to configured
+    policies.
+  - **`content-filter-dominance`** — `totalFindings >= 5`
+    AND `contentFiltered / totalFindings >= 0.5`. Classic
+    content filters are dominating.
+  - **`result-filter-dominance`** — `totalFindings >= 5`
+    AND `resultFiltered / totalFindings >= 0.5`. Operator-
+    configured result filters are dominating.
+  - **`policy-fingerprint-missing`** — `policyFiltered > 0`
+    AND the upstream `FindingFilterReport` has no
+    `policyFingerprint` (report predates
+    filter-policy-freshness v2). Mirrors the freshness
+    publisher warning.
+  - **`stale-policy-fingerprint`** — caller supplied
+    `currentPolicyFingerprint` that does not match
+    `report.policyFingerprint`. Operator changed
+    `.rekon/config.json findingFilters` after the latest
+    filter run. Mirrors the freshness publisher warning.
+  Dominance thresholds are deliberately lower than the
+  over-filtering thresholds (0.5 vs. 0.8) and require a
+  minimum corpus size (5 findings) — they surface a
+  different failure mode: one rule / category dominating
+  even when the overall filter rate is moderate.
+  Existing alerts retained:
+  `high-filter-rate`, `low-confidence-filtered` (count in
+  message), `policy-over-filtering`,
+  `low-confidence-policy-filter`, `unused-policy-filter`
+  (policy ids in message), `content-filter-high-volume`,
+  `result-filter-over-filtering`. Total alert codes: 13.
+  Sorted by code for deterministic output.
+  New exported classifiers in `@rekon/kernel-findings`:
+  - `isPolicyFiltered(entry)` — `source === "policy"` or
+    `policyId` set.
+  - `isResultFiltered(entry)` — non-policy entry whose
+    reason is in the 4-case result-filter set.
+  - `isClassicContentFiltered(entry)` — non-policy entry
+    whose reason is in the 17-case classic content set.
+  - `isBuiltInPathFiltered(entry)` — non-policy entry whose
+    reason is in the 8-case built-in path set.
+  Policy takes precedence; the other three buckets are
+  mutually exclusive over the remainder.
+  Plumbing: `buildFindingFilterHealth` /
+  `createFindingFilterHealthReport` /
+  `buildFindingFilterHealthReport` (runtime) accept an
+  optional
+  `currentPolicyFingerprint: FindingFilterPolicyFingerprint`.
+  `rekon findings filter-health` and `rekon refresh`
+  fingerprint the current `.rekon/config.json findingFilters`
+  via the existing `loadFindingFilterPolicies` +
+  `fingerprintFindingFilterPolicies` and forward it. The
+  CLI JSON output for `rekon findings filter-health` also
+  echoes `currentPolicyFingerprint` so operators can
+  confirm what was loaded.
+  Publication impact: no shape change. The architecture
+  summary and agent contract render
+  `FindingFilterHealthReport.alerts` generically (code +
+  message), so the six new alert codes surface
+  automatically in the existing Filter Health table /
+  subsection. The test suite asserts this end-to-end.
+  Filtering decisions are not affected. Raw
+  `FindingReport` / `FindingFilterReport` /
+  `FindingFilterHealthReport` are not mutated.
+  Tests: new
+  `tests/contract/finding-filter-health-diagnostics-v2.test.mjs`
+  (17 tests; 13 pure-helper + 4 end-to-end). Full suite:
+  629 passed / 1 skipped / 0 failed.
+  Aligned to `services/issues/filter-health.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/report-persistence.ts`. No artifact
+  `schemaVersion` bump (additive optional fields). No new
+  artifact type. No new capability role. No new CLI
+  subcommand or flag. No LLM, semantic, fuzzy, or
+  embedding matching. No GraphOntologyValidator. No
+  version bump. No npm publish.
+  Filter policy operator workflow polish (list active
+  policies with usage counts; unused / stale /
+  low-confidence policy warnings; optional
+  `rekon findings filter-policy status`) is the
+  recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional
