@@ -119,7 +119,10 @@ relied on.
 Every graph-aware match becomes a `FilteredFinding` with:
 
 - `source: "system"`,
-- a reason from the existing v2 content set (no new codes),
+- a reason from the graph-aware set (these reason codes are
+  shared with the v2 classic content filter; see "Filter
+  Health Bucketing" below for how filter-health distinguishes
+  the two),
 - a deterministic `evidence` string naming the structural
   signal (sibling file path, infra-only imports,
   EvidenceGraph import facts, capability id, ObservedSystem
@@ -131,6 +134,58 @@ Every graph-aware match becomes a `FilteredFinding` with:
 
 Raw `FindingReport` is never mutated. Filtered findings
 remain inspectable in `FindingFilterReport.filteredFindings`.
+
+## Filter Health Bucketing
+
+`FindingFilterHealthReport.summary` keeps each pipeline
+stage in its own mutually-exclusive bucket. Graph-aware
+matches are counted in `graphAwareFiltered`, not in
+`contentFiltered` — even though both stages can emit the
+same five reason codes (`route-handler-with-service`,
+`route-http-middleware-only`, `external-api-comment-only`,
+`factory-file-creates-deps`, `module-gate-verified-caller`).
+Filter-health classifies each entry by inspecting its
+`source` and reason:
+
+1. `policyFiltered` — `source === "policy"` (or `policyId`
+   is set). Takes precedence so an operator who pins a
+   policy to a graph-aware reason code still sees their
+   policy attribution.
+2. `graphAwareFiltered` — non-policy entry whose reason is
+   one of the five graph-aware codes.
+3. `contentFiltered` — non-policy entry whose reason is one
+   of the remaining 12 classic content reasons.
+4. `resultFiltered` — `source === "result-filter"`.
+5. `builtInPathFiltered` — the broad path / heuristic codes.
+
+Counts always sum to `totalFiltered`. The summary also
+includes:
+
+- `byGraphAwareReason` — per-reason count computed only over
+  entries that pass `isGraphAwareFiltered` (so policy
+  entries sharing a reason code do not inflate the table).
+- `filterRateByGraphAwareReason` — rates rounded to four
+  decimals.
+- `dominantGraphAwareReason` — `{ reason, count, rate }` with
+  alphabetic tiebreak.
+
+Two alerts surface when graph-aware filtering looks
+suspicious (both gated on `totalFindings >= 5`):
+
+- `graph-aware-filter-dominance` — graph-aware bucket
+  consumes >= 50 % of all findings.
+- `graph-aware-reason-dominance` — one graph-aware reason
+  consumes >= 50 % of all findings.
+
+Architecture summary and agent contract publications render
+a `Graph-Aware Filter Reasons` table sourced from
+`byGraphAwareReason` plus an audit pointer that tells the
+operator (and any agent reading the contract) to inspect
+`FindingFilterReport.filteredFindings` when the count is
+non-zero. The agent contract also carries a "Do Not Do"
+entry reminding agents that graph-aware filtering is
+structural evidence, not proof that the underlying issue
+never existed.
 
 ## What This Is Not
 

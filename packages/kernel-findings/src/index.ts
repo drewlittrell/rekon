@@ -2089,7 +2089,7 @@ export type FindingFilterHealthSummary = {
    * `canary-file`, `content-filter`, `explicit-exclusion`,
    * `policy-exception`, `other`). Always present; `0` when no
    * built-in path filter fired. Result + content + policy +
-   * built-in counts sum to `totalFiltered`.
+   * graph-aware + built-in counts sum to `totalFiltered`.
    */
   builtInPathFiltered: number;
   /**
@@ -2122,6 +2122,40 @@ export type FindingFilterHealthSummary = {
    * report directly.
    */
   policyFingerprint?: FindingFilterPolicyFingerprint;
+  // ---------- Graph-aware surfacing v1 ----------
+  /**
+   * Count of findings suppressed by the graph-aware classifier
+   * (`route-handler-with-service`,
+   * `route-http-middleware-only`, `external-api-comment-only`,
+   * `factory-file-creates-deps`,
+   * `module-gate-verified-caller`). Always present; `0` when
+   * nothing graph-aware fired. The five bucket counts
+   * (`policyFiltered` + `graphAwareFiltered` +
+   * `contentFiltered` + `resultFiltered` +
+   * `builtInPathFiltered`) sum to `totalFiltered`. v1.
+   */
+  graphAwareFiltered: number;
+  /**
+   * Per-graph-aware-reason count, computed only over entries
+   * that classified as graph-aware (so a policy-filtered entry
+   * that happens to share a reason code does not inflate the
+   * count). Always present; empty when nothing graph-aware
+   * fired. v1.
+   */
+  byGraphAwareReason: Record<string, number>;
+  /**
+   * Per-graph-aware-reason filter rate
+   * (`byGraphAwareReason[reason] / totalFindings`), rounded to
+   * four decimals. Always present; empty when no graph-aware
+   * filter fired. v1.
+   */
+  filterRateByGraphAwareReason: Record<string, number>;
+  /**
+   * Graph-aware reason that suppressed the most findings
+   * (alphabetic tiebreak). Present when at least one
+   * graph-aware filter fired. v1.
+   */
+  dominantGraphAwareReason?: { reason: string; count: number; rate: number };
 };
 
 export type FindingFilterHealthReport = {
@@ -2172,13 +2206,15 @@ export function buildFindingFilterHealth(input: {
     (entry) => entry.confidence === "low",
   ).length;
 
-  // Classification (diagnostics v2). Policy takes precedence;
-  // result / content / built-in are mutually exclusive over the
-  // remaining filtered entries.
+  // Classification (diagnostics v2 + graph-aware surfacing v1).
+  // Policy takes precedence; graph-aware / result / content /
+  // built-in are mutually exclusive over the remaining filtered
+  // entries.
   const policyFiltered = report.filteredFindings.filter(isPolicyFiltered).length;
   const lowConfidencePolicyFiltered = report.filteredFindings.filter(
     (entry) => isPolicyFiltered(entry) && entry.confidence === "low",
   ).length;
+  const graphAwareFiltered = report.filteredFindings.filter(isGraphAwareFiltered).length;
   const contentFiltered = report.filteredFindings.filter(isClassicContentFiltered).length;
   const resultFiltered = report.filteredFindings.filter(isResultFiltered).length;
   const builtInPathFiltered = report.filteredFindings.filter(isBuiltInPathFiltered).length;
@@ -2255,6 +2291,39 @@ export function buildFindingFilterHealth(input: {
     }
   }
 
+  // Graph-aware sub-buckets. Compute only over the
+  // filteredFindings that classified as graph-aware so
+  // dominant-graph-aware-reason isn't biased by overlapping
+  // content-bucket entries that happen to share a reason code.
+  const graphAwareEntries = report.filteredFindings.filter(isGraphAwareFiltered);
+  const graphAwareByReason: Record<string, number> = {};
+  for (const entry of graphAwareEntries) {
+    graphAwareByReason[entry.reason] = (graphAwareByReason[entry.reason] ?? 0) + 1;
+  }
+  const filterRateByGraphAwareReason: Record<string, number> = {};
+  for (const [reason, count] of Object.entries(graphAwareByReason)) {
+    filterRateByGraphAwareReason[reason] = totalFindings === 0
+      ? 0
+      : Math.round((count / totalFindings) * 10000) / 10000;
+  }
+  let dominantGraphAwareReason:
+    | { reason: string; count: number; rate: number }
+    | undefined;
+  const graphAwareReasonEntries = Object.entries(graphAwareByReason)
+    .filter(([, count]) => count > 0)
+    .sort((left, right) => {
+      if (right[1] !== left[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0]);
+    });
+  if (graphAwareReasonEntries.length > 0) {
+    const [reason, count] = graphAwareReasonEntries[0]!;
+    dominantGraphAwareReason = {
+      reason,
+      count,
+      rate: filterRateByGraphAwareReason[reason] ?? 0,
+    };
+  }
+
   const summary: FindingFilterHealthSummary = {
     totalFindings,
     totalFiltered: report.summary.totalFiltered,
@@ -2268,6 +2337,9 @@ export function buildFindingFilterHealth(input: {
     resultFiltered,
     builtInPathFiltered,
     filterRateByReason,
+    graphAwareFiltered,
+    byGraphAwareReason: { ...graphAwareByReason },
+    filterRateByGraphAwareReason,
   };
   if (byPolicy) {
     summary.byPolicy = byPolicy;
@@ -2280,6 +2352,9 @@ export function buildFindingFilterHealth(input: {
   }
   if (dominantPolicy) {
     summary.dominantPolicy = dominantPolicy;
+  }
+  if (dominantGraphAwareReason) {
+    summary.dominantGraphAwareReason = dominantGraphAwareReason;
   }
   if (report.policyFingerprint) {
     summary.policyFingerprint = report.policyFingerprint;
@@ -2424,6 +2499,35 @@ export function buildFindingFilterHealth(input: {
     });
   }
 
+  // ---------- Graph-aware surfacing v1 alerts ----------
+  //
+  // Mirror the content / result dominance gates so operators see
+  // structural suppression separately from detector-`details`
+  // matches. Same 50 % threshold + 5-finding minimum corpus.
+  if (
+    totalFindings >= DOMINANCE_MIN_CORPUS
+    && graphAwareFiltered / totalFindings >= DOMINANCE_THRESHOLD
+  ) {
+    alerts.push({
+      code: "graph-aware-filter-dominance",
+      severity: "warning",
+      message:
+        `Graph-aware (structural) filters suppressed ${graphAwareFiltered} of ${totalFindings} findings (${((graphAwareFiltered / totalFindings) * 100).toFixed(1)}%). Inspect FindingFilterReport.filteredFindings for structural evidence before trusting active governance counts.`,
+    });
+  }
+  if (
+    totalFindings >= DOMINANCE_MIN_CORPUS
+    && dominantGraphAwareReason
+    && dominantGraphAwareReason.rate >= DOMINANCE_THRESHOLD
+  ) {
+    alerts.push({
+      code: "graph-aware-reason-dominance",
+      severity: "warning",
+      message:
+        `Graph-aware reason '${dominantGraphAwareReason.reason}' suppressed ${dominantGraphAwareReason.count} of ${totalFindings} findings (${(dominantGraphAwareReason.rate * 100).toFixed(1)}%). Review FindingFilterReport.filteredFindings before relying on active governance counts.`,
+    });
+  }
+
   // ---------- Policy fingerprint health (diagnostics v2) ----------
   //
   // Two cases:
@@ -2465,9 +2569,31 @@ export function buildFindingFilterHealth(input: {
 }
 
 // Buckets reused by `buildFindingFilterHealth` to count content
-// vs. result suppression independently of byPolicy and to gate the
-// new `content-filter-high-volume` / `result-filter-over-filtering`
-// alerts.
+// vs. graph-aware vs. result suppression independently of
+// byPolicy and to gate the over-filtering / dominance alerts.
+//
+// The graph-aware bucket lives in a separate set so its counts
+// don't inflate `contentFiltered`. Pre-graph-aware-surfacing v1
+// the graph-aware reasons lived inside
+// `CLASSIC_CONTENT_FILTER_REASONS` because the v2 classic content
+// filter still emits the same reason codes. From the filter-
+// health perspective, what matters is the *kind of evidence* a
+// reason represents: a structural / artifact-backed match
+// (graph-aware) versus a detector-`details`-only match (content).
+// The five reasons listed in `GRAPH_AWARE_FILTER_REASONS` are
+// inherently structural — they describe sibling-file existence,
+// import-graph resolution, capability ownership, and module-
+// kind routing — so we bucket them under graph-aware regardless
+// of which physical layer (v2 content or v1 graph-aware) fired
+// the match.
+const GRAPH_AWARE_FILTER_REASONS = new Set<FindingFilterReason>([
+  "route-handler-with-service",
+  "route-http-middleware-only",
+  "external-api-comment-only",
+  "factory-file-creates-deps",
+  "module-gate-verified-caller",
+]);
+
 const CLASSIC_CONTENT_FILTER_REASONS = new Set<FindingFilterReason>([
   "empty-constructor-stub",
   "storage-retrieval-placeholder",
@@ -2480,11 +2606,6 @@ const CLASSIC_CONTENT_FILTER_REASONS = new Set<FindingFilterReason>([
   "hardcoded-config-not-dde",
   "ui-http-provider-abstraction",
   "ui-hook-uses-http-not-db",
-  "module-gate-verified-caller",
-  "route-handler-with-service",
-  "route-http-middleware-only",
-  "external-api-comment-only",
-  "factory-file-creates-deps",
   "nextjs-route-convention",
 ]);
 
@@ -2498,8 +2619,8 @@ const RESULT_FILTER_REASONS = new Set<FindingFilterReason>([
 // Built-in path / content reasons (v1 path heuristics + the
 // `explicit-exclusion` / `policy-exception` reasons that pre-date
 // the policy `source` field). Used by `isBuiltInPathFiltered`
-// when classifying a filtered finding into one of four buckets
-// (policy / content / result / built-in-path).
+// when classifying a filtered finding into one of five buckets
+// (policy / graph-aware / content / result / built-in-path).
 const BUILT_IN_PATH_FILTER_REASONS = new Set<FindingFilterReason>([
   "generated-file",
   "external-file",
@@ -2533,6 +2654,20 @@ export function isResultFiltered(entry: FilteredFinding): boolean {
   return RESULT_FILTER_REASONS.has(entry.reason);
 }
 
+/**
+ * Graph-aware classification. The five v1 graph-aware reasons
+ * are inherently structural (sibling-file existence, import
+ * facts, capability ownership, module-kind routing). Bucket
+ * them separately from the classic content filters so
+ * filter-health diagnostics can disclose structural
+ * suppression vs. detector-`details`-only suppression.
+ * Policy always wins.
+ */
+export function isGraphAwareFiltered(entry: FilteredFinding): boolean {
+  if (isPolicyFiltered(entry)) return false;
+  return GRAPH_AWARE_FILTER_REASONS.has(entry.reason);
+}
+
 export function isClassicContentFiltered(entry: FilteredFinding): boolean {
   if (isPolicyFiltered(entry)) return false;
   return CLASSIC_CONTENT_FILTER_REASONS.has(entry.reason);
@@ -2541,6 +2676,7 @@ export function isClassicContentFiltered(entry: FilteredFinding): boolean {
 export function isBuiltInPathFiltered(entry: FilteredFinding): boolean {
   if (isPolicyFiltered(entry)) return false;
   if (RESULT_FILTER_REASONS.has(entry.reason)) return false;
+  if (GRAPH_AWARE_FILTER_REASONS.has(entry.reason)) return false;
   if (CLASSIC_CONTENT_FILTER_REASONS.has(entry.reason)) return false;
   return BUILT_IN_PATH_FILTER_REASONS.has(entry.reason);
 }

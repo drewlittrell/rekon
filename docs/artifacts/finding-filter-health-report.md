@@ -82,9 +82,22 @@ type FindingFilterHealthReport = {
      * Count of findings suppressed by a classic-inspired
      * content filter (see "Classic Content Filters" in
      * `docs/concepts/finding-filters.md`). Always present;
-     * `0` when no content filter fired. (v2)
+     * `0` when no content filter fired. Graph-aware reasons
+     * have been split into their own bucket (see
+     * `graphAwareFiltered`). (v2)
      */
     contentFiltered: number;
+    /**
+     * Count of findings suppressed by the graph-aware finding
+     * filter provider (see
+     * `docs/concepts/graph-aware-finding-filters.md`). Always
+     * present; `0` when no graph-aware filter fired. Policy
+     * filters take precedence — an entry with `source:
+     * "policy"` is counted in `policyFiltered`, never here,
+     * even if its reason code is graph-aware.
+     * (graph-aware-filter-health-publications v1)
+     */
+    graphAwareFiltered: number;
     /**
      * Count of findings suppressed by an operator-configured
      * result filter (`findingResultFilters`). Always present;
@@ -96,8 +109,9 @@ type FindingFilterHealthReport = {
      * heuristic (`generated-file`, `external-file`, `test-file`,
      * `canary-file`, `content-filter`, `explicit-exclusion`,
      * `policy-exception`, `other`). Always present; `0` when no
-     * built-in path filter fired. Result + content + policy +
-     * built-in counts sum to `totalFiltered`. (diagnostics v2)
+     * built-in path filter fired. Policy + content + graph-aware
+     * + result + built-in counts sum to `totalFiltered`.
+     * (diagnostics v2)
      */
     builtInPathFiltered: number;
     /**
@@ -115,11 +129,37 @@ type FindingFilterHealthReport = {
      */
     filterRateByPolicy?: Record<string, number>;
     /**
+     * Per-graph-aware-reason filter rate
+     * (`byGraphAwareReason[reason] / totalFindings`), rounded
+     * to four decimals. Always present; empty when no
+     * graph-aware filter fired.
+     * (graph-aware-filter-health-publications v1)
+     */
+    filterRateByGraphAwareReason: Record<string, number>;
+    /**
+     * Per-graph-aware-reason raw count, computed only over
+     * entries that pass `isGraphAwareFiltered` (i.e. policy
+     * entries that share a graph-aware reason code are
+     * excluded). Use this to render the Graph-Aware Filter
+     * Reasons table without inflating counts via the
+     * whole-report `byReason` map. Always present; empty when
+     * no graph-aware filter fired.
+     * (graph-aware-filter-health-publications v1)
+     */
+    byGraphAwareReason: Record<string, number>;
+    /**
      * Reason that suppressed the most findings (alphabetic
      * tiebreak). Present when at least one finding was filtered.
      * (diagnostics v2)
      */
     dominantReason?: { reason: string; count: number; rate: number };
+    /**
+     * Graph-aware reason that suppressed the most findings
+     * (alphabetic tiebreak). Present when at least one
+     * graph-aware filter fired.
+     * (graph-aware-filter-health-publications v1)
+     */
+    dominantGraphAwareReason?: { reason: string; count: number; rate: number };
     /**
      * Policy id that suppressed the most findings (alphabetic
      * tiebreak). Present when at least one policy filter fired.
@@ -152,6 +192,8 @@ type FindingFilterHealthReport = {
 | `reason-over-filtering` *(diagnostics v2)* | `totalFindings >= 5` AND `dominantReason.rate >= 0.5` — one reason is doing more than half the suppression | warning |
 | `policy-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `dominantPolicy.rate >= 0.5` — one configured policy is doing more than half the suppression | warning |
 | `content-filter-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `contentFiltered / totalFindings >= 0.5` — classic content filters are dominating | warning |
+| `graph-aware-filter-dominance` *(graph-aware-filter-health-publications v1)* | `totalFindings >= 5` AND `graphAwareFiltered / totalFindings >= 0.5` — the graph-aware finding filter provider is dominating suppression | warning |
+| `graph-aware-reason-dominance` *(graph-aware-filter-health-publications v1)* | `totalFindings >= 5` AND `dominantGraphAwareReason.rate >= 0.5` — one graph-aware reason is doing more than half the suppression | warning |
 | `result-filter-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `resultFiltered / totalFindings >= 0.5` — operator-configured result filters are dominating | warning |
 | `policy-fingerprint-missing` *(diagnostics v2)* | `policyFiltered > 0` AND the upstream `FindingFilterReport` has no `policyFingerprint` (filter report predates filter-policy-freshness v2) | warning |
 | `stale-policy-fingerprint` *(diagnostics v2)* | caller supplied `currentPolicyFingerprint` that does not match `report.policyFingerprint` — operator changed config after the filter run | warning |
@@ -209,5 +251,6 @@ via `rekon findings filter-health` or
 
 - [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
 - [Finding filters concept](../concepts/finding-filters.md)
+- [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [FindingFilterReport](finding-filter-report.md)
 - [FindingReport](finding-report.md)

@@ -142,20 +142,32 @@ heavily filtered. Sourced from
 [`FindingFilterReport`](../artifacts/finding-filter-report.md) +
 [`FindingFilterHealthReport`](../artifacts/finding-filter-health-report.md).
 The subsection lists kept / filtered counts, filter rate, active
-policy count, and warning count. When the health report carries
-any alerts, a blockquote "Filter-health warnings exist. Do not
-assume active governance is complete until filtered findings are
-reviewed." precedes a bulleted list of up to five alert
-`code` + `message` entries. The subsection always closes with
-"If filter rate is high or policy warnings exist, inspect
-`FindingFilterReport.filteredFindings` before claiming the repo
-has no active issues." Missing filter artifacts produce explicit
-`rekon findings filter` / `rekon refresh` hints. The `Do Not Do`
-section adds an explicit reminder: "Do not treat a clean
-active-governance surface as proof that no raw findings exist;
-inspect FindingFilterReport when filter-health warnings exist or
-the filter rate is high." See
-[finding-filters.md](finding-filters.md).
+policy count, warning count, and a dedicated graph-aware filtered
+count. When `graphAwareFiltered > 0`, the subsection adds an
+explicit instruction: "If graph-aware filtering is high, inspect
+`FindingFilterReport.filteredFindings` for the structural evidence
+(sibling-file existence, import-graph facts, capability ownership,
+module-kind routing) before drawing conclusions." When the health
+report carries any alerts, a blockquote "Filter-health warnings
+exist. Do not assume active governance is complete until filtered
+findings are reviewed." precedes a bulleted list of up to five
+alert `code` + `message` entries (including the new
+`graph-aware-filter-dominance` and `graph-aware-reason-dominance`
+codes when their thresholds are met). The subsection always
+closes with "If filter rate is high or policy warnings exist,
+inspect `FindingFilterReport.filteredFindings` before claiming
+the repo has no active issues." Missing filter artifacts produce
+explicit `rekon findings filter` / `rekon refresh` hints. The
+`Do Not Do` section carries two filter-related reminders: "Do not
+treat a clean active-governance surface as proof that no raw
+findings exist; inspect FindingFilterReport when filter-health
+warnings exist or the filter rate is high." and "Do not treat
+graph-aware filtering as proof that the underlying issue never
+existed; inspect `FindingFilterReport.filteredFindings` for the
+structural evidence (sibling-file existence, import-graph facts,
+capability ownership, module-kind routing) before drawing
+conclusions." See [finding-filters.md](finding-filters.md) and
+[graph-aware-finding-filters.md](graph-aware-finding-filters.md).
 
 ## Finding Filter Policy Suggestions
 

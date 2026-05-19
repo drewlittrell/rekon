@@ -322,6 +322,17 @@ artifact only when at least one graph-aware match actually
 used the data — so the audit lists exactly the evidence
 the report depended on.
 
+Although the five graph-aware reason codes are shared with
+the v2 classic content filter, the downstream
+`FindingFilterHealthReport` keeps them in a separate
+`graphAwareFiltered` bucket so the architecture-summary and
+agent-contract publications can render a dedicated
+"Graph-Aware Filter Reasons" table and surface the two
+graph-aware dominance alerts (`graph-aware-filter-dominance`,
+`graph-aware-reason-dominance`). See
+[FindingFilterHealthReport](finding-filter-health-report.md)
+"Alerts".
+
 See
 [../concepts/graph-aware-finding-filters.md](../concepts/graph-aware-finding-filters.md)
 for the full per-check shape, audit invariants, and
@@ -364,6 +375,7 @@ between `evaluate` and `findings.lifecycle`.
 
 - [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
 - [Finding filters concept](../concepts/finding-filters.md)
+- [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [FindingReport](finding-report.md)
 - [FindingFilterHealthReport](finding-filter-health-report.md)
 - [FindingLifecycleReport](finding-lifecycle-report.md)

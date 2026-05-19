@@ -185,12 +185,16 @@ first):
   `OwnershipMap`, `CapabilityMap`, `EvidenceGraph`,
   `GraphSlice`) to suppress findings backed by structural
   evidence. Run between the classic content layer and the
-  built-in path heuristics. Reuse the existing v2 reason
+  built-in path heuristics. Reuse the existing five reason
   codes (`route-handler-with-service`,
   `route-http-middleware-only`,
   `external-api-comment-only`,
   `factory-file-creates-deps`,
-  `module-gate-verified-caller`) — no new reason codes.
+  `module-gate-verified-caller`) shared with the v2 classic
+  content filter — no new reason codes. Filter-health buckets
+  graph-aware matches separately from classic content matches
+  (see `graphAwareFiltered` in
+  [FindingFilterHealthReport](../artifacts/finding-filter-health-report.md)).
   See
   [graph-aware-finding-filters.md](graph-aware-finding-filters.md)
   for the full per-check shape.

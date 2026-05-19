@@ -752,6 +752,38 @@ is the first stop before proposing a new capability batch.
   No artifact `schemaVersion` bump. No new artifact
   type. No new capability role. No new CLI subcommand
   or flag.
+- Graph-aware filter surfacing in publications / filter
+  health (P1.1 graph-aware-filter-health-publications
+  slice): `FindingFilterHealthSummary` gains a
+  mutually-exclusive `graphAwareFiltered` bucket (split
+  out of `contentFiltered`; counts always sum to
+  `totalFiltered`), plus `byGraphAwareReason`,
+  `filterRateByGraphAwareReason`, and
+  `dominantGraphAwareReason` (alphabetic tiebreak). Two
+  new alerts fire when graph-aware filtering dominates:
+  `graph-aware-filter-dominance`
+  (`graphAwareFiltered / totalFindings >= 0.5`) and
+  `graph-aware-reason-dominance`
+  (`dominantGraphAwareReason.rate >= 0.5`), both gated on
+  `totalFindings >= 5`. Architecture summary renders a
+  `Graph-Aware Filter Reasons` table plus an audit
+  pointer; agent contract renders the graph-aware count,
+  a conditional audit instruction, and a new "Do Not Do"
+  reminder warning agents not to treat graph-aware
+  filtering as proof the underlying issue never existed.
+  Policy precedence is preserved — `source: "policy"`
+  entries with a graph-aware reason code stay in
+  `policyFiltered`, never inflating `graphAwareFiltered`
+  or `byGraphAwareReason`. 16 new contract tests at
+  `tests/contract/graph-aware-filter-health-publications.test.mjs`
+  pin classifier behavior, bucket math, alert thresholds,
+  publication rendering, and `rekon artifacts validate`
+  cleanliness. No artifact `schemaVersion` bump. No new
+  artifact type. No new capability role. No new CLI
+  subcommand or flag. No new reason codes. No source-file
+  reads. No LLM, semantic, fuzzy, or embedding matching.
+  No `GraphOntologyValidator`. No version bump. No npm
+  publish.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

@@ -69,9 +69,17 @@ states are surfaced, not hidden.
    directly). The publisher additionally reads the latest
    `FindingFilterReport` and `FindingFilterHealthReport` and
    renders a `Finding Filter Health` section with kept /
-   filtered counts, filter rate, per-reason / per-policy
-   tables, the full alert list, and an audit pointer back to
-   `FindingFilterReport.filteredFindings`. Missing filter
+   filtered counts, filter rate, per-reason / per-policy /
+   per-graph-aware-reason tables, the full alert list, and an
+   audit pointer back to `FindingFilterReport.filteredFindings`.
+   The section breaks down the filtered count into five
+   mutually-exclusive buckets — policy, classic content,
+   graph-aware, result, built-in path — and surfaces a
+   dedicated `Graph-Aware Filter Reasons` table whenever
+   graph-aware filtering fired. The new
+   `graph-aware-filter-dominance` and
+   `graph-aware-reason-dominance` alerts surface in the same
+   alerts table when their thresholds are met. Missing filter
    artifacts produce explicit `rekon findings filter` /
    `rekon findings filter-health` / `rekon refresh` hints.
    When a `FindingFilterPolicySuggestionReport` is indexed,

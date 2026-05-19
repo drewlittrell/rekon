@@ -1974,6 +1974,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not apply filter policy suggestions without explicit operator approval; run `rekon findings filter-policy apply <id>` only when the operator instructs it.",
   "Do not treat filter policy suggestions as already-applied config; they are advisory until `rekon findings filter-policy apply` writes them to `.rekon/config.json`.",
   "Do not rely on active issue / coherency counts after `.rekon/config.json` `findingFilters` changed until `rekon refresh` has rebuilt the filter chain with the current policy set.",
+  "Do not treat graph-aware filtering as proof that the underlying issue never existed; inspect `FindingFilterReport.filteredFindings` for the structural evidence (sibling-file existence, import-graph facts, capability ownership, module-kind routing) before drawing conclusions.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -2669,6 +2670,9 @@ function appendArchitectureFindingFilterHealth(
   sections.push(`- Filtered findings: ${summary.totalFiltered}`);
   sections.push(`- Filter rate: ${filterRatePercent}%`);
   sections.push(`- Policy-filtered findings: ${policyFiltered}`);
+  sections.push(
+    `- Graph-aware filtered findings: ${summary.graphAwareFiltered ?? 0}`,
+  );
   sections.push("");
 
   const reasonRows = sortedCountEntries(summary.byReason);
@@ -2706,6 +2710,39 @@ function appendArchitectureFindingFilterHealth(
     }
   }
 
+  // Graph-aware surfacing (v1). Render the per-reason table and
+  // an audit pointer when at least one graph-aware match
+  // happened OR when the per-reason count map is non-empty.
+  const graphAwareReasonRows = summary.byGraphAwareReason
+    ? Object.entries(summary.byGraphAwareReason)
+        .filter(([, count]) => typeof count === "number" && count > 0)
+        .sort((left, right) => {
+          if (right[1] !== left[1]) return right[1] - left[1];
+          return left[0].localeCompare(right[0]);
+        })
+    : [];
+  if (graphAwareReasonRows.length > 0 || (summary.graphAwareFiltered ?? 0) > 0) {
+    sections.push("### Graph-Aware Filter Reasons");
+    sections.push("");
+    if (graphAwareReasonRows.length === 0) {
+      sections.push("No per-reason graph-aware breakdown available.");
+      sections.push("");
+    } else {
+      sections.push("| Reason | Count | Rate |");
+      sections.push("| --- | --- | --- |");
+      const rateMap = summary.filterRateByGraphAwareReason ?? {};
+      for (const [reason, count] of graphAwareReasonRows) {
+        const rate = rateMap[reason] ?? 0;
+        sections.push(`| ${reason} | ${count} | ${(rate * 100).toFixed(1)}% |`);
+      }
+      sections.push("");
+    }
+    sections.push(
+      "Graph-aware filtered findings are structurally justified suppressions (sibling-file existence, import-graph facts, capability ownership, module-kind routing). Inspect `FindingFilterReport.filteredFindings` for the per-entry evidence.",
+    );
+    sections.push("");
+  }
+
   sections.push("### Filter Health Alerts");
   sections.push("");
   if (!healthReport.alerts || healthReport.alerts.length === 0) {
@@ -2725,6 +2762,7 @@ function appendArchitectureFindingFilterHealth(
   );
   sections.push("");
 }
+
 
 function appendAgentContractFindingFilterHealth(
   sections: string[],
@@ -2759,6 +2797,9 @@ function appendAgentContractFindingFilterHealth(
   sections.push(`- Filtered findings: ${summary.totalFiltered}`);
   sections.push(`- Filter rate: ${filterRatePercent}%`);
   sections.push(`- Policy filters active: ${policyCount}`);
+  sections.push(
+    `- Graph-aware filtered findings: ${summary.graphAwareFiltered ?? 0}`,
+  );
   sections.push(`- Warnings: ${alertCount}`);
   sections.push("");
 
@@ -2773,6 +2814,13 @@ function appendAgentContractFindingFilterHealth(
     if (healthReport.alerts.length > 5) {
       sections.push(`- _… ${healthReport.alerts.length - 5} more alerts_`);
     }
+    sections.push("");
+  }
+
+  if ((summary.graphAwareFiltered ?? 0) > 0) {
+    sections.push(
+      "If graph-aware filtering is high, inspect `FindingFilterReport.filteredFindings` for the structural evidence before assuming active governance is clean. Graph-aware filters use sibling-file existence, import-graph facts, capability ownership, and module-kind routing — every match preserves the original finding payload + audit evidence.",
+    );
     sections.push("");
   }
 

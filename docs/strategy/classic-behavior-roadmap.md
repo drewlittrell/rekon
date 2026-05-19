@@ -1242,8 +1242,51 @@ scope:
   / filter health (architecture summary + agent contract
   show graph-aware filter counts / reasons; filter health
   distinguishes graph-aware structural filters from
-  content / path / result where useful) is the
-  recommended next slice.
+  content / path / result where useful) shipped next; see
+  the "Graph-aware filter surfacing in publications /
+  filter health" entry below.
+- **Graph-aware filter surfacing in publications / filter
+  health (P1.1 graph-aware-filter-health-publications
+  slice).** ✅ Shipped.
+  `FindingFilterHealthSummary` gains a mutually-exclusive
+  `graphAwareFiltered` bucket (split out of
+  `contentFiltered` — counts always sum to
+  `totalFiltered`), plus `byGraphAwareReason`,
+  `filterRateByGraphAwareReason`, and
+  `dominantGraphAwareReason` (alphabetic tiebreak). Two
+  new alerts fire when graph-aware filtering looks
+  dominant: `graph-aware-filter-dominance`
+  (graph-aware bucket >= 50 % of `totalFindings`) and
+  `graph-aware-reason-dominance` (one graph-aware reason
+  >= 50 % of `totalFindings`), both gated on
+  `totalFindings >= 5`. Architecture summary renders a
+  `Graph-Aware Filter Reasons` table sourced from
+  `byGraphAwareReason` plus an audit pointer back to
+  `FindingFilterReport.filteredFindings`. Agent contract
+  renders the graph-aware count, a conditional audit
+  instruction when the count is non-zero, and a new
+  "Do Not Do" reminder warning agents not to treat
+  graph-aware filtering as proof the underlying issue
+  never existed. Policy precedence is preserved — a
+  `source: "policy"` entry with a graph-aware reason code
+  is counted in `policyFiltered`, never inflating
+  `graphAwareFiltered` or `byGraphAwareReason`.
+  16 new contract tests at
+  `tests/contract/graph-aware-filter-health-publications.test.mjs`
+  pin classifier behavior, bucket math, alert thresholds,
+  publication rendering (table + audit pointer + Do Not
+  Do), and `rekon artifacts validate` cleanliness. Aligned
+  to `infra/validation/GraphOntologyValidator.ts` outcome
+  surfacing — operators / agents can now see *which* layer
+  did the suppression without reading the full filter
+  audit. No new CLI subcommand or flag. No new reason
+  codes. No source-file reads. No LLM, semantic, fuzzy, or
+  embedding matching. No `GraphOntologyValidator` port. No
+  version bump. No npm publish.
+
+  Graph-aware filter provider v2 (file-existence /
+  import-evidence strengthening) is the recommended next
+  slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

@@ -459,13 +459,37 @@ review packets unless an ADR promotes them. Promotion requires:
     findings. 20 new contract tests pinning helpers,
     pipeline integration, no-op semantics, audit
     invariants, and end-to-end CLI behavior.
-15. **(future)** Graph-aware filter provider v1 surfaces
-    in publications / filter health — architecture
-    summary and agent contract show graph-aware filter
-    counts / reasons; filter health distinguishes
-    graph-aware structural filters from
-    content / path / result filters where useful.
-16. **(future)** Merge-decision freshness guardrails,
+15. **(shipped)** Graph-aware filter provider v1 surfaces
+    in publications / filter health. Splits
+    `graphAwareFiltered` from `contentFiltered` into a
+    mutually-exclusive bucket in
+    `FindingFilterHealthSummary` (counts always sum to
+    `totalFiltered`). Adds `byGraphAwareReason`,
+    `filterRateByGraphAwareReason`, and
+    `dominantGraphAwareReason` (alphabetic tiebreak). Adds
+    two new alerts: `graph-aware-filter-dominance` and
+    `graph-aware-reason-dominance` (both gated on
+    `totalFindings >= 5`, both fire at `>= 50 %` rate).
+    Architecture summary renders a `Graph-Aware Filter
+    Reasons` table plus an audit pointer. Agent contract
+    renders the graph-aware count + a conditional audit
+    instruction + a new "Do Not Do" reminder
+    ("Do not treat graph-aware filtering as proof that the
+    underlying issue never existed; inspect
+    `FindingFilterReport.filteredFindings` for the
+    structural evidence (sibling-file existence,
+    import-graph facts, capability ownership, module-kind
+    routing) before drawing conclusions."). Policy
+    precedence is preserved — a `source: "policy"` entry
+    with a graph-aware reason code is counted in
+    `policyFiltered`, never inflating
+    `graphAwareFiltered` or `byGraphAwareReason`. 16 new
+    contract tests covering classifier behavior, bucket
+    math, alert thresholds, publication rendering, and
+    artifact validation.
+16. **(future)** Graph-aware filter provider v2 —
+    file-existence / import-evidence strengthening.
+17. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

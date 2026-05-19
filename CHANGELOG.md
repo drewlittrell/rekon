@@ -4,6 +4,115 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware filter surfacing in publications /
+  filter health (P1.1
+  graph-aware-filter-health-publications slice). The
+  graph-aware finding filter provider v1 already suppressed
+  structural false positives; this slice makes that work
+  visible in operator-facing surfaces and adds two new
+  dominance alerts.
+
+  **`FindingFilterHealthSummary` extensions
+  (`@rekon/kernel-findings`):**
+  - New `graphAwareFiltered: number` bucket — split out of
+    `contentFiltered`. The five graph-aware reason codes
+    (`route-handler-with-service`,
+    `route-http-middleware-only`,
+    `external-api-comment-only`,
+    `factory-file-creates-deps`,
+    `module-gate-verified-caller`) are now classified as
+    graph-aware whenever their entry is not policy-sourced.
+    Buckets remain mutually exclusive; `policyFiltered +
+    contentFiltered + graphAwareFiltered + resultFiltered +
+    builtInPathFiltered` always equals `totalFiltered`.
+  - New `byGraphAwareReason: Record<string, number>` — raw
+    counts computed only over entries that pass
+    `isGraphAwareFiltered`, so a policy entry sharing a
+    graph-aware reason code does not inflate the table.
+    Always present (empty when no graph-aware filter fired).
+  - New
+    `filterRateByGraphAwareReason: Record<string, number>` —
+    rates rounded to four decimals.
+  - New
+    `dominantGraphAwareReason?: { reason; count; rate }` —
+    alphabetic tiebreak; present when at least one
+    graph-aware filter fired.
+  - New helper `isGraphAwareFiltered(entry)` is exported.
+    Policy entries take precedence — an entry with
+    `source: "policy"` (or a `policyId`) is classified as
+    policy, never graph-aware, even if its reason code is
+    graph-aware.
+
+  **Two new alerts (both gated on `totalFindings >= 5`):**
+  - `graph-aware-filter-dominance` — fires when
+    `graphAwareFiltered / totalFindings >= 0.5`. Message:
+    "Graph-aware filter is dominant — review
+    `FindingFilterReport.filteredFindings`."
+  - `graph-aware-reason-dominance` — fires when
+    `dominantGraphAwareReason.rate >= 0.5`. Message names
+    the dominant reason.
+  Alerts remain sorted by `code` for deterministic output.
+
+  **Architecture summary publication
+  (`@rekon/capability-docs.architecture-summary`):**
+  - The `Finding Filter Health` section renders an extra
+    `- Graph-aware filtered findings: <n>` bullet alongside
+    the existing kept / filtered / built-in-path counts.
+  - When `graphAwareFiltered > 0` (or the count map is
+    populated), the section also renders a dedicated
+    `### Graph-Aware Filter Reasons` table sourced from
+    `byGraphAwareReason` (alphabetic) plus an audit pointer
+    paragraph: "Inspect `FindingFilterReport.filteredFindings`
+    for the structural evidence behind each graph-aware
+    match (sibling-file existence, import-graph facts,
+    capability ownership, module-kind routing)."
+  - The new alert codes surface in the existing alerts
+    table when their thresholds fire.
+
+  **Agent contract publication
+  (`@rekon/capability-docs.agent-contract`):**
+  - The `Finding Filter Health` subsection adds the
+    graph-aware count bullet.
+  - When `graphAwareFiltered > 0`, the subsection adds an
+    explicit audit instruction: "If graph-aware filtering
+    is high, inspect `FindingFilterReport.filteredFindings`
+    for the structural evidence (sibling-file existence,
+    import-graph facts, capability ownership, module-kind
+    routing) before drawing conclusions."
+  - New "Do Not Do" entry: "Do not treat graph-aware
+    filtering as proof that the underlying issue never
+    existed; inspect `FindingFilterReport.filteredFindings`
+    for the structural evidence (sibling-file existence,
+    import-graph facts, capability ownership, module-kind
+    routing) before drawing conclusions."
+
+  **Tests.** 16 new contract tests at
+  `tests/contract/graph-aware-filter-health-publications.test.mjs`
+  pin: classifier behavior (the five graph-aware reasons,
+  policy precedence, content-bucket exclusion), bucket
+  math (counts sum to `totalFiltered`,
+  `byGraphAwareReason` is not inflated by policy entries),
+  rate / dominant-reason calculations with alphabetic
+  tiebreak, both alerts' thresholds (50 % rate + 5-finding
+  minimum corpus), publication rendering (architecture
+  summary table + audit pointer, agent contract count +
+  audit instruction + Do Not Do reminder), alert codes
+  appearing in publication alert tables when present, and
+  `rekon artifacts validate` cleanliness after publishing
+  both surfaces with seeded graph-aware fixtures. Full
+  suite holds at 698 passed / 1 skipped / 0 failed.
+
+  No artifact `schemaVersion` bump. No new artifact type.
+  No new capability role. No new CLI subcommand or flag.
+  No new reason codes. No source-file reads. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No npm
+  publish.
+
+  Graph-aware filter provider v2 (file-existence /
+  import-evidence strengthening) is the recommended next
+  slice.
+
 - Shipped graph-aware finding filter provider v1 (P1.1
   graph-aware-finding-filter-provider v1 slice). Implements
   the five port-soon candidate checks from the

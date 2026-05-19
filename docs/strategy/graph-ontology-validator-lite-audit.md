@@ -402,9 +402,20 @@ mirrors a row in the candidate-checks table.
 12. **Filter health surfaces graph matches in
     diagnostics.** Existing
     `content-filter-high-volume` / `dominant-reason` /
-    `content-filter-dominance` alerts should fire on
-    graph-backed reasons the same way they fire on the
-    v2 structural filters today.
+    `content-filter-dominance` alerts already fire on the
+    reason codes the graph-aware provider shares with v2.
+    The graph-aware-filter-health-publications v1 slice
+    additionally splits `graphAwareFiltered` into its own
+    bucket and ships two new alerts
+    (`graph-aware-filter-dominance`,
+    `graph-aware-reason-dominance`) so operators can tell
+    *which* layer is doing the suppression. The
+    architecture-summary and agent-contract publications
+    render a dedicated "Graph-Aware Filter Reasons" table
+    plus an audit pointer, and the agent contract carries a
+    "Do Not Do" reminder warning agents not to treat
+    graph-aware filtering as proof the underlying issue
+    never existed.
 
 ## Recommended Implementation Order
 
