@@ -675,19 +675,54 @@ review packets unless an ADR promotes them. Promotion requires:
     checker. No LLM / semantic / fuzzy / embedding
     matching. No `GraphOntologyValidator` port. No
     version bump. No npm publish.
-22. **(future)** Graph-aware import-fact consumers v4 —
-    update `graphFilterRouteHandlerWithService`,
-    `graphFilterRouteHttpMiddlewareOnly`, and
-    `graphFilterExternalApiCommentOnly` to fully
-    consume production EvidenceGraph import facts via
-    the compatibility-aware helper (the prior fall-back
-    paths to `details.imports` /
-    `ObservedRepo.files` siblings should now fire less
-    often because the EvidenceGraph branch starts
-    matching against real data). Bounded,
-    artifact-backed: no source reads, no
-    `GraphOntologyValidator` port, no LLM.
-23. **(future)** Merge-decision freshness guardrails,
+22. **(shipped)** Graph-aware import-fact consumers v4.
+    Updates the three import-consuming graph-aware
+    filters (`graphFilterRouteHandlerWithService`,
+    `graphFilterRouteHttpMiddlewareOnly`,
+    `graphFilterExternalApiCommentOnly`) to deliberately
+    prefer `EvidenceGraph` import facts (via the
+    compatibility-aware
+    `@rekon/kernel-findings.listImportTargetsForFile`)
+    over `Finding.details.imports`.
+    `route-handler-with-service` precedence was swapped:
+    EvidenceGraph runs first, then `details.imports`,
+    then `ObservedRepo.files` sibling. The other two
+    filters already preferred EvidenceGraph
+    (v2 strengthening) but now produce evidence strings
+    that name the source ("EvidenceGraph import facts
+    …" / "Detector import details …" / "ObservedRepo
+    file index …") so audit consumers can tell which
+    branch fired. `usedArtifacts: ["EvidenceGraph"]`
+    set exactly when the EvidenceGraph branch is the
+    one that produced the decision; the runtime cites
+    `EvidenceGraph` in
+    `FindingFilterReport.header.inputRefs` precisely.
+    No new reason codes. No new graph-aware filter
+    categories. No producer change. No
+    `EvidenceGraph` `schemaVersion` bump. No source
+    reads. No AST / type checker. No LLM, semantic,
+    fuzzy, or embedding matching. No
+    `GraphOntologyValidator` port. 15 new contract
+    tests cover both shapes' production end-to-end
+    consumption, evidence-string source labels,
+    EvidenceGraph-overrides-details semantics for
+    route-handler, details-imports fallback paths,
+    middleware-only conservative no-op,
+    external-api openai/openrouter rejection,
+    explicit empty `details.imports` medium-confidence
+    fallback, inputRefs precision, raw `FindingReport`
+    byte-identity, lifecycle / adjudication /
+    coherency exclusion, and `rekon artifacts validate`
+    cleanliness.
+23. **(future)** Graph-aware import evidence publication
+    diagnostics — surface whether graph-aware filters
+    consulted EvidenceGraph import facts versus
+    fell back to `details.imports`. Could be a compact
+    `evidenceSource` count on filter-health or a row in
+    the architecture summary Graph-Aware Filter Reasons
+    table. Informs whether the future Option A
+    producer migration is worth taking.
+24. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

@@ -1748,8 +1748,101 @@ scope:
   **Graph-aware import-fact consumers v4** (audit the
   three v1 / v2 graph-aware checks that prefer
   EvidenceGraph imports and confirm their EvidenceGraph
-  branches now fire against production data) is the
-  recommended next slice.
+  branches now fire against production data) shipped
+  next; see the "Graph-aware import-fact consumers v4"
+  entry below.
+- **Graph-aware import-fact consumers v4 (P1.1
+  graph-aware-import-fact-consumers-v4 slice).** ✅
+  Shipped. Updates the three import-consuming
+  graph-aware filters (`graphFilterRouteHandlerWithService`,
+  `graphFilterRouteHttpMiddlewareOnly`,
+  `graphFilterExternalApiCommentOnly`) to deliberately
+  prefer `EvidenceGraph` import facts (via the
+  compatibility-aware
+  `@rekon/kernel-findings.listImportTargetsForFile`)
+  over `Finding.details.imports`.
+
+  **`route-handler-with-service` precedence swap.**
+  Previously, the detector-supplied `details.imports`
+  branch ran *before* the EvidenceGraph branch. v4
+  swaps that so EvidenceGraph runs first, then
+  `details.imports`, then `ObservedRepo.files`
+  sibling. This mirrors the
+  `nextjs-route-convention` v3 invariant:
+  artifact-backed graph evidence beats detector
+  details. (The other two filters,
+  `route-http-middleware-only` and
+  `external-api-comment-only`, already preferred
+  EvidenceGraph from the v2 strengthening; v4 only
+  tightens their evidence strings.)
+
+  **Evidence-string source labels.** All three
+  filters now emit evidence strings that name the
+  source explicitly:
+  - `EvidenceGraph import facts show route delegates
+    to handler: '<target>'.`
+  - `Detector import details show route delegates to
+    handler: '<target>'.`
+  - `ObservedRepo file index shows route has sibling
+    handler file: '<path>'.`
+  - `EvidenceGraph import facts show route imports
+    only HTTP / Identity middleware infra:
+    <imports>.`
+  - `Detector import details show route imports only
+    HTTP / Identity middleware infra: <imports>.`
+  - `EvidenceGraph import facts contain no external
+    API package imports (openai / openrouter /
+    @openai/*) for '<file>': <targets>.`
+  - `Detector import details contain no external API
+    package imports …`
+  - `Detector import details (explicitly empty
+    imports list) contain no external API package
+    imports …`
+
+  **`usedArtifacts` tracking unchanged.** Decisions
+  consulted via EvidenceGraph return
+  `usedArtifacts: ["EvidenceGraph"]`; decisions
+  consulted only via `details.imports` return
+  `usedArtifacts: []`. The runtime cites
+  `EvidenceGraph` in
+  `FindingFilterReport.header.inputRefs` exactly when
+  at least one decision in the run consulted it.
+
+  15 new contract tests at
+  `tests/contract/graph-aware-import-fact-consumers.test.mjs`
+  cover: production-shaped legacy EvidenceGraph imports
+  for all three filters, EvidenceGraph-overrides-
+  details semantics for route-handler,
+  details-imports fallback paths,
+  middleware-only conservative no-op when
+  non-allowed infra import exists,
+  external-api openai/openrouter rejection,
+  explicit empty `details.imports` medium-confidence
+  fallback, `FindingFilterReport.header.inputRefs`
+  precision (cites EvidenceGraph when used; does NOT
+  cite when only `details.imports` fallback fired),
+  raw `FindingReport` byte-identity, lifecycle /
+  adjudication / coherency exclusion, and `rekon
+  artifacts validate` cleanliness against
+  `examples/simple-js-ts`.
+
+  Aligned to `lib/import-graph.ts`,
+  `services/GraphBuildProvider.ts`, and
+  `domain/graph/producers/**`. No new reason codes.
+  No new graph-aware filter categories. No producer
+  change. No source-file reads at filter time. No
+  AST, no type checker. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No new capability role. No new CLI subcommand
+  or flag. No artifact `schemaVersion` bump. No new
+  artifact type. No version bump. No npm publish.
+  Full suite: 800 passed / 1 skipped / 0 failed.
+
+  **Graph-aware import evidence publication
+  diagnostics** (surface whether filters consulted
+  EvidenceGraph or fell back to `details.imports` —
+  e.g. an `evidenceSource` count in filter-health) is
+  the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

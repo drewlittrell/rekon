@@ -73,8 +73,11 @@
 > make `listImportTargetsForFile` (and any future
 > file-scoped import helper) compatibility-aware, and
 > preserve full producer migration as a future trigger.
-> Helper compatibility implementation is the recommended
-> next slice.
+> Helper compatibility implementation has shipped
+> (`cce837f`); graph-aware import-fact consumers v4 has
+> shipped (`route-handler-with-service` precedence
+> swapped so EvidenceGraph runs first; all three
+> import-consuming filters name the evidence source).
 
 ## Decision Summary
 

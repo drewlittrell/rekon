@@ -949,6 +949,34 @@ is the first stop before proposing a new capability batch.
   embedding matching. No `GraphOntologyValidator`
   port. No new capability role. No new CLI subcommand
   or flag. No version bump. No npm publish.
+- Graph-aware import-fact consumers v4 (P1.1
+  graph-aware-import-fact-consumers-v4 slice): updates
+  the three import-consuming graph-aware filters
+  (`graphFilterRouteHandlerWithService`,
+  `graphFilterRouteHttpMiddlewareOnly`,
+  `graphFilterExternalApiCommentOnly`) to deliberately
+  prefer `EvidenceGraph` import facts (via the
+  compatibility-aware `listImportTargetsForFile`) over
+  `Finding.details.imports`. `route-handler-with-service`
+  precedence swapped — EvidenceGraph now runs before
+  `details.imports`, then `ObservedRepo.files` sibling.
+  All three filters now emit evidence strings that
+  name the source: "EvidenceGraph import facts …" /
+  "Detector import details …" / "ObservedRepo file
+  index …". `usedArtifacts: ["EvidenceGraph"]` set
+  exactly when the EvidenceGraph branch produced the
+  decision; the runtime cites `EvidenceGraph` in
+  `FindingFilterReport.header.inputRefs` precisely.
+  15 new contract tests at
+  `tests/contract/graph-aware-import-fact-consumers.test.mjs`.
+  No new reason codes. No new graph-aware filter
+  categories. No producer change. No source-file
+  reads at filter time. No AST, no type checker. No
+  LLM / semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No new capability
+  role. No new CLI subcommand or flag. No artifact
+  `schemaVersion` bump. No new artifact type. No
+  version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

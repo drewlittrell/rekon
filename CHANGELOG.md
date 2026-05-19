@@ -4,6 +4,138 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware import-fact consumers v4 (P1.1
+  graph-aware-import-fact-consumers-v4 slice). Updates
+  the three import-consuming graph-aware filters
+  (`graphFilterRouteHandlerWithService`,
+  `graphFilterRouteHttpMiddlewareOnly`,
+  `graphFilterExternalApiCommentOnly`) to deliberately
+  prefer `EvidenceGraph` import facts (via the
+  compatibility-aware
+  `@rekon/kernel-findings.listImportTargetsForFile`)
+  over `Finding.details.imports`.
+
+  **`route-handler-with-service` precedence swap.**
+  Previously, the detector-supplied `details.imports`
+  branch ran *before* the EvidenceGraph branch — even
+  after v2 introduced the EvidenceGraph fallback. v4
+  swaps that so the order is now:
+  1. EvidenceGraph import facts (via
+     `listImportTargetsForFile`).
+  2. `Finding.details.imports` (fallback when no
+     EvidenceGraph imports exist for the file).
+  3. `ObservedRepo.files` sibling
+     `handler.ts` / `handler.tsx` (fallback when neither
+     import source yields evidence).
+
+  This mirrors the `nextjs-route-convention` v3
+  invariant: artifact-backed graph evidence beats
+  detector details. The other two import-consuming
+  filters (`route-http-middleware-only` and
+  `external-api-comment-only`) already preferred
+  EvidenceGraph from the v2 strengthening; v4 only
+  tightens their evidence strings.
+
+  **Evidence-string source labels.** All three filters
+  now emit evidence strings that name the source
+  explicitly. Audit consumers (filter-health, agent
+  contract, operator review) can tell at a glance which
+  branch fired:
+
+  - `EvidenceGraph import facts show route delegates to
+    handler: '<target>'.`
+  - `Detector import details show route delegates to
+    handler: '<target>'.`
+  - `ObservedRepo file index shows route has sibling
+    handler file: '<path>'.`
+  - `EvidenceGraph import facts show route imports only
+    HTTP / Identity middleware infra: <imports>.`
+  - `Detector import details show route imports only
+    HTTP / Identity middleware infra: <imports>.`
+  - `EvidenceGraph import facts contain no external API
+    package imports (openai / openrouter / @openai/*)
+    for '<file>': <targets>.`
+  - `Detector import details contain no external API
+    package imports …`
+  - `Detector import details (explicitly empty imports
+    list) contain no external API package imports …`
+
+  **`usedArtifacts` precision unchanged.** Decisions
+  consulted via EvidenceGraph return
+  `usedArtifacts: ["EvidenceGraph"]`; decisions
+  consulted via `details.imports` return
+  `usedArtifacts: []`; route-handler sibling-file
+  matches return `usedArtifacts: ["ObservedRepo"]`. The
+  runtime cites `EvidenceGraph` in
+  `FindingFilterReport.header.inputRefs` exactly when at
+  least one decision in the run consulted EvidenceGraph
+  — and does NOT cite it when only `details.imports`
+  fallback fired.
+
+  **Tests.** 15 new contract tests at
+  `tests/contract/graph-aware-import-fact-consumers.test.mjs`
+  cover: production-shaped legacy EvidenceGraph imports
+  for all three filters, EvidenceGraph-overrides-details
+  semantics for `route-handler-with-service`,
+  `details.imports` fallback paths, middleware-only
+  conservative no-op (non-allowed infra import),
+  external-api openai/openrouter rejection, explicit
+  empty `details.imports` medium-confidence fallback,
+  `FindingFilterReport.header.inputRefs` precision
+  (cites `EvidenceGraph` when used; does NOT cite when
+  only `details.imports` fallback fired), raw
+  `FindingReport` byte-identity, lifecycle /
+  adjudication / coherency exclusion, and `rekon
+  artifacts validate` cleanliness against
+  `examples/simple-js-ts`. Full suite: 800 passed / 1
+  skipped / 0 failed.
+
+  **Strategy docs updated:**
+  `docs/concepts/graph-aware-finding-filters.md` (new
+  "Import-Fact Consumers (v4)" section + table updated
+  to show EvidenceGraph-first precedence for
+  `route-handler-with-service`);
+  `docs/concepts/finding-filters.md` (graph-aware
+  section names v4);
+  `docs/artifacts/finding-filter-report.md`
+  ("Graph-Aware Filters" lists v4 precedence and
+  evidence-source labels);
+  `docs/artifacts/evidence-graph.md` (import-fact
+  paragraph names the v4 consumers);
+  `docs/strategy/import-fact-subject-shape-decision.md`
+  (top blockquote adds "Consumer follow-through"
+  status);
+  `docs/strategy/graph-ontology-validator-lite-audit.md`
+  (top blockquote updated with v4-shipped status);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 22 flipped to shipped; step 23 reserved for
+  graph-aware import evidence publication
+  diagnostics);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new v4 entries).
+
+  Implements step 22 of the issue governance ADR
+  Implementation Order. Aligned to
+  `lib/import-graph.ts`,
+  `services/GraphBuildProvider.ts`, and
+  `domain/graph/producers/**`. No new reason codes. No
+  new graph-aware filter categories. No producer
+  change. No source-file reads at filter time. No AST,
+  no type checker. No LLM, semantic, fuzzy, or
+  embedding matching. No `GraphOntologyValidator`
+  port. No new capability role. No new CLI subcommand
+  or flag. No artifact `schemaVersion` bump. No new
+  artifact type. No version bump. No npm publish.
+
+  Graph-aware import evidence publication diagnostics
+  (expose whether graph-aware filters consulted
+  EvidenceGraph import facts versus fell back to
+  `details.imports` — e.g. an `evidenceSource` count in
+  filter-health or a row in the architecture summary's
+  Graph-Aware Filter Reasons table) is the recommended
+  next slice. Informs whether the future Option A
+  producer migration is worth taking.
+
 - Shipped import helper compatibility implementation
   (P1.1 import-helper-compatibility slice). Implements
   Option B of the

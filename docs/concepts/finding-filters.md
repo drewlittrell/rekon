@@ -180,11 +180,23 @@ first):
   `source: "system"` and a result-filter reason so they
   remain auditable; they are **not** silently deleted. See
   "Classic Result Filters" below.
-- **Graph-aware filters (v1 + v2 + v3)** — deterministic
-  structural checks that consume Rekon artifacts
-  (`ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
-  `EvidenceGraph`, `GraphSlice`) to suppress findings backed
-  by structural evidence. v2 moved this stage *ahead* of
+- **Graph-aware filters (v1 + v2 + v3 + v4)** —
+  deterministic structural checks that consume Rekon
+  artifacts (`ObservedRepo`, `OwnershipMap`,
+  `CapabilityMap`, `EvidenceGraph`, `GraphSlice`) to
+  suppress findings backed by structural evidence. **v4
+  graph-aware import-fact consumers**: the three
+  import-consuming checks
+  (`route-handler-with-service`,
+  `route-http-middleware-only`,
+  `external-api-comment-only`) now deliberately prefer
+  EvidenceGraph import facts (via the
+  compatibility-aware `listImportTargetsForFile`) over
+  `Finding.details.imports`. Evidence strings name the
+  source ("EvidenceGraph import facts …" / "Detector
+  import details …" / "ObservedRepo file index …") so
+  audit consumers can tell at a glance which branch
+  fired. v2 moved this stage *ahead* of
   classic content so the audit credits the strongest source
   when both can match; classic content remains the fallback.
   v2 also prefers `EvidenceGraph` import facts over

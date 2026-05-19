@@ -4116,7 +4116,42 @@ function graphFilterRouteHandlerWithService(
   const file = firstFile(finding) ?? "";
   if (!file.endsWith("route.ts")) return null;
 
-  // A. Strongest: detector surfaced a handler import directly.
+  // graph-aware import consumers v4: EvidenceGraph import
+  // facts are *authoritative* over `details.imports`. The
+  // pipeline is:
+  //   A. EvidenceGraph import facts (via the compatibility-
+  //      aware `listImportTargetsForFile` — accepts both
+  //      legacy and future producer subject shapes).
+  //   B. Detector-supplied `details.imports` (fallback when
+  //      no EvidenceGraph import facts exist for the file).
+  //   C. `ObservedRepo.files` sibling lookup (fallback when
+  //      no import evidence is available from either source).
+  // Each branch sets `usedArtifacts` to the artifacts it
+  // consulted so the runtime cites them in
+  // `FindingFilterReport.header.inputRefs` precisely.
+
+  // A. EvidenceGraph import facts.
+  const graphImports = listImportTargetsForFile(ctx, file);
+  const graphHandlerImport = graphImports.find(
+    (entry) =>
+      entry.includes("/handler")
+      || entry.endsWith("handler")
+      || entry.endsWith("handler.ts")
+      || entry.endsWith("handler.tsx"),
+  );
+  if (graphHandlerImport) {
+    return {
+      reason: "route-handler-with-service",
+      evidence:
+        `EvidenceGraph import facts show route delegates to handler: '${graphHandlerImport}'.`,
+      filePath: file,
+      confidence: "high",
+      usedArtifacts: ["EvidenceGraph"],
+    };
+  }
+
+  // B. Detector-supplied imports (fallback when EvidenceGraph
+  //    has no import facts for this file).
   const det = details(finding);
   const declaredImports = stringArrayField(det, "imports");
   const declaredHandlerImport = declaredImports.find(
@@ -4125,26 +4160,11 @@ function graphFilterRouteHandlerWithService(
   if (declaredHandlerImport) {
     return {
       reason: "route-handler-with-service",
-      evidence: `Route delegates to handler via detector-supplied import '${declaredHandlerImport}'.`,
+      evidence:
+        `Detector import details show route delegates to handler: '${declaredHandlerImport}'.`,
       filePath: file,
       confidence: "high",
       usedArtifacts: [],
-    };
-  }
-
-  // B. EvidenceGraph import facts for the route file reveal a
-  //    handler import (v2 strengthening).
-  const graphImports = listImportTargetsForFile(ctx, file);
-  const graphHandlerImport = graphImports.find(
-    (entry) => entry.includes("/handler") || entry.endsWith("handler") || entry.endsWith("handler.ts") || entry.endsWith("handler.tsx"),
-  );
-  if (graphHandlerImport) {
-    return {
-      reason: "route-handler-with-service",
-      evidence: `Route delegates to handler via EvidenceGraph import fact '${graphHandlerImport}'.`,
-      filePath: file,
-      confidence: "high",
-      usedArtifacts: ["EvidenceGraph"],
     };
   }
 
@@ -4155,7 +4175,8 @@ function graphFilterRouteHandlerWithService(
   if (sibling) {
     return {
       reason: "route-handler-with-service",
-      evidence: `Route has sibling handler file '${sibling}' (per ObservedRepo file index).`,
+      evidence:
+        `ObservedRepo file index shows route has sibling handler file: '${sibling}'.`,
       filePath: file,
       confidence: "high",
       usedArtifacts: ["ObservedRepo"],
@@ -4196,10 +4217,17 @@ function graphFilterRouteHttpMiddlewareOnly(
   );
   if (!allHttpOrIdentity) return null;
 
-  const sourceLabel = useGraph ? "EvidenceGraph import facts" : "detector-supplied imports";
+  // v4 evidence string: name the source explicitly so audit
+  // consumers (filter-health, agent contract) can tell at a
+  // glance whether the EvidenceGraph branch fired or whether
+  // the filter fell back to detector details.
+  const sourceLabel = useGraph
+    ? "EvidenceGraph import facts"
+    : "Detector import details";
   return {
     reason: "route-http-middleware-only",
-    evidence: `Route imports only HTTP / Identity middleware infra (${sourceLabel}): ${infraImports.join(", ")}.`,
+    evidence:
+      `${sourceLabel} show route imports only HTTP / Identity middleware infra: ${infraImports.join(", ")}.`,
     filePath: file,
     confidence: "high",
     usedArtifacts: useGraph ? ["EvidenceGraph"] : [],
@@ -4226,11 +4254,17 @@ function graphFilterExternalApiCommentOnly(
   const declaredImports = stringArrayField(det, "imports");
   const graphImports = file ? listImportTargetsForFile(ctx, file) : [];
 
-  // v2 evidence policy: prefer EvidenceGraph when present.
-  // Otherwise consume `details.imports` *only if the detector
-  // surfaced the field explicitly* — an explicitly empty
-  // array still proves the absence of external API imports.
-  // When neither evidence source exists, conservative no-op.
+  // graph-aware import consumers v4 evidence policy:
+  //   - EvidenceGraph import facts are authoritative when
+  //     present (via the compatibility-aware
+  //     `listImportTargetsForFile`, accepts both producer
+  //     subject shapes).
+  //   - Otherwise consume `details.imports` *only if the
+  //     detector surfaced the field explicitly* — an
+  //     explicitly empty array still proves the absence of
+  //     external API imports (medium confidence).
+  //   - When neither evidence source exists, conservative
+  //     no-op.
   const useGraph = graphImports.length > 0;
   let importsSource: string[] | null;
   let usedArtifacts: ReadonlyArray<FindingGraphArtifactUsed> = [];
@@ -4244,14 +4278,14 @@ function graphFilterExternalApiCommentOnly(
   } else if (declaredImports.length > 0) {
     importsSource = declaredImports;
     confidence = "high";
-    sourceLabel = "detector-supplied imports";
+    sourceLabel = "Detector import details";
   } else if (hasImportsField) {
     // details.imports === [] — detector saw the file and
-    // surfaced "no imports". Treat as medium-confidence
-    // proof of absence.
+    // surfaced "no imports". Medium-confidence proof of
+    // absence.
     importsSource = [];
     confidence = "medium";
-    sourceLabel = "detector reported empty imports list";
+    sourceLabel = "Detector import details (explicitly empty imports list)";
   } else {
     return null;
   }
@@ -4262,11 +4296,12 @@ function graphFilterExternalApiCommentOnly(
   );
   if (mentionsExternalSdk) return null;
 
-  const targetsForMessage = importsSource.length > 0 ? `: ${importsSource.join(", ")}` : "";
+  const targetsForMessage
+    = importsSource.length > 0 ? `: ${importsSource.join(", ")}` : "";
   return {
     reason: "external-api-comment-only",
     evidence:
-      `Finding references external API concern, but ${sourceLabel} contain no openai / openrouter / @openai/* package imports for '${file ?? "<unknown>"}'${targetsForMessage}.`,
+      `${sourceLabel} contain no external API package imports (openai / openrouter / @openai/*) for '${file ?? "<unknown>"}'${targetsForMessage}.`,
     filePath: file,
     confidence,
     usedArtifacts,

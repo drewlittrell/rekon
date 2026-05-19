@@ -306,22 +306,25 @@ evidence over `Finding.details.imports`), and reorders the
 pipeline so the stage runs *before* classic content. No new
 reason codes were introduced:
 
-- `route-handler-with-service` — strongest:
+- `route-handler-with-service` *(v4 precedence)* —
+  strongest: `EvidenceGraph` import facts via
+  `listImportTargetsForFile`; fallback:
   `Finding.details.imports` handler entry; fallback:
-  `EvidenceGraph` import fact pointing at a handler;
-  fallback: `ObservedRepo.files` sibling `handler.ts` /
-  `handler.tsx`.
+  `ObservedRepo.files` sibling `handler.ts` /
+  `handler.tsx`. Evidence strings name the source.
 - `route-http-middleware-only` — strongest:
   `EvidenceGraph` import facts; fallback:
   `Finding.details.imports`. Filters only when at least
   one infra import exists AND every infra import lives
-  under `/infra/http/` or `/infra/Identity`.
+  under `/infra/http/` or `/infra/Identity`. Evidence
+  string names the source.
 - `external-api-comment-only` — strongest:
   `EvidenceGraph` import facts; fallback:
   `Finding.details.imports` (non-empty); medium-confidence
   fallback: detector-supplied explicit empty
   `details.imports` array. Filters only when no
   `openai` / `openrouter` / `@openai/*` import appears.
+  Evidence string names the source.
 - `factory-file-creates-deps` — path heuristics or
   `CapabilityMap` entries.
 - `module-gate-verified-caller` — strongest:

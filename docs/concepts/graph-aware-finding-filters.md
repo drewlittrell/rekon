@@ -41,9 +41,9 @@ substrate.
 
 | Check | Reason | Inputs |
 | --- | --- | --- |
-| Route handler / sibling handler | `route-handler-with-service` | `Finding.details.imports` → `EvidenceGraph` import facts → `ObservedRepo.files` sibling |
+| Route handler / sibling handler | `route-handler-with-service` | `EvidenceGraph` import facts (preferred, v4) → `Finding.details.imports` (fallback) → `ObservedRepo.files` sibling |
 | Route HTTP middleware only | `route-http-middleware-only` | `EvidenceGraph` import facts (preferred) → `Finding.details.imports` (fallback) |
-| External-API comment only | `external-api-comment-only` | `EvidenceGraph` import facts (preferred) → `Finding.details.imports` (fallback; explicit empty array still proves absence) |
+| External-API comment only | `external-api-comment-only` | `EvidenceGraph` import facts (preferred) → `Finding.details.imports` (fallback; explicit empty array still proves absence at medium confidence) |
 | Factory file creates deps | `factory-file-creates-deps` | path heuristics, `CapabilityMap` entries |
 | Module gate verified caller | `module-gate-verified-caller` | `GateEvaluator` path (high) → `OwnershipMap` + `ObservedSystem.kind === "module"` (medium, preferred over path) → `/modules/` path (medium, fallback) |
 | Next.js route export convention *(v3)* | `nextjs-route-convention` | `EvidenceGraph` export facts (`listExportsForFile`). When facts exist, the file's non-handler named exports must all be in the Next.js segment-config set (`runtime` / `dynamic` / `revalidate` / `fetchCache` / `preferredRegion`) for the finding to be filtered. **Graph evidence is authoritative**: when export facts exist for the file, the classic content fallback (`details.otherExports`-based) is skipped — graph reality trumps detector details. When no graph facts exist, the classic content filter runs unchanged. |
@@ -111,6 +111,64 @@ has to rely on naming conventions.
 Both new projections are populated by
 `@rekon/capability-model.projector` when the upstream
 evidence supports it.
+
+## Import-Fact Consumers (v4)
+
+Three of the six graph-aware checks consume import
+evidence: `route-handler-with-service`,
+`route-http-middleware-only`, and
+`external-api-comment-only`. After the
+import-helper-compatibility implementation
+(`cce837f`), all three consume EvidenceGraph import
+facts via the compatibility-aware
+`listImportTargetsForFile` helper rather than matching
+`fact.subject` raw.
+
+**Evidence precedence (v4).** When EvidenceGraph
+import facts exist for the finding's file, they are
+**authoritative** over `Finding.details.imports`. The
+order is:
+
+1. `EvidenceGraph` import facts (via
+   `listImportTargetsForFile`).
+2. `Finding.details.imports` (fallback when no
+   EvidenceGraph imports exist for the file).
+3. `ObservedRepo.files` sibling lookup (only the
+   `route-handler-with-service` check; fires when
+   neither import source yields evidence).
+
+This mirrors the
+`nextjs-route-convention` v3 invariant: artifact-backed
+graph evidence beats detector-supplied details. The
+`details.imports` branch is the fallback, not the
+default.
+
+**Evidence strings.** Each decision's `evidence`
+string names the source explicitly so audit
+consumers (filter-health, agent contract, operator
+review) can tell at a glance which branch fired:
+
+- `EvidenceGraph import facts show route delegates to
+  handler: '<target>'.`
+- `Detector import details show route delegates to
+  handler: '<target>'.`
+- `ObservedRepo file index shows route has sibling
+  handler file: '<path>'.`
+- `EvidenceGraph import facts show route imports only
+  HTTP / Identity middleware infra: <imports>.`
+- `EvidenceGraph import facts contain no external API
+  package imports (openai / openrouter / @openai/*)
+  for '<file>': <targets>.`
+- `Detector import details (explicitly empty imports
+  list) contain no external API package imports …`
+
+**`usedArtifacts` tracking.** Decisions consulted via
+EvidenceGraph return `usedArtifacts: ["EvidenceGraph"]`;
+decisions consulted only via `details.imports` return
+`usedArtifacts: []`. The runtime cites
+`EvidenceGraph` in
+`FindingFilterReport.header.inputRefs` exactly when at
+least one decision in the run consulted it.
 
 ## Conservative No-Op
 

@@ -47,7 +47,14 @@ may collide with built-ins.
 | `capability_hint` | repo-relative file path | `{ path, capability, ... }` |
 
 The legacy `import` subject shape (`"<file>:<target>"`)
-is intentional and stable. The
+is intentional and stable. Graph-aware import-consuming
+filters
+(`route-handler-with-service`,
+`route-http-middleware-only`,
+`external-api-comment-only`) prefer these `import`
+facts over `Finding.details.imports` (v4 graph-aware
+import-fact consumers); their evidence strings name
+the source explicitly. The
 [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
 documents Rekon's stance: keep the legacy producer
 shape, make file-scoped helpers compatibility-aware,

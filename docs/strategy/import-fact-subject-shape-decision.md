@@ -22,6 +22,19 @@
 > callsites; a planned `schemaVersion` bump; external
 > author confusion; import facts becoming
 > publication-facing) remain documented below.
+>
+> **Consumer follow-through (graph-aware import-fact
+> consumers v4):** the three import-consuming graph-aware
+> filters (`route-handler-with-service`,
+> `route-http-middleware-only`,
+> `external-api-comment-only`) now deliberately prefer
+> EvidenceGraph import facts over
+> `Finding.details.imports`. `route-handler-with-service`'s
+> precedence was swapped so EvidenceGraph runs first;
+> evidence strings across all three filters name the
+> source ("EvidenceGraph import facts …" / "Detector
+> import details …" / "ObservedRepo file index …") so
+> audit consumers can tell which branch fired.
 
 ## Decision Summary
 
