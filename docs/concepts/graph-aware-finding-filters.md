@@ -155,10 +155,20 @@ re-implementing path normalization:
   the sibling path when present in `ObservedRepo.files`,
   `undefined` otherwise.
 - `listImportTargetsForFile(ctx, filePath)` — reads
-  `EvidenceGraph` import facts (`kind === "import"`,
-  `subject === filePath`).
+  `EvidenceGraph` import facts and returns their
+  `value.target` strings. See the
+  [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
+  for why this helper is compatibility-aware: legacy
+  import facts use `subject = "<file>:<target>"`, while
+  the new export / symbol facts use
+  `subject = <file path>`. The decision recommends
+  Option B (helper-aware compatibility) — consumers
+  must use the helper rather than matching
+  `fact.subject` raw for file-scoped lookups.
 - `fileImportsTargetMatching(ctx, filePath, predicate)` —
   filters the import targets through a predicate.
+  Inherits the same compatibility contract as
+  `listImportTargetsForFile`.
 - `listExportsForFile(ctx, filePath)` — reads
   `EvidenceGraph` export facts (`kind === "export"`) and
   returns `FileExportSummary[]` sorted by name + kind.

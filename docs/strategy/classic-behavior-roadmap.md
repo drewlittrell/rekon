@@ -1588,8 +1588,88 @@ scope:
   / 1 skipped / 0 failed.
 
   Import-fact subject-shape cleanup decision memo (the
-  v1 substrate review packet's documented follow-up) is
-  the recommended next slice.
+  v1 substrate review packet's documented follow-up)
+  shipped next; see the
+  "Import-fact subject-shape decision memo" entry below.
+- **Import-fact subject-shape decision memo (P1.1
+  import-fact-subject-shape-decision slice).** ✅
+  Shipped. Strategy-only batch — no runtime behavior
+  changes. The memo
+  ([`docs/strategy/import-fact-subject-shape-decision.md`](import-fact-subject-shape-decision.md))
+  evaluates how Rekon should handle the inconsistency
+  between the new
+  `EvidenceGraph` export / symbol facts (`subject = file
+  path`, shipped at `a776c58`) and the legacy import
+  facts (`subject = "<file>:<target>"`).
+
+  **Decision: Option B — compatibility-aware import
+  helpers, with Option A (full producer migration)
+  preserved as a future trigger.**
+
+  - Five of six built-in `EvidenceGraph` fact kinds use
+    `subject = file path`; only `import` uses the
+    legacy `"<file>:<target>"` shape.
+  - The substrate-side helpers `listExportsForFile` and
+    `listSymbolsForFile` work against production data
+    because export/symbol producers adopted the new
+    shape. `listImportTargetsForFile` does NOT match
+    `@rekon/capability-js-ts` production import facts
+    today — graph-aware filters relying on it fall back
+    to `Finding.details.imports` or
+    `ObservedRepo.files` siblings unnoticed (test
+    fixtures used the new shape; the example repo has
+    no findings).
+  - **Option B** lands the correct *consumer* behavior
+    in `listImportTargetsForFile` via a small
+    `matchesFileSubject` predicate that recognizes
+    `fact.subject === filePath`,
+    `fact.value.source === filePath`, and the legacy
+    `subject` prefix. No producer churn. No
+    `schemaVersion` bump. Existing `EvidenceGraph`
+    artifacts stay valid.
+  - **Option A** (producer migration to
+    `subject = file path` for import facts) is the
+    cleaner end state but requires regenerating
+    every `EvidenceGraph` artifact and risks breaking
+    external consumers. Preserved as a future trigger,
+    not chosen today.
+  - **Option C** (leave as-is permanently) was
+    rejected — the
+    `listImportTargetsForFile` surface promises
+    file-scoped lookup, and leaving it silently broken
+    against production data accumulates cost as more
+    graph-aware checks land.
+
+  **Future migration triggers for Option A** (any one
+  is sufficient): helper compatibility logic exceeds
+  ~3 callsites; an `EvidenceGraph` `schemaVersion`
+  bump is planned for unrelated reasons; external
+  capability authors report confusion about the
+  inconsistency; import facts become a
+  publication-facing artifact projection.
+
+  **Compatibility contract documented**:
+  > Graph-aware consumers must use helper APIs
+  > (`listImportTargetsForFile`,
+  > `listExportsForFile`,
+  > `listSymbolsForFile`) for file-scoped fact lookups.
+  > Raw `fact.subject` matching is permitted only by
+  > the fact's owning producer or by tests that own
+  > the exact shape they construct.
+
+  Docs-only slice. Pinned by
+  `tests/docs/import-fact-subject-shape-decision.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI subcommand
+  or flag. No new reason codes. No producer change. No
+  helper change. No graph-aware filter change. No
+  version bump. No npm publish.
+
+  **Import helper compatibility implementation** (the
+  follow-up slice that lands the actual
+  `listImportTargetsForFile` compatibility branch + the
+  graph-aware-filter end-to-end CLI fixture) is the
+  recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

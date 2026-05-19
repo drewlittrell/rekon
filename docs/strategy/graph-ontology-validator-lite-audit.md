@@ -62,6 +62,19 @@
 > matches as `graphAwareFiltered`. No new reason codes,
 > no source reads, no LLM / semantic / fuzzy logic, no
 > monolithic validator port.
+>
+> **Import fact subject-shape decision:** see
+> [`docs/strategy/import-fact-subject-shape-decision.md`](import-fact-subject-shape-decision.md).
+> Strategy-only memo (no runtime change) deciding how to
+> handle the inconsistency between the new export /
+> symbol facts (`subject = file path`) and the legacy
+> import facts (`subject = "<file>:<target>"`).
+> Recommends Option B — keep the legacy producer shape,
+> make `listImportTargetsForFile` (and any future
+> file-scoped import helper) compatibility-aware, and
+> preserve full producer migration as a future trigger.
+> Helper compatibility implementation is the recommended
+> next slice.
 
 ## Decision Summary
 

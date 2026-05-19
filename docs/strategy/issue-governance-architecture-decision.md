@@ -610,14 +610,40 @@ review packets unless an ADR promotes them. Promotion requires:
     checker. No LLM / semantic / fuzzy / embedding
     inference. No framework-wide Next.js catalog. No new
     capability role. No new CLI subcommand or flag.
-20. **(future)** Import-fact subject-shape cleanup decision
-    memo — the export/symbol substrate landed at
-    `subject = file path`, but legacy import facts retain
-    `subject = "<file>:<target>"`. The memo should decide
-    whether to migrate, add helper compatibility, or leave
-    as-is. (Documented as a follow-up in the v1 substrate
-    review packet.)
-21. **(future)** Merge-decision freshness guardrails,
+20. **(shipped)** Import-fact subject-shape cleanup
+    decision memo. Strategy-only batch (no runtime
+    behavior changes ship). The memo
+    ([`docs/strategy/import-fact-subject-shape-decision.md`](import-fact-subject-shape-decision.md))
+    evaluates three options for the legacy
+    `import` fact subject shape
+    (`subject = "<file>:<target>"`), which differs from
+    the new export / symbol substrate's
+    `subject = file path` convention. Recommends
+    **Option B**: keep the legacy producer shape, make
+    `listImportTargetsForFile` (and any future
+    file-scoped import helper) compatibility-aware,
+    preserve Option A (full producer migration) as a
+    future trigger. Documents the helper-based
+    compatibility contract: consumers must use
+    `listImportTargetsForFile` /
+    `listExportsForFile` /
+    `listSymbolsForFile` for file-scoped fact lookups
+    rather than matching `fact.subject` raw. Defines
+    four future-migration triggers (helper compatibility
+    branches exceed ~3 callsites; planned
+    `EvidenceGraph` `schemaVersion` bump; external author
+    confusion; import facts become publication-facing).
+21. **(future)** Import helper compatibility
+    implementation — update `listImportTargetsForFile`
+    to consult `fact.subject === filePath`,
+    `fact.value.source === filePath`, and the legacy
+    `subject` prefix-before-first-`:` as fallbacks.
+    Dedupe targets. Add a `matchesFileSubject` private
+    predicate so `fileImportsTargetMatching` shares the
+    same logic. Add contract tests + end-to-end CLI
+    smoke. Per the import-fact subject-shape decision
+    memo's Implementation Plan.
+22. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

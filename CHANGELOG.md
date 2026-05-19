@@ -4,6 +4,89 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped import-fact subject-shape cleanup decision memo
+  (P1.1 import-fact-subject-shape-decision slice).
+  Strategy-only batch — no runtime behavior changes ship.
+
+  The memo
+  ([`docs/strategy/import-fact-subject-shape-decision.md`](docs/strategy/import-fact-subject-shape-decision.md))
+  evaluates how Rekon should handle the inconsistency
+  between the new `EvidenceGraph` export / symbol facts
+  (`subject = file path`, shipped at `a776c58`) and the
+  legacy import facts (`subject = "<file>:<target>"`).
+  Five of six built-in fact kinds use the new
+  file-subject convention; only `import` carries the
+  legacy shape, and the legacy shape doesn't match what
+  `@rekon/kernel-findings.listImportTargetsForFile`
+  expects — so graph-aware filters that rely on
+  EvidenceGraph import facts have been falling back to
+  `Finding.details.imports` or `ObservedRepo.files`
+  siblings unnoticed against production data.
+
+  **Decision separation:**
+  - **Option A** (migrate producer to
+    `subject = file path` for import facts): clean end
+    state but regenerates every existing `EvidenceGraph`
+    artifact and risks breaking external consumers.
+    **Preserved as a future trigger**, not chosen today.
+  - **Option B** (compatibility-aware import helpers):
+    update `listImportTargetsForFile` to recognize both
+    legacy and file-subject shapes via a small
+    `matchesFileSubject` predicate. No producer churn.
+    No `schemaVersion` bump. Existing artifacts stay
+    valid. **Recommended.**
+  - **Option C** (leave as-is permanently): rejected.
+    The surface promises file-scoped lookup; leaving it
+    silently broken accumulates cost as more
+    graph-aware checks land.
+
+  **Future migration triggers for Option A** (any one
+  sufficient): (1) helper compatibility logic exceeds
+  ~3 callsites; (2) `EvidenceGraph` `schemaVersion`
+  bump planned for unrelated reasons; (3) external
+  capability authors report confusion; (4) import
+  facts become a publication-facing artifact projection.
+
+  **Compatibility contract.** Graph-aware consumers
+  must use helper APIs for file-scoped fact lookups:
+  `listImportTargetsForFile`, `listExportsForFile`,
+  `listSymbolsForFile`. Raw `fact.subject` matching is
+  permitted only by the fact's owning producer or by
+  tests that own the exact shape they construct.
+
+  Strategy docs updated:
+  `docs/concepts/graph-aware-finding-filters.md`
+  (helpers section references the new decision);
+  `docs/artifacts/evidence-graph.md` (Built-in Fact
+  Kinds table now points at the decision memo);
+  `docs/strategy/graph-ontology-validator-lite-audit.md`
+  (top blockquote updated with decision-shipped
+  status);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 20 flipped to shipped; step 21 reserved for
+  the helper compatibility implementation);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new decision memo
+  entries).
+
+  Implements step 20 of the issue governance ADR
+  Implementation Order. Pinned by
+  `tests/docs/import-fact-subject-shape-decision.test.mjs`
+  (15 tests). No artifact `schemaVersion` bump. No new
+  artifact type. No new capability role. No new CLI
+  subcommand or flag. No new reason codes. No
+  producer change. No helper change. No graph-aware
+  filter change. No source-file reads. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No
+  npm publish.
+
+  **Import helper compatibility implementation**
+  (the follow-up slice that lands the actual
+  `listImportTargetsForFile` compatibility branch +
+  contract tests + the end-to-end CLI fixture) is the
+  recommended next slice.
+
 - Shipped graph-aware Next.js route export convention
   filter (P1.1 graph-aware-nextjs-route-export-filter v3
   slice) — the first v3 candidate check that consumes the

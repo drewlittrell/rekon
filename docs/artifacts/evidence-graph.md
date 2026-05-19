@@ -46,6 +46,22 @@ may collide with built-ins.
 | `ownership_hint` | repo-relative file path | `{ path, system, layer }` |
 | `capability_hint` | repo-relative file path | `{ path, capability, ... }` |
 
+The legacy `import` subject shape (`"<file>:<target>"`)
+is intentional and stable. The
+[import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
+documents Rekon's stance: keep the legacy producer
+shape, make file-scoped helpers compatibility-aware,
+and treat migrating to `subject = file path` as a
+future option triggered by specific conditions
+(more than ~3 helper callsites needing custom logic, a
+planned `schemaVersion` bump, external author
+confusion, or import facts becoming a publication-facing
+artifact). Until then, consumers must look up
+file-scoped import facts via the
+`listImportTargetsForFile` helper in
+`@rekon/kernel-findings` — not by matching
+`fact.subject` raw.
+
 ### Export / symbol facts (substrate v1)
 
 `export` and `symbol` facts ship with the

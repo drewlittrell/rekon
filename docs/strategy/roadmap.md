@@ -881,6 +881,37 @@ is the first stop before proposing a new capability batch.
   Next.js catalog. No new capability role. No new CLI
   subcommand or flag. No artifact `schemaVersion` bump.
   No new artifact type. No version bump. No npm publish.
+- Import-fact subject-shape decision memo (P1.1
+  import-fact-subject-shape-decision slice):
+  strategy-only batch; no runtime behavior change. The
+  memo
+  ([docs/strategy/import-fact-subject-shape-decision.md](import-fact-subject-shape-decision.md))
+  evaluates how Rekon should handle the inconsistency
+  between the new `EvidenceGraph` export / symbol facts
+  (`subject = file path`) and the legacy import facts
+  (`subject = "<file>:<target>"`). Recommends
+  **Option B**: compatibility-aware import helpers
+  (update `listImportTargetsForFile` to recognize both
+  shapes via `subject === filePath`,
+  `value.source === filePath`, and the legacy `subject`
+  prefix). Preserves **Option A** (full producer
+  migration) as a future trigger gated on helper
+  compatibility growing beyond ~3 callsites, a planned
+  `EvidenceGraph` `schemaVersion` bump, external author
+  confusion, or import facts becoming a
+  publication-facing artifact. Rejects **Option C**
+  (leave as-is). Documents the helper-based
+  compatibility contract: consumers must use
+  `listImportTargetsForFile`,
+  `listExportsForFile`, and `listSymbolsForFile` for
+  file-scoped fact lookups rather than matching
+  `fact.subject` raw. Docs-only slice; no artifact
+  `schemaVersion` bump, no new artifact type, no new
+  capability role, no new CLI subcommand or flag, no
+  new reason codes, no producer change, no helper
+  change, no graph-aware filter change, no version
+  bump, no npm publish. Pinned by
+  `tests/docs/import-fact-subject-shape-decision.test.mjs`.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a
