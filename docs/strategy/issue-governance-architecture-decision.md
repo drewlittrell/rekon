@@ -756,17 +756,45 @@ review packets unless an ADR promotes them. Promotion requires:
     diagnostic data feeds the future Option A producer-
     migration decision (per the import-fact
     subject-shape decision memo).
-24. **(future)** Graph-aware import evidence operator
-    review — use the new diagnostic data from real
-    operator repos to decide whether the Option A
-    producer migration (legacy
-    `subject = "<file>:<target>"` → file-subject) is
-    worth taking, or whether helper compatibility is
-    sufficient. Likely a decision memo (no
-    implementation) consuming `byEvidenceSource` /
-    `graphAwareByEvidenceSource` data from smoke or
-    operator runs.
-25. **(future)** Merge-decision freshness guardrails,
+24. **(shipped)** Graph-aware import evidence operator
+    review. Strategy-only batch — no runtime behavior
+    changes. The memo
+    ([`docs/strategy/graph-aware-import-evidence-operator-review.md`](graph-aware-import-evidence-operator-review.md))
+    consumes the new diagnostic surface against
+    available fixtures
+    (`examples/simple-js-ts`,
+    `examples/import-boundary-rule-pack/fixtures/bad-imports`,
+    `examples/custom-capability`) and concludes
+    **Option C (Hybrid — defer producer migration) for
+    alpha**: zero graph-aware filter decisions fire in
+    any available fixture, none of the four migration
+    triggers from the import-fact subject-shape
+    decision memo is met (helper compatibility has
+    exactly one implementation site / two consumers;
+    no `EvidenceGraph` `schemaVersion` bump planned;
+    no external authors exist pre-publish; import
+    facts are not publication-facing). The decision is
+    durable for the entire alpha window. The
+    recommended next implementation slice is
+    *graph-aware filtering fixture expansion* — add
+    deterministic fixtures that exercise the new
+    diagnostic surface with real EvidenceGraph-backed
+    matches so the next operator review has richer
+    data to consume.
+25. **(future)** Graph-aware filtering fixture
+    expansion. Deterministic fixtures under
+    `examples/` or `tests/fixtures/` that produce
+    EvidenceGraph-backed graph-aware filter matches:
+    a route + handler sibling pair firing
+    `route-handler-with-service`; an external-API
+    finding with no SDK import firing
+    `external-api-comment-only`; a Next.js route file
+    with segment-config exports firing
+    `nextjs-route-convention`. Bounded, regeneration-
+    friendly via `rekon refresh`. Validates that the
+    diagnostic surface shipped at `499d096` carries
+    real data end-to-end.
+26. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

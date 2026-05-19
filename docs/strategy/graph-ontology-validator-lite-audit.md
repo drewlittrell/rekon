@@ -85,6 +85,15 @@
 > agent contract render evidence-source tables; three
 > new fallback-dominance alerts feed the future Option
 > A migration decision).
+>
+> **Operator review:** see
+> [`docs/strategy/graph-aware-import-evidence-operator-review.md`](graph-aware-import-evidence-operator-review.md).
+> Strategy memo (no runtime change) that consumes the
+> new diagnostic surfaces against available fixture
+> data and recommends **Option C (defer producer
+> migration) for alpha**. Zero of the four migration
+> triggers documented in the import-fact subject-shape
+> decision memo are currently met.
 
 ## Decision Summary
 

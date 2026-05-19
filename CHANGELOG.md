@@ -4,6 +4,97 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware import evidence operator review
+  (P1.1 graph-aware-import-evidence-operator-review
+  slice). Strategy-only batch — no runtime behavior
+  changes ship.
+
+  The memo
+  ([`docs/strategy/graph-aware-import-evidence-operator-review.md`](docs/strategy/graph-aware-import-evidence-operator-review.md))
+  consumes the new diagnostic surface shipped at
+  `499d096`
+  (`byEvidenceSource`,
+  `graphAwareByEvidenceSource`,
+  `graphAwareReasonEvidenceSources`, three
+  fallback-dominance alerts) against available
+  fixtures (`examples/simple-js-ts`,
+  `examples/import-boundary-rule-pack/fixtures/bad-imports`,
+  `examples/custom-capability`) and decides whether the
+  Option A producer migration from the import-fact
+  subject-shape decision memo is worth taking now.
+
+  **Decision: Option C (Hybrid — defer producer
+  migration) for alpha.** The memo explicitly states:
+  *"No import fact producer migration in alpha unless
+  a trigger is met."*
+
+  **Data summary:**
+  - `examples/simple-js-ts` — 0 findings, 0
+    graph-aware filtered.
+  - `examples/import-boundary-rule-pack/fixtures/bad-imports`
+    — 1 finding, 0 filtered (graph-aware doesn't
+    catch it).
+  - `examples/custom-capability` — 1 finding, 1
+    filtered as `test-file` via `BuiltIn` path
+    heuristic (`byEvidenceSource: { BuiltIn: 1 }`).
+  - **Zero graph-aware filter decisions fire in any
+    available fixture.** `graphAwareByEvidenceSource`
+    is empty across the board.
+  - **`byEvidenceSource` IS populated correctly when
+    non-graph-aware filters fire** — confirming the
+    attribution machinery works end-to-end.
+
+  **Four migration triggers evaluated:**
+  - Helper compatibility callsites > ~3: **Not met.**
+    One `matchesFileSubject` implementation, two
+    consumers via delegation.
+  - `EvidenceGraph` `schemaVersion` bump planned:
+    **Not met.**
+  - External capability author confusion: **Unknown.**
+    Pre-publish; no external authors exist yet.
+  - Import facts become publication-facing: **Not
+    met.** Publications aggregate counts only.
+
+  **Recommended next slice:** graph-aware filtering
+  fixture expansion. Add deterministic fixtures
+  (route + handler sibling pair, external-API
+  finding with no SDK import, Next.js route file with
+  segment-config exports) that produce real
+  EvidenceGraph-backed graph-aware filter matches so
+  the diagnostic surface has non-empty data during
+  development.
+
+  Strategy docs updated:
+  `docs/strategy/import-fact-subject-shape-decision.md`
+  (top blockquote adds Operator review block);
+  `docs/strategy/graph-ontology-validator-lite-audit.md`
+  (top blockquote adds operator review status);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 24 flipped to shipped; step 25 reserved for
+  fixture expansion);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new operator review
+  entries);
+  `docs/concepts/graph-aware-finding-filters.md` (new
+  "Operator review" paragraph);
+  `docs/artifacts/evidence-graph.md` (import-fact
+  paragraph references the operator review).
+
+  Implements step 24 of the issue governance ADR
+  Implementation Order. Pinned by
+  `tests/docs/graph-aware-import-evidence-operator-review.test.mjs`
+  (15 tests). No artifact `schemaVersion` bump. No
+  new artifact type. No new capability role. No new
+  CLI subcommand or flag. No new reason codes. No
+  producer change. No helper change. No graph-aware
+  filter change. No source-file reads. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No
+  npm publish.
+
+  Graph-aware filtering fixture expansion is the
+  recommended next slice.
+
 - Shipped graph-aware import evidence publication
   diagnostics (P1.1
   graph-aware-import-evidence-publication-diagnostics

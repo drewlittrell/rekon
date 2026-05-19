@@ -58,6 +58,22 @@
 > The data feeds the future Option A migration decision
 > by showing whether `EvidenceGraph` import facts are
 > actually firing in real repos.
+>
+> **Operator review (graph-aware import evidence operator
+> review):** see
+> [`docs/strategy/graph-aware-import-evidence-operator-review.md`](graph-aware-import-evidence-operator-review.md).
+> The review evaluates the new diagnostic surface
+> against available fixture data and concludes
+> **Option C (defer producer migration) for alpha**:
+> zero graph-aware filter decisions fire in any
+> available fixture; none of the four migration
+> triggers documented above is met; the helper
+> compatibility implementation at `cce837f` remains
+> canonical. The decision is durable for the entire
+> alpha window and revisitable when any trigger
+> transitions to "Met" or when real operator data
+> from third-party repos materially changes the
+> diagnostic picture.
 
 ## Decision Summary
 

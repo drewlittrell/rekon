@@ -1012,6 +1012,32 @@ is the first stop before proposing a new capability batch.
   port. No new capability role. No new CLI subcommand
   or flag. No artifact `schemaVersion` bump. No new
   artifact type. No version bump. No npm publish.
+- Graph-aware import evidence operator review (P1.1
+  graph-aware-import-evidence-operator-review slice):
+  strategy-only batch; no runtime behavior change. The
+  memo
+  ([docs/strategy/graph-aware-import-evidence-operator-review.md](graph-aware-import-evidence-operator-review.md))
+  consumes the new diagnostic surface shipped at
+  `499d096` against available fixtures and concludes
+  **Option C (defer producer migration) for alpha**.
+  Zero graph-aware filter decisions fire in any
+  available local fixture; none of the four migration
+  triggers documented in the import-fact subject-shape
+  decision memo is met. The decision is durable for
+  the entire alpha window. Recommended next slice:
+  graph-aware filtering fixture expansion (add
+  deterministic fixtures producing real
+  EvidenceGraph-backed graph-aware matches so the next
+  operator review consumes measured distributions
+  rather than synthetic test data). Pinned by
+  `tests/docs/graph-aware-import-evidence-operator-review.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI subcommand
+  or flag. No new reason codes. No producer change.
+  No helper change. No graph-aware filter change. No
+  source-file reads. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

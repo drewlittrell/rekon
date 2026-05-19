@@ -1894,8 +1894,80 @@ scope:
   **Graph-aware import evidence operator review**
   (decision memo consuming real diagnostic data from
   operator runs to decide whether the Option A
-  producer migration is worth taking) is the
-  recommended next slice.
+  producer migration is worth taking) shipped next;
+  see the entry below.
+- **Graph-aware import evidence operator review (P1.1
+  graph-aware-import-evidence-operator-review
+  slice).** ✅ Shipped. Strategy-only batch — no
+  runtime behavior changes. The memo
+  ([`docs/strategy/graph-aware-import-evidence-operator-review.md`](graph-aware-import-evidence-operator-review.md))
+  consumes the new diagnostic surface
+  (`byEvidenceSource`,
+  `graphAwareByEvidenceSource`,
+  `graphAwareReasonEvidenceSources`,
+  `dominantGraphAwareEvidenceSource`, three
+  fallback-dominance alerts) shipped at `499d096`
+  against available fixtures and decides whether the
+  future Option A producer migration is worth taking
+  now.
+
+  **Decision: Option C (Hybrid — defer producer
+  migration) for alpha.** The memo explicitly states:
+  *"No import fact producer migration in alpha unless
+  a trigger is met."*
+
+  **Data gathered:** three local fixtures exercised
+  (`examples/simple-js-ts` — 0 findings, 0
+  graph-aware; `examples/import-boundary-rule-pack/fixtures/bad-imports`
+  — 1 finding, 0 filtered;
+  `examples/custom-capability` — 1 finding, 1
+  filtered via `BuiltIn` test-file path heuristic).
+  **Zero graph-aware filter decisions fire in any
+  available fixture.** `byEvidenceSource` IS populated
+  correctly when non-graph-aware filters fire
+  (confirming the attribution machinery works);
+  graph-aware diagnostic surfaces are empty (no
+  available fixture exercises them).
+
+  **Four migration triggers evaluated** (from
+  [import-fact subject-shape decision memo](import-fact-subject-shape-decision.md)):
+  - Helper compatibility callsites > ~3: **Not met.**
+    Exactly one `matchesFileSubject` implementation;
+    two consumers via delegation.
+  - `EvidenceGraph` `schemaVersion` bump planned:
+    **Not met.** No bump on the roadmap.
+  - External capability author confusion: **Unknown.**
+    Pre-publish; no external authors exist yet.
+  - Import facts become publication-facing: **Not
+    met.** Publications aggregate counts only.
+
+  **Recommended next implementation slice:**
+  graph-aware filtering fixture expansion. Add
+  deterministic fixtures that exercise the
+  EvidenceGraph branches of the import-consuming
+  graph-aware filters so the diagnostic surface has
+  non-empty real data during development. The next
+  operator review will then consume measured
+  distributions rather than synthetic test data.
+
+  Docs-only slice. Pinned by
+  `tests/docs/graph-aware-import-evidence-operator-review.test.mjs`.
+  Aligned to `lib/import-graph.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`,
+  `services/issues/filter-health.ts`,
+  `services/IssueDetectionService.ts`. No artifact
+  `schemaVersion` bump. No new artifact type. No new
+  capability role. No new CLI subcommand or flag. No
+  new reason codes. No producer change. No helper
+  change. No graph-aware filter change. No source-file
+  reads. No LLM, semantic, fuzzy, or embedding
+  matching. No `GraphOntologyValidator` port. No
+  version bump. No npm publish.
+
+  Graph-aware filtering fixture expansion is the
+  recommended next slice (per the memo + the
+  follow-up section of the issue governance ADR).
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

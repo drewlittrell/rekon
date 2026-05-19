@@ -55,6 +55,13 @@ filters
 facts over `Finding.details.imports` (v4 graph-aware
 import-fact consumers); their evidence strings name
 the source explicitly. The
+[graph-aware import evidence operator review](../strategy/graph-aware-import-evidence-operator-review.md)
+evaluates the diagnostic surface and confirms
+**Option C (defer producer migration) for alpha** —
+the legacy subject shape stays, helper compatibility
+remains canonical, and producer migration is gated on
+the four triggers documented in the
+[import-fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md). The
 [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
 documents Rekon's stance: keep the legacy producer
 shape, make file-scoped helpers compatibility-aware,

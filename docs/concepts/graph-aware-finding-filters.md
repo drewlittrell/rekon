@@ -170,6 +170,17 @@ decisions consulted only via `details.imports` return
 `FindingFilterReport.header.inputRefs` exactly when at
 least one decision in the run consulted it.
 
+**Operator review.** The
+[graph-aware import evidence operator review](../strategy/graph-aware-import-evidence-operator-review.md)
+consumes the diagnostic surface below against
+available fixtures and recommends **Option C (defer
+producer migration) for alpha** — keep the helper
+compatibility implementation; revisit producer
+migration only when one of the four triggers
+documented in the
+[import-fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
+fires.
+
 **`evidenceSource` per-FilteredFinding attribution.**
 The graph-aware import evidence publication
 diagnostics slice adds an additive optional
