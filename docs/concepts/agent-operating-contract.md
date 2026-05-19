@@ -158,15 +158,33 @@ closes with "If filter rate is high or policy warnings exist,
 inspect `FindingFilterReport.filteredFindings` before claiming
 the repo has no active issues." Missing filter artifacts produce
 explicit `rekon findings filter` / `rekon refresh` hints. The
-`Do Not Do` section carries two filter-related reminders: "Do not
-treat a clean active-governance surface as proof that no raw
-findings exist; inspect FindingFilterReport when filter-health
-warnings exist or the filter rate is high." and "Do not treat
-graph-aware filtering as proof that the underlying issue never
-existed; inspect `FindingFilterReport.filteredFindings` for the
-structural evidence (sibling-file existence, import-graph facts,
+`Do Not Do` section carries three filter-related reminders:
+"Do not treat a clean active-governance surface as proof that
+no raw findings exist; inspect FindingFilterReport when
+filter-health warnings exist or the filter rate is high.";
+"Do not treat graph-aware filtering as proof that the
+underlying issue never existed; inspect
+`FindingFilterReport.filteredFindings` for the structural
+evidence (sibling-file existence, import-graph facts,
 capability ownership, module-kind routing) before drawing
-conclusions." See [finding-filters.md](finding-filters.md) and
+conclusions."; and the new "Do not treat detector-detail
+fallback filtering as equivalent to EvidenceGraph-backed
+structural evidence. When `Graph-aware evidence sources`
+shows `DetectorDetails` entries, review them more critically
+than `EvidenceGraph` entries — the detector's claim was not
+corroborated by artifact evidence." (graph-aware import
+evidence publication diagnostics slice).
+
+After the same diagnostics slice, the Finding Filter
+Health subsection also renders a compact
+`Graph-aware evidence sources:` list under the existing
+graph-aware audit instruction when graph-aware filtering
+exists. The list shows per-source counts
+(`EvidenceGraph` / `DetectorDetails` / `ObservedRepo`)
+so agents can tell at a glance whether graph-aware
+suppression is artifact-backed or relying on fallback.
+
+See [finding-filters.md](finding-filters.md) and
 [graph-aware-finding-filters.md](graph-aware-finding-filters.md).
 
 ## Finding Filter Policy Suggestions

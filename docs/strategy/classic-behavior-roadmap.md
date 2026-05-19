@@ -1841,8 +1841,61 @@ scope:
   **Graph-aware import evidence publication
   diagnostics** (surface whether filters consulted
   EvidenceGraph or fell back to `details.imports` —
-  e.g. an `evidenceSource` count in filter-health) is
-  the recommended next slice.
+  e.g. an `evidenceSource` count in filter-health)
+  shipped next; see the entry below.
+- **Graph-aware import evidence publication
+  diagnostics (P1.1
+  graph-aware-import-evidence-publication-diagnostics
+  slice).** ✅ Shipped. Adds per-`FilteredFinding`
+  `evidenceSource` attribution
+  (`EvidenceGraph` / `ObservedRepo` /
+  `DetectorDetails` / `Policy` / `BuiltIn` /
+  `ResultFilter` / `Unknown`); extends
+  `FindingFilterHealthSummary` with `byEvidenceSource`,
+  `graphAwareByEvidenceSource`,
+  `graphAwareReasonEvidenceSources`, and
+  `dominantGraphAwareEvidenceSource`; adds three
+  advisory alerts
+  (`graph-aware-details-fallback-dominance`,
+  `graph-aware-observedrepo-fallback-dominance`,
+  `graph-aware-evidencegraph-low-usage`); renders
+  Graph-Aware Evidence Sources + per-reason × per-source
+  tables in the architecture summary publication and a
+  compact `Graph-aware evidence sources:` list in the
+  agent contract; adds a new "Do Not Do" reminder
+  against treating DetectorDetails fallback as
+  equivalent to EvidenceGraph-backed evidence.
+  Pipeline behavior unchanged — diagnostic surface
+  only. Producer unchanged. Older `FindingFilterReport`
+  artifacts continue to validate. 19 new contract tests
+  at
+  `tests/contract/graph-aware-import-evidence-diagnostics.test.mjs`
+  cover per-source attribution across all five pipeline
+  stages (graph-aware → EvidenceGraph / ObservedRepo /
+  DetectorDetails based on `usedArtifacts`; policy →
+  Policy; result filter → ResultFilter; built-in →
+  BuiltIn), summary-level aggregations, all three new
+  alerts, end-to-end architecture summary + agent
+  contract rendering against a seeded fixture, raw
+  `FindingReport` byte-identity, and `rekon artifacts
+  validate` cleanliness. Full suite: 819 passed / 1
+  skipped / 0 failed. Aligned to
+  `infra/validation/GraphOntologyValidator.ts`,
+  `services/issues/filter-health.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/GraphBuildProvider.ts`. No new reason
+  codes. No source reads. No AST / type checker. No
+  LLM / semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No new capability
+  role. No new CLI subcommand or flag. No artifact
+  `schemaVersion` bump. No new artifact type. No
+  version bump. No npm publish.
+
+  **Graph-aware import evidence operator review**
+  (decision memo consuming real diagnostic data from
+  operator runs to decide whether the Option A
+  producer migration is worth taking) is the
+  recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

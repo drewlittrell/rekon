@@ -76,12 +76,25 @@ states are surfaced, not hidden.
    mutually-exclusive buckets — policy, classic content,
    graph-aware, result, built-in path — and surfaces a
    dedicated `Graph-Aware Filter Reasons` table whenever
-   graph-aware filtering fired. The new
-   `graph-aware-filter-dominance` and
-   `graph-aware-reason-dominance` alerts surface in the same
-   alerts table when their thresholds are met. Missing filter
-   artifacts produce explicit `rekon findings filter` /
-   `rekon findings filter-health` / `rekon refresh` hints.
+   graph-aware filtering fired. After the graph-aware
+   import evidence publication diagnostics slice, the
+   publisher also renders a `Graph-Aware Evidence
+   Sources` table (per-source counts from
+   `graphAwareByEvidenceSource`) plus a per-reason ×
+   per-source breakdown table sourced from
+   `graphAwareReasonEvidenceSources` so operators can
+   see whether graph-aware suppression is artifact-
+   backed (EvidenceGraph) or relying on fallback
+   (`DetectorDetails` / `ObservedRepo`). The new
+   `graph-aware-filter-dominance`,
+   `graph-aware-reason-dominance`,
+   `graph-aware-details-fallback-dominance`,
+   `graph-aware-observedrepo-fallback-dominance`, and
+   `graph-aware-evidencegraph-low-usage` alerts surface
+   in the same alerts table when their thresholds are
+   met. Missing filter artifacts produce explicit `rekon
+   findings filter` / `rekon findings filter-health` /
+   `rekon refresh` hints.
    When a `FindingFilterPolicySuggestionReport` is indexed,
    the publisher also renders a `Finding Filter Policy
    Suggestions` section with total / high / medium / low

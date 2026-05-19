@@ -180,11 +180,19 @@ first):
   `source: "system"` and a result-filter reason so they
   remain auditable; they are **not** silently deleted. See
   "Classic Result Filters" below.
-- **Graph-aware filters (v1 + v2 + v3 + v4)** —
-  deterministic structural checks that consume Rekon
-  artifacts (`ObservedRepo`, `OwnershipMap`,
-  `CapabilityMap`, `EvidenceGraph`, `GraphSlice`) to
-  suppress findings backed by structural evidence. **v4
+- **Graph-aware filters (v1 + v2 + v3 + v4 +
+  publication diagnostics)** — deterministic structural
+  checks that consume Rekon artifacts (`ObservedRepo`,
+  `OwnershipMap`, `CapabilityMap`, `EvidenceGraph`,
+  `GraphSlice`) to suppress findings backed by
+  structural evidence. Each `FilteredFinding` records
+  `evidenceSource` (`EvidenceGraph` / `ObservedRepo` /
+  `DetectorDetails` / `Policy` / `BuiltIn` /
+  `ResultFilter`). Filter-health summarizes the
+  distribution; architecture summary + agent contract
+  surface evidence-source breakdowns so operators can
+  see whether graph-aware suppression is artifact-backed
+  or relying on fallback. **v4
   graph-aware import-fact consumers**: the three
   import-consuming checks
   (`route-handler-with-service`,

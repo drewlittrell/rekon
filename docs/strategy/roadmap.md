@@ -977,6 +977,41 @@ is the first stop before proposing a new capability batch.
   role. No new CLI subcommand or flag. No artifact
   `schemaVersion` bump. No new artifact type. No
   version bump. No npm publish.
+- Graph-aware import evidence publication diagnostics
+  (P1.1
+  graph-aware-import-evidence-publication-diagnostics
+  slice): adds per-`FilteredFinding`
+  `evidenceSource: FindingFilterEvidenceSource` field
+  (`EvidenceGraph` / `ObservedRepo` /
+  `DetectorDetails` / `Policy` / `BuiltIn` /
+  `ResultFilter` / `Unknown`). Extends
+  `FindingFilterHealthSummary` with
+  `byEvidenceSource`, `graphAwareByEvidenceSource`,
+  `graphAwareReasonEvidenceSources`, and
+  `dominantGraphAwareEvidenceSource`. Adds three
+  advisory alerts
+  (`graph-aware-details-fallback-dominance`,
+  `graph-aware-observedrepo-fallback-dominance`,
+  `graph-aware-evidencegraph-low-usage`, all gated on
+  `graphAwareFiltered >= 5`). Architecture summary
+  renders a `Graph-Aware Evidence Sources` table + a
+  per-reason × per-source breakdown + audit pointer;
+  agent contract renders a compact
+  `Graph-aware evidence sources:` list under Finding
+  Filter Health plus a new "Do Not Do" reminder
+  against treating DetectorDetails fallback as
+  equivalent to EvidenceGraph-backed evidence.
+  Pipeline behavior unchanged — diagnostic surface
+  only. Older `FindingFilterReport` artifacts continue
+  to validate (additive optional). Producer
+  unchanged. 19 new contract tests at
+  `tests/contract/graph-aware-import-evidence-diagnostics.test.mjs`.
+  No new reason codes. No source-file reads at filter
+  time. No AST, no type checker. No LLM / semantic /
+  fuzzy / embedding matching. No `GraphOntologyValidator`
+  port. No new capability role. No new CLI subcommand
+  or flag. No artifact `schemaVersion` bump. No new
+  artifact type. No version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

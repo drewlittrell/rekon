@@ -4,6 +4,175 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware import evidence publication
+  diagnostics (P1.1
+  graph-aware-import-evidence-publication-diagnostics
+  slice). Surfaces per-decision evidence-source
+  attribution across `FindingFilterReport`,
+  `FindingFilterHealthReport`, the architecture summary
+  publication, and the agent contract publication.
+
+  **`@rekon/kernel-findings` API additions:**
+  - New type `FindingFilterEvidenceSource`
+    (`"EvidenceGraph"` | `"ObservedRepo"` |
+    `"DetectorDetails"` | `"Policy"` | `"BuiltIn"` |
+    `"ResultFilter"` | `"Unknown"`).
+  - New additive optional field
+    `FilteredFinding.evidenceSource`. Older
+    `FindingFilterReport` artifacts continue to validate
+    with the field absent.
+  - New validator branch accepting the new field.
+
+  **`applyFindingFilters` attribution:** every pipeline
+  stage sets the field at the FilteredFinding push site:
+  - Policy stage → `Policy`.
+  - Graph-aware stage → `EvidenceGraph` /
+    `ObservedRepo` / `DetectorDetails` based on the
+    decision's `usedArtifacts` list (precedence:
+    EvidenceGraph > ObservedRepo > DetectorDetails).
+  - Classic content stage → `DetectorDetails` for the
+    six shared graph-aware reason codes, `BuiltIn`
+    otherwise.
+  - Built-in path stage → `BuiltIn`.
+  - Result-filter stage → `ResultFilter`.
+
+  **`FindingFilterHealthSummary` extensions:**
+  - `byEvidenceSource?: Record<string, number>` —
+    counts across all pipeline stages.
+  - `graphAwareByEvidenceSource?: Record<string, number>`
+    — counts restricted to `isGraphAwareFiltered`
+    entries.
+  - `graphAwareReasonEvidenceSources?: Record<string,
+    Record<string, number>>` — per-reason × per-source
+    matrix.
+  - `dominantGraphAwareEvidenceSource?: { source,
+    count, rate }` — alphabetic tiebreak; rate over
+    `graphAwareFiltered`.
+
+  **Three new advisory alerts (all gated on
+  `graphAwareFiltered >= 5`):**
+  - `graph-aware-details-fallback-dominance` —
+    DetectorDetails >= 50% of graph-aware. Advisory:
+    artifact-backed EvidenceGraph evidence is stronger
+    than detector fallback.
+  - `graph-aware-observedrepo-fallback-dominance` —
+    ObservedRepo >= 50% of graph-aware. Advisory:
+    sibling-file evidence is structurally strong, but
+    EvidenceGraph carries more detail when available.
+  - `graph-aware-evidencegraph-low-usage` —
+    EvidenceGraph < 25% of graph-aware. Signals that
+    the import-fact producer migration (Option A in
+    the import-fact subject-shape decision memo) might
+    be worth taking based on operator data.
+
+  **Architecture summary publication:** new
+  `### Graph-Aware Evidence Sources` section renders a
+  per-source counts table sourced from
+  `graphAwareByEvidenceSource`, followed by a
+  per-reason × per-source breakdown table from
+  `graphAwareReasonEvidenceSources`, with an audit
+  pointer noting that EvidenceGraph entries are
+  artifact-backed and DetectorDetails fallback should
+  be treated as weaker.
+
+  **Agent contract publication:** under the existing
+  Finding Filter Health subsection, when graph-aware
+  filtering exists the contract now renders:
+  ```
+  Graph-aware evidence sources:
+  - EvidenceGraph: N
+  - DetectorDetails: N
+  - ObservedRepo: N
+  ```
+  New `Do Not Do` entry: "Do not treat detector-detail
+  fallback filtering as equivalent to EvidenceGraph-
+  backed structural evidence. When `Graph-aware
+  evidence sources` shows `DetectorDetails` entries,
+  review them more critically than `EvidenceGraph`
+  entries — the detector's claim was not corroborated
+  by artifact evidence."
+
+  **What is UNCHANGED:**
+  - Filter pipeline behavior. Decision logic,
+    precedence, evidence strings, `usedArtifacts`,
+    `inputRefs`, `graphArtifactsUsed` — all from the v4
+    work — remain unchanged. This slice is diagnostic
+    surface only.
+  - `@rekon/capability-js-ts` import-fact producer.
+  - `EvidenceGraph` artifact `schemaVersion`. No bump.
+  - All graph-aware filter checks. All six remain
+    unchanged.
+  - All CLI commands. No new subcommands, no new flags.
+
+  **Tests.** 19 new contract tests at
+  `tests/contract/graph-aware-import-evidence-diagnostics.test.mjs`
+  cover: per-source attribution for each of the five
+  pipeline stages (EvidenceGraph / ObservedRepo /
+  DetectorDetails for graph-aware; Policy; ResultFilter;
+  BuiltIn), summary-level aggregations (byEvidenceSource,
+  graphAwareByEvidenceSource,
+  graphAwareReasonEvidenceSources, dominant tiebreak),
+  all three new alerts, end-to-end architecture summary
+  + agent contract rendering against a seeded fixture
+  (Graph-Aware Evidence Sources table, per-reason
+  breakdown table, agent contract evidence-source
+  list, agent contract Do Not Do entry), raw
+  `FindingReport` byte-identity, and `rekon artifacts
+  validate` cleanliness. Full suite: 819 passed / 1
+  skipped / 0 failed.
+
+  Implements step 23 of the issue governance ADR
+  (flipped from `(future)` to `(shipped)`); step 24
+  reserved for the graph-aware import evidence
+  operator-review decision memo that consumes the new
+  diagnostic data from real operator runs to decide
+  whether the Option A producer migration is worth
+  taking.
+
+  Strategy docs updated:
+  `docs/artifacts/finding-filter-report.md` (new
+  "Evidence Source Attribution" section);
+  `docs/artifacts/finding-filter-health-report.md`
+  (new summary fields documented + three new alerts in
+  the alerts table);
+  `docs/concepts/finding-filters.md` (graph-aware
+  section names the publication diagnostics surface);
+  `docs/concepts/graph-aware-finding-filters.md` (new
+  `evidenceSource` attribution paragraph under
+  Import-Fact Consumers v4);
+  `docs/concepts/architecture-summary-publication.md`
+  (rendering description names the new tables and
+  alerts);
+  `docs/concepts/agent-operating-contract.md` (Finding
+  Filter Health section names the compact list + new
+  Do Not Do entry);
+  `docs/strategy/import-fact-subject-shape-decision.md`
+  (top blockquote adds "Publication diagnostics"
+  status);
+  `docs/strategy/graph-ontology-validator-lite-audit.md`
+  (top blockquote updated);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 23 flipped to shipped; step 24 reserved for
+  the operator-review memo);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new diagnostics entries).
+
+  Aligned to `infra/validation/GraphOntologyValidator.ts`,
+  `services/issues/filter-health.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/GraphBuildProvider.ts`. No new reason
+  codes. No source-file reads at filter time. No AST,
+  no type checker. No LLM, semantic, fuzzy, or
+  embedding matching. No `GraphOntologyValidator`
+  port. No new capability role. No new CLI subcommand
+  or flag. No artifact `schemaVersion` bump. No new
+  artifact type. No producer change. No version bump.
+  No npm publish.
+
+  Graph-aware import evidence operator review (a
+  decision memo consuming real diagnostic data) is the
+  recommended next slice.
+
 - Shipped graph-aware import-fact consumers v4 (P1.1
   graph-aware-import-fact-consumers-v4 slice). Updates
   the three import-consuming graph-aware filters

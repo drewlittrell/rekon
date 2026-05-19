@@ -77,7 +77,14 @@
 > (`cce837f`); graph-aware import-fact consumers v4 has
 > shipped (`route-handler-with-service` precedence
 > swapped so EvidenceGraph runs first; all three
-> import-consuming filters name the evidence source).
+> import-consuming filters name the evidence source);
+> graph-aware import evidence publication diagnostics
+> has shipped (every `FilteredFinding` carries
+> `evidenceSource`; filter-health summarizes
+> evidence-source distribution; architecture summary +
+> agent contract render evidence-source tables; three
+> new fallback-dominance alerts feed the future Option
+> A migration decision).
 
 ## Decision Summary
 

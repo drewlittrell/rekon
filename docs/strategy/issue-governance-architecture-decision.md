@@ -714,15 +714,59 @@ review packets unless an ADR promotes them. Promotion requires:
     byte-identity, lifecycle / adjudication /
     coherency exclusion, and `rekon artifacts validate`
     cleanliness.
-23. **(future)** Graph-aware import evidence publication
-    diagnostics — surface whether graph-aware filters
-    consulted EvidenceGraph import facts versus
-    fell back to `details.imports`. Could be a compact
-    `evidenceSource` count on filter-health or a row in
-    the architecture summary Graph-Aware Filter Reasons
-    table. Informs whether the future Option A
-    producer migration is worth taking.
-24. **(future)** Merge-decision freshness guardrails,
+23. **(shipped)** Graph-aware import evidence publication
+    diagnostics. Adds an additive optional
+    `evidenceSource: FindingFilterEvidenceSource` field
+    on every `FilteredFinding`
+    (`EvidenceGraph` / `ObservedRepo` /
+    `DetectorDetails` / `Policy` / `BuiltIn` /
+    `ResultFilter` / `Unknown`). `FindingFilterHealthSummary`
+    gains `byEvidenceSource`,
+    `graphAwareByEvidenceSource`,
+    `graphAwareReasonEvidenceSources` (per-reason ×
+    per-source matrix), and
+    `dominantGraphAwareEvidenceSource` (alphabetic
+    tiebreak, rate over `graphAwareFiltered`). Three
+    new advisory alerts:
+    `graph-aware-details-fallback-dominance`
+    (DetectorDetails >= 50% of graph-aware),
+    `graph-aware-observedrepo-fallback-dominance`
+    (ObservedRepo >= 50%), and
+    `graph-aware-evidencegraph-low-usage`
+    (EvidenceGraph < 25%) — all gated on
+    `graphAwareFiltered >= 5`. Architecture summary
+    publication renders a `Graph-Aware Evidence Sources`
+    table + per-reason × per-source breakdown + audit
+    pointer; agent contract renders a compact
+    `Graph-aware evidence sources:` list and adds a new
+    "Do Not Do" reminder against treating
+    DetectorDetails fallback as equivalent to
+    EvidenceGraph-backed evidence. Pipeline behavior
+    unchanged — diagnostic surface only. Older
+    `FindingFilterReport` artifacts continue to validate
+    (additive optional). Producer unchanged. No new
+    reason codes. No source reads. No AST / type
+    checker. No LLM / semantic / fuzzy / embedding
+    matching. No `GraphOntologyValidator` port. 19 new
+    contract tests cover per-source attribution across
+    all five pipeline stages, summary-level aggregations,
+    three new alerts, architecture summary + agent
+    contract surfacing, raw `FindingReport` byte-identity,
+    and `rekon artifacts validate` cleanliness. The
+    diagnostic data feeds the future Option A producer-
+    migration decision (per the import-fact
+    subject-shape decision memo).
+24. **(future)** Graph-aware import evidence operator
+    review — use the new diagnostic data from real
+    operator repos to decide whether the Option A
+    producer migration (legacy
+    `subject = "<file>:<target>"` → file-subject) is
+    worth taking, or whether helper compatibility is
+    sufficient. Likely a decision memo (no
+    implementation) consuming `byEvidenceSource` /
+    `graphAwareByEvidenceSource` data from smoke or
+    operator runs.
+25. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

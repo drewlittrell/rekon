@@ -296,6 +296,29 @@ See
 "Classic Content Filters" and "Classic Result Filters" for
 the full per-case table.
 
+## Evidence Source Attribution
+
+Each `FilteredFinding` carries an additive optional
+`evidenceSource: FindingFilterEvidenceSource` field
+introduced by the graph-aware import evidence
+publication diagnostics slice. Values:
+
+| Source | Meaning |
+| --- | --- |
+| `EvidenceGraph` | Graph-aware decision consulted `EvidenceGraph` import or export facts (artifact-strong). |
+| `ObservedRepo` | Graph-aware decision consulted `ObservedRepo.files` (sibling-file evidence). |
+| `DetectorDetails` | Graph-aware decision fell back to `Finding.details.imports` (weaker than EvidenceGraph). |
+| `Policy` | Suppression by an operator-configured policy rule (`source === "policy"`). |
+| `BuiltIn` | Built-in path heuristic (`test-file` / `generated-file` / `external-file` / `canary-file` / `content-filter`) or classic content filter that did not consult graph artifacts. |
+| `ResultFilter` | Operator-configured result filter (`findingResultFilters`). |
+| `Unknown` | Older `FilteredFinding` entries from artifacts that pre-date this field. |
+
+The field is additive optional: older
+`FindingFilterReport` artifacts continue to validate
+with the field absent. Downstream consumers
+(`FindingFilterHealthReport`, architecture summary,
+agent contract) surface aggregate counts.
+
 ## Graph-Aware Filters (v1 + v2)
 
 v1 graph-aware filters consume Rekon artifacts to suppress

@@ -170,6 +170,32 @@ decisions consulted only via `details.imports` return
 `FindingFilterReport.header.inputRefs` exactly when at
 least one decision in the run consulted it.
 
+**`evidenceSource` per-FilteredFinding attribution.**
+The graph-aware import evidence publication
+diagnostics slice adds an additive optional
+`evidenceSource` field on each `FilteredFinding`:
+`EvidenceGraph` / `ObservedRepo` / `DetectorDetails`
+(graph-aware stages) or `Policy` / `BuiltIn` /
+`ResultFilter` (non-graph-aware stages). Precedence
+inside a single graph-aware decision: EvidenceGraph >
+ObservedRepo > DetectorDetails. `FindingFilterHealthSummary`
+exposes `byEvidenceSource`,
+`graphAwareByEvidenceSource`,
+`graphAwareReasonEvidenceSources`, and
+`dominantGraphAwareEvidenceSource`. Three new advisory
+alerts surface when graph-aware filtering leans on
+fallback evidence:
+`graph-aware-details-fallback-dominance`,
+`graph-aware-observedrepo-fallback-dominance`,
+`graph-aware-evidencegraph-low-usage`. Architecture
+summary renders a `Graph-Aware Evidence Sources` table
++ per-reason × per-source breakdown; agent contract
+renders a compact `Graph-aware evidence sources:` list
+under Finding Filter Health and adds a new "Do Not Do"
+reminder against treating detector-detail fallback as
+equivalent to EvidenceGraph-backed structural
+evidence.
+
 ## Conservative No-Op
 
 When the artifacts the provider would consult are missing,

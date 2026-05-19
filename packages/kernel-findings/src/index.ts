@@ -166,6 +166,34 @@ export type FindingFilterConfidence = "high" | "medium" | "low";
 
 export type FindingFilterSource = "system" | "operator" | "policy";
 
+/**
+ * Per-decision evidence attribution. Surfaced on
+ * `FilteredFinding.evidenceSource` so audit consumers
+ * (filter-health, architecture summary, agent contract)
+ * can tell whether a graph-aware suppression was backed
+ * by artifact-strong EvidenceGraph evidence, by detector
+ * details (a weaker fallback), by an `ObservedRepo` file
+ * index lookup, or by a non-graph-aware stage entirely.
+ *
+ * Precedence within a single decision: EvidenceGraph >
+ * ObservedRepo > DetectorDetails. A graph-aware decision
+ * whose `usedArtifacts` list contains multiple graph
+ * artifacts gets the strongest label.
+ *
+ * Introduced by the graph-aware import evidence
+ * publication diagnostics slice; additive optional —
+ * older `FindingFilterReport` artifacts continue to
+ * validate with this field absent.
+ */
+export type FindingFilterEvidenceSource =
+  | "EvidenceGraph"
+  | "ObservedRepo"
+  | "DetectorDetails"
+  | "Policy"
+  | "BuiltIn"
+  | "ResultFilter"
+  | "Unknown";
+
 export type FilteredFinding = {
   findingId: string;
   finding: Finding;
@@ -181,6 +209,13 @@ export type FilteredFinding = {
    * `source === "policy"`.
    */
   policyId?: string;
+  /**
+   * Per-decision evidence attribution (graph-aware
+   * import evidence publication diagnostics slice).
+   * Additive optional — absent on older
+   * `FindingFilterReport` artifacts.
+   */
+  evidenceSource?: FindingFilterEvidenceSource;
 };
 
 export type FindingFilterSummary = {
@@ -351,7 +386,38 @@ type FilterMatch = {
    * content / built-in path / result matches.
    */
   usedArtifacts?: ReadonlyArray<FindingGraphArtifactUsed>;
+  /**
+   * Evidence-source label persisted to
+   * `FilteredFinding.evidenceSource` (graph-aware import
+   * evidence publication diagnostics slice). Optional on
+   * `FilterMatch` because most match sites
+   * (`pathFilterMatch`, `contentFilterMatch`, result filters,
+   * classic content filters) get a default label at the
+   * `filteredFindings.push` site based on which pipeline
+   * stage produced them. The graph-aware stage sets this
+   * explicitly to differentiate EvidenceGraph from
+   * ObservedRepo / DetectorDetails attribution.
+   */
+  evidenceSource?: FindingFilterEvidenceSource;
 };
+
+/**
+ * Classify a graph-aware decision's `usedArtifacts` list
+ * into a single `FindingFilterEvidenceSource` for the
+ * `FilteredFinding.evidenceSource` field. Precedence:
+ * EvidenceGraph > ObservedRepo > DetectorDetails.
+ * Decisions whose `usedArtifacts` is empty fall back to
+ * `DetectorDetails` (the graph-aware filter consulted
+ * detector-supplied `details.imports` instead of any
+ * artifact).
+ */
+function evidenceSourceFromGraphArtifacts(
+  artifacts: ReadonlyArray<FindingGraphArtifactUsed>,
+): FindingFilterEvidenceSource {
+  if (artifacts.includes("EvidenceGraph")) return "EvidenceGraph";
+  if (artifacts.includes("ObservedRepo")) return "ObservedRepo";
+  return "DetectorDetails";
+}
 
 /**
  * Returns true when any path segment exactly equals one of `segments`,
@@ -1489,12 +1555,21 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
     if (!match && graphContextActive && graphContext) {
       const decision = applyFindingGraphFilters({ finding, graphContext });
       if (decision) {
+        const usedArtifacts = decision.usedArtifacts ?? [];
         match = {
           reason: decision.reason,
           evidence: decision.evidence,
           filePath: decision.filePath,
           confidence: decision.confidence,
-          usedArtifacts: decision.usedArtifacts ?? [],
+          usedArtifacts,
+          // Graph-aware import evidence publication diagnostics:
+          // attribute the decision to EvidenceGraph >
+          // ObservedRepo > DetectorDetails based on which
+          // artifacts the check consulted. Decisions with an
+          // empty `usedArtifacts` (e.g. detector-imports
+          // fallback inside `graphFilterRouteHandlerWithService`)
+          // are attributed to `DetectorDetails`.
+          evidenceSource: evidenceSourceFromGraphArtifacts(usedArtifacts),
         };
       }
     }
@@ -1532,13 +1607,27 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
             evidence: decision.evidence,
             filePath: decision.filePath,
             confidence: decision.confidence,
+            // Graph-aware import evidence publication
+            // diagnostics: classic content filter is a
+            // detector-detail-driven check (no graph
+            // artifacts consulted). The five shared reason
+            // codes that bucket as `graphAwareFiltered`
+            // (route-handler-with-service etc.) still
+            // attribute as `DetectorDetails` when the
+            // classic-content fallback fired.
+            evidenceSource: GRAPH_AWARE_FILTER_REASONS.has(decision.reason)
+              ? "DetectorDetails"
+              : "BuiltIn",
           };
         }
       }
     }
     // 4. Built-in path / content filters (generated/external/test/canary).
     if (!match) {
-      match = findBestFilterMatch(finding);
+      const candidate = findBestFilterMatch(finding);
+      if (candidate) {
+        match = { ...candidate, evidenceSource: "BuiltIn" };
+      }
     }
     // 5. Operator-configured result filters (minConfidence /
     //    severity / systems / pathExcludes).
@@ -1550,6 +1639,7 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
           evidence: decision.evidence,
           filePath: decision.filePath,
           confidence: decision.confidence,
+          evidenceSource: "ResultFilter",
         };
       }
     }
@@ -1567,6 +1657,13 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
       filteredAt,
       source: match.policyId ? "policy" : "system",
       policyId: match.policyId,
+      // Graph-aware import evidence publication diagnostics:
+      // every FilteredFinding carries an explicit attribution.
+      // Policy matches always attribute as "Policy" (even when
+      // the policy id matches a graph-aware reason code).
+      evidenceSource: match.policyId
+        ? "Policy"
+        : match.evidenceSource ?? "Unknown",
     });
     if (policyUsage && match.policyId) {
       policyUsage[match.policyId] = (policyUsage[match.policyId] ?? 0) + 1;
@@ -2096,8 +2193,34 @@ function validateFilteredFinding(
       });
     }
   }
+  // Graph-aware import evidence publication diagnostics:
+  // `evidenceSource` is additive optional — older
+  // `FindingFilterReport` artifacts without the field
+  // continue to validate.
+  if (value.evidenceSource !== undefined) {
+    if (
+      typeof value.evidenceSource !== "string"
+      || !FINDING_FILTER_EVIDENCE_SOURCES.has(value.evidenceSource as FindingFilterEvidenceSource)
+    ) {
+      issues.push({
+        path: `${path}.evidenceSource`,
+        message:
+          "Expected one of EvidenceGraph, ObservedRepo, DetectorDetails, Policy, BuiltIn, ResultFilter, Unknown.",
+      });
+    }
+  }
   validateFinding(value.finding, `${path}.finding`, issues);
 }
+
+const FINDING_FILTER_EVIDENCE_SOURCES = new Set<FindingFilterEvidenceSource>([
+  "EvidenceGraph",
+  "ObservedRepo",
+  "DetectorDetails",
+  "Policy",
+  "BuiltIn",
+  "ResultFilter",
+  "Unknown",
+]);
 
 // ---------- FindingFilterHealthReport (v1) ----------
 
@@ -2218,6 +2341,47 @@ export type FindingFilterHealthSummary = {
    * graph-aware filter fired. v1.
    */
   dominantGraphAwareReason?: { reason: string; count: number; rate: number };
+  /**
+   * Count of filtered findings grouped by
+   * `FilteredFinding.evidenceSource`. Includes every
+   * filtered entry across all pipeline stages
+   * (`EvidenceGraph` / `ObservedRepo` / `DetectorDetails` /
+   * `Policy` / `BuiltIn` / `ResultFilter` / `Unknown`).
+   * Always present (possibly empty) when at least one
+   * `FilteredFinding` carries `evidenceSource`. Empty for
+   * older `FindingFilterReport` artifacts that pre-date the
+   * field. (graph-aware import evidence publication
+   * diagnostics)
+   */
+  byEvidenceSource?: Record<string, number>;
+  /**
+   * Count of graph-aware-bucketed filtered findings
+   * (`isGraphAwareFiltered`) grouped by `evidenceSource`.
+   * Lets operators see at a glance whether graph-aware
+   * suppression is artifact-strong (EvidenceGraph) or
+   * relying on fallback evidence
+   * (`DetectorDetails` / `ObservedRepo`). (graph-aware
+   * import evidence publication diagnostics)
+   */
+  graphAwareByEvidenceSource?: Record<string, number>;
+  /**
+   * Per-graph-aware-reason breakdown of evidence sources.
+   * Keys are reason codes (limited to those in
+   * `GRAPH_AWARE_FILTER_REASONS`); values are sub-maps
+   * keyed by `evidenceSource`. Always present (possibly
+   * empty) alongside `graphAwareByEvidenceSource`.
+   * (graph-aware import evidence publication diagnostics)
+   */
+  graphAwareReasonEvidenceSources?: Record<string, Record<string, number>>;
+  /**
+   * Evidence source that backs the most graph-aware
+   * filtered findings. `rate = count / graphAwareFiltered`
+   * rounded to four decimals. Alphabetic tiebreak.
+   * Present when at least one graph-aware filtered
+   * finding carries `evidenceSource`. (graph-aware
+   * import evidence publication diagnostics)
+   */
+  dominantGraphAwareEvidenceSource?: { source: string; count: number; rate: number };
 };
 
 export type FindingFilterHealthReport = {
@@ -2386,6 +2550,47 @@ export function buildFindingFilterHealth(input: {
     };
   }
 
+  // Graph-aware import evidence publication diagnostics:
+  // bucket every filtered finding by `evidenceSource` and
+  // additionally bucket the graph-aware subset by source +
+  // by (reason, source). Older `FindingFilterReport`
+  // artifacts may carry `FilteredFinding` entries without
+  // `evidenceSource`; those entries attribute as
+  // `"Unknown"` so the byEvidenceSource map's sum still
+  // matches `totalFiltered` for fresh runs while older
+  // entries stay accounted for.
+  const byEvidenceSource: Record<string, number> = {};
+  for (const entry of report.filteredFindings) {
+    const source = entry.evidenceSource ?? "Unknown";
+    byEvidenceSource[source] = (byEvidenceSource[source] ?? 0) + 1;
+  }
+  const graphAwareByEvidenceSource: Record<string, number> = {};
+  const graphAwareReasonEvidenceSources: Record<string, Record<string, number>> = {};
+  for (const entry of graphAwareEntries) {
+    const source = entry.evidenceSource ?? "Unknown";
+    graphAwareByEvidenceSource[source] = (graphAwareByEvidenceSource[source] ?? 0) + 1;
+    const perReason = graphAwareReasonEvidenceSources[entry.reason] ?? {};
+    perReason[source] = (perReason[source] ?? 0) + 1;
+    graphAwareReasonEvidenceSources[entry.reason] = perReason;
+  }
+  let dominantGraphAwareEvidenceSource:
+    | { source: string; count: number; rate: number }
+    | undefined;
+  const graphAwareEvidenceSourceEntries = Object.entries(graphAwareByEvidenceSource)
+    .filter(([, count]) => count > 0)
+    .sort((left, right) => {
+      if (right[1] !== left[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0]);
+    });
+  if (graphAwareEvidenceSourceEntries.length > 0 && graphAwareFiltered > 0) {
+    const [source, count] = graphAwareEvidenceSourceEntries[0]!;
+    dominantGraphAwareEvidenceSource = {
+      source,
+      count,
+      rate: Math.round((count / graphAwareFiltered) * 10000) / 10000,
+    };
+  }
+
   const summary: FindingFilterHealthSummary = {
     totalFindings,
     totalFiltered: report.summary.totalFiltered,
@@ -2402,6 +2607,9 @@ export function buildFindingFilterHealth(input: {
     graphAwareFiltered,
     byGraphAwareReason: { ...graphAwareByReason },
     filterRateByGraphAwareReason,
+    byEvidenceSource,
+    graphAwareByEvidenceSource,
+    graphAwareReasonEvidenceSources,
   };
   if (byPolicy) {
     summary.byPolicy = byPolicy;
@@ -2417,6 +2625,9 @@ export function buildFindingFilterHealth(input: {
   }
   if (dominantGraphAwareReason) {
     summary.dominantGraphAwareReason = dominantGraphAwareReason;
+  }
+  if (dominantGraphAwareEvidenceSource) {
+    summary.dominantGraphAwareEvidenceSource = dominantGraphAwareEvidenceSource;
   }
   if (report.policyFingerprint) {
     summary.policyFingerprint = report.policyFingerprint;
@@ -2510,6 +2721,14 @@ export function buildFindingFilterHealth(input: {
   // bulk of the work and deserves review.
   const DOMINANCE_THRESHOLD = 0.5;
   const DOMINANCE_MIN_CORPUS = 5;
+  // Graph-aware evidence-source low-usage threshold
+  // (publication diagnostics): when fewer than 25 % of
+  // graph-aware suppressions consulted EvidenceGraph,
+  // flag it advisory so operators can decide whether
+  // the producer-migration trigger in
+  // import-fact-subject-shape-decision.md is worth
+  // taking.
+  const EVIDENCEGRAPH_LOW_USAGE_THRESHOLD = 0.25;
 
   if (
     totalFindings >= DOMINANCE_MIN_CORPUS
@@ -2588,6 +2807,50 @@ export function buildFindingFilterHealth(input: {
       message:
         `Graph-aware reason '${dominantGraphAwareReason.reason}' suppressed ${dominantGraphAwareReason.count} of ${totalFindings} findings (${(dominantGraphAwareReason.rate * 100).toFixed(1)}%). Review FindingFilterReport.filteredFindings before relying on active governance counts.`,
     });
+  }
+
+  // ---------- Graph-aware evidence-source alerts (publication diagnostics) ----------
+  //
+  // These are *advisory*. None of them indicate invalid
+  // suppression — they signal that graph-aware filtering is
+  // leaning on fallback evidence (`DetectorDetails` /
+  // `ObservedRepo`) more than artifact-strong EvidenceGraph
+  // import facts. Useful when deciding whether the future
+  // Option A producer migration (legacy `subject =
+  // "<file>:<target>"` → file-subject) would meaningfully
+  // change behavior, per the
+  // import-fact-subject-shape-decision memo.
+  //
+  // All three gate on `graphAwareFiltered >= 5` so they don't
+  // fire on tiny corpora.
+  if (graphAwareFiltered >= DOMINANCE_MIN_CORPUS) {
+    const detectorCount = graphAwareByEvidenceSource.DetectorDetails ?? 0;
+    const observedRepoCount = graphAwareByEvidenceSource.ObservedRepo ?? 0;
+    const evidenceGraphCount = graphAwareByEvidenceSource.EvidenceGraph ?? 0;
+    if (detectorCount / graphAwareFiltered >= DOMINANCE_THRESHOLD) {
+      alerts.push({
+        code: "graph-aware-details-fallback-dominance",
+        severity: "warning",
+        message:
+          `Graph-aware filtering relied on detector-detail fallback for ${detectorCount} of ${graphAwareFiltered} graph-aware suppressions (${((detectorCount / graphAwareFiltered) * 100).toFixed(1)}%). This is not invalid, but artifact-backed EvidenceGraph import facts are the stronger signal — consider whether the import-fact producer migration (Option A in docs/strategy/import-fact-subject-shape-decision.md) would shift attribution.`,
+      });
+    }
+    if (observedRepoCount / graphAwareFiltered >= DOMINANCE_THRESHOLD) {
+      alerts.push({
+        code: "graph-aware-observedrepo-fallback-dominance",
+        severity: "warning",
+        message:
+          `Graph-aware filtering relied on ObservedRepo file-index fallback for ${observedRepoCount} of ${graphAwareFiltered} graph-aware suppressions (${((observedRepoCount / graphAwareFiltered) * 100).toFixed(1)}%). Not invalid — sibling-file evidence is structurally strong — but EvidenceGraph import facts would carry more detail when available.`,
+      });
+    }
+    if (evidenceGraphCount / graphAwareFiltered < EVIDENCEGRAPH_LOW_USAGE_THRESHOLD) {
+      alerts.push({
+        code: "graph-aware-evidencegraph-low-usage",
+        severity: "warning",
+        message:
+          `Graph-aware filtering used EvidenceGraph import facts for only ${evidenceGraphCount} of ${graphAwareFiltered} graph-aware suppressions (${((evidenceGraphCount / graphAwareFiltered) * 100).toFixed(1)}% < ${(EVIDENCEGRAPH_LOW_USAGE_THRESHOLD * 100).toFixed(0)}%). Most suppression is currently relying on detector details or sibling-file evidence rather than artifact-backed import facts.`,
+      });
+    }
   }
 
   // ---------- Policy fingerprint health (diagnostics v2) ----------

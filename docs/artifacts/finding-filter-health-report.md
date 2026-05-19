@@ -161,6 +161,43 @@ type FindingFilterHealthReport = {
      */
     dominantGraphAwareReason?: { reason: string; count: number; rate: number };
     /**
+     * Filtered-finding count grouped by
+     * `FilteredFinding.evidenceSource`. Includes every
+     * pipeline stage. Always present (possibly empty)
+     * when at least one filtered entry carries
+     * `evidenceSource`. Empty for older reports.
+     * (graph-aware import evidence publication
+     * diagnostics)
+     */
+    byEvidenceSource?: Record<string, number>;
+    /**
+     * Filtered-finding count restricted to
+     * `isGraphAwareFiltered` entries, grouped by
+     * `evidenceSource`. Surfaces whether graph-aware
+     * suppression is artifact-strong (EvidenceGraph) or
+     * relying on fallback (DetectorDetails /
+     * ObservedRepo). (graph-aware import evidence
+     * publication diagnostics)
+     */
+    graphAwareByEvidenceSource?: Record<string, number>;
+    /**
+     * Per-graph-aware-reason × per-evidence-source matrix.
+     * Outer key = reason code; inner key =
+     * `evidenceSource`. (graph-aware import evidence
+     * publication diagnostics)
+     */
+    graphAwareReasonEvidenceSources?: Record<string, Record<string, number>>;
+    /**
+     * Evidence source backing the most graph-aware
+     * filtered findings. Alphabetic tiebreak; rate =
+     * `count / graphAwareFiltered` rounded to four
+     * decimals. Present when at least one graph-aware
+     * filtered finding carries `evidenceSource`.
+     * (graph-aware import evidence publication
+     * diagnostics)
+     */
+    dominantGraphAwareEvidenceSource?: { source: string; count: number; rate: number };
+    /**
      * Policy id that suppressed the most findings (alphabetic
      * tiebreak). Present when at least one policy filter fired.
      * (diagnostics v2)
@@ -194,6 +231,9 @@ type FindingFilterHealthReport = {
 | `content-filter-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `contentFiltered / totalFindings >= 0.5` — classic content filters are dominating | warning |
 | `graph-aware-filter-dominance` *(graph-aware-filter-health-publications v1)* | `totalFindings >= 5` AND `graphAwareFiltered / totalFindings >= 0.5` — the graph-aware finding filter provider is dominating suppression | warning |
 | `graph-aware-reason-dominance` *(graph-aware-filter-health-publications v1)* | `totalFindings >= 5` AND `dominantGraphAwareReason.rate >= 0.5` — one graph-aware reason is doing more than half the suppression | warning |
+| `graph-aware-details-fallback-dominance` *(graph-aware import evidence publication diagnostics)* | `graphAwareFiltered >= 5` AND `graphAwareByEvidenceSource.DetectorDetails / graphAwareFiltered >= 0.5` — graph-aware filtering is leaning on detector-detail fallback rather than EvidenceGraph import facts. Advisory: artifact-backed evidence is the stronger signal. | warning |
+| `graph-aware-observedrepo-fallback-dominance` *(graph-aware import evidence publication diagnostics)* | `graphAwareFiltered >= 5` AND `graphAwareByEvidenceSource.ObservedRepo / graphAwareFiltered >= 0.5` — graph-aware filtering is leaning on `ObservedRepo` sibling-file fallback. Advisory: structurally strong, but EvidenceGraph import facts carry more detail when available. | warning |
+| `graph-aware-evidencegraph-low-usage` *(graph-aware import evidence publication diagnostics)* | `graphAwareFiltered >= 5` AND `graphAwareByEvidenceSource.EvidenceGraph / graphAwareFiltered < 0.25` — most graph-aware suppression is relying on fallback evidence rather than artifact-backed import facts. Informs the future Option A producer-migration decision. | warning |
 | `result-filter-dominance` *(diagnostics v2)* | `totalFindings >= 5` AND `resultFiltered / totalFindings >= 0.5` — operator-configured result filters are dominating | warning |
 | `policy-fingerprint-missing` *(diagnostics v2)* | `policyFiltered > 0` AND the upstream `FindingFilterReport` has no `policyFingerprint` (filter report predates filter-policy-freshness v2) | warning |
 | `stale-policy-fingerprint` *(diagnostics v2)* | caller supplied `currentPolicyFingerprint` that does not match `report.policyFingerprint` — operator changed config after the filter run | warning |

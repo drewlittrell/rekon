@@ -1975,6 +1975,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat filter policy suggestions as already-applied config; they are advisory until `rekon findings filter-policy apply` writes them to `.rekon/config.json`.",
   "Do not rely on active issue / coherency counts after `.rekon/config.json` `findingFilters` changed until `rekon refresh` has rebuilt the filter chain with the current policy set.",
   "Do not treat graph-aware filtering as proof that the underlying issue never existed; inspect `FindingFilterReport.filteredFindings` for the structural evidence (sibling-file existence, import-graph facts, capability ownership, module-kind routing) before drawing conclusions.",
+  "Do not treat detector-detail fallback filtering as equivalent to EvidenceGraph-backed structural evidence. When `Graph-aware evidence sources` shows `DetectorDetails` entries, review them more critically than `EvidenceGraph` entries — the detector's claim was not corroborated by artifact evidence.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -2743,6 +2744,62 @@ function appendArchitectureFindingFilterHealth(
     sections.push("");
   }
 
+  // Graph-aware import evidence publication diagnostics: a
+  // compact evidence-source breakdown (and per-reason if
+  // non-empty). Lets operators see whether graph-aware
+  // suppressions are artifact-backed (EvidenceGraph) or
+  // relying on fallback (`DetectorDetails` /
+  // `ObservedRepo`).
+  const graphAwareSourceRows = sortedCountEntries(summary.graphAwareByEvidenceSource);
+  if (graphAwareSourceRows.length > 0 || (summary.graphAwareFiltered ?? 0) > 0) {
+    sections.push("### Graph-Aware Evidence Sources");
+    sections.push("");
+    if (graphAwareSourceRows.length === 0) {
+      sections.push("No graph-aware filtered findings.");
+      sections.push("");
+    } else {
+      sections.push("| Evidence Source | Count |");
+      sections.push("| --- | --- |");
+      for (const [source, count] of graphAwareSourceRows) {
+        sections.push(`| ${source} | ${count} |`);
+      }
+      sections.push("");
+      const reasonEvidence = summary.graphAwareReasonEvidenceSources;
+      if (reasonEvidence && Object.keys(reasonEvidence).length > 0) {
+        // Render the per-reason × per-source matrix.
+        // Columns: EvidenceGraph, DetectorDetails,
+        // ObservedRepo, plus a single Other column for
+        // anything else (Policy / BuiltIn / ResultFilter
+        // would not normally appear here since these
+        // entries are pre-filtered to
+        // `isGraphAwareFiltered`, but a future producer
+        // could surface them).
+        sections.push(
+          "| Reason | EvidenceGraph | Detector Details | ObservedRepo | Other |",
+        );
+        sections.push("| --- | ---: | ---: | ---: | ---: |");
+        const reasonsSorted = Object.keys(reasonEvidence).sort();
+        for (const reason of reasonsSorted) {
+          const map = reasonEvidence[reason] ?? {};
+          const eg = map.EvidenceGraph ?? 0;
+          const dd = map.DetectorDetails ?? 0;
+          const or = map.ObservedRepo ?? 0;
+          const other = Object.entries(map)
+            .filter(([source]) =>
+              source !== "EvidenceGraph" && source !== "DetectorDetails" && source !== "ObservedRepo",
+            )
+            .reduce((acc, [, count]) => acc + count, 0);
+          sections.push(`| ${reason} | ${eg} | ${dd} | ${or} | ${other} |`);
+        }
+        sections.push("");
+      }
+    }
+    sections.push(
+      "EvidenceGraph-backed entries are artifact-backed structural suppressions. DetectorDetails fallback entries are weaker (the detector's claim is taken at face value); review them when they dominate. ObservedRepo entries are sibling-file evidence — structurally strong but lower-detail than import-graph evidence.",
+    );
+    sections.push("");
+  }
+
   sections.push("### Filter Health Alerts");
   sections.push("");
   if (!healthReport.alerts || healthReport.alerts.length === 0) {
@@ -2822,6 +2879,21 @@ function appendAgentContractFindingFilterHealth(
       "If graph-aware filtering is high, inspect `FindingFilterReport.filteredFindings` for the structural evidence before assuming active governance is clean. Graph-aware filters use sibling-file existence, import-graph facts, capability ownership, and module-kind routing — every match preserves the original finding payload + audit evidence.",
     );
     sections.push("");
+
+    // Graph-aware import evidence publication
+    // diagnostics: compact evidence-source summary so
+    // agents (and operators reading the contract) can tell
+    // whether graph-aware suppression is artifact-backed
+    // or relying on fallback evidence.
+    const graphSources = summary.graphAwareByEvidenceSource;
+    if (graphSources && Object.keys(graphSources).length > 0) {
+      sections.push("Graph-aware evidence sources:");
+      const ordered = Object.keys(graphSources).sort();
+      for (const source of ordered) {
+        sections.push(`- ${source}: ${graphSources[source]}`);
+      }
+      sections.push("");
+    }
   }
 
   sections.push(

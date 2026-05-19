@@ -35,6 +35,29 @@
 > source ("EvidenceGraph import facts …" / "Detector
 > import details …" / "ObservedRepo file index …") so
 > audit consumers can tell which branch fired.
+>
+> **Publication diagnostics (graph-aware import evidence
+> publication diagnostics):** every `FilteredFinding` now
+> carries `evidenceSource`
+> (`EvidenceGraph` / `ObservedRepo` /
+> `DetectorDetails` / `Policy` / `BuiltIn` /
+> `ResultFilter`). `FindingFilterHealthSummary` exposes
+> `byEvidenceSource`, `graphAwareByEvidenceSource`,
+> `graphAwareReasonEvidenceSources`, and
+> `dominantGraphAwareEvidenceSource`. Three new advisory
+> alerts surface when graph-aware filtering leans on
+> fallback evidence:
+> `graph-aware-details-fallback-dominance` (>= 50%),
+> `graph-aware-observedrepo-fallback-dominance` (>= 50%),
+> `graph-aware-evidencegraph-low-usage` (< 25%).
+> Architecture summary renders a `Graph-Aware Evidence
+> Sources` table + per-reason × per-source breakdown;
+> agent contract renders a compact
+> `Graph-aware evidence sources:` list and a new "Do Not
+> Do" reminder against treating fallback as equivalent.
+> The data feeds the future Option A migration decision
+> by showing whether `EvidenceGraph` import facts are
+> actually firing in real repos.
 
 ## Decision Summary
 
