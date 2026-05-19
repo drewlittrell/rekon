@@ -28,6 +28,17 @@
 > stronger artifact-backed source. No new reason codes,
 > no source reads, no LLM / semantic / fuzzy logic, no
 > monolithic validator.
+>
+> **v3 decision memo:** see
+> [`docs/strategy/graph-aware-filter-provider-v3-decision.md`](graph-aware-filter-provider-v3-decision.md).
+> The memo concludes that **no broad v3 catalog ships
+> next**. Every remaining candidate either needs a missing
+> artifact projection first, is project-specific (belongs
+> in an external rule pack), or is permanently rejected.
+> The recommended next implementation slice is the
+> **`EvidenceGraph` export / symbol facts projection v1**
+> — the substrate that unblocks 3–4 v3 candidates at
+> once.
 
 ## Decision Summary
 
@@ -463,6 +474,36 @@ runs, it should follow this order:
    behavior-roadmap, guarantee-regression-plan, roadmap)
    the same way every prior P1.1 slice has done.
 
+## v3 Decision Follow-up
+
+The graph-aware finding filter provider v3 decision memo
+has shipped at
+[`docs/strategy/graph-aware-filter-provider-v3-decision.md`](graph-aware-filter-provider-v3-decision.md).
+
+The memo's conclusions, summarized for this audit:
+
+- **No broad v3 catalog ships next.** Every remaining
+  classic check (rows 25-30 of the table above, plus the
+  ten candidates enumerated in the v3 memo) either needs
+  a missing artifact projection first, is project-specific
+  (belongs in an external rule pack), or is permanently
+  rejected.
+- **Three required artifact projections** were identified
+  in priority order: (1) `EvidenceGraph` export / symbol
+  facts, (2) `CapabilityMap.entries[].role?: string`,
+  (3) call-graph / referrer evidence (helper or new
+  `EvidenceFact` kind).
+- **Recommended next implementation slice:** the
+  **`EvidenceGraph` export / symbol facts projection v1**
+  — the substrate that unblocks 3–4 v3 candidate checks
+  at once.
+
+The v3 memo reaffirms every rejection in this audit:
+no monolithic `GraphOntologyValidator` port, no
+source-reading filters, no LLM / semantic / fuzzy /
+embedding matching, no project-specific catalogs in
+core.
+
 ## Cross-References
 
 - [Issue governance ADR](issue-governance-architecture-decision.md)
@@ -471,7 +512,9 @@ runs, it should follow this order:
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
 - [Classic guarantee regression plan](classic-guarantee-regression-plan.md)
 - [Roadmap](roadmap.md)
+- [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)
 - [Finding filters concept](../concepts/finding-filters.md)
+- [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [Finding filter policy status concept](../concepts/finding-filter-policy-status.md)
 - [Finding filter policy suggestions concept](../concepts/finding-filter-policy-suggestions.md)
 - [FindingFilterReport artifact](../artifacts/finding-filter-report.md)

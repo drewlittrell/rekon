@@ -738,6 +738,72 @@ Implementation batches:
   is byte-identical before / after. Pinned by
   `tests/contract/graph-aware-finding-filters.test.mjs`
   (20 tests).
+- "Graph-aware filter surfacing in publications /
+  filter health" (shipped) —
+  `FindingFilterHealthSummary` gains a mutually-exclusive
+  `graphAwareFiltered` bucket split from
+  `contentFiltered` (counts always sum to
+  `totalFiltered`), plus `byGraphAwareReason`,
+  `filterRateByGraphAwareReason`, and
+  `dominantGraphAwareReason` (alphabetic tiebreak). Two
+  new alerts fire when graph-aware filtering dominates:
+  `graph-aware-filter-dominance` and
+  `graph-aware-reason-dominance` (both gated on
+  `totalFindings >= 5` at `>= 50 %` rate). Architecture
+  summary renders a `Graph-Aware Filter Reasons` table
+  plus an audit pointer; agent contract renders the
+  graph-aware count, a conditional audit instruction,
+  and a new "Do Not Do" reminder warning agents not to
+  treat graph-aware filtering as proof the underlying
+  issue never existed. Policy precedence preserved
+  (`source: "policy"` entries with a graph-aware reason
+  code stay in `policyFiltered`). Pinned by
+  `tests/contract/graph-aware-filter-health-publications.test.mjs`
+  (16 tests).
+- "Graph-aware finding filter provider v2" (shipped) —
+  the five v1 checks are now strengthened with deeper
+  artifact-backed evidence. New exported pure helpers
+  (`normalizeRepoPath`, `sameRepoPath`, `siblingPath`,
+  `listObservedRepoFiles`, `observedRepoHasFile`,
+  `findSiblingFile`, `listImportTargetsForFile`,
+  `fileImportsTargetMatching`) in
+  `@rekon/kernel-findings`. `EvidenceGraph` import facts
+  are preferred over `Finding.details.imports`;
+  `ObservedRepo.files` supports sibling-file lookups for
+  `route-handler-with-service`; `OwnershipMap` +
+  `ObservedSystem.kind === "module"` is preferred over
+  the bare `/modules/` path heuristic for
+  `module-gate-verified-caller`. Each
+  `FindingGraphFilterDecision` returns a
+  `usedArtifacts` list so
+  `ApplyFindingFiltersResult.graphArtifactsUsed`
+  identifies exactly which artifacts contributed — the
+  runtime filters its loaded graph-input refs by that
+  set so `FindingFilterReport.header.inputRefs` cites
+  only the artifacts that actually contributed. Pipeline
+  reordered to run graph-aware *before* classic content
+  so the audit credits the strongest source. No new
+  reason codes, no source-file reads, no LLM, no
+  monolithic validator. Pinned by
+  `tests/contract/graph-aware-finding-filters-v2.test.mjs`
+  (17 tests).
+- "Graph-aware filter provider v3 decision memo"
+  (shipped) — strategy-only slice that evaluates the ten
+  most prominent remaining classic graph/ontology
+  checks and concludes that no broad v3 catalog ships
+  next. Every remaining candidate either needs a missing
+  artifact projection first (export / symbol facts,
+  capability role taxonomy, call-graph evidence), is
+  project-specific (belongs in an external rule pack),
+  or is permanently rejected (monolithic
+  `GraphOntologyValidator` port, source-reading filters,
+  LLM / semantic / fuzzy / embedding matching). The memo
+  ([docs/strategy/graph-aware-filter-provider-v3-decision.md](graph-aware-filter-provider-v3-decision.md))
+  recommends the `EvidenceGraph` export / symbol facts
+  projection v1 as the substrate that unblocks 3–4 v3
+  candidates at once. Docs-only slice; no runtime
+  behavior change. Pinned by
+  `tests/docs/graph-aware-filter-provider-v3-decision.test.mjs`.
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

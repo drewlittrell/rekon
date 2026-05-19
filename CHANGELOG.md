@@ -4,6 +4,93 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware filter provider v3 decision memo —
+  remaining classic checks (P1.1
+  graph-aware-filter-provider-v3-decision slice).
+  Strategy-only batch — no runtime behavior changes ship.
+  The memo
+  ([`docs/strategy/graph-aware-filter-provider-v3-decision.md`](docs/strategy/graph-aware-filter-provider-v3-decision.md))
+  evaluates the ten most prominent remaining classic
+  graph / ontology checks (UI HTTP provider abstraction,
+  UI hook uses HTTP not DB, hardcoded config not DDE,
+  module gate verified caller beyond current
+  kind/path, framework-specific route segment config
+  conventions, factory-by-capability beyond path,
+  provider boundary / external API provider proof,
+  runtime truth graph checks, full policy-owner parser,
+  test / generated / external graph-ontology checks
+  beyond paths) and concludes that **no broad v3 catalog
+  ships next**.
+
+  **Decision separation:**
+  - **Port now:** zero checks. Every candidate either
+    needs missing projections, is project-specific, or
+    is permanently rejected.
+  - **Needs missing projections first:** UI HTTP
+    provider abstraction (deeper), UI hook uses HTTP
+    not DB, framework-specific route segment config
+    conventions, factory by capability beyond path,
+    provider boundary / external API provider proof.
+  - **Defer:** module gate verified caller beyond
+    current kind/path (needs call-graph evidence),
+    factory by capability (needs capability role
+    taxonomy), runtime truth graph checks (needs
+    runtime substrate — likely deferred indefinitely).
+  - **Reject:** monolithic `GraphOntologyValidator`
+    port, source-reading filters, LLM / semantic /
+    fuzzy / embedding matching, project-specific
+    hardcoded exception catalogs in core
+    (`hardcoded-config-not-dde` belongs in an external
+    rule pack), full policy-owner parser.
+
+  **Required artifact projections identified
+  (in priority order):**
+  1. **`EvidenceGraph` export / symbol facts** —
+     unblocks UI hook role, UI hook uses HTTP not DB,
+     framework-specific route segment config beyond
+     v2, capability-confirmed factory. Additive
+     optional `kind: "export"` and `kind: "symbol"`
+     facts on the existing `EvidenceGraph` (no new
+     artifact type, no `schemaVersion` bump).
+     **Recommended first.**
+  2. **`CapabilityMap.entries[].role?: string`** —
+     unblocks provider boundary / external API provider
+     proof and a stronger capability-confirmed factory.
+  3. **Call-graph / referrer evidence** — unblocks
+     deeper module-gate caller confirmation and
+     reverse-import test / generated / external
+     confirmation.
+
+  **Recommended next implementation:**
+  `EvidenceGraph` export / symbol facts projection v1
+  ships alone as the substrate. No graph-aware filter
+  ports in the same slice — the substrate ships first,
+  v3 candidate checks consume it in a follow-up.
+
+  Strategy docs updated:
+  `docs/strategy/graph-ontology-validator-lite-audit.md`
+  (new "v3 Decision Follow-up" section + v2/v3 update
+  blockquotes); `docs/strategy/issue-governance-architecture-decision.md`
+  (step 17 flipped to shipped; step 18 reserved for the
+  substrate); `docs/strategy/classic-guarantee-regression-plan.md`
+  (v3 decision memo entry with pin to docs test);
+  `docs/strategy/classic-subsystem-purpose-map.md` (row 6
+  references v3 memo and substrate);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (v3 decision memo entries).
+
+  Pinned by
+  `tests/docs/graph-aware-filter-provider-v3-decision.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI subcommand
+  or flag. No new reason codes. No source-file reads.
+  No LLM, semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No
+  npm publish.
+
+  `EvidenceGraph` export / symbol facts projection v1 is
+  the recommended next slice.
+
 - Shipped graph-aware finding filter provider v2 — file-
   existence / import-evidence strengthening (P1.1
   graph-aware-finding-filter-provider-v2 slice).

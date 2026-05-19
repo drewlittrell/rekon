@@ -1382,8 +1382,61 @@ scope:
   No version bump. No npm publish.
 
   Graph-aware filter provider v3 decision memo (review
-  what classic checks still warrant porting) is the
-  recommended next slice.
+  what classic checks still warrant porting) shipped next;
+  see the "Graph-aware filter provider v3 decision memo"
+  entry below.
+- **Graph-aware filter provider v3 decision memo — remaining
+  classic checks (P1.1
+  graph-aware-filter-provider-v3-decision slice).** ✅
+  Shipped. Strategy-only batch — no runtime behavior
+  changes ship. The memo
+  ([`docs/strategy/graph-aware-filter-provider-v3-decision.md`](graph-aware-filter-provider-v3-decision.md))
+  evaluates the ten most prominent remaining classic
+  graph / ontology checks (UI HTTP provider abstraction,
+  UI hook uses HTTP not DB, hardcoded config not DDE,
+  module gate verified caller beyond current
+  kind/path heuristics, framework-specific route segment
+  config conventions, factory-by-capability beyond path,
+  provider boundary / external API provider proof,
+  runtime truth graph checks, full policy-owner parser,
+  test / generated / external graph-ontology checks
+  beyond paths) and concludes that **no broad v3 catalog
+  ships next**. Every remaining candidate either needs a
+  missing artifact projection first
+  (`EvidenceGraph` export / symbol facts,
+  `CapabilityMap.entries[].role` taxonomy, call-graph /
+  referrer evidence), is project-specific (belongs in an
+  external rule pack rather than core Rekon), or is
+  permanently rejected (monolithic
+  `GraphOntologyValidator` port, source-reading filters,
+  LLM / semantic / fuzzy / embedding matching). The memo
+  recommends the **`EvidenceGraph` export / symbol facts
+  projection v1** as the next implementation slice — the
+  substrate that unblocks 3–4 v3 candidate checks at
+  once (UI hook role, framework-specific route segment
+  config beyond v2, capability-confirmed factory). After
+  the substrate ships, the follow-up slice should ship
+  **one** narrow graph-aware check that depends on it,
+  selected based on operator data from the new
+  "Graph-Aware Filter Reasons" surface and the two
+  graph-aware dominance alerts. Aligned to
+  `infra/validation/GraphOntologyValidator.ts`,
+  `services/issues/content-filter-*`,
+  `services/IssueDetectionService.ts`,
+  `services/GraphBuildProvider.ts`, and
+  `domain/graph/producers/**`. Docs-only slice; no
+  artifact `schemaVersion` bump, no new artifact type,
+  no new capability role, no new CLI subcommand or flag,
+  no new reason codes, no source reads, no LLM /
+  semantic / fuzzy / embedding matching, no
+  `GraphOntologyValidator` port, no version bump, no
+  npm publish. Pinned by
+  `tests/docs/graph-aware-filter-provider-v3-decision.test.mjs`.
+
+  `EvidenceGraph` export / symbol facts projection v1
+  (additive optional fact kinds on the existing
+  `EvidenceGraph`; no new artifact type; no
+  `schemaVersion` bump) is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

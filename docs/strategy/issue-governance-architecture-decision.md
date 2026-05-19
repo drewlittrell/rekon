@@ -517,10 +517,34 @@ review packets unless an ADR promotes them. Promotion requires:
     `GraphOntologyValidator` port. Raw `FindingReport`
     remains byte-identical. Lifecycle / adjudication /
     coherency continue to exclude graph-filtered findings.
-17. **(future)** Graph-aware filter provider v3 decision
-    memo — review what (if any) deeper classic checks
-    still warrant porting once v2 is in operator hands.
-18. **(future)** Merge-decision freshness guardrails,
+17. **(shipped)** Graph-aware filter provider v3
+    decision memo. The memo
+    ([`docs/strategy/graph-aware-filter-provider-v3-decision.md`](graph-aware-filter-provider-v3-decision.md))
+    reviews the ten most prominent remaining classic
+    graph/ontology checks and concludes that no broad v3
+    catalog ships next. Every remaining candidate either
+    needs a missing artifact projection first
+    (export / symbol facts, capability role taxonomy,
+    call-graph evidence), is project-specific (belongs in
+    an external rule pack rather than core), or is
+    permanently rejected (monolithic
+    `GraphOntologyValidator` port, source-reading filters,
+    LLM / semantic / fuzzy / embedding matching). The
+    memo reaffirms every prior rejection in the
+    GraphOntologyValidator-lite audit and recommends the
+    `EvidenceGraph` export / symbol facts projection v1 as
+    the substrate that unblocks 3–4 v3 candidates at once.
+    Docs-only slice; no runtime behavior change.
+18. **(future)** `EvidenceGraph` export / symbol facts
+    projection v1 — the substrate the v3 memo recommends.
+    Additive optional `kind: "export"` and `kind: "symbol"`
+    facts on the existing `EvidenceGraph` (no new artifact
+    type, no `schemaVersion` bump). New
+    `listExportsForFile` helper in `@rekon/kernel-findings`.
+    No graph-aware filter ports in this slice — the
+    substrate ships first; v3 candidate checks consume it
+    in a follow-up.
+19. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

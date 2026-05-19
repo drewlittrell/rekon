@@ -794,6 +794,32 @@ is the first stop before proposing a new capability batch.
   reads. No LLM, semantic, fuzzy, or embedding matching.
   No `GraphOntologyValidator` port. No version bump. No
   npm publish.
+- Graph-aware filter provider v3 decision memo —
+  remaining classic checks (P1.1
+  graph-aware-filter-provider-v3-decision slice):
+  strategy-only batch; no runtime behavior change. The
+  memo
+  ([docs/strategy/graph-aware-filter-provider-v3-decision.md](graph-aware-filter-provider-v3-decision.md))
+  evaluates the ten most prominent remaining classic
+  graph / ontology checks and concludes that **no broad
+  v3 catalog ships next**. Every remaining candidate
+  either needs a missing artifact projection first
+  (`EvidenceGraph` export / symbol facts,
+  `CapabilityMap.entries[].role` taxonomy, call-graph /
+  referrer evidence), is project-specific (belongs in
+  an external rule pack), or is permanently rejected
+  (monolithic `GraphOntologyValidator` port,
+  source-reading filters, LLM / semantic / fuzzy /
+  embedding matching). The memo recommends the
+  `EvidenceGraph` export / symbol facts projection v1
+  as the substrate that unblocks 3–4 v3 candidate checks
+  at once. Docs-only slice; no artifact `schemaVersion`
+  bump, no new artifact type, no new capability role, no
+  new CLI subcommand or flag, no new reason codes, no
+  source reads, no LLM / semantic / fuzzy / embedding
+  matching, no `GraphOntologyValidator` port, no version
+  bump, no npm publish. Pinned by
+  `tests/docs/graph-aware-filter-provider-v3-decision.test.mjs`.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a
