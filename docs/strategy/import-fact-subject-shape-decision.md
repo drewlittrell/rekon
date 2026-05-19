@@ -74,6 +74,26 @@
 > transitions to "Met" or when real operator data
 > from third-party repos materially changes the
 > diagnostic picture.
+>
+> **Operator review refresh (post-fixture
+> expansion):** see
+> [`docs/strategy/graph-aware-import-evidence-operator-review-refresh.md`](graph-aware-import-evidence-operator-review-refresh.md).
+> Re-runs the prior review against the three
+> deterministic regression fixtures shipped at
+> `702afbf` (`route-handler`, `external-comment`,
+> `nextjs-route`). Measured diagnostics: every
+> fixture produces an EvidenceGraph-attributed
+> graph-aware match
+> (`graphAwareByEvidenceSource.EvidenceGraph === 1`
+> per fixture); zero DetectorDetails / ObservedRepo
+> attribution; no fallback-dominance alert fires.
+> Re-evaluates all four migration triggers against
+> measured data — none met. **Option C remains the
+> alpha decision.** The supporting non-trigger
+> diagnostic — "EvidenceGraph-backed graph-aware
+> filters now work in deterministic fixtures" — is
+> the strongest available evidence in favor of
+> Option C.
 
 ## Decision Summary
 

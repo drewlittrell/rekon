@@ -817,13 +817,45 @@ review packets unless an ADR promotes them. Promotion requires:
     examples (they live under `tests/fixtures/`, not
     `examples/`). No filter behavior change, no
     producer change, no schema bump.
-26. **(future)** Graph-aware import evidence operator
-    review refresh. Rerun the operator review now
-    that local evidence is no longer sparse; confirm
-    Option C still holds or identify whether any
-    migration trigger has changed. Strategy memo
-    only.
-27. **(future)** Merge-decision freshness guardrails,
+26. **(shipped)** Graph-aware import evidence operator
+    review refresh. Strategy-only batch — no runtime
+    changes ship. The memo
+    ([`docs/strategy/graph-aware-import-evidence-operator-review-refresh.md`](graph-aware-import-evidence-operator-review-refresh.md))
+    re-runs the prior operator review against the three
+    deterministic regression fixtures shipped at
+    `702afbf` (`route-handler`, `external-comment`,
+    `nextjs-route`). Each fixture was run via the
+    temp-copy flow (committed fixture directories
+    untouched): `rekon refresh` produced a real
+    EvidenceGraph from source; a synthetic
+    FindingReport seeded with `header.inputRefs`
+    citing the EvidenceGraph drove the filter
+    pipeline. **Measured aggregate diagnostics:
+    EvidenceGraph attribution 3 (one per fixture);
+    DetectorDetails 0; ObservedRepo 0; no
+    fallback-dominance alert fires.** Each fixture's
+    `graphAwareByEvidenceSource` = `{ EvidenceGraph:
+    1 }`; each fixture's `evidenceSource` =
+    `"EvidenceGraph"`; each fixture's evidence string
+    explicitly names the artifact source. All four
+    migration triggers from the import-fact
+    subject-shape decision memo re-evaluated against
+    measured data — none met. **Option C remains the
+    alpha decision.** The supporting non-trigger
+    diagnostic — "EvidenceGraph-backed graph-aware
+    filters now work in deterministic fixtures" — is
+    the strongest available evidence in favor of
+    Option C and is the central improvement over the
+    prior memo's sparse-data conclusion.
+27. **(future)** Graph-aware filter fixture coverage
+    v2. Three more deterministic regression fixtures
+    under `tests/fixtures/graph-aware-filters/` for
+    the remaining graph-aware checks
+    (`route-http-middleware-only`,
+    `factory-file-creates-deps`,
+    `module-gate-verified-caller`). Same contract-test
+    pattern as the prior fixture-expansion batch.
+28. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

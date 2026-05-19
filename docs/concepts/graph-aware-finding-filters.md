@@ -179,7 +179,14 @@ compatibility implementation; revisit producer
 migration only when one of the four triggers
 documented in the
 [import-fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
-fires.
+fires. The
+[refresh](../strategy/graph-aware-import-evidence-operator-review-refresh.md)
+re-runs the same data-gathering protocol against the
+three deterministic regression fixtures (shipped at
+`702afbf`) and confirms Option C against measured
+data: EvidenceGraph attribution 3 across the three
+fixtures, DetectorDetails 0, ObservedRepo 0, no
+fallback-dominance alert fires.
 
 **Regression fixtures.** Three deterministic
 fixtures under `tests/fixtures/graph-aware-filters/`

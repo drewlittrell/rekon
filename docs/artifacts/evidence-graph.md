@@ -61,7 +61,14 @@ evaluates the diagnostic surface and confirms
 the legacy subject shape stays, helper compatibility
 remains canonical, and producer migration is gated on
 the four triggers documented in the
-[import-fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md). The
+[import-fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md).
+The
+[refresh](../strategy/graph-aware-import-evidence-operator-review-refresh.md)
+re-runs the protocol against the deterministic
+regression fixtures shipped at `702afbf` and
+re-confirms Option C against measured data
+(EvidenceGraph: 3 across three fixtures;
+DetectorDetails: 0; ObservedRepo: 0). The
 [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
 documents Rekon's stance: keep the legacy producer
 shape, make file-scoped helpers compatibility-aware,

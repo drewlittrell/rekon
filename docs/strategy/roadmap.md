@@ -1075,6 +1075,37 @@ is the first stop before proposing a new capability batch.
   source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Graph-aware import evidence operator review refresh
+  (P1.1
+  graph-aware-import-evidence-operator-review-refresh
+  slice): strategy-only batch; no runtime behavior
+  change. The memo
+  ([docs/strategy/graph-aware-import-evidence-operator-review-refresh.md](graph-aware-import-evidence-operator-review-refresh.md))
+  re-runs the prior operator review's data-gathering
+  protocol against the three deterministic regression
+  fixtures shipped at `702afbf`
+  (`tests/fixtures/graph-aware-filters/route-handler/`,
+  `external-comment/`, `nextjs-route/`) via temp-copy
+  flow. Measured aggregate: EvidenceGraph
+  attribution 3 (one per fixture); DetectorDetails
+  0; ObservedRepo 0; no fallback-dominance alert
+  fires. All four migration triggers from the
+  import-fact subject-shape decision memo
+  re-evaluated against measured data — none met.
+  **Decision: Option C remains the alpha decision.**
+  Recommended next slice: graph-aware filter fixture
+  coverage v2 (add deterministic fixtures for
+  `route-http-middleware-only`,
+  `factory-file-creates-deps`,
+  `module-gate-verified-caller`). Pinned by
+  `tests/docs/graph-aware-import-evidence-operator-review-refresh.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI subcommand
+  or flag. No new reason codes. No producer change.
+  No helper change. No graph-aware filter change.
+  No source-file reads. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

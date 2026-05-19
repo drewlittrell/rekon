@@ -94,6 +94,16 @@
 > migration) for alpha**. Zero of the four migration
 > triggers documented in the import-fact subject-shape
 > decision memo are currently met.
+>
+> **Operator review refresh:** see
+> [`docs/strategy/graph-aware-import-evidence-operator-review-refresh.md`](graph-aware-import-evidence-operator-review-refresh.md).
+> Re-runs the prior memo against the deterministic
+> regression fixtures shipped at `702afbf`. Measured
+> diagnostics confirm EvidenceGraph-backed graph-aware
+> filtering works end-to-end through helper
+> compatibility (every fixture →
+> `graphAwareByEvidenceSource.EvidenceGraph === 1`).
+> **Option C remains the alpha decision.**
 
 ## Decision Summary
 

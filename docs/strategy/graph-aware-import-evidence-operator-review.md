@@ -461,6 +461,16 @@ record actual `graphAwareByEvidenceSource` /
 `graphAwareReasonEvidenceSources` distributions
 backed by real source-driven EvidenceGraph data.
 
+**Refresh shipped.** See the
+[graph-aware import evidence operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
+— it runs the three fixtures through the temp-copy
+flow, records measured diagnostics
+(EvidenceGraph: 3 across the three fixtures;
+DetectorDetails: 0; ObservedRepo: 0; all
+fallback-dominance alerts silent), re-evaluates the
+four migration triggers against measured data, and
+confirms Option C remains the alpha decision.
+
 Other future work documented elsewhere remains queued:
 
 - Merge-decision freshness guardrails (issue governance

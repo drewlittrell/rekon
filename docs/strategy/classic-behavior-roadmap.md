@@ -2052,8 +2052,82 @@ scope:
   refresh** (rerun the prior operator review now
   that local evidence is no longer sparse; confirm
   Option C still holds or identify whether any
-  migration trigger has changed) is the recommended
-  next slice.
+  migration trigger has changed) shipped next; see
+  the entry below.
+- **Graph-aware import evidence operator review
+  refresh (P1.1
+  graph-aware-import-evidence-operator-review-refresh
+  slice).** ✅ Shipped. Strategy-only batch — no
+  runtime behavior changes ship. The memo
+  ([`docs/strategy/graph-aware-import-evidence-operator-review-refresh.md`](graph-aware-import-evidence-operator-review-refresh.md))
+  re-runs the prior operator review's data-gathering
+  protocol against the three deterministic regression
+  fixtures shipped at `702afbf`
+  (`tests/fixtures/graph-aware-filters/route-handler/`,
+  `external-comment/`, `nextjs-route/`) via temp-copy
+  flow.
+
+  **Measured per-fixture diagnostics:**
+  | Fixture | Expected Reason | Evidence Source | graphAwareFiltered | EvidenceGraph InputRef | Publication Surfaced |
+  | --- | --- | --- | ---: | --- | --- |
+  | route-handler | route-handler-with-service | EvidenceGraph | 1 | yes | yes |
+  | external-comment | external-api-comment-only | EvidenceGraph | 1 | yes | yes |
+  | nextjs-route | nextjs-route-convention | EvidenceGraph | 1 | yes | yes |
+
+  **Aggregate evidence-source counts:**
+  - EvidenceGraph: 3
+  - DetectorDetails: 0
+  - ObservedRepo: 0
+  - No fallback-dominance alert fires
+    (graph-aware-details-fallback-dominance,
+    graph-aware-observedrepo-fallback-dominance,
+    graph-aware-evidencegraph-low-usage).
+
+  **Four migration triggers re-evaluated**, none met:
+  - Helper compatibility callsites > ~3 → Not met
+    (one implementation, two consumers).
+  - `EvidenceGraph` `schemaVersion` bump planned →
+    Not met.
+  - External capability author confusion → Unknown
+    (pre-publish).
+  - Import facts become publication-facing → Not met
+    (publications aggregate counts only).
+
+  **Decision: Option C remains the alpha decision.**
+  *"The deterministic fixtures prove
+  EvidenceGraph-backed graph-aware filtering works
+  through helper compatibility."* *"No import fact
+  producer migration in alpha unless a trigger is
+  met."* This is the strongest improvement over the
+  prior memo's sparse-data conclusion: the same
+  recommendation now rests on measured data rather
+  than architectural reasoning alone.
+
+  **Recommended next slice:** graph-aware filter
+  fixture coverage v2 — add deterministic fixtures
+  for the remaining three graph-aware checks
+  (`route-http-middleware-only`,
+  `factory-file-creates-deps`,
+  `module-gate-verified-caller`). Same contract-test
+  pattern as the prior fixture-expansion batch.
+
+  Docs-only slice. Pinned by
+  `tests/docs/graph-aware-import-evidence-operator-review-refresh.test.mjs`.
+  Aligned to `lib/import-graph.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`,
+  `services/issues/filter-health.ts`,
+  `services/IssueDetectionService.ts`. No artifact
+  `schemaVersion` bump. No new artifact type. No new
+  capability role. No new CLI subcommand or flag. No
+  new reason codes. No producer change. No helper
+  change. No graph-aware filter change. No source-file
+  reads. No LLM, semantic, fuzzy, or embedding
+  matching. No `GraphOntologyValidator` port. No
+  version bump. No npm publish.
+
+  Graph-aware filter fixture coverage v2 is the
+  recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

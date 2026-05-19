@@ -4,6 +4,110 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware import evidence operator review
+  refresh (P1.1
+  graph-aware-import-evidence-operator-review-refresh
+  slice). Strategy-only batch — no runtime behavior
+  changes ship.
+
+  The memo
+  ([`docs/strategy/graph-aware-import-evidence-operator-review-refresh.md`](docs/strategy/graph-aware-import-evidence-operator-review-refresh.md))
+  re-runs the prior operator review's data-gathering
+  protocol against the three deterministic regression
+  fixtures shipped at `702afbf` and re-confirms
+  **Option C** against measured data (the prior memo
+  had relied on architectural reasoning because no
+  available fixture exercised the EvidenceGraph
+  branches).
+
+  **Per-fixture measured diagnostics** (each fixture
+  run via temp-copy flow; committed fixtures
+  untouched):
+
+  | Fixture | Expected Reason | Evidence Source | graphAwareFiltered | EvidenceGraph InputRef | Publication Surfaced |
+  | --- | --- | --- | ---: | --- | --- |
+  | route-handler | route-handler-with-service | EvidenceGraph | 1 | yes | yes |
+  | external-comment | external-api-comment-only | EvidenceGraph | 1 | yes | yes |
+  | nextjs-route | nextjs-route-convention | EvidenceGraph | 1 | yes | yes |
+
+  **Aggregate evidence-source counts:** EvidenceGraph
+  3; DetectorDetails 0; ObservedRepo 0. No
+  fallback-dominance alert fires
+  (`graph-aware-details-fallback-dominance`,
+  `graph-aware-observedrepo-fallback-dominance`,
+  `graph-aware-evidencegraph-low-usage`).
+
+  **Four migration triggers re-evaluated** (from the
+  [import-fact subject-shape decision memo](docs/strategy/import-fact-subject-shape-decision.md)),
+  none met:
+  - Helper compatibility callsites > ~3 — Not met
+    (one `matchesFileSubject` implementation, two
+    consumers).
+  - `EvidenceGraph` `schemaVersion` bump planned —
+    Not met.
+  - External capability author confusion — Unknown
+    (pre-publish).
+  - Import facts become publication-facing — Not met
+    (publications aggregate counts only).
+
+  **Supporting non-trigger diagnostic:** the three
+  fixtures prove EvidenceGraph-backed graph-aware
+  filtering works through helper compatibility
+  end-to-end. The helpers are doing their job;
+  producer migration is not required for filter
+  correctness today.
+
+  **Decision: Option C remains the alpha decision.**
+  The memo explicitly states:
+  *"The deterministic fixtures prove
+  EvidenceGraph-backed graph-aware filtering works
+  through helper compatibility."* and *"No import
+  fact producer migration in alpha unless a trigger
+  is met."*
+
+  **Recommended next slice:** graph-aware filter
+  fixture coverage v2 — add deterministic fixtures
+  for `route-http-middleware-only`,
+  `factory-file-creates-deps`, and
+  `module-gate-verified-caller` so the remaining
+  three graph-aware checks gain the same
+  regression-grade coverage.
+
+  Strategy docs updated:
+  `docs/strategy/graph-aware-import-evidence-operator-review.md`
+  (Follow-Up Work paragraph adds "Refresh shipped"
+  pointer);
+  `docs/strategy/import-fact-subject-shape-decision.md`
+  (top blockquote adds the refresh blockquote);
+  `docs/strategy/graph-ontology-validator-lite-audit.md`
+  (top blockquote adds the refresh blockquote);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 26 flipped to shipped; step 27 reserved for
+  fixture coverage v2);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new refresh entries);
+  `docs/concepts/graph-aware-finding-filters.md`
+  (operator-review paragraph extended);
+  `docs/artifacts/evidence-graph.md` (legacy-subject
+  paragraph extended).
+
+  Implements step 26 of the issue governance ADR
+  Implementation Order. Pinned by
+  `tests/docs/graph-aware-import-evidence-operator-review-refresh.test.mjs`
+  (16 tests). Aligned to `lib/import-graph.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`,
+  `services/issues/filter-health.ts`,
+  `services/IssueDetectionService.ts`. No artifact
+  `schemaVersion` bump. No new artifact type. No new
+  capability role. No new CLI subcommand or flag. No
+  new reason codes. No producer change. No helper
+  change. No graph-aware filter change. No source-file
+  reads at filter time. No AST, no type checker. No
+  LLM, semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No
+  npm publish.
+
 - Shipped graph-aware filtering fixture expansion (P1.1
   graph-aware-filter-fixtures slice). Adds three
   deterministic regression fixtures under
