@@ -94,6 +94,31 @@
 > filters now work in deterministic fixtures" — is
 > the strongest available evidence in favor of
 > Option C.
+>
+> **Operator review v2 (post-complete-coverage):**
+> see
+> [`docs/strategy/graph-aware-fixture-coverage-operator-review-v2.md`](graph-aware-fixture-coverage-operator-review-v2.md).
+> Re-runs the data-gathering protocol against the
+> now-six deterministic fixtures (the three above
+> plus `route-http-middleware-only`, `factory-file`,
+> `module-gate` shipped at `b2f74b8`). Measured
+> aggregate diagnostics: `EvidenceGraph` attribution
+> 4, `DetectorDetails` 2, `ObservedRepo` 0; no
+> fallback-dominance alert fires.
+> `factory-file-creates-deps` and
+> `module-gate-verified-caller` attribute as
+> `DetectorDetails` by current design — their
+> path-evidence branches set `usedArtifacts: []`,
+> which the evidence-source classifier maps to
+> `DetectorDetails`. **All four migration triggers
+> re-evaluated against the new data — none met.
+> Option C remains the alpha decision.** The v2
+> review also extends this memo's framing with an
+> explicit per-reason artifact-strength review and
+> identifies `factory-file-creates-deps` and
+> `module-gate-verified-caller` as the next
+> evidence-strengthening candidates (not import
+> producer migration).
 
 ## Decision Summary
 
@@ -662,6 +687,8 @@ implementation) lands, it must pin:
 
 - [GraphOntologyValidator-lite audit](graph-ontology-validator-lite-audit.md)
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)
+- [Graph-aware import evidence operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
+- [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
 - [Issue governance ADR](issue-governance-architecture-decision.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [EvidenceGraph artifact](../artifacts/evidence-graph.md)

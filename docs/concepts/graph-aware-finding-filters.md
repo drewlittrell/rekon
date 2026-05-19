@@ -186,7 +186,27 @@ three deterministic regression fixtures (shipped at
 `702afbf`) and confirms Option C against measured
 data: EvidenceGraph attribution 3 across the three
 fixtures, DetectorDetails 0, ObservedRepo 0, no
-fallback-dominance alert fires.
+fallback-dominance alert fires. The
+[v2 review](../strategy/graph-aware-fixture-coverage-operator-review-v2.md)
+re-runs the protocol against the now-six
+deterministic fixtures (the three above plus
+`route-http-middleware-only`, `factory-file`, and
+`module-gate` shipped at `b2f74b8`). Measured
+aggregate diagnostics across the six filtered cases:
+**EvidenceGraph attribution 4 (the four
+artifact-backed reasons); DetectorDetails 2
+(`factory-file-creates-deps` and
+`module-gate-verified-caller`, both currently
+path-evidence-only); ObservedRepo 0; no
+fallback-dominance alert fires.** All four migration
+triggers re-evaluated — none met. **Option C remains
+the alpha decision.** The v2 review additionally
+identifies `factory-file-creates-deps` and
+`module-gate-verified-caller` as the next
+evidence-strengthening candidates (not import
+producer migration) — likely via a role / kind /
+ownership projection at the EvidenceGraph /
+CapabilityMap / ObservedSystem substrate.
 
 **Regression fixtures.** Six deterministic
 fixtures under `tests/fixtures/graph-aware-filters/`

@@ -2209,29 +2209,111 @@ scope:
   version bump. No npm publish. Full suite: 861
   passed / 1 skipped / 0 failed.
 
-  **Graph-aware fixture coverage operator review v2**
-  (re-run the prior operator review against all six
-  fixtures and re-confirm Option C, or identify
-  whether the new evidence changes the trigger
-  picture) is the recommended next slice.
+  **Graph-aware fixture coverage operator review v2** is
+  the recommended next slice. **Shipped next; see the
+  entry below.**
+- **Graph-aware fixture coverage operator review v2
+  (P1.1 graph-aware-fixture-coverage-operator-review-v2
+  slice).** ✅ Shipped. Strategy / docs / test batch
+  only — no runtime change. The memo
+  ([`docs/strategy/graph-aware-fixture-coverage-operator-review-v2.md`](graph-aware-fixture-coverage-operator-review-v2.md))
+  re-runs the prior operator review's data-gathering
+  protocol against the now-six deterministic fixtures
+  shipped at `702afbf` and `b2f74b8`
+  (`route-handler`, `external-comment`, `nextjs-route`,
+  `route-http-middleware-only` positive + negative,
+  `factory-file`, `module-gate`).
+
+  **Measured aggregate diagnostics across the six
+  filtered cases (the negative
+  `route-http-middleware-only` case is correctly KEPT
+  and contributes no graph-aware row):**
+
+  - `EvidenceGraph` attribution: **4** — the four
+    artifact-backed reasons
+    (`route-handler-with-service`,
+    `route-http-middleware-only` positive,
+    `external-api-comment-only`,
+    `nextjs-route-convention`).
+  - `DetectorDetails` attribution: **2** —
+    `factory-file-creates-deps` and
+    `module-gate-verified-caller`, both currently
+    path-evidence-only (their decisions set
+    `usedArtifacts: []`, which the
+    `evidenceSourceFromGraphArtifacts` classifier maps
+    to `DetectorDetails`).
+  - `ObservedRepo` attribution: **0**.
+  - No fallback-dominance alert fires
+    (`graph-aware-details-fallback-dominance`,
+    `graph-aware-observedrepo-fallback-dominance`,
+    `graph-aware-evidencegraph-low-usage` all silent).
+
+  **Migration trigger review:** all four triggers from
+  the import-fact subject-shape decision memo
+  re-evaluated against measured data — **none met**:
+  - Helper compatibility logic exceeds ~3 callsites —
+    not met (`listImportTargetsForFile` remains the
+    sole helper; the two `DetectorDetails` fixtures do
+    not consume imports).
+  - EvidenceGraph `schemaVersion` bump planned for
+    unrelated reasons — not met.
+  - External capability authors report confusion —
+    not met.
+  - Import facts become a publication-facing artifact
+    projection — not met.
+
+  **Decision: Option C remains the alpha decision.**
+  Helper compatibility holds; no import producer
+  migration in alpha; revisit only if a trigger fires.
+
+  **Artifact-strength review by reason:** the four
+  EvidenceGraph-attributed reasons are **strong
+  artifact-backed**; `factory-file-creates-deps` and
+  `module-gate-verified-caller` are **acceptable
+  fallback for alpha, candidates for stronger artifact
+  projection** in a future slice. The memo identifies
+  them as the next evidence-strengthening targets (not
+  import producer migration) — likely via a role / kind
+  / ownership projection at the EvidenceGraph /
+  CapabilityMap / ObservedSystem substrate:
+  - `ObservedSystem.kind === "module"` for
+    `/modules/<name>/` directory roots;
+  - CapabilityMap role tags (`role: "factory"`,
+    `role: "module-gate"`);
+  - or first-class EvidenceGraph symbol / export facts
+    for factory and gate-evaluator names.
+
+  Once such a projection exists, the existing
+  path-evidence branches can cite the artifact via
+  `evidenceSourceFromGraphArtifacts` precedence and
+  attribution would shift to `EvidenceGraph` /
+  `ObservedRepo` naturally — no filter logic rewrite
+  required.
 
   Docs-only slice. Pinned by
-  `tests/docs/graph-aware-import-evidence-operator-review-refresh.test.mjs`.
-  Aligned to `lib/import-graph.ts`,
+  `tests/docs/graph-aware-fixture-coverage-operator-review-v2.test.mjs`.
+  Aligned to `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/filter-health.ts`,
   `services/GraphBuildProvider.ts`,
   `domain/graph/producers/**`,
-  `services/issues/filter-health.ts`,
-  `services/IssueDetectionService.ts`. No artifact
-  `schemaVersion` bump. No new artifact type. No new
-  capability role. No new CLI subcommand or flag. No
-  new reason codes. No producer change. No helper
-  change. No graph-aware filter change. No source-file
-  reads. No LLM, semantic, fuzzy, or embedding
-  matching. No `GraphOntologyValidator` port. No
-  version bump. No npm publish.
+  `lib/import-graph.ts`. No artifact `schemaVersion`
+  bump. No new artifact type. No new capability role.
+  No new CLI subcommand or flag. No new reason codes.
+  No producer change. No helper change. No graph-aware
+  filter change. No source-file reads. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No
+  npm publish.
 
-  Graph-aware filter fixture coverage v2 is the
-  recommended next slice.
+  **Factory / module-gate artifact evidence
+  strengthening** is the recommended next slice (move
+  the two `DetectorDetails` reasons toward stronger
+  artifact-backed evidence via role / kind / ownership
+  projections; still no source reads, no
+  `GraphOntologyValidator` port, no producer migration
+  for import facts).
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

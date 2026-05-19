@@ -10,6 +10,16 @@
 > against the now-measured fixture data, and confirms
 > whether **Option C** (helper compatibility now; producer
 > migration deferred) still holds for alpha.
+>
+> **Superseded by the
+> [graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
+> for the now-complete six-fixture diagnostic surface.**
+> The refresh's conclusion (Option C; no producer
+> migration) is unchanged; the v2 review extends it with
+> per-reason artifact-strength analysis and identifies
+> `factory-file-creates-deps` +
+> `module-gate-verified-caller` as the next
+> evidence-strengthening candidates.
 
 ## Decision Summary
 
@@ -438,14 +448,21 @@ classified deeper graph-aware shape for these as
 remains true). Producer migration is still not
 required for filter correctness today.
 
-The next pass — *Graph-aware fixture coverage
-operator review v2* — should re-run this memo's
-data-gathering protocol against the now-six
-deterministic fixtures and re-confirm Option C (or
-identify whether the new evidence changes the
-trigger picture). See "Next Step After This Batch"
-in the
-[graph-aware filter fixtures v2 review packet](../../.rekon-dev/review-packets/graph-aware-filter-fixtures-v2.md).
+**The next pass has now shipped: see the
+[graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md).**
+The v2 review re-ran this memo's data-gathering
+protocol against the now-six deterministic fixtures
+and re-confirmed Option C: helper compatibility holds;
+no import producer migration in alpha; none of the
+four migration triggers is met. The v2 review also
+extends this memo with an explicit per-reason
+artifact-strength review and identifies
+`factory-file-creates-deps` and
+`module-gate-verified-caller` as the next
+evidence-strengthening candidates (not import producer
+migration). See "Next Step After This Batch" in the
+[graph-aware filter fixtures v2 review packet](../../.rekon-dev/review-packets/graph-aware-filter-fixtures-v2.md)
+for the prior batch's framing.
 
 ---
 
@@ -499,6 +516,7 @@ slice should pivot to:
 ## Cross-References
 
 - [Prior operator review](graph-aware-import-evidence-operator-review.md)
+- [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
 - [Import fact subject-shape decision memo](import-fact-subject-shape-decision.md)
 - [GraphOntologyValidator-lite audit](graph-ontology-validator-lite-audit.md)
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)

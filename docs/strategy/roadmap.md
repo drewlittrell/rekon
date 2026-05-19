@@ -1106,6 +1106,42 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Graph-aware fixture coverage operator review v2
+  (P1.1 graph-aware-fixture-coverage-operator-review-v2
+  slice): strategy / docs / test batch only — no
+  runtime change. Memo
+  (`docs/strategy/graph-aware-fixture-coverage-operator-review-v2.md`)
+  re-runs the operator review's data-gathering protocol
+  against the now-six deterministic fixtures
+  (`route-handler`, `external-comment`, `nextjs-route`,
+  `route-http-middleware-only` positive + negative,
+  `factory-file`, `module-gate`). Measured aggregate
+  diagnostics across the six filtered cases:
+  `EvidenceGraph` attribution 4 (the four
+  artifact-backed reasons); `DetectorDetails`
+  attribution 2 (`factory-file-creates-deps` and
+  `module-gate-verified-caller`, both currently
+  path-evidence-only); `ObservedRepo` 0. All four
+  import-fact-producer migration triggers
+  re-evaluated against the new data — none met.
+  **Option C remains the alpha decision** (helper
+  compatibility now; producer migration deferred).
+  The memo extends the refresh memo with an explicit
+  per-reason artifact-strength review and identifies
+  `factory-file-creates-deps` and
+  `module-gate-verified-caller` as the next
+  evidence-strengthening candidates (not import
+  producer migration) — likely via a role / kind /
+  ownership projection at the EvidenceGraph /
+  CapabilityMap / ObservedSystem substrate. Pinned by
+  `tests/docs/graph-aware-fixture-coverage-operator-review-v2.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI subcommand
+  or flag. No new reason codes. No producer change.
+  No helper change. No graph-aware filter change. No
+  source-file reads. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No version bump. No npm publish.
 - Graph-aware filter fixture coverage v2 (P1.1
   graph-aware-filter-fixtures-v2 slice): three more
   deterministic regression fixtures under

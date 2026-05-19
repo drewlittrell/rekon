@@ -4,6 +4,47 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware fixture coverage operator
+  review v2 (P1.1
+  graph-aware-fixture-coverage-operator-review-v2
+  slice). Strategy / docs / test batch only — no
+  runtime change. The memo
+  ([`docs/strategy/graph-aware-fixture-coverage-operator-review-v2.md`](docs/strategy/graph-aware-fixture-coverage-operator-review-v2.md))
+  re-runs the operator review's data-gathering
+  protocol against the now-six deterministic
+  fixtures (`route-handler`, `external-comment`,
+  `nextjs-route`, `route-http-middleware-only`
+  positive + negative, `factory-file`,
+  `module-gate`). **Measured aggregate diagnostics
+  across the six filtered cases: `EvidenceGraph`
+  attribution 4 (the four artifact-backed reasons);
+  `DetectorDetails` attribution 2
+  (`factory-file-creates-deps` and
+  `module-gate-verified-caller`, both currently
+  path-evidence-only); `ObservedRepo` 0; no
+  fallback-dominance alert fires.** All four
+  migration triggers from the import-fact
+  subject-shape decision memo re-evaluated against
+  the new data — none met. **Option C remains the
+  alpha decision** (helper compatibility now;
+  producer migration deferred). The memo extends the
+  refresh memo with an explicit per-reason
+  artifact-strength review and identifies
+  `factory-file-creates-deps` and
+  `module-gate-verified-caller` as the next
+  evidence-strengthening candidates (not import
+  producer migration) — likely via a role / kind /
+  ownership projection at the EvidenceGraph /
+  CapabilityMap / ObservedSystem substrate.
+  Pinned by
+  `tests/docs/graph-aware-fixture-coverage-operator-review-v2.test.mjs`.
+  No filter behavior change. No producer change. No
+  helper change. No artifact `schemaVersion` bump.
+  No new artifact type. No new capability role. No
+  new CLI subcommand or flag. No new reason codes.
+  No source-file reads. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No version bump. No npm publish.
 - Shipped graph-aware filter fixture coverage v2 (P1.1
   graph-aware-filter-fixtures-v2 slice). Three
   additional deterministic regression fixtures under

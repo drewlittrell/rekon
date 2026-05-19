@@ -887,13 +887,58 @@ review packets unless an ADR promotes them. Promotion requires:
     directories are never mutated. No filter
     behavior change, no producer change, no helper
     change.
-28. **(future)** Graph-aware fixture coverage
-    operator review v2. Re-run the prior operator
-    review against the now-six deterministic
-    fixtures and re-confirm Option C (or identify
-    whether the new evidence changes the trigger
-    picture). Strategy memo only.
-29. **(future)** Merge-decision freshness guardrails,
+28. **(shipped)** Graph-aware fixture coverage
+    operator review v2. Strategy-only batch — no
+    runtime changes ship. The memo
+    ([`docs/strategy/graph-aware-fixture-coverage-operator-review-v2.md`](graph-aware-fixture-coverage-operator-review-v2.md))
+    re-runs the operator review's data-gathering
+    protocol against the now-six deterministic
+    fixtures shipped at `702afbf` and `b2f74b8`
+    (`route-handler`, `external-comment`,
+    `nextjs-route`, `route-http-middleware-only`
+    positive + negative, `factory-file`,
+    `module-gate`). **Measured aggregate
+    diagnostics across the six filtered cases:
+    `EvidenceGraph` attribution 4 (one per
+    artifact-backed reason); `DetectorDetails`
+    attribution 2 (`factory-file-creates-deps` and
+    `module-gate-verified-caller`, both currently
+    path-evidence-only); `ObservedRepo` 0; no
+    fallback-dominance alert fires.** All four
+    migration triggers from the import-fact
+    subject-shape decision memo re-evaluated against
+    measured data — none met. **Option C remains
+    the alpha decision.** The memo extends the
+    refresh memo with an explicit per-reason
+    artifact-strength review and identifies
+    `factory-file-creates-deps` and
+    `module-gate-verified-caller` as the next
+    evidence-strengthening candidates (not import
+    producer migration) — likely via a role / kind
+    / ownership projection at the
+    EvidenceGraph / CapabilityMap / ObservedSystem
+    substrate. No filter behavior change, no
+    producer change, no schema bump.
+29. **(future)** Factory / module-gate artifact
+    evidence strengthening. Move
+    `factory-file-creates-deps` and
+    `module-gate-verified-caller` from
+    `DetectorDetails` / path fallback toward
+    stronger artifact-backed evidence via
+    `ObservedSystem.kind === "module"` for
+    `/modules/<name>/` roots, CapabilityMap role
+    tags (`role: "factory"`, `role: "module-gate"`),
+    or first-class EvidenceGraph symbol / export
+    facts for factory and gate-evaluator names.
+    Still no source reads, no
+    `GraphOntologyValidator` port, no producer
+    migration for import facts. Likely starts with a
+    strategy memo to pin the projection target,
+    then a small implementation slice that adds the
+    projection + a filter branch that prefers it
+    over path-evidence via existing
+    `evidenceSourceFromGraphArtifacts` precedence.
+30. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

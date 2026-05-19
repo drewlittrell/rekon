@@ -69,6 +69,25 @@ regression fixtures shipped at `702afbf` and
 re-confirms Option C against measured data
 (EvidenceGraph: 3 across three fixtures;
 DetectorDetails: 0; ObservedRepo: 0). The
+[v2 review](../strategy/graph-aware-fixture-coverage-operator-review-v2.md)
+re-runs the protocol against the now-six
+deterministic fixtures (the three above plus
+`route-http-middleware-only`, `factory-file`, and
+`module-gate` shipped at `b2f74b8`). Measured
+aggregate diagnostics across the six filtered cases:
+**EvidenceGraph 4, DetectorDetails 2
+(`factory-file-creates-deps` and
+`module-gate-verified-caller`, both currently
+path-evidence-only), ObservedRepo 0; no
+fallback-dominance alert fires.** All four migration
+triggers re-evaluated — none met. **Option C remains
+the alpha decision.** The v2 review additionally
+identifies `factory-file-creates-deps` and
+`module-gate-verified-caller` as the next
+evidence-strengthening candidates (not import
+producer migration) — likely via a role / kind /
+ownership projection at the EvidenceGraph /
+CapabilityMap / ObservedSystem substrate. The
 [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
 documents Rekon's stance: keep the legacy producer
 shape, make file-scoped helpers compatibility-aware,

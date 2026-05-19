@@ -569,6 +569,38 @@ source-reading filters, no LLM / semantic / fuzzy /
 embedding matching, no project-specific catalogs in
 core.
 
+## Graph-Aware Fixture Coverage Operator Review v2
+
+The
+[graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
+re-ran the operator review against the now-six
+deterministic fixtures and re-confirmed Option C for
+alpha: helper compatibility holds; no import producer
+migration; none of the four migration triggers met.
+The v2 review also identifies the next
+evidence-strengthening targets relevant to this audit:
+**`factory-file-creates-deps` and
+`module-gate-verified-caller` attribute as
+`DetectorDetails` because their current path-evidence
+branches set `usedArtifacts: []`.** Strengthening them
+would extend the v3 memo's required-projections list
+in a concrete direction:
+
+- A **role / kind projection** for factory-shaped
+  files (`role: "factory"` on a CapabilityMap entry,
+  or a first-class EvidenceGraph `factoryRole` fact).
+- An **ObservedSystem.kind / OwnershipMap projection**
+  for module-gate-shaped files (`kind === "module"`
+  on `/modules/<name>/` directory roots, or an
+  ownership tag for gate evaluators).
+
+Neither requires a monolithic `GraphOntologyValidator`
+port, source reads, or LLM / semantic matching — both
+are deterministic, capability-author-declarable
+projections that fit cleanly into the existing
+EvidenceGraph / CapabilityMap / ObservedSystem
+substrate.
+
 ## Cross-References
 
 - [Issue governance ADR](issue-governance-architecture-decision.md)
@@ -578,6 +610,8 @@ core.
 - [Classic guarantee regression plan](classic-guarantee-regression-plan.md)
 - [Roadmap](roadmap.md)
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)
+- [Graph-aware import evidence operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
+- [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
 - [Finding filters concept](../concepts/finding-filters.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [Finding filter policy status concept](../concepts/finding-filter-policy-status.md)

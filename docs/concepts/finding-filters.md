@@ -197,7 +197,21 @@ first):
   path-evidence branches attributing as
   `DetectorDetails`
   (`factory-file-creates-deps`,
-  `module-gate-verified-caller`). Each `FilteredFinding` records
+  `module-gate-verified-caller`). The
+  [graph-aware fixture coverage operator review v2](../strategy/graph-aware-fixture-coverage-operator-review-v2.md)
+  re-runs the operator-review data-gathering protocol
+  against all six fixtures and re-confirms **Option C
+  for alpha** (helper compatibility now; producer
+  migration deferred): aggregate diagnostics measure
+  `EvidenceGraph` 4 / `DetectorDetails` 2 /
+  `ObservedRepo` 0; no migration trigger met; no
+  fallback-dominance alert fires. The v2 review
+  identifies `factory-file-creates-deps` and
+  `module-gate-verified-caller` as the next
+  evidence-strengthening candidates (likely via a
+  role / kind / ownership projection at the
+  EvidenceGraph / CapabilityMap / ObservedSystem
+  substrate). Each `FilteredFinding` records
   `evidenceSource` (`EvidenceGraph` / `ObservedRepo` /
   `DetectorDetails` / `Policy` / `BuiltIn` /
   `ResultFilter`). Filter-health summarizes the
