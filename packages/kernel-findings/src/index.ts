@@ -344,6 +344,13 @@ type FilterMatch = {
   filePath?: string;
   confidence: FindingFilterConfidence;
   policyId?: string;
+  /**
+   * Graph artifacts the matching decision consulted, when the
+   * match came from a graph-aware check. Always set (possibly
+   * empty) for graph-aware matches; absent for policy / classic
+   * content / built-in path / result matches.
+   */
+  usedArtifacts?: ReadonlyArray<FindingGraphArtifactUsed>;
 };
 
 /**
@@ -1379,6 +1386,16 @@ export type ApplyFindingFiltersResult = {
    * `undefined` when no policies ran.
    */
   policyUsage?: Record<string, number>;
+  /**
+   * Sorted, deduped list of graph artifacts that contributed
+   * structural evidence to at least one graph-aware
+   * `FilteredFinding` in this run. Lets the runtime build
+   * precise `FindingFilterReport.header.inputRefs` (graph-aware
+   * filter provider v2) without re-running the pipeline. Empty
+   * array when no graph-aware filter consulted a graph
+   * artifact during this run.
+   */
+  graphArtifactsUsed: ReadonlyArray<FindingGraphArtifactUsed>;
 };
 
 export type ApplyFindingFiltersOptions = {
@@ -1444,6 +1461,11 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
       || Boolean(graphContext?.capabilityMap)
       || (Array.isArray(graphContext?.graphSlices) && graphContext.graphSlices.length > 0)
     );
+  // Track which graph artifacts contributed to at least one
+  // matched graph-aware decision in this run. Used by the
+  // runtime to build precise `FindingFilterReport.header.inputRefs`
+  // (graph-aware filter provider v2).
+  const graphArtifactsUsedSet = new Set<FindingGraphArtifactUsed>();
 
   for (const finding of input.findings ?? []) {
     // 1. Policy filters run first; the first match wins.
@@ -1455,24 +1477,37 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
         break;
       }
     }
-    // 2. Classic-inspired deterministic content filters.
-    if (!match) {
-      const decision = applyFindingContentFilters({ finding });
+    // 2. Graph-aware filters (P1.1 graph-aware-finding-filter-provider v1, v2).
+    //    Run *before* classic content so when artifact-backed
+    //    structural evidence exists the audit credits the
+    //    strongest source (sibling-file existence, import-graph
+    //    facts, capability ownership, module-kind routing).
+    //    No-op when `graphContext` is absent or its artifacts
+    //    are empty — classic content then runs as the
+    //    fallback. (Pipeline reordered in
+    //    graph-aware-finding-filter-provider v2.)
+    if (!match && graphContextActive && graphContext) {
+      const decision = applyFindingGraphFilters({ finding, graphContext });
       if (decision) {
         match = {
           reason: decision.reason,
           evidence: decision.evidence,
           filePath: decision.filePath,
           confidence: decision.confidence,
+          usedArtifacts: decision.usedArtifacts ?? [],
         };
       }
     }
-    // 3. Graph-aware filters (P1.1 graph-aware-finding-filter-provider v1).
-    //    Strengthens the classic content layer with
-    //    artifact-backed structural confirmation. No-op when
-    //    `graphContext` is absent or its artifacts are empty.
-    if (!match && graphContextActive && graphContext) {
-      const decision = applyFindingGraphFilters({ finding, graphContext });
+    // 3. Classic-inspired deterministic content filters.
+    //    Fires when graph-aware did not (graph context
+    //    missing, or no artifact-backed evidence found). The
+    //    five shared reason codes still bucket as
+    //    `graphAwareFiltered` in filter-health regardless of
+    //    which stage fired — see
+    //    `docs/concepts/graph-aware-finding-filters.md`
+    //    "Filter Health Bucketing".
+    if (!match) {
+      const decision = applyFindingContentFilters({ finding });
       if (decision) {
         match = {
           reason: decision.reason,
@@ -1517,11 +1552,19 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
     if (policyUsage && match.policyId) {
       policyUsage[match.policyId] = (policyUsage[match.policyId] ?? 0) + 1;
     }
+    if (match.usedArtifacts && match.usedArtifacts.length > 0) {
+      for (const artifact of match.usedArtifacts) {
+        graphArtifactsUsedSet.add(artifact);
+      }
+    }
   }
 
   keptFindings.sort((left, right) => left.id.localeCompare(right.id));
   filteredFindings.sort((left, right) => left.findingId.localeCompare(right.findingId));
-  return { keptFindings, filteredFindings, policyUsage };
+  const graphArtifactsUsed: FindingGraphArtifactUsed[] = Array.from(graphArtifactsUsedSet).sort(
+    (left, right) => left.localeCompare(right),
+  );
+  return { keptFindings, filteredFindings, policyUsage, graphArtifactsUsed };
 }
 
 export type FindingFilterPolicyValidationIssue = {
@@ -3633,11 +3676,35 @@ export type FindingGraphFilterContext = {
   graphSlices?: ReadonlyArray<GraphSliceLike>;
 };
 
+/**
+ * Identifies which artifact(s) a graph-aware decision
+ * consulted. Tracking this per-decision lets the runtime
+ * cite *only* the artifacts that contributed evidence in
+ * `FindingFilterReport.header.inputRefs` (graph-aware
+ * filter provider v2). The string set mirrors the
+ * artifact `type` field so callers can compare against
+ * `IndexEntry.type` without translating.
+ */
+export type FindingGraphArtifactUsed =
+  | "ObservedRepo"
+  | "EvidenceGraph"
+  | "OwnershipMap"
+  | "CapabilityMap"
+  | "GraphSlice";
+
 export type FindingGraphFilterDecision = {
   reason: FindingFilterReason;
   evidence: string;
   filePath?: string;
   confidence: FindingFilterConfidence;
+  /**
+   * Which graph artifacts contributed structural evidence
+   * to this decision. Always present for decisions that
+   * consulted a graph artifact; empty for purely
+   * `details.imports` / path-evidence decisions.
+   * (graph-aware filter provider v2)
+   */
+  usedArtifacts?: ReadonlyArray<FindingGraphArtifactUsed>;
 };
 
 /**
@@ -3658,6 +3725,135 @@ export function applyFindingGraphFilters(input: {
     if (decision) return decision;
   }
   return null;
+}
+
+// ---------- Graph-aware filter v2: artifact-evidence helpers ----------
+//
+// Pure, deterministic readers over the structural Like types
+// in `FindingGraphFilterContext`. Each helper consumes one
+// or two artifacts and returns plain JS values. No fs reads,
+// no LLM, no semantic logic. Exported so external rule packs
+// (and tests) can construct graph-aware filters on top of
+// the same primitives.
+
+/**
+ * Normalize a repo-relative path so two writers that disagree
+ * on `./` prefixes or backslashes still compare equal.
+ * Repo-relative paths are the only legal shape — absolute
+ * paths (`/...`) and `.rekon/` artifact paths are returned as
+ * the empty string so callers never accidentally match against
+ * them.
+ */
+export function normalizeRepoPath(path: string): string {
+  if (typeof path !== "string" || path.length === 0) return "";
+  let p = path.replace(/\\/g, "/");
+  if (p.startsWith("/")) return "";
+  while (p.startsWith("./")) p = p.slice(2);
+  if (p === "." || p === "") return "";
+  if (p.startsWith(".rekon/") || p === ".rekon") return "";
+  return p;
+}
+
+/** True when two paths normalize to the same repo-relative shape. */
+export function sameRepoPath(a: string, b: string): boolean {
+  const na = normalizeRepoPath(a);
+  const nb = normalizeRepoPath(b);
+  return na !== "" && na === nb;
+}
+
+/**
+ * Compute the sibling path for a given file by replacing the
+ * basename. Returns the empty string when `filePath` does not
+ * normalize (e.g. absolute / `.rekon/` path).
+ */
+export function siblingPath(filePath: string, siblingName: string): string {
+  const normalized = normalizeRepoPath(filePath);
+  if (normalized === "" || typeof siblingName !== "string" || siblingName.length === 0) {
+    return "";
+  }
+  const lastSlash = normalized.lastIndexOf("/");
+  const dir = lastSlash >= 0 ? normalized.slice(0, lastSlash + 1) : "";
+  return `${dir}${siblingName}`;
+}
+
+/** Sorted, deduped, normalized list of files from ObservedRepo. */
+export function listObservedRepoFiles(
+  context: FindingGraphFilterContext,
+): string[] {
+  const files = context.observedRepo?.files;
+  if (!Array.isArray(files) || files.length === 0) return [];
+  const seen = new Set<string>();
+  for (const entry of files) {
+    const normalized = normalizeRepoPath(entry);
+    if (normalized !== "") seen.add(normalized);
+  }
+  return Array.from(seen).sort();
+}
+
+/** True when `path` (normalized) appears in `ObservedRepo.files`. */
+export function observedRepoHasFile(
+  context: FindingGraphFilterContext,
+  path: string,
+): boolean {
+  const normalized = normalizeRepoPath(path);
+  if (normalized === "") return false;
+  const files = context.observedRepo?.files;
+  if (!Array.isArray(files)) return false;
+  return files.some((entry) => normalizeRepoPath(entry) === normalized);
+}
+
+/**
+ * Locate a sibling file by name in the same directory as
+ * `filePath`. Returns the normalized sibling path when
+ * `ObservedRepo.files` lists it, or `undefined` otherwise.
+ */
+export function findSiblingFile(
+  context: FindingGraphFilterContext,
+  filePath: string,
+  siblingName: string,
+): string | undefined {
+  const candidate = siblingPath(filePath, siblingName);
+  if (candidate === "") return undefined;
+  return observedRepoHasFile(context, candidate) ? candidate : undefined;
+}
+
+/**
+ * List the import targets for `filePath` per the
+ * `EvidenceGraph` import facts. Returns the empty array when
+ * the file has no facts or the graph is missing.
+ */
+export function listImportTargetsForFile(
+  context: FindingGraphFilterContext,
+  filePath: string,
+): string[] {
+  const normalized = normalizeRepoPath(filePath);
+  if (normalized === "") return [];
+  const facts = context.evidenceGraph?.facts;
+  if (!Array.isArray(facts)) return [];
+  const targets: string[] = [];
+  for (const fact of facts) {
+    if (!fact || fact.kind !== "import") continue;
+    if (normalizeRepoPath(fact.subject) !== normalized) continue;
+    const target = fact.value?.target;
+    if (typeof target === "string" && target.length > 0) {
+      targets.push(target);
+    }
+  }
+  return targets;
+}
+
+/**
+ * Filter `listImportTargetsForFile(...)` through a predicate
+ * (case-insensitive comparisons must be implemented by the
+ * caller). Returns the matching targets in their original
+ * order.
+ */
+export function fileImportsTargetMatching(
+  context: FindingGraphFilterContext,
+  filePath: string,
+  predicate: (target: string) => boolean,
+): string[] {
+  return listImportTargetsForFile(context, filePath).filter((target) => predicate(target));
 }
 
 const GRAPH_FILTER_CHECKS: ReadonlyArray<
@@ -3686,48 +3882,52 @@ function graphFilterRouteHandlerWithService(
   const file = firstFile(finding) ?? "";
   if (!file.endsWith("route.ts")) return null;
 
+  // A. Strongest: detector surfaced a handler import directly.
   const det = details(finding);
-  const imports = stringArrayField(det, "imports");
-  const handlerImport = imports.find(
+  const declaredImports = stringArrayField(det, "imports");
+  const declaredHandlerImport = declaredImports.find(
     (entry) => entry.includes("/handler") || entry.endsWith("handler"),
   );
-  if (handlerImport) {
+  if (declaredHandlerImport) {
     return {
       reason: "route-handler-with-service",
-      evidence: `Route delegates to handler via import '${handlerImport}'.`,
+      evidence: `Route delegates to handler via detector-supplied import '${declaredHandlerImport}'.`,
       filePath: file,
       confidence: "high",
+      usedArtifacts: [],
     };
   }
 
-  const sibling = findSiblingHandlerPath(file, ctx.observedRepo);
+  // B. EvidenceGraph import facts for the route file reveal a
+  //    handler import (v2 strengthening).
+  const graphImports = listImportTargetsForFile(ctx, file);
+  const graphHandlerImport = graphImports.find(
+    (entry) => entry.includes("/handler") || entry.endsWith("handler") || entry.endsWith("handler.ts") || entry.endsWith("handler.tsx"),
+  );
+  if (graphHandlerImport) {
+    return {
+      reason: "route-handler-with-service",
+      evidence: `Route delegates to handler via EvidenceGraph import fact '${graphHandlerImport}'.`,
+      filePath: file,
+      confidence: "high",
+      usedArtifacts: ["EvidenceGraph"],
+    };
+  }
+
+  // C. ObservedRepo.files lists a sibling handler.ts / .tsx.
+  const sibling
+    = findSiblingFile(ctx, file, "handler.ts")
+    ?? findSiblingFile(ctx, file, "handler.tsx");
   if (sibling) {
     return {
       reason: "route-handler-with-service",
       evidence: `Route has sibling handler file '${sibling}' (per ObservedRepo file index).`,
       filePath: file,
       confidence: "high",
+      usedArtifacts: ["ObservedRepo"],
     };
   }
 
-  return null;
-}
-
-function findSiblingHandlerPath(
-  routeFile: string,
-  observedRepo: ObservedRepoLike | undefined,
-): string | null {
-  const files = observedRepo?.files;
-  if (!Array.isArray(files) || files.length === 0) return null;
-  const lastSlash = routeFile.lastIndexOf("/");
-  const dir = lastSlash >= 0 ? routeFile.slice(0, lastSlash + 1) : "";
-  // Common sibling names — `handler.ts`, `handler.tsx`, or the
-  // route name-prefixed handler (e.g. `users/route.ts` paired
-  // with `users/users.handler.ts`). Keep it deterministic:
-  // exact match by `<dir>handler.ts` or `<dir>handler.tsx`.
-  for (const candidate of [`${dir}handler.ts`, `${dir}handler.tsx`]) {
-    if (files.includes(candidate)) return candidate;
-  }
   return null;
 }
 
@@ -3735,25 +3935,40 @@ function findSiblingHandlerPath(
 
 function graphFilterRouteHttpMiddlewareOnly(
   finding: Finding,
-  _ctx: FindingGraphFilterContext,
+  ctx: FindingGraphFilterContext,
 ): FindingGraphFilterDecision | null {
   if (finding.type !== "architecture") return null;
   if (finding.ruleId !== "routes.construct_and_inject_deps") return null;
   const file = firstFile(finding) ?? "";
   if (!file.endsWith("route.ts")) return null;
+
   const det = details(finding);
-  const imports = stringArrayField(det, "imports");
-  const infraImports = imports.filter((entry) => entry.includes("/infra/"));
+  const declaredImports = stringArrayField(det, "imports");
+  const graphImports = listImportTargetsForFile(ctx, file);
+
+  // Prefer EvidenceGraph import facts when available (v2
+  // strengthening); fall back to detector-supplied imports.
+  // Conservative no-op: if no import evidence is available
+  // from either source, we don't filter — guessing is not
+  // worth the false suppression risk.
+  const useGraph = graphImports.length > 0;
+  const importsSource = useGraph ? graphImports : declaredImports;
+  if (importsSource.length === 0) return null;
+
+  const infraImports = importsSource.filter((entry) => entry.includes("/infra/"));
   if (infraImports.length === 0) return null;
   const allHttpOrIdentity = infraImports.every(
     (entry) => entry.includes("/infra/http/") || entry.includes("/infra/Identity"),
   );
   if (!allHttpOrIdentity) return null;
+
+  const sourceLabel = useGraph ? "EvidenceGraph import facts" : "detector-supplied imports";
   return {
     reason: "route-http-middleware-only",
-    evidence: `Route imports only HTTP / Identity middleware infra: ${infraImports.join(", ")}.`,
+    evidence: `Route imports only HTTP / Identity middleware infra (${sourceLabel}): ${infraImports.join(", ")}.`,
     filePath: file,
     confidence: "high",
+    usedArtifacts: useGraph ? ["EvidenceGraph"] : [],
   };
 }
 
@@ -3771,58 +3986,57 @@ function graphFilterExternalApiCommentOnly(
 ): FindingGraphFilterDecision | null {
   if (finding.type !== "architecture") return null;
   if (finding.ruleId !== "external_apis.calls_go_through_providers") return null;
+  const file = firstFile(finding);
   const det = details(finding);
+  const hasImportsField = Array.isArray((det as Record<string, unknown> | undefined)?.imports);
   const declaredImports = stringArrayField(det, "imports");
-  const graphImports = importTargetsForFile(firstFile(finding), ctx.evidenceGraph);
+  const graphImports = file ? listImportTargetsForFile(ctx, file) : [];
 
-  // Pick the strongest available evidence source.
-  const importsSource
-    = declaredImports.length > 0
-      ? declaredImports
-      : graphImports.length > 0
-        ? graphImports
-        : null;
-  if (!importsSource) return null;
+  // v2 evidence policy: prefer EvidenceGraph when present.
+  // Otherwise consume `details.imports` *only if the detector
+  // surfaced the field explicitly* — an explicitly empty
+  // array still proves the absence of external API imports.
+  // When neither evidence source exists, conservative no-op.
+  const useGraph = graphImports.length > 0;
+  let importsSource: string[] | null;
+  let usedArtifacts: ReadonlyArray<FindingGraphArtifactUsed> = [];
+  let confidence: FindingFilterConfidence;
+  let sourceLabel: string;
+  if (useGraph) {
+    importsSource = graphImports;
+    usedArtifacts = ["EvidenceGraph"];
+    confidence = "high";
+    sourceLabel = "EvidenceGraph import facts";
+  } else if (declaredImports.length > 0) {
+    importsSource = declaredImports;
+    confidence = "high";
+    sourceLabel = "detector-supplied imports";
+  } else if (hasImportsField) {
+    // details.imports === [] — detector saw the file and
+    // surfaced "no imports". Treat as medium-confidence
+    // proof of absence.
+    importsSource = [];
+    confidence = "medium";
+    sourceLabel = "detector reported empty imports list";
+  } else {
+    return null;
+  }
+
   const lowered = importsSource.map((entry) => entry.toLowerCase());
   const mentionsExternalSdk = lowered.some((entry) =>
     EXTERNAL_API_SDK_FRAGMENTS.some((fragment) => entry.includes(fragment)),
   );
   if (mentionsExternalSdk) return null;
 
-  // Confidence: high when graph-backed (we walked the
-  // resolved import graph), medium when we only have the
-  // detector's `details.imports`.
-  const confidence: FindingFilterConfidence
-    = importsSource === graphImports || (graphImports.length > 0 && importsSource.length === 0)
-      ? "high"
-      : declaredImports.length > 0
-        ? "high"
-        : "medium";
+  const targetsForMessage = importsSource.length > 0 ? `: ${importsSource.join(", ")}` : "";
   return {
     reason: "external-api-comment-only",
     evidence:
-      `Finding references external API concern, but ${
-        importsSource === graphImports
-          ? "EvidenceGraph import facts"
-          : "detector-supplied imports"
-      } contain no openai / openrouter / @openai/* package imports.`,
-    filePath: firstFile(finding),
+      `Finding references external API concern, but ${sourceLabel} contain no openai / openrouter / @openai/* package imports for '${file ?? "<unknown>"}'${targetsForMessage}.`,
+    filePath: file,
     confidence,
+    usedArtifacts,
   };
-}
-
-function importTargetsForFile(
-  filePath: string | undefined,
-  evidenceGraph: EvidenceGraphLike | undefined,
-): string[] {
-  if (!filePath || !evidenceGraph?.facts) return [];
-  return evidenceGraph.facts
-    .filter((fact) => fact.kind === "import" && fact.subject === filePath)
-    .map((fact) => {
-      const target = fact.value?.target;
-      return typeof target === "string" ? target : undefined;
-    })
-    .filter((target): target is string => typeof target === "string" && target.length > 0);
 }
 
 // ----- D. factory file creates deps -----
@@ -3851,6 +4065,7 @@ function graphFilterFactoryFileCreatesDeps(
         `Factory / init file is designed to create dependencies: '${file}' (path-evidence; classic exempts these from DI rules).`,
       filePath: file,
       confidence: "high",
+      usedArtifacts: [],
     };
   }
 
@@ -3861,6 +4076,7 @@ function graphFilterFactoryFileCreatesDeps(
       evidence: `Factory / init capability '${capabilityHit}' covers '${file}' per CapabilityMap.`,
       filePath: file,
       confidence: "medium",
+      usedArtifacts: ["CapabilityMap"],
     };
   }
 
@@ -3900,34 +4116,44 @@ function graphFilterModuleGateVerifiedCaller(
   if (!finding.ruleId || !MODULE_GATE_GRAPH_RULE_IDS.has(finding.ruleId)) return null;
   const file = firstFile(finding) ?? "";
 
+  // A. Strongest: GateEvaluator path is structural truth.
   if (file.includes("GateEvaluator")) {
     return {
       reason: "module-gate-verified-caller",
-      evidence: `Module gate evaluator path '${file}' is verified caller territory.`,
+      evidence: `Module gate evaluator path signal: '${file}'.`,
       filePath: file,
       confidence: "high",
+      usedArtifacts: [],
     };
   }
 
-  if (file.includes("/modules/")) {
-    return {
-      reason: "module-gate-verified-caller",
-      evidence: `Module gate finding originates inside module path '${file}' (verified caller territory).`,
-      filePath: file,
-      confidence: "medium",
-    };
-  }
-
-  // OwnershipMap → ObservedSystem.kind = "module" lookup.
+  // B. v2 prefers ObservedSystem.kind = "module" (structural
+  //    routing from OwnershipMap → ObservedSystem) over the
+  //    bare `/modules/` path heuristic. Falls through to the
+  //    path heuristic when no structural evidence exists.
   const owner = ownerSystemForFile(file, ctx.ownershipMap);
   const system = owner ? findObservedSystem(owner, ctx.observedRepo) : undefined;
   if (system?.kind === "module") {
     return {
       reason: "module-gate-verified-caller",
       evidence:
-        `OwnershipMap routes '${file}' to system '${owner}' whose ObservedSystem.kind is "module" — verified caller territory.`,
+        `Observed system '${owner}' has kind "module"; OwnershipMap routes '${file}' to it (verified caller territory).`,
       filePath: file,
       confidence: "medium",
+      usedArtifacts: ["OwnershipMap", "ObservedRepo"],
+    };
+  }
+
+  // C. Fallback: `/modules/` path heuristic. Only fires when
+  //    no structural ownership evidence is available; classic
+  //    treated this as verified caller territory.
+  if (file.includes("/modules/")) {
+    return {
+      reason: "module-gate-verified-caller",
+      evidence: `Module gate finding originates inside module path '${file}' (verified caller territory; path-only signal).`,
+      filePath: file,
+      confidence: "medium",
+      usedArtifacts: [],
     };
   }
 

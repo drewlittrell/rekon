@@ -1285,8 +1285,105 @@ scope:
   version bump. No npm publish.
 
   Graph-aware filter provider v2 (file-existence /
-  import-evidence strengthening) is the recommended next
-  slice.
+  import-evidence strengthening) shipped next; see the
+  "Graph-aware filter provider v2" entry below.
+- **Graph-aware finding filter provider v2 — file-existence
+  / import-evidence strengthening (P1.1
+  graph-aware-finding-filter-provider-v2 slice).** ✅
+  Shipped. Strengthens the five v1 checks with deeper
+  artifact-backed evidence while preserving every prior
+  invariant (no source reads, no LLM / semantic / fuzzy /
+  embedding, no monolithic `GraphOntologyValidator` port,
+  no new reason codes, raw `FindingReport` never mutated).
+
+  - **New helpers in `@rekon/kernel-findings`.**
+    `normalizeRepoPath`, `sameRepoPath`, `siblingPath`,
+    `listObservedRepoFiles`, `observedRepoHasFile`,
+    `findSiblingFile`, `listImportTargetsForFile`,
+    `fileImportsTargetMatching`. Pure deterministic; no
+    fs reads. Exported so external rule packs can compose
+    graph-aware logic on the same primitives.
+  - **Route handler / sibling handler** now consults
+    detector-supplied imports first (high), then
+    `EvidenceGraph` import facts containing a `*/handler`
+    target (high, `usedArtifacts: ["EvidenceGraph"]`),
+    then `ObservedRepo.files` sibling `handler.ts` /
+    `handler.tsx` (high, `usedArtifacts:
+    ["ObservedRepo"]`).
+  - **Route HTTP middleware-only** prefers
+    `EvidenceGraph` import facts over
+    `Finding.details.imports`. Filters only when at least
+    one infra import exists AND every infra import lives
+    under `/infra/http/` or `/infra/Identity`. No-op when
+    no import evidence is available from either source.
+  - **External API comment-only** prefers
+    `EvidenceGraph` import facts over
+    `Finding.details.imports`. An explicit empty
+    `details.imports: []` array still proves absence at
+    medium confidence. No-op when no import evidence is
+    available.
+  - **Factory file creates deps** evidence string
+    distinguishes path-only matches from CapabilityMap
+    matches. Path-evidence runs are no longer cited as
+    consulting any artifact (`usedArtifacts: []`).
+  - **Module gate verified caller** prefers
+    `OwnershipMap` + `ObservedSystem.kind === "module"`
+    over the bare `/modules/` path heuristic. The
+    GateEvaluator path remains the strongest signal
+    (high). When OwnershipMap + ObservedSystem.kind
+    confirms the structural routing, evidence cites
+    OwnershipMap + ObservedRepo. The `/modules/` path
+    heuristic remains as a fallback when no structural
+    ownership evidence exists.
+  - **`FindingGraphFilterDecision.usedArtifacts`** —
+    each decision now returns a deduped list of artifacts
+    that contributed evidence
+    (`"ObservedRepo"` / `"EvidenceGraph"` /
+    `"OwnershipMap"` / `"CapabilityMap"` /
+    `"GraphSlice"`).
+  - **`ApplyFindingFiltersResult.graphArtifactsUsed`** —
+    `applyFindingFilters` collects per-decision
+    `usedArtifacts` across the run into a sorted deduped
+    array.
+  - **Pipeline reorder.** Graph-aware now runs *before*
+    classic content (was: after). When both layers can
+    match the same finding, the graph-aware version takes
+    credit so the audit trail names the strongest source.
+    Classic content remains the fallback when graph-aware
+    is no-op (missing artifacts). The five shared reason
+    codes still bucket as `graphAwareFiltered` in
+    filter-health regardless of which stage fired.
+  - **Runtime inputRefs precision.**
+    `buildFindingFilterReport` now filters its loaded
+    graph-input refs by `result.graphArtifactsUsed`, so
+    `FindingFilterReport.header.inputRefs` cites only the
+    artifacts that actually contributed to a match in
+    this run.
+
+  17 new contract tests at
+  `tests/contract/graph-aware-finding-filters-v2.test.mjs`
+  cover helper behavior, strengthened checks
+  (sibling-file / EvidenceGraph routing), conservative
+  no-op when evidence is missing, precise
+  `graphArtifactsUsed` reporting, end-to-end inputRefs
+  citing (ObservedRepo when sibling-file used,
+  EvidenceGraph when import-evidence used), raw
+  `FindingReport` byte-identity, lifecycle / adjudication
+  / coherency exclusion, and `rekon artifacts validate`
+  cleanliness. Full suite: 715 passed / 1 skipped / 0
+  failed.
+
+  Aligned to `infra/validation/GraphOntologyValidator.ts`,
+  `services/issues/content-filter-architecture.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/GraphBuildProvider.ts`, `domain/graph/producers/**`.
+  No artifact `schemaVersion` bump. No new artifact type.
+  No new capability role. No new CLI subcommand or flag.
+  No version bump. No npm publish.
+
+  Graph-aware filter provider v3 decision memo (review
+  what classic checks still warrant porting) is the
+  recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

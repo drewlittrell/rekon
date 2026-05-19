@@ -180,13 +180,21 @@ first):
   `source: "system"` and a result-filter reason so they
   remain auditable; they are **not** silently deleted. See
   "Classic Result Filters" below.
-- **Graph-aware filters (v1)** — deterministic structural
-  checks that consume Rekon artifacts (`ObservedRepo`,
-  `OwnershipMap`, `CapabilityMap`, `EvidenceGraph`,
-  `GraphSlice`) to suppress findings backed by structural
-  evidence. Run between the classic content layer and the
-  built-in path heuristics. Reuse the existing five reason
-  codes (`route-handler-with-service`,
+- **Graph-aware filters (v1 + v2)** — deterministic
+  structural checks that consume Rekon artifacts
+  (`ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
+  `EvidenceGraph`, `GraphSlice`) to suppress findings backed
+  by structural evidence. v2 moved this stage *ahead* of
+  classic content so the audit credits the strongest source
+  when both can match; classic content remains the fallback.
+  v2 also prefers `EvidenceGraph` import facts over
+  `Finding.details.imports`, falls back to
+  `ObservedRepo.files` sibling lookups, and emits
+  `usedArtifacts` per decision so the runtime cites only the
+  artifacts that actually contributed (see
+  [FindingFilterReport](../artifacts/finding-filter-report.md)
+  "Graph-Aware Filters"). Reuse the same five reason codes
+  (`route-handler-with-service`,
   `route-http-middleware-only`,
   `external-api-comment-only`,
   `factory-file-creates-deps`,
@@ -197,7 +205,7 @@ first):
   [FindingFilterHealthReport](../artifacts/finding-filter-health-report.md)).
   See
   [graph-aware-finding-filters.md](graph-aware-finding-filters.md)
-  for the full per-check shape.
+  for the full per-check shape and the v2 helper exports.
 - **`other`** — reserved escape hatch; not used by v1.
 
 Findings with no `files` are kept by default (no rule has
@@ -213,11 +221,19 @@ bag) — no source-code regex, no LLM, no file-system access.
 Filter pipeline order:
 
 1. **Policy filters** (`findingFilters`).
-2. **Classic content filters** (this section).
-3. **Built-in path heuristics** (`generated-file` /
+2. **Graph-aware filters** (see "Graph-aware filters" above
+   and
+   [graph-aware-finding-filters.md](graph-aware-finding-filters.md)).
+   v2 moved this stage *before* classic content so a
+   match backed by artifact evidence credits the strongest
+   source. No-op when graph context is missing.
+3. **Classic content filters** (this section). Fallback for
+   the five shared reason codes when graph-aware did not
+   fire.
+4. **Built-in path heuristics** (`generated-file` /
    `external-file` / `test-file` / `canary-file` /
    `content-filter`).
-4. **Result filters** (next section).
+5. **Result filters** (next section).
 
 The pipeline short-circuits on the first match. Classic
 content filters land at priority `10`-`12`; broad path

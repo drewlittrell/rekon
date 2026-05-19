@@ -4,6 +4,132 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware finding filter provider v2 — file-
+  existence / import-evidence strengthening (P1.1
+  graph-aware-finding-filter-provider-v2 slice).
+  Strengthens the five v1 graph-aware checks with deeper
+  artifact-backed evidence while preserving every prior
+  invariant: no source-file reads, no LLM / semantic /
+  fuzzy / embedding matching, no `GraphOntologyValidator`
+  port, no new reason codes, raw `FindingReport` remains
+  byte-identical, lifecycle / adjudication / coherency
+  continue to exclude graph-filtered findings.
+
+  **New pure helpers in `@rekon/kernel-findings`
+  (exported):**
+  - `normalizeRepoPath(path)` — strips leading `./` and
+    backslashes; rejects absolute paths and `.rekon/`
+    artifact paths (returns the empty string so consumers
+    cannot accidentally match against them).
+  - `sameRepoPath(a, b)` — comparison over normalized
+    paths.
+  - `siblingPath(filePath, siblingName)` — computes the
+    sibling path in the same directory.
+  - `listObservedRepoFiles(ctx)` — sorted, deduped,
+    normalized `ObservedRepo.files`.
+  - `observedRepoHasFile(ctx, path)` — membership test
+    against `ObservedRepo.files`.
+  - `findSiblingFile(ctx, filePath, siblingName)` —
+    returns the sibling path when present in
+    `ObservedRepo.files`, `undefined` otherwise.
+  - `listImportTargetsForFile(ctx, filePath)` — reads
+    `EvidenceGraph` import facts
+    (`kind === "import"`, `subject === filePath`).
+  - `fileImportsTargetMatching(ctx, filePath, predicate)`
+    — filters the import targets through a predicate.
+
+  **Strengthened checks:**
+  - `route-handler-with-service` — strongest:
+    `Finding.details.imports` handler entry; fallback:
+    `EvidenceGraph` import fact pointing at a handler
+    (`usedArtifacts: ["EvidenceGraph"]`); fallback:
+    `ObservedRepo.files` sibling `handler.ts` /
+    `handler.tsx` (`usedArtifacts: ["ObservedRepo"]`).
+  - `route-http-middleware-only` — prefers
+    `EvidenceGraph` import facts over
+    `Finding.details.imports`. Filters only when at
+    least one infra import exists AND every infra import
+    lives under `/infra/http/` or `/infra/Identity`.
+    No-op when no import evidence is available from
+    either source.
+  - `external-api-comment-only` — prefers
+    `EvidenceGraph` import facts over
+    `Finding.details.imports`. An explicit empty
+    `details.imports: []` array still proves absence at
+    medium confidence. No-op when no import evidence is
+    available.
+  - `factory-file-creates-deps` — path-only matches now
+    return `usedArtifacts: []`; `CapabilityMap` matches
+    return `usedArtifacts: ["CapabilityMap"]`. Evidence
+    string distinguishes the two sources.
+  - `module-gate-verified-caller` — prefers
+    `OwnershipMap` + `ObservedSystem.kind === "module"`
+    (medium, `usedArtifacts: ["OwnershipMap",
+    "ObservedRepo"]`) over the bare `/modules/` path
+    heuristic (medium, fallback only). The
+    `GateEvaluator` path remains the strongest signal
+    (high, `usedArtifacts: []`).
+
+  **`FindingGraphFilterDecision.usedArtifacts`** — each
+  graph-aware decision now returns a deduped list of
+  artifacts that contributed evidence
+  (`"ObservedRepo"` / `"EvidenceGraph"` /
+  `"OwnershipMap"` / `"CapabilityMap"` /
+  `"GraphSlice"`). Pure path / detector-import matches
+  return an empty array.
+
+  **`ApplyFindingFiltersResult.graphArtifactsUsed`** —
+  `applyFindingFilters` collects per-decision
+  `usedArtifacts` across the run into a sorted deduped
+  array. Always present (possibly empty).
+
+  **Pipeline reorder.** Graph-aware now runs *before*
+  classic content (previously: after). When both layers
+  can match the same finding, the graph-aware version
+  takes credit so the audit trail names the strongest
+  artifact-backed source. Classic content remains the
+  fallback when graph-aware is no-op (missing artifacts).
+  The five shared reason codes still bucket as
+  `graphAwareFiltered` in filter-health regardless of
+  which stage fired — bucket math is unchanged.
+
+  **Runtime inputRefs precision.** `buildFindingFilterReport`
+  now filters its loaded graph-input refs by
+  `result.graphArtifactsUsed`, so
+  `FindingFilterReport.header.inputRefs` cites only the
+  artifacts that actually contributed to a match in this
+  run. An artifact loaded into the graph context but
+  never matched against is no longer cited.
+
+  **Tests.** 17 new contract tests at
+  `tests/contract/graph-aware-finding-filters-v2.test.mjs`
+  cover: helper behavior (normalization, sibling lookup,
+  import-target listing, predicate filtering), each
+  strengthened check (sibling-file routing, EvidenceGraph
+  routing, conservative no-op when evidence missing,
+  non-allowed infra import rejection, openai-import
+  rejection, GateEvaluator high-confidence,
+  ObservedSystem.kind preferred over `/modules/`),
+  conservative no-op across all checks, precise
+  `graphArtifactsUsed` reporting (sorted + deduped),
+  end-to-end CLI inputRefs citing (ObservedRepo only when
+  sibling-file used, EvidenceGraph when import evidence
+  used), raw `FindingReport` byte-identity, lifecycle /
+  adjudication / coherency exclusion, and
+  `rekon artifacts validate` cleanliness. Full suite:
+  715 passed / 1 skipped / 0 failed.
+
+  No artifact `schemaVersion` bump. No new artifact type.
+  No new capability role. No new CLI subcommand or flag.
+  No new reason codes. No source-file reads. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No npm
+  publish.
+
+  Graph-aware filter provider v3 decision memo (review
+  what remaining classic checks still warrant porting)
+  is the recommended next slice.
+
 - Shipped graph-aware filter surfacing in publications /
   filter health (P1.1
   graph-aware-filter-health-publications slice). The

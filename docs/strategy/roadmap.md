@@ -752,6 +752,48 @@ is the first stop before proposing a new capability batch.
   No artifact `schemaVersion` bump. No new artifact
   type. No new capability role. No new CLI subcommand
   or flag.
+- Graph-aware finding filter provider v2 — file-existence
+  / import-evidence strengthening (P1.1
+  graph-aware-finding-filter-provider-v2 slice):
+  strengthens the five v1 checks with deeper
+  artifact-backed evidence while preserving every prior
+  invariant. New pure helpers
+  (`normalizeRepoPath`, `sameRepoPath`, `siblingPath`,
+  `listObservedRepoFiles`, `observedRepoHasFile`,
+  `findSiblingFile`, `listImportTargetsForFile`,
+  `fileImportsTargetMatching`) exported from
+  `@rekon/kernel-findings`. Route handler /
+  sibling-handler check now prefers
+  `Finding.details.imports` (high) → `EvidenceGraph`
+  import facts containing `*/handler` (high) →
+  `ObservedRepo.files` sibling lookup (high). Route HTTP
+  middleware-only and external API comment-only checks
+  prefer `EvidenceGraph` import facts over
+  `Finding.details.imports`; explicit empty
+  `details.imports: []` still proves absence at medium
+  confidence. Module-gate check prefers
+  `OwnershipMap` + `ObservedSystem.kind === "module"`
+  over the bare `/modules/` path heuristic.
+  `FindingGraphFilterDecision.usedArtifacts` and
+  `ApplyFindingFiltersResult.graphArtifactsUsed` thread
+  precise per-decision artifact attribution through to
+  the runtime, which filters its loaded graph-input refs
+  by that set so
+  `FindingFilterReport.header.inputRefs` cites only the
+  artifacts that actually contributed to a match.
+  Pipeline reordered to run graph-aware *before* classic
+  content so the audit credits the strongest source. 17
+  new contract tests at
+  `tests/contract/graph-aware-finding-filters-v2.test.mjs`
+  cover helpers, strengthened checks, conservative no-op,
+  precise inputRefs, raw `FindingReport` byte-identity,
+  lifecycle exclusion, and `rekon artifacts validate`
+  cleanliness. No artifact `schemaVersion` bump. No new
+  artifact type. No new capability role. No new CLI
+  subcommand or flag. No new reason codes. No source-file
+  reads. No LLM, semantic, fuzzy, or embedding matching.
+  No `GraphOntologyValidator` port. No version bump. No
+  npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

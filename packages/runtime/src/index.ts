@@ -27,7 +27,6 @@ import {
   type FindingFilterPolicyFingerprint,
   type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestionReport,
-  type FindingFilterReason,
   type FindingFilterReport,
   type FindingGraphFilterContext,
   type FindingLifecycleReport,
@@ -896,7 +895,7 @@ export async function buildFindingFilterReport(
   }
 
   const filteredAt = new Date().toISOString();
-  const { keptFindings, filteredFindings, policyUsage } = applyFindingFilters({
+  const { keptFindings, filteredFindings, policyUsage, graphArtifactsUsed } = applyFindingFilters({
     findings,
     filteredAt,
     policies: options.policies,
@@ -912,24 +911,17 @@ export async function buildFindingFilterReport(
   // `computeFilterPolicyStaleness`.
   const policyFingerprint = fingerprintFindingFilterPolicies(options.policies ?? []);
 
-  // Cite only graph artifacts that actually contributed to a
-  // graph-aware match. Conservative — we don't add inputs we
-  // never read, and we don't add inputs we read but never
-  // matched against. This keeps `inputRefs` an audit of the
-  // evidence the report depended on.
-  const matchedGraphReasons = new Set(filteredFindings.map((entry) => entry.reason));
-  const graphReasons = new Set<FindingFilterReason>([
-    "route-handler-with-service",
-    "route-http-middleware-only",
-    "external-api-comment-only",
-    "factory-file-creates-deps",
-    "module-gate-verified-caller",
-  ]);
-  const anyGraphReasonMatched
-    = useGraphContext && [...matchedGraphReasons].some((reason) => graphReasons.has(reason));
-  const inputRefs = anyGraphReasonMatched
-    ? [indexEntryToRef(latestEntry), ...graphInputRefs]
-    : [indexEntryToRef(latestEntry)];
+  // Cite only the graph artifacts that contributed structural
+  // evidence to at least one matched decision (graph-aware
+  // filter provider v2 precise tracking). The kernel returns
+  // `graphArtifactsUsed` per-run; we filter our loaded
+  // graph-input refs by that set so an artifact we read but
+  // never matched against does not inflate the audit trail.
+  const usedSet = new Set<string>(useGraphContext ? graphArtifactsUsed : []);
+  const inputRefs = [
+    indexEntryToRef(latestEntry),
+    ...graphInputRefs.filter((ref) => usedSet.has(ref.type)),
+  ];
 
   const filterReport = createFindingFilterReport({
     header: {

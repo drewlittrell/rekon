@@ -13,6 +13,21 @@
 > See [`docs/concepts/graph-aware-finding-filters.md`](../concepts/graph-aware-finding-filters.md)
 > for the runtime behavior. The audit remains the
 > authoritative decision memo for everything beyond v1.
+>
+> **v2 update:** the five v1 checks have been strengthened
+> with artifact-backed file-existence and import-evidence
+> via the **graph-aware finding filter provider v2**.
+> `EvidenceGraph` import facts are now preferred over
+> `Finding.details.imports`; `ObservedRepo.files` supports
+> sibling-file checks for route-handler-with-service; each
+> decision returns `usedArtifacts` so
+> `FindingFilterReport.header.inputRefs` cites only the
+> artifacts that actually contributed. The graph-aware
+> stage now runs *before* classic content so when the same
+> finding can be matched by both, the audit credits the
+> stronger artifact-backed source. No new reason codes,
+> no source reads, no LLM / semantic / fuzzy logic, no
+> monolithic validator.
 
 ## Decision Summary
 

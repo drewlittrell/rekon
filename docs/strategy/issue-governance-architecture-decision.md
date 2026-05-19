@@ -487,9 +487,40 @@ review packets unless an ADR promotes them. Promotion requires:
     contract tests covering classifier behavior, bucket
     math, alert thresholds, publication rendering, and
     artifact validation.
-16. **(future)** Graph-aware filter provider v2 —
+16. **(shipped)** Graph-aware filter provider v2 —
     file-existence / import-evidence strengthening.
-17. **(future)** Merge-decision freshness guardrails,
+    Strengthens the five v1 checks with deeper
+    artifact-backed evidence: `EvidenceGraph` import
+    facts are preferred over `Finding.details.imports`,
+    `ObservedRepo.files` supports sibling-file checks for
+    `route-handler-with-service`, and the module-gate
+    check prefers `OwnershipMap` +
+    `ObservedSystem.kind === "module"` over the bare
+    `/modules/` path heuristic. Each decision returns
+    `usedArtifacts` naming the artifacts that
+    contributed; `applyFindingFilters` collects these into
+    `graphArtifactsUsed` so the runtime cites only the
+    artifacts that actually fired (no inflation by
+    artifacts that were loaded but never matched). The
+    pipeline reordered to run graph-aware *before* classic
+    content so the audit credits the strongest source. New
+    pure helpers (`normalizeRepoPath`, `sameRepoPath`,
+    `siblingPath`, `listObservedRepoFiles`,
+    `observedRepoHasFile`, `findSiblingFile`,
+    `listImportTargetsForFile`,
+    `fileImportsTargetMatching`) exported for external rule
+    packs. 17 new contract tests covering helpers,
+    strengthened checks, conservative no-op, precise
+    inputRefs, and end-to-end CLI behavior.
+    No new reason codes. No source-file reads. No LLM,
+    semantic, fuzzy, or embedding matching. No
+    `GraphOntologyValidator` port. Raw `FindingReport`
+    remains byte-identical. Lifecycle / adjudication /
+    coherency continue to exclude graph-filtered findings.
+17. **(future)** Graph-aware filter provider v3 decision
+    memo — review what (if any) deeper classic checks
+    still warrant porting once v2 is in operator hands.
+18. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

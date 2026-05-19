@@ -31,18 +31,21 @@ provider strengthens those filters by also consulting
 `EvidenceGraph`, and `GraphSlice` so the same conclusions
 hold when detectors are quieter.
 
-## What's Included In v1
+## What's Included In v1 + v2
 
 Five deterministic checks, all reusing existing v2 reason
-codes (no new reason codes were introduced):
+codes (no new reason codes were introduced). v2 strengthens
+the evidence each check consumes — `Finding.details.imports`
+falls to a fallback when `EvidenceGraph` or `ObservedRepo`
+can prove the same conclusion structurally.
 
-| Check | Reason | Inputs |
+| Check | Reason | Inputs (v2) |
 | --- | --- | --- |
-| Route handler / sibling handler | `route-handler-with-service` | `Finding.details.imports`, `ObservedRepo.files` |
-| Route HTTP middleware only | `route-http-middleware-only` | `Finding.details.imports` |
-| External-API comment only | `external-api-comment-only` | `Finding.details.imports`, `EvidenceGraph` import facts |
+| Route handler / sibling handler | `route-handler-with-service` | `Finding.details.imports` → `EvidenceGraph` import facts → `ObservedRepo.files` sibling |
+| Route HTTP middleware only | `route-http-middleware-only` | `EvidenceGraph` import facts (preferred) → `Finding.details.imports` (fallback) |
+| External-API comment only | `external-api-comment-only` | `EvidenceGraph` import facts (preferred) → `Finding.details.imports` (fallback; explicit empty array still proves absence) |
 | Factory file creates deps | `factory-file-creates-deps` | path heuristics, `CapabilityMap` entries |
-| Module gate verified caller | `module-gate-verified-caller` | `GateEvaluator` / `/modules/` path heuristic, `OwnershipMap` + `ObservedSystem.kind === "module"` |
+| Module gate verified caller | `module-gate-verified-caller` | `GateEvaluator` path (high) → `OwnershipMap` + `ObservedSystem.kind === "module"` (medium, preferred over path) → `/modules/` path (medium, fallback) |
 
 Each check is a small pure function in
 `@rekon/kernel-findings`. The provider iterates them in a
@@ -54,17 +57,24 @@ fixed order and returns the first matching decision or
 `applyFindingFilters` runs filters in fixed priority:
 
 1. **Policy filters** (`findingFilters`).
-2. **Classic content filters** (17 reasons; v2).
-3. **Graph-aware filters** *(this slice)*.
+2. **Graph-aware filters** *(this slice)*. v2 moved this
+   stage ahead of classic content so the audit credits the
+   strongest artifact-backed source when both layers can
+   match. No-op when `graphContext` is absent or its
+   artifacts are empty.
+3. **Classic content filters** (12 reasons; v2). Fallback
+   when graph-aware did not fire — the five shared reason
+   codes still bucket as `graphAwareFiltered` in
+   filter-health regardless of which stage fired.
 4. **Built-in path heuristics** (`generated-file`,
    `external-file`, `test-file`, `canary-file`,
    `content-filter`).
 5. **Result filters** (`findingResultFilters`).
 
 The pipeline short-circuits on the first match. The
-graph-aware stage sits between the classic content layer
-and the broad path heuristics so a structural match always
-wins over a generic path heuristic but never over an
+graph-aware stage sits between the policy layer and the
+classic content layer so a structural match always wins
+over a generic content heuristic but never over an
 operator-supplied policy.
 
 ## Inputs
@@ -110,9 +120,47 @@ stack when no `graphContext` is supplied.
 
 The runtime is conservative too: `FindingFilterReport.header.inputRefs`
 cites a graph artifact only when at least one graph-aware
-match actually used the data. A no-match run does not
-inflate the input refs with graph artifacts the run never
-relied on.
+match actually used that specific artifact. v2 sharpened
+this further — each
+[`FindingGraphFilterDecision`](../artifacts/finding-filter-report.md)
+returns a `usedArtifacts` list (`"ObservedRepo"`,
+`"EvidenceGraph"`, `"OwnershipMap"`, `"CapabilityMap"`,
+`"GraphSlice"`) identifying which artifacts contributed
+structural evidence. `applyFindingFilters` collects these
+across the run into a deduped `graphArtifactsUsed` array;
+the runtime filters its loaded graph-input refs by that
+set so the audit lists exactly the artifacts the report
+depended on (an artifact loaded but never matched against
+is *not* cited).
+
+## v2 Helpers
+
+`@rekon/kernel-findings` exports pure deterministic helpers
+that read the structural `Like` types so external rule
+packs (and tests) can compose graph-aware logic without
+re-implementing path normalization:
+
+- `normalizeRepoPath(path)` — strips leading `./` /
+  backslashes; rejects absolute paths and `.rekon/`
+  artifact paths (returns the empty string).
+- `sameRepoPath(a, b)` — comparison over normalized paths.
+- `siblingPath(filePath, siblingName)` — computes the
+  sibling path in the same directory.
+- `listObservedRepoFiles(ctx)` — sorted, deduped,
+  normalized `ObservedRepo.files`.
+- `observedRepoHasFile(ctx, path)` — membership test
+  against `ObservedRepo.files`.
+- `findSiblingFile(ctx, filePath, siblingName)` — returns
+  the sibling path when present in `ObservedRepo.files`,
+  `undefined` otherwise.
+- `listImportTargetsForFile(ctx, filePath)` — reads
+  `EvidenceGraph` import facts (`kind === "import"`,
+  `subject === filePath`).
+- `fileImportsTargetMatching(ctx, filePath, predicate)` —
+  filters the import targets through a predicate.
+
+All helpers are synchronous and side-effect-free. No fs
+reads, no LLM, no semantic logic.
 
 ## Audit Trail
 

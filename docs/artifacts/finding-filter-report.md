@@ -296,31 +296,50 @@ See
 "Classic Content Filters" and "Classic Result Filters" for
 the full per-case table.
 
-## Graph-Aware Filters (v1)
+## Graph-Aware Filters (v1 + v2)
 
 v1 graph-aware filters consume Rekon artifacts to suppress
-findings backed by structural evidence. Five checks run
-between the classic content layer and the broad path
-heuristics, reusing existing v2 reason codes (no new
-reason codes were introduced):
+findings backed by structural evidence. v2 strengthens the
+five checks with `EvidenceGraph` import facts and
+`ObservedRepo.files` sibling lookups (preferring artifact
+evidence over `Finding.details.imports`), and reorders the
+pipeline so the stage runs *before* classic content. No new
+reason codes were introduced:
 
-- `route-handler-with-service` (uses
-  `Finding.details.imports` or `ObservedRepo.files` sibling
-  lookup).
-- `route-http-middleware-only` (uses
-  `Finding.details.imports`).
-- `external-api-comment-only` (uses
-  `Finding.details.imports` or `EvidenceGraph` import
-  facts).
-- `factory-file-creates-deps` (uses path heuristics or
-  `CapabilityMap` entries).
-- `module-gate-verified-caller` (uses path heuristics or
-  `OwnershipMap` + `ObservedSystem.kind === "module"`).
+- `route-handler-with-service` — strongest:
+  `Finding.details.imports` handler entry; fallback:
+  `EvidenceGraph` import fact pointing at a handler;
+  fallback: `ObservedRepo.files` sibling `handler.ts` /
+  `handler.tsx`.
+- `route-http-middleware-only` — strongest:
+  `EvidenceGraph` import facts; fallback:
+  `Finding.details.imports`. Filters only when at least
+  one infra import exists AND every infra import lives
+  under `/infra/http/` or `/infra/Identity`.
+- `external-api-comment-only` — strongest:
+  `EvidenceGraph` import facts; fallback:
+  `Finding.details.imports` (non-empty); medium-confidence
+  fallback: detector-supplied explicit empty
+  `details.imports` array. Filters only when no
+  `openai` / `openrouter` / `@openai/*` import appears.
+- `factory-file-creates-deps` — path heuristics or
+  `CapabilityMap` entries.
+- `module-gate-verified-caller` — strongest:
+  `GateEvaluator` path (high). Then v2 prefers
+  `OwnershipMap` + `ObservedSystem.kind === "module"`
+  (medium) over the bare `/modules/` path heuristic
+  (medium, fallback only).
 
-`FindingFilterReport.header.inputRefs` cites a graph
-artifact only when at least one graph-aware match actually
-used the data — so the audit lists exactly the evidence
-the report depended on.
+Each decision returns a `usedArtifacts` list naming the
+artifacts that contributed evidence
+(`"ObservedRepo"` / `"EvidenceGraph"` / `"OwnershipMap"` /
+`"CapabilityMap"` / `"GraphSlice"`). `applyFindingFilters`
+collects these across the run into a deduped
+`graphArtifactsUsed` array; the runtime filters its loaded
+graph-input refs by that set so
+`FindingFilterReport.header.inputRefs` lists exactly the
+artifacts the report depended on — an artifact loaded but
+never matched against is *not* cited.
 
 Although the five graph-aware reason codes are shared with
 the v2 classic content filter, the downstream
@@ -335,8 +354,10 @@ graph-aware dominance alerts (`graph-aware-filter-dominance`,
 
 See
 [../concepts/graph-aware-finding-filters.md](../concepts/graph-aware-finding-filters.md)
-for the full per-check shape, audit invariants, and
-no-op semantics when graph context is missing.
+for the full per-check shape, audit invariants, no-op
+semantics when graph context is missing, and the v2
+helper exports (`findSiblingFile`,
+`listImportTargetsForFile`, ...).
 
 ## CLI Surface
 
