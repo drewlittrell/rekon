@@ -8,6 +8,20 @@
 > operator hands. It separates checks that can ship now,
 > checks that need missing artifact projections first,
 > checks to defer, and checks to reject permanently.
+>
+> **Substrate update:** the memo's recommended next slice —
+> the **`EvidenceGraph` export / symbol facts projection
+> v1** — has shipped. `@rekon/capability-js-ts` now emits
+> `kind: "export"` and `kind: "symbol"` facts with the
+> spec'd `{ name, kind, default?/exported? }` value shape,
+> and `@rekon/kernel-findings` exports `listExportsForFile`
+> and `listSymbolsForFile` helpers. **No graph-aware filter
+> consumes the new facts yet** — the substrate ships alone,
+> as the memo prescribed. A future slice will ship the
+> first v3 candidate check that depends on it (the memo's
+> strongest recommendation is strengthening
+> `nextjs-route-convention` to confirm route file exports
+> structurally via the new facts).
 
 ## Decision Summary
 

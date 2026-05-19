@@ -132,57 +132,192 @@ function extractImportFacts(path: string, content: string): EvidenceFact[] {
   return facts;
 }
 
+// ---------- Export / symbol facts (substrate v1) ----------
+//
+// EvidenceGraph export/symbol facts projection v1 (per the
+// graph-aware filter provider v3 decision memo). Deterministic
+// regex-based extraction — no AST, no type checker, no LLM, no
+// semantic role inference. Conservative: tolerate false
+// negatives better than false positives.
+//
+// Fact shape (per work order spec):
+//   { kind: "export", subject: <path>, value: { name, kind, default? } }
+//   { kind: "symbol", subject: <path>, value: { name, kind, exported? } }
+//
+// The subject is the repo-relative file path. `name`, `kind`
+// (function / class / const / let / var / type / interface /
+// namespace / default / unknown), and the `default` /
+// `exported` flag live in `value` so multiple exports / symbols
+// per file are distinct after the kernel-evidence dedupe
+// (`kind + subject + value + provenance` canonical key).
+
+type FileExportSymbolKind =
+  | "function"
+  | "class"
+  | "const"
+  | "let"
+  | "var"
+  | "type"
+  | "interface"
+  | "namespace"
+  | "default"
+  | "unknown";
+
+const DECL_KIND_MAP: Record<string, FileExportSymbolKind> = {
+  function: "function",
+  class: "class",
+  const: "const",
+  let: "let",
+  var: "var",
+  type: "type",
+  interface: "interface",
+  namespace: "namespace",
+  // enum is not in the work-order export kind enum; map to
+  // namespace (TypeScript enums act as namespaces at runtime).
+  enum: "namespace",
+};
+
+const NAMED_EXPORT_DECL_RE
+  = /\bexport\s+(?:async\s+)?(function|class|const|let|var|type|interface|namespace|enum)\s+([A-Za-z_$][\w$]*)/g;
+const DEFAULT_FUNCTION_OR_CLASS_RE
+  = /\bexport\s+default\s+(?:async\s+)?(?:function|class)\b/g;
+// Matches `export default <something>` for anything other than
+// a function/class declaration. Negative lookahead rejects
+// function/class so DEFAULT_FUNCTION_OR_CLASS_RE stays
+// canonical for those forms.
+const DEFAULT_EXPRESSION_RE
+  = /\bexport\s+default\s+(?!(?:async\s+)?(?:function|class)\b)\S/g;
+const NAMED_EXPORT_LIST_RE = /\bexport\s*\{([^}]+)\}/g;
+// `export * from "..."` and `export * as alias from "..."`.
+const STAR_REEXPORT_RE
+  = /\bexport\s+\*(?:\s+as\s+([A-Za-z_$][\w$]*))?\s+from\s+["']([^"']+)["']/g;
+
 function extractExportFacts(path: string, content: string): EvidenceFact[] {
-  const facts: EvidenceFact[] = [];
-  const exportRegex = /\bexport\s+(?:default\s+)?(?:async\s+)?(?:class|function|const|let|var|type|interface|enum)\s+([A-Za-z_$][\w$]*)|\bexport\s*\{([^}]+)\}/g;
-  let match: RegExpExecArray | null;
+  const collected: Array<{
+    name: string;
+    kind: FileExportSymbolKind;
+    isDefault: boolean;
+    line: number;
+  }> = [];
 
-  while ((match = exportRegex.exec(content))) {
-    const directName = match[1];
-    const namedExports = match[2];
-    const line = lineForIndex(content, match.index);
+  // (1) `export function|class|const|...|namespace NAME`.
+  for (const m of content.matchAll(NAMED_EXPORT_DECL_RE)) {
+    const keyword = m[1];
+    const name = m[2];
+    if (!keyword || !name || m.index === undefined) continue;
+    collected.push({
+      name,
+      kind: DECL_KIND_MAP[keyword] ?? "unknown",
+      isDefault: false,
+      line: lineForIndex(content, m.index),
+    });
+  }
 
-    if (directName) {
-      facts.push(fact("export", `${path}:${directName}`, {
-        file: path,
-        name: directName,
+  // (2) `export default function/class ...` — name is "default";
+  //     kind is "default" so consumers can distinguish from
+  //     named exports.
+  for (const m of content.matchAll(DEFAULT_FUNCTION_OR_CLASS_RE)) {
+    if (m.index === undefined) continue;
+    collected.push({
+      name: "default",
+      kind: "default",
+      isDefault: true,
+      line: lineForIndex(content, m.index),
+    });
+  }
+
+  // (3) `export default <other>` (anything that isn't a
+  //     function/class declaration).
+  for (const m of content.matchAll(DEFAULT_EXPRESSION_RE)) {
+    if (m.index === undefined) continue;
+    collected.push({
+      name: "default",
+      kind: "default",
+      isDefault: true,
+      line: lineForIndex(content, m.index),
+    });
+  }
+
+  // (4) `export { a, b as c }` — extract the renamed half of
+  //     each entry. Default re-exports (`export { default }`)
+  //     are recorded with kind "default".
+  for (const m of content.matchAll(NAMED_EXPORT_LIST_RE)) {
+    const body = m[1];
+    if (!body || m.index === undefined) continue;
+    const line = lineForIndex(content, m.index);
+    for (const entry of body.split(",")) {
+      const trimmed = entry.trim();
+      if (!trimmed) continue;
+      const parts = trimmed.split(/\s+as\s+/i);
+      const exported = (parts.at(-1) ?? trimmed).trim();
+      if (!exported || !/^[A-Za-z_$][\w$]*$|^default$/.test(exported)) continue;
+      collected.push({
+        name: exported,
+        kind: exported === "default" ? "default" : "unknown",
+        isDefault: exported === "default",
         line,
-      }, path, line));
-    }
-
-    if (namedExports) {
-      for (const name of namedExports.split(",").map((part) => part.trim()).filter(Boolean)) {
-        const exportName = name.split(/\s+as\s+/i).at(-1)?.trim() ?? name;
-
-        facts.push(fact("export", `${path}:${exportName}`, {
-          file: path,
-          name: exportName,
-          line,
-        }, path, line));
-      }
+      });
     }
   }
 
-  return facts;
+  // (5) `export * from "..."` / `export * as alias from "..."`.
+  for (const m of content.matchAll(STAR_REEXPORT_RE)) {
+    if (m.index === undefined) continue;
+    const alias = m[1];
+    collected.push({
+      name: alias ?? "*",
+      kind: "namespace",
+      isDefault: false,
+      line: lineForIndex(content, m.index),
+    });
+  }
+
+  // Note: `line` intentionally NOT included in provenance so
+  // two identical declarations on different lines dedupe via
+  // the kernel-evidence canonical key
+  // (`kind + subject + value + provenance`). The work order
+  // dedupe rule is `kind + subject + value.name + value.kind +
+  // value.default/exported` — dropping line achieves that.
+  return collected.map((entry) =>
+    fact(
+      "export",
+      path,
+      entry.isDefault
+        ? { name: entry.name, kind: entry.kind, default: true }
+        : { name: entry.name, kind: entry.kind },
+      path,
+    ),
+  );
 }
+
+const SYMBOL_DECL_RE
+  = /(?:^|\s|;)(export\s+(?:default\s+)?)?(?:async\s+)?(function|class|const|let|var|type|interface|namespace|enum)\s+([A-Za-z_$][\w$]*)/g;
 
 function extractSymbolFacts(path: string, content: string): EvidenceFact[] {
   const facts: EvidenceFact[] = [];
-  const symbolRegex = /\b(?:class|function|const|let|var|type|interface|enum)\s+([A-Za-z_$][\w$]*)/g;
-  let match: RegExpExecArray | null;
 
-  while ((match = symbolRegex.exec(content))) {
-    const name = match[1];
+  for (const m of content.matchAll(SYMBOL_DECL_RE)) {
+    const exportedPrefix = m[1];
+    const keyword = m[2];
+    const name = m[3];
+    if (!keyword || !name || m.index === undefined) continue;
 
-    if (name) {
-      const line = lineForIndex(content, match.index);
+    const value: { name: string; kind: FileExportSymbolKind; exported?: boolean } = {
+      name,
+      kind: DECL_KIND_MAP[keyword] ?? "unknown",
+    };
+    // Only mark exported when the declaration *itself* begins
+    // with `export`. v1 is conservative — symbols re-exported
+    // via a later `export { ... }` clause are NOT marked
+    // exported. The export facts produced by
+    // `extractExportFacts` capture the re-export side
+    // independently.
+    if (exportedPrefix) value.exported = true;
+    else value.exported = false;
 
-      facts.push(fact("symbol", `${path}:${name}`, {
-        file: path,
-        name,
-        line,
-      }, path, line));
-    }
+    // `line` intentionally NOT included in provenance — see
+    // comment in `extractExportFacts`.
+    facts.push(fact("symbol", path, value, path));
   }
 
   return facts;

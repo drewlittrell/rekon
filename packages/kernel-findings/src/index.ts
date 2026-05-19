@@ -3856,6 +3856,113 @@ export function fileImportsTargetMatching(
   return listImportTargetsForFile(context, filePath).filter((target) => predicate(target));
 }
 
+/**
+ * Per-file export summary as surfaced by the EvidenceGraph
+ * export/symbol facts projection v1. `name` is the exported
+ * identifier (or `"default"` for default exports, `"*"` for
+ * un-aliased namespace re-exports). `kind` is the deterministic
+ * extractor's best guess
+ * (`function` / `class` / `const` / `let` / `var` / `type` /
+ * `interface` / `namespace` / `default` / `unknown`). `default`
+ * is `true` only for default exports.
+ *
+ * No graph-aware filter consumes these helpers yet — they are
+ * substrate for future graph-aware checks. See
+ * `docs/strategy/graph-aware-filter-provider-v3-decision.md`.
+ */
+export type FileExportSummary = {
+  name: string;
+  kind: string;
+  default?: boolean;
+};
+
+/**
+ * Return the deterministic export summary for `filePath` per
+ * the `EvidenceGraph` export facts. Sorted by name then kind;
+ * empty when the graph is absent or has no facts for the file.
+ * Path matching uses `normalizeRepoPath` so `./src/foo.ts` and
+ * `src/foo.ts` match.
+ */
+export function listExportsForFile(
+  context: FindingGraphFilterContext,
+  filePath: string,
+): FileExportSummary[] {
+  const normalized = normalizeRepoPath(filePath);
+  if (normalized === "") return [];
+  const facts = context.evidenceGraph?.facts;
+  if (!Array.isArray(facts)) return [];
+
+  const exports: FileExportSummary[] = [];
+  for (const fact of facts) {
+    if (!fact || fact.kind !== "export") continue;
+    if (normalizeRepoPath(fact.subject) !== normalized) continue;
+    const value = fact.value;
+    if (!value || typeof value !== "object") continue;
+    const name = (value as { name?: unknown }).name;
+    const kind = (value as { kind?: unknown }).kind;
+    if (typeof name !== "string" || name.length === 0) continue;
+    if (typeof kind !== "string" || kind.length === 0) continue;
+    const summary: FileExportSummary = { name, kind };
+    if ((value as { default?: unknown }).default === true) summary.default = true;
+    exports.push(summary);
+  }
+  return exports.sort((left, right) => {
+    if (left.name !== right.name) return left.name.localeCompare(right.name);
+    return left.kind.localeCompare(right.kind);
+  });
+}
+
+/**
+ * Per-file symbol summary surfaced by the EvidenceGraph
+ * export/symbol facts projection v1. `exported` is `true` when
+ * the declaration itself begins with `export`. v1 is
+ * conservative: a symbol re-exported via a later
+ * `export { ... }` clause is NOT marked exported (the
+ * corresponding entry shows up in `listExportsForFile`
+ * instead).
+ */
+export type FileSymbolSummary = {
+  name: string;
+  kind: string;
+  exported?: boolean;
+};
+
+/**
+ * Return the deterministic symbol summary for `filePath` per
+ * the `EvidenceGraph` symbol facts. Sorted by name then kind;
+ * empty when the graph is absent or has no facts for the file.
+ */
+export function listSymbolsForFile(
+  context: FindingGraphFilterContext,
+  filePath: string,
+): FileSymbolSummary[] {
+  const normalized = normalizeRepoPath(filePath);
+  if (normalized === "") return [];
+  const facts = context.evidenceGraph?.facts;
+  if (!Array.isArray(facts)) return [];
+
+  const symbols: FileSymbolSummary[] = [];
+  for (const fact of facts) {
+    if (!fact || fact.kind !== "symbol") continue;
+    if (normalizeRepoPath(fact.subject) !== normalized) continue;
+    const value = fact.value;
+    if (!value || typeof value !== "object") continue;
+    const name = (value as { name?: unknown }).name;
+    const kind = (value as { kind?: unknown }).kind;
+    if (typeof name !== "string" || name.length === 0) continue;
+    if (typeof kind !== "string" || kind.length === 0) continue;
+    const summary: FileSymbolSummary = { name, kind };
+    const exportedFlag = (value as { exported?: unknown }).exported;
+    if (exportedFlag === true) summary.exported = true;
+    else if (exportedFlag === false) summary.exported = false;
+    symbols.push(summary);
+  }
+  return symbols.sort((left, right) => {
+    if (left.name !== right.name) return left.name.localeCompare(right.name);
+    return left.kind.localeCompare(right.kind);
+  });
+}
+
 const GRAPH_FILTER_CHECKS: ReadonlyArray<
   (finding: Finding, ctx: FindingGraphFilterContext) => FindingGraphFilterDecision | null
 > = [

@@ -39,6 +39,15 @@
 > **`EvidenceGraph` export / symbol facts projection v1**
 > — the substrate that unblocks 3–4 v3 candidates at
 > once.
+>
+> **Substrate update:** the
+> `EvidenceGraph` export / symbol facts projection v1 has
+> shipped. `@rekon/capability-js-ts` now emits
+> `kind: "export"` and `kind: "symbol"` facts with rich
+> `{ name, kind, default?/exported? }` value shape, and
+> `@rekon/kernel-findings` exports `listExportsForFile` /
+> `listSymbolsForFile` helpers. **No graph-aware filter
+> consumes the new facts yet** — substrate ships alone.
 
 ## Decision Summary
 

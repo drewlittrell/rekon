@@ -1436,7 +1436,87 @@ scope:
   `EvidenceGraph` export / symbol facts projection v1
   (additive optional fact kinds on the existing
   `EvidenceGraph`; no new artifact type; no
-  `schemaVersion` bump) is the recommended next slice.
+  `schemaVersion` bump) shipped next; see the
+  "EvidenceGraph export / symbol facts projection v1"
+  entry below.
+- **EvidenceGraph export / symbol facts projection v1
+  (P1.1 evidence-export-symbol-facts-v1 slice).** ✅
+  Shipped. The substrate the v3 decision memo
+  recommended. `@rekon/capability-js-ts` now emits
+  `kind: "export"` and `kind: "symbol"` facts on the
+  existing `EvidenceGraph` with the spec'd value shape:
+
+  - **Export facts:** `subject` = repo-relative file
+    path; `value: { name, kind, default? }`. `kind` is
+    one of `"function" | "class" | "const" | "let" |
+    "var" | "type" | "interface" | "namespace" |
+    "default" | "unknown"`. `default: true` is set only
+    for `export default …` forms. Extraction covers
+    named declaration exports (function / class /
+    const / let / var / type / interface / namespace /
+    enum), default exports (function / class /
+    expression), `export { a, b as c }` named lists
+    (renamed alias is the exported identifier; source is
+    excluded), `export * from "..."`
+    (`name: "*", kind: "namespace"`), and
+    `export * as alias from "..."`.
+  - **Symbol facts:** `subject` = repo-relative file
+    path; `value: { name, kind, exported? }`. `exported`
+    is `true` when the declaration itself begins with
+    `export`; otherwise `false`. Symbols re-exported via
+    a separate `export { ... }` clause show up as
+    `export` facts (with `exported: false` on the
+    symbol) — v1 is conservative about that case so the
+    `exported` flag stays a property of the declaration
+    site.
+  - **Dedupe.** Both kinds dedupe by `kind + subject +
+    value` (line intentionally NOT included in
+    provenance so duplicate declarations on different
+    lines collapse to one fact).
+
+  New exported helpers in `@rekon/kernel-findings`:
+  `listExportsForFile(context, filePath)` → sorted
+  `FileExportSummary[]`; `listSymbolsForFile(context,
+  filePath)` → sorted `FileSymbolSummary[]`. Both return
+  the empty array when no facts exist; both normalize
+  the input path via the existing v2 helpers.
+
+  **No graph-aware filter consumes the new facts yet.**
+  The substrate ships alone, per the v3 memo's
+  substrate-first discipline. Existing v1 + v2
+  graph-aware filter behavior is unchanged (pinned by
+  the new substrate test's "graph-aware filter behavior
+  is unchanged in this substrate batch" case). Older
+  `EvidenceGraph` artifacts continue to validate (no new
+  artifact type, no `schemaVersion` bump).
+
+  Pinned by
+  `tests/contract/evidence-export-symbol-facts.test.mjs`
+  (13 tests covering: named declaration export shapes,
+  default-function / default-class / default-expression
+  exports, named-list-with-alias exports, `export *`
+  re-exports as namespace, symbol declarations with the
+  `exported` flag, deterministic dedupe across multiple
+  extractions, older-graph validation, both helpers
+  with path normalization, unchanged import-fact subject
+  shape, unchanged graph-aware filter decisions, and
+  end-to-end `rekon refresh` + `rekon artifacts
+  validate` cleanliness against `examples/simple-js-ts`).
+
+  Aligned to `domain/graph/producers/**`,
+  `services/GraphBuildProvider.ts`. Deterministic regex
+  extraction only — no AST, no type checker, no LLM, no
+  semantic role inference, no source-file reads at
+  filter time. No new artifact type. No `schemaVersion`
+  bump. No new reason codes. No new capability role. No
+  new CLI subcommand or flag. No version bump. No npm
+  publish.
+
+  The first v3 candidate check that consumes the new
+  facts (strongest candidate per the memo:
+  strengthening `nextjs-route-convention` to confirm
+  route file exports structurally) is the recommended
+  next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

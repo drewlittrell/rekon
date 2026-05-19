@@ -820,6 +820,34 @@ is the first stop before proposing a new capability batch.
   matching, no `GraphOntologyValidator` port, no version
   bump, no npm publish. Pinned by
   `tests/docs/graph-aware-filter-provider-v3-decision.test.mjs`.
+- EvidenceGraph export / symbol facts projection v1
+  (P1.1 evidence-export-symbol-facts-v1 slice): the
+  substrate the v3 decision memo recommended.
+  `@rekon/capability-js-ts` now emits `kind: "export"`
+  and `kind: "symbol"` facts with rich
+  `value: { name, kind, default? }` (exports) and
+  `value: { name, kind, exported? }` (symbols) shape;
+  subject = repo-relative file path. Extraction covers
+  every form named in the work order (named declaration
+  exports, default function / class / expression
+  exports, named-list-with-alias exports,
+  `export *` namespace re-exports, local declarations).
+  Symbols carry an `exported` flag based on whether the
+  declaration itself begins with `export`. New exports
+  from `@rekon/kernel-findings`:
+  `listExportsForFile(context, filePath)` and
+  `listSymbolsForFile(context, filePath)`. Older
+  `EvidenceGraph` artifacts continue to validate (no new
+  artifact type, no `schemaVersion` bump). **No
+  graph-aware filter consumes the new facts yet** — the
+  substrate ships alone, per the v3 memo's
+  substrate-first discipline. 13 new contract tests at
+  `tests/contract/evidence-export-symbol-facts.test.mjs`.
+  Deterministic regex extraction only — no AST, no type
+  checker, no LLM / semantic / fuzzy / embedding
+  inference, no source-file reads at filter time. No
+  new reason codes. No new capability role. No new CLI
+  subcommand or flag. No version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

@@ -4,6 +4,101 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped `EvidenceGraph` export / symbol facts projection
+  v1 (P1.1 evidence-export-symbol-facts-v1 slice) — the
+  substrate the graph-aware filter provider v3 decision
+  memo recommended.
+
+  **`@rekon/capability-js-ts` evidence provider extensions:**
+  - New `kind: "export"` facts. `subject` = repo-relative
+    file path; `value: { name, kind, default? }`. `kind`
+    is one of `"function" | "class" | "const" | "let" |
+    "var" | "type" | "interface" | "namespace" |
+    "default" | "unknown"`. `default: true` only for
+    `export default …` forms.
+  - New `kind: "symbol"` facts. `subject` = repo-relative
+    file path; `value: { name, kind, exported? }`.
+    `exported` is `true` when the declaration itself
+    begins with `export` (conservative: symbols
+    re-exported via separate `export { ... }` clauses are
+    NOT marked exported; the corresponding export fact
+    captures the re-export side).
+  - Extraction covers: named declaration exports
+    (function / class / const / let / var / type /
+    interface / namespace / enum), default exports
+    (`export default function|class|<expression>`),
+    `export { a, b as c }` named lists (renamed alias is
+    the exported identifier; source is excluded),
+    `export * from "..."` (`name: "*", kind:
+    "namespace"`), `export * as alias from "..."`, and
+    local declarations of every supported keyword.
+  - Both kinds dedupe by `kind + subject + value` (line
+    is intentionally NOT included in provenance so
+    duplicate declarations on different lines collapse to
+    one fact).
+  - **No source-file reads at filter time** — extraction
+    happens at evidence-extraction time (the provider's
+    existing file scan). No AST, no type checker, no
+    LLM, no semantic role inference.
+
+  **`@rekon/kernel-findings` new exports:**
+  - `listExportsForFile(context, filePath):
+    FileExportSummary[]` — reads
+    `EvidenceGraph` export facts and returns the
+    sorted-by-name-then-kind summary list. Path matching
+    uses `normalizeRepoPath`.
+  - `listSymbolsForFile(context, filePath):
+    FileSymbolSummary[]` — reads `EvidenceGraph` symbol
+    facts the same way.
+  - Both return the empty array when the graph is absent
+    or has no facts for the file.
+
+  **No graph-aware filter consumes the new facts yet.**
+  The substrate ships alone, per the v3 memo's
+  substrate-first discipline. Existing v1 + v2
+  graph-aware filter behavior is unchanged (pinned by the
+  new substrate test's "graph-aware filter behavior is
+  unchanged in this substrate batch" case). Older
+  `EvidenceGraph` artifacts continue to validate (no new
+  artifact type, no `schemaVersion` bump).
+
+  Strategy docs updated:
+  `docs/artifacts/evidence-graph.md` (new "Built-in Fact
+  Kinds" table + dedicated "Export / symbol facts
+  (substrate v1)" section);
+  `docs/concepts/graph-aware-finding-filters.md`
+  (new helpers documented in the "v2 Helpers" section);
+  `docs/strategy/graph-aware-filter-provider-v3-decision.md`
+  (top blockquote updated with substrate-shipped status);
+  `docs/strategy/graph-ontology-validator-lite-audit.md`
+  (top blockquote updated with substrate-shipped status);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 18 flipped to shipped; step 19 reserved for the
+  first v3 candidate check);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new substrate slice
+  entries).
+
+  Pinned by
+  `tests/contract/evidence-export-symbol-facts.test.mjs`
+  (13 tests). Full suite: 744 passed / 1 skipped / 0
+  failed.
+
+  Implements step 18 of the issue governance ADR
+  Implementation Order (flipped from `(future)` to
+  `(shipped)`). No artifact `schemaVersion` bump. No new
+  artifact type. No new capability role. No new CLI
+  subcommand or flag. No new reason codes. No source-file
+  reads at filter time. No LLM, semantic, fuzzy, or
+  embedding matching. No `GraphOntologyValidator` port.
+  No version bump. No npm publish.
+
+  The first v3 candidate check that consumes the new
+  facts (strongest candidate per the v3 memo:
+  strengthening `nextjs-route-convention` to confirm
+  route file exports structurally) is the recommended
+  next slice.
+
 - Shipped graph-aware filter provider v3 decision memo —
   remaining classic checks (P1.1
   graph-aware-filter-provider-v3-decision slice).

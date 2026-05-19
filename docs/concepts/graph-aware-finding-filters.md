@@ -158,6 +158,14 @@ re-implementing path normalization:
   `subject === filePath`).
 - `fileImportsTargetMatching(ctx, filePath, predicate)` —
   filters the import targets through a predicate.
+- `listExportsForFile(ctx, filePath)` — reads
+  `EvidenceGraph` export facts (`kind === "export"`) and
+  returns `FileExportSummary[]` sorted by name + kind.
+  Substrate v1; no graph-aware filter consumes it yet.
+- `listSymbolsForFile(ctx, filePath)` — reads
+  `EvidenceGraph` symbol facts (`kind === "symbol"`) and
+  returns `FileSymbolSummary[]` sorted by name + kind.
+  Substrate v1; no graph-aware filter consumes it yet.
 
 All helpers are synchronous and side-effect-free. No fs
 reads, no LLM, no semantic logic.

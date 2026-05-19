@@ -35,6 +35,82 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
 Unknown fact kinds are allowed. Community kinds should be namespaced when they
 may collide with built-ins.
 
+## Built-in Fact Kinds
+
+| Kind | Subject | Value shape |
+| --- | --- | --- |
+| `file` | repo-relative file path | `{ path, extension, language }` |
+| `import` | `"<file>:<target>"` (legacy shape) | `{ source, target, line }` |
+| `export` | repo-relative file path | `{ name, kind, default? }` |
+| `symbol` | repo-relative file path | `{ name, kind, exported? }` |
+| `ownership_hint` | repo-relative file path | `{ path, system, layer }` |
+| `capability_hint` | repo-relative file path | `{ path, capability, ... }` |
+
+### Export / symbol facts (substrate v1)
+
+`export` and `symbol` facts ship with the
+graph-aware-filter-provider v3 decision memo's recommended
+substrate (the `EvidenceGraph` export / symbol facts
+projection v1). They are deterministic, regex-extracted, and
+intentionally conservative — false negatives are preferred
+over false positives. No source-file reads at filter time; no
+AST, no type checker, no LLM, no semantic role inference.
+
+**`export` value shape:**
+
+```ts
+{
+  name: string,                                 // "default" / "*" / identifier
+  kind: "function" | "class" | "const" | "let" | "var"
+      | "type" | "interface" | "namespace"
+      | "default" | "unknown",
+  default?: true                                // only for `export default …`
+}
+```
+
+Examples:
+
+- `export function handle() {}` → `{ name: "handle", kind: "function" }`
+- `export default function Page() {}` → `{ name: "default", kind: "default", default: true }`
+- `export { foo, bar as baz }` → `[{ name: "foo", kind: "unknown" }, { name: "baz", kind: "unknown" }]`
+- `export * from "./other"` → `{ name: "*", kind: "namespace" }`
+- `export * as helpers from "./helpers"` → `{ name: "helpers", kind: "namespace" }`
+
+**`symbol` value shape:**
+
+```ts
+{
+  name: string,
+  kind: "function" | "class" | "const" | "let" | "var"
+      | "type" | "interface" | "namespace" | "unknown",
+  exported?: boolean                            // true when the declaration itself begins with `export`
+}
+```
+
+`exported` is conservative: a symbol re-exported via a later
+`export { ... }` clause is NOT marked exported; the
+corresponding entry appears as a separate `export` fact.
+
+**Deduplication.** Both `export` and `symbol` facts dedupe by
+`kind + subject + value` (line is intentionally NOT
+included in provenance for these kinds — duplicate
+declarations on different lines collapse to one fact).
+
+**Consumers.** The `EvidenceGraph` export / symbol facts are
+not consumed by any graph-aware filter yet. Two helpers in
+`@rekon/kernel-findings` expose them for future graph-aware
+checks:
+
+- `listExportsForFile(context, filePath): FileExportSummary[]`
+- `listSymbolsForFile(context, filePath): FileSymbolSummary[]`
+
+Both helpers sort by `name` then `kind`; return the empty
+array when the graph is absent or has no facts for the file.
+See
+[`docs/strategy/graph-aware-filter-provider-v3-decision.md`](../strategy/graph-aware-filter-provider-v3-decision.md)
+for the substrate-first decision and the v3 candidate checks
+that will consume these facts.
+
 ## Example
 
 ```json

@@ -535,16 +535,52 @@ review packets unless an ADR promotes them. Promotion requires:
     `EvidenceGraph` export / symbol facts projection v1 as
     the substrate that unblocks 3–4 v3 candidates at once.
     Docs-only slice; no runtime behavior change.
-18. **(future)** `EvidenceGraph` export / symbol facts
-    projection v1 — the substrate the v3 memo recommends.
-    Additive optional `kind: "export"` and `kind: "symbol"`
-    facts on the existing `EvidenceGraph` (no new artifact
-    type, no `schemaVersion` bump). New
-    `listExportsForFile` helper in `@rekon/kernel-findings`.
-    No graph-aware filter ports in this slice — the
-    substrate ships first; v3 candidate checks consume it
-    in a follow-up.
-19. **(future)** Merge-decision freshness guardrails,
+18. **(shipped)** `EvidenceGraph` export / symbol facts
+    projection v1. `@rekon/capability-js-ts` now emits
+    `kind: "export"` and `kind: "symbol"` facts with rich
+    `value: { name, kind, default? }` (exports) and
+    `value: { name, kind, exported? }` (symbols) shape,
+    subject = repo-relative file path. Extraction covers
+    every form named in the work order: named declaration
+    exports (function / class / const / let / var / type /
+    interface / namespace / enum), default exports
+    (function / class / expression),
+    `export { a, b as c }` named list (renamed alias is the
+    exported identifier; source is excluded), `export *
+    from "..."` (`name: "*", kind: "namespace"`), and
+    `export * as alias from "..."`. Symbols carry an
+    `exported` flag based on whether the declaration itself
+    begins with `export` (conservative: separate
+    `export { ... }` re-exports show up only as `export`
+    facts, not as `exported: true` symbols). New helpers in
+    `@rekon/kernel-findings`: `listExportsForFile` /
+    `listSymbolsForFile` (sorted by name + kind; empty when
+    no facts). **No graph-aware filter consumes the new
+    facts yet** — the substrate ships alone, per the v3
+    memo's substrate-first discipline. Older
+    `EvidenceGraph` artifacts continue to validate (no new
+    artifact type, no `schemaVersion` bump). Aligned to
+    `domain/graph/producers/**` and
+    `services/GraphBuildProvider.ts`. 13 new contract tests
+    cover named / default / list / star export shapes,
+    symbol declarations with the `exported` flag,
+    deterministic deduplication of duplicate declarations,
+    older-graph validation, the new helpers, unchanged
+    import-fact behavior, and unchanged graph-aware filter
+    behavior. No source-file reads at filter time, no AST,
+    no type checker, no LLM / semantic / fuzzy / embedding
+    inference. No new reason codes. No new capability role.
+    No new CLI subcommand or flag.
+19. **(future)** First v3 candidate check that consumes the
+    new export / symbol facts. The v3 memo's strongest
+    candidate is strengthening `nextjs-route-convention`
+    (or a graph-aware variant) to confirm route file
+    exports structurally via the new facts. The
+    follow-up slice should ship **one** narrow check that
+    depends on the substrate, selected based on operator
+    data from the new "Graph-Aware Filter Reasons" surface
+    and the two graph-aware dominance alerts.
+20. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 
