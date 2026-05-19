@@ -186,12 +186,18 @@ first):
   artifacts (`ObservedRepo`, `OwnershipMap`,
   `CapabilityMap`, `EvidenceGraph`, `GraphSlice`) to
   suppress findings backed by structural evidence.
-  Three regression fixtures under
-  `tests/fixtures/graph-aware-filters/` pin
-  end-to-end behavior of the EvidenceGraph branches of
-  `route-handler-with-service`,
-  `external-api-comment-only`, and
-  `nextjs-route-convention`. Each `FilteredFinding` records
+  Six regression fixtures under
+  `tests/fixtures/graph-aware-filters/` cover every
+  graph-aware reason end-to-end: three EvidenceGraph
+  branches (`route-handler-with-service`,
+  `external-api-comment-only`,
+  `nextjs-route-convention`), one EvidenceGraph
+  branch with a positive + negative case
+  (`route-http-middleware-only`), and two
+  path-evidence branches attributing as
+  `DetectorDetails`
+  (`factory-file-creates-deps`,
+  `module-gate-verified-caller`). Each `FilteredFinding` records
   `evidenceSource` (`EvidenceGraph` / `ObservedRepo` /
   `DetectorDetails` / `Policy` / `BuiltIn` /
   `ResultFilter`). Filter-health summarizes the

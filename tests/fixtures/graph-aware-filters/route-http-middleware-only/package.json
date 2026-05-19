@@ -1,0 +1,6 @@
+{
+  "name": "graph-aware-filter-fixture-route-http-middleware-only",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module"
+}

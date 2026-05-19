@@ -847,15 +847,53 @@ review packets unless an ADR promotes them. Promotion requires:
     the strongest available evidence in favor of
     Option C and is the central improvement over the
     prior memo's sparse-data conclusion.
-27. **(future)** Graph-aware filter fixture coverage
-    v2. Three more deterministic regression fixtures
-    under `tests/fixtures/graph-aware-filters/` for
-    the remaining graph-aware checks
-    (`route-http-middleware-only`,
-    `factory-file-creates-deps`,
-    `module-gate-verified-caller`). Same contract-test
-    pattern as the prior fixture-expansion batch.
-28. **(future)** Merge-decision freshness guardrails,
+27. **(shipped)** Graph-aware filter fixture coverage
+    v2. Three additional regression fixtures under
+    `tests/fixtures/graph-aware-filters/`
+    (`route-http-middleware-only/`, `factory-file/`,
+    `module-gate/`) plus a positive/negative
+    contract test at
+    `tests/contract/graph-aware-filter-fixtures-v2.test.mjs`
+    (6 cases) close the remaining graph-aware
+    coverage gap. Every graph-aware reason now has
+    end-to-end fixture coverage.
+    `route-http-middleware-only` positive case fires
+    via EvidenceGraph (route imports only allowed
+    `/infra/http/` + `/infra/Identity/` modules; the
+    v4 EvidenceGraph branch reads
+    `listImportTargetsForFile`); negative case
+    correctly KEEPS the finding when the route
+    imports `/infra/Database/...`.
+    `factory-file-creates-deps` fires via
+    path-evidence with `evidenceSource:
+    "DetectorDetails"` (no graph artifact consulted;
+    matches current v2 design — `usedArtifacts: []`
+    maps to DetectorDetails via
+    `evidenceSourceFromGraphArtifacts`).
+    `module-gate-verified-caller` fires via the
+    GateEvaluator path signal with the same
+    DetectorDetails attribution. The test does NOT
+    force EvidenceGraph attribution where the
+    current filter design uses path evidence — it
+    asserts current attribution accurately as the
+    work order specified. A publication-rendering
+    test runs the route-http fixture through
+    `publish architecture` + `publish agent-contract`
+    and confirms the `Graph-Aware Evidence Sources`
+    table + agent-contract evidence-source list
+    surface EvidenceGraph and the
+    `route-http-middleware-only` reason. All
+    fixtures use temp-copy flow; committed fixture
+    directories are never mutated. No filter
+    behavior change, no producer change, no helper
+    change.
+28. **(future)** Graph-aware fixture coverage
+    operator review v2. Re-run the prior operator
+    review against the now-six deterministic
+    fixtures and re-confirm Option C (or identify
+    whether the new evidence changes the trigger
+    picture). Strategy memo only.
+29. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

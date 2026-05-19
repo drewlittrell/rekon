@@ -1106,6 +1106,44 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Graph-aware filter fixture coverage v2 (P1.1
+  graph-aware-filter-fixtures-v2 slice): three more
+  deterministic regression fixtures under
+  `tests/fixtures/graph-aware-filters/`
+  (`route-http-middleware-only/` with positive +
+  negative cases, `factory-file/`, `module-gate/`)
+  complete the graph-aware coverage. Every
+  graph-aware reason now has end-to-end fixture
+  coverage. Contract test
+  (`tests/contract/graph-aware-filter-fixtures-v2.test.mjs`,
+  6 cases) copies each fixture to a tmpdir, runs
+  the filter flow, and pins per-fixture: expected
+  reason fires (or, for the negative case, the
+  finding is KEPT); `FilteredFinding.evidenceSource`
+  matches current attribution (`EvidenceGraph` for
+  route-http positive; `DetectorDetails` for
+  factory + module-gate path-evidence branches);
+  precise `inputRefs` (EvidenceGraph cited only
+  when the branch fired); raw `FindingReport`
+  byte-preserving the finding; lifecycle
+  exclusion; `artifacts validate` cleanliness. A
+  publication-rendering test confirms the
+  EvidenceGraph case surfaces in architecture
+  summary + agent contract. **Important design
+  choice:** the test does NOT force EvidenceGraph
+  attribution where the current filter design uses
+  path evidence (factory + module-gate attribute
+  as DetectorDetails by design); future
+  capability-role work could shift this
+  naturally. Regression fixtures only — NOT
+  user-facing examples. No filter behavior change.
+  No producer change. No helper change. No artifact
+  `schemaVersion` bump. No new artifact type. No
+  new capability role. No new CLI subcommand or
+  flag. No new reason codes. No source-file reads
+  at filter time. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

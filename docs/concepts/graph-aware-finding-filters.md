@@ -188,13 +188,14 @@ data: EvidenceGraph attribution 3 across the three
 fixtures, DetectorDetails 0, ObservedRepo 0, no
 fallback-dominance alert fires.
 
-**Regression fixtures.** Three deterministic
+**Regression fixtures.** Six deterministic
 fixtures under `tests/fixtures/graph-aware-filters/`
-(`route-handler`, `external-comment`,
+cover every graph-aware reason end-to-end. The
+first three (`route-handler`, `external-comment`,
 `nextjs-route`) exercise the EvidenceGraph branches
 of `route-handler-with-service`,
 `external-api-comment-only`, and
-`nextjs-route-convention` end-to-end. Each fixture
+`nextjs-route-convention`. Each fixture
 is a small JS/TS source tree that `rekon refresh`
 projects into an EvidenceGraph; the test seeds a
 synthetic `FindingReport` and runs the filter
@@ -207,7 +208,20 @@ EvidenceGraph attribution in
 `FindingFilterHealthSummary.graphAwareByEvidenceSource`,
 and end-to-end rendering of the EvidenceGraph
 diagnostic surface in the architecture summary +
-agent contract publications. These fixtures are
+agent contract publications. Three additional fixtures
+(`route-http-middleware-only`, `factory-file`,
+`module-gate`) shipped in the fixture-coverage-v2
+slice and exercise the remaining three graph-aware
+checks (`route-http-middleware-only` —
+EvidenceGraph branch via real source imports;
+`factory-file-creates-deps` — path-evidence branch
+attributing as `DetectorDetails`;
+`module-gate-verified-caller` — GateEvaluator path
+signal attributing as `DetectorDetails`). The
+route-http fixture additionally includes a negative
+case (a route importing `/infra/Database/...`) that
+asserts the graph-aware filter correctly does NOT
+fire. All six fixtures are
 regression data, not product examples — they live
 under `tests/fixtures/`, not `examples/`.
 

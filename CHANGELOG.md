@@ -4,6 +4,136 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware filter fixture coverage v2 (P1.1
+  graph-aware-filter-fixtures-v2 slice). Three
+  additional deterministic regression fixtures under
+  `tests/fixtures/graph-aware-filters/` close the
+  remaining graph-aware coverage gap. Every
+  graph-aware reason now has end-to-end fixture
+  coverage.
+
+  **Fixtures added:**
+
+  - `route-http-middleware-only/` —
+    `src/api/session/route.ts` imports only allowed
+    `/infra/http/auth` + `/infra/Identity/session`
+    modules (positive case fires
+    `route-http-middleware-only` via the
+    EvidenceGraph branch);
+    `src/api/bad/route.ts` imports
+    `/infra/Database/client` (negative case KEEPS
+    the finding, proving the graph-aware filter
+    correctly does NOT over-suppress).
+  - `factory-file/` —
+    `src/core/services/widgets/WidgetFactory.ts`
+    exercises the path-evidence branch of
+    `factory-file-creates-deps`. Current
+    attribution: `DetectorDetails` (path-only
+    matches set `usedArtifacts: []`, which the
+    evidence-source classifier maps to
+    `DetectorDetails`).
+  - `module-gate/` —
+    `src/modules/payments/PaymentGateEvaluator.ts`
+    exercises the GateEvaluator path signal of
+    `module-gate-verified-caller`. Same
+    `DetectorDetails` attribution rationale.
+
+  **Contract test** at
+  `tests/contract/graph-aware-filter-fixtures-v2.test.mjs`
+  (6 cases) copies each fixture to a tmpdir
+  (committed fixtures stay untouched), runs
+  `rekon refresh`, asserts the produced
+  `EvidenceGraph` contains the expected import /
+  file facts, seeds a synthetic `FindingReport`
+  whose `header.inputRefs` cites the latest
+  EvidenceGraph, runs `findings filter` +
+  `findings filter-health`, and pins per-fixture:
+  - The expected graph-aware reason fires (or, for
+    the negative case, the finding is KEPT and no
+    `route-http-middleware-only` entry exists).
+  - `FilteredFinding.evidenceSource` matches the
+    current implementation's attribution
+    (`EvidenceGraph` for route-http positive;
+    `DetectorDetails` for factory + module-gate).
+  - `FindingFilterReport.header.inputRefs` includes
+    `EvidenceGraph` ONLY when the EvidenceGraph
+    branch fired (precise inputRefs from the v2
+    graph-aware filter provider).
+  - Raw `FindingReport` still contains the finding
+    (artifact-first invariant).
+  - `FindingFilterHealthSummary.graphAwareByEvidenceSource[<source>]`
+    >= 1; per-reason map also `>= 1`.
+  - Lifecycle / adjudication / coherency exclude
+    the graph-filtered finding.
+  - `rekon artifacts validate` returns
+    `{ valid: true, issues: [] }`.
+
+  A publication-rendering test runs the route-http
+  positive case through `publish architecture` +
+  `publish agent-contract` and confirms the
+  `Graph-Aware Evidence Sources` table renders an
+  `EvidenceGraph` row and the
+  `route-http-middleware-only` reason. An
+  `artifacts validate` smoke test runs against all
+  three fixtures.
+
+  **Important design choice (per the work order):**
+  the test does NOT force EvidenceGraph attribution
+  where the current filter design uses path
+  evidence. The factory + module-gate fixtures
+  attribute as `DetectorDetails` because their
+  decisions set `usedArtifacts: []` (no graph
+  artifact contributed); the test pins this
+  accurately rather than masking it. This documents
+  current behavior — future capability-role work
+  could shift the attribution naturally.
+
+  Regression fixtures only — NOT user-facing
+  examples. They live under `tests/fixtures/`, not
+  `examples/`.
+
+  Implements step 27 of the issue governance ADR
+  (flipped from `(future)` to `(shipped)`); step
+  28 reserved for the graph-aware fixture coverage
+  operator review v2.
+
+  Strategy docs updated:
+  `docs/strategy/graph-aware-import-evidence-operator-review-refresh.md`
+  (Follow-Up Work updated to mark fixture coverage
+  v2 as shipped + summarize attribution
+  measurements);
+  `docs/concepts/graph-aware-finding-filters.md`
+  (Regression fixtures paragraph names all six
+  fixtures);
+  `docs/concepts/finding-filters.md` (graph-aware
+  bullet annotated with the full six-fixture
+  coverage);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 27 flipped to shipped; step 28 reserved for
+  operator review v2);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new fixture-coverage
+  v2 entries).
+
+  Aligned to `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/filter-health.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`. Full suite: 861
+  passed / 1 skipped / 0 failed. No filter behavior
+  change. No producer change. No helper change. No
+  artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI
+  subcommand or flag. No new reason codes. No
+  source-file reads at filter time. No AST, no type
+  checker. No LLM, semantic, fuzzy, or embedding
+  matching. No `GraphOntologyValidator` port. No
+  version bump. No npm publish.
+
+  Graph-aware fixture coverage operator review v2
+  is the recommended next slice.
+
 - Shipped graph-aware import evidence operator review
   refresh (P1.1
   graph-aware-import-evidence-operator-review-refresh

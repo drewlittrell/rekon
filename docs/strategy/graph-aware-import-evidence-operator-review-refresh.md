@@ -392,13 +392,66 @@ remains canonical; the fixture expansion shipped at
 
 ## Follow-Up Work
 
-The recommended next implementation slice is **not**
-producer migration. It is broader fixture coverage so
-the other three graph-aware checks
+**Graph-aware filter fixture coverage v2 has now
+shipped.** Three additional regression fixtures
+under `tests/fixtures/graph-aware-filters/`
+(`route-http-middleware-only/`, `factory-file/`,
+`module-gate/`) plus the positive/negative
+contract test at
+`tests/contract/graph-aware-filter-fixtures-v2.test.mjs`
+now cover the remaining three graph-aware checks
 (`route-http-middleware-only`,
 `factory-file-creates-deps`,
-`module-gate-verified-caller`) gain regression-grade
-fixtures alongside the three already covered:
+`module-gate-verified-caller`).
+
+Measured attribution for the new fixtures:
+- `route-http-middleware-only` positive → fires as
+  `route-http-middleware-only` with `evidenceSource:
+  "EvidenceGraph"` (route imports only allowed
+  `/infra/http/` + `/infra/Identity/` modules; the
+  v4 EvidenceGraph branch reads
+  `listImportTargetsForFile` against the legacy
+  producer shape).
+- `route-http-middleware-only` negative → KEPT
+  (the route imports `/infra/Database/...`; the
+  graph-aware filter correctly does NOT fire).
+- `factory-file-creates-deps` → fires with
+  `evidenceSource: "DetectorDetails"` (path-evidence
+  branch; `usedArtifacts: []` per current v2 design
+  maps to DetectorDetails). Evidence text mentions
+  `path-evidence`.
+- `module-gate-verified-caller` → fires with
+  `evidenceSource: "DetectorDetails"` (GateEvaluator
+  path signal; `usedArtifacts: []`). Evidence text
+  mentions `GateEvaluator`.
+
+The v2 review's strongest takeaway holds: the
+deterministic fixtures prove EvidenceGraph-backed
+graph-aware filtering works through helper
+compatibility *for the import-consuming checks*, and
+the path-evidence checks
+(`factory-file-creates-deps`,
+`module-gate-verified-caller`) continue to attribute
+as DetectorDetails by current design (the v3 memo
+classified deeper graph-aware shape for these as
+"defer until artifact substrate justifies it"; this
+remains true). Producer migration is still not
+required for filter correctness today.
+
+The next pass — *Graph-aware fixture coverage
+operator review v2* — should re-run this memo's
+data-gathering protocol against the now-six
+deterministic fixtures and re-confirm Option C (or
+identify whether the new evidence changes the
+trigger picture). See "Next Step After This Batch"
+in the
+[graph-aware filter fixtures v2 review packet](../../.rekon-dev/review-packets/graph-aware-filter-fixtures-v2.md).
+
+---
+
+The original follow-up text (now superseded by the
+shipped v2 batch) is preserved below for
+traceability:
 
 > **Graph-aware filter fixture coverage v2.**
 >
