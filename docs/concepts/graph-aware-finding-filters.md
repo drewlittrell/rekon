@@ -31,21 +31,22 @@ provider strengthens those filters by also consulting
 `EvidenceGraph`, and `GraphSlice` so the same conclusions
 hold when detectors are quieter.
 
-## What's Included In v1 + v2
+## What's Included In v1 + v2 + v3
 
-Five deterministic checks, all reusing existing v2 reason
-codes (no new reason codes were introduced). v2 strengthens
-the evidence each check consumes — `Finding.details.imports`
-falls to a fallback when `EvidenceGraph` or `ObservedRepo`
-can prove the same conclusion structurally.
+Six deterministic checks, all reusing existing reason codes
+(no new reason codes were introduced). v2 strengthens the
+evidence each check consumes; v3 introduces the first check
+that consumes the new `EvidenceGraph` export / symbol facts
+substrate.
 
-| Check | Reason | Inputs (v2) |
+| Check | Reason | Inputs |
 | --- | --- | --- |
 | Route handler / sibling handler | `route-handler-with-service` | `Finding.details.imports` → `EvidenceGraph` import facts → `ObservedRepo.files` sibling |
 | Route HTTP middleware only | `route-http-middleware-only` | `EvidenceGraph` import facts (preferred) → `Finding.details.imports` (fallback) |
 | External-API comment only | `external-api-comment-only` | `EvidenceGraph` import facts (preferred) → `Finding.details.imports` (fallback; explicit empty array still proves absence) |
 | Factory file creates deps | `factory-file-creates-deps` | path heuristics, `CapabilityMap` entries |
 | Module gate verified caller | `module-gate-verified-caller` | `GateEvaluator` path (high) → `OwnershipMap` + `ObservedSystem.kind === "module"` (medium, preferred over path) → `/modules/` path (medium, fallback) |
+| Next.js route export convention *(v3)* | `nextjs-route-convention` | `EvidenceGraph` export facts (`listExportsForFile`). When facts exist, the file's non-handler named exports must all be in the Next.js segment-config set (`runtime` / `dynamic` / `revalidate` / `fetchCache` / `preferredRegion`) for the finding to be filtered. **Graph evidence is authoritative**: when export facts exist for the file, the classic content fallback (`details.otherExports`-based) is skipped — graph reality trumps detector details. When no graph facts exist, the classic content filter runs unchanged. |
 
 Each check is a small pure function in
 `@rekon/kernel-findings`. The provider iterates them in a
@@ -208,9 +209,12 @@ Filter-health classifies each entry by inspecting its
    policy to a graph-aware reason code still sees their
    policy attribution.
 2. `graphAwareFiltered` — non-policy entry whose reason is
-   one of the five graph-aware codes.
+   one of the six graph-aware codes (the five v1 / v2
+   reasons plus `nextjs-route-convention`, which was
+   moved from the classic content bucket in the v3
+   slice).
 3. `contentFiltered` — non-policy entry whose reason is one
-   of the remaining 12 classic content reasons.
+   of the remaining 11 classic content reasons.
 4. `resultFiltered` — `source === "result-filter"`.
 5. `builtInPathFiltered` — the broad path / heuristic codes.
 

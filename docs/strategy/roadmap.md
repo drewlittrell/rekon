@@ -848,6 +848,39 @@ is the first stop before proposing a new capability batch.
   inference, no source-file reads at filter time. No
   new reason codes. No new capability role. No new CLI
   subcommand or flag. No version bump. No npm publish.
+- Graph-aware Next.js route export convention filter
+  (P1.1 graph-aware-nextjs-route-export-filter v3
+  slice): first v3 candidate check that consumes the new
+  `EvidenceGraph` export facts substrate. New
+  `graphFilterNextjsRouteConvention` in
+  `@rekon/kernel-findings` reads `listExportsForFile`
+  for `routes.single_http_handler_export` findings
+  pointed at `route.ts` files. When export facts exist,
+  the finding is suppressed if every non-handler named
+  export is in the Next.js segment-config set
+  (`runtime` / `dynamic` / `revalidate` / `fetchCache` /
+  `preferredRegion`). Default exports are ignored; HTTP
+  method names are recognized as handlers. Graph
+  evidence is authoritative: a new
+  `isNextjsRouteConventionSupersededByGraph` helper
+  gates the classic content fallback inside
+  `applyFindingFilters` so a clean-looking
+  `details.otherExports` cannot override graph reality.
+  `nextjs-route-convention` moved from
+  `CLASSIC_CONTENT_FILTER_REASONS` to
+  `GRAPH_AWARE_FILTER_REASONS`; filter-health buckets
+  matches as `graphAwareFiltered`. Decisions carry
+  `usedArtifacts: ["EvidenceGraph"]` so the runtime
+  cites EvidenceGraph in
+  `FindingFilterReport.header.inputRefs` only when the
+  check consulted it. 11 new contract tests at
+  `tests/contract/graph-aware-nextjs-route-export-filter.test.mjs`.
+  No new reason codes. No source-file reads at filter
+  time. No AST, no type checker. No LLM / semantic /
+  fuzzy / embedding inference. No framework-wide
+  Next.js catalog. No new capability role. No new CLI
+  subcommand or flag. No artifact `schemaVersion` bump.
+  No new artifact type. No version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

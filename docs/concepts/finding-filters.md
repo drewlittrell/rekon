@@ -180,7 +180,7 @@ first):
   `source: "system"` and a result-filter reason so they
   remain auditable; they are **not** silently deleted. See
   "Classic Result Filters" below.
-- **Graph-aware filters (v1 + v2)** — deterministic
+- **Graph-aware filters (v1 + v2 + v3)** — deterministic
   structural checks that consume Rekon artifacts
   (`ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
   `EvidenceGraph`, `GraphSlice`) to suppress findings backed
@@ -191,21 +191,28 @@ first):
   `Finding.details.imports`, falls back to
   `ObservedRepo.files` sibling lookups, and emits
   `usedArtifacts` per decision so the runtime cites only the
-  artifacts that actually contributed (see
-  [FindingFilterReport](../artifacts/finding-filter-report.md)
-  "Graph-Aware Filters"). Reuse the same five reason codes
-  (`route-handler-with-service`,
+  artifacts that actually contributed. v3 added a sixth
+  graph-aware check, `nextjs-route-convention`, that
+  consumes the new `EvidenceGraph` export facts via
+  `listExportsForFile` — when export facts exist for a
+  `route.ts` file, they are authoritative over
+  `details.otherExports`, and the classic content fallback
+  is skipped for that finding even if the detector-supplied
+  `otherExports` would have looked clean. The six shared
+  reason codes (`route-handler-with-service`,
   `route-http-middleware-only`,
   `external-api-comment-only`,
   `factory-file-creates-deps`,
-  `module-gate-verified-caller`) shared with the v2 classic
-  content filter — no new reason codes. Filter-health buckets
-  graph-aware matches separately from classic content matches
-  (see `graphAwareFiltered` in
+  `module-gate-verified-caller`,
+  `nextjs-route-convention`) carry across the graph-aware
+  layer and the classic content fallback — no new reason
+  codes. Filter-health buckets all six as
+  `graphAwareFiltered` (see
   [FindingFilterHealthReport](../artifacts/finding-filter-health-report.md)).
   See
   [graph-aware-finding-filters.md](graph-aware-finding-filters.md)
-  for the full per-check shape and the v2 helper exports.
+  for the full per-check shape and the v2 + v3 helper
+  exports (`listExportsForFile`, `listSymbolsForFile`).
 - **`other`** — reserved escape hatch; not used by v1.
 
 Findings with no `files` are kept by default (no rule has

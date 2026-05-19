@@ -571,16 +571,53 @@ review packets unless an ADR promotes them. Promotion requires:
     no type checker, no LLM / semantic / fuzzy / embedding
     inference. No new reason codes. No new capability role.
     No new CLI subcommand or flag.
-19. **(future)** First v3 candidate check that consumes the
-    new export / symbol facts. The v3 memo's strongest
-    candidate is strengthening `nextjs-route-convention`
-    (or a graph-aware variant) to confirm route file
-    exports structurally via the new facts. The
-    follow-up slice should ship **one** narrow check that
-    depends on the substrate, selected based on operator
-    data from the new "Graph-Aware Filter Reasons" surface
-    and the two graph-aware dominance alerts.
-20. **(future)** Merge-decision freshness guardrails,
+19. **(shipped)** Graph-aware Next.js route export
+    convention filter — the first v3 candidate check that
+    consumes the export-facts substrate. New
+    `graphFilterNextjsRouteConvention` in
+    `@rekon/kernel-findings` reads `listExportsForFile` for
+    a `route.ts` file and suppresses the
+    `routes.single_http_handler_export` finding when every
+    non-handler named export is in the Next.js
+    segment-config set
+    (`runtime` / `dynamic` / `revalidate` / `fetchCache` /
+    `preferredRegion`). Default exports are ignored. HTTP
+    method names (`GET` / `POST` / `PUT` / `PATCH` /
+    `DELETE` / `HEAD` / `OPTIONS`) are recognized as
+    handlers and excluded from the "extras" set. When
+    EvidenceGraph carries export facts for the file,
+    those facts are authoritative — the classic content
+    fallback (`details.otherExports`-based) is gated by
+    a new `isNextjsRouteConventionSupersededByGraph`
+    helper so a clean-looking `details.otherExports`
+    cannot override a graph evidence "this file has an
+    invalid extra export" reality. `nextjs-route-convention`
+    moved from `CLASSIC_CONTENT_FILTER_REASONS` to
+    `GRAPH_AWARE_FILTER_REASONS`; filter-health buckets
+    matches as `graphAwareFiltered` whether the graph-aware
+    stage or the classic content fallback fired. Decisions
+    return `usedArtifacts: ["EvidenceGraph"]` on the graph
+    path; the runtime cites EvidenceGraph in
+    `FindingFilterReport.header.inputRefs` only when the
+    check actually consulted it. 11 new contract tests
+    cover all required cases (GET + runtime, full
+    segment-config set, GET + helper veto, GET-only no-op,
+    default-export ignore, graph-overrides-details
+    behavior, classic fallback, inputRefs precision, raw
+    `FindingReport` byte-identity, lifecycle exclusion,
+    filter-health bucketing). No new reason codes. No
+    source-file reads at filter time. No AST, no type
+    checker. No LLM / semantic / fuzzy / embedding
+    inference. No framework-wide Next.js catalog. No new
+    capability role. No new CLI subcommand or flag.
+20. **(future)** Import-fact subject-shape cleanup decision
+    memo — the export/symbol substrate landed at
+    `subject = file path`, but legacy import facts retain
+    `subject = "<file>:<target>"`. The memo should decide
+    whether to migrate, add helper compatibility, or leave
+    as-is. (Documented as a follow-up in the v1 substrate
+    review packet.)
+21. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

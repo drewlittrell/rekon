@@ -1501,20 +1501,39 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
     // 3. Classic-inspired deterministic content filters.
     //    Fires when graph-aware did not (graph context
     //    missing, or no artifact-backed evidence found). The
-    //    five shared reason codes still bucket as
+    //    six shared reason codes still bucket as
     //    `graphAwareFiltered` in filter-health regardless of
     //    which stage fired — see
     //    `docs/concepts/graph-aware-finding-filters.md`
     //    "Filter Health Bucketing".
+    //
+    //    Exception (graph-aware v3 — Next.js route export
+    //    convention): when EvidenceGraph carries export facts
+    //    for a `routes.single_http_handler_export` route file,
+    //    those facts are authoritative. If the graph-aware
+    //    stage declined to filter, the classic-content
+    //    fallback (which reads `details.otherExports`) must
+    //    NOT override the graph evidence — even if the
+    //    detector-supplied `otherExports` would have looked
+    //    clean. We detect this by checking whether graph
+    //    export facts exist for the finding's file before
+    //    letting the classic content fallback run for the
+    //    matching rule id.
     if (!match) {
-      const decision = applyFindingContentFilters({ finding });
-      if (decision) {
-        match = {
-          reason: decision.reason,
-          evidence: decision.evidence,
-          filePath: decision.filePath,
-          confidence: decision.confidence,
-        };
+      const supersededByGraph
+        = graphContextActive
+        && graphContext !== undefined
+        && isNextjsRouteConventionSupersededByGraph(finding, graphContext);
+      if (!supersededByGraph) {
+        const decision = applyFindingContentFilters({ finding });
+        if (decision) {
+          match = {
+            reason: decision.reason,
+            evidence: decision.evidence,
+            filePath: decision.filePath,
+            confidence: decision.confidence,
+          };
+        }
       }
     }
     // 4. Built-in path / content filters (generated/external/test/canary).
@@ -2635,6 +2654,17 @@ const GRAPH_AWARE_FILTER_REASONS = new Set<FindingFilterReason>([
   "external-api-comment-only",
   "factory-file-creates-deps",
   "module-gate-verified-caller",
+  // `nextjs-route-convention` moved from classic content to
+  // graph-aware in the graph-aware-nextjs-route-export-filter v3
+  // slice. The new graph-aware check consumes EvidenceGraph
+  // `export` facts (`listExportsForFile`) to confirm a
+  // `route.ts` file's non-handler exports are valid Next.js
+  // segment-config exports. The legacy classic content filter
+  // (`details.otherExports`-based) remains as a fallback when
+  // export facts are absent; both stages emit the same reason
+  // code, and filter-health buckets it as `graphAwareFiltered`
+  // either way.
+  "nextjs-route-convention",
 ]);
 
 const CLASSIC_CONTENT_FILTER_REASONS = new Set<FindingFilterReason>([
@@ -2649,7 +2679,6 @@ const CLASSIC_CONTENT_FILTER_REASONS = new Set<FindingFilterReason>([
   "hardcoded-config-not-dde",
   "ui-http-provider-abstraction",
   "ui-hook-uses-http-not-db",
-  "nextjs-route-convention",
 ]);
 
 const RESULT_FILTER_REASONS = new Set<FindingFilterReason>([
@@ -3971,6 +4000,12 @@ const GRAPH_FILTER_CHECKS: ReadonlyArray<
   graphFilterExternalApiCommentOnly,
   graphFilterFactoryFileCreatesDeps,
   graphFilterModuleGateVerifiedCaller,
+  // graph-aware-nextjs-route-export-filter v3 slice — first
+  // v3 candidate that consumes the new EvidenceGraph export
+  // facts (substrate shipped at a776c58). The legacy classic
+  // content filter for `nextjs-route-convention` remains as
+  // a `details.otherExports`-based fallback.
+  graphFilterNextjsRouteConvention,
 ];
 
 // ----- A. route handler / sibling handler -----
@@ -4265,6 +4300,106 @@ function graphFilterModuleGateVerifiedCaller(
   }
 
   return null;
+}
+
+/**
+ * Returns `true` when the `routes.single_http_handler_export`
+ * finding has EvidenceGraph export facts for its file. Used by
+ * `applyFindingFilters` to gate the classic content fallback —
+ * when graph evidence exists, the graph-aware decision is
+ * authoritative (either it filtered, or its decision to not
+ * filter must stand). The classic `details.otherExports`
+ * fallback should not override graph reality.
+ *
+ * (graph-aware-nextjs-route-export-filter v3 slice.)
+ */
+function isNextjsRouteConventionSupersededByGraph(
+  finding: Finding,
+  ctx: FindingGraphFilterContext,
+): boolean {
+  if (finding.type !== "architecture") return false;
+  if (finding.ruleId !== "routes.single_http_handler_export") return false;
+  const file = firstFile(finding) ?? "";
+  if (!file.endsWith("route.ts")) return false;
+  return listExportsForFile(ctx, file).length > 0;
+}
+
+// ----- F. Next.js route export convention (v3) -----
+//
+// First v3 candidate check that consumes the new
+// EvidenceGraph `export` facts substrate. Strengthens the
+// legacy classic-content filter for
+// `routes.single_http_handler_export` by reading artifact-
+// backed export facts via `listExportsForFile`. The legacy
+// `details.otherExports`-based content filter remains as a
+// fallback when export facts are absent — the pipeline runs
+// graph-aware before classic content (per v2), so when export
+// facts exist the graph-aware decision takes credit (with
+// `usedArtifacts: ["EvidenceGraph"]`).
+//
+// Allowed non-handler exports per Next.js segment-config
+// convention. A `route.ts` file is allowed to export the
+// HTTP-method handlers AND any subset of these
+// segment-config values; anything else means the rule
+// (`routes.single_http_handler_export`) is a real concern.
+const NEXTJS_HANDLER_EXPORTS: ReadonlySet<string> = new Set([
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS",
+]);
+const NEXTJS_SEGMENT_CONFIG_EXPORTS: ReadonlySet<string> = new Set([
+  "runtime",
+  "dynamic",
+  "revalidate",
+  "fetchCache",
+  "preferredRegion",
+]);
+
+function graphFilterNextjsRouteConvention(
+  finding: Finding,
+  ctx: FindingGraphFilterContext,
+): FindingGraphFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "routes.single_http_handler_export") return null;
+  const file = firstFile(finding) ?? "";
+  if (!file.endsWith("route.ts")) return null;
+
+  // Read EvidenceGraph export facts for the route file.
+  // No facts → no-op (the classic content filter still runs
+  // as a fallback).
+  const exports = listExportsForFile(ctx, file);
+  if (exports.length === 0) return null;
+
+  // Default exports are not relevant to this check — the rule
+  // is about *named* extra exports on a route. Ignore default
+  // exports when computing the "extras" set.
+  const namedExports = exports.filter((entry) => entry.default !== true && entry.name !== "default");
+
+  // The "extras" are named exports that are NOT HTTP method
+  // handlers. If there are zero extras the rule wouldn't have
+  // fired in the first place; the graph-aware check still
+  // returns null so the finding remains active for the
+  // operator to investigate.
+  const extras = namedExports.filter((entry) => !NEXTJS_HANDLER_EXPORTS.has(entry.name));
+  if (extras.length === 0) return null;
+
+  // Every extra must be in the allowed segment-config set.
+  const allAllowed = extras.every((entry) => NEXTJS_SEGMENT_CONFIG_EXPORTS.has(entry.name));
+  if (!allAllowed) return null;
+
+  const extraNames = extras.map((entry) => entry.name).sort().join(", ");
+  return {
+    reason: "nextjs-route-convention",
+    evidence:
+      `Route's non-handler named exports are all Next.js segment-config values (per EvidenceGraph export facts): ${extraNames}.`,
+    filePath: file,
+    confidence: "high",
+    usedArtifacts: ["EvidenceGraph"],
+  };
 }
 
 function ownerSystemForFile(

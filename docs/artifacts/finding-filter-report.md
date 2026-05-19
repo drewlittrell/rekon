@@ -329,6 +329,20 @@ reason codes were introduced:
   `OwnershipMap` + `ObservedSystem.kind === "module"`
   (medium) over the bare `/modules/` path heuristic
   (medium, fallback only).
+- `nextjs-route-convention` *(v3)* — consumes
+  `EvidenceGraph` export facts via `listExportsForFile`.
+  When facts exist for a `route.ts` file, every
+  non-handler named export must be in the Next.js
+  segment-config set (`runtime` / `dynamic` /
+  `revalidate` / `fetchCache` / `preferredRegion`) for
+  the finding to be suppressed. Default exports are
+  ignored. **Graph evidence is authoritative**: when
+  EvidenceGraph carries export facts for the file, the
+  classic content fallback (`details.otherExports`-based)
+  is skipped — graph reality trumps detector details. No
+  graph export facts → classic content fallback runs
+  unchanged. `usedArtifacts: ["EvidenceGraph"]` on the
+  graph-aware path.
 
 Each decision returns a `usedArtifacts` list naming the
 artifacts that contributed evidence

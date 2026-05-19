@@ -46,8 +46,22 @@
 > `kind: "export"` and `kind: "symbol"` facts with rich
 > `{ name, kind, default?/exported? }` value shape, and
 > `@rekon/kernel-findings` exports `listExportsForFile` /
-> `listSymbolsForFile` helpers. **No graph-aware filter
-> consumes the new facts yet** — substrate ships alone.
+> `listSymbolsForFile` helpers.
+>
+> **v3 check shipped:** the first v3 candidate check that
+> consumes the new export-facts substrate has shipped — a
+> graph-aware variant of `nextjs-route-convention` that
+> reads `listExportsForFile` to confirm a route file's
+> non-handler named exports are all in the Next.js
+> segment-config set. When export facts exist, they are
+> authoritative over `details.otherExports`. The legacy
+> classic content filter remains as a fallback when no
+> graph facts exist. `nextjs-route-convention` moved from
+> `CLASSIC_CONTENT_FILTER_REASONS` to
+> `GRAPH_AWARE_FILTER_REASONS`; filter-health now buckets
+> matches as `graphAwareFiltered`. No new reason codes,
+> no source reads, no LLM / semantic / fuzzy logic, no
+> monolithic validator port.
 
 ## Decision Summary
 

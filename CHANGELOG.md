@@ -4,6 +4,103 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware Next.js route export convention
+  filter (P1.1 graph-aware-nextjs-route-export-filter v3
+  slice) — the first v3 candidate check that consumes the
+  new `EvidenceGraph` export facts substrate.
+
+  **`@rekon/kernel-findings` new check
+  `graphFilterNextjsRouteConvention`:**
+  - Triggered by `type === "architecture"` + `ruleId ===
+    "routes.single_http_handler_export"` + file ending in
+    `route.ts`.
+  - Reads `listExportsForFile(graphContext, file)`. When
+    facts exist, computes the "extras" set by excluding
+    default exports and HTTP method names (`GET` / `POST`
+    / `PUT` / `PATCH` / `DELETE` / `HEAD` / `OPTIONS`).
+  - When `extras` is non-empty AND every entry is in the
+    Next.js segment-config set (`runtime` / `dynamic` /
+    `revalidate` / `fetchCache` / `preferredRegion`),
+    suppresses the finding with reason
+    `nextjs-route-convention`, evidence naming the
+    segment-config exports inspected,
+    `confidence: "high"`, and
+    `usedArtifacts: ["EvidenceGraph"]`.
+  - When `extras` includes any non-segment-config name,
+    the finding stays active (the route IS exporting an
+    unexpected symbol).
+  - Conservative no-op when no export facts exist for the
+    file.
+
+  **Graph evidence is authoritative.** New
+  `isNextjsRouteConventionSupersededByGraph` helper gates
+  the classic content fallback inside
+  `applyFindingFilters`: when EvidenceGraph carries
+  export facts for a route file's
+  `routes.single_http_handler_export` finding, the
+  classic content fallback
+  (`details.otherExports`-based) is skipped — even when
+  the detector-supplied `otherExports` would have looked
+  clean. The graph-aware decision (filter or decline)
+  stands.
+
+  **`nextjs-route-convention` reclassified.** Moved from
+  `CLASSIC_CONTENT_FILTER_REASONS` to
+  `GRAPH_AWARE_FILTER_REASONS`. Filter-health now buckets
+  matches as `graphAwareFiltered` whether the graph-aware
+  stage or the classic content fallback fired. The
+  shared-reason discipline established in
+  graph-aware-filter-health-publications v1 holds: the
+  reason code identifies the *kind of evidence*, not the
+  layer that fired.
+
+  **Tests.** 11 new contract tests at
+  `tests/contract/graph-aware-nextjs-route-export-filter.test.mjs`
+  cover: GET + runtime → filter, full segment-config set
+  → filter, GET + helper → veto, GET-only → no-op,
+  default-export ignore, graph-overrides-details
+  behavior, classic content fallback path,
+  `FindingFilterReport.header.inputRefs` precision (cites
+  EvidenceGraph when used), raw `FindingReport`
+  byte-identity, lifecycle / adjudication / coherency
+  exclusion + `rekon artifacts validate` cleanliness,
+  filter-health bucketing.
+
+  **Strategy docs updated:**
+  - `docs/concepts/graph-aware-finding-filters.md` (table
+    now lists six v1+v2+v3 checks; bucket-classifier
+    description updated to six graph-aware reason codes).
+  - `docs/concepts/finding-filters.md` (graph-aware
+    section names the v3 check and its
+    graph-authoritative behavior).
+  - `docs/artifacts/finding-filter-report.md`
+    ("Graph-Aware Filters" lists the new check).
+  - `docs/strategy/graph-ontology-validator-lite-audit.md`
+    (top blockquote updated with v3-check-shipped status).
+  - `docs/strategy/issue-governance-architecture-decision.md`
+    (step 19 flipped from `(future)` to `(shipped)`; step
+    20 reserved for the import-fact subject-shape
+    cleanup decision memo).
+  - `docs/strategy/classic-behavior-roadmap.md` and
+    `docs/strategy/roadmap.md` (new v3 check entries).
+
+  Implements step 19 of the issue governance ADR
+  Implementation Order. Aligned to
+  `services/issues/content-filter-ruleid.ts` and
+  `services/IssueDetectionService.ts`. No new reason
+  codes. No source-file reads at filter time. No AST, no
+  type checker. No LLM / semantic / fuzzy / embedding
+  inference. No framework-wide Next.js catalog. No
+  `GraphOntologyValidator` port. No new capability role.
+  No new CLI subcommand or flag. No artifact
+  `schemaVersion` bump. No new artifact type. No version
+  bump. No npm publish. Full suite: 755 passed / 1
+  skipped / 0 failed.
+
+  Import-fact subject-shape cleanup decision memo (per
+  the v1 substrate review packet's documented follow-up)
+  is the recommended next slice.
+
 - Shipped `EvidenceGraph` export / symbol facts projection
   v1 (P1.1 evidence-export-symbol-facts-v1 slice) — the
   substrate the graph-aware filter provider v3 decision
