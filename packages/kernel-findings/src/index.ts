@@ -3847,9 +3847,98 @@ export function findSiblingFile(
 }
 
 /**
+ * Match an `import` EvidenceFact against a repo-relative
+ * `filePath` across the legacy and future producer shapes.
+ *
+ * Per the
+ * [Import fact subject-shape decision memo](../../../docs/strategy/import-fact-subject-shape-decision.md)
+ * (Option B implementation), graph-aware consumers must use
+ * helper APIs for file-scoped fact lookups; raw
+ * `fact.subject` matching is only permitted by the fact's
+ * owning producer or by tests that own the exact shape.
+ *
+ * Match precedence:
+ *
+ * 1. `normalizeRepoPath(fact.subject) === filePath` — future
+ *    shape where `subject` IS the file path.
+ * 2. `normalizeRepoPath(fact.value.source) === filePath` —
+ *    legacy producer (`@rekon/capability-js-ts`) stores the
+ *    authoritative file path in `value.source`.
+ * 3. Legacy `subject` prefix before the first `":"` matches
+ *    `filePath`. Anchored on the full normalized file path
+ *    (no `startsWith` traps; `src/foo.tsx:react` will NOT
+ *    match `src/foo.ts`).
+ *
+ * Returns `false` for facts whose `subject` is empty / not a
+ * string, when `filePath` normalizes to the empty string
+ * (absolute or `.rekon/` paths), or when no branch matches.
+ */
+function matchesFileSubject(fact: EvidenceFactLike, normalizedFilePath: string): boolean {
+  if (normalizedFilePath === "") return false;
+  // Branch 1: future file-subject shape.
+  if (typeof fact.subject === "string"
+    && normalizeRepoPath(fact.subject) === normalizedFilePath) {
+    return true;
+  }
+  // Branch 2: legacy producer's authoritative file field.
+  const source = fact.value?.source;
+  if (typeof source === "string" && normalizeRepoPath(source) === normalizedFilePath) {
+    return true;
+  }
+  // Branch 3: legacy `"<file>:<target>"` subject prefix.
+  //   Anchored on the full normalized file path — we split on
+  //   the FIRST colon and normalize the prefix before
+  //   comparing. Rekon paths are repo-relative and colon-free,
+  //   so the first colon is the legacy-shape separator.
+  if (typeof fact.subject === "string") {
+    const colon = fact.subject.indexOf(":");
+    if (colon > 0) {
+      const prefix = fact.subject.slice(0, colon);
+      if (normalizeRepoPath(prefix) === normalizedFilePath) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Extract the import target from an `import` fact. Prefers
+ * `value.target`; falls back to the suffix after the first
+ * `":"` in a legacy-shape subject when `value.target` is
+ * missing (so an older producer that omitted
+ * `value.target` is still readable). Returns `undefined`
+ * when no target can be determined.
+ */
+function extractImportTarget(fact: EvidenceFactLike): string | undefined {
+  const declared = fact.value?.target;
+  if (typeof declared === "string" && declared.length > 0) return declared;
+  // Legacy fallback: parse target from subject suffix
+  // `"<file>:<target>"`. Defensive — the current producer
+  // always populates value.target, but a future or
+  // third-party producer might not.
+  if (typeof fact.subject === "string") {
+    const colon = fact.subject.indexOf(":");
+    if (colon > 0 && colon < fact.subject.length - 1) {
+      const suffix = fact.subject.slice(colon + 1);
+      if (suffix.length > 0) return suffix;
+    }
+  }
+  return undefined;
+}
+
+/**
  * List the import targets for `filePath` per the
- * `EvidenceGraph` import facts. Returns the empty array when
- * the file has no facts or the graph is missing.
+ * `EvidenceGraph` import facts. Returns sorted, deduped
+ * targets; empty array when the file has no facts or the
+ * graph is missing.
+ *
+ * Compatibility-aware (per the
+ * import-fact-subject-shape-decision memo Option B
+ * implementation): recognizes both the legacy producer
+ * shape (`subject = "<file>:<target>"`,
+ * `value: { source, target }`) and the future file-subject
+ * shape (`subject = filePath`,
+ * `value: { target, ... }`). A fact that matches under
+ * multiple branches contributes its target once.
  */
 export function listImportTargetsForFile(
   context: FindingGraphFilterContext,
@@ -3859,23 +3948,26 @@ export function listImportTargetsForFile(
   if (normalized === "") return [];
   const facts = context.evidenceGraph?.facts;
   if (!Array.isArray(facts)) return [];
-  const targets: string[] = [];
+  const seen = new Set<string>();
   for (const fact of facts) {
     if (!fact || fact.kind !== "import") continue;
-    if (normalizeRepoPath(fact.subject) !== normalized) continue;
-    const target = fact.value?.target;
-    if (typeof target === "string" && target.length > 0) {
-      targets.push(target);
-    }
+    if (!matchesFileSubject(fact, normalized)) continue;
+    const target = extractImportTarget(fact);
+    if (target !== undefined) seen.add(target);
   }
-  return targets;
+  return Array.from(seen).sort((left, right) => left.localeCompare(right));
 }
 
 /**
  * Filter `listImportTargetsForFile(...)` through a predicate
  * (case-insensitive comparisons must be implemented by the
- * caller). Returns the matching targets in their original
- * order.
+ * caller). Returns the matching targets in sorted order
+ * (inherited from `listImportTargetsForFile`).
+ *
+ * Shares the same `matchesFileSubject` compatibility
+ * predicate as `listImportTargetsForFile`, so external rule
+ * packs can rely on identical file-scoped lookup behavior
+ * across both helpers.
  */
 export function fileImportsTargetMatching(
   context: FindingGraphFilterContext,

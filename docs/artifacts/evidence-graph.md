@@ -56,10 +56,15 @@ future option triggered by specific conditions
 (more than ~3 helper callsites needing custom logic, a
 planned `schemaVersion` bump, external author
 confusion, or import facts becoming a publication-facing
-artifact). Until then, consumers must look up
-file-scoped import facts via the
-`listImportTargetsForFile` helper in
-`@rekon/kernel-findings` — not by matching
+artifact). Option B of that memo has shipped:
+`@rekon/kernel-findings.listImportTargetsForFile` and
+`fileImportsTargetMatching` now recognize both the
+legacy shape AND the future file-subject shape
+(`subject = file path`, `value: { source, target }`)
+via a shared `matchesFileSubject` predicate. The
+helpers dedupe targets across branches and return them
+sorted. Consumers must look up file-scoped import
+facts via these helpers — not by matching
 `fact.subject` raw.
 
 ### Export / symbol facts (substrate v1)

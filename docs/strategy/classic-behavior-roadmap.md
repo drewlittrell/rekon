@@ -1668,7 +1668,87 @@ scope:
   **Import helper compatibility implementation** (the
   follow-up slice that lands the actual
   `listImportTargetsForFile` compatibility branch + the
-  graph-aware-filter end-to-end CLI fixture) is the
+  graph-aware-filter end-to-end CLI fixture) shipped
+  next; see the "Import helper compatibility
+  implementation" entry below.
+- **Import helper compatibility implementation (P1.1
+  import-helper-compatibility slice).** ✅ Shipped.
+  Implements Option B of the
+  [import-fact subject-shape decision memo](import-fact-subject-shape-decision.md).
+  `@rekon/kernel-findings.listImportTargetsForFile`
+  now recognizes BOTH the legacy producer shape
+  (`subject = "<file>:<target>"`,
+  `value: { source, target }`) AND the future
+  file-subject shape (`subject = filePath`,
+  `value: { target, ... }`).
+
+  - **New private predicate** `matchesFileSubject(fact,
+    normalizedFilePath)` consults, in order:
+    1. `normalizeRepoPath(fact.subject) ===
+       normalizedFilePath` (future shape);
+    2. `normalizeRepoPath(fact.value.source) ===
+       normalizedFilePath` (legacy producer's
+       authoritative file field);
+    3. legacy `subject` prefix before the first `":"`
+       normalizing to `normalizedFilePath` (anchored on
+       the full normalized file path — no `startsWith`
+       traps).
+  - **New private helper** `extractImportTarget(fact)`
+    prefers `value.target` but falls back to the suffix
+    after the first `":"` in legacy-shape subjects so
+    older producers without `value.target` remain
+    readable.
+  - **`listImportTargetsForFile`** now dedupes targets
+    via a `Set` and returns them sorted via
+    `localeCompare`.
+  - **`fileImportsTargetMatching`** delegates to the
+    new helper so external rule packs see identical
+    file-scoped lookup behavior.
+  - **`@rekon/capability-js-ts` import-fact producer is
+    UNCHANGED.** Per the decision memo + work order: no
+    producer migration, no artifact migration, no
+    `EvidenceGraph` `schemaVersion` bump. Existing
+    `EvidenceGraph` artifacts continue to validate.
+  - **`listExportsForFile` / `listSymbolsForFile` are
+    UNCHANGED.** The compatibility branch is
+    import-specific; export and symbol helpers already
+    use the `subject = file path` convention
+    natively.
+
+  15 new contract tests at
+  `tests/contract/import-helper-compatibility.test.mjs`
+  cover: legacy subject shape returns target, future
+  file-subject shape returns target, `value.source`
+  authoritative-field behavior, mixed-shape dedupe,
+  sorted output, `./src/foo.ts` and `src/foo.ts`
+  normalization, backslash normalization, anchored
+  prefix matching (no `src/foo.tsx` ↔ `src/foo.ts`
+  confusion), missing-target rejection,
+  `listExportsForFile` non-regression,
+  `listSymbolsForFile` non-regression,
+  `fileImportsTargetMatching` parity, production JS/TS
+  provider import-fact shape preservation (subject
+  still `"<file>:<target>"`),
+  `rekon artifacts validate` cleanliness, and an
+  end-to-end graph-aware filter case proving the
+  EvidenceGraph branch now fires against
+  production-shaped data. Full suite: 785 passed / 1
+  skipped / 0 failed.
+
+  Aligned to `lib/import-graph.ts`,
+  `services/GraphBuildProvider.ts`, and
+  `domain/graph/producers/**`. No new reason codes.
+  No source-file reads at filter time. No AST, no
+  type checker. No LLM / semantic / fuzzy / embedding
+  matching. No `GraphOntologyValidator` port. No new
+  capability role. No new CLI subcommand or flag. No
+  artifact `schemaVersion` bump. No new artifact type.
+  No producer change. No version bump. No npm publish.
+
+  **Graph-aware import-fact consumers v4** (audit the
+  three v1 / v2 graph-aware checks that prefer
+  EvidenceGraph imports and confirm their EvidenceGraph
+  branches now fire against production data) is the
   recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.

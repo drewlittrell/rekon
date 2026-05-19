@@ -912,6 +912,43 @@ is the first stop before proposing a new capability batch.
   change, no graph-aware filter change, no version
   bump, no npm publish. Pinned by
   `tests/docs/import-fact-subject-shape-decision.test.mjs`.
+- Import helper compatibility implementation (P1.1
+  import-helper-compatibility slice): implements
+  Option B of the import-fact subject-shape decision
+  memo. `@rekon/kernel-findings.listImportTargetsForFile`
+  and `fileImportsTargetMatching` now recognize BOTH
+  the legacy producer shape
+  (`subject = "<file>:<target>"`,
+  `value: { source, target }`) AND the future
+  file-subject shape (`subject = filePath`,
+  `value: { target, ... }`) via a shared
+  `matchesFileSubject` predicate. Match precedence:
+  `subject === filePath` → `value.source === filePath`
+  → legacy `subject` prefix-before-first-`:`
+  (anchored on the full normalized file path; no
+  `startsWith` traps). New `extractImportTarget`
+  helper prefers `value.target` but falls back to the
+  legacy subject suffix so older producers without
+  `value.target` stay readable. Targets are deduped via
+  a `Set` and returned sorted. `listExportsForFile` /
+  `listSymbolsForFile` unchanged.
+  `@rekon/capability-js-ts` import-fact producer
+  unchanged — no artifact migration, no
+  `EvidenceGraph` `schemaVersion` bump. 15 new contract
+  tests at
+  `tests/contract/import-helper-compatibility.test.mjs`
+  cover both shapes, mixed-shape dedupe, anchored
+  prefix matching, path normalization, missing-target
+  rejection, export / symbol helper non-regression,
+  `fileImportsTargetMatching` parity, production
+  shape preservation, and an end-to-end graph-aware
+  filter case proving the EvidenceGraph branch now
+  fires against production-shaped data. No new reason
+  codes. No source-file reads at filter time. No AST,
+  no type checker. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No new capability role. No new CLI subcommand
+  or flag. No version bump. No npm publish.
 - Graph-aware filter surfacing in publications / filter
   health (P1.1 graph-aware-filter-health-publications
   slice): `FindingFilterHealthSummary` gains a

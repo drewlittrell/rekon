@@ -633,17 +633,61 @@ review packets unless an ADR promotes them. Promotion requires:
     branches exceed ~3 callsites; planned
     `EvidenceGraph` `schemaVersion` bump; external author
     confusion; import facts become publication-facing).
-21. **(future)** Import helper compatibility
-    implementation — update `listImportTargetsForFile`
-    to consult `fact.subject === filePath`,
-    `fact.value.source === filePath`, and the legacy
-    `subject` prefix-before-first-`:` as fallbacks.
-    Dedupe targets. Add a `matchesFileSubject` private
-    predicate so `fileImportsTargetMatching` shares the
-    same logic. Add contract tests + end-to-end CLI
-    smoke. Per the import-fact subject-shape decision
-    memo's Implementation Plan.
-22. **(future)** Merge-decision freshness guardrails,
+21. **(shipped)** Import helper compatibility
+    implementation. `@rekon/kernel-findings.listImportTargetsForFile`
+    now consults, in order:
+    `fact.subject === filePath` (future shape),
+    `fact.value.source === filePath` (legacy producer's
+    authoritative file field), and the legacy `subject`
+    prefix-before-first-`:` (anchored on the full
+    normalized file path — no `startsWith` traps).
+    New private `matchesFileSubject` predicate is shared
+    with `fileImportsTargetMatching` so external rule
+    packs see identical file-scoped lookup behavior
+    across both helpers. New `extractImportTarget`
+    helper prefers `value.target` but falls back to the
+    suffix after the first `":"` in legacy-shape
+    subjects so older producers without `value.target`
+    remain readable. Targets are deduped via a `Set`
+    and returned sorted via `localeCompare`. The
+    `@rekon/capability-js-ts` import-fact producer is
+    UNCHANGED (per the work order and decision memo —
+    no producer migration, no artifact migration, no
+    `EvidenceGraph` `schemaVersion` bump). Existing
+    `EvidenceGraph` artifacts continue to validate. The
+    `listExportsForFile` / `listSymbolsForFile` helpers
+    are UNCHANGED (the compatibility branch is
+    import-specific). 15 new contract tests cover both
+    shapes, mixed-shape dedupe, anchored prefix
+    matching (no `src/foo.tsx` ↔ `src/foo.ts`
+    confusion), path normalization (`./src/foo.ts` vs
+    `src/foo.ts` vs backslashes), `value.source`
+    authoritative-field behavior, missing-target
+    rejection, both export / symbol helper non-regression
+    cases, `fileImportsTargetMatching` parity,
+    production-shape preservation (JS/TS provider still
+    emits `subject = "<file>:<target>"`),
+    `rekon artifacts validate` cleanliness, and an
+    end-to-end graph-aware filter case proving the
+    EvidenceGraph branch now fires against
+    production-shaped import data. No new reason codes.
+    No source reads at filter time. No AST, no type
+    checker. No LLM / semantic / fuzzy / embedding
+    matching. No `GraphOntologyValidator` port. No
+    version bump. No npm publish.
+22. **(future)** Graph-aware import-fact consumers v4 —
+    update `graphFilterRouteHandlerWithService`,
+    `graphFilterRouteHttpMiddlewareOnly`, and
+    `graphFilterExternalApiCommentOnly` to fully
+    consume production EvidenceGraph import facts via
+    the compatibility-aware helper (the prior fall-back
+    paths to `details.imports` /
+    `ObservedRepo.files` siblings should now fire less
+    often because the EvidenceGraph branch starts
+    matching against real data). Bounded,
+    artifact-backed: no source reads, no
+    `GraphOntologyValidator` port, no LLM.
+23. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

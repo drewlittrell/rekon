@@ -155,20 +155,26 @@ re-implementing path normalization:
   the sibling path when present in `ObservedRepo.files`,
   `undefined` otherwise.
 - `listImportTargetsForFile(ctx, filePath)` — reads
-  `EvidenceGraph` import facts and returns their
-  `value.target` strings. See the
-  [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
-  for why this helper is compatibility-aware: legacy
-  import facts use `subject = "<file>:<target>"`, while
-  the new export / symbol facts use
-  `subject = <file path>`. The decision recommends
-  Option B (helper-aware compatibility) — consumers
-  must use the helper rather than matching
-  `fact.subject` raw for file-scoped lookups.
+  `EvidenceGraph` import facts and returns sorted,
+  deduped `value.target` strings. Compatibility-aware:
+  a private `matchesFileSubject` predicate accepts both
+  the legacy producer shape
+  (`subject = "<file>:<target>"`,
+  `value: { source, target }`) and the future
+  file-subject shape (`subject = <file path>`,
+  `value: { target, ... }`). A fact that matches under
+  multiple branches contributes its target once. See
+  the
+  [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md).
+  **Consumers must use this helper for file-scoped
+  import lookups** — raw `fact.subject` matching is
+  permitted only by the fact's owning producer or by
+  tests that own the exact shape.
 - `fileImportsTargetMatching(ctx, filePath, predicate)` —
   filters the import targets through a predicate.
-  Inherits the same compatibility contract as
-  `listImportTargetsForFile`.
+  Inherits the same `matchesFileSubject` compatibility
+  predicate so external rule packs see identical
+  file-scoped lookup behavior across both helpers.
 - `listExportsForFile(ctx, filePath)` — reads
   `EvidenceGraph` export facts (`kind === "export"`) and
   returns `FileExportSummary[]` sorted by name + kind.

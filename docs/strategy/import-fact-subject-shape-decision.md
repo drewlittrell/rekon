@@ -8,6 +8,20 @@
 > (`subject = "<file>:<target>"`). It recommends a direction
 > so the next implementation slice (`listImportTargetsForFile`
 > helper compatibility) can land without surprises.
+>
+> **Implementation status:** Option B has shipped via the
+> import-helper-compatibility implementation slice.
+> `listImportTargetsForFile` and `fileImportsTargetMatching`
+> in `@rekon/kernel-findings` now recognize both the legacy
+> producer shape and the future file-subject shape via a
+> shared `matchesFileSubject` predicate. The
+> `@rekon/capability-js-ts` import-fact producer is
+> unchanged. No artifact migration. No `EvidenceGraph`
+> `schemaVersion` bump. The four future-migration triggers
+> for Option A (helper compatibility logic exceeding ~3
+> callsites; a planned `schemaVersion` bump; external
+> author confusion; import facts becoming
+> publication-facing) remain documented below.
 
 ## Decision Summary
 
