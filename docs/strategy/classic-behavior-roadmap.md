@@ -2308,12 +2308,147 @@ scope:
   npm publish.
 
   **Factory / module-gate artifact evidence
-  strengthening** is the recommended next slice (move
-  the two `DetectorDetails` reasons toward stronger
-  artifact-backed evidence via role / kind / ownership
-  projections; still no source reads, no
-  `GraphOntologyValidator` port, no producer migration
-  for import facts).
+  strengthening** is the recommended next slice.
+  **Shipped next; see the entry below.**
+- **Factory / module-gate artifact evidence
+  strengthening v1
+  (P1.1 factory-module-gate-evidence-strengthening
+  slice).** ✅ Shipped. Combined strategy +
+  implementation batch. The memo
+  ([`docs/strategy/factory-module-gate-evidence-strengthening.md`](factory-module-gate-evidence-strengthening.md))
+  selects **EvidenceGraph symbol/export facts** as
+  the smallest viable projection target — the
+  fixtures already produce the right facts via
+  `@rekon/capability-js-ts`, and the filter-side
+  change is purely additive. Projector-side
+  `ObservedSystem.kind` population is deferred
+  (capability-model projector currently emits
+  first-segment-only owner systems; per-module
+  system synthesis is broad enough churn to defer).
+
+  **Filter changes:**
+
+  - `graphFilterFactoryFileCreatesDeps` gains a new
+    top-priority branch A0 that consumes
+    EvidenceGraph symbol/export facts via
+    `listSymbolsForFile` + `listExportsForFile`.
+    **High confidence** when any name includes
+    `"Factory"`; **medium confidence** when any
+    name starts with `"create"` AND the file path
+    includes `"Factory"` / `"factory"`.
+    `usedArtifacts: ["EvidenceGraph"]` →
+    `evidenceSource: "EvidenceGraph"`.
+  - `graphFilterModuleGateVerifiedCaller` gains a
+    new top-priority branch A0 that consumes the
+    same helpers. **High confidence** when any
+    name includes `"GateEvaluator"`; **medium
+    confidence** when any name matches
+    `/^evaluate.*Gate/`.
+    `usedArtifacts: ["EvidenceGraph"]` →
+    `evidenceSource: "EvidenceGraph"`.
+  - All existing branches (path-evidence,
+    CapabilityMap hint, OwnershipMap +
+    ObservedSystem.kind=module) remain as
+    fallback. The path-evidence branch still
+    attributes as `DetectorDetails`; the
+    OwnershipMap + ObservedSystem.kind branch
+    still attributes as `ObservedRepo`.
+
+  **Fixture attribution after the batch:**
+
+  - `factory-file` →
+    `evidenceSource: "EvidenceGraph"`, medium
+    confidence, evidence text names the
+    `createWidgetService` export.
+  - `module-gate` →
+    `evidenceSource: "EvidenceGraph"`, medium
+    confidence, evidence text names the
+    `evaluatePaymentGate` export.
+
+  Aggregate fixture diagnostics shift from
+  `EvidenceGraph: 4 / DetectorDetails: 2` to
+  `EvidenceGraph: 6 / DetectorDetails: 0` against
+  the committed fixtures. Path fallback still
+  fires (with `DetectorDetails` attribution) for
+  repos whose symbol/export names don't match the
+  canonical patterns — confirmed by the v3 contract
+  test's path-fallback scenarios.
+
+  **Contract test:**
+  `tests/contract/factory-module-gate-artifact-evidence.test.mjs`
+  (14 cases) pins:
+  - factory + module-gate EvidenceGraph attribution
+    + symbol-name citation in the evidence string;
+  - path fallback (`DetectorDetails` attribution)
+    when symbol/export names don't match — fixture
+    file source is overwritten in the temp copy so
+    `createWidgetService` becomes `helper`,
+    `evaluatePaymentGate` becomes `handler`;
+  - ObservedRepo branch (`evidenceSource:
+    "ObservedRepo"`, ObservedRepo cited in
+    `inputRefs`) when a synthetic `OwnershipMap` +
+    `ObservedRepo` with `kind: "module"` is seeded;
+  - path-only `/modules/` fallback when artifact
+    + ObservedRepo evidence is missing;
+  - `inputRefs` cite EvidenceGraph / ObservedRepo
+    only when used;
+  - raw `FindingReport` byte-preserved;
+  - lifecycle / adjudication / coherency excludes
+    artifact-backed filtered findings;
+  - `FindingFilterHealthSummary.graphAwareByEvidenceSource`
+    counts correct per scenario;
+  - `rekon artifacts validate` stays clean.
+
+  The v2 fixture contract test
+  (`tests/contract/graph-aware-filter-fixtures-v2.test.mjs`)
+  updated to assert the new EvidenceGraph
+  attribution for the factory + module-gate
+  fixtures (the prior baseline was
+  `DetectorDetails`; the strengthening lifts it
+  to `EvidenceGraph` without changing which
+  findings are filtered).
+
+  Aligned to `infra/validation/GraphOntologyValidator.ts`
+  (intentionally not ported),
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/content-filters.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`. No source reads.
+  No AST. No typechecker. No LLM / semantic /
+  fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No producer
+  migration for import facts. No artifact
+  `schemaVersion` bump. No new artifact type. No
+  new capability role. No new CLI subcommand or
+  flag. No new reason codes. No version bump.
+  No npm publish.
+
+  **Deferred follow-ups:**
+
+  - Per-module `ObservedSystem` projection
+    (`@rekon/capability-model` projector emits
+    `kind: "module"` ObservedSystems for
+    `src/modules/<name>/` roots) — enables branch
+    B of `graphFilterModuleGateVerifiedCaller` to
+    fire from real fixtures.
+  - CapabilityMap `role` field — first-class
+    `role: "factory"` / `role: "module-gate"`
+    declaration.
+  - `evidenceSourceFromGraphArtifacts`
+    CapabilityMap precedence — today
+    CapabilityMap-only matches classify as
+    `DetectorDetails`; a small follow-up could
+    add `CapabilityMap` between `ObservedRepo`
+    and `DetectorDetails` in the precedence
+    chain.
+
+  **Graph-aware fixture coverage operator review v3**
+  is the recommended next slice — re-run the
+  operator review against the post-strengthening
+  attribution profile and decide whether the
+  graph-aware v1 / v2 / v3 arc is complete for
+  alpha.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

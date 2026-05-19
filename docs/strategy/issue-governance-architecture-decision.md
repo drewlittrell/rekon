@@ -919,26 +919,81 @@ review packets unless an ADR promotes them. Promotion requires:
     EvidenceGraph / CapabilityMap / ObservedSystem
     substrate. No filter behavior change, no
     producer change, no schema bump.
-29. **(future)** Factory / module-gate artifact
-    evidence strengthening. Move
-    `factory-file-creates-deps` and
-    `module-gate-verified-caller` from
-    `DetectorDetails` / path fallback toward
-    stronger artifact-backed evidence via
-    `ObservedSystem.kind === "module"` for
-    `/modules/<name>/` roots, CapabilityMap role
-    tags (`role: "factory"`, `role: "module-gate"`),
-    or first-class EvidenceGraph symbol / export
-    facts for factory and gate-evaluator names.
-    Still no source reads, no
-    `GraphOntologyValidator` port, no producer
-    migration for import facts. Likely starts with a
-    strategy memo to pin the projection target,
-    then a small implementation slice that adds the
-    projection + a filter branch that prefers it
-    over path-evidence via existing
-    `evidenceSourceFromGraphArtifacts` precedence.
-30. **(future)** Merge-decision freshness guardrails,
+29. **(shipped)** Factory / module-gate artifact
+    evidence strengthening v1. Combined strategy +
+    implementation batch. The memo
+    ([`docs/strategy/factory-module-gate-evidence-strengthening.md`](factory-module-gate-evidence-strengthening.md))
+    selects **EvidenceGraph symbol/export facts** as
+    the smallest viable projection target and defers
+    ObservedSystem.kind projector population
+    (capability-model projector currently emits
+    first-segment-only owner systems; per-module
+    system synthesis is broad enough churn to defer).
+    Implementation adds a new top-priority branch to
+    each filter:
+    `graphFilterFactoryFileCreatesDeps` (A0:
+    high-confidence when any symbol/export name
+    includes `"Factory"`; medium when name starts
+    with `"create"` AND file path includes
+    `"Factory"` / `"factory"`) and
+    `graphFilterModuleGateVerifiedCaller` (A0:
+    high-confidence when any name includes
+    `"GateEvaluator"`; medium when name matches
+    `/^evaluate.*Gate/`). Both branches set
+    `usedArtifacts: ["EvidenceGraph"]`, which the
+    classifier maps to `evidenceSource:
+    "EvidenceGraph"`. Existing path /
+    ObservedSystem.kind / CapabilityMap branches
+    survive as fallback for repos without artifact
+    coverage. Pinned by
+    `tests/contract/factory-module-gate-artifact-evidence.test.mjs`
+    (14 cases): factory + module-gate EvidenceGraph
+    attribution; evidence-string symbol-name
+    citation; path fallback (`DetectorDetails`) when
+    symbol/export names don't match; ObservedRepo
+    branch (`evidenceSource: "ObservedRepo"`,
+    ObservedRepo cited in `inputRefs`) when a
+    synthetic `OwnershipMap` + `ObservedRepo` with
+    `kind: "module"` is seeded; path fallback when
+    artifact + ObservedRepo evidence is missing;
+    `inputRefs` cite EvidenceGraph / ObservedRepo
+    only when used; raw `FindingReport` byte-preserved;
+    lifecycle / adjudication / coherency excludes;
+    `FindingFilterHealthSummary.graphAwareByEvidenceSource`
+    counts correct per scenario; `artifacts validate`
+    stays clean. The v2 fixture contract test
+    (`tests/contract/graph-aware-filter-fixtures-v2.test.mjs`)
+    updated to assert the new EvidenceGraph
+    attribution for factory + module-gate.
+    Aggregate fixture diagnostics shift from
+    `EvidenceGraph: 4 / DetectorDetails: 2` to
+    `EvidenceGraph: 6 / DetectorDetails: 0`
+    (against the committed fixtures; path fallback
+    still fires for repos with non-canonical
+    symbol/export names). No source reads. No
+    `GraphOntologyValidator` port. No producer
+    migration. No `schemaVersion` bump.
+30. **(future)** Per-module `ObservedSystem`
+    projection + CapabilityMap `role` field — the
+    deferred substrates documented in the
+    factory / module-gate v1 memo. Enables branch B
+    of `graphFilterModuleGateVerifiedCaller` to
+    fire from real fixtures (currently exercised
+    only via synthetic test contexts) and gives
+    capability authors a first-class way to
+    declare role intent. Still no source reads, no
+    `GraphOntologyValidator` port, no import
+    producer migration.
+31. **(future)** Graph-aware fixture coverage
+    operator review v3. Re-run the operator
+    review against the post-strengthening
+    attribution profile (now
+    `EvidenceGraph: 6, DetectorDetails: 0`
+    against the fixtures) and decide whether the
+    graph-aware v1 / v2 / v3 arc is complete for
+    alpha or whether any remaining reason needs
+    further strengthening.
+32. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

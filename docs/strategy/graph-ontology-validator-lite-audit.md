@@ -601,6 +601,20 @@ projections that fit cleanly into the existing
 EvidenceGraph / CapabilityMap / ObservedSystem
 substrate.
 
+**Update:** the
+[factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
+slice took the smallest viable approach — adding
+`EvidenceGraph` symbol/export branches at the top of
+`graphFilterFactoryFileCreatesDeps` and
+`graphFilterModuleGateVerifiedCaller`. The existing
+`ObservedSystem.kind === "module"` branch on the
+module-gate filter is unchanged and remains the future
+entry point for a deferred projector slice that gives
+factory / module-gate files first-class structural
+system evidence. No new artifact type, no monolithic
+port, no source reads — exactly the scope this audit
+endorsed.
+
 ## Cross-References
 
 - [Issue governance ADR](issue-governance-architecture-decision.md)
@@ -612,6 +626,7 @@ substrate.
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)
 - [Graph-aware import evidence operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
 - [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
+- [Factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
 - [Finding filters concept](../concepts/finding-filters.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [Finding filter policy status concept](../concepts/finding-filter-policy-status.md)

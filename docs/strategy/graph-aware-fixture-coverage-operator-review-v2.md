@@ -10,6 +10,16 @@
 > against the now-six-fixture diagnostic surface, and
 > confirms whether **Option C** (helper compatibility now;
 > producer migration deferred) still holds for alpha.
+>
+> **Updated by the
+> [factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
+> implementation slice.** The diagnostic snapshot below
+> records the baseline attribution at `4240ebd`
+> (`EvidenceGraph: 4`, `DetectorDetails: 2`); the
+> follow-up slice strengthens the two `DetectorDetails`
+> reasons to `EvidenceGraph` via symbol/export branches.
+> The v2 review's central recommendation — Option C; no
+> import producer migration — is unchanged.
 
 ## Decision Summary
 
@@ -536,10 +546,20 @@ projection produces a fact.
 
 ## Follow-Up Work
 
-The deterministic graph-aware fixture coverage is now
-complete. The recommended next slice (still strategy /
-docs first, with implementation only after the projection
-target is chosen) is:
+**Factory / module-gate artifact evidence strengthening
+has now shipped.** See the
+[factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
+memo for the implementation slice and the
+[review packet](../../.rekon-dev/review-packets/factory-module-gate-evidence-strengthening.md).
+After that slice landed, all six graph-aware reasons
+that the fixtures exercise now attribute as
+`EvidenceGraph`. The deferred work in that memo
+(ObservedSystem.kind projector population,
+CapabilityMap role field) remains queued for future
+slices.
+
+The original follow-up framing (preserved for
+traceability) was:
 
 > **Factory / module-gate artifact evidence strengthening.**
 >
@@ -594,6 +614,7 @@ should pivot to:
 
 - [Prior operator review](graph-aware-import-evidence-operator-review.md)
 - [Operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
+- [Factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
 - [Import fact subject-shape decision memo](import-fact-subject-shape-decision.md)
 - [GraphOntologyValidator-lite audit](graph-ontology-validator-lite-audit.md)
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)

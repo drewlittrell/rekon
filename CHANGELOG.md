@@ -4,6 +4,96 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped factory / module-gate artifact evidence
+  strengthening v1 (P1.1
+  factory-module-gate-evidence-strengthening slice).
+  Combined strategy + implementation batch — the
+  graph-aware fixture coverage operator review v2's
+  recommended next slice. The memo
+  ([`docs/strategy/factory-module-gate-evidence-strengthening.md`](docs/strategy/factory-module-gate-evidence-strengthening.md))
+  selects **EvidenceGraph symbol/export facts** as
+  the smallest viable projection target (fixtures
+  already emit the right facts via
+  `@rekon/capability-js-ts`); projector-side
+  `ObservedSystem.kind` population is deferred (the
+  capability-model projector currently emits
+  first-segment-only owner systems; per-module
+  system synthesis is broad enough churn to defer).
+
+  **Filter changes:**
+  `graphFilterFactoryFileCreatesDeps` and
+  `graphFilterModuleGateVerifiedCaller` each gain a
+  new top-priority EvidenceGraph branch that
+  consumes `listSymbolsForFile` +
+  `listExportsForFile`. Factory branch: high
+  confidence when any symbol/export name includes
+  `"Factory"`; medium when name starts with
+  `"create"` AND file path includes
+  `"Factory"` / `"factory"`. Module-gate branch:
+  high confidence when any name includes
+  `"GateEvaluator"`; medium when name matches
+  `/^evaluate.*Gate/`. Both branches set
+  `usedArtifacts: ["EvidenceGraph"]` →
+  `evidenceSource: "EvidenceGraph"`. Existing path /
+  CapabilityMap / `ObservedSystem.kind === "module"`
+  branches survive as fallback so repos without
+  artifact coverage continue to filter the same set
+  of findings with `DetectorDetails` /
+  `ObservedRepo` attribution (depending on which
+  fallback fires).
+
+  **Aggregate fixture attribution shifts from
+  `EvidenceGraph: 4 / DetectorDetails: 2` to
+  `EvidenceGraph: 6 / DetectorDetails: 0`** against
+  the committed fixtures
+  (`tests/fixtures/graph-aware-filters/`). The two
+  reasons that the v2 review identified as
+  candidates for evidence strengthening
+  (`factory-file-creates-deps`,
+  `module-gate-verified-caller`) now attribute as
+  `EvidenceGraph` end-to-end. Path fallback still
+  fires for repos with non-canonical symbol/export
+  names — confirmed by the v3 contract test's
+  path-fallback scenarios.
+
+  **Contract test:**
+  `tests/contract/factory-module-gate-artifact-evidence.test.mjs`
+  (14 cases) pins the EvidenceGraph + ObservedRepo +
+  path-fallback scenarios end-to-end with full
+  `inputRefs` precision (EvidenceGraph cited only
+  when used; ObservedRepo cited when the
+  `kind: "module"` branch fires; path-fallback
+  decisions cite neither), evidence-string
+  symbol-name citation, raw `FindingReport`
+  byte-preservation across filter runs, lifecycle /
+  adjudication / coherency exclusion of
+  artifact-backed filtered findings,
+  `FindingFilterHealthSummary.graphAwareByEvidenceSource`
+  count correctness per scenario, and `rekon
+  artifacts validate` cleanliness. The v2 fixture
+  contract test
+  (`tests/contract/graph-aware-filter-fixtures-v2.test.mjs`)
+  is updated in the same diff to assert the new
+  EvidenceGraph attribution for the factory and
+  module-gate fixtures.
+
+  **Deferred:** per-module `ObservedSystem` projection
+  (so branch B of `graphFilterModuleGateVerifiedCaller`
+  fires from real fixtures instead of just synthetic
+  test contexts); CapabilityMap `role` field;
+  `CapabilityMap` precedence in
+  `evidenceSourceFromGraphArtifacts`.
+  **Recommended next slice:** graph-aware fixture
+  coverage operator review v3.
+
+  No source reads. No AST. No typechecker. No LLM /
+  semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No producer
+  migration for import facts. No artifact
+  `schemaVersion` bump. No new artifact type. No
+  new capability role. No new CLI subcommand or
+  flag. No new reason codes. No version bump. No
+  npm publish.
 - Shipped graph-aware fixture coverage operator
   review v2 (P1.1
   graph-aware-fixture-coverage-operator-review-v2

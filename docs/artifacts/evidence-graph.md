@@ -70,24 +70,23 @@ re-confirms Option C against measured data
 (EvidenceGraph: 3 across three fixtures;
 DetectorDetails: 0; ObservedRepo: 0). The
 [v2 review](../strategy/graph-aware-fixture-coverage-operator-review-v2.md)
-re-runs the protocol against the now-six
-deterministic fixtures (the three above plus
-`route-http-middleware-only`, `factory-file`, and
-`module-gate` shipped at `b2f74b8`). Measured
-aggregate diagnostics across the six filtered cases:
-**EvidenceGraph 4, DetectorDetails 2
-(`factory-file-creates-deps` and
-`module-gate-verified-caller`, both currently
-path-evidence-only), ObservedRepo 0; no
-fallback-dominance alert fires.** All four migration
-triggers re-evaluated — none met. **Option C remains
-the alpha decision.** The v2 review additionally
-identifies `factory-file-creates-deps` and
-`module-gate-verified-caller` as the next
-evidence-strengthening candidates (not import
-producer migration) — likely via a role / kind /
-ownership projection at the EvidenceGraph /
-CapabilityMap / ObservedSystem substrate. The
+re-ran the protocol against the now-six deterministic
+fixtures and recorded a baseline of **EvidenceGraph
+4, DetectorDetails 2, ObservedRepo 0**, re-confirmed
+Option C, and identified `factory-file-creates-deps`
+and `module-gate-verified-caller` as the next
+evidence-strengthening candidates. The
+[factory / module-gate evidence strengthening v1](../strategy/factory-module-gate-evidence-strengthening.md)
+implementation slice then added new top-priority
+EvidenceGraph branches to both filters that consume
+`listSymbolsForFile` + `listExportsForFile` against
+canonical factory / gate-evaluator names. **Post-
+strengthening aggregate fixture attribution:
+EvidenceGraph 6, DetectorDetails 0, ObservedRepo 0**
+against the committed fixtures. All path /
+ObservedSystem.kind / CapabilityMap fallback
+branches survive for repos whose symbol/export
+names don't match the canonical patterns. The
 [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
 documents Rekon's stance: keep the legacy producer
 shape, make file-scoped helpers compatibility-aware,

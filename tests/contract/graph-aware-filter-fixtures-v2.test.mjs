@@ -141,21 +141,28 @@ test("fixture 4 (route-http negative): /infra/Database import keeps the finding 
 
 // ---------- Fixture 5: factory-file-creates-deps ----------
 
-test("fixture 5 (factory-file): path-evidence branch fires as factory-file-creates-deps with DetectorDetails attribution", async () => {
+test("fixture 5 (factory-file): EvidenceGraph symbol/export branch fires as factory-file-creates-deps with EvidenceGraph attribution", async () => {
   await withFixtureCopy("factory-file", async ({ root }) => {
     runCli(["refresh", "--root", root, "--json"]);
 
     const graph = await readLatestArtifactJson(root, "EvidenceGraph", "evidence");
     assert.ok(graph, "EvidenceGraph must exist after refresh");
     // Confirm the factory file is in the graph's file
-    // facts; the v2 graph-aware check still uses path
-    // evidence (not file-fact evidence) for its decision.
+    // facts AND that it carries the symbol/export facts
+    // the new v3 EvidenceGraph branch consumes.
     const fileFact = graph.facts.find(
       (fact) =>
         fact.kind === "file"
         && fact.subject === "src/core/services/widgets/WidgetFactory.ts",
     );
     assert.ok(fileFact, "WidgetFactory.ts must appear as a file fact");
+    const exportFact = graph.facts.find(
+      (fact) =>
+        fact.kind === "export"
+        && fact.subject === "src/core/services/widgets/WidgetFactory.ts"
+        && fact.value?.name === "createWidgetService",
+    );
+    assert.ok(exportFact, "createWidgetService must appear as an export fact");
 
     await seedFindingReport(root, graph, [
       {
@@ -173,21 +180,22 @@ test("fixture 5 (factory-file): path-evidence branch fires as factory-file-creat
 
     runCli(["findings", "filter", "--root", root, "--json"]);
     runCli(["findings", "filter-health", "--root", root, "--json"]);
-    // The factory check uses path heuristics (Factory.ts /
-    // factory.ts / core/services/**/init/**). Its decision
-    // sets `usedArtifacts: []`, which the
-    // evidence-source classifier maps to
-    // `DetectorDetails`. The work order specifies that
-    // the test asserts CURRENT attribution accurately and
-    // does NOT force EvidenceGraph attribution where the
-    // current filter design does not use graph evidence.
+    // Factory / module-gate artifact evidence
+    // strengthening v1: the new EvidenceGraph
+    // symbol/export branch fires above the path-evidence
+    // branch when artifact-backed names are present.
+    // `createWidgetService` matches the medium-confidence
+    // pattern (`create*` + file path includes `Factory`),
+    // so the filter attributes the decision to
+    // EvidenceGraph and cites EvidenceGraph in the
+    // FindingFilterReport.header.inputRefs.
     await assertGraphAwareMatch({
       root,
       findingId: "factory-1",
       expectedReason: "factory-file-creates-deps",
-      expectedSource: "DetectorDetails",
-      expectInputRef: false,
-      expectEvidenceText: /path-evidence/i,
+      expectedSource: "EvidenceGraph",
+      expectInputRef: true,
+      expectEvidenceText: /EvidenceGraph symbol\/export facts show factory creator/i,
     });
     await assertLifecycleExcludes(root, "factory-1");
   });
@@ -195,7 +203,7 @@ test("fixture 5 (factory-file): path-evidence branch fires as factory-file-creat
 
 // ---------- Fixture 6: module-gate-verified-caller ----------
 
-test("fixture 6 (module-gate): GateEvaluator path signal fires as module-gate-verified-caller with DetectorDetails attribution", async () => {
+test("fixture 6 (module-gate): EvidenceGraph symbol/export branch fires as module-gate-verified-caller with EvidenceGraph attribution", async () => {
   await withFixtureCopy("module-gate", async ({ root }) => {
     runCli(["refresh", "--root", root, "--json"]);
 
@@ -207,6 +215,13 @@ test("fixture 6 (module-gate): GateEvaluator path signal fires as module-gate-ve
         && fact.subject === "src/modules/payments/PaymentGateEvaluator.ts",
     );
     assert.ok(fileFact, "PaymentGateEvaluator.ts must appear as a file fact");
+    const exportFact = graph.facts.find(
+      (fact) =>
+        fact.kind === "export"
+        && fact.subject === "src/modules/payments/PaymentGateEvaluator.ts"
+        && fact.value?.name === "evaluatePaymentGate",
+    );
+    assert.ok(exportFact, "evaluatePaymentGate must appear as an export fact");
 
     await seedFindingReport(root, graph, [
       {
@@ -224,24 +239,26 @@ test("fixture 6 (module-gate): GateEvaluator path signal fires as module-gate-ve
 
     runCli(["findings", "filter", "--root", root, "--json"]);
     runCli(["findings", "filter-health", "--root", root, "--json"]);
-    // The module-gate check uses path heuristics
-    // (GateEvaluator path or /modules/ path). Its
-    // decision sets `usedArtifacts: []`, which the
-    // evidence-source classifier maps to
-    // `DetectorDetails`. The OwnershipMap + kind="module"
-    // branch (which DOES set `usedArtifacts:
-    // ["OwnershipMap", "ObservedRepo"]`) is exercised by
-    // synthetic test cases in
-    // `graph-aware-finding-filters-v2.test.mjs`; this
-    // fixture pins the GateEvaluator path signal which
-    // is the strongest single signal.
+    // Factory / module-gate artifact evidence
+    // strengthening v1: the new EvidenceGraph
+    // symbol/export branch fires above the GateEvaluator
+    // path signal when artifact-backed names are
+    // present. `evaluatePaymentGate` matches the
+    // medium-confidence pattern (`/^evaluate.*Gate/`),
+    // so the filter attributes the decision to
+    // EvidenceGraph and cites EvidenceGraph in the
+    // FindingFilterReport.header.inputRefs. The
+    // GateEvaluator path-only branch + the
+    // OwnershipMap + kind="module" branch remain
+    // available as fallback (exercised in the v3
+    // contract test).
     await assertGraphAwareMatch({
       root,
       findingId: "modgate-1",
       expectedReason: "module-gate-verified-caller",
-      expectedSource: "DetectorDetails",
-      expectInputRef: false,
-      expectEvidenceText: /GateEvaluator/i,
+      expectedSource: "EvidenceGraph",
+      expectInputRef: true,
+      expectEvidenceText: /EvidenceGraph symbol\/export facts show gate evaluator role/i,
     });
     await assertLifecycleExcludes(root, "modgate-1");
   });

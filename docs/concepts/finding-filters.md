@@ -199,19 +199,26 @@ first):
   (`factory-file-creates-deps`,
   `module-gate-verified-caller`). The
   [graph-aware fixture coverage operator review v2](../strategy/graph-aware-fixture-coverage-operator-review-v2.md)
-  re-runs the operator-review data-gathering protocol
-  against all six fixtures and re-confirms **Option C
+  re-ran the operator-review data-gathering protocol
+  against all six fixtures and re-confirmed **Option C
   for alpha** (helper compatibility now; producer
-  migration deferred): aggregate diagnostics measure
+  migration deferred): baseline diagnostics measured
   `EvidenceGraph` 4 / `DetectorDetails` 2 /
-  `ObservedRepo` 0; no migration trigger met; no
-  fallback-dominance alert fires. The v2 review
-  identifies `factory-file-creates-deps` and
-  `module-gate-verified-caller` as the next
-  evidence-strengthening candidates (likely via a
-  role / kind / ownership projection at the
-  EvidenceGraph / CapabilityMap / ObservedSystem
-  substrate). Each `FilteredFinding` records
+  `ObservedRepo` 0; no migration trigger met. The
+  [factory / module-gate evidence strengthening v1](../strategy/factory-module-gate-evidence-strengthening.md)
+  slice then added EvidenceGraph symbol/export
+  branches at the top of
+  `graphFilterFactoryFileCreatesDeps` and
+  `graphFilterModuleGateVerifiedCaller`; both
+  consume `listSymbolsForFile` + `listExportsForFile`
+  and match canonical factory / gate-evaluator
+  names. **Post-strengthening aggregate fixture
+  attribution: `EvidenceGraph` 6 / `DetectorDetails`
+  0 / `ObservedRepo` 0** against the committed
+  fixtures. Path / ObservedSystem.kind /
+  CapabilityMap fallback branches survive for repos
+  whose symbol/export names don't match the
+  canonical patterns. Each `FilteredFinding` records
   `evidenceSource` (`EvidenceGraph` / `ObservedRepo` /
   `DetectorDetails` / `Policy` / `BuiltIn` /
   `ResultFilter`). Filter-health summarizes the

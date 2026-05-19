@@ -191,22 +191,30 @@ fallback-dominance alert fires. The
 re-runs the protocol against the now-six
 deterministic fixtures (the three above plus
 `route-http-middleware-only`, `factory-file`, and
-`module-gate` shipped at `b2f74b8`). Measured
-aggregate diagnostics across the six filtered cases:
-**EvidenceGraph attribution 4 (the four
-artifact-backed reasons); DetectorDetails 2
-(`factory-file-creates-deps` and
-`module-gate-verified-caller`, both currently
-path-evidence-only); ObservedRepo 0; no
-fallback-dominance alert fires.** All four migration
-triggers re-evaluated — none met. **Option C remains
-the alpha decision.** The v2 review additionally
-identifies `factory-file-creates-deps` and
+`module-gate` shipped at `b2f74b8`). The v2 baseline
+diagnostics were **EvidenceGraph 4, DetectorDetails
+2, ObservedRepo 0**. All four migration triggers
+re-evaluated — none met. **Option C remains the
+alpha decision.** The v2 review identified
+`factory-file-creates-deps` and
 `module-gate-verified-caller` as the next
-evidence-strengthening candidates (not import
-producer migration) — likely via a role / kind /
-ownership projection at the EvidenceGraph /
-CapabilityMap / ObservedSystem substrate.
+evidence-strengthening candidates.
+
+The
+[factory / module-gate evidence strengthening v1](../strategy/factory-module-gate-evidence-strengthening.md)
+implementation slice landed next. Each of those
+two filters gained a new top-priority EvidenceGraph
+branch that consumes `listSymbolsForFile` +
+`listExportsForFile` and matches canonical factory /
+gate-evaluator names (`*Factory`, `create*` +
+factory-path; `*GateEvaluator`, `evaluate*Gate`).
+All existing path / ObservedSystem.kind /
+CapabilityMap branches survive as fallback.
+**Post-strengthening aggregate fixture
+attribution: EvidenceGraph 6, DetectorDetails 0,
+ObservedRepo 0** (against the committed fixtures;
+path fallback still fires for repos with
+non-canonical symbol/export names).
 
 **Regression fixtures.** Six deterministic
 fixtures under `tests/fixtures/graph-aware-filters/`

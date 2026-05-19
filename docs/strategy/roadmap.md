@@ -1106,6 +1106,48 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Factory / module-gate artifact evidence
+  strengthening v1 (P1.1
+  factory-module-gate-evidence-strengthening slice):
+  combined strategy + implementation batch. Memo
+  (`docs/strategy/factory-module-gate-evidence-strengthening.md`)
+  selects EvidenceGraph symbol/export facts as the
+  smallest viable projection target; projector-side
+  `ObservedSystem.kind` population is deferred.
+  Filter-side: `graphFilterFactoryFileCreatesDeps`
+  and `graphFilterModuleGateVerifiedCaller` each
+  gain a new top-priority EvidenceGraph branch that
+  consumes `listSymbolsForFile` + `listExportsForFile`.
+  Factory branch: high confidence when any
+  symbol/export name includes `"Factory"`; medium
+  when name starts with `"create"` AND file path
+  includes `"Factory"` / `"factory"`. Module-gate
+  branch: high confidence when any name includes
+  `"GateEvaluator"`; medium when name matches
+  `/^evaluate.*Gate/`. Both branches set
+  `usedArtifacts: ["EvidenceGraph"]` →
+  `evidenceSource: "EvidenceGraph"`. Existing path /
+  CapabilityMap / `ObservedSystem.kind="module"`
+  branches survive as fallback. Aggregate fixture
+  attribution shifts from
+  `EvidenceGraph: 4 / DetectorDetails: 2` to
+  `EvidenceGraph: 6 / DetectorDetails: 0` against
+  the committed fixtures (path fallback still fires
+  for repos with non-canonical symbol/export names).
+  Pinned by
+  `tests/contract/factory-module-gate-artifact-evidence.test.mjs`
+  (14 cases) covering EvidenceGraph + ObservedRepo +
+  path-fallback scenarios end-to-end with full
+  `inputRefs` precision and raw-FindingReport
+  preservation. v2 fixture contract test updated to
+  assert the new EvidenceGraph attribution. No
+  source reads. No AST. No typechecker. No LLM /
+  semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No producer
+  migration. No artifact `schemaVersion` bump. No
+  new artifact type. No new capability role. No new
+  CLI subcommand or flag. No new reason codes. No
+  version bump. No npm publish.
 - Graph-aware fixture coverage operator review v2
   (P1.1 graph-aware-fixture-coverage-operator-review-v2
   slice): strategy / docs / test batch only — no

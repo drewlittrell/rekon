@@ -4586,6 +4586,26 @@ function graphFilterFactoryFileCreatesDeps(
   if (!finding.ruleId || !FACTORY_GRAPH_RULE_IDS.has(finding.ruleId)) return null;
   const file = firstFile(finding) ?? "";
 
+  // A0. EvidenceGraph symbol/export evidence (factory /
+  //     module-gate artifact evidence strengthening v1).
+  //     Preferred over path / CapabilityMap evidence so
+  //     the audit credits the strongest available source.
+  //     Falls through when no symbol/export fact for the
+  //     file expresses factory role; existing branches
+  //     remain authoritative for repos without
+  //     EvidenceGraph coverage or with non-canonical
+  //     factory naming.
+  const factoryArtifact = factoryArtifactEvidenceForFile(ctx, file);
+  if (factoryArtifact) {
+    return {
+      reason: "factory-file-creates-deps",
+      evidence: factoryArtifact.evidence,
+      filePath: file,
+      confidence: factoryArtifact.confidence,
+      usedArtifacts: ["EvidenceGraph"],
+    };
+  }
+
   const isFactoryPath
     = file.includes("Factory.ts")
     || file.includes("factory.ts")
@@ -4612,6 +4632,54 @@ function graphFilterFactoryFileCreatesDeps(
     };
   }
 
+  return null;
+}
+
+/**
+ * Returns EvidenceGraph-backed factory evidence for
+ * `file` when its symbol/export facts express a factory
+ * role; otherwise `null`. (Factory / module-gate artifact
+ * evidence strengthening v1.)
+ *
+ *   - High confidence: any symbol/export name includes
+ *     `"Factory"` (e.g. `WidgetFactory`,
+ *     `FooFactoryImpl`).
+ *   - Medium confidence: any symbol/export name starts
+ *     with `"create"` AND the file path includes
+ *     `"Factory"` / `"factory"` (the cross-signal
+ *     guard prevents every `create*` function from
+ *     being treated as a factory).
+ *
+ * Symbol and export facts are combined into a single
+ * name set: either fact kind is sufficient. Returns
+ * `null` when no `EvidenceGraph` is present, no facts
+ * exist for the file, or no matching name is found.
+ */
+function factoryArtifactEvidenceForFile(
+  ctx: FindingGraphFilterContext,
+  file: string,
+): { evidence: string; confidence: FindingFilterConfidence } | null {
+  if (!file) return null;
+  const names = collectSymbolExportNames(ctx, file);
+  if (names.size === 0) return null;
+  const factoryNamed = pickName(names, (name) => name.includes("Factory"));
+  if (factoryNamed) {
+    return {
+      evidence:
+        `EvidenceGraph symbol/export facts show factory role in '${file}': ${factoryNamed}.`,
+      confidence: "high",
+    };
+  }
+  if (file.includes("Factory") || file.includes("factory")) {
+    const createNamed = pickName(names, (name) => name.startsWith("create"));
+    if (createNamed) {
+      return {
+        evidence:
+          `EvidenceGraph symbol/export facts show factory creator in '${file}': ${createNamed}.`,
+        confidence: "medium",
+      };
+    }
+  }
   return null;
 }
 
@@ -4648,7 +4716,28 @@ function graphFilterModuleGateVerifiedCaller(
   if (!finding.ruleId || !MODULE_GATE_GRAPH_RULE_IDS.has(finding.ruleId)) return null;
   const file = firstFile(finding) ?? "";
 
-  // A. Strongest: GateEvaluator path is structural truth.
+  // A0. EvidenceGraph symbol/export evidence (factory /
+  //     module-gate artifact evidence strengthening v1).
+  //     Preferred over path-only / structural-system
+  //     signals so the audit credits the strongest
+  //     available source. Falls through when no
+  //     symbol/export fact for the file expresses gate
+  //     evaluator role.
+  const gateArtifact = gateEvaluatorArtifactEvidenceForFile(ctx, file);
+  if (gateArtifact) {
+    return {
+      reason: "module-gate-verified-caller",
+      evidence: gateArtifact.evidence,
+      filePath: file,
+      confidence: gateArtifact.confidence,
+      usedArtifacts: ["EvidenceGraph"],
+    };
+  }
+
+  // A. Strongest path-only signal: GateEvaluator path
+  //    structural truth. Fires when artifact evidence
+  //    didn't (e.g. EvidenceGraph missing or symbol
+  //    names don't match the canonical pattern).
   if (file.includes("GateEvaluator")) {
     return {
       reason: "module-gate-verified-caller",
@@ -4690,6 +4779,89 @@ function graphFilterModuleGateVerifiedCaller(
   }
 
   return null;
+}
+
+/**
+ * Returns EvidenceGraph-backed gate-evaluator evidence
+ * for `file` when its symbol/export facts express a
+ * gate-evaluator role; otherwise `null`. (Factory /
+ * module-gate artifact evidence strengthening v1.)
+ *
+ *   - High confidence: any symbol/export name includes
+ *     `"GateEvaluator"` (e.g. `PaymentGateEvaluator`).
+ *   - Medium confidence: any symbol/export name matches
+ *     `/^evaluate.*Gate/` (`evaluatePaymentGate`,
+ *     `evaluateFeatureGate`, etc.).
+ *
+ * Symbol and export facts are combined into a single
+ * name set: either fact kind is sufficient. Returns
+ * `null` when no `EvidenceGraph` is present, no facts
+ * exist for the file, or no matching name is found.
+ */
+function gateEvaluatorArtifactEvidenceForFile(
+  ctx: FindingGraphFilterContext,
+  file: string,
+): { evidence: string; confidence: FindingFilterConfidence } | null {
+  if (!file) return null;
+  const names = collectSymbolExportNames(ctx, file);
+  if (names.size === 0) return null;
+  const gateEvaluatorNamed = pickName(names, (name) => name.includes("GateEvaluator"));
+  if (gateEvaluatorNamed) {
+    return {
+      evidence:
+        `EvidenceGraph symbol/export facts show gate evaluator role in '${file}': ${gateEvaluatorNamed}.`,
+      confidence: "high",
+    };
+  }
+  const evaluateGateNamed = pickName(names, (name) => /^evaluate.*Gate/.test(name));
+  if (evaluateGateNamed) {
+    return {
+      evidence:
+        `EvidenceGraph symbol/export facts show gate evaluator role in '${file}': ${evaluateGateNamed}.`,
+      confidence: "medium",
+    };
+  }
+  return null;
+}
+
+/**
+ * Combine `EvidenceGraph` symbol + export facts for
+ * `file` into a single deduped name set. Used by the
+ * factory / module-gate artifact-evidence helpers so
+ * either fact kind is sufficient. (Factory / module-gate
+ * artifact evidence strengthening v1.)
+ */
+function collectSymbolExportNames(
+  ctx: FindingGraphFilterContext,
+  file: string,
+): Set<string> {
+  const names = new Set<string>();
+  for (const summary of listSymbolsForFile(ctx, file)) {
+    if (summary.name.length > 0) names.add(summary.name);
+  }
+  for (const summary of listExportsForFile(ctx, file)) {
+    if (summary.name.length > 0) names.add(summary.name);
+  }
+  return names;
+}
+
+/**
+ * Return the lexicographically smallest name in `names`
+ * that matches `predicate`, or `null`. Deterministic
+ * tiebreak so evidence strings are stable across runs
+ * regardless of fact-iteration order. (Factory /
+ * module-gate artifact evidence strengthening v1.)
+ */
+function pickName(
+  names: Iterable<string>,
+  predicate: (name: string) => boolean,
+): string | null {
+  let pick: string | null = null;
+  for (const name of names) {
+    if (!predicate(name)) continue;
+    if (pick === null || name < pick) pick = name;
+  }
+  return pick;
 }
 
 /**

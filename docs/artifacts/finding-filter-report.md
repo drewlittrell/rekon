@@ -348,13 +348,32 @@ reason codes were introduced:
   `details.imports` array. Filters only when no
   `openai` / `openrouter` / `@openai/*` import appears.
   Evidence string names the source.
-- `factory-file-creates-deps` — path heuristics or
-  `CapabilityMap` entries.
-- `module-gate-verified-caller` — strongest:
-  `GateEvaluator` path (high). Then v2 prefers
-  `OwnershipMap` + `ObservedSystem.kind === "module"`
-  (medium) over the bare `/modules/` path heuristic
-  (medium, fallback only).
+- `factory-file-creates-deps` *(strengthened v1)* —
+  strongest: `EvidenceGraph` symbol/export facts via
+  `listSymbolsForFile` + `listExportsForFile` (high
+  when any name includes `"Factory"`; medium when
+  any name starts with `"create"` AND the file path
+  includes `"Factory"` / `"factory"`);
+  `usedArtifacts: ["EvidenceGraph"]`. Then path
+  heuristics (`Factory.ts` / `factory.ts` /
+  `core/services/**/init/**`, high,
+  `usedArtifacts: []` → `DetectorDetails`). Then
+  `CapabilityMap` entries (medium,
+  `usedArtifacts: ["CapabilityMap"]`).
+- `module-gate-verified-caller` *(strengthened v1)* —
+  strongest: `EvidenceGraph` symbol/export facts via
+  `listSymbolsForFile` + `listExportsForFile` (high
+  when any name includes `"GateEvaluator"`; medium
+  when any name matches `/^evaluate.*Gate/`);
+  `usedArtifacts: ["EvidenceGraph"]`. Then
+  `GateEvaluator` path (high,
+  `usedArtifacts: []` → `DetectorDetails`). Then
+  v2's `OwnershipMap` + `ObservedSystem.kind ===
+  "module"` (medium,
+  `usedArtifacts: ["OwnershipMap", "ObservedRepo"]`
+  → `ObservedRepo`). Then bare `/modules/` path
+  heuristic (medium, fallback only,
+  `usedArtifacts: []` → `DetectorDetails`).
 - `nextjs-route-convention` *(v3)* — consumes
   `EvidenceGraph` export facts via `listExportsForFile`.
   When facts exist for a `route.ts` file, every
@@ -435,6 +454,8 @@ between `evaluate` and `findings.lifecycle`.
 ## Cross-References
 
 - [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+- [Graph-aware fixture coverage operator review v2](../strategy/graph-aware-fixture-coverage-operator-review-v2.md)
+- [Factory / module-gate evidence strengthening](../strategy/factory-module-gate-evidence-strengthening.md)
 - [Finding filters concept](../concepts/finding-filters.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [FindingReport](finding-report.md)

@@ -290,6 +290,8 @@ via `rekon findings filter-health` or
 ## Cross-References
 
 - [Issue governance architecture decision](../strategy/issue-governance-architecture-decision.md)
+- [Graph-aware fixture coverage operator review v2](../strategy/graph-aware-fixture-coverage-operator-review-v2.md)
+- [Factory / module-gate evidence strengthening](../strategy/factory-module-gate-evidence-strengthening.md)
 - [Finding filters concept](../concepts/finding-filters.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [FindingFilterReport](finding-filter-report.md)
