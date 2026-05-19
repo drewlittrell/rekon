@@ -4,6 +4,136 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware filtering fixture expansion (P1.1
+  graph-aware-filter-fixtures slice). Adds three
+  deterministic regression fixtures under
+  `tests/fixtures/graph-aware-filters/` and a contract
+  test that proves the EvidenceGraph-backed graph-aware
+  filter branches fire end-to-end against real source
+  files (not synthetic graph data).
+
+  **Fixtures added:**
+  - `route-handler/` — `src/api/widgets/route.ts`
+    imports `./handler` plus a sibling
+    `handler.ts`. Drives the EvidenceGraph import
+    branch of `route-handler-with-service` (legacy
+    `subject = "<file>:<target>"` shape; works because
+    the compatibility-aware `listImportTargetsForFile`
+    handles both shapes).
+  - `external-comment/` — `src/api/util.ts` imports
+    `leftpad` only (no openai / openrouter / @openai/*
+    SDK). Drives the EvidenceGraph branch of
+    `external-api-comment-only`. The comment-only
+    "openai" docstring proves the rule fires on
+    description-mentions and is correctly suppressed
+    when graph evidence shows no SDK import.
+  - `nextjs-route/` — `src/app/api/route.ts` exports
+    `GET` handler plus segment-config exports
+    `runtime` and `dynamic`. Drives the EvidenceGraph
+    export-facts branch of `nextjs-route-convention`
+    (the v3 substrate-backed check).
+
+  **Contract test:**
+  `tests/contract/graph-aware-filter-fixtures.test.mjs`
+  copies each fixture to a `mkdtemp` tmpdir
+  (committed fixtures are never mutated), runs
+  `rekon refresh`, asserts the produced
+  `EvidenceGraph` contains the expected import or
+  export facts, seeds a synthetic `FindingReport`
+  whose `header.inputRefs` cites the latest
+  EvidenceGraph, runs `rekon findings filter` +
+  `rekon findings filter-health`, and asserts:
+  - The expected graph-aware reason fires.
+  - `FilteredFinding.evidenceSource === "EvidenceGraph"`.
+  - Evidence string mentions `EvidenceGraph`.
+  - `FindingFilterReport.header.inputRefs` includes
+    `EvidenceGraph`.
+  - Raw `FindingReport` still contains the finding
+    (artifact-first invariant: filters never mutate
+    the raw report).
+  - `FindingFilterHealthSummary.graphAwareByEvidenceSource.EvidenceGraph >= 1`.
+  - `FindingFilterHealthSummary.graphAwareReasonEvidenceSources[reason].EvidenceGraph >= 1`.
+  - Lifecycle / adjudication / coherency exclude the
+    graph-filtered finding.
+  - `rekon artifacts validate` returns
+    `{ valid: true, issues: [] }`.
+
+  A separate publications test runs the route-handler
+  fixture through `publish architecture` +
+  `publish agent-contract` and asserts both surfaces
+  render EvidenceGraph attribution (the architecture
+  summary's `### Graph-Aware Evidence Sources` section
+  with an `EvidenceGraph` row; the agent contract's
+  compact `Graph-aware evidence sources:` list). This
+  proves the fixture-driven evidence reaches the
+  user-facing publication surfaces end-to-end.
+
+  An `artifacts validate` smoke test runs against all
+  three fixtures to verify each refresh produces a
+  clean artifact set.
+
+  **Regression fixtures only — NOT user-facing
+  examples.** The fixtures live under
+  `tests/fixtures/`, not `examples/`. They are sized
+  to be small, deterministic, regeneration-friendly
+  via `rekon refresh`, and useful for catching
+  regressions in the producer (`@rekon/capability-js-ts`),
+  the helper layer
+  (`@rekon/kernel-findings.listImportTargetsForFile`,
+  `listExportsForFile`), or the graph-aware filter
+  checks themselves. They do not demonstrate
+  Rekon's capabilities to end users.
+
+  **Operator-review followthrough.** The
+  [graph-aware import evidence operator review](docs/strategy/graph-aware-import-evidence-operator-review.md)
+  (shipped at `2d6dc50`) recorded that no available
+  local fixture exercised the EvidenceGraph branches
+  of any graph-aware filter, leaving the
+  evidence-source diagnostic surface untested
+  end-to-end at the publication layer. This slice
+  closes that gap. A future operator-review refresh
+  can consume real source-driven distributions from
+  these fixtures rather than concluding "data sparse"
+  on architectural reasoning alone.
+
+  Implements step 25 of the issue governance ADR
+  (flipped from `(future)` to `(shipped)`); step 26
+  reserved for the operator-review refresh.
+
+  Strategy docs updated:
+  `docs/strategy/graph-aware-import-evidence-operator-review.md`
+  (Follow-Up Work section adds a "Fixture expansion
+  status: shipped" paragraph);
+  `docs/concepts/graph-aware-finding-filters.md` (new
+  "Regression fixtures" paragraph naming the three
+  fixtures and the contract test);
+  `docs/concepts/finding-filters.md` (graph-aware
+  bullet annotated with the fixtures);
+  `docs/strategy/issue-governance-architecture-decision.md`
+  (step 25 flipped to shipped; step 26 reserved for
+  operator-review refresh);
+  `docs/strategy/classic-behavior-roadmap.md` and
+  `docs/strategy/roadmap.md` (new entries).
+
+  Aligned to `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/filter-health.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`. Full suite: 839
+  passed / 1 skipped / 0 failed. No filter behavior
+  change. No producer change. No helper change. No
+  artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI subcommand
+  or flag. No new reason codes. No source-file reads
+  at filter time. No AST, no type checker. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump. No
+  npm publish.
+
+  Graph-aware import evidence operator review refresh
+  is the recommended next slice.
+
 - Shipped graph-aware import evidence operator review
   (P1.1 graph-aware-import-evidence-operator-review
   slice). Strategy-only batch — no runtime behavior

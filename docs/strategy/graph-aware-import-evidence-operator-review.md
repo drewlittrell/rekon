@@ -405,10 +405,10 @@ implementation remains canonical.
 
 ## Follow-Up Work
 
-The recommended next implementation slice is *not*
-producer migration. It is fixture expansion so the new
-diagnostic surfaces have useful real data during
-development:
+The recommended next implementation slice (which has
+since **shipped**) is *not* producer migration. It is
+fixture expansion so the new diagnostic surfaces have
+useful real data during development:
 
 > **Graph-aware filtering fixture expansion.**
 >
@@ -433,6 +433,33 @@ materially richer once the fixture-expansion slice
 lands; the next time a producer-migration question
 arises, the memo can review actual evidence-source
 distributions rather than synthetic test data.
+
+**Fixture expansion status:** shipped. Three
+deterministic fixtures live under
+`tests/fixtures/graph-aware-filters/`
+(`route-handler`, `external-comment`,
+`nextjs-route`). Each fixture is a small JS/TS
+source tree that `rekon refresh` projects into an
+`EvidenceGraph` carrying the expected import / export
+facts; a seeded `FindingReport` then drives the
+graph-aware filter pipeline so the EvidenceGraph
+branch fires with `evidenceSource: "EvidenceGraph"`.
+The contract test
+`tests/contract/graph-aware-filter-fixtures.test.mjs`
+pins this end-to-end and also asserts that the
+architecture-summary and agent-contract publications
+surface the EvidenceGraph attribution. Tests use
+temp copies so committed fixtures are never mutated.
+These are regression fixtures, not user-facing
+examples — they live under `tests/fixtures/`, not
+`examples/`.
+
+A future operator review can re-run this memo's
+data-gathering commands against the fixture
+directories (after temp-copying + refresh) and
+record actual `graphAwareByEvidenceSource` /
+`graphAwareReasonEvidenceSources` distributions
+backed by real source-driven EvidenceGraph data.
 
 Other future work documented elsewhere remains queued:
 

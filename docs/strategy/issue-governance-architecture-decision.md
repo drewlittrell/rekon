@@ -781,20 +781,49 @@ review packets unless an ADR promotes them. Promotion requires:
     diagnostic surface with real EvidenceGraph-backed
     matches so the next operator review has richer
     data to consume.
-25. **(future)** Graph-aware filtering fixture
-    expansion. Deterministic fixtures under
-    `examples/` or `tests/fixtures/` that produce
-    EvidenceGraph-backed graph-aware filter matches:
-    a route + handler sibling pair firing
-    `route-handler-with-service`; an external-API
-    finding with no SDK import firing
-    `external-api-comment-only`; a Next.js route file
-    with segment-config exports firing
-    `nextjs-route-convention`. Bounded, regeneration-
-    friendly via `rekon refresh`. Validates that the
-    diagnostic surface shipped at `499d096` carries
-    real data end-to-end.
-26. **(future)** Merge-decision freshness guardrails,
+25. **(shipped)** Graph-aware filtering fixture
+    expansion. Three deterministic regression
+    fixtures under
+    `tests/fixtures/graph-aware-filters/`
+    (`route-handler`, `external-comment`,
+    `nextjs-route`) exercise the EvidenceGraph
+    branches of `route-handler-with-service`,
+    `external-api-comment-only`, and
+    `nextjs-route-convention` end-to-end. Each
+    fixture is a small JS/TS source tree that
+    `rekon refresh` projects into an
+    `EvidenceGraph` with the expected import / export
+    facts; the contract test
+    `tests/contract/graph-aware-filter-fixtures.test.mjs`
+    copies each fixture to a tmpdir (committed
+    fixtures stay untouched), seeds a synthetic
+    `FindingReport` whose `header.inputRefs` cites
+    the latest EvidenceGraph, runs
+    `findings filter` + `findings filter-health`, and
+    pins: the expected reason fires, evidence string
+    mentions EvidenceGraph,
+    `FilteredFinding.evidenceSource === "EvidenceGraph"`,
+    `FindingFilterReport.header.inputRefs` includes
+    EvidenceGraph, raw `FindingReport` still contains
+    the finding,
+    `FindingFilterHealthSummary.graphAwareByEvidenceSource.EvidenceGraph >= 1`,
+    `FindingFilterHealthSummary.graphAwareReasonEvidenceSources[reason].EvidenceGraph >= 1`,
+    `rekon artifacts validate` stays clean, lifecycle
+    / adjudication / coherency exclude the
+    graph-filtered finding, and end-to-end
+    architecture summary + agent contract
+    publications surface EvidenceGraph attribution.
+    The fixtures are regression data, not product
+    examples (they live under `tests/fixtures/`, not
+    `examples/`). No filter behavior change, no
+    producer change, no schema bump.
+26. **(future)** Graph-aware import evidence operator
+    review refresh. Rerun the operator review now
+    that local evidence is no longer sparse; confirm
+    Option C still holds or identify whether any
+    migration trigger has changed. Strategy memo
+    only.
+27. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

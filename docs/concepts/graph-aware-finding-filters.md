@@ -181,6 +181,29 @@ documented in the
 [import-fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
 fires.
 
+**Regression fixtures.** Three deterministic
+fixtures under `tests/fixtures/graph-aware-filters/`
+(`route-handler`, `external-comment`,
+`nextjs-route`) exercise the EvidenceGraph branches
+of `route-handler-with-service`,
+`external-api-comment-only`, and
+`nextjs-route-convention` end-to-end. Each fixture
+is a small JS/TS source tree that `rekon refresh`
+projects into an EvidenceGraph; the test seeds a
+synthetic `FindingReport` and runs the filter
+pipeline. The contract test
+`tests/contract/graph-aware-filter-fixtures.test.mjs`
+pins `evidenceSource: "EvidenceGraph"` on every
+matched finding, EvidenceGraph citation in
+`FindingFilterReport.header.inputRefs`,
+EvidenceGraph attribution in
+`FindingFilterHealthSummary.graphAwareByEvidenceSource`,
+and end-to-end rendering of the EvidenceGraph
+diagnostic surface in the architecture summary +
+agent contract publications. These fixtures are
+regression data, not product examples — they live
+under `tests/fixtures/`, not `examples/`.
+
 **`evidenceSource` per-FilteredFinding attribution.**
 The graph-aware import evidence publication
 diagnostics slice adds an additive optional

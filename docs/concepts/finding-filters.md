@@ -181,11 +181,17 @@ first):
   remain auditable; they are **not** silently deleted. See
   "Classic Result Filters" below.
 - **Graph-aware filters (v1 + v2 + v3 + v4 +
-  publication diagnostics)** — deterministic structural
-  checks that consume Rekon artifacts (`ObservedRepo`,
-  `OwnershipMap`, `CapabilityMap`, `EvidenceGraph`,
-  `GraphSlice`) to suppress findings backed by
-  structural evidence. Each `FilteredFinding` records
+  publication diagnostics + regression fixtures)** —
+  deterministic structural checks that consume Rekon
+  artifacts (`ObservedRepo`, `OwnershipMap`,
+  `CapabilityMap`, `EvidenceGraph`, `GraphSlice`) to
+  suppress findings backed by structural evidence.
+  Three regression fixtures under
+  `tests/fixtures/graph-aware-filters/` pin
+  end-to-end behavior of the EvidenceGraph branches of
+  `route-handler-with-service`,
+  `external-api-comment-only`, and
+  `nextjs-route-convention`. Each `FilteredFinding` records
   `evidenceSource` (`EvidenceGraph` / `ObservedRepo` /
   `DetectorDetails` / `Policy` / `BuiltIn` /
   `ResultFilter`). Filter-health summarizes the

@@ -1965,9 +1965,95 @@ scope:
   matching. No `GraphOntologyValidator` port. No
   version bump. No npm publish.
 
-  Graph-aware filtering fixture expansion is the
-  recommended next slice (per the memo + the
-  follow-up section of the issue governance ADR).
+  Graph-aware filtering fixture expansion (per the
+  memo + the follow-up section of the issue
+  governance ADR) shipped next; see the entry below.
+- **Graph-aware filtering fixture expansion (P1.1
+  graph-aware-filter-fixtures slice).** ✅ Shipped.
+  Three deterministic regression fixtures under
+  `tests/fixtures/graph-aware-filters/`:
+  - `route-handler/` — `route.ts` imports `./handler`
+    plus a sibling `handler.ts`. Drives the
+    EvidenceGraph import branch of
+    `route-handler-with-service` (the legacy
+    `subject = "<file>:<target>"` shape, surfaced
+    correctly by the compatibility-aware
+    `listImportTargetsForFile`).
+  - `external-comment/` — `util.ts` imports
+    `leftpad` only (no openai/openrouter/@openai/*
+    SDK), and mentions "openai" in a comment-only
+    docstring. Drives the EvidenceGraph branch of
+    `external-api-comment-only`.
+  - `nextjs-route/` — `route.ts` exports `GET`
+    handler plus segment-config exports `runtime`
+    and `dynamic`. Drives the EvidenceGraph
+    export-facts branch of
+    `nextjs-route-convention` (the v3 substrate-
+    backed check).
+
+  **Contract test:**
+  `tests/contract/graph-aware-filter-fixtures.test.mjs`
+  copies each fixture to a `mkdtemp` tmpdir
+  (committed fixtures are never mutated), runs
+  `rekon refresh`, asserts the produced
+  `EvidenceGraph` contains the expected import /
+  export facts, seeds a synthetic `FindingReport`
+  whose `header.inputRefs` cites the latest
+  EvidenceGraph, runs
+  `findings filter` + `findings filter-health`, and
+  pins:
+  - The expected graph-aware reason fires
+    (`route-handler-with-service` /
+    `external-api-comment-only` /
+    `nextjs-route-convention`).
+  - `FilteredFinding.evidenceSource === "EvidenceGraph"`.
+  - Evidence string mentions `EvidenceGraph`.
+  - `FindingFilterReport.header.inputRefs` includes
+    `EvidenceGraph`.
+  - Raw `FindingReport` still contains the finding
+    (artifact-first invariant).
+  - `FindingFilterHealthSummary.graphAwareByEvidenceSource.EvidenceGraph >= 1`.
+  - `FindingFilterHealthSummary.graphAwareReasonEvidenceSources[reason].EvidenceGraph >= 1`.
+  - Lifecycle / adjudication / coherency exclude the
+    graph-filtered finding.
+  - `rekon artifacts validate` returns
+    `{ valid: true, issues: [] }`.
+
+  A separate "publications" test exercises the
+  route-handler fixture through the architecture
+  summary + agent contract publishers and asserts
+  both render the `Graph-Aware Evidence Sources`
+  surface (and the agent contract's
+  `Graph-aware evidence sources:` list) with
+  `EvidenceGraph` attribution. This proves the
+  fixture-driven evidence reaches the user-facing
+  publication surfaces.
+
+  Aligned to `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/filter-health.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`. **Regression
+  fixtures only — these are NOT user-facing
+  examples.** They live under `tests/fixtures/`, not
+  `examples/`. No filter behavior change. No
+  producer change. No helper change. No artifact
+  `schemaVersion` bump. No new artifact type. No
+  new capability role. No new CLI subcommand or
+  flag. No new reason codes. No source-file reads
+  at filter time. No AST, no type checker. No LLM
+  / semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No version bump.
+  No npm publish. Full suite: 839 passed / 1
+  skipped / 0 failed.
+
+  **Graph-aware import evidence operator review
+  refresh** (rerun the prior operator review now
+  that local evidence is no longer sparse; confirm
+  Option C still holds or identify whether any
+  migration trigger has changed) is the recommended
+  next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional
