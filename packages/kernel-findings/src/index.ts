@@ -1401,6 +1401,22 @@ export type ApplyFindingFiltersOptions = {
    * silently deleted.
    */
   resultFilters?: FindingResultFilterOptions;
+  /**
+   * Optional graph-aware filter context (P1.1
+   * graph-aware-finding-filter-provider v1). Lets the pipeline
+   * suppress findings using artifact-backed structural evidence
+   * (`ObservedRepo.files` sibling lookups, `EvidenceGraph`
+   * import facts, `OwnershipMap` / `CapabilityMap` /
+   * `ObservedSystem.kind`). Graph-aware filters run between
+   * the classic content filters and the broad built-in path
+   * heuristics; when `graphContext` is missing or its
+   * artifacts are empty, the stage is a no-op and the
+   * pipeline behaves exactly like before. Filtered findings
+   * are recorded with `source: "system"` and a reason from
+   * the existing v2 content reason set — no new reason codes.
+   * See `docs/concepts/graph-aware-finding-filters.md`.
+   */
+  graphContext?: FindingGraphFilterContext;
 };
 
 export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFindingFiltersResult {
@@ -1418,6 +1434,16 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
   }
 
   const resultFilters = input.resultFilters;
+  const graphContext = input.graphContext;
+  const graphContextActive
+    = Boolean(graphContext)
+    && (
+      Boolean(graphContext?.evidenceGraph)
+      || Boolean(graphContext?.observedRepo)
+      || Boolean(graphContext?.ownershipMap)
+      || Boolean(graphContext?.capabilityMap)
+      || (Array.isArray(graphContext?.graphSlices) && graphContext.graphSlices.length > 0)
+    );
 
   for (const finding of input.findings ?? []) {
     // 1. Policy filters run first; the first match wins.
@@ -1441,11 +1467,26 @@ export function applyFindingFilters(input: ApplyFindingFiltersOptions): ApplyFin
         };
       }
     }
-    // 3. Built-in path / content filters (generated/external/test/canary).
+    // 3. Graph-aware filters (P1.1 graph-aware-finding-filter-provider v1).
+    //    Strengthens the classic content layer with
+    //    artifact-backed structural confirmation. No-op when
+    //    `graphContext` is absent or its artifacts are empty.
+    if (!match && graphContextActive && graphContext) {
+      const decision = applyFindingGraphFilters({ finding, graphContext });
+      if (decision) {
+        match = {
+          reason: decision.reason,
+          evidence: decision.evidence,
+          filePath: decision.filePath,
+          confidence: decision.confidence,
+        };
+      }
+    }
+    // 4. Built-in path / content filters (generated/external/test/canary).
     if (!match) {
       match = findBestFilterMatch(finding);
     }
-    // 4. Operator-configured result filters (minConfidence /
+    // 5. Operator-configured result filters (minConfidence /
     //    severity / systems / pathExcludes).
     if (!match && resultFilters) {
       const decision = applyFindingResultFilters(finding, resultFilters);
@@ -3377,6 +3418,408 @@ export function planFindingFilterPolicyApply(
     isDuplicateRuleId,
     isBroadPattern,
   };
+}
+
+// ---------- Graph-aware finding filters (v1) ----------
+//
+// Pure deterministic provider that consumes Rekon artifacts
+// (`ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
+// `EvidenceGraph`, `GraphSlice`) and contributes structural
+// filter decisions to `applyFindingFilters`. No source-file
+// reads. No LLM, semantic, fuzzy, or embedding matching. No
+// new reason codes — every match reuses an existing v2
+// content reason (see
+// `docs/strategy/graph-ontology-validator-lite-audit.md`).
+//
+// This is the "lite" companion to classic
+// `GraphOntologyValidator` named by the audit. The audit
+// explicitly rejects porting the monolithic validator;
+// instead we ship five candidate checks here that
+// strengthen the existing v2 content filters by adding
+// artifact-backed confirmation when the upstream detector
+// did not surface a `details` payload.
+//
+// Structural "Like" types let the kernel stay free of
+// `@rekon/kernel-repo-model` / `@rekon/kernel-evidence` /
+// `@rekon/kernel-graph` runtime deps; callers can pass the
+// real artifacts directly because the field shapes match.
+
+export type ObservedRepoLike = {
+  /** Sorted, repo-relative file index. */
+  files?: ReadonlyArray<string>;
+  /** Observed systems with optional `kind`. */
+  systems?: ReadonlyArray<{
+    id: string;
+    paths?: ReadonlyArray<string>;
+    kind?: string;
+  }>;
+};
+
+export type OwnershipMapLike = {
+  entries?: ReadonlyArray<{
+    path: string;
+    ownerSystem: string;
+  }>;
+};
+
+export type CapabilityMapLike = {
+  entries?: ReadonlyArray<{
+    capability: string;
+    subjects?: ReadonlyArray<string>;
+    systems?: ReadonlyArray<string>;
+  }>;
+};
+
+export type EvidenceFactLike = {
+  kind: string;
+  subject: string;
+  value?: Record<string, unknown>;
+};
+
+export type EvidenceGraphLike = {
+  facts?: ReadonlyArray<EvidenceFactLike>;
+};
+
+export type GraphSliceLike = {
+  producer?: string;
+  edges?: ReadonlyArray<{
+    source: string;
+    target: string;
+    kind: string;
+  }>;
+};
+
+export type FindingGraphFilterContext = {
+  evidenceGraph?: EvidenceGraphLike;
+  observedRepo?: ObservedRepoLike;
+  ownershipMap?: OwnershipMapLike;
+  capabilityMap?: CapabilityMapLike;
+  graphSlices?: ReadonlyArray<GraphSliceLike>;
+};
+
+export type FindingGraphFilterDecision = {
+  reason: FindingFilterReason;
+  evidence: string;
+  filePath?: string;
+  confidence: FindingFilterConfidence;
+};
+
+/**
+ * Run every graph-aware filter in priority order. Returns
+ * the first matching decision or `null`. Pure deterministic
+ * — no fs / network / LLM / source reads. When
+ * `graphContext` is empty or its artifacts are missing,
+ * checks that depend on those artifacts conservatively
+ * skip (no-op) rather than guessing.
+ */
+export function applyFindingGraphFilters(input: {
+  finding: Finding;
+  graphContext: FindingGraphFilterContext;
+}): FindingGraphFilterDecision | null {
+  const finding = input.finding;
+  for (const check of GRAPH_FILTER_CHECKS) {
+    const decision = check(finding, input.graphContext);
+    if (decision) return decision;
+  }
+  return null;
+}
+
+const GRAPH_FILTER_CHECKS: ReadonlyArray<
+  (finding: Finding, ctx: FindingGraphFilterContext) => FindingGraphFilterDecision | null
+> = [
+  graphFilterRouteHandlerWithService,
+  graphFilterRouteHttpMiddlewareOnly,
+  graphFilterExternalApiCommentOnly,
+  graphFilterFactoryFileCreatesDeps,
+  graphFilterModuleGateVerifiedCaller,
+];
+
+// ----- A. route handler / sibling handler -----
+
+const ROUTE_HANDLER_GRAPH_RULE_IDS: ReadonlySet<string> = new Set([
+  "architecture.layering.delegates_orchestrates_decides_persists",
+  "routes.construct_and_inject_deps",
+]);
+
+function graphFilterRouteHandlerWithService(
+  finding: Finding,
+  ctx: FindingGraphFilterContext,
+): FindingGraphFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (!finding.ruleId || !ROUTE_HANDLER_GRAPH_RULE_IDS.has(finding.ruleId)) return null;
+  const file = firstFile(finding) ?? "";
+  if (!file.endsWith("route.ts")) return null;
+
+  const det = details(finding);
+  const imports = stringArrayField(det, "imports");
+  const handlerImport = imports.find(
+    (entry) => entry.includes("/handler") || entry.endsWith("handler"),
+  );
+  if (handlerImport) {
+    return {
+      reason: "route-handler-with-service",
+      evidence: `Route delegates to handler via import '${handlerImport}'.`,
+      filePath: file,
+      confidence: "high",
+    };
+  }
+
+  const sibling = findSiblingHandlerPath(file, ctx.observedRepo);
+  if (sibling) {
+    return {
+      reason: "route-handler-with-service",
+      evidence: `Route has sibling handler file '${sibling}' (per ObservedRepo file index).`,
+      filePath: file,
+      confidence: "high",
+    };
+  }
+
+  return null;
+}
+
+function findSiblingHandlerPath(
+  routeFile: string,
+  observedRepo: ObservedRepoLike | undefined,
+): string | null {
+  const files = observedRepo?.files;
+  if (!Array.isArray(files) || files.length === 0) return null;
+  const lastSlash = routeFile.lastIndexOf("/");
+  const dir = lastSlash >= 0 ? routeFile.slice(0, lastSlash + 1) : "";
+  // Common sibling names — `handler.ts`, `handler.tsx`, or the
+  // route name-prefixed handler (e.g. `users/route.ts` paired
+  // with `users/users.handler.ts`). Keep it deterministic:
+  // exact match by `<dir>handler.ts` or `<dir>handler.tsx`.
+  for (const candidate of [`${dir}handler.ts`, `${dir}handler.tsx`]) {
+    if (files.includes(candidate)) return candidate;
+  }
+  return null;
+}
+
+// ----- B. route HTTP middleware only -----
+
+function graphFilterRouteHttpMiddlewareOnly(
+  finding: Finding,
+  _ctx: FindingGraphFilterContext,
+): FindingGraphFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "routes.construct_and_inject_deps") return null;
+  const file = firstFile(finding) ?? "";
+  if (!file.endsWith("route.ts")) return null;
+  const det = details(finding);
+  const imports = stringArrayField(det, "imports");
+  const infraImports = imports.filter((entry) => entry.includes("/infra/"));
+  if (infraImports.length === 0) return null;
+  const allHttpOrIdentity = infraImports.every(
+    (entry) => entry.includes("/infra/http/") || entry.includes("/infra/Identity"),
+  );
+  if (!allHttpOrIdentity) return null;
+  return {
+    reason: "route-http-middleware-only",
+    evidence: `Route imports only HTTP / Identity middleware infra: ${infraImports.join(", ")}.`,
+    filePath: file,
+    confidence: "high",
+  };
+}
+
+// ----- C. external API comment only -----
+
+const EXTERNAL_API_SDK_FRAGMENTS: ReadonlyArray<string> = [
+  "openai",
+  "openrouter",
+  "@openai/",
+];
+
+function graphFilterExternalApiCommentOnly(
+  finding: Finding,
+  ctx: FindingGraphFilterContext,
+): FindingGraphFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (finding.ruleId !== "external_apis.calls_go_through_providers") return null;
+  const det = details(finding);
+  const declaredImports = stringArrayField(det, "imports");
+  const graphImports = importTargetsForFile(firstFile(finding), ctx.evidenceGraph);
+
+  // Pick the strongest available evidence source.
+  const importsSource
+    = declaredImports.length > 0
+      ? declaredImports
+      : graphImports.length > 0
+        ? graphImports
+        : null;
+  if (!importsSource) return null;
+  const lowered = importsSource.map((entry) => entry.toLowerCase());
+  const mentionsExternalSdk = lowered.some((entry) =>
+    EXTERNAL_API_SDK_FRAGMENTS.some((fragment) => entry.includes(fragment)),
+  );
+  if (mentionsExternalSdk) return null;
+
+  // Confidence: high when graph-backed (we walked the
+  // resolved import graph), medium when we only have the
+  // detector's `details.imports`.
+  const confidence: FindingFilterConfidence
+    = importsSource === graphImports || (graphImports.length > 0 && importsSource.length === 0)
+      ? "high"
+      : declaredImports.length > 0
+        ? "high"
+        : "medium";
+  return {
+    reason: "external-api-comment-only",
+    evidence:
+      `Finding references external API concern, but ${
+        importsSource === graphImports
+          ? "EvidenceGraph import facts"
+          : "detector-supplied imports"
+      } contain no openai / openrouter / @openai/* package imports.`,
+    filePath: firstFile(finding),
+    confidence,
+  };
+}
+
+function importTargetsForFile(
+  filePath: string | undefined,
+  evidenceGraph: EvidenceGraphLike | undefined,
+): string[] {
+  if (!filePath || !evidenceGraph?.facts) return [];
+  return evidenceGraph.facts
+    .filter((fact) => fact.kind === "import" && fact.subject === filePath)
+    .map((fact) => {
+      const target = fact.value?.target;
+      return typeof target === "string" ? target : undefined;
+    })
+    .filter((target): target is string => typeof target === "string" && target.length > 0);
+}
+
+// ----- D. factory file creates deps -----
+
+const FACTORY_GRAPH_RULE_IDS: ReadonlySet<string> = new Set([
+  "dependency_injection.services_must_not_call_factories",
+  "dependency_injection.services_must_not_instantiate_infra",
+]);
+
+function graphFilterFactoryFileCreatesDeps(
+  finding: Finding,
+  ctx: FindingGraphFilterContext,
+): FindingGraphFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (!finding.ruleId || !FACTORY_GRAPH_RULE_IDS.has(finding.ruleId)) return null;
+  const file = firstFile(finding) ?? "";
+
+  const isFactoryPath
+    = file.includes("Factory.ts")
+    || file.includes("factory.ts")
+    || (file.startsWith("core/services/") && file.includes("/init/"));
+  if (isFactoryPath) {
+    return {
+      reason: "factory-file-creates-deps",
+      evidence:
+        `Factory / init file is designed to create dependencies: '${file}' (path-evidence; classic exempts these from DI rules).`,
+      filePath: file,
+      confidence: "high",
+    };
+  }
+
+  const capabilityHit = capabilityMatchForFile(file, ctx.capabilityMap, FACTORY_CAPABILITY_HINTS);
+  if (capabilityHit) {
+    return {
+      reason: "factory-file-creates-deps",
+      evidence: `Factory / init capability '${capabilityHit}' covers '${file}' per CapabilityMap.`,
+      filePath: file,
+      confidence: "medium",
+    };
+  }
+
+  return null;
+}
+
+const FACTORY_CAPABILITY_HINTS: ReadonlyArray<string> = ["factory", "init", "bootstrap"];
+
+function capabilityMatchForFile(
+  file: string,
+  capabilityMap: CapabilityMapLike | undefined,
+  hints: ReadonlyArray<string>,
+): string | null {
+  if (!file) return null;
+  const entries = capabilityMap?.entries ?? [];
+  for (const entry of entries) {
+    const cap = entry.capability ?? "";
+    if (!hints.some((hint) => cap.toLowerCase().includes(hint))) continue;
+    if ((entry.subjects ?? []).includes(file)) return cap;
+  }
+  return null;
+}
+
+// ----- E. module gate verified caller -----
+
+const MODULE_GATE_GRAPH_RULE_IDS: ReadonlySet<string> = new Set([
+  "architecture.gates.must_have_production_caller",
+  "architecture.gates.applies_to_must_have_production_evaluator",
+  "architecture.gates.modules_must_not_create_custom_scopes",
+]);
+
+function graphFilterModuleGateVerifiedCaller(
+  finding: Finding,
+  ctx: FindingGraphFilterContext,
+): FindingGraphFilterDecision | null {
+  if (finding.type !== "architecture") return null;
+  if (!finding.ruleId || !MODULE_GATE_GRAPH_RULE_IDS.has(finding.ruleId)) return null;
+  const file = firstFile(finding) ?? "";
+
+  if (file.includes("GateEvaluator")) {
+    return {
+      reason: "module-gate-verified-caller",
+      evidence: `Module gate evaluator path '${file}' is verified caller territory.`,
+      filePath: file,
+      confidence: "high",
+    };
+  }
+
+  if (file.includes("/modules/")) {
+    return {
+      reason: "module-gate-verified-caller",
+      evidence: `Module gate finding originates inside module path '${file}' (verified caller territory).`,
+      filePath: file,
+      confidence: "medium",
+    };
+  }
+
+  // OwnershipMap → ObservedSystem.kind = "module" lookup.
+  const owner = ownerSystemForFile(file, ctx.ownershipMap);
+  const system = owner ? findObservedSystem(owner, ctx.observedRepo) : undefined;
+  if (system?.kind === "module") {
+    return {
+      reason: "module-gate-verified-caller",
+      evidence:
+        `OwnershipMap routes '${file}' to system '${owner}' whose ObservedSystem.kind is "module" — verified caller territory.`,
+      filePath: file,
+      confidence: "medium",
+    };
+  }
+
+  return null;
+}
+
+function ownerSystemForFile(
+  file: string,
+  ownershipMap: OwnershipMapLike | undefined,
+): string | null {
+  if (!file) return null;
+  const entries = ownershipMap?.entries ?? [];
+  // Prefer exact path match; fall back to longest path prefix.
+  let prefixMatch: { path: string; ownerSystem: string } | null = null;
+  for (const entry of entries) {
+    if (entry.path === file) return entry.ownerSystem;
+    if (file.startsWith(entry.path) && (!prefixMatch || entry.path.length > prefixMatch.path.length)) {
+      prefixMatch = entry;
+    }
+  }
+  return prefixMatch?.ownerSystem ?? null;
+}
+
+function findObservedSystem(
+  ownerSystem: string,
+  observedRepo: ObservedRepoLike | undefined,
+): { id: string; kind?: string } | undefined {
+  return (observedRepo?.systems ?? []).find((system) => system.id === ownerSystem);
 }
 
 // ---------- Filter policy status (operator workflow v1) ----------

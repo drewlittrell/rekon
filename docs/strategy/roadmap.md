@@ -720,6 +720,38 @@ is the first stop before proposing a new capability batch.
   `schemaVersion` bump. No new artifact type. No new
   capability role. No new CLI subcommand. No LLM,
   semantic, fuzzy, or embedding matching.
+- Graph-aware finding filter provider v1 (P1.1
+  graph-aware-finding-filter-provider v1 slice): ships
+  the five port-soon candidates from the audit. New
+  additive optional repo-model projections —
+  `ObservedRepo.files?: string[]` (sorted, repo-relative,
+  excludes `.rekon/` paths) and
+  `ObservedSystem.kind?` — populated by
+  `@rekon/capability-model.projector`. New pure helper
+  `applyFindingGraphFilters({ finding, graphContext })`
+  in `@rekon/kernel-findings` consumes
+  `FindingGraphFilterContext` (structurally-typed
+  access to `EvidenceGraph` / `ObservedRepo` /
+  `OwnershipMap` / `CapabilityMap` / `GraphSlice`) and
+  implements `route-handler-with-service`,
+  `route-http-middleware-only`,
+  `external-api-comment-only`,
+  `factory-file-creates-deps`, and
+  `module-gate-verified-caller` — no new reason codes,
+  no source reads, no LLM. `applyFindingFilters` runs
+  the graph stage between classic content and built-in
+  path filters. Runtime `buildFindingFilterReport`
+  loads graph artifacts from the store and threads
+  them as `graphContext`; cites only the artifacts that
+  actually contributed to a match in
+  `header.inputRefs`. Missing graph artifacts →
+  conservative no-op. Raw `FindingReport` is
+  byte-identical before / after. 20 new contract tests
+  in
+  `tests/contract/graph-aware-finding-filters.test.mjs`.
+  No artifact `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI subcommand
+  or flag.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

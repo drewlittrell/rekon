@@ -711,6 +711,33 @@ Implementation batches:
   remain auditable. No runtime change in this slice.
   Pinned by
   `tests/docs/graph-ontology-validator-lite-audit.test.mjs`.
+- "Graph-aware finding filter provider v1" (shipped) —
+  the audit's five port-soon candidates are now live.
+  `applyFindingGraphFilters({ finding, graphContext })`
+  in `@rekon/kernel-findings` consumes
+  `FindingGraphFilterContext` (structurally-typed access
+  to `ObservedRepo` / `OwnershipMap` / `CapabilityMap`
+  / `EvidenceGraph` / `GraphSlice`) and implements
+  `route-handler-with-service`,
+  `route-http-middleware-only`,
+  `external-api-comment-only`,
+  `factory-file-creates-deps`, and
+  `module-gate-verified-caller` — no new reason codes,
+  no source-file reads, no LLM. `applyFindingFilters`
+  runs the graph stage between the classic content
+  layer and the broad path heuristics. Runtime
+  `buildFindingFilterReport` reads graph artifacts from
+  the store and threads them as `graphContext`;
+  `FindingFilterReport.header.inputRefs` cites a graph
+  artifact only when at least one graph-aware match
+  actually used the data. New additive optional
+  projections: `ObservedRepo.files?: string[]` and
+  `ObservedSystem.kind?: string`, populated by
+  `@rekon/capability-model.projector`. Missing graph
+  artifacts → conservative no-op. Raw `FindingReport`
+  is byte-identical before / after. Pinned by
+  `tests/contract/graph-aware-finding-filters.test.mjs`
+  (20 tests).
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume

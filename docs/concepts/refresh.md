@@ -136,15 +136,23 @@ Notes:
    `FindingReport` artifacts.
 7. **findings.filter** — loads configured exclusion policies
    from `.rekon/config.json` `findingFilters` (when present),
-   runs them and the deterministic v1 rules (`generated-file`
+   runs them, the deterministic v1 rules (`generated-file`
    / `external-file` / `test-file` / `canary-file` /
-   `content-filter`) over the latest `FindingReport`, and writes
-   a `FindingFilterReport`. Configured policies run first;
-   when a policy matches, the filtered entry records
-   `source: "policy"` plus `policyId`. The raw `FindingReport`
-   is **not** mutated; filtered findings remain auditable in
+   `content-filter`), the v2 classic content / result
+   filters, and the v1 graph-aware filters
+   (`route-handler-with-service`, etc.) over the latest
+   `FindingReport`, and writes a `FindingFilterReport`.
+   Configured policies run first; when a policy matches,
+   the filtered entry records `source: "policy"` plus
+   `policyId`. Graph-aware filters consume the latest
+   `ObservedRepo` / `OwnershipMap` / `CapabilityMap` /
+   `EvidenceGraph` produced by `observe` and `project`
+   earlier in the refresh, so the structural context is
+   always available. The raw `FindingReport` is **not**
+   mutated; filtered findings remain auditable in
    `FindingFilterReport.filteredFindings`. See
-   [finding-filters.md](finding-filters.md).
+   [finding-filters.md](finding-filters.md) and
+   [graph-aware-finding-filters.md](graph-aware-finding-filters.md).
 8. **findings.filter-health** — summarizes the latest filter
    report into a `FindingFilterHealthReport` with `filterRate`,
    `byPolicy`, and deterministic alerts (`high-filter-rate`,

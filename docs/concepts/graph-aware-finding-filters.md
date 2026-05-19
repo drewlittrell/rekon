@@ -1,0 +1,176 @@
+# Graph-Aware Finding Filters
+
+`@rekon/kernel-findings` ships a deterministic graph-aware
+finding filter provider that consumes Rekon artifacts to
+suppress structural false positives. The provider is the
+first slice toward
+[`GraphOntologyValidator`-lite](../strategy/graph-ontology-validator-lite-audit.md)
+— preserving classic's outcome (filtered findings with
+structural evidence) without porting the monolithic validator.
+
+## Why It Exists
+
+Some architecture findings look like rule violations when
+inspected by path or string content alone but are valid
+when the surrounding repository structure is considered:
+
+- a `route.ts` that delegates to a sibling `handler.ts`,
+- a `route.ts` that only imports HTTP / identity
+  middleware,
+- an architecture finding that mentions an external API
+  family in description but never actually imports its SDK,
+- a `Factory.ts` / `factory.ts` / `core/services/**/init/**`
+  file that is *supposed* to create dependencies,
+- a module gate evaluator whose owning system is
+  module-kind ("verified caller" territory).
+
+The pre-existing v2 content filters fire when detectors
+surface a structured `details` payload. The graph-aware
+provider strengthens those filters by also consulting
+`ObservedRepo`, `OwnershipMap`, `CapabilityMap`,
+`EvidenceGraph`, and `GraphSlice` so the same conclusions
+hold when detectors are quieter.
+
+## What's Included In v1
+
+Five deterministic checks, all reusing existing v2 reason
+codes (no new reason codes were introduced):
+
+| Check | Reason | Inputs |
+| --- | --- | --- |
+| Route handler / sibling handler | `route-handler-with-service` | `Finding.details.imports`, `ObservedRepo.files` |
+| Route HTTP middleware only | `route-http-middleware-only` | `Finding.details.imports` |
+| External-API comment only | `external-api-comment-only` | `Finding.details.imports`, `EvidenceGraph` import facts |
+| Factory file creates deps | `factory-file-creates-deps` | path heuristics, `CapabilityMap` entries |
+| Module gate verified caller | `module-gate-verified-caller` | `GateEvaluator` / `/modules/` path heuristic, `OwnershipMap` + `ObservedSystem.kind === "module"` |
+
+Each check is a small pure function in
+`@rekon/kernel-findings`. The provider iterates them in a
+fixed order and returns the first matching decision or
+`null`.
+
+## Pipeline Position
+
+`applyFindingFilters` runs filters in fixed priority:
+
+1. **Policy filters** (`findingFilters`).
+2. **Classic content filters** (17 reasons; v2).
+3. **Graph-aware filters** *(this slice)*.
+4. **Built-in path heuristics** (`generated-file`,
+   `external-file`, `test-file`, `canary-file`,
+   `content-filter`).
+5. **Result filters** (`findingResultFilters`).
+
+The pipeline short-circuits on the first match. The
+graph-aware stage sits between the classic content layer
+and the broad path heuristics so a structural match always
+wins over a generic path heuristic but never over an
+operator-supplied policy.
+
+## Inputs
+
+`FindingGraphFilterContext` is structurally typed:
+
+```ts
+export type FindingGraphFilterContext = {
+  evidenceGraph?: EvidenceGraphLike;
+  observedRepo?: ObservedRepoLike;
+  ownershipMap?: OwnershipMapLike;
+  capabilityMap?: CapabilityMapLike;
+  graphSlices?: ReadonlyArray<GraphSliceLike>;
+};
+```
+
+The kernel uses minimal structural "Like" types so it can
+accept the real artifacts from `@rekon/kernel-repo-model`,
+`@rekon/kernel-evidence`, and `@rekon/kernel-graph` without
+importing those packages at the kernel layer.
+
+`ObservedRepo` gained an additive optional
+`files?: string[]` projection in this slice so file-
+existence checks can run without scraping the filesystem.
+The kernel boundary drops absolute paths and any path
+under `.rekon/` so consumers can rely on the shape without
+re-filtering.
+
+`ObservedSystem` gained an additive optional
+`kind?: string` field so module-kind detection no longer
+has to rely on naming conventions.
+
+Both new projections are populated by
+`@rekon/capability-model.projector` when the upstream
+evidence supports it.
+
+## Conservative No-Op
+
+When the artifacts the provider would consult are missing,
+the relevant check **does not fire**. The provider does
+not guess. The pipeline behaves exactly like the v2 filter
+stack when no `graphContext` is supplied.
+
+The runtime is conservative too: `FindingFilterReport.header.inputRefs`
+cites a graph artifact only when at least one graph-aware
+match actually used the data. A no-match run does not
+inflate the input refs with graph artifacts the run never
+relied on.
+
+## Audit Trail
+
+Every graph-aware match becomes a `FilteredFinding` with:
+
+- `source: "system"`,
+- a reason from the existing v2 content set (no new codes),
+- a deterministic `evidence` string naming the structural
+  signal (sibling file path, infra-only imports,
+  EvidenceGraph import facts, capability id, ObservedSystem
+  kind),
+- `confidence: "high"` for path-evidence and direct import
+  matches; `confidence: "medium"` for indirect evidence
+  (capability map, ownership-map → kind),
+- `filteredAt` ISO timestamp.
+
+Raw `FindingReport` is never mutated. Filtered findings
+remain inspectable in `FindingFilterReport.filteredFindings`.
+
+## What This Is Not
+
+- **Not a monolithic `GraphOntologyValidator` port.** Per
+  the
+  [audit](../strategy/graph-ontology-validator-lite-audit.md),
+  Rekon reproduces the *outcome* (filtered findings with
+  structural evidence), not classic's architecture.
+- **Not a source scraper.** The provider consumes
+  artifacts only. No filter-time fs reads beyond the
+  artifact store.
+- **Not LLM / semantic / fuzzy / embedding-based.**
+  Permanently rejected.
+- **Not framework-specific.** v1 ports the five most
+  generally-useful checks; deeper Next.js / DDE /
+  provider catalogs are deferred to a future slice.
+- **Not a status surface.** `accepted` / `ignored` /
+  `resolved` decisions remain in `FindingStatusLedger`.
+
+## CLI Surface
+
+No new CLI command. Existing commands now consume graph
+artifacts:
+
+```sh
+rekon findings filter --root <repo> --json
+rekon findings filter-health --root <repo> --json
+rekon refresh --root <repo> --json
+```
+
+`rekon refresh` runs `observe` and `project` before
+`findings.filter`, so graph artifacts are always available
+during the filter step.
+
+## Cross-References
+
+- [GraphOntologyValidator-lite audit](../strategy/graph-ontology-validator-lite-audit.md)
+- [Finding filters](finding-filters.md)
+- [Finding filter policy status](finding-filter-policy-status.md)
+- [Finding filter policy suggestions](finding-filter-policy-suggestions.md)
+- [FindingFilterReport artifact](../artifacts/finding-filter-report.md)
+- [FindingFilterHealthReport artifact](../artifacts/finding-filter-health-report.md)
+- [Refresh pipeline](refresh.md)

@@ -296,6 +296,37 @@ See
 "Classic Content Filters" and "Classic Result Filters" for
 the full per-case table.
 
+## Graph-Aware Filters (v1)
+
+v1 graph-aware filters consume Rekon artifacts to suppress
+findings backed by structural evidence. Five checks run
+between the classic content layer and the broad path
+heuristics, reusing existing v2 reason codes (no new
+reason codes were introduced):
+
+- `route-handler-with-service` (uses
+  `Finding.details.imports` or `ObservedRepo.files` sibling
+  lookup).
+- `route-http-middleware-only` (uses
+  `Finding.details.imports`).
+- `external-api-comment-only` (uses
+  `Finding.details.imports` or `EvidenceGraph` import
+  facts).
+- `factory-file-creates-deps` (uses path heuristics or
+  `CapabilityMap` entries).
+- `module-gate-verified-caller` (uses path heuristics or
+  `OwnershipMap` + `ObservedSystem.kind === "module"`).
+
+`FindingFilterReport.header.inputRefs` cites a graph
+artifact only when at least one graph-aware match actually
+used the data — so the audit lists exactly the evidence
+the report depended on.
+
+See
+[../concepts/graph-aware-finding-filters.md](../concepts/graph-aware-finding-filters.md)
+for the full per-check shape, audit invariants, and
+no-op semantics when graph context is missing.
+
 ## CLI Surface
 
 ```sh

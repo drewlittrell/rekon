@@ -1104,6 +1104,146 @@ scope:
   Graph-aware finding filter provider v1 (implement the
   five candidate checks; ship required artifact
   projections first) is the recommended next slice.
+- **Graph-aware finding filter provider v1 (P1.1
+  graph-aware-finding-filter-provider v1 slice).** ✅ Shipped.
+  Implements the five candidate checks from
+  [`graph-ontology-validator-lite-audit.md`](graph-ontology-validator-lite-audit.md)
+  while preserving the audit's invariants: no source-file
+  reads, no LLM / semantic / fuzzy / embedding matching,
+  no monolithic validator, filtered findings remain
+  auditable, raw `FindingReport` never mutated.
+
+  **Repo-model projections (shipped first, per audit
+  guidance):**
+  - `ObservedRepo.files?: string[]` — flat, repo-relative,
+    sorted file index. Absolute paths and `.rekon/`
+    artifact paths are dropped at the kernel boundary.
+    Populated by `@rekon/capability-model.projector` from
+    `kind: "file"` evidence facts.
+  - `ObservedSystem.kind?: string` — optional structural
+    kind (`module` / `service` / `route` / `ui` /
+    `infra` / `unknown` / custom). Threaded through
+    `normalizeSystems` so it survives across merges.
+  Both are additive optional; older artifacts continue to
+  validate and serialize unchanged. No `schemaVersion`
+  bump.
+
+  **Kernel additions:**
+  - `FindingGraphFilterContext` type — structural "Like"
+    sub-shapes (`EvidenceGraphLike`, `ObservedRepoLike`,
+    `OwnershipMapLike`, `CapabilityMapLike`,
+    `GraphSliceLike`) keep `@rekon/kernel-findings` free
+    of `kernel-repo-model` / `kernel-evidence` /
+    `kernel-graph` runtime deps. Real artifacts are
+    structurally compatible.
+  - `applyFindingGraphFilters({ finding, graphContext })`
+    — pure deterministic helper. Iterates five private
+    case functions in fixed order; returns the first
+    matching `FindingGraphFilterDecision` (or `null`).
+  - `ApplyFindingFiltersOptions.graphContext?` — additive
+    optional input. When absent or empty, the stage is a
+    no-op and the pipeline behaves exactly like the v2
+    filter stack.
+
+  **Five checks (all reuse existing v2 reason codes):**
+  - `route-handler-with-service` — `details.imports`
+    includes a `*/handler` import OR
+    `ObservedRepo.files` lists a sibling
+    `<dir>handler.ts` / `<dir>handler.tsx`.
+  - `route-http-middleware-only` — every `/infra/` import
+    under `details.imports` lives under `/infra/http/` or
+    `/infra/Identity`.
+  - `external-api-comment-only` — `details.imports` (or
+    `EvidenceGraph` import facts) contain no
+    `openai` / `openrouter` / `@openai/*` reference;
+    high confidence with graph evidence, medium with
+    only detector-supplied imports.
+  - `factory-file-creates-deps` — path heuristics
+    (`Factory.ts`, `factory.ts`, `core/services/**/init/**`)
+    OR `CapabilityMap` capability whose name contains
+    `factory` / `init` / `bootstrap` and whose subjects
+    include the file.
+  - `module-gate-verified-caller` — `GateEvaluator`
+    path (high) OR `/modules/` path (medium) OR
+    `OwnershipMap` routes the file to an `ObservedSystem`
+    whose `kind === "module"` (medium).
+
+  **Pipeline order:** `applyFindingFilters` now runs
+  `policy → classic content → graph-aware →
+  built-in path → result`. The pipeline short-circuits on
+  the first match; graph-aware filters land between the
+  content layer and the broad path heuristics so a
+  structural match always wins over a generic path
+  heuristic but never over an operator-supplied policy.
+
+  **Runtime integration:** `buildFindingFilterReport`
+  reads the latest `ObservedRepo` / `OwnershipMap` /
+  `CapabilityMap` / `EvidenceGraph` from the store and
+  threads them as `graphContext`. New
+  `BuildFindingFilterReportOptions.useGraphContext?` lets
+  callers opt out (defaults `true`).
+  `FindingFilterReport.header.inputRefs` cites a graph
+  artifact only when at least one graph-aware match
+  actually used the data — so the audit lists exactly the
+  evidence the report depended on.
+
+  **Audit invariants:**
+  - Every graph-aware match becomes a `FilteredFinding`
+    with `source: "system"` and a deterministic
+    `evidence` string naming the structural signal.
+  - Raw `FindingReport` is never mutated (byte-identical
+    before / after).
+  - Lifecycle / adjudication / coherency exclude
+    graph-filtered findings (the existing filter-aware
+    lifecycle handles this automatically because the
+    graph stage runs inside `applyFindingFilters`).
+  - Missing graph artifacts → conservative no-op.
+  - No source-file reads anywhere in filter logic.
+
+  **Tests:** new
+  `tests/contract/graph-aware-finding-filters.test.mjs`
+  (20 assertions; all passing): 4 repo-model projection
+  tests, 11 graph-helper / pipeline tests, 5 end-to-end
+  CLI tests covering refresh-populates-files, sibling-
+  handler match through CLI with `ObservedRepo`
+  `inputRef` citation, lifecycle / adjudication /
+  coherency exclusion, raw `FindingReport` byte-
+  identity, and `rekon artifacts validate` cleanliness.
+  Full suite: 682 passed / 1 skipped / 0 failed.
+
+  Aligned to `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/content-filter-architecture.ts`,
+  `services/issues/filter-health.ts`,
+  `domain/issues/evaluators/**`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`.
+
+  Docs: new `docs/concepts/graph-aware-finding-filters.md`;
+  finding-filters + finding-filter-report + refresh
+  concepts updated to mention the new stage; audit doc
+  status note updated to reflect v1 has shipped; ADR step
+  14 flipped to shipped + new step 15 "Graph-aware filter
+  provider v1 surfaces in publications / filter health".
+  Strategy docs (subsystem-purpose-map, this entry,
+  guarantee-regression-plan, roadmap), README, CHANGELOG.
+
+  No new artifact type. No artifact `schemaVersion` bump
+  (additive optional fields only). No new capability
+  role. No new CLI subcommand or flag. No new reason
+  codes (reuses existing v2 codes). No LLM, semantic,
+  fuzzy, or embedding matching. No
+  `GraphOntologyValidator`. No version bump. No npm
+  publish.
+
+  Graph-aware filter provider v1 surfaces in publications
+  / filter health (architecture summary + agent contract
+  show graph-aware filter counts / reasons; filter health
+  distinguishes graph-aware structural filters from
+  content / path / result where useful) is the
+  recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

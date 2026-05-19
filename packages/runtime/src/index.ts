@@ -19,13 +19,17 @@ import {
 } from "@rekon/kernel-snapshot";
 import {
   type CoherencyDelta,
+  type CapabilityMapLike,
   type EffectiveFinding,
+  type EvidenceGraphLike,
   type Finding,
   type FindingFilterHealthReport,
   type FindingFilterPolicyFingerprint,
   type FindingFilterPolicyRule,
   type FindingFilterPolicySuggestionReport,
+  type FindingFilterReason,
   type FindingFilterReport,
+  type FindingGraphFilterContext,
   type FindingLifecycleReport,
   type FindingReport,
   type FindingStatusLedger,
@@ -36,6 +40,8 @@ import {
   type IssueMergeDecisionReason,
   type IssueMergeDecisionStatus,
   type FindingResultFilterOptions,
+  type ObservedRepoLike,
+  type OwnershipMapLike,
   applyFindingFilters,
   createCoherencyDelta,
   createFindingFilterHealthReport,
@@ -808,6 +814,19 @@ export type BuildFindingFilterReportOptions = {
    * filters apply.
    */
   resultFilters?: FindingResultFilterOptions;
+  /**
+   * When `true` (default), the runtime reads the latest
+   * `ObservedRepo` / `OwnershipMap` / `CapabilityMap` /
+   * `EvidenceGraph` / `GraphSlice` artifacts from the store
+   * and threads them into `applyFindingFilters` as a graph
+   * filter context. The graph-aware filter stage runs between
+   * the classic content filters and the built-in path
+   * heuristics. When `false`, no graph artifacts are read and
+   * the pipeline behaves exactly like before this slice.
+   * Either way, `FindingFilterReport.header.inputRefs` only
+   * cites graph artifacts that were actually consulted.
+   */
+  useGraphContext?: boolean;
 };
 
 export async function buildFindingFilterReport(
@@ -843,12 +862,46 @@ export async function buildFindingFilterReport(
     ? latestReport.findings
     : [];
 
+  // Graph-aware filter context (P1.1
+  // graph-aware-finding-filter-provider v1). Load whichever
+  // artifacts are available; the kernel pipeline treats any
+  // missing input as a conservative no-op for the affected
+  // checks. Track which graph artifacts we actually read so
+  // `FindingFilterReport.header.inputRefs` cites only the
+  // ones that contributed.
+  const useGraphContext = options.useGraphContext !== false;
+  const graphInputRefs: ArtifactRef[] = [];
+  const graphContext: FindingGraphFilterContext = {};
+  if (useGraphContext) {
+    const observedRepoEntry = await readLatestRefForType(store, "ObservedRepo");
+    if (observedRepoEntry) {
+      graphContext.observedRepo = (await store.read(observedRepoEntry)) as ObservedRepoLike;
+      graphInputRefs.push(indexEntryToRef(observedRepoEntry));
+    }
+    const ownershipEntry = await readLatestRefForType(store, "OwnershipMap");
+    if (ownershipEntry) {
+      graphContext.ownershipMap = (await store.read(ownershipEntry)) as OwnershipMapLike;
+      graphInputRefs.push(indexEntryToRef(ownershipEntry));
+    }
+    const capabilityEntry = await readLatestRefForType(store, "CapabilityMap");
+    if (capabilityEntry) {
+      graphContext.capabilityMap = (await store.read(capabilityEntry)) as CapabilityMapLike;
+      graphInputRefs.push(indexEntryToRef(capabilityEntry));
+    }
+    const evidenceEntry = await readLatestRefForType(store, "EvidenceGraph");
+    if (evidenceEntry) {
+      graphContext.evidenceGraph = (await store.read(evidenceEntry)) as EvidenceGraphLike;
+      graphInputRefs.push(indexEntryToRef(evidenceEntry));
+    }
+  }
+
   const filteredAt = new Date().toISOString();
   const { keptFindings, filteredFindings, policyUsage } = applyFindingFilters({
     findings,
     filteredAt,
     policies: options.policies,
     resultFilters: options.resultFilters,
+    graphContext: useGraphContext ? graphContext : undefined,
   });
 
   // Always stamp the run with a policy fingerprint — including
@@ -859,6 +912,25 @@ export async function buildFindingFilterReport(
   // `computeFilterPolicyStaleness`.
   const policyFingerprint = fingerprintFindingFilterPolicies(options.policies ?? []);
 
+  // Cite only graph artifacts that actually contributed to a
+  // graph-aware match. Conservative — we don't add inputs we
+  // never read, and we don't add inputs we read but never
+  // matched against. This keeps `inputRefs` an audit of the
+  // evidence the report depended on.
+  const matchedGraphReasons = new Set(filteredFindings.map((entry) => entry.reason));
+  const graphReasons = new Set<FindingFilterReason>([
+    "route-handler-with-service",
+    "route-http-middleware-only",
+    "external-api-comment-only",
+    "factory-file-creates-deps",
+    "module-gate-verified-caller",
+  ]);
+  const anyGraphReasonMatched
+    = useGraphContext && [...matchedGraphReasons].some((reason) => graphReasons.has(reason));
+  const inputRefs = anyGraphReasonMatched
+    ? [indexEntryToRef(latestEntry), ...graphInputRefs]
+    : [indexEntryToRef(latestEntry)];
+
   const filterReport = createFindingFilterReport({
     header: {
       artifactType: "FindingFilterReport",
@@ -867,7 +939,7 @@ export async function buildFindingFilterReport(
       generatedAt: new Date().toISOString(),
       subject: { repoId: subjectRepoId(store) },
       producer: { id: "@rekon/runtime.findings", version: "0.1.0" },
-      inputRefs: [indexEntryToRef(latestEntry)],
+      inputRefs,
       freshness: { status: "fresh" },
     },
     keptFindings,
@@ -877,6 +949,18 @@ export async function buildFindingFilterReport(
   });
 
   return filterReport;
+}
+
+async function readLatestRefForType(
+  store: ArtifactStore,
+  artifactType: string,
+): Promise<ArtifactIndexEntry | undefined> {
+  const entries = await store.list(artifactType);
+  if (entries.length === 0) return undefined;
+  const sorted = [...entries].sort((left, right) =>
+    left.writtenAt.localeCompare(right.writtenAt),
+  );
+  return sorted.at(-1);
 }
 
 export type BuildFindingFilterHealthReportOptions = {

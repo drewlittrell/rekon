@@ -418,15 +418,54 @@ review packets unless an ADR promotes them. Promotion requires:
       `ObservedSystem.kind?`) ship **first**, before any
       filter logic, so the provider never silently
       returns zero matches.
-14. **(future)** Graph-aware finding filter provider v1.
-    Implements the five candidate checks from the audit
-    (route handler with sibling, route HTTP middleware
-    only, external-API comment only, factory file creates
-    deps, module gate verified caller) using only the
-    artifact inputs identified in the audit. No source
-    reads. No LLM. Filtered findings remain auditable in
-    `FindingFilterReport.filteredFindings`.
-15. **(future)** Merge-decision freshness guardrails,
+14. **(shipped)** Graph-aware finding filter provider v1.
+    `ObservedRepo.files?: string[]` and
+    `ObservedSystem.kind?` projections ship first
+    (additive optional, no schemaVersion bump). New pure
+    helper `applyFindingGraphFilters({ finding,
+    graphContext })` in `@rekon/kernel-findings` consumes
+    `FindingGraphFilterContext` (`evidenceGraph?`,
+    `observedRepo?`, `ownershipMap?`, `capabilityMap?`,
+    `graphSlices?`) and implements the five candidate
+    checks from the audit:
+    - `route-handler-with-service` via
+      `details.imports` OR `ObservedRepo.files` sibling
+      lookup,
+    - `route-http-middleware-only` via
+      `details.imports`,
+    - `external-api-comment-only` via `details.imports`
+      OR `EvidenceGraph` import facts,
+    - `factory-file-creates-deps` via path heuristics
+      OR `CapabilityMap` entries,
+    - `module-gate-verified-caller` via `GateEvaluator` /
+      `/modules/` path OR `OwnershipMap` +
+      `ObservedSystem.kind === "module"`.
+    `applyFindingFilters` runs the graph stage between
+    the classic content layer and the broad path
+    heuristics; pipeline short-circuits on first match.
+    Filtered findings record `source: "system"` and
+    reuse existing v2 reason codes — no new reason
+    codes. Runtime `buildFindingFilterReport` reads
+    `ObservedRepo` / `OwnershipMap` / `CapabilityMap` /
+    `EvidenceGraph` from the store and threads them as
+    `graphContext`; `FindingFilterReport.header.inputRefs`
+    cites a graph artifact only when at least one
+    graph-aware match used the data. Missing graph
+    artifacts → conservative no-op (the relevant check
+    does not fire). No source-file reads. No LLM,
+    semantic, fuzzy, or embedding matching. Raw
+    `FindingReport` is never mutated; lifecycle /
+    adjudication / coherency exclude graph-filtered
+    findings. 20 new contract tests pinning helpers,
+    pipeline integration, no-op semantics, audit
+    invariants, and end-to-end CLI behavior.
+15. **(future)** Graph-aware filter provider v1 surfaces
+    in publications / filter health — architecture
+    summary and agent contract show graph-aware filter
+    counts / reasons; filter health distinguishes
+    graph-aware structural filters from
+    content / path / result filters where useful.
+16. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

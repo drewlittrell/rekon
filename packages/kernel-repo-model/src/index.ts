@@ -19,6 +19,17 @@ export type ObservedSystem = {
   capabilities: string[];
   confidence: number;
   evidence: ArtifactRef[];
+  /**
+   * Optional structural kind of this observed system. Used by
+   * graph-aware finding filters (e.g.
+   * `module-gate-verified-caller`) to confirm a finding's
+   * owning system is module-kind without iterating naming
+   * conventions. Common values: `"module"`, `"service"`,
+   * `"route"`, `"ui"`, `"infra"`, `"unknown"`. Additive
+   * optional; older artifacts and projectors that don't
+   * surface kind continue to work.
+   */
+  kind?: string;
 };
 
 export type ObservedRepo = {
@@ -32,6 +43,18 @@ export type ObservedRepo = {
   systems: ObservedSystem[];
   layers: string[];
   capabilities: string[];
+  /**
+   * Optional flat file index. Sorted ascending,
+   * repo-relative, no absolute paths, no `.rekon/`
+   * artifact paths. Populated when the upstream projector
+   * has enough evidence (e.g. `file` evidence facts) to
+   * surface it. Consumed by graph-aware finding filters
+   * (e.g. `route-handler-with-service`) for sibling-file
+   * existence checks without scraping the filesystem.
+   * Additive optional; older artifacts and projectors that
+   * don't surface a file index continue to work.
+   */
+  files?: string[];
 };
 
 export type OwnershipMap = {
@@ -58,8 +81,24 @@ export type CapabilityMap = {
 
 export function createObservedRepo(input: ObservedRepo): ObservedRepo {
   const systems = normalizeSystems(input.systems);
+  // Normalize files to a sorted unique list of repo-relative
+  // paths. Absolute paths and `.rekon/` artifact paths are
+  // dropped at the boundary so consumers can rely on the shape
+  // without re-filtering.
+  const files = Array.isArray(input.files)
+    ? uniqueSorted(
+        input.files
+          .filter((path): path is string => typeof path === "string" && path.length > 0)
+          .map((path) => path.replace(/^\.\//, ""))
+          .filter((path) => !path.startsWith("/"))
+          .filter((path) => {
+            const segments = path.split("/");
+            return !segments.includes(".rekon");
+          }),
+      )
+    : undefined;
 
-  return assertObservedRepo({
+  const observed: ObservedRepo = {
     header: input.header,
     repository: { ...input.repository },
     systems,
@@ -71,7 +110,11 @@ export function createObservedRepo(input: ObservedRepo): ObservedRepo {
       ...input.capabilities,
       ...systems.flatMap((system) => system.capabilities),
     ]),
-  });
+  };
+  if (files && files.length > 0) {
+    observed.files = files;
+  }
+  return assertObservedRepo(observed);
 }
 
 export function createOwnershipMap(input: OwnershipMap): OwnershipMap {
@@ -122,6 +165,10 @@ export function validateObservedRepo(value: unknown): ValidationResult<ObservedR
 
   if (!isStringArray(value.capabilities)) {
     issues.push({ path: "$.capabilities", message: "Expected an array of strings." });
+  }
+
+  if (value.files !== undefined && !isStringArray(value.files)) {
+    issues.push({ path: "$.files", message: "Expected an array of strings when present." });
   }
 
   return validationResult(value as ObservedRepo, issues);
@@ -212,6 +259,7 @@ export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
       ...existing,
       name: existing.name ?? normalized.name,
       purpose: existing.purpose ?? normalized.purpose,
+      kind: existing.kind ?? normalized.kind,
       paths: uniqueSorted([...existing.paths, ...normalized.paths]),
       layers: uniqueSorted([...existing.layers, ...normalized.layers]),
       capabilities: uniqueSorted([...existing.capabilities, ...normalized.capabilities]),
@@ -266,6 +314,10 @@ function validateObservedSystem(value: unknown, path: string, issues: Validation
 
   if (!isStringArray(value.capabilities)) {
     issues.push({ path: `${path}.capabilities`, message: "Expected an array of strings." });
+  }
+
+  if (value.kind !== undefined && (typeof value.kind !== "string" || value.kind.length === 0)) {
+    issues.push({ path: `${path}.kind`, message: "Expected a non-empty string when present." });
   }
 
   validateConfidence(value.confidence, `${path}.confidence`, issues);

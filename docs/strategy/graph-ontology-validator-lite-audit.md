@@ -1,11 +1,18 @@
 # GraphOntologyValidator-Lite Audit
 
-> **Status:** decision memo. No runtime behavior is changed
-> by this document. It records which classic
-> `GraphOntologyValidator` checks Rekon should port,
-> which it already covers via the existing filter stack,
-> which it should defer, and what artifact-backed shape any
-> future implementation should take.
+> **Status:** decision memo + v1 in-progress. This document
+> records which classic `GraphOntologyValidator` checks
+> Rekon should port, which it already covers via the
+> existing filter stack, which it should defer, and what
+> artifact-backed shape any future implementation should
+> take.
+>
+> **v1 update:** the five port-soon candidates have shipped
+> via the **graph-aware finding filter provider v1**
+> (`applyFindingGraphFilters` in `@rekon/kernel-findings`).
+> See [`docs/concepts/graph-aware-finding-filters.md`](../concepts/graph-aware-finding-filters.md)
+> for the runtime behavior. The audit remains the
+> authoritative decision memo for everything beyond v1.
 
 ## Decision Summary
 

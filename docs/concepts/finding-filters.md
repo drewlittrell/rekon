@@ -180,6 +180,20 @@ first):
   `source: "system"` and a result-filter reason so they
   remain auditable; they are **not** silently deleted. See
   "Classic Result Filters" below.
+- **Graph-aware filters (v1)** — deterministic structural
+  checks that consume Rekon artifacts (`ObservedRepo`,
+  `OwnershipMap`, `CapabilityMap`, `EvidenceGraph`,
+  `GraphSlice`) to suppress findings backed by structural
+  evidence. Run between the classic content layer and the
+  built-in path heuristics. Reuse the existing v2 reason
+  codes (`route-handler-with-service`,
+  `route-http-middleware-only`,
+  `external-api-comment-only`,
+  `factory-file-creates-deps`,
+  `module-gate-verified-caller`) — no new reason codes.
+  See
+  [graph-aware-finding-filters.md](graph-aware-finding-filters.md)
+  for the full per-check shape.
 - **`other`** — reserved escape hatch; not used by v1.
 
 Findings with no `files` are kept by default (no rule has

@@ -50,6 +50,19 @@ export const modelProjector: Projector = {
         evidence: [evidenceRef],
       }));
     const systems = buildSystems(ownershipEntries, capabilityEntries, evidenceRef);
+    // Flat file index for graph-aware filters. Sourced from
+    // `kind: "file"` evidence facts. `createObservedRepo` will
+    // re-sort, dedupe, drop `.rekon/` paths, and drop absolute
+    // paths at the kernel boundary; we just collect candidates
+    // here.
+    const fileFacts = graph.facts
+      .filter((fact) => fact.kind === "file")
+      .map((fact) => {
+        const fromValue
+          = typeof fact.value?.path === "string" ? fact.value.path : undefined;
+        return fromValue ?? fact.subject;
+      })
+      .filter((path): path is string => typeof path === "string" && path.length > 0);
     const baseHeader = {
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
@@ -81,6 +94,7 @@ export const modelProjector: Projector = {
       systems,
       layers: [],
       capabilities: [],
+      files: fileFacts,
     });
     const ownershipMap = createOwnershipMap({
       header: {
