@@ -681,6 +681,45 @@ is the first stop before proposing a new capability batch.
   No artifact `schemaVersion` bump. No new artifact type.
   No new capability role. No LLM, semantic, fuzzy, or
   embedding matching. No GraphOntologyValidator.
+- `GraphOntologyValidator`-lite parity audit (P1.1
+  graph-ontology-validator-lite-audit slice): docs-only
+  decision memo at
+  [docs/strategy/graph-ontology-validator-lite-audit.md](graph-ontology-validator-lite-audit.md).
+  Decides **not** to port `GraphOntologyValidator` as a
+  monolithic service; recommends a future
+  capability-level **graph-aware finding filter
+  provider** that consumes existing artifacts
+  (`EvidenceGraph` / `GraphSlice` / `ObservedRepo` /
+  `OwnershipMap` / `CapabilityMap`) and emits
+  `FilteredFinding` entries via `applyFindingFilters`'s
+  new optional `graphContext` input. Five candidate
+  checks queued (route handler with sibling, route HTTP
+  middleware only, external-API comment only, factory
+  file creates deps, module gate verified caller).
+  Explicitly rejected / deferred: monolithic validator
+  port, source-reading classifier, runtime truth graph,
+  framework-specific catalog, LLM / semantic / fuzzy
+  review. Required artifact projections (flat file
+  index, optional `ObservedSystem.kind`) ship **first**
+  before any filter logic. Audit covers classic
+  behavior, per-check artifact inputs, future regression
+  tests, and recommended implementation order. No
+  runtime change. New docs test
+  `tests/docs/graph-ontology-validator-lite-audit.test.mjs`
+  pins structure + decisions. Aligned to
+  `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/content-filter-architecture.ts`,
+  `services/issues/filter-health.ts`,
+  `domain/issues/evaluators/**`,
+  `domain/issues/RulesResolver.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`. No artifact
+  `schemaVersion` bump. No new artifact type. No new
+  capability role. No new CLI subcommand. No LLM,
+  semantic, fuzzy, or embedding matching.
 - Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice): `IssueAdjudicationReport` now
   exposes an optional `mergeCandidates: IssueMergeCandidate[]`

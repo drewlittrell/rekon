@@ -389,11 +389,44 @@ review packets unless an ADR promotes them. Promotion requires:
 12. **(future)** Filter policy explicit disable / remove
     workflow — safe, explicit config mutation; dry-run /
     diff first.
-13. **(future)** `GraphOntologyValidator`-lite parity
-    audit — identify which classic graph / ontology
-    false-positive checks are worth reinterpreting; decision
-    memo before implementation.
-14. **(future)** Merge-decision freshness guardrails,
+13. **(shipped)** `GraphOntologyValidator`-lite parity
+    audit. Decision memo at
+    [graph-ontology-validator-lite-audit.md](graph-ontology-validator-lite-audit.md).
+    Decides:
+    - **Do not port `GraphOntologyValidator` as a monolithic
+      service.** Recreate the *outcome* (filtered findings
+      with structural evidence), not the architecture.
+    - Future implementation lives in a new capability-level
+      **graph-aware finding filter provider** that consumes
+      `EvidenceGraph` / `GraphSlice` / `ObservedRepo` /
+      `OwnershipMap` / `CapabilityMap` and contributes
+      decisions to `applyFindingFilters` via a new optional
+      `graphContext` input. Audit emits
+      `FilteredFinding` entries with
+      `source: "system"` reusing the existing v2 reasons
+      (`route-handler-with-service`,
+      `route-http-middleware-only`,
+      `external-api-comment-only`,
+      `factory-file-creates-deps`,
+      `module-gate-verified-caller`).
+    - Five candidate checks are port-soon; the
+      framework-specific catalog, runtime truth graph,
+      source-reading classifier, and LLM / semantic /
+      fuzzy review are explicitly rejected or deferred.
+    - Required artifact projections (flat file index /
+      `ObservedRepo.files?`, optional
+      `ObservedSystem.kind?`) ship **first**, before any
+      filter logic, so the provider never silently
+      returns zero matches.
+14. **(future)** Graph-aware finding filter provider v1.
+    Implements the five candidate checks from the audit
+    (route handler with sibling, route HTTP middleware
+    only, external-API comment only, factory file creates
+    deps, module gate verified caller) using only the
+    artifact inputs identified in the audit. No source
+    reads. No LLM. Filtered findings remain auditable in
+    `FindingFilterReport.filteredFindings`.
+15. **(future)** Merge-decision freshness guardrails,
     persistent exclusion lists, and any further
     product-extension expansion.
 

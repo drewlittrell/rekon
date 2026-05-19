@@ -4,6 +4,127 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped `GraphOntologyValidator`-lite parity audit (P1.1
+  graph-ontology-validator-lite-audit slice). Docs-only
+  decision memo — no runtime behavior changes, no new
+  public API, no `schemaVersion` bump, no version bump,
+  no npm publish.
+
+  New strategy doc:
+  [`docs/strategy/graph-ontology-validator-lite-audit.md`](docs/strategy/graph-ontology-validator-lite-audit.md).
+
+  Decision: **do not** port classic
+  `GraphOntologyValidator` as a monolithic service.
+  Reproduce the *outcome* (filtered findings with
+  structural evidence preserved in
+  `FindingFilterReport.filteredFindings`), not the
+  architecture (one service that scrapes source, builds
+  graph, resolves rules, applies exceptions). The
+  Rekon-native shape is a future capability-level
+  **graph-aware finding filter provider** that consumes
+  the existing `EvidenceGraph`, `GraphSlice`,
+  `ObservedRepo`, `OwnershipMap`, and `CapabilityMap`
+  artifacts and contributes decisions to
+  `applyFindingFilters` via a new optional
+  `graphContext` input. The provider emits
+  `FilteredFinding` entries with `source: "system"`
+  reusing existing v2 reasons — no new artifact type, no
+  new reason codes.
+
+  Audit classifies every classic check as
+  **covered** (already shipped by content/result filters
+  v2), **port-soon**, **defer**, or **rejected**:
+  - **Port-soon (5):** route handler with sibling
+    (`route-handler-with-service`), route HTTP middleware
+    only (`route-http-middleware-only`), external-API
+    comment only (`external-api-comment-only`), factory
+    file creates deps (`factory-file-creates-deps`),
+    module gate verified caller
+    (`module-gate-verified-caller`). All five already
+    have v2 structural filters; the graph provider adds
+    artifact-backed confirmation when the upstream
+    detector did not emit the right `details` payload.
+  - **Defer:** full graph ontology validation suite,
+    framework-specific exception catalog
+    (DDE / Next.js / provider semantics), runtime truth
+    graph (no runtime substrate yet), source-reading
+    classifier (violates artifact-first invariant),
+    factory-by-capability signal until `CapabilityMap`
+    strength is proven, persistent
+    `filtered-issues.json` merge semantics
+    (`FindingFilterReport` artifact history is enough).
+  - **Rejected:** monolithic validator port,
+    source-file reads from filter logic, LLM / semantic /
+    fuzzy / embedding review, filter logic that mutates
+    `FindingReport` or `FindingFilterReport`.
+
+  Required artifact projections (ship **first**, before
+  any filter logic): a flat file index — likely
+  `ObservedRepo.files?: string[]` —, and an optional
+  `ObservedSystem.kind?: "module" | "package" | ...`
+  field. Building filter logic that quietly returns no
+  matches because the upstream artifact is empty would
+  defeat the audit.
+
+  Audit also includes:
+  - per-check input table (`Check`, `Required inputs`,
+    `Currently available?`, `Missing artifact/data`,
+    `Suggested producer`),
+  - 12 future regression test scenarios for the next
+    implementation slice,
+  - recommended implementation order
+    (artifact projections → capability skeleton → five
+    checks one at a time → docs → ADR / strategy
+    updates),
+  - capability shape sketch with the
+    `GraphAwareFindingFilterProvider` interface.
+
+  New docs test
+  `tests/docs/graph-ontology-validator-lite-audit.test.mjs`
+  asserts the audit's structure, decisions, and
+  cross-references (audit doc exists, decision summary
+  rejects monolithic port, references each required
+  artifact + future provider, port-soon + defer
+  classifications present, artifact-inputs + regression
+  tests sections present, ADR + CHANGELOG entries
+  present). Full suite passes.
+
+  Strategy docs updated:
+  - ADR Implementation Order step 13 flipped from
+    `(future)` to `(shipped)`; new step 14 "Graph-aware
+    finding filter provider v1"; old step 14 renumbered
+    to 15.
+  - Subsystem-purpose-map: subsystem 6 row appended with
+    the audit; next-slice column changed to "Graph-aware
+    finding filter provider v1"; status string updated
+    with `+ graph-ontology-validator-lite-audit`.
+  - Behavior-roadmap: new detailed entry for the audit
+    slice with classic-source alignment, classified
+    checks, rejected approaches, and the next
+    recommended slice.
+  - Classic-guarantee-regression-plan: new shipped entry
+    "`GraphOntologyValidator`-lite parity audit" pinned
+    by the new docs test.
+  - Roadmap: new bullet for the audit slice.
+  - CHANGELOG: this entry.
+
+  Review packet:
+  `.rekon-dev/review-packets/graph-ontology-validator-lite-audit.md`.
+
+  Aligned to
+  `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/content-filter-architecture.ts`,
+  `services/issues/filter-health.ts`,
+  `domain/issues/evaluators/**`,
+  `domain/issues/RulesResolver.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`. No runtime change; no
+  new artifact type; no `schemaVersion` bump; no new
+  capability role; no new CLI subcommand; no version
+  bump; no npm publish.
 - Shipped filter policy operator workflow polish (P1.1
   filter-policy-status v1 slice). New CLI surface
   `rekon findings filter-policy status [--policy <id>]

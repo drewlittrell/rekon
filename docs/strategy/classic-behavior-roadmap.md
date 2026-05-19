@@ -1046,6 +1046,64 @@ scope:
   which classic graph / ontology false-positive checks
   are worth reinterpreting; decision memo before
   implementation) is the recommended next slice.
+- **`GraphOntologyValidator`-lite parity audit (P1.1
+  graph-ontology-validator-lite-audit slice).** ✅ Shipped.
+  Docs-only decision memo at
+  [docs/strategy/graph-ontology-validator-lite-audit.md](graph-ontology-validator-lite-audit.md).
+  Decision: **do not** port `GraphOntologyValidator` as a
+  monolithic service. Reproduce the outcome (filtered
+  findings with structural evidence), not the
+  architecture. Build a future capability-level
+  **graph-aware finding filter provider** that consumes
+  the existing artifacts (`EvidenceGraph` / `GraphSlice`
+  / `ObservedRepo` / `OwnershipMap` / `CapabilityMap`)
+  and contributes decisions to `applyFindingFilters` via
+  a new optional `graphContext` input. The provider
+  emits `FilteredFinding` entries with `source: "system"`
+  reusing the existing v2 reasons; no new artifact type,
+  no new reason codes. Five candidate checks queued for
+  the next implementation slice (route handler with
+  sibling — `route-handler-with-service`; route HTTP
+  middleware only — `route-http-middleware-only`;
+  external-API comment only —
+  `external-api-comment-only`; factory file creates deps
+  — `factory-file-creates-deps`; module gate verified
+  caller — `module-gate-verified-caller`). Explicitly
+  rejected / deferred: monolithic validator port,
+  source-reading classifier, runtime truth graph
+  (no runtime substrate yet), framework-specific catalog,
+  LLM / semantic / fuzzy review, persistent merge of
+  classic `filtered-issues.json`. Required artifact
+  projections (flat file index — likely
+  `ObservedRepo.files?` —, optional
+  `ObservedSystem.kind?`) ship **first**, before any
+  filter logic, to guarantee the provider never silently
+  returns zero matches. Per-check input table, future
+  regression tests (12 scenarios), recommended
+  implementation order, and capability shape sketch all
+  in the audit doc. Aligned to
+  `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filters.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/content-filter-architecture.ts`,
+  `services/issues/filter-health.ts`,
+  `domain/issues/evaluators/**`,
+  `domain/issues/RulesResolver.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`. Strategy docs updated:
+  ADR (Implementation Order step 13 flipped to shipped;
+  new step 14 "Graph-aware finding filter provider v1"),
+  subsystem-purpose-map, behavior-roadmap (this entry),
+  guarantee-regression-plan, roadmap. Docs-only — no
+  runtime changes, no new public API, no `schemaVersion`
+  bump. New docs test
+  `tests/docs/graph-ontology-validator-lite-audit.test.mjs`
+  pins the audit's structure + decisions. No version
+  bump. No npm publish.
+  Graph-aware finding filter provider v1 (implement the
+  five candidate checks; ship required artifact
+  projections first) is the recommended next slice.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

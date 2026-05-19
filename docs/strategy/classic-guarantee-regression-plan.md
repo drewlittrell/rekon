@@ -689,6 +689,28 @@ Implementation batches:
   `@rekon/kernel-findings`. Pinned by
   `tests/contract/finding-filter-policy-status.test.mjs`
   (18 tests).
+- "`GraphOntologyValidator`-lite parity audit" (shipped) —
+  graph / ontology-informed false-positive filtering is
+  preserved as an *outcome* (filtered findings with
+  structural evidence in `FindingFilterReport`), not by
+  porting classic's monolithic validator. The audit
+  ([docs/strategy/graph-ontology-validator-lite-audit.md](graph-ontology-validator-lite-audit.md))
+  records the decision, names a future capability-level
+  graph-aware finding filter provider as the
+  Rekon-native shape (consumes `EvidenceGraph` /
+  `GraphSlice` / `ObservedRepo` / `OwnershipMap` /
+  `CapabilityMap`; emits `FilteredFinding` entries with
+  `source: "system"` reusing existing v2 reasons),
+  classifies every classic check as
+  covered / port-soon / defer / rejected, lists per-check
+  artifact inputs, and prescribes the recommended
+  implementation order (artifact projections first, then
+  capability skeleton, then five candidate checks one at
+  a time). Filtering remains a projection: raw
+  `FindingReport` is never mutated; filtered findings
+  remain auditable. No runtime change in this slice.
+  Pinned by
+  `tests/docs/graph-ontology-validator-lite-audit.test.mjs`.
 - "Publications use adjudicated issue groups" (shipped) —
   `@rekon/capability-docs.architecture-summary` and
   `@rekon/capability-docs.agent-contract` now consume
