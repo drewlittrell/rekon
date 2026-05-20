@@ -852,12 +852,65 @@ memo ships none of step 3+):
      unsafe.
 4. **Add opt-in execution:**
    `rekon verify run --plan <id> --execute`.
-   Implements the safety contract above:
-   `spawn`-based execution, per-command +
-   per-plan timeouts, kill-tree on timeout,
-   `stdoutDigest` + `stderrDigest`, truncated
-   redacted excerpts, `VerificationRun`
-   artifact write.
+   ✅ Shipped.
+   - CLI command
+     `rekon verify run --plan <id|type:id> --execute
+     [--command-timeout-ms <n>] [--timeout-ms <n>]
+     [--max-log-bytes <n>] [--root <path>] [--json]`.
+   - `executeVerificationRun(input, options)` helper
+     in `@rekon/capability-verify`. Reuses the
+     dry-run validator and refuses to spawn anything
+     when validation fails.
+   - Spawns each plan command via
+     `spawn(argv[0], argv.slice(1))` with
+     `shell: false`, a scrubbed env
+     (`PATH` / `HOME` / `USER` / etc. allowlist;
+     names matching the secret guard
+     `TOKEN|SECRET|PASSWORD|KEY|AUTH|CREDENTIAL|
+     COOKIE|SESSION|BEARER|PAT` are dropped),
+     `stdio: ["ignore", "pipe", "pipe"]`, and
+     `windowsHide: true`.
+   - Per-command timeout (default 120 s) sends
+     `SIGTERM`; if the child is still alive after
+     the kill grace (default 3 s), `SIGKILL` fires.
+     Per-plan timeout (default 600 s) caps each
+     command's effective timeout to the remaining
+     budget and marks all unspawned commands
+     `not-run` (with a `plan-timeout-before-start`
+     note).
+   - `stdoutDigest` / `stderrDigest` are sha256 of
+     the full pre-redaction stream.
+     `stdoutExcerpt` / `stderrExcerpt` are
+     redacted **then** truncated to
+     `maxLogBytes` (default 8 KB / stream) with
+     `truncated` / `originalBytes` / `storedBytes`
+     flags.
+   - Redaction patterns
+     (`env-assignment-token-like`, `json-secret`,
+     `bearer-token`, `basic-auth`) are pure regex
+     replacements; matches are counted on the
+     artifact's `redaction.applied` / `patterns` /
+     `redactedMatches` fields.
+   - Status derivation:
+     `failed > killed > timeout > partial > passed
+     > not-run`.
+   - **Commands continue past failures** by
+     default; a failing command does not stop the
+     remaining commands in the plan. The
+     `VerificationRun` records every command's
+     individual status.
+   - **No `VerificationResult` derivation** —
+     deferred to step 6.
+   - **No source-file writes by the runner**
+     itself. Commands listed in the plan may write
+     files (that's their job), but the runner
+     never touches `FindingStatusLedger`,
+     `ReconciliationPlan`, or any other governance
+     artifact.
+   - CLI exits non-zero when the run's overall
+     status is `failed` / `timeout` / `killed`;
+     the artifact is still written so a failed
+     run remains citable.
 5. **Add log redaction / truncation tests.** A
    contract test seeds env vars matching the
    redaction patterns, runs a plan that echoes

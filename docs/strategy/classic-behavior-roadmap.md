@@ -3088,25 +3088,166 @@ scope:
   **Recommended next slice:** **verification
   runner execution v1** —
   `rekon verify run --plan <id> --execute`.
-  Step 4 of the runner v1 sequence. The
-  first slice that actually spawns
-  processes; gated by the full safety
-  contract (`shell: false`, per-command
-  + per-plan timeouts, process-tree kill,
-  bounded redacted logs, stdout / stderr
-  digests, no retries, no auto-resolution,
-  no source writes).
+  **Shipped next; see the entry below.**
+- **Verification runner execution v1 (P1.1
+  verification-run-execution-v1 slice).** ✅
+  Shipped. **Step 4** of the runner v1
+  implementation sequence — the **first slice
+  that actually spawns processes**. The CLI
+  command
+  `rekon verify run --plan <id|type:id>
+  --execute [--command-timeout-ms <n>]
+  [--timeout-ms <n>] [--max-log-bytes <n>]
+  [--root <path>] [--json]` runs the named
+  plan locally and writes a `VerificationRun`
+  artifact with recorded execution detail.
 
-  No `schemaVersion` bump. No
-  `VerificationResult` derivation. No
-  process spawn. No stdout / stderr
-  capture. No log redaction implementation
-  (patterns declared only). No
-  `rekon verify record` behavior change.
-  No graph-aware filter change. No
-  source-file reads. No CI / GitHub
-  integration. No version bump. No npm
-  publish.
+  **Safety boundary (every constraint is also
+  a contract test):**
+  - **`spawn(argv[0], argv.slice(1))` with
+    `shell: false`.** Never a shell.
+  - **Validator reuse.** The execute path
+    re-runs `validateVerificationRunCommandString`
+    before any spawn; an unsafe command refuses
+    execution and writes no artifact.
+  - **Scrubbed environment.** Only an allowlist
+    (`PATH`, `HOME`, `USER`, `SHELL`, `TMPDIR` /
+    `TEMP` / `TMP`, `NODE_ENV`, `NODE_OPTIONS`,
+    `NPM_CONFIG_USERCONFIG`, `CI`, `LANG` /
+    `LC_*`, plus Windows essentials
+    `SystemRoot` / `ComSpec` / `PATHEXT` /
+    `windir` / `USERPROFILE` / `APPDATA` /
+    `LOCALAPPDATA`) is forwarded. Allowlist
+    entries whose names match the secret guard
+    (`TOKEN|SECRET|PASSWORD|KEY|AUTH|
+    CREDENTIAL|COOKIE|SESSION|BEARER|PAT` with
+    word-component boundaries — `PATH` is
+    intentionally NOT matched) are removed.
+  - **Per-command timeout** default 120 s
+    (override via `--command-timeout-ms`);
+    `SIGTERM` first, **3 s grace** (override via
+    helper option), then `SIGKILL`.
+  - **Per-plan timeout** default 600 s (override
+    via `--timeout-ms`). Caps each command's
+    effective timeout to the remaining budget;
+    marks unspawned commands `not-run` with a
+    `plan-timeout-before-start` note.
+  - **Stream digests.** `stdoutDigest` and
+    `stderrDigest` are sha256 of the full
+    **pre-redaction** stream.
+  - **Bounded redacted excerpts.** Default 8 KB
+    per stream per command (override via
+    `--max-log-bytes`); **redact first, then
+    truncate**, so a long-running secret near
+    the truncation boundary cannot leak.
+  - **Redaction patterns:**
+    `env-assignment-token-like`,
+    `json-secret`, `bearer-token`,
+    `basic-auth`. Match counts and matched
+    pattern ids are recorded on the artifact's
+    `redaction` block.
+  - **Status priority:**
+    `failed > killed > timeout > partial >
+    passed > not-run`.
+  - **Continue past failures.** A failing
+    command does not stop the remaining
+    commands; the run records each one.
+  - **CLI exits non-zero** when overall status
+    is `failed` / `timeout` / `killed`; the
+    artifact is still written.
+
+  **What execute does NOT do:**
+  - No `VerificationResult` derivation
+    (deferred to step 6).
+  - No `FindingStatusLedger` /
+    `FindingLifecycleReport` /
+    `CoherencyDelta` /
+    `ReconciliationPlan` mutation. A passing
+    run does **not** auto-resolve findings or
+    apply reconciliation.
+  - No source writes by the runner itself.
+    Commands listed in the plan may write
+    files (that's their job).
+  - No retries.
+  - No sandboxing.
+  - No network policy enforcement.
+  - No CI / GitHub adapter.
+
+  **New helper exports (`@rekon/capability-verify`):**
+  - `executeVerificationRun(input, options)`.
+  - `redactVerificationRunStreamText(text)`.
+  - `buildScrubbedEnvironment(env?)`.
+  - `VERIFICATION_RUN_DEFAULT_COMMAND_TIMEOUT_MS`,
+    `VERIFICATION_RUN_DEFAULT_PLAN_TIMEOUT_MS`,
+    `VERIFICATION_RUN_DEFAULT_KILL_GRACE_MS`,
+    `VERIFICATION_RUN_DEFAULT_MAX_LOG_BYTES`.
+  - `VERIFICATION_RUN_ENV_ALLOWLIST`,
+    `VERIFICATION_RUN_SECRET_KEY_PATTERN`.
+  - `VERIFICATION_RUN_EXECUTION_RUNNER_ID =
+    "rekon.local.exec"`.
+
+  **Tests:** 25 new tests in
+  `tests/contract/verification-run-execution.test.mjs`
+  cover helper behavior (passed / failed /
+  timeout / plan-timeout / refusal-before-
+  spawn / redaction / scrubbed env), CLI paths
+  (`--execute` writes artifact; non-zero CLI
+  exit on failed status with artifact still
+  written; `--dry-run + --execute` refused;
+  shell-control refusal; env-assignment-prefix
+  refusal; sentinel-file no-shell-leakage;
+  legitimate node command CAN write files;
+  dry-run still does not spawn after execute
+  ships; `verify record` unchanged;
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` unmutated;
+  `VerificationResult` not written;
+  `artifacts validate` clean after passed /
+  failed runs). The obsolete dry-run test
+  asserting the not-implemented `--execute`
+  message was retired. Full suite: **1060
+  passed / 1 skipped**.
+
+  **Docs:** updated
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md),
+  [`docs/artifacts/verification-run.md`](../artifacts/verification-run.md)
+  (new Execute Behavior section),
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md)
+  (step 4 flipped to ✅ Shipped with the
+  recorded implementation choices),
+  [`docs/concepts/verification-results.md`](../concepts/verification-results.md),
+  [`docs/artifacts/verification-result.md`](../artifacts/verification-result.md),
+  [`docs/artifacts/verification-plan.md`](../artifacts/verification-plan.md),
+  [`docs/concepts/proof-report-publication.md`](../concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](../artifacts/proof-report-publication.md),
+  this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  (step 38 flipped to shipped; step 39 added
+  for VerificationResult derivation),
+  `README.md`, `CHANGELOG.md`. New review
+  packet
+  `.rekon-dev/review-packets/verification-run-execution-v1.md`.
+
+  **Recommended next slice:**
+  **`VerificationRun` → `VerificationResult`
+  derivation** (step 6). Add either a
+  `--record-result` flag on `verify run
+  --execute` or a dedicated
+  `rekon verify result from-run --run <id>`
+  command. Map `timeout` / `killed` to
+  `failed` in the derived result; cite the
+  `VerificationRun`, `VerificationPlan`, and
+  `WorkOrder` in `header.inputRefs`; set
+  `recordedBy` to the runner id+version.
+  Auto-resolution remains out of scope.
+
+  No `schemaVersion` bump. No retries. No
+  sandboxing. No CI / GitHub integration. No
+  source writes by the runner. No
+  `VerificationResult` write. No
+  `FindingStatusLedger` mutation. No
+  reconciliation auto-apply. No version bump.
+  No npm publish.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

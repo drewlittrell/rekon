@@ -1106,6 +1106,69 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner execution v1 (P1.1
+  verification-run-execution-v1 slice): **step 4** of
+  the runner v1 implementation sequence pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md).
+  **First slice that actually spawns processes.** The
+  command
+  `rekon verify run --plan <id|type:id> --execute
+  [--command-timeout-ms <n>] [--timeout-ms <n>]
+  [--max-log-bytes <n>] [--root <path>] [--json]`
+  runs the named plan locally and writes a
+  `VerificationRun` artifact with recorded execution
+  detail.
+  - **Safety:** `spawn(argv[0], argv.slice(1))` with
+    `shell: false`; scrubbed env (allowlist + secret-
+    name guard; `PATH` survives, secret-named vars
+    are dropped); per-command timeout (default
+    120 s) with `SIGTERM` → 3 s grace → `SIGKILL`;
+    per-plan timeout (default 600 s) marks unspawned
+    commands `not-run`.
+  - **Capture:** sha256 of full pre-redaction
+    streams; redacted-then-truncated excerpts
+    (default 8 KB / stream); pattern ids and match
+    counts on the artifact.
+  - **Status priority:**
+    `failed > killed > timeout > partial > passed >
+    not-run`. Commands continue past failures.
+  - **CLI exits non-zero** on `failed` / `timeout` /
+    `killed` overall; artifact still written.
+  - **NOT done:** no `VerificationResult` derivation
+    (next slice); no `FindingStatusLedger` /
+    `FindingLifecycleReport` mutation; no
+    reconciliation auto-apply; no source writes by
+    the runner; no retries; no sandboxing; no CI /
+    GitHub integration.
+  - New helper exports in `@rekon/capability-verify`:
+    `executeVerificationRun`,
+    `redactVerificationRunStreamText`,
+    `buildScrubbedEnvironment`,
+    `VERIFICATION_RUN_DEFAULT_*` constants,
+    `VERIFICATION_RUN_ENV_ALLOWLIST`,
+    `VERIFICATION_RUN_SECRET_KEY_PATTERN`,
+    `VERIFICATION_RUN_EXECUTION_RUNNER_ID`.
+  - **25 new tests** pin every safety constraint
+    (passed / failed / timeout / plan-timeout /
+    refusal-before-spawn / redaction / scrubbed
+    env / sentinel-no-shell-leak /
+    legitimate-node-can-write / dry-run still
+    silent after execute ships /
+    verify-record-unchanged /
+    findings-status-unmutated /
+    no-VerificationResult-written /
+    artifacts-validate-clean). Full suite: 1060
+    passed / 1 skipped. **Recommended next slice:**
+    **VerificationRun → VerificationResult
+    derivation** (step 6). Add either a
+    `--record-result` flag on
+    `rekon verify run --execute` or a dedicated
+    `rekon verify result from-run --run <id>`
+    command. Map `timeout` / `killed` to `failed`
+    in the derived result; cite the run + plan +
+    work-order in `header.inputRefs`. No
+    `schemaVersion` bump. No version bump. No npm
+    publish.
 - Verification runner dry-run command (P1.1
   verification-run-dry-run slice): **step 3** of the
   runner v1 implementation sequence pinned by

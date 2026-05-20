@@ -174,24 +174,27 @@ preserves this artifact's shape and semantics.
 `VerificationResult` continues to be the **proof
 summary** consumed by publications and resolvers.
 
-**Dry-run preview is shipped today.**
+**Dry-run preview is shipped.**
 `rekon verify run --plan <id> --dry-run`
 (or `--preview`) writes a planned-but-not-run
 `VerificationRun` artifact. It does **not** write
-a `VerificationResult` — dry-run only previews
-the plan; it does not produce proof. The
-`rekon verify record` path remains the only way
-to produce a `VerificationResult` today.
+a `VerificationResult`.
 
-The future opt-in
-`rekon verify run --plan <id> --execute` command
-(deferred to a later implementation slice) may
-derive a `VerificationResult` from a new sibling
-`VerificationRun` artifact when invoked with
-`--write-result` — the runner sets
-`recordedBy` to the runner id+version and cites
-the run + plan + work-order in `header.inputRefs`.
-A `VerificationResult` without a paired
+**Opt-in execution is shipped.**
+`rekon verify run --plan <id> --execute` runs
+the plan with `spawn` + `shell: false` and writes
+a `VerificationRun` with execution detail. **It
+still does NOT write a `VerificationResult`** in
+this slice. Derivation (a future
+`--record-result` flag, or a dedicated
+`rekon verify result from-run` command) is the
+next slice — see step 6 in the
+[verification runner v1 decision memo](../strategy/verification-runner-v1-decision.md).
+
+Today the only paths to a `VerificationResult`
+are `rekon verify record` (manual) and any
+external capability that writes one. A
+`VerificationResult` without a paired
 `VerificationRun` means "manually recorded via
 `rekon verify record`."
 

@@ -127,12 +127,17 @@ node packages/cli/dist/index.js intent remediation --root examples/simple-js-ts 
 node packages/cli/dist/index.js reconcile --root examples/simple-js-ts --operation docs_regeneration
 node packages/cli/dist/index.js reconcile suggest --root examples/simple-js-ts --json
 node packages/cli/dist/index.js verify record --root examples/simple-js-ts --result-json '{"recordedBy":"operator","commands":[{"command":"npm run typecheck","status":"passed","exitCode":0}]}' --json
-# `rekon verify run --plan <id> --dry-run` previews the future runner's plan.
+# `rekon verify run --plan <id> --dry-run` previews the runner's plan.
 # It validates each command's argv against the safety contract and writes a
 # planned-but-not-run VerificationRun artifact. It never spawns a process.
-# `--execute` is reserved for a later slice. See
-# docs/strategy/verification-runner-v1-decision.md.
 node packages/cli/dist/index.js verify run --plan <verification-plan-id> --dry-run --root examples/simple-js-ts --json
+# `rekon verify run --plan <id> --execute` actually runs the plan locally.
+# Uses spawn with shell:false, a scrubbed env, per-command + per-plan timeouts,
+# bounded redacted log excerpts, and sha256 stream digests. Writes a
+# VerificationRun artifact with execution detail. Does NOT write a
+# VerificationResult (derivation is the next slice) and does NOT auto-resolve
+# findings. CLI exits non-zero on failed/timeout/killed.
+node packages/cli/dist/index.js verify run --plan <verification-plan-id> --execute --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

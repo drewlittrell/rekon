@@ -104,7 +104,10 @@ When a `VerificationPlan` exists, the publication contains, in order:
    `VerificationResult` or `VerificationRun` has been written yet,
    the report also recommends
    `rekon verify run --plan <id> --dry-run` to preview the plan
-   before recording outcomes (the dry-run never executes commands).
+   before recording outcomes (the dry-run never executes commands)
+   or `rekon verify run --plan <id> --execute` to run the plan
+   locally (writes a `VerificationRun`; does not yet write a
+   `VerificationResult`).
 9. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
    header.
 

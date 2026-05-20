@@ -216,19 +216,31 @@ command (gated by a new
 `@rekon/capability-verify` package + a new
 `execute:verification` permission).
 
-**Dry-run preview is shipped today.**
+**Dry-run preview is shipped.**
 `rekon verify run --plan <id> --dry-run`
-(or `--preview`) is the first CLI surface for
-the runner. It parses each command in the named
-`VerificationPlan` into argv, validates that no
-command uses shell-control operators / command
-substitution / env-assignment prefixes /
+(or `--preview`) parses each command in the
+named `VerificationPlan` into argv, validates
+that no command uses shell-control operators /
+command substitution / env-assignment prefixes /
 newlines, and writes a planned-but-not-run
 `VerificationRun` (`status: "not-run"`, every
 command `status: "not-run"`). **It does not
 execute anything** and does not write a
-`VerificationResult`. It refuses `--execute`
-because opt-in execution is not implemented yet.
+`VerificationResult`.
+
+**Opt-in execution is shipped.**
+`rekon verify run --plan <id> --execute` actually
+runs the plan with `spawn` + `shell: false` +
+scrubbed env + per-command + per-plan timeouts +
+bounded redacted log excerpts + sha256 stream
+digests. It writes a `VerificationRun` with
+recorded execution detail (including the new
+first-class `timeout` / `killed` statuses). The
+CLI exits non-zero when the overall status is
+`failed` / `timeout` / `killed`. **The execute
+path does NOT write a `VerificationResult` in
+this slice** — derivation lands in a follow-up
+(step 6).
 
 The runner will write a sibling
 **`VerificationRun`** artifact carrying raw

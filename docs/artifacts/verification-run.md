@@ -129,16 +129,28 @@ that points back to a derived result populates
 
 ## Producers
 
-- **`@rekon/capability-verify` (dry-run only,
-  today).** The package's
-  `createVerificationRunDryRun` helper builds a
-  planned-but-not-run `VerificationRun` from a
-  `VerificationPlan`. The CLI command
-  `rekon verify run --plan <id> --dry-run` writes
-  the artifact when every command in the plan
-  validates against the safety contract. The
-  runner handler (the execute path) still throws
-  — `--execute` lands in a later slice.
+- **`@rekon/capability-verify` (dry-run + execute,
+  today).** Two helpers:
+  - `createVerificationRunDryRun` builds a
+    planned-but-not-run `VerificationRun`.
+    Triggered by
+    `rekon verify run --plan <id> --dry-run`.
+    Never spawns a process.
+  - `executeVerificationRun` actually runs the
+    plan with `spawn` + `shell: false` + scrubbed
+    env + per-command and per-plan timeouts +
+    bounded redacted excerpts + sha256 digests.
+    Triggered by
+    `rekon verify run --plan <id> --execute`.
+    Refuses to spawn if any command fails
+    validation; no `VerificationResult`
+    derivation (deferred).
+  - The runner handler exported by the package
+    default (registered as
+    `@rekon/capability-verify.runner`) still
+    throws when invoked through generic
+    dispatch. The CLI is the only public execute
+    path.
 - **External runners** — capability authors may
   emit `VerificationRun` artifacts following the
   shape above. Conformance tests on
@@ -199,6 +211,67 @@ The dry-run helper returns
 When `ok === true`, the CLI writes the
 `VerificationRun`. When `ok === false`, the CLI
 refuses to write and reports the issues.
+
+## Execute Behavior
+
+When written via `rekon verify run --plan <id>
+--execute`, the artifact carries actual execution
+detail:
+
+- `status` ∈ `passed` / `failed` / `timeout` /
+  `killed` / `partial` / `not-run`, derived with
+  the priority
+  `failed > killed > timeout > partial > passed >
+  not-run`.
+- Per command:
+  - `argv` — the tokenized argv that was
+    actually spawned (`shell: false`).
+  - `status` — `passed` (exit 0), `failed`
+    (non-zero exit or spawn error), `timeout`
+    (SIGTERM sent after per-command timeout),
+    `killed` (SIGKILL sent after the kill
+    grace), or `not-run` (plan timeout exceeded
+    before the command started).
+  - `exitCode` — process exit code, or `null`
+    when the process died on signal or did not
+    start.
+  - `signal` — `SIGTERM` / `SIGKILL` / etc.,
+    when the process died on signal.
+  - `startedAt` / `endedAt` / `durationMs`.
+  - `timedOut` / `killed` booleans.
+  - `stdoutDigest` / `stderrDigest` — sha256 of
+    the full pre-redaction stream.
+  - `stdoutExcerpt` / `stderrExcerpt` — redacted
+    first, then truncated to `maxLogBytes`
+    (default 8 KB), with `redacted` /
+    `truncated` / `originalBytes` / `storedBytes`
+    flags.
+- `runner.id` defaults to `"rekon.local.exec"`;
+  `runner.capabilityId` is
+  `"@rekon/capability-verify"`;
+  `runner.version` is the package version.
+- `redaction.applied` is `true` when at least
+  one stream redacted a match;
+  `redaction.patterns` lists the pattern ids
+  that matched (`env-assignment-token-like`,
+  `json-secret`, `bearer-token`, `basic-auth`).
+  `redaction.maxBytesPerStream` carries the
+  truncation cap.
+- `environment.platform` / `arch` /
+  `nodeVersion` come from `process`.
+  `environment.envPolicy` is `"scrubbed"`;
+  `environment.network` is `"unknown"`.
+- `startedAt` / `endedAt` / `durationMs` on the
+  artifact body cover the full plan run.
+- `header.inputRefs` cites the
+  `VerificationPlan` and the paired
+  `WorkOrder` when present.
+
+**Execution does not derive a
+`VerificationResult`.** A `VerificationResult`
+exists only when `rekon verify record` was used
+or, in a future slice, when `verify run` is
+invoked with `--record-result`.
 
 ## Dry-Run Behavior
 

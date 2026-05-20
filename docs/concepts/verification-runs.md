@@ -77,17 +77,67 @@ contract test pins this: a plan containing
 `node -e "writeFileSync(...)"` never creates the
 file when run through `--dry-run`.
 
+### Execution (Step 4, Shipped)
+
+`rekon verify run --plan <id|type:id> --execute
+[--command-timeout-ms <n>] [--timeout-ms <n>]
+[--max-log-bytes <n>] [--root <path>] [--json]`
+is now the opt-in execution surface. It:
+
+- Reuses the dry-run command-string validator
+  before spawning anything; an unsafe command in
+  the plan refuses execution and writes no
+  artifact.
+- Spawns each command via
+  `spawn(argv[0], argv.slice(1))` with
+  `shell: false` and a scrubbed environment.
+- Applies the per-command timeout (default 120 s)
+  with SIGTERM → 3 s grace → SIGKILL. The
+  per-plan timeout (default 600 s) caps each
+  command's effective timeout to the remaining
+  budget and marks unspawned commands `not-run`.
+- Captures `stdoutDigest` / `stderrDigest`
+  (sha256 of the full pre-redaction stream) plus
+  bounded redacted excerpts (default 8 KB per
+  stream).
+- Records each command's status — including the
+  new first-class `timeout` / `killed` statuses
+  — and derives the run's overall status using
+  the priority `failed > killed > timeout >
+  partial > passed > not-run`.
+- Continues running every command in plan
+  order; a failure does not stop the rest.
+- Does **not** write a `VerificationResult`.
+  Derivation is step 6 (deferred).
+- Does **not** mutate `FindingStatusLedger`,
+  `FindingLifecycleReport`, `CoherencyDelta`, or
+  any reconciliation surface. A passing run does
+  not auto-resolve findings or apply work-order
+  reconciliation.
+- Exits the CLI with a non-zero status when the
+  run's overall status is `failed` / `timeout` /
+  `killed`; the artifact is still written.
+
 ### Future Slices
 
-Step 4 adds opt-in execution
-(`rekon verify run --plan <id> --execute`) that
-implements the full safety contract and updates
-the same `VerificationRun` artifact with
-execution detail. Until that slice lands, use
-either `rekon verify run --plan <id> --dry-run`
-(preview) or the existing
-`rekon verify record --result-json <json>`
-(manual recording).
+Step 5 adds the redaction / truncation contract
+tests against a richer secret-pattern set. Step
+6 adds `VerificationResult` derivation (a future
+`--record-result` flag, or a dedicated
+`rekon verify result from-run` command). Steps
+7–8 surface runner-produced proof in
+publications and add a CI / GitHub adapter
+(out of scope for the local-runner v1 arc).
+
+For now the three operator paths are:
+
+- `rekon verify run --plan <id> --dry-run` —
+  preview only, no execution.
+- `rekon verify run --plan <id> --execute` —
+  run the plan, capture detail.
+- `rekon verify record --plan <id>
+  --result-json <json>` — manual recording,
+  unchanged.
 
 ## How A Run Differs From A Result
 

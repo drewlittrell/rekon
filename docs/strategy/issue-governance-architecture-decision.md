@@ -1314,19 +1314,48 @@ review packets unless an ADR promotes them. Promotion requires:
     skipped. No `VerificationResult`
     derivation; no `rekon verify record`
     behavior change.
-38. **(future)** Verification runner execution
-    v1. Adds
-    `rekon verify run --plan <id> --execute`
-    that actually spawns processes for the
-    plan's commands. Step 4 of the runner v1
-    sequence. Gated by the full safety
-    contract (`shell: false`, per-command +
-    per-plan timeouts, `SIGTERM` → 3 s →
-    `SIGKILL` process-tree kill, bounded
-    redacted logs, stdout / stderr digests,
-    no retries, no auto-resolution, no
-    source writes). First slice that
-    actually executes commands.
+38. **Shipped (✅).** Verification runner
+    execution v1. Step 4 of the runner v1
+    sequence — **first slice that actually
+    spawns processes**. Added
+    `rekon verify run --plan <id|type:id>
+    --execute [--command-timeout-ms <n>]
+    [--timeout-ms <n>] [--max-log-bytes <n>]
+    [--root <path>] [--json]`. Each command
+    is spawned via
+    `spawn(argv[0], argv.slice(1))` with
+    `shell: false`, a scrubbed env
+    (allowlist + secret-name guard; `PATH`
+    survives), per-command (default 120 s)
+    and per-plan (default 600 s) timeouts
+    with `SIGTERM` → 3 s grace →
+    `SIGKILL`. sha256 digests over the full
+    pre-redaction streams; bounded
+    redacted-then-truncated excerpts
+    (default 8 KB / stream). Status priority
+    `failed > killed > timeout > partial >
+    passed > not-run`. CLI exits non-zero on
+    `failed` / `timeout` / `killed`;
+    artifact is still written. **No
+    `VerificationResult` derivation** — that
+    is step 39. **No** mutation of
+    `FindingStatusLedger`,
+    `FindingLifecycleReport`,
+    `CoherencyDelta`, or any reconciliation
+    surface. 25 new tests; full suite 1060
+    passed / 1 skipped.
+39. **(future)** `VerificationRun` →
+    `VerificationResult` derivation. Add
+    either a `--record-result` flag on
+    `rekon verify run --execute` or a
+    dedicated `rekon verify result from-run
+    --run <id>` command. Map `timeout` /
+    `killed` to `failed` in the derived
+    result; cite the `VerificationRun`,
+    `VerificationPlan`, and `WorkOrder` in
+    `header.inputRefs`; set `recordedBy` to
+    the runner id+version. Auto-resolution
+    remains out of scope.
 40. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the

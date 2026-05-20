@@ -359,26 +359,10 @@ test("CLI: verify run without --dry-run / --preview fails", async () => {
   });
 });
 
-test("CLI: verify run --execute is refused with not-implemented message", async () => {
-  await withFixture(async (root) => {
-    const planRef = await preparePlan(root);
-    const failure = runCliExpectFailure([
-      "verify",
-      "run",
-      "--plan",
-      planRef.id,
-      "--execute",
-      "--root",
-      root,
-      "--json",
-    ]);
-
-    assert.ok(
-      failure.stderr.toLowerCase().includes("not implemented"),
-      `expected not-implemented message; got: ${failure.stderr}`,
-    );
-  });
-});
+// (The previous `--execute is refused with not-implemented`
+// assertion was retired when execution v1 landed. The
+// execute path is now covered by
+// tests/contract/verification-run-execution.test.mjs.)
 
 test("CLI: verify run without --plan fails", async () => {
   await withFixture(async (root) => {

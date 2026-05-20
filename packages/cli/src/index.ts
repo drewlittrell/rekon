@@ -17,6 +17,7 @@ import intentCapability, {
 } from "@rekon/capability-intent";
 import verifyCapability, {
   createVerificationRunDryRun,
+  executeVerificationRun,
   type VerificationRunCommandValidationIssue,
   type VerificationRunDryRunResult,
   type VerificationRunSafetySummary,
@@ -1806,32 +1807,46 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "verify" && subcommand === "run") {
-    // `rekon verify run` is the dry-run preview of the future
-    // verification runner. **No process is spawned.** The
-    // command validates planned commands against the safety
-    // contract pinned in
-    // docs/strategy/verification-runner-v1-decision.md and
-    // writes a planned-but-not-run VerificationRun artifact
-    // when every command validates. `--execute` is reserved
-    // for a later slice and refused here.
+    // `rekon verify run` previews or executes a VerificationPlan.
+    //
+    // - `--dry-run` / `--preview`: validates each command against
+    //   the safety contract and writes a planned-but-not-run
+    //   VerificationRun. **No process is spawned.**
+    // - `--execute`: actually runs the commands using
+    //   `spawn` with `shell: false`, a scrubbed env, per-command
+    //   + per-plan timeouts, and bounded redacted log excerpts.
+    //   Writes a VerificationRun artifact with recorded
+    //   execution detail.
+    //
+    // The two flags are mutually exclusive. Either flag requires
+    // `--plan`. The CLI exits non-zero when execution returns
+    // `failed` / `timeout` / `killed`.
     const planFlag = typeof parsed.flags.plan === "string" ? parsed.flags.plan : undefined;
-    const dryRun = Boolean(parsed.flags["dry-run"]) || Boolean(parsed.flags.preview);
-    const execute = Boolean(parsed.flags.execute);
+    const dryRunFlag = Boolean(parsed.flags["dry-run"]) || Boolean(parsed.flags.preview);
+    const executeFlag = Boolean(parsed.flags.execute);
+    const commandTimeoutFlag = typeof parsed.flags["command-timeout-ms"] === "string"
+      ? Number(parsed.flags["command-timeout-ms"])
+      : undefined;
+    const planTimeoutFlag = typeof parsed.flags["timeout-ms"] === "string"
+      ? Number(parsed.flags["timeout-ms"])
+      : undefined;
+    const maxLogBytesFlag = typeof parsed.flags["max-log-bytes"] === "string"
+      ? Number(parsed.flags["max-log-bytes"])
+      : undefined;
 
-    if (execute) {
+    if (dryRunFlag && executeFlag) {
       throw new Error(
-        "rekon verify run --execute is not implemented yet. "
-          + "This slice ships dry-run only (`--dry-run` / `--preview`). "
-          + "See docs/strategy/verification-runner-v1-decision.md.",
+        "rekon verify run does not accept --dry-run and --execute together. "
+          + "Choose one: `--dry-run` (no execution) or `--execute` (run the plan).",
       );
     }
     if (!planFlag) {
       throw new Error("rekon verify run requires --plan <id|type:id>.");
     }
-    if (!dryRun) {
+    if (!dryRunFlag && !executeFlag) {
       throw new Error(
-        "rekon verify run requires --dry-run or --preview. Opt-in "
-          + "execution (`--execute`) is not implemented yet.",
+        "rekon verify run requires --dry-run / --preview (no execution) "
+          + "or --execute (run the plan).",
       );
     }
 
@@ -1852,6 +1867,127 @@ export async function main(argv: string[]): Promise<void> {
     const inputRefs: ArtifactRef[] = workOrderRef ? [planRef, workOrderRef] : [planRef];
     const generatedAt = new Date().toISOString();
     const repoId = subjectRepoIdFromStore(store);
+
+    if (executeFlag) {
+      const header: ArtifactHeader = {
+        artifactType: "VerificationRun",
+        artifactId: `verification-run-${Date.now()}`,
+        schemaVersion: "0.1.0",
+        generatedAt,
+        snapshotId: planArtifact.header?.snapshotId,
+        subject: {
+          repoId,
+          ref: planArtifact.header?.subject?.ref,
+          commit: planArtifact.header?.subject?.commit,
+          paths: planArtifact.header?.subject?.paths,
+          systems: planArtifact.header?.subject?.systems,
+        },
+        producer: {
+          id: VERIFY_CAPABILITY_ID,
+          version: VERIFY_CAPABILITY_VERSION,
+        },
+        inputRefs,
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: 0.9,
+          notes: [
+            "VerificationRun produced by `rekon verify run --execute`.",
+            "Execution is local; logs are redacted and truncated.",
+            "No findings were auto-resolved.",
+          ],
+        },
+      };
+      const executionResult = await executeVerificationRun(
+        {
+          verificationPlan: planArtifact,
+          verificationPlanRef: planRef,
+          workOrderRef,
+          header,
+          runner: {
+            capabilityId: VERIFY_CAPABILITY_ID,
+            version: VERIFY_CAPABILITY_VERSION,
+          },
+          generatedAt,
+        },
+        {
+          cwd: root,
+          commandTimeoutMs: Number.isFinite(commandTimeoutFlag) && commandTimeoutFlag! > 0
+            ? commandTimeoutFlag
+            : undefined,
+          planTimeoutMs: Number.isFinite(planTimeoutFlag) && planTimeoutFlag! > 0
+            ? planTimeoutFlag
+            : undefined,
+          maxLogBytes: Number.isFinite(maxLogBytesFlag) && maxLogBytesFlag! > 0
+            ? maxLogBytesFlag
+            : undefined,
+        },
+      );
+
+      if (!executionResult.ok) {
+        const issuesSummary = executionResult.validationIssues
+          .map((issue) => `${issue.reason}: ${issue.command}`)
+          .join("; ");
+
+        throw new Error(
+          `rekon verify run --execute refused to spawn: ${executionResult.validationIssues.length} invalid command(s) in the plan. ${issuesSummary}`,
+        );
+      }
+
+      const ref = await store.write(executionResult.verificationRun, { category: "actions" });
+      const verificationRun = executionResult.verificationRun;
+      const failureExit = verificationRun.status === "failed"
+        || verificationRun.status === "timeout"
+        || verificationRun.status === "killed";
+      const output = {
+        dryRun: false,
+        executed: true,
+        artifact: ref,
+        verificationRun: {
+          id: verificationRun.header.artifactId,
+          status: verificationRun.status,
+          summary: verificationRun.summary,
+          startedAt: verificationRun.startedAt,
+          endedAt: verificationRun.endedAt,
+          durationMs: verificationRun.durationMs,
+          commands: verificationRun.commands.map((command) => ({
+            id: command.id,
+            command: command.command,
+            argv: command.argv,
+            status: command.status,
+            exitCode: command.exitCode,
+            signal: command.signal,
+            durationMs: command.durationMs,
+            timedOut: command.timedOut,
+            killed: command.killed,
+            stdoutDigest: command.stdoutDigest,
+            stderrDigest: command.stderrDigest,
+            stdoutExcerpt: command.stdoutExcerpt,
+            stderrExcerpt: command.stderrExcerpt,
+          })),
+        },
+        planRef,
+        workOrderRef,
+        safety: executionResult.safety,
+        warnings: [...resolveWarnings, ...executionResult.safety.warnings],
+        message: failureExit
+          ? "Verification commands executed; one or more failed/timed out/killed. No findings were auto-resolved."
+          : "Verification commands executed. No findings were auto-resolved.",
+      };
+
+      if (json) {
+        writeOutput(output, json);
+      } else {
+        writeOutput(renderVerifyRunExecuteHuman(output), false);
+      }
+
+      if (failureExit) {
+        process.exitCode = 1;
+      }
+
+      return;
+    }
+
+    // ----- dry-run path -----
     const header: ArtifactHeader = {
       artifactType: "VerificationRun",
       artifactId: `verification-run-${Date.now()}`,
@@ -4216,6 +4352,85 @@ function renderVerifyRunDryRunHuman(input: {
   return lines.join("\n");
 }
 
+function renderVerifyRunExecuteHuman(input: {
+  artifact: ArtifactRef;
+  verificationRun: {
+    id: string;
+    status: string;
+    summary: { total: number; passed: number; failed: number; skipped: number; notRun: number; timeout: number; killed: number };
+    startedAt?: string;
+    endedAt?: string;
+    durationMs?: number;
+    commands: Array<{
+      id: string;
+      command: string;
+      argv: string[];
+      status: string;
+      exitCode?: number | null;
+      signal?: string | null;
+      durationMs?: number;
+      timedOut?: boolean;
+      killed?: boolean;
+    }>;
+  };
+  planRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  safety: VerificationRunSafetySummary;
+  warnings: string[];
+  message: string;
+}): string {
+  const lines: string[] = [];
+
+  lines.push("Verification run");
+  lines.push("");
+  lines.push(`Plan: ${input.planRef.type}:${input.planRef.id}`);
+  if (input.workOrderRef) {
+    lines.push(`Work order: ${input.workOrderRef.type}:${input.workOrderRef.id}`);
+  } else {
+    lines.push("Work order: (none)");
+  }
+  lines.push(`Artifact: ${input.artifact.type}:${input.artifact.id}`);
+  lines.push(`Commands: ${input.verificationRun.summary.total}`);
+  lines.push(`Status: ${input.verificationRun.status}`);
+  if (typeof input.verificationRun.durationMs === "number") {
+    lines.push(`Execution: completed in ${input.verificationRun.durationMs} ms`);
+  } else {
+    lines.push("Execution: completed");
+  }
+  lines.push("");
+
+  if (input.verificationRun.commands.length === 0) {
+    lines.push("(no commands in this plan)");
+  } else {
+    lines.push("| # | Command | Status | Exit | Duration |");
+    lines.push("| --- | --- | --- | --- | --- |");
+    for (let index = 0; index < input.verificationRun.commands.length; index += 1) {
+      const command = input.verificationRun.commands[index]!;
+      const exit = command.exitCode === null || command.exitCode === undefined
+        ? command.signal ?? "-"
+        : String(command.exitCode);
+      const duration = typeof command.durationMs === "number" ? `${command.durationMs}ms` : "-";
+      const safeCommand = command.command.replace(/\|/g, "\\|");
+      lines.push(
+        `| ${index + 1} | ${safeCommand} | ${command.status} | ${exit} | ${duration} |`,
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push(input.message);
+
+  if (input.warnings.length > 0) {
+    lines.push("");
+    lines.push("Warnings:");
+    for (const warning of input.warnings) {
+      lines.push(`  - ${warning}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function writeOutput(value: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(value, null, 2));
@@ -4289,5 +4504,6 @@ function usage(): string {
     "rekon issues merge decisions [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id> --dry-run|--preview [--root <path>] [--json]",
+    "rekon verify run --plan <id|type:id> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--json]",
   ].join("\n");
 }
