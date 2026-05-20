@@ -2594,13 +2594,95 @@ scope:
   No npm publish.
 
   **Recommended next slice:** **issue merge
-  decision operator ergonomics** — make the
-  human-in-the-loop merge workflow easier
-  (`issues merge candidates --undecided`,
-  `--decision accepted|rejected|none`, candidate
-  detail rendering, clearer recommended commands
-  in publications). Still no automatic merging or
-  semantic / LLM review.
+  decision operator ergonomics**. **Shipped next;
+  see the entry below.**
+- **Issue merge decision operator ergonomics v1
+  (P1.1 issue-merge-decision-operator-ergonomics
+  slice).** ✅ Shipped. Combined CLI + publication
+  + docs + test batch on top of the freshness
+  guardrails. The memo
+  ([`docs/strategy/issue-merge-decision-operator-ergonomics.md`](issue-merge-decision-operator-ergonomics.md))
+  adds four operator-facing surfaces:
+
+  - **Filters on `rekon issues merge candidates`** —
+    `--undecided` / `--decision accepted|rejected|none`
+    to find candidates by decision state;
+    `--stale` / `--superseded` to find candidates
+    whose decision no longer matches the current
+    `CoherencyDelta` roll-up; plus `--reason`,
+    `--strength`, and `--limit` for narrowing.
+    Command response now includes a `summary`
+    block (`total`, `accepted`, `rejected`,
+    `undecided`, `stale`, `superseded`) plus a
+    structured `mergeCandidateViews` array carrying
+    decision state, decision history, member
+    groups, member finding ids, files, the current
+    `CoherencyDelta` roll-up item, and warnings.
+  - **`rekon issues merge candidate <candidate-id>`**
+    — new detail command returning the same shape
+    as a single `mergeCandidateViews[i]` plus a
+    `recommendedCommands` array (the accepted /
+    rejected decide commands pre-filled with the
+    candidate id) and the merge-rollup freshness
+    result. Use this before recording a decision
+    to inspect context without opening raw
+    artifacts.
+  - **Enhanced `decide` output** — now includes
+    `previousDecision` (or `null` on first decide),
+    `changedDecision` (true only when the new
+    decision's status differs from the prior
+    status), and `recommendedNextCommands`
+    (`rekon coherency delta`,
+    `rekon publish architecture`,
+    `rekon publish agent-contract`).
+  - **Publication decision counts** — architecture
+    summary renders `## Merge Candidate Decisions`
+    with `Total / Accepted / Rejected / Undecided`
+    counts plus recommended filter commands; agent
+    contract renders `### Merge Candidate
+    Decisions` with the same counts plus an
+    explicit "Ask the operator to review undecided
+    candidates" directive. A new `Do Not Do`
+    reminder warns agents against assuming
+    candidates are accepted.
+
+  New kernel helper `buildIssueMergeCandidateViews`
+  + `IssueMergeCandidateView` /
+  `IssueMergeCandidateDecisionState` types exported
+  from `@rekon/kernel-findings` (additive only).
+  Pinned by
+  `tests/contract/issue-merge-operator-ergonomics.test.mjs`
+  (16 cases) covering every filter combination,
+  candidate detail (groups + memberFindingIds +
+  files + decisionHistory newest-first + rollup
+  + warnings), decide output enhancements
+  (previousDecision / changedDecision /
+  recommendedNextCommands), publication renderers,
+  the read-only invariant (only `decide` writes),
+  and `rekon artifacts validate` cleanliness.
+
+  Aligned to `services/IssueDetectionService.ts`,
+  `domain/issues/mergeIssues.ts`,
+  `services/issues/**`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta-projections.ts`.
+  Merge candidates remain advisory; no automatic
+  merging or semantic / LLM review. No artifact
+  mutation outside the ledger append that
+  `decide` already does. No `schemaVersion` bump.
+  No new artifact type. No new capability role.
+  No producer change. No source-file reads. No
+  LLM / semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No version bump.
+  No npm publish.
+
+  **Recommended next slice:** **issue merge
+  decision publication / detail polish v2** —
+  improve how accepted / rejected / undecided
+  merge-candidate context appears in proof
+  report and how candidate detail formats for
+  non-JSON consumption. Still no automatic merge
+  or semantic review.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

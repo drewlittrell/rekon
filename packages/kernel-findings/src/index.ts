@@ -7992,3 +7992,207 @@ export function detectIssueMergeRollupFreshness(
     recommendedCommand: "rekon refresh",
   };
 }
+
+// ---------- Issue merge candidate operator views (v1) ----------
+//
+// Pure deterministic projection over the merge-candidate
+// lineage. Each view bundles the candidate, its decision
+// state (accepted / rejected / none) per the latest
+// IssueMergeDecisionLedger, decision history, member
+// groups + files, the current CoherencyDelta roll-up item
+// when applicable, and per-candidate `superseded` / `stale`
+// flags. Used by `rekon issues merge candidates` filters,
+// `rekon issues merge candidate <id>` detail, and the
+// publication renderers' merge-candidate decision counts.
+//
+// See `docs/strategy/issue-merge-decision-operator-ergonomics.md`.
+
+export type IssueMergeCandidateDecisionState =
+  | "accepted"
+  | "rejected"
+  | "none";
+
+export type IssueMergeCandidateView = {
+  candidate: IssueMergeCandidate;
+  decisionState: IssueMergeCandidateDecisionState;
+  latestDecision?: IssueMergeDecision;
+  decisionHistory: IssueMergeDecision[];
+  groups: IssueAdjudicationGroup[];
+  memberFindingIds: string[];
+  files: string[];
+  rollup?: CoherencyDeltaItem;
+  /**
+   * `true` when the broader merge-rollup freshness predicate
+   * flagged the CoherencyDelta lineage as stale for
+   * decision-making (delta-level signal applied to every
+   * view when the delta is stale).
+   */
+  stale?: boolean;
+  /**
+   * `true` when the latest ledger decision for this
+   * candidate differs from the decision the current
+   * CoherencyDelta roll-up cites, or when a roll-up still
+   * exists but the latest decision is no longer
+   * `accepted`. Per-candidate signal.
+   */
+  superseded?: boolean;
+  warnings: string[];
+};
+
+export type IssueMergeCandidateViewsInput = {
+  report: IssueAdjudicationReport;
+  ledger?: IssueMergeDecisionLedger;
+  coherencyDelta?: CoherencyDelta;
+  /**
+   * Optional pre-computed merge-rollup freshness so callers
+   * don't pay the predicate cost twice. When absent, the
+   * helper does NOT compute freshness — it only computes
+   * the per-candidate `superseded` flag from
+   * `ledger` + `coherencyDelta`.
+   */
+  mergeRollupFreshness?: IssueMergeRollupFreshness;
+};
+
+/**
+ * Build the operator-ergonomics view set for every merge
+ * candidate in `report.mergeCandidates`. Deterministic;
+ * stable across runs. Never mutates inputs.
+ *
+ * Output ordering follows `report.mergeCandidates` order;
+ * each view's `decisionHistory` is sorted descending by
+ * `decidedAt` (lexicographic; ISO timestamps + `id`
+ * tiebreak), so `decisionHistory[0]` is the latest entry
+ * and equals `latestDecision` when present.
+ */
+export function buildIssueMergeCandidateViews(
+  input: IssueMergeCandidateViewsInput,
+): IssueMergeCandidateView[] {
+  const report = input.report;
+  const candidates = report.mergeCandidates ?? [];
+  if (candidates.length === 0) return [];
+
+  const ledger = input.ledger;
+  const coherencyDelta = input.coherencyDelta;
+  const isDeltaStale = input.mergeRollupFreshness?.status === "stale";
+
+  // Index groups by id for fast member-lookup.
+  const groupById = new Map<string, IssueAdjudicationGroup>();
+  for (const group of report.groups ?? []) {
+    groupById.set(group.id, group);
+  }
+
+  // Index roll-up items by candidateId — a single
+  // CoherencyDelta item can correspond to one rollup; a
+  // candidate appears in at most one rollup item.
+  const rollupByCandidateId = new Map<string, CoherencyDeltaItem>();
+  for (const item of coherencyDelta?.items ?? []) {
+    if (!Array.isArray(item.mergedIssueGroupIds) || item.mergedIssueGroupIds.length <= 1) {
+      continue;
+    }
+    for (const candidateId of item.mergeCandidateIds ?? []) {
+      if (!rollupByCandidateId.has(candidateId)) {
+        rollupByCandidateId.set(candidateId, item);
+      }
+    }
+  }
+
+  // Index decisions by candidateId for fast history lookup.
+  const decisionsByCandidateId = new Map<string, IssueMergeDecision[]>();
+  if (ledger) {
+    for (const decision of ledger.decisions ?? []) {
+      const existing = decisionsByCandidateId.get(decision.candidateId) ?? [];
+      existing.push(decision);
+      decisionsByCandidateId.set(decision.candidateId, existing);
+    }
+    for (const list of decisionsByCandidateId.values()) {
+      // Newest first: descending by decidedAt, tiebreak by id.
+      list.sort((left, right) => {
+        const byTime = right.decidedAt.localeCompare(left.decidedAt);
+        if (byTime !== 0) return byTime;
+        return right.id.localeCompare(left.id);
+      });
+    }
+  }
+
+  const views: IssueMergeCandidateView[] = [];
+  for (const candidate of candidates) {
+    const decisionHistory = decisionsByCandidateId.get(candidate.id) ?? [];
+    const latestDecision = decisionHistory[0];
+    const decisionState: IssueMergeCandidateDecisionState
+      = latestDecision?.decision ?? "none";
+
+    const groups = candidate.groupIds
+      .map((id) => groupById.get(id))
+      .filter((group): group is IssueAdjudicationGroup => Boolean(group));
+
+    const memberFindingIds = unionStrings([
+      candidate.memberFindingIds,
+      ...groups.map((group) => group.memberFindingIds ?? []),
+    ]);
+    const files = unionStrings(groups.map((group) => group.files ?? []));
+
+    const rollup = rollupByCandidateId.get(candidate.id);
+
+    // Per-candidate `superseded` signal: a roll-up exists
+    // for the candidate, but the latest ledger decision is
+    // not the one the roll-up cites, OR the latest decision
+    // is no longer "accepted" (meaning the roll-up rests
+    // on a stale older accepted decision).
+    let superseded = false;
+    if (rollup && latestDecision) {
+      const itemDecisionIds = new Set(rollup.mergeDecisionIds ?? []);
+      if (!itemDecisionIds.has(latestDecision.id)) superseded = true;
+      else if (latestDecision.decision !== "accepted") superseded = true;
+    } else if (rollup && !latestDecision) {
+      // Roll-up exists but no decision in the ledger at
+      // all — the merge predates ledger tracking.
+      superseded = true;
+    }
+
+    const warnings: string[] = [];
+    if (superseded) {
+      warnings.push(
+        `Latest IssueMergeDecisionLedger entry for candidate ${candidate.id} is not the decision currently reflected in CoherencyDelta; run \`rekon refresh\`.`,
+      );
+    }
+    if (isDeltaStale) {
+      warnings.push(
+        "CoherencyDelta accepted merge roll-up lineage is stale; run `rekon refresh`.",
+      );
+    }
+
+    views.push({
+      candidate,
+      decisionState,
+      latestDecision,
+      decisionHistory,
+      groups,
+      memberFindingIds,
+      files,
+      rollup,
+      stale: isDeltaStale ? true : undefined,
+      superseded: superseded ? true : undefined,
+      warnings,
+    });
+  }
+  return views;
+}
+
+/**
+ * Union string arrays with deterministic ordering
+ * (input-order-stable). Helper for
+ * `buildIssueMergeCandidateViews`.
+ */
+function unionStrings(sources: ReadonlyArray<ReadonlyArray<string>>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const source of sources) {
+    for (const value of source) {
+      if (!seen.has(value)) {
+        seen.add(value);
+        out.push(value);
+      }
+    }
+  }
+  return out;
+}

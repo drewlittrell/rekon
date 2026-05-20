@@ -1054,14 +1054,78 @@ review packets unless an ADR promotes them. Promotion requires:
     schemaVersion bump. No producer change. No
     helper change in `kernel-findings` beyond the
     new exported types + predicate.
-33. **(future)** Per-module `ObservedSystem`
+33. **(shipped)** Issue merge decision operator
+    ergonomics v1. Combined CLI + publication +
+    docs + test batch built on top of the
+    freshness guardrails (step 32). The memo
+    ([`docs/strategy/issue-merge-decision-operator-ergonomics.md`](issue-merge-decision-operator-ergonomics.md))
+    adds four operator-facing surfaces:
+    - **Filters on `rekon issues merge candidates`**:
+      `--undecided` / `--decision accepted|rejected|none`
+      / `--stale` / `--superseded` / `--reason`
+      / `--strength` / `--limit`. The command response
+      now carries a `summary` block (`total`,
+      `accepted`, `rejected`, `undecided`, `stale`,
+      `superseded`) plus a structured
+      `mergeCandidateViews` array.
+    - **New `rekon issues merge candidate <id>`
+      detail command** returning the full per-view
+      shape (candidate + member groups + member
+      finding ids + files + latest decision + full
+      decisionHistory + current CoherencyDelta
+      rollup + merge-rollup freshness +
+      recommendedCommands) so operators inspect
+      context without opening raw artifacts.
+    - **Enhanced `rekon issues merge decide` output**
+      with `previousDecision` (or `null` on first
+      decide), `changedDecision` (true only when
+      the new decision's status differs from the
+      prior status), and `recommendedNextCommands`
+      (`rekon coherency delta`,
+      `rekon publish architecture`,
+      `rekon publish agent-contract`).
+    - **Publication decision counts**: architecture
+      summary renders a `## Merge Candidate
+      Decisions` section with `Total / Accepted
+      / Rejected / Undecided` counts and the
+      recommended filter commands. Agent contract
+      renders `### Merge Candidate Decisions` with
+      compact counts plus an explicit "Ask the
+      operator to review undecided candidates"
+      directive. A new `Do Not Do` reminder warns
+      agents against assuming candidates are
+      accepted.
+    New kernel helper
+    `buildIssueMergeCandidateViews` plus
+    `IssueMergeCandidateView` /
+    `IssueMergeCandidateDecisionState` types
+    exported from `@rekon/kernel-findings` (additive
+    only; no schema bump). Pinned by
+    `tests/contract/issue-merge-operator-ergonomics.test.mjs`
+    (16 cases) covering every filter combination,
+    candidate detail, decide output enhancements,
+    publication renderers, the read-only invariant
+    (only `decide` writes), and `rekon artifacts
+    validate` cleanliness. Merge candidates remain
+    advisory; no automatic merging or semantic /
+    LLM review. No `schemaVersion` bump. No artifact
+    mutation outside the ledger append that
+    `decide` already does.
+34. **(future)** Issue merge decision publication
+    / detail polish v2. Improve how
+    accepted / rejected / undecided merge-candidate
+    context appears in proof report and how
+    candidate detail formats for non-JSON
+    consumption. Still no automatic merge or
+    semantic review.
+35. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field — the
     deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-34. **(future)** Persistent exclusion lists, and
+36. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

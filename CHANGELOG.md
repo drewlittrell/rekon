@@ -4,6 +4,82 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped issue merge decision operator ergonomics v1
+  (P1.1 issue-merge-decision-operator-ergonomics
+  slice). Combined CLI + publication + docs + test
+  batch built on top of the freshness guardrails. The
+  memo
+  ([`docs/strategy/issue-merge-decision-operator-ergonomics.md`](docs/strategy/issue-merge-decision-operator-ergonomics.md))
+  adds four operator-facing surfaces:
+  - **Filters on `rekon issues merge candidates`**:
+    `--undecided` / `--decision accepted|rejected|none`
+    to find candidates by decision state;
+    `--stale` / `--superseded` to find candidates
+    whose decision no longer matches the current
+    `CoherencyDelta` roll-up; plus `--reason`,
+    `--strength`, and `--limit` for narrowing. The
+    command response now carries a `summary` block
+    (`total`, `accepted`, `rejected`, `undecided`,
+    `stale`, `superseded`) plus a structured
+    `mergeCandidateViews` array carrying decision
+    state, decision history, member groups, member
+    finding ids, files, the current
+    `CoherencyDelta` roll-up item, and per-candidate
+    warnings.
+  - **`rekon issues merge candidate <candidate-id>`** —
+    new detail command returning the same shape as a
+    single `mergeCandidateViews[i]` plus a
+    `recommendedCommands` array (the accepted /
+    rejected decide commands pre-filled with the
+    candidate id) and the merge-rollup freshness
+    result. Use this before recording a decision to
+    inspect context without opening raw artifacts.
+  - **Enhanced `decide` output** with
+    `previousDecision` (or `null` on first decide),
+    `changedDecision` (true only when the new
+    decision's status differs from the prior status),
+    and `recommendedNextCommands` (`rekon coherency
+    delta`, `rekon publish architecture`,
+    `rekon publish agent-contract`).
+  - **Publication decision counts**: architecture
+    summary renders a new `## Merge Candidate
+    Decisions` section with `Total / Accepted /
+    Rejected / Undecided` counts and recommended
+    filter commands. Agent contract renders
+    `### Merge Candidate Decisions` with compact
+    counts plus an explicit "Ask the operator to
+    review undecided candidates" directive. A new
+    `Do Not Do` reminder warns agents against
+    assuming advisory merge candidates are accepted.
+
+  **Public API changes (additive only):** new exports
+  from `@rekon/kernel-findings` —
+  `IssueMergeCandidateDecisionState`,
+  `IssueMergeCandidateView`,
+  `IssueMergeCandidateViewsInput`, and
+  `buildIssueMergeCandidateViews()`. No removed
+  fields or types. No `schemaVersion` bump.
+
+  **Contract test:**
+  `tests/contract/issue-merge-operator-ergonomics.test.mjs`
+  (16 cases) covers every filter combination,
+  candidate detail (groups + memberFindingIds +
+  files + decisionHistory newest-first + rollup
+  + warnings), decide output enhancements,
+  publication renderers, the read-only invariant
+  (only `decide` writes), and `rekon artifacts
+  validate` cleanliness.
+
+  Merge candidates remain advisory. Only `decide`
+  mutates the `IssueMergeDecisionLedger`. No
+  automatic merging. No semantic / fuzzy / LLM /
+  embedding review. No artifact mutation outside
+  the ledger append. No `schemaVersion` bump. No
+  new artifact type. No new capability role. No
+  new CLI subcommand outside the merge workflow.
+  No producer change. No graph-aware filter change.
+  No source-file reads. No version bump. No npm
+  publish.
 - Shipped issue merge decision freshness guardrails v1
   (P1.1 issue-merge-decision-freshness-guardrails
   slice). Combined strategy + implementation batch.

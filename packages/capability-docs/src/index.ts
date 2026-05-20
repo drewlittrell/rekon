@@ -10,8 +10,10 @@ import {
   type FindingFilterReport,
   type FindingLifecycleReport,
   type IssueAdjudicationReport,
+  type IssueMergeCandidateView,
   type IssueMergeDecisionLedger,
   type IssueMergeRollupFreshness,
+  buildIssueMergeCandidateViews,
   detectIssueMergeRollupFreshness,
   fingerprintFindingFilterPolicies,
   validateFindingFilterPolicyRules,
@@ -261,6 +263,18 @@ export const architectureSummaryPublisher: Publisher = {
       latestIssueAdjudicationReport: issueAdjudicationReport,
       latestFindingLifecycleReport: lifecycleReport,
     });
+    // Issue merge decision operator ergonomics v1: build
+    // per-candidate decision-state views so publications
+    // can render undecided / accepted / rejected counts
+    // and emit recommended operator commands.
+    const mergeCandidateViews = issueAdjudicationReport
+      ? buildIssueMergeCandidateViews({
+          report: issueAdjudicationReport,
+          ledger: issueMergeDecisionLedger,
+          coherencyDelta,
+          mergeRollupFreshness,
+        })
+      : [];
     // Finding filter audit + health (P1.1 filter-health publication surfaces).
     // When present, both artifacts are cited in inputRefs so freshness flags
     // the publication stale when a newer filter run lands.
@@ -345,6 +359,7 @@ export const architectureSummaryPublisher: Publisher = {
         findingFilterPolicySuggestionStale,
         findingFilterPolicyStaleness,
         mergeRollupFreshness,
+        mergeCandidateViews,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -508,6 +523,18 @@ export const agentContractPublisher: Publisher = {
       latestIssueAdjudicationReport: issueAdjudicationReport,
       latestFindingLifecycleReport: lifecycleReport,
     });
+    // Issue merge decision operator ergonomics v1: agent
+    // contract mirrors the architecture-summary publisher
+    // and surfaces decision counts + recommended
+    // operator commands.
+    const mergeCandidateViews = issueAdjudicationReport
+      ? buildIssueMergeCandidateViews({
+          report: issueAdjudicationReport,
+          ledger: issueMergeDecisionLedger,
+          coherencyDelta,
+          mergeRollupFreshness,
+        })
+      : [];
     // Finding filter audit + health surfaces (P1.1 filter-health
     // publication surfaces). The agent contract uses both to make
     // suppression visible and to discourage agents from treating a
@@ -600,6 +627,7 @@ export const agentContractPublisher: Publisher = {
         findingFilterPolicySuggestionStale,
         findingFilterPolicyStaleness,
         mergeRollupFreshness,
+        mergeCandidateViews,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -1050,6 +1078,7 @@ type ArchitectureSummaryInputs = {
   findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
   findingFilterPolicyStaleness?: FilterPolicyStaleness;
   mergeRollupFreshness?: IssueMergeRollupFreshness;
+  mergeCandidateViews?: IssueMergeCandidateView[];
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -1076,6 +1105,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     findingFilterPolicySuggestionStale,
     findingFilterPolicyStaleness,
     mergeRollupFreshness,
+    mergeCandidateViews,
     freshness,
     inputRefs,
     generatedAt,
@@ -1272,6 +1302,16 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   // when any rule fires. Warnings never invalidate artifacts; they mark the
   // consumed merge-roll-up context as stale for decision-making.
   appendArchitectureMergeRollupFreshness(sections, mergeRollupFreshness, mergedRollups.length);
+
+  // Merge Candidate Decisions — operator-ergonomics
+  // surface (P1.1 issue-merge-decision-operator-ergonomics
+  // v1). Surfaces the accepted / rejected / undecided
+  // counts from `IssueAdjudicationReport.mergeCandidates`
+  // crossed with the latest `IssueMergeDecisionLedger`
+  // and points operators at the new candidate-detail and
+  // `--undecided` / `--stale` / `--superseded` filter
+  // commands.
+  appendArchitectureMergeCandidateDecisions(sections, mergeCandidateViews);
 
   // Finding Filter Health — surfaces FindingFilterReport +
   // FindingFilterHealthReport so users see what was filtered, by which
@@ -1981,6 +2021,7 @@ type AgentContractInputs = {
   findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
   findingFilterPolicyStaleness?: FilterPolicyStaleness;
   mergeRollupFreshness?: IssueMergeRollupFreshness;
+  mergeCandidateViews?: IssueMergeCandidateView[];
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -2026,6 +2067,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat graph-aware filtering as proof that the underlying issue never existed; inspect `FindingFilterReport.filteredFindings` for the structural evidence (sibling-file existence, import-graph facts, capability ownership, module-kind routing) before drawing conclusions.",
   "Do not treat detector-detail fallback filtering as equivalent to EvidenceGraph-backed structural evidence. When `Graph-aware evidence sources` shows `DetectorDetails` entries, review them more critically than `EvidenceGraph` entries — the detector's claim was not corroborated by artifact evidence.",
   "Do not rely on accepted merge roll-ups after merge decisions, adjudication, or lifecycle artifacts change until `rekon refresh` has run.",
+  "Do not assume advisory merge candidates are accepted; check IssueMergeDecisionLedger or run `rekon issues merge candidates --undecided`.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -2043,6 +2085,7 @@ function renderAgentContract(input: AgentContractInputs): string {
     findingFilterPolicySuggestionStale,
     findingFilterPolicyStaleness,
     mergeRollupFreshness,
+    mergeCandidateViews,
     remediationWorkOrder,
     resolverWorkOrder,
     reconciliationPlan,
@@ -2282,6 +2325,12 @@ function renderAgentContract(input: AgentContractInputs): string {
   // architecture-summary `### Merge Roll-up Freshness`
   // subsection. (P1.1 issue-merge-decision-freshness-guardrails v1.)
   appendAgentContractMergeRollupFreshness(sections, mergeRollupFreshness, mergedRollups.length);
+
+  // Merge Candidate Decisions — agent-facing counts of
+  // accepted / rejected / undecided merge candidates +
+  // operator commands to surface to the user. (P1.1
+  // issue-merge-decision-operator-ergonomics v1.)
+  appendAgentContractMergeCandidateDecisions(sections, mergeCandidateViews);
 
   // Finding Filter Health — agent-facing subsection mirroring the
   // architecture summary's Finding Filter Health section. Surfaces
@@ -2757,6 +2806,81 @@ function escapeTableCell(value: string): string {
 }
 
 /**
+ * Render the architecture-summary Merge Candidate
+ * Decisions section. Always emits the heading so the
+ * counts are visible at a glance; the table fans out
+ * decisions across the three states (accepted /
+ * rejected / undecided) and the section recommends
+ * specific operator commands when undecided or
+ * stale/superseded candidates exist.
+ *
+ * (P1.1 issue-merge-decision-operator-ergonomics v1.)
+ */
+function appendArchitectureMergeCandidateDecisions(
+  sections: string[],
+  views: IssueMergeCandidateView[] | undefined,
+): void {
+  sections.push("## Merge Candidate Decisions");
+  sections.push("");
+  if (!views || views.length === 0) {
+    sections.push(
+      "No issue merge candidates in latest IssueAdjudicationReport.",
+    );
+    sections.push("");
+    return;
+  }
+  let accepted = 0;
+  let rejected = 0;
+  let undecided = 0;
+  let stale = 0;
+  let superseded = 0;
+  for (const view of views) {
+    if (view.decisionState === "accepted") accepted += 1;
+    else if (view.decisionState === "rejected") rejected += 1;
+    else undecided += 1;
+    if (view.stale === true) stale += 1;
+    if (view.superseded === true) superseded += 1;
+  }
+  sections.push(`- Total: ${views.length}`);
+  sections.push(`- Accepted: ${accepted}`);
+  sections.push(`- Rejected: ${rejected}`);
+  sections.push(`- Undecided: ${undecided}`);
+  sections.push("");
+  if (undecided > 0) {
+    sections.push("Recommended command:");
+    sections.push("");
+    sections.push("```bash");
+    sections.push("rekon issues merge candidates --undecided --json");
+    sections.push("```");
+    sections.push("");
+  }
+  if (superseded > 0) {
+    sections.push(
+      `${superseded} candidate decision${superseded === 1 ? " is" : "s are"} superseded by a newer ledger entry. Run:`,
+    );
+    sections.push("");
+    sections.push("```bash");
+    sections.push("rekon issues merge candidates --superseded --json");
+    sections.push("```");
+    sections.push("");
+  }
+  if (stale > 0) {
+    sections.push(
+      `CoherencyDelta accepted merge roll-up lineage is stale for ${stale} candidate${stale === 1 ? "" : "s"}. Run:`,
+    );
+    sections.push("");
+    sections.push("```bash");
+    sections.push("rekon issues merge candidates --stale --json");
+    sections.push("```");
+    sections.push("");
+  }
+  sections.push(
+    "Inspect any candidate via `rekon issues merge candidate <candidate-id> --json`. Record or revise decisions via `rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note>`.",
+  );
+  sections.push("");
+}
+
+/**
  * Agent-contract companion to
  * `appendArchitectureMergeRollupFreshness`. Emits a
  * compact bullet list of (merge decisions, adjudication,
@@ -2767,6 +2891,62 @@ function escapeTableCell(value: string): string {
  *
  * (P1.1 issue-merge-decision-freshness-guardrails v1.)
  */
+/**
+ * Agent-facing companion to
+ * `appendArchitectureMergeCandidateDecisions`. Emits a
+ * compact "Merge candidate decisions:" block with the
+ * three counts plus pointers to the operator-ergonomics
+ * commands. When undecided candidates exist, the
+ * section adds an explicit instruction to ask the
+ * operator to review them.
+ *
+ * (P1.1 issue-merge-decision-operator-ergonomics v1.)
+ */
+function appendAgentContractMergeCandidateDecisions(
+  sections: string[],
+  views: IssueMergeCandidateView[] | undefined,
+): void {
+  if (!views || views.length === 0) return;
+  let accepted = 0;
+  let rejected = 0;
+  let undecided = 0;
+  let stale = 0;
+  let superseded = 0;
+  for (const view of views) {
+    if (view.decisionState === "accepted") accepted += 1;
+    else if (view.decisionState === "rejected") rejected += 1;
+    else undecided += 1;
+    if (view.stale === true) stale += 1;
+    if (view.superseded === true) superseded += 1;
+  }
+  sections.push("### Merge Candidate Decisions");
+  sections.push("");
+  sections.push("Merge candidate decisions:");
+  sections.push(`- Undecided: ${undecided}`);
+  sections.push(`- Accepted: ${accepted}`);
+  sections.push(`- Rejected: ${rejected}`);
+  sections.push("");
+  if (undecided > 0) {
+    sections.push(
+      "Ask the operator to review undecided candidates before treating merge roll-ups as final.",
+    );
+    sections.push("Command: `rekon issues merge candidates --undecided --json`");
+    sections.push("");
+  }
+  if (superseded > 0) {
+    sections.push(
+      `${superseded} candidate decision${superseded === 1 ? " is" : "s are"} superseded by a newer ledger entry. Command: \`rekon issues merge candidates --superseded --json\``,
+    );
+    sections.push("");
+  }
+  if (stale > 0) {
+    sections.push(
+      `Merge roll-up lineage is stale for ${stale} candidate${stale === 1 ? "" : "s"}. Command: \`rekon issues merge candidates --stale --json\``,
+    );
+    sections.push("");
+  }
+}
+
 function appendAgentContractMergeRollupFreshness(
   sections: string[],
   freshness: IssueMergeRollupFreshness | undefined,

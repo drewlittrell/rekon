@@ -1106,6 +1106,42 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Issue merge decision operator ergonomics v1 (P1.1
+  issue-merge-decision-operator-ergonomics slice):
+  combined CLI + publication + docs + test batch
+  built on top of the freshness guardrails. Memo
+  (`docs/strategy/issue-merge-decision-operator-ergonomics.md`)
+  adds four operator-facing surfaces: (1) filters on
+  `rekon issues merge candidates`
+  (`--undecided` / `--decision accepted|rejected|none`
+  / `--stale` / `--superseded` / `--reason`
+  / `--strength` / `--limit`) plus a `summary`
+  block + structured `mergeCandidateViews` array;
+  (2) new `rekon issues merge candidate <id>` detail
+  command returning the candidate plus member groups,
+  member finding ids, files, latest decision, full
+  decisionHistory, current `CoherencyDelta` roll-up,
+  merge-rollup freshness, and recommendedCommands;
+  (3) enhanced `decide` output with
+  `previousDecision`, `changedDecision`, and
+  `recommendedNextCommands`; (4) publication
+  decision-count guidance — architecture summary
+  renders `## Merge Candidate Decisions`, agent
+  contract renders `### Merge Candidate Decisions`
+  + new Do Not Do reminder. New kernel exports
+  `buildIssueMergeCandidateViews`,
+  `IssueMergeCandidateView`,
+  `IssueMergeCandidateDecisionState`. Pinned by
+  `tests/contract/issue-merge-operator-ergonomics.test.mjs`
+  (16 cases). Merge candidates remain advisory; only
+  `decide` mutates the ledger. No automatic merging.
+  No semantic / LLM / fuzzy review. No artifact
+  mutation outside the ledger append. No
+  `schemaVersion` bump. No new artifact type. No
+  new capability role. No new CLI subcommand outside
+  the merge workflow. No producer change. No
+  graph-aware filter change. No source-file reads.
+  No version bump. No npm publish.
 - Issue merge decision freshness guardrails v1 (P1.1
   issue-merge-decision-freshness-guardrails slice):
   combined strategy + implementation batch. Memo

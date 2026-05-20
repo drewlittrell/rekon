@@ -143,6 +143,9 @@ node packages/cli/dist/index.js findings status set <finding-id> --status ignore
 node packages/cli/dist/index.js coherency delta --root examples/simple-js-ts --json
 node packages/cli/dist/index.js issues adjudicate --root examples/simple-js-ts --json
 node packages/cli/dist/index.js issues list --root examples/simple-js-ts --json
+node packages/cli/dist/index.js issues merge candidates --root examples/simple-js-ts --undecided --json
+node packages/cli/dist/index.js issues merge candidate <candidate-id> --root examples/simple-js-ts --json
+node packages/cli/dist/index.js issues merge decide <candidate-id> --decision accepted --note "Same root cause." --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish architecture --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish proof --root examples/simple-js-ts --json
 node packages/cli/dist/index.js publish agent-contract --root examples/simple-js-ts --json

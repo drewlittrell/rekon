@@ -276,12 +276,29 @@ callout. The predicate (see
 is artifact-lineage only — no file-system mtime, no
 watcher. All warnings recommend `rekon refresh`.
 
+## Merge Candidate Decisions
+
+When the latest `IssueAdjudicationReport.mergeCandidates`
+is non-empty, the architecture summary renders a
+`## Merge Candidate Decisions` section with
+`Total / Accepted / Rejected / Undecided` counts.
+When undecided candidates exist, the section
+recommends `rekon issues merge candidates
+--undecided --json`. When `merge-decision-superseded`
+or freshness-stale candidates exist, the section also
+recommends `--superseded` / `--stale` variants. The
+section always closes with the candidate-detail and
+decide command lines so operators have a single
+starting point. See
+[issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md).
+
 ## Cross-References
 
 - [Architecture summary concept](../concepts/architecture-summary-publication.md)
 - [CoherencyDelta](coherency-delta.md)
 - [FindingLifecycleReport](finding-lifecycle-report.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

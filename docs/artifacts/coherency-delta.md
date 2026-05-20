@@ -353,5 +353,6 @@ do **not** invalidate this artifact.
 - [IssueMergeDecisionLedger](issue-merge-decision-ledger.md)
 - [Issue merge decisions concept](../concepts/issue-merge-decisions.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

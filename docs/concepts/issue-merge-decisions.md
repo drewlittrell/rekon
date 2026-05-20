@@ -117,7 +117,11 @@ batch.
 ## CLI Surface
 
 ```sh
-rekon issues merge candidates --root <repo> --json
+rekon issues merge candidates [--undecided | --decision accepted|rejected|none] \
+  [--stale] [--superseded] [--reason <reason>] \
+  [--strength strong|medium|weak] [--limit <n>] \
+  --root <repo> --json
+rekon issues merge candidate <candidate-id> --root <repo> --json
 rekon issues merge decide <candidate-id> \
   --decision accepted|rejected --note <note> \
   [--reason same-root-cause|separate-issues|false-positive-candidate|other] \
@@ -132,6 +136,47 @@ annotation adds optional `decision`, `decisionId`,
 `decisionNote`, `decisionReason`, `decisionDecidedAt`, and
 `decisionDecidedBy` fields to each candidate; the underlying
 candidate fields are unchanged.
+
+The
+[issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
+slice adds:
+
+- **Filters on `candidates`** —
+  `--undecided` / `--decision accepted|rejected|none`
+  to find candidates by decision state; `--stale` /
+  `--superseded` to find candidates whose decision
+  no longer matches the current `CoherencyDelta`
+  roll-up state; plus `--reason` / `--strength` /
+  `--limit` for narrowing.
+- **`candidates` summary** — the command response
+  now carries a `summary` block with
+  `accepted / rejected / undecided / stale /
+  superseded` counts plus a structured
+  `mergeCandidateViews` array carrying decision
+  state, decision history, member groups,
+  member finding ids, files, the current
+  `CoherencyDelta` roll-up item, and per-candidate
+  warnings.
+- **`rekon issues merge candidate <candidate-id>`** —
+  a new detail command returning the same shape as a
+  single `mergeCandidateViews[i]` entry plus a
+  `recommendedCommands` array (the accepted / rejected
+  decide commands pre-filled with the candidate id)
+  and the merge-rollup freshness result. Use this
+  before recording a decision to inspect context
+  without opening raw artifacts.
+- **`decide` output** — now includes
+  `previousDecision`, `changedDecision`, and
+  `recommendedNextCommands` (`rekon coherency delta`,
+  `rekon publish architecture`, `rekon publish
+  agent-contract`) so operators see what was on
+  record before the change and what to run next.
+  `previousDecision === null` on first decide;
+  `changedDecision === true` only when the new
+  decision's status differs from the prior status.
+
+Only `decide` mutates the `IssueMergeDecisionLedger`.
+`candidates` and `candidate` are read-only.
 
 ## Downstream Surfaces
 
@@ -210,4 +255,5 @@ recommend `rekon refresh`.
 - [Coherency delta concept](coherency-delta.md)
 - [Freshness and invalidation](freshness-and-invalidation.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)

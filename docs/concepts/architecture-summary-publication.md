@@ -208,6 +208,17 @@ they mark the consumed merge-roll-up context as stale
 for decision-making and recommend `rekon refresh`. See
 [issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md).
 
+A `## Merge Candidate Decisions` section then surfaces
+the accepted / rejected / undecided counts for the
+latest `IssueAdjudicationReport.mergeCandidates` and
+recommends `rekon issues merge candidates --undecided
+--json` (plus `--superseded` / `--stale` variants when
+those counts are non-zero). The section closes with
+the new candidate-detail and decide commands so
+operators can review and record decisions without
+opening raw artifacts. See
+[issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md).
+
 ## Cross-References
 
 - [Architecture summary artifact](../artifacts/architecture-summary-publication.md)
@@ -215,6 +226,7 @@ for decision-making and recommend `rekon refresh`. See
 - [Finding lifecycle concept](finding-lifecycle.md)
 - [Resolvers](resolvers.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

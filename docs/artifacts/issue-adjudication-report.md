@@ -374,6 +374,8 @@ lifecycle is the boundary. See the
 - [Issue adjudication concept](../concepts/issue-adjudication.md)
 - [Issue merge decisions concept](../concepts/issue-merge-decisions.md)
 - [Issue merge decision ledger](issue-merge-decision-ledger.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
 - [Finding report](finding-report.md)
 - [Finding filter report](finding-filter-report.md)
 - [Finding filter health report](finding-filter-health-report.md)

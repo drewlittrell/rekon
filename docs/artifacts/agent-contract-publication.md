@@ -328,6 +328,22 @@ rebuilds adjudication and coherency state."* The
 agent-facing reminder. See
 [issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md).
 
+## Merge Candidate Decisions
+
+When the latest `IssueAdjudicationReport.mergeCandidates`
+is non-empty, the agent operating contract renders a
+`### Merge Candidate Decisions` subsection with a
+compact `Merge candidate decisions:` bullet list
+(`Undecided` / `Accepted` / `Rejected` counts). When
+undecided candidates exist, the section instructs the
+agent to *"Ask the operator to review undecided
+candidates before treating merge roll-ups as final."*
+and gives the command
+(`rekon issues merge candidates --undecided --json`).
+A new `Do Not Do` reminder warns the agent against
+assuming advisory merge candidates are accepted. See
+[issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md).
+
 ## Cross-References
 
 - [Agent contract concept](../concepts/agent-operating-contract.md)
@@ -336,6 +352,7 @@ agent-facing reminder. See
 - [MemorySelection](memory-selection.md)
 - [Memory concept](../concepts/memory.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

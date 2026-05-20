@@ -377,6 +377,16 @@ lifecycle artifacts change until `rekon refresh` has
 run."* See
 [issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md).
 
+A `### Merge Candidate Decisions` subsection follows
+the freshness block whenever merge candidates exist.
+It shows the accepted / rejected / undecided counts
+and (when undecided > 0) instructs the agent to ask
+the operator to review undecided candidates before
+treating merge roll-ups as final. A new `Do Not Do`
+reminder warns against assuming advisory candidates
+are accepted. See
+[issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md).
+
 ## Cross-References
 
 - [Agent contract artifact](../artifacts/agent-contract-publication.md)
@@ -386,5 +396,6 @@ run."* See
 - [Memory concept](memory.md)
 - [Resolvers](resolvers.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

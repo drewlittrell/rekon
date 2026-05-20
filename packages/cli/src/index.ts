@@ -51,11 +51,17 @@ import {
   type FindingStatusDecisionReason,
   type FindingStatusDecisionStatus,
   type FindingStatusLedger,
+  type CoherencyDelta,
   type IssueAdjudicationReport,
+  type IssueMergeCandidateView,
+  type IssueMergeDecision,
   type IssueMergeDecisionLedger,
   type IssueMergeDecisionReason,
   applyIssueMergeDecisionsToCandidates,
+  buildIssueMergeCandidateViews,
+  detectIssueMergeRollupFreshness,
   fingerprintFindingFilterPolicies,
+  findLatestIssueMergeDecision,
   isBroadFindingFilterPolicyRule,
   planFindingFilterPolicyApply,
   summarizeFindingFilterPolicyStatus,
@@ -1522,9 +1528,31 @@ export async function main(argv: string[]): Promise<void> {
     }
     const report = (await store.read(latest)) as IssueAdjudicationReport;
     const ledger = await readLatestMergeDecisionLedger(store);
+    const coherencyDelta = await readLatestCoherencyDelta(store);
+    const mergeRollupFreshness = detectIssueMergeRollupFreshness({
+      coherencyDelta,
+      latestIssueMergeDecisionLedger: ledger,
+      latestIssueAdjudicationReport: report,
+    });
+
     const mergeCandidates = applyIssueMergeDecisionsToCandidates(
       report.mergeCandidates,
       ledger,
+    );
+    const views = buildIssueMergeCandidateViews({
+      report,
+      ledger,
+      coherencyDelta,
+      mergeRollupFreshness,
+    });
+    const filterFlag = parseIssueMergeCandidateFilterFlags(parsed.flags);
+    const filteredViews = applyIssueMergeCandidateFilters(views, filterFlag);
+    const limited = filterFlag.limit !== undefined
+      ? filteredViews.slice(0, filterFlag.limit)
+      : filteredViews;
+    const filteredIds = new Set(limited.map((view) => view.candidate.id));
+    const filteredMergeCandidates = mergeCandidates.filter((candidate) =>
+      filteredIds.has(candidate.id),
     );
 
     writeOutput(
@@ -1539,7 +1567,95 @@ export async function main(argv: string[]): Promise<void> {
         ledger: ledger
           ? { type: "IssueMergeDecisionLedger", id: ledger.header.artifactId, schemaVersion: ledger.header.schemaVersion }
           : null,
-        mergeCandidates,
+        coherencyDelta: coherencyDelta
+          ? {
+              type: "CoherencyDelta",
+              id: coherencyDelta.header.artifactId,
+              schemaVersion: coherencyDelta.header.schemaVersion,
+            }
+          : null,
+        filter: filterFlag,
+        summary: summarizeIssueMergeCandidateDecisions(views),
+        mergeCandidates: filteredMergeCandidates,
+        mergeCandidateViews: limited.map((view) => serializeIssueMergeCandidateView(view)),
+        mergeRollupFreshness,
+      },
+      json,
+    );
+    return;
+  }
+
+  if (command === "issues" && subcommand === "merge" && positional === "candidate") {
+    const candidateId = typeof parsed.positionals[3] === "string"
+      ? parsed.positionals[3]
+      : undefined;
+    if (!candidateId) {
+      throw new Error(
+        "rekon issues merge candidate requires a candidate id positional argument.",
+      );
+    }
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entries = await store.list("IssueAdjudicationReport");
+    const sortedReports = [...entries].sort((left, right) =>
+      right.id.localeCompare(left.id),
+    );
+    const latestReport = sortedReports[0];
+    if (!latestReport) {
+      throw new Error(
+        "No IssueAdjudicationReport found. Run `rekon issues adjudicate` or `rekon refresh`.",
+      );
+    }
+    const report = (await store.read(latestReport)) as IssueAdjudicationReport;
+    const ledger = await readLatestMergeDecisionLedger(store);
+    const coherencyDelta = await readLatestCoherencyDelta(store);
+    const mergeRollupFreshness = detectIssueMergeRollupFreshness({
+      coherencyDelta,
+      latestIssueMergeDecisionLedger: ledger,
+      latestIssueAdjudicationReport: report,
+    });
+    const views = buildIssueMergeCandidateViews({
+      report,
+      ledger,
+      coherencyDelta,
+      mergeRollupFreshness,
+    });
+    const view = views.find((entry) => entry.candidate.id === candidateId);
+    if (!view) {
+      const available = views.map((entry) => entry.candidate.id);
+      const detail = available.length === 0
+        ? "no merge candidates exist in the latest IssueAdjudicationReport"
+        : `available candidate ids: ${available.join(", ")}`;
+      throw new Error(
+        `Merge candidate not found: ${candidateId} (${detail}).`,
+      );
+    }
+    writeOutput(
+      {
+        artifact: {
+          type: latestReport.type,
+          id: latestReport.id,
+          path: latestReport.path,
+          digest: latestReport.digest,
+          schemaVersion: latestReport.schemaVersion,
+        },
+        ledger: ledger
+          ? {
+              type: "IssueMergeDecisionLedger",
+              id: ledger.header.artifactId,
+              schemaVersion: ledger.header.schemaVersion,
+            }
+          : null,
+        coherencyDelta: coherencyDelta
+          ? {
+              type: "CoherencyDelta",
+              id: coherencyDelta.header.artifactId,
+              schemaVersion: coherencyDelta.header.schemaVersion,
+            }
+          : null,
+        ...serializeIssueMergeCandidateView(view),
+        recommendedCommands: recommendedCommandsForCandidateView(view),
+        mergeRollupFreshness,
       },
       json,
     );
@@ -1568,6 +1684,13 @@ export async function main(argv: string[]): Promise<void> {
     const store = createLocalArtifactStore(root);
     await store.init();
 
+    // Issue merge decision operator ergonomics v1: read
+    // the prior ledger BEFORE recording so we can surface
+    // `previousDecision` + `changedDecision` to the
+    // operator without changing record-side behavior.
+    const priorLedger = await readLatestMergeDecisionLedger(store);
+    const previousDecision = findLatestIssueMergeDecision(priorLedger, candidateId);
+
     const ledger = await recordIssueMergeDecision(store, {
       candidateId,
       decision: decisionFlag,
@@ -1575,7 +1698,10 @@ export async function main(argv: string[]): Promise<void> {
       reason,
       decidedBy,
     });
-    const latestDecision = ledger.decisions[ledger.decisions.length - 1];
+    const latestDecision = ledger.decisions[ledger.decisions.length - 1]!;
+    const changedDecision = previousDecision
+      ? previousDecision.decision !== latestDecision.decision
+      : false;
 
     writeOutput(
       {
@@ -1585,6 +1711,13 @@ export async function main(argv: string[]): Promise<void> {
           schemaVersion: ledger.header.schemaVersion,
         },
         decision: latestDecision,
+        previousDecision: previousDecision ?? null,
+        changedDecision,
+        recommendedNextCommands: [
+          `rekon coherency delta --root ${root} --json`,
+          `rekon publish architecture --root ${root} --json`,
+          `rekon publish agent-contract --root ${root} --json`,
+        ],
       },
       json,
     );
@@ -3439,6 +3572,158 @@ async function readLatestMergeDecisionLedger(
   return (await store.read(sorted[0]!)) as IssueMergeDecisionLedger;
 }
 
+async function readLatestCoherencyDelta(
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<CoherencyDelta | undefined> {
+  const entries = await store.list("CoherencyDelta");
+  if (entries.length === 0) return undefined;
+  const sorted = [...entries].sort((left, right) =>
+    right.writtenAt.localeCompare(left.writtenAt),
+  );
+  return (await store.read(sorted[0]!)) as CoherencyDelta;
+}
+
+// ---------- Issue merge candidate filter helpers (v1) ----------
+//
+// Pure CLI-local helpers. The kernel helper
+// `buildIssueMergeCandidateViews` already computes
+// per-candidate decisionState + stale + superseded; the
+// CLI layer just parses flags and filters the views.
+
+type IssueMergeCandidateFilterFlag = {
+  decisionStates?: ReadonlyArray<"accepted" | "rejected" | "none">;
+  stale?: boolean;
+  superseded?: boolean;
+  reason?: string;
+  strength?: "strong" | "medium" | "weak";
+  limit?: number;
+};
+
+function parseIssueMergeCandidateFilterFlags(
+  flags: Record<string, unknown>,
+): IssueMergeCandidateFilterFlag {
+  const out: IssueMergeCandidateFilterFlag = {};
+  const decisionFlag = typeof flags.decision === "string" ? flags.decision : undefined;
+  const undecidedFlag = flags.undecided === true || flags.undecided === "true";
+  if (decisionFlag) {
+    const allowed = new Set(["accepted", "rejected", "none"]);
+    if (!allowed.has(decisionFlag)) {
+      throw new Error(
+        `rekon issues merge candidates --decision must be one of accepted|rejected|none; got ${decisionFlag}.`,
+      );
+    }
+    out.decisionStates = [decisionFlag as "accepted" | "rejected" | "none"];
+  } else if (undecidedFlag) {
+    out.decisionStates = ["none"];
+  }
+  if (flags.stale === true || flags.stale === "true") out.stale = true;
+  if (flags.superseded === true || flags.superseded === "true") out.superseded = true;
+  if (typeof flags.reason === "string" && flags.reason.length > 0) {
+    out.reason = flags.reason;
+  }
+  if (typeof flags.strength === "string" && flags.strength.length > 0) {
+    const allowed = new Set(["strong", "medium", "weak"]);
+    if (!allowed.has(flags.strength)) {
+      throw new Error(
+        `rekon issues merge candidates --strength must be one of strong|medium|weak; got ${flags.strength}.`,
+      );
+    }
+    out.strength = flags.strength as "strong" | "medium" | "weak";
+  }
+  if (typeof flags.limit === "string" && flags.limit.length > 0) {
+    const parsedLimit = Number.parseInt(flags.limit, 10);
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 0) {
+      throw new Error(
+        `rekon issues merge candidates --limit must be a non-negative integer; got ${flags.limit}.`,
+      );
+    }
+    out.limit = parsedLimit;
+  } else if (typeof flags.limit === "number" && Number.isFinite(flags.limit) && flags.limit >= 0) {
+    out.limit = flags.limit;
+  }
+  return out;
+}
+
+function applyIssueMergeCandidateFilters(
+  views: IssueMergeCandidateView[],
+  filter: IssueMergeCandidateFilterFlag,
+): IssueMergeCandidateView[] {
+  return views.filter((view) => {
+    if (filter.decisionStates && !filter.decisionStates.includes(view.decisionState)) {
+      return false;
+    }
+    if (filter.stale === true && view.stale !== true) return false;
+    if (filter.superseded === true && view.superseded !== true) return false;
+    if (filter.reason && !(view.candidate.reasons ?? []).includes(filter.reason as never)) {
+      return false;
+    }
+    if (filter.strength && view.candidate.strength !== filter.strength) return false;
+    return true;
+  });
+}
+
+function summarizeIssueMergeCandidateDecisions(
+  views: IssueMergeCandidateView[],
+): {
+  total: number;
+  accepted: number;
+  rejected: number;
+  undecided: number;
+  stale: number;
+  superseded: number;
+} {
+  let accepted = 0;
+  let rejected = 0;
+  let undecided = 0;
+  let stale = 0;
+  let superseded = 0;
+  for (const view of views) {
+    if (view.decisionState === "accepted") accepted += 1;
+    else if (view.decisionState === "rejected") rejected += 1;
+    else undecided += 1;
+    if (view.stale === true) stale += 1;
+    if (view.superseded === true) superseded += 1;
+  }
+  return { total: views.length, accepted, rejected, undecided, stale, superseded };
+}
+
+function serializeIssueMergeCandidateView(view: IssueMergeCandidateView): {
+  candidate: IssueMergeCandidateView["candidate"];
+  decisionState: IssueMergeCandidateView["decisionState"];
+  decision: IssueMergeDecision | null;
+  decisionHistory: IssueMergeDecision[];
+  groups: IssueMergeCandidateView["groups"];
+  memberFindingIds: string[];
+  files: string[];
+  rollup: IssueMergeCandidateView["rollup"] | null;
+  stale: boolean;
+  superseded: boolean;
+  warnings: string[];
+} {
+  return {
+    candidate: view.candidate,
+    decisionState: view.decisionState,
+    decision: view.latestDecision ?? null,
+    decisionHistory: view.decisionHistory,
+    groups: view.groups,
+    memberFindingIds: view.memberFindingIds,
+    files: view.files,
+    rollup: view.rollup ?? null,
+    stale: view.stale === true,
+    superseded: view.superseded === true,
+    warnings: view.warnings,
+  };
+}
+
+function recommendedCommandsForCandidateView(view: IssueMergeCandidateView): string[] {
+  const id = view.candidate.id;
+  const escapedNote = '"Same root cause."';
+  return [
+    `rekon issues merge decide ${id} --decision accepted --note ${escapedNote}`,
+    `rekon issues merge decide ${id} --decision rejected --note ${escapedNote}`,
+  ];
+}
+
 function writeOutput(value: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(value, null, 2));
@@ -3506,7 +3791,8 @@ function usage(): string {
     "rekon coherency delta [--root <path>] [--json]",
     "rekon issues adjudicate [--root <path>] [--json]",
     "rekon issues list [--status active|accepted|ignored|resolved|mixed] [--root <path>] [--json]",
-    "rekon issues merge candidates [--root <path>] [--json]",
+    "rekon issues merge candidates [--undecided | --decision accepted|rejected|none] [--stale] [--superseded] [--reason <reason>] [--strength strong|medium|weak] [--limit <n>] [--root <path>] [--json]",
+    "rekon issues merge candidate <candidate-id> [--root <path>] [--json]",
     "rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note> [--reason <reason>] [--decided-by <name>] [--root <path>] [--json]",
     "rekon issues merge decisions [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
