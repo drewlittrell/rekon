@@ -182,21 +182,64 @@ a `VerificationResult`.
 
 **Opt-in execution is shipped.**
 `rekon verify run --plan <id> --execute` runs
-the plan with `spawn` + `shell: false` and writes
-a `VerificationRun` with execution detail. **It
-still does NOT write a `VerificationResult`** in
-this slice. Derivation (a future
-`--record-result` flag, or a dedicated
-`rekon verify result from-run` command) is the
-next slice — see step 6 in the
-[verification runner v1 decision memo](../strategy/verification-runner-v1-decision.md).
+the plan with `spawn` + `shell: false` and
+writes a `VerificationRun` with execution
+detail. **It does not directly write a
+`VerificationResult`** — the execute path
+stops at the run.
 
-Today the only paths to a `VerificationResult`
-are `rekon verify record` (manual) and any
-external capability that writes one. A
-`VerificationResult` without a paired
-`VerificationRun` means "manually recorded via
-`rekon verify record`."
+**Derivation is shipped.**
+`rekon verify result from-run --run
+<id|type:id> [--allow-not-run]` converts a
+completed `VerificationRun` into a concise
+`VerificationResult` proof summary. The
+derived result:
+
+- Sets `recordedBy` to the runner identity
+  (`"<run.runner.id>@<run.runner.version>"`,
+  e.g. `"rekon.local.exec@0.1.0"`).
+- Maps the run's command statuses to the
+  result's four-value enum:
+  `passed → passed`; `failed → failed`;
+  **`timeout → failed`**; **`killed →
+  failed`**; `skipped → skipped`;
+  `not-run → not-run`. The run keeps
+  `timeout` / `killed` first-class as
+  evidence.
+- Carries `stdoutDigest` / `stderrDigest` /
+  `exitCode` / `durationMs` /
+  `startedAt` / `completedAt` per command;
+  **does NOT carry stdoutExcerpt /
+  stderrExcerpt** (the run keeps those).
+- Adds explanatory `notes` for
+  `timeout` / `killed` / `skipped` /
+  `not-run` cases plus a `Source: ...`
+  pointer back at the source run.
+- Cites the `VerificationPlan`, the
+  `WorkOrder` (when present), and the
+  `VerificationRun` in
+  `header.inputRefs`.
+- Sets `header.producer.id` to
+  `"@rekon/capability-verify"` and
+  `provenance.notes` flag it as
+  runner-derived.
+
+**Refusal:** the derivation refuses to
+convert dry-run / not-run runs by default
+("a dry-run is not proof"). The
+`--allow-not-run` flag overrides.
+
+**Auto-resolution / auto-apply:** derivation
+does **not** touch `FindingStatusLedger`,
+`FindingLifecycleReport`, `CoherencyDelta`,
+or any reconciliation surface. A passing
+derived result does not auto-resolve
+findings. A contract test pins this.
+
+A `VerificationResult` without a paired
+`VerificationRun` means "manually recorded
+via `rekon verify record`" — the existing
+path is unchanged.
 
 The new `timeout` / `killed` execution statuses
 live on `VerificationRun`, not on

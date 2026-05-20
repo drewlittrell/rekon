@@ -1344,26 +1344,52 @@ review packets unless an ADR promotes them. Promotion requires:
     `CoherencyDelta`, or any reconciliation
     surface. 25 new tests; full suite 1060
     passed / 1 skipped.
-39. **(future)** `VerificationRun` →
-    `VerificationResult` derivation. Add
-    either a `--record-result` flag on
-    `rekon verify run --execute` or a
+39. **Shipped (✅).** `VerificationRun` →
+    `VerificationResult` derivation. The
+    implementation slice settled on a
     dedicated `rekon verify result from-run
-    --run <id>` command. Map `timeout` /
-    `killed` to `failed` in the derived
-    result; cite the `VerificationRun`,
+    --run <id|type:id> [--allow-not-run]
+    [--root <path>] [--json]` command
+    rather than a `--write-result` flag on
+    `verify run`. Helper:
+    `deriveVerificationResultFromRun(input,
+    options)` in `@rekon/capability-verify`.
+    Pure — no spawn, no rerun. Command-
+    status mapping: `passed → passed`;
+    `failed → failed`; **`timeout →
+    failed`**; **`killed → failed`**;
+    `skipped → skipped`; `not-run →
+    not-run`. `recordedBy` =
+    `"<runner.id>@<runner.version>"`.
+    Cites `VerificationRun`,
     `VerificationPlan`, and `WorkOrder` in
-    `header.inputRefs`; set `recordedBy` to
-    the runner id+version. Auto-resolution
-    remains out of scope.
-40. **(future)** Per-module `ObservedSystem`
+    `header.inputRefs`. Carries
+    per-command `stdoutDigest` /
+    `stderrDigest` but does NOT copy raw
+    excerpts. Refuses dry-run / not-run
+    runs by default. No mutation of
+    `FindingStatusLedger`,
+    `FindingLifecycleReport`,
+    `CoherencyDelta`, or any
+    reconciliation surface. 24 new tests;
+    full suite 1084 passed / 1 skipped.
+40. **(future)** Verification proof surfaces
+    v2. Update the architecture summary,
+    agent contract, and proof report to
+    distinguish manual vs. runner-derived
+    `VerificationResult`, call out
+    failed / timeout / killed proof, and
+    flag stale proof relative to the
+    latest `VerificationPlan`. Still no
+    auto-resolution or auto-apply.
+42. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-41. **(future)** Persistent exclusion lists, and
+43. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

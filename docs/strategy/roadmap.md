@@ -1106,6 +1106,55 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- VerificationRun → VerificationResult derivation
+  (P1.1 verification-result-from-run slice): **step
+  6** of the runner v1 implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md).
+  Adds a safe derivation path so completed
+  `VerificationRun` artifacts can feed the existing
+  `VerificationResult` proof-summary surface
+  consumed by the proof report, architecture
+  summary, and resolvers. The new CLI command
+  `rekon verify result from-run --run <id|type:id>
+  [--allow-not-run] [--root <path>] [--json]`
+  reads the source run, refuses dry-run / not-run
+  runs by default, and writes a
+  `VerificationResult` artifact citing the run +
+  plan + work-order in `header.inputRefs`. The new
+  helper `deriveVerificationResultFromRun` in
+  `@rekon/capability-verify` is pure — no spawn, no
+  rerun. Command-status mapping: `passed →
+  passed`; `failed → failed`; **`timeout →
+  failed`**; **`killed → failed`**;
+  `skipped → skipped`; `not-run → not-run`.
+  `recordedBy` is `"<runner.id>@<runner.version>"`
+  (e.g. `"rekon.local.exec@0.1.0"`). The result
+  body carries per-command `stdoutDigest` /
+  `stderrDigest` / `exitCode` /
+  `durationMs` / `startedAt` / `completedAt` but
+  **does NOT copy `stdoutExcerpt` /
+  `stderrExcerpt`** — the result stays concise;
+  the run remains the place to inspect bounded log
+  evidence. **24 new tests** pin the contract
+  (helper status mapping + refusal + allowNotRun;
+  CLI passed / failed paths + refusal of dry-run +
+  refusal without `--run` + plan + run citations +
+  body-never-leaks-stdout + digest preservation +
+  no `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `ReconciliationPlan` mutation + proof report
+  consumes derived result + existing
+  `verify record` / `--dry-run` / `--execute`
+  paths unchanged + `artifacts validate` clean).
+  Full suite: 1084 passed / 1 skipped.
+  **Recommended next slice:** verification proof
+  surfaces v2 — make publications distinguish
+  manual vs. runner-derived results, call out
+  failed / timeout / killed proof, and flag stale
+  proof. Still no auto-resolution or auto-apply.
+  No `schemaVersion` bump. No version bump. No npm
+  publish.
 - Verification runner execution v1 (P1.1
   verification-run-execution-v1 slice): **step 4** of
   the runner v1 implementation sequence pinned by

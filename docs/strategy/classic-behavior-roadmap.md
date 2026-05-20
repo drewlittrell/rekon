@@ -3230,24 +3230,150 @@ scope:
 
   **Recommended next slice:**
   **`VerificationRun` → `VerificationResult`
-  derivation** (step 6). Add either a
-  `--record-result` flag on `verify run
-  --execute` or a dedicated
-  `rekon verify result from-run --run <id>`
-  command. Map `timeout` / `killed` to
-  `failed` in the derived result; cite the
-  `VerificationRun`, `VerificationPlan`, and
-  `WorkOrder` in `header.inputRefs`; set
-  `recordedBy` to the runner id+version.
-  Auto-resolution remains out of scope.
+  derivation** (step 6). **Shipped next; see
+  the entry below.**
+- **VerificationRun → VerificationResult
+  derivation (P1.1
+  verification-result-from-run slice).** ✅
+  Shipped. **Step 6** of the runner v1
+  implementation sequence. Adds a safe
+  derivation path so completed
+  `VerificationRun` artifacts can feed the
+  existing `VerificationResult` proof-summary
+  surface (proof report, architecture summary,
+  resolvers). **Derivation is pure** — no
+  spawn, no source reads, no rerun of plan
+  commands.
 
-  No `schemaVersion` bump. No retries. No
-  sandboxing. No CI / GitHub integration. No
-  source writes by the runner. No
-  `VerificationResult` write. No
-  `FindingStatusLedger` mutation. No
-  reconciliation auto-apply. No version bump.
-  No npm publish.
+  **CLI:** new
+  `rekon verify result from-run --run
+  <id|type:id> [--allow-not-run] [--root
+  <path>] [--json]`. Resolves the source
+  `VerificationRun`, refuses dry-run /
+  not-run runs by default (a dry-run is not
+  proof), and writes a
+  `VerificationResult` artifact citing the
+  run, plan, and work-order in
+  `header.inputRefs`. The implementation
+  slice deliberately chose a separate
+  command over a `--record-result` flag on
+  `verify run` so the operator's intent
+  (execute vs. derive) is visible in the
+  command line.
+
+  **Helper:** new
+  `deriveVerificationResultFromRun(input,
+  options)` in `@rekon/capability-verify`.
+  Maps the run's command statuses to the
+  result's four-value enum:
+  `passed → passed`; `failed → failed`;
+  **`timeout → failed`**;
+  **`killed → failed`**;
+  `skipped → skipped`;
+  `not-run → not-run`. The run keeps
+  `timeout` / `killed` first-class as
+  evidence; the result rolls them up into
+  `failed`. `recordedBy` is set to
+  `"<run.runner.id>@<run.runner.version>"`
+  (e.g. `"rekon.local.exec@0.1.0"`). The
+  result body carries per-command
+  `stdoutDigest` / `stderrDigest` and
+  `exitCode` / `durationMs` /
+  `startedAt` / `completedAt` but **does
+  NOT copy `stdoutExcerpt` /
+  `stderrExcerpt`** — the result stays
+  concise; the run remains the place to
+  inspect bounded log evidence.
+
+  **Refusal behavior:** the helper throws
+  `"VerificationRun status is not-run..."`
+  when invoked on a dry-run; the CLI
+  forwards this as a non-zero exit and an
+  explicit error message. The
+  `--allow-not-run` flag overrides for
+  the rare case where an operator wants to
+  shape a not-run result.
+
+  **What derivation does NOT do:**
+  - No spawn / no rerun of commands.
+  - No mutation of
+    `FindingStatusLedger`,
+    `FindingLifecycleReport`,
+    `CoherencyDelta`, or any
+    reconciliation surface. A passing
+    derived result does not auto-resolve
+    findings.
+  - No `--record-result` flag on
+    `verify run --execute` (deliberate;
+    keeps the operator's intent
+    explicit).
+  - No copy of raw stdout / stderr
+    excerpts.
+  - No `schemaVersion` bump on
+    `VerificationResult`.
+
+  **Tests:** **24 new tests** in
+  `tests/contract/verification-result-from-run.test.mjs`
+  cover helper status mapping
+  (passed / failed / timeout / killed /
+  partial / not-run + refusal + allowNotRun
+  override), input ref citations, recorded-by
+  identity, excerpt-omission +
+  digest-preservation, and the CLI paths
+  (writes for passed and failed runs,
+  refuses dry-run runs, refuses without
+  `--run`, cites plan + run, body never
+  carries raw stdout, digests preserved,
+  no `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `ReconciliationPlan` mutation, proof
+  report consumes the derived result, the
+  existing `verify record` / `--dry-run` /
+  `--execute` paths remain unchanged, and
+  `artifacts validate` stays clean). Full
+  suite: **1084 passed / 1 skipped**.
+
+  **Docs:** updated
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md)
+  (new Derivation (Step 6, Shipped)
+  subsection),
+  [`docs/artifacts/verification-run.md`](../artifacts/verification-run.md)
+  (rewrote the Deriving VerificationResult
+  section to describe the shipped CLI),
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md)
+  (step 6 flipped to ✅ Shipped),
+  [`docs/concepts/verification-results.md`](../concepts/verification-results.md),
+  [`docs/artifacts/verification-result.md`](../artifacts/verification-result.md),
+  [`docs/artifacts/verification-plan.md`](../artifacts/verification-plan.md),
+  [`docs/concepts/proof-report-publication.md`](../concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](../artifacts/proof-report-publication.md),
+  this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  (step 39 flipped to shipped; subsequent
+  steps renumbered),
+  `README.md`, `CHANGELOG.md`. New review
+  packet
+  `.rekon-dev/review-packets/verification-result-from-run.md`.
+
+  **Recommended next slice:** **verification
+  proof surfaces v2** — make the architecture
+  summary, agent contract, and proof report
+  distinguish manual vs. runner-derived
+  `VerificationResult`, call out
+  failed / timeout / killed proof, and flag
+  stale proof relative to the latest
+  `VerificationPlan`. Still no
+  auto-resolution or auto-apply.
+
+  No `schemaVersion` bump on `VerificationRun`
+  or `VerificationResult`. No retries. No
+  sandboxing. No CI / GitHub integration.
+  No source writes by the runner. No
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation. No version
+  bump. No npm publish.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

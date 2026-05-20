@@ -118,26 +118,62 @@ is now the opt-in execution surface. It:
   run's overall status is `failed` / `timeout` /
   `killed`; the artifact is still written.
 
+### Derivation (Step 6, Shipped)
+
+`rekon verify result from-run --run <id|type:id>
+[--allow-not-run] [--root <path>] [--json]`
+turns a completed `VerificationRun` into a
+concise `VerificationResult` proof summary. It:
+
+- Reads the source `VerificationRun` from the
+  local artifact store.
+- Maps each command's status (`passed → passed`;
+  `failed → failed`; **`timeout → failed`**;
+  **`killed → failed`**; `skipped → skipped`;
+  `not-run → not-run`) and carries the
+  per-command `stdoutDigest` / `stderrDigest`
+  through.
+- **Refuses dry-run / not-run runs by default**
+  ("a dry-run is not proof"). The
+  `--allow-not-run` flag overrides for rare
+  cases.
+- Writes a `VerificationResult` artifact citing
+  the run, the plan, and the work-order in
+  `header.inputRefs`. `recordedBy` is set to
+  the runner identity
+  (`"rekon.local.exec@0.1.0"` for the in-tree
+  runner).
+- **Does NOT copy redacted excerpts into the
+  result.** The run remains the place to
+  inspect bounded log evidence; the result
+  stays concise and grep-friendly.
+- **Never re-runs commands.** Never mutates
+  `FindingStatusLedger`,
+  `FindingLifecycleReport`, `CoherencyDelta`,
+  or any reconciliation surface.
+
 ### Future Slices
 
-Step 5 adds the redaction / truncation contract
-tests against a richer secret-pattern set. Step
-6 adds `VerificationResult` derivation (a future
-`--record-result` flag, or a dedicated
-`rekon verify result from-run` command). Steps
-7–8 surface runner-produced proof in
-publications and add a CI / GitHub adapter
-(out of scope for the local-runner v1 arc).
+Steps 7–8 surface runner-produced proof in
+publications (architecture summary, agent
+contract, proof report distinguishing manual
+vs. runner-derived `VerificationResult`) and
+add a CI / GitHub adapter (out of scope for
+the local-runner v1 arc).
 
-For now the three operator paths are:
+For now the four operator paths are:
 
 - `rekon verify run --plan <id> --dry-run` —
   preview only, no execution.
 - `rekon verify run --plan <id> --execute` —
-  run the plan, capture detail.
+  run the plan, capture detail (writes
+  `VerificationRun` only).
+- `rekon verify result from-run --run <id>` —
+  derive a `VerificationResult` from a
+  completed `VerificationRun`.
 - `rekon verify record --plan <id>
-  --result-json <json>` — manual recording,
-  unchanged.
+  --result-json <json>` — manual recording
+  of a `VerificationResult` (unchanged).
 
 ## How A Run Differs From A Result
 

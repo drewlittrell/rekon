@@ -238,9 +238,23 @@ recorded execution detail (including the new
 first-class `timeout` / `killed` statuses). The
 CLI exits non-zero when the overall status is
 `failed` / `timeout` / `killed`. **The execute
-path does NOT write a `VerificationResult` in
-this slice** — derivation lands in a follow-up
-(step 6).
+path does NOT write a `VerificationResult`
+directly.**
+
+**Derivation is shipped.**
+`rekon verify result from-run --run
+<id|type:id> [--allow-not-run]` converts a
+completed `VerificationRun` into a concise
+`VerificationResult` proof summary. It maps
+`timeout` and `killed` command statuses to
+`failed`, carries per-command digests, drops
+the redacted excerpts (the run keeps those),
+and cites the `VerificationRun` +
+`VerificationPlan` + `WorkOrder` in
+`header.inputRefs`. The derivation **refuses
+dry-run / not-run runs by default** and
+**never auto-resolves findings or applies
+reconciliation**.
 
 The runner will write a sibling
 **`VerificationRun`** artifact carrying raw

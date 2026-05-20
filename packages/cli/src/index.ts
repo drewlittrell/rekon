@@ -17,7 +17,9 @@ import intentCapability, {
 } from "@rekon/capability-intent";
 import verifyCapability, {
   createVerificationRunDryRun,
+  deriveVerificationResultFromRun,
   executeVerificationRun,
+  type VerificationRun as VerificationRunArtifact,
   type VerificationRunCommandValidationIssue,
   type VerificationRunDryRunResult,
   type VerificationRunSafetySummary,
@@ -2080,6 +2082,98 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "verify" && subcommand === "result" && positional === "from-run") {
+    // `rekon verify result from-run --run <id|type:id>` derives
+    // a concise VerificationResult proof summary from a completed
+    // VerificationRun. **Does not execute commands.** Refuses
+    // dry-run / not-run runs by default; pass `--allow-not-run`
+    // to override (rare).
+    const runFlag = typeof parsed.flags.run === "string" ? parsed.flags.run : undefined;
+    const allowNotRun = Boolean(parsed.flags["allow-not-run"]);
+
+    if (!runFlag) {
+      throw new Error("rekon verify result from-run requires --run <id|type:id>.");
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const { entry: runEntry, warnings: resolveWarnings } = await resolveVerificationRunEntry(
+      store,
+      runFlag,
+    );
+    const runArtifact = (await store.read(runEntry)) as VerificationRunArtifact;
+    const runRef: ArtifactRef = {
+      type: runEntry.type,
+      id: runEntry.id,
+      schemaVersion: runEntry.schemaVersion,
+    };
+
+    // Look up the linked VerificationPlan (and WorkOrder) so the
+    // derived result cites them in inputRefs.
+    const planRef = runArtifact.verificationPlanRef;
+    let planArtifact: VerificationPlanLike | undefined;
+
+    if (planRef) {
+      try {
+        planArtifact = (await store.read(planRef)) as VerificationPlanLike;
+      } catch {
+        // Plan might have been deleted; we still derive from the run.
+        planArtifact = undefined;
+      }
+    }
+
+    const workOrderRef = runArtifact.workOrderRef ?? planArtifact?.workOrderRef;
+
+    let derived;
+
+    try {
+      derived = deriveVerificationResultFromRun(
+        {
+          verificationRun: runArtifact,
+          verificationRunRef: runRef,
+          verificationPlan: planArtifact,
+          verificationPlanRef: planRef,
+          workOrderRef,
+        },
+        { allowNotRun },
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new Error(`rekon verify result from-run refused: ${message}`);
+    }
+
+    const ref = await store.write(derived.verificationResult, { category: "actions" });
+
+    const output = {
+      derivedFromRun: true,
+      artifact: ref,
+      verificationResult: {
+        id: derived.verificationResult.header.artifactId,
+        status: derived.verificationResult.status,
+        summary: derived.verificationResult.summary,
+        recordedBy: derived.verificationResult.recordedBy,
+        commandResults: derived.verificationResult.commandResults,
+      },
+      runRef,
+      planRef,
+      workOrderRef,
+      warnings: [...resolveWarnings, ...derived.warnings],
+      message:
+        "VerificationResult derived from VerificationRun. No commands were re-run. "
+          + "No findings were auto-resolved.",
+    };
+
+    if (json) {
+      writeOutput(output, json);
+    } else {
+      writeOutput(renderVerifyResultFromRunHuman(output), false);
+    }
+
+    return;
+  }
+
   if (command === "verify" && subcommand === "record") {
     const planFlag = typeof parsed.flags.plan === "string" ? parsed.flags.plan : undefined;
     const resultJsonFlag = typeof parsed.flags["result-json"] === "string" ? parsed.flags["result-json"] : undefined;
@@ -2253,6 +2347,39 @@ async function resolveVerificationPlanEntry(
     const known = allPlans.map((candidate) => candidate.id).slice(0, 10).join(", ");
 
     throw new Error(`VerificationPlan not found for --plan ${planFlag}. Known plan ids: ${known || "none"}.`);
+  }
+
+  return { entry: match, warnings };
+}
+
+async function resolveVerificationRunEntry(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  runFlag: string,
+): Promise<{ entry: ArtifactIndexEntry; warnings: string[] }> {
+  const warnings: string[] = [];
+  const allRuns = await store.list("VerificationRun");
+
+  if (allRuns.length === 0) {
+    throw new Error(
+      "No VerificationRun artifacts found. Run `rekon verify run --plan <id> --execute` first.",
+    );
+  }
+
+  const [requestedType, requestedId] = runFlag.includes(":")
+    ? runFlag.split(":", 2)
+    : [undefined, runFlag];
+  const match = allRuns.find((candidate) => {
+    if (requestedType && requestedType !== candidate.type) {
+      return false;
+    }
+
+    return candidate.id === requestedId;
+  });
+
+  if (!match) {
+    const known = allRuns.map((candidate) => candidate.id).slice(0, 10).join(", ");
+
+    throw new Error(`VerificationRun not found for --run ${runFlag}. Known run ids: ${known || "none"}.`);
   }
 
   return { entry: match, warnings };
@@ -4431,6 +4558,83 @@ function renderVerifyRunExecuteHuman(input: {
   return lines.join("\n");
 }
 
+function renderVerifyResultFromRunHuman(input: {
+  artifact: ArtifactRef;
+  verificationResult: {
+    id: string;
+    status: string;
+    summary: { total: number; passed: number; failed: number; skipped: number; notRun: number };
+    recordedBy?: string;
+    commandResults: Array<{
+      command: string;
+      status: string;
+      exitCode?: number;
+      durationMs?: number;
+      stdoutDigest?: string;
+      stderrDigest?: string;
+      notes?: string;
+    }>;
+  };
+  runRef: ArtifactRef;
+  planRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  warnings: string[];
+}): string {
+  const lines: string[] = [];
+
+  lines.push("Verification result derived from run");
+  lines.push("");
+  lines.push(`Run: ${input.runRef.type}:${input.runRef.id}`);
+  if (input.planRef) {
+    lines.push(`Plan: ${input.planRef.type}:${input.planRef.id}`);
+  } else {
+    lines.push("Plan: (none)");
+  }
+  if (input.workOrderRef) {
+    lines.push(`Work order: ${input.workOrderRef.type}:${input.workOrderRef.id}`);
+  } else {
+    lines.push("Work order: (none)");
+  }
+  lines.push(`Status: ${input.verificationResult.status}`);
+  const summary = input.verificationResult.summary;
+  lines.push(
+    `Commands: ${summary.total} total, ${summary.passed} passed, ${summary.failed} failed, `
+      + `${summary.skipped} skipped, ${summary.notRun} not-run`,
+  );
+  if (input.verificationResult.recordedBy) {
+    lines.push(`Recorded by: ${input.verificationResult.recordedBy}`);
+  }
+  lines.push("");
+
+  if (input.verificationResult.commandResults.length > 0) {
+    lines.push("| # | Command | Status | Exit | Duration |");
+    lines.push("| --- | --- | --- | --- | --- |");
+    for (let index = 0; index < input.verificationResult.commandResults.length; index += 1) {
+      const command = input.verificationResult.commandResults[index]!;
+      const exit = command.exitCode === undefined ? "-" : String(command.exitCode);
+      const duration = typeof command.durationMs === "number" ? `${command.durationMs}ms` : "-";
+      const safeCommand = command.command.replace(/\|/g, "\\|");
+      lines.push(
+        `| ${index + 1} | ${safeCommand} | ${command.status} | ${exit} | ${duration} |`,
+      );
+    }
+    lines.push("");
+  }
+
+  lines.push(`Artifact: ${input.artifact.type}:${input.artifact.id}`);
+  lines.push("No findings were auto-resolved.");
+
+  if (input.warnings.length > 0) {
+    lines.push("");
+    lines.push("Warnings:");
+    for (const warning of input.warnings) {
+      lines.push(`  - ${warning}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function writeOutput(value: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(value, null, 2));
@@ -4505,5 +4709,6 @@ function usage(): string {
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id> --dry-run|--preview [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--json]",
+    "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--json]",
   ].join("\n");
 }

@@ -4,6 +4,169 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped VerificationRun → VerificationResult
+  derivation (P1.1
+  verification-result-from-run slice). **Step
+  6** of the runner v1 implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md).
+  **Derivation is pure** — no spawn, no
+  source reads, no rerun of commands, no
+  mutation of governance surfaces.
+
+  **CLI:** new
+  `rekon verify result from-run --run
+  <id|type:id> [--allow-not-run] [--root
+  <path>] [--json]`. Resolves a completed
+  `VerificationRun`, refuses dry-run /
+  not-run runs by default (a dry-run is not
+  proof), and writes a concise
+  `VerificationResult` proof-summary
+  artifact citing the run, plan, and
+  work-order. The implementation slice
+  deliberately chose a dedicated command
+  over a `--record-result` flag on
+  `verify run` so the operator's intent
+  (execute vs. derive) is visible in the
+  command line.
+
+  **Helper:** new
+  `deriveVerificationResultFromRun(input,
+  options)` in `@rekon/capability-verify`.
+  Pure; never spawns a process. Command-
+  status mapping:
+  `passed → passed`;
+  `failed → failed`;
+  **`timeout → failed`**;
+  **`killed → failed`**;
+  `skipped → skipped`;
+  `not-run → not-run`. The run keeps
+  `timeout` / `killed` first-class as
+  evidence; the result rolls them up into
+  `failed`.
+
+  **`VerificationResult` body carries:**
+  per-command `stdoutDigest` /
+  `stderrDigest` / `exitCode` /
+  `durationMs` / `startedAt` /
+  `completedAt`; explanatory `notes` for
+  `timeout` / `killed` / `skipped` /
+  `not-run` cases plus a `Source: ...`
+  pointer back at the source run.
+
+  **`VerificationResult` body does NOT
+  carry:** `stdoutExcerpt` /
+  `stderrExcerpt`. The result stays concise
+  and grep-friendly; the run remains the
+  place to inspect bounded log evidence.
+  A contract test pins this with a
+  sentinel marker ("zyxwv") that appears
+  only in the spawned stdout, not in the
+  command literal.
+
+  **`header` shape:** `header.inputRefs`
+  cites the `VerificationPlan` (always),
+  the `WorkOrder` (when present), and the
+  `VerificationRun` (always).
+  `header.producer.id` =
+  `"@rekon/capability-verify"`.
+  `header.provenance.notes` flag the
+  result as runner-derived.
+  `recordedBy` =
+  `"<run.runner.id>@<run.runner.version>"`
+  (e.g. `"rekon.local.exec@0.1.0"`).
+
+  **Refusal:** the helper throws
+  `"VerificationRun status is not-run..."`
+  when invoked on a dry-run; the CLI
+  forwards this as a non-zero exit + a
+  clear error message. `--allow-not-run`
+  overrides for rare cases.
+
+  **What derivation does NOT do:**
+  - No spawn / no rerun of commands.
+  - No mutation of
+    `FindingStatusLedger`,
+    `FindingLifecycleReport`,
+    `CoherencyDelta`, or any
+    reconciliation surface. A passing
+    derived result does not auto-resolve
+    findings (contract test pins this).
+  - No `--record-result` flag on
+    `verify run --execute` (deliberate;
+    keeps the operator's intent
+    explicit).
+  - No `schemaVersion` bump on
+    `VerificationResult`.
+
+  **Tests:** **24 new tests** in
+  `tests/contract/verification-result-from-run.test.mjs`
+  cover helper status mapping
+  (`passed` / `failed` / `timeout` /
+  `killed` / mixed → `partial` / all
+  `not-run` with `allowNotRun` →
+  `not-run`), helper refusal of dry-run,
+  input-ref citations, excerpt-omission +
+  digest-preservation, `recordedBy`
+  identity, and CLI behavior (writes for
+  passed and failed runs, refuses
+  dry-run runs, refuses without `--run`,
+  cites plan + run, body never carries
+  raw stdout, digests preserved, no
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `ReconciliationPlan` mutation, proof
+  report consumes derived result,
+  existing `verify record` /
+  `--dry-run` / `--execute` paths
+  unchanged, `artifacts validate`
+  clean). Full suite: **1084 passed / 1
+  skipped**.
+
+  **Docs:** updated
+  [`docs/concepts/verification-runs.md`](docs/concepts/verification-runs.md)
+  (new Derivation (Step 6, Shipped)
+  section),
+  [`docs/artifacts/verification-run.md`](docs/artifacts/verification-run.md)
+  (rewrote Deriving VerificationResult),
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md)
+  (step 6 flipped to ✅ Shipped),
+  [`docs/concepts/verification-results.md`](docs/concepts/verification-results.md),
+  [`docs/artifacts/verification-result.md`](docs/artifacts/verification-result.md),
+  [`docs/artifacts/verification-plan.md`](docs/artifacts/verification-plan.md),
+  [`docs/concepts/proof-report-publication.md`](docs/concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](docs/artifacts/proof-report-publication.md),
+  [`docs/strategy/classic-behavior-roadmap.md`](docs/strategy/classic-behavior-roadmap.md)
+  (new shipped entry),
+  [`docs/strategy/roadmap.md`](docs/strategy/roadmap.md)
+  (new completed-slice entry),
+  [`docs/strategy/issue-governance-architecture-decision.md`](docs/strategy/issue-governance-architecture-decision.md)
+  (step 39 flipped to shipped; step 40
+  added for proof surfaces v2; subsequent
+  steps renumbered). `README.md` updated
+  with the new CLI line. New review
+  packet
+  [`.rekon-dev/review-packets/verification-result-from-run.md`](.rekon-dev/review-packets/verification-result-from-run.md).
+
+  **Next slice:** **verification proof
+  surfaces v2** — make publications
+  (architecture summary, agent contract,
+  proof report) distinguish manual vs.
+  runner-derived `VerificationResult`,
+  call out `failed` / `timeout` /
+  `killed` proof, and flag stale proof
+  relative to the latest
+  `VerificationPlan`. Still no
+  auto-resolution or auto-apply.
+
+  No `schemaVersion` bump. No retries. No
+  sandboxing. No CI / GitHub integration.
+  No source writes by the runner. No
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation. No
+  version bump. No npm publish.
 - Shipped verification runner execution v1
   (P1.1 verification-run-execution-v1 slice).
   **Step 4** of the runner v1 implementation

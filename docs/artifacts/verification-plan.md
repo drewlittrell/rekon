@@ -143,13 +143,22 @@ semantics must be explicitly wrapped
 (`["sh", "-c", "<command>"]`) in the plan
 itself.
 
-**`VerificationResult` derivation is the next
-slice.** Today, `rekon verify run --execute`
-does **not** write a `VerificationResult` — the
+**`VerificationResult` derivation is shipped.**
+After `rekon verify run --execute`, run
+`rekon verify result from-run --run <id>` to
+produce a concise `VerificationResult` proof
+summary citing the `VerificationRun`,
+`VerificationPlan`, and (when present)
+`WorkOrder`. The derivation maps `timeout` and
+`killed` command statuses to `failed`, refuses
+dry-run / not-run runs by default, and never
+auto-resolves findings. See the
 [verification runner v1 decision memo](../strategy/verification-runner-v1-decision.md)
-defers that to step 6. Use
-`rekon verify record` if you need a proof
-summary today.
+step 6 for the safety contract.
+
+`rekon verify record` remains available for
+manually recording a `VerificationResult`
+without a paired `VerificationRun`.
 
 ## Cross-References
 

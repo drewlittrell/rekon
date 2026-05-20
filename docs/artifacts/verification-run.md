@@ -312,21 +312,51 @@ same shape with execution detail filled in.
 
 ## Deriving VerificationResult
 
-When the future runner is invoked with
-`--write-result`, it derives a `VerificationResult`
-from the `VerificationRun`:
+`rekon verify result from-run --run
+<id|type:id>` derives a `VerificationResult`
+from a completed `VerificationRun`:
 
 - `VerificationResult.status` maps `timeout` and
-  `killed` to `failed`; `passed` and `failed` stay
-  as-is; `partial` / `not-run` carry through.
-- `VerificationResult.commandResults` summarizes
-  each `VerificationRunCommand` (without
-  excerpts or environment detail).
+  `killed` to `failed`; `passed` and `failed`
+  stay as-is; `partial` / `not-run` carry
+  through.
+- `VerificationResult.commandResults`
+  summarizes each `VerificationRunCommand`:
+  - keeps `stdoutDigest` / `stderrDigest`
+  - keeps `exitCode`, `durationMs`,
+    `startedAt`, `completedAt`
+  - **does NOT copy `stdoutExcerpt` /
+    `stderrExcerpt`** — the redacted bodies
+    stay on the run; the result remains
+    concise.
+  - adds an explanatory `notes` line for
+    `timeout` / `killed` / `skipped` /
+    `not-run` cases plus a `Source: ...`
+    pointer back at the run.
 - `VerificationResult.recordedBy` is set to the
-  runner id+version.
-- `VerificationResult.header.inputRefs` cites the
-  `VerificationRun`, the `VerificationPlan`, and
-  (when present) the `WorkOrder`.
+  runner id+version
+  (e.g. `"rekon.local.exec@0.1.0"`).
+- `VerificationResult.header.inputRefs` cites
+  the `VerificationPlan` (always), the
+  `WorkOrder` (when present on the run or the
+  plan), and the `VerificationRun` (always).
+- `VerificationResult.header.producer.id` is
+  set to `"@rekon/capability-verify"` and
+  `provenance.notes` flag the result as
+  runner-derived.
+
+**Refusal:** by default the helper / CLI
+**refuse** to derive a result from a not-run
+(dry-run) `VerificationRun`. A dry-run is not
+proof. The `--allow-not-run` flag overrides
+when the operator explicitly wants a
+shaped-but-not-attested result.
+
+**Auto-resolution / auto-apply:** derivation
+does **not** touch `FindingStatusLedger`,
+`FindingLifecycleReport`, `CoherencyDelta`, or
+any reconciliation surface. A contract test
+pins this.
 
 A `VerificationResult` without a paired
 `VerificationRun` means "manually recorded via

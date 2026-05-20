@@ -2,7 +2,10 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import {
+  type VerificationCommandResult,
   type VerificationPlanLike,
+  type VerificationResult,
+  type VerificationResultStatus,
   type VerificationRun,
   type VerificationRunCommand,
   type VerificationRunEnvironment,
@@ -12,6 +15,7 @@ import {
   type VerificationRunStreamExcerpt,
   type VerificationRunSummary,
   assertVerificationRun,
+  createVerificationResult,
   createVerificationRun,
   summarizeVerificationRunCommands,
   validateVerificationRun,
@@ -28,7 +32,7 @@ import {
  *
  * **Execution requires explicit operator opt-in.** The package
  * declares the `"runner"` role + `execute:verification`
- * permission, and exposes three public surfaces:
+ * permission, and exposes four public surfaces:
  *
  * - `createVerificationRunDryRun` (step 3, shipped) —
  *   planned-but-not-run preview; never spawns a process.
@@ -38,6 +42,13 @@ import {
  *   timeouts (SIGTERM → grace → SIGKILL), and bounded
  *   redacted log excerpts plus full pre-redaction sha256
  *   digests.
+ * - `deriveVerificationResultFromRun` (step 6, shipped) —
+ *   pure helper that converts a completed `VerificationRun`
+ *   into a concise `VerificationResult` proof summary.
+ *   Never reruns commands; refuses dry-run / not-run runs by
+ *   default; maps `timeout` and `killed` command statuses to
+ *   `failed`; carries `stdoutDigest` / `stderrDigest` but not
+ *   the redacted excerpts.
  * - The capability default-exported runner handler still
  *   throws when invoked through generic dispatch — the
  *   public execute path is the CLI command
@@ -47,12 +58,11 @@ import {
  *
  * **Importing the package does not run anything.** The
  * runner handler still throws. The CLI orchestrates the
- * execute path explicitly.
+ * execute path and the derivation path explicitly.
  *
- * Out of scope for v1 (deferred to later slices):
- * `VerificationResult` derivation, auto-resolution,
- * auto-apply, retries, sandboxing, network policy, CI /
- * GitHub adapter, source writes.
+ * Out of scope for this slice (still deferred): auto-
+ * resolution, auto-apply, retries, sandboxing, network
+ * policy, CI / GitHub adapter, source writes by the runner.
  */
 
 export const VERIFY_CAPABILITY_ID = "@rekon/capability-verify";
@@ -66,14 +76,18 @@ export const VERIFY_CAPABILITY_VERSION = "0.1.0";
  * `@rekon/capability-intent` next to `VerificationResult`.
  */
 export {
+  type VerificationCommandResult,
+  type VerificationPlanLike,
+  type VerificationResult,
+  type VerificationResultStatus,
   type VerificationRun,
   type VerificationRunCommand,
   type VerificationRunEnvironment,
   type VerificationRunRedaction,
   type VerificationRunRunnerInfo,
   type VerificationRunSummary,
-  type VerificationPlanLike,
   assertVerificationRun,
+  createVerificationResult,
   createVerificationRun,
   summarizeVerificationRunCommands,
   validateVerificationRun,
@@ -1146,6 +1160,262 @@ function deriveRunStatus(
   if (commands.length === 0) return "not-run";
 
   return "passed";
+}
+
+// ---------- Derivation (P1.1 verification-result-from-run) ----------
+//
+// `deriveVerificationResultFromRun` converts a completed
+// `VerificationRun` into a concise `VerificationResult` proof
+// summary. It is pure: it does not spawn processes, read source
+// files, or mutate any external state. The CLI wraps this helper
+// in `rekon verify result from-run` and writes the artifact.
+//
+// Safety contract:
+//
+//   1. Never re-runs commands. The result is derived strictly
+//      from the run.
+//   2. Refuses dry-run / not-run runs (`run.status === "not-run"`)
+//      by default — a dry-run is not proof.
+//   3. Maps `timeout` and `killed` command statuses to `failed`
+//      in the proof summary. Both stay first-class as evidence
+//      in the underlying `VerificationRun`.
+//   4. Carries `stdoutDigest` / `stderrDigest` so downstream
+//      surfaces can cite the streams without storing raw logs.
+//      The `stdoutExcerpt` / `stderrExcerpt` redacted bodies are
+//      intentionally NOT copied into `VerificationResult` — the
+//      result stays concise and grep-friendly.
+//   5. Cites the `VerificationRun` (always) and the
+//      `VerificationPlan` (when provided) in
+//      `header.inputRefs`; carries `WorkOrder` through when it
+//      exists.
+//   6. Sets `recordedBy` to the runner identity from the source
+//      run (`"<run.runner.id>@<run.runner.version>"` when
+//      version is available, otherwise just the runner id).
+//   7. Never mutates `FindingStatusLedger`,
+//      `FindingLifecycleReport`, `CoherencyDelta`, or any
+//      reconciliation surface. A passing result does not
+//      auto-resolve findings.
+
+export type DeriveVerificationResultFromRunOptions = {
+  /** Optional override for the timestamp used in the derived
+   *  result's header (mainly for tests). */
+  generatedAt?: string;
+  /** When true, derivation accepts a not-run / dry-run run. The
+   *  CLI exposes this via `--allow-not-run`. */
+  allowNotRun?: boolean;
+  /** Optional extra evidence notes appended to the derived
+   *  result. The default note pointing at the source run is
+   *  always added. */
+  evidenceNotes?: string[];
+};
+
+export type DeriveVerificationResultFromRunInput = {
+  verificationRun: VerificationRun;
+  verificationRunRef: ArtifactRef;
+  verificationPlan?: VerificationPlanLike;
+  verificationPlanRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+};
+
+export type DeriveVerificationResultFromRunResult = {
+  verificationResult: VerificationResult;
+  warnings: string[];
+};
+
+/**
+ * Build a `VerificationResult` proof summary from a completed
+ * `VerificationRun`. Pure: never spawns a process, never reads
+ * source files, never mutates any external state.
+ */
+export function deriveVerificationResultFromRun(
+  input: DeriveVerificationResultFromRunInput,
+  options: DeriveVerificationResultFromRunOptions = {},
+): DeriveVerificationResultFromRunResult {
+  if (!input || typeof input !== "object") {
+    throw new TypeError("deriveVerificationResultFromRun requires an input object.");
+  }
+  if (!input.verificationRun || typeof input.verificationRun !== "object") {
+    throw new TypeError(
+      "deriveVerificationResultFromRun requires input.verificationRun.",
+    );
+  }
+  if (!input.verificationRunRef || typeof input.verificationRunRef !== "object") {
+    throw new TypeError(
+      "deriveVerificationResultFromRun requires input.verificationRunRef.",
+    );
+  }
+
+  const run = input.verificationRun;
+
+  if (run.status === "not-run" && options.allowNotRun !== true) {
+    throw new Error(
+      "VerificationRun status is not-run; dry-run artifacts cannot be "
+        + "converted to VerificationResult. Pass `allowNotRun: true` to override.",
+    );
+  }
+
+  const warnings: string[] = [];
+
+  // Build per-command results. Map the run's six-value status
+  // enum to the result's four-value enum.
+  const commandResults: VerificationCommandResult[] = run.commands.map((command) => {
+    const status = mapRunCommandStatusToResult(command.status);
+    const note = explainCommandStatusForResult(command, run, input.verificationRunRef);
+    const result: VerificationCommandResult = {
+      command: command.command,
+      status,
+    };
+
+    if (typeof command.exitCode === "number" && Number.isFinite(command.exitCode)) {
+      result.exitCode = Math.trunc(command.exitCode);
+    }
+    if (typeof command.durationMs === "number" && Number.isFinite(command.durationMs) && command.durationMs >= 0) {
+      result.durationMs = command.durationMs;
+    }
+    if (typeof command.startedAt === "string" && command.startedAt.length > 0) {
+      result.startedAt = command.startedAt;
+    }
+    if (typeof command.endedAt === "string" && command.endedAt.length > 0) {
+      result.completedAt = command.endedAt;
+    }
+    if (typeof command.stdoutDigest === "string" && command.stdoutDigest.length > 0) {
+      result.stdoutDigest = command.stdoutDigest;
+    }
+    if (typeof command.stderrDigest === "string" && command.stderrDigest.length > 0) {
+      result.stderrDigest = command.stderrDigest;
+    }
+    if (note.length > 0) {
+      result.notes = note;
+    }
+
+    return result;
+  });
+
+  // Pick a plan ref: explicit input > run.verificationPlanRef.
+  const verificationPlanRef = input.verificationPlanRef ?? run.verificationPlanRef;
+
+  if (!verificationPlanRef) {
+    throw new TypeError(
+      "deriveVerificationResultFromRun requires a VerificationPlan reference "
+        + "(either input.verificationPlanRef or run.verificationPlanRef).",
+    );
+  }
+
+  const workOrderRef = input.workOrderRef ?? run.workOrderRef;
+  const verificationPlan: VerificationPlanLike = input.verificationPlan ?? {
+    header: run.header,
+    workOrderRef: workOrderRef,
+    commands: run.commands.map((command) => command.command),
+  };
+
+  const recordedBy = run.runner?.version
+    ? `${run.runner.id}@${run.runner.version}`
+    : run.runner?.id ?? "verification-runner";
+
+  const baseNote = `Derived from ${input.verificationRunRef.type}:${input.verificationRunRef.id}.`;
+  const evidenceNotes = [
+    baseNote,
+    ...(Array.isArray(options.evidenceNotes) ? options.evidenceNotes : []),
+  ];
+
+  if (run.status === "not-run") {
+    warnings.push(
+      "Source VerificationRun is not-run; derivation proceeded under allowNotRun.",
+    );
+  }
+
+  // `createVerificationResult` aligns commandResults against the
+  // plan's command list and derives the overall status. We add
+  // the source run as an extra inputRef so the result cites it.
+  const verificationResult = createVerificationResult({
+    verificationPlan,
+    verificationPlanRef,
+    workOrderRef,
+    commandResults,
+    evidenceNotes,
+    recordedBy,
+    extraInputRefs: [input.verificationRunRef],
+    generatedAt: options.generatedAt,
+  });
+
+  // `createVerificationResult` provenance note is geared at
+  // operator-supplied results. Replace it with a runner-derived
+  // note so downstream surfaces can spot the provenance.
+  verificationResult.header.provenance = {
+    confidence: 0.92,
+    notes: [
+      "Derived from a runner-produced VerificationRun.",
+      "Runner did not auto-resolve findings or apply reconciliation.",
+    ],
+  };
+  if (verificationResult.header.producer) {
+    verificationResult.header.producer = {
+      id: VERIFY_CAPABILITY_ID,
+      version: VERIFY_CAPABILITY_VERSION,
+    };
+  }
+
+  return { verificationResult, warnings };
+}
+
+/**
+ * Map a `VerificationRun` command status to the
+ * `VerificationResult` enum. `timeout` and `killed` are both
+ * collapsed to `failed` — the source run keeps them first-class
+ * as evidence.
+ */
+function mapRunCommandStatusToResult(
+  status: VerificationRunCommand["status"],
+): VerificationCommandResult["status"] {
+  switch (status) {
+    case "passed":
+      return "passed";
+    case "failed":
+    case "timeout":
+    case "killed":
+      return "failed";
+    case "skipped":
+      return "skipped";
+    case "not-run":
+    default:
+      return "not-run";
+  }
+}
+
+function explainCommandStatusForResult(
+  command: VerificationRunCommand,
+  _run: VerificationRun,
+  runRef: ArtifactRef,
+): string {
+  const parts: string[] = [];
+
+  switch (command.status) {
+    case "timeout":
+      parts.push("Command timed out (mapped to failed).");
+      break;
+    case "killed":
+      parts.push("Command was killed (mapped to failed).");
+      break;
+    case "skipped":
+      parts.push("Command was skipped by the runner.");
+      break;
+    case "not-run":
+      if (command.notes === "plan-timeout-before-start") {
+        parts.push("Command not run: plan timeout exceeded before start.");
+      } else {
+        parts.push("Command was not run.");
+      }
+      break;
+    default:
+      break;
+  }
+
+  if (typeof command.signal === "string" && command.signal.length > 0) {
+    parts.push(`Exited on signal ${command.signal}.`);
+  }
+
+  parts.push(`Source: ${runRef.type}:${runRef.id}.`);
+  return parts.join(" ");
 }
 
 /**

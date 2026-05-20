@@ -919,10 +919,61 @@ memo ships none of step 3+):
    computed over the **pre-redaction** stream
    so digest tampering is detectable.
 6. **Derive `VerificationResult` from
-   `VerificationRun`.** `--write-result` flag
-   on `verify run`. The derived result cites
-   the run in `header.inputRefs` and sets
-   `recordedBy` to the runner id+version.
+   `VerificationRun`.** ✅ Shipped.
+   - The implementation slice settled on a
+     dedicated CLI command
+     `rekon verify result from-run --run
+     <id|type:id> [--allow-not-run]
+     [--root <path>] [--json]` rather than a
+     `--write-result` flag on `verify run`.
+     The two surfaces stay deliberately
+     separate so the operator's intent
+     (execute vs. derive) is visible in the
+     command line.
+   - New helper
+     `deriveVerificationResultFromRun(input,
+     options)` in
+     `@rekon/capability-verify`. **Pure** —
+     no spawn, no source reads, no mutation.
+   - Refuses dry-run / not-run
+     `VerificationRun` artifacts by default
+     ("a dry-run is not proof"); the
+     `--allow-not-run` flag overrides for
+     rare cases.
+   - Command-status mapping: `passed →
+     passed`; `failed → failed`; **`timeout
+     → failed`**; **`killed → failed`**;
+     `skipped → skipped`; `not-run →
+     not-run`. The run keeps `timeout` /
+     `killed` first-class as evidence.
+   - Overall status uses the existing
+     `createVerificationResult` summary
+     (failed > partial > passed > not-run).
+   - `recordedBy` is set to
+     `"<run.runner.id>@<run.runner.version>"`
+     (`"rekon.local.exec@0.1.0"` for the
+     in-tree runner).
+   - `header.inputRefs` cites the
+     `VerificationPlan` (always), the
+     `WorkOrder` (when present on the run or
+     the plan), and the `VerificationRun`
+     (always; via the helper's
+     `extraInputRefs`).
+   - Header `producer.id` is set to
+     `"@rekon/capability-verify"` (matches
+     the run); `provenance.notes` flag the
+     derivation as runner-derived.
+   - The result body carries `stdoutDigest`
+     and `stderrDigest` from the run's
+     command results but **does not copy
+     the redacted excerpts**. The result
+     stays concise and grep-friendly; the
+     run remains the place to inspect
+     bounded log evidence.
+   - **No findings / status / lifecycle /
+     reconciliation mutation.** Passing
+     derived result does not auto-resolve
+     findings. A contract test pins this.
 7. **Surface runner-produced proof in the
    existing publications.** Architecture
    summary, agent contract, and proof report

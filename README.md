@@ -135,9 +135,14 @@ node packages/cli/dist/index.js verify run --plan <verification-plan-id> --dry-r
 # Uses spawn with shell:false, a scrubbed env, per-command + per-plan timeouts,
 # bounded redacted log excerpts, and sha256 stream digests. Writes a
 # VerificationRun artifact with execution detail. Does NOT write a
-# VerificationResult (derivation is the next slice) and does NOT auto-resolve
-# findings. CLI exits non-zero on failed/timeout/killed.
+# VerificationResult directly and does NOT auto-resolve findings. CLI exits
+# non-zero on failed/timeout/killed.
 node packages/cli/dist/index.js verify run --plan <verification-plan-id> --execute --root examples/simple-js-ts --json
+# `rekon verify result from-run --run <id>` derives a concise VerificationResult
+# proof summary from a completed VerificationRun. Maps timeout/killed to
+# failed; carries digests but not redacted excerpts; refuses dry-run runs by
+# default; never auto-resolves findings.
+node packages/cli/dist/index.js verify result from-run --run <verification-run-id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
