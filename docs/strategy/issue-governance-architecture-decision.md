@@ -1229,22 +1229,83 @@ review packets unless an ADR promotes them. Promotion requires:
     yet (the type lands in the next slice). No
     new capability yet. No new CLI command yet.
     No mutation of any artifact.
-36. **(future)** VerificationRun artifact +
-    `@rekon/capability-verify` skeleton — the
-    next implementation slice as documented in
-    the verification runner v1 decision memo.
-    Adds the artifact type, validation, and
-    capability skeleton with conformance tests
-    pinning the new role + permission. No
-    execution code in this slice.
-37. **(future)** Per-module `ObservedSystem`
+36. **(shipped)** VerificationRun artifact +
+    `@rekon/capability-verify` skeleton.
+    Implements steps 1–2 of the runner v1
+    implementation sequence. **No command
+    execution.** Adds the `VerificationRun`
+    artifact type + helpers
+    (`createVerificationRun`,
+    `summarizeVerificationRunCommands`,
+    `validateVerificationRun`,
+    `assertVerificationRun`) to
+    `@rekon/capability-intent` next to
+    `VerificationResult`. The summary block adds
+    `timeout` + `killed` counters; the
+    per-command shape adds argv / digests /
+    redacted truncated excerpts / runner
+    identity / environment summary / redaction
+    audit / `timedOut` + `killed` flags. The SDK
+    gains a new `"runner"` role, a new
+    `execute:verification` permission, a
+    `Runner` handler type, and a
+    `registry.runner(...)` registration surface;
+    conformance tooling rejects unknown roles /
+    permissions and rejects runner-role
+    manifests that register no runner handler.
+    The runtime artifact category map routes
+    `VerificationRun` to `actions`. **`@rekon/capability-verify`**
+    is a new package whose manifest declares
+    `roles: ["runner"]`,
+    `permissions: ["execute:verification",
+    "read:artifacts", "write:artifacts"]`,
+    `consumes: ["VerificationPlan",
+    "WorkOrder"]`, `produces: ["VerificationRun",
+    "VerificationResult"]`. The package's runner
+    handler is a throw-stub
+    (`@rekon/capability-verify: command
+    execution is not implemented yet.`) — it
+    satisfies the SDK's
+    manifest-roles-have-handlers invariant
+    without actually spawning processes. The
+    capability conformance + the SDK additions
+    are pinned by
+    `tests/contract/verification-run-artifact.test.mjs`
+    (9 cases) +
+    `tests/contract/verify-capability-skeleton.test.mjs`
+    (12 cases) + the package-local
+    `packages/capability-verify/test/verify.test.mjs`
+    (9 cases) — a total of 30 new contract +
+    package tests. `rekon verify record` is
+    unchanged; no new CLI command; no
+    `rekon verify run` exists yet. New docs:
+    `docs/artifacts/verification-run.md`,
+    `docs/concepts/verification-runs.md`. The
+    verification-runner-v1 decision memo flips
+    steps 1–2 to shipped and re-enumerates
+    steps 3–8 (dry-run command → opt-in
+    execution → redaction/truncation tests →
+    `VerificationResult` derivation →
+    runner-produced proof in publications →
+    CI / GitHub adapter). No source writes; no
+    `apply:*` permission; no shell execution.
+37. **(future)** Verification runner dry-run
+    command. Adds
+    `rekon verify run --plan <id> --dry-run`
+    that resolves the plan, applies the safety
+    policy checks (timeouts, redaction
+    patterns, max log bytes), prints what
+    would run, and writes no artifacts. Step 3
+    of the runner v1 sequence. Still no
+    command execution.
+38. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-38. **(future)** Persistent exclusion lists, and
+39. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

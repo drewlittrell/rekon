@@ -251,6 +251,10 @@ Read: [docs/concepts/resolvers.md](docs/concepts/resolvers.md)
 - `@rekon/capability-memory`
 - `@rekon/capability-intent`
 - `@rekon/capability-reconcile`
+- `@rekon/capability-verify` (v1 ships the manifest +
+  skeleton only; command execution is not implemented
+  yet — see
+  [docs/strategy/verification-runner-v1-decision.md](docs/strategy/verification-runner-v1-decision.md))
 
 ## Development
 

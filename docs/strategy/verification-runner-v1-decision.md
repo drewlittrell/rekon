@@ -762,11 +762,33 @@ Adding retry support is its own strategy memo.
 
 ## Implementation Sequence
 
+**Steps 1–2 shipped at the
+`VerificationRun artifact + @rekon/capability-verify
+skeleton` slice.** See
+[`docs/artifacts/verification-run.md`](../artifacts/verification-run.md),
+[`docs/concepts/verification-runs.md`](../concepts/verification-runs.md),
+and `packages/capability-verify/`. The
+`createVerificationRun`, `validateVerificationRun`,
+and `assertVerificationRun` helpers live in
+`@rekon/capability-intent`. The
+`@rekon/capability-verify` package declares the
+`"runner"` role + `execute:verification`
+permission; its runner handler is a throw-stub
+until step 4 lands. The SDK gained the new role +
+permission + `Runner` handler type +
+`registry.runner(...)` registration surface;
+conformance tooling rejects unknown roles /
+permissions and rejects runner-role manifests
+that register no runner handler. The runtime
+artifact category map routes `VerificationRun` to
+`actions`. Steps 3–8 remain deferred to subsequent
+slices.
+
 Proposed sequence for downstream slices (this
-memo ships none of it):
+memo ships none of step 3+):
 
 1. **Add `VerificationRun` artifact type and
-   docs.**
+   docs.** ✅ Shipped.
    - Type definitions in
      `@rekon/capability-intent` (next to the
      existing `VerificationResult`) OR a new
@@ -777,7 +799,7 @@ memo ships none of it):
      `docs/artifacts/verification-run.md` and
      `docs/concepts/verification-runs.md`.
 2. **Add `@rekon/capability-verify` skeleton
-   with conformance tests.**
+   with conformance tests.** ✅ Shipped.
    - Manifest with `roles: ["runner"]`,
      `permissions: ["execute:verification",
      "artifact:read", "artifact:write"]`,

@@ -19,6 +19,7 @@
     { "path": "./packages/capability-docs" },
     { "path": "./packages/capability-memory" },
     { "path": "./packages/capability-intent" },
-    { "path": "./packages/capability-reconcile" }
+    { "path": "./packages/capability-reconcile" },
+    { "path": "./packages/capability-verify" }
   ]
 }

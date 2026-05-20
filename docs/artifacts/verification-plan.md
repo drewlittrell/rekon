@@ -139,5 +139,7 @@ in the plan itself — the runner uses
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [Verification results concept](../concepts/verification-results.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+- [VerificationRun artifact](verification-run.md)
+- [Verification runs concept](../concepts/verification-runs.md)
 - [CoherencyDelta](coherency-delta.md)
 - [ResolverPacket](resolver-packet.md)

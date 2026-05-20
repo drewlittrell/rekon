@@ -1106,6 +1106,58 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- VerificationRun artifact + `@rekon/capability-verify`
+  skeleton (P1.1
+  verification-run-artifact-capability-skeleton slice):
+  steps 1–2 of the runner v1 implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md).
+  Adds the new sibling **`VerificationRun`** artifact
+  type to `@rekon/capability-intent` (next to
+  `VerificationResult`), the new
+  **`@rekon/capability-verify`** package with manifest
+  declaring the new `"runner"` role + new
+  `execute:verification` permission, and the SDK
+  conformance updates that accept the new role,
+  permission, and artifact type. **No command
+  execution in this batch.** The capability's runner
+  handler is a throw-stub that raises
+  `"@rekon/capability-verify: command execution is not
+  implemented yet"` when invoked; importing the
+  capability does not enable execution. The runtime
+  routes the new artifact type to the `actions`
+  category; `VerificationResult` and `VerificationPlan`
+  shapes are unchanged. **30 new tests** (9
+  `verification-run-artifact.test.mjs` +
+  12 `verify-capability-skeleton.test.mjs` + 9
+  package-local) pin the contract: canonical artifact
+  shape and summary derivation, validation rejects
+  missing `verificationPlanRef` and invalid command
+  status, `timeout` and `killed` statuses accepted,
+  built-in artifact type registration, runtime
+  category routing, manifest conformance, role and
+  permission boundary, runner-role manifest
+  acceptance, SDK rejection of unknown roles and
+  permissions, and runner throw-stub behavior. Full
+  suite: 1013 passed / 1 skipped. **Recommended next
+  slice:** **verification runner dry-run command**
+  — `rekon verify run --plan <id> --dry-run`. Step 3
+  of the runner v1 sequence: parse the plan, validate
+  shell-interpolation-free args, emit a planned-but-
+  not-executed `VerificationRun`. **Still no command
+  execution.** No CLI behavior change in this slice
+  (no `rekon verify run` yet). No `schemaVersion`
+  bump. No new reason codes. No producer change. No
+  graph-aware filter change. No source-file reads.
+  No process spawn. No stdout / stderr capture. No
+  log redaction implementation. No
+  `VerificationResult` derivation. No
+  `rekon verify record` behavior change. No
+  `WorkOrder` / `VerificationPlan` /
+  `VerificationResult` / `ReconciliationPlan` /
+  `CoherencyDelta` behavior change. No CI / GitHub
+  integration. No sandboxing implementation. No
+  watcher / daemon. No version bump. No npm publish.
 - Verification runner v1 decision memo (P1.1
   verification-runner-v1-decision slice):
   strategy-only batch — no runtime change. Memo

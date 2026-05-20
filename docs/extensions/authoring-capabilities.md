@@ -15,6 +15,21 @@ Each capability declares one or more roles:
 - `learner`: records feedback and selects applicable memory
 - `actuator`: writes action-oriented artifacts such as work orders or
   reconciliation logs
+- `runner`: executes verification commands listed in a
+  `VerificationPlan` and writes `VerificationRun` artifacts. **Subject
+  to the safety contract pinned in
+  [docs/strategy/verification-runner-v1-decision.md](../strategy/verification-runner-v1-decision.md):**
+  execution is opt-in (`rekon verify run --plan <id> --execute`); the
+  runner never executes during `rekon refresh`, `publish`, `resolve`,
+  `intent`, `reconcile`, or `artifacts` commands; only the commands
+  listed in the named `VerificationPlan` may run; no shell
+  interpolation from artifact-supplied strings. The
+  `execute:verification` permission gates the runner role and is
+  distinct from `execute:commands` so the narrow scope is visible to
+  manifest review. `@rekon/capability-verify` is the built-in runner
+  (v1 ships the manifest + skeleton only; command execution is not
+  implemented yet — a future slice adds dry-run and then opt-in
+  execution).
 
 ## Minimal Shape
 
@@ -85,6 +100,16 @@ It denies high-risk operations by default:
 
 - `write:source`
 - `execute:commands`
+- `execute:verification` — narrow opt-in counterpart to
+  `execute:commands`, declared only by the verification-runner
+  capability (`@rekon/capability-verify`). Subject to the safety
+  contract in
+  [docs/strategy/verification-runner-v1-decision.md](../strategy/verification-runner-v1-decision.md):
+  execution requires an explicit
+  `rekon verify run --plan <id> --execute` operator command;
+  the runner may execute only commands listed in the named
+  `VerificationPlan`; no shell interpolation from artifact-supplied
+  strings; no auto-resolution; no auto-apply.
 - `network:outbound`
 
 Avoid source writes in alpha capabilities. Prefer writing artifacts that a human

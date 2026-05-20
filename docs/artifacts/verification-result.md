@@ -198,4 +198,6 @@ result keeps its current four-value enum stable.
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [Verification results concept](../concepts/verification-results.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+- [VerificationRun artifact](verification-run.md)
+- [Verification runs concept](../concepts/verification-runs.md)
 - [Capability model](../strategy/capability-model.md)

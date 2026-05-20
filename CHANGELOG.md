@@ -4,6 +4,115 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped VerificationRun artifact +
+  `@rekon/capability-verify` skeleton
+  (P1.1
+  verification-run-artifact-capability-skeleton
+  slice). Steps 1–2 of the runner v1
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md).
+  **No command execution in this batch.**
+
+  **Artifact:** new sibling **`VerificationRun`**
+  artifact type added to
+  `@rekon/capability-intent` (next to
+  `VerificationResult`). Records per-command
+  `start` / `end` / `durationMs` / `exitCode` /
+  `status` (`passed` / `failed` / `timeout` /
+  `killed` / `skipped` / `not-run`) + stdout /
+  stderr digests + truncated excerpts + runner
+  version + environment summary + redaction
+  audit. Helpers: `createVerificationRun`,
+  `summarizeVerificationRunCommands`,
+  `validateVerificationRun`,
+  `assertVerificationRun`,
+  `validateVerificationRunStreamExcerpt`.
+  **`VerificationResult` shape unchanged.**
+
+  **Capability:** new package
+  **`@rekon/capability-verify`** with manifest
+  declaring the new `"runner"` role and the new
+  **`execute:verification`** permission. Consumes
+  `VerificationPlan` and `WorkOrder`; produces
+  `VerificationRun` and `VerificationResult`. The
+  runner handler
+  (`@rekon/capability-verify.runner`) is a
+  **throw-stub** that raises
+  `"@rekon/capability-verify: command execution
+  is not implemented yet"` when invoked.
+  Importing the capability does **not** enable
+  execution.
+
+  **SDK conformance updates:** added `"runner"`
+  to `CapabilityRole`, `"execute:verification"`
+  to `CapabilityPermission`, and
+  `"VerificationRun"` to
+  `BUILT_IN_ARTIFACT_TYPES`. New `Runner` type +
+  `registry.runner()` registration method. New
+  fields on `RegisteredCapability` and
+  `CapabilityRegistrySnapshot`
+  (`runners: Runner[]`). Manifest invariants
+  (`ensureManifestRolesHaveHandlers`,
+  `validateRegisteredCapability`,
+  `cloneRegisteredCapability`) updated for the
+  new role. **Conformance does not invoke runner
+  handlers** — preserving the safety contract
+  that runners only execute via explicit operator
+  commands.
+
+  **Runtime:** routes `VerificationRun` to the
+  `actions` artifact category (next to
+  `VerificationResult` and `ReconciliationPlan`).
+
+  **Tests:** 30 new tests pin the boundary —
+  9 `verification-run-artifact.test.mjs` +
+  12 `verify-capability-skeleton.test.mjs` +
+  9 package-local. Full suite: **1013 passed / 1
+  skipped**.
+
+  **Docs:** 2 new
+  ([`docs/artifacts/verification-run.md`](docs/artifacts/verification-run.md),
+  [`docs/concepts/verification-runs.md`](docs/concepts/verification-runs.md)).
+  Cross-references added in
+  [`docs/artifacts/verification-result.md`](docs/artifacts/verification-result.md),
+  [`docs/artifacts/verification-plan.md`](docs/artifacts/verification-plan.md),
+  [`docs/artifacts/proof-report-publication.md`](docs/artifacts/proof-report-publication.md),
+  [`docs/concepts/verification-results.md`](docs/concepts/verification-results.md),
+  [`docs/concepts/proof-report-publication.md`](docs/concepts/proof-report-publication.md),
+  [`docs/extensions/authoring-capabilities.md`](docs/extensions/authoring-capabilities.md),
+  [`docs/release/public-package-boundaries.md`](docs/release/public-package-boundaries.md)
+  (capability-verify row added; package count
+  19 → 20). Strategy memos updated:
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md)
+  (steps 1–2 flipped to ✅ Shipped),
+  [`docs/strategy/issue-governance-architecture-decision.md`](docs/strategy/issue-governance-architecture-decision.md)
+  (step 36 flipped to shipped; step 37 added for
+  dry-run command; subsequent steps renumbered),
+  [`docs/strategy/classic-behavior-roadmap.md`](docs/strategy/classic-behavior-roadmap.md)
+  (new entry),
+  [`docs/strategy/roadmap.md`](docs/strategy/roadmap.md)
+  (new completed-slice entry).
+
+  **Next slice:** **verification runner dry-run
+  command** —
+  `rekon verify run --plan <id> --dry-run`. Step
+  3 of the runner v1 sequence. **Still no
+  command execution.**
+
+  No CLI behavior change (no `rekon verify run`
+  yet). No `schemaVersion` bump. No new reason
+  codes. No producer change. No graph-aware
+  filter change. No source-file reads. No process
+  spawn. No stdout / stderr capture. No log
+  redaction implementation. No
+  `VerificationResult` derivation. No
+  `rekon verify record` behavior change. No
+  `WorkOrder` / `VerificationPlan` /
+  `VerificationResult` / `ReconciliationPlan` /
+  `CoherencyDelta` behavior change. No CI /
+  GitHub integration. No sandboxing
+  implementation. No watcher / daemon. No version
+  bump. No npm publish.
 - Shipped verification runner v1 decision memo
   (P1.1 verification-runner-v1-decision slice).
   Strategy-only batch — no runtime change. The memo

@@ -127,6 +127,143 @@ export type VerificationEvidenceSummary = {
   warnings: string[];
 };
 
+// ---------- VerificationRun (P1.1 verification-runner-v1) ----------
+//
+// `VerificationRun` is the execution-detail artifact written
+// by the future `@rekon/capability-verify` runner. It records
+// per-command argv / status (including the new `timeout` /
+// `killed` values) / digests / redacted truncated excerpts +
+// runner identity + environment summary + redaction audit. It
+// is intentionally a sibling artifact to `VerificationResult`
+// (which remains the proof summary consumed by publications
+// and resolvers). The shape lives here next to
+// `VerificationResult` so both types share the same kernel
+// boundary; the `@rekon/capability-verify` runner imports
+// the type and writes the artifact when explicit operator
+// `--execute` invocations land in a later slice.
+//
+// **No command execution code lives here.** The type +
+// validators + factory exist so the artifact can be written
+// and validated; running anything is deferred to subsequent
+// slices.
+
+export type VerificationRunStatus =
+  | "passed"
+  | "failed"
+  | "partial"
+  | "timeout"
+  | "killed"
+  | "not-run";
+
+export type VerificationCommandRunStatus =
+  | "passed"
+  | "failed"
+  | "skipped"
+  | "not-run"
+  | "timeout"
+  | "killed";
+
+export type VerificationRunStreamExcerpt = {
+  text: string;
+  redacted: boolean;
+  truncated: boolean;
+  originalBytes?: number;
+  storedBytes?: number;
+};
+
+export type VerificationRunCommand = {
+  id: string;
+  command: string;
+  argv: string[];
+  cwd?: string;
+  status: VerificationCommandRunStatus;
+  exitCode?: number | null;
+  signal?: string | null;
+  startedAt?: string;
+  endedAt?: string;
+  durationMs?: number;
+  timedOut?: boolean;
+  killed?: boolean;
+  stdoutDigest?: string;
+  stderrDigest?: string;
+  stdoutExcerpt?: VerificationRunStreamExcerpt;
+  stderrExcerpt?: VerificationRunStreamExcerpt;
+  notes?: string;
+};
+
+export type VerificationRunEnvironment = {
+  platform?: string;
+  arch?: string;
+  nodeVersion?: string;
+  shell?: string;
+  network?: "unknown" | "disabled" | "enabled";
+  envPolicy?: "scrubbed" | "inherited" | "custom";
+};
+
+export type VerificationRunRedaction = {
+  applied: boolean;
+  patterns: string[];
+  redactedMatches?: number;
+  maxBytesPerStream?: number;
+};
+
+export type VerificationRunSummary = {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  notRun: number;
+  timeout: number;
+  killed: number;
+};
+
+export type VerificationRunRunnerInfo = {
+  id: string;
+  version?: string;
+  capabilityId?: string;
+};
+
+export type VerificationRun = {
+  header: ArtifactHeader;
+  status: VerificationRunStatus;
+  verificationPlanRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  verificationResultRef?: ArtifactRef;
+  commands: VerificationRunCommand[];
+  summary: VerificationRunSummary;
+  runner: VerificationRunRunnerInfo;
+  environment?: VerificationRunEnvironment;
+  redaction?: VerificationRunRedaction;
+  startedAt?: string;
+  endedAt?: string;
+  durationMs?: number;
+};
+
+export type CreateVerificationRunInput = {
+  header: ArtifactHeader;
+  status: VerificationRunStatus;
+  verificationPlanRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  verificationResultRef?: ArtifactRef;
+  commands: VerificationRunCommand[];
+  runner: VerificationRunRunnerInfo;
+  environment?: VerificationRunEnvironment;
+  redaction?: VerificationRunRedaction;
+  startedAt?: string;
+  endedAt?: string;
+  durationMs?: number;
+  summary?: VerificationRunSummary;
+};
+
+export type VerificationRunValidationIssue = {
+  path: string;
+  message: string;
+};
+
+export type VerificationRunValidationResult =
+  | { ok: true; value: VerificationRun; issues: [] }
+  | { ok: false; issues: VerificationRunValidationIssue[] };
+
 type WorkOrderEvidenceLike = {
   header: ArtifactHeader;
   source?: string;
@@ -461,6 +598,245 @@ function deriveOverallStatus(
   }
 
   return "partial";
+}
+
+// ---------- VerificationRun helpers (P1.1
+// verification-runner-v1 boundary) ----------
+//
+// Pure data-only factory + validator + assert helpers. No
+// command execution. The factory accepts the canonical
+// shape, fills the summary when omitted (deriving counts
+// from the command list), and returns a typed
+// `VerificationRun` ready for write. The validator
+// returns structured issues; the asserter throws.
+
+const VERIFICATION_RUN_STATUSES = new Set<VerificationRunStatus>([
+  "passed",
+  "failed",
+  "partial",
+  "timeout",
+  "killed",
+  "not-run",
+]);
+
+const VERIFICATION_COMMAND_RUN_STATUSES = new Set<VerificationCommandRunStatus>([
+  "passed",
+  "failed",
+  "skipped",
+  "not-run",
+  "timeout",
+  "killed",
+]);
+
+export function createVerificationRun(input: CreateVerificationRunInput): VerificationRun {
+  if (!input || typeof input !== "object") {
+    throw new TypeError("createVerificationRun requires an input object.");
+  }
+  if (!input.header || typeof input.header !== "object") {
+    throw new TypeError("createVerificationRun requires input.header.");
+  }
+  if (!input.verificationPlanRef || typeof input.verificationPlanRef !== "object") {
+    throw new TypeError("createVerificationRun requires input.verificationPlanRef.");
+  }
+  if (!Array.isArray(input.commands)) {
+    throw new TypeError("createVerificationRun requires input.commands to be an array.");
+  }
+  if (!input.runner || typeof input.runner.id !== "string" || input.runner.id.length === 0) {
+    throw new TypeError("createVerificationRun requires input.runner.id.");
+  }
+  if (!VERIFICATION_RUN_STATUSES.has(input.status)) {
+    throw new TypeError(
+      `createVerificationRun input.status must be one of ${[...VERIFICATION_RUN_STATUSES].join(", ")}.`,
+    );
+  }
+
+  const summary = input.summary ?? summarizeVerificationRunCommands(input.commands);
+
+  return {
+    header: input.header,
+    status: input.status,
+    verificationPlanRef: input.verificationPlanRef,
+    workOrderRef: input.workOrderRef,
+    verificationResultRef: input.verificationResultRef,
+    commands: input.commands.map((command) => ({ ...command })),
+    summary,
+    runner: { ...input.runner },
+    environment: input.environment ? { ...input.environment } : undefined,
+    redaction: input.redaction
+      ? {
+        ...input.redaction,
+        patterns: [...input.redaction.patterns],
+      }
+      : undefined,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+    durationMs: input.durationMs,
+  };
+}
+
+export function summarizeVerificationRunCommands(
+  commands: ReadonlyArray<VerificationRunCommand>,
+): VerificationRunSummary {
+  let passed = 0;
+  let failed = 0;
+  let skipped = 0;
+  let notRun = 0;
+  let timeout = 0;
+  let killed = 0;
+  for (const command of commands ?? []) {
+    switch (command?.status) {
+      case "passed":
+        passed += 1;
+        break;
+      case "failed":
+        failed += 1;
+        break;
+      case "skipped":
+        skipped += 1;
+        break;
+      case "not-run":
+        notRun += 1;
+        break;
+      case "timeout":
+        timeout += 1;
+        break;
+      case "killed":
+        killed += 1;
+        break;
+      default:
+        notRun += 1;
+        break;
+    }
+  }
+  return {
+    total: commands?.length ?? 0,
+    passed,
+    failed,
+    skipped,
+    notRun,
+    timeout,
+    killed,
+  };
+}
+
+export function validateVerificationRun(value: unknown): VerificationRunValidationResult {
+  const issues: VerificationRunValidationIssue[] = [];
+  if (!value || typeof value !== "object") {
+    issues.push({ path: "$", message: "Expected an object." });
+    return { ok: false, issues };
+  }
+  const candidate = value as Partial<VerificationRun>;
+
+  if (!candidate.header || typeof candidate.header !== "object") {
+    issues.push({ path: "$.header", message: "Expected ArtifactHeader object." });
+  } else if (candidate.header.artifactType !== "VerificationRun") {
+    issues.push({
+      path: "$.header.artifactType",
+      message: "Expected artifactType to be 'VerificationRun'.",
+    });
+  }
+  if (typeof candidate.status !== "string"
+    || !VERIFICATION_RUN_STATUSES.has(candidate.status as VerificationRunStatus)) {
+    issues.push({
+      path: "$.status",
+      message: `Expected one of ${[...VERIFICATION_RUN_STATUSES].join(", ")}.`,
+    });
+  }
+  if (!candidate.verificationPlanRef || typeof candidate.verificationPlanRef !== "object") {
+    issues.push({
+      path: "$.verificationPlanRef",
+      message: "Expected ArtifactRef object.",
+    });
+  }
+  if (!Array.isArray(candidate.commands)) {
+    issues.push({ path: "$.commands", message: "Expected an array." });
+  } else {
+    candidate.commands.forEach((command, index) => {
+      const path = `$.commands[${index}]`;
+      if (!command || typeof command !== "object") {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      const cmd = command as Partial<VerificationRunCommand>;
+      if (typeof cmd.id !== "string" || cmd.id.length === 0) {
+        issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+      }
+      if (typeof cmd.command !== "string" || cmd.command.length === 0) {
+        issues.push({ path: `${path}.command`, message: "Expected a non-empty string." });
+      }
+      if (!Array.isArray(cmd.argv) || !cmd.argv.every((arg) => typeof arg === "string")) {
+        issues.push({ path: `${path}.argv`, message: "Expected an array of strings." });
+      }
+      if (typeof cmd.status !== "string"
+        || !VERIFICATION_COMMAND_RUN_STATUSES.has(cmd.status as VerificationCommandRunStatus)) {
+        issues.push({
+          path: `${path}.status`,
+          message: `Expected one of ${[...VERIFICATION_COMMAND_RUN_STATUSES].join(", ")}.`,
+        });
+      }
+      validateVerificationRunStreamExcerpt(cmd.stdoutExcerpt, `${path}.stdoutExcerpt`, issues);
+      validateVerificationRunStreamExcerpt(cmd.stderrExcerpt, `${path}.stderrExcerpt`, issues);
+    });
+  }
+  if (candidate.summary === undefined) {
+    issues.push({ path: "$.summary", message: "Expected a summary object." });
+  } else if (!candidate.summary || typeof candidate.summary !== "object") {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const summary = candidate.summary;
+    for (const field of ["total", "passed", "failed", "skipped", "notRun", "timeout", "killed"] as const) {
+      const v = summary[field];
+      if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+        issues.push({
+          path: `$.summary.${field}`,
+          message: "Expected a non-negative number.",
+        });
+      }
+    }
+  }
+  if (!candidate.runner || typeof candidate.runner !== "object") {
+    issues.push({ path: "$.runner", message: "Expected a runner object." });
+  } else if (typeof (candidate.runner as { id?: unknown }).id !== "string"
+    || (candidate.runner as { id?: string }).id?.length === 0) {
+    issues.push({ path: "$.runner.id", message: "Expected a non-empty string." });
+  }
+
+  if (issues.length > 0) {
+    return { ok: false, issues };
+  }
+  return { ok: true, value: candidate as VerificationRun, issues: [] };
+}
+
+function validateVerificationRunStreamExcerpt(
+  excerpt: VerificationRunStreamExcerpt | undefined,
+  path: string,
+  issues: VerificationRunValidationIssue[],
+): void {
+  if (excerpt === undefined) return;
+  if (!excerpt || typeof excerpt !== "object") {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof excerpt.text !== "string") {
+    issues.push({ path: `${path}.text`, message: "Expected a string." });
+  }
+  if (typeof excerpt.redacted !== "boolean") {
+    issues.push({ path: `${path}.redacted`, message: "Expected a boolean." });
+  }
+  if (typeof excerpt.truncated !== "boolean") {
+    issues.push({ path: `${path}.truncated`, message: "Expected a boolean." });
+  }
+}
+
+export function assertVerificationRun(value: unknown): VerificationRun {
+  const result = validateVerificationRun(value);
+  if (!result.ok) {
+    const summary = result.issues
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join("; ");
+    throw new TypeError(`Invalid VerificationRun: ${summary}`);
+  }
+  return result.value;
 }
 
 const REMEDIATION_REQUIRED_CHECKS = [

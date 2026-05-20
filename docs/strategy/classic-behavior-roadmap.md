@@ -2870,12 +2870,143 @@ scope:
 
   **Recommended next slice:** **VerificationRun
   artifact + `@rekon/capability-verify`
-  skeleton** — implements steps 1–2 of the
-  sequence above. Adds the artifact type +
-  validation + the capability package with
-  conformance tests pinning the new role +
-  permission. **No execution code in that
-  slice.**
+  skeleton**. **Shipped next; see the entry
+  below.**
+- **VerificationRun artifact +
+  `@rekon/capability-verify` skeleton (P1.1
+  verification-runner-v1-skeleton slice).** ✅
+  Shipped. Combined kernel + capability + SDK +
+  docs + test batch that implements **steps 1–2**
+  of the runner v1 implementation sequence
+  pinned by the
+  [verification runner v1 decision memo](verification-runner-v1-decision.md).
+  **No command execution lands.** The
+  `@rekon/capability-verify` runner handler is
+  a throw-stub until step 4.
+
+  **Artifact:** new `VerificationRun` type +
+  helpers (`createVerificationRun`,
+  `summarizeVerificationRunCommands`,
+  `validateVerificationRun`,
+  `assertVerificationRun`) live in
+  `@rekon/capability-intent` next to
+  `VerificationResult`. The summary block adds
+  `timeout` + `killed` counters; the
+  per-command shape adds argv, exit
+  code, signal, digests (full pre-redaction
+  SHA-256 of stdout / stderr), redacted
+  truncated excerpts with `truncated` flag and
+  byte counts, runner identity (runner id +
+  version + capability id), environment summary
+  (platform / arch / nodeVersion / shell /
+  network policy / env policy), redaction audit
+  (pattern ids + match count + max bytes per
+  stream), `timedOut` + `killed` flags, and
+  optional `cwd`. The runtime artifact category
+  map routes `VerificationRun` to `actions`.
+
+  **SDK additions:** new `"runner"` role; new
+  `execute:verification` permission (distinct
+  from `execute:commands` so the narrow scope
+  is visible to manifest review); new `Runner`
+  handler type; new `registry.runner(...)`
+  registration surface; new `runners: Runner[]`
+  field on `RegisteredCapability` +
+  `CapabilityRegistrySnapshot`; conformance
+  tooling rejects unknown roles + unknown
+  permissions; runner-role manifests that
+  register no runner handler are rejected at
+  registration time. The SDK conformance
+  runner deliberately does **not** invoke
+  runner handlers automatically — runners run
+  only via explicit operator commands (a
+  future slice).
+
+  **Capability package:** new
+  `packages/capability-verify/`. Manifest:
+  `id: "@rekon/capability-verify"`,
+  `roles: ["runner"]`,
+  `permissions: ["execute:verification",
+  "read:artifacts", "write:artifacts"]`,
+  `consumes: ["VerificationPlan",
+  "WorkOrder"]`,
+  `produces: ["VerificationRun",
+  "VerificationResult"]`,
+  `invalidatedBy: [{ id:
+  "verification-plan.changed", inputs:
+  ["VerificationPlan"] }]`. The runner handler
+  is a throw-stub that raises
+  `"@rekon/capability-verify: command execution
+  is not implemented yet."` when invoked —
+  satisfies the SDK's
+  manifest-roles-have-handlers invariant
+  without actually spawning processes.
+  Importing the capability does not enable
+  execution.
+
+  **Tests (30 new contract + package tests):**
+  - `tests/contract/verification-run-artifact.test.mjs`
+    (9 cases): canonical artifact construction
+    with derived summary; validator accepts /
+    rejects shapes; `timeout` and `killed`
+    command statuses validated; built-in
+    artifact type registration; runtime
+    category routing to `actions`; `rekon
+    artifacts validate` cleanliness for a
+    seeded run; summary helper counts every
+    bucket.
+  - `tests/contract/verify-capability-skeleton.test.mjs`
+    (12 cases): capability conforms; role
+    runner; permission `execute:verification`;
+    no `write:source` / no `apply:*`;
+    consumes / produces correct; README says
+    no execution; throw-stub runner; SDK
+    rejects unknown role; SDK rejects unknown
+    permission; SDK accepts synthetic runner
+    manifest paired with handler; SDK rejects
+    runner manifest with no runner handler.
+  - `packages/capability-verify/test/verify.test.mjs`
+    (9 cases): package-local conformance
+    against the published `dist/` build.
+
+  **Docs:** new
+  `docs/artifacts/verification-run.md` +
+  `docs/concepts/verification-runs.md`. The
+  runner v1 decision memo flips steps 1–2 to
+  shipped. Verification result + plan + proof
+  report (concept + artifact) docs add
+  cross-references. The authoring-capabilities
+  doc describes the new `"runner"` role and
+  `execute:verification` permission with the
+  safety contract reminder. README's CLI
+  Commands list is unchanged (no new CLI
+  command yet); a follow-up slice (step 3 of
+  the sequence) adds
+  `rekon verify run --plan <id> --dry-run`.
+
+  Aligned to `services/IntentPreparationService.ts`,
+  `packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts`,
+  `packages/product-codebase-intel/src/intent/**`,
+  `services/ContextHandler.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`.
+  No runtime command execution. No artifact
+  mutation outside the existing
+  `IssueMergeDecisionLedger` append + the new
+  `VerificationRun` writes. No
+  `schemaVersion` bump. No new CLI command.
+  No producer change. No graph-aware filter
+  change. No source-file reads. No version
+  bump. No npm publish.
+
+  **Recommended next slice:** **verification
+  runner dry-run command** —
+  `rekon verify run --plan <id> --dry-run`.
+  Step 3 of the runner v1 sequence. Reads
+  the named plan, applies the safety policy
+  checks (timeouts, redaction patterns, max
+  log bytes), prints what would run, writes
+  no artifacts. **Still no command
+  execution.**
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

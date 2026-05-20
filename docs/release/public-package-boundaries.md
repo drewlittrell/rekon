@@ -35,8 +35,9 @@ explicitly rather than forcing it.
 | `@rekon/capability-memory` | publish | Built-in memory learner. |
 | `@rekon/capability-intent` | publish | Built-in intent/work-order actuator. |
 | `@rekon/capability-reconcile` | publish | Built-in reconciliation actuator. |
+| `@rekon/capability-verify` | publish | Built-in verification runner capability skeleton. v1 declares the runner / `execute:verification` boundary; command execution is not implemented yet. |
 
-All 19 packages are scheduled for publish at `0.1.0-alpha.1`, all under the
+All 20 packages are scheduled for publish at `0.1.0-alpha.1`, all under the
 `experimental, public` stability label defined in
 [docs/concepts/stability.md](../concepts/stability.md).
 

@@ -8,7 +8,8 @@ export type CapabilityRole =
   | "resolver"
   | "publisher"
   | "actuator"
-  | "learner";
+  | "learner"
+  | "runner";
 
 export type CapabilityPermission =
   | "read:source"
@@ -16,6 +17,7 @@ export type CapabilityPermission =
   | "write:artifacts"
   | "write:source"
   | "execute:commands"
+  | "execute:verification"
   | "network:outbound";
 
 export type InvalidationRule = {
@@ -112,6 +114,26 @@ export type Learner = {
   }): Promise<ArtifactRef[]>;
 };
 
+/**
+ * Verification runner handler (P1.1 verification-runner-v1
+ * boundary). Capabilities declaring the `"runner"` role must
+ * register a runner handler. The handler's contract is set by
+ * the runner-v1 decision memo: dry-run-only or
+ * not-implemented behavior in this batch; future slices add
+ * the actual execute path behind the
+ * `execute:verification` permission. The SDK does not run
+ * `run()` automatically in conformance — runners are invoked
+ * only by explicit operator commands.
+ */
+export type Runner = {
+  id: string;
+  produces: string[];
+  run(input: {
+    artifacts: ArtifactReader & ArtifactWriter;
+    input?: Record<string, unknown>;
+  }): Promise<ArtifactRef[]>;
+};
+
 export interface CapabilityRegistry {
   artifactType(definition: ArtifactTypeDefinition): void;
   evidenceProvider(provider: EvidenceProvider): void;
@@ -121,6 +143,7 @@ export interface CapabilityRegistry {
   publisher(publisher: Publisher): void;
   actuator(actuator: Actuator): void;
   learner(learner: Learner): void;
+  runner(runner: Runner): void;
 }
 
 export type CapabilityDefinition = {
@@ -138,6 +161,7 @@ export type RegisteredCapability = {
   publishers: Publisher[];
   actuators: Actuator[];
   learners: Learner[];
+  runners: Runner[];
 };
 
 export type CapabilityRegistrySnapshot = {
@@ -150,6 +174,7 @@ export type CapabilityRegistrySnapshot = {
   publishers: Publisher[];
   actuators: Actuator[];
   learners: Learner[];
+  runners: Runner[];
 };
 
 export type RuntimeCapabilityRegistry = CapabilityRegistry & {
@@ -189,6 +214,7 @@ const VALID_ROLES = new Set<CapabilityRole>([
   "publisher",
   "actuator",
   "learner",
+  "runner",
 ]);
 
 const VALID_PERMISSIONS = new Set<CapabilityPermission>([
@@ -197,6 +223,7 @@ const VALID_PERMISSIONS = new Set<CapabilityPermission>([
   "write:artifacts",
   "write:source",
   "execute:commands",
+  "execute:verification",
   "network:outbound",
 ]);
 
@@ -227,6 +254,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "WorkOrder", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "VerificationPlan", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "VerificationResult", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "VerificationRun", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ReconciliationPlan", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ReconciliationLog", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ActionLog", schemaVersion: "0.1.0", stability: "experimental" },
@@ -330,6 +358,10 @@ export function createCapabilityRegistry(): RuntimeCapabilityRegistry {
       const capability = registerProducedHandler(activeCapability, handlerIds, "learner", learner, learner.produces);
       capability.learners.push(learner);
     },
+    runner(runner) {
+      const capability = registerProducedHandler(activeCapability, handlerIds, "runner", runner, runner.produces);
+      capability.runners.push(runner);
+    },
     use(capability) {
       const definition = defineCapability(capability);
 
@@ -347,6 +379,7 @@ export function createCapabilityRegistry(): RuntimeCapabilityRegistry {
         publishers: [],
         actuators: [],
         learners: [],
+        runners: [],
       };
 
       activeCapability = registered;
@@ -376,6 +409,7 @@ export function createCapabilityRegistry(): RuntimeCapabilityRegistry {
         publishers: registeredCapabilities.flatMap((capability) => capability.publishers),
         actuators: registeredCapabilities.flatMap((capability) => capability.actuators),
         learners: registeredCapabilities.flatMap((capability) => capability.learners),
+        runners: registeredCapabilities.flatMap((capability) => capability.runners),
       };
     },
   };
@@ -478,6 +512,7 @@ function validateRegisteredCapability(
     ...capability.publishers.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "publisher")),
     ...capability.actuators.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "actuator")),
     ...capability.learners.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "learner")),
+    ...capability.runners.flatMap((handler) => validateProducedHandler(manifest.id, handler.id, handler.produces, manifest.produces, "runner")),
   ];
 
   return [...issues, ...handlerIssues];
@@ -744,6 +779,7 @@ function ensureManifestRolesHaveHandlers(capability: RegisteredCapability): void
     publisher: capability.publishers,
     actuator: capability.actuators,
     learner: capability.learners,
+    runner: capability.runners,
   };
 
   for (const role of capability.manifest.roles) {
@@ -813,5 +849,6 @@ function cloneRegisteredCapability(capability: RegisteredCapability): Registered
     publishers: [...capability.publishers],
     actuators: [...capability.actuators],
     learners: [...capability.learners],
+    runners: [...capability.runners],
   };
 }

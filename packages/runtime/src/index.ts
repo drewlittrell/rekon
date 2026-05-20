@@ -252,6 +252,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   WorkOrder: "actions",
   VerificationPlan: "actions",
   VerificationResult: "actions",
+  VerificationRun: "actions",
   ReconciliationPlan: "actions",
   ReconciliationLog: "actions",
   ActionLog: "actions",
