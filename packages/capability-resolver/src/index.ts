@@ -10,6 +10,7 @@ import {
 import {
   type CoherencyDelta,
   type CoherencyDeltaItem,
+  type FindingLifecycleReport,
   type FindingStatus,
   type FindingStatusDecision,
   type FindingStatusDecisionReason,
@@ -17,6 +18,9 @@ import {
   type IssueAdjudicationGroup,
   type IssueAdjudicationReport,
   type IssueAdjudicationStatus,
+  type IssueMergeDecisionLedger,
+  type IssueMergeRollupFreshness,
+  detectIssueMergeRollupFreshness,
   findLatestDecisionForFinding,
 } from "@rekon/kernel-findings";
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
@@ -35,6 +39,7 @@ export type ResolutionTraceEntry = {
     | "FindingReport"
     | "IssueAdjudicationReport"
     | "CoherencyDelta"
+    | "IssueMergeDecisionLedger"
     | "MemorySelection"
     | "ResolverInput"
     | "RiskRule"
@@ -1617,6 +1622,10 @@ async function buildGroupIssuePacket(args: {
   // in CoherencyDelta, so this lookup naturally returns null for them.
   let mergeRollup: IssueMergeRollupSummary | undefined;
   let mergeRollupRef: ArtifactRef | undefined;
+  // Issue merge decision freshness guardrails (v1) —
+  // collected here so the IssuePacket header can cite the
+  // ledger / adjudication / lifecycle refs the helper read.
+  const mergeFreshnessRefs: ArtifactRef[] = [];
   const rollupLookup = await findMergeRollupForGroup(artifacts, group.id);
   if (rollupLookup) {
     mergeRollup = toMergeRollupSummary(rollupLookup.item);
@@ -1639,6 +1648,46 @@ async function buildGroupIssuePacket(args: {
         memberFindingCount: mergeRollup.memberFindingIds.length,
       },
     });
+
+    // Run the merge-rollup freshness helper. It compares
+    // what the CoherencyDelta cited against the latest
+    // available ledger / adjudication / lifecycle. The
+    // resolver records any warnings on the IssuePacket
+    // and adds the read refs to `header.inputRefs` so
+    // downstream consumers see exactly what was checked.
+    const freshness = await readAndDetectMergeRollupFreshness(
+      artifacts,
+      rollupLookup.delta,
+      mergeFreshnessRefs,
+    );
+    if (freshness.status === "stale") {
+      warnings.push(
+        "Accepted merge roll-up may be stale; run `rekon refresh` before relying on merged issue context.",
+      );
+      trace.push({
+        step: "issue.merge.freshness",
+        sourceType: freshness.warnings.some((warning) => warning.code === "merge-decision-superseded")
+          ? "IssueMergeDecisionLedger"
+          : "CoherencyDelta",
+        sourceRef: mergeRollupRef,
+        status: "warning",
+        message: freshness.warnings[0]?.message
+          ?? "Accepted merge roll-up lineage is stale.",
+        details: {
+          warningCount: freshness.warnings.length,
+          codes: freshness.warnings.map((warning) => warning.code),
+          recommendedCommand: freshness.recommendedCommand ?? "rekon refresh",
+        },
+      });
+    } else if (freshness.status === "fresh") {
+      trace.push({
+        step: "issue.merge.freshness",
+        sourceType: "CoherencyDelta",
+        sourceRef: mergeRollupRef,
+        status: "used",
+        message: "Accepted merge roll-up lineage is fresh.",
+      });
+    }
   }
 
   // Build a back-compat IssueSummary from the canonical member.
@@ -1696,12 +1745,13 @@ async function buildGroupIssuePacket(args: {
         id: "@rekon/capability-resolver",
         version: "0.1.0",
       },
-      inputRefs: mergeRollupRef
-        ? appendInputRef(
-            appendInputRef(collectInputRefs(snapshot, snapshotRef), reportRef),
-            mergeRollupRef,
-          )
-        : appendInputRef(collectInputRefs(snapshot, snapshotRef), reportRef),
+      inputRefs: buildIssuePacketInputRefs({
+        snapshot,
+        snapshotRef,
+        reportRef,
+        mergeRollupRef,
+        mergeFreshnessRefs,
+      }),
       freshness: { status: "fresh" },
       provenance: {
         confidence: 0.8,
@@ -1830,8 +1880,42 @@ function appendInputRef(refs: ArtifactRef[], extra: ArtifactRef): ArtifactRef[] 
   return [...refs, extra];
 }
 
+/**
+ * Build the IssuePacket `header.inputRefs` for a group-mode
+ * issue resolution. Always cites the snapshot + ownership
+ * refs + (when present) the IssueAdjudicationReport ref
+ * + (when present) the merged CoherencyDelta ref + (when
+ * the freshness helper read them) the latest
+ * IssueMergeDecisionLedger / IssueAdjudicationReport /
+ * FindingLifecycleReport refs. Dedupes via `appendInputRef`.
+ *
+ * (P1.1 issue-merge-decision-freshness-guardrails v1
+ *  factored this construction out so the freshness refs
+ *  can be cited without nesting more ternaries.)
+ */
+function buildIssuePacketInputRefs(input: {
+  snapshot: IntelligenceSnapshot;
+  snapshotRef: ArtifactRef;
+  reportRef: ArtifactRef;
+  mergeRollupRef?: ArtifactRef;
+  mergeFreshnessRefs: ArtifactRef[];
+}): ArtifactRef[] {
+  let refs = appendInputRef(
+    collectInputRefs(input.snapshot, input.snapshotRef),
+    input.reportRef,
+  );
+  if (input.mergeRollupRef) {
+    refs = appendInputRef(refs, input.mergeRollupRef);
+  }
+  for (const ref of input.mergeFreshnessRefs) {
+    refs = appendInputRef(refs, ref);
+  }
+  return refs;
+}
+
 type MergeRollupLookup = {
   deltaRef: ArtifactRef;
+  delta: CoherencyDelta;
   item: CoherencyDeltaItem;
 };
 
@@ -1863,8 +1947,61 @@ async function findMergeRollupForGroup(
       id: latest.id,
       schemaVersion: latest.schemaVersion,
     },
+    delta,
     item,
   };
+}
+
+/**
+ * Read the latest IssueMergeDecisionLedger,
+ * IssueAdjudicationReport, and FindingLifecycleReport
+ * (when present), then run
+ * `detectIssueMergeRollupFreshness` against them.
+ * Pushes the refs the helper read into
+ * `additionalRefs` so the caller can cite them in the
+ * IssuePacket header. (P1.1
+ * issue-merge-decision-freshness-guardrails v1.)
+ */
+async function readAndDetectMergeRollupFreshness(
+  artifacts: ArtifactReader,
+  coherencyDelta: CoherencyDelta,
+  additionalRefs: ArtifactRef[],
+): Promise<IssueMergeRollupFreshness> {
+  let latestLedger: IssueMergeDecisionLedger | undefined;
+  let latestAdjudication: IssueAdjudicationReport | undefined;
+  let latestLifecycle: FindingLifecycleReport | undefined;
+
+  const ledgerRef = await latestRefOf(artifacts, "IssueMergeDecisionLedger");
+  if (ledgerRef) {
+    latestLedger = (await artifacts.read(ledgerRef)) as IssueMergeDecisionLedger;
+    additionalRefs.push(ledgerRef);
+  }
+  const adjudicationRef = await latestRefOf(artifacts, "IssueAdjudicationReport");
+  if (adjudicationRef) {
+    latestAdjudication = (await artifacts.read(adjudicationRef)) as IssueAdjudicationReport;
+    additionalRefs.push(adjudicationRef);
+  }
+  const lifecycleRef = await latestRefOf(artifacts, "FindingLifecycleReport");
+  if (lifecycleRef) {
+    latestLifecycle = (await artifacts.read(lifecycleRef)) as FindingLifecycleReport;
+    additionalRefs.push(lifecycleRef);
+  }
+
+  return detectIssueMergeRollupFreshness({
+    coherencyDelta,
+    latestIssueMergeDecisionLedger: latestLedger,
+    latestIssueAdjudicationReport: latestAdjudication,
+    latestFindingLifecycleReport: latestLifecycle,
+  });
+}
+
+async function latestRefOf(
+  artifacts: ArtifactReader,
+  type: string,
+): Promise<ArtifactRef | undefined> {
+  const entries = await artifacts.list(type);
+  if (entries.length === 0) return undefined;
+  return [...entries].sort((left, right) => right.id.localeCompare(left.id))[0];
 }
 
 function toMergeRollupSummary(item: CoherencyDeltaItem): IssueMergeRollupSummary {

@@ -1019,16 +1019,41 @@ review packets unless an ADR promotes them. Promotion requires:
     stronger; that condition is now satisfied). No
     filter behavior change. No producer change.
     No helper change. No `schemaVersion` bump.
-32. **(future)** Issue merge decision freshness
-    guardrails. If `CoherencyDelta` roll-ups are
-    based on a stale `IssueMergeDecisionLedger` or
-    a stale `IssueAdjudicationReport`,
-    publications and `resolve.issue` should warn
-    clearly. Re-introduced as the recommended next
-    implementation slice by the graph-aware
-    fixture coverage operator review v3 (the
-    blocker — graph-aware filtering / artifact
-    attribution parity — is now satisfied).
+32. **(shipped)** Issue merge decision freshness
+    guardrails (v1). Combined strategy + implementation
+    batch. The memo
+    ([`docs/strategy/issue-merge-decision-freshness-guardrails.md`](issue-merge-decision-freshness-guardrails.md))
+    pins the freshness predicate as artifact-lineage
+    only (no file-system mtime). Implementation adds a
+    pure data-only helper
+    `detectIssueMergeRollupFreshness` in
+    `@rekon/kernel-findings` that emits one of five
+    warning codes — `merge-ledger-missing`,
+    `merge-ledger-stale`, `adjudication-stale`,
+    `lifecycle-stale`, `merge-decision-superseded` —
+    in stable A → B → C → D → E order against the
+    `CoherencyDelta` / `IssueMergeDecisionLedger` /
+    `IssueAdjudicationReport` /
+    `FindingLifecycleReport` lineage. Warnings
+    surface in three places: architecture summary
+    (new `### Merge Roll-up Freshness` subsection
+    below `## Accepted Issue Merge Roll-ups`), agent
+    contract (new `### Merge Decision Freshness`
+    subsection + Do Not Do reminder), and
+    `resolve.issue` (new `issue.merge.freshness`
+    `resolutionTrace` step, warning string when
+    stale, plus ledger / adjudication / lifecycle
+    refs added to `IssuePacket.header.inputRefs`).
+    All warnings recommend `rekon refresh`. **No
+    artifacts are mutated; no auto-refresh; no
+    watcher; no file-system mtime.** Pinned by
+    `tests/contract/issue-merge-decision-freshness-guardrails.test.mjs`
+    (16 cases) covering every rule end-to-end through
+    publications + resolver plus the helper's
+    `missing` / `fresh` / `stale` branches. No
+    schemaVersion bump. No producer change. No
+    helper change in `kernel-findings` beyond the
+    new exported types + predicate.
 33. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field — the
     deferred substrates documented in the

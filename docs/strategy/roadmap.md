@@ -1106,6 +1106,44 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Issue merge decision freshness guardrails v1 (P1.1
+  issue-merge-decision-freshness-guardrails slice):
+  combined strategy + implementation batch. Memo
+  (`docs/strategy/issue-merge-decision-freshness-guardrails.md`)
+  pins the freshness predicate as **artifact-lineage
+  only** (no file-system mtime, no watcher). A
+  `CoherencyDelta` is **stale for decision-making**
+  when any of five rules fire:
+  `merge-ledger-missing`, `merge-ledger-stale`,
+  `adjudication-stale`, `lifecycle-stale`,
+  `merge-decision-superseded`. Implementation adds a
+  pure data-only helper
+  `detectIssueMergeRollupFreshness` in
+  `@rekon/kernel-findings`, threaded through
+  architecture summary (`### Merge Roll-up Freshness`
+  subsection with status + warnings table + stale
+  callout), agent contract (`### Merge Decision
+  Freshness` with per-input fresh/stale lines + Do
+  Not Do reminder), and `resolve.issue` (new
+  `issue.merge.freshness` `resolutionTrace` step
+  + warning string when stale + ledger /
+  adjudication / lifecycle refs cited in packet
+  `inputRefs`). All warnings recommend `rekon
+  refresh`; none invalidate artifacts structurally.
+  Pinned by
+  `tests/contract/issue-merge-decision-freshness-guardrails.test.mjs`
+  (16 cases) covering every rule end-to-end across
+  publications + resolver plus helper unit branches.
+  No artifact mutation. No auto-refresh inside
+  publishers / resolvers. No watcher / daemon. No
+  file-system mtime invalidation. No artifact
+  header shape change. No `schemaVersion` bump. No
+  new artifact type. No new capability role. No new
+  CLI subcommand or flag. No new reason codes. No
+  producer change. No graph-aware filter change. No
+  source-file reads. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No version bump. No npm publish.
 - Graph-aware fixture coverage operator review v3
   (P1.1 graph-aware-fixture-coverage-operator-review-v3
   slice): strategy / docs / test batch only — no

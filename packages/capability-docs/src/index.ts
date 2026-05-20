@@ -10,6 +10,9 @@ import {
   type FindingFilterReport,
   type FindingLifecycleReport,
   type IssueAdjudicationReport,
+  type IssueMergeDecisionLedger,
+  type IssueMergeRollupFreshness,
+  detectIssueMergeRollupFreshness,
   fingerprintFindingFilterPolicies,
   validateFindingFilterPolicyRules,
 } from "@rekon/kernel-findings";
@@ -241,6 +244,23 @@ export const architectureSummaryPublisher: Publisher = {
       "FindingLifecycleReport",
       inputRefs,
     );
+    // Issue merge decision freshness guardrails (v1):
+    // pull the latest IssueMergeDecisionLedger so the
+    // freshness predicate can compare it against what
+    // CoherencyDelta cited, and emit the Rule-E
+    // (decision superseded) check. Cited in `inputRefs`
+    // when present.
+    const issueMergeDecisionLedger = await readLatestArtifact<IssueMergeDecisionLedger>(
+      artifacts,
+      "IssueMergeDecisionLedger",
+      inputRefs,
+    );
+    const mergeRollupFreshness = detectIssueMergeRollupFreshness({
+      coherencyDelta,
+      latestIssueMergeDecisionLedger: issueMergeDecisionLedger,
+      latestIssueAdjudicationReport: issueAdjudicationReport,
+      latestFindingLifecycleReport: lifecycleReport,
+    });
     // Finding filter audit + health (P1.1 filter-health publication surfaces).
     // When present, both artifacts are cited in inputRefs so freshness flags
     // the publication stale when a newer filter run lands.
@@ -324,6 +344,7 @@ export const architectureSummaryPublisher: Publisher = {
         findingFilterPolicySuggestionReport,
         findingFilterPolicySuggestionStale,
         findingFilterPolicyStaleness,
+        mergeRollupFreshness,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -470,6 +491,23 @@ export const agentContractPublisher: Publisher = {
       "FindingLifecycleReport",
       inputRefs,
     );
+    // Issue merge decision freshness guardrails (v1):
+    // mirrors the architecture-summary publisher above.
+    // Pulls the latest IssueMergeDecisionLedger so the
+    // freshness predicate can compare the cited ledger
+    // against the latest one and emit Rule-E
+    // (decision superseded) when applicable.
+    const issueMergeDecisionLedger = await readLatestArtifact<IssueMergeDecisionLedger>(
+      artifacts,
+      "IssueMergeDecisionLedger",
+      inputRefs,
+    );
+    const mergeRollupFreshness = detectIssueMergeRollupFreshness({
+      coherencyDelta,
+      latestIssueMergeDecisionLedger: issueMergeDecisionLedger,
+      latestIssueAdjudicationReport: issueAdjudicationReport,
+      latestFindingLifecycleReport: lifecycleReport,
+    });
     // Finding filter audit + health surfaces (P1.1 filter-health
     // publication surfaces). The agent contract uses both to make
     // suppression visible and to discourage agents from treating a
@@ -561,6 +599,7 @@ export const agentContractPublisher: Publisher = {
         findingFilterPolicySuggestionReport,
         findingFilterPolicySuggestionStale,
         findingFilterPolicyStaleness,
+        mergeRollupFreshness,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         reconciliationPlan,
@@ -1010,6 +1049,7 @@ type ArchitectureSummaryInputs = {
   findingFilterPolicySuggestionReport?: FindingFilterPolicySuggestionReport;
   findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
   findingFilterPolicyStaleness?: FilterPolicyStaleness;
+  mergeRollupFreshness?: IssueMergeRollupFreshness;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -1035,6 +1075,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     findingFilterPolicySuggestionReport,
     findingFilterPolicySuggestionStale,
     findingFilterPolicyStaleness,
+    mergeRollupFreshness,
     freshness,
     inputRefs,
     generatedAt,
@@ -1224,6 +1265,13 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     );
     sections.push("");
   }
+
+  // Merge Roll-up Freshness (P1.1 issue-merge-decision-freshness-guardrails v1).
+  // Always render the subsection — fresh / stale / missing — so operators
+  // see lineage state at a glance and have a single `rekon refresh` recommendation
+  // when any rule fires. Warnings never invalidate artifacts; they mark the
+  // consumed merge-roll-up context as stale for decision-making.
+  appendArchitectureMergeRollupFreshness(sections, mergeRollupFreshness, mergedRollups.length);
 
   // Finding Filter Health — surfaces FindingFilterReport +
   // FindingFilterHealthReport so users see what was filtered, by which
@@ -1932,6 +1980,7 @@ type AgentContractInputs = {
   findingFilterPolicySuggestionReport?: FindingFilterPolicySuggestionReport;
   findingFilterPolicySuggestionStale?: FilterPolicySuggestionStaleness;
   findingFilterPolicyStaleness?: FilterPolicyStaleness;
+  mergeRollupFreshness?: IssueMergeRollupFreshness;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   reconciliationPlan?: ReconciliationPlanLike;
@@ -1976,6 +2025,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not rely on active issue / coherency counts after `.rekon/config.json` `findingFilters` changed until `rekon refresh` has rebuilt the filter chain with the current policy set.",
   "Do not treat graph-aware filtering as proof that the underlying issue never existed; inspect `FindingFilterReport.filteredFindings` for the structural evidence (sibling-file existence, import-graph facts, capability ownership, module-kind routing) before drawing conclusions.",
   "Do not treat detector-detail fallback filtering as equivalent to EvidenceGraph-backed structural evidence. When `Graph-aware evidence sources` shows `DetectorDetails` entries, review them more critically than `EvidenceGraph` entries — the detector's claim was not corroborated by artifact evidence.",
+  "Do not rely on accepted merge roll-ups after merge decisions, adjudication, or lifecycle artifacts change until `rekon refresh` has run.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -1992,6 +2042,7 @@ function renderAgentContract(input: AgentContractInputs): string {
     findingFilterPolicySuggestionReport,
     findingFilterPolicySuggestionStale,
     findingFilterPolicyStaleness,
+    mergeRollupFreshness,
     remediationWorkOrder,
     resolverWorkOrder,
     reconciliationPlan,
@@ -2226,6 +2277,11 @@ function renderAgentContract(input: AgentContractInputs): string {
     );
     sections.push("");
   }
+
+  // Merge Decision Freshness — agent-facing companion to the
+  // architecture-summary `### Merge Roll-up Freshness`
+  // subsection. (P1.1 issue-merge-decision-freshness-guardrails v1.)
+  appendAgentContractMergeRollupFreshness(sections, mergeRollupFreshness, mergedRollups.length);
 
   // Finding Filter Health — agent-facing subsection mirroring the
   // architecture summary's Finding Filter Health section. Surfaces
@@ -2636,6 +2692,118 @@ function sortedCountEntries(
       return left[0].localeCompare(right[0]);
     })
     .slice(0, limit);
+}
+
+/**
+ * Render the Merge Roll-up Freshness subsection right
+ * below `## Accepted Issue Merge Roll-ups`. Always emits
+ * a `Status:` line + a `Recommended command:` line when
+ * any warning fires + a table of `(code, message,
+ * recommended command)` rows. Stays silent (only
+ * emits the heading) when there are no merge roll-ups
+ * AND no warnings — operators don't need a freshness
+ * verdict when nothing was merged.
+ *
+ * (P1.1 issue-merge-decision-freshness-guardrails v1.)
+ */
+function appendArchitectureMergeRollupFreshness(
+  sections: string[],
+  freshness: IssueMergeRollupFreshness | undefined,
+  mergedRollupCount: number,
+): void {
+  if (!freshness) return;
+  if (mergedRollupCount === 0 && freshness.warnings.length === 0) {
+    // No roll-ups, nothing to warn about — the existing
+    // "No accepted issue merge roll-ups in latest
+    // CoherencyDelta." line above already covers the
+    // empty case.
+    return;
+  }
+  sections.push("### Merge Roll-up Freshness");
+  sections.push("");
+  sections.push(`- Status: ${freshness.status}`);
+  sections.push("");
+  if (freshness.warnings.length === 0) {
+    sections.push("Accepted merge roll-up lineage is fresh.");
+    sections.push("");
+    return;
+  }
+  sections.push("| Code | Message | Recommended Command |");
+  sections.push("| --- | --- | --- |");
+  for (const warning of freshness.warnings) {
+    sections.push(
+      `| \`${warning.code}\` | ${escapeTableCell(warning.message)} | \`${warning.recommendedCommand}\` |`,
+    );
+  }
+  sections.push("");
+  sections.push(
+    "> Do not rely on accepted merge roll-ups until `rekon refresh` rebuilds adjudication and coherency state.",
+  );
+  sections.push("");
+  if (freshness.recommendedCommand) {
+    sections.push(`Recommended command: \`${freshness.recommendedCommand}\`.`);
+    sections.push("");
+  }
+}
+
+/**
+ * Replace `|` and newline characters in a string so it
+ * renders as a single Markdown table cell without
+ * breaking the row. Conservative — only the two
+ * characters that break a table cell.
+ */
+function escapeTableCell(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+}
+
+/**
+ * Agent-contract companion to
+ * `appendArchitectureMergeRollupFreshness`. Emits a
+ * compact bullet list of (merge decisions, adjudication,
+ * lifecycle) status plus a recommended command. When any
+ * rule fires, prepends the "Do not rely on accepted
+ * merge roll-ups …" callout. Empty when there are no
+ * roll-ups and no warnings.
+ *
+ * (P1.1 issue-merge-decision-freshness-guardrails v1.)
+ */
+function appendAgentContractMergeRollupFreshness(
+  sections: string[],
+  freshness: IssueMergeRollupFreshness | undefined,
+  mergedRollupCount: number,
+): void {
+  if (!freshness) return;
+  if (mergedRollupCount === 0 && freshness.warnings.length === 0) {
+    return;
+  }
+  sections.push("### Merge Decision Freshness");
+  sections.push("");
+  const codes = new Set(freshness.warnings.map((warning) => warning.code));
+  const mergeStatus = freshness.warnings.length === 0
+    ? "fresh"
+    : codes.has("merge-ledger-missing") || codes.has("merge-ledger-stale") || codes.has("merge-decision-superseded")
+      ? "stale"
+      : "fresh";
+  const adjudicationStatus = codes.has("adjudication-stale") ? "stale" : "fresh";
+  const lifecycleStatus = codes.has("lifecycle-stale") ? "stale" : "fresh";
+  if (freshness.warnings.length > 0) {
+    sections.push(
+      "> Do not rely on accepted merge roll-ups until `rekon refresh` rebuilds adjudication and coherency state.",
+    );
+    sections.push("");
+  }
+  sections.push(`- Merge decisions: ${mergeStatus}`);
+  sections.push(`- Adjudication: ${adjudicationStatus}`);
+  sections.push(`- Lifecycle: ${lifecycleStatus}`);
+  sections.push("- Recommended command: `rekon refresh`");
+  sections.push("");
+  if (freshness.warnings.length > 0) {
+    sections.push("Warnings:");
+    for (const warning of freshness.warnings) {
+      sections.push(`- \`${warning.code}\`: ${warning.message}`);
+    }
+    sections.push("");
+  }
 }
 
 function appendArchitectureFindingFilterHealth(

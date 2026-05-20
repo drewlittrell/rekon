@@ -7789,3 +7789,206 @@ function validateRemediationStep(value: unknown, path: string, issues: Validatio
     issues.push({ path: `${path}.systems`, message: "Expected an array of strings." });
   }
 }
+
+// ---------- Issue merge decision freshness guardrails (v1) ----------
+//
+// Pure deterministic predicate over the merge-rollup lineage:
+//   CoherencyDelta
+//     └─ IssueMergeDecisionLedger (cited in CoherencyDelta.header.inputRefs)
+//     └─ IssueAdjudicationReport  (cited in CoherencyDelta.header.inputRefs)
+//          └─ FindingLifecycleReport (cited in IssueAdjudicationReport.header.inputRefs)
+//
+// The helper emits one warning per detection rule; rules
+// fire in a stable order (A → B → C → D → E) so output
+// is deterministic across runs. The helper never mutates
+// its inputs and never reads the filesystem. Warning
+// callers run a small fs/list pass to find the latest
+// ledger / adjudication / lifecycle, then pass them in
+// here.
+//
+// See `docs/strategy/issue-merge-decision-freshness-guardrails.md`.
+
+export type IssueMergeRollupFreshnessStatus =
+  | "fresh"
+  | "stale"
+  | "missing"
+  | "unknown";
+
+export type IssueMergeRollupFreshnessWarningCode =
+  | "merge-ledger-stale"
+  | "merge-ledger-missing"
+  | "adjudication-stale"
+  | "lifecycle-stale"
+  | "merge-decision-superseded";
+
+export type IssueMergeRollupFreshnessWarning = {
+  code: IssueMergeRollupFreshnessWarningCode;
+  message: string;
+  recommendedCommand: "rekon refresh";
+};
+
+export type IssueMergeRollupFreshness = {
+  status: IssueMergeRollupFreshnessStatus;
+  warnings: IssueMergeRollupFreshnessWarning[];
+  recommendedCommand?: "rekon refresh";
+};
+
+export type IssueMergeRollupFreshnessInput = {
+  coherencyDelta?: CoherencyDelta;
+  latestIssueMergeDecisionLedger?: IssueMergeDecisionLedger;
+  /** id of the latest available IssueMergeDecisionLedger (may differ from the cited one). */
+  latestIssueMergeDecisionLedgerId?: string;
+  latestIssueAdjudicationReport?: IssueAdjudicationReport;
+  /** id of the latest available IssueAdjudicationReport. */
+  latestIssueAdjudicationReportId?: string;
+  latestFindingLifecycleReport?: FindingLifecycleReport;
+  /** id of the latest available FindingLifecycleReport. */
+  latestFindingLifecycleReportId?: string;
+};
+
+/**
+ * Pure data-only predicate. Returns a structured
+ * `IssueMergeRollupFreshness` describing whether the
+ * accepted merge roll-ups in `coherencyDelta` are
+ * consistent with the latest decision / adjudication /
+ * lifecycle artifacts.
+ *
+ * Returns `status: "missing"` when the delta is absent
+ * or carries no merged roll-ups. Returns `status:
+ * "fresh"` when all rules pass. Returns `status:
+ * "stale"` with one or more `warnings` when any rule
+ * fires.
+ *
+ * Determinism:
+ *   - Rules emit in fixed order (A → B → C → D → E).
+ *   - Rule E processes items in their CoherencyDelta
+ *     order, candidateIds in their item-on-order.
+ *   - At most one Rule-E warning per
+ *     `(rollupId, candidateId)` pair.
+ */
+export function detectIssueMergeRollupFreshness(
+  input: IssueMergeRollupFreshnessInput,
+): IssueMergeRollupFreshness {
+  const warnings: IssueMergeRollupFreshnessWarning[] = [];
+  const delta = input.coherencyDelta;
+  if (!delta) {
+    return { status: "missing", warnings };
+  }
+  const mergedItems = (delta.items ?? []).filter(
+    (item) =>
+      Array.isArray(item.mergedIssueGroupIds)
+      && item.mergedIssueGroupIds.length > 1,
+  );
+  if (mergedItems.length === 0) {
+    return { status: "missing", warnings };
+  }
+
+  const inputRefs = delta.header?.inputRefs ?? [];
+  const citedLedgerRef = inputRefs.find(
+    (ref) => ref.type === "IssueMergeDecisionLedger",
+  );
+  const citedAdjudicationRef = inputRefs.find(
+    (ref) => ref.type === "IssueAdjudicationReport",
+  );
+
+  // Rule A — ledger missing.
+  if (!citedLedgerRef) {
+    warnings.push({
+      code: "merge-ledger-missing",
+      message:
+        "CoherencyDelta contains accepted merge roll-ups but does not cite an IssueMergeDecisionLedger; rebuild via `rekon refresh`.",
+      recommendedCommand: "rekon refresh",
+    });
+  }
+
+  // Rule B — ledger stale.
+  const latestLedgerId
+    = input.latestIssueMergeDecisionLedgerId
+    ?? input.latestIssueMergeDecisionLedger?.header?.artifactId;
+  if (citedLedgerRef && latestLedgerId && citedLedgerRef.id !== latestLedgerId) {
+    warnings.push({
+      code: "merge-ledger-stale",
+      message:
+        `CoherencyDelta accepted merge roll-ups were built from an older IssueMergeDecisionLedger (${citedLedgerRef.id}) than the latest (${latestLedgerId}); rebuild via \`rekon refresh\`.`,
+      recommendedCommand: "rekon refresh",
+    });
+  }
+
+  // Rule C — adjudication stale.
+  const latestAdjudicationId
+    = input.latestIssueAdjudicationReportId
+    ?? input.latestIssueAdjudicationReport?.header?.artifactId;
+  if (
+    citedAdjudicationRef
+    && latestAdjudicationId
+    && citedAdjudicationRef.id !== latestAdjudicationId
+  ) {
+    warnings.push({
+      code: "adjudication-stale",
+      message:
+        `CoherencyDelta accepted merge roll-ups were built from an older IssueAdjudicationReport (${citedAdjudicationRef.id}) than the latest (${latestAdjudicationId}); rebuild via \`rekon refresh\`.`,
+      recommendedCommand: "rekon refresh",
+    });
+  }
+
+  // Rule D — lifecycle stale relative to the cited
+  // adjudication report.
+  const citedAdjudication = input.latestIssueAdjudicationReport;
+  const citedLifecycleRef
+    = citedAdjudication?.header?.inputRefs?.find(
+      (ref) => ref.type === "FindingLifecycleReport",
+    );
+  const latestLifecycleId
+    = input.latestFindingLifecycleReportId
+    ?? input.latestFindingLifecycleReport?.header?.artifactId;
+  if (
+    citedLifecycleRef
+    && latestLifecycleId
+    && citedLifecycleRef.id !== latestLifecycleId
+  ) {
+    warnings.push({
+      code: "lifecycle-stale",
+      message:
+        `IssueAdjudicationReport used for accepted merge roll-ups is stale relative to the latest FindingLifecycleReport (cited ${citedLifecycleRef.id}, latest ${latestLifecycleId}); rebuild via \`rekon refresh\`.`,
+      recommendedCommand: "rekon refresh",
+    });
+  }
+
+  // Rule E — decision superseded. Only meaningful when
+  // a ledger is available.
+  const ledger = input.latestIssueMergeDecisionLedger;
+  if (ledger) {
+    const seenPairs = new Set<string>();
+    for (const item of mergedItems) {
+      const rollupId = item.issueGroupId ?? item.id;
+      const itemDecisionIds = new Set(item.mergeDecisionIds ?? []);
+      for (const candidateId of item.mergeCandidateIds ?? []) {
+        const pairKey = `${rollupId}::${candidateId}`;
+        if (seenPairs.has(pairKey)) continue;
+        const latestDecision = findLatestIssueMergeDecision(ledger, candidateId);
+        if (!latestDecision) continue;
+        const isSuperseded
+          = !itemDecisionIds.has(latestDecision.id)
+          || latestDecision.decision !== "accepted";
+        if (isSuperseded) {
+          seenPairs.add(pairKey);
+          warnings.push({
+            code: "merge-decision-superseded",
+            message:
+              `Accepted merge roll-up ${rollupId} uses a merge decision that has been superseded by the latest IssueMergeDecisionLedger entry for candidate ${candidateId} (latest decision ${latestDecision.id} is "${latestDecision.decision}").`,
+            recommendedCommand: "rekon refresh",
+          });
+        }
+      }
+    }
+  }
+
+  if (warnings.length === 0) {
+    return { status: "fresh", warnings };
+  }
+  return {
+    status: "stale",
+    warnings,
+    recommendedCommand: "rekon refresh",
+  };
+}

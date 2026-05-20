@@ -246,3 +246,36 @@ a high-risk trace with `details.rule` set to `multiple_owner_systems`.
 Resolver packets point to the snapshot and artifacts they used through
 `inputRefs`. If they fall back to raw evidence, the fallback appears in
 `resolutionTrace` and `warnings`.
+
+### Accepted Merge Roll-up Freshness
+
+When `resolve.issue` attaches an
+`IssuePacket.mergeRollup`, it runs the
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+predicate against the latest
+`IssueMergeDecisionLedger` /
+`IssueAdjudicationReport` / `FindingLifecycleReport`
+and records the result on the packet:
+
+- **Stale lineage** → appends
+  `"Accepted merge roll-up may be stale; run `rekon refresh` before relying on merged issue context."`
+  to `warnings`, and adds an
+  `issue.merge.freshness` `resolutionTrace` entry
+  with `status: "warning"` plus a `details.codes`
+  array (`merge-ledger-missing`,
+  `merge-ledger-stale`, `adjudication-stale`,
+  `lifecycle-stale`, `merge-decision-superseded`).
+- **Fresh lineage** → adds an
+  `issue.merge.freshness` `resolutionTrace` entry
+  with `status: "used"` and message
+  `"Accepted merge roll-up lineage is fresh."`.
+- The latest ledger / adjudication / lifecycle refs
+  that the helper read are added to
+  `header.inputRefs` (deduped) so downstream
+  consumers see exactly which artifacts were
+  checked.
+
+The resolver **never blocks resolution** on a
+freshness warning; it only annotates the packet so
+callers can decide whether to act on stale merged
+issue context.

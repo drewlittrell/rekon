@@ -181,6 +181,21 @@ adjudication report anyway, so transitive lineage holds.
   next slice extends accepted decisions to the architecture
   summary, the agent operating contract, and `resolve.issue`.
 
+## Freshness Guardrails
+
+The
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+predicate checks whether the latest ledger entry for
+each `mergeCandidateId` used by an accepted
+`CoherencyDelta` roll-up matches the decision ids the
+delta cites — and whether that latest decision is still
+`accepted`. When the latest decision differs from the
+cited one (or is no longer `accepted`), architecture
+summary, agent contract, and `resolve.issue` all emit a
+`merge-decision-superseded` warning and recommend
+`rekon refresh`. Warnings do **not** mutate the ledger;
+they mark the consumed merge-roll-up context as stale.
+
 ## Cross-References
 
 - [Issue merge decisions concept](../concepts/issue-merge-decisions.md)
@@ -188,4 +203,5 @@ adjudication report anyway, so transitive lineage holds.
 - [Issue adjudication report](issue-adjudication-report.md)
 - [Coherency delta](coherency-delta.md)
 - [Freshness and invalidation](../concepts/freshness-and-invalidation.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)

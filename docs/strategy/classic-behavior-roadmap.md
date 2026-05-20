@@ -2496,13 +2496,8 @@ scope:
   further strengthening before alpha.
 
   **Recommended next slice:** **issue merge
-  decision freshness guardrails** — previously
-  deferred until filtering / graph-aware parity
-  was stronger; that condition is now satisfied.
-  If `CoherencyDelta` roll-ups are based on a
-  stale `IssueMergeDecisionLedger` or a stale
-  `IssueAdjudicationReport`, publications and
-  `resolve.issue` should warn clearly.
+  decision freshness guardrails**. **Shipped next;
+  see the entry below.**
 
   Docs-only slice. Pinned by
   `tests/docs/graph-aware-fixture-coverage-operator-review-v3.test.mjs`
@@ -2522,6 +2517,90 @@ scope:
   fuzzy, or embedding matching. No
   `GraphOntologyValidator` port. No version bump.
   No npm publish.
+- **Issue merge decision freshness guardrails v1
+  (P1.1 issue-merge-decision-freshness-guardrails
+  slice).** ✅ Shipped. Combined strategy +
+  implementation batch. The memo
+  ([`docs/strategy/issue-merge-decision-freshness-guardrails.md`](issue-merge-decision-freshness-guardrails.md))
+  pins the freshness predicate as **artifact-lineage
+  only** (no file-system mtime, no watcher). A
+  `CoherencyDelta` is **stale for decision-making**
+  when any of five rules fire:
+  - `merge-ledger-missing` — `mergedIssueGroupIds`
+    exist but the delta cites no
+    `IssueMergeDecisionLedger`;
+  - `merge-ledger-stale` — the delta cites an older
+    ledger than the latest available;
+  - `adjudication-stale` — the delta cites an older
+    `IssueAdjudicationReport` than the latest;
+  - `lifecycle-stale` — the cited adjudication
+    cites an older `FindingLifecycleReport` than the
+    latest;
+  - `merge-decision-superseded` — the latest ledger
+    decision for some `mergeCandidateId` used by the
+    roll-up has a different id or
+    `decision !== "accepted"`.
+
+  Pure data-only helper
+  `detectIssueMergeRollupFreshness` in
+  `@rekon/kernel-findings` (deterministic A → B → C
+  → D → E order; no fs reads; no mutation).
+  Architecture summary renders a `### Merge Roll-up
+  Freshness` subsection below `## Accepted Issue
+  Merge Roll-ups` (status + warnings table + stale
+  callout). Agent contract renders `### Merge
+  Decision Freshness` with compact per-input status
+  lines plus a Do Not Do reminder. `resolve.issue`
+  adds an `issue.merge.freshness` `resolutionTrace`
+  step (`status: "warning"` when stale, `"used"`
+  when fresh), appends a `rekon refresh` warning
+  string when stale, and cites the latest ledger /
+  adjudication / lifecycle refs in
+  `IssuePacket.header.inputRefs` (deduped). All
+  warnings recommend `rekon refresh`. Warnings do
+  **not** invalidate artifacts structurally; they
+  mark the consumed merge-roll-up context as stale
+  for decision-making.
+
+  **Contract test:**
+  `tests/contract/issue-merge-decision-freshness-guardrails.test.mjs`
+  (16 cases) covers every rule end-to-end through
+  architecture summary + agent contract +
+  `resolve.issue` plus the helper's `missing`,
+  `fresh`, and `stale` (Rule A) unit-level branches.
+  Also pins an end-to-end-ish scenario: accepted
+  decision → newer rejected decision → both
+  publications and the resolver surface
+  `merge-decision-superseded`. `rekon artifacts
+  validate` stays clean across all scenarios.
+
+  Aligned to `services/WatchHandler.ts`,
+  `lib/context-freshness.ts`,
+  `services/ContextHandler.ts`,
+  `services/IssueDetectionService.ts`,
+  `domain/issues/mergeIssues.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta-projections.ts`.
+  No artifact mutation. No auto-refresh inside
+  publishers or resolvers. No watcher / daemon. No
+  file-system mtime / path invalidation. No
+  artifact header shape change. No `schemaVersion`
+  bump. No new artifact type. No new capability
+  role. No new CLI subcommand or flag. No new
+  reason codes. No producer change. No graph-aware
+  filter change. No source-file reads. No LLM,
+  semantic, fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump.
+  No npm publish.
+
+  **Recommended next slice:** **issue merge
+  decision operator ergonomics** — make the
+  human-in-the-loop merge workflow easier
+  (`issues merge candidates --undecided`,
+  `--decision accepted|rejected|none`, candidate
+  detail rendering, clearer recommended commands
+  in publications). Still no automatic merging or
+  semantic / LLM review.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

@@ -262,11 +262,26 @@ with `rekon publish agents`.
 - Not a remediation auto-apply pipeline. The queue lists work; it does
   not run it.
 
+## Merge Roll-up Freshness
+
+When `CoherencyDelta` carries accepted merge roll-ups,
+the architecture summary renders a `### Merge Roll-up
+Freshness` subsection right below `## Accepted Issue
+Merge Roll-ups`. The subsection emits a `Status:`
+line (`fresh` / `stale`) and, when any rule fires, a
+table of `(code, message, recommended command)` rows
+plus a `Do not rely on accepted merge roll-ups …`
+callout. The predicate (see
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md))
+is artifact-lineage only — no file-system mtime, no
+watcher. All warnings recommend `rekon refresh`.
+
 ## Cross-References
 
 - [Architecture summary concept](../concepts/architecture-summary-publication.md)
 - [CoherencyDelta](coherency-delta.md)
 - [FindingLifecycleReport](finding-lifecycle-report.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

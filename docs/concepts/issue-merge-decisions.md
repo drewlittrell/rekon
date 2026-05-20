@@ -170,6 +170,23 @@ the ledger is treated as a canonical input (alongside
 and `Rulebook`), it does not trigger `lineage.unknown` on its
 own.
 
+**Accepted merge roll-up freshness guardrails.** When
+operator decisions accept merge candidates, the resulting
+`CoherencyDelta.items[]` carry `mergedIssueGroupIds`,
+`mergeDecisionIds`, and `mergeCandidateIds`. The
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+predicate checks the consumed roll-up lineage and emits
+warnings (`merge-ledger-missing`, `merge-ledger-stale`,
+`adjudication-stale`, `lifecycle-stale`,
+`merge-decision-superseded`) into architecture summary,
+agent contract, and `resolve.issue` whenever the
+`CoherencyDelta` cited an older ledger / adjudication /
+lifecycle, or whenever the latest decision for a
+candidate has been superseded. Warnings do **not**
+invalidate artifacts; they mark the consumed
+merge-roll-up context as stale for decision-making and
+recommend `rekon refresh`.
+
 ## What This Is Not
 
 - **Not automatic merging of source artifacts.** Decisions reshape
@@ -192,4 +209,5 @@ own.
 - [Issue adjudication report](../artifacts/issue-adjudication-report.md)
 - [Coherency delta concept](coherency-delta.md)
 - [Freshness and invalidation](freshness-and-invalidation.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)

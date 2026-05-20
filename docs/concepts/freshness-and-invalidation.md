@@ -271,6 +271,41 @@ does not depend on a local checkout.
 REKON_DOGFOOD_CLASSIC_ROOT=/path/to/codebase-intel npm run test
 ```
 
+## Accepted Merge Roll-up Freshness
+
+Accepted operator merge roll-ups are recorded on
+`CoherencyDelta.items[].mergedIssueGroupIds /
+mergeDecisionIds / mergeCandidateIds` and consumed by
+architecture summary, agent contract, and
+`resolve.issue`. Their freshness is checked by the
+**issue merge decision freshness guardrails**: a
+`CoherencyDelta` is considered **stale for
+decision-making** when any of the following hold —
+
+- The `CoherencyDelta` cites an older
+  `IssueMergeDecisionLedger` than the latest available
+  ledger (`merge-ledger-stale`).
+- The `CoherencyDelta` contains
+  `mergedIssueGroupIds` but cites no
+  `IssueMergeDecisionLedger` in its
+  `header.inputRefs` (`merge-ledger-missing`).
+- The `CoherencyDelta` cites an older
+  `IssueAdjudicationReport` than the latest
+  (`adjudication-stale`).
+- The cited `IssueAdjudicationReport` cites an older
+  `FindingLifecycleReport` than the latest
+  (`lifecycle-stale`).
+- The latest `IssueMergeDecisionLedger`'s latest
+  decision for any `mergeCandidateId` used by the
+  roll-up has been superseded
+  (`merge-decision-superseded`).
+
+Warnings do **not** invalidate artifacts structurally.
+They mark the consumed merge-roll-up context as stale
+for decision-making. All warnings recommend
+`rekon refresh`. See the
+[issue merge decision freshness guardrails memo](../strategy/issue-merge-decision-freshness-guardrails.md).
+
 ## Cross-References
 
 - [Artifact header](../artifacts/artifact-header.md)
@@ -280,3 +315,4 @@ REKON_DOGFOOD_CLASSIC_ROOT=/path/to/codebase-intel npm run test
 - [Classic wins](../strategy/classic-wins.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)

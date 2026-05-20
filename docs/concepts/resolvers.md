@@ -155,11 +155,26 @@ and pushes an `issue.merge` / `sourceType: "CoherencyDelta"` /
 `header.inputRefs` cite the `CoherencyDelta` the rollup came
 from. Rejected decisions, and groups not in any merged rollup,
 never produce a `mergeRollup`. The resolver never reads
-`IssueMergeDecisionLedger` directly — all rollup metadata flows
-through `CoherencyDelta`, keeping the resolver consistent with
-whatever the latest delta projection shows. See
+`IssueMergeDecisionLedger` directly for rollup data — all rollup
+metadata flows through `CoherencyDelta`, keeping the resolver
+consistent with whatever the latest delta projection shows. See
 [issue-merge-decisions.md](issue-merge-decisions.md) and
 [coherency-delta.md](coherency-delta.md).
+
+When `mergeRollup` is attached, the resolver
+additionally runs the
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+predicate against the latest
+`IssueMergeDecisionLedger` /
+`IssueAdjudicationReport` / `FindingLifecycleReport`,
+adds an `issue.merge.freshness` step to
+`resolutionTrace` (`status: "warning"` when any rule
+fires; `status: "used"` when the lineage is fresh),
+and cites the ledger / adjudication / lifecycle refs
+in `header.inputRefs`. Stale lineage also appends a
+warning string recommending `rekon refresh`. The
+resolver never blocks on a freshness warning — it
+annotates the packet so callers can decide.
 
 Ownership source precedence is deterministic:
 

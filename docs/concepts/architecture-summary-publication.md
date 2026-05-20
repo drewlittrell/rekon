@@ -200,12 +200,21 @@ A newer `IntelligenceSnapshot`, `CoherencyDelta`, `OwnershipMap`,
 `VerificationResult` will mark the summary `stale`. Rebuild with
 `rekon publish architecture`.
 
+A `### Merge Roll-up Freshness` subsection (right
+below `## Accepted Issue Merge Roll-ups`) surfaces the
+lineage state of accepted merge roll-ups. Warnings
+do **not** invalidate the publication structurally;
+they mark the consumed merge-roll-up context as stale
+for decision-making and recommend `rekon refresh`. See
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md).
+
 ## Cross-References
 
 - [Architecture summary artifact](../artifacts/architecture-summary-publication.md)
 - [Coherency delta concept](coherency-delta.md)
 - [Finding lifecycle concept](finding-lifecycle.md)
 - [Resolvers](resolvers.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

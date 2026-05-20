@@ -368,6 +368,15 @@ indexed: `MemorySelection`, `VerificationResult`, `CoherencyDelta`,
 `WorkOrder`, `ReconciliationPlan`, ownership/capability map,
 snapshot. Rebuild with `rekon publish agent-contract`.
 
+A `### Merge Decision Freshness` subsection sits below
+`### Accepted Issue Merge Roll-ups` and warns agents
+when the consumed merge-roll-up lineage is stale. The
+`Do Not Do` reminder adds: *"Do not rely on accepted
+merge roll-ups after merge decisions, adjudication, or
+lifecycle artifacts change until `rekon refresh` has
+run."* See
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md).
+
 ## Cross-References
 
 - [Agent contract artifact](../artifacts/agent-contract-publication.md)
@@ -376,5 +385,6 @@ snapshot. Rebuild with `rekon publish agent-contract`.
 - [MemorySelection](../artifacts/memory-selection.md)
 - [Memory concept](memory.md)
 - [Resolvers](resolvers.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

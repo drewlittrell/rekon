@@ -4,6 +4,83 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped issue merge decision freshness guardrails v1
+  (P1.1 issue-merge-decision-freshness-guardrails
+  slice). Combined strategy + implementation batch.
+  The memo
+  ([`docs/strategy/issue-merge-decision-freshness-guardrails.md`](docs/strategy/issue-merge-decision-freshness-guardrails.md))
+  pins the freshness predicate as **artifact-lineage
+  only** — no file-system mtime, no watcher, no
+  daemon. A `CoherencyDelta` is **stale for
+  decision-making** when any of five rules fire:
+  `merge-ledger-missing` (mergedIssueGroupIds exist
+  but no `IssueMergeDecisionLedger` cited);
+  `merge-ledger-stale` (cites an older ledger than
+  the latest); `adjudication-stale` (cites an older
+  `IssueAdjudicationReport` than the latest);
+  `lifecycle-stale` (the cited adjudication cites an
+  older `FindingLifecycleReport` than the latest);
+  `merge-decision-superseded` (the latest ledger
+  decision for some `mergeCandidateId` used by the
+  roll-up has a different id or
+  `decision !== "accepted"`).
+
+  **Helper:** pure data-only
+  `detectIssueMergeRollupFreshness` in
+  `@rekon/kernel-findings` emits warnings in stable
+  A → B → C → D → E order; no fs reads, no
+  mutation. Threaded through:
+  - **architecture summary** — new `### Merge
+    Roll-up Freshness` subsection below
+    `## Accepted Issue Merge Roll-ups` with
+    `Status:` line, warnings table, and stale
+    callout;
+  - **agent contract** — new `### Merge Decision
+    Freshness` subsection with per-input
+    fresh/stale lines, recommended `rekon refresh`
+    command, and (when stale) a "Do not rely on
+    accepted merge roll-ups …" callout plus a new
+    `Do Not Do` reminder;
+  - **`resolve.issue`** — when `IssuePacket.mergeRollup`
+    is attached, the resolver runs the predicate
+    against the latest ledger / adjudication /
+    lifecycle, adds an `issue.merge.freshness`
+    `resolutionTrace` step (`status: "warning"`
+    with `details.codes` array when stale,
+    `status: "used"` when fresh), appends a
+    `rekon refresh` warning string when stale, and
+    cites the ledger / adjudication / lifecycle
+    refs in `IssuePacket.header.inputRefs`
+    (deduped).
+
+  **Warnings do NOT invalidate artifacts
+  structurally.** They mark the consumed
+  merge-roll-up context as stale for
+  decision-making and recommend `rekon refresh`.
+
+  **Contract test:**
+  `tests/contract/issue-merge-decision-freshness-guardrails.test.mjs`
+  (16 cases) covers every rule end-to-end across
+  architecture summary, agent contract, and
+  `resolve.issue`, plus the helper's `missing`,
+  `fresh`, and Rule-A `stale` unit branches. Also
+  pins an end-to-end-ish scenario: accepted
+  decision → newer rejected decision → both
+  publications and the resolver surface
+  `merge-decision-superseded`. `rekon artifacts
+  validate` stays clean across all scenarios.
+
+  No artifact mutation. No auto-refresh inside
+  publishers or resolvers. No watcher / daemon. No
+  file-system mtime / path invalidation. No
+  artifact header shape change. No `schemaVersion`
+  bump. No new artifact type. No new capability
+  role. No new CLI subcommand or flag. No new
+  reason codes. No producer change. No graph-aware
+  filter change. No source-file reads. No LLM /
+  semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No version bump.
+  No npm publish.
 - Shipped graph-aware fixture coverage operator
   review v3 (P1.1
   graph-aware-fixture-coverage-operator-review-v3

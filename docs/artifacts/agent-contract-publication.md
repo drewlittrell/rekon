@@ -312,6 +312,22 @@ include it in a future `rekon refresh` extension).
   mutated.
 - Not a root-file writer. No root `AGENTS.md` overwrite by default.
 
+## Merge Decision Freshness
+
+When `CoherencyDelta` carries accepted merge roll-ups,
+the agent operating contract renders a `### Merge
+Decision Freshness` subsection right below
+`### Accepted Issue Merge Roll-ups`. The subsection
+emits compact `Merge decisions / Adjudication /
+Lifecycle: fresh|stale` lines plus a recommended
+`rekon refresh` command. When any rule fires, the
+publication prepends a callout: *"Do not rely on
+accepted merge roll-ups until `rekon refresh`
+rebuilds adjudication and coherency state."* The
+`Do Not Do` list also includes the corresponding
+agent-facing reminder. See
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md).
+
 ## Cross-References
 
 - [Agent contract concept](../concepts/agent-operating-contract.md)
@@ -319,6 +335,7 @@ include it in a future `rekon refresh` extension).
 - [Proof report publication](proof-report-publication.md)
 - [MemorySelection](memory-selection.md)
 - [Memory concept](../concepts/memory.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

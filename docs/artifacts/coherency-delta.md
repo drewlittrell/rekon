@@ -323,6 +323,25 @@ the adjudication source is stale. See
   not run it.
 - This is not a watch alert pipeline.
 
+## Accepted Merge Roll-up Freshness
+
+Accepted merge roll-ups are recorded on
+`items[].mergedIssueGroupIds`, `mergeDecisionIds`, and
+`mergeCandidateIds` and consumed by architecture
+summary, agent contract, and `resolve.issue`. The
+[issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+predicate flags the consumed roll-up context as
+**stale for decision-making** when the
+`CoherencyDelta` cites an older
+`IssueMergeDecisionLedger` / `IssueAdjudicationReport`
+than the latest, when the cited adjudication is stale
+relative to the latest `FindingLifecycleReport`, when
+`mergedIssueGroupIds` exist with no
+`IssueMergeDecisionLedger` ref, or when the latest
+decision for any `mergeCandidateId` has been
+superseded. Warnings recommend `rekon refresh`; they
+do **not** invalidate this artifact.
+
 ## Cross-References
 
 - [Concept overview](../concepts/coherency-delta.md)
@@ -333,5 +352,6 @@ the adjudication source is stale. See
 - [IssueAdjudicationReport](issue-adjudication-report.md)
 - [IssueMergeDecisionLedger](issue-merge-decision-ledger.md)
 - [Issue merge decisions concept](../concepts/issue-merge-decisions.md)
+- [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
