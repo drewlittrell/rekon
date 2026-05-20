@@ -2772,13 +2772,110 @@ scope:
   publish.
 
   **Recommended next slice:** **verification
-  runner v1 decision memo** — the next big
-  classic-parity gap is execution / proof
-  maturity. Decide whether Rekon should execute
-  verification commands locally, define safety
-  model + secret / log handling + timeout
-  behavior + artifact shape; **no implementation
-  until the decision is pinned**.
+  runner v1 decision memo**. **Shipped next;
+  see the entry below.**
+- **Verification runner v1 decision memo (P1.1
+  verification-runner-v1-decision slice).** ✅
+  Shipped. Strategy-only batch — no runtime
+  changes ship. The memo
+  ([`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md))
+  decides whether Rekon should execute
+  verification commands locally and pins the
+  contract that governs any future runner.
+
+  **Recommendation: Option C — hybrid opt-in
+  runner.** Manual `rekon verify record` remains
+  the default path. A future
+  `rekon verify run --plan <id> --execute`
+  command (deferred to a later implementation
+  slice) opts in to local execution.
+
+  **Artifact model:** add a new sibling
+  **`VerificationRun`** artifact recording raw
+  bounded execution detail (per-command start /
+  end / duration / exitCode / status with
+  `timeout` and `killed` additions + stdout /
+  stderr digests + redacted truncated excerpts +
+  runner version + environment summary +
+  redaction audit). **`VerificationResult`
+  remains the proof summary** consumed by
+  publications and resolvers; the runner can
+  derive one from a run when `--write-result`
+  is supplied.
+
+  **Capability + permission boundary:** new
+  package **`@rekon/capability-verify`** with a
+  new `"runner"` role and a new
+  **`execute:verification`** permission — kept
+  distinct from `execute:commands` so the
+  narrow scope is visible to manifest review and
+  conformance tests.
+
+  **Safety contract** (pinned for the
+  implementation slice): no execution during
+  `rekon refresh` / `publish` / `resolve` /
+  `intent` / `reconcile` / `artifacts`; no
+  shell interpolation from artifact-supplied
+  strings (findings, work-order titles,
+  model-generated notes never reach the
+  command line); `spawn(argv[0], argv.slice(1))`
+  with `shell: false` unless the plan
+  explicitly wraps `["sh", "-c", "…"]`;
+  per-command timeout default **120 s**,
+  per-plan timeout default **600 s**; process-
+  tree kill on timeout (`SIGTERM` → 3 s grace
+  → `SIGKILL`); bounded logs (**8 KB / stream /
+  command** default, full-stream digests
+  always); redaction patterns v1 cover env
+  vars matching `TOKEN` / `SECRET` / `KEY` /
+  `PASSWORD` / `PAT` / `BEARER` plus
+  `Bearer …` / `Basic …` HTTP auth headers
+  (high-entropy detection deferred); **no
+  auto-resolution**, **no auto-apply**, **no
+  source writes**, **no automatic retries in
+  v1**.
+
+  **Implementation sequence (deferred to
+  subsequent slices):**
+  1. `VerificationRun` artifact type + docs;
+  2. `@rekon/capability-verify` skeleton +
+     conformance tests pinning the new role +
+     permission;
+  3. dry-run command
+     (`rekon verify run --plan <id> --dry-run`);
+  4. opt-in execution
+     (`rekon verify run --plan <id> --execute`)
+     implementing the safety contract;
+  5. redaction / truncation tests;
+  6. `VerificationResult` derivation via
+     `--write-result`;
+  7. runner-produced proof in architecture
+     summary, agent contract, and proof report;
+  8. CI / GitHub adapter (out of scope for
+     local-runner v1).
+
+  Pinned by
+  `tests/docs/verification-runner-v1-decision.test.mjs`
+  (18 assertions). Aligned to
+  `services/IntentPreparationService.ts`,
+  `packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts`,
+  `packages/product-codebase-intel/src/intent/**`,
+  `services/ContextHandler.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`.
+  No runtime behavior changes. No artifact
+  mutation. No CLI behavior change. No new
+  artifact type yet (lands in the next slice).
+  No new capability yet. No `schemaVersion`
+  bump. No version bump. No npm publish.
+
+  **Recommended next slice:** **VerificationRun
+  artifact + `@rekon/capability-verify`
+  skeleton** — implements steps 1–2 of the
+  sequence above. Adds the artifact type +
+  validation + the capability package with
+  conformance tests pinning the new role +
+  permission. **No execution code in that
+  slice.**
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

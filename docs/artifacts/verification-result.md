@@ -166,10 +166,36 @@ newer `VerificationPlan` or `WorkOrder` is indexed. Re-record with
 - Not source modification. Recording a result does not change code.
 - Not a place for raw stdout/stderr. Use digests and notes.
 
+## Runner Direction
+
+The
+[verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+preserves this artifact's shape and semantics.
+`VerificationResult` continues to be the **proof
+summary** consumed by publications and resolvers.
+The future opt-in
+`rekon verify run --plan <id> --execute` command
+(deferred to a later implementation slice) may
+derive a `VerificationResult` from a new sibling
+`VerificationRun` artifact when invoked with
+`--write-result` — the runner sets
+`recordedBy` to the runner id+version and cites
+the run + plan + work-order in `header.inputRefs`.
+A `VerificationResult` without a paired
+`VerificationRun` means "manually recorded via
+`rekon verify record`."
+
+The new `timeout` / `killed` execution statuses
+live on `VerificationRun`, not on
+`VerificationCommandResult` — derivation maps
+both to `failed` in the summary so the proof
+result keeps its current four-value enum stable.
+
 ## Cross-References
 
 - [VerificationPlan](verification-plan.md)
 - [WorkOrder](work-order.md)
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [Verification results concept](../concepts/verification-results.md)
+- [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Capability model](../strategy/capability-model.md)

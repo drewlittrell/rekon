@@ -203,6 +203,38 @@ Recording a `VerificationResult` reinforces that:
 result `stale` when a newer `VerificationPlan` is indexed. Rebuild
 with `rekon verify record` against the new plan.
 
+## Runner Direction
+
+Verification results today are **manually
+recorded** via `rekon verify record
+--result-json <json>`. The
+[verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+memo pins the future direction: keep manual
+recording as the default path, and add a future
+opt-in `rekon verify run --plan <id> --execute`
+command (gated by a new
+`@rekon/capability-verify` package + a new
+`execute:verification` permission). The runner
+will write a sibling **`VerificationRun`**
+artifact carrying raw execution detail
+(per-command start / end / duration / exit code /
+status with `timeout` and `killed` additions +
+stdout / stderr digests + redacted truncated
+excerpts + runner version + environment summary).
+`VerificationResult` remains the proof summary
+consumed by publications and resolvers; the
+runner can optionally derive one from a run
+when `--write-result` is supplied.
+
+The memo also pins the safety contract (no
+execution during `rekon refresh` / `publish` /
+`resolve` / `intent` / `reconcile` / `artifacts`;
+no shell interpolation from artifact-supplied
+strings; per-command + per-plan timeouts with
+process-tree kill; bounded redacted logs;
+no auto-resolution, no auto-apply, no automatic
+retries in v1).
+
 ## Cross-References
 
 - [VerificationResult artifact](../artifacts/verification-result.md)
@@ -210,6 +242,7 @@ with `rekon verify record` against the new plan.
 - [WorkOrder artifact](../artifacts/work-order.md)
 - [Remediation work orders concept](remediation-work-orders.md)
 - [Reconciliation plans concept](reconciliation-plans.md)
+- [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

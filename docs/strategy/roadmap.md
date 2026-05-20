@@ -1106,6 +1106,57 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner v1 decision memo (P1.1
+  verification-runner-v1-decision slice):
+  strategy-only batch — no runtime change. Memo
+  (`docs/strategy/verification-runner-v1-decision.md`)
+  decides whether Rekon should execute
+  verification commands locally and pins the
+  contract that governs any future runner.
+  **Recommendation: Option C — hybrid opt-in
+  runner.** Manual `rekon verify record` remains
+  the default path; a future
+  `rekon verify run --plan <id> --execute`
+  command (deferred to a later slice) opts in
+  to local execution. New sibling
+  **`VerificationRun`** artifact records raw
+  bounded execution detail; **`VerificationResult`
+  remains the proof summary** consumed by
+  publications and resolvers. New capability
+  **`@rekon/capability-verify`** + new
+  **`execute:verification`** permission. Safety
+  contract: no execution during refresh /
+  publish / resolve / intent / reconcile /
+  artifacts; no shell interpolation from
+  artifact-supplied strings;
+  `spawn(argv[0], argv.slice(1))` with
+  `shell: false`; per-command (120 s) +
+  per-plan (600 s) timeouts with `SIGTERM` →
+  3 s → `SIGKILL` process-tree kill; bounded
+  redacted logs (8 KB / stream / command
+  default, full-stream digests always);
+  redaction patterns v1 cover
+  `TOKEN` / `SECRET` / `KEY` / `PASSWORD` /
+  `PAT` / `BEARER` env vars + `Bearer …` /
+  `Basic …` HTTP auth headers; no
+  auto-resolution, no auto-apply, no source
+  writes, no automatic retries in v1.
+  Implementation sequence (8 steps, deferred):
+  VerificationRun type + docs → capability
+  skeleton + conformance → dry-run command →
+  opt-in execution → redaction / truncation
+  tests → VerificationResult derivation →
+  runner-produced proof in publications →
+  CI / GitHub adapter (out of scope for v1).
+  Pinned by
+  `tests/docs/verification-runner-v1-decision.test.mjs`
+  (18 assertions). No artifact mutation. No
+  CLI behavior change. No new artifact type
+  yet (lands in the next slice). No new
+  capability yet. No `schemaVersion` bump. No
+  new reason codes. No producer change. No
+  graph-aware filter change. No source-file
+  reads. No version bump. No npm publish.
 - Issue merge decision publication / detail polish
   v2 (P1.1
   issue-merge-decision-publication-detail-polish

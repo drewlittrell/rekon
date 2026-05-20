@@ -1178,14 +1178,73 @@ review packets unless an ADR promotes them. Promotion requires:
     new capability role. No new producer. Merge
     candidates remain advisory; no automatic
     merging or semantic / LLM review.
-35. **(future)** Per-module `ObservedSystem`
-    projection + CapabilityMap `role` field — the
-    deferred substrates documented in the
+35. **(shipped)** Verification runner v1 decision
+    memo. Strategy-only batch — no runtime changes
+    ship. The memo
+    ([`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md))
+    decides whether Rekon should execute
+    verification commands locally and pins the
+    safety contract, artifact model, permission
+    boundary, log / secret policy, timeout
+    policy, and implementation sequence.
+    **Recommendation: Option C — hybrid opt-in
+    runner.** Manual `rekon verify record`
+    remains the default path; a future
+    `rekon verify run --plan <id> --execute`
+    command (deferred to a later implementation
+    slice) opts in to local execution. A new
+    sibling **`VerificationRun`** artifact
+    records raw bounded execution detail
+    (per-command start / end / duration /
+    exitCode / status with `timeout` and
+    `killed` additions + stdout / stderr digests
+    + redacted truncated excerpts + runner
+    version + environment summary).
+    **`VerificationResult` remains the proof
+    summary** consumed by publications and
+    resolvers. **New capability:
+    `@rekon/capability-verify`**; **new
+    permission: `execute:verification`**.
+    Safety contract: no execution during
+    `rekon refresh` / `publish` / `resolve` /
+    `intent` / `reconcile` / `artifacts`; no
+    shell interpolation from artifact-supplied
+    strings; per-command (120s) + per-plan
+    (600s) timeouts with `SIGTERM` → 3s grace →
+    `SIGKILL` process-tree kill; bounded
+    redacted logs (8 KB / stream / command
+    default); no auto-resolution, no auto-apply,
+    no source writes, no automatic retries in
+    v1. Pinned by
+    `tests/docs/verification-runner-v1-decision.test.mjs`
+    (18 assertions). Implementation sequence
+    (8 steps, deferred): VerificationRun type
+    + docs → capability-verify skeleton +
+    conformance → dry-run command → opt-in
+    execution → redaction / truncation tests →
+    VerificationResult derivation → runner-
+    produced proof in publications → CI /
+    GitHub adapter (out of scope for v1). No
+    schemaVersion bump. No new artifact type
+    yet (the type lands in the next slice). No
+    new capability yet. No new CLI command yet.
+    No mutation of any artifact.
+36. **(future)** VerificationRun artifact +
+    `@rekon/capability-verify` skeleton — the
+    next implementation slice as documented in
+    the verification runner v1 decision memo.
+    Adds the artifact type, validation, and
+    capability skeleton with conformance tests
+    pinning the new role + permission. No
+    execution code in this slice.
+37. **(future)** Per-module `ObservedSystem`
+    projection + CapabilityMap `role` field —
+    the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-36. **(future)** Persistent exclusion lists, and
+38. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

@@ -113,11 +113,31 @@ order is invalidated (newer `CoherencyDelta` or `ResolverPacket`), the
 plan is also marked `stale` and should be regenerated alongside the
 new work order.
 
+## Runner Direction
+
+`VerificationPlan.commands` are today consumed by
+operators running commands externally and feeding
+outcomes back via `rekon verify record`. The
+[verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+memo pins the future direction: an opt-in
+`rekon verify run --plan <id> --execute`
+command will execute exactly the commands
+listed in `VerificationPlan.commands` (no shell
+interpolation from artifact-supplied strings),
+emit a sibling `VerificationRun` artifact, and
+optionally derive a `VerificationResult`. Plan
+commands that require shell semantics must be
+explicitly wrapped (`["sh", "-c", "<command>"]`)
+in the plan itself — the runner uses
+`spawn(argv[0], argv.slice(1))` with
+`shell: false` for non-shell-wrapped entries.
+
 ## Cross-References
 
 - [VerificationResult](verification-result.md)
 - [WorkOrder](work-order.md)
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [Verification results concept](../concepts/verification-results.md)
+- [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [CoherencyDelta](coherency-delta.md)
 - [ResolverPacket](resolver-packet.md)

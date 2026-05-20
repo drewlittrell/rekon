@@ -127,6 +127,8 @@ node packages/cli/dist/index.js intent remediation --root examples/simple-js-ts 
 node packages/cli/dist/index.js reconcile --root examples/simple-js-ts --operation docs_regeneration
 node packages/cli/dist/index.js reconcile suggest --root examples/simple-js-ts --json
 node packages/cli/dist/index.js verify record --root examples/simple-js-ts --result-json '{"recordedBy":"operator","commands":[{"command":"npm run typecheck","status":"passed","exitCode":0}]}' --json
+# `rekon verify run --plan <id> --execute` is the future opt-in local runner.
+# See docs/strategy/verification-runner-v1-decision.md.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
