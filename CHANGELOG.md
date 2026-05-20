@@ -4,6 +4,121 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped verification runner dry-run command
+  (P1.1 verification-run-dry-run slice). **Step
+  3** of the runner v1 implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md).
+  **No command execution.**
+
+  **CLI:** new
+  `rekon verify run --plan <id|type:id>
+  --dry-run|--preview [--root <path>] [--json]`
+  command. Resolves the named `VerificationPlan`
+  (and paired `WorkOrder` when present), parses
+  each command into argv, validates each
+  command against the safety contract, and
+  writes a planned-but-not-run `VerificationRun`
+  artifact when every command validates.
+  Refuses `--execute` with a not-implemented
+  message; refuses without `--dry-run` /
+  `--preview`; refuses without `--plan`;
+  refuses to write when any command is invalid.
+  `rekon verify record` behavior is unchanged.
+
+  **Helper:** new
+  `createVerificationRunDryRun` +
+  `validateVerificationRunCommandString` in
+  `@rekon/capability-verify`. The
+  command-string validator tokenizes
+  whitespace-separated commands (with
+  double-quoted and single-quoted string
+  support) and rejects: shell-control operators
+  (`;` `&&` `||` `|` `<` `>` `<<` `>>` `&`),
+  command substitution (`$(…)` `` `…` ``),
+  env-assignment prefixes (`NAME=value cmd`),
+  newlines, empty commands, and unterminated
+  quotes. Reason codes are stable and
+  machine-readable
+  (`shell-control-operator`,
+  `command-substitution`,
+  `env-assignment-prefix`, `newline`,
+  `empty-command`, `unsupported-syntax`).
+
+  **Dry-run artifact shape:** `status:
+  "not-run"`, every command `status:
+  "not-run"`, `runner.id` defaults to
+  `"rekon.local.dry-run"`,
+  `runner.capabilityId` is
+  `"@rekon/capability-verify"`,
+  `redaction.applied` is `false` (patterns
+  list declared for audit only),
+  `environment.envPolicy` defaults to
+  `"scrubbed"`, `header.inputRefs` cites the
+  `VerificationPlan` (and `WorkOrder` when
+  present). Dry-run artifacts validate clean
+  via `rekon artifacts validate`.
+
+  **Output:** JSON mode returns
+  `{ dryRun: true, executed: false, artifact,
+  verificationRun, planRef, workOrderRef,
+  safety, validationIssues, warnings, message }`.
+  Human-readable mode renders a plan / work
+  order / artifact summary, a command table
+  (`| # | Command | Status | Argv |`), and a
+  "No commands were executed." line followed
+  by a pointer at the safety contract memo.
+
+  **Tests:** **23 new tests** in
+  `tests/contract/verification-run-dry-run.test.mjs`
+  (helper parsing + accepted / rejected
+  patterns + safety summary; CLI `--dry-run` /
+  `--preview` / refusal-of-`--execute` /
+  refusal-without-`--plan` / refusal-of-invalid-
+  commands / human-readable-output; a
+  **sentinel-file** assertion that proves no
+  process is spawned: a plan containing
+  `node -e "writeFileSync('SHOULD_NOT_EXIST',…)"`
+  never creates the file when run through
+  `--dry-run`; `artifacts validate` stays
+  clean). Full suite: **1036 passed / 1
+  skipped**.
+
+  **Docs:** updated
+  [`docs/concepts/verification-runs.md`](docs/concepts/verification-runs.md),
+  [`docs/artifacts/verification-run.md`](docs/artifacts/verification-run.md),
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md)
+  (step 3 flipped to ✅ Shipped),
+  [`docs/concepts/verification-results.md`](docs/concepts/verification-results.md),
+  [`docs/artifacts/verification-result.md`](docs/artifacts/verification-result.md),
+  [`docs/artifacts/verification-plan.md`](docs/artifacts/verification-plan.md),
+  [`docs/concepts/proof-report-publication.md`](docs/concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](docs/artifacts/proof-report-publication.md),
+  [`docs/strategy/classic-behavior-roadmap.md`](docs/strategy/classic-behavior-roadmap.md),
+  [`docs/strategy/roadmap.md`](docs/strategy/roadmap.md),
+  [`docs/strategy/issue-governance-architecture-decision.md`](docs/strategy/issue-governance-architecture-decision.md)
+  (step 37 flipped to shipped; step 38 added
+  for execution v1; subsequent steps
+  renumbered), `README.md`. New review packet:
+  [`.rekon-dev/review-packets/verification-run-dry-run.md`](.rekon-dev/review-packets/verification-run-dry-run.md).
+
+  **Next slice:** **verification runner
+  execution v1** —
+  `rekon verify run --plan <id> --execute`.
+  Step 4 of the runner v1 sequence; the first
+  slice that actually spawns processes.
+
+  No `schemaVersion` bump. No
+  `VerificationResult` derivation. No process
+  spawn. No stdout / stderr capture. No log
+  redaction implementation (patterns declared
+  only). No `rekon verify record` behavior
+  change. No `WorkOrder` / `VerificationPlan` /
+  `VerificationResult` / `ReconciliationPlan` /
+  `CoherencyDelta` behavior change. No CI /
+  GitHub integration. No sandboxing
+  implementation. No watcher / daemon. No
+  version bump. No npm publish.
 - Shipped VerificationRun artifact +
   `@rekon/capability-verify` skeleton
   (P1.1

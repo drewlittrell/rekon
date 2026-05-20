@@ -98,7 +98,7 @@ same artifact.
 | `failed` | `> Verification is not complete.` | "Fix the failing checks and record a new VerificationResult with `rekon verify record`." |
 | `partial` | `> Verification is not complete.` | "Complete the missing checks and record an updated VerificationResult with `rekon verify record`." |
 | `not-run` | `> Verification is not complete.` | Same as `partial`. |
-| no result | `No VerificationResult found.` + `> Verification is not complete.` | "Run `rekon verify record` to capture proof against the latest VerificationPlan." |
+| no result | `No VerificationResult found.` + `> Verification is not complete.` | "Run `rekon verify record` to capture proof against the latest VerificationPlan, or `rekon verify run --plan <id> --dry-run` to preview the plan first (no execution)." |
 
 ## Anti-Gaming / Proof Discipline
 

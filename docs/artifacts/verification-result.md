@@ -173,6 +173,16 @@ The
 preserves this artifact's shape and semantics.
 `VerificationResult` continues to be the **proof
 summary** consumed by publications and resolvers.
+
+**Dry-run preview is shipped today.**
+`rekon verify run --plan <id> --dry-run`
+(or `--preview`) writes a planned-but-not-run
+`VerificationRun` artifact. It does **not** write
+a `VerificationResult` — dry-run only previews
+the plan; it does not produce proof. The
+`rekon verify record` path remains the only way
+to produce a `VerificationResult` today.
+
 The future opt-in
 `rekon verify run --plan <id> --execute` command
 (deferred to a later implementation slice) may

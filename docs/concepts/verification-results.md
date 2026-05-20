@@ -214,17 +214,34 @@ recording as the default path, and add a future
 opt-in `rekon verify run --plan <id> --execute`
 command (gated by a new
 `@rekon/capability-verify` package + a new
-`execute:verification` permission). The runner
-will write a sibling **`VerificationRun`**
-artifact carrying raw execution detail
-(per-command start / end / duration / exit code /
-status with `timeout` and `killed` additions +
-stdout / stderr digests + redacted truncated
-excerpts + runner version + environment summary).
+`execute:verification` permission).
+
+**Dry-run preview is shipped today.**
+`rekon verify run --plan <id> --dry-run`
+(or `--preview`) is the first CLI surface for
+the runner. It parses each command in the named
+`VerificationPlan` into argv, validates that no
+command uses shell-control operators / command
+substitution / env-assignment prefixes /
+newlines, and writes a planned-but-not-run
+`VerificationRun` (`status: "not-run"`, every
+command `status: "not-run"`). **It does not
+execute anything** and does not write a
+`VerificationResult`. It refuses `--execute`
+because opt-in execution is not implemented yet.
+
+The runner will write a sibling
+**`VerificationRun`** artifact carrying raw
+execution detail (per-command start / end /
+duration / exit code / status with `timeout`
+and `killed` additions + stdout / stderr
+digests + redacted truncated excerpts + runner
+version + environment summary).
 `VerificationResult` remains the proof summary
 consumed by publications and resolvers; the
 runner can optionally derive one from a run
-when `--write-result` is supplied.
+when `--write-result` is supplied (deferred to
+a later slice).
 
 The memo also pins the safety contract (no
 execution during `rekon refresh` / `publish` /

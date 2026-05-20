@@ -100,7 +100,11 @@ When a `VerificationPlan` exists, the publication contains, in order:
    state (run `rekon verify record` when missing, fix failures when
    failed, complete missing checks when partial/not-run, re-run
    evaluate -> lifecycle -> coherency-delta -> publish architecture
-   when passed).
+   when passed). When a `VerificationPlan` exists but no
+   `VerificationResult` or `VerificationRun` has been written yet,
+   the report also recommends
+   `rekon verify run --plan <id> --dry-run` to preview the plan
+   before recording outcomes (the dry-run never executes commands).
 9. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
    header.
 

@@ -810,10 +810,46 @@ memo ships none of step 3+):
      the new permission + role names.
 3. **Add the dry-run verify command:**
    `rekon verify run --plan <id> --dry-run`.
-   Lists commands, policy checks (timeouts,
-   redaction patterns, max log bytes), and the
-   artifacts that would be written. Runs
-   nothing. Writes no artifacts.
+   ✅ Shipped.
+   - CLI command `rekon verify run --plan <id|type:id>
+     --dry-run|--preview [--root <path>] [--json]`.
+   - `createVerificationRunDryRun` helper in
+     `@rekon/capability-verify` parses each plan
+     command into argv and validates it against the
+     safety contract (rejects shell-control
+     operators, command substitution, env-assignment
+     prefixes, newlines, and empty commands).
+   - When every command validates, the CLI writes a
+     planned-but-not-run `VerificationRun` artifact
+     (`status: "not-run"`, every command
+     `status: "not-run"`, runner id
+     `"rekon.local.dry-run"`) and cites the
+     `VerificationPlan` (and `WorkOrder` if present)
+     in `header.inputRefs`.
+   - When any command is invalid, the CLI refuses
+     to write the artifact and reports the
+     validation issues. The decision memo's
+     stop-conditions hold.
+   - `--execute` remains refused with a
+     "not implemented yet" message.
+   - `rekon verify record` behavior is unchanged.
+   - **No process is spawned.** The helper does not
+     import `node:child_process`. A sentinel-file
+     contract test confirms dry-run never creates
+     the file even when the plan contains an
+     `node -e "writeFileSync(…)"` command.
+   - **Writing the artifact on dry-run is
+     deliberate.** The decision memo's earlier
+     description said "writes no artifacts"; the
+     implementation slice settled on writing a
+     `not-run` `VerificationRun` because it is the
+     same artifact the execute path will write
+     (just with `status: "not-run"` instead of
+     execution detail), keeping the artifact the
+     citable preview surface and the existing
+     freshness / cross-reference flow intact.
+     Refusal still applies when any command is
+     unsafe.
 4. **Add opt-in execution:**
    `rekon verify run --plan <id> --execute`.
    Implements the safety contract above:

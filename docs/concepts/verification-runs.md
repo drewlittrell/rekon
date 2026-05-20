@@ -24,12 +24,14 @@ See:
 
 ## Status Of The Runner
 
-**`@rekon/capability-verify` is a manifest +
-skeleton today.** The package declares the runner
-boundary (the new `"runner"` role + the new
-`execute:verification` permission) and exposes a
-runner handler stub that throws when invoked.
-Command execution is not implemented yet.
+**`@rekon/capability-verify` ships the manifest +
+skeleton + a dry-run preview today.** The package
+declares the runner boundary (the new `"runner"`
+role + the new `execute:verification` permission)
+and exposes a runner handler stub that throws when
+invoked. Command execution is still not
+implemented; the dry-run preview never spawns a
+process.
 
 The artifact ships ahead of the executor so:
 
@@ -43,15 +45,49 @@ The artifact ships ahead of the executor so:
   conformance output can see the dangerous
   permission ahead of time.
 
-Step 3 of the implementation sequence adds
-`rekon verify run --plan <id> --dry-run` (resolves
-the plan and prints what would run; runs nothing).
+### Dry-Run Preview (Step 3, Shipped)
+
+`rekon verify run --plan <id|type:id> --dry-run`
+(also `--preview`) is the first CLI surface for
+the runner. It:
+
+- Resolves the named `VerificationPlan` (and the
+  linked `WorkOrder` when `plan.workOrderRef` is
+  set).
+- Parses each plan command into a safe argv
+  representation.
+- Validates each command against the safety
+  contract: rejects shell-control operators
+  (`;`, `&&`, `||`, `|`, `<`, `>`, `<<`, `>>`,
+  `&`), command substitution (`$(...)` / `` `...` ``),
+  env-assignment prefixes (`NAME=value cmd`),
+  newlines, and empty commands.
+- Writes a `VerificationRun` artifact with
+  `status: "not-run"`, every command
+  `status: "not-run"`, runner id
+  `"rekon.local.dry-run"`, and the plan + work
+  order cited in `header.inputRefs`.
+- Refuses to write the artifact when any command
+  is invalid and reports the validation issues.
+- Refuses `--execute` with a not-implemented
+  message.
+
+**No process is spawned.** A sentinel-file
+contract test pins this: a plan containing
+`node -e "writeFileSync(...)"` never creates the
+file when run through `--dry-run`.
+
+### Future Slices
+
 Step 4 adds opt-in execution
 (`rekon verify run --plan <id> --execute`) that
-implements the full safety contract and writes a
-`VerificationRun`. Until those slices land, use the
-existing `rekon verify record --result-json <json>`
-to capture outcomes manually.
+implements the full safety contract and updates
+the same `VerificationRun` artifact with
+execution detail. Until that slice lands, use
+either `rekon verify run --plan <id> --dry-run`
+(preview) or the existing
+`rekon verify record --result-json <json>`
+(manual recording).
 
 ## How A Run Differs From A Result
 

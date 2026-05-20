@@ -3001,12 +3001,112 @@ scope:
   **Recommended next slice:** **verification
   runner dry-run command** —
   `rekon verify run --plan <id> --dry-run`.
-  Step 3 of the runner v1 sequence. Reads
-  the named plan, applies the safety policy
-  checks (timeouts, redaction patterns, max
-  log bytes), prints what would run, writes
-  no artifacts. **Still no command
-  execution.**
+  **Shipped next; see the entry below.**
+- **Verification runner dry-run command
+  (P1.1 verification-run-dry-run slice).** ✅
+  Shipped. **Step 3** of the runner v1
+  implementation sequence pinned by the
+  [verification runner v1 decision memo](verification-runner-v1-decision.md).
+  Adds the first CLI surface for the future
+  verification runner without executing any
+  commands. The CLI command
+  `rekon verify run --plan <id|type:id>
+  --dry-run|--preview [--root <path>]
+  [--json]` resolves the named plan,
+  validates each command against the safety
+  contract, and writes a planned-but-not-run
+  `VerificationRun` artifact when every
+  command validates. **No process is
+  spawned.**
+
+  **Helper:** `createVerificationRunDryRun`
+  in `@rekon/capability-verify` tokenizes
+  each plan command into argv (whitespace-
+  separated with quoted-string support) and
+  validates it. Rejected patterns:
+  shell-control operators (`;` `&&` `||`
+  `|` `<` `>` `<<` `>>` `&`), command
+  substitution (`$(…)` `` `…` ``),
+  env-assignment prefixes (`NAME=value cmd`),
+  newlines, and empty commands. The helper
+  returns
+  `{ verificationRun, safety,
+  validationIssues, ok }`. The companion
+  helper `validateVerificationRunCommandString`
+  exposes the per-command validation pass.
+
+  **Dry-run artifact:** `status: "not-run"`,
+  every command `status: "not-run"`,
+  `runner.id` defaults to
+  `"rekon.local.dry-run"`,
+  `runner.capabilityId` is
+  `"@rekon/capability-verify"`,
+  `redaction.applied` is `false` (patterns
+  list still declared for audit),
+  `environment.envPolicy` defaults to
+  `"scrubbed"`, `header.inputRefs` cites the
+  `VerificationPlan` (and `WorkOrder` when
+  present). Dry-run artifacts validate
+  clean (`artifacts validate` stays clean).
+
+  **Refusals:** CLI refuses `--execute` with
+  a "not implemented yet" message; refuses
+  invocations without `--dry-run` /
+  `--preview`; refuses invocations without
+  `--plan`; refuses to write when any
+  command fails validation (reports the
+  full validation issue list).
+
+  **Tests:** 23 new tests in
+  `tests/contract/verification-run-dry-run.test.mjs`
+  cover helper behavior (parsing, accepted
+  / rejected patterns, safety summary), CLI
+  paths (`--dry-run`, `--preview`,
+  refusal of `--execute`, refusal without
+  `--plan`, refusal of invalid commands,
+  human-readable output), and a **sentinel
+  file** assertion that proves no process
+  is spawned: a plan containing
+  `node -e "writeFileSync('SHOULD_NOT_EXIST',…)"`
+  never creates the file when run through
+  `--dry-run`. Full suite: 1036 passed / 1
+  skipped.
+
+  **Docs:** updated
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md),
+  [`docs/artifacts/verification-run.md`](../artifacts/verification-run.md),
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md)
+  (step 3 flipped to ✅ Shipped),
+  [`docs/concepts/verification-results.md`](../concepts/verification-results.md),
+  [`docs/artifacts/verification-result.md`](../artifacts/verification-result.md),
+  [`docs/artifacts/verification-plan.md`](../artifacts/verification-plan.md),
+  [`docs/concepts/proof-report-publication.md`](../concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](../artifacts/proof-report-publication.md),
+  `README.md`, `CHANGELOG.md`, `roadmap.md`,
+  this file.
+
+  **Recommended next slice:** **verification
+  runner execution v1** —
+  `rekon verify run --plan <id> --execute`.
+  Step 4 of the runner v1 sequence. The
+  first slice that actually spawns
+  processes; gated by the full safety
+  contract (`shell: false`, per-command
+  + per-plan timeouts, process-tree kill,
+  bounded redacted logs, stdout / stderr
+  digests, no retries, no auto-resolution,
+  no source writes).
+
+  No `schemaVersion` bump. No
+  `VerificationResult` derivation. No
+  process spawn. No stdout / stderr
+  capture. No log redaction implementation
+  (patterns declared only). No
+  `rekon verify record` behavior change.
+  No graph-aware filter change. No
+  source-file reads. No CI / GitHub
+  integration. No version bump. No npm
+  publish.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

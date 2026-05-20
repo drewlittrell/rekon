@@ -117,18 +117,30 @@ new work order.
 
 `VerificationPlan.commands` are today consumed by
 operators running commands externally and feeding
-outcomes back via `rekon verify record`. The
-[verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+outcomes back via `rekon verify record`.
+
+**Dry-run preview is shipped today.**
+`rekon verify run --plan <id> --dry-run`
+(or `--preview`) parses each command into argv,
+validates it against the safety contract
+(rejects shell-control operators, command
+substitution, env-assignment prefixes,
+newlines, empty commands), and writes a
+planned-but-not-run `VerificationRun`. It does
+not execute anything and refuses `--execute`.
+
+The [verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 memo pins the future direction: an opt-in
 `rekon verify run --plan <id> --execute`
 command will execute exactly the commands
 listed in `VerificationPlan.commands` (no shell
 interpolation from artifact-supplied strings),
-emit a sibling `VerificationRun` artifact, and
-optionally derive a `VerificationResult`. Plan
-commands that require shell semantics must be
-explicitly wrapped (`["sh", "-c", "<command>"]`)
-in the plan itself — the runner uses
+emit execution detail into the same
+`VerificationRun` shape, and optionally derive
+a `VerificationResult`. Plan commands that
+require shell semantics must be explicitly
+wrapped (`["sh", "-c", "<command>"]`) in the
+plan itself — the runner uses
 `spawn(argv[0], argv.slice(1))` with
 `shell: false` for non-shell-wrapped entries.
 

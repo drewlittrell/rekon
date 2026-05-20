@@ -129,10 +129,16 @@ that points back to a derived result populates
 
 ## Producers
 
-- **(future) `@rekon/capability-verify`** — the
-  in-progress runner. **Not implemented yet.** This
-  slice ships the manifest + skeleton only; the
-  runner handler throws when invoked.
+- **`@rekon/capability-verify` (dry-run only,
+  today).** The package's
+  `createVerificationRunDryRun` helper builds a
+  planned-but-not-run `VerificationRun` from a
+  `VerificationPlan`. The CLI command
+  `rekon verify run --plan <id> --dry-run` writes
+  the artifact when every command in the plan
+  validates against the safety contract. The
+  runner handler (the execute path) still throws
+  — `--execute` lands in a later slice.
 - **External runners** — capability authors may
   emit `VerificationRun` artifacts following the
   shape above. Conformance tests on
@@ -168,10 +174,68 @@ assertVerificationRun(value)               // throws TypeError on issue
 
 `@rekon/capability-verify` re-exports
 `createVerificationRun`,
-`validateVerificationRun`, and
+`validateVerificationRun`,
+`summarizeVerificationRunCommands`, and
 `assertVerificationRun` so callers can construct +
 validate `VerificationRun` artifacts without
 depending on `@rekon/capability-intent` directly.
+
+It also exports the dry-run helper:
+
+```ts
+createVerificationRunDryRun({                  // build a planned-but-not-run VerificationRun
+  verificationPlan,                            //   from a VerificationPlan
+  verificationPlanRef,                         //   no execution; no process spawn
+  workOrderRef?,
+  header,
+  runner?,
+  environment?,
+});
+validateVerificationRunCommandString(command); // tokenize + validate a single command string
+```
+
+The dry-run helper returns
+`{ verificationRun, safety, validationIssues, ok }`.
+When `ok === true`, the CLI writes the
+`VerificationRun`. When `ok === false`, the CLI
+refuses to write and reports the issues.
+
+## Dry-Run Behavior
+
+When written via `rekon verify run --plan <id>
+--dry-run`, the artifact carries a specific
+"planned-but-not-run" shape:
+
+- `status` = `"not-run"`.
+- `commands[*].status` = `"not-run"` for every
+  command.
+- `commands[*].argv` is the tokenized argv that
+  the future runner will spawn (proven safe by
+  the command-validation pass).
+- `commands[*].exitCode`, `signal`,
+  `stdoutDigest`, `stderrDigest`,
+  `stdoutExcerpt`, `stderrExcerpt`,
+  `startedAt`, `endedAt`, and `durationMs` are
+  absent (no command ran).
+- `runner.id` defaults to
+  `"rekon.local.dry-run"`; `runner.capabilityId`
+  is `"@rekon/capability-verify"`.
+- `redaction.applied` is `false` and
+  `redaction.redactedMatches` is `0`. The
+  declared `patterns` list still mirrors the
+  decision memo so the artifact carries the
+  safety contract.
+- `environment.envPolicy` defaults to
+  `"scrubbed"`.
+- `header.inputRefs` cites the
+  `VerificationPlan` and (when present) the
+  paired `WorkOrder`.
+
+Dry-run artifacts are valid `VerificationRun`
+artifacts (`artifacts validate` stays clean).
+They are the alpha's preview-only proof
+artifact — a future runner will produce the
+same shape with execution detail filled in.
 
 ## Deriving VerificationResult
 

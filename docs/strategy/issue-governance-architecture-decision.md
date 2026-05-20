@@ -1289,23 +1289,52 @@ review packets unless an ADR promotes them. Promotion requires:
     runner-produced proof in publications →
     CI / GitHub adapter). No source writes; no
     `apply:*` permission; no shell execution.
-37. **(future)** Verification runner dry-run
-    command. Adds
-    `rekon verify run --plan <id> --dry-run`
-    that resolves the plan, applies the safety
-    policy checks (timeouts, redaction
-    patterns, max log bytes), prints what
-    would run, and writes no artifacts. Step 3
-    of the runner v1 sequence. Still no
-    command execution.
-38. **(future)** Per-module `ObservedSystem`
+37. **Shipped (✅).** Verification runner
+    dry-run command. Added
+    `rekon verify run --plan <id|type:id>
+    --dry-run|--preview [--root <path>]
+    [--json]`. Resolves the plan, parses each
+    command into argv, validates against the
+    safety contract (rejects shell-control
+    operators, command substitution,
+    env-assignment prefixes, newlines, empty
+    commands), and writes a planned-but-not-run
+    `VerificationRun` artifact (`status:
+    "not-run"`, every command `status:
+    "not-run"`, runner id
+    `"rekon.local.dry-run"`) when every command
+    validates. Refuses to write when any
+    command is invalid; refuses `--execute`
+    with not-implemented; refuses without
+    `--dry-run` / `--preview`; refuses without
+    `--plan`. No process is spawned; a
+    sentinel-file contract test pins this.
+    Step 3 of the runner v1 sequence shipped.
+    23 new tests; full suite 1036 passed / 1
+    skipped. No `VerificationResult`
+    derivation; no `rekon verify record`
+    behavior change.
+38. **(future)** Verification runner execution
+    v1. Adds
+    `rekon verify run --plan <id> --execute`
+    that actually spawns processes for the
+    plan's commands. Step 4 of the runner v1
+    sequence. Gated by the full safety
+    contract (`shell: false`, per-command +
+    per-plan timeouts, `SIGTERM` → 3 s →
+    `SIGKILL` process-tree kill, bounded
+    redacted logs, stdout / stderr digests,
+    no retries, no auto-resolution, no
+    source writes). First slice that
+    actually executes commands.
+40. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-39. **(future)** Persistent exclusion lists, and
+41. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

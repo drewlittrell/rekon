@@ -12,7 +12,17 @@ import intentCapability, {
   type VerificationCommandResult,
   type VerificationEvidenceSummary,
   type VerificationPlanLike,
+  type VerificationRun,
+  type VerificationRunCommand,
 } from "@rekon/capability-intent";
+import verifyCapability, {
+  createVerificationRunDryRun,
+  type VerificationRunCommandValidationIssue,
+  type VerificationRunDryRunResult,
+  type VerificationRunSafetySummary,
+  VERIFY_CAPABILITY_ID,
+  VERIFY_CAPABILITY_VERSION,
+} from "@rekon/capability-verify";
 import jsTsCapability from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability from "@rekon/capability-model";
@@ -36,7 +46,7 @@ import {
   validateArtifactFreshness,
   validateArtifactIndex,
 } from "@rekon/runtime";
-import { type ArtifactRef } from "@rekon/kernel-artifacts";
+import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
   type FindingFilterHealthReport,
@@ -1792,6 +1802,145 @@ export async function main(argv: string[]): Promise<void> {
       },
       json,
     );
+    return;
+  }
+
+  if (command === "verify" && subcommand === "run") {
+    // `rekon verify run` is the dry-run preview of the future
+    // verification runner. **No process is spawned.** The
+    // command validates planned commands against the safety
+    // contract pinned in
+    // docs/strategy/verification-runner-v1-decision.md and
+    // writes a planned-but-not-run VerificationRun artifact
+    // when every command validates. `--execute` is reserved
+    // for a later slice and refused here.
+    const planFlag = typeof parsed.flags.plan === "string" ? parsed.flags.plan : undefined;
+    const dryRun = Boolean(parsed.flags["dry-run"]) || Boolean(parsed.flags.preview);
+    const execute = Boolean(parsed.flags.execute);
+
+    if (execute) {
+      throw new Error(
+        "rekon verify run --execute is not implemented yet. "
+          + "This slice ships dry-run only (`--dry-run` / `--preview`). "
+          + "See docs/strategy/verification-runner-v1-decision.md.",
+      );
+    }
+    if (!planFlag) {
+      throw new Error("rekon verify run requires --plan <id|type:id>.");
+    }
+    if (!dryRun) {
+      throw new Error(
+        "rekon verify run requires --dry-run or --preview. Opt-in "
+          + "execution (`--execute`) is not implemented yet.",
+      );
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const { entry, warnings: resolveWarnings } = await resolveVerificationPlanEntry(
+      store,
+      planFlag,
+    );
+    const planArtifact = (await store.read(entry)) as VerificationPlanLike;
+    const planRef: ArtifactRef = {
+      type: entry.type,
+      id: entry.id,
+      schemaVersion: entry.schemaVersion,
+    };
+    const workOrderRef = planArtifact.workOrderRef;
+    const inputRefs: ArtifactRef[] = workOrderRef ? [planRef, workOrderRef] : [planRef];
+    const generatedAt = new Date().toISOString();
+    const repoId = subjectRepoIdFromStore(store);
+    const header: ArtifactHeader = {
+      artifactType: "VerificationRun",
+      artifactId: `verification-run-${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      snapshotId: planArtifact.header?.snapshotId,
+      subject: {
+        repoId,
+        ref: planArtifact.header?.subject?.ref,
+        commit: planArtifact.header?.subject?.commit,
+        paths: planArtifact.header?.subject?.paths,
+        systems: planArtifact.header?.subject?.systems,
+      },
+      producer: {
+        id: VERIFY_CAPABILITY_ID,
+        version: VERIFY_CAPABILITY_VERSION,
+      },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: 0.95,
+        notes: [
+          "Planned-but-not-run VerificationRun produced by `rekon verify run --dry-run`.",
+          "No commands were executed.",
+        ],
+      },
+    };
+
+    const dryRunResult = createVerificationRunDryRun({
+      verificationPlan: planArtifact,
+      verificationPlanRef: planRef,
+      workOrderRef,
+      header,
+      runner: {
+        capabilityId: VERIFY_CAPABILITY_ID,
+        version: VERIFY_CAPABILITY_VERSION,
+      },
+      environment: {
+        platform: process.platform,
+        arch: process.arch,
+        nodeVersion: process.version,
+        envPolicy: "scrubbed",
+      },
+      generatedAt,
+    });
+
+    const warnings: string[] = [...resolveWarnings];
+
+    if (!dryRunResult.ok) {
+      const issuesSummary = dryRunResult.validationIssues
+        .map((issue) => `${issue.reason}: ${issue.command}`)
+        .join("; ");
+
+      throw new Error(
+        `rekon verify run --dry-run refused to write a VerificationRun: ${dryRunResult.validationIssues.length} invalid command(s) in the plan. ${issuesSummary}`,
+      );
+    }
+
+    const ref = await store.write(dryRunResult.verificationRun, { category: "actions" });
+
+    const output = {
+      dryRun: true,
+      executed: false,
+      artifact: ref,
+      verificationRun: {
+        id: dryRunResult.verificationRun.header.artifactId,
+        status: dryRunResult.verificationRun.status,
+        summary: dryRunResult.verificationRun.summary,
+        commands: dryRunResult.verificationRun.commands.map((command) => ({
+          id: command.id,
+          command: command.command,
+          status: command.status,
+          argv: command.argv,
+        })),
+      },
+      planRef,
+      workOrderRef,
+      safety: dryRunResult.safety,
+      validationIssues: dryRunResult.validationIssues,
+      warnings,
+      message: "Dry run only. No commands were executed.",
+    };
+
+    if (json) {
+      writeOutput(output, json);
+    } else {
+      writeOutput(renderVerifyRunDryRunHuman(output), false);
+    }
+
     return;
   }
 
@@ -4004,6 +4153,69 @@ function renderIssueMergeDecisionsText(
   return lines.join("\n");
 }
 
+function renderVerifyRunDryRunHuman(input: {
+  artifact: ArtifactRef;
+  verificationRun: {
+    id: string;
+    status: string;
+    summary: { total: number; notRun: number };
+    commands: Array<{ id: string; command: string; status: string; argv: string[] }>;
+  };
+  planRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  safety: VerificationRunSafetySummary;
+  warnings: string[];
+}): string {
+  const lines: string[] = [];
+
+  lines.push("Verification run dry-run");
+  lines.push("");
+  lines.push(`Plan: ${input.planRef.type}:${input.planRef.id}`);
+  if (input.workOrderRef) {
+    lines.push(`Work order: ${input.workOrderRef.type}:${input.workOrderRef.id}`);
+  } else {
+    lines.push("Work order: (none)");
+  }
+  lines.push(`Artifact: ${input.artifact.type}:${input.artifact.id}`);
+  lines.push(`Commands: ${input.verificationRun.summary.total}`);
+  lines.push("Execution: not run");
+  lines.push("");
+
+  if (input.verificationRun.commands.length === 0) {
+    lines.push("(no commands in this plan)");
+  } else {
+    lines.push("| # | Command | Status | Argv |");
+    lines.push("| --- | --- | --- | --- |");
+    for (let index = 0; index < input.verificationRun.commands.length; index += 1) {
+      const command = input.verificationRun.commands[index]!;
+      const argv = JSON.stringify(command.argv);
+      const safeCommand = command.command.replace(/\|/g, "\\|");
+      const safeArgv = argv.replace(/\|/g, "\\|");
+      lines.push(
+        `| ${index + 1} | ${safeCommand} | ${command.status} | ${safeArgv} |`,
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push("No commands were executed.");
+  lines.push(
+    "Execution is not implemented yet. This dry-run previews the future "
+      + "execution plan against the safety contract in "
+      + "docs/strategy/verification-runner-v1-decision.md.",
+  );
+
+  if (input.warnings.length > 0) {
+    lines.push("");
+    lines.push("Warnings:");
+    for (const warning of input.warnings) {
+      lines.push(`  - ${warning}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function writeOutput(value: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(value, null, 2));
@@ -4076,5 +4288,6 @@ function usage(): string {
     "rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note> [--reason <reason>] [--decided-by <name>] [--root <path>] [--json]",
     "rekon issues merge decisions [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
+    "rekon verify run --plan <id|type:id> --dry-run|--preview [--root <path>] [--json]",
   ].join("\n");
 }

@@ -1106,6 +1106,55 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner dry-run command (P1.1
+  verification-run-dry-run slice): **step 3** of the
+  runner v1 implementation sequence pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md).
+  Adds the first CLI surface for the future
+  verification runner without executing any commands.
+  The command
+  `rekon verify run --plan <id|type:id>
+  --dry-run|--preview [--root <path>] [--json]`
+  resolves the named plan, validates each command
+  against the safety contract, and writes a
+  planned-but-not-run `VerificationRun` artifact
+  (`status: "not-run"`, every command
+  `status: "not-run"`, runner id
+  `"rekon.local.dry-run"`) when every command
+  validates. New helper
+  `createVerificationRunDryRun` in
+  `@rekon/capability-verify` tokenizes each plan
+  command into argv and validates it; rejected
+  patterns include shell-control operators
+  (`;` `&&` `||` `|` `<` `>` `<<` `>>` `&`),
+  command substitution (`$(…)` `` `…` ``),
+  env-assignment prefixes (`NAME=value cmd`),
+  newlines, and empty commands. **23 new tests**
+  pin the contract (helper parsing + rejection +
+  safety summary, CLI dry-run + preview + refusals,
+  human-readable output, a sentinel-file assertion
+  that proves no process is spawned, and
+  `artifacts validate` remains clean). The CLI
+  refuses `--execute` with a not-implemented
+  message; `rekon verify record` behavior is
+  unchanged. Full suite: 1036 passed / 1 skipped.
+  **Recommended next slice:** **verification
+  runner execution v1** —
+  `rekon verify run --plan <id> --execute`.
+  Step 4 of the runner v1 sequence. The first
+  slice that actually spawns processes; gated by
+  the full safety contract (`shell: false`,
+  per-command + per-plan timeouts, process-tree
+  kill, bounded redacted logs, stdout / stderr
+  digests, no retries, no auto-resolution, no
+  source writes). No `schemaVersion` bump. No
+  `VerificationResult` derivation. No process
+  spawn in this slice. No stdout / stderr capture.
+  No log redaction implementation (patterns
+  declared only). No `rekon verify record`
+  behavior change. No graph-aware filter change.
+  No source-file reads. No CI / GitHub
+  integration. No version bump. No npm publish.
 - VerificationRun artifact + `@rekon/capability-verify`
   skeleton (P1.1
   verification-run-artifact-capability-skeleton slice):

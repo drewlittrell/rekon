@@ -19,6 +19,7 @@
     { "path": "../capability-policy" },
     { "path": "../capability-reconcile" },
     { "path": "../capability-resolver" },
+    { "path": "../capability-verify" },
     { "path": "../kernel-artifacts" },
     { "path": "../kernel-findings" },
     { "path": "../runtime" },
