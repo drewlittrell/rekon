@@ -396,16 +396,22 @@ must pin (against `4240ebd` + this slice):
   could add `CapabilityMap` to the precedence chain
   (likely between `ObservedRepo` and
   `DetectorDetails`); not in scope for this batch.
-- **Graph-aware fixture coverage operator review v3**
-  — re-run the operator review against the new
-  attribution profile and decide whether any
-  remaining graph-aware reasons need further
-  strengthening or whether the graph-aware v1 / v2 /
-  v3 arc is complete for alpha.
+- **Graph-aware fixture coverage operator review v3
+  — shipped.** The
+  [v3 operator review](graph-aware-fixture-coverage-operator-review-v3.md)
+  re-ran the operator-review protocol against the
+  post-strengthening attribution profile, confirmed
+  Option C, and recorded the graph-aware v1 / v2 / v3
+  arc as **alpha-complete**. The recommended next
+  slice is to return to **issue merge decision
+  freshness guardrails** (previously deferred until
+  filtering / graph-aware parity was stronger; that
+  condition is now satisfied).
 
 ## Cross-References
 
 - [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
+- [Graph-aware fixture coverage operator review v3](graph-aware-fixture-coverage-operator-review-v3.md)
 - [Graph-aware import evidence operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
 - [Import fact subject-shape decision memo](import-fact-subject-shape-decision.md)
 - [GraphOntologyValidator-lite audit](graph-ontology-validator-lite-audit.md)

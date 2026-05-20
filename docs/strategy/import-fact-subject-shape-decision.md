@@ -119,6 +119,25 @@
 > `module-gate-verified-caller` as the next
 > evidence-strengthening candidates (not import
 > producer migration).
+>
+> **Operator review v3 (post-strengthening):** see
+> [`docs/strategy/graph-aware-fixture-coverage-operator-review-v3.md`](graph-aware-fixture-coverage-operator-review-v3.md).
+> Re-runs the protocol against the post-strengthening
+> baseline (after
+> [`factory-module-gate-evidence-strengthening.md`](factory-module-gate-evidence-strengthening.md)
+> shipped at `a2a2d25`). Measured aggregate
+> diagnostics: `EvidenceGraph` attribution 6,
+> `DetectorDetails` 0, `ObservedRepo` 0 across the
+> committed fixtures. All four migration triggers
+> re-evaluated — **none met. Option C remains the
+> alpha decision.** The v3 review additionally
+> records the **graph-aware v1 / v2 / v3 arc as
+> alpha-complete** and recommends the next
+> implementation slice return to the deferred
+> **issue merge decision freshness guardrails**
+> (previously deferred until filtering / graph-aware
+> parity was stronger; that condition is now
+> satisfied).
 
 ## Decision Summary
 
@@ -689,6 +708,8 @@ implementation) lands, it must pin:
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)
 - [Graph-aware import evidence operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
 - [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
+- [Graph-aware fixture coverage operator review v3](graph-aware-fixture-coverage-operator-review-v3.md)
+- [Factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
 - [Issue governance ADR](issue-governance-architecture-decision.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
 - [EvidenceGraph artifact](../artifacts/evidence-graph.md)

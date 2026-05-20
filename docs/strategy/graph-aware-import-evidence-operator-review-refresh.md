@@ -19,7 +19,12 @@
 > per-reason artifact-strength analysis and identifies
 > `factory-file-creates-deps` +
 > `module-gate-verified-caller` as the next
-> evidence-strengthening candidates.
+> evidence-strengthening candidates. The
+> [v3 operator review](graph-aware-fixture-coverage-operator-review-v3.md)
+> then re-ran the protocol against the post-strengthening
+> baseline (`EvidenceGraph: 6 / DetectorDetails: 0 /
+> ObservedRepo: 0`) and recorded the graph-aware v1 /
+> v2 / v3 arc as **alpha-complete**.
 
 ## Decision Summary
 
@@ -517,6 +522,8 @@ slice should pivot to:
 
 - [Prior operator review](graph-aware-import-evidence-operator-review.md)
 - [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
+- [Graph-aware fixture coverage operator review v3](graph-aware-fixture-coverage-operator-review-v3.md)
+- [Factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
 - [Import fact subject-shape decision memo](import-fact-subject-shape-decision.md)
 - [GraphOntologyValidator-lite audit](graph-ontology-validator-lite-audit.md)
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)

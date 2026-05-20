@@ -4,6 +4,51 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped graph-aware fixture coverage operator
+  review v3 (P1.1
+  graph-aware-fixture-coverage-operator-review-v3
+  slice). Strategy / docs / test batch only — no
+  runtime change. The memo
+  ([`docs/strategy/graph-aware-fixture-coverage-operator-review-v3.md`](docs/strategy/graph-aware-fixture-coverage-operator-review-v3.md))
+  re-runs the operator-review protocol against the
+  post-strengthening attribution profile after
+  `a2a2d25` shipped factory / module-gate evidence
+  strengthening. **Measured aggregate diagnostics
+  across the six filtered cases: `EvidenceGraph` 6,
+  `DetectorDetails` 0, `ObservedRepo` 0; no
+  fallback-dominance alert fires.** All four
+  import-fact-producer migration triggers
+  re-evaluated against the new data — none met.
+  **Option C remains the alpha decision** (helper
+  compatibility now; producer migration deferred).
+  The memo records the **graph-aware v1 / v2 / v3
+  arc as alpha-complete** — every shipped
+  graph-aware reason has deterministic fixture
+  coverage, every fixture positive is
+  artifact-backed, fallback branches remain in the
+  implementation and are pinned by contract tests,
+  the publication-facing diagnostic surface
+  distinguishes evidence sources, the negative
+  case is pinned, import producer migration is not
+  required, and no remaining reason needs further
+  strengthening before alpha. The memo explicitly
+  states **factory / module-gate artifact evidence
+  strengthening closes the last known
+  fixture-attribution gap** and recommends the
+  next implementation slice return to the deferred
+  **issue merge decision freshness guardrails**
+  (previously deferred until filtering /
+  graph-aware parity was stronger; that condition
+  is now satisfied). Pinned by
+  `tests/docs/graph-aware-fixture-coverage-operator-review-v3.test.mjs`.
+  No filter behavior change. No producer change.
+  No helper change. No artifact `schemaVersion`
+  bump. No new artifact type. No new capability
+  role. No new CLI subcommand or flag. No new
+  reason codes. No source-file reads. No LLM /
+  semantic / fuzzy / embedding matching. No
+  `GraphOntologyValidator` port. No version bump.
+  No npm publish.
 - Shipped factory / module-gate artifact evidence
   strengthening v1 (P1.1
   factory-module-gate-evidence-strengthening slice).

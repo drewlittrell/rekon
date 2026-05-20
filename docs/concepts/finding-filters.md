@@ -218,7 +218,15 @@ first):
   fixtures. Path / ObservedSystem.kind /
   CapabilityMap fallback branches survive for repos
   whose symbol/export names don't match the
-  canonical patterns. Each `FilteredFinding` records
+  canonical patterns. The
+  [v3 operator review](../strategy/graph-aware-fixture-coverage-operator-review-v3.md)
+  re-ran the protocol against this baseline,
+  re-confirmed Option C, and recorded the
+  **graph-aware v1 / v2 / v3 arc as alpha-complete**
+  (every shipped reason fixture-covered; every
+  fixture positive artifact-backed; no remaining
+  reason needs further strengthening before
+  alpha). Each `FilteredFinding` records
   `evidenceSource` (`EvidenceGraph` / `ObservedRepo` /
   `DetectorDetails` / `Policy` / `BuiltIn` /
   `ResultFilter`). Filter-health summarizes the

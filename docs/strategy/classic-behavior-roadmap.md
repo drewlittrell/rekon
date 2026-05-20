@@ -2444,11 +2444,84 @@ scope:
     chain.
 
   **Graph-aware fixture coverage operator review v3**
-  is the recommended next slice — re-run the
-  operator review against the post-strengthening
-  attribution profile and decide whether the
-  graph-aware v1 / v2 / v3 arc is complete for
-  alpha.
+  is the recommended next slice. **Shipped next; see
+  the entry below.**
+- **Graph-aware fixture coverage operator review v3
+  (P1.1 graph-aware-fixture-coverage-operator-review-v3
+  slice).** ✅ Shipped. Strategy / docs / test batch
+  only — no runtime change. The memo
+  ([`docs/strategy/graph-aware-fixture-coverage-operator-review-v3.md`](graph-aware-fixture-coverage-operator-review-v3.md))
+  re-runs the operator-review protocol against the
+  post-strengthening attribution profile after
+  `a2a2d25` shipped factory / module-gate evidence
+  strengthening.
+
+  **Measured aggregate diagnostics across the six
+  filtered cases (the negative
+  `route-http-middleware-only` case is correctly
+  KEPT and contributes no graph-aware row):**
+
+  - `EvidenceGraph` attribution: **6** — every
+    shipped graph-aware reason
+    (`route-handler-with-service`,
+    `route-http-middleware-only` positive,
+    `external-api-comment-only`,
+    `nextjs-route-convention`,
+    `factory-file-creates-deps`,
+    `module-gate-verified-caller`) attributes as
+    `EvidenceGraph` against the committed fixtures.
+  - `DetectorDetails` attribution: **0**.
+  - `ObservedRepo` attribution: **0**.
+  - No fallback-dominance alert fires
+    (`graph-aware-details-fallback-dominance`,
+    `graph-aware-observedrepo-fallback-dominance`,
+    `graph-aware-evidencegraph-low-usage` all
+    silent).
+
+  **Migration trigger review:** all four triggers
+  from the import-fact subject-shape decision memo
+  re-evaluated against the new data — none met.
+  Option C remains the alpha decision.
+
+  **Alpha-completeness decision:** the graph-aware
+  v1 / v2 / v3 arc is **alpha-complete**. Every
+  shipped graph-aware reason has deterministic
+  fixture coverage; every fixture positive is
+  artifact-backed; fallback branches remain in the
+  implementation and are pinned by the v3 contract
+  test; the publication-facing diagnostic surface
+  distinguishes evidence sources; the negative
+  case is pinned; import producer migration is not
+  required; no remaining graph-aware reason needs
+  further strengthening before alpha.
+
+  **Recommended next slice:** **issue merge
+  decision freshness guardrails** — previously
+  deferred until filtering / graph-aware parity
+  was stronger; that condition is now satisfied.
+  If `CoherencyDelta` roll-ups are based on a
+  stale `IssueMergeDecisionLedger` or a stale
+  `IssueAdjudicationReport`, publications and
+  `resolve.issue` should warn clearly.
+
+  Docs-only slice. Pinned by
+  `tests/docs/graph-aware-fixture-coverage-operator-review-v3.test.mjs`
+  (21 assertions). Aligned to
+  `infra/validation/GraphOntologyValidator.ts`,
+  `services/IssueDetectionService.ts`,
+  `services/issues/content-filter-ruleid.ts`,
+  `services/issues/filter-health.ts`,
+  `services/GraphBuildProvider.ts`,
+  `domain/graph/producers/**`,
+  `lib/import-graph.ts`. No artifact
+  `schemaVersion` bump. No new artifact type. No
+  new capability role. No new CLI subcommand or
+  flag. No new reason codes. No producer change.
+  No helper change. No graph-aware filter
+  change. No source-file reads. No LLM, semantic,
+  fuzzy, or embedding matching. No
+  `GraphOntologyValidator` port. No version bump.
+  No npm publish.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

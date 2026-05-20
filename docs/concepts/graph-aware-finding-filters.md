@@ -214,7 +214,15 @@ CapabilityMap branches survive as fallback.
 attribution: EvidenceGraph 6, DetectorDetails 0,
 ObservedRepo 0** (against the committed fixtures;
 path fallback still fires for repos with
-non-canonical symbol/export names).
+non-canonical symbol/export names). The
+[v3 operator review](../strategy/graph-aware-fixture-coverage-operator-review-v3.md)
+re-ran the protocol against this baseline,
+re-confirmed Option C, and recorded the
+**graph-aware v1 / v2 / v3 arc as alpha-complete**:
+every shipped graph-aware reason has deterministic
+fixture coverage; every fixture positive is
+artifact-backed; no remaining reason needs further
+strengthening before alpha.
 
 **Regression fixtures.** Six deterministic
 fixtures under `tests/fixtures/graph-aware-filters/`

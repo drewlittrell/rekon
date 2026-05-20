@@ -1106,6 +1106,45 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Graph-aware fixture coverage operator review v3
+  (P1.1 graph-aware-fixture-coverage-operator-review-v3
+  slice): strategy / docs / test batch only — no
+  runtime change. Memo
+  (`docs/strategy/graph-aware-fixture-coverage-operator-review-v3.md`)
+  re-runs the operator-review protocol against the
+  post-strengthening attribution profile after
+  `a2a2d25` shipped factory / module-gate evidence
+  strengthening. **Measured aggregate diagnostics
+  across the six filtered cases: `EvidenceGraph` 6,
+  `DetectorDetails` 0, `ObservedRepo` 0; no
+  fallback-dominance alert fires.** All four
+  import-fact-producer migration triggers
+  re-evaluated — none met. **Option C remains the
+  alpha decision.** Memo records the **graph-aware
+  v1 / v2 / v3 arc as alpha-complete** (every
+  shipped reason fixture-covered; every fixture
+  positive artifact-backed; fallback branches
+  pinned by contract tests; publication diagnostic
+  surface distinguishes sources; negative case
+  pinned; producer migration not required; no
+  remaining reason needs further strengthening).
+  Memo explicitly states **factory / module-gate
+  artifact evidence strengthening closes the last
+  known fixture-attribution gap** and recommends
+  the next implementation slice return to the
+  deferred **issue merge decision freshness
+  guardrails** (previously deferred until
+  filtering / graph-aware parity was stronger;
+  that condition is now satisfied). Pinned by
+  `tests/docs/graph-aware-fixture-coverage-operator-review-v3.test.mjs`
+  (21 assertions). No artifact `schemaVersion`
+  bump. No new artifact type. No new capability
+  role. No new CLI subcommand or flag. No new
+  reason codes. No producer change. No helper
+  change. No graph-aware filter change. No
+  source-file reads. No LLM / semantic / fuzzy /
+  embedding matching. No `GraphOntologyValidator`
+  port. No version bump. No npm publish.
 - Factory / module-gate artifact evidence
   strengthening v1 (P1.1
   factory-module-gate-evidence-strengthening slice):

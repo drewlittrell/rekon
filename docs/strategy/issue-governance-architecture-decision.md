@@ -984,18 +984,60 @@ review packets unless an ADR promotes them. Promotion requires:
     declare role intent. Still no source reads, no
     `GraphOntologyValidator` port, no import
     producer migration.
-31. **(future)** Graph-aware fixture coverage
-    operator review v3. Re-run the operator
-    review against the post-strengthening
-    attribution profile (now
-    `EvidenceGraph: 6, DetectorDetails: 0`
-    against the fixtures) and decide whether the
-    graph-aware v1 / v2 / v3 arc is complete for
-    alpha or whether any remaining reason needs
-    further strengthening.
-32. **(future)** Merge-decision freshness guardrails,
-    persistent exclusion lists, and any further
-    product-extension expansion.
+31. **(shipped)** Graph-aware fixture coverage
+    operator review v3. Strategy-only batch — no
+    runtime changes ship. The memo
+    ([`docs/strategy/graph-aware-fixture-coverage-operator-review-v3.md`](graph-aware-fixture-coverage-operator-review-v3.md))
+    re-runs the operator-review protocol against the
+    post-strengthening attribution profile (after
+    `a2a2d25` shipped factory / module-gate evidence
+    strengthening). **Measured aggregate diagnostics
+    across the six filtered cases:
+    `EvidenceGraph` 6, `DetectorDetails` 0,
+    `ObservedRepo` 0; no fallback-dominance alert
+    fires.** All four import-fact-producer migration
+    triggers re-evaluated — none met. **Option C
+    remains the alpha decision.** The memo records
+    the **graph-aware v1 / v2 / v3 arc as
+    alpha-complete** (criteria: every shipped
+    graph-aware reason has deterministic fixture
+    coverage; every fixture positive is
+    artifact-backed; fallback branches remain in the
+    implementation and are pinned by tests; the
+    publication-facing diagnostic surface
+    distinguishes evidence sources; the negative
+    case is pinned; import producer migration is
+    not required; no remaining reason needs further
+    strengthening before alpha). The memo
+    explicitly states **factory / module-gate
+    artifact evidence strengthening closes the
+    last known fixture-attribution gap** and
+    recommends the next implementation slice
+    return to the deferred **issue merge decision
+    freshness guardrails** (previously deferred
+    until filtering / graph-aware parity was
+    stronger; that condition is now satisfied). No
+    filter behavior change. No producer change.
+    No helper change. No `schemaVersion` bump.
+32. **(future)** Issue merge decision freshness
+    guardrails. If `CoherencyDelta` roll-ups are
+    based on a stale `IssueMergeDecisionLedger` or
+    a stale `IssueAdjudicationReport`,
+    publications and `resolve.issue` should warn
+    clearly. Re-introduced as the recommended next
+    implementation slice by the graph-aware
+    fixture coverage operator review v3 (the
+    blocker — graph-aware filtering / artifact
+    attribution parity — is now satisfied).
+33. **(future)** Per-module `ObservedSystem`
+    projection + CapabilityMap `role` field — the
+    deferred substrates documented in the
+    factory / module-gate v1 memo. Optional;
+    activate if real-repo data shows
+    `DetectorDetails` fallback dominance for
+    factory / module-gate.
+34. **(future)** Persistent exclusion lists, and
+    any further product-extension expansion.
 
 ## Open Questions
 

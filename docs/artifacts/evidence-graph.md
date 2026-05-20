@@ -87,6 +87,14 @@ against the committed fixtures. All path /
 ObservedSystem.kind / CapabilityMap fallback
 branches survive for repos whose symbol/export
 names don't match the canonical patterns. The
+[v3 operator review](../strategy/graph-aware-fixture-coverage-operator-review-v3.md)
+re-ran the protocol against this baseline,
+re-confirmed Option C, and recorded the
+**graph-aware v1 / v2 / v3 arc as alpha-complete** —
+every shipped graph-aware reason has deterministic
+fixture coverage, every fixture positive is
+artifact-backed, and no remaining graph-aware reason
+needs further strengthening before alpha. The
 [import fact subject-shape decision memo](../strategy/import-fact-subject-shape-decision.md)
 documents Rekon's stance: keep the legacy producer
 shape, make file-scoped helpers compatibility-aware,

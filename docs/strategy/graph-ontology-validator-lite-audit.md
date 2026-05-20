@@ -615,6 +615,21 @@ system evidence. No new artifact type, no monolithic
 port, no source reads — exactly the scope this audit
 endorsed.
 
+The
+[graph-aware fixture coverage operator review v3](graph-aware-fixture-coverage-operator-review-v3.md)
+re-ran the operator-review protocol against the
+post-strengthening attribution profile and recorded
+the **graph-aware v1 / v2 / v3 arc as
+alpha-complete**: every shipped graph-aware reason
+has deterministic fixture coverage; every fixture
+positive is `EvidenceGraph`-backed; the v1 / v2 / v3
+arc neither requires nor recommends any port of
+classic `GraphOntologyValidator` for alpha. The
+deferred substrates (per-module `ObservedSystem`
+projection, CapabilityMap `role` field) remain
+queued as optional future improvements — none
+required for alpha.
+
 ## Cross-References
 
 - [Issue governance ADR](issue-governance-architecture-decision.md)
@@ -626,6 +641,7 @@ endorsed.
 - [Graph-aware filter provider v3 decision memo](graph-aware-filter-provider-v3-decision.md)
 - [Graph-aware import evidence operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
 - [Graph-aware fixture coverage operator review v2](graph-aware-fixture-coverage-operator-review-v2.md)
+- [Graph-aware fixture coverage operator review v3](graph-aware-fixture-coverage-operator-review-v3.md)
 - [Factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
 - [Finding filters concept](../concepts/finding-filters.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)

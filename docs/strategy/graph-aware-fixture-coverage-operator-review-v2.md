@@ -20,6 +20,15 @@
 > reasons to `EvidenceGraph` via symbol/export branches.
 > The v2 review's central recommendation — Option C; no
 > import producer migration — is unchanged.
+>
+> **Superseded by the
+> [graph-aware fixture coverage operator review v3](graph-aware-fixture-coverage-operator-review-v3.md)
+> for the post-strengthening baseline.** The v3 review
+> re-ran the protocol against the
+> `EvidenceGraph: 6 / DetectorDetails: 0 / ObservedRepo: 0`
+> attribution profile, re-confirmed Option C, and
+> recorded the graph-aware v1 / v2 / v3 arc as
+> **alpha-complete**.
 
 ## Decision Summary
 
@@ -614,6 +623,7 @@ should pivot to:
 
 - [Prior operator review](graph-aware-import-evidence-operator-review.md)
 - [Operator review refresh](graph-aware-import-evidence-operator-review-refresh.md)
+- [Operator review v3](graph-aware-fixture-coverage-operator-review-v3.md)
 - [Factory / module-gate evidence strengthening](factory-module-gate-evidence-strengthening.md)
 - [Import fact subject-shape decision memo](import-fact-subject-shape-decision.md)
 - [GraphOntologyValidator-lite audit](graph-ontology-validator-lite-audit.md)
