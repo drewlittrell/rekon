@@ -1555,6 +1555,20 @@ export async function main(argv: string[]): Promise<void> {
       filteredIds.has(candidate.id),
     );
 
+    const summary = summarizeIssueMergeCandidateDecisions(views);
+    const serializedViews = limited.map((view) => serializeIssueMergeCandidateView(view));
+    if (!json) {
+      writeOutput(
+        renderIssueMergeCandidatesText({
+          summary,
+          views: limited,
+          filter: filterFlag,
+          mergeRollupFreshness,
+        }),
+        json,
+      );
+      return;
+    }
     writeOutput(
       {
         artifact: {
@@ -1575,9 +1589,9 @@ export async function main(argv: string[]): Promise<void> {
             }
           : null,
         filter: filterFlag,
-        summary: summarizeIssueMergeCandidateDecisions(views),
+        summary,
         mergeCandidates: filteredMergeCandidates,
-        mergeCandidateViews: limited.map((view) => serializeIssueMergeCandidateView(view)),
+        mergeCandidateViews: serializedViews,
         mergeRollupFreshness,
       },
       json,
@@ -1630,6 +1644,18 @@ export async function main(argv: string[]): Promise<void> {
         `Merge candidate not found: ${candidateId} (${detail}).`,
       );
     }
+    const recommendedCommands = recommendedCommandsForCandidateView(view);
+    if (!json) {
+      writeOutput(
+        renderIssueMergeCandidateDetailText({
+          view,
+          recommendedCommands,
+          mergeRollupFreshness,
+        }),
+        json,
+      );
+      return;
+    }
     writeOutput(
       {
         artifact: {
@@ -1654,7 +1680,7 @@ export async function main(argv: string[]): Promise<void> {
             }
           : null,
         ...serializeIssueMergeCandidateView(view),
-        recommendedCommands: recommendedCommandsForCandidateView(view),
+        recommendedCommands,
         mergeRollupFreshness,
       },
       json,
@@ -1729,7 +1755,29 @@ export async function main(argv: string[]): Promise<void> {
     await store.init();
     const ledger = await readLatestMergeDecisionLedger(store);
     if (!ledger) {
-      writeOutput({ ledger: null, decisions: [] }, json);
+      if (!json) {
+        writeOutput("No IssueMergeDecisionLedger found. No merge decisions recorded yet.", json);
+        return;
+      }
+      writeOutput(
+        {
+          ledger: null,
+          decisions: [],
+          summary: {
+            total: 0,
+            current: 0,
+            superseded: 0,
+            accepted: 0,
+            rejected: 0,
+          },
+        },
+        json,
+      );
+      return;
+    }
+    const annotated = annotateIssueMergeDecisions(ledger);
+    if (!json) {
+      writeOutput(renderIssueMergeDecisionsText(ledger, annotated), json);
       return;
     }
     writeOutput(
@@ -1739,7 +1787,8 @@ export async function main(argv: string[]): Promise<void> {
           id: ledger.header.artifactId,
           schemaVersion: ledger.header.schemaVersion,
         },
-        decisions: ledger.decisions,
+        summary: annotated.summary,
+        decisions: annotated.entries,
       },
       json,
     );
@@ -3722,6 +3771,237 @@ function recommendedCommandsForCandidateView(view: IssueMergeCandidateView): str
     `rekon issues merge decide ${id} --decision accepted --note ${escapedNote}`,
     `rekon issues merge decide ${id} --decision rejected --note ${escapedNote}`,
   ];
+}
+
+// ---------- Human-readable rendering helpers (P1.1
+// issue-merge-publication-detail-polish v2) ----------
+
+function renderIssueMergeCandidatesText(input: {
+  summary: ReturnType<typeof summarizeIssueMergeCandidateDecisions>;
+  views: IssueMergeCandidateView[];
+  filter: IssueMergeCandidateFilterFlag;
+  mergeRollupFreshness?: { status: string; warnings: ReadonlyArray<{ message: string }> };
+}): string {
+  const lines: string[] = [];
+  const { summary, views, filter, mergeRollupFreshness } = input;
+  lines.push(
+    `Merge candidates: ${summary.total} total, ${summary.undecided} undecided, ${summary.accepted} accepted, ${summary.rejected} rejected`,
+  );
+  if (summary.stale > 0 || summary.superseded > 0) {
+    lines.push(
+      `Lineage: ${summary.stale} stale, ${summary.superseded} superseded`,
+    );
+  }
+  const filterParts = describeIssueMergeCandidateFilter(filter);
+  if (filterParts.length > 0) {
+    lines.push(`Filters: ${filterParts.join(", ")}`);
+  }
+  if (
+    mergeRollupFreshness
+    && mergeRollupFreshness.status !== "fresh"
+    && mergeRollupFreshness.status !== "missing"
+  ) {
+    lines.push(`Merge-rollup freshness: ${mergeRollupFreshness.status}`);
+  }
+  lines.push("");
+  if (views.length === 0) {
+    lines.push("No issue merge candidates match the requested filters.");
+    return lines.join("\n");
+  }
+  lines.push("| Candidate | Decision | Strength | Confidence | Groups | Reasons |");
+  lines.push("| --- | --- | --- | ---: | --- | --- |");
+  for (const view of views) {
+    lines.push(
+      `| ${view.candidate.id} | ${view.decisionState} | ${view.candidate.strength} | ${view.candidate.confidence.toFixed(2)} | ${(view.candidate.groupIds ?? []).join(", ")} | ${(view.candidate.reasons ?? []).join(", ")} |`,
+    );
+  }
+  return lines.join("\n");
+}
+
+function describeIssueMergeCandidateFilter(filter: IssueMergeCandidateFilterFlag): string[] {
+  const parts: string[] = [];
+  if (filter.decisionStates) {
+    parts.push(`decision=${filter.decisionStates.join("|")}`);
+  }
+  if (filter.stale === true) parts.push("stale=true");
+  if (filter.superseded === true) parts.push("superseded=true");
+  if (filter.reason) parts.push(`reason=${filter.reason}`);
+  if (filter.strength) parts.push(`strength=${filter.strength}`);
+  if (typeof filter.limit === "number") parts.push(`limit=${filter.limit}`);
+  return parts;
+}
+
+function renderIssueMergeCandidateDetailText(input: {
+  view: IssueMergeCandidateView;
+  recommendedCommands: string[];
+  mergeRollupFreshness?: { status: string; warnings: ReadonlyArray<{ message: string }> };
+}): string {
+  const { view, recommendedCommands, mergeRollupFreshness } = input;
+  const lines: string[] = [];
+  lines.push(`Merge Candidate: ${view.candidate.id}`);
+  lines.push(`Decision: ${view.decisionState}`);
+  lines.push(`Strength: ${view.candidate.strength}`);
+  lines.push(`Confidence: ${view.candidate.confidence.toFixed(2)}`);
+  if ((view.candidate.reasons ?? []).length > 0) {
+    lines.push(`Reasons: ${view.candidate.reasons.join(", ")}`);
+  }
+  lines.push("");
+  lines.push("Groups:");
+  if (view.groups.length === 0) {
+    lines.push("- (no resolved member groups)");
+  } else {
+    for (const group of view.groups) {
+      lines.push(
+        `- ${group.id} — ${group.status} — ${group.severity} — ${group.type}`,
+      );
+      if ((group.files ?? []).length > 0) {
+        lines.push(`  Files: ${group.files.join(", ")}`);
+      }
+      if ((group.memberFindingIds ?? []).length > 0) {
+        lines.push(`  Members: ${group.memberFindingIds.join(", ")}`);
+      }
+    }
+  }
+  lines.push("");
+  lines.push(`Member finding ids: ${view.memberFindingIds.join(", ") || "(none)"}`);
+  lines.push(`Files: ${view.files.join(", ") || "(none)"}`);
+  lines.push("");
+  if (view.latestDecision) {
+    lines.push("Latest Decision:");
+    lines.push(
+      `- ${view.latestDecision.decision} by ${view.latestDecision.decidedBy ?? view.latestDecision.source ?? "operator"} at ${view.latestDecision.decidedAt}`,
+    );
+    if (view.latestDecision.note) {
+      lines.push(`  note: ${view.latestDecision.note}`);
+    }
+    if (view.latestDecision.reason) {
+      lines.push(`  reason: ${view.latestDecision.reason}`);
+    }
+    if (view.decisionHistory.length > 1) {
+      lines.push(`- (decision history length: ${view.decisionHistory.length})`);
+    }
+    lines.push("");
+  }
+  if (view.rollup) {
+    lines.push("Roll-up:");
+    lines.push(`- ${view.rollup.issueGroupId ?? view.rollup.id}`);
+    if ((view.rollup.mergedIssueGroupIds ?? []).length > 0) {
+      lines.push(`  Groups: ${(view.rollup.mergedIssueGroupIds ?? []).join(", ")}`);
+    }
+    if ((view.rollup.mergeDecisionIds ?? []).length > 0) {
+      lines.push(`  Decisions: ${(view.rollup.mergeDecisionIds ?? []).join(", ")}`);
+    }
+    lines.push("");
+  }
+  lines.push("Freshness:");
+  lines.push(`- status: ${mergeRollupFreshness?.status ?? "unknown"}`);
+  if (view.warnings.length > 0) {
+    lines.push("");
+    lines.push("Warnings:");
+    for (const warning of view.warnings) {
+      lines.push(`- ${warning}`);
+    }
+    lines.push("");
+    lines.push("Recommended command: rekon refresh");
+  }
+  lines.push("");
+  lines.push("Recommended commands:");
+  for (const command of recommendedCommands) {
+    lines.push(`- ${command}`);
+  }
+  lines.push("- rekon coherency delta --json");
+  return lines.join("\n");
+}
+
+// ---------- Issue merge decisions summary helpers (P1.1
+// issue-merge-publication-detail-polish v2) ----------
+
+type AnnotatedIssueMergeDecision = IssueMergeDecision & { current: boolean };
+
+type AnnotatedIssueMergeDecisions = {
+  summary: {
+    total: number;
+    current: number;
+    superseded: number;
+    accepted: number;
+    rejected: number;
+  };
+  entries: AnnotatedIssueMergeDecision[];
+};
+
+/**
+ * Walk the ledger newest-first and mark the first
+ * decision seen per candidateId as `current`; later
+ * decisions for the same candidate are `superseded`.
+ * Tally accepted / rejected totals across the
+ * **current** decisions only — superseded entries
+ * don't represent live state. (P1.1
+ * issue-merge-publication-detail-polish v2.)
+ */
+function annotateIssueMergeDecisions(
+  ledger: IssueMergeDecisionLedger,
+): AnnotatedIssueMergeDecisions {
+  const decisions = ledger.decisions ?? [];
+  // Sort descending by decidedAt; id tiebreak for
+  // stability.
+  const sorted = [...decisions].sort((left, right) => {
+    const byTime = right.decidedAt.localeCompare(left.decidedAt);
+    if (byTime !== 0) return byTime;
+    return right.id.localeCompare(left.id);
+  });
+  const seenCandidates = new Set<string>();
+  const annotated: AnnotatedIssueMergeDecision[] = [];
+  let current = 0;
+  let superseded = 0;
+  let accepted = 0;
+  let rejected = 0;
+  for (const decision of sorted) {
+    const isCurrent = !seenCandidates.has(decision.candidateId);
+    if (isCurrent) {
+      seenCandidates.add(decision.candidateId);
+      current += 1;
+      if (decision.decision === "accepted") accepted += 1;
+      else if (decision.decision === "rejected") rejected += 1;
+    } else {
+      superseded += 1;
+    }
+    annotated.push({ ...decision, current: isCurrent });
+  }
+  return {
+    summary: { total: decisions.length, current, superseded, accepted, rejected },
+    entries: annotated,
+  };
+}
+
+function renderIssueMergeDecisionsText(
+  ledger: IssueMergeDecisionLedger,
+  annotated: AnnotatedIssueMergeDecisions,
+): string {
+  const lines: string[] = [];
+  const { summary, entries } = annotated;
+  lines.push(
+    `Merge decisions: ${summary.total} total, ${summary.current} current, ${summary.superseded} superseded`,
+  );
+  lines.push(
+    `Current breakdown: ${summary.accepted} accepted, ${summary.rejected} rejected`,
+  );
+  lines.push(`Ledger: ${ledger.header.artifactId}`);
+  lines.push("");
+  if (entries.length === 0) {
+    lines.push("No merge decisions recorded yet.");
+    return lines.join("\n");
+  }
+  lines.push("| Candidate | Decision | Current | Decided At | Note |");
+  lines.push("| --- | --- | --- | --- | --- |");
+  for (const entry of entries) {
+    const truncatedNote = entry.note && entry.note.length > 80
+      ? `${entry.note.slice(0, 77)}…`
+      : (entry.note ?? "");
+    lines.push(
+      `| ${entry.candidateId} | ${entry.decision} | ${entry.current ? "yes" : "no"} | ${entry.decidedAt} | ${truncatedNote.replace(/\|/g, "\\|")} |`,
+    );
+  }
+  return lines.join("\n");
 }
 
 function writeOutput(value: unknown, json: boolean): void {

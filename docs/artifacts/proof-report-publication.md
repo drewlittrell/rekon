@@ -167,6 +167,37 @@ artifact.
   summary still covers the broader governance state; this report
   zooms into the proof loop.
 
+## Issue Merge Decision Context
+
+The proof report renders a `## Issue Merge Decision
+Context` section right after the opening paragraph
+(so it shows whether or not a `VerificationPlan`
+exists yet). It surfaces:
+
+- Merge-candidate counts (total, accepted, rejected,
+  undecided) from the latest
+  `IssueAdjudicationReport.mergeCandidates` crossed
+  with the latest `IssueMergeDecisionLedger`.
+- Count of accepted roll-ups in the latest
+  `CoherencyDelta`, plus a compact table of
+  `Roll-up / Groups / Decision IDs / Member
+  Findings / Freshness` when accepted decisions
+  exist.
+- Recommended `rekon issues merge candidates
+  --undecided --json` / `--superseded --json` /
+  `--stale --json` commands when those counts are
+  non-zero.
+
+The proof-report publisher's manifest declares
+`IssueMergeDecisionLedger` in `consumes` and adds an
+`issue-merge-decision.changed` invalidation rule so
+the report regenerates when operators record new
+decisions. The publisher cites every merge-related
+artifact it read (`IssueAdjudicationReport`,
+`IssueMergeDecisionLedger`, `CoherencyDelta`,
+`FindingLifecycleReport`) in `header.inputRefs`. See
+[issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md).
+
 ## Cross-References
 
 - [Proof report concept](../concepts/proof-report-publication.md)
@@ -175,4 +206,7 @@ artifact.
 - [Architecture summary publication](architecture-summary-publication.md)
 - [WorkOrder](work-order.md)
 - [CoherencyDelta](coherency-delta.md)
+- [IssueAdjudicationReport](issue-adjudication-report.md)
+- [IssueMergeDecisionLedger](issue-merge-decision-ledger.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Capability model](../strategy/capability-model.md)

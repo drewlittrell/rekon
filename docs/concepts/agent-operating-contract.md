@@ -397,5 +397,6 @@ are accepted. See
 - [Resolvers](resolvers.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

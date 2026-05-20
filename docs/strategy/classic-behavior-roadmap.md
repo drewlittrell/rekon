@@ -2677,12 +2677,108 @@ scope:
   No npm publish.
 
   **Recommended next slice:** **issue merge
-  decision publication / detail polish v2** —
-  improve how accepted / rejected / undecided
-  merge-candidate context appears in proof
-  report and how candidate detail formats for
-  non-JSON consumption. Still no automatic merge
-  or semantic review.
+  decision publication / detail polish v2**.
+  **Shipped next; see the entry below.**
+- **Issue merge decision publication / detail
+  polish v2 (P1.1
+  issue-merge-decision-publication-detail-polish
+  slice).** ✅ Shipped. Combined CLI + publication
+  + docs + test polish batch on top of the
+  operator-ergonomics v1. The memo
+  ([`docs/strategy/issue-merge-decision-publication-detail-polish.md`](issue-merge-decision-publication-detail-polish.md))
+  adds four polish surfaces:
+
+  - **Human-readable `rekon issues merge candidate
+    <candidate-id>`** when `--json` is absent —
+    renders candidate id, decision state,
+    strength / confidence / reasons, member groups
+    (with status / severity / type / files /
+    members), unioned member finding ids + files,
+    latest decision + decision-history summary,
+    current `CoherencyDelta` roll-up block,
+    freshness status, warnings + `rekon refresh`
+    recommendation when stale, and the recommended
+    decide-commands list. JSON output is
+    unchanged.
+  - **Human-readable `rekon issues merge candidates`**
+    — non-JSON renders a summary line
+    (`Merge candidates: N total, N undecided, N
+    accepted, N rejected`), an optional
+    `Filters:` / `Lineage:` / `Merge-rollup
+    freshness:` line, a Markdown table, and an
+    empty-state line when filters return zero
+    matches.
+  - **Enhanced `rekon issues merge decisions`** —
+    JSON gains a `summary` block (`total`,
+    `current`, `superseded`, `accepted`,
+    `rejected`) plus a per-decision `current`
+    boolean; `accepted` / `rejected` are over the
+    current decisions only. Non-JSON renders the
+    summary plus a Markdown table. The ledger
+    contents are unchanged — `current` is computed
+    at read time.
+  - **Proof report `## Issue Merge Decision
+    Context` section** — the proof-report
+    publisher now reads
+    `IssueAdjudicationReport` and
+    `IssueMergeDecisionLedger`, builds
+    `mergeCandidateViews`, and renders the new
+    section right after the opening paragraph
+    (so it appears whether or not a
+    `VerificationPlan` exists yet). Shows
+    `Merge candidates / Accepted / Rejected /
+    Undecided / Accepted roll-ups in
+    CoherencyDelta` counts; an accepted-roll-up
+    table (`Roll-up / Groups / Decision IDs /
+    Member Findings / Freshness`) when accepted
+    decisions exist; recommended
+    `rekon issues merge candidates --undecided` /
+    `--superseded` / `--stale` commands when
+    those counts are non-zero. Publisher
+    manifest `consumes` adds
+    `IssueMergeDecisionLedger`; manifest
+    `invalidatedBy` adds an
+    `issue-merge-decision.changed` rule.
+
+  **Architecture summary + agent contract command
+  guidance** tightened: both now also recommend
+  `rekon issues merge candidates --decision
+  accepted --json` when accepted candidates exist
+  (audit path). The architecture summary's
+  closing paragraph points operators at the
+  human-readable detail mode explicitly.
+
+  Pinned by
+  `tests/contract/issue-merge-publication-detail-polish.test.mjs`
+  (17 cases) covering all four polish surfaces,
+  publication renderers, `decisions` summary
+  current vs. superseded annotation, and
+  `rekon artifacts validate` cleanliness.
+
+  Aligned to `services/IssueDetectionService.ts`,
+  `domain/issues/mergeIssues.ts`,
+  `services/issues/**`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta.ts`,
+  `packages/product-codebase-intel/src/replatform/replatform-delta-projections.ts`,
+  `services/IntentPreparationService.ts`.
+  Merge candidates remain advisory. Only `decide`
+  mutates the ledger. No automatic merging. No
+  semantic / fuzzy / LLM / embedding review. No
+  artifact mutation outside the existing ledger
+  append. No `schemaVersion` bump. No new
+  artifact type. No new capability role. No
+  producer change. No graph-aware filter change.
+  No source-file reads. No version bump. No npm
+  publish.
+
+  **Recommended next slice:** **verification
+  runner v1 decision memo** — the next big
+  classic-parity gap is execution / proof
+  maturity. Decide whether Rekon should execute
+  verification commands locally, define safety
+  model + secret / log handling + timeout
+  behavior + artifact shape; **no implementation
+  until the decision is pinned**.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

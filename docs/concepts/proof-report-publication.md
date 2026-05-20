@@ -142,6 +142,7 @@ Rebuild with `rekon publish proof`.
 - [Architecture summary publication concept](architecture-summary-publication.md)
 - [Remediation work orders concept](remediation-work-orders.md)
 - [Reconciliation plans concept](reconciliation-plans.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

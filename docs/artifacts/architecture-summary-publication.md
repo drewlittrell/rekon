@@ -299,6 +299,7 @@ starting point. See
 - [FindingLifecycleReport](finding-lifecycle-report.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

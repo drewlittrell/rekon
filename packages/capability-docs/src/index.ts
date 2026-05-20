@@ -422,6 +422,37 @@ export const proofReportPublisher: Publisher = {
       "FindingLifecycleReport",
       inputRefs,
     );
+    // Issue merge decision publication / detail polish v2:
+    // the proof report now surfaces merge-decision
+    // context so operators see how accepted roll-ups
+    // affect remediation grouping. Read the
+    // IssueAdjudicationReport + IssueMergeDecisionLedger
+    // and run the freshness predicate so the section
+    // can recommend the right follow-up commands.
+    const issueAdjudicationReportForProof = await readLatestArtifact<IssueAdjudicationReport>(
+      artifacts,
+      "IssueAdjudicationReport",
+      inputRefs,
+    );
+    const issueMergeDecisionLedgerForProof = await readLatestArtifact<IssueMergeDecisionLedger>(
+      artifacts,
+      "IssueMergeDecisionLedger",
+      inputRefs,
+    );
+    const proofMergeRollupFreshness = detectIssueMergeRollupFreshness({
+      coherencyDelta,
+      latestIssueMergeDecisionLedger: issueMergeDecisionLedgerForProof,
+      latestIssueAdjudicationReport: issueAdjudicationReportForProof,
+      latestFindingLifecycleReport: lifecycleReport,
+    });
+    const proofMergeCandidateViews = issueAdjudicationReportForProof
+      ? buildIssueMergeCandidateViews({
+          report: issueAdjudicationReportForProof,
+          ledger: issueMergeDecisionLedgerForProof,
+          coherencyDelta,
+          mergeRollupFreshness: proofMergeRollupFreshness,
+        })
+      : [];
 
     const generatedAt = new Date().toISOString();
     const subject = pickProofReportSubject({
@@ -468,6 +499,8 @@ export const proofReportPublisher: Publisher = {
         coherencyDelta,
         reconciliationPlan,
         lifecycleReport,
+        mergeCandidateViews: proofMergeCandidateViews,
+        mergeRollupFreshness: proofMergeRollupFreshness,
         inputRefs,
       }),
     };
@@ -662,6 +695,7 @@ export default defineCapability({
       "CapabilityMap",
       "CoherencyDelta",
       "IssueAdjudicationReport",
+      "IssueMergeDecisionLedger",
       "FindingLifecycleReport",
       "FindingFilterReport",
       "FindingFilterHealthReport",
@@ -692,6 +726,12 @@ export default defineCapability({
         description:
           "Regenerate publications when adjudicated issue groups change so governed counts stay current.",
         inputs: ["IssueAdjudicationReport"],
+      },
+      {
+        id: "issue-merge-decision.changed",
+        description:
+          "Regenerate publications when accepted / rejected operator merge decisions change so the rendered merge-candidate decision counts and proof-report Issue Merge Decision Context stay current.",
+        inputs: ["IssueMergeDecisionLedger"],
       },
       {
         id: "finding-filter.changed",
@@ -1657,6 +1697,8 @@ type ProofReportInputs = {
   coherencyDelta?: CoherencyDelta;
   reconciliationPlan?: ReconciliationPlanLike;
   lifecycleReport?: FindingLifecycleReport;
+  mergeCandidateViews?: IssueMergeCandidateView[];
+  mergeRollupFreshness?: IssueMergeRollupFreshness;
   inputRefs: ArtifactRef[];
 };
 
@@ -1702,6 +1744,8 @@ function renderProofReport(input: ProofReportInputs): string {
     coherencyDelta,
     reconciliationPlan,
     lifecycleReport: _lifecycleReport,
+    mergeCandidateViews,
+    mergeRollupFreshness,
     inputRefs,
   } = input;
   const sections: string[] = [];
@@ -1714,6 +1758,18 @@ function renderProofReport(input: ProofReportInputs): string {
     "Proof reports are publications. Canonical evidence lives in VerificationResult artifacts.",
   );
   sections.push("");
+
+  // Issue Merge Decision Context — P1.1
+  // issue-merge-publication-detail-polish v2. Always
+  // rendered when an IssueAdjudicationReport is
+  // available so operators see merge-decision state
+  // whether or not a VerificationPlan exists yet.
+  appendProofReportMergeDecisionContext(
+    sections,
+    mergeCandidateViews,
+    coherencyDelta,
+    mergeRollupFreshness,
+  );
 
   if (!verificationPlan) {
     sections.push(
@@ -1962,6 +2018,94 @@ function renderProofReport(input: ProofReportInputs): string {
   }
 
   return sections.join("\n");
+}
+
+/**
+ * Render the proof-report `## Issue Merge Decision
+ * Context` section. Surfaces the accepted / rejected
+ * / undecided merge-candidate counts and (when
+ * accepted roll-ups exist) a compact table of
+ * roll-up id / groups / decision ids / member-finding
+ * count / freshness. Recommends the operator-ergonomics
+ * filter commands when undecided / superseded / stale
+ * candidates exist. (P1.1
+ * issue-merge-publication-detail-polish v2.)
+ */
+function appendProofReportMergeDecisionContext(
+  sections: string[],
+  views: IssueMergeCandidateView[] | undefined,
+  coherencyDelta: CoherencyDelta | undefined,
+  mergeRollupFreshness: IssueMergeRollupFreshness | undefined,
+): void {
+  if (!views) return;
+  sections.push("## Issue Merge Decision Context");
+  sections.push("");
+  if (views.length === 0) {
+    sections.push("No issue merge candidates in latest IssueAdjudicationReport.");
+    sections.push("");
+    return;
+  }
+  let accepted = 0;
+  let rejected = 0;
+  let undecided = 0;
+  let stale = 0;
+  let superseded = 0;
+  for (const view of views) {
+    if (view.decisionState === "accepted") accepted += 1;
+    else if (view.decisionState === "rejected") rejected += 1;
+    else undecided += 1;
+    if (view.stale === true) stale += 1;
+    if (view.superseded === true) superseded += 1;
+  }
+  const acceptedRollups = coherencyDelta ? collectMergedRollups(coherencyDelta) : [];
+  sections.push(`- Merge candidates: ${views.length}`);
+  sections.push(`- Accepted: ${accepted}`);
+  sections.push(`- Rejected: ${rejected}`);
+  sections.push(`- Undecided: ${undecided}`);
+  sections.push(`- Accepted roll-ups in CoherencyDelta: ${acceptedRollups.length}`);
+  sections.push("");
+  if (acceptedRollups.length > 0) {
+    const freshness = mergeRollupFreshness?.status ?? "unknown";
+    sections.push("| Roll-up | Groups | Decision IDs | Member Findings | Freshness |");
+    sections.push("| --- | --- | --- | ---: | --- |");
+    for (const rollup of acceptedRollups.slice(0, 10)) {
+      sections.push(
+        `| ${truncate(rollup.rollupId, 50)} | ${summarizeList(rollup.mergedIssueGroupIds, 3)} | ${summarizeList(rollup.mergeDecisionIds, 3)} | ${rollup.memberFindingIds.length} | ${freshness} |`,
+      );
+    }
+    if (acceptedRollups.length > 10) {
+      sections.push(`| _… ${acceptedRollups.length - 10} more roll-ups_ | | | | |`);
+    }
+    sections.push("");
+  }
+  if (undecided > 0) {
+    sections.push("Recommended command:");
+    sections.push("");
+    sections.push("```bash");
+    sections.push("rekon issues merge candidates --undecided --json");
+    sections.push("```");
+    sections.push("");
+  }
+  if (superseded > 0) {
+    sections.push(
+      `${superseded} candidate decision${superseded === 1 ? " is" : "s are"} superseded by a newer ledger entry. Recommended command:`,
+    );
+    sections.push("");
+    sections.push("```bash");
+    sections.push("rekon issues merge candidates --superseded --json");
+    sections.push("```");
+    sections.push("");
+  }
+  if (stale > 0) {
+    sections.push(
+      `CoherencyDelta accepted merge roll-up lineage is stale for ${stale} candidate${stale === 1 ? "" : "s"}. Recommended command:`,
+    );
+    sections.push("");
+    sections.push("```bash");
+    sections.push("rekon issues merge candidates --stale --json");
+    sections.push("```");
+    sections.push("");
+  }
 }
 
 function buildProofReportNextActions(
@@ -2854,6 +2998,14 @@ function appendArchitectureMergeCandidateDecisions(
     sections.push("```");
     sections.push("");
   }
+  if (accepted > 0) {
+    sections.push("Audit accepted candidates via:");
+    sections.push("");
+    sections.push("```bash");
+    sections.push("rekon issues merge candidates --decision accepted --json");
+    sections.push("```");
+    sections.push("");
+  }
   if (superseded > 0) {
     sections.push(
       `${superseded} candidate decision${superseded === 1 ? " is" : "s are"} superseded by a newer ledger entry. Run:`,
@@ -2875,7 +3027,7 @@ function appendArchitectureMergeCandidateDecisions(
     sections.push("");
   }
   sections.push(
-    "Inspect any candidate via `rekon issues merge candidate <candidate-id> --json`. Record or revise decisions via `rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note>`.",
+    "Inspect any candidate via `rekon issues merge candidate <candidate-id>` (human-readable) or add `--json` for the structured view. Record or revise decisions via `rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note>`.",
   );
   sections.push("");
 }
@@ -2931,6 +3083,12 @@ function appendAgentContractMergeCandidateDecisions(
       "Ask the operator to review undecided candidates before treating merge roll-ups as final.",
     );
     sections.push("Command: `rekon issues merge candidates --undecided --json`");
+    sections.push("");
+  }
+  if (accepted > 0) {
+    sections.push(
+      `Audit accepted candidates via: \`rekon issues merge candidates --decision accepted --json\``,
+    );
     sections.push("");
   }
   if (superseded > 0) {

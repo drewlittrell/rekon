@@ -353,6 +353,7 @@ assuming advisory merge candidates are accepted. See
 - [Memory concept](../concepts/memory.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)

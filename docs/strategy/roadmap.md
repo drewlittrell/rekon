@@ -1106,6 +1106,50 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Issue merge decision publication / detail polish
+  v2 (P1.1
+  issue-merge-decision-publication-detail-polish
+  slice): combined CLI + publication + docs + test
+  polish batch on top of operator-ergonomics v1.
+  Memo
+  (`docs/strategy/issue-merge-decision-publication-detail-polish.md`)
+  adds four surfaces: (1) human-readable
+  `rekon issues merge candidate <id>` output when
+  `--json` is absent (candidate id, decision state,
+  member groups + members + files, latest decision
+  + history, roll-up block, freshness, warnings,
+  recommended commands); (2) human-readable
+  `rekon issues merge candidates` (summary line,
+  filters line, table, empty-state); (3) enhanced
+  `rekon issues merge decisions` with a `summary`
+  block (`total / current / superseded / accepted /
+  rejected`), per-decision `current` boolean, and
+  non-JSON table — ledger contents unchanged,
+  `current` computed at read time; (4) proof-report
+  `## Issue Merge Decision Context` section right
+  after the opening paragraph showing
+  accepted / rejected / undecided counts + accepted
+  roll-up table when present + recommended
+  `--undecided` / `--superseded` / `--stale`
+  filter commands. The proof-report publisher's
+  manifest adds `IssueMergeDecisionLedger` to
+  `consumes` and a new
+  `issue-merge-decision.changed` invalidation
+  rule. Architecture summary + agent contract
+  also recommend `rekon issues merge candidates
+  --decision accepted --json` when accepted
+  candidates exist (audit path). Pinned by
+  `tests/contract/issue-merge-publication-detail-polish.test.mjs`
+  (17 cases). Merge candidates remain advisory.
+  Only `decide` mutates the ledger. No automatic
+  merging. No semantic / LLM / fuzzy review. No
+  artifact mutation outside the existing ledger
+  append. No `schemaVersion` bump. No new artifact
+  type. No new capability role. No new CLI
+  subcommand outside the merge workflow. No
+  producer change. No graph-aware filter change.
+  No source-file reads. No version bump. No npm
+  publish.
 - Issue merge decision operator ergonomics v1 (P1.1
   issue-merge-decision-operator-ergonomics slice):
   combined CLI + publication + docs + test batch

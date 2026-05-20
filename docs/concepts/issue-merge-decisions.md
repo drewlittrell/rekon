@@ -178,6 +178,23 @@ slice adds:
 Only `decide` mutates the `IssueMergeDecisionLedger`.
 `candidates` and `candidate` are read-only.
 
+The
+[publication / detail polish v2](../strategy/issue-merge-decision-publication-detail-polish.md)
+slice adds human-readable (non-JSON) output for
+`candidates`, `candidate <id>`, and `decisions`. The
+`decisions` command JSON now also includes a
+`summary` block with `total / current / superseded /
+accepted / rejected` counts, where a decision is
+`current` when it is the latest decision for its
+`candidateId`. The `current` annotation is computed
+at read time; the ledger contents are unchanged.
+The same slice surfaces a new `## Issue Merge
+Decision Context` section in the **proof report**
+(accepted / rejected / undecided counts + accepted
+roll-up table when present + recommended
+`rekon issues merge candidates --undecided` /
+`--superseded` / `--stale` commands).
+
 ## Downstream Surfaces
 
 Accepted decisions feed into `CoherencyDelta` v3, and from there
@@ -256,4 +273,5 @@ recommend `rekon refresh`.
 - [Freshness and invalidation](freshness-and-invalidation.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)

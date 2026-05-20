@@ -1111,13 +1111,73 @@ review packets unless an ADR promotes them. Promotion requires:
     LLM review. No `schemaVersion` bump. No artifact
     mutation outside the ledger append that
     `decide` already does.
-34. **(future)** Issue merge decision publication
-    / detail polish v2. Improve how
-    accepted / rejected / undecided merge-candidate
-    context appears in proof report and how
-    candidate detail formats for non-JSON
-    consumption. Still no automatic merge or
-    semantic review.
+34. **(shipped)** Issue merge decision publication
+    / detail polish v2. Combined CLI + publication
+    + docs + test polish batch on top of the
+    operator-ergonomics v1. The memo
+    ([`docs/strategy/issue-merge-decision-publication-detail-polish.md`](issue-merge-decision-publication-detail-polish.md))
+    adds four polish surfaces:
+    - **Human-readable `rekon issues merge candidate
+      <candidate-id>`** when `--json` is absent —
+      renders candidate id, decision state,
+      strength / confidence / reasons, member
+      groups (with status / severity / type /
+      files / members), unioned member finding ids
+      + files, latest decision + decision-history
+      summary, current `CoherencyDelta` roll-up,
+      freshness status, warnings + `rekon refresh`
+      recommendation when stale, and the recommended
+      decide-commands list.
+    - **Human-readable `rekon issues merge candidates`**
+      — non-JSON renders a summary line
+      (`Merge candidates: N total, …`), an optional
+      `Filters:` / `Lineage:` / `Merge-rollup
+      freshness:` line, a Markdown table, and an
+      empty-state line when filters return zero
+      matches.
+    - **Enhanced `rekon issues merge decisions`** —
+      JSON gains a `summary` block (`total`,
+      `current`, `superseded`, `accepted`,
+      `rejected`) plus a `current` flag per
+      decision; `accepted` / `rejected` counts are
+      over current decisions only. Non-JSON renders
+      the summary plus a Markdown table. The
+      ledger contents are unchanged — `current` is
+      computed at read time.
+    - **Proof report `## Issue Merge Decision
+      Context`** — `@rekon/capability-docs.proof-report`
+      now reads `IssueAdjudicationReport` and
+      `IssueMergeDecisionLedger`, builds
+      `mergeCandidateViews`, and renders the new
+      section right after the opening paragraph
+      with `Merge candidates / Accepted / Rejected
+      / Undecided / Accepted roll-ups in
+      CoherencyDelta` counts; an accepted-roll-up
+      table when accepted decisions exist; and the
+      `rekon issues merge candidates --undecided` /
+      `--superseded` / `--stale` recommended
+      commands when those counts are non-zero. The
+      publisher manifest's `consumes` adds
+      `IssueMergeDecisionLedger` and a new
+      `issue-merge-decision.changed` invalidation
+      rule.
+
+    Architecture summary and agent contract get
+    tighter command guidance: both now recommend
+    `rekon issues merge candidates --decision
+    accepted --json` when accepted candidates exist
+    (audit path). The architecture summary's
+    closing paragraph now points operators at the
+    human-readable detail mode explicitly.
+
+    Pinned by
+    `tests/contract/issue-merge-publication-detail-polish.test.mjs`
+    (17 cases). No artifact mutation outside the
+    existing `decide` ledger append. No
+    `schemaVersion` bump. No new artifact type. No
+    new capability role. No new producer. Merge
+    candidates remain advisory; no automatic
+    merging or semantic / LLM review.
 35. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field — the
     deferred substrates documented in the

@@ -205,4 +205,5 @@ they mark the consumed merge-roll-up context as stale.
 - [Freshness and invalidation](../concepts/freshness-and-invalidation.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
 - [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)

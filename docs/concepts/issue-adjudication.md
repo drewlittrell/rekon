@@ -289,6 +289,7 @@ filter boundary. See the
 - [Issue adjudication report](../artifacts/issue-adjudication-report.md)
 - [Issue merge decisions concept](issue-merge-decisions.md)
 - [Issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md)
+- [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Finding lifecycle](finding-lifecycle.md)
 - [Finding filters](finding-filters.md)
 - [Finding filter report](../artifacts/finding-filter-report.md)
