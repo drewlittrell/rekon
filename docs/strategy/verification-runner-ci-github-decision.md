@@ -970,9 +970,32 @@ slices:
      `GH_TOKEN` and imports no network
      client; readiness false is exit 0,
      missing artifacts is exit 1.
-   - **6c (later).** Actual GitHub API
-     write, behind the readiness gate
-     from 6a, with its own review packet.
+   - **6c (shipped).** ✅ Actual GitHub
+     API write via `publish github-check
+     --send`. Default-deny gated. Uses
+     Node's built-in `fetch` (no
+     third-party network client). Token
+     reads confined to the send branch.
+     Sanitized errors. Forked PRs denied
+     by default; `pull_request_target`
+     denied unconditionally.
+   - **6d (shipped).** ✅ Opt-in
+     workflow template at
+     `docs/examples/workflows/rekon-verification-check-send.yml`
+     + validator `--profile
+     read-only | github-check-send`
+     flag. First Rekon workflow template
+     to request `checks: write`;
+     triggers on `workflow_dispatch` +
+     `push` to `main` only;
+     `pull_request` trigger refused by
+     the new validator profile because
+     forks would inherit the `checks:
+     write` + Rekon opt-in env. The
+     read-only profile preserves the
+     existing contract; the bundled
+     read-only templates still validate
+     clean.
 
 7. **PR comment publisher (beta+).**
    Similar to step 6 but writes inline

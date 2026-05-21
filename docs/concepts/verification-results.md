@@ -343,6 +343,7 @@ the cited refs. See
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
+- [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [VerificationRun artifact](../artifacts/verification-run.md)
 - [Verification runs concept](verification-runs.md)
 - [Capability model](../strategy/capability-model.md)

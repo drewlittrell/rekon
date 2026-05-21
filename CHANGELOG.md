@@ -5,6 +5,124 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-alpha.1
 
 - Shipped verification runner **GitHub Check
+  publisher opt-in workflow template** (P1.1
+  github-check-publisher-opt-in-workflow-template
+  slice). **Step 6d** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  and the
+  [GitHub Check publisher decision memo](docs/strategy/verification-runner-github-check-publisher-decision.md).
+  **Workflow template + validator profile + tests +
+  docs batch.** No active workflow added to the
+  Rekon repo. No change to the
+  `publishGitHubCheckRun` helper or the
+  `rekon publish github-check --dry-run|--send` CLI.
+
+  **New workflow template:**
+  - [`docs/examples/workflows/rekon-verification-check-send.yml`](docs/examples/workflows/rekon-verification-check-send.yml).
+    The first Rekon workflow template that opts into
+    a GitHub write surface. Triggers on
+    `workflow_dispatch` + `push` to `main` only (no
+    `pull_request` by default; no
+    `pull_request_target` ever). Permissions:
+    `contents: read` + `checks: write` only. Sets
+    `REKON_GITHUB_CHECKS: "1"` and
+    `REKON_GITHUB_CHECKS_WRITE_CONFIRMED: "1"` at the
+    workflow level. Runs the full execute proof loop,
+    a `publish github-check --dry-run` preview, then
+    `publish github-check --send --confirm-checks-write`.
+    Uploads `.rekon/artifacts/**` excluding `.log`,
+    `retention-days: 7`. Job summary includes
+    `Mode: check-send`, every refresh-loop ref, the
+    GitHub Check send outcome, and the
+    canonical-truth reminder.
+
+  **Validator profile support:**
+  - New flag: `rekon verify github-workflow validate
+    --path <workflow.yml> --profile read-only |
+    github-check-send [--root <path>] [--json]`.
+    Default profile is `read-only` (backward
+    compatible).
+  - The `read-only` profile preserves the existing
+    contract: any GitHub write scope (including
+    `checks: write`) is rejected. The bundled
+    read-only templates still validate clean under
+    `--profile read-only`.
+  - The `github-check-send` profile permits `checks:
+    write`, requires `permissions: contents: read +
+    checks: write`,
+    `REKON_GITHUB_CHECKS: "1"`,
+    `REKON_GITHUB_CHECKS_WRITE_CONFIRMED: "1"`, a
+    `publish github-check --dry-run` step, a
+    `publish github-check --send` step, and the
+    `--confirm-checks-write` flag. Rejects every
+    other write scope (`pull-requests: write`,
+    `contents: write`, `id-token: write`,
+    `actions: write`, `deployments: write`,
+    `statuses: write`, `packages: write`),
+    `pull_request_target`, and the `pull_request`
+    trigger.
+  - New issue codes (additive):
+    `missing-checks-write`,
+    `missing-rekon-github-checks-opt-in`,
+    `missing-write-confirmation`,
+    `missing-publish-github-check-dry-run`,
+    `missing-publish-github-check-send`,
+    `missing-confirm-checks-write-flag`,
+    `pull-request-trigger-disallowed`.
+  - New `mode` value: `check-send`.
+  - `summary` gains: `profile`, `hasChecksWrite`,
+    `hasPullRequestTrigger`,
+    `hasRekonGitHubChecksOptIn`,
+    `hasWriteConfirmation`,
+    `hasPublishGitHubCheckDryRun`,
+    `hasPublishGitHubCheckSend`,
+    `hasConfirmChecksWriteFlag`.
+
+  **Operator guide:**
+  [`docs/examples/github-actions-verification-runner.md`](docs/examples/github-actions-verification-runner.md)
+  gains a new "Optional: publish a GitHub Check"
+  section that instructs operators to adopt one of
+  the read-only templates first, then copy the opt-in
+  template and run the validator with
+  `--profile github-check-send`. The section
+  enumerates the required env, the `--confirm-checks-write`
+  flag, and reiterates that GitHub status remains a
+  downstream surface.
+
+  **Tests:**
+  - 16 new helper tests + 3 new CLI tests in
+    `tests/contract/github-workflow-safety-validator.test.mjs`
+    (42 total). Cover the read-only / send profile
+    happy paths, every new issue code, and the
+    `--profile` flag.
+  - 21 new docs assertions in
+    `tests/docs/github-check-publisher-opt-in-workflow-template.test.mjs`.
+  - Full suite expected ≥ 1330 passed / 1 skipped.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No active `.github/workflows/*.yml` in the Rekon
+    repo. A docs assertion enforces the absence.
+  - No change to the
+    `publishGitHubCheckRun` helper or the
+    `rekon publish github-check --dry-run|--send`
+    CLI behaviour.
+  - No PR comment publisher. Step 7.
+  - No `pull_request` same-repo guard (a future
+    slice may add `REKON_GITHUB_CHECKS_PR_IS_FORK`
+    wiring at the workflow level).
+  - No artifact-shape change. No new capability
+    package. No version bump. No npm publish.
+
+  **Stop conditions honoured:** the opt-in template
+  never uses `pull_request_target`; `checks: write`
+  never leaks into the read-only templates; the
+  validator distinguishes `read-only` vs
+  `github-check-send` profiles cleanly; GitHub
+  status is described as a downstream surface, not
+  canonical truth.
+
+- Shipped verification runner **GitHub Check
   publisher send mode** (P1.1
   github-check-publisher-send slice).
   **Step 6c** of the CI / GitHub adapter

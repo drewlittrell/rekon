@@ -383,3 +383,171 @@ ${extraSteps}      - run: |
           retention-days: 7
 `;
 }
+
+// ---------- github-check-send profile tests ----------
+
+const checkSendWorkflowPath = join(
+  repoRoot,
+  "docs",
+  "examples",
+  "workflows",
+  "rekon-verification-check-send.yml",
+);
+
+test("read-only profile still validates the execute template", async () => {
+  const content = await readFile(executeWorkflowPath, "utf8");
+  const report = validateGitHubWorkflowSafety({ path: executeWorkflowPath, content, profile: "read-only" });
+  assert.equal(report.valid, true, `unexpected issues: ${JSON.stringify(report.issues, null, 2)}`);
+  assert.equal(report.profile, "read-only");
+  assert.equal(report.mode, "execute");
+});
+
+test("read-only profile still validates the dry-run template", async () => {
+  const content = await readFile(dryRunWorkflowPath, "utf8");
+  const report = validateGitHubWorkflowSafety({ path: dryRunWorkflowPath, content, profile: "read-only" });
+  assert.equal(report.valid, true, `unexpected issues: ${JSON.stringify(report.issues, null, 2)}`);
+  assert.equal(report.profile, "read-only");
+  assert.equal(report.mode, "dry-run");
+});
+
+test("read-only profile still rejects checks: write", () => {
+  const yaml = makeBaseYaml({ verb: "--execute", extraPermissions: "  checks: write\n" });
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: yaml, profile: "read-only" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "github-write-permission" && /checks/i.test(issue.message)));
+});
+
+test("github-check-send profile validates the bundled opt-in template", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const report = validateGitHubWorkflowSafety({ path: checkSendWorkflowPath, content, profile: "github-check-send" });
+  assert.equal(report.valid, true, `unexpected issues: ${JSON.stringify(report.issues, null, 2)}`);
+  assert.equal(report.profile, "github-check-send");
+  assert.equal(report.mode, "check-send");
+  assert.equal(report.summary.hasChecksWrite, true);
+  assert.equal(report.summary.hasRekonGitHubChecksOptIn, true);
+  assert.equal(report.summary.hasWriteConfirmation, true);
+  assert.equal(report.summary.hasPublishGitHubCheckDryRun, true);
+  assert.equal(report.summary.hasPublishGitHubCheckSend, true);
+  assert.equal(report.summary.hasConfirmChecksWriteFlag, true);
+});
+
+test("github-check-send profile requires checks: write", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const noChecksWrite = content.replace(/^\s*checks:\s*write\b.*$/m, "");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noChecksWrite, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-checks-write"));
+});
+
+test("github-check-send profile requires REKON_GITHUB_CHECKS opt-in", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const noOptIn = content.replace(/REKON_GITHUB_CHECKS:\s*"1"/g, "REKON_GITHUB_CHECKS: \"0\"");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noOptIn, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-rekon-github-checks-opt-in"));
+});
+
+test("github-check-send profile requires REKON_GITHUB_CHECKS_WRITE_CONFIRMED", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const noConfirm = content.replace(/REKON_GITHUB_CHECKS_WRITE_CONFIRMED:\s*"1"/g, "REKON_GITHUB_CHECKS_WRITE_CONFIRMED: \"0\"");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noConfirm, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-write-confirmation"));
+});
+
+test("github-check-send profile requires publish github-check --dry-run step", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const noDryRun = content.replace(/publish\s+github-check[\s\S]*?--dry-run/g, "publish github-check --send-only");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noDryRun, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-publish-github-check-dry-run"));
+});
+
+test("github-check-send profile requires publish github-check --send step", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const noSend = content.replace(/publish\s+github-check[\s\S]*?--send/g, "publish github-check --noop");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noSend, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-publish-github-check-send"));
+});
+
+test("github-check-send profile rejects pull_request_target", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const malicious = content.replace(/^on:\s*\n  workflow_dispatch:/m, "on:\n  pull_request_target:\n  workflow_dispatch:");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: malicious, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "pull-request-target"));
+});
+
+test("github-check-send profile rejects pull-requests: write", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const tooMuchWrite = content.replace(/^\s*checks:\s*write\b.*$/m, "  checks: write\n  pull-requests: write");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: tooMuchWrite, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "github-write-permission" && /pull-requests/i.test(issue.message)));
+});
+
+test("github-check-send profile rejects contents: write", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  // Replace the actual permissions-block contents: read with
+  // contents: write. The comment-stripped YAML still contains the
+  // permissions block, so the validator should see contents:
+  // write.
+  const tooMuchWrite = content.replace(/^(\s*)contents:\s*read\b/m, "$1contents: write");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: tooMuchWrite, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "github-write-permission" && /contents/i.test(issue.message)));
+});
+
+test("github-check-send profile rejects missing --confirm-checks-write flag", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const noFlag = content.replace(/--confirm-checks-write\s*\\?\s*\n?/g, "");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noFlag, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-confirm-checks-write-flag"));
+});
+
+test("github-check-send profile rejects pull_request trigger", async () => {
+  const content = await readFile(checkSendWorkflowPath, "utf8");
+  const withPrTrigger = content.replace(/^on:\s*\n  workflow_dispatch:/m, "on:\n  pull_request:\n  workflow_dispatch:");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: withPrTrigger, profile: "github-check-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "pull-request-trigger-disallowed"));
+});
+
+// ---------- CLI: --profile flag ----------
+
+test("CLI: --profile github-check-send validates the bundled opt-in template", () => {
+  const result = spawnSync(process.execPath, [
+    cliPath, "verify", "github-workflow", "validate",
+    "--path", "docs/examples/workflows/rekon-verification-check-send.yml",
+    "--profile", "github-check-send",
+    "--json",
+  ], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.profile, "github-check-send");
+});
+
+test("CLI: --profile defaults to read-only when omitted", () => {
+  const result = spawnSync(process.execPath, [
+    cliPath, "verify", "github-workflow", "validate",
+    "--path", "docs/examples/workflows/rekon-verification.yml",
+    "--json",
+  ], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.profile, "read-only");
+});
+
+test("CLI: --profile rejects unknown values", () => {
+  const result = spawnSync(process.execPath, [
+    cliPath, "verify", "github-workflow", "validate",
+    "--path", "docs/examples/workflows/rekon-verification.yml",
+    "--profile", "bogus",
+    "--json",
+  ], { cwd: repoRoot, encoding: "utf8" });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--profile must be/);
+});

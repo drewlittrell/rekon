@@ -208,6 +208,20 @@ node packages/cli/dist/index.js publish github-check --dry-run --root examples/s
 # The token never appears in error messages. See
 # docs/strategy/verification-runner-github-check-publisher-decision.md
 # for the full safety contract.
+#
+# A beta-tier opt-in workflow template at
+# docs/examples/workflows/rekon-verification-check-send.yml
+# wires the send command into a copyable GitHub Actions
+# workflow. It requests permissions: contents: read +
+# checks: write only; triggers on workflow_dispatch + push to
+# main; sets REKON_GITHUB_CHECKS=1 +
+# REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1 at the workflow level;
+# runs --dry-run before --send; never installs as an active
+# workflow in this repo. Validate it with the new
+# --profile github-check-send flag:
+node packages/cli/dist/index.js verify github-workflow validate \
+  --path docs/examples/workflows/rekon-verification-check-send.yml \
+  --profile github-check-send --json
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

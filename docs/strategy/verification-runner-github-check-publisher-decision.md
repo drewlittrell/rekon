@@ -429,6 +429,27 @@ This batch ships **step 6a** of the sequence below. Steps
    branch remains token-free and network-free. See
    "API implementation pin" below for the full
    contract.
+7. **Opt-in workflow template (step 6d).** ✅ Shipped.
+   Adds
+   [`docs/examples/workflows/rekon-verification-check-send.yml`](../examples/workflows/rekon-verification-check-send.yml)
+   and extends the workflow validator with a
+   `--profile read-only | github-check-send` flag. The
+   opt-in template is the **first** Rekon workflow
+   template that opts into `checks: write`; it triggers
+   on `workflow_dispatch` + `push` to `main`, declares
+   `REKON_GITHUB_CHECKS: "1"` +
+   `REKON_GITHUB_CHECKS_WRITE_CONFIRMED: "1"` at the
+   workflow level, runs `publish github-check --dry-run`
+   before `publish github-check --send
+   --confirm-checks-write`, and ships the canonical
+   safety contract (no `pull_request_target`, no
+   `pull_request` trigger by default, no
+   `pull-requests: write`, no `contents: write`, no
+   other GitHub write scopes). The validator's
+   `github-check-send` profile enforces every one of
+   those constraints. Default-profile behaviour
+   (`read-only`) is unchanged so the existing
+   templates continue to validate clean.
 7. **PR comment publisher (step 7).** Future slice.
 8. **Cross-CI documentation (step 8).** Future slice.
 

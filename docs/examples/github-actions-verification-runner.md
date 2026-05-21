@@ -882,12 +882,85 @@ report.
   proof report. The badge is a
   signal, not a verdict.
 
+## Optional: publish a GitHub Check
+
+The default bundled templates are **read-only on
+purpose**. Adopt one of those first:
+
+- **Trial adoption (recommended first step):**
+  [`docs/examples/workflows/rekon-verification-dry-run.yml`](workflows/rekon-verification-dry-run.yml)
+  spawns zero plan commands and writes a
+  planned-but-not-run `VerificationRun`. Verifies the
+  workflow shape + artifact upload + job summary
+  plumbing without executing anything.
+- **Execute (still read-only on GitHub):**
+  [`docs/examples/workflows/rekon-verification.yml`](workflows/rekon-verification.yml)
+  runs `verify run --execute` and writes a real
+  `VerificationRun` + `VerificationResult`. **Does
+  not** call GitHub.
+
+If — after adopting one of those — you want a GitHub
+Check Run badge on each commit, **copy the opt-in
+template** at
+[`docs/examples/workflows/rekon-verification-check-send.yml`](workflows/rekon-verification-check-send.yml).
+The opt-in template is **beta-tier**, requires
+`checks: write`, and posts a Rekon-rendered GitHub
+Check Run via `rekon publish github-check --send`.
+
+The opt-in template is intentionally narrower than the
+read-only templates:
+
+- **Triggers:** `workflow_dispatch` + `push` to `main`
+  only. No `pull_request` trigger by default; no
+  `pull_request_target` ever.
+- **Permissions:** `contents: read` + `checks: write`
+  only. No other GitHub write scopes.
+- **Required env (workflow-level):**
+  - `REKON_GITHUB_CHECKS: "1"`
+  - `REKON_GITHUB_CHECKS_WRITE_CONFIRMED: "1"`
+- **Required flag on the send step:**
+  `--confirm-checks-write`.
+- **Validator:** run `rekon verify github-workflow
+  validate --path .github/workflows/<your-copy>.yml
+  --profile github-check-send --json` after copying.
+  The `github-check-send` profile permits `checks:
+  write`, requires the Rekon opt-in env, requires both
+  the `--dry-run` preview step and the `--send` step,
+  and refuses the `pull_request` trigger.
+
+**Reaching the API call requires every gate to pass:**
+explicit Rekon opt-in env, an Actions-provided
+`GITHUB_TOKEN`, a trusted event context
+(`workflow_dispatch` / `push` / same-repo
+`pull_request`), and the `--confirm-checks-write`
+flag. Forked PRs and `pull_request_target` events are
+refused by the send CLI before any network call.
+
+**What the opt-in template still does not do:**
+
+- Does not treat GitHub Check status as canonical
+  truth. Every Check summary carries the reminder
+  "GitHub status is not canonical truth; Rekon
+  artifacts remain canonical."
+- Does not write PR comments.
+- Does not request `pull-requests: write`,
+  `id-token: write`, or any other GitHub write scope.
+- Does not auto-resolve findings.
+- Does not auto-apply reconciliation.
+- Does not upload raw logs.
+
+The Rekon repository itself does **not** install this
+workflow. Adopt it deliberately in your own repo, and
+re-validate after every edit.
+
 ## Cross-references
 
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
+- [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runs concept](../concepts/verification-runs.md)
 - [Verification results concept](../concepts/verification-results.md)
 - [Proof report publication concept](../concepts/proof-report-publication.md)
 - [Execute workflow template YAML](workflows/rekon-verification.yml)
 - [Dry-run workflow template YAML](workflows/rekon-verification-dry-run.yml)
+- [Opt-in GitHub Check send workflow template YAML](workflows/rekon-verification-check-send.yml)

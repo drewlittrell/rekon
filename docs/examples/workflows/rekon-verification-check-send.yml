@@ -1,0 +1,287 @@
+# Rekon Verification — beta GitHub Actions workflow template
+# (GITHUB-CHECK-SEND variant).
+#
+# **This is a template, not an active workflow.** Copy it into
+# your repo's `.github/workflows/` directory (renaming as you
+# like) to enable. The Rekon repository itself does NOT install
+# this workflow.
+#
+# **After copying, validate the file:**
+#
+#   node packages/cli/dist/index.js verify github-workflow validate \
+#     --path .github/workflows/rekon-verification-check-send.yml \
+#     --profile github-check-send \
+#     --json
+#
+# The validator is static, read-only, and does not call GitHub.
+# The `github-check-send` profile permits `checks: write` and
+# requires the Rekon opt-in env vars + the `publish github-check`
+# dry-run and send commands.
+#
+# **This is the FIRST workflow template that opts into GitHub
+# writes.** It runs the full Rekon proof loop locally, then —
+# only after artifacts validate cleanly — POSTs a GitHub Check
+# Run via `rekon publish github-check --send`. Reaching the API
+# call requires every safety gate to pass: explicit Rekon opt-in
+# env, a same-repo / trusted event context, and the
+# `--confirm-checks-write` flag.
+#
+# **Read the alpha read-only templates FIRST.** Adopt one of:
+#
+#   - docs/examples/workflows/rekon-verification-dry-run.yml
+#   - docs/examples/workflows/rekon-verification.yml
+#
+# before considering this one. The default templates remain
+# read-only on purpose.
+#
+# **Safety contract this template upholds:**
+#
+#   - `permissions: contents: read, checks: write` only. No
+#     other GitHub write permissions are requested.
+#   - No `pull_request_target` trigger. No `pull_request`
+#     trigger by default (forked PRs would be unsafe; this
+#     template is trusted-context-first).
+#   - The local Rekon verification runner spawns plan commands
+#     with `shell: false`, a scrubbed env, per-command timeouts,
+#     and bounded redacted log excerpts. Raw logs never reach
+#     the GitHub Check payload.
+#   - `rekon publish github-check --dry-run` runs first and
+#     prints the payload + readiness JSON to the workflow log,
+#     so reviewers see what would be sent before it is sent.
+#   - `rekon publish github-check --send` runs only after the
+#     full proof loop finishes and `rekon artifacts validate`
+#     passes.
+#   - The Check summary carries the canonical-truth reminder:
+#     `GitHub status is not canonical truth; Rekon artifacts
+#     remain canonical.`
+#
+# **What this template does NOT do:**
+#
+#   - Does not write PR comments.
+#   - Does not request `pull-requests: write`.
+#   - Does not request `id-token: write` (no OIDC).
+#   - Does not call GitHub APIs other than the Checks API via
+#     `publish github-check --send`.
+#   - Does not auto-resolve findings.
+#   - Does not auto-apply reconciliation.
+#   - Does not upload raw logs.
+
+name: Rekon Verification Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  # Rekon opt-in. Both must be `"1"` (or `"true"`) for the send
+  # path to clear the readiness gate. Remove or unset to disable
+  # the GitHub Check publish; the rest of the proof loop still
+  # runs.
+  REKON_GITHUB_CHECKS: "1"
+  REKON_GITHUB_CHECKS_WRITE_CONFIRMED: "1"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build workspace
+        run: npm run build
+
+      - name: Rekon refresh
+        run: node packages/cli/dist/index.js refresh --root . --json
+
+      - name: Resolve latest VerificationPlan
+        id: plan
+        # Read-only helper. `--id-only` emits a typed
+        # `<type>:<id>` ref; `--allow-missing` lets the workflow
+        # continue when no VerificationPlan exists yet.
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationPlan --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+          echo "id=${ID#VerificationPlan:}" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon verify run (execute)
+        # Runner enforces shell:false, scrubbed env, per-command +
+        # per-plan timeouts, bounded redacted log excerpts, sha256
+        # stream digests.
+        if: steps.plan.outputs.id != ''
+        run: |
+          node packages/cli/dist/index.js verify run \
+            --root . \
+            --plan "${{ steps.plan.outputs.id }}" \
+            --execute \
+            --json > .rekon/verify-run.json
+
+      - name: Resolve latest VerificationRun
+        id: run
+        if: steps.plan.outputs.id != ''
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationRun --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+          echo "id=${ID#VerificationRun:}" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon verify result from-run
+        if: steps.run.outputs.id != ''
+        run: |
+          node packages/cli/dist/index.js verify result from-run \
+            --root . \
+            --run "${{ steps.run.outputs.id }}" \
+            --json
+
+      - name: Resolve latest VerificationResult
+        id: result
+        if: steps.run.outputs.id != ''
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationResult --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon publish proof
+        if: always()
+        run: node packages/cli/dist/index.js publish proof --root . --json
+
+      - name: Rekon publish architecture summary
+        if: always()
+        run: node packages/cli/dist/index.js publish architecture --root . --json
+
+      - name: Rekon publish agent contract
+        if: always()
+        run: node packages/cli/dist/index.js publish agent-contract --root . --json
+
+      - name: Rekon artifacts validate
+        id: validate
+        if: always()
+        # `artifacts validate` exits non-zero when the index has
+        # issues. We capture the JSON `valid` field so the job
+        # summary can render it explicitly and the GitHub Check
+        # payload can cite it. The CI step continues so the
+        # artifact upload still runs even when the index has
+        # issues.
+        run: |
+          OUTPUT="$(node packages/cli/dist/index.js artifacts validate --root . --json || true)"
+          echo "$OUTPUT"
+          VALID="$(node -e "process.stdout.write(String(JSON.parse(process.argv[1]).valid))" "$OUTPUT")"
+          echo "valid=$VALID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve latest proof-report Publication
+        id: proof
+        if: always()
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type Publication --kind proof-report \
+            --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve latest architecture-summary Publication
+        id: arch
+        if: always()
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type Publication --kind architecture-summary \
+            --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve latest agent-contract Publication
+        id: contract
+        if: always()
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type Publication --kind agent-contract \
+            --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon publish github-check (dry-run preview)
+        # Local-only dry-run. Prints the Check payload + readiness
+        # report to the workflow log so reviewers see what would
+        # be sent before the actual send step runs. No GitHub API
+        # call. No token read.
+        if: always()
+        run: |
+          node packages/cli/dist/index.js publish github-check \
+            --root . \
+            --dry-run \
+            --json
+
+      - name: Rekon publish github-check (send)
+        id: check_send
+        # The actual GitHub Check publish. Gated by the readiness
+        # assessor: requires REKON_GITHUB_CHECKS=1,
+        # REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1, the
+        # GitHub-Actions-provided GITHUB_TOKEN, GITHUB_REPOSITORY,
+        # GITHUB_SHA, a trusted event context, and the explicit
+        # `--confirm-checks-write` flag. Forked PRs and
+        # `pull_request_target` events are refused before any
+        # network call.
+        if: always()
+        run: |
+          node packages/cli/dist/index.js publish github-check \
+            --root . \
+            --send \
+            --confirm-checks-write \
+            --json
+
+      - name: Append summary to job summary
+        if: always()
+        # GitHub Actions writes anything appended to
+        # `$GITHUB_STEP_SUMMARY` to the job's summary page. No
+        # API permissions required; the file is on the runner
+        # filesystem. The job summary is a downstream surface,
+        # not canonical proof. Same applies to the GitHub Check
+        # this workflow sends.
+        run: |
+          {
+            echo "# Rekon Verification Summary"
+            echo ""
+            echo "- Mode: check-send"
+            echo "- VerificationPlan: ${{ steps.plan.outputs.ref || 'missing' }}"
+            echo "- VerificationRun: ${{ steps.run.outputs.ref || 'missing' }}"
+            echo "- VerificationResult: ${{ steps.result.outputs.ref || 'missing' }}"
+            echo "- Proof report: ${{ steps.proof.outputs.ref || 'missing' }}"
+            echo "- Architecture summary: ${{ steps.arch.outputs.ref || 'missing' }}"
+            echo "- Agent contract: ${{ steps.contract.outputs.ref || 'missing' }}"
+            echo "- Artifacts valid: ${{ steps.validate.outputs.valid || 'unknown' }}"
+            echo "- GitHub Check send: ${{ steps.check_send.outcome || 'unknown' }}"
+            echo "- Uploaded artifact: \`rekon-artifacts\`"
+            echo ""
+            echo "_GitHub status is not canonical truth; Rekon artifacts remain canonical._"
+            echo ""
+            if [ -f .rekon/artifacts/publications/proof-report.md ]; then
+              echo "---"
+              echo ""
+              cat .rekon/artifacts/publications/proof-report.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Rekon artifacts
+        if: always()
+        # Uploads `.rekon/artifacts` as the canonical proof record
+        # for this CI run. `.log` files are excluded explicitly
+        # as belt-and-braces; the Rekon runner's redaction +
+        # truncation contract already keeps raw stdout/stderr
+        # out of the artifact bodies.
+        uses: actions/upload-artifact@v4
+        with:
+          name: rekon-artifacts
+          path: |
+            .rekon/artifacts/**
+            !.rekon/artifacts/**/*.log
+          retention-days: 7

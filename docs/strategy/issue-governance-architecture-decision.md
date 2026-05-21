@@ -1654,14 +1654,46 @@ review packets unless an ADR promotes them. Promotion requires:
     contract tests + 10 docs
     assertions; full suite expected ≥
     1294 passed / 1 skipped.
-49. **(future)** Per-module `ObservedSystem`
+49. **Shipped (✅).** Verification runner
+    GitHub Check publisher opt-in workflow
+    template (step 6d). Adds
+    `docs/examples/workflows/rekon-verification-check-send.yml`
+    — the first Rekon workflow template
+    that opts into `checks: write`. Adds
+    a `--profile read-only |
+    github-check-send` flag to the
+    `rekon verify github-workflow
+    validate` command. The new profile
+    permits `checks: write`, requires
+    the Rekon opt-in env
+    (`REKON_GITHUB_CHECKS: "1"` +
+    `REKON_GITHUB_CHECKS_WRITE_CONFIRMED:
+    "1"`), requires both the `publish
+    github-check --dry-run` and
+    `publish github-check --send` steps
+    with the `--confirm-checks-write`
+    flag, refuses the `pull_request`
+    trigger (forks would inherit the
+    workflow's write + opt-in env), and
+    rejects every other write scope.
+    The default `read-only` profile
+    preserves existing behaviour;
+    bundled read-only templates still
+    validate clean. 16 new helper tests
+    + 3 CLI tests + 21 docs
+    assertions; full suite expected ≥
+    1330 passed / 1 skipped. Still no
+    active workflow in
+    `.github/workflows/` of the Rekon
+    repo.
+50. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-50. **(future)** Persistent exclusion lists, and
+51. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

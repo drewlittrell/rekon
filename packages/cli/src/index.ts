@@ -2586,7 +2586,20 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error(`rekon verify github-workflow validate could not read ${pathFlag}: ${message}`);
     }
 
-    const report = validateGitHubWorkflowSafety({ path: pathFlag, content });
+    const profileFlag = typeof parsed.flags.profile === "string"
+      ? parsed.flags.profile
+      : "read-only";
+    if (profileFlag !== "read-only" && profileFlag !== "github-check-send") {
+      throw new Error(
+        `rekon verify github-workflow validate --profile must be \`read-only\` or \`github-check-send\` (received \`${profileFlag}\`).`,
+      );
+    }
+
+    const report = validateGitHubWorkflowSafety({
+      path: pathFlag,
+      content,
+      profile: profileFlag,
+    });
 
     if (json) {
       writeOutput(report, json);
@@ -5304,6 +5317,7 @@ export type GitHubWorkflowSafetyIssueCode =
   | "github-write-permission"
   | "missing-permissions-block"
   | "missing-contents-read"
+  | "missing-checks-write"
   | "uses-github-api"
   | "missing-artifacts-latest"
   | "missing-rekon-artifact-upload"
@@ -5311,6 +5325,12 @@ export type GitHubWorkflowSafetyIssueCode =
   | "missing-job-summary"
   | "missing-canonical-truth-reminder"
   | "missing-retention-days"
+  | "missing-rekon-github-checks-opt-in"
+  | "missing-write-confirmation"
+  | "missing-publish-github-check-dry-run"
+  | "missing-publish-github-check-send"
+  | "missing-confirm-checks-write-flag"
+  | "pull-request-trigger-disallowed"
   | "unknown-mode";
 
 export type GitHubWorkflowSafetyIssue = {
@@ -5320,17 +5340,29 @@ export type GitHubWorkflowSafetyIssue = {
   recommendedFix: string;
 };
 
-export type GitHubWorkflowSafetyMode = "execute" | "dry-run" | "unknown";
+export type GitHubWorkflowSafetyMode =
+  | "execute"
+  | "dry-run"
+  | "check-send"
+  | "unknown";
+
+export type GitHubWorkflowSafetyProfile =
+  | "read-only"
+  | "github-check-send";
 
 export type GitHubWorkflowSafetyReport = {
   valid: boolean;
   path: string;
+  profile: GitHubWorkflowSafetyProfile;
   mode: GitHubWorkflowSafetyMode;
   issues: GitHubWorkflowSafetyIssue[];
   summary: {
+    profile: GitHubWorkflowSafetyProfile;
     mode: GitHubWorkflowSafetyMode;
     hasPullRequestTarget: boolean;
+    hasPullRequestTrigger: boolean;
     hasWritePermissions: boolean;
+    hasChecksWrite: boolean;
     hasPermissionsBlock: boolean;
     hasContentsRead: boolean;
     usesGitHubApi: boolean;
@@ -5340,6 +5372,11 @@ export type GitHubWorkflowSafetyReport = {
     writesJobSummary: boolean;
     hasCanonicalTruthReminder: boolean;
     hasRetentionDays: boolean;
+    hasRekonGitHubChecksOptIn: boolean;
+    hasWriteConfirmation: boolean;
+    hasPublishGitHubCheckDryRun: boolean;
+    hasPublishGitHubCheckSend: boolean;
+    hasConfirmChecksWriteFlag: boolean;
   };
 };
 
@@ -5407,31 +5444,54 @@ function stripGitHubWorkflowYamlComments(content: string): string {
 }
 
 export function validateGitHubWorkflowSafety(
-  input: { path: string; content: string },
+  input: { path: string; content: string; profile?: GitHubWorkflowSafetyProfile },
 ): GitHubWorkflowSafetyReport {
   const path = typeof input?.path === "string" ? input.path : "<unknown>";
   const content = typeof input?.content === "string" ? input.content : "";
+  const profile: GitHubWorkflowSafetyProfile =
+    input?.profile === "github-check-send" ? "github-check-send" : "read-only";
   const yaml = stripGitHubWorkflowYamlComments(content);
   const issues: GitHubWorkflowSafetyIssue[] = [];
 
   // --- Mode detection ---------------------------------------
   const hasExecute = /verify\s+run\b[\s\S]*?--execute/.test(yaml);
   const hasDryRun = /verify\s+run\b[\s\S]*?--dry-run/.test(yaml);
+  const hasPublishCheckSendCommand = /publish\s+github-check\b[\s\S]*?--send/.test(yaml);
+  const hasPublishCheckDryRunCommand = /publish\s+github-check\b[\s\S]*?--dry-run/.test(yaml);
+
   let mode: GitHubWorkflowSafetyMode = "unknown";
 
-  if (hasExecute && !hasDryRun) mode = "execute";
-  else if (hasDryRun && !hasExecute) mode = "dry-run";
-  else mode = "unknown";
+  if (profile === "github-check-send") {
+    // Send templates run the execute proof loop AND the send
+    // command. `mode` describes the workflow's terminal action.
+    if (hasPublishCheckSendCommand) mode = "check-send";
+    else mode = "unknown";
+  } else {
+    if (hasExecute && !hasDryRun) mode = "execute";
+    else if (hasDryRun && !hasExecute) mode = "dry-run";
+    else mode = "unknown";
+  }
 
   if (mode === "unknown") {
-    issues.push({
-      code: "unknown-mode",
-      severity: "error",
-      message:
-        "Workflow does not invoke `rekon verify run --execute` or `rekon verify run --dry-run` (or invokes both).",
-      recommendedFix:
-        "Choose one verify-run mode. Use `--dry-run` for trial adoption; `--execute` to actually run plan commands.",
-    });
+    if (profile === "github-check-send") {
+      issues.push({
+        code: "unknown-mode",
+        severity: "error",
+        message:
+          "Workflow does not invoke `rekon publish github-check --send`.",
+        recommendedFix:
+          "Add a step that runs `rekon publish github-check --send --confirm-checks-write --json` after the proof loop.",
+      });
+    } else {
+      issues.push({
+        code: "unknown-mode",
+        severity: "error",
+        message:
+          "Workflow does not invoke `rekon verify run --execute` or `rekon verify run --dry-run` (or invokes both).",
+        recommendedFix:
+          "Choose one verify-run mode. Use `--dry-run` for trial adoption; `--execute` to actually run plan commands.",
+      });
+    }
   }
 
   // --- pull_request_target -----------------------------------
@@ -5448,21 +5508,72 @@ export function validateGitHubWorkflowSafety(
     });
   }
 
+  // --- pull_request trigger ----------------------------------
+  // For the `github-check-send` profile, the `pull_request`
+  // trigger is rejected by default. Same-repo PRs would in
+  // principle be safe, but the trigger fires for forked PRs
+  // too — and the workflow has `checks: write` + the Rekon
+  // opt-in env. We don't ship a same-repo-only guard yet, so
+  // refusing the trigger entirely is the safe v1 default.
+  const hasPullRequestTrigger = /^\s*pull_request:/m.test(yaml)
+    && !/^\s*pull_request_target:/m.test(yaml);
+
+  if (profile === "github-check-send" && hasPullRequestTrigger) {
+    issues.push({
+      code: "pull-request-trigger-disallowed",
+      severity: "error",
+      message:
+        "Workflow with `github-check-send` profile uses the `pull_request` trigger. Forked PRs would inherit the workflow's `checks: write` + Rekon opt-in env, which Rekon does not yet support with a same-repo guard.",
+      recommendedFix:
+        "Remove the `pull_request:` trigger from the workflow. Use `workflow_dispatch` and/or `push` only. A future Rekon slice may add a same-repo guard that lets pull_request opt back in safely.",
+    });
+  }
+
   // --- GitHub write permissions ------------------------------
+  // For the read-only profile, ANY write scope (including
+  // `checks: write`) is forbidden. For the github-check-send
+  // profile, `checks: write` is permitted; every other write
+  // scope is still forbidden.
   let hasWritePermissions = false;
+  let hasChecksWrite = false;
 
   for (const scope of GITHUB_WRITE_PERMISSION_SCOPES) {
     const pattern = new RegExp(`${escapeRegex(scope)}:\\s*write\\b`);
 
-    if (pattern.test(yaml)) {
-      hasWritePermissions = true;
-      issues.push({
-        code: "github-write-permission",
-        severity: "error",
-        message: `Workflow requests \`${scope}: write\`. The alpha template forbids GitHub write permissions.`,
-        recommendedFix: `Remove the \`${scope}: write\` declaration. The alpha workflow uses only \`permissions: contents: read\`.`,
-      });
+    if (!pattern.test(yaml)) continue;
+
+    if (scope === "checks") {
+      hasChecksWrite = true;
+      if (profile === "github-check-send") {
+        // Allowed — the opt-in profile needs this.
+        continue;
+      }
     }
+
+    hasWritePermissions = true;
+    const profileNote = profile === "github-check-send"
+      ? "The `github-check-send` profile permits only `checks: write`."
+      : "The alpha template forbids GitHub write permissions.";
+    const fixSuffix = profile === "github-check-send"
+      ? "The `github-check-send` profile permits `contents: read` and `checks: write` only."
+      : "The alpha workflow uses only `permissions: contents: read`.";
+    issues.push({
+      code: "github-write-permission",
+      severity: "error",
+      message: `Workflow requests \`${scope}: write\`. ${profileNote}`,
+      recommendedFix: `Remove the \`${scope}: write\` declaration. ${fixSuffix}`,
+    });
+  }
+
+  if (profile === "github-check-send" && !hasChecksWrite) {
+    issues.push({
+      code: "missing-checks-write",
+      severity: "error",
+      message:
+        "Workflow does not declare `checks: write`. The `github-check-send` profile requires it so `rekon publish github-check --send` can call the GitHub Checks API.",
+      recommendedFix:
+        "Add `checks: write` to the `permissions:` block alongside `contents: read`. The opt-in template ships this pairing by default.",
+    });
   }
 
   // --- permissions block + contents: read --------------------
@@ -5593,17 +5704,87 @@ export function validateGitHubWorkflowSafety(
     });
   }
 
+  // --- github-check-send profile gates ----------------------
+  // Rekon opt-in env vars must be declared explicitly in the
+  // workflow so the send path's readiness gate clears. The
+  // validator accepts either an `env:` block declaration or
+  // an explicit `--env REKON_GITHUB_CHECKS=1`-style step env;
+  // the simplest static check is "the literal `REKON_GITHUB_CHECKS:
+  // \"1\"` or `\"true\"` appears somewhere in the file."
+  const hasRekonGitHubChecksOptIn =
+    /REKON_GITHUB_CHECKS:\s*["']?(?:1|true)["']?/i.test(yaml);
+  const hasWriteConfirmation =
+    /REKON_GITHUB_CHECKS_WRITE_CONFIRMED:\s*["']?(?:1|true)["']?/i.test(yaml);
+  const hasConfirmChecksWriteFlag = /--confirm-checks-write\b/.test(yaml);
+
+  if (profile === "github-check-send") {
+    if (!hasRekonGitHubChecksOptIn) {
+      issues.push({
+        code: "missing-rekon-github-checks-opt-in",
+        severity: "error",
+        message:
+          "Workflow does not declare `REKON_GITHUB_CHECKS: \"1\"`. The send readiness gate requires it.",
+        recommendedFix:
+          "Add `env:\\n  REKON_GITHUB_CHECKS: \"1\"\\n  REKON_GITHUB_CHECKS_WRITE_CONFIRMED: \"1\"` at the workflow or job level.",
+      });
+    }
+    if (!hasWriteConfirmation) {
+      issues.push({
+        code: "missing-write-confirmation",
+        severity: "error",
+        message:
+          "Workflow does not declare `REKON_GITHUB_CHECKS_WRITE_CONFIRMED: \"1\"`. The send readiness gate requires explicit checks-write confirmation.",
+        recommendedFix:
+          "Add `REKON_GITHUB_CHECKS_WRITE_CONFIRMED: \"1\"` to the workflow or job-level `env:` block. Alternatively, pass `--confirm-checks-write` to the send command and document the gate.",
+      });
+    }
+    if (!hasPublishCheckDryRunCommand) {
+      issues.push({
+        code: "missing-publish-github-check-dry-run",
+        severity: "error",
+        message:
+          "Workflow does not invoke `rekon publish github-check --dry-run`. The opt-in template runs the dry-run first so reviewers can audit the payload + readiness before the send call.",
+        recommendedFix:
+          "Add a step that runs `node packages/cli/dist/index.js publish github-check --root . --dry-run --json` before the send step.",
+      });
+    }
+    if (!hasPublishCheckSendCommand) {
+      issues.push({
+        code: "missing-publish-github-check-send",
+        severity: "error",
+        message:
+          "Workflow does not invoke `rekon publish github-check --send`. The `github-check-send` profile requires it.",
+        recommendedFix:
+          "Add a step that runs `node packages/cli/dist/index.js publish github-check --root . --send --confirm-checks-write --json` after the proof loop.",
+      });
+    }
+    if (hasPublishCheckSendCommand && !hasConfirmChecksWriteFlag) {
+      issues.push({
+        code: "missing-confirm-checks-write-flag",
+        severity: "error",
+        message:
+          "Workflow invokes `publish github-check --send` without `--confirm-checks-write`. The send CLI refuses to run without explicit checks-write confirmation.",
+        recommendedFix:
+          "Pass `--confirm-checks-write` to the `publish github-check --send` invocation, or set `REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1` at the workflow / job env level (the bundled opt-in template does both for defense in depth).",
+      });
+    }
+  }
+
   const errors = issues.filter((issue) => issue.severity === "error");
 
   return {
     valid: errors.length === 0,
     path,
+    profile,
     mode,
     issues,
     summary: {
+      profile,
       mode,
       hasPullRequestTarget,
+      hasPullRequestTrigger,
       hasWritePermissions,
+      hasChecksWrite,
       hasPermissionsBlock,
       hasContentsRead,
       usesGitHubApi,
@@ -5613,6 +5794,11 @@ export function validateGitHubWorkflowSafety(
       writesJobSummary,
       hasCanonicalTruthReminder,
       hasRetentionDays,
+      hasRekonGitHubChecksOptIn,
+      hasWriteConfirmation,
+      hasPublishGitHubCheckDryRun: hasPublishCheckDryRunCommand,
+      hasPublishGitHubCheckSend: hasPublishCheckSendCommand,
+      hasConfirmChecksWriteFlag,
     },
   };
 }
@@ -5627,6 +5813,7 @@ function renderGitHubWorkflowSafetyHuman(report: GitHubWorkflowSafetyReport): st
 
   lines.push(`GitHub workflow safety: ${status}`);
   lines.push(`Path: ${report.path}`);
+  lines.push(`Profile: ${report.profile}`);
   lines.push(`Mode: ${report.mode}`);
   lines.push("Checks:");
 
@@ -5636,7 +5823,18 @@ function renderGitHubWorkflowSafetyHuman(report: GitHubWorkflowSafetyReport): st
 
   check("permissions: contents: read", report.summary.hasPermissionsBlock && report.summary.hasContentsRead);
   check("no pull_request_target", !report.summary.hasPullRequestTarget);
-  check("no GitHub write permissions", !report.summary.hasWritePermissions);
+  if (report.profile === "github-check-send") {
+    check("permissions: checks: write", report.summary.hasChecksWrite);
+    check("no other GitHub write permissions", !report.summary.hasWritePermissions);
+    check("REKON_GITHUB_CHECKS opt-in", report.summary.hasRekonGitHubChecksOptIn);
+    check("REKON_GITHUB_CHECKS_WRITE_CONFIRMED", report.summary.hasWriteConfirmation);
+    check("publish github-check --dry-run step", report.summary.hasPublishGitHubCheckDryRun);
+    check("publish github-check --send step", report.summary.hasPublishGitHubCheckSend);
+    check("--confirm-checks-write flag", report.summary.hasConfirmChecksWriteFlag);
+    check("no pull_request trigger", !report.summary.hasPullRequestTrigger);
+  } else {
+    check("no GitHub write permissions", !report.summary.hasWritePermissions);
+  }
   check("no GitHub API calls", !report.summary.usesGitHubApi);
   check("uses rekon artifacts latest", report.summary.usesArtifactsLatest);
   check("uploads .rekon/artifacts", report.summary.uploadsRekonArtifacts);
@@ -5733,6 +5931,6 @@ function usage(): string {
     "rekon verify run --plan <id|type:id> --dry-run|--preview [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--json]",
     "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--json]",
-    "rekon verify github-workflow validate --path <workflow.yml> [--root <path>] [--json]",
+    "rekon verify github-workflow validate --path <workflow.yml> [--profile read-only|github-check-send] [--root <path>] [--json]",
   ].join("\n");
 }

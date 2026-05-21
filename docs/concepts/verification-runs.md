@@ -382,6 +382,27 @@ phrase
 Rekon artifacts remain canonical.` See
 [`docs/strategy/verification-runner-github-check-publisher-decision.md`](../strategy/verification-runner-github-check-publisher-decision.md).
 
+A separate **opt-in workflow template**
+lives at
+[`docs/examples/workflows/rekon-verification-check-send.yml`](../examples/workflows/rekon-verification-check-send.yml).
+It is the first Rekon workflow template
+that opts into a GitHub write surface
+(`checks: write`) and wires
+`rekon publish github-check --send`. The
+read-only execute and dry-run templates
+remain unchanged. The workflow validator
+gained a `--profile read-only |
+github-check-send` flag; the
+`github-check-send` profile permits
+`checks: write` and enforces the
+opt-in template's full safety contract
+(no `pull_request_target`, no
+`pull_request` trigger, explicit Rekon
+opt-in env, `--confirm-checks-write`
+flag, ...). The bundled read-only
+templates still validate clean under
+`--profile read-only`.
+
 ## Cross-References
 
 - [VerificationRun artifact](../artifacts/verification-run.md)
@@ -392,5 +413,6 @@ Rekon artifacts remain canonical.` See
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
+- [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

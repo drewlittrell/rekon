@@ -1106,6 +1106,50 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner GitHub Check publisher opt-in
+  workflow template (P1.1
+  github-check-publisher-opt-in-workflow-template
+  slice): **step 6d** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [GitHub Check publisher decision memo](verification-runner-github-check-publisher-decision.md).
+  Workflow template + validator profile + tests + docs
+  batch. No active workflow added to the Rekon repo. No
+  change to the `publishGitHubCheckRun` helper or the
+  `rekon publish github-check --dry-run|--send` CLI
+  behaviour. New template at
+  [`docs/examples/workflows/rekon-verification-check-send.yml`](../examples/workflows/rekon-verification-check-send.yml)
+  is the first Rekon workflow template to request
+  `checks: write`; triggers on `workflow_dispatch` +
+  `push` to `main` only (no `pull_request` by default;
+  no `pull_request_target` ever); declares
+  `REKON_GITHUB_CHECKS: "1"` and
+  `REKON_GITHUB_CHECKS_WRITE_CONFIRMED: "1"` at the
+  workflow level; runs `publish github-check --dry-run`
+  before `publish github-check --send
+  --confirm-checks-write`. New validator flag
+  `--profile read-only | github-check-send` defaults
+  to `read-only` (backward compatible). The
+  `github-check-send` profile permits `checks: write`,
+  requires the Rekon opt-in env + both publish
+  commands + the `--confirm-checks-write` flag, and
+  rejects every other write scope + the
+  `pull_request` trigger. New issue codes (additive)
+  cover every gate. 16 new validator helper tests + 3
+  CLI tests + 21 docs assertions; full suite expected
+  ≥ 1330 passed / 1 skipped. Operator guide gains a new
+  "Optional: publish a GitHub Check" section
+  instructing operators to adopt the read-only / dry-run
+  templates first.
+  **Recommended next slice:** GitHub Check publisher
+  send workflow safety review — a strategy review over
+  the completed Check path (payload helper, dry-run
+  CLI, send CLI, workflow templates, validator
+  profiles) to confirm beta readiness or surface
+  remaining blockers before step 7 (PR comments).
+  No `schemaVersion` bump. No version bump. No npm
+  publish.
 - Verification runner GitHub Check publisher send mode
   (P1.1 github-check-publisher-send slice): **step 6c** of
   the CI / GitHub adapter implementation sequence pinned
@@ -1156,10 +1200,11 @@ is the first stop before proposing a new capability batch.
   expected ≥ 1294 passed / 1 skipped.
   **Recommended next slice:** opt-in workflow template
   variant under `docs/examples/workflows/` that
-  documents the safe wiring for `--send`. Then **step
-  7** (PR comment publisher, beta+) as the next
-  bigger slice. No `schemaVersion` bump. No version
-  bump. No npm publish.
+  documents the safe wiring for `--send`. **Shipped
+  next; see the entry above.** Then a strategy review
+  over the completed Check path, then **step 7** (PR
+  comment publisher, beta+). No `schemaVersion` bump.
+  No version bump. No npm publish.
 - Verification runner GitHub Check publisher dry-run
   CLI (P1.1 github-check-publisher-dry-run-cli slice):
   **step 6b** of the CI / GitHub adapter implementation
