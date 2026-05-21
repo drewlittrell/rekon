@@ -1461,14 +1461,62 @@ review packets unless an ADR promotes them. Promotion requires:
     snippets. 12 contract tests +
     9 docs assertions. No artifact-shape
     change. No execution change.
-44. **(future)** Per-module `ObservedSystem`
+44. **Shipped (✅).** Verification
+    runner GitHub Actions workflow
+    hardening v2. Docs / examples /
+    docs-test batch. Added a new
+    dry-run workflow template at
+    `docs/examples/workflows/rekon-verification-dry-run.yml`
+    (runs `verify run --dry-run`,
+    spawns zero plan commands;
+    intentionally omits
+    `verify result from-run`). Hardened
+    the execute workflow at
+    `docs/examples/workflows/rekon-verification.yml`
+    with extended
+    `rekon artifacts latest` lookups
+    for `VerificationResult`,
+    `Publication --kind
+    architecture-summary`, and
+    `Publication --kind agent-contract`;
+    both job summaries now include a
+    `Mode` line, an `Artifacts valid`
+    line, and refs for every
+    refresh-loop publication. Operator
+    guide
+    `docs/examples/github-actions-verification-runner.md`
+    gains an Adoption section (copy
+    dry-run first) and an expanded
+    Troubleshooting section (10 items
+    with cause / safe-next / do-not).
+    Both workflow templates retain
+    `permissions: contents: read`, no
+    secrets, no `pull_request_target`,
+    no GitHub API writes. 23 docs-only
+    assertions; full suite 1190
+    passed / 1 skipped. Still no
+    active workflow in
+    `.github/workflows/` of the Rekon
+    repo.
+45. **(future)** Verification runner
+    GitHub workflow validation helper.
+    Read-only command or script that
+    validates copied workflow templates
+    against the required safety
+    contract: no
+    `pull_request_target`, no write
+    permissions, no raw log upload,
+    uses `artifacts latest`, uploads
+    `.rekon/artifacts`. Still no GitHub
+    API writes.
+46. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-45. **(future)** Persistent exclusion lists, and
+47. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

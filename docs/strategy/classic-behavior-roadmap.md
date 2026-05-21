@@ -3883,14 +3883,175 @@ scope:
 
   **Recommended next slice:**
   **verification runner GitHub Actions
-  workflow hardening v2** — optional
-  dry-run workflow variant,
-  troubleshooting section, and proof-
-  summary job-summary improvements
-  using the latest-artifact helper.
-  Still no GitHub API writes.
+  workflow hardening v2**. **Shipped
+  next; see the entry below.**
+- **Verification runner GitHub Actions
+  workflow hardening v2 (P1.1
+  verification-runner-github-actions-hardening-v2
+  slice).** ✅ Shipped. **Step 4** of
+  the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Docs / examples / docs-test batch.
+  No code changes. No active workflow
+  in `.github/workflows`. No GitHub API
+  writes.
 
-  No version bump. No npm publish.
+  **Shipped artifacts:**
+  - New copyable dry-run workflow at
+    [`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml).
+    Same safety contract as the
+    execute variant
+    (`permissions: contents: read`,
+    no secrets, no
+    `pull_request_target`, no GitHub
+    API writes,
+    `actions/upload-artifact` of
+    `.rekon/artifacts/**` excluding
+    `.log`, `retention-days: 7`) but
+    runs `rekon verify run --dry-run`
+    instead of `--execute`. Spawns
+    **zero** plan commands.
+    Intentionally omits
+    `verify result from-run` because
+    a dry-run is not proof.
+  - Execute workflow at
+    [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+    hardened with extended
+    `rekon artifacts latest` lookups
+    for `VerificationResult`,
+    `Publication --kind
+    architecture-summary`, and
+    `Publication --kind agent-contract`
+    so the job summary cites every
+    refresh-loop publication ref.
+    Header comments updated to call
+    out the EXECUTE variant
+    relationship to the dry-run
+    variant and to expand the safety
+    contract description.
+  - Both job summaries now include an
+    explicit `Mode: execute|dry-run`
+    line, an
+    `Artifacts valid: true|false`
+    line (captured from
+    `rekon artifacts validate --json`),
+    and rows for every publication
+    ref. The dry-run summary states
+    `VerificationResult: not produced
+    (dry-run is not proof)`.
+
+  **Operator guide updates
+  ([`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)):**
+  - New "Adoption — copy the dry-run
+    template first" section near the
+    top with a 6-step adoption path.
+  - Expanded Troubleshooting section
+    with **10 items**, each carrying
+    **Likely cause** / **Safe next
+    step** / **Do not** triples:
+    no `VerificationPlan` found,
+    Verification command failed,
+    Dry-run produced VerificationRun
+    but no VerificationResult,
+    `verify result from-run` refuses
+    the run, Artifacts validate
+    failed, Artifacts upload
+    missing, Forked PR needs
+    secrets, Workflow summary says
+    proof is stale, `verify run
+    --execute` fails immediately on
+    every command, Job summary
+    doesn't render the proof report,
+    A reviewer reads the green badge
+    and treats it as completion.
+  - Cross-references updated to
+    list both workflow templates.
+
+  **What this batch does NOT do:**
+  - No code changes.
+  - No new CLI commands.
+  - No new artifact types.
+  - No active workflow in
+    `.github/workflows/` of the Rekon
+    repo.
+  - No GitHub API writes.
+  - No GitHub Check publisher (still
+    deferred to beta).
+  - No PR comment publisher (still
+    deferred to beta).
+  - No write permissions added
+    anywhere.
+
+  **Tests:** **23 docs-only assertions**
+  in
+  `tests/docs/verification-runner-github-actions-hardening.test.mjs`
+  pin: dry-run YAML existence; both
+  workflows' permission contract; the
+  `pull_request_target` prohibition;
+  the absence of every write
+  permission; the
+  `--dry-run` / `--execute` split;
+  both workflows' adoption of
+  `rekon artifacts latest`; the
+  upload path + `.log` exclusion +
+  `retention-days: 7` +
+  `$GITHUB_STEP_SUMMARY`; the
+  adoption-first language in the
+  operator guide; the three anchor
+  statements (canonical truth,
+  artifacts canonical, fork
+  secrets); three troubleshooting
+  items (no plan, failed command,
+  forked-PR secrets); the CHANGELOG
+  mention; and the review-packet
+  `PURPOSE PRESERVATION CHECK`. Full
+  suite: **1189 passed / 1 skipped**.
+
+  **Docs:** 11 updated
+  ([`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  (step 4 flipped to ✅ Shipped),
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md)
+  (CI / GitHub Direction now mentions
+  the dry-run variant),
+  [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+  (Adoption section + Troubleshooting
+  expansion + cross-references),
+  [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+  (hardening + latest-helper
+  expansion),
+  [`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml)
+  (new), this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`,
+  `concepts/verification-results.md`,
+  `concepts/proof-report-publication.md`,
+  `artifacts/proof-report-publication.md`).
+  `README.md` and `CHANGELOG.md`
+  updated. New review packet
+  `.rekon-dev/review-packets/verification-runner-github-actions-hardening-v2.md`.
+
+  **Recommended next slice:**
+  **verification runner GitHub
+  workflow validation helper** — a
+  read-only command or script that
+  validates copied workflow
+  templates against the required
+  safety contract (no
+  `pull_request_target`, no write
+  permissions, no raw log upload,
+  uses `artifacts latest`, uploads
+  `.rekon/artifacts`). Still no
+  GitHub API writes.
+
+  No code changes. No artifact-shape
+  change. No new capability. No new
+  CLI command. No active workflow.
+  No `schemaVersion` bump. No
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation. No
+  version bump. No npm publish.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

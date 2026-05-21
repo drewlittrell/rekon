@@ -27,6 +27,59 @@ repo when you want it active.
 The full decision context lives in
 [`docs/strategy/verification-runner-ci-github-decision.md`](../strategy/verification-runner-ci-github-decision.md).
 
+## Adoption — copy the dry-run template first
+
+There are two workflow templates in this
+example directory:
+
+- [`workflows/rekon-verification-dry-run.yml`](workflows/rekon-verification-dry-run.yml)
+  — runs `rekon verify run --dry-run`.
+  Spawns **zero** plan commands. Writes a
+  planned-but-not-run `VerificationRun`
+  and refreshes the proof / architecture /
+  agent-contract publications.
+- [`workflows/rekon-verification.yml`](workflows/rekon-verification.yml)
+  — runs `rekon verify run --execute`.
+  Actually runs the plan's commands under
+  the local runner safety contract.
+
+**Adoption path:**
+
+1. Copy the **dry-run** workflow into your
+   `.github/workflows/` first.
+2. Open a PR or trigger
+   `workflow_dispatch`; confirm that
+   `rekon-artifacts` uploads and the job
+   summary renders (Mode: `dry-run`,
+   VerificationResult: `not produced`).
+3. Download the `rekon-artifacts` upload
+   and inspect the planned `VerificationRun`
+   — its `commands[*].argv` shows exactly
+   what the future execute run would
+   spawn.
+4. Review the plan's commands. If a
+   command should not run under
+   `shell: false`, fix the
+   `VerificationPlan` upstream before
+   switching to the execute workflow.
+5. Once you trust the plan, swap the
+   dry-run workflow for the execute
+   workflow (or run them in parallel and
+   delete the dry-run later).
+6. **Keep GitHub permissions read-only**
+   (`permissions: contents: read`) unless
+   and until you adopt the future
+   first-party Check / PR comment
+   publisher — a beta capability with its
+   own permission contract.
+
+The dry-run template is also useful as a
+permanent safety net on forks /
+contributor PRs: it confirms the proof
+loop wires up without spawning anything,
+even when reviewing a PR whose plan
+commands you do not yet trust.
+
 ## 1. What the template does
 
 For every pull request (and on manual
@@ -418,82 +471,300 @@ verdict. The artifacts are the verdict.
 
 ## 10. Troubleshooting
 
-**`plan_id` resolves to empty.**
+Each item below carries **Likely cause**,
+**Safe next step**, and **What not to do**.
+The "what not to do" entries exist because
+the obvious workaround often weakens the
+safety contract.
 
-Your repo doesn't have a `VerificationPlan`
-yet. Either:
+### No VerificationPlan found
 
-- Commit a plan to `.rekon/artifacts/actions/`
-  (rare in alpha), or
-- Run `rekon intent work-order --path <path>
-  --goal "<goal>" --root .` as an extra
-  workflow step before the plan-lookup
-  step.
+The plan-lookup step's output is empty and
+the `verify run` step skips with
+`if: steps.plan.outputs.id != ''`.
 
-The `verify run` step in the template is
-guarded by `if: steps.plan.outputs.plan_id !=
-''` so missing plans don't error — they just
-skip execution.
+- **Likely cause:** the repo has no
+  `VerificationPlan` artifact yet. This
+  is normal for a fresh repo and for repos
+  that generate plans inline during a
+  separate workflow step (not part of the
+  templates).
+- **Safe next step:** add a workflow step
+  before the plan-lookup step that runs
+  `rekon intent work-order --path <path>
+  --goal "<goal>" --root .` (or
+  `rekon intent remediation --root .` when
+  driven by a `CoherencyDelta`). The
+  resulting plan will be picked up by the
+  next `rekon artifacts latest --type
+  VerificationPlan` step.
+- **Do not:** hard-code a stale plan id
+  into the workflow. Stale plans defeat the
+  freshness classifier in
+  proof-report / architecture-summary /
+  agent-contract publications.
 
-**`verify run --execute` fails immediately
-on every command.**
+### Verification command failed
 
-Likely the `PATH` env var is being filtered
-by the runner's scrubbed-env policy on a
-platform that uses a different name. Look at
-the `VerificationRun.commands[*].stderrExcerpt`
-for the actual `spawn` error. If a real env
-var is missing, add it to your team's
-private fork of the template — but only
-behind a non-default, audited workflow path
-(not the safe alpha template).
+The execute workflow's `verify run` step
+exits non-zero and the job badge is red.
+The `VerificationRun` was still written; so
+was the proof report.
 
-**`verify result from-run` refuses the
-run.**
+- **Likely cause:** a plan command exited
+  non-zero (`failed`), timed out
+  (`timeout`), or was killed (`killed`).
+  All three are first-class evidence,
+  not workflow bugs.
+- **Safe next step:** download the
+  `rekon-artifacts` upload and read
+  `proof-report.md`. The per-command
+  table shows which command failed; the
+  Failed / Missing Evidence section lists
+  failures explicitly. Fix the underlying
+  problem in the codebase and re-run the
+  workflow.
+- **Do not:** add `continue-on-error: true`
+  to mask the failure. The CLI exits
+  non-zero deliberately so operator
+  scripts and reviewers see incomplete
+  proof.
 
-The source `VerificationRun.status` is
-`not-run`. This happens when:
+### Dry-run produced VerificationRun but no VerificationResult
 
-- You ran `--dry-run` instead of
-  `--execute`.
-- The plan exceeded the per-plan timeout
-  before the first command started.
+You copied the dry-run template and the
+job summary says
+`VerificationResult: not produced
+(dry-run is not proof)`.
 
-Both are intentional refusals: a dry-run
-is not proof. Re-run with `--execute` or
-raise the per-plan timeout via
-`--timeout-ms`.
+- **Likely cause:** this is the intended
+  behaviour. The
+  [verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+  pins that
+  `verify result from-run` refuses
+  `not-run` runs by default — a dry-run
+  cannot become proof.
+- **Safe next step:** switch to the
+  execute workflow once you trust the
+  plan, then re-run.
+  `verify result from-run` will produce
+  a `VerificationResult` citing the
+  executed run.
+- **Do not:** pass `--allow-not-run` to
+  `verify result from-run` in CI to
+  silence the refusal. A
+  `VerificationResult` built from a
+  dry-run is shape-only and will confuse
+  the proof-report freshness
+  classifier.
 
-**Artifact upload is empty.**
+### `verify result from-run` refuses the run
 
-Check that the workflow's working directory
-is the repo root. The `path:` filter is
-relative; if the workflow `cd`s elsewhere
-between `rekon refresh` and
-`actions/upload-artifact`, the
-`.rekon/artifacts/**` glob won't match.
+The execute workflow runs but the
+`verify result from-run` step fails
+with "VerificationRun status is not-run".
 
-**Job summary doesn't render the proof
-report.**
+- **Likely cause:** the per-plan timeout
+  fired before the first command
+  started, so every command was marked
+  `not-run`. Or the workflow uploaded a
+  stale `VerificationRun` from a prior
+  dry-run.
+- **Safe next step:** raise the per-plan
+  timeout via `--timeout-ms` on the
+  `verify run --execute` step, or check
+  `rekon artifacts list --type
+  VerificationRun --root .` to see
+  which run the lookup resolved.
+- **Do not:** use `--allow-not-run` in
+  CI (see the previous item).
 
-Either the proof-report publication didn't
-write (no `VerificationPlan` exists) or
-`$GITHUB_STEP_SUMMARY` was overwritten by a
-later step. The template uses `if: always()`
-so the summary appends even when earlier
-steps fail; check the workflow logs for any
-custom step that touches
-`$GITHUB_STEP_SUMMARY`.
+### Artifacts validate failed
 
-**A reviewer reads the green badge and
-treats it as completion.**
+The job summary shows `Artifacts valid:
+false`.
 
-The summary explicitly states "GitHub status
-is not canonical truth; Rekon artifacts
-remain canonical." Reinforce this with team
-norms: the proof report is the document
-that closes a verification loop, not the
-badge.
+- **Likely cause:** the local artifact
+  index references an artifact whose
+  digest no longer matches the on-disk
+  body, usually because some external
+  process rewrote a `.rekon/artifacts/`
+  file outside the runtime's write
+  path.
+- **Safe next step:** download the
+  `rekon-artifacts` upload and run
+  `node packages/cli/dist/index.js
+  artifacts validate --root .` locally
+  for the full issue list. Fix the
+  affected artifact in your repo or
+  re-run `rekon refresh` to rebuild
+  the index from scratch.
+- **Do not:** edit `.rekon/artifacts/`
+  files by hand in CI to "fix"
+  digests. The index treats hand-edits
+  as integrity failures.
+
+### Artifacts upload missing
+
+The workflow succeeded but the
+`rekon-artifacts` upload is absent or
+empty.
+
+- **Likely cause:** an earlier step
+  changed the working directory, or
+  the `actions/upload-artifact` step
+  was scoped to a path that doesn't
+  include `.rekon/artifacts/`. Less
+  commonly, the runner's disk quota
+  was exhausted.
+- **Safe next step:** confirm the
+  workflow's working directory is the
+  repo root for every Rekon CLI
+  invocation. The template uses `--root
+  .` explicitly to make this
+  unambiguous.
+- **Do not:** widen the upload pattern
+  to grab the whole runner filesystem.
+  The path filter is deliberately
+  scoped to `.rekon/artifacts/**` with
+  `.log` files excluded.
+
+### Forked PR needs secrets
+
+A contributor's forked PR fails because
+some action (e.g., a private package
+registry) needs credentials the fork
+cannot see.
+
+- **Likely cause:** the workflow
+  intentionally runs without secrets.
+  The default `pull_request` trigger
+  downgrades `GITHUB_TOKEN` to the
+  fork's read-only scope.
+- **Safe next step:** move the
+  secret-requiring action to a
+  separate, manually-approved workflow
+  (`workflow_dispatch` only, or
+  `push` to a protected branch). Keep
+  the verification template
+  permission-free so it can run
+  unattended on every PR.
+- **Do not:** switch the verification
+  template to `pull_request_target`
+  by default. That trigger runs in
+  the upstream repo's context with
+  secrets attached while checking out
+  the contributor's code — a known
+  "pwn the CI" pattern that the
+  decision memo explicitly forbids.
+
+### Workflow summary says proof is stale
+
+The job summary's proof-report block
+calls out `Verification proof is stale
+relative to the latest VerificationPlan`.
+
+- **Likely cause:** a newer
+  `VerificationPlan` was generated
+  after the last
+  `VerificationResult` was recorded,
+  so the result no longer attests the
+  latest plan.
+- **Safe next step:** re-run the
+  execute workflow against the
+  current plan. The
+  `rekon artifacts latest --type
+  VerificationPlan` lookup at the
+  start of the workflow always picks
+  up the newest plan.
+- **Do not:** edit a stale
+  `VerificationResult`'s plan ref by
+  hand to make it look fresh. The
+  proof-surface classifier reads
+  `header.inputRefs`; rewriting them
+  breaks the integrity audit.
+
+### `verify run --execute` fails immediately on every command
+
+The first command in every run fails
+with `spawn npm ENOENT` (or similar).
+
+- **Likely cause:** the runner's
+  scrubbed-env policy doesn't forward
+  whichever environment variable
+  contains the executable. On
+  Ubuntu / macOS the allowlist
+  includes `PATH`; on rare runner
+  images, the executable may be in
+  a non-standard location.
+- **Safe next step:** look at
+  `VerificationRun.commands[*].stderrExcerpt`
+  in the uploaded artifact for the
+  exact `spawn` error. If a real env
+  var is missing from the allowlist,
+  raise it with the Rekon team rather
+  than patching the runner locally —
+  the allowlist is documented in
+  `docs/strategy/verification-runner-v1-decision.md`.
+- **Do not:** disable the scrubbed
+  env locally to "make it work". The
+  scrub exists so plan commands
+  cannot exfiltrate secrets they
+  happen to find in `process.env`.
+
+### Job summary doesn't render the proof report
+
+Either the proof-report publication
+didn't write (no `VerificationPlan`
+exists) or `$GITHUB_STEP_SUMMARY` was
+overwritten by a later step.
+
+- **Likely cause:** the template uses
+  `if: always()` on the summary step
+  so it appends even when earlier
+  steps fail. If the summary is
+  empty, the most common cause is
+  that a custom step elsewhere in
+  the workflow truncates
+  `$GITHUB_STEP_SUMMARY`.
+- **Safe next step:** check the
+  workflow logs for any custom step
+  that writes to
+  `$GITHUB_STEP_SUMMARY` with `>`
+  (overwrite) instead of `>>`
+  (append).
+- **Do not:** replace the proof-report
+  body with a custom summary that
+  hides failed / stale proof. The
+  publication's freshness + failure
+  callouts exist to be visible at
+  review time.
+
+### A reviewer reads the green badge and treats it as completion
+
+The badge is green; the reviewer
+approves without reading the proof
+report.
+
+- **Likely cause:** the badge tracks
+  the local CLI's exit codes only.
+  It is not the same thing as
+  reviewing the artifacts.
+- **Safe next step:** team norms
+  should require downloading
+  `rekon-artifacts` (or reading the
+  inline `proof-report.md` job
+  summary) before merge. The summary
+  explicitly states "GitHub status
+  is not canonical truth; Rekon
+  artifacts remain canonical."
+- **Do not:** rebrand the badge as
+  "Rekon verified" or wire it into a
+  required-status-check gate that
+  the team interprets as a green
+  light to merge without reading the
+  proof report. The badge is a
+  signal, not a verdict.
 
 ## Cross-references
 
@@ -502,4 +773,5 @@ badge.
 - [Verification runs concept](../concepts/verification-runs.md)
 - [Verification results concept](../concepts/verification-results.md)
 - [Proof report publication concept](../concepts/proof-report-publication.md)
-- [Workflow template YAML](workflows/rekon-verification.yml)
+- [Execute workflow template YAML](workflows/rekon-verification.yml)
+- [Dry-run workflow template YAML](workflows/rekon-verification-dry-run.yml)

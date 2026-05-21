@@ -4,6 +4,182 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped verification runner **GitHub Actions
+  workflow hardening v2** (P1.1
+  verification-runner-github-actions-hardening-v2
+  slice). **Step 4** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **Docs / examples / docs-test batch.** No code
+  changes. No active workflow in
+  `.github/workflows`. No GitHub API writes.
+
+  **New artifacts:**
+  - Dry-run workflow template at
+    [`docs/examples/workflows/rekon-verification-dry-run.yml`](docs/examples/workflows/rekon-verification-dry-run.yml).
+    Same safety contract as the execute variant
+    (`permissions: contents: read`, no
+    secrets, no `pull_request_target`, no
+    GitHub API writes,
+    `actions/upload-artifact` of
+    `.rekon/artifacts/**` excluding `.log`,
+    `retention-days: 7`) but runs
+    `rekon verify run --dry-run` instead of
+    `--execute`. Spawns **zero** plan commands.
+    Intentionally omits
+    `verify result from-run` because a
+    dry-run is not proof.
+
+  **Execute workflow hardened**
+  ([`docs/examples/workflows/rekon-verification.yml`](docs/examples/workflows/rekon-verification.yml)):
+  - Header comments now call out the
+    EXECUTE variant relationship to the
+    dry-run variant and recommend trial
+    adoption via the dry-run template
+    first.
+  - Extended `rekon artifacts latest`
+    lookups for `VerificationResult`,
+    `Publication --kind
+    architecture-summary`, and
+    `Publication --kind agent-contract`
+    so every refresh-loop publication
+    ref is available to the job summary.
+  - New `rekon artifacts validate` step
+    captures the JSON `valid` field into
+    a step output so the summary can
+    render `Artifacts valid: true|false`.
+
+  **Job summary** (both workflows):
+  - Explicit `Mode: execute|dry-run`
+    line.
+  - Rows for `VerificationPlan`,
+    `VerificationRun`,
+    `VerificationResult`,
+    proof report, architecture summary,
+    and agent contract refs (or
+    `missing` / `not produced` when
+    absent).
+  - `Artifacts valid: true|false` line.
+  - Canonical-truth reminder.
+  - Embedded `proof-report.md` body
+    after a `---` divider.
+
+  **Operator guide updates**
+  ([`docs/examples/github-actions-verification-runner.md`](docs/examples/github-actions-verification-runner.md)):
+  - New "Adoption — copy the dry-run
+    template first" section near the
+    top with a 6-step adoption path.
+  - Troubleshooting section expanded
+    to **10 items**, each carrying
+    **Likely cause** /
+    **Safe next step** / **Do not**:
+    no `VerificationPlan` found,
+    Verification command failed,
+    Dry-run produced VerificationRun
+    but no VerificationResult,
+    `verify result from-run` refuses
+    the run, Artifacts validate
+    failed, Artifacts upload
+    missing, Forked PR needs
+    secrets, Workflow summary says
+    proof is stale,
+    `verify run --execute` fails
+    immediately on every command,
+    Job summary doesn't render the
+    proof report, A reviewer reads
+    the green badge and treats it as
+    completion.
+  - Cross-references updated to list
+    both workflow templates.
+
+  **Anchor statements pinned by
+  tests:**
+  - GitHub status is not canonical
+    truth.
+  - Rekon artifacts remain canonical.
+  - Forked PRs must not receive
+    secret-bearing execution by
+    default.
+  - Passing verification does not
+    automatically resolve findings.
+
+  **Tests:** **23 docs-only
+  assertions** in
+  `tests/docs/verification-runner-github-actions-hardening.test.mjs`
+  pin: dry-run YAML existence; both
+  workflows'
+  `permissions: contents: read`; the
+  `pull_request_target` prohibition
+  in both; the absence of every
+  write permission in both; the
+  `--dry-run` / `--execute` split;
+  both workflows' adoption of
+  `rekon artifacts latest`; both
+  workflows uploading
+  `.rekon/artifacts` with `.log`
+  excluded and `retention-days: 7`;
+  both workflows writing to
+  `$GITHUB_STEP_SUMMARY`; the
+  adoption-first language in the
+  operator guide; the three anchor
+  statements; three troubleshooting
+  items (no plan, failed command,
+  forked-PR secrets); the
+  CHANGELOG mention; and the
+  review-packet `PURPOSE
+  PRESERVATION CHECK`. Full suite:
+  **1189 passed / 1 skipped**.
+
+  **Docs:** 11 updated
+  ([`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  (step 4 flipped to ✅ Shipped),
+  [`docs/concepts/verification-runs.md`](docs/concepts/verification-runs.md)
+  — CI / GitHub Direction now
+  mentions the dry-run variant,
+  [`docs/examples/github-actions-verification-runner.md`](docs/examples/github-actions-verification-runner.md)
+  — Adoption + Troubleshooting +
+  cross-references,
+  [`docs/examples/workflows/rekon-verification.yml`](docs/examples/workflows/rekon-verification.yml)
+  — hardening + helper expansion,
+  [`docs/examples/workflows/rekon-verification-dry-run.yml`](docs/examples/workflows/rekon-verification-dry-run.yml)
+  — new,
+  [`docs/strategy/classic-behavior-roadmap.md`](docs/strategy/classic-behavior-roadmap.md)
+  — new shipped entry,
+  [`docs/strategy/roadmap.md`](docs/strategy/roadmap.md)
+  — new completed-slice entry,
+  [`docs/strategy/issue-governance-architecture-decision.md`](docs/strategy/issue-governance-architecture-decision.md)
+  — step 44 added (shipped), step 45
+  added (workflow validation helper),
+  subsequent steps renumbered).
+  `README.md` updated with pointers
+  to both templates. New review
+  packet
+  [`.rekon-dev/review-packets/verification-runner-github-actions-hardening-v2.md`](.rekon-dev/review-packets/verification-runner-github-actions-hardening-v2.md).
+
+  **Next slice:** verification
+  runner **GitHub workflow
+  validation helper** — a read-only
+  command or script that validates
+  copied workflow templates against
+  the required safety contract
+  (no `pull_request_target`, no
+  write permissions, no raw log
+  upload, uses
+  `rekon artifacts latest`,
+  uploads `.rekon/artifacts`).
+  Still no GitHub API writes.
+
+  No code changes in this slice. No
+  active workflow installed in
+  `.github/workflows/`. No
+  artifact-shape change. No new
+  capability. No new CLI command.
+  No `schemaVersion` bump. No
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation. No
+  version bump. No npm publish.
 - Shipped verification runner **latest-artifact
   CLI helper** (P1.1
   artifacts-latest-cli-helper slice). **Step 3**

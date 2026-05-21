@@ -1106,6 +1106,59 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner GitHub Actions workflow
+  hardening v2 (P1.1
+  verification-runner-github-actions-hardening-v2
+  slice): **step 4** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Docs / examples / docs-test batch — no code
+  changes, no active workflow in
+  `.github/workflows`, no GitHub API writes. Adds
+  a copyable **dry-run workflow template** at
+  [`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml)
+  that runs `rekon verify run --dry-run` (spawns
+  zero plan commands) and intentionally omits
+  `verify result from-run` because a dry-run is
+  not proof. Same safety contract as the execute
+  variant: `permissions: contents: read`, no
+  secrets, no `pull_request_target`, no GitHub
+  API writes, `actions/upload-artifact` of
+  `.rekon/artifacts/**` excluding `.log`,
+  `retention-days: 7`. Execute workflow at
+  [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+  hardened with extended `rekon artifacts
+  latest` lookups for `VerificationResult`,
+  `Publication --kind architecture-summary`, and
+  `Publication --kind agent-contract`; both job
+  summaries now include a `Mode: execute|dry-run`
+  line, an `Artifacts valid: true|false` line,
+  and refs for every refresh-loop publication.
+  Operator guide
+  [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+  gains a new **Adoption — copy the dry-run
+  template first** section near the top and an
+  expanded Troubleshooting section with **10
+  items** (cause / safe next / do-not triples).
+  **23 docs-only assertions** pin both workflow
+  YAMLs' safety contracts, the
+  `--dry-run` / `--execute` split, both
+  workflows' adoption of the latest-artifact
+  helper, the upload + retention + summary
+  surface, the adoption-first language, the
+  three anchor statements (canonical truth,
+  artifacts canonical, fork secrets), three
+  troubleshooting items, CHANGELOG mention, and
+  the review-packet `PURPOSE PRESERVATION
+  CHECK`. Full suite: 1189 passed / 1 skipped.
+  **Recommended next slice:** verification runner
+  GitHub workflow validation helper (read-only
+  command or script that validates copied
+  workflow templates against the required safety
+  contract). Still no GitHub API writes. No
+  artifact-shape change. No new capability. No
+  new CLI command. No `schemaVersion` bump. No
+  version bump. No npm publish.
 - Verification runner latest-artifact CLI helper
   (P1.1 artifacts-latest-cli-helper slice):
   **step 3** of the CI / GitHub adapter

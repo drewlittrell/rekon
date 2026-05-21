@@ -159,6 +159,13 @@ node packages/cli/dist/index.js verify result from-run --run <verification-run-i
 # First-party GitHub Check / PR comment publishers are deferred to
 # beta. See docs/strategy/verification-runner-ci-github-decision.md.
 node packages/cli/dist/index.js artifacts latest --root examples/simple-js-ts --type VerificationPlan --id-only --allow-missing
+# Two GitHub Actions workflow templates live under
+# docs/examples/workflows/. Copy the dry-run variant
+# (rekon-verification-dry-run.yml) first when adopting Rekon in CI;
+# it writes a planned-but-not-run VerificationRun and spawns no
+# commands. Swap to the execute variant (rekon-verification.yml)
+# after reviewing the plan's commands. See
+# docs/examples/github-actions-verification-runner.md.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

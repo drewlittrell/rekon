@@ -319,6 +319,18 @@ artifact index and (for Publication kind
 lookups) artifact bodies, and writes
 nothing.
 
+A **dry-run variant** lives at
+[`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml).
+It runs `rekon verify run --dry-run`
+instead of `--execute`, so the runner
+spawns **zero** plan commands. The operator
+guide recommends copying the dry-run
+template first to validate the
+artifact-upload + job-summary plumbing
+before the execute variant runs real
+commands. See
+[`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
+
 ## Cross-References
 
 - [VerificationRun artifact](../artifacts/verification-run.md)

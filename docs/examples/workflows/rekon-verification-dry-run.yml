@@ -1,48 +1,42 @@
 # Rekon Verification — alpha GitHub Actions workflow template
-# (EXECUTE variant).
+# (dry-run variant).
 #
-# **This is a template, not an active workflow.** Copy it into your
-# repo's `.github/workflows/` directory (renaming as you like) to
-# enable. The Rekon repository itself does NOT install this
-# workflow.
+# **This is a TRIAL template, not an active workflow.** It is
+# intentionally safer than the `rekon-verification.yml` variant:
+# it runs `rekon verify run --dry-run` instead of `--execute`, so
+# no plan commands are spawned at all. Use this template first
+# when adopting Rekon in CI to confirm the artifact-upload +
+# job-summary plumbing before any plan commands run on the
+# runner.
 #
-# **This template executes VerificationPlan commands** using
-# Rekon's local runner safety contract:
+# Safety contract — identical to the execute variant:
 #
-#   - `spawn(argv[0], argv.slice(1))` with `shell: false`.
-#   - Scrubbed env (allowlist + secret-name guard).
-#   - Per-command + per-plan timeouts (`SIGTERM` → 3 s grace →
-#     `SIGKILL`).
-#   - sha256 stream digests + bounded redacted excerpts.
-#   - No retries; no auto-resolution; no source writes by the
-#     runner itself.
-#
-# **For trial adoption, copy
-# `rekon-verification-dry-run.yml` first.** That variant runs
-# `verify run --dry-run` instead of `--execute`, so it writes a
-# planned-but-not-run VerificationRun without spawning any
-# process. Switch to this execute variant only after reviewing
-# the plan's commands.
-#
-# Safety contract pinned by
-# `docs/strategy/verification-runner-ci-github-decision.md`:
-#
-#   - GitHub status is not canonical truth; Rekon artifacts remain
-#     canonical.
+#   - GitHub status is not canonical truth; Rekon artifacts
+#     remain canonical.
 #   - Forked PRs must not receive secret-bearing execution by
 #     default.
-#   - The workflow uses ONLY `permissions: contents: read`.
-#   - No `pull-requests: write`, `checks: write`, `contents: write`,
-#     or `id-token: write`.
+#   - `permissions: contents: read` ONLY. No
+#     `pull-requests: write`, `checks: write`,
+#     `contents: write`, or `id-token: write`.
 #   - No `pull_request_target` trigger.
 #   - No secrets declared.
 #   - No GitHub API writes anywhere.
-#   - Raw command logs (`.log` files) are excluded from the upload.
-#   - The job summary is a downstream surface, not an
-#     authoritative proof record.
-#   - Passing verification does not automatically resolve findings.
+#   - Raw command logs (`.log` files) are excluded from the
+#     upload.
+#
+# Dry-run-specific behaviour:
+#
+#   - `rekon verify run --plan <id> --dry-run` writes a
+#     planned-but-not-run VerificationRun artifact and spawns
+#     **zero** processes.
+#   - The workflow does NOT call `verify result from-run` — a
+#     dry-run is not proof. See
+#     `docs/strategy/verification-runner-v1-decision.md` step
+#     3 for the contract.
+#   - `publish proof` / `architecture` / `agent-contract` still
+#     run so the publications + job summary stay current.
 
-name: Rekon Verification
+name: Rekon Verification (dry-run)
 
 on:
   pull_request:
@@ -52,7 +46,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  verify-dry-run:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -75,60 +69,43 @@ jobs:
 
       - name: Resolve latest VerificationPlan
         id: plan
-        # `rekon artifacts latest` is a read-only helper that reads
-        # the local Rekon artifact index. It does not refresh,
-        # execute, publish, or validate by itself.
-        # `--id-only` emits a typed `<type>:<id>` ref;
-        # `--allow-missing` lets the workflow continue (with an
-        # empty output) when no VerificationPlan exists yet.
+        # Read-only helper. Reads the local Rekon artifact index;
+        # does not refresh, execute, publish, or validate.
         run: |
           ID="$(node packages/cli/dist/index.js artifacts latest \
             --root . --type VerificationPlan --id-only --allow-missing)"
           echo "ref=$ID" >> "$GITHUB_OUTPUT"
           echo "id=${ID#VerificationPlan:}" >> "$GITHUB_OUTPUT"
 
-      - name: Rekon verify run (execute)
-        # The runner enforces shell:false, a scrubbed env,
-        # per-command + per-plan timeouts, bounded redacted log
-        # excerpts, and sha256 stream digests. To preview without
-        # spawning processes, swap `--execute` for `--dry-run`.
+      - name: Rekon verify run (dry-run)
         if: steps.plan.outputs.id != ''
+        # Dry-run validates each plan command against the safety
+        # contract (rejects shell-control operators, command
+        # substitution, env-assignment prefixes, newlines, empty
+        # commands) and writes a planned-but-not-run
+        # VerificationRun. **No process is spawned.** Swap for
+        # the execute workflow only after reviewing the plan's
+        # commands.
         run: |
           node packages/cli/dist/index.js verify run \
             --root . \
             --plan "${{ steps.plan.outputs.id }}" \
-            --execute \
+            --dry-run \
             --json > .rekon/verify-run.json
 
       - name: Resolve latest VerificationRun
         id: run
         if: steps.plan.outputs.id != ''
-        # Same read-only helper. Reads the artifact index after
-        # the execute step wrote the VerificationRun.
         run: |
           ID="$(node packages/cli/dist/index.js artifacts latest \
             --root . --type VerificationRun --id-only --allow-missing)"
           echo "ref=$ID" >> "$GITHUB_OUTPUT"
           echo "id=${ID#VerificationRun:}" >> "$GITHUB_OUTPUT"
 
-      - name: Rekon verify result from-run
-        if: steps.run.outputs.id != ''
-        run: |
-          node packages/cli/dist/index.js verify result from-run \
-            --root . \
-            --run "${{ steps.run.outputs.id }}" \
-            --json
-
-      - name: Resolve latest VerificationResult
-        id: result
-        if: steps.run.outputs.id != ''
-        # `verify result from-run` writes a VerificationResult
-        # citing the VerificationRun. We resolve the ref here so
-        # the job summary can cite it.
-        run: |
-          ID="$(node packages/cli/dist/index.js artifacts latest \
-            --root . --type VerificationResult --id-only --allow-missing)"
-          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+      # Intentionally omitted in dry-run: `verify result
+      # from-run`. A dry-run is not proof — the helper refuses
+      # `not-run` runs by default. See
+      # docs/concepts/verification-runs.md.
 
       - name: Rekon publish proof
         if: always()
@@ -145,10 +122,6 @@ jobs:
       - name: Rekon artifacts validate
         id: validate
         if: always()
-        # `artifacts validate` exits non-zero when the index has
-        # issues. We capture the JSON `valid` field so the job
-        # summary can render it explicitly while still letting the
-        # workflow continue to upload artifacts on failure.
         run: |
           OUTPUT="$(node packages/cli/dist/index.js artifacts validate --root . --json || true)"
           echo "$OUTPUT"
@@ -158,8 +131,6 @@ jobs:
       - name: Resolve latest proof-report Publication
         id: proof
         if: always()
-        # Same read-only helper; `--kind proof-report` filters by
-        # Publication body kind without reading every artifact.
         run: |
           ID="$(node packages/cli/dist/index.js artifacts latest \
             --root . --type Publication --kind proof-report \
@@ -187,18 +158,18 @@ jobs:
       - name: Append summary to job summary
         if: always()
         # GitHub Actions writes anything appended to
-        # `$GITHUB_STEP_SUMMARY` to the job's summary page. No API
-        # permissions required; the file is on the runner
-        # filesystem. The job summary is a downstream surface, not
-        # canonical proof.
+        # `$GITHUB_STEP_SUMMARY` to the job's summary page. No
+        # API permissions required; the file is on the runner
+        # filesystem. The job summary is a downstream surface,
+        # not canonical proof.
         run: |
           {
             echo "# Rekon Verification Summary"
             echo ""
-            echo "- Mode: execute"
+            echo "- Mode: dry-run"
             echo "- VerificationPlan: ${{ steps.plan.outputs.ref || 'missing' }}"
             echo "- VerificationRun: ${{ steps.run.outputs.ref || 'missing' }}"
-            echo "- VerificationResult: ${{ steps.result.outputs.ref || 'missing' }}"
+            echo "- VerificationResult: not produced (dry-run is not proof)"
             echo "- Proof report: ${{ steps.proof.outputs.ref || 'missing' }}"
             echo "- Architecture summary: ${{ steps.arch.outputs.ref || 'missing' }}"
             echo "- Agent contract: ${{ steps.contract.outputs.ref || 'missing' }}"
@@ -216,11 +187,11 @@ jobs:
 
       - name: Upload Rekon artifacts
         if: always()
-        # Uploads `.rekon/artifacts` as the canonical proof record
-        # for this CI run. `.log` files are excluded explicitly as
-        # belt-and-braces; the Rekon runner's redaction +
-        # truncation contract already keeps raw stdout/stderr out
-        # of the artifact bodies.
+        # Uploads `.rekon/artifacts` as the canonical proof
+        # record for this CI run. `.log` files are excluded
+        # explicitly as belt-and-braces; the Rekon runner's
+        # redaction + truncation contract already keeps raw
+        # stdout/stderr out of artifact bodies.
         uses: actions/upload-artifact@v4
         with:
           name: rekon-artifacts

@@ -803,16 +803,96 @@ slices:
      missing `--type` rejection, and
      `--id-only` missing case.
 
-4. **Job-summary publisher (optional).**
-   Add either a `--summary-only` flag on
-   `rekon publish proof` (writes a tighter
-   summary suitable for
-   `$GITHUB_STEP_SUMMARY`) or a dedicated
-   `rekon publish job-summary` command.
-   The body still comes from the existing
-   classifier output; this is shaping, not
-   new content. Optional — the alpha
-   template works without it.
+4. **Workflow hardening v2 (dry-run
+   variant + richer job summary +
+   troubleshooting).** ✅ Shipped.
+   - New copyable workflow at
+     [`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml).
+     Same safety contract as the execute
+     variant (`permissions: contents:
+     read`, no secrets, no
+     `pull_request_target`, no GitHub
+     API writes,
+     `actions/upload-artifact` of
+     `.rekon/artifacts/**` excluding
+     `.log`, `retention-days: 7`) but
+     runs `rekon verify run --dry-run`
+     instead of `--execute`. The
+     workflow does **not** call
+     `verify result from-run` because
+     a dry-run is not proof.
+   - Execute workflow hardened with
+     extended `rekon artifacts latest`
+     lookups for `VerificationResult`,
+     `Publication --kind
+     architecture-summary`, and
+     `Publication --kind agent-contract`
+     so the job summary cites every
+     refresh-loop publication ref by
+     id, not just the proof-report.
+   - Both job summaries now include an
+     explicit `Mode:
+     execute|dry-run` line, an
+     `Artifacts valid: true|false`
+     line (captured from
+     `rekon artifacts validate --json`),
+     and rows for every publication
+     ref. The dry-run summary states
+     `VerificationResult: not produced
+     (dry-run is not proof)`.
+   - Operator guide
+     [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+     gains a new "Adoption — copy the
+     dry-run template first" section
+     near the top and an expanded
+     Troubleshooting section with 10
+     items (each carrying **Likely
+     cause** / **Safe next step** /
+     **Do not**). Covers: no
+     `VerificationPlan` found, failed
+     verification command, dry-run
+     produced run-only,
+     `verify result from-run` refusal,
+     artifacts validate failed,
+     artifacts upload missing, forked
+     PR needs secrets, stale-proof
+     summary, scrubbed-env spawn
+     failures, job-summary not
+     rendering, and the green-badge-as-
+     completion antipattern.
+   - **Still no GitHub API writes.**
+     **Still no first-party Check / PR
+     comment publisher.**
+   - 23 docs-only assertions in
+     `tests/docs/verification-runner-github-actions-hardening.test.mjs`
+     pin the dry-run YAML's existence,
+     both workflows' permission +
+     fork-safety contract, the
+     `--dry-run` / `--execute` split,
+     both workflows' adoption of the
+     latest-artifact helper, the
+     upload path + `.log` exclusion +
+     `retention-days: 7` +
+     `$GITHUB_STEP_SUMMARY`, the
+     adoption-first language, the
+     three anchor statements (canonical
+     truth, artifacts canonical, fork
+     secrets), three troubleshooting
+     items (no plan, failed command,
+     forked-PR secrets), the CHANGELOG
+     mention, and the review packet's
+     `PURPOSE PRESERVATION CHECK`.
+
+   A dedicated `--summary-only` flag on
+   `rekon publish proof` (or a new
+   `rekon publish job-summary` command)
+   may still land later if the embedded
+   proof-report markdown becomes too
+   large; for alpha, the existing
+   proof-report Markdown is already
+   compact and fits comfortably in
+   GitHub's ~1 MB
+   `$GITHUB_STEP_SUMMARY` limit.
 
 5. **GitHub Check publisher (beta).** A
    first-party publisher / capability that
