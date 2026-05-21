@@ -304,27 +304,73 @@ test("readiness allows fork with explicit forkOverride", () => {
 });
 
 // ---------- read-only / network-free invariant ----------
+//
+// The skeleton's pure helpers (`buildGitHubCheckPayload` and
+// `assessGitHubCheckPublisherReadiness`) must never import a
+// third-party network client or pull in GitHub SDKs. Step 6c
+// added `publishGitHubCheckRun`, which uses Node's built-in
+// `fetch` (no third-party dependency). The invariant for the
+// skeleton is therefore narrower than "no fetch in the file":
+// only forbidden THIRD-PARTY network clients / GitHub SDKs.
+//
+// The send-mode contract test
+// (`github-check-publisher-send-cli.test.mjs`) scans the CLI
+// source separately to prove `fetch` and `process.env.GITHUB_TOKEN`
+// reads stay inside the `--send` branch.
 
-test("the skeleton module imports no network client or GitHub SDK", async () => {
+test("the skeleton module imports no third-party network client or GitHub SDK", async () => {
   const sourcePath = resolve(repoRoot, "packages/capability-docs/src/index.ts");
   const source = await readFile(sourcePath, "utf8");
-  const forbidden = [
+
+  // Strip comments + string literals so the scan only catches
+  // real code references (comments may discuss forbidden names
+  // without using them).
+  let code = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  code = code.replace(/\/\/[^\n]*/g, "");
+  code = code.replace(/`(?:\\.|[^`\\])*`/g, "``");
+  code = code.replace(/'(?:\\.|[^'\\])*'/g, "''");
+  code = code.replace(/"(?:\\.|[^"\\])*"/g, '""');
+
+  // Only third-party modules; built-in `fetch` is allowed for the
+  // step-6c `publishGitHubCheckRun` helper.
+  for (const moduleSpec of [
     "@octokit/",
+    "@actions/github",
     "octokit",
     "node-fetch",
-    "got",
     "axios",
     "undici",
-    "https.request",
-    "http.request",
-    "fetch(",
-    "new Request(",
-  ];
-  for (const token of forbidden) {
+  ]) {
+    const escaped = moduleSpec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const importRegex = new RegExp(`from\\s+["']${escaped}|require\\s*\\(\\s*["']${escaped}`);
     assert.equal(
-      source.includes(token),
+      importRegex.test(code),
       false,
-      `capability-docs/src/index.ts must not reference ${token} (would imply a network client landed in the skeleton slice)`,
+      `capability-docs must not import ${moduleSpec} (would imply a third-party network client landed)`,
+    );
+  }
+
+  // `got` only as an import; the word appears in legitimate
+  // English text elsewhere.
+  assert.equal(
+    /from\s+["']got["']|require\s*\(\s*["']got["']\)/.test(code),
+    false,
+    "capability-docs must not import the `got` HTTP client",
+  );
+
+  // Direct call-sites of low-level network primitives stay
+  // forbidden in the skeleton. The send helper uses Node's
+  // built-in `fetch`, which is permitted; raw `http.request` /
+  // `https.request` and `new Request(` are not.
+  for (const pattern of [
+    /https\s*\.\s*request\s*\(/,
+    /http\s*\.\s*request\s*\(/,
+    /new\s+Request\s*\(/,
+  ]) {
+    assert.equal(
+      pattern.test(code),
+      false,
+      `capability-docs must not match ${pattern} (would imply a manual low-level request handler instead of fetch)`,
     );
   }
 });

@@ -418,9 +418,17 @@ This batch ships **step 6a** of the sequence below. Steps
    network client; readiness `ready: false` is exit 0
    (not a CLI failure), and missing / malformed local
    artifacts is exit 1.
-6. **GitHub API call (step 6c).** Future slice. Adds the
-   `octokit` (or equivalent) dependency under a dedicated
-   import path. Gated by the readiness gate.
+6. **GitHub API call (step 6c).** ✅ Shipped. Adds the
+   `publishGitHubCheckRun(input)` helper in
+   `@rekon/capability-docs` and the
+   `rekon publish github-check --send --json` CLI mode.
+   The helper uses Node's built-in `fetch`; no
+   third-party network client is added. The CLI's
+   `--send` branch is the **only** path that reads
+   `GITHUB_TOKEN` from `process.env`; the `--dry-run`
+   branch remains token-free and network-free. See
+   "API implementation pin" below for the full
+   contract.
 7. **PR comment publisher (step 7).** Future slice.
 8. **Cross-CI documentation (step 8).** Future slice.
 
@@ -479,3 +487,137 @@ covers:
 12. The CHANGELOG mentions the decision / skeleton.
 13. The review packet exists and contains
     `PURPOSE PRESERVATION CHECK`.
+
+## API Implementation Pin (Step 6c)
+
+This section pins the **API implementation contract** the
+step-6c slice ships against. Every decision below is a
+gate: weakening any of them is a stop condition for future
+work.
+
+### 1. Which token is supported in v1?
+
+- **Only `GITHUB_TOKEN` from `process.env`.** No PAT
+  support in v1. The token is the Actions-provided
+  ephemeral token in normal use; arbitrary classic /
+  fine-grained PAT names are explicitly out of scope.
+- The token is read **only** in the `--send` branch.
+  The `--dry-run` branch passes an explicitly empty `env`
+  to the readiness assessor and never references the
+  token.
+- The token is **never echoed** in error messages, log
+  lines, or JSON output. The `Authorization` header is
+  set inside the helper; the helper does not return the
+  token in its result.
+
+### 2. Which CLI flag sends the Check?
+
+- `rekon publish github-check --send [--root <path>]
+  [--api-base-url <url>] [--confirm-checks-write] [--json]`.
+- `--dry-run` and `--send` are **mutually exclusive**;
+  passing both is exit 1.
+- Passing **neither** is exit 1 (the previous "default to
+  refuse" behaviour from step 6b).
+- `--api-base-url` overrides the default
+  `https://api.github.com` (used by tests pointing at a
+  local node:http server; also lets future GHES adopters
+  point at an enterprise instance).
+
+### 3. Which readiness issues block sending?
+
+`--send` requires `assessGitHubCheckPublisherReadiness`
+to return `ready: true`. All of these issues block:
+
+- `not-enabled` (no `REKON_GITHUB_CHECKS=1`/`true`).
+- `missing-token` (no `GITHUB_TOKEN`).
+- `missing-repository` (no `GITHUB_REPOSITORY`).
+- `missing-sha` (no head SHA).
+- `untrusted-event` (`pull_request_target` is rejected
+  unconditionally; forked `pull_request` is rejected by
+  default).
+- `write-permission-not-confirmed`. Confirmation is
+  declared via **either**:
+  - the CLI flag `--confirm-checks-write`, OR
+  - the env var `REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1`
+    (`true` is also accepted).
+
+### 4. Which GitHub event contexts are trusted?
+
+The send branch resolves the event from
+`process.env.GITHUB_EVENT_NAME` and (for pull-requests)
+from `GITHUB_EVENT_REPOSITORY_FORK`:
+
+- `workflow_dispatch` — **trusted**.
+- `push` — **trusted**.
+- `pull_request` from the same repository — **trusted**.
+- `pull_request` from a **fork** — **rejected by
+  default**. Bypass requires the explicit
+  `forkOverride: true` flag on the readiness assessor,
+  which the CLI does **not** expose in this slice. The
+  forked-PR path stays closed for v1.
+- `pull_request_target` — **rejected unconditionally**.
+  Even with future overrides, the CLI's readiness gate
+  refuses.
+
+If `GITHUB_EVENT_NAME` is unset, the CLI falls back to
+`workflow_dispatch` (treated as trusted) — this matches
+the operator running `rekon publish github-check --send`
+manually outside of Actions.
+
+### 5. What response data is stored or printed?
+
+When the API call succeeds:
+
+- The CLI prints
+  `{ kind: "rekon.github-check.send", sent: true,
+  payload, readiness, github, canonicalTruthReminder }`.
+- `github` contains:
+  - `id` (the GitHub Check Run id, when present),
+  - `url` (the API URL of the Check Run),
+  - `htmlUrl` (the human-readable URL,
+    surfaced for reviewers),
+  - `status` (the GitHub-reported status; usually
+    `"completed"`),
+  - `conclusion` (the GitHub-reported conclusion;
+    mirrors the payload's conclusion).
+- The CLI **does not write a Rekon artifact**. The
+  GitHub Check is a downstream surface; the canonical
+  artifacts (`VerificationResult`, `VerificationRun`,
+  Publications) remain untouched.
+
+When the API call fails (non-2xx):
+
+- The CLI exits 1.
+- The error message includes `status`, `message`, and
+  `documentation_url` (when GitHub returns them).
+- The error message **never includes the token**.
+
+When the API call succeeds but the payload's
+`conclusion` is `failure` / `timed_out` /
+`action_required`:
+
+- The CLI still exits **0**. The CLI operation
+  succeeded; the proof status is reported through the
+  payload (as it is in dry-run).
+
+### 6. What is the rollback / disable mechanism?
+
+- **Unset `REKON_GITHUB_CHECKS`.** The readiness gate
+  fails with `not-enabled` and the CLI refuses to send.
+  This is the immediate per-workflow disable.
+- **Unset `REKON_GITHUB_CHECKS_WRITE_CONFIRMED`** (and
+  drop `--confirm-checks-write`). The readiness gate
+  fails with `write-permission-not-confirmed`. This is
+  the per-run disable.
+- **Revoke `checks: write`** in the consuming
+  workflow's `permissions:` block. GitHub will return a
+  403 on the API call, which the CLI surfaces (exit 1)
+  without leaking the token.
+- **Drop the call from the workflow.** The default
+  bundled templates do not call
+  `publish github-check --send`; opt-in is per-operator
+  per-workflow.
+
+The Rekon repo's own `.github/workflows/` directory
+remains empty in this slice. The send command is wired
+in via operator-copied workflows only.

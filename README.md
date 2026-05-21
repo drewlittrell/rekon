@@ -194,10 +194,20 @@ node packages/cli/dist/index.js verify github-workflow validate --path docs/exam
 # report, architecture summary, agent contract), calls the shared
 # helpers, and prints
 # `{ kind, dryRun, payload, readiness, canonicalTruthReminder }`
-# as JSON. The CLI never reads `GITHUB_TOKEN` / `GH_TOKEN` and
-# never calls GitHub; the actual API write lives in a future
-# slice.
+# as JSON. The dry-run branch never reads `GITHUB_TOKEN` or
+# `GH_TOKEN` and never calls GitHub.
 node packages/cli/dist/index.js publish github-check --dry-run --root examples/simple-js-ts --json
+# A gated send CLI lives at `rekon publish github-check --send
+# [--root <path>] [--confirm-checks-write] [--api-base-url <url>]
+# [--json]`. This is the FIRST GitHub-write surface in Rekon.
+# It is default-deny: readiness must pass
+# (REKON_GITHUB_CHECKS=1, GITHUB_TOKEN, GITHUB_REPOSITORY,
+# GITHUB_SHA, trusted event, explicit --confirm-checks-write OR
+# REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1). Forked PRs are denied
+# by default; pull_request_target is denied unconditionally.
+# The token never appears in error messages. See
+# docs/strategy/verification-runner-github-check-publisher-decision.md
+# for the full safety contract.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

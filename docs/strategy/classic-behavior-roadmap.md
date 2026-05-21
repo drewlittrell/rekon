@@ -4451,19 +4451,130 @@ scope:
 
   **Recommended next slice:**
   **verification runner GitHub Check
-  publisher API write** (step 6c) —
-  the actual GitHub Checks API call,
-  behind the readiness gate from
-  step 6a, with its own decision
-  memo + review packet. Adds the
-  first network-client dependency
-  in Rekon; will require explicit
-  scope, mocked-HTTP contract tests,
-  and a per-installation override
-  for fork-safe deployment.
+  publisher API write** (step 6c).
+  **Shipped next; see the entry
+  below.**
+- **Verification runner GitHub Check
+  publisher send mode (P1.1
+  github-check-publisher-send slice).**
+  ✅ Shipped. **Step 6c** of the CI /
+  GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the API implementation pin in
+  [`docs/strategy/verification-runner-github-check-publisher-decision.md`](verification-runner-github-check-publisher-decision.md).
+  CLI + helper + tests + docs batch.
+  **First GitHub-write surface in
+  Rekon.** Default-deny gated. No
+  active workflow in the Rekon repo.
+  No GitHub write permissions added
+  to any bundled template. No
+  artifact-shape change.
 
-  No active workflow. No GitHub API
-  calls. No artifact-shape change. No
+  **New helper in
+  `@rekon/capability-docs`:**
+  - `publishGitHubCheckRun(input)` —
+    POSTs to
+    `/repos/{owner}/{repo}/check-runs`
+    via Node's built-in `fetch`. Sets
+    `Authorization: Bearer <token>`,
+    `Accept: application/vnd.github+json`,
+    `X-GitHub-Api-Version`,
+    `User-Agent`, and
+    `Connection: close` so CLI exits
+    promptly. Maps camelCase payload
+    to snake_case body. Returns
+    `{ id, url, htmlUrl, status,
+    conclusion }`. Throws
+    `GitHubCheckPublishError` on
+    non-2xx — **never** echoes the
+    token.
+
+  **New CLI mode:** `rekon publish
+  github-check --send [--root <path>]
+  [--confirm-checks-write]
+  [--api-base-url <url>] [--json]`.
+  Mutually exclusive with `--dry-run`;
+  passing both is exit 1, passing
+  neither is exit 1. The **only** CLI
+  branch that reads
+  `process.env.GITHUB_TOKEN`. Refuses
+  unless `assessGitHubCheckPublisherReadiness`
+  returns `ready: true`. Forked PRs
+  denied by default
+  (`REKON_GITHUB_CHECKS_PR_IS_FORK=0`
+  required to declare same-repo);
+  `pull_request_target` denied
+  unconditionally. Write-permission
+  confirmation required via
+  `--confirm-checks-write` flag or
+  `REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1`
+  env var. Exit 0 on API success
+  even when the Check conclusion is
+  `failure` / `timed_out` /
+  `action_required`; exit 1 on
+  readiness failure or API error
+  with sanitized message
+  (`{ status, message,
+  documentationUrl? }` — token
+  never appears).
+
+  **Updated dry-run safety contract:**
+  the previous step-6b source-scan
+  for `GITHUB_TOKEN` reads + network-
+  client imports is replaced with
+  behavioural tests proving the
+  dry-run branch reads no token and
+  makes no network call.
+
+  **Tests:** new contract suite
+  `tests/contract/github-check-publisher-send-cli.test.mjs`
+  (19 tests). Uses a local
+  `node:http` fake server +
+  `--api-base-url` to redirect the
+  CLI's request without contacting
+  real GitHub. Tests use async
+  `spawn` (not `spawnSync`) so the
+  fake server's event loop keeps
+  ticking while the CLI runs. New
+  docs suite
+  `tests/docs/github-check-publisher-send.test.mjs`
+  (10 assertions). Full suite
+  expected ≥ 1294 passed / 1
+  skipped.
+
+  **Docs:** 9 updated (decision memo
+  — step 6c flipped to ✅ + new "API
+  Implementation Pin" section; CI /
+  GitHub adapter memo — step 6c
+  flipped to ✅; operator guide —
+  Check publisher paragraph extended
+  with an optional commented opt-in
+  block; this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  — step 48 flipped to ✅).
+  `README.md` and `CHANGELOG.md`
+  updated. New review packet
+  `.rekon-dev/review-packets/github-check-publisher-send.md`.
+
+  **Recommended next slice:**
+  **verification runner GitHub
+  Check publisher opt-in workflow
+  template** — a separate
+  `docs/examples/workflows/rekon-verification-check-send.yml`
+  variant that documents the safe
+  wiring for `--send` so operators
+  don't have to assemble it from
+  the operator guide. Still under
+  `docs/examples/`, never
+  `.github/workflows/`. After that,
+  **step 7** (PR comment publisher,
+  beta+) becomes the next bigger
+  slice.
+
+  No active workflow. No GitHub
+  Check API call by default. No
+  artifact-shape change. No
   `schemaVersion` bump. No
   `FindingStatusLedger` /
   `FindingLifecycleReport` /

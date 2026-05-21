@@ -4577,3 +4577,225 @@ export function buildGitHubCheckPayload(
     citedRefs,
   };
 }
+
+// ---------------------------------------------------------------
+// GitHub Check publisher API client (step 6c) — guarded write.
+//
+// `publishGitHubCheckRun(input)` POSTs a Check Run to GitHub's
+// `/repos/{owner}/{repo}/check-runs` endpoint using Node's
+// built-in `fetch`. No third-party network client is added.
+//
+// The helper:
+// - never echoes the token in error messages or results,
+// - never logs the token,
+// - maps the camelCase payload into GitHub's snake_case body,
+// - returns a compact `{ id, url, htmlUrl, status, conclusion }`
+//   result on success,
+// - throws a `GitHubCheckPublishError` with `status`, `message`,
+//   and `documentationUrl` on non-2xx responses.
+//
+// The send path is gated by `assessGitHubCheckPublisherReadiness`
+// from the call-site (the CLI). This helper has no opinion on
+// readiness — it just performs the POST when called.
+// ---------------------------------------------------------------
+
+export const GITHUB_CHECK_PUBLISHER_DEFAULT_API_BASE_URL = "https://api.github.com";
+export const GITHUB_CHECK_PUBLISHER_DEFAULT_API_VERSION = "2022-11-28";
+export const GITHUB_CHECK_PUBLISHER_USER_AGENT = "rekon-verification-runner";
+
+export type GitHubCheckPublishInput = {
+  /**
+   * GitHub token used to authenticate. Must be non-empty.
+   * Typically the `GITHUB_TOKEN` provided by Actions.
+   */
+  token: string;
+  /**
+   * `<owner>/<repo>` slug. Must be non-empty.
+   */
+  repository: string;
+  /**
+   * Payload built by `buildGitHubCheckPayload`.
+   */
+  payload: GitHubCheckPayload;
+  /**
+   * Overrides the default API base URL
+   * (`https://api.github.com`). Tests use this to point at a
+   * local node:http server. GHES adopters could also point at
+   * their enterprise instance.
+   */
+  apiBaseUrl?: string;
+  /**
+   * Overrides the default user agent.
+   */
+  userAgent?: string;
+};
+
+export type GitHubCheckPublishResult = {
+  id?: number;
+  url?: string;
+  htmlUrl?: string;
+  status?: string;
+  conclusion?: string;
+};
+
+/**
+ * Thrown when GitHub responds with a non-2xx status.
+ * Carries the response status, message, and (when present)
+ * documentation URL. **Never** carries the token.
+ */
+export class GitHubCheckPublishError extends Error {
+  readonly status: number;
+  readonly documentationUrl?: string;
+
+  constructor(input: { status: number; message: string; documentationUrl?: string }) {
+    super(input.message);
+    this.name = "GitHubCheckPublishError";
+    this.status = input.status;
+    this.documentationUrl = input.documentationUrl;
+  }
+}
+
+function ensureNonEmptyString(value: string, fieldLabel: string): string {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    throw new GitHubCheckPublishError({
+      status: 0,
+      message: `publishGitHubCheckRun requires a non-empty ${fieldLabel}.`,
+    });
+  }
+  return trimmed;
+}
+
+function mapPayloadToGitHubRequestBody(payload: GitHubCheckPayload): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    name: payload.name,
+    status: payload.status,
+    conclusion: payload.conclusion,
+    output: {
+      title: payload.output.title,
+      summary: payload.output.summary,
+    },
+  };
+  if (payload.headSha) body.head_sha = payload.headSha;
+  if (payload.externalId) body.external_id = payload.externalId;
+  if (payload.output.text) {
+    (body.output as Record<string, unknown>).text = payload.output.text;
+  }
+  return body;
+}
+
+async function readResponseBodySafely(response: Response): Promise<string> {
+  // Read up to ~64 KiB of response body so an unbounded GitHub
+  // error doesn't fill the operator's terminal. Never include the
+  // request token in the result; it isn't in the response anyway,
+  // but the bound stays so a misbehaving proxy can't echo it back
+  // without us noticing.
+  const text = await response.text();
+  return text.length > 64 * 1024 ? `${text.slice(0, 64 * 1024)}… [truncated]` : text;
+}
+
+function pickStringField(value: unknown, ...keys: string[]): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function pickNumberField(value: unknown, key: string): number | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === "number" ? candidate : undefined;
+}
+
+/**
+ * POST a GitHub Check Run from a Rekon payload. The caller is
+ * responsible for gating this via
+ * `assessGitHubCheckPublisherReadiness`. This helper never echoes
+ * the token in errors, returns no Rekon-artifact mutation, and
+ * uses Node's built-in `fetch` (no third-party client).
+ */
+export async function publishGitHubCheckRun(
+  input: GitHubCheckPublishInput,
+): Promise<GitHubCheckPublishResult> {
+  const token = ensureNonEmptyString(input.token, "token");
+  const repository = ensureNonEmptyString(input.repository, "repository");
+  const apiBaseUrl = (input.apiBaseUrl ?? GITHUB_CHECK_PUBLISHER_DEFAULT_API_BASE_URL).replace(/\/+$/, "");
+  const userAgent = input.userAgent ?? GITHUB_CHECK_PUBLISHER_USER_AGENT;
+
+  if (!/^[^/]+\/[^/]+$/.test(repository)) {
+    throw new GitHubCheckPublishError({
+      status: 0,
+      message: `publishGitHubCheckRun: repository must be \`owner/repo\` (received ${JSON.stringify(repository)}).`,
+    });
+  }
+
+  const url = `${apiBaseUrl}/repos/${repository}/check-runs`;
+  const body = mapPayloadToGitHubRequestBody(input.payload);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${token}`,
+        "Connection": "close",
+        "Content-Type": "application/json",
+        "User-Agent": userAgent,
+        "X-GitHub-Api-Version": GITHUB_CHECK_PUBLISHER_DEFAULT_API_VERSION,
+      },
+      body: JSON.stringify(body),
+      // Hint Node's undici-based fetch to keep the connection
+      // single-use so CLI invocations exit promptly instead of
+      // waiting for the keep-alive pool to time out.
+      keepalive: false,
+    });
+  } catch (cause) {
+    throw new GitHubCheckPublishError({
+      status: 0,
+      message: `publishGitHubCheckRun: network error contacting GitHub Checks API: ${(cause as Error).message ?? cause}`,
+    });
+  }
+
+  if (!response.ok) {
+    let parsed: unknown;
+    let raw = "";
+    try {
+      raw = await readResponseBodySafely(response);
+      parsed = raw ? JSON.parse(raw) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+    const message = pickStringField(parsed, "message")
+      ?? `GitHub Checks API responded with ${response.status} ${response.statusText || ""}`.trim();
+    const documentationUrl = pickStringField(parsed, "documentation_url", "documentationUrl");
+    throw new GitHubCheckPublishError({
+      status: response.status,
+      message,
+      documentationUrl,
+    });
+  }
+
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch (cause) {
+    throw new GitHubCheckPublishError({
+      status: response.status,
+      message: `publishGitHubCheckRun: GitHub Checks API returned a 2xx response with an unparseable body: ${(cause as Error).message ?? cause}`,
+    });
+  }
+
+  return {
+    id: pickNumberField(json, "id"),
+    url: pickStringField(json, "url"),
+    htmlUrl: pickStringField(json, "html_url", "htmlUrl"),
+    status: pickStringField(json, "status"),
+    conclusion: pickStringField(json, "conclusion"),
+  };
+}

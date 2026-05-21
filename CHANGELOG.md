@@ -5,6 +5,173 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-alpha.1
 
 - Shipped verification runner **GitHub Check
+  publisher send mode** (P1.1
+  github-check-publisher-send slice).
+  **Step 6c** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  and the API implementation pin in
+  [`docs/strategy/verification-runner-github-check-publisher-decision.md`](docs/strategy/verification-runner-github-check-publisher-decision.md).
+  **CLI + helper + tests + docs batch.**
+  Adds the first GitHub-write surface in
+  Rekon, default-deny gated. No active
+  workflow in the Rekon repo. No GitHub
+  write permissions added to any bundled
+  template.
+
+  **New helper in `@rekon/capability-docs`:**
+  - `publishGitHubCheckRun(input)` —
+    POSTs to `/repos/{owner}/{repo}/check-runs`
+    via Node's built-in `fetch` (no
+    third-party network client). Sets
+    `Authorization: Bearer <token>`,
+    `Accept: application/vnd.github+json`,
+    `X-GitHub-Api-Version: 2022-11-28`,
+    `User-Agent: rekon-verification-runner`,
+    and `Connection: close`. Maps the
+    camelCase payload to GitHub's
+    snake_case body
+    (`headSha`→`head_sha`,
+    `externalId`→`external_id`,
+    `output.text` preserved). Returns
+    `{ id, url, htmlUrl, status,
+    conclusion }`. Throws
+    `GitHubCheckPublishError` (with
+    `status`, `message`, `documentationUrl`)
+    on non-2xx; **never** echoes the token
+    in any error message.
+  - New exports:
+    `GITHUB_CHECK_PUBLISHER_DEFAULT_API_BASE_URL`,
+    `GITHUB_CHECK_PUBLISHER_DEFAULT_API_VERSION`,
+    `GITHUB_CHECK_PUBLISHER_USER_AGENT`,
+    `GitHubCheckPublishInput`,
+    `GitHubCheckPublishResult`,
+    `GitHubCheckPublishError`.
+
+  **New CLI mode:**
+  - `rekon publish github-check --send
+    [--root <path>] [--confirm-checks-write]
+    [--api-base-url <url>] [--json]`. The
+    only CLI branch that reads
+    `process.env.GITHUB_TOKEN`. Mutually
+    exclusive with `--dry-run`; passing
+    both is exit 1; passing neither is
+    exit 1.
+  - Reads env: `GITHUB_TOKEN`,
+    `GITHUB_REPOSITORY`, `GITHUB_SHA`,
+    `REKON_GITHUB_CHECKS`,
+    `REKON_GITHUB_CHECKS_WRITE_CONFIRMED`,
+    `GITHUB_EVENT_NAME`,
+    `GITHUB_HEAD_SHA`,
+    `GITHUB_SERVER_URL`, `GITHUB_RUN_ID`,
+    `GITHUB_RUN_ATTEMPT`,
+    `REKON_GITHUB_CHECKS_PR_IS_FORK`.
+  - Write-permission confirmation via
+    `--confirm-checks-write` OR
+    `REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1`.
+  - Refuses unless
+    `assessGitHubCheckPublisherReadiness`
+    returns `ready: true`. Forked PRs are
+    denied by default
+    (`REKON_GITHUB_CHECKS_PR_IS_FORK` must
+    be set to `0` to declare a same-repo
+    PR); `pull_request_target` is denied
+    unconditionally.
+  - On readiness false: exit 1, prints
+    `{ kind: "rekon.github-check.send",
+    sent: false, reason: "readiness-failed",
+    payload, readiness, github: undefined,
+    canonicalTruthReminder }`.
+  - On API success: exit 0, prints
+    `{ kind: "rekon.github-check.send",
+    sent: true, payload, readiness, github,
+    canonicalTruthReminder }`. Exit code is
+    decoupled from the Check
+    conclusion — a `failure` /
+    `timed_out` / `action_required`
+    conclusion still exits 0 because the
+    CLI operation succeeded.
+  - On API error: exit 1, prints
+    `{ sent: false, reason: "api-error",
+    error: { status, message,
+    documentationUrl? } }`. Token never
+    appears in stdout/stderr.
+
+  **Safety contract:**
+  - Token reads are confined to the
+    `--send` branch. Behavioural tests
+    confirm that running `--dry-run` with
+    `GITHUB_TOKEN=<sentinel>` set in env
+    does not surface the sentinel
+    anywhere in output.
+  - Network calls happen only in
+    `publishGitHubCheckRun`, only when
+    readiness is green. Behavioural tests
+    confirm that `--dry-run` makes no
+    network call even with a reachable
+    transport.
+  - Forked PRs are denied by default;
+    `pull_request_target` is denied
+    unconditionally. The CLI does not
+    expose the `forkOverride` escape on
+    the readiness assessor.
+  - Default bundled workflow templates are
+    unchanged: they still declare only
+    `permissions: contents: read` and do
+    not call `publish github-check
+    --send`.
+
+  **Tests:**
+  - New contract suite
+    `tests/contract/github-check-publisher-send-cli.test.mjs`
+    (19 tests). Uses a local `node:http`
+    fake server + `--api-base-url` to
+    redirect the CLI's request without
+    contacting real GitHub. Tests use
+    async `spawn` (not `spawnSync`) so the
+    fake server's event loop keeps
+    ticking while the CLI runs.
+  - Updated
+    `tests/contract/github-check-publisher-dry-run-cli.test.mjs`
+    — the previous source-scan for
+    `GITHUB_TOKEN` and network-client
+    imports in the CLI is replaced with
+    behavioural tests proving dry-run
+    reads no token and makes no network
+    call.
+  - New docs suite
+    `tests/docs/github-check-publisher-send.test.mjs`
+    (10 assertions). Pins memo / operator
+    guide language, env var requirements,
+    fork-safety / pull-request-target
+    rejection, canonical-truth language,
+    CHANGELOG mention, review-packet
+    PURPOSE PRESERVATION CHECK.
+
+  **Out-of-scope and explicitly not
+  shipped:**
+  - No `.github/workflows/*.yml` added to
+    the Rekon repo.
+  - No PR comment publisher. Step 7.
+  - No `forkOverride` exposure on the
+    CLI.
+  - No retry / backoff logic on API
+    errors.
+  - No Rekon-artifact write (the
+    `VerificationResult` / `VerificationRun`
+    / Publications are not modified).
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the CLI
+  never sends without explicit opt-in
+  (env + confirm flag both required); the
+  token never appears in error output;
+  the dry-run branch reads no token and
+  calls no network; GitHub status is
+  described as a downstream surface, not
+  canonical truth.
+
+- Shipped verification runner **GitHub Check
   publisher dry-run CLI** (P1.1
   github-check-publisher-dry-run-cli slice).
   **Step 6b** of the CI / GitHub adapter

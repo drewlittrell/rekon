@@ -6,8 +6,13 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import docsCapability, {
   GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+  GitHubCheckPublishError,
   assessGitHubCheckPublisherReadiness,
   buildGitHubCheckPayload,
+  publishGitHubCheckRun,
+  type GitHubCheckPublishResult,
+  type GitHubCheckPublisherReadiness,
+  type GitHubCheckPublisherReadinessEvent,
   type GitHubCheckPublisherRunStatus,
 } from "@rekon/capability-docs";
 import graphCapability from "@rekon/capability-graph";
@@ -331,32 +336,43 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "publish" && subcommand === "github-check") {
-    // Step 6b of the CI / GitHub adapter implementation
-    // sequence pinned by
-    // docs/strategy/verification-runner-ci-github-decision.md.
+    // Step 6b (`--dry-run`) and step 6c (`--send`) of the CI /
+    // GitHub adapter implementation sequence pinned by
+    // docs/strategy/verification-runner-ci-github-decision.md
+    // and
+    // docs/strategy/verification-runner-github-check-publisher-decision.md.
     //
-    // **Local-only dry-run.** The command reads local Rekon
-    // verification / proof artifacts, calls the pure helpers
-    // from `@rekon/capability-docs`
-    // (`buildGitHubCheckPayload` +
-    // `assessGitHubCheckPublisherReadiness`), and prints the
-    // resulting Check payload + readiness report as JSON.
+    // The command supports two mutually exclusive modes:
     //
-    // **This command never calls GitHub.** It does not
-    // authenticate, it does not read `GITHUB_TOKEN` or
-    // `GH_TOKEN`, and it imports no network client. It is
-    // strictly artifact-rendering + readiness assessment.
+    // - `--dry-run`: reads local Rekon artifacts, builds the
+    //   payload, prints `{ kind, dryRun, payload, readiness,
+    //   canonicalTruthReminder }`. **Never calls GitHub.**
+    //   **Never reads `GITHUB_TOKEN` or `GH_TOKEN`** — the
+    //   readiness assessor receives an empty env map.
+    // - `--send`: reads local Rekon artifacts AND reads
+    //   `process.env` (GITHUB_TOKEN, GITHUB_REPOSITORY,
+    //   GITHUB_SHA, REKON_GITHUB_CHECKS, event context,
+    //   write-permission confirmation), runs the readiness
+    //   gate, and — only when ready — POSTs to the GitHub
+    //   Checks API via `publishGitHubCheckRun`. Prints
+    //   `{ kind, sent, payload, readiness, github,
+    //   canonicalTruthReminder }`.
     //
-    // The eventual GitHub Check API write lives in step 6c
-    // (a future slice with its own decision memo + review
-    // packet). `--dry-run` is **required** in this slice so
-    // operators cannot accidentally invoke a not-yet-built
-    // publish path.
+    // Exactly one of `--dry-run` / `--send` is required;
+    // passing both is exit 1. The send path NEVER leaks the
+    // token in error messages.
     const dryRun = parsed.flags["dry-run"] === true;
+    const send = parsed.flags["send"] === true;
 
-    if (!dryRun) {
+    if (!dryRun && !send) {
       throw new Error(
-        "rekon publish github-check requires --dry-run. The actual GitHub Check write is not yet implemented (step 6c). See docs/strategy/verification-runner-github-check-publisher-decision.md.",
+        "rekon publish github-check requires either --dry-run or --send. See docs/strategy/verification-runner-github-check-publisher-decision.md.",
+      );
+    }
+
+    if (dryRun && send) {
+      throw new Error(
+        "rekon publish github-check: --dry-run and --send are mutually exclusive. Choose exactly one.",
       );
     }
 
@@ -423,13 +439,64 @@ export async function main(argv: string[]): Promise<void> {
     const indexValidation = await validateArtifactIndex(store);
     const artifactsValid = indexValidation.valid;
 
-    // Build the payload via the shared helper — the CLI must
-    // not reimplement the conclusion-mapping precedence.
+    if (dryRun) {
+      // Dry-run branch: **no token read, no network call.**
+      // Readiness uses an explicitly empty env map so
+      // `GITHUB_TOKEN` is never consulted.
+      const payload = buildGitHubCheckPayload({
+        config: { enabled: false, runUrl: undefined },
+        verificationResult,
+        verificationResultRef,
+        verificationRun: verificationRunForPayload,
+        verificationRunRef,
+        verificationPlanRef,
+        proofReportRef,
+        architectureSummaryRef,
+        agentContractRef,
+        artifactsValid,
+      });
+
+      const readiness = assessGitHubCheckPublisherReadiness({
+        env: {},
+        event: { name: "workflow_dispatch" },
+        writePermissionConfirmed: false,
+      });
+
+      const output: GitHubCheckDryRunOutput = {
+        kind: "rekon.github-check.dry-run",
+        dryRun: true,
+        payload,
+        readiness,
+        canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+      };
+
+      writeOutput(output, json);
+      return;
+    }
+
+    // Send branch (`--send`) — step 6c.
+    //
+    // Below is the **only** code path in the CLI that reads
+    // `process.env.GITHUB_TOKEN`. The dry-run branch never
+    // reaches this code.
+    const sendEnv = collectGitHubCheckSendEnv(process.env);
+    const event = resolveGitHubCheckEventFromEnv(process.env);
+    const confirmFlag = parsed.flags["confirm-checks-write"] === true;
+    const envConfirm = isTruthyFlag(process.env.REKON_GITHUB_CHECKS_WRITE_CONFIRMED);
+    const writePermissionConfirmed = confirmFlag || envConfirm;
+    const apiBaseUrl = typeof parsed.flags["api-base-url"] === "string"
+      ? parsed.flags["api-base-url"] as string
+      : undefined;
+
+    const config = {
+      enabled: true,
+      repository: sendEnv.GITHUB_REPOSITORY,
+      headSha: sendEnv.GITHUB_SHA,
+      runUrl: buildGitHubActionsRunUrl(process.env),
+    };
+
     const payload = buildGitHubCheckPayload({
-      config: {
-        enabled: false,
-        runUrl: undefined,
-      },
+      config,
       verificationResult,
       verificationResultRef,
       verificationRun: verificationRunForPayload,
@@ -441,26 +508,91 @@ export async function main(argv: string[]): Promise<void> {
       artifactsValid,
     });
 
-    // Readiness assessment uses an explicitly empty env map.
-    // This slice does NOT read `process.env.GITHUB_TOKEN` /
-    // `process.env.GH_TOKEN` (nor `REKON_GITHUB_CHECKS`,
-    // `GITHUB_REPOSITORY`, `GITHUB_SHA`) — operators wiring
-    // the publisher into CI will pass those values
-    // explicitly in the next slice's API-call command. For
-    // the local dry-run we surface the gated-default-deny
-    // readiness shape so operators see exactly which gates
-    // remain.
     const readiness = assessGitHubCheckPublisherReadiness({
-      env: {},
-      event: { name: "workflow_dispatch" },
-      writePermissionConfirmed: false,
+      env: sendEnv,
+      event,
+      writePermissionConfirmed,
     });
 
-    const output: GitHubCheckDryRunOutput = {
-      kind: "rekon.github-check.dry-run",
-      dryRun: true,
+    if (!readiness.ready) {
+      // No network call. The readiness payload includes the
+      // issue list so operators can see exactly what is
+      // missing. Exit 1 because the operator asked for
+      // --send and we cannot fulfil it.
+      const output: GitHubCheckSendOutput = {
+        kind: "rekon.github-check.send",
+        sent: false,
+        reason: "readiness-failed",
+        payload,
+        readiness,
+        github: undefined,
+        canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+      };
+
+      writeOutput(output, json);
+
+      if (!json) {
+        process.stderr.write(
+          `rekon publish github-check --send: refusing to publish. Readiness issues:\n${
+            readiness.issues.map((issue) => `  - ${issue.code}: ${issue.message}`).join("\n")
+          }\n`,
+        );
+      }
+
+      process.exitCode = 1;
+      return;
+    }
+
+    if (!payload.headSha) {
+      // Defensive: readiness already required a SHA, but the
+      // payload's headSha is what the API actually uses, so
+      // double-check.
+      process.stderr.write(
+        "rekon publish github-check --send: payload.headSha is empty. Refusing to call the GitHub Checks API.\n",
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    let github: GitHubCheckPublishResult;
+    try {
+      github = await publishGitHubCheckRun({
+        token: sendEnv.GITHUB_TOKEN as string,
+        repository: sendEnv.GITHUB_REPOSITORY as string,
+        payload,
+        apiBaseUrl,
+      });
+    } catch (cause) {
+      const sanitized = sanitizeGitHubCheckSendError(cause);
+      if (json) {
+        const output: GitHubCheckSendOutput = {
+          kind: "rekon.github-check.send",
+          sent: false,
+          reason: "api-error",
+          payload,
+          readiness,
+          github: undefined,
+          error: sanitized,
+          canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+        };
+        writeOutput(output, true);
+      } else {
+        process.stderr.write(
+          `rekon publish github-check --send: GitHub Checks API error (status ${sanitized.status}): ${sanitized.message}\n${
+            sanitized.documentationUrl ? `Docs: ${sanitized.documentationUrl}\n` : ""
+          }`,
+        );
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    const output: GitHubCheckSendOutput = {
+      kind: "rekon.github-check.send",
+      sent: true,
       payload,
       readiness,
+      github,
       canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
     };
 
@@ -3685,6 +3817,101 @@ type GitHubCheckDryRunOutput = {
   canonicalTruthReminder: typeof GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER;
 };
 
+type GitHubCheckSendOutput = {
+  kind: "rekon.github-check.send";
+  sent: boolean;
+  reason?: "readiness-failed" | "api-error";
+  payload: ReturnType<typeof buildGitHubCheckPayload>;
+  readiness: GitHubCheckPublisherReadiness;
+  github?: GitHubCheckPublishResult;
+  error?: { status: number; message: string; documentationUrl?: string };
+  canonicalTruthReminder: typeof GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER;
+};
+
+const GITHUB_CHECK_SEND_ENV_KEYS = [
+  "REKON_GITHUB_CHECKS",
+  "REKON_GITHUB_CHECKS_WRITE_CONFIRMED",
+  "GITHUB_TOKEN",
+  "GITHUB_REPOSITORY",
+  "GITHUB_SHA",
+  "GITHUB_HEAD_SHA",
+  "GITHUB_EVENT_NAME",
+  "GITHUB_SERVER_URL",
+  "GITHUB_RUN_ID",
+  "GITHUB_RUN_ATTEMPT",
+] as const;
+
+function collectGitHubCheckSendEnv(
+  env: NodeJS.ProcessEnv,
+): Record<string, string | undefined> {
+  // Read only the env keys the readiness assessor and the
+  // publish helper need. Keeping this list closed-form means
+  // future env additions are explicit.
+  const out: Record<string, string | undefined> = {};
+  for (const key of GITHUB_CHECK_SEND_ENV_KEYS) {
+    out[key] = env[key];
+  }
+  return out;
+}
+
+function resolveGitHubCheckEventFromEnv(
+  env: NodeJS.ProcessEnv,
+): GitHubCheckPublisherReadinessEvent {
+  const name = env.GITHUB_EVENT_NAME?.trim() || "workflow_dispatch";
+  // GitHub Actions does not surface fork status directly via a
+  // single env var; the standard hint is `GITHUB_HEAD_REF` being
+  // set for pull-request events combined with the event payload
+  // file at `GITHUB_EVENT_PATH`. To stay strict-by-default, the
+  // CLI treats any `pull_request` event without an explicit
+  // operator override as fork-suspicious. The dedicated env var
+  // `REKON_GITHUB_CHECKS_PR_IS_FORK=0` lets operators declare a
+  // same-repo PR; anything else (including unset) is treated as
+  // a fork for the readiness gate.
+  let pullRequestIsFork: boolean | undefined;
+  if (name === "pull_request" || name === "pull_request_target") {
+    const explicit = env.REKON_GITHUB_CHECKS_PR_IS_FORK;
+    if (explicit === undefined) {
+      pullRequestIsFork = true;
+    } else {
+      pullRequestIsFork = isTruthyFlag(explicit);
+    }
+  }
+  return { name, pullRequestIsFork };
+}
+
+function buildGitHubActionsRunUrl(env: NodeJS.ProcessEnv): string | undefined {
+  const server = env.GITHUB_SERVER_URL;
+  const repository = env.GITHUB_REPOSITORY;
+  const runId = env.GITHUB_RUN_ID;
+  if (!server || !repository || !runId) return undefined;
+  const attempt = env.GITHUB_RUN_ATTEMPT;
+  return attempt
+    ? `${server}/${repository}/actions/runs/${runId}/attempts/${attempt}`
+    : `${server}/${repository}/actions/runs/${runId}`;
+}
+
+function isTruthyFlag(value: string | undefined): boolean {
+  if (value === undefined || value === null) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
+}
+
+function sanitizeGitHubCheckSendError(
+  cause: unknown,
+): { status: number; message: string; documentationUrl?: string } {
+  if (cause instanceof GitHubCheckPublishError) {
+    return {
+      status: cause.status,
+      message: cause.message,
+      documentationUrl: cause.documentationUrl,
+    };
+  }
+  if (cause instanceof Error) {
+    return { status: 0, message: cause.message };
+  }
+  return { status: 0, message: String(cause ?? "unknown error") };
+}
+
 async function pickLatestArtifactEntry(
   store: ReturnType<typeof createLocalArtifactStore>,
   artifactType: string,
@@ -5460,6 +5687,7 @@ function usage(): string {
     "rekon publish proof [--root <path>] [--json]",
     "rekon publish agent-contract [--root <path>] [--json]",
     "rekon publish github-check --dry-run [--root <path>] [--json]",
+    "rekon publish github-check --send [--root <path>] [--confirm-checks-write] [--api-base-url <url>] [--json]",
     "rekon agent-contract export --output <path> [--force] [--root <path>] [--json]",
     "rekon publish list [--root <path>] [--json]",
     "rekon publish run <publisher-id> [--root <path>] [--input-json <json>] [--json]",

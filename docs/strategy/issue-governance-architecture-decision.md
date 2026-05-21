@@ -1615,13 +1615,45 @@ review packets unless an ADR promotes them. Promotion requires:
     1 skipped. Still no active workflow
     in `.github/workflows/` of the Rekon
     repo; still no GitHub API calls.
-48. **(future)** Verification runner
-    GitHub Check API write (step 6c).
-    First slice that actually calls the
-    GitHub Checks API, behind the
-    readiness gate from step 46. Requires
-    its own decision memo + review
-    packet.
+48. **Shipped (✅).** Verification runner
+    GitHub Check API write (step 6c) —
+    the first GitHub-write surface in
+    Rekon. Adds the
+    `publishGitHubCheckRun` helper in
+    `@rekon/capability-docs` (POSTs to
+    `/repos/{owner}/{repo}/check-runs`
+    via Node's built-in `fetch`; sets
+    `Connection: close` so CLI exits
+    promptly; throws
+    `GitHubCheckPublishError` with
+    `status` / `message` /
+    `documentationUrl` on non-2xx,
+    **never** echoing the token). Adds
+    the `rekon publish github-check
+    --send [--root <path>]
+    [--confirm-checks-write]
+    [--api-base-url <url>] [--json]`
+    CLI mode, mutually exclusive with
+    `--dry-run`. Token reads are
+    confined to the send branch.
+    Write-permission confirmation via
+    `--confirm-checks-write` or
+    `REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1`.
+    Default-deny readiness; forked PRs
+    denied by default;
+    `pull_request_target` denied
+    unconditionally. Exit 0 on API
+    success even when the Check
+    conclusion is `failure` /
+    `timed_out` / `action_required`;
+    exit 1 on readiness failure or API
+    error with sanitized message.
+    Default bundled workflow templates
+    are unchanged (no `checks: write`,
+    no `--send` invocation). 19
+    contract tests + 10 docs
+    assertions; full suite expected ≥
+    1294 passed / 1 skipped.
 49. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the

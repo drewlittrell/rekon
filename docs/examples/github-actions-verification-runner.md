@@ -184,28 +184,72 @@ the proof-report job summary visible.
 
 - **Does not call the GitHub API.** No
   `octokit`, no `gh`, no REST/GraphQL writes.
-- **Does not create GitHub Checks.** The
-  alpha workflow never writes the Checks API.
-  A first-party GitHub Check publisher is
-  deferred to beta — see the
-  [CI / GitHub adapter decision memo](../strategy/verification-runner-ci-github-decision.md).
-  The first GitHub-write decision memo +
-  gated skeleton ship in
-  [`verification-runner-github-check-publisher-decision.md`](../strategy/verification-runner-github-check-publisher-decision.md):
-  pure helpers
+- **Does not create GitHub Checks by
+  default.** The bundled workflows never
+  write the Checks API. A first-party
+  GitHub Check publisher is gated and
+  beta-tier — see the
+  [CI / GitHub adapter decision memo](../strategy/verification-runner-ci-github-decision.md)
+  and the
+  [GitHub Check publisher decision memo](../strategy/verification-runner-github-check-publisher-decision.md).
+  Pure helpers
   (`buildGitHubCheckPayload`,
   `assessGitHubCheckPublisherReadiness`)
-  that build the payload and gate readiness
-  but **never call GitHub**. Forked PRs are
+  and the network helper
+  (`publishGitHubCheckRun`) live in
+  `@rekon/capability-docs`. Forked PRs are
   untrusted by default, and
   `pull_request_target` is refused
-  unconditionally. The CLI dry-run command
-  `rekon publish github-check --dry-run
-  [--root <path>] [--json]` reads local
-  Rekon artifacts and prints the
-  payload + readiness as JSON — still no
-  GitHub API call. The actual write lives
-  in a future slice (step 6c).
+  unconditionally. The CLI exposes two
+  modes:
+  - `rekon publish github-check --dry-run
+    [--root <path>] [--json]` reads local
+    Rekon artifacts and prints the
+    payload + readiness as JSON. **No
+    token. No network call.**
+  - `rekon publish github-check --send
+    [--root <path>] [--confirm-checks-write]
+    [--api-base-url <url>] [--json]`
+    POSTs the Check Run to GitHub
+    **only** when readiness is green
+    (REKON_GITHUB_CHECKS, GITHUB_TOKEN,
+    GITHUB_REPOSITORY, head SHA, trusted
+    event, and explicit checks-write
+    confirmation).
+
+  **Optional beta-tier opt-in block** (do
+  **not** add this to the default
+  templates without reading the decision
+  memo first). To wire `--send` into your
+  own copied workflow:
+
+  ```yaml
+  # Optional beta-tier opt-in. Adds the FIRST GitHub-write surface
+  # in this workflow. Make sure your workflow declares:
+  #   permissions:
+  #     contents: read
+  #     checks: write
+  # and only set REKON_GITHUB_CHECKS_WRITE_CONFIRMED=1 if you
+  # explicitly want this workflow to publish a GitHub Check Run.
+  # See docs/strategy/verification-runner-github-check-publisher-decision.md.
+  - name: Publish Rekon verification proof as a GitHub Check (beta)
+    if: github.event_name != 'pull_request_target'
+    env:
+      REKON_GITHUB_CHECKS: "1"
+      REKON_GITHUB_CHECKS_WRITE_CONFIRMED: "1"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    run: |
+      node packages/cli/dist/index.js publish github-check \
+        --send --confirm-checks-write --json
+  ```
+
+  Reaching the actual API call requires the
+  operator to opt in via env vars AND the
+  `--confirm-checks-write` flag. The
+  default bundled workflows
+  (`rekon-verification.yml`,
+  `rekon-verification-dry-run.yml`) do
+  **not** include this step.
 - **Does not write PR comments.** No
   `pull-requests: write` permission, no
   comment body, no inline annotations.
