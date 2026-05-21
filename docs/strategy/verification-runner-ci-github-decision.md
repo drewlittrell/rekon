@@ -937,18 +937,36 @@ slices:
    `rekon verify github-workflow
    validate` after copying.
 
-6. **GitHub Check publisher (beta).** A
-   first-party publisher / capability that
-   creates a GitHub Check Run from a
+6. **GitHub Check publisher (beta).** ✅
+   **Decision + gated skeleton shipped.**
+   See
+   [`verification-runner-github-check-publisher-decision.md`](verification-runner-github-check-publisher-decision.md).
+   This first-party publisher creates a
+   GitHub Check Run from a
    `VerificationResult` + the latest
-   proof report. Requires
-   `checks: write`, an explicit per-repo
-   opt-in, and a documented fork-safety
-   contract distinct from the alpha
-   template. Out of scope for alpha;
-   landing it requires a separate
-   decision memo (this memo defers it
-   intentionally).
+   proof report. Requires `checks: write`,
+   an explicit per-repo opt-in
+   (`REKON_GITHUB_CHECKS=1`), and a
+   documented fork-safety contract
+   (forked PRs untrusted by default;
+   `pull_request_target` refused
+   unconditionally). The split-shipment
+   plan is:
+   - **6a (shipped).** Decision memo +
+     pure helpers in
+     `@rekon/capability-docs`
+     (`buildGitHubCheckPayload`,
+     `assessGitHubCheckPublisherReadiness`).
+     No GitHub API call; no network
+     client imported.
+   - **6b (next).** CLI dry-run command
+     `rekon publish github-check --dry-run
+     --json`. Reads local Rekon
+     artifacts, prints payload +
+     readiness. Still no API call.
+   - **6c (later).** Actual GitHub API
+     write, behind the readiness gate
+     from 6a, with its own review packet.
 
 7. **PR comment publisher (beta+).**
    Similar to step 6 but writes inline

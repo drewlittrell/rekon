@@ -311,6 +311,27 @@ pure static text — it does not execute
 verification commands, does not call GitHub
 APIs, and does not mutate the workflow file.
 
+A **gated GitHub Check publisher skeleton**
+lives in `@rekon/capability-docs`:
+`buildGitHubCheckPayload(...)` derives the
+Check conclusion (`success` / `failure` /
+`neutral` / `timed_out` / `action_required`)
+from the canonical artifacts a
+`VerificationResult` already cites
+(`VerificationRun`, proof report,
+architecture summary, agent contract), and
+`assessGitHubCheckPublisherReadiness(...)`
+gates the eventual API call behind opt-in
+env vars + event-trust classification.
+**The skeleton calls no GitHub API and
+imports no network client.** The payload
+always carries the canonical-truth
+reminder
+(`GitHub status is not canonical truth;
+Rekon artifacts remain canonical.`) and
+the cited refs. See
+[`docs/strategy/verification-runner-github-check-publisher-decision.md`](../strategy/verification-runner-github-check-publisher-decision.md).
+
 ## Cross-References
 
 - [VerificationResult artifact](../artifacts/verification-result.md)
@@ -320,6 +341,7 @@ APIs, and does not mutate the workflow file.
 - [Reconciliation plans concept](reconciliation-plans.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
+- [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [VerificationRun artifact](../artifacts/verification-run.md)
 - [Verification runs concept](verification-runs.md)

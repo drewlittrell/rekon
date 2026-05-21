@@ -354,6 +354,34 @@ warnings. See the "Validate a copied
 workflow" section in
 [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
 
+A **gated GitHub Check publisher skeleton**
+lives in `@rekon/capability-docs`:
+`buildGitHubCheckPayload(...)` builds the
+GitHub Check payload (name, conclusion,
+output.title / summary, externalId,
+citedRefs) from artifact-like inputs, and
+`assessGitHubCheckPublisherReadiness(...)`
+returns `{ ready, issues[] }` after
+evaluating opt-in env vars
+(`REKON_GITHUB_CHECKS`, `GITHUB_TOKEN`,
+`GITHUB_REPOSITORY`, head SHA), event
+trust (`workflow_dispatch` / `push` /
+same-repo `pull_request` trusted; forked
+`pull_request` untrusted by default;
+`pull_request_target` refused
+unconditionally), and an explicit
+`writePermissionConfirmed` flag. **The
+skeleton never calls the GitHub API and
+imports no network client.** The payload
+always cites the underlying artifact ids
+(VerificationResult, VerificationRun,
+proof report, architecture summary,
+agent contract) and always includes the
+phrase
+`GitHub status is not canonical truth;
+Rekon artifacts remain canonical.` See
+[`docs/strategy/verification-runner-github-check-publisher-decision.md`](../strategy/verification-runner-github-check-publisher-decision.md).
+
 ## Cross-References
 
 - [VerificationRun artifact](../artifacts/verification-run.md)
@@ -362,6 +390,7 @@ workflow" section in
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
+- [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

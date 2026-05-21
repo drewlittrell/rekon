@@ -1548,22 +1548,64 @@ review packets unless an ADR promotes them. Promotion requires:
     workflow in `.github/workflows/` of
     the Rekon repo; still no GitHub API
     calls.
-46. **(future)** Verification runner
-    GitHub Check publisher (beta).
-    Optional adapter that publishes
-    `VerificationResult` summaries as
-    GitHub Checks. Requires
-    `checks: write` and per-installation
-    setup. Sits behind a config flag;
-    Rekon artifacts remain canonical.
-47. **(future)** Per-module `ObservedSystem`
+46. **Shipped (✅).** Verification runner
+    GitHub Check publisher — decision memo +
+    gated skeleton (step 6a of the CI /
+    GitHub adapter implementation
+    sequence). Decision memo at
+    [`docs/strategy/verification-runner-github-check-publisher-decision.md`](verification-runner-github-check-publisher-decision.md)
+    recommends Option B (split shipment:
+    decision + skeleton now, dry-run CLI
+    next, API call later). Pure helpers
+    `buildGitHubCheckPayload` and
+    `assessGitHubCheckPublisherReadiness`
+    live in `@rekon/capability-docs`.
+    **The skeleton calls no GitHub API and
+    imports no network client.** Readiness
+    gate: `REKON_GITHUB_CHECKS=1`,
+    `GITHUB_TOKEN`, `GITHUB_REPOSITORY`,
+    head SHA, trusted event, explicit
+    `writePermissionConfirmed`. Forked
+    pull-request events are untrusted by
+    default; `pull_request_target` is
+    refused unconditionally. The payload
+    always cites the underlying
+    `VerificationResult`/`VerificationRun`/
+    proof-report/architecture-summary/
+    agent-contract ids and always includes
+    the phrase `GitHub status is not
+    canonical truth; Rekon artifacts
+    remain canonical.` 25 contract tests
+    + 13 docs assertions; full suite
+    expected ≥ 1256 passed / 1 skipped.
+    No active workflow in
+    `.github/workflows/` of the Rekon
+    repo; no GitHub API calls; no new
+    GitHub write permissions in any
+    bundled template; no artifact-shape
+    change; no new capability package.
+47. **(future)** Verification runner
+    GitHub Check publisher dry-run CLI
+    (step 6b). Adds `rekon publish
+    github-check --dry-run --json` that
+    reads local Rekon artifacts and
+    prints the payload + readiness
+    report. Still no GitHub API call.
+48. **(future)** Verification runner
+    GitHub Check API write (step 6c).
+    First slice that actually calls the
+    GitHub Checks API, behind the
+    readiness gate from step 46. Requires
+    its own decision memo + review
+    packet.
+49. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-48. **(future)** Persistent exclusion lists, and
+50. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

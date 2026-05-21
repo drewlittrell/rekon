@@ -4167,20 +4167,171 @@ scope:
 
   **Recommended next slice:**
   **verification runner GitHub
-  Check publisher (beta)** — the
-  optional adapter that publishes
-  `VerificationResult` summaries as
-  GitHub Checks. Requires
-  `checks: write` and per-installation
-  setup; sits behind a config flag
-  so Rekon artifacts remain the
-  canonical truth. Pinned as step 6
-  in the CI / GitHub adapter
-  implementation sequence.
+  Check publisher** — decision memo +
+  gated skeleton (step 6a of the CI /
+  GitHub adapter implementation
+  sequence). **Shipped next; see the
+  entry below.**
+- **Verification runner GitHub Check
+  publisher — decision + gated skeleton
+  (P1.1 github-check-publisher-decision
+  slice).** ✅ Shipped. **Step 6a** of
+  the CI / GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Decision memo + skeleton + tests +
+  docs batch. No GitHub API calls. No
+  active workflow in `.github/workflows`.
+  No new GitHub write permissions in any
+  bundled template. No artifact-shape
+  change. No new capability package.
+
+  **Decision memo:**
+  [`docs/strategy/verification-runner-github-check-publisher-decision.md`](verification-runner-github-check-publisher-decision.md).
+  Recommends **Option B** (split
+  shipment: decision + skeleton now,
+  dry-run CLI next, API call later).
+  Eleven required headings present:
+  Decision Summary, Problem, Current
+  GitHub Workflow State, Options
+  Considered, Recommendation, Canonical
+  Artifact Boundary, Permission Model,
+  Fork And Secret Safety, Check Payload
+  Model, What This Does Not Do,
+  Implementation Sequence, Tests
+  Required For Implementation.
+
+  **Skeleton in
+  `@rekon/capability-docs`:**
+  - `buildGitHubCheckPayload(input)` —
+    pure helper that builds the Check
+    payload (name, conclusion,
+    output.title, output.summary,
+    externalId, citedRefs) from
+    artifact-like inputs.
+  - `assessGitHubCheckPublisherReadiness(input)` —
+    pure helper that returns
+    `{ ready, issues[] }` after
+    evaluating opt-in env vars
+    (`REKON_GITHUB_CHECKS`,
+    `GITHUB_TOKEN`,
+    `GITHUB_REPOSITORY`, head SHA),
+    event trust, and write-permission
+    confirmation.
+  - Exported types: `GitHubCheckPayload`,
+    `GitHubCheckConclusion`,
+    `GitHubCheckPublisherConfig`,
+    `GitHubCheckPublisherReadiness` (+
+    issue-code / event-trust /
+    freshness / proof-status / run-status
+    aliases).
+  - Exported constants:
+    `GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER`,
+    `GITHUB_CHECK_PUBLISHER_DEFAULT_NAME`.
+
+  **Safety contract enforced:**
+  - **No GitHub API call.** No
+    `octokit`, no `node-fetch`, no
+    `fetch(`, no `https.request`. A
+    contract test scans the
+    capability-docs source for those
+    tokens and fails the build if any
+    are present.
+  - **Readiness gate is default-deny.**
+    Returns `ready: false` unless every
+    gate condition passes:
+    `REKON_GITHUB_CHECKS=1` (or
+    `true`), non-empty `GITHUB_TOKEN`,
+    non-empty `GITHUB_REPOSITORY`,
+    head SHA present, trusted event,
+    explicit
+    `writePermissionConfirmed: true`.
+  - **Forked PRs are untrusted by
+    default.** `pull_request` events
+    with `pullRequestIsFork: true` fail
+    the gate; `forkOverride: true` is
+    the only escape hatch.
+  - **`pull_request_target` is refused
+    unconditionally** — even with
+    `forkOverride: true`. This matches
+    the alpha workflow validator.
+  - **Payload always cites the
+    canonical artifacts** it
+    summarised: `VerificationResult`,
+    `VerificationRun`, proof report,
+    architecture summary, agent
+    contract.
+  - **Payload always contains the
+    canonical-truth reminder:**
+    `GitHub status is not canonical
+    truth; Rekon artifacts remain
+    canonical.`
+
+  **Conclusion mapping** (precedence
+  high-to-low):
+  - `artifactsValid === false` →
+    `failure`.
+  - Run killed → `failure`.
+  - Run timeout → `timed_out`.
+  - Result failed → `failure`.
+  - Result partial → `action_required`.
+  - Result missing → `action_required`.
+  - Freshness stale / missing-plan →
+    `action_required`.
+  - Result not-run → `neutral`.
+  - Result passed + fresh → `success`.
+
+  **Tests:** new contract suite
+  `tests/contract/github-check-publisher-skeleton.test.mjs`
+  (25 tests covering every conclusion
+  mapping case, summary content,
+  readiness gates, and the
+  no-network-client invariant). New
+  docs suite
+  `tests/docs/verification-runner-github-check-publisher-decision.test.mjs`
+  (13 assertions covering memo
+  headings, gate language, env var
+  names, conclusion mapping mention,
+  CHANGELOG mention, review-packet
+  PURPOSE PRESERVATION CHECK). Full
+  suite expected ≥ 1256 passed / 1
+  skipped.
+
+  **Docs:** 11 updated
+  (decision memo; CI / GitHub
+  adapter decision memo — step 6 flipped
+  to ✅ Shipped with the split-shipment
+  plan;
+  [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+  — "Does not create GitHub Checks"
+  expanded to reference the
+  decision memo + skeleton;
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md),
+  [`docs/concepts/verification-results.md`](../concepts/verification-results.md),
+  [`docs/concepts/proof-report-publication.md`](../concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](../artifacts/proof-report-publication.md),
+  this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  — step 46 flipped to ✅ Shipped.
+  `README.md` and `CHANGELOG.md`
+  updated. New review packet
+  `.rekon-dev/review-packets/verification-runner-github-check-publisher-decision.md`.
+
+  **Recommended next slice:**
+  **verification runner GitHub Check
+  publisher dry-run CLI** (step 6b) —
+  add `rekon publish github-check
+  --dry-run --json` that reads local
+  Rekon artifacts and prints the
+  payload + readiness report. Still no
+  GitHub API call. After that lands,
+  step 6c (the actual API write) gets
+  its own decision memo + review
+  packet.
 
   No active workflow. No GitHub API
-  writes. No artifact-shape change.
-  No `schemaVersion` bump. No
+  calls. No artifact-shape change. No
+  `schemaVersion` bump. No
   `FindingStatusLedger` /
   `FindingLifecycleReport` /
   `CoherencyDelta` /

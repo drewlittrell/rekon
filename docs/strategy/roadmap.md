@@ -1106,6 +1106,83 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner GitHub Check publisher —
+  decision + gated skeleton (P1.1
+  github-check-publisher-decision slice):
+  **step 6a** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Decision memo + skeleton + tests + docs batch.
+  No GitHub API calls. No active workflow in
+  `.github/workflows`. No new GitHub write
+  permissions in any bundled template. No
+  artifact-shape change. No new capability
+  package. New decision memo at
+  [`docs/strategy/verification-runner-github-check-publisher-decision.md`](verification-runner-github-check-publisher-decision.md)
+  recommends **Option B** (split shipment:
+  decision + skeleton now, dry-run CLI next, API
+  call later). Adds two pure helpers to
+  `@rekon/capability-docs`:
+  `buildGitHubCheckPayload(input)` builds the
+  Check payload (name, conclusion,
+  output.title / summary, externalId,
+  citedRefs) from artifact-like inputs;
+  `assessGitHubCheckPublisherReadiness(input)`
+  returns `{ ready, issues[] }` after evaluating
+  opt-in env vars (`REKON_GITHUB_CHECKS`,
+  `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, head
+  SHA), event trust (`workflow_dispatch`,
+  `push`, same-repo `pull_request` trusted;
+  forked `pull_request` untrusted by default;
+  `pull_request_target` refused
+  unconditionally), and an explicit
+  `writePermissionConfirmed` flag. **The
+  skeleton calls no GitHub API and imports no
+  network client** — a contract test scans the
+  capability-docs source for forbidden tokens
+  (`@octokit/`, `octokit`, `node-fetch`, `got`,
+  `axios`, `undici`, `https.request`,
+  `http.request`, `fetch(`, `new Request(`)
+  and fails the build if any are present. The
+  payload always cites the underlying
+  `VerificationResult` / `VerificationRun` /
+  proof-report / architecture-summary /
+  agent-contract ids and always includes the
+  phrase `GitHub status is not canonical truth;
+  Rekon artifacts remain canonical.`
+  Conclusion mapping precedence:
+  `artifactsValid === false` →
+  `failure`; run killed → `failure`; run
+  timeout → `timed_out`; result failed →
+  `failure`; result partial → `action_required`;
+  result missing → `action_required`; stale /
+  missing-plan freshness → `action_required`;
+  result not-run → `neutral`; result passed +
+  fresh → `success`. **25 contract tests** pin
+  every conclusion case, summary content
+  (canonical-truth reminder + cited refs +
+  artifacts-valid status), every readiness
+  issue code (`not-enabled`, `missing-token`,
+  `missing-repository`, `missing-sha`,
+  `untrusted-event`,
+  `write-permission-not-confirmed`), and the
+  read-only / network-free invariant. **13
+  docs assertions** pin the decision memo's
+  required headings, gate language, env var
+  names, conclusion-mapping mention, CHANGELOG
+  mention, and review-packet `PURPOSE
+  PRESERVATION CHECK`. Full suite expected ≥
+  1256 passed / 1 skipped.
+  **Recommended next slice:** verification
+  runner GitHub Check publisher dry-run CLI
+  (step 6b) — `rekon publish github-check
+  --dry-run --json` reads local artifacts +
+  prints the payload + readiness report. Still
+  no API call. Step 6c (the actual GitHub API
+  write) follows behind the readiness gate
+  with its own decision memo + review packet.
+  No `schemaVersion` bump. No version bump.
+  No npm publish.
 - Verification runner GitHub workflow validation
   helper (P1.1 github-workflow-safety-validator
   slice): **step 5** of the CI / GitHub adapter
@@ -1165,8 +1242,10 @@ is the first stop before proposing a new capability batch.
   implementation sequence; requires
   `checks: write` and per-installation setup, so
   sits behind a config flag with Rekon artifacts
-  remaining canonical truth). No artifact-shape
-  change. No new capability. No `schemaVersion`
+  remaining canonical truth). **Shipped next as
+  step 6a (decision + gated skeleton); see the
+  entry above.** No artifact-shape change. No
+  new capability. No `schemaVersion`
   bump. No version bump. No npm publish.
 - Verification runner GitHub Actions workflow
   hardening v2 (P1.1

@@ -164,7 +164,15 @@ Rebuild with `rekon publish proof`.
   enforces the alpha safety contract on **copied** workflow
   templates (no GitHub API writes, no
   `pull_request_target`, etc.) but does not publish the proof
-  report itself.
+  report itself. The first GitHub-write decision memo + a
+  gated skeleton
+  (`buildGitHubCheckPayload`,
+  `assessGitHubCheckPublisherReadiness` in
+  `@rekon/capability-docs`) ship in
+  [`verification-runner-github-check-publisher-decision.md`](../strategy/verification-runner-github-check-publisher-decision.md);
+  the skeleton calls no GitHub API and imports no network
+  client, and the eventual API call sits behind a default-deny
+  readiness gate.
 - Not a sufficiency scorer. Failures stay first-class; the publisher
   does not weight or rank them.
 
@@ -180,6 +188,7 @@ Rebuild with `rekon publish proof`.
 - [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
+- [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [VerificationRun artifact](../artifacts/verification-run.md)
 - [Verification runs concept](verification-runs.md)

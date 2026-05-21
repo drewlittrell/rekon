@@ -4,6 +4,154 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped verification runner **GitHub Check
+  publisher — decision + gated skeleton**
+  (P1.1 github-check-publisher-decision slice).
+  **Step 6a** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **Decision memo + skeleton + tests + docs
+  batch.** No GitHub API calls. No active
+  workflow in `.github/workflows`. No new
+  GitHub write permissions in any bundled
+  template. No artifact-shape change. No new
+  capability package.
+
+  **Decision memo:** new at
+  [`docs/strategy/verification-runner-github-check-publisher-decision.md`](docs/strategy/verification-runner-github-check-publisher-decision.md).
+  Recommends **Option B** (split shipment:
+  decision + skeleton now, dry-run CLI next,
+  API call later). Eleven required headings:
+  Decision Summary, Problem, Current GitHub
+  Workflow State, Options Considered,
+  Recommendation, Canonical Artifact Boundary,
+  Permission Model, Fork And Secret Safety,
+  Check Payload Model, What This Does Not Do,
+  Implementation Sequence, Tests Required For
+  Implementation.
+
+  **New exports from `@rekon/capability-docs`:**
+  - `buildGitHubCheckPayload(input)` — pure
+    helper that builds the GitHub Check payload
+    (`name`, `status: "completed"`,
+    `conclusion`, `output.title`,
+    `output.summary`, `externalId`,
+    `citedRefs`) from artifact-like inputs.
+    The summary always cites the underlying
+    `VerificationResult`, `VerificationRun`,
+    `VerificationPlan`, proof-report
+    `Publication`, architecture-summary
+    `Publication`, and agent-contract
+    `Publication` ids (when each is present)
+    and always includes the phrase
+    `GitHub status is not canonical truth;
+    Rekon artifacts remain canonical.`
+  - `assessGitHubCheckPublisherReadiness(input)` —
+    pure helper that returns
+    `{ ready, issues[] }` after evaluating
+    opt-in env vars (`REKON_GITHUB_CHECKS`,
+    `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, head
+    SHA), event trust, and an explicit
+    `writePermissionConfirmed` flag.
+  - `GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER`
+    + `GITHUB_CHECK_PUBLISHER_DEFAULT_NAME`
+    constants.
+  - Type aliases:
+    `GitHubCheckPublisherConfig`,
+    `GitHubCheckConclusion`,
+    `GitHubCheckPayload`,
+    `GitHubCheckPublisherReadinessIssueCode`,
+    `GitHubCheckPublisherReadinessIssue`,
+    `GitHubCheckPublisherReadiness`,
+    `GitHubCheckEventTrust`,
+    `GitHubCheckPublisherReadinessEvent`,
+    `GitHubCheckPublisherReadinessInput`,
+    `GitHubCheckPublisherFreshness`,
+    `GitHubCheckPublisherProofStatus`,
+    `GitHubCheckPublisherRunStatus`,
+    `BuildGitHubCheckPayloadInput`.
+
+  **Safety contract enforced:**
+  - **No GitHub API call.** The skeleton
+    imports no HTTP client, no GitHub SDK
+    (`@octokit/*`, `node-fetch`, `got`,
+    `axios`, `undici`), and does not call
+    `fetch(`, `https.request`, or
+    `http.request`. A contract test scans the
+    capability-docs source for those tokens
+    and fails the build if any are present.
+  - **Default-deny readiness gate.** Returns
+    `ready: false` unless every gate
+    condition passes:
+    `REKON_GITHUB_CHECKS=1` (or `true`),
+    non-empty `GITHUB_TOKEN`, non-empty
+    `GITHUB_REPOSITORY`, head SHA present,
+    trusted event, explicit
+    `writePermissionConfirmed: true`.
+  - **Forked pull-request events untrusted
+    by default.** `pull_request` events with
+    `pullRequestIsFork: true` fail the gate;
+    the `forkOverride: true` escape hatch
+    exists but is not used in alpha / beta.
+  - **`pull_request_target` refused
+    unconditionally** — even with
+    `forkOverride: true`. Matches the alpha
+    workflow validator.
+  - **Payload always cites canonical
+    artifacts** and always carries the
+    canonical-truth reminder.
+
+  **Conclusion mapping** (precedence
+  high-to-low):
+  - `artifactsValid === false` → `failure`.
+  - Run killed → `failure`.
+  - Run timeout → `timed_out`.
+  - Result failed → `failure`.
+  - Result partial → `action_required`.
+  - Result missing → `action_required`.
+  - Stale / missing-plan freshness →
+    `action_required`.
+  - Result not-run → `neutral`.
+  - Result passed + fresh → `success`.
+
+  **Tests:** new contract suite
+  `tests/contract/github-check-publisher-skeleton.test.mjs`
+  (25 tests covering every conclusion case,
+  summary content, every readiness issue
+  code, and the read-only / network-free
+  invariant). New docs suite
+  `tests/docs/verification-runner-github-check-publisher-decision.test.mjs`
+  (13 assertions covering memo existence,
+  required headings, gate language, env var
+  names, conclusion mapping mention,
+  CHANGELOG mention, review-packet
+  `PURPOSE PRESERVATION CHECK`).
+
+  **Out-of-scope and explicitly not
+  shipped:**
+  - No GitHub API call. The skeleton is
+    pure payload-building + readiness
+    assessment.
+  - No new CLI command. The dry-run CLI
+    (`rekon publish github-check --dry-run
+    --json`) ships in the next slice (step
+    6b).
+  - No `.github/workflows/*.yml` added to
+    the Rekon repo.
+  - No PR comment publisher. Step 7 of the
+    sequence, still future.
+  - No mutation of `verify run` /
+    `artifacts latest` / `VerificationRun` /
+    `VerificationResult` / any artifact.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the skeleton
+  never calls GitHub APIs; the skeleton never
+  imports a network client; forked PRs are
+  default-denied; the payload model treats
+  GitHub status as a downstream surface, not
+  canonical truth.
+
 - Shipped verification runner **GitHub
   workflow validation helper** (P1.1
   github-workflow-safety-validator slice).

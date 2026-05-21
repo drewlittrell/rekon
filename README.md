@@ -179,6 +179,16 @@ node packages/cli/dist/index.js artifacts latest --root examples/simple-js-ts --
 # mutates the workflow file.
 node packages/cli/dist/index.js verify github-workflow validate --path docs/examples/workflows/rekon-verification.yml
 node packages/cli/dist/index.js verify github-workflow validate --path docs/examples/workflows/rekon-verification-dry-run.yml --json
+# The first GitHub-write surface (a GitHub Check publisher) ships
+# its decision memo + a gated skeleton in
+# docs/strategy/verification-runner-github-check-publisher-decision.md.
+# The skeleton — `buildGitHubCheckPayload` and
+# `assessGitHubCheckPublisherReadiness` exported from
+# `@rekon/capability-docs` — calls no GitHub API and imports no
+# network client. Forked PRs are untrusted by default, and
+# `pull_request_target` is refused unconditionally. The eventual
+# GitHub Check API call is split into two follow-up slices (a
+# dry-run CLI, then the actual write).
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

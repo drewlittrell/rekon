@@ -188,7 +188,20 @@ the proof-report job summary visible.
   alpha workflow never writes the Checks API.
   A first-party GitHub Check publisher is
   deferred to beta — see the
-  [decision memo](../strategy/verification-runner-ci-github-decision.md).
+  [CI / GitHub adapter decision memo](../strategy/verification-runner-ci-github-decision.md).
+  The first GitHub-write decision memo +
+  gated skeleton ship in
+  [`verification-runner-github-check-publisher-decision.md`](../strategy/verification-runner-github-check-publisher-decision.md):
+  pure helpers
+  (`buildGitHubCheckPayload`,
+  `assessGitHubCheckPublisherReadiness`)
+  that build the payload and gate readiness
+  but **never call GitHub**. Forked PRs are
+  untrusted by default, and
+  `pull_request_target` is refused
+  unconditionally. Reaching the actual API
+  call requires two more slices (dry-run
+  CLI + API-write slice).
 - **Does not write PR comments.** No
   `pull-requests: write` permission, no
   comment body, no inline annotations.

@@ -4062,3 +4062,518 @@ function appendAgentContractFindingFilterPolicySuggestions(
   );
   sections.push("");
 }
+
+// ---------------------------------------------------------------
+// GitHub Check publisher (beta) — gated skeleton.
+//
+// Step 6a of the CI / GitHub adapter implementation sequence
+// pinned by
+// docs/strategy/verification-runner-ci-github-decision.md and
+// docs/strategy/verification-runner-github-check-publisher-decision.md.
+//
+// This module exposes two pure helpers:
+// - `buildGitHubCheckPayload(...)` — renders a Check payload
+//   (name, conclusion, output title / summary / text) from
+//   Rekon artifact-like inputs.
+// - `assessGitHubCheckPublisherReadiness(...)` — returns a
+//   `{ ready, issues[] }` readiness report after evaluating
+//   opt-in env vars, token presence, head SHA presence, and
+//   event trust.
+//
+// Both helpers are pure. The module:
+// - Makes no GitHub API call.
+// - Imports no HTTP client or GitHub SDK.
+// - Does not read environment variables itself — the caller
+//   passes them in as an explicit `env` map.
+// - Does not write to disk.
+// - Does not spawn / exec anything.
+// - Never treats the eventual Check status as canonical truth.
+//
+// The payload always includes the phrase:
+//   "GitHub status is not canonical truth; Rekon artifacts remain canonical."
+//
+// ---------------------------------------------------------------
+
+export const GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER =
+  "GitHub status is not canonical truth; Rekon artifacts remain canonical.";
+
+export const GITHUB_CHECK_PUBLISHER_DEFAULT_NAME = "Rekon Verification";
+
+export type GitHubCheckPublisherConfig = {
+  /**
+   * `true` only when the caller has confirmed all opt-in
+   * conditions externally. The skeleton's readiness helper
+   * computes this for callers; setting this manually does not
+   * bypass the readiness check.
+   */
+  enabled: boolean;
+  repository?: string;
+  headSha?: string;
+  runUrl?: string;
+  /**
+   * Optional override for the Check name. Defaults to
+   * `GITHUB_CHECK_PUBLISHER_DEFAULT_NAME`.
+   */
+  name?: string;
+};
+
+export type GitHubCheckConclusion =
+  | "success"
+  | "failure"
+  | "neutral"
+  | "cancelled"
+  | "timed_out"
+  | "action_required";
+
+export type GitHubCheckPayload = {
+  name: string;
+  headSha?: string;
+  status: "completed";
+  conclusion: GitHubCheckConclusion;
+  output: {
+    title: string;
+    summary: string;
+    text?: string;
+  };
+  externalId?: string;
+  /**
+   * Refs the Check payload cited in its summary. Surfaced
+   * separately so callers (the future API client) can use
+   * the same list for telemetry without re-parsing the
+   * summary markdown.
+   */
+  citedRefs: ArtifactRef[];
+};
+
+export type GitHubCheckPublisherReadinessIssueCode =
+  | "not-enabled"
+  | "missing-token"
+  | "missing-repository"
+  | "missing-sha"
+  | "untrusted-event"
+  | "write-permission-not-confirmed";
+
+export type GitHubCheckPublisherReadinessIssue = {
+  code: GitHubCheckPublisherReadinessIssueCode;
+  message: string;
+};
+
+export type GitHubCheckPublisherReadiness = {
+  ready: boolean;
+  issues: GitHubCheckPublisherReadinessIssue[];
+};
+
+/**
+ * Trust tiers for GitHub Actions events. Used by the
+ * readiness gate to decide which events the publisher
+ * (when eventually live) is allowed to write Checks for.
+ *
+ * - `trusted` — event runs in the upstream repo's context
+ *   with the upstream's secrets attached.
+ * - `untrusted-fork` — pull-request event from a fork.
+ *   Refused by default; can be opted in per call via the
+ *   `forkOverride` flag.
+ * - `unconditional-deny` — `pull_request_target`. Even
+ *   with `forkOverride: true` the readiness gate refuses.
+ */
+export type GitHubCheckEventTrust =
+  | "trusted"
+  | "untrusted-fork"
+  | "unconditional-deny";
+
+export type GitHubCheckPublisherReadinessEvent = {
+  /**
+   * The GitHub Actions event name (e.g. `pull_request`,
+   * `workflow_dispatch`, `push`, `pull_request_target`).
+   */
+  name: string;
+  /**
+   * For `pull_request` events: whether the PR head is a fork
+   * relative to the base repository. `true` means fork, `false`
+   * means same-repo. Ignored for non-PR events.
+   */
+  pullRequestIsFork?: boolean;
+};
+
+export type GitHubCheckPublisherReadinessInput = {
+  /**
+   * Environment-variable snapshot. The skeleton reads from
+   * this map rather than `process.env` directly so the helper
+   * stays pure and easy to test.
+   */
+  env: Record<string, string | undefined>;
+  /**
+   * The GitHub Actions event context. Required to classify
+   * trust.
+   */
+  event: GitHubCheckPublisherReadinessEvent;
+  /**
+   * When `true`, fork pull-request events are treated as
+   * trusted. Intended for cases where the upstream maintainer
+   * has manually approved the run via an
+   * environment-protection rule or equivalent. Has no effect
+   * on `pull_request_target`.
+   */
+  forkOverride?: boolean;
+  /**
+   * The caller must affirm that the workflow has been granted
+   * `checks: write`. The skeleton refuses to mark the
+   * publisher ready otherwise. The actual GitHub permission
+   * check happens at API-call time in a later slice.
+   */
+  writePermissionConfirmed?: boolean;
+  /**
+   * Optional override for the head SHA. When absent the
+   * readiness helper falls back to `env.GITHUB_SHA`.
+   */
+  headShaOverride?: string;
+};
+
+function classifyEventTrust(
+  event: GitHubCheckPublisherReadinessEvent,
+): GitHubCheckEventTrust {
+  if (event.name === "pull_request_target") return "unconditional-deny";
+  if (event.name === "pull_request") {
+    return event.pullRequestIsFork ? "untrusted-fork" : "trusted";
+  }
+  if (event.name === "workflow_dispatch") return "trusted";
+  if (event.name === "push") return "trusted";
+  // Schedule, repository_dispatch, and other token-bearing
+  // events are not yet classified. Default to untrusted-fork
+  // so the readiness gate refuses by default; a later slice
+  // can add explicit support.
+  return "untrusted-fork";
+}
+
+function readEnvFlag(
+  env: Record<string, string | undefined>,
+  key: string,
+): boolean {
+  const raw = env[key];
+  if (raw === undefined || raw === null) return false;
+  const normalized = String(raw).trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
+}
+
+/**
+ * Assess whether the GitHub Check publisher is ready to call
+ * GitHub. **The publisher in this slice never calls GitHub;**
+ * the readiness report tells callers (the future CLI / API
+ * client) whether the API call would be safe to attempt.
+ *
+ * Readiness rules:
+ * - `REKON_GITHUB_CHECKS` must be `"1"` or `"true"`.
+ * - `GITHUB_TOKEN` must be present and non-empty.
+ * - `GITHUB_REPOSITORY` must be present and non-empty.
+ * - A head SHA must be present (`headShaOverride` or
+ *   `GITHUB_SHA`).
+ * - The event must be `trusted`. `untrusted-fork` requires
+ *   an explicit `forkOverride: true`; `unconditional-deny`
+ *   refuses unconditionally.
+ * - The caller must confirm `checks: write` is granted
+ *   (`writePermissionConfirmed: true`).
+ */
+export function assessGitHubCheckPublisherReadiness(
+  input: GitHubCheckPublisherReadinessInput,
+): GitHubCheckPublisherReadiness {
+  const issues: GitHubCheckPublisherReadinessIssue[] = [];
+
+  if (!readEnvFlag(input.env, "REKON_GITHUB_CHECKS")) {
+    issues.push({
+      code: "not-enabled",
+      message:
+        "REKON_GITHUB_CHECKS is not set to 1 / true. The GitHub Check publisher is disabled by default.",
+    });
+  }
+
+  const token = input.env.GITHUB_TOKEN;
+  if (!token || String(token).trim() === "") {
+    issues.push({
+      code: "missing-token",
+      message:
+        "GITHUB_TOKEN is missing. The publisher cannot authenticate without an Actions-provided token.",
+    });
+  }
+
+  const repository = input.env.GITHUB_REPOSITORY;
+  if (!repository || String(repository).trim() === "") {
+    issues.push({
+      code: "missing-repository",
+      message:
+        "GITHUB_REPOSITORY is missing. The publisher needs the <owner>/<repo> slug to address the Check API.",
+    });
+  }
+
+  const headSha = input.headShaOverride ?? input.env.GITHUB_SHA;
+  if (!headSha || String(headSha).trim() === "") {
+    issues.push({
+      code: "missing-sha",
+      message:
+        "Head SHA is missing. The publisher needs the commit SHA the Check should attach to.",
+    });
+  }
+
+  const trust = classifyEventTrust(input.event);
+  if (trust === "unconditional-deny") {
+    issues.push({
+      code: "untrusted-event",
+      message:
+        "pull_request_target is refused unconditionally. The publisher must not attach Checks to fork-PR code running in the upstream's context.",
+    });
+  } else if (trust === "untrusted-fork" && input.forkOverride !== true) {
+    issues.push({
+      code: "untrusted-event",
+      message:
+        "Forked pull requests are not trusted by default. Pass forkOverride: true only when the upstream maintainer has explicitly approved the run.",
+    });
+  }
+
+  if (input.writePermissionConfirmed !== true) {
+    issues.push({
+      code: "write-permission-not-confirmed",
+      message:
+        "Caller did not confirm checks: write was granted. The publisher refuses to attempt the Check API call without explicit confirmation.",
+    });
+  }
+
+  return { ready: issues.length === 0, issues };
+}
+
+export type GitHubCheckPublisherFreshness =
+  | "fresh"
+  | "stale"
+  | "missing-plan"
+  | "unknown";
+
+export type GitHubCheckPublisherProofStatus =
+  | "passed"
+  | "failed"
+  | "partial"
+  | "not-run"
+  | "missing";
+
+export type GitHubCheckPublisherRunStatus =
+  | "completed"
+  | "timeout"
+  | "killed"
+  | "in-progress"
+  | "not-started"
+  | "unknown";
+
+/**
+ * Pure inputs to `buildGitHubCheckPayload`. The skeleton
+ * does not read artifacts from disk in this slice — the
+ * caller passes in the shapes it has already loaded.
+ */
+export type BuildGitHubCheckPayloadInput = {
+  config: GitHubCheckPublisherConfig;
+  verificationResult?: VerificationResultLike;
+  verificationResultRef?: ArtifactRef;
+  verificationRun?: {
+    header: ArtifactHeader;
+    status?: GitHubCheckPublisherRunStatus;
+  };
+  verificationRunRef?: ArtifactRef;
+  verificationPlanRef?: ArtifactRef;
+  proofReportRef?: ArtifactRef;
+  architectureSummaryRef?: ArtifactRef;
+  agentContractRef?: ArtifactRef;
+  /**
+   * `true` when `rekon artifacts validate` passed. `false`
+   * when it failed. Anything else (undefined) means the
+   * caller did not run `artifacts validate`; the publisher
+   * treats that as "not asserted" and does not override the
+   * conclusion based on it.
+   */
+  artifactsValid?: boolean;
+  /**
+   * Optional explicit freshness signal. When omitted the
+   * helper infers freshness using
+   * `summarizeVerificationProofSurface`.
+   */
+  freshness?: GitHubCheckPublisherFreshness;
+};
+
+function deriveProofStatus(
+  result: VerificationResultLike | undefined,
+): GitHubCheckPublisherProofStatus {
+  if (!result) return "missing";
+  const status = result.status;
+  if (status === "passed" || status === "failed" || status === "partial" || status === "not-run") {
+    return status;
+  }
+  return "missing";
+}
+
+function deriveFreshness(
+  input: BuildGitHubCheckPayloadInput,
+): GitHubCheckPublisherFreshness {
+  if (input.freshness) return input.freshness;
+  if (!input.verificationPlanRef) return "missing-plan";
+  if (!input.verificationResult) return "stale";
+
+  const surface = summarizeVerificationProofSurface({
+    verificationResult: input.verificationResult as unknown as Parameters<
+      typeof summarizeVerificationProofSurface
+    >[0]["verificationResult"],
+    verificationResultRef: input.verificationResultRef,
+    latestVerificationPlanRef: input.verificationPlanRef,
+  });
+  if (surface.freshness === "fresh") return "fresh";
+  if (surface.freshness === "stale") return "stale";
+  if (surface.freshness === "missing-plan") return "missing-plan";
+  return "unknown";
+}
+
+function pickConclusion(
+  proof: GitHubCheckPublisherProofStatus,
+  run: GitHubCheckPublisherRunStatus,
+  freshness: GitHubCheckPublisherFreshness,
+  artifactsValid: boolean | undefined,
+): GitHubCheckConclusion {
+  // Conflict resolution: pick the most specific signal available.
+  // `failure` outranks `timed_out` outranks `action_required`
+  // outranks `neutral` outranks `success` — but a run-level
+  // `timeout` signal is more specific than the generic
+  // `result.status === "failed"` it implies, so timeout wins
+  // over a plain failed-result signal. `killed` and
+  // `artifacts validate false` are the most severe and stay at
+  // the top.
+  if (artifactsValid === false) return "failure";
+  if (run === "killed") return "failure";
+  if (run === "timeout") return "timed_out";
+  if (proof === "failed") return "failure";
+  if (proof === "partial") return "action_required";
+  if (proof === "missing") return "action_required";
+  if (freshness === "stale" || freshness === "missing-plan") return "action_required";
+  if (proof === "not-run") return "neutral";
+  if (proof === "passed" && freshness === "fresh") return "success";
+  // Default to neutral when no signal definitively says
+  // pass / fail.
+  return "neutral";
+}
+
+function describeConclusion(
+  conclusion: GitHubCheckConclusion,
+  proof: GitHubCheckPublisherProofStatus,
+  run: GitHubCheckPublisherRunStatus,
+): string {
+  switch (conclusion) {
+    case "success":
+      return "Verification: passed (fresh)";
+    case "failure": {
+      if (run === "killed") return "Verification: run killed";
+      if (proof === "failed") return "Verification: failed";
+      return "Verification: failed";
+    }
+    case "timed_out":
+      return "Verification: timed out";
+    case "action_required": {
+      if (proof === "partial") return "Verification: partial — action required";
+      if (proof === "missing") return "Verification: missing — action required";
+      return "Verification: stale — action required";
+    }
+    case "neutral": {
+      if (proof === "not-run") return "Verification: not run";
+      return "Verification: neutral";
+    }
+    case "cancelled":
+      return "Verification: cancelled";
+    default:
+      return "Verification";
+  }
+}
+
+function refLine(label: string, ref: ArtifactRef | undefined): string | undefined {
+  if (!ref) return undefined;
+  return `- ${label}: \`${ref.type}:${ref.id}\``;
+}
+
+/**
+ * Render the GitHub Check payload that would be POSTed to
+ * the Checks API in a later slice. The payload always
+ * includes the canonical-truth reminder and cites every
+ * artifact ref it summarised.
+ *
+ * This function makes no API call. It does not read from
+ * disk. It does not read environment variables. It is a
+ * pure function of its inputs.
+ */
+export function buildGitHubCheckPayload(
+  input: BuildGitHubCheckPayloadInput,
+): GitHubCheckPayload {
+  const proof = deriveProofStatus(input.verificationResult);
+  const run = input.verificationRun?.status ?? (input.verificationRunRef ? "completed" : "not-started");
+  const freshness = deriveFreshness(input);
+  const conclusion = pickConclusion(proof, run, freshness, input.artifactsValid);
+  const title = describeConclusion(conclusion, proof, run);
+
+  const citedRefs: ArtifactRef[] = [];
+  const summaryLines: string[] = [];
+
+  summaryLines.push(`**${title}**`);
+  summaryLines.push("");
+  summaryLines.push(`Conclusion: \`${conclusion}\``);
+  summaryLines.push(`Proof status: \`${proof}\``);
+  summaryLines.push(`Run status: \`${run}\``);
+  summaryLines.push(`Freshness: \`${freshness}\``);
+  if (input.artifactsValid === true) {
+    summaryLines.push("Artifacts valid: `true`");
+  } else if (input.artifactsValid === false) {
+    summaryLines.push("Artifacts valid: `false`");
+  } else {
+    summaryLines.push("Artifacts valid: `not asserted`");
+  }
+  summaryLines.push("");
+
+  summaryLines.push("Cited artifacts:");
+  const tracked: Array<[string, ArtifactRef | undefined]> = [
+    ["VerificationResult", input.verificationResultRef],
+    ["VerificationRun", input.verificationRunRef],
+    ["VerificationPlan", input.verificationPlanRef],
+    ["Proof report", input.proofReportRef],
+    ["Architecture summary", input.architectureSummaryRef],
+    ["Agent contract", input.agentContractRef],
+  ];
+  let citedAny = false;
+  for (const [label, ref] of tracked) {
+    const line = refLine(label, ref);
+    if (line) {
+      summaryLines.push(line);
+      citedRefs.push(ref as ArtifactRef);
+      citedAny = true;
+    }
+  }
+  if (!citedAny) {
+    summaryLines.push("- (no canonical artifacts cited yet)");
+  }
+  summaryLines.push("");
+
+  summaryLines.push(`> ${GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER}`);
+
+  if (input.config.runUrl) {
+    summaryLines.push("");
+    summaryLines.push(`Workflow run: ${input.config.runUrl}`);
+  }
+
+  const name = input.config.name?.trim() || GITHUB_CHECK_PUBLISHER_DEFAULT_NAME;
+  const headSha = input.config.headSha;
+  const externalId = input.verificationResultRef
+    ? `${input.verificationResultRef.type}:${input.verificationResultRef.id}`
+    : input.verificationRunRef
+      ? `${input.verificationRunRef.type}:${input.verificationRunRef.id}`
+      : undefined;
+
+  return {
+    name,
+    headSha,
+    status: "completed",
+    conclusion,
+    output: {
+      title,
+      summary: summaryLines.join("\n"),
+    },
+    externalId,
+    citedRefs,
+  };
+}
