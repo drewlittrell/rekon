@@ -272,6 +272,33 @@ boundary the artifact + capability declare is real:
   does not declare `write:source`; conformance
   tests pin this.
 
+## CI / GitHub Direction
+
+The runner remains **local-first** in alpha.
+The
+[verification runner CI / GitHub adapter
+decision memo](../strategy/verification-runner-ci-github-decision.md)
+pins the staged direction: alpha will ship a
+documented **GitHub Actions workflow
+template** (no GitHub API writes;
+`permissions: contents: read`; no secrets;
+no `pull_request_target`); a first-party
+**GitHub Check / PR comment publisher** is
+deferred to beta. Two invariants apply
+regardless of which slice ships next:
+
+- **GitHub status is not canonical truth.**
+  Rekon artifacts remain canonical.
+- **Forked PRs must not receive
+  secret-bearing execution by default.**
+
+No CI / GitHub code ships in alpha. When the
+workflow-template slice lands, it lives in a
+copyable example file (likely under
+`examples/` or `docs/examples/`), not in
+`.github/workflows/` of the Rekon repo
+itself.
+
 ## Cross-References
 
 - [VerificationRun artifact](../artifacts/verification-run.md)
@@ -279,5 +306,6 @@ boundary the artifact + capability declare is real:
 - [Verification results concept](verification-results.md)
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+- [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

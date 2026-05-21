@@ -236,5 +236,6 @@ artifact it read (`IssueAdjudicationReport`,
 - [IssueMergeDecisionLedger](issue-merge-decision-ledger.md)
 - [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+- [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [VerificationRun artifact](verification-run.md)
 - [Capability model](../strategy/capability-model.md)

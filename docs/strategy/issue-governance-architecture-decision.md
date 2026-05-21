@@ -1399,22 +1399,42 @@ review packets unless an ADR promotes them. Promotion requires:
     `FindingLifecycleReport` /
     `CoherencyDelta` /
     `ReconciliationPlan` mutation.
-41. **(future)** Verification runner CI /
-    GitHub adapter decision memo (step 8).
-    Decide whether proof execution remains
-    local-only for alpha or gains a GitHub
-    Actions / PR-check surface, including
-    artifact upload, log retention, and
-    permission boundaries. Strategy-only
-    batch.
-42. **(future)** Per-module `ObservedSystem`
+41. **Shipped (✅).** Verification runner CI /
+    GitHub adapter **decision memo** (step 8,
+    strategy-only). Decision: Option D —
+    alpha stays local-first plus a documented
+    GitHub Actions workflow template (no
+    GitHub API writes;
+    `permissions: contents: read`; no
+    secrets; no `pull_request_target`).
+    First-party GitHub Check / PR comment
+    publisher deferred to beta. Anchor
+    invariants: GitHub status is not
+    canonical truth; forked PRs must not
+    receive secret-bearing execution by
+    default. See
+    [verification-runner-ci-github-decision.md](verification-runner-ci-github-decision.md).
+42. **(future)** Verification runner GitHub
+    Actions workflow template (alpha
+    implementation). Docs-only slice. Adds
+    `.github/workflows/rekon-verify.yml`
+    template (in `examples/` or
+    `docs/examples/`) with
+    `permissions: contents: read`, the
+    `pull_request_target` prohibition, the
+    `actions/upload-artifact` upload of
+    `.rekon/artifacts`, and the
+    `$GITHUB_STEP_SUMMARY` proof-report
+    surface. No GitHub API writes; no new
+    capability; no new CLI command.
+43. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-43. **(future)** Persistent exclusion lists, and
+44. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

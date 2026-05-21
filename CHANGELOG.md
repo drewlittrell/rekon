@@ -4,6 +4,149 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped verification runner CI / GitHub
+  adapter **decision memo** (P1.1
+  verification-runner-ci-github-decision
+  slice). **Step 8** of the runner v1
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md).
+  **Strategy-only batch — no runtime
+  change.** The memo
+  ([`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md))
+  decides whether Rekon's verification
+  runner should remain local-only for alpha
+  or gain a GitHub Actions / PR-check
+  surface, and pins the safety contract any
+  future CI surface must respect.
+
+  **Decision: Option D — local-first runner
+  plus a documented GitHub Actions workflow
+  template for alpha; first-party GitHub
+  Check / PR comment publisher deferred to
+  beta.**
+
+  **Anchor invariants** (apply regardless of
+  which slice ships next):
+  - **GitHub status is not canonical
+    truth.** Rekon's `VerificationRun`,
+    `VerificationResult`, and `Publication`
+    artifacts remain canonical; any future
+    Check / PR / dashboard output is a
+    downstream projection, never an
+    independent source of truth.
+  - **Forked PRs must not receive
+    secret-bearing execution by default.**
+    The alpha workflow template uses
+    `permissions: contents: read`, no
+    secrets, and the standard
+    `pull_request` trigger.
+    `pull_request_target` is forbidden.
+
+  **Alpha workflow contract** (memo
+  pins the shape; YAML lands in the next
+  slice):
+  - `permissions: contents: read` at the
+    workflow level. No
+    `pull-requests: write` /
+    `checks: write` / `contents: write` /
+    `id-token`. No secrets. No
+    `pull_request_target`.
+  - Steps: `refresh` → resolve latest plan
+    id → `verify run --execute` →
+    `verify result from-run` →
+    `publish proof` / `architecture` /
+    `agent-contract` →
+    `artifacts validate` → upload
+    `.rekon/artifacts` (excluding `.log`
+    files) with `retention-days: 7`
+    default → append proof-report markdown
+    to `$GITHUB_STEP_SUMMARY`.
+  - No GitHub API writes anywhere in the
+    template.
+
+  **Artifact upload contract:** upload
+  `.rekon/artifacts` (canonical proof
+  record); exclude `.log` files
+  explicitly; recommended
+  `retention-days: 7` (operators may raise
+  to GitHub's max of 90).
+
+  **Job summary contract:** GitHub's
+  built-in `$GITHUB_STEP_SUMMARY` file
+  carries the existing proof-report
+  publication markdown. No API permissions
+  required.
+
+  **Implementation sequence:**
+  1. **(this slice)** Decision memo +
+     supporting doc updates.
+  2. **GitHub Actions workflow template**
+     (alpha, docs-only).
+  3. **CLI ergonomics for CI (optional).**
+     `rekon artifacts latest --type <type>`.
+  4. **Job-summary publisher (optional).**
+  5. **GitHub Check publisher (beta).**
+     Requires `checks: write`, per-repo
+     opt-in, and a separate fork-safety
+     decision memo.
+  6. **PR comment publisher (beta+).**
+     Requires `pull-requests: write`.
+  7. **Cross-CI documentation (beta+).**
+     GitLab CI / Jenkins / CircleCI /
+     etc.
+
+  **Tests:** **16 docs-only assertions** in
+  `tests/docs/verification-runner-ci-github-decision.test.mjs`
+  pin the memo's required headings,
+  recommendation, anchor invariants,
+  workflow contract
+  (`permissions: contents: read`;
+  `.rekon/artifacts` upload; no raw logs;
+  job summary), implementation sequence
+  presence, CHANGELOG mention, and
+  review-packet `PURPOSE PRESERVATION
+  CHECK`. Full suite: **1122 passed / 1
+  skipped**.
+
+  **Docs:** 9 updated
+  ([`docs/concepts/verification-runs.md`](docs/concepts/verification-runs.md),
+  [`docs/concepts/verification-results.md`](docs/concepts/verification-results.md),
+  [`docs/concepts/proof-report-publication.md`](docs/concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](docs/artifacts/proof-report-publication.md),
+  [`docs/strategy/verification-runner-v1-decision.md`](docs/strategy/verification-runner-v1-decision.md)
+  (step 8 flipped to ✅ Shipped),
+  [`docs/strategy/classic-behavior-roadmap.md`](docs/strategy/classic-behavior-roadmap.md)
+  (new shipped entry),
+  [`docs/strategy/roadmap.md`](docs/strategy/roadmap.md)
+  (new completed-slice entry),
+  [`docs/strategy/issue-governance-architecture-decision.md`](docs/strategy/issue-governance-architecture-decision.md)
+  (step 41 flipped to shipped; step 42
+  added for workflow-template
+  implementation slice; subsequent steps
+  renumbered)). New strategy doc
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  New review packet
+  [`.rekon-dev/review-packets/verification-runner-ci-github-decision.md`](.rekon-dev/review-packets/verification-runner-ci-github-decision.md).
+  `README.md` updated.
+
+  **Next slice:** **verification runner
+  GitHub Actions workflow template**
+  (alpha implementation, docs-only).
+  Adds the copyable workflow YAML +
+  operator documentation under
+  `examples/` or `docs/examples/`. Still
+  no GitHub API writes; still no new
+  capability or CLI command.
+
+  No code changes in this slice. No
+  artifact-shape change. No new
+  capability. No new CLI command. No
+  `schemaVersion` bump. No
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation. No
+  version bump. No npm publish.
 - Shipped verification proof surfaces v2 (P1.1
   verification-proof-surfaces-v2 slice).
   **Step 7** of the runner v1 implementation

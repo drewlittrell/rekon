@@ -1028,10 +1028,46 @@ memo ships none of step 3+):
      findings, and the publication boundary
      still keeps raw stdout / stderr out of
      proof summaries.
-8. **CI / GitHub adapter.** Out of scope for
-   the local-runner v1 arc; revisit only after
-   steps 1–7 land and we have real-repo data
-   on runner behavior.
+8. **CI / GitHub adapter decision memo.** ✅
+   Shipped (strategy-only). See
+   [verification-runner-ci-github-decision.md](verification-runner-ci-github-decision.md).
+   - **Decision:** Option D — alpha stays
+     local-first plus a documented GitHub
+     Actions **workflow template** (no
+     GitHub API writes). A first-party
+     GitHub Check / PR comment publisher is
+     deferred to beta.
+   - **Anchor invariants:** GitHub status
+     is not canonical truth (Rekon
+     artifacts remain canonical); forked
+     PRs must not receive secret-bearing
+     execution by default.
+   - **Alpha workflow contract:**
+     `permissions: contents: read`, no
+     secrets, no `pull_request_target`, no
+     `checks: write`, no
+     `pull-requests: write`. Uses GitHub's
+     built-in job summary (writing to
+     `$GITHUB_STEP_SUMMARY`) for human-
+     readable proof output and
+     `actions/upload-artifact` for the
+     canonical `.rekon/artifacts`
+     directory.
+   - **Artifact upload:** `.rekon/artifacts`
+     with `.log` files excluded;
+     `retention-days: 7` default.
+   - **Implementation sequence:** decision
+     memo (this slice) → workflow template
+     → optional CLI ergonomics
+     (`rekon artifacts latest`) → optional
+     job-summary publisher → beta:
+     GitHub Check publisher → beta+:
+     PR comment publisher → beta+: cross-CI
+     docs.
+   - No workflow file, no GitHub API code,
+     no new capability, no new CLI command,
+     no artifact-shape change landed in
+     this memo batch.
 
 Each step is its own commit (or small batch).
 Steps 1–2 are docs / scaffolding only. Step 3

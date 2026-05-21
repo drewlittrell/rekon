@@ -148,6 +148,10 @@ node packages/cli/dist/index.js verify result from-run --run <verification-run-i
 # VerificationPlan, and never render raw stdout/stderr excerpts. See
 # docs/concepts/proof-report-publication.md, docs/concepts/architecture-summary-publication.md,
 # and docs/concepts/agent-operating-contract.md.
+# CI direction: alpha stays local-first. A documented GitHub Actions
+# workflow template will land in a follow-up slice; first-party
+# GitHub Check / PR comment publishers are deferred to beta. See
+# docs/strategy/verification-runner-ci-github-decision.md.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

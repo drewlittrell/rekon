@@ -303,6 +303,7 @@ retries in v1).
 - [Remediation work orders concept](remediation-work-orders.md)
 - [Reconciliation plans concept](reconciliation-plans.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
+- [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [VerificationRun artifact](../artifacts/verification-run.md)
 - [Verification runs concept](verification-runs.md)
 - [Capability model](../strategy/capability-model.md)

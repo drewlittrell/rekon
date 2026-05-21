@@ -1106,6 +1106,51 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner CI / GitHub adapter decision
+  memo (P1.1
+  verification-runner-ci-github-decision slice):
+  **step 8** of the runner v1 implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md).
+  Strategy-only batch — no runtime change. The
+  memo
+  ([`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md))
+  decides whether Rekon's verification runner
+  should remain local-only for alpha or gain a
+  GitHub Actions / PR-check surface, and pins the
+  safety contract any future CI surface must
+  respect. **Decision: Option D — local-first
+  runner plus a documented GitHub Actions workflow
+  template for alpha; first-party GitHub Check / PR
+  comment publisher deferred to beta.** Anchor
+  invariants: GitHub status is not canonical truth
+  (Rekon artifacts remain canonical); forked PRs
+  must not receive secret-bearing execution by
+  default. Alpha workflow template contract:
+  `permissions: contents: read`, no secrets, no
+  `pull_request_target`, no `checks: write`, no
+  `pull-requests: write`. Uses GitHub's built-in
+  `$GITHUB_STEP_SUMMARY` (no API writes) for
+  human-readable proof output and
+  `actions/upload-artifact` for the canonical
+  `.rekon/artifacts` directory (`.log` files
+  excluded; `retention-days: 7` default).
+  Implementation sequence: decision memo (this
+  slice) → workflow template → optional CLI
+  ergonomics (`rekon artifacts latest`) → optional
+  job-summary publisher → beta: GitHub Check
+  publisher → beta+: PR comment publisher → beta+:
+  cross-CI docs. **16 docs-only assertions** in
+  `tests/docs/verification-runner-ci-github-decision.test.mjs`
+  pin the memo's required headings,
+  recommendation, anchor invariants, workflow
+  contract, and implementation sequence. **9 docs
+  updated.** New review packet. No artifact-shape
+  change. No new capability. No new CLI command.
+  No `schemaVersion` bump. No version bump. No
+  npm publish. **Recommended next slice:**
+  **verification runner GitHub Actions workflow
+  template** (alpha implementation, docs-only).
 - Verification proof surfaces v2 (P1.1
   verification-proof-surfaces-v2 slice): **step 7**
   of the runner v1 implementation sequence pinned by
