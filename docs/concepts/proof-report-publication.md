@@ -159,7 +159,12 @@ Rebuild with `rekon publish proof`.
 - Not auto-apply. Passing verification does not promote reconciliation
   operations.
 - Not a substitute for the architecture summary. Use both.
-- Not a CI/GitHub check publisher. Those remain deferred.
+- Not a CI/GitHub check publisher. Those remain deferred. The
+  read-only `rekon verify github-workflow validate` command
+  enforces the alpha safety contract on **copied** workflow
+  templates (no GitHub API writes, no
+  `pull_request_target`, etc.) but does not publish the proof
+  report itself.
 - Not a sufficiency scorer. Failures stay first-class; the publisher
   does not weight or rank them.
 

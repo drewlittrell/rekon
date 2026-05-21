@@ -166,6 +166,19 @@ node packages/cli/dist/index.js artifacts latest --root examples/simple-js-ts --
 # commands. Swap to the execute variant (rekon-verification.yml)
 # after reviewing the plan's commands. See
 # docs/examples/github-actions-verification-runner.md.
+#
+# After copying a template, validate the safety contract with the
+# read-only `rekon verify github-workflow validate --path
+# <path-to.yml>` command (no GitHub API calls, no spawn / exec, no
+# YAML parser dependency — pure static text analysis). It enforces:
+# no `pull_request_target`; no GitHub write permissions;
+# `permissions: contents: read`; no GitHub API calls; uses
+# `rekon artifacts latest`; uploads `.rekon/artifacts/**` excluding
+# `.log`; appends to `$GITHUB_STEP_SUMMARY`; mode resolvable to
+# `execute` or `dry-run`. Exits 0 on valid, 1 on invalid; never
+# mutates the workflow file.
+node packages/cli/dist/index.js verify github-workflow validate --path docs/examples/workflows/rekon-verification.yml
+node packages/cli/dist/index.js verify github-workflow validate --path docs/examples/workflows/rekon-verification-dry-run.yml --json
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

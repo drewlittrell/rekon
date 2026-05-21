@@ -27,6 +27,61 @@ repo when you want it active.
 The full decision context lives in
 [`docs/strategy/verification-runner-ci-github-decision.md`](../strategy/verification-runner-ci-github-decision.md).
 
+## Validate a copied workflow
+
+After copying either template into your repo's
+`.github/workflows/` directory, run the
+**read-only workflow validator** to confirm the
+file still respects the alpha safety contract:
+
+```sh
+node packages/cli/dist/index.js verify github-workflow validate \
+  --path .github/workflows/rekon-verification.yml --json
+```
+
+The validator:
+
+- Is **static and read-only.** It reads the
+  YAML file and runs text-based checks. It
+  writes nothing, executes nothing, and does
+  **not** call GitHub.
+- Checks the alpha **safety contract**:
+  no `pull_request_target`; no GitHub write
+  permissions
+  (`pull-requests` / `checks` / `contents` /
+  `id-token` / `actions` / `deployments` /
+  `statuses` / `packages` `write`);
+  `permissions: contents: read` declared;
+  no GitHub API calls
+  (`gh api`, `curl api.github.com`,
+  `actions/github-script`); uses
+  `rekon artifacts latest`; uploads
+  `.rekon/artifacts/**`; excludes
+  `.log` files; appends to
+  `$GITHUB_STEP_SUMMARY`; detects mode
+  (`execute` / `dry-run` / `unknown`).
+- Reports **warnings** (canonical-truth
+  reminder, `retention-days`) without making
+  the report invalid.
+- Exits **0** when valid, **1** when any
+  error-severity issue exists.
+
+Both bundled templates pass the validator
+out of the box. Run it again whenever you
+customize a copied template — small edits
+(adding a permission, switching to
+`pull_request_target`, removing the
+`.log` exclude) are exactly what this
+helper exists to catch.
+
+The validator does **not** check semantic
+correctness of every step. It is a
+safety-contract auditor, not a workflow
+compiler. Treat a green result as "this
+workflow respects the alpha boundaries" —
+not as "this workflow will succeed on
+your runner."
+
 ## Adoption — copy the dry-run template first
 
 There are two workflow templates in this

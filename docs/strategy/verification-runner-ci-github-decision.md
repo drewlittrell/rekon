@@ -894,7 +894,50 @@ slices:
    GitHub's ~1 MB
    `$GITHUB_STEP_SUMMARY` limit.
 
-5. **GitHub Check publisher (beta).** A
+5. **Workflow validation helper.** ✅
+   Shipped. New CLI command
+   `rekon verify github-workflow validate
+   --path <workflow.yml> [--root <path>]
+   [--json]`. Read-only static analyzer
+   that walks a workflow YAML and
+   reports violations of the alpha
+   safety contract: no
+   `pull_request_target`; no GitHub
+   write permissions (`pull-requests` /
+   `checks` / `contents` / `id-token` /
+   `actions` / `deployments` /
+   `statuses` / `packages` `write`);
+   `permissions: contents: read`
+   declared; no GitHub API calls
+   (`gh api`, `curl api.github.com`,
+   `actions/github-script`); uses
+   `rekon artifacts latest`; uploads
+   `.rekon/artifacts/**`; excludes
+   `.log` files; appends to
+   `$GITHUB_STEP_SUMMARY`; detects mode
+   (`execute` / `dry-run` / `unknown`).
+   Warning-only checks: canonical-truth
+   reminder presence, `retention-days`
+   set. Both bundled templates
+   validate clean. CLI exits 0 when
+   valid, 1 when any error-severity
+   issue exists. The helper is
+   quote-aware (a `#` inside `"..."`
+   or `'...'` is not treated as a
+   YAML comment, so workflows that
+   echo literal `#` characters into
+   the job summary still parse
+   correctly). The validator never
+   spawns a process, calls the
+   GitHub API, or writes artifacts.
+   25 contract tests pin the helper's
+   behaviour; both workflow templates
+   carry a top-of-file comment
+   instructing operators to run
+   `rekon verify github-workflow
+   validate` after copying.
+
+6. **GitHub Check publisher (beta).** A
    first-party publisher / capability that
    creates a GitHub Check Run from a
    `VerificationResult` + the latest
@@ -907,14 +950,14 @@ slices:
    decision memo (this memo defers it
    intentionally).
 
-6. **PR comment publisher (beta+).**
-   Similar to step 5 but writes inline
+7. **PR comment publisher (beta+).**
+   Similar to step 6 but writes inline
    PR comments. Requires
    `pull-requests: write`. Deferred until
-   step 5's API surface, retry logic, and
+   step 6's API surface, retry logic, and
    error handling are concrete.
 
-7. **Cross-CI documentation (beta+).**
+8. **Cross-CI documentation (beta+).**
    Document the same workflow pattern for
    GitLab CI, Jenkins, CircleCI, etc. The
    CLI surface is identical; only the
@@ -922,7 +965,7 @@ slices:
 
 ## Future GitHub Check Publisher
 
-When step 5 lands (beta), it will face
+When step 6 lands (beta), it will face
 non-trivial design work:
 
 - **Conclusion-state mapping.** Rekon's

@@ -1498,25 +1498,72 @@ review packets unless an ADR promotes them. Promotion requires:
     active workflow in
     `.github/workflows/` of the Rekon
     repo.
-45. **(future)** Verification runner
+45. **Shipped (✅).** Verification runner
     GitHub workflow validation helper.
-    Read-only command or script that
-    validates copied workflow templates
-    against the required safety
-    contract: no
-    `pull_request_target`, no write
-    permissions, no raw log upload,
-    uses `artifacts latest`, uploads
-    `.rekon/artifacts`. Still no GitHub
-    API writes.
-46. **(future)** Per-module `ObservedSystem`
+    CLI / docs batch. Added the
+    read-only command
+    `rekon verify github-workflow validate
+    --path <workflow.yml> [--json]` (CLI
+    surface in `packages/cli/src/index.ts`,
+    helper `validateGitHubWorkflowSafety`
+    co-located there). The validator is
+    pure static text analysis — no YAML
+    parser dependency, no GitHub API
+    calls, no spawn / exec, never mutates
+    files. It enforces the alpha safety
+    contract: no `pull_request_target`;
+    no GitHub write permissions
+    (`pull-requests`, `checks`,
+    `contents`, `id-token`, `actions`,
+    `deployments`, `statuses`, `packages`
+    set to `write`); `permissions:
+    contents: read` declared; no GitHub
+    API calls (`gh api`,
+    `curl api.github.com`,
+    `actions/github-script`); uses
+    `rekon artifacts latest`; uploads
+    `.rekon/artifacts/**`; excludes
+    `.log` files; appends to
+    `$GITHUB_STEP_SUMMARY`. Warning-only
+    checks: canonical-truth reminder
+    presence, `retention-days` set. Mode
+    detection: `execute` (when `verify
+    run` invocation contains
+    `--execute`), `dry-run` (when it
+    contains `--dry-run`), or `unknown`
+    (error). Both bundled templates
+    (`rekon-verification.yml`,
+    `rekon-verification-dry-run.yml`)
+    pass with zero errors / zero
+    warnings; both gained a top-of-file
+    comment instructing operators to run
+    the validator after copying. The
+    operator guide
+    `docs/examples/github-actions-verification-runner.md`
+    gained a new "Validate a copied
+    workflow" section. 25 contract
+    tests + 3 added docs-test
+    assertions; full suite 1218 passed
+    / 1 skipped. Still no active
+    workflow in `.github/workflows/` of
+    the Rekon repo; still no GitHub API
+    calls.
+46. **(future)** Verification runner
+    GitHub Check publisher (beta).
+    Optional adapter that publishes
+    `VerificationResult` summaries as
+    GitHub Checks. Requires
+    `checks: write` and per-installation
+    setup. Sits behind a config flag;
+    Rekon artifacts remain canonical.
+47. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-47. **(future)** Persistent exclusion lists, and
+48. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

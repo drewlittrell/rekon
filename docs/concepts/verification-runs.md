@@ -331,6 +331,29 @@ before the execute variant runs real
 commands. See
 [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
 
+A **read-only workflow validator** lives at
+`rekon verify github-workflow validate
+--path <workflow.yml> [--json]`. It is
+pure static text analysis: no YAML parser
+dependency, no GitHub API calls, no
+spawn / exec, no filesystem writes. It
+checks copied workflow templates against
+the alpha safety contract (no
+`pull_request_target`; no GitHub write
+permissions; `permissions: contents: read`;
+no GitHub API calls; uses
+`rekon artifacts latest`; uploads
+`.rekon/artifacts/**` excluding `.log`;
+appends to `$GITHUB_STEP_SUMMARY`; mode
+resolvable to `execute` or `dry-run`) and
+emits warnings for soft checks
+(canonical-truth reminder presence,
+`retention-days` declared). Both bundled
+templates pass with zero errors / zero
+warnings. See the "Validate a copied
+workflow" section in
+[`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
+
 ## Cross-References
 
 - [VerificationRun artifact](../artifacts/verification-run.md)

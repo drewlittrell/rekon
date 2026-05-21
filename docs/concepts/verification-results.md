@@ -295,6 +295,22 @@ process-tree kill; bounded redacted logs;
 no auto-resolution, no auto-apply, no automatic
 retries in v1).
 
+CI / GitHub workflow templates ship a
+read-only validator at `rekon verify
+github-workflow validate --path
+<workflow.yml> [--json]` that pins the alpha
+safety contract on the YAML itself (no
+`pull_request_target`; no GitHub write
+permissions; `permissions: contents: read`;
+no GitHub API calls; uses `rekon artifacts
+latest`; uploads `.rekon/artifacts/**`
+excluding `.log`; appends to
+`$GITHUB_STEP_SUMMARY`; mode resolvable to
+`execute` or `dry-run`). The validator is
+pure static text — it does not execute
+verification commands, does not call GitHub
+APIs, and does not mutate the workflow file.
+
 ## Cross-References
 
 - [VerificationResult artifact](../artifacts/verification-result.md)

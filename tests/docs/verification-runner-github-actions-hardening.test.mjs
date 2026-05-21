@@ -290,3 +290,36 @@ test("review packet exists and contains PURPOSE PRESERVATION CHECK", async () =>
     "review packet must contain PURPOSE PRESERVATION CHECK section",
   );
 });
+
+// ---------- Workflow validation helper assertions (P1.1
+// github-workflow-safety-validator). The validator is read-only
+// and lives at `rekon verify github-workflow validate`.
+
+test("operator guide mentions `rekon verify github-workflow validate`", async () => {
+  const content = await readFile(guidePath, "utf8");
+  assert.match(
+    content,
+    /rekon\s+(?:verify\s+)?github-workflow\s+validate|verify github-workflow validate/i,
+    "operator guide must mention the workflow validator command",
+  );
+});
+
+test("both workflow templates include validate-command comment", async () => {
+  for (const path of [executeWorkflowPath, dryRunWorkflowPath]) {
+    const content = await readFile(path, "utf8");
+    assert.match(
+      content,
+      /verify\s+github-workflow\s+validate/i,
+      `${path} must include the validate-command comment`,
+    );
+  }
+});
+
+test("CHANGELOG mentions the workflow validation helper", async () => {
+  const content = await readFile(changelogPath, "utf8");
+  assert.match(
+    content,
+    /github-workflow-safety-validator|workflow validation helper|verify github-workflow validate/i,
+    "CHANGELOG must mention the workflow validation helper slice",
+  );
+});

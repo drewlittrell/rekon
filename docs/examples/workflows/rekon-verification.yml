@@ -6,6 +6,16 @@
 # enable. The Rekon repository itself does NOT install this
 # workflow.
 #
+# **After copying, validate the file:**
+#
+#   node packages/cli/dist/index.js verify github-workflow validate \
+#     --path .github/workflows/rekon-verification.yml --json
+#
+# The validator is static, read-only, and does not call GitHub. It
+# checks the alpha safety contract (no `pull_request_target`, no
+# write permissions, uses `rekon artifacts latest`, uploads
+# `.rekon/artifacts` excluding logs, writes the job summary).
+#
 # **This template executes VerificationPlan commands** using
 # Rekon's local runner safety contract:
 #

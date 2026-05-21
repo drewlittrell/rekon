@@ -2282,6 +2282,50 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "verify" && subcommand === "github-workflow" && positional === "validate") {
+    // `rekon verify github-workflow validate --path <file>
+    // [--json]`
+    //
+    // **Read-only static validator** for copied GitHub Actions
+    // workflow files. The helper reads the file, runs a set of
+    // text-based safety checks against the alpha workflow
+    // contract pinned by
+    // docs/strategy/verification-runner-ci-github-decision.md,
+    // and exits non-zero when any error-severity issue is
+    // present. It never spawns a process, calls the GitHub API,
+    // or writes artifacts.
+    const pathFlag = typeof parsed.flags.path === "string" ? parsed.flags.path : undefined;
+
+    if (!pathFlag) {
+      throw new Error("rekon verify github-workflow validate requires --path <workflow.yml>.");
+    }
+
+    const absolutePath = isAbsolute(pathFlag) ? pathFlag : resolve(root, pathFlag);
+    let content: string;
+
+    try {
+      content = await readFile(absolutePath, "utf8");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new Error(`rekon verify github-workflow validate could not read ${pathFlag}: ${message}`);
+    }
+
+    const report = validateGitHubWorkflowSafety({ path: pathFlag, content });
+
+    if (json) {
+      writeOutput(report, json);
+    } else {
+      writeOutput(renderGitHubWorkflowSafetyHuman(report), false);
+    }
+
+    if (!report.valid) {
+      process.exitCode = 1;
+    }
+
+    return;
+  }
+
   if (command === "verify" && subcommand === "record") {
     const planFlag = typeof parsed.flags.plan === "string" ? parsed.flags.plan : undefined;
     const resultJsonFlag = typeof parsed.flags["result-json"] === "string" ? parsed.flags["result-json"] : undefined;
@@ -4743,6 +4787,400 @@ function renderVerifyResultFromRunHuman(input: {
   return lines.join("\n");
 }
 
+// ---------- GitHub workflow safety validator
+// (P1.1 github-workflow-safety-validator) ----------
+//
+// `validateGitHubWorkflowSafety` is a pure static analyzer over a
+// GitHub Actions workflow YAML body. It enforces the alpha
+// safety contract pinned by
+// docs/strategy/verification-runner-ci-github-decision.md and
+// doc/examples/github-actions-verification-runner.md:
+//
+//   - No `pull_request_target`.
+//   - No GitHub write permissions
+//     (`pull-requests` / `checks` / `contents` / `id-token` /
+//     `actions` / `deployments` / `statuses` `write`).
+//   - Workflow declares `permissions:` block with
+//     `contents: read`.
+//   - No GitHub API calls (`gh api`, `curl https://api.github.com`,
+//     `actions/github-script`).
+//   - Uses `rekon artifacts latest` (no inline index parsing).
+//   - Uploads `.rekon/artifacts/**`.
+//   - Excludes `.log` files from the upload path.
+//   - Appends to `$GITHUB_STEP_SUMMARY`.
+//   - Detects mode (`execute` vs `dry-run`) from the
+//     `verify run` invocation; an unknown mode is an error so
+//     operators always know whether commands run.
+//
+// Warning-only checks:
+//
+//   - "GitHub status is not canonical truth" / "Rekon
+//     artifacts remain canonical" reminder somewhere in the
+//     file.
+//   - `retention-days: 7` (we recommend 7–14; operators may
+//     differ).
+//
+// Warnings do **not** make the report invalid. Errors do.
+//
+// The helper is read-only. It never executes, spawns, reads
+// remote URLs, or writes anything.
+
+export type GitHubWorkflowSafetyIssueCode =
+  | "pull-request-target"
+  | "github-write-permission"
+  | "missing-permissions-block"
+  | "missing-contents-read"
+  | "uses-github-api"
+  | "missing-artifacts-latest"
+  | "missing-rekon-artifact-upload"
+  | "missing-log-exclusion"
+  | "missing-job-summary"
+  | "missing-canonical-truth-reminder"
+  | "missing-retention-days"
+  | "unknown-mode";
+
+export type GitHubWorkflowSafetyIssue = {
+  code: GitHubWorkflowSafetyIssueCode;
+  severity: "error" | "warning";
+  message: string;
+  recommendedFix: string;
+};
+
+export type GitHubWorkflowSafetyMode = "execute" | "dry-run" | "unknown";
+
+export type GitHubWorkflowSafetyReport = {
+  valid: boolean;
+  path: string;
+  mode: GitHubWorkflowSafetyMode;
+  issues: GitHubWorkflowSafetyIssue[];
+  summary: {
+    mode: GitHubWorkflowSafetyMode;
+    hasPullRequestTarget: boolean;
+    hasWritePermissions: boolean;
+    hasPermissionsBlock: boolean;
+    hasContentsRead: boolean;
+    usesGitHubApi: boolean;
+    usesArtifactsLatest: boolean;
+    uploadsRekonArtifacts: boolean;
+    excludesLogs: boolean;
+    writesJobSummary: boolean;
+    hasCanonicalTruthReminder: boolean;
+    hasRetentionDays: boolean;
+  };
+};
+
+const GITHUB_WRITE_PERMISSION_SCOPES = [
+  "pull-requests",
+  "checks",
+  "contents",
+  "id-token",
+  "actions",
+  "deployments",
+  "statuses",
+  "packages",
+] as const;
+
+/**
+ * Strip `#` comments from a YAML body so static checks aren't
+ * tripped by the documentation comments in the templates that
+ * explicitly list what the workflow does NOT do.
+ *
+ * Quote-aware: `#` characters inside `'...'` or `"..."`
+ * strings on the same line are treated as part of the string,
+ * not as a comment marker. This matters because workflow `run`
+ * steps often quote literal `#` characters (e.g.,
+ * `echo "# Heading" >> "$GITHUB_STEP_SUMMARY"`).
+ */
+function stripGitHubWorkflowYamlComments(content: string): string {
+  return content
+    .split("\n")
+    .map((line) => {
+      let inSingle = false;
+      let inDouble = false;
+      let inBacktick = false;
+
+      for (let index = 0; index < line.length; index += 1) {
+        const char = line[index];
+
+        if (char === "\\") {
+          // Skip the next character — escape sequences inside
+          // strings shouldn't terminate quotes.
+          index += 1;
+          continue;
+        }
+
+        if (!inDouble && !inBacktick && char === "'") {
+          inSingle = !inSingle;
+          continue;
+        }
+        if (!inSingle && !inBacktick && char === "\"") {
+          inDouble = !inDouble;
+          continue;
+        }
+        if (!inSingle && !inDouble && char === "`") {
+          inBacktick = !inBacktick;
+          continue;
+        }
+
+        if (char === "#" && !inSingle && !inDouble && !inBacktick) {
+          return line.slice(0, index);
+        }
+      }
+
+      return line;
+    })
+    .join("\n");
+}
+
+export function validateGitHubWorkflowSafety(
+  input: { path: string; content: string },
+): GitHubWorkflowSafetyReport {
+  const path = typeof input?.path === "string" ? input.path : "<unknown>";
+  const content = typeof input?.content === "string" ? input.content : "";
+  const yaml = stripGitHubWorkflowYamlComments(content);
+  const issues: GitHubWorkflowSafetyIssue[] = [];
+
+  // --- Mode detection ---------------------------------------
+  const hasExecute = /verify\s+run\b[\s\S]*?--execute/.test(yaml);
+  const hasDryRun = /verify\s+run\b[\s\S]*?--dry-run/.test(yaml);
+  let mode: GitHubWorkflowSafetyMode = "unknown";
+
+  if (hasExecute && !hasDryRun) mode = "execute";
+  else if (hasDryRun && !hasExecute) mode = "dry-run";
+  else mode = "unknown";
+
+  if (mode === "unknown") {
+    issues.push({
+      code: "unknown-mode",
+      severity: "error",
+      message:
+        "Workflow does not invoke `rekon verify run --execute` or `rekon verify run --dry-run` (or invokes both).",
+      recommendedFix:
+        "Choose one verify-run mode. Use `--dry-run` for trial adoption; `--execute` to actually run plan commands.",
+    });
+  }
+
+  // --- pull_request_target -----------------------------------
+  const hasPullRequestTarget = /\bpull_request_target\b/.test(yaml);
+
+  if (hasPullRequestTarget) {
+    issues.push({
+      code: "pull-request-target",
+      severity: "error",
+      message:
+        "Workflow uses `pull_request_target`. That trigger runs in the upstream repo's context with secrets attached while checking out the fork's code.",
+      recommendedFix:
+        "Use the standard `pull_request` trigger instead. Move any secret-bearing actions to a separate, manually-approved workflow.",
+    });
+  }
+
+  // --- GitHub write permissions ------------------------------
+  let hasWritePermissions = false;
+
+  for (const scope of GITHUB_WRITE_PERMISSION_SCOPES) {
+    const pattern = new RegExp(`${escapeRegex(scope)}:\\s*write\\b`);
+
+    if (pattern.test(yaml)) {
+      hasWritePermissions = true;
+      issues.push({
+        code: "github-write-permission",
+        severity: "error",
+        message: `Workflow requests \`${scope}: write\`. The alpha template forbids GitHub write permissions.`,
+        recommendedFix: `Remove the \`${scope}: write\` declaration. The alpha workflow uses only \`permissions: contents: read\`.`,
+      });
+    }
+  }
+
+  // --- permissions block + contents: read --------------------
+  const hasPermissionsBlock = /^\s*permissions:/m.test(yaml);
+  const hasContentsRead = /^\s*contents:\s*read\b/m.test(yaml);
+
+  if (!hasPermissionsBlock) {
+    issues.push({
+      code: "missing-permissions-block",
+      severity: "error",
+      message: "Workflow does not declare a `permissions:` block.",
+      recommendedFix:
+        "Add `permissions:\\n  contents: read` at the workflow level. Implicit permissions can vary by repo settings.",
+    });
+  }
+
+  if (!hasContentsRead) {
+    issues.push({
+      code: "missing-contents-read",
+      severity: "error",
+      message: "Workflow does not declare `contents: read`.",
+      recommendedFix:
+        "Add `contents: read` to the `permissions:` block. Without it the workflow may inherit broader scope.",
+    });
+  }
+
+  // --- GitHub API calls --------------------------------------
+  // Look at the original content (not the comment-stripped body)
+  // for API-call markers, because operator comments aren't where
+  // these come from. But we still strip comments because the
+  // canonical-truth comment mentions "GitHub" plainly.
+  const usesGhApi = /\bgh\s+api\b/.test(yaml);
+  const usesCurlApi = /curl[^\n]+api\.github\.com/.test(yaml);
+  const usesGithubScript = /actions\/github-script/.test(yaml);
+  const usesGitHubApi = usesGhApi || usesCurlApi || usesGithubScript;
+
+  if (usesGitHubApi) {
+    issues.push({
+      code: "uses-github-api",
+      severity: "error",
+      message:
+        "Workflow appears to call the GitHub API (`gh api`, `curl api.github.com`, or `actions/github-script`).",
+      recommendedFix:
+        "Remove GitHub API calls from this workflow. The alpha template surfaces proof via `$GITHUB_STEP_SUMMARY` and `actions/upload-artifact` only.",
+    });
+  }
+
+  // --- rekon artifacts latest --------------------------------
+  const usesArtifactsLatest = /artifacts\s+latest/.test(yaml);
+
+  if (!usesArtifactsLatest) {
+    issues.push({
+      code: "missing-artifacts-latest",
+      severity: "error",
+      message:
+        "Workflow does not use `rekon artifacts latest`. Inline index parsing is harder to audit and easy to miswire.",
+      recommendedFix:
+        "Use `node packages/cli/dist/index.js artifacts latest --type <ArtifactType> --id-only --allow-missing` to resolve latest artifact ids.",
+    });
+  }
+
+  // --- .rekon/artifacts upload + .log exclusion --------------
+  const uploadsRekonArtifacts = /\.rekon\/artifacts\/\*\*/.test(yaml);
+  const excludesLogs = /!\.rekon\/artifacts\/\*\*\/\*\.log\b/.test(yaml);
+
+  if (!uploadsRekonArtifacts) {
+    issues.push({
+      code: "missing-rekon-artifact-upload",
+      severity: "error",
+      message: "Workflow does not upload `.rekon/artifacts/**`.",
+      recommendedFix:
+        "Add an `actions/upload-artifact@v4` step with `path: .rekon/artifacts/**` (and `!.rekon/artifacts/**/*.log` to exclude raw logs).",
+    });
+  }
+
+  if (!excludesLogs) {
+    issues.push({
+      code: "missing-log-exclusion",
+      severity: "error",
+      message:
+        "Workflow does not exclude `.rekon/artifacts/**/*.log` from the upload path. Raw command logs must not be uploaded.",
+      recommendedFix:
+        "Add `!.rekon/artifacts/**/*.log` to the `actions/upload-artifact` path filter. Rekon's runner already keeps raw stdout/stderr out of artifact bodies; this is defense in depth.",
+    });
+  }
+
+  // --- $GITHUB_STEP_SUMMARY ----------------------------------
+  const writesJobSummary = /\$GITHUB_STEP_SUMMARY\b/.test(yaml);
+
+  if (!writesJobSummary) {
+    issues.push({
+      code: "missing-job-summary",
+      severity: "error",
+      message: "Workflow does not append to `$GITHUB_STEP_SUMMARY`.",
+      recommendedFix:
+        "Append `# Rekon Verification Summary` and the proof-report markdown to `$GITHUB_STEP_SUMMARY` so reviewers see proof state inline on the job page.",
+    });
+  }
+
+  // --- Canonical-truth reminder (warning) --------------------
+  const flat = yaml.replace(/\s+/g, " ");
+  const hasCanonicalTruthReminder =
+    /GitHub status is not canonical truth/i.test(flat)
+    || /Rekon.{0,80}artifacts.{0,40}(remain|are).{0,40}canonical/i.test(flat);
+
+  if (!hasCanonicalTruthReminder) {
+    issues.push({
+      code: "missing-canonical-truth-reminder",
+      severity: "warning",
+      message:
+        "Workflow does not include the canonical-truth reminder (`GitHub status is not canonical truth; Rekon artifacts remain canonical.`).",
+      recommendedFix:
+        "Include the reminder in the job-summary block or in a comment near the top. Reviewers should not mistake the green badge for proof.",
+    });
+  }
+
+  // --- retention-days (warning) ------------------------------
+  const hasRetentionDays = /retention-days:\s*\d+\b/.test(yaml);
+
+  if (!hasRetentionDays) {
+    issues.push({
+      code: "missing-retention-days",
+      severity: "warning",
+      message:
+        "Workflow does not set `retention-days` on the artifact upload. The default (90 days) is longer than the alpha recommendation.",
+      recommendedFix:
+        "Add `retention-days: 7` (or 14) to the `actions/upload-artifact@v4` step to bound exposure.",
+    });
+  }
+
+  const errors = issues.filter((issue) => issue.severity === "error");
+
+  return {
+    valid: errors.length === 0,
+    path,
+    mode,
+    issues,
+    summary: {
+      mode,
+      hasPullRequestTarget,
+      hasWritePermissions,
+      hasPermissionsBlock,
+      hasContentsRead,
+      usesGitHubApi,
+      usesArtifactsLatest,
+      uploadsRekonArtifacts,
+      excludesLogs,
+      writesJobSummary,
+      hasCanonicalTruthReminder,
+      hasRetentionDays,
+    },
+  };
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderGitHubWorkflowSafetyHuman(report: GitHubWorkflowSafetyReport): string {
+  const lines: string[] = [];
+  const status = report.valid ? "valid" : "invalid";
+
+  lines.push(`GitHub workflow safety: ${status}`);
+  lines.push(`Path: ${report.path}`);
+  lines.push(`Mode: ${report.mode}`);
+  lines.push("Checks:");
+
+  function check(label: string, ok: boolean): void {
+    lines.push(`- ${label} ${ok ? "✓" : "✗"}`);
+  }
+
+  check("permissions: contents: read", report.summary.hasPermissionsBlock && report.summary.hasContentsRead);
+  check("no pull_request_target", !report.summary.hasPullRequestTarget);
+  check("no GitHub write permissions", !report.summary.hasWritePermissions);
+  check("no GitHub API calls", !report.summary.usesGitHubApi);
+  check("uses rekon artifacts latest", report.summary.usesArtifactsLatest);
+  check("uploads .rekon/artifacts", report.summary.uploadsRekonArtifacts);
+  check("excludes .log files", report.summary.excludesLogs);
+  check("writes GITHUB_STEP_SUMMARY", report.summary.writesJobSummary);
+
+  if (report.issues.length > 0) {
+    lines.push("");
+    lines.push("Issues:");
+    for (const issue of report.issues) {
+      lines.push(`- [${issue.severity}] ${issue.code}: ${issue.message}`);
+      lines.push(`  Fix: ${issue.recommendedFix}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function writeOutput(value: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(value, null, 2));
@@ -4819,5 +5257,6 @@ function usage(): string {
     "rekon verify run --plan <id|type:id> --dry-run|--preview [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--json]",
     "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--json]",
+    "rekon verify github-workflow validate --path <workflow.yml> [--root <path>] [--json]",
   ].join("\n");
 }

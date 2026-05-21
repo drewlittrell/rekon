@@ -1106,6 +1106,68 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner GitHub workflow validation
+  helper (P1.1 github-workflow-safety-validator
+  slice): **step 5** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  CLI + docs + tests batch — no active workflow in
+  `.github/workflows`, no GitHub API writes, no
+  artifact-shape change, no new capability
+  package. Adds the read-only command
+  `rekon verify github-workflow validate --path
+  <workflow.yml> [--json]` whose helper
+  `validateGitHubWorkflowSafety` is co-located in
+  `packages/cli/src/index.ts`. The validator is
+  **pure static text analysis** — no YAML parser
+  dependency, no GitHub API calls, no spawn /
+  exec, no filesystem writes. A quote-aware
+  comment-stripping helper preserves `#`-prefixed
+  strings inside `'`, `"`, and `` ` `` quotes so
+  workflow templates that echo
+  `# Rekon Verification Summary` headings into
+  `$GITHUB_STEP_SUMMARY` validate cleanly.
+  **Errors:** no `pull_request_target`; no GitHub
+  write permissions (`pull-requests`, `checks`,
+  `contents`, `id-token`, `actions`,
+  `deployments`, `statuses`, `packages` set to
+  `write`); `permissions: contents: read`
+  declared; no GitHub API calls (`gh api`,
+  `curl api.github.com`,
+  `actions/github-script`); uses
+  `rekon artifacts latest`; uploads
+  `.rekon/artifacts/**`; excludes `.log`; appends
+  to `$GITHUB_STEP_SUMMARY`; mode resolvable to
+  `execute` or `dry-run` (`unknown` is an error).
+  **Warnings only:** canonical-truth reminder
+  presence, `retention-days` declared. Both
+  bundled templates
+  ([`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml),
+  [`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml))
+  gain a top-of-file comment instructing
+  operators to run the validator after copying;
+  both pass with zero errors / zero warnings.
+  Operator guide
+  [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+  gains a new "Validate a copied workflow"
+  section before Adoption. **25 contract tests**
+  pin the helper (both templates, every error
+  code, the warning behaviour, the read-only
+  invariant, CLI exit codes and JSON shape). The
+  hardening-v2 docs test gains **3 new
+  assertions** (operator guide mentions the
+  command, both templates carry the
+  validate-command comment, CHANGELOG mentions
+  the helper). Full suite: 1218 passed / 1
+  skipped. **Recommended next slice:** the
+  beta-tier verification runner GitHub Check
+  publisher (step 6 of the CI / GitHub adapter
+  implementation sequence; requires
+  `checks: write` and per-installation setup, so
+  sits behind a config flag with Rekon artifacts
+  remaining canonical truth). No artifact-shape
+  change. No new capability. No `schemaVersion`
+  bump. No version bump. No npm publish.
 - Verification runner GitHub Actions workflow
   hardening v2 (P1.1
   verification-runner-github-actions-hardening-v2
@@ -1153,12 +1215,13 @@ is the first stop before proposing a new capability batch.
   CHECK`. Full suite: 1189 passed / 1 skipped.
   **Recommended next slice:** verification runner
   GitHub workflow validation helper (read-only
-  command or script that validates copied
-  workflow templates against the required safety
-  contract). Still no GitHub API writes. No
+  command that validates copied workflow
+  templates against the required safety
+  contract). **Shipped next; see the entry
+  above.** Still no GitHub API writes. No
   artifact-shape change. No new capability. No
-  new CLI command. No `schemaVersion` bump. No
-  version bump. No npm publish.
+  `schemaVersion` bump. No version bump. No npm
+  publish.
 - Verification runner latest-artifact CLI helper
   (P1.1 artifacts-latest-cli-helper slice):
   **step 3** of the CI / GitHub adapter

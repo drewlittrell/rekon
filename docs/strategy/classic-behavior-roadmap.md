@@ -4032,20 +4032,154 @@ scope:
 
   **Recommended next slice:**
   **verification runner GitHub
-  workflow validation helper** — a
-  read-only command or script that
-  validates copied workflow
-  templates against the required
-  safety contract (no
-  `pull_request_target`, no write
-  permissions, no raw log upload,
-  uses `artifacts latest`, uploads
-  `.rekon/artifacts`). Still no
+  workflow validation helper**.
+  **Shipped next; see the entry
+  below.**
+- **Verification runner GitHub
+  workflow validation helper (P1.1
+  github-workflow-safety-validator
+  slice).** ✅ Shipped. **Step 5** of
+  the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  CLI + docs + tests batch. No
+  artifact-shape change. No new
+  capability package. No active
+  workflow in `.github/workflows`. No
   GitHub API writes.
 
-  No code changes. No artifact-shape
-  change. No new capability. No new
-  CLI command. No active workflow.
+  **Shipped artifacts:**
+  - New CLI command
+    `rekon verify github-workflow
+    validate --path <workflow.yml>
+    [--json]` (surface in
+    `packages/cli/src/index.ts`,
+    co-located helper
+    `validateGitHubWorkflowSafety`).
+    The validator is **pure static
+    text analysis** — no YAML parser
+    dependency, no GitHub API calls,
+    no spawn / exec, no filesystem
+    writes, no network. It loads the
+    workflow text via `fs.readFile`
+    and runs regex-based checks.
+  - Quote-aware comment-stripping
+    helper that tracks `'`, `"`, and
+    `` ` `` modes so workflow
+    templates can echo
+    `#`-prefixed strings (e.g.
+    `# Rekon Verification Summary`)
+    into `$GITHUB_STEP_SUMMARY`
+    without the validator removing
+    the surrounding `$GITHUB_STEP_SUMMARY`
+    reference.
+  - Both bundled templates
+    ([`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml),
+    [`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml))
+    gained a top-of-file comment
+    block instructing operators to
+    run the validator after copying.
+    Both pass with zero errors /
+    zero warnings (`rekon-verification.yml`
+    detects mode = `execute`,
+    `rekon-verification-dry-run.yml`
+    detects mode = `dry-run`).
+  - Operator guide
+    [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+    gained a new "Validate a copied
+    workflow" section before
+    Adoption.
+
+  **Safety contract enforced
+  (errors):**
+  - No `pull_request_target` trigger.
+  - No GitHub write permissions
+    (`pull-requests`, `checks`,
+    `contents`, `id-token`, `actions`,
+    `deployments`, `statuses`,
+    `packages` set to `write`).
+  - `permissions: contents: read`
+    declared.
+  - No GitHub API calls (`gh api`,
+    `curl api.github.com`,
+    `actions/github-script`).
+  - Uses `rekon artifacts latest`.
+  - Uploads `.rekon/artifacts/**`.
+  - Excludes `.log` files.
+  - Appends to
+    `$GITHUB_STEP_SUMMARY`.
+  - Mode resolvable to `execute`
+    (verify run `--execute`) or
+    `dry-run` (`--dry-run`); `unknown`
+    is an error so operators always
+    know which path the workflow takes.
+
+  **Soft checks (warnings only):**
+  canonical-truth reminder presence
+  in the summary block, `retention-days`
+  declared on the upload step.
+
+  **Read-only invariant:** the
+  validator never spawns / executes /
+  calls GitHub APIs and never mutates
+  the workflow file (verified by
+  asserting the file's stat / mtime
+  is unchanged after a run in the
+  contract test).
+
+  **Tests:** new contract suite
+  `tests/contract/github-workflow-safety-validator.test.mjs`
+  (25 tests covering both templates,
+  every error code, the warning
+  behaviour, the read-only invariant,
+  and the CLI surface incl. exit
+  codes). Existing
+  `tests/docs/verification-runner-github-actions-hardening.test.mjs`
+  gained 3 new assertions (operator
+  guide mentions the command, both
+  templates carry the validate-command
+  comment, CHANGELOG mentions the
+  helper). Full suite: **1218 passed
+  / 1 skipped**.
+
+  **Docs:** 13 updated
+  ([`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+  — new "Validate a copied workflow"
+  section),
+  [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+  + [`docs/examples/workflows/rekon-verification-dry-run.yml`](../examples/workflows/rekon-verification-dry-run.yml)
+  — both gained the validate-command
+  comment,
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  — new step 5 (validation helper)
+  flipped to ✅ Shipped; subsequent
+  steps renumbered,
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md),
+  [`docs/concepts/verification-results.md`](../concepts/verification-results.md),
+  [`docs/concepts/proof-report-publication.md`](../concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](../artifacts/proof-report-publication.md),
+  this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  — step 45 flipped to ✅ Shipped.
+  `README.md` and `CHANGELOG.md`
+  updated. New review packet
+  `.rekon-dev/review-packets/github-workflow-safety-validator.md`.
+
+  **Recommended next slice:**
+  **verification runner GitHub
+  Check publisher (beta)** — the
+  optional adapter that publishes
+  `VerificationResult` summaries as
+  GitHub Checks. Requires
+  `checks: write` and per-installation
+  setup; sits behind a config flag
+  so Rekon artifacts remain the
+  canonical truth. Pinned as step 6
+  in the CI / GitHub adapter
+  implementation sequence.
+
+  No active workflow. No GitHub API
+  writes. No artifact-shape change.
   No `schemaVersion` bump. No
   `FindingStatusLedger` /
   `FindingLifecycleReport` /
