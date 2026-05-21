@@ -24,6 +24,11 @@ import {
   type OwnershipMap,
 } from "@rekon/kernel-repo-model";
 import { type IntelligenceSnapshot } from "@rekon/kernel-snapshot";
+import {
+  type VerificationProofSurfaceSummary,
+  type VerificationProofWarning,
+  summarizeVerificationProofSurface,
+} from "@rekon/capability-intent";
 import { type Publisher, defineCapability } from "@rekon/sdk";
 
 export type PublicationArtifact = {
@@ -99,6 +104,8 @@ type VerificationCommandResultLike = {
   status?: "passed" | "failed" | "skipped" | "not-run";
   exitCode?: number;
   durationMs?: number;
+  stdoutDigest?: string;
+  stderrDigest?: string;
   notes?: string;
 };
 
@@ -331,10 +338,18 @@ export const architectureSummaryPublisher: Publisher = {
       inputRefs.push(latestVerificationPlanRef);
     }
 
-    const verificationResult = await readLatestArtifact<VerificationResultLike>(
+    const verificationResultRef = await latestRef(artifacts, "VerificationResult");
+    const verificationResult = verificationResultRef
+      ? (await artifacts.read(verificationResultRef)) as VerificationResultLike
+      : undefined;
+
+    if (verificationResultRef && !inputRefs.some((existing) => existing.type === verificationResultRef.type && existing.id === verificationResultRef.id)) {
+      inputRefs.push(verificationResultRef);
+    }
+
+    const verificationRunArtifactExists = await checkVerificationRunExists(
       artifacts,
-      "VerificationResult",
-      inputRefs,
+      verificationResult,
     );
     const freshness = await detectGovernanceFreshness(artifacts);
 
@@ -366,6 +381,8 @@ export const architectureSummaryPublisher: Publisher = {
         latestVerificationPlanRef,
         verificationPlan,
         verificationResult,
+        verificationResultRef,
+        verificationRunArtifactExists,
         freshness,
         inputRefs,
         generatedAt,
@@ -402,11 +419,23 @@ export const proofReportPublisher: Publisher = {
       inputRefs.push(verificationPlanRef);
     }
 
-    const verificationResult = await readLatestArtifact<VerificationResultLike>(
+    const verificationResultRef = await latestRef(artifacts, "VerificationResult");
+    const verificationResult = verificationResultRef
+      ? (await artifacts.read(verificationResultRef)) as VerificationResultLike
+      : undefined;
+
+    if (verificationResultRef && !inputRefs.some((existing) => existing.type === verificationResultRef.type && existing.id === verificationResultRef.id)) {
+      inputRefs.push(verificationResultRef);
+    }
+
+    // Check whether the VerificationRun referenced by the
+    // result is present in the local store. This feeds the
+    // proof-surface helper's `knownRunnerRunMissing` flag.
+    const verificationRunArtifactExists = await checkVerificationRunExists(
       artifacts,
-      "VerificationResult",
-      inputRefs,
+      verificationResult,
     );
+
     const coherencyDelta = await readLatestArtifact<CoherencyDelta>(
       artifacts,
       "CoherencyDelta",
@@ -496,6 +525,9 @@ export const proofReportPublisher: Publisher = {
         verificationPlan,
         verificationPlanRef,
         verificationResult,
+        verificationResultRef,
+        latestVerificationPlanRef: verificationPlanRef,
+        verificationRunArtifactExists,
         coherencyDelta,
         reconciliationPlan,
         lifecycleReport,
@@ -510,6 +542,29 @@ export const proofReportPublisher: Publisher = {
     return [ref];
   },
 };
+
+async function checkVerificationRunExists(
+  artifacts: {
+    list(type?: string): Promise<ArtifactRef[]>;
+    read(ref: ArtifactRef): Promise<unknown>;
+  },
+  verificationResult: VerificationResultLike | undefined,
+): Promise<boolean | undefined> {
+  if (!verificationResult || !Array.isArray(verificationResult.header?.inputRefs)) {
+    return undefined;
+  }
+
+  const runRef = verificationResult.header!.inputRefs.find(
+    (ref) => ref && typeof ref === "object" && (ref as ArtifactRef).type === "VerificationRun",
+  ) as ArtifactRef | undefined;
+
+  if (!runRef) {
+    return undefined;
+  }
+
+  const runs = await artifacts.list("VerificationRun");
+  return runs.some((entry) => entry.id === runRef.id);
+}
 
 export const agentContractPublisher: Publisher = {
   id: "@rekon/capability-docs.agent-contract",
@@ -624,10 +679,18 @@ export const agentContractPublisher: Publisher = {
       inputRefs.push(latestVerificationPlanRef);
     }
 
-    const verificationResult = await readLatestArtifact<VerificationResultLike>(
+    const verificationResultRef = await latestRef(artifacts, "VerificationResult");
+    const verificationResult = verificationResultRef
+      ? (await artifacts.read(verificationResultRef)) as VerificationResultLike
+      : undefined;
+
+    if (verificationResultRef && !inputRefs.some((existing) => existing.type === verificationResultRef.type && existing.id === verificationResultRef.id)) {
+      inputRefs.push(verificationResultRef);
+    }
+
+    const verificationRunArtifactExists = await checkVerificationRunExists(
       artifacts,
-      "VerificationResult",
-      inputRefs,
+      verificationResult,
     );
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
@@ -667,6 +730,8 @@ export const agentContractPublisher: Publisher = {
         verificationPlan,
         verificationPlanRef: latestVerificationPlanRef,
         verificationResult,
+        verificationResultRef,
+        verificationRunArtifactExists,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -1125,6 +1190,8 @@ type ArchitectureSummaryInputs = {
   latestVerificationPlanRef?: ArtifactRef;
   verificationPlan?: VerificationPlanLike;
   verificationResult?: VerificationResultLike;
+  verificationResultRef?: ArtifactRef;
+  verificationRunArtifactExists?: boolean;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -1448,6 +1515,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   renderWorkOrdersSection(sections, input);
   renderReconciliationPlansSection(sections, input);
   renderVerificationStatusSection(sections, input);
+  renderVerificationProofStatusBlock(sections, input);
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -1614,6 +1682,50 @@ function renderVerificationStatusSection(
   }
 }
 
+function renderVerificationProofStatusBlock(
+  sections: string[],
+  input: ArchitectureSummaryInputs,
+): void {
+  if (!input.verificationResult) {
+    return;
+  }
+
+  sections.push("## Verification Proof Status");
+  sections.push("");
+
+  const surface = summarizeVerificationProofSurface({
+    verificationResult: input.verificationResult,
+    verificationResultRef: input.verificationResultRef,
+    latestVerificationPlanRef: input.latestVerificationPlanRef,
+    knownRunnerRunMissing: input.verificationRunArtifactExists === false
+      && Boolean(extractVerificationRunRef(input.verificationResult)),
+  });
+
+  sections.push(`- Status: ${surface.status}`);
+  sections.push(`- Source: ${surface.source}`);
+  sections.push(`- Freshness: ${surface.freshness}`);
+
+  if (surface.verificationResultRef) {
+    sections.push(`- VerificationResult: ${formatRef(surface.verificationResultRef)}`);
+  }
+  if (surface.verificationRunRef) {
+    sections.push(`- VerificationRun: ${formatRef(surface.verificationRunRef)}`);
+  }
+  sections.push("");
+
+  if (surface.warnings.length > 0) {
+    sections.push(
+      "> Verification is not complete or current. Do not mark governed issues resolved from this proof alone.",
+    );
+    sections.push("");
+  } else if (surface.status === "passed") {
+    sections.push(
+      "Verification passed. Passing proof does not automatically resolve findings.",
+    );
+    sections.push("");
+  }
+}
+
 function renderProofLoopSection(sections: string[], input: ArchitectureSummaryInputs): void {
   sections.push("## Proof Loop");
   sections.push("");
@@ -1694,6 +1806,9 @@ type ProofReportInputs = {
   verificationPlan?: VerificationPlanLike;
   verificationPlanRef?: ArtifactRef;
   verificationResult?: VerificationResultLike;
+  verificationResultRef?: ArtifactRef;
+  latestVerificationPlanRef?: ArtifactRef;
+  verificationRunArtifactExists?: boolean;
   coherencyDelta?: CoherencyDelta;
   reconciliationPlan?: ReconciliationPlanLike;
   lifecycleReport?: FindingLifecycleReport;
@@ -1701,6 +1816,74 @@ type ProofReportInputs = {
   mergeRollupFreshness?: IssueMergeRollupFreshness;
   inputRefs: ArtifactRef[];
 };
+
+function extractVerificationRunRef(
+  result: VerificationResultLike | undefined,
+): ArtifactRef | undefined {
+  if (!result || !Array.isArray(result.header?.inputRefs)) {
+    return undefined;
+  }
+
+  for (const ref of result.header!.inputRefs) {
+    if (ref && typeof ref === "object" && (ref as ArtifactRef).type === "VerificationRun") {
+      return ref as ArtifactRef;
+    }
+  }
+
+  return undefined;
+}
+
+function renderVerificationProofSummarySection(
+  sections: string[],
+  surface: VerificationProofSurfaceSummary,
+): void {
+  sections.push("## Verification Proof Summary");
+  sections.push("");
+  sections.push("| Field | Value |");
+  sections.push("| --- | --- |");
+  sections.push(
+    `| VerificationResult | ${surface.verificationResultRef ? formatRef(surface.verificationResultRef) : "—"} |`,
+  );
+  sections.push(
+    `| VerificationPlan | ${surface.verificationPlanRef ? formatRef(surface.verificationPlanRef) : "—"} |`,
+  );
+  sections.push(
+    `| VerificationRun | ${surface.verificationRunRef ? formatRef(surface.verificationRunRef) : "—"} |`,
+  );
+  sections.push(
+    `| WorkOrder | ${surface.workOrderRef ? formatRef(surface.workOrderRef) : "—"} |`,
+  );
+  sections.push(`| Source | ${surface.source} |`);
+  sections.push(`| Status | ${surface.status} |`);
+  sections.push(`| Freshness | ${surface.freshness} |`);
+
+  if (surface.recordedBy || surface.recordedAt) {
+    sections.push(
+      `| Recorded by | ${surface.recordedBy ?? "—"}${surface.recordedAt ? ` at ${surface.recordedAt}` : ""} |`,
+    );
+  }
+  sections.push("");
+
+  for (const warning of surface.warnings) {
+    sections.push(`> ${warning.message}`);
+    if (warning.recommendedCommand) {
+      sections.push("");
+      sections.push(`Recommended: \`${warning.recommendedCommand}\``);
+    }
+    sections.push("");
+  }
+
+  if (
+    surface.warnings.length === 0
+    && surface.status === "passed"
+    && (surface.freshness === "fresh" || surface.freshness === "unknown")
+  ) {
+    sections.push(
+      "> Verification passed. Passing proof does not automatically resolve findings.",
+    );
+    sections.push("");
+  }
+}
 
 function pickProofReportSubject(input: {
   snapshot?: IntelligenceSnapshot;
@@ -1829,6 +2012,21 @@ function renderProofReport(input: ProofReportInputs): string {
     }
   }
 
+  // Verification Proof Summary — P1.1 verification-proof-surfaces-v2.
+  // Surfaces the proof source (manual vs runner-derived), freshness
+  // against the latest VerificationPlan, and any warnings the
+  // classifier produced.
+  const proofSurface = summarizeVerificationProofSurface({
+    verificationResult,
+    verificationResultRef: input.verificationResultRef,
+    latestVerificationPlanRef: input.latestVerificationPlanRef ?? verificationPlanRef,
+    knownRunnerRunMissing:
+      verificationResult !== undefined
+      && input.verificationRunArtifactExists === false
+      && Boolean(extractVerificationRunRef(verificationResult)),
+  });
+  renderVerificationProofSummarySection(sections, proofSurface);
+
   // Work Order
   sections.push("## Work Order");
   sections.push("");
@@ -1882,13 +2080,24 @@ function renderProofReport(input: ProofReportInputs): string {
       sections.push("VerificationResult has no command results.");
       sections.push("");
     } else {
-      sections.push("| Command | Status | Exit Code | Notes |");
-      sections.push("| --- | --- | --- | --- |");
+      // Digest column carries the first 12 chars of the sha256
+      // hash when present — enough to verify identity without
+      // dumping the full 64-char hex.
+      sections.push("| Command | Status | Exit | Duration | Digests | Notes |");
+      sections.push("| --- | --- | --- | --- | --- | --- |");
       for (const row of results) {
         const exitCode = typeof row.exitCode === "number" ? String(row.exitCode) : "—";
         const status = row.status ?? "—";
+        const duration = typeof row.durationMs === "number" ? `${row.durationMs}ms` : "—";
+        const stdoutDigest = typeof row.stdoutDigest === "string" && row.stdoutDigest.length > 0
+          ? `stdout:${row.stdoutDigest.slice(0, 12)}…`
+          : "";
+        const stderrDigest = typeof row.stderrDigest === "string" && row.stderrDigest.length > 0
+          ? `stderr:${row.stderrDigest.slice(0, 12)}…`
+          : "";
+        const digests = [stdoutDigest, stderrDigest].filter((entry) => entry.length > 0).join(" / ") || "—";
         sections.push(
-          `| ${escapeCell(row.command ?? "—")} | ${status} | ${exitCode} | ${escapeCell(row.notes ?? "")} |`,
+          `| ${escapeCell(row.command ?? "—")} | ${status} | ${exitCode} | ${duration} | ${digests} | ${escapeCell(row.notes ?? "")} |`,
         );
       }
       sections.push("");
@@ -2172,6 +2381,8 @@ type AgentContractInputs = {
   verificationPlan?: VerificationPlanLike;
   verificationPlanRef?: ArtifactRef;
   verificationResult?: VerificationResultLike;
+  verificationResultRef?: ArtifactRef;
+  verificationRunArtifactExists?: boolean;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -2212,6 +2423,8 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat detector-detail fallback filtering as equivalent to EvidenceGraph-backed structural evidence. When `Graph-aware evidence sources` shows `DetectorDetails` entries, review them more critically than `EvidenceGraph` entries — the detector's claim was not corroborated by artifact evidence.",
   "Do not rely on accepted merge roll-ups after merge decisions, adjudication, or lifecycle artifacts change until `rekon refresh` has run.",
   "Do not assume advisory merge candidates are accepted; check IssueMergeDecisionLedger or run `rekon issues merge candidates --undecided`.",
+  "Do not treat passed verification as automatic finding resolution; status changes require explicit lifecycle/status artifacts.",
+  "Do not treat stale, partial, failed, timeout, killed, or not-run verification as proof of completion.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -2556,12 +2769,48 @@ function renderAgentContract(input: AgentContractInputs): string {
     `- VerificationResult: ${haveResult ? `status ${resultStatus ?? "not-run"}` : "missing"}`,
   );
 
+  // Proof source / freshness summary — P1.1
+  // verification-proof-surfaces-v2. Always rendered so agents see
+  // the classifier output even when proof is missing.
+  const agentProofSurface = summarizeVerificationProofSurface({
+    verificationResult,
+    verificationResultRef: input.verificationResultRef,
+    latestVerificationPlanRef: verificationPlanRef,
+    knownRunnerRunMissing: input.verificationRunArtifactExists === false
+      && verificationResult !== undefined
+      && Boolean(extractVerificationRunRef(verificationResult)),
+  });
+  sections.push(`- Proof source: ${agentProofSurface.source}`);
+  sections.push(`- Proof freshness: ${agentProofSurface.freshness}`);
+
   if (resultStatus === "failed" || resultStatus === "partial" || resultStatus === "not-run") {
     sections.push("");
     sections.push("> Verification is not complete.");
+    sections.push("");
+    sections.push("Agent instruction:");
+    sections.push("- Treat proof as incomplete.");
+    sections.push("- Do not claim completion.");
+    sections.push("- Re-run verification (`rekon verify run --plan <id> --execute`) or ask the operator for proof.");
   } else if (resultStatus === "passed") {
     sections.push("");
     sections.push("> Verification recorded as passed. This does not automatically resolve findings.");
+  }
+
+  if (agentProofSurface.freshness === "stale"
+    || agentProofSurface.freshness === "missing-plan") {
+    sections.push("");
+    sections.push("> Verification proof is stale relative to the latest VerificationPlan.");
+    sections.push("");
+    sections.push("Agent instruction:");
+    sections.push("- Do not rely on stale proof.");
+    sections.push("- Run or request verification for the latest plan.");
+  }
+
+  if (agentProofSurface.source === "unknown") {
+    sections.push("");
+    sections.push(
+      "> VerificationResult source could not be classified (manual vs runner-derived).",
+    );
   }
 
   if (verificationResult?.summary) {
@@ -2572,10 +2821,9 @@ function renderAgentContract(input: AgentContractInputs): string {
     );
   }
 
-  if (verificationPlanRef && verificationResult?.verificationPlanRef
-    && verificationResult.verificationPlanRef.id !== verificationPlanRef.id) {
+  if (agentProofSurface.verificationRunRef) {
     sections.push("");
-    sections.push("> VerificationResult may be stale; the latest VerificationPlan differs.");
+    sections.push(`Runner-derived proof cites ${formatRef(agentProofSurface.verificationRunRef)}.`);
   }
   sections.push("");
 

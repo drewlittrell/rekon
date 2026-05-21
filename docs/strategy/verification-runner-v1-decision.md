@@ -975,12 +975,59 @@ memo ships none of step 3+):
      derived result does not auto-resolve
      findings. A contract test pins this.
 7. **Surface runner-produced proof in the
-   existing publications.** Architecture
-   summary, agent contract, and proof report
-   continue to read `VerificationResult` but
-   also surface `VerificationRun` lineage
-   (timeout / killed counts, runner version,
-   redaction count) when present.
+   existing publications.** ✅ Shipped.
+   - New helper
+     `summarizeVerificationProofSurface(input)`
+     in `@rekon/capability-intent` classifies a
+     `VerificationResult` as
+     `manual` / `runner-derived` / `unknown`
+     (via a `VerificationRun` inputRef or a
+     known runner identity pattern in
+     `recordedBy`) and computes freshness
+     (`fresh` / `stale` / `missing-plan` /
+     `unknown`) against the latest
+     `VerificationPlan`. Returns
+     machine-readable warning codes
+     (`proof-failed`, `proof-partial`,
+     `proof-not-run`, `proof-stale`,
+     `proof-missing-plan`,
+     `proof-source-unknown`,
+     `runner-run-missing`).
+   - **Proof report** renders a
+     `## Verification Proof Summary` section
+     with the classifier output and recommended
+     commands. The per-command table adds
+     stdout / stderr digest **prefixes** (first
+     12 hex chars) — raw excerpts are never
+     rendered.
+   - **Architecture summary** renders a compact
+     `## Verification Proof Status` block with
+     `Status`, `Source`, `Freshness`, and the
+     run / result refs. A warning callout
+     surfaces when proof is not complete or
+     current.
+   - **Agent contract** surfaces `Proof
+     source` and `Proof freshness` lines in
+     `## Proof And Verification State`, adds
+     explicit agent instructions for incomplete
+     / stale proof, and appends two new "Do
+     Not Do" entries (against treating passed
+     verification as auto-resolution and
+     against trusting stale / partial / failed /
+     timeout / killed / not-run proof).
+   - **`resolve.issue`** verification trace
+     messages now mention the proof source and
+     freshness; `VerificationEvidenceSummary`
+     carries `source`, `freshness`, and
+     `verificationRunRef` so resolver consumers
+     see the same classifier output.
+   - **No artifact shape changes** other than
+     additive optional fields on
+     `VerificationEvidenceSummary`. Passing
+     proof still does not auto-resolve
+     findings, and the publication boundary
+     still keeps raw stdout / stderr out of
+     proof summaries.
 8. **CI / GitHub adapter.** Out of scope for
    the local-runner v1 arc; revisit only after
    steps 1–7 land and we have real-repo data

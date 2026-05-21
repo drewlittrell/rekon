@@ -1373,15 +1373,40 @@ review packets unless an ADR promotes them. Promotion requires:
     `CoherencyDelta`, or any
     reconciliation surface. 24 new tests;
     full suite 1084 passed / 1 skipped.
-40. **(future)** Verification proof surfaces
-    v2. Update the architecture summary,
-    agent contract, and proof report to
-    distinguish manual vs. runner-derived
-    `VerificationResult`, call out
-    failed / timeout / killed proof, and
-    flag stale proof relative to the
-    latest `VerificationPlan`. Still no
-    auto-resolution or auto-apply.
+40. **Shipped (✅).** Verification proof
+    surfaces v2. Added the shared classifier
+    `summarizeVerificationProofSurface` in
+    `@rekon/capability-intent`. Proof report
+    renders `## Verification Proof Summary`
+    with classifier output + digest prefixes
+    (no raw excerpts). Architecture summary
+    renders `## Verification Proof Status`.
+    Agent contract surfaces `Proof source` /
+    `Proof freshness`, adds incomplete /
+    stale-proof agent instructions, and adds
+    two Do Not Do entries against treating
+    passed verification as auto-resolution
+    or trusting stale / partial / failed /
+    timeout / killed / not-run proof.
+    `VerificationEvidenceSummary` gains
+    `source`, `freshness`, and
+    `verificationRunRef` (additive); the
+    resolver trace message includes them.
+    22 new tests; full suite 1106 passed /
+    1 skipped. No artifact-shape changes
+    beyond optional additions. No
+    `FindingStatusLedger` /
+    `FindingLifecycleReport` /
+    `CoherencyDelta` /
+    `ReconciliationPlan` mutation.
+41. **(future)** Verification runner CI /
+    GitHub adapter decision memo (step 8).
+    Decide whether proof execution remains
+    local-only for alpha or gains a GitHub
+    Actions / PR-check surface, including
+    artifact upload, log retention, and
+    permission boundaries. Strategy-only
+    batch.
 42. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the

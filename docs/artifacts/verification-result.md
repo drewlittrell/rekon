@@ -29,15 +29,28 @@ artifact with full provenance.
   [architecture summary publication](architecture-summary-publication.md).
   Failed and partial results are visible in the Verification Status
   and Proof Loop sections; the publisher does not execute commands.
+  It now also renders a compact `## Verification Proof Status` block
+  with `Source` (manual / runner-derived / unknown) and `Freshness`
+  (fresh / stale / missing-plan / unknown).
 - `@rekon/capability-docs.proof-report` (built-in) renders a focused
   proof readout in the
   [proof report publication](proof-report-publication.md) — proof
-  status, per-command results, failed / missing evidence, and the
-  next recommended action. The publisher does not execute commands.
+  status, per-command results (with stdout / stderr digest prefixes;
+  never raw excerpts), failed / missing evidence, a `## Verification
+  Proof Summary` section (source, status, freshness, recommended
+  commands), and the next recommended action. The publisher does not
+  execute commands.
+- `@rekon/capability-docs.agent-contract` (built-in) surfaces
+  `Proof source` and `Proof freshness` in `## Proof And Verification
+  State` and adds Do Not Do entries against treating stale or failed
+  proof as completion.
 - `@rekon/capability-resolver`'s `resolve.issue` chains
   `findingId -> WorkOrder.remediationItems -> VerificationPlan
   -> VerificationResult` via `lookupVerificationEvidence` to attach
-  `IssuePacket.verification` and add status-specific warnings.
+  `IssuePacket.verification` and add status-specific warnings. The
+  evidence summary now carries `source` and `freshness` fields, and
+  the verification trace message mentions the source + freshness in
+  human-readable form.
 - `rekon intent remediation --skip-verified` uses the same helper to
   exclude items whose chain resolves to `passed`.
 - future verification-driven reconciliation or freshness gates

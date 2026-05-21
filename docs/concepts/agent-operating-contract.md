@@ -112,6 +112,24 @@ treat passing checks as automatic finding closure. When the latest
 surfaces a stale-plan callout consistent with the architecture
 summary's behavior.
 
+P1.1 verification-proof-surfaces-v2 adds:
+
+- `Proof source: manual / runner-derived / unknown` and
+  `Proof freshness: fresh / stale / missing-plan / unknown`
+  lines so agents see how the proof was produced and whether
+  it is current.
+- Explicit agent instructions for incomplete proof
+  (`Treat proof as incomplete. Do not claim completion. Re-run
+  verification or ask the operator for proof.`) and stale
+  proof (`Do not rely on stale proof. Run or request
+  verification for the latest plan.`).
+- New `Do Not Do` entries:
+  - `Do not treat passed verification as automatic finding
+    resolution; status changes require explicit
+    lifecycle/status artifacts.`
+  - `Do not treat stale, partial, failed, timeout, killed, or
+    not-run verification as proof of completion.`
+
 ## Accepted Issue Merge Roll-ups
 
 When `CoherencyDelta` v3 carries merged rollup items derived from

@@ -158,17 +158,34 @@ Recording a `VerificationResult` reinforces that:
 - The [architecture summary publication](../artifacts/architecture-summary-publication.md)
   reads the latest `VerificationResult` and renders its status,
   summary counts, and recorded-by/recorded-at in the Verification
-  Status section. Failed and partial results surface "Verification is
-  not complete." The Proof Loop section's "Suggested next command"
-  walks the loop and recommends `rekon verify record` when no result
-  exists, or "address failures and re-run `rekon verify record`" when
-  a result is failed/partial/not-run.
+  Status section. It also renders a compact `## Verification
+  Proof Status` block with `Source`, `Freshness`, and a warning
+  when the proof is not complete or current.
 - The [proof report publication](proof-report-publication.md) is a
   focused readout of the same evidence. It renders the per-command
-  results table, an explicit Failed / Missing Evidence bullet list,
-  and a single Next Recommended Action line. Use it when the
-  architecture summary is too broad for the audience and you need a
-  small artifact dedicated to proof state.
+  results table (with stdout / stderr digest prefixes — no raw
+  excerpts), an explicit Failed / Missing Evidence bullet list, a
+  `## Verification Proof Summary` section (source, status,
+  freshness, recommended commands), and a single Next Recommended
+  Action line.
+- The [agent operating contract](../artifacts/agent-contract-publication.md)
+  surfaces `Proof source: manual / runner-derived / unknown` and
+  `Proof freshness: fresh / stale / missing-plan / unknown` in the
+  `## Proof And Verification State` section. The contract's `## Do
+  Not Do` list explicitly forbids treating passed verification as
+  automatic finding resolution and warns against trusting stale /
+  partial / failed / timeout / killed / not-run verification.
+
+**Proof source classification.** All three publications use the
+shared
+`summarizeVerificationProofSurface` helper in
+`@rekon/capability-intent` so they agree on whether a result is
+`manual` (operator-recorded via `rekon verify record`),
+`runner-derived` (produced by
+`rekon verify result from-run --run <id>`), or `unknown`. The
+classifier looks for a `VerificationRun` in `header.inputRefs`
+first, then falls back to a known runner identity pattern in
+`recordedBy` (`rekon.local.exec@<version>`).
 
 ## Surfaced In Resolvers And Remediation
 

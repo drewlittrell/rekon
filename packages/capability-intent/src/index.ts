@@ -109,10 +109,39 @@ export type VerificationEvidenceStatus =
   | "not-run"
   | "missing";
 
+export type VerificationProofSource =
+  | "manual"
+  | "runner-derived"
+  | "unknown";
+
+export type VerificationProofFreshnessStatus =
+  | "fresh"
+  | "stale"
+  | "missing-plan"
+  | "unknown";
+
+export type VerificationProofWarningCode =
+  | "proof-failed"
+  | "proof-partial"
+  | "proof-not-run"
+  | "proof-stale"
+  | "proof-missing-plan"
+  | "proof-source-unknown"
+  | "runner-run-missing";
+
+export type VerificationProofWarning = {
+  code: VerificationProofWarningCode;
+  message: string;
+  recommendedCommand?: string;
+};
+
 export type VerificationEvidenceSummary = {
   status: VerificationEvidenceStatus;
+  source?: VerificationProofSource;
+  freshness?: VerificationProofFreshnessStatus;
   verificationResultRef?: ArtifactRef;
   verificationPlanRef?: ArtifactRef;
+  verificationRunRef?: ArtifactRef;
   workOrderRef?: ArtifactRef;
   recordedAt?: string;
   recordedBy?: string;
@@ -396,10 +425,31 @@ export async function lookupVerificationEvidence(
     }
     : undefined;
 
+  // Classify the proof surface (source + freshness) so resolver
+  // packets can carry the same context publications use without
+  // re-classifying downstream. The latest plan ref is the freshest
+  // one in `allPlans` — the existing matching loop walks every
+  // plan and pairs to the result; if there's a newer plan than the
+  // one the result cites, classify as `stale`.
+  const latestPlanRef = (await artifacts.list("VerificationPlan"))
+    .sort((left, right) => right.id.localeCompare(left.id))[0];
+  const proofSurface = summarizeVerificationProofSurface({
+    verificationResult: matchedResult as VerificationResultLike,
+    verificationResultRef: matchedResultRef,
+    latestVerificationPlanRef: latestPlanRef,
+  });
+
+  for (const warning of proofSurface.warnings) {
+    warnings.push(warning.message);
+  }
+
   return {
     status,
+    source: proofSurface.source,
+    freshness: proofSurface.freshness,
     verificationResultRef: matchedResultRef,
     verificationPlanRef: matchedPlanRef,
+    verificationRunRef: proofSurface.verificationRunRef,
     workOrderRef: matchedWorkOrderRef,
     recordedAt: matchedResult.recordedAt,
     recordedBy: matchedResult.recordedBy,
@@ -411,6 +461,244 @@ export async function lookupVerificationEvidence(
 
 function sortByIdDesc(refs: ArtifactRef[]): ArtifactRef[] {
   return [...refs].sort((left, right) => right.id.localeCompare(left.id));
+}
+
+// ---------- VerificationProofSurface (P1.1 verification-proof-surfaces-v2) ----------
+//
+// `summarizeVerificationProofSurface` is the deterministic helper
+// that publication renderers (proof report, architecture summary,
+// agent contract) use to surface proof source, freshness, and
+// failure warnings consistently. It is pure: no I/O, no mutation.
+
+export type VerificationProofSurfaceSummary = {
+  source: VerificationProofSource;
+  status: VerificationResultStatus;
+  freshness: VerificationProofFreshnessStatus;
+  verificationResultRef?: ArtifactRef;
+  verificationPlanRef?: ArtifactRef;
+  verificationRunRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  recordedBy?: string;
+  recordedAt?: string;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    notRun: number;
+  };
+  warnings: VerificationProofWarning[];
+};
+
+export type SummarizeVerificationProofSurfaceInput = {
+  verificationResult?: VerificationResultLike;
+  verificationResultRef?: ArtifactRef;
+  latestVerificationPlanRef?: ArtifactRef;
+  /** Set when the runner-derived run is known to be missing from
+   *  the local store; produces a `runner-run-missing` warning. */
+  knownRunnerRunMissing?: boolean;
+};
+
+type VerificationResultLike = {
+  header?: ArtifactHeader;
+  verificationPlanRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  status?: VerificationResultStatus;
+  summary?: {
+    total?: number;
+    passed?: number;
+    failed?: number;
+    skipped?: number;
+    notRun?: number;
+  };
+  recordedBy?: string;
+  recordedAt?: string;
+};
+
+/**
+ * Classify a `VerificationResult` artifact's proof surface so
+ * downstream publications can render source / freshness / failure
+ * context without each renderer reinventing the rules.
+ *
+ * - `source` is `runner-derived` when the result's
+ *   `header.inputRefs` cites a `VerificationRun`, or `recordedBy`
+ *   matches a known runner identity pattern
+ *   (`rekon.local.exec*` for the in-tree runner).
+ * - `source` is `manual` when the result has no `VerificationRun`
+ *   inputRef and no recognized runner `recordedBy`.
+ * - `source` is `unknown` for malformed inputs.
+ * - `freshness` is `fresh` when the result cites the latest plan;
+ *   `stale` when it cites a different plan; `missing-plan` when
+ *   the result has no plan ref; `unknown` when no plan context
+ *   is available.
+ * - Warnings are emitted for `failed` / `partial` / `not-run`
+ *   status, `stale` / `missing-plan` freshness, `unknown` source,
+ *   and the operator-supplied `knownRunnerRunMissing` flag.
+ */
+export function summarizeVerificationProofSurface(
+  input: SummarizeVerificationProofSurfaceInput,
+): VerificationProofSurfaceSummary {
+  const result = input.verificationResult;
+
+  if (!result) {
+    return {
+      source: "unknown",
+      status: "not-run",
+      freshness: input.latestVerificationPlanRef ? "missing-plan" : "unknown",
+      summary: { total: 0, passed: 0, failed: 0, skipped: 0, notRun: 0 },
+      verificationResultRef: input.verificationResultRef,
+      verificationPlanRef: input.latestVerificationPlanRef,
+      warnings: [
+        {
+          code: "proof-not-run",
+          message: "No VerificationResult is available; verification has not been recorded.",
+          recommendedCommand: "rekon verify record --result-json '<json>'",
+        },
+      ],
+    };
+  }
+
+  const status = result.status ?? "not-run";
+  const verificationRunRef = pickVerificationRunRef(result);
+  const source = classifyVerificationProofSource(result, verificationRunRef);
+  const freshness = classifyVerificationProofFreshness(
+    result.verificationPlanRef,
+    input.latestVerificationPlanRef,
+  );
+  const summary = {
+    total: result.summary?.total ?? 0,
+    passed: result.summary?.passed ?? 0,
+    failed: result.summary?.failed ?? 0,
+    skipped: result.summary?.skipped ?? 0,
+    notRun: result.summary?.notRun ?? 0,
+  };
+  const warnings: VerificationProofWarning[] = [];
+
+  if (status === "failed") {
+    warnings.push({
+      code: "proof-failed",
+      message: "Verification failed. Do not treat this work as proven complete.",
+      recommendedCommand: "rekon verify run --plan <id> --execute",
+    });
+  } else if (status === "partial") {
+    warnings.push({
+      code: "proof-partial",
+      message: "Verification is partial: some commands were skipped or not-run.",
+      recommendedCommand: "rekon verify run --plan <id> --execute",
+    });
+  } else if (status === "not-run") {
+    warnings.push({
+      code: "proof-not-run",
+      message: "Verification has not been run for the current plan.",
+      recommendedCommand: "rekon verify run --plan <id> --execute",
+    });
+  }
+
+  if (freshness === "stale") {
+    warnings.push({
+      code: "proof-stale",
+      message:
+        "VerificationResult is stale relative to the latest VerificationPlan. Re-run verification.",
+      recommendedCommand: input.latestVerificationPlanRef
+        ? `rekon verify run --plan ${input.latestVerificationPlanRef.id} --execute`
+        : "rekon verify run --plan <latest-plan-id> --execute",
+    });
+  } else if (freshness === "missing-plan") {
+    warnings.push({
+      code: "proof-missing-plan",
+      message:
+        "VerificationResult does not cite a VerificationPlan even though a plan exists.",
+    });
+  }
+
+  if (source === "unknown") {
+    warnings.push({
+      code: "proof-source-unknown",
+      message:
+        "VerificationResult source could not be classified (manual vs runner-derived).",
+    });
+  }
+
+  if (source === "runner-derived" && input.knownRunnerRunMissing === true) {
+    warnings.push({
+      code: "runner-run-missing",
+      message:
+        "Runner-derived VerificationResult cites a VerificationRun that is missing from the local store.",
+    });
+  }
+
+  return {
+    source,
+    status,
+    freshness,
+    verificationResultRef: input.verificationResultRef,
+    verificationPlanRef: result.verificationPlanRef ?? input.latestVerificationPlanRef,
+    verificationRunRef,
+    workOrderRef: result.workOrderRef,
+    recordedBy: result.recordedBy,
+    recordedAt: result.recordedAt ?? result.header?.generatedAt,
+    summary,
+    warnings,
+  };
+}
+
+function pickVerificationRunRef(result: VerificationResultLike): ArtifactRef | undefined {
+  const refs = Array.isArray(result.header?.inputRefs) ? result.header!.inputRefs : [];
+
+  for (const ref of refs) {
+    if (ref && typeof ref === "object" && ref.type === "VerificationRun") {
+      return ref;
+    }
+  }
+
+  return undefined;
+}
+
+function classifyVerificationProofSource(
+  result: VerificationResultLike,
+  verificationRunRef: ArtifactRef | undefined,
+): VerificationProofSource {
+  if (verificationRunRef) {
+    return "runner-derived";
+  }
+
+  const recordedBy = typeof result.recordedBy === "string" ? result.recordedBy : "";
+
+  // Known runner identity patterns. `rekon.local.exec@<version>` is
+  // the in-tree runner's `recordedBy`; `rekon.local.dry-run` should
+  // never produce a result (it's refused) but we classify it as
+  // runner-derived if encountered.
+  if (/^rekon\.local\.(exec|dry-run)/i.test(recordedBy)) {
+    return "runner-derived";
+  }
+
+  // Operator-recorded results have no run ref. Treat as manual.
+  if (recordedBy.length > 0) {
+    return "manual";
+  }
+
+  // No recordedBy and no run ref. Most likely manual but the data
+  // is incomplete — mark unknown so renderers can flag it.
+  if (result.status === undefined) {
+    return "unknown";
+  }
+
+  return "manual";
+}
+
+function classifyVerificationProofFreshness(
+  resultPlanRef: ArtifactRef | undefined,
+  latestPlanRef: ArtifactRef | undefined,
+): VerificationProofFreshnessStatus {
+  if (!resultPlanRef) {
+    return latestPlanRef ? "missing-plan" : "unknown";
+  }
+
+  if (!latestPlanRef) {
+    return "unknown";
+  }
+
+  return resultPlanRef.id === latestPlanRef.id ? "fresh" : "stale";
 }
 
 export function createVerificationResult(input: CreateVerificationResultInput): VerificationResult {

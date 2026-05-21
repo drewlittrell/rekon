@@ -79,24 +79,41 @@ When a `VerificationPlan` exists, the publication contains, in order:
    `> Verification is not complete.` callout. Passed status surfaces
    `> Verification recorded as passed. This does not automatically
    resolve findings.`
-2. **Work Order** — source / goal / paths / systems for the linked
+2. **Verification Proof Summary** (P1.1
+   verification-proof-surfaces-v2) — classifier output for the
+   latest `VerificationResult`: `Source` (manual /
+   runner-derived / unknown), `Status`, `Freshness` (fresh /
+   stale / missing-plan / unknown), and refs to the
+   `VerificationResult`, `VerificationPlan`,
+   `VerificationRun` (when runner-derived), and `WorkOrder`
+   (when present). Includes a failure callout for `failed` /
+   `partial` / `not-run` proof, a stale callout when the
+   result cites an older plan plus a recommended
+   `rekon verify run --plan <latest> --execute` command, and a
+   passing callout (`> Verification passed. Passing proof
+   does not automatically resolve findings.`) for clean
+   passed results.
+3. **Work Order** — source / goal / paths / systems for the linked
    remediation (`source === "coherency-delta"`) or resolver work
    order.
-3. **Verification Plan** — table of the plan's commands plus the plan
+4. **Verification Plan** — table of the plan's commands plus the plan
    id.
-4. **Verification Results** — per-command table (command / status /
-   exit code / notes). Missing when no `VerificationResult` exists.
-5. **Failed / Missing Evidence** — bullet list naming every failed,
+5. **Verification Results** — per-command table (command / status /
+   exit / duration / digests / notes). The Digests column shows
+   stdout / stderr digest **prefixes** (first 12 hex chars) when
+   present; raw stdout / stderr **excerpts are never rendered**.
+   Missing when no `VerificationResult` exists.
+6. **Failed / Missing Evidence** — bullet list naming every failed,
    skipped, and not-run command (including plan commands missing from
    the recorded results).
-6. **Remediation Context** — priority / finding / severity / systems /
+7. **Remediation Context** — priority / finding / severity / systems /
    files for up to 10 remediation items, sourced from the work
    order's `remediationItems` (preferred) or the
    `CoherencyDelta.remediationQueue`.
-7. **Reconciliation Context** — operation / class / status /
+8. **Reconciliation Context** — operation / class / status /
    permission for up to 10 operations from the latest
    `ReconciliationPlan`.
-8. **Next Recommended Action** — bullets that depend on the proof
+9. **Next Recommended Action** — bullets that depend on the proof
    state (run `rekon verify record` when missing, fix failures when
    failed, complete missing checks when partial/not-run, re-run
    evaluate -> lifecycle -> coherency-delta -> publish architecture
@@ -110,8 +127,8 @@ When a `VerificationPlan` exists, the publication contains, in order:
    `rekon verify result from-run --run <run-id>` to derive a
    `VerificationResult` from the runner-produced run (refuses
    dry-run runs; does not auto-resolve findings).
-9. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
-   header.
+10. **Input Artifacts** — bullet list of `ArtifactRef`s cited in the
+    header.
 
 When no `VerificationPlan` exists, the publication is intentionally
 short: it says

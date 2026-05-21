@@ -156,12 +156,44 @@ rekon publish list --root <repo> --json
 Both write paths emit the same artifact. The shortcut exists for
 parity with `rekon publish agents`.
 
+## Verification Proof Status Block
+
+P1.1 verification-proof-surfaces-v2. The
+architecture summary renders a compact
+`## Verification Proof Status` block when a
+`VerificationResult` exists:
+
+- `Status: passed / failed / partial / not-run`
+- `Source: manual / runner-derived / unknown`
+- `Freshness: fresh / stale / missing-plan / unknown`
+- `VerificationResult: <ref>`
+- `VerificationRun: <ref>` (when runner-derived)
+
+When the proof is not complete (`failed` /
+`partial` / `not-run`) or not current (`stale` /
+`missing-plan`), the block surfaces:
+
+> Verification is not complete or current. Do
+> not mark governed issues resolved from this
+> proof alone.
+
+For a passing, fresh result the block surfaces:
+
+> Verification passed. Passing proof does not
+> automatically resolve findings.
+
+The block uses the shared classifier
+`summarizeVerificationProofSurface` from
+`@rekon/capability-intent` so it agrees with the
+proof report and agent contract.
+
 ## When To Use It
 
 - After a fresh evaluate + coherency-delta cycle, to capture a
   governance snapshot.
-- After running `rekon verify record`, to confirm the proof loop is
-  visible and the next suggested command is correct.
+- After running `rekon verify record` or
+  `rekon verify result from-run`, to confirm the proof loop
+  is visible and the next suggested command is correct.
 - Before handing repo state to an agent that does not have time to
   read every underlying artifact.
 - When reviewing repository drift over time — read the latest

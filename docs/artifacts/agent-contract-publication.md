@@ -168,10 +168,27 @@ The publication contains, in fixed order:
    with the current policy set."
 8. **Proof And Verification State** — presence/missing for
    remediation WorkOrder, resolver WorkOrder, ReconciliationPlan,
-   VerificationPlan, VerificationResult; explicit "Verification is
-   not complete." for failed/partial/not-run; explicit "passed does
-   not auto-resolve findings" for passed; "stale plan" callout when
-   the latest result references an older plan id.
+   VerificationPlan, VerificationResult. Also surfaces (P1.1
+   verification-proof-surfaces-v2):
+   - `Proof source: manual / runner-derived / unknown` — derived
+     by `summarizeVerificationProofSurface` from the result's
+     `header.inputRefs` (a `VerificationRun` ref means
+     runner-derived) and `recordedBy` (`rekon.local.exec@<version>`
+     matches the in-tree runner).
+   - `Proof freshness: fresh / stale / missing-plan / unknown` —
+     compares the result's plan ref against the latest indexed
+     plan.
+   - For `failed` / `partial` / `not-run` results: agent
+     instructions to treat proof as incomplete, not claim
+     completion, and re-run verification.
+   - For `stale` / `missing-plan` freshness: agent instructions to
+     not rely on stale proof and run / request verification for
+     the latest plan.
+   - For passing fresh results: `passed does not auto-resolve
+     findings`.
+   - When the runner-derived result cites a `VerificationRun`,
+     adds a `Runner-derived proof cites VerificationRun:<id>.`
+     line.
 9. **Memory Guidance** — table of ranked `MemorySelection`
    entries (up to 10) with Score, Instruction, Scope, Reasons.
    Entries without explicit `reasons` are excluded — only ranked

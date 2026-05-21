@@ -197,6 +197,59 @@ is itself the audit signal — operators can tell at a
 glance whether a passing proof was runner-attested
 or manually recorded.
 
+## Proof Surfaces V2
+
+Publications that surface verification state — the
+proof report, architecture summary, and agent
+contract — now classify the underlying
+`VerificationResult` using a shared helper
+(`summarizeVerificationProofSurface` in
+`@rekon/capability-intent`) so all three surfaces
+agree on:
+
+- **Source.** `manual` (operator-recorded via
+  `rekon verify record`), `runner-derived`
+  (produced by `rekon verify result from-run`),
+  or `unknown`. Classification looks for a
+  `VerificationRun` in `header.inputRefs` first,
+  then falls back to a known runner identity
+  pattern in `recordedBy`
+  (`rekon.local.exec@<version>`).
+- **Freshness.** `fresh` when the result cites
+  the latest `VerificationPlan`; `stale` when it
+  cites a different plan; `missing-plan` when
+  the result has no plan ref and a plan exists;
+  `unknown` when no plan context is available.
+- **Warnings.** `proof-failed`,
+  `proof-partial`, `proof-not-run`,
+  `proof-stale`, `proof-missing-plan`,
+  `proof-source-unknown`, and
+  `runner-run-missing` are emitted with
+  machine-readable codes and human-readable
+  messages.
+
+The proof report renders a `## Verification
+Proof Summary` section with the full classifier
+output and per-command digest excerpts (still no
+raw stdout / stderr). The architecture summary
+renders a compact `## Verification Proof Status`
+block. The agent contract surfaces `Proof
+source` and `Proof freshness` and adds new "Do
+Not Do" entries against treating stale or failed
+proof as completion.
+
+The `resolve.issue` verification trace message
+now mentions the proof source and freshness too,
+so resolver consumers see the same context.
+
+**Passing proof still does not auto-resolve
+findings or apply reconciliation.** The
+publications are projections; the surfaces
+behind them
+(`FindingStatusLedger`,
+`FindingLifecycleReport`,
+`ReconciliationPlan`) remain unchanged.
+
 ## Boundary Reminders
 
 Even though the runner is not implemented yet, the

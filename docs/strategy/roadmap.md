@@ -1106,6 +1106,57 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification proof surfaces v2 (P1.1
+  verification-proof-surfaces-v2 slice): **step 7**
+  of the runner v1 implementation sequence pinned by
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md).
+  Publication-only batch — no command execution, no
+  artifact-shape changes. Makes proof state legible
+  across the proof report, architecture summary,
+  agent contract, and `resolve.issue` verification
+  trace. New helper
+  `summarizeVerificationProofSurface` in
+  `@rekon/capability-intent` classifies a
+  `VerificationResult` as `manual` /
+  `runner-derived` / `unknown` (via
+  `VerificationRun` inputRef or known runner
+  identity in `recordedBy`), computes freshness
+  (`fresh` / `stale` / `missing-plan` / `unknown`)
+  against the latest `VerificationPlan`, and emits
+  machine-readable warnings (`proof-failed`,
+  `proof-partial`, `proof-not-run`, `proof-stale`,
+  `proof-missing-plan`, `proof-source-unknown`,
+  `runner-run-missing`). The proof report adds a
+  `## Verification Proof Summary` section with
+  classifier output + recommended commands; the
+  per-command **Verification Results** table adds
+  stdout / stderr **digest prefixes** (first 12
+  hex chars) — **raw excerpts are never
+  rendered**. The architecture summary adds a
+  compact `## Verification Proof Status` block.
+  The agent contract surfaces `Proof source` /
+  `Proof freshness` and adds two Do Not Do entries
+  against treating passed / stale / failed proof
+  as completion. `VerificationEvidenceSummary`
+  gains optional `source`, `freshness`, and
+  `verificationRunRef` fields; the resolver trace
+  message mentions source + freshness. **22 new
+  tests** pin every surface (helper
+  classification + warnings, proof-report
+  rendering + no-stdout-leak + failed/stale
+  callouts, architecture summary block, agent
+  contract source/freshness/instructions + Do Not
+  Do, no-mutation of `FindingStatusLedger`,
+  existing `verify record` / `--dry-run` /
+  `--execute` paths unchanged, `artifacts
+  validate` clean). Full suite: 1106 passed / 1
+  skipped. **Recommended next slice:**
+  verification runner CI / GitHub adapter
+  decision memo (step 8). Strategy-only batch.
+  No `schemaVersion` bump. No CI / GitHub
+  integration in this slice. No auto-resolution.
+  No auto-apply. No source writes. No version
+  bump. No npm publish.
 - VerificationRun → VerificationResult derivation
   (P1.1 verification-result-from-run slice): **step
   6** of the runner v1 implementation sequence

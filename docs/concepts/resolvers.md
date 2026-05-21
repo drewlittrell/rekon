@@ -119,7 +119,13 @@ references to the underlying `WorkOrder`, `VerificationPlan`, and
 new `issue.verification` `resolutionTrace` step records the source
 type and status. Passing verification **never** auto-resolves the
 finding or mutates the `FindingStatusLedger`; it only changes the
-recommended next step. See
+recommended next step. P1.1 verification-proof-surfaces-v2 extends
+this with `source` (`manual` / `runner-derived` / `unknown`),
+`freshness` (`fresh` / `stale` / `missing-plan` / `unknown`), and
+`verificationRunRef`. The verification trace message incorporates
+the source + freshness so resolver consumers see whether the proof
+was manual or runner-derived, and whether it is current. Stale
+proof emits an additional warning. See
 [../concepts/verification-results.md](verification-results.md) and
 [../artifacts/verification-result.md](../artifacts/verification-result.md).
 

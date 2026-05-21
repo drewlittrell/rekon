@@ -3356,20 +3356,168 @@ scope:
   `.rekon-dev/review-packets/verification-result-from-run.md`.
 
   **Recommended next slice:** **verification
-  proof surfaces v2** — make the architecture
-  summary, agent contract, and proof report
-  distinguish manual vs. runner-derived
-  `VerificationResult`, call out
-  failed / timeout / killed proof, and flag
-  stale proof relative to the latest
-  `VerificationPlan`. Still no
-  auto-resolution or auto-apply.
+  proof surfaces v2**. **Shipped next; see the
+  entry below.**
+- **Verification proof surfaces v2 (P1.1
+  verification-proof-surfaces-v2 slice).** ✅
+  Shipped. **Step 7** of the runner v1
+  implementation sequence — publication-only
+  batch that makes proof state legible across
+  the proof report, architecture summary, and
+  agent contract publications, plus the
+  `resolve.issue` verification trace. **No
+  command execution. No artifact-shape
+  changes** (only additive optional fields on
+  `VerificationEvidenceSummary`).
+
+  **Shared helper
+  (`@rekon/capability-intent`):** new pure
+  function
+  `summarizeVerificationProofSurface(input)`
+  classifies a `VerificationResult` as
+  `manual` / `runner-derived` / `unknown` (via
+  a `VerificationRun` ref in
+  `header.inputRefs` or a known runner
+  identity pattern in `recordedBy` like
+  `rekon.local.exec@<version>`); computes
+  freshness (`fresh` / `stale` /
+  `missing-plan` / `unknown`) against the
+  latest `VerificationPlan`; and emits
+  machine-readable warnings
+  (`proof-failed`, `proof-partial`,
+  `proof-not-run`, `proof-stale`,
+  `proof-missing-plan`,
+  `proof-source-unknown`,
+  `runner-run-missing`).
+
+  **Proof report:** renders a new
+  `## Verification Proof Summary` section with
+  the classifier output, refs to the
+  `VerificationResult` / `VerificationPlan` /
+  `VerificationRun` / `WorkOrder`, the
+  recorded-by identity, and any classifier
+  warnings (each with a recommended command).
+  The per-command **Verification Results**
+  table now carries stdout / stderr **digest
+  prefixes** (first 12 hex chars) in a new
+  `Digests` column — **raw excerpts are
+  never rendered**.
+
+  **Architecture summary:** renders a compact
+  `## Verification Proof Status` block right
+  after the existing Verification Status
+  section. The block shows `Status`,
+  `Source`, `Freshness`, and the result + run
+  refs. When proof is incomplete or stale, the
+  block surfaces
+  `> Verification is not complete or current.
+  Do not mark governed issues resolved from
+  this proof alone.` When proof is passed and
+  fresh, the block surfaces
+  `Verification passed. Passing proof does not
+  automatically resolve findings.`
+
+  **Agent contract:** the
+  `## Proof And Verification State` section
+  surfaces `Proof source` and `Proof
+  freshness` lines, adds agent instructions
+  for incomplete and stale proof (`Treat proof
+  as incomplete...`, `Do not rely on stale
+  proof...`), and renders
+  `Runner-derived proof cites
+  VerificationRun:<id>.` when applicable. Two
+  new entries land in `## Do Not Do`:
+  - `Do not treat passed verification as
+    automatic finding resolution; status
+    changes require explicit lifecycle/status
+    artifacts.`
+  - `Do not treat stale, partial, failed,
+    timeout, killed, or not-run verification
+    as proof of completion.`
+
+  **`resolve.issue` (additive):**
+  `VerificationEvidenceSummary` now carries
+  `source`, `freshness`, and
+  `verificationRunRef` optional fields. The
+  verification trace message includes the
+  proof source (e.g. `(source:
+  runner-derived)`) and a freshness suffix
+  when stale or missing-plan. No
+  `IssuePacket` shape change; `resolve.issue`
+  remains explicit about not auto-resolving
+  findings.
+
+  **What this batch does NOT do:**
+  - No `VerificationResult` /
+    `VerificationRun` shape change.
+  - No mutation of `FindingStatusLedger`,
+    `FindingLifecycleReport`,
+    `CoherencyDelta`, or any reconciliation
+    surface.
+  - No rerun of commands.
+  - No copy of raw stdout / stderr excerpts
+    into publications.
+  - No CI / GitHub adapter.
+  - No `schemaVersion` bump.
+
+  **Tests:** **22 new tests** in
+  `tests/contract/verification-proof-surfaces-v2.test.mjs`
+  cover helper classification (manual vs
+  runner-derived via inputRefs or recordedBy,
+  freshness mapping, all warning codes,
+  missing-result defaults), publication
+  rendering (proof report shows source +
+  freshness + digest prefixes and never
+  leaks raw stdout, failed callout, stale
+  callout when a newer plan is generated,
+  architecture summary renders the new
+  block, agent contract surfaces source +
+  freshness + agent instructions + new Do Not
+  Do entries), and no-mutation invariants
+  (passing runner-derived proof does not
+  mutate `FindingStatusLedger`, existing
+  `verify record` / `--dry-run` / `--execute`
+  paths still work, `artifacts validate`
+  remains clean after the full v2 publication
+  chain). Full suite: **1106 passed / 1
+  skipped**.
+
+  **Docs:** updated
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md),
+  [`docs/artifacts/verification-run.md`](../artifacts/verification-run.md),
+  [`docs/concepts/verification-results.md`](../concepts/verification-results.md),
+  [`docs/artifacts/verification-result.md`](../artifacts/verification-result.md),
+  [`docs/concepts/proof-report-publication.md`](../concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](../artifacts/proof-report-publication.md),
+  [`docs/concepts/architecture-summary-publication.md`](../concepts/architecture-summary-publication.md),
+  [`docs/concepts/agent-operating-contract.md`](../concepts/agent-operating-contract.md),
+  [`docs/artifacts/agent-contract-publication.md`](../artifacts/agent-contract-publication.md),
+  [`docs/artifacts/resolver-packet.md`](../artifacts/resolver-packet.md),
+  [`docs/concepts/resolvers.md`](../concepts/resolvers.md),
+  [`docs/strategy/verification-runner-v1-decision.md`](verification-runner-v1-decision.md)
+  (step 7 flipped to ✅ Shipped),
+  this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  (step 40 flipped to shipped; subsequent
+  steps renumbered).
+  `README.md` and `CHANGELOG.md` updated. New
+  review packet
+  `.rekon-dev/review-packets/verification-proof-surfaces-v2.md`.
+
+  **Recommended next slice:** **verification
+  runner CI / GitHub adapter decision memo**
+  (step 8). Decide whether proof execution
+  should remain local-only for alpha or gain
+  a GitHub Actions / PR-check surface,
+  including artifact upload, log retention,
+  and permission boundaries. Strategy-only
+  batch — no runtime change.
 
   No `schemaVersion` bump on `VerificationRun`
   or `VerificationResult`. No retries. No
-  sandboxing. No CI / GitHub integration.
-  No source writes by the runner. No
-  `FindingStatusLedger` /
+  sandboxing. No CI / GitHub integration in
+  this slice. No source writes by the runner.
+  No `FindingStatusLedger` /
   `FindingLifecycleReport` /
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No version

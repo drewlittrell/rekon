@@ -89,7 +89,12 @@ Issue phase adds:
   `resolve.preflight`)
 - `verification` — the worst-status `VerificationEvidenceSummary`
   across all member findings in group mode, or the single-finding
-  summary in raw mode
+  summary in raw mode. P1.1 verification-proof-surfaces-v2 adds
+  `source` (`manual` / `runner-derived` / `unknown`), `freshness`
+  (`fresh` / `stale` / `missing-plan` / `unknown`), and
+  `verificationRunRef` to this summary. The verification trace
+  message includes the proof source and freshness in
+  human-readable form.
 - `verificationByFinding` — per-member verification entries
   (`findingId`, `status`, `verificationResultRef?`,
   `verificationPlanRef?`, `workOrderRef?`); present only in group

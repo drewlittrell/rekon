@@ -143,6 +143,11 @@ node packages/cli/dist/index.js verify run --plan <verification-plan-id> --execu
 # failed; carries digests but not redacted excerpts; refuses dry-run runs by
 # default; never auto-resolves findings.
 node packages/cli/dist/index.js verify result from-run --run <verification-run-id> --root examples/simple-js-ts --json
+# Proof publications now distinguish manual vs runner-derived
+# VerificationResult, surface freshness against the latest
+# VerificationPlan, and never render raw stdout/stderr excerpts. See
+# docs/concepts/proof-report-publication.md, docs/concepts/architecture-summary-publication.md,
+# and docs/concepts/agent-operating-contract.md.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

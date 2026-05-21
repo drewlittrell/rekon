@@ -81,14 +81,44 @@ same artifact.
 | Section | Renders when... | Source artifacts |
 | --- | --- | --- |
 | Proof Status | `VerificationPlan` exists | `VerificationResult.status` + `summary` |
+| **Verification Proof Summary** | `VerificationPlan` exists | `summarizeVerificationProofSurface` over `VerificationResult` + latest `VerificationPlan` |
 | Work Order | A remediation or resolver `WorkOrder` exists | `WorkOrder` |
 | Verification Plan | `VerificationPlan` exists | `VerificationPlan.commands` |
-| Verification Results | `VerificationResult` exists | `VerificationResult.commandResults` |
+| Verification Results | `VerificationResult` exists | `VerificationResult.commandResults` (with `stdoutDigest` / `stderrDigest` prefixes; never raw excerpts) |
 | Failed / Missing Evidence | always when a plan exists | `VerificationResult.commandResults` + plan's `commands` |
 | Remediation Context | remediation items are present | `WorkOrder.remediationItems` (preferred) or `CoherencyDelta.remediationQueue` |
 | Reconciliation Context | a `ReconciliationPlan` exists | `ReconciliationPlan.operations` |
 | Next Recommended Action | always when a plan exists | status-derived |
 | Input Artifacts | always | `header.inputRefs` |
+
+The **Verification Proof Summary** row is new in
+P1.1 verification-proof-surfaces-v2. The section
+shows:
+
+- `Source` — `manual`, `runner-derived`, or
+  `unknown`.
+- `Status` — same enum as the Proof Status row.
+- `Freshness` — `fresh` / `stale` / `missing-plan`
+  / `unknown` relative to the latest
+  `VerificationPlan`.
+- `VerificationResult` / `VerificationPlan` /
+  `VerificationRun` / `WorkOrder` artifact refs.
+- A failure callout (`> Verification failed. Do
+  not treat this work as proven complete.`) for
+  `failed` results.
+- A stale callout when the result cites an older
+  plan, plus a recommended
+  `rekon verify run --plan <latest> --execute`
+  command.
+- A `> Verification passed. Passing proof does not
+  automatically resolve findings.` callout for
+  passed, fresh, no-warning results.
+
+The **Verification Results** table now includes
+stdout / stderr **digest prefixes** (first 12 hex
+characters) so operators can verify identity
+without dumping the full 64-char hash and without
+ever rendering the raw stream.
 
 ## Status Behavior
 

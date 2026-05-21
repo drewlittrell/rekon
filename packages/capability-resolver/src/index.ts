@@ -2831,15 +2831,27 @@ function pickVerificationSourceType(
 }
 
 function verificationTraceMessage(verification: VerificationEvidenceSummary): string {
+  // Surface the proof source + freshness alongside the status so
+  // resolver consumers see the same context publications use
+  // (P1.1 verification-proof-surfaces-v2).
+  const sourceSuffix = verification.source && verification.source !== "unknown"
+    ? ` (source: ${verification.source})`
+    : "";
+  const freshnessSuffix = verification.freshness === "stale"
+    ? "; proof is stale relative to the latest VerificationPlan"
+    : verification.freshness === "missing-plan"
+      ? "; VerificationResult does not cite the latest VerificationPlan"
+      : "";
+
   switch (verification.status) {
     case "passed":
-      return "VerificationResult linked to remediation work is `passed`.";
+      return `VerificationResult linked to remediation work is \`passed\`${sourceSuffix}${freshnessSuffix}.`;
     case "failed":
-      return "VerificationResult linked to remediation work is `failed`.";
+      return `VerificationResult linked to remediation work is \`failed\`${sourceSuffix}${freshnessSuffix}. Do not treat as proven complete.`;
     case "partial":
-      return "VerificationResult linked to remediation work is `partial`.";
+      return `VerificationResult linked to remediation work is \`partial\`${sourceSuffix}${freshnessSuffix}.`;
     case "not-run":
-      return "Remediation work has a VerificationPlan but no VerificationResult has been recorded.";
+      return `Remediation work has a VerificationPlan but no VerificationResult has been recorded${sourceSuffix}.`;
     case "missing":
       return "No remediation WorkOrder or VerificationPlan references this finding.";
   }

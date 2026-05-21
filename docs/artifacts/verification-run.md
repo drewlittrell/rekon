@@ -159,18 +159,38 @@ that points back to a derived result populates
 
 ## Consumers
 
-- **(future) Architecture summary, agent contract,
-  proof report.** Step 7 of the runner v1
-  implementation sequence surfaces runner lineage
-  (timeout / killed counts, runner version,
-  redaction count) when present.
+- **Proof report, architecture summary, agent
+  contract publications.** All three publications
+  detect a runner-derived `VerificationResult` by
+  finding a `VerificationRun` reference in
+  `header.inputRefs`. The shared classifier
+  `summarizeVerificationProofSurface` in
+  `@rekon/capability-intent` produces a
+  consistent
+  `{ source, status, freshness, warnings,
+  verificationRunRef }` summary that each
+  publication renders into its own section. The
+  proof report's `## Verification Proof Summary`
+  block, the architecture summary's `##
+  Verification Proof Status` block, and the
+  agent contract's `## Proof And Verification
+  State` section all use this helper.
 - **`@rekon/capability-verify`** when the runner
-  derives a `VerificationResult` — the result cites
-  the run in `header.inputRefs`.
+  derives a `VerificationResult` via
+  `rekon verify result from-run --run <id>` —
+  the result cites the run in
+  `header.inputRefs`.
+- **`resolve.issue`** verification trace messages
+  mention the proof source and freshness when a
+  `VerificationResult` matches a finding, so
+  resolver consumers see the same context.
 
-In this slice, no surface reads `VerificationRun`.
-The artifact is shipped so producers and validators
-can target the shape before consumers are added.
+The artifact body's `stdoutExcerpt` /
+`stderrExcerpt` fields are **not** rendered in
+any publication. Publications surface
+`stdoutDigest` / `stderrDigest` prefixes
+instead, so secret-bearing log content never
+crosses the publication boundary.
 
 ## Helpers
 
