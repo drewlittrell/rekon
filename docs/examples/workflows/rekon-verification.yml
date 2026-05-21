@@ -1,0 +1,174 @@
+# Rekon Verification — alpha GitHub Actions workflow template.
+#
+# **This is a template, not an active workflow.** Copy it into your
+# repo's `.github/workflows/` directory (renaming as you like) to
+# enable. The Rekon repository itself does NOT install this
+# workflow.
+#
+# Safety contract pinned by
+# `docs/strategy/verification-runner-ci-github-decision.md`:
+#
+#   - GitHub status is not canonical truth; Rekon artifacts remain
+#     canonical.
+#   - Forked PRs must not receive secret-bearing execution by
+#     default.
+#   - The workflow uses ONLY `permissions: contents: read`.
+#   - No `pull-requests: write`, `checks: write`, `contents: write`,
+#     or `id-token: write`.
+#   - No `pull_request_target` trigger.
+#   - No secrets declared.
+#   - Raw command logs (`.log` files) are excluded from the upload.
+#   - The job summary is a downstream surface, not an
+#     authoritative proof record.
+#   - Passing verification does not automatically resolve findings.
+
+name: Rekon Verification
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build workspace
+        run: npm run build
+
+      - name: Rekon refresh
+        run: node packages/cli/dist/index.js refresh --root . --json
+
+      - name: Resolve latest VerificationPlan id
+        id: plan
+        # Resolves the latest VerificationPlan id from the Rekon
+        # artifact index. This is a template helper. A future
+        # Rekon CLI command may replace it.
+        run: |
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const indexPath = path.join('.rekon', 'registry', 'artifacts.index.json');
+          if (!fs.existsSync(indexPath)) {
+            console.log('plan_id=');
+            process.exit(0);
+          }
+          const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+          const plans = index
+            .filter((entry) => entry.type === 'VerificationPlan')
+            .sort((a, b) => String(b.id).localeCompare(String(a.id)));
+          const planId = plans[0]?.id ?? '';
+          console.log(`plan_id=${planId}`);
+          NODE
+
+      - name: Rekon verify run (execute)
+        # The runner enforces shell:false, a scrubbed env,
+        # per-command + per-plan timeouts, bounded redacted log
+        # excerpts, and sha256 stream digests. To preview without
+        # spawning processes, swap `--execute` for `--dry-run`.
+        if: steps.plan.outputs.plan_id != ''
+        run: |
+          node packages/cli/dist/index.js verify run \
+            --root . \
+            --plan "${{ steps.plan.outputs.plan_id }}" \
+            --execute \
+            --json > .rekon/verify-run.json
+
+      - name: Resolve latest VerificationRun id
+        id: run
+        if: steps.plan.outputs.plan_id != ''
+        # This is a template helper. A future Rekon CLI command
+        # may replace it.
+        run: |
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          if (!fs.existsSync('.rekon/verify-run.json')) {
+            console.log('run_id=');
+            process.exit(0);
+          }
+          const payload = JSON.parse(fs.readFileSync('.rekon/verify-run.json', 'utf8'));
+          const runId = payload?.verificationRun?.id ?? '';
+          console.log(`run_id=${runId}`);
+          NODE
+
+      - name: Rekon verify result from-run
+        if: steps.run.outputs.run_id != ''
+        run: |
+          node packages/cli/dist/index.js verify result from-run \
+            --root . \
+            --run "${{ steps.run.outputs.run_id }}" \
+            --json
+
+      - name: Rekon publish proof
+        if: always()
+        run: node packages/cli/dist/index.js publish proof --root . --json
+
+      - name: Rekon publish architecture summary
+        if: always()
+        run: node packages/cli/dist/index.js publish architecture --root . --json
+
+      - name: Rekon publish agent contract
+        if: always()
+        run: node packages/cli/dist/index.js publish agent-contract --root . --json
+
+      - name: Rekon artifacts validate
+        if: always()
+        run: node packages/cli/dist/index.js artifacts validate --root . --json
+
+      - name: Append proof report to job summary
+        if: always()
+        # GitHub Actions writes anything appended to
+        # `$GITHUB_STEP_SUMMARY` to the job's summary page. No API
+        # permissions required; the file is on the runner
+        # filesystem. The job summary is a downstream surface, not
+        # canonical proof.
+        run: |
+          {
+            echo "# Rekon Verification Summary"
+            echo ""
+            if [ -n "${{ steps.run.outputs.run_id }}" ]; then
+              echo "- VerificationRun: \`${{ steps.run.outputs.run_id }}\`"
+            fi
+            if [ -n "${{ steps.plan.outputs.plan_id }}" ]; then
+              echo "- VerificationPlan: \`${{ steps.plan.outputs.plan_id }}\`"
+            fi
+            echo ""
+            echo "Uploaded artifact: \`rekon-artifacts\`"
+            echo ""
+            echo "_GitHub status is not canonical truth; Rekon artifacts remain canonical._"
+            echo ""
+            if [ -f .rekon/artifacts/publications/proof-report.md ]; then
+              echo "---"
+              echo ""
+              cat .rekon/artifacts/publications/proof-report.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Rekon artifacts
+        if: always()
+        # Uploads `.rekon/artifacts` as the canonical proof record
+        # for this CI run. `.log` files are excluded explicitly as
+        # belt-and-braces; the Rekon runner's redaction +
+        # truncation contract already keeps raw stdout/stderr out
+        # of the artifact bodies.
+        uses: actions/upload-artifact@v4
+        with:
+          name: rekon-artifacts
+          path: |
+            .rekon/artifacts/**
+            !.rekon/artifacts/**/*.log
+          retention-days: 7

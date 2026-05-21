@@ -1106,6 +1106,62 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner GitHub Actions workflow
+  template (P1.1
+  verification-runner-github-actions-template
+  slice): **step 2** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Docs-only batch — no code changes, no active
+  workflow in `.github/workflows`. Ships a
+  copyable workflow YAML at
+  [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+  plus a 10-section operator guide at
+  [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
+  Template contract: `permissions: contents:
+  read` only (no `pull-requests: write`,
+  `checks: write`, `contents: write`, or
+  `id-token`); triggers `pull_request` +
+  `workflow_dispatch` (no
+  `pull_request_target`); no secrets declared;
+  no GitHub API writes. Steps: checkout →
+  setup-node@v4 → `npm ci` → `npm run build` →
+  `rekon refresh` → resolve latest
+  `VerificationPlan` id via inline Node helper
+  → `rekon verify run --execute` → resolve
+  `VerificationRun` id → `rekon verify result
+  from-run` → `rekon publish proof` /
+  `publish architecture` / `publish
+  agent-contract` → `rekon artifacts validate`
+  → append `# Rekon Verification Summary` plus
+  the proof-report markdown to
+  `$GITHUB_STEP_SUMMARY` → upload
+  `.rekon/artifacts/**` (excluding
+  `.rekon/artifacts/**/*.log`) as
+  `rekon-artifacts` with `retention-days: 7`.
+  **23 docs-only assertions** pin both files'
+  existence, the permission contract, the
+  `pull_request_target` prohibition, every CLI
+  step, the upload-path + `.log`-exclusion +
+  `retention-days: 7`, the four anchor
+  statements (`GitHub status is not canonical
+  truth`; `Rekon artifacts remain canonical`;
+  `Forked PRs must not receive secret-bearing
+  execution by default`; `Passing verification
+  does not automatically resolve findings`),
+  CHANGELOG mention, and review-packet
+  `PURPOSE PRESERVATION CHECK`. Full suite:
+  1145 passed / 1 skipped. **Recommended next
+  slice:** **verification runner
+  latest-artifact CLI helpers**
+  (`rekon artifacts latest --type <type>
+  --json`). Read-only helpers replace the
+  workflow template's inline Node snippets
+  with one-line CLI calls. No code changes
+  beyond CLI additions; no execution change.
+  No artifact-shape change. No new
+  capability. No `schemaVersion` bump. No
+  version bump. No npm publish.
 - Verification runner CI / GitHub adapter decision
   memo (P1.1
   verification-runner-ci-github-decision slice):

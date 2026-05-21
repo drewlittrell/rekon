@@ -700,17 +700,62 @@ slices:
    ✅ Shipping in this batch.
 
 2. **GitHub Actions workflow template (alpha).**
-   Docs-only slice. Adds an opinionated
-   `.github/workflows/rekon-verify.yml`
-   template (likely committed under
-   `docs/examples/` or `examples/` so users
-   can copy it without immediately enabling
-   it). Documents the
-   `permissions: contents: read` contract,
-   the artifact upload path, the
-   `retention-days: 7` default, the
-   `pull_request_target` prohibition, and
-   the job-summary pattern.
+   ✅ Shipped. Docs-only slice. Ships an
+   opinionated workflow template at
+   [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+   plus operator documentation at
+   [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
+   The template is **not** installed under
+   `.github/workflows` in the Rekon repo
+   itself; operators copy it into their
+   own repos to enable.
+
+   The shipped template implements the
+   "Alpha Workflow Shape" section of this
+   memo exactly:
+   - `permissions: contents: read` only.
+   - Triggers: `pull_request` and
+     `workflow_dispatch`. No
+     `pull_request_target`.
+   - Steps: checkout → setup-node@v4 →
+     `npm ci` → `npm run build` →
+     `rekon refresh` → resolve latest
+     `VerificationPlan` id via an inline
+     Node snippet → `rekon verify run
+     --execute` → resolve `VerificationRun`
+     id from the execute step's JSON
+     output → `rekon verify result from-run`
+     → `rekon publish proof` /
+     `publish architecture` /
+     `publish agent-contract` →
+     `rekon artifacts validate` → append
+     `# Rekon Verification Summary` plus
+     the proof-report markdown to
+     `$GITHUB_STEP_SUMMARY` → upload
+     `.rekon/artifacts/**` (with
+     `!.rekon/artifacts/**/*.log`
+     exclusion) as `rekon-artifacts` with
+     `retention-days: 7`.
+   - No GitHub API writes. No secrets
+     declared. No setup actions requiring
+     secrets.
+
+   Pinned by **23 docs-only assertions** in
+   `tests/docs/verification-runner-github-actions-template.test.mjs`
+   covering both file existence, the
+   permission contract, the
+   `pull_request_target` prohibition, every
+   CLI step, the upload path / `.log`
+   exclusion / `retention-days: 7`, the
+   four anchor / safety statements
+   (`GitHub status is not canonical truth`,
+   `Rekon artifacts remain canonical`,
+   `forked PRs must not receive
+   secret-bearing execution by default`,
+   `passing verification does not
+   automatically resolve findings`), the
+   CHANGELOG mention, and the review-packet
+   `PURPOSE PRESERVATION CHECK`.
 
 3. **CLI ergonomics for CI (optional).**
    Add `rekon artifacts latest --type

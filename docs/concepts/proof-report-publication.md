@@ -175,6 +175,7 @@ Rebuild with `rekon publish proof`.
 - [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
+- [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [VerificationRun artifact](../artifacts/verification-run.md)
 - [Verification runs concept](verification-runs.md)
 - [Capability model](../strategy/capability-model.md)

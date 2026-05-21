@@ -1414,27 +1414,41 @@ review packets unless an ADR promotes them. Promotion requires:
     receive secret-bearing execution by
     default. See
     [verification-runner-ci-github-decision.md](verification-runner-ci-github-decision.md).
-42. **(future)** Verification runner GitHub
-    Actions workflow template (alpha
-    implementation). Docs-only slice. Adds
-    `.github/workflows/rekon-verify.yml`
-    template (in `examples/` or
-    `docs/examples/`) with
-    `permissions: contents: read`, the
-    `pull_request_target` prohibition, the
-    `actions/upload-artifact` upload of
-    `.rekon/artifacts`, and the
-    `$GITHUB_STEP_SUMMARY` proof-report
-    surface. No GitHub API writes; no new
-    capability; no new CLI command.
-43. **(future)** Per-module `ObservedSystem`
+42. **Shipped (✅).** Verification runner
+    GitHub Actions workflow template (alpha
+    implementation). Docs-only slice. Ships
+    [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+    (copyable template; not installed
+    under `.github/workflows` in the Rekon
+    repo) plus operator documentation
+    [`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
+    `permissions: contents: read`; no
+    `pull_request_target`; no secrets; no
+    GitHub API writes. Triggers: `pull_request`,
+    `workflow_dispatch`. Steps run the existing
+    Rekon CLI proof loop end-to-end and upload
+    `.rekon/artifacts/**` (excluding `.log`
+    files) with `retention-days: 7`. Job
+    summary appends the proof-report markdown
+    to `$GITHUB_STEP_SUMMARY`. 23 docs-only
+    assertions pin the contract. No new
+    capability, no new CLI command, no
+    artifact-shape change.
+43. **(future)** Verification runner latest-
+    artifact CLI helpers (`rekon artifacts
+    latest --type <type> --json`). Read-only
+    helpers to replace the workflow
+    template's inline Node snippets with
+    one-line CLI calls. No execution. No
+    artifact-shape change.
+44. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-44. **(future)** Persistent exclusion lists, and
+45. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

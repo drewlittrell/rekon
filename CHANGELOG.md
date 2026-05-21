@@ -4,6 +4,128 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped verification runner **GitHub Actions
+  workflow template** (P1.1
+  verification-runner-github-actions-template
+  slice). **Step 2** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **Docs-only batch. No code changes. No active
+  workflow in `.github/workflows`** — the
+  template lives at
+  [`docs/examples/workflows/rekon-verification.yml`](docs/examples/workflows/rekon-verification.yml)
+  and is copied into operator repos to enable.
+
+  **Shipped artifacts:**
+  - Copyable workflow YAML at
+    [`docs/examples/workflows/rekon-verification.yml`](docs/examples/workflows/rekon-verification.yml).
+  - 10-section operator guide at
+    [`docs/examples/github-actions-verification-runner.md`](docs/examples/github-actions-verification-runner.md)
+    covering what the template does / does
+    not do, the permission model, fork /
+    secret safety, artifact upload policy,
+    job summary behavior, plan-lookup
+    customization, execute-vs-dry-run swap,
+    why GitHub status is not canonical
+    truth, and troubleshooting.
+
+  **Template contract (pinned by 23
+  docs-only assertions):**
+  - `permissions: contents: read` only. No
+    `pull-requests: write`,
+    `checks: write`, `contents: write`, or
+    `id-token: write`.
+  - Triggers: `pull_request` and
+    `workflow_dispatch`. **No
+    `pull_request_target`.**
+  - No secrets declared.
+  - Steps: checkout → setup-node@v4 (Node
+    20 + npm cache) → `npm ci` →
+    `npm run build` → `rekon refresh` →
+    resolve latest `VerificationPlan` id
+    via inline Node helper (template
+    helper; future CLI helper may
+    replace) → `rekon verify run
+    --execute` → resolve `VerificationRun`
+    id from the execute JSON output →
+    `rekon verify result from-run` →
+    `rekon publish proof` /
+    `publish architecture` /
+    `publish agent-contract` →
+    `rekon artifacts validate` → append
+    `# Rekon Verification Summary` plus
+    the proof-report markdown to
+    `$GITHUB_STEP_SUMMARY` → upload
+    `.rekon/artifacts/**` (with
+    `!.rekon/artifacts/**/*.log`
+    exclusion) as `rekon-artifacts` with
+    `retention-days: 7`.
+  - No GitHub API writes anywhere.
+
+  **Anchor statements pinned by tests:**
+  - `GitHub status is not canonical
+    truth.`
+  - `Rekon artifacts remain canonical.`
+  - `Forked PRs must not receive
+    secret-bearing execution by default.`
+  - `Passing verification does not
+    automatically resolve findings.`
+
+  **Tests:** **23 docs-only assertions** in
+  `tests/docs/verification-runner-github-actions-template.test.mjs`
+  pin both files' existence; the permission
+  contract; the `pull_request_target`
+  prohibition; the absence of every write
+  permission (`pull-requests`, `checks`,
+  `contents`, `id-token`); every CLI step
+  the template runs (`refresh`,
+  `verify run`, `verify result from-run`,
+  `publish proof`, `artifacts validate`);
+  the upload path inclusion / `.log`
+  exclusion / `retention-days: 7`; the
+  four anchor statements; the CHANGELOG
+  mention; and the review-packet
+  `PURPOSE PRESERVATION CHECK`. Full
+  suite: **1145 passed / 1 skipped**.
+
+  **Docs:** 9 updated
+  ([`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  (step 2 flipped to ✅ Shipped),
+  [`docs/concepts/verification-runs.md`](docs/concepts/verification-runs.md)
+  (CI / GitHub direction now points at the
+  shipped template),
+  [`docs/concepts/verification-results.md`](docs/concepts/verification-results.md),
+  [`docs/concepts/proof-report-publication.md`](docs/concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](docs/artifacts/proof-report-publication.md),
+  [`docs/strategy/classic-behavior-roadmap.md`](docs/strategy/classic-behavior-roadmap.md)
+  (new shipped entry),
+  [`docs/strategy/roadmap.md`](docs/strategy/roadmap.md)
+  (new completed-slice entry),
+  [`docs/strategy/issue-governance-architecture-decision.md`](docs/strategy/issue-governance-architecture-decision.md)
+  (step 42 flipped to ✅ Shipped; step 43
+  added for latest-artifact CLI helpers;
+  subsequent steps renumbered)).
+  `README.md` updated with pointers to the
+  shipped files. New review packet
+  [`.rekon-dev/review-packets/verification-runner-github-actions-template.md`](.rekon-dev/review-packets/verification-runner-github-actions-template.md).
+
+  **Next slice:** **verification runner
+  latest-artifact CLI helpers** —
+  `rekon artifacts latest --type <type>
+  --json` read-only helpers that replace
+  the workflow template's inline Node
+  snippets with one-line CLI calls. No
+  execution change.
+
+  No code changes in this slice. No active
+  workflow installed in this repo. No
+  artifact-shape change. No new capability.
+  No new CLI command. No `schemaVersion`
+  bump. No `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` / `ReconciliationPlan`
+  mutation. No version bump. No npm
+  publish.
 - Shipped verification runner CI / GitHub
   adapter **decision memo** (P1.1
   verification-runner-ci-github-decision

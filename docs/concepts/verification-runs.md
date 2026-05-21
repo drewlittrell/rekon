@@ -292,12 +292,20 @@ regardless of which slice ships next:
 - **Forked PRs must not receive
   secret-bearing execution by default.**
 
-No CI / GitHub code ships in alpha. When the
-workflow-template slice lands, it lives in a
-copyable example file (likely under
-`examples/` or `docs/examples/`), not in
-`.github/workflows/` of the Rekon repo
-itself.
+No CI / GitHub code ships in alpha. The
+workflow-template slice has shipped: see
+[`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+and the operator guide at
+[`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md).
+The template is copyable, **not** installed
+under `.github/workflows/` of the Rekon repo
+itself. It requests only
+`permissions: contents: read`, declares no
+secrets, refuses `pull_request_target`, runs
+the existing CLI proof loop end-to-end, and
+uploads `.rekon/artifacts` (with `.log`
+files excluded) as a workflow artifact with
+`retention-days: 7`. No GitHub API writes.
 
 ## Cross-References
 
@@ -307,5 +315,6 @@ itself.
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
+- [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
