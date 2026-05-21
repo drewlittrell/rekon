@@ -1434,13 +1434,33 @@ review packets unless an ADR promotes them. Promotion requires:
     assertions pin the contract. No new
     capability, no new CLI command, no
     artifact-shape change.
-43. **(future)** Verification runner latest-
-    artifact CLI helpers (`rekon artifacts
-    latest --type <type> --json`). Read-only
-    helpers to replace the workflow
-    template's inline Node snippets with
-    one-line CLI calls. No execution. No
-    artifact-shape change.
+43. **Shipped (✅).** Verification runner
+    latest-artifact CLI helper. Added
+    `rekon artifacts latest --type
+    <ArtifactType> [--kind <kind>]
+    [--id-only] [--allow-missing]
+    [--root <path>] [--json]`. Read-only;
+    walks the local artifact index sorted
+    by `writtenAt` desc. For
+    `--type Publication --kind <kind>` the
+    helper walks entries newest-first and
+    reads bodies until a matching
+    `body.kind` is found (still no
+    mutation). `--id-only` emits a typed
+    `<type>:<id>` ref to stdout for
+    `$GITHUB_OUTPUT` capture.
+    `--allow-missing` returns
+    `artifact: null` with exit 0.
+    `--kind` is only valid with
+    `--type Publication` and fails
+    clearly otherwise. The GitHub
+    Actions workflow template at
+    `docs/examples/workflows/rekon-verification.yml`
+    was updated to use the helper
+    instead of inline `node - <<'NODE'`
+    snippets. 12 contract tests +
+    9 docs assertions. No artifact-shape
+    change. No execution change.
 44. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the

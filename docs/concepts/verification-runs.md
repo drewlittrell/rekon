@@ -307,6 +307,18 @@ uploads `.rekon/artifacts` (with `.log`
 files excluded) as a workflow artifact with
 `retention-days: 7`. No GitHub API writes.
 
+The template uses the read-only
+`rekon artifacts latest --type <type>
+[--kind <kind>] [--id-only]
+[--allow-missing]` helper to resolve the
+latest `VerificationPlan` /
+`VerificationRun` / proof-report
+`Publication` ids without inline scripting.
+The helper is pure: it reads the local
+artifact index and (for Publication kind
+lookups) artifact bodies, and writes
+nothing.
+
 ## Cross-References
 
 - [VerificationRun artifact](../artifacts/verification-run.md)

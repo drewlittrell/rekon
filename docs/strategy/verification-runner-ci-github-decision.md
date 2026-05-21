@@ -757,12 +757,51 @@ slices:
    CHANGELOG mention, and the review-packet
    `PURPOSE PRESERVATION CHECK`.
 
-3. **CLI ergonomics for CI (optional).**
-   Add `rekon artifacts latest --type
-   <type> --json` to make plan/run id
-   lookup a one-liner without
-   `require()`-style scripting. Small,
-   purely additive CLI work.
+3. **CLI ergonomics for CI.** ✅ Shipped.
+   - New CLI command
+     `rekon artifacts latest --type
+     <ArtifactType> [--kind <kind>]
+     [--id-only] [--allow-missing]
+     [--root <path>] [--json]`.
+   - Read-only: walks the local artifact
+     index by `writtenAt` desc; for
+     Publication `--kind` lookups, walks
+     entries newest-first and reads
+     bodies until one matches the
+     requested `body.kind`. Writes
+     nothing. Does not refresh,
+     validate, execute, or publish.
+   - `--id-only` emits a typed
+     `<type>:<id>` ref to stdout (no
+     JSON), shell-friendly for
+     `$GITHUB_OUTPUT` capture.
+   - `--allow-missing` returns
+     `artifact: null` with exit 0
+     instead of exit 1.
+   - `--kind` is only valid with
+     `--type Publication` and fails
+     clearly otherwise.
+   - The GitHub Actions workflow
+     template at
+     [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+     was updated to use the helper
+     instead of inline `node - <<'NODE'`
+     snippets for latest-artifact id
+     resolution; both the operator guide
+     and tests pin this.
+   - 12 contract tests in
+     `tests/contract/artifacts-latest-cli.test.mjs`
+     pin: latest-by-type, missing
+     case + exit code, `--allow-missing`,
+     `--id-only` output, Publication
+     `--kind` filter, `--kind` on
+     non-Publication failure, kind
+     reading `body.kind` (not id
+     prefix), older-artifact
+     ignored, read-only invariant,
+     `artifacts validate` clean,
+     missing `--type` rejection, and
+     `--id-only` missing case.
 
 4. **Job-summary publisher (optional).**
    Add either a `--summary-only` flag on

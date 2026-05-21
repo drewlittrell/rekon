@@ -53,64 +53,50 @@ jobs:
       - name: Rekon refresh
         run: node packages/cli/dist/index.js refresh --root . --json
 
-      - name: Resolve latest VerificationPlan id
+      - name: Resolve latest VerificationPlan
         id: plan
-        # Resolves the latest VerificationPlan id from the Rekon
-        # artifact index. This is a template helper. A future
-        # Rekon CLI command may replace it.
+        # `rekon artifacts latest` is a read-only helper that reads
+        # the local Rekon artifact index. It does not refresh,
+        # execute, publish, or validate by itself.
+        # `--id-only` emits a typed `<type>:<id>` ref;
+        # `--allow-missing` lets the workflow continue (with an
+        # empty output) when no VerificationPlan exists yet.
         run: |
-          node - <<'NODE' >> "$GITHUB_OUTPUT"
-          const fs = require('node:fs');
-          const path = require('node:path');
-          const indexPath = path.join('.rekon', 'registry', 'artifacts.index.json');
-          if (!fs.existsSync(indexPath)) {
-            console.log('plan_id=');
-            process.exit(0);
-          }
-          const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-          const plans = index
-            .filter((entry) => entry.type === 'VerificationPlan')
-            .sort((a, b) => String(b.id).localeCompare(String(a.id)));
-          const planId = plans[0]?.id ?? '';
-          console.log(`plan_id=${planId}`);
-          NODE
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationPlan --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+          echo "id=${ID#VerificationPlan:}" >> "$GITHUB_OUTPUT"
 
       - name: Rekon verify run (execute)
         # The runner enforces shell:false, a scrubbed env,
         # per-command + per-plan timeouts, bounded redacted log
         # excerpts, and sha256 stream digests. To preview without
         # spawning processes, swap `--execute` for `--dry-run`.
-        if: steps.plan.outputs.plan_id != ''
+        if: steps.plan.outputs.id != ''
         run: |
           node packages/cli/dist/index.js verify run \
             --root . \
-            --plan "${{ steps.plan.outputs.plan_id }}" \
+            --plan "${{ steps.plan.outputs.id }}" \
             --execute \
             --json > .rekon/verify-run.json
 
-      - name: Resolve latest VerificationRun id
+      - name: Resolve latest VerificationRun
         id: run
-        if: steps.plan.outputs.plan_id != ''
-        # This is a template helper. A future Rekon CLI command
-        # may replace it.
+        if: steps.plan.outputs.id != ''
+        # Same read-only helper. Reads the artifact index after
+        # the execute step wrote the VerificationRun.
         run: |
-          node - <<'NODE' >> "$GITHUB_OUTPUT"
-          const fs = require('node:fs');
-          if (!fs.existsSync('.rekon/verify-run.json')) {
-            console.log('run_id=');
-            process.exit(0);
-          }
-          const payload = JSON.parse(fs.readFileSync('.rekon/verify-run.json', 'utf8'));
-          const runId = payload?.verificationRun?.id ?? '';
-          console.log(`run_id=${runId}`);
-          NODE
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationRun --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+          echo "id=${ID#VerificationRun:}" >> "$GITHUB_OUTPUT"
 
       - name: Rekon verify result from-run
-        if: steps.run.outputs.run_id != ''
+        if: steps.run.outputs.id != ''
         run: |
           node packages/cli/dist/index.js verify result from-run \
             --root . \
-            --run "${{ steps.run.outputs.run_id }}" \
+            --run "${{ steps.run.outputs.id }}" \
             --json
 
       - name: Rekon publish proof
@@ -129,6 +115,17 @@ jobs:
         if: always()
         run: node packages/cli/dist/index.js artifacts validate --root . --json
 
+      - name: Resolve latest proof-report Publication
+        id: proof
+        if: always()
+        # Same read-only helper; `--kind proof-report` filters by
+        # Publication body kind without reading every artifact.
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type Publication --kind proof-report \
+            --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
       - name: Append proof report to job summary
         if: always()
         # GitHub Actions writes anything appended to
@@ -140,11 +137,14 @@ jobs:
           {
             echo "# Rekon Verification Summary"
             echo ""
-            if [ -n "${{ steps.run.outputs.run_id }}" ]; then
-              echo "- VerificationRun: \`${{ steps.run.outputs.run_id }}\`"
+            if [ -n "${{ steps.run.outputs.id }}" ]; then
+              echo "- VerificationRun: \`${{ steps.run.outputs.id }}\`"
             fi
-            if [ -n "${{ steps.plan.outputs.plan_id }}" ]; then
-              echo "- VerificationPlan: \`${{ steps.plan.outputs.plan_id }}\`"
+            if [ -n "${{ steps.plan.outputs.id }}" ]; then
+              echo "- VerificationPlan: \`${{ steps.plan.outputs.id }}\`"
+            fi
+            if [ -n "${{ steps.proof.outputs.ref }}" ]; then
+              echo "- Proof report: \`${{ steps.proof.outputs.ref }}\`"
             fi
             echo ""
             echo "Uploaded artifact: \`rekon-artifacts\`"

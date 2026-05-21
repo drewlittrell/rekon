@@ -938,6 +938,114 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "artifacts" && subcommand === "latest") {
+    // `rekon artifacts latest --type <ArtifactType> [--kind <kind>]
+    // [--id-only] [--allow-missing] [--root <path>] [--json]`
+    //
+    // **Read-only helper.** Returns the latest entry from the
+    // local artifact index for the given type. `--kind` filters
+    // Publications by `body.kind` (requires reading bodies; still
+    // no mutation). `--id-only` emits a typed ref
+    // (`<type>:<id>`) for shell-friendly use in CI workflows.
+    // `--allow-missing` returns `artifact: null` with exit 0
+    // instead of exit 1.
+    //
+    // The command never refreshes, validates, executes commands,
+    // or writes artifacts.
+    const artifactType = typeof parsed.flags.type === "string" ? parsed.flags.type : undefined;
+    const kindFlag = typeof parsed.flags.kind === "string" ? parsed.flags.kind : undefined;
+    const idOnly = Boolean(parsed.flags["id-only"]);
+    const allowMissing = Boolean(parsed.flags["allow-missing"]);
+
+    if (!artifactType) {
+      throw new Error("rekon artifacts latest requires --type <ArtifactType>.");
+    }
+    if (kindFlag !== undefined && artifactType !== "Publication") {
+      throw new Error(
+        "rekon artifacts latest --kind is only valid with --type Publication.",
+      );
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entries = await store.list(artifactType);
+    const sorted = sortByWrittenAtDesc(entries);
+    let match: ArtifactIndexEntry | undefined;
+
+    if (kindFlag === undefined) {
+      match = sorted[0];
+    } else {
+      // Publication kind lookup walks entries newest-first and
+      // returns the first whose body.kind matches the requested
+      // kind. Reading bodies is read-only.
+      for (const candidate of sorted) {
+        try {
+          const body = (await store.read(candidate)) as { kind?: string };
+
+          if (body && typeof body === "object" && body.kind === kindFlag) {
+            match = candidate;
+            break;
+          }
+        } catch {
+          // Skip unreadable entries; the artifact index validation
+          // path handles those.
+          continue;
+        }
+      }
+    }
+
+    if (!match) {
+      const message = kindFlag === undefined
+        ? `No artifact found for type ${artifactType}.`
+        : `No Publication found with kind ${kindFlag}.`;
+
+      if (idOnly) {
+        process.stderr.write(`${message}\n`);
+
+        if (!allowMissing) {
+          process.exitCode = 1;
+        }
+
+        return;
+      }
+
+      const payload: Record<string, unknown> = { artifact: null, message };
+
+      if (kindFlag !== undefined) {
+        payload.kind = kindFlag;
+      }
+
+      writeOutput(payload, json);
+
+      if (!allowMissing) {
+        process.exitCode = 1;
+      }
+
+      return;
+    }
+
+    const ref: ArtifactRef = {
+      type: match.type,
+      id: match.id,
+      path: match.path,
+      schemaVersion: match.schemaVersion,
+    };
+
+    if (idOnly) {
+      process.stdout.write(`${ref.type}:${ref.id}\n`);
+      return;
+    }
+
+    const payload: Record<string, unknown> = { artifact: ref };
+
+    if (kindFlag !== undefined) {
+      payload.kind = kindFlag;
+    }
+
+    writeOutput(payload, json);
+    return;
+  }
+
   if (command === "config" && subcommand === "validate") {
     const result = await validateConfig(root);
     writeOutput(result, json);
@@ -4689,6 +4797,7 @@ function usage(): string {
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",
     "rekon artifacts freshness [--root <path>] [--type <type>] [--id <id>] [--json]",
+    "rekon artifacts latest --type <ArtifactType> [--kind <kind>] [--id-only] [--allow-missing] [--root <path>] [--json]",
     "rekon findings list [--root <path>] [--status <status>] [--json]",
     "rekon findings lifecycle [--root <path>] [--json]",
     "rekon findings filter [--root <path>] [--json]",

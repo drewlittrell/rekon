@@ -3762,26 +3762,135 @@ scope:
 
   **Recommended next slice:**
   **verification runner latest-artifact
-  CLI helpers** —
-  `rekon artifacts latest --type
-  VerificationPlan --json`,
-  `--type VerificationRun --json`,
-  `--type Publication --kind
-  proof-report --json`. Read-only helpers
-  that replace the workflow template's
-  inline Node snippets with one-line CLI
-  calls. No execution change.
+  CLI helpers**. **Shipped next; see the
+  entry below.**
+- **Verification runner latest-artifact
+  CLI helper (P1.1
+  artifacts-latest-cli-helper slice).** ✅
+  Shipped. **Step 3** of the CI / GitHub
+  adapter implementation sequence pinned
+  by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Adds a read-only CLI helper and updates
+  the GitHub Actions workflow template to
+  use it instead of inline Node snippets.
 
-  No code changes. No
-  `.github/workflows/` installation in
-  this repo. No artifact-shape change.
-  No new capability. No new CLI command.
-  No `schemaVersion` bump. No
-  `FindingStatusLedger` /
-  `FindingLifecycleReport` /
-  `CoherencyDelta` /
-  `ReconciliationPlan` mutation. No
-  version bump. No npm publish.
+  **CLI:** new
+  `rekon artifacts latest --type
+  <ArtifactType> [--kind <kind>]
+  [--id-only] [--allow-missing] [--root
+  <path>] [--json]`.
+  - Walks the local artifact index sorted
+    by `writtenAt` desc (the canonical
+    "latest" ordering used by the
+    existing
+    `resolveVerificationPlanEntry`
+    helper).
+  - `--kind <kind>` is valid only with
+    `--type Publication`; walks entries
+    newest-first and reads each
+    Publication body until a matching
+    `body.kind` is found (still
+    read-only; no mutation; unreadable
+    entries are skipped).
+  - `--id-only` emits a typed
+    `<type>:<id>` ref to stdout (no
+    JSON). Shell-friendly for
+    `$GITHUB_OUTPUT` capture.
+  - `--allow-missing` returns
+    `artifact: null` with exit 0 instead
+    of exit 1.
+  - Default: exit 1 when no matching
+    artifact exists; JSON payload still
+    written.
+  - Refuses `--kind` on a non-
+    Publication type with a clear
+    error.
+
+  **Workflow template:** the previously-
+  inlined
+  `node - <<'NODE'` snippets in
+  [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+  for resolving the latest
+  `VerificationPlan`, the latest
+  `VerificationRun`, and the latest
+  proof-report `Publication` are now
+  `rekon artifacts latest --id-only`
+  calls. Workflow contract
+  (`permissions: contents: read`,
+  no `pull_request_target`, no API
+  writes, `actions/upload-artifact`
+  upload, `$GITHUB_STEP_SUMMARY` job
+  summary, `retention-days: 7`) is
+  unchanged.
+
+  **What this batch does NOT do:**
+  - No execution change. `rekon verify
+    run --execute` behaves identically.
+  - No artifact-shape change. The
+    helper reads existing index +
+    bodies; it never mutates.
+  - No new artifact type.
+  - No GitHub API writes.
+  - No `.github/workflows/` install
+    in this repo.
+
+  **Tests:** 12 contract tests in
+  `tests/contract/artifacts-latest-cli.test.mjs`
+  pin: latest-by-type, missing →
+  null + exit 1, `--allow-missing` exit
+  0, `--id-only` typed ref + no JSON,
+  Publication `--kind` filter,
+  `--kind` on non-Publication failure,
+  kind reading `body.kind` (not id
+  prefix), older artifact ignored,
+  read-only invariant (artifact index
+  unchanged before/after), `artifacts
+  validate` clean, missing `--type`
+  rejection, and `--id-only` missing
+  case (stderr + empty stdout). 9
+  docs-only assertions in
+  `tests/docs/verification-runner-github-actions-template-latest-helper.test.mjs`
+  pin the workflow template's adoption
+  of the helper, the absence of inline
+  `node - <<'NODE'` snippets, the
+  operator-guide mention + read-only
+  description, the CHANGELOG mention,
+  and the review-packet `PURPOSE
+  PRESERVATION CHECK`. Full suite:
+  **1166 passed / 1 skipped**.
+
+  **Docs:** 11 updated
+  ([`docs/examples/github-actions-verification-runner.md`](../examples/github-actions-verification-runner.md)
+  — Customizing the VerificationPlan
+  lookup section rewritten around the
+  helper),
+  [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+  — inline Node snippets replaced with
+  helper calls,
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  — step 3 flipped to ✅ Shipped,
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md),
+  [`docs/concepts/verification-results.md`](../concepts/verification-results.md),
+  [`docs/concepts/proof-report-publication.md`](../concepts/proof-report-publication.md),
+  [`docs/artifacts/proof-report-publication.md`](../artifacts/proof-report-publication.md),
+  this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  — step 43 flipped to ✅ Shipped.
+  `README.md` and `CHANGELOG.md`
+  updated. New review packet
+  `.rekon-dev/review-packets/artifacts-latest-cli-helper.md`.
+
+  **Recommended next slice:**
+  **verification runner GitHub Actions
+  workflow hardening v2** — optional
+  dry-run workflow variant,
+  troubleshooting section, and proof-
+  summary job-summary improvements
+  using the latest-artifact helper.
+  Still no GitHub API writes.
+
+  No version bump. No npm publish.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

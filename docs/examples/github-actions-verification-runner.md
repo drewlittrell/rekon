@@ -268,60 +268,71 @@ publication itself respects it.
 
 ## 7. Customizing the VerificationPlan lookup
 
-The template includes a small Node snippet
-that reads `.rekon/registry/artifacts.index.json`
-to resolve the latest `VerificationPlan` id:
+The template uses the **read-only
+`rekon artifacts latest` helper** to resolve
+the latest `VerificationPlan` id:
 
 ```yaml
-- name: Resolve latest VerificationPlan id
+- name: Resolve latest VerificationPlan
   id: plan
   run: |
-    node - <<'NODE' >> "$GITHUB_OUTPUT"
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const indexPath = path.join('.rekon', 'registry', 'artifacts.index.json');
-    if (!fs.existsSync(indexPath)) {
-      console.log('plan_id=');
-      process.exit(0);
-    }
-    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-    const plans = index
-      .filter((entry) => entry.type === 'VerificationPlan')
-      .sort((a, b) => String(b.id).localeCompare(String(a.id)));
-    const planId = plans[0]?.id ?? '';
-    console.log(`plan_id=${planId}`);
-    NODE
+    ID="$(node packages/cli/dist/index.js artifacts latest \
+      --root . --type VerificationPlan --id-only --allow-missing)"
+    echo "ref=$ID" >> "$GITHUB_OUTPUT"
+    echo "id=${ID#VerificationPlan:}" >> "$GITHUB_OUTPUT"
 ```
 
-This is a **template helper. A future Rekon
-CLI command may replace it** with something
-like:
+The helper is **read-only**. It reads the
+local Rekon artifact index and (for
+`--kind` lookups on Publications) optionally
+reads artifact bodies. It does not
+refresh, execute, publish, or validate by
+itself. Mutation paths remain explicit
+operator commands (`refresh`,
+`verify run --execute`, etc.).
 
-```sh
-rekon artifacts latest --type VerificationPlan --json
-```
+Flag summary:
 
-That command does **not** exist yet (the
-next implementation slice in the roadmap is
-the latest-artifact CLI helpers). When it
-lands, the workflow can swap the Node
-snippet for the one-liner.
+- `--type <ArtifactType>` (required) —
+  artifact type to look up.
+- `--kind <kind>` — Publication-only;
+  filters by `body.kind` (e.g.,
+  `proof-report`, `architecture-summary`,
+  `agent-contract`).
+- `--id-only` — emit a typed
+  `<type>:<id>` ref to stdout, no JSON.
+  Shell-friendly for `$GITHUB_OUTPUT`
+  capture.
+- `--allow-missing` — return
+  `artifact: null` with exit 0 instead of
+  exit 1. Used in the template so the
+  workflow continues gracefully when no
+  `VerificationPlan` exists yet (the
+  subsequent execute step is guarded
+  with `if: steps.plan.outputs.id !=
+  ''`).
 
 **Other lookups you may need:**
 
-- Latest `VerificationRun`: the template
-  parses `verify-run.json` (the JSON output
-  of `verify run --execute`) directly. No
-  index walk required.
-- Latest `Publication` (e.g., proof-report):
-  identical pattern, filter on
-  `entry.type === 'Publication'` and inspect
-  `entry.kind` if the index carries it.
+- Latest `VerificationRun`:
+  `rekon artifacts latest --type
+  VerificationRun --id-only`. The
+  template uses this right after the
+  execute step instead of parsing
+  `verify-run.json`.
+- Latest proof-report Publication:
+  `rekon artifacts latest --type
+  Publication --kind proof-report
+  --id-only`. The template uses this to
+  cite the proof report in the job
+  summary.
 - Generating a plan inline: if your repo
   doesn't ship a `VerificationPlan` in the
   checkout, swap the lookup step for an
-  `rekon intent work-order` invocation that
-  produces a plan as part of the workflow.
+  `rekon intent work-order` invocation
+  that produces a plan as part of the
+  workflow. The helper will pick it up
+  in the next step.
 
 ## 8. Trial usage: switch execute to dry-run
 

@@ -1106,6 +1106,48 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification runner latest-artifact CLI helper
+  (P1.1 artifacts-latest-cli-helper slice):
+  **step 3** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Adds a read-only CLI helper that walks the
+  local artifact index and updates the GitHub
+  Actions workflow template to use it. New
+  CLI command
+  `rekon artifacts latest --type
+  <ArtifactType> [--kind <kind>] [--id-only]
+  [--allow-missing] [--root <path>] [--json]`.
+  `--id-only` emits a typed `<type>:<id>` ref;
+  `--allow-missing` returns
+  `artifact: null` with exit 0;
+  `--kind` is Publication-only and walks
+  entries newest-first reading `body.kind`.
+  Workflow template at
+  [`docs/examples/workflows/rekon-verification.yml`](../examples/workflows/rekon-verification.yml)
+  now uses helper calls instead of inline
+  `node - <<'NODE'` snippets for resolving
+  the latest `VerificationPlan`,
+  `VerificationRun`, and proof-report
+  `Publication`. **12 contract tests** pin the
+  helper (latest-by-type, missing → exit 1,
+  `--allow-missing` exit 0, `--id-only` typed
+  ref, Publication `--kind` filter,
+  non-Publication `--kind` rejection,
+  body-kind reading, older-artifact ignored,
+  read-only invariant, `artifacts validate`
+  clean, missing `--type`, `--id-only`
+  missing case). **9 docs-only assertions**
+  pin the workflow template's adoption. Full
+  suite: 1166 passed / 1 skipped.
+  **Recommended next slice:** verification
+  runner GitHub Actions workflow hardening
+  v2 (optional dry-run variant,
+  troubleshooting, proof-summary improvements
+  using the helper). Still no GitHub API
+  writes. No artifact-shape change. No new
+  capability. No `schemaVersion` bump. No
+  version bump. No npm publish.
 - Verification runner GitHub Actions workflow
   template (P1.1
   verification-runner-github-actions-template

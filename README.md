@@ -153,9 +153,12 @@ node packages/cli/dist/index.js verify result from-run --run <verification-run-i
 # docs/examples/workflows/rekon-verification.yml with operator
 # documentation at docs/examples/github-actions-verification-runner.md.
 # It uses `permissions: contents: read` only, no `pull_request_target`,
-# and no GitHub API writes. First-party GitHub Check / PR comment
-# publishers are deferred to beta. See
-# docs/strategy/verification-runner-ci-github-decision.md.
+# and no GitHub API writes. The template uses the read-only
+# `rekon artifacts latest --type <type> [--kind <kind>] [--id-only]
+# [--allow-missing]` helper for latest-artifact id resolution.
+# First-party GitHub Check / PR comment publishers are deferred to
+# beta. See docs/strategy/verification-runner-ci-github-decision.md.
+node packages/cli/dist/index.js artifacts latest --root examples/simple-js-ts --type VerificationPlan --id-only --allow-missing
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
