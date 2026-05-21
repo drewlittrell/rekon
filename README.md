@@ -186,9 +186,18 @@ node packages/cli/dist/index.js verify github-workflow validate --path docs/exam
 # `assessGitHubCheckPublisherReadiness` exported from
 # `@rekon/capability-docs` — calls no GitHub API and imports no
 # network client. Forked PRs are untrusted by default, and
-# `pull_request_target` is refused unconditionally. The eventual
-# GitHub Check API call is split into two follow-up slices (a
-# dry-run CLI, then the actual write).
+# `pull_request_target` is refused unconditionally.
+#
+# A local dry-run CLI lives at `rekon publish github-check
+# --dry-run [--root <path>] [--json]`. It reads the latest local
+# Rekon artifacts (VerificationResult, VerificationRun, proof
+# report, architecture summary, agent contract), calls the shared
+# helpers, and prints
+# `{ kind, dryRun, payload, readiness, canonicalTruthReminder }`
+# as JSON. The CLI never reads `GITHUB_TOKEN` / `GH_TOKEN` and
+# never calls GitHub; the actual API write lives in a future
+# slice.
+node packages/cli/dist/index.js publish github-check --dry-run --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

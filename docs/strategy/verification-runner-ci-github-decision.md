@@ -959,11 +959,17 @@ slices:
      `assessGitHubCheckPublisherReadiness`).
      No GitHub API call; no network
      client imported.
-   - **6b (next).** CLI dry-run command
-     `rekon publish github-check --dry-run
-     --json`. Reads local Rekon
-     artifacts, prints payload +
-     readiness. Still no API call.
+   - **6b (shipped).** ✅ CLI dry-run
+     command `rekon publish github-check
+     --dry-run [--root <path>] [--json]`.
+     Reads local Rekon artifacts, calls
+     the shared helpers, prints
+     `{ kind, dryRun, payload, readiness,
+     canonicalTruthReminder }`. The CLI
+     does not read `GITHUB_TOKEN` /
+     `GH_TOKEN` and imports no network
+     client; readiness false is exit 0,
+     missing artifacts is exit 1.
    - **6c (later).** Actual GitHub API
      write, behind the readiness gate
      from 6a, with its own review packet.

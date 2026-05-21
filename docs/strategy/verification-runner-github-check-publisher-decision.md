@@ -406,10 +406,18 @@ This batch ships **step 6a** of the sequence below. Steps
 4. **Docs test** at
    `tests/docs/verification-runner-github-check-publisher-decision.test.mjs`.
    ✅ Shipped in this batch.
-5. **CLI dry-run command (step 6b).** Future slice. Adds
-   `rekon publish github-check --dry-run --json` that reads
-   the local artifact store, builds the payload, and prints
-   the readiness report. Still no API call.
+5. **CLI dry-run command (step 6b).** ✅ Shipped. Adds
+   `rekon publish github-check --dry-run --json`. The CLI
+   reads the local artifact store, calls
+   `buildGitHubCheckPayload` + `assessGitHubCheckPublisherReadiness`,
+   and prints
+   `{ kind, dryRun, payload, readiness,
+   canonicalTruthReminder }` as JSON. `--dry-run` is
+   required (no API path exists yet). The CLI does not
+   read `GITHUB_TOKEN` / `GH_TOKEN` and imports no
+   network client; readiness `ready: false` is exit 0
+   (not a CLI failure), and missing / malformed local
+   artifacts is exit 1.
 6. **GitHub API call (step 6c).** Future slice. Adds the
    `octokit` (or equivalent) dependency under a dedicated
    import path. Gated by the readiness gate.

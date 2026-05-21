@@ -1584,13 +1584,37 @@ review packets unless an ADR promotes them. Promotion requires:
     GitHub write permissions in any
     bundled template; no artifact-shape
     change; no new capability package.
-47. **(future)** Verification runner
+47. **Shipped (✅).** Verification runner
     GitHub Check publisher dry-run CLI
     (step 6b). Adds `rekon publish
-    github-check --dry-run --json` that
-    reads local Rekon artifacts and
-    prints the payload + readiness
-    report. Still no GitHub API call.
+    github-check --dry-run [--root <path>]
+    [--json]` that reads local Rekon
+    artifacts, calls the shared helpers
+    `buildGitHubCheckPayload` +
+    `assessGitHubCheckPublisherReadiness`,
+    and prints
+    `{ kind: "rekon.github-check.dry-run",
+    dryRun: true, payload, readiness,
+    canonicalTruthReminder }` as JSON.
+    The CLI **never calls GitHub**:
+    `--dry-run` is required (the API
+    path is not implemented in this
+    slice); the CLI does not read
+    `GITHUB_TOKEN` / `GH_TOKEN` (the
+    readiness assessor receives an
+    explicitly empty env map); the CLI
+    imports no network client. Readiness
+    `ready: false` is exit 0 (not a CLI
+    failure); missing / malformed local
+    artifacts is exit 1. The CLI does
+    not duplicate the conclusion
+    mapping — it delegates entirely to
+    `buildGitHubCheckPayload`. 9 contract
+    tests + 1 added usage assertion;
+    full suite expected ≥ 1265 passed /
+    1 skipped. Still no active workflow
+    in `.github/workflows/` of the Rekon
+    repo; still no GitHub API calls.
 48. **(future)** Verification runner
     GitHub Check API write (step 6c).
     First slice that actually calls the

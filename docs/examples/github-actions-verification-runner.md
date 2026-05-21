@@ -199,9 +199,13 @@ the proof-report job summary visible.
   but **never call GitHub**. Forked PRs are
   untrusted by default, and
   `pull_request_target` is refused
-  unconditionally. Reaching the actual API
-  call requires two more slices (dry-run
-  CLI + API-write slice).
+  unconditionally. The CLI dry-run command
+  `rekon publish github-check --dry-run
+  [--root <path>] [--json]` reads local
+  Rekon artifacts and prints the
+  payload + readiness as JSON — still no
+  GitHub API call. The actual write lives
+  in a future slice (step 6c).
 - **Does not write PR comments.** No
   `pull-requests: write` permission, no
   comment body, no inline annotations.

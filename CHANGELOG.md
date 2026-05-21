@@ -5,6 +5,118 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-alpha.1
 
 - Shipped verification runner **GitHub Check
+  publisher dry-run CLI** (P1.1
+  github-check-publisher-dry-run-cli slice).
+  **Step 6b** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **CLI + tests + docs batch.** No GitHub
+  API calls. No active workflow in
+  `.github/workflows`. No new GitHub write
+  permissions in any bundled template. No
+  artifact-shape change. No new capability
+  package.
+
+  **New CLI command:**
+  - `rekon publish github-check --dry-run
+    [--root <path>] [--json]`. Registered
+    alongside the existing
+    `publish architecture` / `publish proof`
+    / `publish agent-contract` commands in
+    `packages/cli/src/index.ts`. Reads the
+    latest local `VerificationResult`,
+    `VerificationRun`, `VerificationPlan`,
+    and the latest `Publication` of each
+    kind (`proof-report`,
+    `architecture-summary`,
+    `agent-contract`) by walking entries
+    newest-first and matching `body.kind`.
+    Runs `artifacts validate` (read-only)
+    so the payload reflects current local
+    index state. Calls the shared helpers
+    `buildGitHubCheckPayload` +
+    `assessGitHubCheckPublisherReadiness`
+    from `@rekon/capability-docs` — the CLI
+    does **not** duplicate the conclusion-
+    mapping precedence ladder. Prints
+    `{ kind: "rekon.github-check.dry-run",
+    dryRun: true, payload, readiness,
+    canonicalTruthReminder }` as JSON when
+    `--json` is supplied.
+
+  **Safety contract:**
+  - **`--dry-run` is required.** The CLI
+    refuses to run without it (exit 1).
+    The actual GitHub API write lives in
+    step 6c.
+  - **No GitHub API call.** The CLI imports
+    no HTTP client and no GitHub SDK. A
+    contract test scans the CLI source for
+    forbidden imports (`@octokit/*`,
+    `@actions/github`, `octokit`,
+    `node-fetch`, `axios`, `undici`, `got`)
+    and call-sites (`fetch(`,
+    `https.request`, `http.request`,
+    `new Request(`) and fails the build if
+    any are present.
+  - **No token reads.** The CLI does not
+    read `GITHUB_TOKEN` / `GH_TOKEN` from
+    `process.env`. The readiness assessor
+    receives an explicitly empty env map,
+    so readiness `ready: false` is the
+    expected default until operators wire
+    the step-6c CLI with explicit env.
+  - **The CLI delegates conclusion
+    mapping.** A contract test scans the
+    CLI source for `pickConclusion` and
+    counts GitHub Check conclusion string
+    literals (`"success"`, `"failure"`,
+    `"neutral"`, `"timed_out"`,
+    `"action_required"`); finding four or
+    more would imply a duplicate mapping
+    and fails the test.
+  - **Readiness `ready: false` is exit 0.**
+    A render success doesn't imply a
+    publish-ready environment; the payload
+    + issue list lets operators see which
+    gates remain.
+  - **Missing / malformed local artifacts
+    is exit 1.** The CLI surfaces an
+    explicit error message including the
+    artifact id when read fails.
+
+  **Tests:** new contract suite
+  `tests/contract/github-check-publisher-dry-run-cli.test.mjs`
+  (9 tests covering `--dry-run` requirement,
+  JSON shape, readiness-false-is-exit-0,
+  payload cites publications produced by
+  `refresh` + explicit publish, CLI
+  delegates conclusion mapping, no token
+  reads, no network-client imports,
+  read-only / index unchanged, usage line
+  registered). Full suite expected ≥ 1265
+  passed / 1 skipped.
+
+  **Out-of-scope and explicitly not
+  shipped:**
+  - No GitHub API call. Step 6c.
+  - No PR comment publisher. Step 7.
+  - No `.github/workflows/*.yml` added to
+    the Rekon repo.
+  - No mutation of `verify run` /
+    `artifacts latest` / `VerificationRun` /
+    `VerificationResult` / any artifact.
+  - No new capability package.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the CLI
+  never calls GitHub APIs; the CLI never
+  imports a network client; the CLI never
+  reads `GITHUB_TOKEN` or `GH_TOKEN`; the
+  CLI never duplicates conclusion mapping;
+  readiness false is not a CLI failure.
+
+- Shipped verification runner **GitHub Check
   publisher — decision + gated skeleton**
   (P1.1 github-check-publisher-decision slice).
   **Step 6a** of the CI / GitHub adapter

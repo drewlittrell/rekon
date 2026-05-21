@@ -4,7 +4,12 @@ import { realpathSync } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import docsCapability from "@rekon/capability-docs";
+import docsCapability, {
+  GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+  assessGitHubCheckPublisherReadiness,
+  buildGitHubCheckPayload,
+  type GitHubCheckPublisherRunStatus,
+} from "@rekon/capability-docs";
 import graphCapability from "@rekon/capability-graph";
 import intentCapability, {
   createVerificationResult,
@@ -322,6 +327,144 @@ export async function main(argv: string[]): Promise<void> {
       publisherId: "@rekon/capability-docs.agent-contract",
     });
     writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "publish" && subcommand === "github-check") {
+    // Step 6b of the CI / GitHub adapter implementation
+    // sequence pinned by
+    // docs/strategy/verification-runner-ci-github-decision.md.
+    //
+    // **Local-only dry-run.** The command reads local Rekon
+    // verification / proof artifacts, calls the pure helpers
+    // from `@rekon/capability-docs`
+    // (`buildGitHubCheckPayload` +
+    // `assessGitHubCheckPublisherReadiness`), and prints the
+    // resulting Check payload + readiness report as JSON.
+    //
+    // **This command never calls GitHub.** It does not
+    // authenticate, it does not read `GITHUB_TOKEN` or
+    // `GH_TOKEN`, and it imports no network client. It is
+    // strictly artifact-rendering + readiness assessment.
+    //
+    // The eventual GitHub Check API write lives in step 6c
+    // (a future slice with its own decision memo + review
+    // packet). `--dry-run` is **required** in this slice so
+    // operators cannot accidentally invoke a not-yet-built
+    // publish path.
+    const dryRun = parsed.flags["dry-run"] === true;
+
+    if (!dryRun) {
+      throw new Error(
+        "rekon publish github-check requires --dry-run. The actual GitHub Check write is not yet implemented (step 6c). See docs/strategy/verification-runner-github-check-publisher-decision.md.",
+      );
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const verificationResultEntry = await pickLatestArtifactEntry(store, "VerificationResult");
+    const verificationRunEntry = await pickLatestArtifactEntry(store, "VerificationRun");
+    const verificationPlanEntry = await pickLatestArtifactEntry(store, "VerificationPlan");
+    const proofReportEntry = await pickLatestPublicationByKind(store, "proof-report");
+    const architectureSummaryEntry = await pickLatestPublicationByKind(store, "architecture-summary");
+    const agentContractEntry = await pickLatestPublicationByKind(store, "agent-contract");
+
+    const verificationResultRef = verificationResultEntry ? toArtifactRef(verificationResultEntry) : undefined;
+    const verificationRunRef = verificationRunEntry ? toArtifactRef(verificationRunEntry) : undefined;
+    const verificationPlanRef = verificationPlanEntry ? toArtifactRef(verificationPlanEntry) : undefined;
+    const proofReportRef = proofReportEntry ? toArtifactRef(proofReportEntry) : undefined;
+    const architectureSummaryRef = architectureSummaryEntry ? toArtifactRef(architectureSummaryEntry) : undefined;
+    const agentContractRef = agentContractEntry ? toArtifactRef(agentContractEntry) : undefined;
+
+    let verificationResult: VerificationResultBodyLike | undefined;
+
+    if (verificationResultEntry) {
+      try {
+        verificationResult = (await store.read(verificationResultEntry)) as VerificationResultBodyLike;
+      } catch (cause) {
+        throw new Error(
+          `Failed to read VerificationResult body ${verificationResultEntry.id}: ${(cause as Error).message ?? cause}`,
+        );
+      }
+    }
+
+    let verificationRunBody: GitHubCheckVerificationRunBodyLike | undefined;
+
+    if (verificationRunEntry) {
+      try {
+        verificationRunBody = (await store.read(
+          verificationRunEntry,
+        )) as GitHubCheckVerificationRunBodyLike;
+      } catch (cause) {
+        throw new Error(
+          `Failed to read VerificationRun body ${verificationRunEntry.id}: ${(cause as Error).message ?? cause}`,
+        );
+      }
+    }
+
+    const runStatus: GitHubCheckPublisherRunStatus | undefined = verificationRunBody
+      ? mapVerificationRunStatusForGitHubCheck(verificationRunBody)
+      : undefined;
+
+    const verificationRunForPayload = verificationRunBody && verificationRunEntry
+      ? {
+          header: {
+            ...verificationRunBody.header,
+            type: "VerificationRun" as const,
+            id: verificationRunEntry.id,
+          },
+          status: runStatus,
+        }
+      : undefined;
+
+    // Run `artifacts validate` so the payload reflects the
+    // current local index state. This is read-only.
+    const indexValidation = await validateArtifactIndex(store);
+    const artifactsValid = indexValidation.valid;
+
+    // Build the payload via the shared helper — the CLI must
+    // not reimplement the conclusion-mapping precedence.
+    const payload = buildGitHubCheckPayload({
+      config: {
+        enabled: false,
+        runUrl: undefined,
+      },
+      verificationResult,
+      verificationResultRef,
+      verificationRun: verificationRunForPayload,
+      verificationRunRef,
+      verificationPlanRef,
+      proofReportRef,
+      architectureSummaryRef,
+      agentContractRef,
+      artifactsValid,
+    });
+
+    // Readiness assessment uses an explicitly empty env map.
+    // This slice does NOT read `process.env.GITHUB_TOKEN` /
+    // `process.env.GH_TOKEN` (nor `REKON_GITHUB_CHECKS`,
+    // `GITHUB_REPOSITORY`, `GITHUB_SHA`) — operators wiring
+    // the publisher into CI will pass those values
+    // explicitly in the next slice's API-call command. For
+    // the local dry-run we surface the gated-default-deny
+    // readiness shape so operators see exactly which gates
+    // remain.
+    const readiness = assessGitHubCheckPublisherReadiness({
+      env: {},
+      event: { name: "workflow_dispatch" },
+      writePermissionConfirmed: false,
+    });
+
+    const output: GitHubCheckDryRunOutput = {
+      kind: "rekon.github-check.dry-run",
+      dryRun: true,
+      payload,
+      readiness,
+      canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+    };
+
+    writeOutput(output, json);
     return;
   }
 
@@ -3507,6 +3650,110 @@ async function readLatestArtifactOrUndefined<T>(
   return (await store.read(latest)) as T;
 }
 
+// ---------------------------------------------------------------
+// GitHub Check dry-run CLI helpers. Local-only, no network.
+// ---------------------------------------------------------------
+
+type GitHubCheckVerificationRunBodyLike = {
+  header: ArtifactHeader;
+  status?: string;
+  summary?: { status?: string };
+};
+
+type VerificationResultBodyLike = {
+  header: ArtifactHeader;
+  verificationPlanRef: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  status?: "passed" | "failed" | "partial" | "not-run";
+  commandResults?: Array<{
+    command?: string;
+    status?: "passed" | "failed" | "skipped" | "not-run";
+    exitCode?: number;
+    durationMs?: number;
+    stdoutDigest?: string;
+    stderrDigest?: string;
+    notes?: string;
+  }>;
+  summary?: { total?: number; passed?: number; failed?: number; skipped?: number; notRun?: number };
+};
+
+type GitHubCheckDryRunOutput = {
+  kind: "rekon.github-check.dry-run";
+  dryRun: true;
+  payload: ReturnType<typeof buildGitHubCheckPayload>;
+  readiness: ReturnType<typeof assessGitHubCheckPublisherReadiness>;
+  canonicalTruthReminder: typeof GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER;
+};
+
+async function pickLatestArtifactEntry(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  artifactType: string,
+): Promise<ArtifactIndexEntry | undefined> {
+  const entries = await store.list(artifactType);
+  if (entries.length === 0) return undefined;
+  return sortByWrittenAtDesc(entries)[0];
+}
+
+async function pickLatestPublicationByKind(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  kind: string,
+): Promise<ArtifactIndexEntry | undefined> {
+  const entries = sortByWrittenAtDesc(await store.list("Publication"));
+
+  for (const candidate of entries) {
+    try {
+      const body = (await store.read(candidate)) as { kind?: string };
+
+      if (body && typeof body === "object" && body.kind === kind) {
+        return candidate;
+      }
+    } catch {
+      // Skip unreadable entries; the artifact index validation
+      // path handles those.
+      continue;
+    }
+  }
+
+  return undefined;
+}
+
+function toArtifactRef(entry: ArtifactIndexEntry): ArtifactRef {
+  return {
+    type: entry.type,
+    id: entry.id,
+    path: entry.path,
+    schemaVersion: entry.schemaVersion,
+  };
+}
+
+function mapVerificationRunStatusForGitHubCheck(
+  run: GitHubCheckVerificationRunBodyLike,
+): GitHubCheckPublisherRunStatus {
+  const raw = (run.status ?? run.summary?.status ?? "").trim();
+
+  switch (raw) {
+    case "passed":
+    case "failed":
+    case "completed":
+      return "completed";
+    case "timeout":
+    case "timed_out":
+    case "timed-out":
+      return "timeout";
+    case "killed":
+      return "killed";
+    case "in-progress":
+    case "running":
+      return "in-progress";
+    case "not-started":
+    case "not_started":
+    case "not-run":
+      return "not-started";
+    default:
+      return "unknown";
+  }
+}
+
 function subjectRepoIdFromStore(
   store: ReturnType<typeof createLocalArtifactStore>,
 ): string {
@@ -5212,6 +5459,7 @@ function usage(): string {
     "rekon publish architecture [--root <path>] [--json]",
     "rekon publish proof [--root <path>] [--json]",
     "rekon publish agent-contract [--root <path>] [--json]",
+    "rekon publish github-check --dry-run [--root <path>] [--json]",
     "rekon agent-contract export --output <path> [--force] [--root <path>] [--json]",
     "rekon publish list [--root <path>] [--json]",
     "rekon publish run <publisher-id> [--root <path>] [--input-json <json>] [--json]",
