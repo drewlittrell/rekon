@@ -356,6 +356,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # must remain chain-coherent in every review surface; Windows
 # timeout behaviour is direct-child-only unless a future
 # platform-specific process-tree strategy is implemented.
+#
+# The Beta Readiness / Remaining Classic-Parity Review at
+# docs/strategy/beta-readiness-classic-parity-review.md
+# declared Rekon beta-close but not beta-ready. Three policy
+# blockers remain before public beta:
+#   1. Source-write reconciliation policy (apply path is
+#      undecided; ReconciliationPlan is preview-only today).
+#   2. Watcher / path freshness policy (live invalidation +
+#      staleness recovery not pinned).
+#   3. Beta release readiness checklist (packaging /
+#      version / docs / smoke constraints not pinned).
+#
+# Each blocker is a policy decision, not a missing
+# implementation. The next slice is the source-write
+# reconciliation policy decision memo.
+#
+# Beta readiness is not the same as full classic parity.
+# Rekon should not add more GitHub review surfaces before
+# beta. The remaining pre-beta work is policy / guardrail
+# oriented.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

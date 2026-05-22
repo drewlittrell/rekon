@@ -299,3 +299,4 @@ filter boundary. See the
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)
 - [Resolvers](resolvers.md)
+- [Beta readiness / remaining classic-parity review](../strategy/beta-readiness-classic-parity-review.md)

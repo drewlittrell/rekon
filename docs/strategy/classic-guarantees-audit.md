@@ -1095,3 +1095,6 @@ For the operational test plan, see
 [classic-guarantee-regression-plan.md](classic-guarantee-regression-plan.md).
 For the quick-reference table, see
 [classic-subsystem-purpose-map.md](classic-subsystem-purpose-map.md).
+For the beta-readiness assessment against these
+guarantees, see
+[beta-readiness-classic-parity-review.md](beta-readiness-classic-parity-review.md).

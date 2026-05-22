@@ -2020,14 +2020,56 @@ review packets unless an ADR promotes them. Promotion requires:
     pin the memo's contract. The next slice is
     the **beta readiness / remaining
     classic-parity review**.
-61. **(future)** Per-module `ObservedSystem`
+61. **Shipped (✅).** Beta readiness /
+    remaining classic-parity review.
+    [`docs/strategy/beta-readiness-classic-parity-review.md`](beta-readiness-classic-parity-review.md)
+    steps back from the completed verification +
+    GitHub review-surface arc and assesses
+    Rekon's remaining delta to beta. Reviews 15
+    subsystems (observe / refresh, finding
+    detection, finding filters, graph-aware
+    filtering, issue lifecycle, CoherencyDelta,
+    WorkOrder / ReconciliationPlan /
+    VerificationPlan, verification runner,
+    proof surfaces, GitHub review surfaces,
+    memory, resolver packets, source-write
+    reconciliation, watcher / path freshness,
+    packaging / release readiness) against
+    codebase-intel's classic goals (understand,
+    govern, fix, verify, communicate).
+    **Decision: beta-close but not beta-ready.**
+    Three policy blockers remain — each a
+    decision rather than a missing
+    implementation:
+    1. Source-write reconciliation policy.
+    2. Watcher / path freshness policy.
+    3. Beta release readiness checklist.
+    Beta-ready subsystems: verification runner +
+    proof surfaces, GitHub review surfaces,
+    finding filters, graph-aware filtering,
+    issue governance, resolver packets,
+    publications, memory, snapshot refresh.
+    Post-beta: hosted GitHub App, deeper rule
+    catalog, memory promotion / supersession,
+    Windows process-tree kill, PR comment
+    refinements, source-write automation beyond
+    the policy gate. Required statements:
+    beta readiness is not the same as full
+    classic parity; Rekon should not add more
+    GitHub review surfaces before beta; the
+    remaining pre-beta work is policy /
+    guardrail oriented. 19 docs assertions pin
+    the memo's contract. **Next slice:
+    source-write reconciliation policy
+    decision memo.**
+62. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-62. **(future)** Persistent exclusion lists, and
+63. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

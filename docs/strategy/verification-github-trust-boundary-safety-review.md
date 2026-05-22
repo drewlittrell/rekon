@@ -627,3 +627,12 @@ flagged otherwise):
 **The trust boundary is beta-stable. The next
 slice is the beta readiness / remaining
 classic-parity review.**
+
+**Update — beta readiness review shipped.** The
+[Beta Readiness / Remaining Classic-Parity Review](beta-readiness-classic-parity-review.md)
+declared Rekon **beta-close but not beta-ready**.
+Three policy blockers remain (source-write
+reconciliation policy, watcher / path freshness
+policy, release readiness checklist). The trust
+boundary remains beta-stable; the next slice is the
+**source-write reconciliation policy decision memo**.

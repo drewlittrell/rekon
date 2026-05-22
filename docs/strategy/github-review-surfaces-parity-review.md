@@ -656,5 +656,16 @@ walked every hardening fix in isolation and declared
 the trust boundary **beta-stable**. No additional
 GitHub review surfaces should be added before beta;
 remaining work is operational polish + documented
-platform caveats. The next slice is the beta
-readiness / remaining classic-parity review.
+platform caveats.
+
+**Update — beta readiness review shipped.** The
+[Beta Readiness / Remaining Classic-Parity Review](beta-readiness-classic-parity-review.md)
+stepped back from the GitHub adapter arc and assessed
+Rekon's remaining delta to beta. Decision: **Rekon is
+beta-close but not beta-ready.** Three policy
+blockers remain (source-write reconciliation policy,
+watcher / path freshness policy, release readiness
+checklist) — none require new GitHub review surfaces.
+**Rekon should not add more GitHub review surfaces
+before beta.** The next slice is the source-write
+reconciliation policy decision memo.

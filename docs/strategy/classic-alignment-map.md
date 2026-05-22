@@ -53,3 +53,4 @@ Cross-references:
 - [classic-refactor-principles.md](classic-refactor-principles.md)
 - [classic-behavior-roadmap.md](classic-behavior-roadmap.md)
 - [codebase-intel-classic-migration.md](codebase-intel-classic-migration.md)
+- [beta-readiness-classic-parity-review.md](beta-readiness-classic-parity-review.md)

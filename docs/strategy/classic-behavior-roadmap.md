@@ -5259,6 +5259,119 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Beta readiness / remaining classic-parity
+  review (P1.1
+  beta-readiness-classic-parity-review slice).**
+  ✅ Shipped. **First beta-readiness review**
+  following the completed CI / GitHub adapter
+  sequence. **Strategy / docs / tests-only
+  batch.** No runtime behaviour change. No new
+  package, no new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call.
+
+  **New strategy memo** at
+  [`docs/strategy/beta-readiness-classic-parity-review.md`](beta-readiness-classic-parity-review.md)
+  steps back from the verification + GitHub
+  review-surface arc and assesses Rekon's
+  remaining delta to beta. Reviews 15 subsystems
+  (observe / refresh, finding detection, finding
+  filters, graph-aware filtering, issue
+  lifecycle / adjudication / merge decisions,
+  CoherencyDelta / remediation queue, WorkOrder
+  / ReconciliationPlan / VerificationPlan,
+  verification runner / VerificationRun /
+  VerificationResult, proof surfaces, GitHub
+  review surfaces, memory, resolver packets /
+  resolve.issue, source-write reconciliation,
+  watcher / path freshness, packaging /
+  release readiness) against codebase-intel's
+  classic goals (understand, govern, fix,
+  verify, communicate).
+
+  **Decision: Rekon is beta-close but not
+  beta-ready.** Three policy blockers remain,
+  each a decision rather than a missing
+  implementation:
+  1. Source-write reconciliation policy
+     (apply path is undecided;
+     `ReconciliationPlan` is preview-only
+     today).
+  2. Watcher / path freshness policy (live
+     invalidation + staleness recovery not
+     pinned).
+  3. Beta release readiness checklist
+     (packaging / version / docs / smoke
+     constraints not pinned in a single
+     checklist).
+
+  **Beta-ready subsystems:** verification
+  runner + proof surfaces; GitHub review
+  surfaces (beta-complete per step 8,
+  beta-stable per step 10); finding filters +
+  filter health + filter policy; graph-aware
+  filtering; issue governance core loop
+  (adjudication + merge decisions +
+  freshness); resolver packets; publications /
+  agent contract; memory selection / curation;
+  snapshot refresh.
+
+  **Post-beta work:** hosted GitHub App;
+  deeper rule catalog expansion; richer
+  memory promotion / supersession; Windows
+  process-tree kill (Job Objects); PR comment
+  refinements (bounded retry, same-repo
+  `pull_request` guard); source-write
+  automation beyond the explicit gated policy.
+
+  **Required statements pinned by the memo +
+  the docs test:**
+  - Beta readiness is not the same as full
+    classic parity.
+  - Rekon should not add more GitHub review
+    surfaces before beta.
+  - The remaining pre-beta work is policy /
+    guardrail oriented, not another major
+    review-surface expansion.
+
+  **Three diagnostic tables in the memo:**
+  - Subsystem readiness matrix (15 rows;
+    every row classified as strong /
+    incomplete + beta-ready / beta blocker +
+    notes).
+  - Beta blocker table (3 blockers; each with
+    why-it-blocks + recommended next slice).
+  - Post-beta table (6 items; each with
+    why-post-beta reason).
+
+  **Tests:** new docs suite
+  `tests/docs/beta-readiness-classic-parity-review.test.mjs`
+  with 19 assertions. Full suite expected ≥
+  1587 passed / 1 skipped.
+
+  **Recommended next slice:** **Source-write
+  reconciliation policy decision memo** —
+  pin whether beta supports source-write
+  apply at all; if yes, pin preview / diff
+  first, explicit operator confirmation,
+  verification before AND after, rollback
+  strategy, no agent-autonomous source
+  writes, artifact trail
+  (`ReconciliationLog` or equivalent). After
+  that: watcher / path freshness policy
+  decision memo, then beta release readiness
+  checklist, then beta release execution.
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API
+  call, no token read, no artifact-shape
+  change, no `schemaVersion` bump, no
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation, no
+  version bump, no npm publish.
 - **Verification / GitHub trust-boundary
   safety review (P1.1
   verification-github-trust-boundary-safety-review

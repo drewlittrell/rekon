@@ -621,3 +621,4 @@ and `rekon artifacts freshness` cover both artifact types.
 - [Issue adjudication concept](issue-adjudication.md)
 - [Coherency delta concept](coherency-delta.md)
 - [Refresh pipeline](refresh.md)
+- [Beta readiness / remaining classic-parity review](../strategy/beta-readiness-classic-parity-review.md)

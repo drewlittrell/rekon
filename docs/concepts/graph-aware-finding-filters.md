@@ -480,3 +480,4 @@ during the filter step.
 - [FindingFilterReport artifact](../artifacts/finding-filter-report.md)
 - [FindingFilterHealthReport artifact](../artifacts/finding-filter-health-report.md)
 - [Refresh pipeline](refresh.md)
+- [Beta readiness / remaining classic-parity review](../strategy/beta-readiness-classic-parity-review.md)

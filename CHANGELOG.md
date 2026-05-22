@@ -4,6 +4,158 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **Beta Readiness / Remaining
+  Classic-Parity Review** (P1.1
+  beta-readiness-classic-parity-review slice).
+  **First beta-readiness review** following the
+  completed CI / GitHub adapter sequence.
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package, no
+  new CLI command, no new helper, no workflow-
+  template change, no validator profile change,
+  no GitHub API call.
+
+  **New strategy memo:**
+  [`docs/strategy/beta-readiness-classic-parity-review.md`](docs/strategy/beta-readiness-classic-parity-review.md)
+  steps back from the verification + GitHub
+  review-surface arc and assesses Rekon's
+  remaining delta to beta. Reviews 15
+  subsystems against codebase-intel's classic
+  goals (understand, govern, fix, verify,
+  communicate):
+  1. Observe / project / snapshot refresh loop.
+  2. Finding detection / rule-pack coverage.
+  3. Finding filters / filter-health / policies.
+  4. Graph-aware filtering.
+  5. Issue lifecycle / adjudication / merge.
+  6. CoherencyDelta / remediation queue.
+  7. WorkOrder / ReconciliationPlan /
+     VerificationPlan.
+  8. Verification runner / VerificationRun /
+     VerificationResult.
+  9. Proof surfaces / architecture summary /
+     agent contract.
+  10. GitHub review surfaces.
+  11. Memory selection / curation.
+  12. Resolver packets / resolve.issue.
+  13. Source-write / reconciliation apply path.
+  14. Watcher / path freshness / live
+      invalidation.
+  15. Packaging / install / publish readiness.
+
+  **Decision: Rekon is beta-close but not
+  beta-ready.** Three policy blockers remain —
+  each a decision rather than a missing
+  implementation:
+  1. **Source-write reconciliation policy.**
+     `ReconciliationPlan` is preview-only; the
+     apply path is undecided.
+  2. **Watcher / path freshness policy.**
+     Artifacts go stale between `rekon refresh`
+     calls; the operator-facing freshness
+     contract is not pinned.
+  3. **Beta release readiness checklist.** The
+     audit / smoke scripts exist; the
+     consolidated release checklist memo does
+     not.
+
+  **Beta-ready subsystems:** verification
+  runner + proof surfaces (per the step-10
+  trust-boundary safety review); GitHub review
+  surfaces (beta-complete per step 8, beta-
+  stable per step 10); finding filters; graph-
+  aware filtering; issue governance core loop;
+  resolver packets; publications / agent
+  contract; memory selection / curation;
+  snapshot refresh.
+
+  **Post-beta:** hosted GitHub App; deeper rule
+  catalog expansion; richer memory promotion /
+  supersession; Windows process-tree kill (Job
+  Objects); PR comment refinements (bounded
+  retry, same-repo `pull_request` guard);
+  source-write automation beyond the policy
+  gate.
+
+  **Required statements pinned by the memo +
+  the docs test:**
+  - Beta readiness is not the same as full
+    classic parity.
+  - Rekon should not add more GitHub review
+    surfaces before beta.
+  - The remaining pre-beta work is policy /
+    guardrail oriented, not another major
+    review-surface expansion.
+
+  **Three diagnostic tables in the memo:**
+  - Subsystem readiness matrix (15 rows; each
+    classified `strong` / `incomplete` +
+    `beta-ready` / `beta blocker` + notes).
+  - Beta blocker table (3 rows; each with
+    why-it-blocks + recommended next slice).
+  - Post-beta table (6 rows; each with
+    why-post-beta reason).
+
+  **Tests:** new docs suite
+  `tests/docs/beta-readiness-classic-parity-review.test.mjs`
+  with 19 assertions (memo existence; all 15
+  required headings; beta-close-but-not-beta-
+  ready language; beta-readiness-is-not-full-
+  classic-parity statement; no-more-GitHub-
+  surfaces statement; policy / guardrail-
+  oriented statement; three identified
+  blockers; five subsystems explicitly marked
+  beta-ready; subsystem matrix; beta blocker
+  table; post-beta table; CHANGELOG mention;
+  review-packet PURPOSE PRESERVATION CHECK).
+  Full suite expected ≥ 1587 passed / 1
+  skipped.
+
+  **Docs:** 14 updated (parity review +
+  trust-boundary safety review beta-readiness
+  pointers; governance memo step 61 added;
+  classic-behavior roadmap + master roadmap
+  entries; classic-guarantees-audit +
+  classic-alignment-map pointers; 6 concept
+  docs added beta-readiness pointer in
+  Cross-References). README + CHANGELOG
+  updated. New review packet at
+  `.rekon-dev/review-packets/beta-readiness-classic-parity-review.md`.
+
+  **Recommended next slice:** **Source-write
+  reconciliation policy decision memo.** Pin
+  whether beta supports source-write apply at
+  all; if yes, pin preview / diff first,
+  explicit operator confirmation, verification
+  before AND after, rollback strategy, no
+  agent-autonomous source writes, artifact
+  trail (`ReconciliationLog` or equivalent).
+  After that: watcher / path freshness policy
+  decision memo, then beta release readiness
+  checklist, then beta release execution.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No new features.
+  - No runtime behaviour change.
+  - No CLI behaviour change.
+  - No GitHub API calls.
+  - No active `.github/workflows/*.yml` files.
+  - No VerificationRun / VerificationResult
+    schema change.
+  - No issue governance / filtering / memory /
+    publications / reconciliation behaviour
+    change.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the review
+  does not claim beta-ready (three blockers
+  identified); does not claim full classic
+  parity; does not add runtime behaviour;
+  does not introduce new implementation work
+  in this batch; all 14 listed docs in the
+  work order exist and were updated (no skips
+  needed).
+
 - Shipped **Verification / GitHub Trust-Boundary
   Safety Review** (P1.1
   verification-github-trust-boundary-safety-review

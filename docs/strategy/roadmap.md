@@ -1106,6 +1106,41 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Beta readiness / remaining classic-parity review (P1.1
+  beta-readiness-classic-parity-review slice): **first
+  beta-readiness review** following the completed CI /
+  GitHub adapter sequence. Strategy / docs / tests-only
+  batch — **no runtime behaviour change.** No new
+  package, no new CLI command, no new helper, no
+  workflow-template change, no validator profile change,
+  no GitHub API call. New strategy memo at
+  [`docs/strategy/beta-readiness-classic-parity-review.md`](beta-readiness-classic-parity-review.md)
+  steps back from the verification + GitHub review-surface
+  arc and assesses Rekon's remaining delta to beta. Reviews
+  15 subsystems against codebase-intel's classic goals
+  (understand, govern, fix, verify, communicate).
+  **Decision: Rekon is beta-close but not beta-ready.**
+  Three policy blockers remain (source-write reconciliation
+  policy, watcher / path freshness policy, beta release
+  readiness checklist) — each a decision rather than a
+  missing implementation. Beta-ready subsystems:
+  verification runner + proof surfaces; GitHub review
+  surfaces; finding filters; graph-aware filtering; issue
+  governance; resolver packets; publications; memory;
+  snapshot refresh. Post-beta: hosted GitHub App, deeper
+  rule catalog, memory promotion / supersession, Windows
+  process-tree kill, PR comment refinements, source-write
+  automation beyond the policy gate. Required statements
+  pinned by the memo + the docs test: beta readiness is
+  not the same as full classic parity; Rekon should not
+  add more GitHub review surfaces before beta; the
+  remaining pre-beta work is policy / guardrail oriented.
+  Three diagnostic tables: subsystem readiness matrix
+  (15 rows), beta blocker table (3 rows), post-beta table
+  (6 rows). 19 new docs assertions. Full suite expected
+  ≥ 1587 passed / 1 skipped. **Recommended next slice:**
+  source-write reconciliation policy decision memo. No
+  `schemaVersion` bump. No version bump. No npm publish.
 - Verification / GitHub trust-boundary safety review (P1.1
   verification-github-trust-boundary-safety-review slice):
   **step 10** of the CI / GitHub adapter implementation

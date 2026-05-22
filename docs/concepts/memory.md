@@ -293,3 +293,4 @@ node packages/cli/dist/index.js memory curation \
 - [Resolvers](resolvers.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)
+- [Beta readiness / remaining classic-parity review](../strategy/beta-readiness-classic-parity-review.md)
