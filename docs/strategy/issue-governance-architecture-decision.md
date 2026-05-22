@@ -2062,7 +2062,39 @@ review packets unless an ADR promotes them. Promotion requires:
     the memo's contract. **Next slice:
     source-write reconciliation policy
     decision memo.**
-62. **(future)** Per-module `ObservedSystem`
+62. **Shipped (✅).** Source-write reconciliation
+    policy decision memo.
+    [`docs/strategy/source-write-reconciliation-policy-decision.md`](source-write-reconciliation-policy-decision.md)
+    resolves the **first of three beta blockers**
+    identified by the beta-readiness review.
+    **Decision: Option C — beta pins the
+    source-write policy + preview requirements;
+    the actual apply implementation remains
+    deferred post-beta.** Four options analysed
+    (no apply / deterministic narrow apply /
+    preview-first / full apply). Pinned reminders
+    carried forward: source-write apply is not
+    required for beta but the policy boundary
+    is required for beta; no agent-autonomous
+    source writes; every future source-write
+    apply must be preceded by exact diff preview
+    and explicit operator confirmation; a
+    successful apply must not automatically
+    resolve findings — lifecycle / status
+    updates remain explicit artifacts. The memo
+    reserves the `ReconciliationApplyReport`
+    artifact name and the `source:write`
+    permission name (docs-only reservation; SDK
+    / runtime registration belongs to a later
+    slice). Three diagnostic tables (policy,
+    operation-class, risk) + an 8-step
+    implementation sequence (steps 2-4 are the
+    remaining beta blockers; steps 5-8 are the
+    post-beta apply roadmap). 18 docs assertions
+    pin the memo's contract. **Next slice:
+    watcher / path freshness policy decision
+    memo** (second of three beta blockers).
+63. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;

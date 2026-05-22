@@ -1106,6 +1106,42 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Source-write reconciliation policy decision memo (P1.1
+  source-write-reconciliation-policy-decision slice):
+  **first of three beta blockers** identified by the
+  Beta Readiness / Remaining Classic-Parity Review.
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI command,
+  no new helper, no workflow-template change, no
+  validator profile change, no GitHub API call, no
+  source-file mutation, no artifact-type registration, no
+  permission registration. New strategy memo at
+  [`docs/strategy/source-write-reconciliation-policy-decision.md`](source-write-reconciliation-policy-decision.md)
+  pins the source-write boundary for beta. **Decision:
+  Option C — beta pins the source-write policy + preview
+  requirements; the actual apply implementation remains
+  deferred post-beta.** Four options analysed (no apply /
+  deterministic narrow apply / preview-first / full
+  apply). Pinned reminders carried forward: source-write
+  apply is not required for beta but the policy boundary
+  is required for beta; no agent-autonomous source
+  writes; every future source-write apply must be
+  preceded by exact diff preview and explicit operator
+  confirmation; a successful apply must not automatically
+  resolve findings — lifecycle / status updates remain
+  explicit artifacts. The memo reserves the
+  `ReconciliationApplyReport` artifact name and the
+  `source:write` permission name (docs-only reservation;
+  SDK / runtime registration belongs to a later slice).
+  Three diagnostic tables: policy (8 rows), operation-
+  class (5 rows), risk (5 rows). 8-step implementation
+  sequence pinned (steps 2-4 are the remaining beta
+  blockers; steps 5-8 are the post-beta apply roadmap).
+  18 new docs assertions. Full suite expected ≥ 1605
+  passed / 1 skipped. **Recommended next slice:** watcher
+  / path freshness policy decision memo (second of three
+  beta blockers). No `schemaVersion` bump. No version
+  bump. No npm publish.
 - Beta readiness / remaining classic-parity review (P1.1
   beta-readiness-classic-parity-review slice): **first
   beta-readiness review** following the completed CI /

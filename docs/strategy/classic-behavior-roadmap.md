@@ -5259,6 +5259,107 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Source-write reconciliation policy decision
+  memo (P1.1
+  source-write-reconciliation-policy-decision
+  slice).** ✅ Shipped. **First of three beta
+  blockers** identified by the Beta Readiness /
+  Remaining Classic-Parity Review. **Strategy /
+  docs / tests-only batch.** No runtime behaviour
+  change. No new package, no new CLI command, no
+  new helper, no workflow-template change, no
+  validator profile change, no GitHub API call,
+  no source-file mutation, no artifact-type
+  registration, no permission registration.
+
+  **New strategy memo** at
+  [`docs/strategy/source-write-reconciliation-policy-decision.md`](source-write-reconciliation-policy-decision.md)
+  pins the source-write boundary for beta.
+  **Decision: Option C — beta pins the
+  source-write policy + preview requirements;
+  the actual apply implementation remains
+  deferred post-beta.** Four options analysed
+  (no apply / deterministic narrow apply /
+  preview-first / full apply); Option C wins
+  because it resolves the beta policy blocker
+  without shipping any source-write
+  implementation.
+
+  **Pinned reminders carried forward by the
+  memo + the docs test:**
+  - Source-write apply is not required for
+    beta, but the policy boundary is required
+    for beta.
+  - No agent-autonomous source writes.
+  - Every future source-write apply must be
+    preceded by exact diff preview and
+    explicit operator confirmation.
+  - A successful apply must not automatically
+    resolve findings; lifecycle / status
+    updates remain explicit artifacts.
+
+  **Reserved by name (docs-only reservation; no
+  SDK / runtime registration):**
+  `ReconciliationApplyReport` artifact type,
+  `source:write` permission. Both register in
+  follow-on slices, not this memo.
+
+  **Three diagnostic tables in the memo:**
+  - Policy table (8 rows: beta source-write
+    apply deferred / preview required /
+    confirmation required / verification
+    mandatory / rollback required /
+    `ReconciliationApplyReport` reserved /
+    `source:write` reserved / no agent
+    autonomy).
+  - Operation-class table (5 rows: artifact-only
+    allowed / deterministic source patch
+    preview-only / generated file creation
+    preview-only / command execution via
+    verification runner / ambiguous remediation
+    manual-only).
+  - Risk table (5 rows: corrupting source /
+    hidden agent writes / failed verification /
+    false resolution / irreversible patch —
+    each with its guardrail).
+
+  **Implementation Sequence pinned:**
+  1. Source-write reconciliation policy
+     decision memo (this memo, shipped).
+  2. Watcher / path freshness policy decision
+     memo (next slice — second beta blocker).
+  3. Beta release readiness checklist (third
+     beta blocker).
+  4. Beta release execution (final pre-beta
+     slice).
+  5. Patch preview artefact slice (post-beta).
+  6. Apply permission + rollback design memo
+     (post-beta).
+  7. Apply implementation slice (post-beta) —
+     adds `reconcile apply` +
+     `ReconciliationApplyReport` registration.
+  8. Source-write safety review slice
+     (post-beta).
+
+  **Tests:** new docs suite
+  `tests/docs/source-write-reconciliation-policy-decision.test.mjs`
+  with 18 assertions. Full suite expected ≥
+  1605 passed / 1 skipped.
+
+  **Recommended next slice:** **Watcher / path
+  freshness policy decision memo** (second of
+  three beta blockers).
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API call,
+  no token read, no artifact-shape change, no
+  `schemaVersion` bump, no
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation, no version
+  bump, no npm publish.
 - **Beta readiness / remaining classic-parity
   review (P1.1
   beta-readiness-classic-parity-review slice).**

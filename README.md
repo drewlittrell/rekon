@@ -369,8 +369,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #      version / docs / smoke constraints not pinned).
 #
 # Each blocker is a policy decision, not a missing
-# implementation. The next slice is the source-write
-# reconciliation policy decision memo.
+# implementation.
+#
+# The Source-Write Reconciliation Policy Decision Memo at
+# docs/strategy/source-write-reconciliation-policy-decision.md
+# resolved blocker (1). Decision: Option C — beta pins the
+# source-write policy + preview requirements; the actual
+# apply implementation remains deferred post-beta. Pinned
+# reminders carried forward:
+#   - Source-write apply is not required for beta, but the
+#     policy boundary is required for beta.
+#   - No agent-autonomous source writes.
+#   - Every future source-write apply must be preceded by
+#     exact diff preview and explicit operator confirmation.
+#   - A successful apply must not automatically resolve
+#     findings; lifecycle / status updates remain explicit
+#     artifacts.
+# The memo reserves the ReconciliationApplyReport artifact
+# name and the source:write permission name (docs-only
+# reservation; the SDK / runtime registration belongs to a
+# later slice). The next slice is the watcher / path
+# freshness policy decision memo (blocker 2).
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before

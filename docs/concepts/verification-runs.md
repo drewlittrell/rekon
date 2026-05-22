@@ -440,6 +440,9 @@ templates still validate clean under
 - [GitHub review surfaces parity review](../strategy/github-review-surfaces-parity-review.md)
 - [Verification / GitHub trust-boundary safety review](../strategy/verification-github-trust-boundary-safety-review.md)
 - [Beta readiness / remaining classic-parity review](../strategy/beta-readiness-classic-parity-review.md)
+- [Source-write reconciliation policy decision](../strategy/source-write-reconciliation-policy-decision.md) —
+  pins post-apply VerificationResult as
+  mandatory when future apply slices ship.
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [Opt-in PR comment workflow template](../examples/workflows/rekon-pr-comment-send.yml)

@@ -1098,3 +1098,9 @@ For the quick-reference table, see
 For the beta-readiness assessment against these
 guarantees, see
 [beta-readiness-classic-parity-review.md](beta-readiness-classic-parity-review.md).
+For the pinned beta policy on source-write
+reconciliation (Option C — preview-first, apply
+deferred post-beta; reserved `ReconciliationApplyReport`
++ `source:write` names; no agent-autonomous source
+writes), see
+[source-write-reconciliation-policy-decision.md](source-write-reconciliation-policy-decision.md).

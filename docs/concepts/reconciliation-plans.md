@@ -184,3 +184,9 @@ Rebuild with `rekon reconcile suggest`.
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+- [Source-write reconciliation policy decision](../strategy/source-write-reconciliation-policy-decision.md) —
+  pins beta posture: Option C (preview-first, apply
+  deferred post-beta); reserves
+  `ReconciliationApplyReport` artifact name and
+  `source:write` permission name; no agent-autonomous
+  source writes.

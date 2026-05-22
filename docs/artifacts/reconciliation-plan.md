@@ -184,3 +184,11 @@ Rebuild with `rekon reconcile suggest`.
 - [WorkOrder](work-order.md)
 - [CoherencyDelta](coherency-delta.md)
 - [Capability model](../strategy/capability-model.md)
+- [Source-write reconciliation policy decision](../strategy/source-write-reconciliation-policy-decision.md) —
+  pins beta posture: Option C (preview-first, apply
+  deferred post-beta). Reserves the
+  `ReconciliationApplyReport` artifact name (the
+  per-apply artifact that will cite this plan +
+  pre / post `VerificationResult`s when the apply
+  slice ships) and the `source:write` permission
+  name. No autonomous source writes.

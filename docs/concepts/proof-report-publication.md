@@ -196,6 +196,10 @@ Rebuild with `rekon publish proof`.
 - [PR comment publisher safety review](../strategy/pr-comment-publisher-safety-review.md)
 - [GitHub review surfaces parity review](../strategy/github-review-surfaces-parity-review.md)
 - [Beta readiness / remaining classic-parity review](../strategy/beta-readiness-classic-parity-review.md)
+- [Source-write reconciliation policy decision](../strategy/source-write-reconciliation-policy-decision.md) —
+  pins post-apply verification as mandatory; a
+  failed post-apply VerificationResult leaves
+  visible failed proof in this surface.
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [Opt-in PR comment workflow template](../examples/workflows/rekon-pr-comment-send.yml)
