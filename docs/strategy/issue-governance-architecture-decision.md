@@ -1713,14 +1713,46 @@ review packets unless an ADR promotes them. Promotion requires:
     docs assertions pin the memo's
     contract; full suite expected ≥ 1347
     passed / 1 skipped.
-51. **(future)** Per-module `ObservedSystem`
+51. **Shipped (✅).** PR Comment Publisher
+    Decision Memo (step 7a). Strategy
+    memo at
+    [`docs/strategy/pr-comment-publisher-decision.md`](pr-comment-publisher-decision.md)
+    decides whether Rekon adds a PR
+    comment surface after the GitHub
+    Check publisher path. **Decision:
+    Option B — design a PR comment
+    dry-run renderer; defer actual PR
+    comment posting.** PR comments are
+    not required for beta if GitHub
+    Checks + uploaded Rekon artifacts +
+    job summaries are sufficient for
+    review (the safety review already
+    pinned that they are). If
+    implemented later, PR comments must
+    be opt-in, same-repo / trusted-
+    context only, update-in-place via
+    the
+    `<!-- rekon:pr-comment:v1 -->`
+    marker, and clearly marked as a
+    downstream surface over Rekon
+    artifacts. Creating / updating PR
+    timeline comments requires
+    `issues: write` or `pull-requests:
+    write`; forked PRs must not
+    receive secret-bearing comment
+    publishing by default. No runtime
+    behaviour change in this batch. 18
+    docs assertions pin the memo's
+    contract; full suite expected ≥
+    1365 passed / 1 skipped.
+52. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-52. **(future)** Persistent exclusion lists, and
+53. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

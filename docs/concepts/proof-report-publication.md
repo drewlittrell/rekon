@@ -190,6 +190,7 @@ Rebuild with `rekon publish proof`.
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Check publisher send workflow safety review](../strategy/github-check-publisher-send-workflow-safety-review.md)
+- [PR comment publisher decision](../strategy/pr-comment-publisher-decision.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [VerificationRun artifact](../artifacts/verification-run.md)

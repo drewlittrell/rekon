@@ -4755,13 +4755,128 @@ scope:
 
   **Recommended next slice:**
   **PR Comment Publisher Decision
-  Memo** — decide whether Rekon
-  adds a PR comment surface after
-  GitHub Checks, or whether Check
-  Runs + artifacts are sufficient
-  for beta. Do not implement PR
-  comments until the decision is
-  pinned.
+  Memo**. **Shipped next; see the
+  entry below.**
+- **PR Comment Publisher Decision
+  Memo (P1.1
+  pr-comment-publisher-decision
+  slice).** ✅ Shipped. **Step 7a**
+  of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Strategy / docs / tests-only
+  batch. **No runtime behaviour
+  change.** No new package, no new
+  CLI command, no new helper, no
+  workflow-template modification,
+  no GitHub API call.
+
+  **New strategy memo** at
+  [`docs/strategy/pr-comment-publisher-decision.md`](pr-comment-publisher-decision.md)
+  decides whether Rekon adds a PR
+  comment surface after the GitHub
+  Check publisher path. **Decision:
+  Option B — design a PR comment
+  dry-run renderer; defer actual PR
+  comment posting.** Reviews all
+  four options (A: no PR comments
+  for beta; B: dry-run only; C:
+  opt-in idempotent publisher; D:
+  hosted / GitHub App). Pins the
+  GitHub permission context
+  (creating / updating PR timeline
+  comments requires `issues: write`
+  or `pull-requests: write`; forked
+  PRs do not receive write tokens
+  by default), the comment content
+  model (artifact refs + status +
+  `artifacts validate` outcome +
+  stale warnings + canonical-truth
+  phrase + link to uploaded
+  artifacts; no raw logs / secrets
+  / full stdout/stderr), the
+  idempotency strategy
+  (update-in-place via the
+  `<!-- rekon:pr-comment:v1 -->`
+  marker; the marker is not proof),
+  and the implementation sequence
+  (decision → dry-run renderer +
+  CLI → validator / docs → API
+  write).
+
+  **Reinforced invariants:**
+  - GitHub status and GitHub
+    comments are not canonical
+    truth; Rekon artifacts remain
+    canonical.
+  - Forked PRs and
+    `pull_request_target` remain
+    blocked by default.
+  - No automatic finding
+    resolution or reconciliation
+    apply is implied by a
+    successful GitHub Check or PR
+    comment.
+  - PR comments are not required
+    for beta if GitHub Checks +
+    Rekon artifacts are sufficient
+    for review (the safety review
+    already pinned that they are).
+
+  **Tests:** new docs suite at
+  `tests/docs/pr-comment-publisher-decision.test.mjs`
+  (18 assertions covering memo
+  existence, required headings,
+  Option B recommendation, defer-
+  posting language, beta-not-
+  required language, permission
+  context, fork-default-deny,
+  opt-in / same-repo-only /
+  update-in-place language,
+  marker present + marker-is-not-
+  proof, canonical-truth language,
+  no raw logs / secrets / full
+  stdout/stderr, implementation
+  sequence, CHANGELOG mention,
+  review-packet PURPOSE
+  PRESERVATION CHECK). Full suite
+  expected ≥ 1365 passed / 1
+  skipped.
+
+  **Docs:** 11 updated (new memo;
+  CI / GitHub adapter decision memo
+  step 7 amended; GitHub Check
+  publisher decision memo step 9
+  added; GitHub Check publisher
+  safety review Follow-Up Work
+  updated; operator guide + four
+  concept / artifact docs
+  Cross-References; this file,
+  `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  — step 51 added). `README.md`
+  and `CHANGELOG.md` updated. New
+  review packet
+  `.rekon-dev/review-packets/pr-comment-publisher-decision.md`.
+
+  **Recommended next slice** (if
+  Option B is approved): **PR
+  comment body dry-run helper.**
+  Build the comment body model
+  (`buildPrCommentBody`) +
+  readiness helper
+  (`assessPrCommentPublisherReadiness`)
+  + `rekon publish pr-comment
+  --dry-run --json` CLI in
+  `@rekon/capability-docs` and
+  `@rekon/cli`. No GitHub API
+  call. No token reads. Mirrors
+  the step-6a / 6b shape exactly.
+  If Option B is not approved,
+  default to Option A: keep the
+  GitHub Check Run + artifact
+  upload combination as the beta
+  surface.
 
   No active workflow. No GitHub
   Check API call by default. No

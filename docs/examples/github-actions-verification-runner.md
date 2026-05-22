@@ -963,6 +963,7 @@ re-validate after every edit.
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Check publisher send workflow safety review](../strategy/github-check-publisher-send-workflow-safety-review.md)
+- [PR comment publisher decision](../strategy/pr-comment-publisher-decision.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runs concept](../concepts/verification-runs.md)
 - [Verification results concept](../concepts/verification-results.md)

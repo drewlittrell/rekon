@@ -4,6 +4,131 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **PR Comment Publisher Decision Memo**
+  (P1.1 pr-comment-publisher-decision slice).
+  **Step 7a** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package, no
+  new CLI command, no new helper, no
+  workflow-template modification, no GitHub API
+  call.
+
+  **New strategy memo:**
+  [`docs/strategy/pr-comment-publisher-decision.md`](docs/strategy/pr-comment-publisher-decision.md)
+  decides whether Rekon adds a PR comment surface
+  after the GitHub Check publisher path. Reviews
+  all four options (A: no PR comments for beta;
+  B: PR comment dry-run / preview only; C: opt-in
+  idempotent PR comment publisher; D: hosted /
+  GitHub App publisher).
+
+  **Decision: Option B — design a PR comment
+  dry-run renderer; defer actual PR comment
+  posting.** PR comments are not required for
+  beta if GitHub Checks + Rekon artifacts are
+  sufficient for review (the safety review
+  already pinned that they are).
+
+  **Pinned constraints for any future PR comment
+  publisher:**
+  - Must be opt-in. Disabled by default at the
+    CLI, the workflow template, and any future
+    validator profile.
+  - Must be same-repo / trusted-context only.
+    Forked PRs and `pull_request_target` denied
+    by default at three layers (template,
+    validator, runtime readiness assessor).
+  - Must update in place via the
+    `<!-- rekon:pr-comment:v1 -->` marker. The
+    marker is not proof; it's an identity handle
+    for update-in-place behaviour.
+  - Must scope the token. PR comment token reads
+    confined to the future `--send` branch.
+    Sanitized errors. Sentinel-token contract
+    test.
+  - Comment body must include
+    `VerificationResult` status, `VerificationRun`
+    ref, proof-report / architecture-summary /
+    agent-contract `Publication` refs,
+    `artifacts validate` outcome, stale-proof
+    warnings, the canonical-truth phrase, and a
+    link to the uploaded `.rekon/artifacts`.
+  - Comment body must **not** include raw
+    stdout/stderr, full artifact bodies, secrets,
+    tokens, or the Rekon-minted `GITHUB_TOKEN`.
+
+  **GitHub permission context** (informational;
+  no permission added in this batch):
+  - Creating or updating PR timeline comments
+    requires Issues or Pull requests write
+    permission.
+  - `issues: write` or `pull-requests: write` —
+    either grants the scope; `pull-requests:
+    write` is the more conventional choice for
+    PR-conversation surfaces.
+  - Forked-PR workflows do not receive write
+    tokens by default; GitHub's repository-
+    setting toggle is off by default.
+
+  **Implementation Sequence** (informational; this
+  batch ships only the decision memo):
+  1. Decision memo (this batch).
+  2. PR comment body dry-run helper + `rekon
+     publish pr-comment --dry-run --json` CLI.
+     Mirrors the step-6a / 6b shape exactly. No
+     GitHub API call.
+  3. Validator / docs for the broader permission
+     scope (e.g. a `github-pr-comment-send`
+     profile).
+  4. Actual PR comment API write behind the
+     readiness gate. Update-in-place.
+
+  **Tests:** new docs suite
+  `tests/docs/pr-comment-publisher-decision.test.mjs`
+  (18 assertions: memo existence; all 13
+  required headings; Option B recommendation;
+  defer-posting language; beta-not-required
+  language; permission context; fork-default-
+  deny; opt-in / same-repo-only / update-in-place
+  language; marker present + marker-is-not-proof;
+  canonical-truth language; no raw logs /
+  secrets / full stdout/stderr; implementation
+  sequence; CHANGELOG mention; review-packet
+  PURPOSE PRESERVATION CHECK). Full suite
+  expected ≥ 1365 passed / 1 skipped.
+
+  **Docs:** 11 updated (new memo; CI / GitHub
+  adapter decision memo step 7 amended; GitHub
+  Check publisher decision memo step 9 added;
+  GitHub Check publisher safety review
+  Follow-Up Work updated; operator guide +
+  four concept / artifact docs Cross-References;
+  classic-behavior roadmap + roadmap +
+  issue-governance memo — step 51 added).
+  README + CHANGELOG updated. New review packet
+  `.rekon-dev/review-packets/pr-comment-publisher-decision.md`.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No PR comment publisher implementation.
+  - No new GitHub API calls.
+  - No new GitHub write permissions in any
+    workflow template.
+  - No workflow-template modification.
+  - No validator profile change.
+  - No new package, no new CLI command, no new
+    helper.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the memo does
+  not implement PR comment publishing; no
+  GitHub API calls added; no workflow
+  permissions changed; PR comments are not
+  claimed to be required for beta; fork /
+  secret safety is preserved; comments are
+  not implied to be canonical truth.
+
 - Shipped **GitHub Check publisher send workflow
   safety review** (P1.1
   github-check-publisher-send-workflow-safety-review

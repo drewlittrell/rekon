@@ -472,11 +472,17 @@ follow-up; none invalidate the readiness decision.
 
 In order of expected priority:
 
-1. **PR Comment Publisher Decision Memo (next slice).**
-   Decide whether Rekon adds a PR comment surface
-   after GitHub Checks, or whether Check Runs +
-   artifacts are sufficient for beta. Do not implement
-   PR comments until that memo is pinned.
+1. **PR Comment Publisher Decision Memo.** ✅ Shipped.
+   See
+   [`pr-comment-publisher-decision.md`](pr-comment-publisher-decision.md).
+   **Decision: Option B — design a PR comment
+   dry-run renderer; defer actual PR comment
+   posting.** PR comments are not required for beta
+   if GitHub Checks + Rekon artifacts are sufficient
+   for review (this review already pinned that
+   they are). The next slice, if approved, ships
+   the dry-run renderer + CLI with no GitHub API
+   call.
 2. **Operator-facing "what the Check is / isn't" page**
    when adoption grows. The canonical-truth phrase in
    the payload + memo is correct but terse; an

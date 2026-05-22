@@ -1106,6 +1106,51 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PR Comment Publisher Decision Memo (P1.1
+  pr-comment-publisher-decision slice): **step 7a** of
+  the CI / GitHub adapter implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI
+  command, no new helper, no workflow-template
+  modification, no GitHub API call. New strategy memo
+  at
+  [`docs/strategy/pr-comment-publisher-decision.md`](pr-comment-publisher-decision.md)
+  decides whether Rekon adds a PR comment surface
+  after GitHub Checks or whether Check Runs +
+  artifacts are sufficient for beta. Reviews all four
+  options: A (no PR comments for beta), B (PR comment
+  dry-run / preview only), C (opt-in idempotent PR
+  comment publisher), D (hosted / GitHub App
+  publisher). **Decision: Option B — design a PR
+  comment dry-run renderer; defer actual PR comment
+  posting.** Pins the GitHub permission context
+  (creating / updating PR timeline comments requires
+  `issues: write` or `pull-requests: write`; forked
+  PRs do not receive write tokens by default), the
+  comment content model (artifact refs + status +
+  `artifacts validate` outcome + stale warnings +
+  canonical-truth phrase + link to uploaded artifacts;
+  no raw logs / secrets / full stdout/stderr), the
+  idempotency strategy (update-in-place via the
+  `<!-- rekon:pr-comment:v1 -->` marker; the marker
+  is not proof), the fork-safety contract (three-
+  layer defence + GitHub's own default-deny on
+  forked-PR write tokens), and the implementation
+  sequence (decision → dry-run renderer + CLI →
+  validator / docs → API write). 18 new docs
+  assertions in
+  `tests/docs/pr-comment-publisher-decision.test.mjs`
+  pin the memo's contract. Full suite expected ≥
+  1365 passed / 1 skipped.
+  **Recommended next slice (if Option B is
+  approved):** PR comment body dry-run helper +
+  `rekon publish pr-comment --dry-run --json` CLI.
+  Mirrors the step-6a / 6b shape. No GitHub API
+  call. No token reads.
+  No `schemaVersion` bump. No version bump. No npm
+  publish.
 - GitHub Check publisher send workflow safety review
   (P1.1
   github-check-publisher-send-workflow-safety-review
@@ -1139,10 +1184,9 @@ is the first stop before proposing a new capability batch.
   pin the memo's contract. Full suite expected ≥
   1347 passed / 1 skipped.
   **Recommended next slice:** PR Comment Publisher
-  Decision Memo — decide whether Rekon adds a PR
-  comment surface or whether Check Runs + artifacts
-  are sufficient for beta. Do not implement PR
-  comments until the decision is pinned.
+  Decision Memo. **Shipped next; see the entry
+  above.** Decision: Option B — design a PR comment
+  dry-run renderer; defer actual PR comment posting.
   No `schemaVersion` bump. No version bump. No npm
   publish.
 - Verification runner GitHub Check publisher opt-in

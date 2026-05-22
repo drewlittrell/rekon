@@ -461,6 +461,18 @@ This batch ships **step 6a** of the sequence below. Steps
    as an opt-in surface; read-only templates remain
    alpha default; PR comments remain deferred.** No
    runtime behaviour change.
+9. **PR Comment Publisher Decision (step 7a).** ✅
+   Shipped. See
+   [`pr-comment-publisher-decision.md`](pr-comment-publisher-decision.md).
+   Decides whether Rekon adds a PR comment surface
+   after GitHub Checks or whether Check Runs +
+   artifacts are sufficient for beta. **Decision:
+   Option B — design a PR comment dry-run renderer;
+   defer actual PR comment posting.** If approved,
+   the next slice ships the dry-run renderer + CLI
+   (no GitHub API call); the actual API write is
+   deferred to a later slice with its own decision
+   memo. No runtime behaviour change in this batch.
 7. **PR comment publisher (step 7).** Future slice.
 8. **Cross-CI documentation (step 8).** Future slice.
 

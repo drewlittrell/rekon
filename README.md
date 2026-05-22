@@ -226,8 +226,18 @@ node packages/cli/dist/index.js verify github-workflow validate \
 # review at
 # docs/strategy/github-check-publisher-send-workflow-safety-review.md.
 # Decision: beta-ready as an opt-in surface; read-only templates
-# remain the recommended alpha default; PR comments remain
-# deferred until the next decision memo.
+# remain the recommended alpha default.
+#
+# The next downstream surface — a PR comment publisher — is
+# decided in
+# docs/strategy/pr-comment-publisher-decision.md. Decision:
+# Option B — design a PR comment dry-run renderer; defer actual
+# PR comment posting. Creating / updating PR timeline comments
+# would require issues: write or pull-requests: write; forked PRs
+# do not receive write tokens by default. If implemented later,
+# PR comments must be opt-in, same-repo / trusted-context only,
+# update-in-place (via the <!-- rekon:pr-comment:v1 --> marker),
+# and clearly marked as a downstream surface over Rekon artifacts.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

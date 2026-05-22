@@ -1013,11 +1013,42 @@ slices:
      comments remain deferred.
 
 7. **PR comment publisher (beta+).**
-   Similar to step 6 but writes inline
-   PR comments. Requires
-   `pull-requests: write`. Deferred until
-   step 6's API surface, retry logic, and
-   error handling are concrete.
+   Decision memo at
+   [`pr-comment-publisher-decision.md`](pr-comment-publisher-decision.md).
+   **Decision: Option B — design a PR
+   comment dry-run renderer; defer
+   actual PR comment posting.** PR
+   comments would require `issues:
+   write` or `pull-requests: write`
+   (broader than the `checks: write`
+   the Check publisher uses today) and
+   would add a noise / staleness /
+   comment-identity surface that
+   benefits from being designed in
+   isolation before any API write
+   ships. Read-only templates remain
+   alpha default; PR comments are not
+   required for beta if Checks +
+   Rekon artifacts are sufficient for
+   review.
+   - **7a (shipped).** ✅ Decision
+     memo + docs test + review
+     packet.
+   - **7b (next, if approved).** PR
+     comment body dry-run helper +
+     `rekon publish pr-comment
+     --dry-run --json` CLI. No GitHub
+     API call. No token reads.
+   - **7c (later, if approved).** New
+     workflow validator profile
+     (e.g. `github-pr-comment-send`)
+     + docs for the broader scope.
+   - **7d (later, if approved).** PR
+     comment API write behind the
+     readiness gate. Update-in-place
+     via the
+     `<!-- rekon:pr-comment:v1 -->`
+     marker. Sanitized errors.
 
 8. **Cross-CI documentation (beta+).**
    Document the same workflow pattern for
