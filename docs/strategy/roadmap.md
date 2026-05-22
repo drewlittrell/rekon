@@ -1106,6 +1106,83 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Verification / GitHub trust-boundary safety review (P1.1
+  verification-github-trust-boundary-safety-review slice):
+  **step 10** of the CI / GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI command,
+  no new helper, no workflow-template change, no validator
+  profile change, no GitHub API call. New strategy memo at
+  [`docs/strategy/verification-github-trust-boundary-safety-review.md`](verification-github-trust-boundary-safety-review.md)
+  walks every step-9 hardening fix in isolation (proof-
+  chain coherence, bounded streaming capture, POSIX
+  process-tree timeout, NODE_OPTIONS removal, bounded
+  GitHub API error reads, PR head SHA safety) + the
+  affected surfaces (runner, both publishers, payloads,
+  templates, validator profiles) and declares the
+  verification / GitHub trust boundary **beta-stable**. No
+  additional GitHub review surfaces before beta; remaining
+  work is operational polish + documented platform caveats.
+  Required statements pinned by the memo + the docs test:
+  GitHub status and comments are not canonical truth;
+  Rekon artifacts remain canonical; VerificationResult and
+  VerificationRun must remain chain-coherent in every
+  review surface; Windows timeout behaviour is direct-
+  child-only unless a future platform-specific process-
+  tree strategy is implemented; a successful Check / PR
+  comment publish does not imply findings are resolved.
+  Three diagnostic tables: hardening (six fixes shipped),
+  risk (mixed proof chain / memory exhaustion / orphan
+  child / env injection / huge error body / wrong PR SHA),
+  beta decision (every criterion passes). 18 new docs
+  assertions. Full suite expected ≥ 1568 passed / 1
+  skipped. **Recommended next slice:** beta readiness /
+  remaining classic-parity review — step back from
+  GitHub-specific work and assess the remaining delta to
+  beta. No `schemaVersion` bump. No version bump. No npm
+  publish.
+- Verification / GitHub trust-boundary hardening (P1.1
+  verification-github-trust-boundary-hardening slice):
+  **step 9** of the CI / GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Hardening batch — runtime fixes in
+  `@rekon/capability-docs`, `@rekon/capability-verify`,
+  and the CLI. No new surfaces, no new workflow
+  templates, no new GitHub API calls. Six fixes paged by
+  the step-8 parity review:
+  1. Coherent GitHub Check proof-chain selection (CLI
+     uses `VerificationResult.header.inputRefs` to pick
+     the run; missing cited run surfaces
+     `proofChainWarnings`).
+  2. Bounded stdout/stderr streaming capture (incremental
+     sha256 + bounded excerpt buffer).
+  3. POSIX process-tree timeout kill (`detached: true` +
+     `process.kill(-pid, signal)`; Windows direct-child-
+     only documented).
+  4. `NODE_OPTIONS` removed from
+     `VERIFICATION_RUN_ENV_ALLOWLIST`.
+  5. Bounded GitHub API error-body reads in both
+     publishers (shared `readBoundedResponseBody`,
+     64 KiB cap via streaming reader).
+  6. PR head SHA safety: new `missing-pr-head-sha`
+     readiness issue; `pull_request*` events require
+     explicit `--head-sha` or `GITHUB_HEAD_SHA`.
+
+  Public API changes (additive + subtractive):
+  `missing-pr-head-sha` issue code (additive);
+  `VERIFICATION_RUN_ENV_ALLOWLIST` no longer contains
+  `NODE_OPTIONS` (subtractive); new `--head-sha <sha>`
+  CLI flag; new `proofChainWarnings` JSON output field.
+  Full suite 1550 passed / 1 skipped (17 new contract
+  tests across 5 groups; 1 new readiness rejection test;
+  2 updated readiness tests). New review packet at
+  `.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md`.
+  **Recommended next slice:** Verification / GitHub
+  trust-boundary safety review. No `schemaVersion` bump.
+  No version bump. No npm publish.
 - GitHub review surfaces parity review (P1.1
   github-review-surfaces-parity-review slice): **step 8**
   of the CI / GitHub adapter implementation sequence

@@ -1143,6 +1143,7 @@ this workflow.
 - [PR comment API writer go/no-go review](../strategy/pr-comment-api-writer-go-no-go-review.md)
 - [PR comment publisher safety review](../strategy/pr-comment-publisher-safety-review.md)
 - [GitHub review surfaces parity review](../strategy/github-review-surfaces-parity-review.md)
+- [Verification / GitHub trust-boundary safety review](../strategy/verification-github-trust-boundary-safety-review.md)
 - [Opt-in PR comment workflow template](workflows/rekon-pr-comment-send.yml)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runs concept](../concepts/verification-runs.md)

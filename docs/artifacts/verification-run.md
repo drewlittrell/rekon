@@ -414,3 +414,4 @@ unchanged.
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
 - [Roadmap](../strategy/roadmap.md)
+- [Verification / GitHub trust-boundary safety review](../strategy/verification-github-trust-boundary-safety-review.md)

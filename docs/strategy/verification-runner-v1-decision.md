@@ -1201,3 +1201,4 @@ implementation lands.
 - [Classic alignment map](classic-alignment-map.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
 - [Roadmap](roadmap.md)
+- [Verification / GitHub trust-boundary safety review](verification-github-trust-boundary-safety-review.md)

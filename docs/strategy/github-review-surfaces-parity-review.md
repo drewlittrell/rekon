@@ -649,4 +649,12 @@ process-tree timeout, NODE_OPTIONS removal, bounded
 GitHub API error reads, PR head SHA safety). See
 [`verification-github-trust-boundary-hardening.md`](../../.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md)
 (review packet) for the full bug register + tests.
-The next slice is the trust-boundary safety review.
+
+**Update — step 10 shipped.** The
+[Verification / GitHub Trust-Boundary Safety Review](verification-github-trust-boundary-safety-review.md)
+walked every hardening fix in isolation and declared
+the trust boundary **beta-stable**. No additional
+GitHub review surfaces should be added before beta;
+remaining work is operational polish + documented
+platform caveats. The next slice is the beta
+readiness / remaining classic-parity review.

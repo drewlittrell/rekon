@@ -5,6 +5,127 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-alpha.1
 
 - Shipped **Verification / GitHub Trust-Boundary
+  Safety Review** (P1.1
+  verification-github-trust-boundary-safety-review
+  slice). **Step 10** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package, no
+  new CLI command, no new helper, no workflow-
+  template change, no validator profile change,
+  no GitHub API call.
+
+  **New strategy memo:**
+  [`docs/strategy/verification-github-trust-boundary-safety-review.md`](docs/strategy/verification-github-trust-boundary-safety-review.md)
+  walks every step-9 hardening fix in isolation
+  (proof-chain coherence, bounded streaming
+  capture, POSIX process-tree timeout, NODE_OPTIONS
+  removal, bounded GitHub API error reads, PR head
+  SHA safety) + the affected surfaces (runner,
+  both publishers' dry-run + send modes,
+  VerificationRun / VerificationResult semantics,
+  GitHub Check payloads, PR comment body / update
+  path, workflow templates + validator profiles).
+
+  **Decision: the verification / GitHub trust
+  boundary is beta-stable.** No additional GitHub
+  review surfaces should be added before beta;
+  remaining work is operational polish +
+  documented platform caveats.
+
+  **Required statements pinned by the memo + the
+  docs test:**
+  - GitHub status and comments are not canonical
+    truth; Rekon artifacts remain canonical.
+  - A successful GitHub Check or PR comment
+    publish does not imply findings are resolved
+    or reconciliation has been applied.
+  - VerificationResult and VerificationRun must
+    remain chain-coherent in every review surface.
+  - Windows timeout behaviour is direct-child-only
+    unless a future platform-specific process-tree
+    strategy is implemented.
+
+  **Three diagnostic tables in the memo:**
+  - Hardening table: six fixes (proof-chain
+    coherence, bounded output capture, timeout
+    semantics, environment policy, GitHub error
+    bounds, PR head SHA policy) — each with
+    status, evidence, and remaining follow-up.
+  - Risk table: mixed proof chain / memory
+    exhaustion via output / orphan child process
+    / env-based Node injection / huge GitHub
+    error body / wrong PR SHA — each with current
+    guardrail and remaining follow-up.
+  - Beta decision table: coherent proof chain /
+    bounded execution logs / token-log safety /
+    timeout semantics documented / PR SHA policy
+    safe / canonical artifact boundary preserved
+    / no auto-resolution — **every criterion
+    passes**.
+
+  **Tests:** new docs suite
+  `tests/docs/verification-github-trust-boundary-safety-review.test.mjs`
+  with 18 assertions (memo existence; all 13
+  required headings; beta-stable language;
+  canonical-truth + Rekon-artifacts-canonical
+  phrases; chain-coherent statement; bounded
+  streaming + POSIX process-tree kill + Windows
+  direct-child-only references; NODE_OPTIONS
+  removal reference; bounded GitHub API error-
+  body reference; explicit PR head SHA reference;
+  no-auto-resolve language; hardening / risk /
+  beta-decision tables; CHANGELOG mention;
+  review-packet PURPOSE PRESERVATION CHECK).
+  Full suite expected ≥ 1568 passed / 1 skipped.
+
+  **Docs:** 12 updated (parity review +
+  hardening review packet cross-links; v1
+  decision memo + Check publisher decision memo
+  + Check publisher safety review + PR comment
+  publisher safety review trust-boundary
+  pointers; verification-runs concept +
+  verification-run artifact + operator guide
+  Cross-References; governance memo steps 59 +
+  60 added; classic-behavior roadmap + master
+  roadmap entries). README + CHANGELOG updated.
+  New review packet at
+  `.rekon-dev/review-packets/verification-github-trust-boundary-safety-review.md`.
+
+  **Recommended next slice:** **Beta readiness /
+  remaining classic-parity review.** Step back
+  from GitHub-specific work and assess the
+  remaining delta to beta — verification runner
+  gaps, issue governance, filtering, memory,
+  publications, source-write / reconciliation
+  gaps, watcher / path freshness gaps. Decide
+  which gaps must close before beta and which
+  are post-beta.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No change to verification execution
+    behaviour.
+  - No change to GitHub Check behaviour.
+  - No change to PR comment behaviour.
+  - No new GitHub API calls.
+  - No active `.github/workflows/*.yml` files.
+  - No change to workflow templates.
+  - No change to validator profiles.
+  - No VerificationRun / VerificationResult
+    schema change.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the review
+  preserves the canonical artifact boundary;
+  does not overstate Windows process-tree
+  behaviour (direct-child-only documented
+  honestly); does not claim beta stability on
+  any hardening fix that cannot be verified
+  from existing contract tests + docs; does
+  not change runtime behaviour.
+
+- Shipped **Verification / GitHub Trust-Boundary
   Hardening** (P1.1
   verification-github-trust-boundary-hardening slice).
   **Step 9** of the CI / GitHub adapter implementation

@@ -1971,14 +1971,63 @@ review packets unless an ADR promotes them. Promotion requires:
     assertions pin the memo's contract. The
     next slice is the **Verification /
     GitHub Trust-Boundary Hardening** batch.
-59. **(future)** Per-module `ObservedSystem`
+59. **Shipped (✅).** Verification / GitHub
+    trust-boundary hardening (step 9).
+    [`docs/strategy/github-review-surfaces-parity-review.md`](github-review-surfaces-parity-review.md)
+    paged six trust-boundary edge cases; step 9
+    landed runtime fixes for each one. See
+    [review packet](../../.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md).
+    Six fixes:
+    coherent VerificationResult →
+    VerificationRun proof-chain selection in
+    `publish github-check` (emits
+    `proofChainWarnings` when the cited run is
+    missing); bounded stdout/stderr streaming
+    capture (incremental sha256 + bounded
+    excerpt buffer); POSIX process-tree timeout
+    kill via `process.kill(-pid, signal)`
+    (Windows direct-child-only documented);
+    `NODE_OPTIONS` removed from
+    `VERIFICATION_RUN_ENV_ALLOWLIST`; bounded
+    GitHub API error-body reads in both
+    publishers (64 KiB cap via streaming reader);
+    PR head SHA safety
+    (`missing-pr-head-sha` readiness issue;
+    `pull_request*` events require explicit
+    `--head-sha` or `GITHUB_HEAD_SHA`). 17 new
+    contract tests across 5 groups.
+60. **Shipped (✅).** Verification / GitHub
+    trust-boundary safety review (step 10).
+    [`docs/strategy/verification-github-trust-boundary-safety-review.md`](verification-github-trust-boundary-safety-review.md)
+    walked every step-9 fix in isolation + the
+    affected surfaces (runner, both publishers,
+    payloads, templates, validator profiles) and
+    declared the verification / GitHub trust
+    boundary **beta-stable**. No additional
+    GitHub review surfaces should be added
+    before beta; remaining work is operational
+    polish + documented platform caveats.
+    Required statements: GitHub status and
+    comments are not canonical truth; Rekon
+    artifacts remain canonical;
+    VerificationResult and VerificationRun must
+    remain chain-coherent; Windows timeout
+    behaviour is direct-child-only unless a
+    future platform-specific process-tree
+    strategy is implemented; a successful
+    Check / PR comment publish does not imply
+    findings are resolved. 18 docs assertions
+    pin the memo's contract. The next slice is
+    the **beta readiness / remaining
+    classic-parity review**.
+61. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-60. **(future)** Persistent exclusion lists, and
+62. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

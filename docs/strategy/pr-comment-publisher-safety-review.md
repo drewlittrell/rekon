@@ -634,3 +634,17 @@ status surface; PR comments are the narrative
 companion surface. The next slice is the
 **Verification / GitHub Trust-Boundary Hardening**
 batch, not another review-surface batch.
+
+**Update — steps 9 and 10 shipped.** The hardening
+batch closed the six trust-boundary edge cases
+paged by the parity review (see
+[`verification-github-trust-boundary-hardening.md`](../../.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md)
+review packet). The
+[Verification / GitHub Trust-Boundary Safety Review](verification-github-trust-boundary-safety-review.md)
+walked every fix in isolation and declared the
+trust boundary **beta-stable**. The PR comment
+publisher inherits the bounded body reader from
+the shared `@rekon/capability-docs` helper; no
+PR-comment behaviour change in step 9. The next
+slice is the beta readiness / remaining
+classic-parity review.

@@ -5259,6 +5259,179 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Verification / GitHub trust-boundary
+  safety review (P1.1
+  verification-github-trust-boundary-safety-review
+  slice).** ✅ Shipped. **Step 10** of the CI
+  / GitHub adapter implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package,
+  no new CLI command, no new helper, no
+  workflow-template change, no validator
+  profile change, no GitHub API call.
+
+  **New strategy memo** at
+  [`docs/strategy/verification-github-trust-boundary-safety-review.md`](verification-github-trust-boundary-safety-review.md)
+  walks every step-9 hardening fix in
+  isolation (proof-chain coherence, bounded
+  streaming capture, POSIX process-tree
+  timeout, NODE_OPTIONS removal, bounded
+  GitHub API error reads, PR head SHA safety)
+  + the affected surfaces (runner, both
+  publishers' dry-run + send modes,
+  VerificationRun / VerificationResult
+  semantics, GitHub Check payloads, PR
+  comment body / update path, workflow
+  templates + validator profiles).
+
+  **Decision: beta-stable.** No additional
+  GitHub review surfaces should be added
+  before beta. Remaining work is operational
+  polish + documented platform caveats, not
+  new GitHub APIs.
+
+  **Required statements pinned by the memo +
+  the docs test:**
+  - GitHub status and comments are not
+    canonical truth; Rekon artifacts remain
+    canonical.
+  - A successful GitHub Check or PR comment
+    publish does not imply findings are
+    resolved or reconciliation has been
+    applied.
+  - VerificationResult and VerificationRun
+    must remain chain-coherent in every
+    review surface.
+  - Windows timeout behaviour is direct-
+    child-only unless a future platform-
+    specific process-tree strategy is
+    implemented.
+
+  **Three diagnostic tables in the memo:**
+  - Hardening table: six fixes (proof-chain
+    coherence / bounded output capture /
+    timeout semantics / environment policy /
+    GitHub error bounds / PR head SHA policy)
+    — each with status, evidence, and
+    remaining follow-up.
+  - Risk table: mixed proof chain / memory
+    exhaustion via output / orphan child
+    process / env-based Node injection / huge
+    GitHub error body / wrong PR SHA — each
+    with current guardrail and remaining
+    follow-up.
+  - Beta decision table: coherent proof chain
+    / bounded execution logs / token-log
+    safety / timeout semantics documented /
+    PR SHA policy safe / canonical artifact
+    boundary preserved / no auto-resolution
+    — **every criterion passes**.
+
+  **Tests:** new docs suite
+  `tests/docs/verification-github-trust-boundary-safety-review.test.mjs`
+  with 18 assertions. Full suite expected ≥
+  1568 passed / 1 skipped.
+
+  **Recommended next slice:** **Beta
+  readiness / remaining classic-parity
+  review.** Step back from GitHub-specific
+  work and assess the remaining delta to
+  beta (verification runner gaps; GitHub
+  review surfaces — already beta-complete;
+  issue governance; filtering /
+  graph-aware filters; memory; publications;
+  source-write / reconciliation gaps;
+  watcher / path freshness gaps). Decide
+  which gaps must close before beta and
+  which are post-beta.
+
+  No new package, no new CLI command, no
+  new helper, no workflow template change,
+  no validator profile change, no GitHub
+  API call, no token read, no artifact-
+  shape change, no `schemaVersion` bump,
+  no `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation, no
+  version bump, no npm publish.
+- **Verification / GitHub trust-boundary
+  hardening (P1.1
+  verification-github-trust-boundary-hardening
+  slice).** ✅ Shipped. **Step 9** of the CI
+  / GitHub adapter implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Hardening batch — runtime fixes in
+  `@rekon/capability-docs`,
+  `@rekon/capability-verify`, and the CLI.
+  No new surfaces, no new workflow
+  templates, no new GitHub API calls.
+
+  Six trust-boundary fixes paged by the
+  step-8 parity review:
+  1. **Coherent GitHub Check proof-chain
+     selection.** `publish github-check`
+     uses the VerificationRun cited by
+     `VerificationResult.header.inputRefs`,
+     not the unrelated latest run. Missing
+     cited run surfaces a
+     `proofChainWarnings` entry.
+  2. **Bounded stdout/stderr streaming
+     capture.** Incremental sha256 + bounded
+     excerpt buffer; large streams cannot
+     exhaust memory before truncation.
+  3. **POSIX process-tree timeout kill.**
+     `detached: true` + `process.kill(-pid,
+     signal)`. Windows direct-child-only
+     documented honestly.
+  4. **`NODE_OPTIONS` removed** from
+     `VERIFICATION_RUN_ENV_ALLOWLIST`.
+  5. **Bounded GitHub API error-body
+     reads** in both publishers via a new
+     shared `readBoundedResponseBody`
+     (64 KiB cap, streaming reader).
+  6. **PR head SHA safety.** New
+     `missing-pr-head-sha` readiness issue;
+     `pull_request*` events require
+     explicit `--head-sha` or
+     `GITHUB_HEAD_SHA`.
+
+  **Public API changes** (all additive or
+  explicit scope reductions):
+  - New readiness issue code
+    `missing-pr-head-sha`.
+  - `VERIFICATION_RUN_ENV_ALLOWLIST` no
+    longer contains `NODE_OPTIONS`
+    (subtractive).
+  - New optional `--head-sha <sha>` flag on
+    `publish github-check --send`.
+  - New optional `proofChainWarnings` JSON
+    field on `publish github-check` dry-run
+    + send output.
+
+  **Tests:** new contract suite
+  `tests/contract/verification-github-trust-boundary-hardening.test.mjs`
+  with 17 tests across 5 groups (proof-
+  chain coherence, execution bounds,
+  timeout semantics, GitHub API error
+  bounds, PR head SHA). Two existing
+  readiness tests updated to pass explicit
+  `headShaOverride`; one new readiness
+  rejection test added. Full suite 1550
+  passed / 1 skipped.
+
+  **Recommended next slice:** Verification /
+  GitHub trust-boundary safety review —
+  walk every fix in isolation + the
+  affected surfaces and decide whether the
+  trust boundary is beta-stable.
+
+  No artifact-shape change, no
+  `schemaVersion` bump, no version bump,
+  no npm publish.
 - **GitHub review surfaces parity review
   (P1.1 github-review-surfaces-parity-review
   slice).** ✅ Shipped. **Step 8** of the CI

@@ -343,6 +343,19 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # `publish github-check --send` now accepts --head-sha <sha>
 # and emits proofChainWarnings when the cited VerificationRun
 # is missing from the local store.
+#
+# Step 10 shipped the Verification / GitHub Trust-Boundary
+# Safety Review at
+# docs/strategy/verification-github-trust-boundary-safety-review.md.
+# The memo walks every step-9 hardening fix in isolation +
+# the affected surfaces and declares the verification /
+# GitHub trust boundary beta-stable. No additional GitHub
+# review surfaces should be added before beta; remaining
+# work is operational polish + documented platform caveats.
+# Pinned reminder: VerificationResult and VerificationRun
+# must remain chain-coherent in every review surface; Windows
+# timeout behaviour is direct-child-only unless a future
+# platform-specific process-tree strategy is implemented.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

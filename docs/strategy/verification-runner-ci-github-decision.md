@@ -1211,6 +1211,26 @@ slices:
    at
    `.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md`.
 
+10. **Verification / GitHub Trust-Boundary
+    Safety Review (shipped).** ✅ Strategy
+    memo at
+    [`verification-github-trust-boundary-safety-review.md`](verification-github-trust-boundary-safety-review.md)
+    walks every step-9 fix in isolation +
+    the affected surfaces (runner, both
+    publishers, payloads, templates,
+    validator profiles) and declares the
+    verification / GitHub trust boundary
+    **beta-stable**. No additional GitHub
+    review surfaces before beta; remaining
+    work is operational polish + documented
+    platform caveats. Pinned reminder
+    carried forward: **Windows timeout
+    behavior is direct-child-only unless a
+    future platform-specific process-tree
+    strategy is implemented.** The next
+    slice is the beta readiness / remaining
+    classic-parity review.
+
 10. **Cross-CI documentation (beta+).**
     Document the same workflow pattern
     for GitLab CI, Jenkins, CircleCI,

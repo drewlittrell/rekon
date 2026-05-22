@@ -683,3 +683,16 @@ GitHub Trust-Boundary Hardening** batch — coherent
 proof-chain selection, bounded stdout/stderr streaming
 memory, process-tree timeout semantics, and related
 edges — not another review-surface batch.
+
+## Update — Trust-Boundary Hardening + Safety Review
+
+Step 9 shipped the
+[Verification / GitHub Trust-Boundary Hardening](../../.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md)
+batch (six fixes: coherent proof-chain selection,
+bounded streaming capture, POSIX process-tree timeout,
+NODE_OPTIONS removal, bounded GitHub API error reads,
+PR head SHA safety). Step 10 shipped the
+[Verification / GitHub Trust-Boundary Safety Review](verification-github-trust-boundary-safety-review.md),
+which walked every fix in isolation and declared the
+trust boundary **beta-stable**. The next slice is the
+beta readiness / remaining classic-parity review.
