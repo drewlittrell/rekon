@@ -467,10 +467,9 @@ review packet, and supporting-doc cross-references.
 
 If the Option-B path is approved:
 
-1. **Decision memo (this document).** ✅ Shipped in
-   this batch.
-2. **PR comment body dry-run helper + CLI** (next
-   slice). Adds:
+1. **Decision memo (this document).** ✅ Shipped.
+2. **PR comment body dry-run helper + CLI.** ✅
+   **Shipped (step 7b).** Adds:
    - `buildPrCommentBody(input)` in
      `@rekon/capability-docs` — pure helper that
      renders the comment body (markdown) from
@@ -479,14 +478,35 @@ If the Option-B path is approved:
      `<!-- rekon:pr-comment:v1 -->` marker.
    - `assessPrCommentPublisherReadiness(input)` in
      the same file — pure helper that returns
-     `{ ready, issues[] }` after evaluating opt-in
-     env, token presence, repository slug, head SHA,
-     event trust **and** a PR-number gate (PR
-     comments only apply when a PR is correlated to
-     the workflow run).
+     `{ ready, issues[] }` after evaluating
+     `REKON_PR_COMMENTS`, `GITHUB_REPOSITORY`, a
+     PR-number gate (`GITHUB_PR_NUMBER` /
+     `PR_NUMBER`), `GITHUB_TOKEN`, event trust
+     (`workflow_dispatch` / `push` / same-repo
+     `pull_request` trusted; forked `pull_request`
+     untrusted by default; `pull_request_target`
+     refused unconditionally), and an explicit
+     `writePermissionConfirmed` flag.
    - `rekon publish pr-comment --dry-run [--root
-     <path>] [--json]` CLI. No GitHub API call. No
-     token reads. Mirrors the step-6b shape exactly.
+     <path>] [--json]` CLI. **`--dry-run` is
+     required.** `--send` / `--publish` /
+     `--execute` are refused with exit 1. The CLI
+     reads local Rekon artifacts (latest
+     `VerificationResult`, `VerificationRun`,
+     `VerificationPlan`, proof-report,
+     architecture-summary, and agent-contract
+     publications), runs `artifacts validate`
+     read-only, calls the shared helpers, and
+     prints
+     `{ kind: "rekon.pr-comment.dry-run",
+     dryRun: true, wouldPublish: false,
+     readiness, comment, citedRefs,
+     canonicalTruthReminder }` as JSON. **The CLI
+     reads no `GITHUB_TOKEN`** in dry-run mode
+     (the readiness assessor receives an empty
+     env map). **The CLI imports no network
+     client and calls no GitHub API.** Behavioural
+     and source-scan tests pin both.
 3. **Validator / docs for permissions** (future
    slice). Adds the `github-pr-comment-send`
    profile to the workflow validator (rejects every

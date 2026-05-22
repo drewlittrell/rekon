@@ -1106,6 +1106,44 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PR comment body dry-run helper + CLI (P1.1
+  pr-comment-dry-run-cli slice): **step 7b** of the
+  CI / GitHub adapter implementation sequence pinned
+  by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the PR comment publisher decision memo. Helper
+  + CLI + tests + docs batch. **No GitHub API call.
+  No `GITHUB_TOKEN` read. No network-client import.
+  No workflow-template modification.** New
+  `@rekon/capability-docs` exports
+  `buildPrCommentBody(input)` and
+  `assessPrCommentPublisherReadiness(input)` (both
+  pure functions), plus the constants
+  `PR_COMMENT_PUBLISHER_MARKER` and
+  `PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER`.
+  Every rendered body carries the marker
+  `<!-- rekon:pr-comment:v1 -->` + the canonical-truth
+  reminder + a citation table for every supplied ref;
+  bodies exclude raw stdout / stderr, full artifact
+  bodies, secrets, tokens, and arbitrary user-supplied
+  fields. New CLI command `rekon publish pr-comment
+  --dry-run [--root <path>] [--json]` (mutually
+  exclusive with `--send` / `--publish` / `--execute`;
+  refuses missing `--dry-run`) reads local artifacts,
+  runs `artifacts validate` read-only, calls the
+  helpers, and prints `{ kind:
+  "rekon.pr-comment.dry-run", dryRun: true,
+  wouldPublish: false, readiness, comment, citedRefs,
+  canonicalTruthReminder }` as JSON. 18 contract
+  tests + 9 docs assertions; full suite expected ≥
+  1392 passed / 1 skipped.
+  **Recommended next slice:** PR comment publisher
+  API implementation decision gate — review the
+  dry-run body / readiness model and decide whether
+  actual PR comment posting is worth adding. Do not
+  implement posting until the decision is pinned.
+  No `schemaVersion` bump. No version bump. No npm
+  publish.
 - PR Comment Publisher Decision Memo (P1.1
   pr-comment-publisher-decision slice): **step 7a** of
   the CI / GitHub adapter implementation sequence
@@ -1147,8 +1185,9 @@ is the first stop before proposing a new capability batch.
   **Recommended next slice (if Option B is
   approved):** PR comment body dry-run helper +
   `rekon publish pr-comment --dry-run --json` CLI.
-  Mirrors the step-6a / 6b shape. No GitHub API
-  call. No token reads.
+  **Shipped next; see the entry above.** Mirrors
+  the step-6a / 6b shape. No GitHub API call. No
+  token reads.
   No `schemaVersion` bump. No version bump. No npm
   publish.
 - GitHub Check publisher send workflow safety review

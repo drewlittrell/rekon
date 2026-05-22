@@ -1034,11 +1034,24 @@ slices:
    - **7a (shipped).** ✅ Decision
      memo + docs test + review
      packet.
-   - **7b (next, if approved).** PR
-     comment body dry-run helper +
+   - **7b (shipped).** ✅ PR comment
+     body dry-run helper
+     (`buildPrCommentBody`,
+     `assessPrCommentPublisherReadiness`)
+     in `@rekon/capability-docs` +
      `rekon publish pr-comment
-     --dry-run --json` CLI. No GitHub
-     API call. No token reads.
+     --dry-run [--root <path>] [--json]`
+     CLI. **No GitHub API call. No
+     token reads.** Mirrors the
+     step-6a / 6b shape exactly. The
+     body always carries the
+     idempotency marker
+     `<!-- rekon:pr-comment:v1 -->` +
+     the canonical-truth reminder, and
+     cites every supplied artifact
+     ref. `--send` / `--publish` /
+     `--execute` are refused with
+     exit 1.
    - **7c (later, if approved).** New
      workflow validator profile
      (e.g. `github-pr-comment-send`)

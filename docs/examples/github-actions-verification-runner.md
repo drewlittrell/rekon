@@ -958,6 +958,70 @@ The Rekon repository itself does **not** install this
 workflow. Adopt it deliberately in your own repo, and
 re-validate after every edit.
 
+## Optional: preview a PR comment (dry-run only)
+
+The decision memo
+[`docs/strategy/pr-comment-publisher-decision.md`](../strategy/pr-comment-publisher-decision.md)
+chose **Option B**: design the PR comment body in
+isolation, defer the actual API write. To **preview**
+what a Rekon-owned PR comment would look like — without
+calling GitHub, without reading any token, and without
+posting anything — run:
+
+```bash
+node packages/cli/dist/index.js publish pr-comment \
+  --dry-run \
+  --json
+```
+
+The dry-run:
+
+- **Reads no `GITHUB_TOKEN`** (the readiness assessor
+  receives an empty env map).
+- **Calls no GitHub API.** Imports no network client.
+- **Posts no comment.** Writes nothing.
+- Builds the comment markdown via the shared
+  `buildPrCommentBody(...)` helper in
+  `@rekon/capability-docs`.
+- Evaluates `assessPrCommentPublisherReadiness(...)` so
+  operators can see exactly which gates would still
+  remain even if the API-write slice landed.
+- Prints
+  `{ kind: "rekon.pr-comment.dry-run",
+  dryRun: true, wouldPublish: false, readiness,
+  comment, citedRefs, canonicalTruthReminder }` as
+  JSON.
+
+Every rendered body carries:
+
+- The idempotency marker
+  `<!-- rekon:pr-comment:v1 -->` at the top. **The
+  marker is not proof** — it is only an identity
+  handle so a future update-in-place publisher could
+  find and update a single Rekon-owned comment.
+- The canonical-truth reminder
+  `GitHub comments are not canonical truth; Rekon
+  artifacts remain canonical.`
+- Citations for every canonical artifact ref that
+  exists locally (`VerificationResult`,
+  `VerificationRun`, `VerificationPlan`, proof report,
+  architecture summary, agent contract).
+- An `artifacts validate` summary.
+- Recommended next steps based on the proof status
+  (failed / partial / not-run / missing / stale).
+
+Every rendered body **excludes**:
+
+- Raw stdout / stderr from verification commands.
+- Full artifact bodies (only refs).
+- Secrets, tokens, or environment values.
+
+**Actual PR comment posting remains future work.**
+The next slice (if approved) is a separate validator
+profile + docs slice; the API write itself is a
+separate later slice with its own decision memo and
+review packet.
+
 ## Cross-references
 
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)

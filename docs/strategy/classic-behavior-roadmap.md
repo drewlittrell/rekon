@@ -4862,21 +4862,182 @@ scope:
   **Recommended next slice** (if
   Option B is approved): **PR
   comment body dry-run helper.**
-  Build the comment body model
-  (`buildPrCommentBody`) +
-  readiness helper
-  (`assessPrCommentPublisherReadiness`)
-  + `rekon publish pr-comment
-  --dry-run --json` CLI in
-  `@rekon/capability-docs` and
-  `@rekon/cli`. No GitHub API
-  call. No token reads. Mirrors
-  the step-6a / 6b shape exactly.
-  If Option B is not approved,
-  default to Option A: keep the
-  GitHub Check Run + artifact
-  upload combination as the beta
-  surface.
+  **Shipped next; see the entry
+  below.** If Option B were not
+  approved, default to Option A:
+  keep the GitHub Check Run +
+  artifact upload combination as
+  the beta surface.
+- **PR comment body dry-run helper
+  + CLI (P1.1
+  pr-comment-dry-run-cli slice).**
+  ✅ Shipped. **Step 7b** of the CI /
+  GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [PR comment publisher decision memo](pr-comment-publisher-decision.md).
+  Helper + CLI + tests + docs
+  batch. **No GitHub API call. No
+  token reads. No network-client
+  import. No workflow-template
+  modification.**
+
+  **New `@rekon/capability-docs`
+  exports:**
+  - `buildPrCommentBody(input)` —
+    pure helper that renders the
+    Rekon-owned PR comment markdown
+    body from artifact-like inputs.
+    Always emits the idempotency
+    marker
+    `<!-- rekon:pr-comment:v1 -->`
+    at the top + the canonical-
+    truth reminder
+    (`GitHub comments are not
+    canonical truth; Rekon
+    artifacts remain canonical.`)
+    + a citation table for every
+    supplied ref + optional
+    Warnings + Next-steps blocks
+    based on the proof state.
+  - `assessPrCommentPublisherReadiness(input)`
+    — pure helper that returns
+    `{ ready, issues[] }` after
+    evaluating `REKON_PR_COMMENTS`,
+    `GITHUB_REPOSITORY`, a
+    PR-number gate
+    (`GITHUB_PR_NUMBER` /
+    `PR_NUMBER`), `GITHUB_TOKEN`,
+    event-trust classification
+    (`workflow_dispatch` / `push` /
+    same-repo `pull_request`
+    trusted; forked `pull_request`
+    untrusted by default;
+    `pull_request_target` refused
+    unconditionally), and explicit
+    `writePermissionConfirmed`.
+  - `PR_COMMENT_PUBLISHER_MARKER`
+    + `PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER`
+    constants + 10 type aliases.
+
+  **New CLI command:** `rekon
+  publish pr-comment --dry-run
+  [--root <path>] [--json]`.
+  Registered alongside the
+  existing `publish github-check`
+  dispatch. **`--dry-run` is
+  required.** `--send` / `--publish`
+  / `--execute` are refused with
+  exit 1. Reads the latest local
+  `VerificationResult` /
+  `VerificationRun` /
+  `VerificationPlan` and the latest
+  `Publication` of each kind
+  (`proof-report`,
+  `architecture-summary`,
+  `agent-contract`); runs
+  `artifacts validate` read-only;
+  calls the shared helpers; prints
+  `{ kind: "rekon.pr-comment.dry-run",
+  dryRun: true, wouldPublish: false,
+  readiness, comment, citedRefs,
+  canonicalTruthReminder }` as
+  JSON. **Reads no
+  `GITHUB_TOKEN`** in dry-run mode
+  (the readiness assessor
+  receives an explicitly empty env
+  map; a behavioural test asserts
+  a sentinel token never appears
+  in stdout / stderr). **Calls no
+  GitHub API.** A source-scan
+  test on the pr-comment branch
+  asserts no `fetch(`, no
+  `https.request(`, no
+  `publishGitHubCheckRun(` call.
+
+  **Comment body model:**
+  - Marker at line 1.
+  - `## Rekon Verification Summary`
+    heading + field/value table
+    (VerificationResult,
+    Status, Source, Freshness,
+    VerificationPlan,
+    VerificationRun, Proof report,
+    Architecture summary, Agent
+    contract, Artifacts valid).
+  - Canonical-truth reminder as
+    blockquote.
+  - Optional Warnings block for
+    failed / partial / not-run /
+    missing / stale / `artifactsValid:
+    false` cases.
+  - Next-steps block tailored to
+    the detected proof state.
+  - **Excludes** raw stdout /
+    stderr, full artifact bodies,
+    secrets, tokens, arbitrary
+    user-supplied fields like
+    `evidenceNotes` / `notes` /
+    `recordedBy`. Contract tests
+    pin all exclusions with
+    sentinel values.
+
+  **Tests:** new contract suite
+  `tests/contract/pr-comment-dry-run-cli.test.mjs`
+  (18 tests covering helper
+  invariants — marker, canonical
+  truth, ref citations, validate
+  surface, stale warning, no
+  stdout/stderr leak, no token-
+  looking inputs leak; readiness
+  rules — `not-enabled`,
+  `pull_request_target` denied,
+  forked `pull_request` denied;
+  CLI shape — JSON shape, source-
+  scan on the pr-comment branch,
+  no `GITHUB_TOKEN` leak,
+  required `--dry-run`, refused
+  `--send` / `--publish` /
+  `--execute`, index unchanged,
+  `artifacts validate` clean,
+  usage line registered). New
+  docs suite
+  `tests/docs/pr-comment-dry-run-cli.test.mjs`
+  (9 assertions). Full suite
+  expected ≥ 1392 passed / 1
+  skipped.
+
+  **Docs:** 10 updated (PR comment
+  publisher decision memo step 2
+  flipped to ✅; CI / GitHub adapter
+  decision memo step 7b flipped to
+  ✅; operator guide gains an
+  "Optional: preview a PR comment
+  (dry-run only)" section; concept
+  / artifact docs Cross-References;
+  this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  — step 52 added). `README.md`
+  and `CHANGELOG.md` updated. New
+  review packet
+  `.rekon-dev/review-packets/pr-comment-dry-run-cli.md`.
+
+  **Recommended next slice:**
+  **PR comment publisher API
+  implementation decision gate** —
+  review the dry-run body /
+  readiness model (this slice's
+  shipped artefacts) and decide
+  whether actual PR comment
+  posting is worth adding. If
+  approved, the next implementation
+  slices would add a new validator
+  profile (e.g.
+  `github-pr-comment-send`), an
+  opt-in workflow template variant,
+  and the actual `--send` mode
+  behind the readiness gate.
 
   No active workflow. No GitHub
   Check API call by default. No

@@ -1745,14 +1745,52 @@ review packets unless an ADR promotes them. Promotion requires:
     docs assertions pin the memo's
     contract; full suite expected ≥
     1365 passed / 1 skipped.
-52. **(future)** Per-module `ObservedSystem`
+52. **Shipped (✅).** PR comment body
+    dry-run helper + CLI (step 7b).
+    Adds `buildPrCommentBody(input)` +
+    `assessPrCommentPublisherReadiness(input)`
+    to `@rekon/capability-docs` and the
+    `rekon publish pr-comment --dry-run
+    [--root <path>] [--json]` CLI mode
+    in `@rekon/cli`. **No GitHub API
+    call. No `GITHUB_TOKEN` read. No
+    network-client import.** Mirrors
+    the step-6a / 6b shape exactly.
+    Every rendered body carries the
+    `<!-- rekon:pr-comment:v1 -->`
+    idempotency marker + the
+    canonical-truth reminder
+    (`GitHub comments are not canonical
+    truth; Rekon artifacts remain
+    canonical.`) and cites every
+    supplied artifact ref
+    (`VerificationResult`,
+    `VerificationRun`,
+    `VerificationPlan`, proof-report /
+    architecture-summary /
+    agent-contract publications).
+    Bodies exclude raw stdout /
+    stderr, full artifact bodies,
+    secrets, tokens, and arbitrary
+    user-supplied fields. `--send` /
+    `--publish` / `--execute` are
+    refused with exit 1. 18 contract
+    tests + 9 docs assertions; full
+    suite expected ≥ 1392 passed /
+    1 skipped. Still no active
+    workflow in `.github/workflows/`
+    of the Rekon repo; still no PR
+    comment publisher implementation
+    (next slice's decision gate
+    decides if posting ever ships).
+53. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-53. **(future)** Persistent exclusion lists, and
+54. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

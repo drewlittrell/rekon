@@ -4799,3 +4799,448 @@ export async function publishGitHubCheckRun(
     conclusion: pickStringField(json, "conclusion"),
   };
 }
+
+// ---------------------------------------------------------------
+// PR comment publisher (step 7b) — dry-run renderer.
+//
+// `buildPrCommentBody(input)` builds the markdown body Rekon
+// would post (in a future slice) as a Rekon-owned PR timeline
+// comment. The body always carries:
+//
+//   1. the idempotency marker `<!-- rekon:pr-comment:v1 -->`
+//      at the top, so a future update-in-place publisher can
+//      find this comment without re-parsing the body;
+//   2. the canonical-truth reminder
+//      `GitHub comments are not canonical truth; Rekon
+//      artifacts remain canonical.`;
+//   3. citations for every canonical artifact ref the caller
+//      passed in (VerificationResult, VerificationRun,
+//      VerificationPlan, proof report / architecture summary
+//      / agent contract Publications).
+//
+// `assessPrCommentPublisherReadiness(input)` returns
+// `{ ready, issues[] }` after evaluating opt-in env, the
+// PR-number gate, repository slug, token presence,
+// event-trust classification, and write-permission
+// confirmation. The dry-run CLI does NOT use the readiness's
+// `ready: true` outcome to gate body rendering — the body
+// should always render — but it surfaces the readiness
+// issue list so operators can see exactly which gates
+// remain.
+//
+// Both helpers are pure. They make no I/O, no network calls,
+// no env reads (the readiness helper receives an explicit
+// env map from the caller, same shape as the GitHub Check
+// readiness helper).
+//
+// The actual PR comment API write is a future slice gated by
+// its own decision memo
+// (docs/strategy/pr-comment-publisher-decision.md describes
+// the staged path: dry-run renderer → validator / docs →
+// API write).
+// ---------------------------------------------------------------
+
+export const PR_COMMENT_PUBLISHER_MARKER = "<!-- rekon:pr-comment:v1 -->";
+export const PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER =
+  "GitHub comments are not canonical truth; Rekon artifacts remain canonical.";
+
+export type PrCommentFreshness = "fresh" | "stale" | "missing-plan" | "unknown";
+
+export type PrCommentBodyInput = {
+  verificationResult?: VerificationResultLike;
+  verificationResultRef?: ArtifactRef;
+  verificationRunRef?: ArtifactRef;
+  verificationPlanRef?: ArtifactRef;
+  proofReportRef?: ArtifactRef;
+  architectureSummaryRef?: ArtifactRef;
+  agentContractRef?: ArtifactRef;
+  artifactsValid?: boolean;
+  proofFreshness?: PrCommentFreshness;
+  /**
+   * Optional name of the workflow upload that operators can
+   * click through to from the comment. Defaults to
+   * `rekon-artifacts` if undefined and a workflow URL is
+   * supplied.
+   */
+  uploadedArtifactName?: string;
+  /**
+   * Optional URL of the workflow run that produced this
+   * comment. When supplied, the body renders a "Workflow
+   * run" link so reviewers can navigate to the canonical
+   * artifact upload.
+   */
+  workflowRunUrl?: string;
+};
+
+export type PrCommentBodySummary = {
+  verificationStatus: string;
+  proofFreshness: string;
+  artifactsValid?: boolean;
+  hasWarnings: boolean;
+};
+
+export type PrCommentBody = {
+  marker: typeof PR_COMMENT_PUBLISHER_MARKER;
+  markdown: string;
+  citedRefs: ArtifactRef[];
+  summary: PrCommentBodySummary;
+};
+
+function formatPrCommentRef(ref: ArtifactRef | undefined): string {
+  if (!ref) return "—";
+  return `\`${ref.type}:${ref.id}\``;
+}
+
+function derivePrCommentStatus(
+  result: VerificationResultLike | undefined,
+): string {
+  if (!result) return "missing";
+  const status = result.status;
+  return status === "passed" || status === "failed" || status === "partial" || status === "not-run"
+    ? status
+    : "missing";
+}
+
+function derivePrCommentFreshness(
+  input: PrCommentBodyInput,
+): PrCommentFreshness {
+  if (input.proofFreshness) return input.proofFreshness;
+  if (!input.verificationPlanRef) return "missing-plan";
+  if (!input.verificationResult) return "stale";
+
+  const surface = summarizeVerificationProofSurface({
+    verificationResult: input.verificationResult as unknown as Parameters<
+      typeof summarizeVerificationProofSurface
+    >[0]["verificationResult"],
+    verificationResultRef: input.verificationResultRef,
+    latestVerificationPlanRef: input.verificationPlanRef,
+  });
+  if (surface.freshness === "fresh") return "fresh";
+  if (surface.freshness === "stale") return "stale";
+  if (surface.freshness === "missing-plan") return "missing-plan";
+  return "unknown";
+}
+
+function derivePrCommentSource(
+  result: VerificationResultLike | undefined,
+  runRef: ArtifactRef | undefined,
+): "manual" | "runner-derived" | "unknown" {
+  if (!result) return "unknown";
+  if (runRef) return "runner-derived";
+  // No run ref but a result body — most likely a hand-recorded
+  // result. Report as `manual` rather than synthesising a guess.
+  return "manual";
+}
+
+function buildPrCommentSummaryTable(
+  rows: Array<[string, string]>,
+): string {
+  const header = "| Field | Value |\n| --- | --- |";
+  const body = rows.map(([field, value]) => `| ${field} | ${value} |`).join("\n");
+  return `${header}\n${body}`;
+}
+
+/**
+ * Build the markdown body Rekon would post as a Rekon-owned
+ * PR timeline comment. **Pure function.** No I/O, no
+ * network, no env reads. The actual PR comment API write
+ * happens in a future slice with its own decision memo + gate.
+ */
+export function buildPrCommentBody(input: PrCommentBodyInput): PrCommentBody {
+  const status = derivePrCommentStatus(input.verificationResult);
+  const freshness = derivePrCommentFreshness(input);
+  const source = derivePrCommentSource(input.verificationResult, input.verificationRunRef);
+  const artifactsValid = input.artifactsValid;
+  const warnings: string[] = [];
+
+  if (status === "failed") {
+    warnings.push(
+      "VerificationResult status is `failed`. Inspect the cited VerificationRun for command-level detail.",
+    );
+  } else if (status === "partial") {
+    warnings.push(
+      "VerificationResult status is `partial`. Some commands were skipped or not-run; rerun verification to fill the gaps.",
+    );
+  } else if (status === "not-run") {
+    warnings.push(
+      "VerificationResult status is `not-run`. The plan was previewed but never executed.",
+    );
+  } else if (status === "missing") {
+    warnings.push(
+      "No VerificationResult was found. Run `rekon verify run --execute` then `rekon verify result from-run`.",
+    );
+  }
+
+  if (freshness === "stale") {
+    warnings.push(
+      "Proof is **stale**: the VerificationResult cites an older VerificationPlan than the current latest.",
+    );
+  } else if (freshness === "missing-plan") {
+    warnings.push(
+      "Proof is **missing a plan**: no VerificationPlan exists yet. Run `rekon intent work-order` then `rekon verify run --execute`.",
+    );
+  }
+
+  if (artifactsValid === false) {
+    warnings.push(
+      "`rekon artifacts validate` reported issues with the local artifact index. Reviewers should treat the proof state as suspect until the index is repaired.",
+    );
+  }
+
+  const tableRows: Array<[string, string]> = [
+    ["VerificationResult", formatPrCommentRef(input.verificationResultRef)],
+    ["Status", `\`${status}\``],
+    ["Source", `\`${source}\``],
+    ["Freshness", `\`${freshness}\``],
+    ["VerificationPlan", formatPrCommentRef(input.verificationPlanRef)],
+    ["VerificationRun", formatPrCommentRef(input.verificationRunRef)],
+    ["Proof report", formatPrCommentRef(input.proofReportRef)],
+    ["Architecture summary", formatPrCommentRef(input.architectureSummaryRef)],
+    ["Agent contract", formatPrCommentRef(input.agentContractRef)],
+    [
+      "Artifacts valid",
+      artifactsValid === true
+        ? "`true`"
+        : artifactsValid === false
+          ? "`false`"
+          : "`not asserted`",
+    ],
+  ];
+
+  const citedRefs: ArtifactRef[] = [];
+  for (const candidate of [
+    input.verificationResultRef,
+    input.verificationRunRef,
+    input.verificationPlanRef,
+    input.proofReportRef,
+    input.architectureSummaryRef,
+    input.agentContractRef,
+  ]) {
+    if (candidate) citedRefs.push(candidate);
+  }
+
+  const nextSteps: string[] = [];
+
+  if (input.workflowRunUrl) {
+    const name = (input.uploadedArtifactName ?? "rekon-artifacts").trim() || "rekon-artifacts";
+    nextSteps.push(
+      `- Inspect uploaded artifact \`${name}\` on the [workflow run](${input.workflowRunUrl}).`,
+    );
+  } else if (input.uploadedArtifactName) {
+    const name = input.uploadedArtifactName.trim() || "rekon-artifacts";
+    nextSteps.push(`- Inspect uploaded artifact \`${name}\`.`);
+  } else {
+    nextSteps.push(
+      "- Inspect the uploaded `rekon-artifacts` workflow artifact for the canonical proof state.",
+    );
+  }
+
+  if (status === "failed" || status === "partial") {
+    nextSteps.push(
+      "- Read the cited proof-report `Publication` for human-readable proof detail.",
+    );
+    nextSteps.push(
+      "- Rerun verification (`rekon verify run --execute`) after fixes; the result is the canonical artefact, not this comment.",
+    );
+  } else if (status === "not-run" || status === "missing") {
+    nextSteps.push(
+      "- Run `rekon verify run --execute` to actually execute the plan, then `rekon verify result from-run` to derive a VerificationResult.",
+    );
+  } else if (freshness === "stale" || freshness === "missing-plan") {
+    nextSteps.push(
+      "- Refresh proof state (`rekon refresh`, then rerun the verify chain) so the cited refs match the latest VerificationPlan.",
+    );
+  } else {
+    nextSteps.push(
+      "- Open the cited proof-report `Publication` for the human-readable proof summary.",
+    );
+  }
+
+  const lines: string[] = [];
+  lines.push(PR_COMMENT_PUBLISHER_MARKER);
+  lines.push("");
+  lines.push("## Rekon Verification Summary");
+  lines.push("");
+  lines.push(buildPrCommentSummaryTable(tableRows));
+  lines.push("");
+  lines.push(`> ${PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER}`);
+  if (warnings.length > 0) {
+    lines.push("");
+    lines.push("### Warnings");
+    lines.push("");
+    for (const warning of warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+  lines.push("");
+  lines.push("### Next steps");
+  lines.push("");
+  for (const step of nextSteps) {
+    lines.push(step);
+  }
+
+  return {
+    marker: PR_COMMENT_PUBLISHER_MARKER,
+    markdown: lines.join("\n"),
+    citedRefs,
+    summary: {
+      verificationStatus: status,
+      proofFreshness: freshness,
+      artifactsValid,
+      hasWarnings: warnings.length > 0,
+    },
+  };
+}
+
+// --- Readiness helper ------------------------------------------
+
+export type PrCommentPublisherReadinessIssueCode =
+  | "not-enabled"
+  | "missing-repository"
+  | "missing-pr-number"
+  | "missing-token"
+  | "untrusted-event"
+  | "write-permission-not-confirmed";
+
+export type PrCommentPublisherReadinessIssue = {
+  code: PrCommentPublisherReadinessIssueCode;
+  message: string;
+};
+
+export type PrCommentPublisherReadiness = {
+  ready: boolean;
+  issues: PrCommentPublisherReadinessIssue[];
+};
+
+export type PrCommentEventTrust =
+  | "trusted"
+  | "untrusted-fork"
+  | "unconditional-deny";
+
+export type PrCommentPublisherReadinessEvent = {
+  name: string;
+  pullRequestIsFork?: boolean;
+};
+
+export type PrCommentPublisherReadinessInput = {
+  env: Record<string, string | undefined>;
+  event: PrCommentPublisherReadinessEvent;
+  writePermissionConfirmed?: boolean;
+};
+
+function classifyPrCommentEventTrust(
+  event: PrCommentPublisherReadinessEvent,
+): PrCommentEventTrust {
+  if (event.name === "pull_request_target") return "unconditional-deny";
+  if (event.name === "pull_request") {
+    return event.pullRequestIsFork ? "untrusted-fork" : "trusted";
+  }
+  // PR comments are only meaningful when a PR is correlated to
+  // the workflow. Non-PR events that nonetheless carry a
+  // GITHUB_PR_NUMBER are treated as trusted (operators may
+  // dispatch the workflow manually against an open PR); the
+  // missing-pr-number issue handles the no-PR case.
+  if (event.name === "workflow_dispatch") return "trusted";
+  if (event.name === "push") return "trusted";
+  return "untrusted-fork";
+}
+
+function readPrCommentEnvFlag(
+  env: Record<string, string | undefined>,
+  key: string,
+): boolean {
+  const raw = env[key];
+  if (raw === undefined || raw === null) return false;
+  const normalized = String(raw).trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
+}
+
+/**
+ * Assess whether the PR comment publisher would be ready to
+ * call GitHub in a future `--send` mode. **The dry-run
+ * renderer never calls GitHub regardless of this result;** the
+ * readiness report exists so operators can see exactly which
+ * gates remain before any future post path becomes safe.
+ *
+ * Readiness rules:
+ * - `REKON_PR_COMMENTS` must be `"1"` / `"true"`.
+ * - `GITHUB_REPOSITORY` must be present and non-empty.
+ * - A PR number must be present
+ *   (`GITHUB_PR_NUMBER`, or `PR_NUMBER` as a fallback).
+ * - `GITHUB_TOKEN` must be present and non-empty.
+ *   (The dry-run CLI does not actually read the token; this
+ *   gate is for the future send slice.)
+ * - The event must be trusted. `untrusted-fork` requires an
+ *   explicit fork-override (not exposed in this slice);
+ *   `unconditional-deny` (`pull_request_target`) refuses
+ *   regardless.
+ * - The caller must confirm
+ *   `writePermissionConfirmed: true`. The future workflow
+ *   template will set this via env / CLI flag; the dry-run
+ *   path itself never asks GitHub for anything.
+ */
+export function assessPrCommentPublisherReadiness(
+  input: PrCommentPublisherReadinessInput,
+): PrCommentPublisherReadiness {
+  const issues: PrCommentPublisherReadinessIssue[] = [];
+
+  if (!readPrCommentEnvFlag(input.env, "REKON_PR_COMMENTS")) {
+    issues.push({
+      code: "not-enabled",
+      message:
+        "REKON_PR_COMMENTS is not set to 1 / true. The PR comment publisher is disabled by default.",
+    });
+  }
+
+  const repository = input.env.GITHUB_REPOSITORY;
+  if (!repository || String(repository).trim() === "") {
+    issues.push({
+      code: "missing-repository",
+      message:
+        "GITHUB_REPOSITORY is missing. The publisher needs the <owner>/<repo> slug to address the PR comment API.",
+    });
+  }
+
+  const prNumber = input.env.GITHUB_PR_NUMBER ?? input.env.PR_NUMBER;
+  if (!prNumber || String(prNumber).trim() === "") {
+    issues.push({
+      code: "missing-pr-number",
+      message:
+        "PR number is missing. Set GITHUB_PR_NUMBER (or PR_NUMBER) to the PR the comment should attach to.",
+    });
+  }
+
+  const token = input.env.GITHUB_TOKEN;
+  if (!token || String(token).trim() === "") {
+    issues.push({
+      code: "missing-token",
+      message:
+        "GITHUB_TOKEN is missing. The future send mode cannot authenticate without an Actions-provided token.",
+    });
+  }
+
+  const trust = classifyPrCommentEventTrust(input.event);
+  if (trust === "unconditional-deny") {
+    issues.push({
+      code: "untrusted-event",
+      message:
+        "pull_request_target is refused unconditionally. The publisher must not post comments from a workflow run that may execute fork-PR code in the upstream's context.",
+    });
+  } else if (trust === "untrusted-fork") {
+    issues.push({
+      code: "untrusted-event",
+      message:
+        "Forked pull requests are not trusted by default. The PR comment publisher refuses fork events; GitHub also denies write tokens to forked-PR workflows by default.",
+    });
+  }
+
+  if (input.writePermissionConfirmed !== true) {
+    issues.push({
+      code: "write-permission-not-confirmed",
+      message:
+        "Caller did not confirm pull-requests: write (or issues: write) was granted. The publisher refuses to consider itself ready without explicit confirmation.",
+    });
+  }
+
+  return { ready: issues.length === 0, issues };
+}

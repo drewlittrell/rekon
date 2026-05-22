@@ -238,6 +238,11 @@ node packages/cli/dist/index.js verify github-workflow validate \
 # PR comments must be opt-in, same-repo / trusted-context only,
 # update-in-place (via the <!-- rekon:pr-comment:v1 --> marker),
 # and clearly marked as a downstream surface over Rekon artifacts.
+#
+# The dry-run renderer + readiness assessor + CLI are shipped.
+# Preview the comment body locally — no GitHub API call, no token
+# read, no comment posted:
+node packages/cli/dist/index.js publish pr-comment --root examples/simple-js-ts --dry-run --json
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

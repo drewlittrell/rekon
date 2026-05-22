@@ -4,6 +4,138 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **PR comment body dry-run helper + CLI**
+  (P1.1 pr-comment-dry-run-cli slice). **Step 7b**
+  of the CI / GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  and the
+  [PR comment publisher decision memo](docs/strategy/pr-comment-publisher-decision.md).
+  **Helper + CLI + tests + docs batch.** No
+  GitHub API call. No `GITHUB_TOKEN` read. No
+  network-client import. No workflow-template
+  modification.
+
+  **New `@rekon/capability-docs` exports:**
+  - `buildPrCommentBody(input)` — pure helper that
+    renders the Rekon-owned PR comment markdown
+    body from artifact-like inputs. Always emits
+    the idempotency marker
+    `<!-- rekon:pr-comment:v1 -->` at the top, the
+    canonical-truth reminder
+    (`GitHub comments are not canonical truth;
+    Rekon artifacts remain canonical.`), a
+    citation table for every supplied artifact
+    ref, optional Warnings + Next-steps blocks
+    based on the detected proof state, and the
+    `summary` object surfacing
+    `verificationStatus` / `proofFreshness` /
+    `artifactsValid` / `hasWarnings` for callers.
+  - `assessPrCommentPublisherReadiness(input)` —
+    pure helper that returns
+    `{ ready, issues[] }` after evaluating
+    `REKON_PR_COMMENTS=1`, `GITHUB_REPOSITORY`, a
+    PR-number gate (`GITHUB_PR_NUMBER` /
+    `PR_NUMBER`), `GITHUB_TOKEN`, event-trust
+    classification (`workflow_dispatch` / `push` /
+    same-repo `pull_request` trusted; forked
+    `pull_request` untrusted by default;
+    `pull_request_target` refused unconditionally),
+    and explicit
+    `writePermissionConfirmed`.
+  - Constants:
+    `PR_COMMENT_PUBLISHER_MARKER` =
+    `<!-- rekon:pr-comment:v1 -->`,
+    `PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER`
+    = `"GitHub comments are not canonical truth;
+    Rekon artifacts remain canonical."`
+  - 10 new type aliases:
+    `PrCommentBodyInput`,
+    `PrCommentBodySummary`, `PrCommentBody`,
+    `PrCommentFreshness`,
+    `PrCommentPublisherReadinessIssueCode`,
+    `PrCommentPublisherReadinessIssue`,
+    `PrCommentPublisherReadiness`,
+    `PrCommentEventTrust`,
+    `PrCommentPublisherReadinessEvent`,
+    `PrCommentPublisherReadinessInput`.
+
+  **New CLI command:** `rekon publish pr-comment
+  --dry-run [--root <path>] [--json]`. Registered
+  alongside the existing `publish github-check`
+  dispatch. **`--dry-run` is required;** `--send`
+  / `--publish` / `--execute` are refused with
+  exit 1. The CLI reads the latest local
+  `VerificationResult` / `VerificationRun` /
+  `VerificationPlan` and the latest `Publication`
+  of each kind (`proof-report`,
+  `architecture-summary`, `agent-contract`),
+  runs `validateArtifactIndex(store)` read-only,
+  calls the shared helpers, and prints
+  `{ kind: "rekon.pr-comment.dry-run", dryRun:
+  true, wouldPublish: false, readiness, comment,
+  citedRefs, canonicalTruthReminder }` as JSON.
+  In dry-run mode the readiness assessor receives
+  an explicitly empty env map; the CLI never reads
+  `process.env.GITHUB_TOKEN`.
+
+  **Safety contract:**
+  - **No GitHub API call.** A source-scan test on
+    the pr-comment branch of the CLI fails the
+    build if `fetch(`, `https.request(`,
+    `http.request(`, `new Request(`, or
+    `publishGitHubCheckRun(` appears in the
+    branch body.
+  - **No token reads in dry-run.** A behavioural
+    test passes a sentinel `GITHUB_TOKEN` and
+    asserts it never appears in stdout / stderr.
+  - **No raw stdout / stderr leak.** A contract
+    test threads a sentinel through
+    `evidenceNotes` / `notes` / `recordedBy` on
+    the input and asserts the sentinel does not
+    appear in the rendered body.
+  - **No comment posting.** The CLI never opens a
+    socket, never lists / patches / posts a PR
+    comment; `wouldPublish: false` is the only
+    value the dry-run can emit.
+
+  **Tests:** new contract suite
+  `tests/contract/pr-comment-dry-run-cli.test.mjs`
+  (18 tests). New docs suite
+  `tests/docs/pr-comment-dry-run-cli.test.mjs`
+  (9 assertions). Full suite expected ≥ 1392
+  passed / 1 skipped.
+
+  **Docs:** 10 updated (PR comment publisher
+  decision memo step 2 flipped to ✅; CI / GitHub
+  adapter decision memo step 7b flipped to ✅;
+  operator guide gains an "Optional: preview a PR
+  comment (dry-run only)" section; concept /
+  artifact docs Cross-References lists;
+  classic-behavior roadmap + roadmap +
+  issue-governance memo — step 52 added).
+  README + CHANGELOG updated. New review packet
+  `.rekon-dev/review-packets/pr-comment-dry-run-cli.md`.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No actual PR comment posting (deferred to a
+    future decision-gate slice).
+  - No new GitHub API calls.
+  - No new GitHub write permissions in any
+    workflow template.
+  - No new validator profile.
+  - No new workflow template.
+  - No artifact-shape change.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the dry-run CLI
+  never calls GitHub; the dry-run CLI never
+  reads `GITHUB_TOKEN`; the comment body never
+  includes raw stdout / stderr or token-looking
+  inputs; the body never implies GitHub
+  comments are canonical truth; the idempotency
+  marker is documented as not-proof.
+
 - Shipped **PR Comment Publisher Decision Memo**
   (P1.1 pr-comment-publisher-decision slice).
   **Step 7a** of the CI / GitHub adapter

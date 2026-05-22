@@ -7,13 +7,20 @@ import { fileURLToPath } from "node:url";
 import docsCapability, {
   GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
   GitHubCheckPublishError,
+  PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+  PR_COMMENT_PUBLISHER_MARKER,
   assessGitHubCheckPublisherReadiness,
+  assessPrCommentPublisherReadiness,
   buildGitHubCheckPayload,
+  buildPrCommentBody,
   publishGitHubCheckRun,
   type GitHubCheckPublishResult,
   type GitHubCheckPublisherReadiness,
   type GitHubCheckPublisherReadinessEvent,
   type GitHubCheckPublisherRunStatus,
+  type PrCommentBody,
+  type PrCommentPublisherReadiness,
+  type PrCommentPublisherReadinessEvent,
 } from "@rekon/capability-docs";
 import graphCapability from "@rekon/capability-graph";
 import intentCapability, {
@@ -597,6 +604,147 @@ export async function main(argv: string[]): Promise<void> {
     };
 
     writeOutput(output, json);
+    return;
+  }
+
+  if (command === "publish" && subcommand === "pr-comment") {
+    // Step 7b of the CI / GitHub adapter implementation
+    // sequence pinned by
+    // docs/strategy/pr-comment-publisher-decision.md.
+    //
+    // Local-only dry-run renderer. The command reads local
+    // Rekon artifacts, builds the PR comment markdown body
+    // via `buildPrCommentBody`, evaluates `assessPrComment
+    // PublisherReadiness`, and prints both. **This command
+    // never calls GitHub.** It does not authenticate, does
+    // not read `GITHUB_TOKEN`, and imports no network
+    // client.
+    //
+    // `--dry-run` is **required** in this slice so operators
+    // cannot accidentally invoke a not-yet-built publish
+    // path. The actual PR comment API write is gated by its
+    // own future decision memo.
+    const dryRun = parsed.flags["dry-run"] === true;
+    const forbiddenWriteFlags: Array<keyof typeof parsed.flags> = [
+      "send",
+      "publish",
+      "execute",
+    ];
+
+    for (const flag of forbiddenWriteFlags) {
+      if (parsed.flags[flag] === true) {
+        throw new Error(
+          `rekon publish pr-comment does not support --${String(flag)} yet. The PR comment API write is deferred. See docs/strategy/pr-comment-publisher-decision.md.`,
+        );
+      }
+    }
+
+    if (!dryRun) {
+      throw new Error(
+        "rekon publish pr-comment requires --dry-run. The actual PR comment API write is not yet implemented. See docs/strategy/pr-comment-publisher-decision.md.",
+      );
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const verificationResultEntry = await pickLatestArtifactEntry(store, "VerificationResult");
+    const verificationRunEntry = await pickLatestArtifactEntry(store, "VerificationRun");
+    const verificationPlanEntry = await pickLatestArtifactEntry(store, "VerificationPlan");
+    const proofReportEntry = await pickLatestPublicationByKind(store, "proof-report");
+    const architectureSummaryEntry = await pickLatestPublicationByKind(store, "architecture-summary");
+    const agentContractEntry = await pickLatestPublicationByKind(store, "agent-contract");
+
+    const verificationResultRef = verificationResultEntry ? toArtifactRef(verificationResultEntry) : undefined;
+    const verificationRunRef = verificationRunEntry ? toArtifactRef(verificationRunEntry) : undefined;
+    const verificationPlanRef = verificationPlanEntry ? toArtifactRef(verificationPlanEntry) : undefined;
+    const proofReportRef = proofReportEntry ? toArtifactRef(proofReportEntry) : undefined;
+    const architectureSummaryRef = architectureSummaryEntry ? toArtifactRef(architectureSummaryEntry) : undefined;
+    const agentContractRef = agentContractEntry ? toArtifactRef(agentContractEntry) : undefined;
+
+    let verificationResult: VerificationResultBodyLike | undefined;
+
+    if (verificationResultEntry) {
+      try {
+        verificationResult = (await store.read(verificationResultEntry)) as VerificationResultBodyLike;
+      } catch (cause) {
+        throw new Error(
+          `Failed to read VerificationResult body ${verificationResultEntry.id}: ${(cause as Error).message ?? cause}`,
+        );
+      }
+    }
+
+    // Read-only `artifacts validate` so the body reflects the
+    // current local index state.
+    const indexValidation = await validateArtifactIndex(store);
+    const artifactsValid = indexValidation.valid;
+
+    const comment: PrCommentBody = buildPrCommentBody({
+      verificationResult,
+      verificationResultRef,
+      verificationRunRef,
+      verificationPlanRef,
+      proofReportRef,
+      architectureSummaryRef,
+      agentContractRef,
+      artifactsValid,
+    });
+
+    // Readiness assessor receives an empty env map + a
+    // workflow_dispatch event. The dry-run path NEVER reads
+    // GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_PR_NUMBER, etc.
+    // — those reads belong to the (still-future) send mode.
+    const readiness: PrCommentPublisherReadiness = assessPrCommentPublisherReadiness({
+      env: {},
+      event: { name: "workflow_dispatch" },
+      writePermissionConfirmed: false,
+    });
+
+    const citedRefs: Record<string, string | undefined> = {
+      verificationResult: verificationResultRef ? `${verificationResultRef.type}:${verificationResultRef.id}` : undefined,
+      verificationRun: verificationRunRef ? `${verificationRunRef.type}:${verificationRunRef.id}` : undefined,
+      verificationPlan: verificationPlanRef ? `${verificationPlanRef.type}:${verificationPlanRef.id}` : undefined,
+      proofReport: proofReportRef ? `${proofReportRef.type}:${proofReportRef.id}` : undefined,
+      architectureSummary: architectureSummaryRef ? `${architectureSummaryRef.type}:${architectureSummaryRef.id}` : undefined,
+      agentContract: agentContractRef ? `${agentContractRef.type}:${agentContractRef.id}` : undefined,
+    };
+
+    const output: PrCommentDryRunOutput = {
+      kind: "rekon.pr-comment.dry-run",
+      dryRun: true,
+      wouldPublish: false,
+      readiness,
+      comment: {
+        marker: comment.marker,
+        markdown: comment.markdown,
+        summary: comment.summary,
+      },
+      citedRefs,
+      canonicalTruthReminder: PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+    };
+
+    if (json) {
+      writeOutput(output, true);
+    } else {
+      const lines: string[] = [];
+      lines.push("PR comment publisher dry-run");
+      lines.push("");
+      lines.push(`Readiness: ${readiness.ready ? "ready" : "not ready"}`);
+      if (readiness.issues.length > 0) {
+        lines.push("Issues:");
+        for (const issue of readiness.issues) {
+          lines.push(`- ${issue.code}: ${issue.message}`);
+        }
+      }
+      lines.push("");
+      lines.push("Comment preview:");
+      lines.push(comment.markdown);
+      lines.push("");
+      lines.push("No GitHub API call was made.");
+      lines.push("No PR comment was posted.");
+      writeOutput(lines.join("\n"), false);
+    }
+
     return;
   }
 
@@ -3841,6 +3989,20 @@ type GitHubCheckSendOutput = {
   canonicalTruthReminder: typeof GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER;
 };
 
+type PrCommentDryRunOutput = {
+  kind: "rekon.pr-comment.dry-run";
+  dryRun: true;
+  wouldPublish: false;
+  readiness: PrCommentPublisherReadiness;
+  comment: {
+    marker: typeof PR_COMMENT_PUBLISHER_MARKER;
+    markdown: string;
+    summary: PrCommentBody["summary"];
+  };
+  citedRefs: Record<string, string | undefined>;
+  canonicalTruthReminder: typeof PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER;
+};
+
 const GITHUB_CHECK_SEND_ENV_KEYS = [
   "REKON_GITHUB_CHECKS",
   "REKON_GITHUB_CHECKS_WRITE_CONFIRMED",
@@ -5886,6 +6048,7 @@ function usage(): string {
     "rekon publish agent-contract [--root <path>] [--json]",
     "rekon publish github-check --dry-run [--root <path>] [--json]",
     "rekon publish github-check --send [--root <path>] [--confirm-checks-write] [--api-base-url <url>] [--json]",
+    "rekon publish pr-comment --dry-run [--root <path>] [--json]",
     "rekon agent-contract export --output <path> [--force] [--root <path>] [--json]",
     "rekon publish list [--root <path>] [--json]",
     "rekon publish run <publisher-id> [--root <path>] [--input-json <json>] [--json]",
