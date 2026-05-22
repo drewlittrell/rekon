@@ -1812,14 +1812,45 @@ review packets unless an ADR promotes them. Promotion requires:
     docs assertions pin the memo's
     contract; full suite expected ≥
     1410 passed / 1 skipped.
-54. **(future)** Per-module `ObservedSystem`
+54. **Shipped (✅).** PR comment workflow /
+    validator profile (step 7d). Adds the
+    `github-pr-comment-send` workflow
+    validator profile and the opt-in
+    workflow template at
+    [`docs/examples/workflows/rekon-pr-comment-send.yml`](../examples/workflows/rekon-pr-comment-send.yml).
+    The profile permits
+    `pull-requests: write` only; rejects
+    every other write scope including
+    `checks: write`; refuses
+    `pull_request_target` + the
+    `pull_request` trigger; requires
+    Rekon opt-in env
+    (`REKON_PR_COMMENTS: "1"` +
+    `REKON_PR_COMMENTS_WRITE_CONFIRMED:
+    "1"`) + the `publish pr-comment
+    --dry-run` step; refuses
+    `publish pr-comment --send`. The
+    template is dry-run only — the API
+    writer is not yet implemented; the
+    next slice (the API writer go/no-go
+    review) decides whether posting
+    ever ships. 14 new validator
+    contract tests + 1 CLI test (now
+    56 total) + 22 new docs
+    assertions; full suite expected ≥
+    1448 passed / 1 skipped. Still no
+    active workflow in
+    `.github/workflows/` of the Rekon
+    repo; still no PR comment posted;
+    still no GitHub API call.
+55. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-55. **(future)** Persistent exclusion lists, and
+56. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

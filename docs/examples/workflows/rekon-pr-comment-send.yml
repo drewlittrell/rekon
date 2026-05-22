@@ -1,0 +1,289 @@
+# Rekon PR Comment Preview — opt-in workflow template
+# (step 7d of the CI / GitHub adapter implementation
+# sequence pinned by
+# docs/strategy/verification-runner-ci-github-decision.md).
+#
+# **This is a template, not an active workflow.** Copy
+# it into your repo's `.github/workflows/` directory
+# (renaming as you like) to enable. The Rekon
+# repository itself does NOT install this workflow.
+#
+# **This template is dry-run only.** It builds and
+# previews the Rekon-owned PR comment body via
+# `rekon publish pr-comment --dry-run` but **does
+# not post a comment**. The actual PR comment API
+# writer (`publish pr-comment --send`) is **not yet
+# implemented**; the API Decision Gate at
+# docs/strategy/pr-comment-publisher-api-decision-gate.md
+# pinned this workflow / validator profile as the next
+# step before any API writer ships.
+#
+# **After copying, validate the file:**
+#
+#   node packages/cli/dist/index.js verify github-workflow validate \
+#     --path .github/workflows/rekon-pr-comment-send.yml \
+#     --profile github-pr-comment-send \
+#     --json
+#
+# The validator is static, read-only, and does not
+# call GitHub. The `github-pr-comment-send` profile
+# permits `pull-requests: write` (the future
+# PR-comment write boundary), requires the Rekon
+# opt-in env vars + the `publish pr-comment
+# --dry-run` step, and refuses every other write
+# scope plus `pull_request_target` and the
+# `pull_request` trigger.
+#
+# **This template is the FIRST workflow that opts
+# into `pull-requests: write`.** It runs the full
+# Rekon proof loop locally, previews the PR comment
+# body Rekon would post, and uploads
+# `.rekon/artifacts` — but it does NOT post a
+# comment, call the GitHub API, or read
+# `GITHUB_TOKEN`.
+#
+# **Read the alpha read-only templates FIRST.**
+# Adopt one of:
+#
+#   - docs/examples/workflows/rekon-verification-dry-run.yml
+#   - docs/examples/workflows/rekon-verification.yml
+#   - docs/examples/workflows/rekon-verification-check-send.yml
+#
+# before considering this one. The default templates
+# remain read-only on purpose.
+#
+# **Safety contract this template upholds:**
+#
+#   - `permissions: contents: read, pull-requests: write`
+#     only. No other GitHub write permissions are
+#     requested.
+#   - No `pull_request_target` trigger. No
+#     `pull_request` trigger (forked PRs would
+#     inherit the future write surface).
+#   - The local Rekon verification runner spawns
+#     plan commands with `shell: false`, a scrubbed
+#     env, per-command timeouts, and bounded
+#     redacted log excerpts. Raw logs never reach
+#     the PR comment body.
+#   - `rekon publish pr-comment --dry-run` runs and
+#     prints the payload + readiness JSON to the
+#     workflow log; **no GitHub API call** happens.
+#   - The job summary carries the canonical-truth
+#     reminder:
+#     `GitHub comments are not canonical truth;
+#     Rekon artifacts remain canonical.`
+#   - The job summary also carries the marker-not-
+#     proof reminder:
+#     `The PR comment marker is an idempotency
+#     handle, not proof.`
+#
+# **What this template does NOT do:**
+#
+#   - Does not post or update a PR comment.
+#   - Does not write Checks (`checks: write` is
+#     deliberately absent).
+#   - Does not call GitHub APIs of any kind.
+#   - Does not request `issues: write`,
+#     `id-token: write`, or any other GitHub
+#     write scope.
+#   - Does not auto-resolve findings.
+#   - Does not auto-apply reconciliation.
+#   - Does not upload raw logs.
+
+name: Rekon PR Comment Preview
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  # Rekon opt-in. Both must be `"1"` (or `"true"`) for
+  # the future send-mode readiness gate to clear.
+  # Removing or unsetting either disables the
+  # eventual PR comment publish; the rest of the
+  # dry-run loop still runs.
+  REKON_PR_COMMENTS: "1"
+  REKON_PR_COMMENTS_WRITE_CONFIRMED: "1"
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build workspace
+        run: npm run build
+
+      - name: Rekon refresh
+        run: node packages/cli/dist/index.js refresh --root . --json
+
+      - name: Resolve latest VerificationPlan
+        id: plan
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationPlan --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+          echo "id=${ID#VerificationPlan:}" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon verify run (execute)
+        if: steps.plan.outputs.id != ''
+        run: |
+          node packages/cli/dist/index.js verify run \
+            --root . \
+            --plan "${{ steps.plan.outputs.id }}" \
+            --execute \
+            --json > .rekon/verify-run.json
+
+      - name: Resolve latest VerificationRun
+        id: run
+        if: steps.plan.outputs.id != ''
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationRun --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+          echo "id=${ID#VerificationRun:}" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon verify result from-run
+        if: steps.run.outputs.id != ''
+        run: |
+          node packages/cli/dist/index.js verify result from-run \
+            --root . \
+            --run "${{ steps.run.outputs.id }}" \
+            --json
+
+      - name: Resolve latest VerificationResult
+        id: result
+        if: steps.run.outputs.id != ''
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type VerificationResult --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon publish proof
+        if: always()
+        run: node packages/cli/dist/index.js publish proof --root . --json
+
+      - name: Rekon publish architecture summary
+        if: always()
+        run: node packages/cli/dist/index.js publish architecture --root . --json
+
+      - name: Rekon publish agent contract
+        if: always()
+        run: node packages/cli/dist/index.js publish agent-contract --root . --json
+
+      - name: Rekon artifacts validate
+        id: validate
+        if: always()
+        run: |
+          OUTPUT="$(node packages/cli/dist/index.js artifacts validate --root . --json || true)"
+          echo "$OUTPUT"
+          VALID="$(node -e "process.stdout.write(String(JSON.parse(process.argv[1]).valid))" "$OUTPUT")"
+          echo "valid=$VALID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve latest proof-report Publication
+        id: proof
+        if: always()
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type Publication --kind proof-report \
+            --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve latest architecture-summary Publication
+        id: arch
+        if: always()
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type Publication --kind architecture-summary \
+            --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve latest agent-contract Publication
+        id: contract
+        if: always()
+        run: |
+          ID="$(node packages/cli/dist/index.js artifacts latest \
+            --root . --type Publication --kind agent-contract \
+            --id-only --allow-missing)"
+          echo "ref=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Rekon publish pr-comment (dry-run preview)
+        id: pr_comment
+        # Local-only dry-run. Prints the PR comment body
+        # + readiness report to the workflow log so
+        # reviewers see what would be posted before any
+        # actual send step is even built. **No GitHub
+        # API call. No token read. No PR comment
+        # posted.** The actual --send mode does not
+        # exist yet; it is gated by a future API writer
+        # go/no-go review.
+        if: always()
+        run: |
+          node packages/cli/dist/index.js publish pr-comment \
+            --root . \
+            --dry-run \
+            --json
+
+      - name: Append summary to job summary
+        if: always()
+        # GitHub Actions writes anything appended to
+        # `$GITHUB_STEP_SUMMARY` to the job's summary
+        # page. No API permissions required; the file
+        # is on the runner filesystem. The job summary
+        # is a downstream surface, not canonical
+        # proof. Same applies to PR comments when (and
+        # if) the API writer ships.
+        run: |
+          {
+            echo "# Rekon PR Comment Dry-Run Summary"
+            echo ""
+            echo "- Mode: pr-comment-dry-run"
+            echo "- VerificationPlan: ${{ steps.plan.outputs.ref || 'missing' }}"
+            echo "- VerificationRun: ${{ steps.run.outputs.ref || 'missing' }}"
+            echo "- VerificationResult: ${{ steps.result.outputs.ref || 'missing' }}"
+            echo "- Proof report: ${{ steps.proof.outputs.ref || 'missing' }}"
+            echo "- Architecture summary: ${{ steps.arch.outputs.ref || 'missing' }}"
+            echo "- Agent contract: ${{ steps.contract.outputs.ref || 'missing' }}"
+            echo "- Artifacts valid: ${{ steps.validate.outputs.valid || 'unknown' }}"
+            echo "- PR comment dry-run result: ${{ steps.pr_comment.outcome || 'unknown' }}"
+            echo "- Uploaded artifact: \`rekon-artifacts\`"
+            echo ""
+            echo "_GitHub comments are not canonical truth; Rekon artifacts remain canonical._"
+            echo ""
+            echo "_The PR comment marker is an idempotency handle, not proof._"
+            echo ""
+            if [ -f .rekon/artifacts/publications/proof-report.md ]; then
+              echo "---"
+              echo ""
+              cat .rekon/artifacts/publications/proof-report.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Rekon artifacts
+        if: always()
+        # Uploads `.rekon/artifacts` as the canonical
+        # proof record for this CI run. `.log` files
+        # are excluded explicitly as belt-and-braces;
+        # the Rekon runner's redaction + truncation
+        # contract already keeps raw stdout/stderr
+        # out of the artifact bodies.
+        uses: actions/upload-artifact@v4
+        with:
+          name: rekon-artifacts
+          path: |
+            .rekon/artifacts/**
+            !.rekon/artifacts/**/*.log
+          retention-days: 7

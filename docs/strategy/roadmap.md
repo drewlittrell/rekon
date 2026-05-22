@@ -1106,6 +1106,50 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PR comment workflow / validator profile (P1.1
+  pr-comment-workflow-validator-profile slice):
+  **step 7d** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment Publisher API Decision Gate](pr-comment-publisher-api-decision-gate.md).
+  Workflow template + validator profile + tests +
+  docs batch. **No PR comment posted. No GitHub
+  API call. No token read.** No active workflow
+  added to the Rekon repo. New template at
+  [`docs/examples/workflows/rekon-pr-comment-send.yml`](../examples/workflows/rekon-pr-comment-send.yml)
+  ships `workflow_dispatch` only; `permissions:
+  contents: read + pull-requests: write` only;
+  workflow-level env declares
+  `REKON_PR_COMMENTS: "1"` and
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED: "1"`; runs
+  the full execute proof loop + `publish pr-comment
+  --dry-run` (no `--send`). New validator profile
+  `github-pr-comment-send` permits
+  `pull-requests: write` only and rejects every
+  other write scope (including `checks: write`),
+  the `pull_request_target` + `pull_request`
+  triggers, and `publish pr-comment --send`.
+  Requires the Rekon opt-in env vars + the
+  `publish pr-comment --dry-run` step. New mode
+  value `pr-comment-dry-run`. New issue codes:
+  `missing-pull-requests-write`,
+  `missing-rekon-pr-comments-opt-in`,
+  `missing-pr-comments-write-confirmation`,
+  `missing-publish-pr-comment-dry-run`,
+  `forbidden-publish-pr-comment-send`,
+  `missing-pr-comment-marker-reminder`. 14 new
+  validator helper tests + 1 CLI test (now 56
+  total) + 22 new docs assertions; full suite
+  expected ≥ 1448 passed / 1 skipped.
+  **Recommended next slice:** PR comment API
+  writer go/no-go review (step 7e) — review the
+  dry-run helpers + workflow profile + permission
+  model + idempotency marker + fork safety, then
+  decide whether to ship `rekon publish pr-comment
+  --send` or stop at dry-run for beta.
+  No `schemaVersion` bump. No version bump. No
+  npm publish.
 - PR Comment Publisher API Decision Gate (P1.1
   pr-comment-publisher-api-decision-gate slice):
   **step 7c** of the CI / GitHub adapter
@@ -1143,11 +1187,7 @@ is the first stop before proposing a new capability batch.
   expected ≥ 1410 passed / 1 skipped.
   **Recommended next slice (if Option C approved):**
   PR comment workflow / validator profile (step
-  7d) — add a `github-pr-comment-send` validator
-  profile + opt-in workflow template variant that
-  requests `pull-requests: write`, enforces same-
-  repo / trusted-context posture, and still does
-  not post comments.
+  7d). **Shipped next; see the entry above.**
   No `schemaVersion` bump. No version bump. No
   npm publish.
 - PR comment body dry-run helper + CLI (P1.1

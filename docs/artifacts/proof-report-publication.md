@@ -243,5 +243,6 @@ artifact it read (`IssueAdjudicationReport`,
 - [PR comment publisher API decision gate](../strategy/pr-comment-publisher-api-decision-gate.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
+- [Opt-in PR comment workflow template](../examples/workflows/rekon-pr-comment-send.yml)
 - [VerificationRun artifact](verification-run.md)
 - [Capability model](../strategy/capability-model.md)

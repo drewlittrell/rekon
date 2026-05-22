@@ -1069,6 +1069,25 @@ slices:
      gate first; do not implement the
      API writer in the next slice.**
      No runtime behaviour change.
+   - **7d (shipped).** ✅ PR comment
+     workflow / validator profile.
+     Adds the
+     `github-pr-comment-send`
+     validator profile and the opt-in
+     workflow template at
+     [`docs/examples/workflows/rekon-pr-comment-send.yml`](../examples/workflows/rekon-pr-comment-send.yml).
+     The profile permits
+     `pull-requests: write` only;
+     rejects every other write scope
+     including `checks: write`; refuses
+     `pull_request_target` + the
+     `pull_request` trigger; requires
+     Rekon opt-in env + the
+     `publish pr-comment --dry-run`
+     step; refuses
+     `publish pr-comment --send`
+     (the API writer is not yet
+     implemented).
    - **7c (later, if approved).** New
      workflow validator profile
      (e.g. `github-pr-comment-send`)

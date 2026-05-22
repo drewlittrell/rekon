@@ -526,8 +526,8 @@ cross-references.
 | 7a | PR Comment Publisher Decision Memo | ✅ Shipped |
 | 7b | Dry-run helper + CLI (`buildPrCommentBody`, `assessPrCommentPublisherReadiness`, `publish pr-comment --dry-run`) | ✅ Shipped |
 | 7c | API Implementation Decision Gate (**this memo**) | ✅ Shipped |
-| 7d | PR comment workflow / validator profile + opt-in template | Recommended next |
-| 7e | PR comment API writer (`publish pr-comment --send`) | Future; only if approved after 7d |
+| 7d | PR comment workflow / validator profile + opt-in template | ✅ Shipped |
+| 7e | PR comment API writer (`publish pr-comment --send`) | Future; only if approved after 7d go/no-go review |
 | 7f | PR comment safety review | Future; only if 7e ships |
 
 The 7d slice (next, if approved) ships:

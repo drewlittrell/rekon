@@ -5141,21 +5141,117 @@ scope:
   **Recommended next slice (if Option
   C approved):** **PR comment
   workflow / validator profile**
-  (step 7d) — add a
-  `github-pr-comment-send` validator
-  profile + opt-in workflow template
-  variant under
-  `docs/examples/workflows/` that
-  requests `pull-requests: write`,
-  enforces same-repo / trusted-
-  context posture, and still does
-  not post comments. Only after that
-  should actual `publish pr-comment
-  --send` (step 7e) be considered.
+  (step 7d). **Shipped next; see the
+  entry below.**
+- **PR comment workflow / validator
+  profile (P1.1
+  pr-comment-workflow-validator-profile
+  slice).** ✅ Shipped. **Step 7d** of
+  the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment Publisher API Decision Gate](pr-comment-publisher-api-decision-gate.md).
+  Workflow template + validator
+  profile + tests + docs batch. **No
+  PR comment posted. No GitHub API
+  call. No token read.** No active
+  workflow added to the Rekon repo.
 
-  No active workflow. No GitHub
-  Check API call by default. No
-  runtime behaviour change. No
+  **New workflow template** at
+  [`docs/examples/workflows/rekon-pr-comment-send.yml`](../examples/workflows/rekon-pr-comment-send.yml).
+  `workflow_dispatch` trigger only;
+  `permissions: contents: read +
+  pull-requests: write` only;
+  workflow-level env declares
+  `REKON_PR_COMMENTS: "1"` and
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED:
+  "1"`; runs the full execute proof
+  loop + `publish pr-comment
+  --dry-run` (no `--send`); uploads
+  `.rekon/artifacts/**` excluding
+  `.log`; job summary carries `Mode:
+  pr-comment-dry-run`, every
+  refresh-loop ref, the canonical-
+  truth reminder, and the marker-
+  not-proof reminder.
+
+  **New validator profile**
+  `github-pr-comment-send` extends
+  `rekon verify github-workflow
+  validate --profile`. The new
+  profile:
+  - permits `pull-requests: write`
+    only (and the baseline
+    `contents: read`);
+  - rejects every other write
+    scope including `checks: write`,
+    `contents: write`,
+    `id-token: write`,
+    `actions: write`,
+    `deployments: write`,
+    `statuses: write`,
+    `packages: write`;
+  - rejects `pull_request_target`
+    + the `pull_request` trigger;
+  - requires the Rekon opt-in env
+    (`REKON_PR_COMMENTS=1` +
+    `REKON_PR_COMMENTS_WRITE_CONFIRMED=1`);
+  - requires the `publish pr-comment
+    --dry-run` step;
+  - refuses `publish pr-comment
+    --send` (the API writer is not
+    yet implemented).
+
+  **New issue codes** (additive):
+  `missing-pull-requests-write`,
+  `missing-rekon-pr-comments-opt-in`,
+  `missing-pr-comments-write-confirmation`,
+  `missing-publish-pr-comment-dry-run`,
+  `forbidden-publish-pr-comment-send`,
+  `missing-pr-comment-marker-reminder`.
+  Reuses the existing
+  `pull-request-trigger-disallowed`
+  code (now applied to both the
+  `github-check-send` and the
+  `github-pr-comment-send` profiles).
+
+  **New `mode` value:**
+  `pr-comment-dry-run`.
+
+  **Tests:** 14 new validator helper
+  tests + 1 CLI test (now 56 total)
+  + 22 new docs assertions in
+  `tests/docs/pr-comment-workflow-validator-profile.test.mjs`.
+  Full suite expected ≥ 1448 passed
+  / 1 skipped.
+
+  **Operator-guide update:** new
+  "Optional: preview a PR comment
+  workflow" section points at the
+  new template + the validator
+  command + reiterates the
+  canonical-truth + marker-not-proof
+  reminders.
+
+  **Recommended next slice:** **PR
+  comment API writer go/no-go
+  review** (step 7e gate) — review
+  the dry-run body / readiness
+  helpers (7b), the workflow /
+  validator profile (this slice),
+  the permission model
+  (`pull-requests: write`
+  pinned), the idempotency marker
+  (documented as not-proof), and
+  the three-layer fork-safety
+  defence, then decide whether to
+  ship `rekon publish pr-comment
+  --send` or stop at dry-run for
+  beta.
+
+  No active workflow. No PR comment
+  posted. No GitHub API call. No
   artifact-shape change. No
   `schemaVersion` bump. No
   `FindingStatusLedger` /

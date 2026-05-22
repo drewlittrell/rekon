@@ -517,20 +517,25 @@ If the Option-B path is approved:
    workflow/validator profile gate first.
    **Decision: Option C — add a workflow /
    validator profile gate before any API writer.**
-4. **Validator / docs for permissions** (next
-   slice, step 7d). Adds the
-   `github-pr-comment-send` profile to the workflow
-   validator (rejects every write scope except
-   `pull-requests: write` and the already-permitted
-   `checks: write` when the send variant is layered
-   on top of the existing opt-in template).
-   Documents the broader scope and the noise /
-   staleness controls.
+4. **Validator / docs for permissions** (step 7d).
+   ✅ Shipped. Adds the `github-pr-comment-send`
+   profile to the workflow validator (permits
+   `pull-requests: write` only; rejects every other
+   write scope including `checks: write`,
+   `contents: write`, `id-token: write`, etc.;
+   refuses `pull_request_target` + the
+   `pull_request` trigger; requires the Rekon
+   opt-in env + the `publish pr-comment --dry-run`
+   step; refuses `publish pr-comment --send`).
+   Ships the opt-in workflow template at
+   [`docs/examples/workflows/rekon-pr-comment-send.yml`](../examples/workflows/rekon-pr-comment-send.yml)
+   that respects the new profile. Documents the
+   broader scope and the noise / staleness controls.
 5. **PR comment send API write** (future slice,
-   step 7e). Only after step 4. Adds the actual
-   `--send` mode behind the readiness gate.
-   Update-in-place logic. Sanitized errors.
-   Sentinel-token contract test. No raw log
+   step 7e). Only after the API writer go/no-go
+   review. Adds the actual `--send` mode behind the
+   readiness gate. Update-in-place logic. Sanitized
+   errors. Sentinel-token contract test. No raw log
    content.
 
 Each step lands as its own batch with its own

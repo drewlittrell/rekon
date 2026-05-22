@@ -2737,9 +2737,13 @@ export async function main(argv: string[]): Promise<void> {
     const profileFlag = typeof parsed.flags.profile === "string"
       ? parsed.flags.profile
       : "read-only";
-    if (profileFlag !== "read-only" && profileFlag !== "github-check-send") {
+    if (
+      profileFlag !== "read-only"
+      && profileFlag !== "github-check-send"
+      && profileFlag !== "github-pr-comment-send"
+    ) {
       throw new Error(
-        `rekon verify github-workflow validate --profile must be \`read-only\` or \`github-check-send\` (received \`${profileFlag}\`).`,
+        `rekon verify github-workflow validate --profile must be \`read-only\`, \`github-check-send\`, or \`github-pr-comment-send\` (received \`${profileFlag}\`).`,
       );
     }
 
@@ -5480,6 +5484,7 @@ export type GitHubWorkflowSafetyIssueCode =
   | "missing-permissions-block"
   | "missing-contents-read"
   | "missing-checks-write"
+  | "missing-pull-requests-write"
   | "uses-github-api"
   | "missing-artifacts-latest"
   | "missing-rekon-artifact-upload"
@@ -5492,6 +5497,11 @@ export type GitHubWorkflowSafetyIssueCode =
   | "missing-publish-github-check-dry-run"
   | "missing-publish-github-check-send"
   | "missing-confirm-checks-write-flag"
+  | "missing-rekon-pr-comments-opt-in"
+  | "missing-pr-comments-write-confirmation"
+  | "missing-publish-pr-comment-dry-run"
+  | "forbidden-publish-pr-comment-send"
+  | "missing-pr-comment-marker-reminder"
   | "pull-request-trigger-disallowed"
   | "unknown-mode";
 
@@ -5506,11 +5516,13 @@ export type GitHubWorkflowSafetyMode =
   | "execute"
   | "dry-run"
   | "check-send"
+  | "pr-comment-dry-run"
   | "unknown";
 
 export type GitHubWorkflowSafetyProfile =
   | "read-only"
-  | "github-check-send";
+  | "github-check-send"
+  | "github-pr-comment-send";
 
 export type GitHubWorkflowSafetyReport = {
   valid: boolean;
@@ -5525,6 +5537,7 @@ export type GitHubWorkflowSafetyReport = {
     hasPullRequestTrigger: boolean;
     hasWritePermissions: boolean;
     hasChecksWrite: boolean;
+    hasPullRequestsWrite: boolean;
     hasPermissionsBlock: boolean;
     hasContentsRead: boolean;
     usesGitHubApi: boolean;
@@ -5539,6 +5552,11 @@ export type GitHubWorkflowSafetyReport = {
     hasPublishGitHubCheckDryRun: boolean;
     hasPublishGitHubCheckSend: boolean;
     hasConfirmChecksWriteFlag: boolean;
+    hasRekonPrCommentsOptIn: boolean;
+    hasPrCommentsWriteConfirmation: boolean;
+    hasPublishPrCommentDryRun: boolean;
+    hasPublishPrCommentSend: boolean;
+    hasPrCommentMarkerReminder: boolean;
   };
 };
 
@@ -5610,8 +5628,11 @@ export function validateGitHubWorkflowSafety(
 ): GitHubWorkflowSafetyReport {
   const path = typeof input?.path === "string" ? input.path : "<unknown>";
   const content = typeof input?.content === "string" ? input.content : "";
-  const profile: GitHubWorkflowSafetyProfile =
-    input?.profile === "github-check-send" ? "github-check-send" : "read-only";
+  const profile: GitHubWorkflowSafetyProfile = (
+    input?.profile === "github-check-send" || input?.profile === "github-pr-comment-send"
+      ? input.profile
+      : "read-only"
+  );
   const yaml = stripGitHubWorkflowYamlComments(content);
   const issues: GitHubWorkflowSafetyIssue[] = [];
 
@@ -5620,6 +5641,8 @@ export function validateGitHubWorkflowSafety(
   const hasDryRun = /verify\s+run\b[\s\S]*?--dry-run/.test(yaml);
   const hasPublishCheckSendCommand = /publish\s+github-check\b[\s\S]*?--send/.test(yaml);
   const hasPublishCheckDryRunCommand = /publish\s+github-check\b[\s\S]*?--dry-run/.test(yaml);
+  const hasPublishPrCommentSendCommand = /publish\s+pr-comment\b[\s\S]*?--send/.test(yaml);
+  const hasPublishPrCommentDryRunCommand = /publish\s+pr-comment\b[\s\S]*?--dry-run/.test(yaml);
 
   let mode: GitHubWorkflowSafetyMode = "unknown";
 
@@ -5627,6 +5650,12 @@ export function validateGitHubWorkflowSafety(
     // Send templates run the execute proof loop AND the send
     // command. `mode` describes the workflow's terminal action.
     if (hasPublishCheckSendCommand) mode = "check-send";
+    else mode = "unknown";
+  } else if (profile === "github-pr-comment-send") {
+    // The PR comment workflow template is dry-run only in step
+    // 7d. Mode reports `pr-comment-dry-run` when the dry-run
+    // command is present.
+    if (hasPublishPrCommentDryRunCommand) mode = "pr-comment-dry-run";
     else mode = "unknown";
   } else {
     if (hasExecute && !hasDryRun) mode = "execute";
@@ -5643,6 +5672,15 @@ export function validateGitHubWorkflowSafety(
           "Workflow does not invoke `rekon publish github-check --send`.",
         recommendedFix:
           "Add a step that runs `rekon publish github-check --send --confirm-checks-write --json` after the proof loop.",
+      });
+    } else if (profile === "github-pr-comment-send") {
+      issues.push({
+        code: "unknown-mode",
+        severity: "error",
+        message:
+          "Workflow does not invoke `rekon publish pr-comment --dry-run`.",
+        recommendedFix:
+          "Add a step that runs `rekon publish pr-comment --dry-run --json` after the proof loop. The PR comment API writer (`--send`) is not yet implemented.",
       });
     } else {
       issues.push({
@@ -5671,12 +5709,13 @@ export function validateGitHubWorkflowSafety(
   }
 
   // --- pull_request trigger ----------------------------------
-  // For the `github-check-send` profile, the `pull_request`
+  // For the write-profile templates, the `pull_request`
   // trigger is rejected by default. Same-repo PRs would in
   // principle be safe, but the trigger fires for forked PRs
-  // too — and the workflow has `checks: write` + the Rekon
-  // opt-in env. We don't ship a same-repo-only guard yet, so
-  // refusing the trigger entirely is the safe v1 default.
+  // too — and the workflow has `checks: write` /
+  // `pull-requests: write` + Rekon opt-in env. We don't ship a
+  // same-repo-only guard yet, so refusing the trigger entirely
+  // is the safe v1 default.
   const hasPullRequestTrigger = /^\s*pull_request:/m.test(yaml)
     && !/^\s*pull_request_target:/m.test(yaml);
 
@@ -5691,13 +5730,27 @@ export function validateGitHubWorkflowSafety(
     });
   }
 
+  if (profile === "github-pr-comment-send" && hasPullRequestTrigger) {
+    issues.push({
+      code: "pull-request-trigger-disallowed",
+      severity: "error",
+      message:
+        "Workflow with `github-pr-comment-send` profile uses the `pull_request` trigger. Forked PRs would inherit the workflow's `pull-requests: write` + Rekon opt-in env, which Rekon does not yet support with a same-repo guard.",
+      recommendedFix:
+        "Remove the `pull_request:` trigger from the workflow. Use `workflow_dispatch` only (the step-7d template ships this way). A future Rekon slice may add a same-repo guard that lets pull_request opt back in safely.",
+    });
+  }
+
   // --- GitHub write permissions ------------------------------
   // For the read-only profile, ANY write scope (including
-  // `checks: write`) is forbidden. For the github-check-send
+  // `checks: write`) is forbidden. For the `github-check-send`
   // profile, `checks: write` is permitted; every other write
-  // scope is still forbidden.
+  // scope is still forbidden. For the `github-pr-comment-send`
+  // profile, `pull-requests: write` is permitted; every other
+  // write scope is still forbidden.
   let hasWritePermissions = false;
   let hasChecksWrite = false;
+  let hasPullRequestsWrite = false;
 
   for (const scope of GITHUB_WRITE_PERMISSION_SCOPES) {
     const pattern = new RegExp(`${escapeRegex(scope)}:\\s*write\\b`);
@@ -5712,13 +5765,25 @@ export function validateGitHubWorkflowSafety(
       }
     }
 
+    if (scope === "pull-requests") {
+      hasPullRequestsWrite = true;
+      if (profile === "github-pr-comment-send") {
+        // Allowed — the PR comment profile needs this.
+        continue;
+      }
+    }
+
     hasWritePermissions = true;
     const profileNote = profile === "github-check-send"
       ? "The `github-check-send` profile permits only `checks: write`."
-      : "The alpha template forbids GitHub write permissions.";
+      : profile === "github-pr-comment-send"
+        ? "The `github-pr-comment-send` profile permits only `pull-requests: write`."
+        : "The alpha template forbids GitHub write permissions.";
     const fixSuffix = profile === "github-check-send"
       ? "The `github-check-send` profile permits `contents: read` and `checks: write` only."
-      : "The alpha workflow uses only `permissions: contents: read`.";
+      : profile === "github-pr-comment-send"
+        ? "The `github-pr-comment-send` profile permits `contents: read` and `pull-requests: write` only."
+        : "The alpha workflow uses only `permissions: contents: read`.";
     issues.push({
       code: "github-write-permission",
       severity: "error",
@@ -5735,6 +5800,17 @@ export function validateGitHubWorkflowSafety(
         "Workflow does not declare `checks: write`. The `github-check-send` profile requires it so `rekon publish github-check --send` can call the GitHub Checks API.",
       recommendedFix:
         "Add `checks: write` to the `permissions:` block alongside `contents: read`. The opt-in template ships this pairing by default.",
+    });
+  }
+
+  if (profile === "github-pr-comment-send" && !hasPullRequestsWrite) {
+    issues.push({
+      code: "missing-pull-requests-write",
+      severity: "error",
+      message:
+        "Workflow does not declare `pull-requests: write`. The `github-pr-comment-send` profile requires it to model the future PR-comment write boundary.",
+      recommendedFix:
+        "Add `pull-requests: write` to the `permissions:` block alongside `contents: read`. The opt-in PR comment template ships this pairing by default.",
     });
   }
 
@@ -5879,6 +5955,17 @@ export function validateGitHubWorkflowSafety(
     /REKON_GITHUB_CHECKS_WRITE_CONFIRMED:\s*["']?(?:1|true)["']?/i.test(yaml);
   const hasConfirmChecksWriteFlag = /--confirm-checks-write\b/.test(yaml);
 
+  // --- github-pr-comment-send profile gates ------------------
+  const hasRekonPrCommentsOptIn =
+    /REKON_PR_COMMENTS:\s*["']?(?:1|true)["']?/i.test(yaml);
+  const hasPrCommentsWriteConfirmation =
+    /REKON_PR_COMMENTS_WRITE_CONFIRMED:\s*["']?(?:1|true)["']?/i.test(yaml);
+  // The marker-not-proof reminder is required so the operator
+  // copy of the template carries an explicit statement that the
+  // idempotency marker is not canonical truth.
+  const hasPrCommentMarkerReminder = /marker is an idempotency handle, not proof/i.test(yaml)
+    || /marker is not proof/i.test(yaml);
+
   if (profile === "github-check-send") {
     if (!hasRekonGitHubChecksOptIn) {
       issues.push({
@@ -5932,6 +6019,59 @@ export function validateGitHubWorkflowSafety(
     }
   }
 
+  if (profile === "github-pr-comment-send") {
+    if (!hasRekonPrCommentsOptIn) {
+      issues.push({
+        code: "missing-rekon-pr-comments-opt-in",
+        severity: "error",
+        message:
+          "Workflow does not declare `REKON_PR_COMMENTS: \"1\"`. The future PR-comment send readiness gate requires it.",
+        recommendedFix:
+          "Add `env:\\n  REKON_PR_COMMENTS: \"1\"\\n  REKON_PR_COMMENTS_WRITE_CONFIRMED: \"1\"` at the workflow or job level.",
+      });
+    }
+    if (!hasPrCommentsWriteConfirmation) {
+      issues.push({
+        code: "missing-pr-comments-write-confirmation",
+        severity: "error",
+        message:
+          "Workflow does not declare `REKON_PR_COMMENTS_WRITE_CONFIRMED: \"1\"`. The future PR-comment send readiness gate requires explicit pull-requests-write confirmation.",
+        recommendedFix:
+          "Add `REKON_PR_COMMENTS_WRITE_CONFIRMED: \"1\"` to the workflow or job-level `env:` block.",
+      });
+    }
+    if (!hasPublishPrCommentDryRunCommand) {
+      issues.push({
+        code: "missing-publish-pr-comment-dry-run",
+        severity: "error",
+        message:
+          "Workflow does not invoke `rekon publish pr-comment --dry-run`. The `github-pr-comment-send` profile requires the dry-run preview step because the API writer (`--send`) is not yet implemented.",
+        recommendedFix:
+          "Add a step that runs `node packages/cli/dist/index.js publish pr-comment --root . --dry-run --json` after the proof loop.",
+      });
+    }
+    if (hasPublishPrCommentSendCommand) {
+      issues.push({
+        code: "forbidden-publish-pr-comment-send",
+        severity: "error",
+        message:
+          "Workflow invokes `rekon publish pr-comment --send`. The PR comment API writer is not implemented yet; the `github-pr-comment-send` profile refuses workflows that include `--send`.",
+        recommendedFix:
+          "Remove the `publish pr-comment --send` step. The current opt-in template is dry-run only; the API writer ships in a future slice with its own go/no-go review.",
+      });
+    }
+    if (!hasPrCommentMarkerReminder) {
+      issues.push({
+        code: "missing-pr-comment-marker-reminder",
+        severity: "warning",
+        message:
+          "Workflow does not include a reminder that the PR comment marker is not proof.",
+        recommendedFix:
+          "Add a line to the job-summary block (or to a comment near the top) such as `The PR comment marker is an idempotency handle, not proof.`",
+      });
+    }
+  }
+
   const errors = issues.filter((issue) => issue.severity === "error");
 
   return {
@@ -5947,6 +6087,7 @@ export function validateGitHubWorkflowSafety(
       hasPullRequestTrigger,
       hasWritePermissions,
       hasChecksWrite,
+      hasPullRequestsWrite,
       hasPermissionsBlock,
       hasContentsRead,
       usesGitHubApi,
@@ -5961,6 +6102,11 @@ export function validateGitHubWorkflowSafety(
       hasPublishGitHubCheckDryRun: hasPublishCheckDryRunCommand,
       hasPublishGitHubCheckSend: hasPublishCheckSendCommand,
       hasConfirmChecksWriteFlag,
+      hasRekonPrCommentsOptIn,
+      hasPrCommentsWriteConfirmation,
+      hasPublishPrCommentDryRun: hasPublishPrCommentDryRunCommand,
+      hasPublishPrCommentSend: hasPublishPrCommentSendCommand,
+      hasPrCommentMarkerReminder,
     },
   };
 }
@@ -5993,6 +6139,14 @@ function renderGitHubWorkflowSafetyHuman(report: GitHubWorkflowSafetyReport): st
     check("publish github-check --dry-run step", report.summary.hasPublishGitHubCheckDryRun);
     check("publish github-check --send step", report.summary.hasPublishGitHubCheckSend);
     check("--confirm-checks-write flag", report.summary.hasConfirmChecksWriteFlag);
+    check("no pull_request trigger", !report.summary.hasPullRequestTrigger);
+  } else if (report.profile === "github-pr-comment-send") {
+    check("permissions: pull-requests: write", report.summary.hasPullRequestsWrite);
+    check("no other GitHub write permissions", !report.summary.hasWritePermissions);
+    check("REKON_PR_COMMENTS opt-in", report.summary.hasRekonPrCommentsOptIn);
+    check("REKON_PR_COMMENTS_WRITE_CONFIRMED", report.summary.hasPrCommentsWriteConfirmation);
+    check("publish pr-comment --dry-run step", report.summary.hasPublishPrCommentDryRun);
+    check("no publish pr-comment --send step", !report.summary.hasPublishPrCommentSend);
     check("no pull_request trigger", !report.summary.hasPullRequestTrigger);
   } else {
     check("no GitHub write permissions", !report.summary.hasWritePermissions);
@@ -6094,6 +6248,6 @@ function usage(): string {
     "rekon verify run --plan <id|type:id> --dry-run|--preview [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--json]",
     "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--json]",
-    "rekon verify github-workflow validate --path <workflow.yml> [--profile read-only|github-check-send] [--root <path>] [--json]",
+    "rekon verify github-workflow validate --path <workflow.yml> [--profile read-only|github-check-send|github-pr-comment-send] [--root <path>] [--json]",
   ].join("\n");
 }

@@ -4,6 +4,134 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **PR comment workflow / validator
+  profile** (P1.1
+  pr-comment-workflow-validator-profile slice).
+  **Step 7d** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment Publisher API Decision Gate](docs/strategy/pr-comment-publisher-api-decision-gate.md).
+  **Workflow template + validator profile + tests
+  + docs batch.** No PR comment posted. No GitHub
+  API call. No token read. No active workflow
+  added to the Rekon repo.
+
+  **New workflow template:**
+  [`docs/examples/workflows/rekon-pr-comment-send.yml`](docs/examples/workflows/rekon-pr-comment-send.yml).
+  `workflow_dispatch` trigger only (no
+  `pull_request`, no `pull_request_target`).
+  Permissions: `contents: read` +
+  `pull-requests: write` only — no other write
+  scopes; `checks: write` deliberately absent
+  (that scope belongs to the separate GitHub
+  Check opt-in template). Workflow-level env
+  declares `REKON_PR_COMMENTS: "1"` and
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED: "1"`. Runs
+  the full execute proof loop + the publication
+  chain (proof / architecture / agent-contract)
+  + `artifacts validate` (read-only) +
+  `rekon publish pr-comment --dry-run`
+  (preview-only). **Does not include
+  `publish pr-comment --send`** — the API writer
+  is not implemented yet. Uploads
+  `.rekon/artifacts/**` excluding `.log`. Job
+  summary carries `Mode: pr-comment-dry-run`,
+  every refresh-loop ref, the canonical-truth
+  reminder
+  (`GitHub comments are not canonical truth;
+  Rekon artifacts remain canonical.`), and the
+  marker-not-proof reminder (`The PR comment
+  marker is an idempotency handle, not proof.`).
+
+  **New validator profile:**
+  `github-pr-comment-send` extends `rekon verify
+  github-workflow validate --profile`. Permits
+  `pull-requests: write` only (and baseline
+  `contents: read`); rejects every other write
+  scope including `checks: write`,
+  `contents: write`, `id-token: write`,
+  `actions: write`, `deployments: write`,
+  `statuses: write`, `packages: write`; rejects
+  `pull_request_target` + the `pull_request`
+  trigger; requires the Rekon opt-in env
+  (`REKON_PR_COMMENTS=1` +
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED=1`) + the
+  `publish pr-comment --dry-run` step; refuses
+  `publish pr-comment --send`.
+
+  **New mode value:** `pr-comment-dry-run`.
+
+  **New issue codes** (additive):
+  `missing-pull-requests-write`,
+  `missing-rekon-pr-comments-opt-in`,
+  `missing-pr-comments-write-confirmation`,
+  `missing-publish-pr-comment-dry-run`,
+  `forbidden-publish-pr-comment-send`,
+  `missing-pr-comment-marker-reminder`. Reuses the
+  existing `pull-request-trigger-disallowed` code
+  (now applied to both `github-check-send` and
+  `github-pr-comment-send`).
+
+  **Operator-guide update:** new "Optional:
+  preview a PR comment workflow" section in
+  [`docs/examples/github-actions-verification-runner.md`](docs/examples/github-actions-verification-runner.md)
+  points at the new template, lists the validator
+  command (`--profile github-pr-comment-send`),
+  and reiterates the canonical-truth + marker-not-
+  proof reminders.
+
+  **Tests:** 14 new validator helper tests + 1
+  new CLI test in
+  `tests/contract/github-workflow-safety-validator.test.mjs`
+  (now 56 total). 22 new docs assertions in
+  `tests/docs/pr-comment-workflow-validator-profile.test.mjs`.
+  Full suite expected ≥ 1448 passed / 1 skipped.
+
+  **Validator smokes** (all bundled templates
+  validate against their own profile;
+  cross-profile validation correctly fails):
+  - `rekon-verification.yml` with `--profile
+    read-only` → exit 0.
+  - `rekon-verification-dry-run.yml` with
+    `--profile read-only` → exit 0.
+  - `rekon-verification-check-send.yml` with
+    `--profile github-check-send` → exit 0.
+  - `rekon-pr-comment-send.yml` with `--profile
+    github-pr-comment-send` → exit 0.
+  - `rekon-pr-comment-send.yml` with `--profile
+    read-only` → exit 1.
+  - `rekon-verification-check-send.yml` with
+    `--profile github-pr-comment-send` → exit 1.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No PR comment posting.
+  - No new GitHub API calls.
+  - No `rekon publish pr-comment --send` CLI
+    mode.
+  - No change to existing read-only / GitHub
+    Check workflow templates or their validator
+    profiles.
+  - No change to the PR comment dry-run helpers
+    (`buildPrCommentBody`,
+    `assessPrCommentPublisherReadiness`).
+  - No `issues: write` validator-scope addition
+    (the bundled template does not request
+    `issues: write`; a future slice may extend
+    the validator if the API writer selects
+    that endpoint).
+  - No artifact-shape change. No version bump.
+    No npm publish.
+
+  **Stop conditions honoured:** no PR comment
+  posting; no GitHub API call; no token read; no
+  active `.github/workflows/*.yml` added; existing
+  read-only / check-send templates unchanged;
+  validator profiles cleanly separated; the
+  template carries the marker-not-proof reminder
+  so operators don't mistake the marker for
+  canonical truth.
+
 - Shipped **PR Comment Publisher API Decision
   Gate** (P1.1
   pr-comment-publisher-api-decision-gate slice).

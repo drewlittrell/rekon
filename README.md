@@ -251,6 +251,19 @@ node packages/cli/dist/index.js publish pr-comment --root examples/simple-js-ts 
 # profile gate first (next slice), then re-evaluate the API writer.
 # Actual PR comment posting remains deferred until that profile
 # exists.
+#
+# Step 7d shipped the PR comment workflow / validator profile.
+# Validate the new opt-in PR comment template with the
+# github-pr-comment-send profile:
+node packages/cli/dist/index.js verify github-workflow validate \
+  --path docs/examples/workflows/rekon-pr-comment-send.yml \
+  --profile github-pr-comment-send --json
+# The template requests permissions: contents: read +
+# pull-requests: write only; triggers on workflow_dispatch only
+# (no pull_request, no pull_request_target); declares the Rekon
+# opt-in env; runs publish pr-comment --dry-run (no --send). The
+# validator rejects publish pr-comment --send because the API
+# writer is not implemented yet.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

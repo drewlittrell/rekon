@@ -1017,10 +1017,87 @@ Every rendered body **excludes**:
 - Secrets, tokens, or environment values.
 
 **Actual PR comment posting remains future work.**
-The next slice (if approved) is a separate validator
-profile + docs slice; the API write itself is a
-separate later slice with its own decision memo and
-review packet.
+
+## Optional: preview a PR comment workflow
+
+The PR Comment Publisher API Decision Gate
+([`docs/strategy/pr-comment-publisher-api-decision-gate.md`](../strategy/pr-comment-publisher-api-decision-gate.md))
+chose **Option C**: build the workflow / validator
+profile boundary before any API writer ships. That
+slice is now landed.
+
+To **preview a copyable workflow** that wires
+`publish pr-comment --dry-run` with the future
+`pull-requests: write` boundary in place — but
+still **does not post a comment** — copy the
+template at
+[`docs/examples/workflows/rekon-pr-comment-send.yml`](workflows/rekon-pr-comment-send.yml)
+into your own repo's `.github/workflows/`
+directory.
+
+This template is the **first** Rekon workflow
+template that requests `pull-requests: write`. Read
+the alpha read-only / GitHub Check workflows first
+(adopt one of them) before considering this one.
+
+The template is intentionally narrower than the
+GitHub Check opt-in template:
+
+- **Triggers:** `workflow_dispatch` only. No
+  `pull_request` trigger by default; no
+  `pull_request_target` ever.
+- **Permissions:** `contents: read` +
+  `pull-requests: write` only. No other GitHub
+  write scopes — and `checks: write` is
+  **deliberately absent** (that scope belongs to
+  the separate GitHub Check opt-in template).
+- **Required env (workflow-level):**
+  - `REKON_PR_COMMENTS: "1"`
+  - `REKON_PR_COMMENTS_WRITE_CONFIRMED: "1"`
+- **Required dry-run step:**
+  `publish pr-comment --dry-run`.
+- **Forbidden step:**
+  `publish pr-comment --send` — the API writer is
+  not implemented yet; the validator refuses
+  workflows that include `--send`.
+- **Validator:** after copying, run
+  `rekon verify github-workflow validate --path
+  .github/workflows/<your-copy>.yml --profile
+  github-pr-comment-send --json`. The
+  `github-pr-comment-send` profile permits
+  `pull-requests: write` only, requires the Rekon
+  opt-in env vars + the dry-run step, and refuses
+  every other write scope, the `pull_request`
+  trigger, `pull_request_target`, and any
+  `publish pr-comment --send` invocation.
+
+**What the PR comment template still does not
+do:**
+
+- Does not post or update a PR comment. The API
+  writer (`publish pr-comment --send`) is not
+  implemented; the API writer go/no-go review
+  must approve it before any posting code
+  ships.
+- Does not call any GitHub API.
+- Does not read `GITHUB_TOKEN` (the dry-run CLI
+  receives an empty env map).
+- Does not request `issues: write`,
+  `id-token: write`, or any other GitHub write
+  scope.
+- Does not auto-resolve findings.
+- Does not auto-apply reconciliation.
+- Does not upload raw logs.
+
+**Pinned reminders the template carries forward:**
+
+- `GitHub comments are not canonical truth; Rekon
+  artifacts remain canonical.`
+- `The PR comment marker is an idempotency
+  handle, not proof.`
+
+The Rekon repository itself does **not** install
+this workflow.
 
 ## Cross-references
 
@@ -1029,6 +1106,7 @@ review packet.
 - [GitHub Check publisher send workflow safety review](../strategy/github-check-publisher-send-workflow-safety-review.md)
 - [PR comment publisher decision](../strategy/pr-comment-publisher-decision.md)
 - [PR comment publisher API decision gate](../strategy/pr-comment-publisher-api-decision-gate.md)
+- [Opt-in PR comment workflow template](workflows/rekon-pr-comment-send.yml)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runs concept](../concepts/verification-runs.md)
 - [Verification results concept](../concepts/verification-results.md)
