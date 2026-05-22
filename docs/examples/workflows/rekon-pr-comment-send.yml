@@ -1,6 +1,6 @@
-# Rekon PR Comment Preview — opt-in workflow template
-# (step 7d of the CI / GitHub adapter implementation
-# sequence pinned by
+# Rekon PR Comment — opt-in workflow template
+# (steps 7d and 7f of the CI / GitHub adapter
+# implementation sequence pinned by
 # docs/strategy/verification-runner-ci-github-decision.md).
 #
 # **This is a template, not an active workflow.** Copy
@@ -8,15 +8,29 @@
 # (renaming as you like) to enable. The Rekon
 # repository itself does NOT install this workflow.
 #
-# **This template is dry-run only.** It builds and
-# previews the Rekon-owned PR comment body via
-# `rekon publish pr-comment --dry-run` but **does
-# not post a comment**. The actual PR comment API
-# writer (`publish pr-comment --send`) is **not yet
-# implemented**; the API Decision Gate at
-# docs/strategy/pr-comment-publisher-api-decision-gate.md
-# pinned this workflow / validator profile as the next
-# step before any API writer ships.
+# **This template runs the dry-run preview AND the
+# actual `publish pr-comment --send` step.** Step 7d
+# shipped the workflow / validator profile + dry-run
+# wiring. Step 7e's Go/No-Go Review approved Option B
+# (proceed to writer). Step 7f shipped the writer:
+# `publishPrCommentRun` helper +
+# `rekon publish pr-comment --send` CLI mode +
+# validator profile update. This template now wires
+# both the dry-run preview and the send call.
+#
+# **Pinned constraints (step 7f):**
+#   - Send uses GitHub's issue-comments API
+#     (PR timeline comments are issue comments).
+#   - Updates the Rekon-owned comment in place via
+#     the `<!-- rekon:pr-comment:v1 -->` marker.
+#   - PR comments are NOT canonical truth; Rekon
+#     artifacts remain canonical.
+#   - The idempotency marker is NOT proof; it is
+#     only an update-in-place handle.
+#   - Forked PRs remain denied by default
+#     (workflow_dispatch trigger only).
+#   - `pull_request_target` remains denied
+#     unconditionally.
 #
 # **After copying, validate the file:**
 #
@@ -27,11 +41,12 @@
 #
 # The validator is static, read-only, and does not
 # call GitHub. The `github-pr-comment-send` profile
-# permits `pull-requests: write` (the future
-# PR-comment write boundary), requires the Rekon
-# opt-in env vars + the `publish pr-comment
-# --dry-run` step, and refuses every other write
-# scope plus `pull_request_target` and the
+# permits `pull-requests: write` (the PR-comment
+# write boundary), requires the Rekon opt-in env vars
+# + the `publish pr-comment --dry-run` step + the
+# `publish pr-comment --send` step +
+# `--confirm-pr-comment-write`, and refuses every
+# other write scope plus `pull_request_target` and the
 # `pull_request` trigger.
 #
 # **This template is the FIRST workflow that opts
@@ -65,9 +80,17 @@
 #     env, per-command timeouts, and bounded
 #     redacted log excerpts. Raw logs never reach
 #     the PR comment body.
-#   - `rekon publish pr-comment --dry-run` runs and
-#     prints the payload + readiness JSON to the
-#     workflow log; **no GitHub API call** happens.
+#   - `rekon publish pr-comment --dry-run` runs
+#     before `--send` so reviewers can inspect the
+#     payload + readiness JSON without leaking a
+#     comment write.
+#   - `rekon publish pr-comment --send` uses GitHub's
+#     issue-comments API: lists comments paginated,
+#     filters by marker, PATCHes the Rekon-owned
+#     comment in place, or POSTs a new comment when
+#     no marker match is found. Bounded body reads.
+#     Sanitized errors. The token never appears in
+#     output.
 #   - The job summary carries the canonical-truth
 #     reminder:
 #     `GitHub comments are not canonical truth;
@@ -79,21 +102,30 @@
 #
 # **What this template does NOT do:**
 #
-#   - Does not post or update a PR comment.
 #   - Does not write Checks (`checks: write` is
-#     deliberately absent).
-#   - Does not call GitHub APIs of any kind.
+#     deliberately absent — that scope belongs to
+#     the GitHub Check publisher).
+#   - Does not call GitHub APIs other than the
+#     bounded issue-comments endpoints.
 #   - Does not request `issues: write`,
 #     `id-token: write`, or any other GitHub
 #     write scope.
+#   - Does not delete reviewer-touched comments —
+#     PATCH only on marker match; POST when no
+#     match.
 #   - Does not auto-resolve findings.
 #   - Does not auto-apply reconciliation.
 #   - Does not upload raw logs.
 
-name: Rekon PR Comment Preview
+name: Rekon PR Comment
 
 on:
   workflow_dispatch:
+    inputs:
+      pr-number:
+        description: "PR number to attach the comment to."
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -221,20 +253,43 @@ jobs:
           echo "ref=$ID" >> "$GITHUB_OUTPUT"
 
       - name: Rekon publish pr-comment (dry-run preview)
-        id: pr_comment
-        # Local-only dry-run. Prints the PR comment body
-        # + readiness report to the workflow log so
-        # reviewers see what would be posted before any
-        # actual send step is even built. **No GitHub
-        # API call. No token read. No PR comment
-        # posted.** The actual --send mode does not
-        # exist yet; it is gated by a future API writer
-        # go/no-go review.
+        id: pr_comment_dry_run
+        # Local dry-run. Prints the PR comment body +
+        # readiness report to the workflow log so
+        # reviewers see what would be posted before the
+        # send step runs. **No GitHub API call. No
+        # token read. No PR comment posted.**
         if: always()
         run: |
           node packages/cli/dist/index.js publish pr-comment \
             --root . \
             --dry-run \
+            --json
+
+      - name: Rekon publish pr-comment (send)
+        id: pr_comment_send
+        # Actual send. Lists existing PR comments via
+        # GitHub's issue-comments endpoint, filters by
+        # the `<!-- rekon:pr-comment:v1 -->` marker,
+        # and PATCHes the Rekon-owned comment in
+        # place (or POSTs a new one when no marker
+        # match is found). The CLI exits 0 on API
+        # success regardless of underlying proof
+        # status; the comment body explains the proof
+        # state. The token never appears in stdout /
+        # stderr or in errors.
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ inputs.pr-number }}
+          GITHUB_EVENT_NAME: workflow_dispatch
+        run: |
+          node packages/cli/dist/index.js publish pr-comment \
+            --root . \
+            --send \
+            --confirm-pr-comment-write \
+            --pr-number "${{ inputs.pr-number }}" \
             --json
 
       - name: Append summary to job summary
@@ -248,9 +303,10 @@ jobs:
         # if) the API writer ships.
         run: |
           {
-            echo "# Rekon PR Comment Dry-Run Summary"
+            echo "# Rekon PR Comment Summary"
             echo ""
-            echo "- Mode: pr-comment-dry-run"
+            echo "- Mode: pr-comment-send"
+            echo "- PR number: ${{ inputs.pr-number }}"
             echo "- VerificationPlan: ${{ steps.plan.outputs.ref || 'missing' }}"
             echo "- VerificationRun: ${{ steps.run.outputs.ref || 'missing' }}"
             echo "- VerificationResult: ${{ steps.result.outputs.ref || 'missing' }}"
@@ -258,7 +314,8 @@ jobs:
             echo "- Architecture summary: ${{ steps.arch.outputs.ref || 'missing' }}"
             echo "- Agent contract: ${{ steps.contract.outputs.ref || 'missing' }}"
             echo "- Artifacts valid: ${{ steps.validate.outputs.valid || 'unknown' }}"
-            echo "- PR comment dry-run result: ${{ steps.pr_comment.outcome || 'unknown' }}"
+            echo "- PR comment dry-run result: ${{ steps.pr_comment_dry_run.outcome || 'unknown' }}"
+            echo "- PR comment send result: ${{ steps.pr_comment_send.outcome || 'unknown' }}"
             echo "- Uploaded artifact: \`rekon-artifacts\`"
             echo ""
             echo "_GitHub comments are not canonical truth; Rekon artifacts remain canonical._"

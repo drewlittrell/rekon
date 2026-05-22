@@ -156,16 +156,21 @@ test("template runs `publish pr-comment --dry-run`", async () => {
   assert.match(flat, /publish pr-comment[^|]*--dry-run/);
 });
 
-// ---------- 14: no publish pr-comment --send ----------
+// ---------- 14: runs publish pr-comment --send (added in step 7f) ----------
 
-test("template does NOT run `publish pr-comment --send`", async () => {
+test("template runs `publish pr-comment --send` with --confirm-pr-comment-write", async () => {
   const content = await readFile(templatePath, "utf8");
   const stripped = stripYamlComments(content);
   const flat = stripped.replace(/\s+/g, " ");
-  assert.equal(
-    /publish pr-comment[^|]*--send/.test(flat),
-    false,
-    "PR comment template must not include --send",
+  assert.match(
+    flat,
+    /publish pr-comment[\s\S]*?--send/,
+    "PR comment template must include --send (step 7f shipped the writer)",
+  );
+  assert.match(
+    flat,
+    /--confirm-pr-comment-write/,
+    "PR comment template must pass --confirm-pr-comment-write to the --send step",
   );
 });
 

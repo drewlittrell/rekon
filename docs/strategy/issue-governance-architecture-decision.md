@@ -1878,14 +1878,47 @@ review packets unless an ADR promotes them. Promotion requires:
     unconditionally. 18 docs assertions
     pin the memo's contract; full suite
     expected to grow accordingly.
-56. **(future)** Per-module `ObservedSystem`
+56. **Shipped (✅).** PR comment API writer
+    (step 7f). Adds
+    `publishPrCommentRun(input)` to
+    `@rekon/capability-docs` using GitHub's
+    issue-comments REST endpoints
+    (`GET/POST /repos/{owner}/{repo}/issues/{n}/comments`,
+    `PATCH /repos/{owner}/{repo}/issues/comments/{id}`),
+    plus the `rekon publish pr-comment --send`
+    CLI mode behind the readiness gate. Update-
+    in-place via the
+    `<!-- rekon:pr-comment:v1 -->` marker (PATCH
+    on marker match; POST when no match; never
+    delete reviewer-touched comments). Paginates
+    with a bounded 20-page cap. Sanitized errors
+    (`{ status, message, documentationUrl }`
+    only; token never echoed). Built-in `fetch`;
+    no third-party network client. Sentinel-token
+    contract test pins the no-token-leak
+    invariant. `--api-base-url` flag enables
+    fake-API contract tests. The workflow
+    template now runs both the dry-run preview
+    and the send call; the
+    `github-pr-comment-send` validator profile
+    requires both steps + the
+    `--confirm-pr-comment-write` flag. Pinned
+    reminders carried forward: PR comments are
+    not canonical truth; Rekon artifacts remain
+    canonical; the idempotency marker is not
+    proof; forked PRs remain denied by default;
+    `pull_request_target` remains denied
+    unconditionally. 19 new contract tests + 9
+    new docs assertions; the artifact index is
+    byte-identical before / after `--send`.
+57. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-57. **(future)** Persistent exclusion lists, and
+58. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

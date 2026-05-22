@@ -5244,3 +5244,390 @@ export function assessPrCommentPublisherReadiness(
 
   return { ready: issues.length === 0, issues };
 }
+
+// ---------------------------------------------------------------
+// PR comment publisher (step 7f) — API writer.
+//
+// `publishPrCommentRun(input)` lists, updates, or creates a
+// single Rekon-owned PR timeline comment using GitHub's
+// issue-comments API. PR timeline comments are issue comments
+// under the hood; the writer uses:
+//
+//   GET   /repos/{owner}/{repo}/issues/{n}/comments?per_page=100&page=N
+//   POST  /repos/{owner}/{repo}/issues/{n}/comments
+//   PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}
+//
+// The writer walks pages until it finds the first comment whose
+// body contains the idempotency marker
+// (`<!-- rekon:pr-comment:v1 -->`); if found it PATCHes that
+// comment, otherwise it POSTs a new one. Pagination is bounded
+// at 20 pages so a misbehaving instance cannot stall the CLI.
+//
+// The helper:
+// - never echoes the token in error messages or results,
+// - never logs the token,
+// - uses Node's built-in `fetch` (no third-party network client),
+// - reads bounded response bodies (≤ 64 KiB) so an unbounded
+//   GitHub error doesn't fill the operator's terminal,
+// - throws a `PrCommentPublishError` with `status`, `message`,
+//   and `documentationUrl` on non-2xx responses.
+//
+// The send path is gated by
+// `assessPrCommentPublisherReadiness` from the call-site (the
+// CLI). This helper has no opinion on readiness — it just
+// performs the API calls when called.
+// ---------------------------------------------------------------
+
+export const PR_COMMENT_PUBLISHER_DEFAULT_API_BASE_URL = "https://api.github.com";
+export const PR_COMMENT_PUBLISHER_DEFAULT_API_VERSION = "2022-11-28";
+export const PR_COMMENT_PUBLISHER_USER_AGENT = "rekon-verification-runner";
+export const PR_COMMENT_PUBLISHER_MAX_PAGES = 20;
+export const PR_COMMENT_PUBLISHER_PAGE_SIZE = 100;
+
+export type PrCommentPublishInput = {
+  /**
+   * GitHub token used to authenticate. Must be non-empty.
+   * Typically the `GITHUB_TOKEN` provided by Actions.
+   */
+  token: string;
+  /**
+   * `<owner>/<repo>` slug. Must be non-empty.
+   */
+  repository: string;
+  /**
+   * PR number (GitHub treats PR timeline comments as issue
+   * comments, so the URL uses `issue_number`). Must be a
+   * positive integer.
+   */
+  issueNumber: number;
+  /**
+   * Rendered comment body (from `buildPrCommentBody`). Must
+   * contain the marker; the helper does not inject the marker
+   * if it's missing.
+   */
+  body: string;
+  /**
+   * Idempotency marker the helper searches for. Defaults to
+   * `PR_COMMENT_PUBLISHER_MARKER`.
+   */
+  marker?: string;
+  /**
+   * Overrides the default API base URL
+   * (`https://api.github.com`). Tests use this to point at a
+   * local node:http server. GHES adopters could also point at
+   * their enterprise instance.
+   */
+  apiBaseUrl?: string;
+  /**
+   * Overrides the default user agent.
+   */
+  userAgent?: string;
+};
+
+export type PrCommentPublishResult = {
+  action: "created" | "updated";
+  id?: number;
+  url?: string;
+  htmlUrl?: string;
+  issueUrl?: string;
+  pagesScanned: number;
+};
+
+/**
+ * Thrown when GitHub responds with a non-2xx status, or when
+ * pagination exceeds the bounded page limit. Carries the
+ * response status, message, and (when present) documentation
+ * URL. **Never** carries the token.
+ */
+export class PrCommentPublishError extends Error {
+  readonly status: number;
+  readonly documentationUrl?: string;
+
+  constructor(input: { status: number; message: string; documentationUrl?: string }) {
+    super(input.message);
+    this.name = "PrCommentPublishError";
+    this.status = input.status;
+    this.documentationUrl = input.documentationUrl;
+  }
+}
+
+function ensurePrCommentNonEmptyString(value: string, fieldLabel: string): string {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    throw new PrCommentPublishError({
+      status: 0,
+      message: `publishPrCommentRun requires a non-empty ${fieldLabel}.`,
+    });
+  }
+  return trimmed;
+}
+
+function ensurePrCommentPositiveInteger(value: number, fieldLabel: string): number {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new PrCommentPublishError({
+      status: 0,
+      message: `publishPrCommentRun requires ${fieldLabel} to be a positive integer (received ${JSON.stringify(value)}).`,
+    });
+  }
+  return value;
+}
+
+async function readPrCommentResponseBodySafely(response: Response): Promise<string> {
+  // Read up to ~64 KiB of response body so an unbounded GitHub
+  // error doesn't fill the operator's terminal. Mirror the
+  // GitHub Check helper's bounded-read posture; the GitHub
+  // Check helper uses `response.text()` then truncates after
+  // the fact, which is the right ordering for clamping output
+  // — `text()` doesn't run unbounded since `fetch` already
+  // buffered the response, but the post-read clamp ensures the
+  // string we keep is bounded.
+  const text = await response.text();
+  return text.length > 64 * 1024 ? `${text.slice(0, 64 * 1024)}… [truncated]` : text;
+}
+
+function pickPrCommentStringField(value: unknown, ...keys: string[]): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function pickPrCommentNumberField(value: unknown, key: string): number | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === "number" ? candidate : undefined;
+}
+
+function buildPrCommentHeaders(token: string, userAgent: string): Record<string, string> {
+  return {
+    "Accept": "application/vnd.github+json",
+    "Authorization": `Bearer ${token}`,
+    "Connection": "close",
+    "Content-Type": "application/json",
+    "User-Agent": userAgent,
+    "X-GitHub-Api-Version": PR_COMMENT_PUBLISHER_DEFAULT_API_VERSION,
+  };
+}
+
+async function callPrCommentApi(
+  url: string,
+  init: {
+    method: "GET" | "POST" | "PATCH";
+    token: string;
+    userAgent: string;
+    body?: unknown;
+  },
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: init.method,
+      headers: buildPrCommentHeaders(init.token, init.userAgent),
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      // Hint Node's undici-based fetch to keep the connection
+      // single-use so CLI invocations exit promptly instead of
+      // waiting for the keep-alive pool to time out.
+      keepalive: false,
+    });
+  } catch (cause) {
+    throw new PrCommentPublishError({
+      status: 0,
+      message: `publishPrCommentRun: network error contacting GitHub PR comments API: ${(cause as Error).message ?? cause}`,
+    });
+  }
+  return response;
+}
+
+async function throwPrCommentApiError(response: Response, contextLabel: string): Promise<never> {
+  let parsed: unknown;
+  try {
+    const raw = await readPrCommentResponseBodySafely(response);
+    parsed = raw ? JSON.parse(raw) : undefined;
+  } catch {
+    parsed = undefined;
+  }
+  const message = pickPrCommentStringField(parsed, "message")
+    ?? `${contextLabel}: GitHub PR comments API responded with ${response.status} ${response.statusText || ""}`.trim();
+  const documentationUrl = pickPrCommentStringField(parsed, "documentation_url", "documentationUrl");
+  throw new PrCommentPublishError({
+    status: response.status,
+    message,
+    documentationUrl,
+  });
+}
+
+/**
+ * Post or update a Rekon-owned PR timeline comment. The caller
+ * is responsible for gating this via
+ * `assessPrCommentPublisherReadiness`. This helper never echoes
+ * the token in errors, returns no Rekon-artifact mutation, and
+ * uses Node's built-in `fetch` (no third-party client).
+ *
+ * Idempotency: lists existing issue comments paginated, finds
+ * the first comment whose body contains the marker, and
+ * PATCHes it. If no marker match is found, POSTs a new comment.
+ *
+ * Pagination is bounded to `PR_COMMENT_PUBLISHER_MAX_PAGES`
+ * (20 pages × 100 per page = 2000 comments inspected).
+ */
+export async function publishPrCommentRun(
+  input: PrCommentPublishInput,
+): Promise<PrCommentPublishResult> {
+  const token = ensurePrCommentNonEmptyString(input.token, "token");
+  const repository = ensurePrCommentNonEmptyString(input.repository, "repository");
+  const body = ensurePrCommentNonEmptyString(input.body, "body");
+  const issueNumber = ensurePrCommentPositiveInteger(input.issueNumber, "issueNumber");
+  const marker = (input.marker ?? PR_COMMENT_PUBLISHER_MARKER).trim();
+  if (!marker) {
+    throw new PrCommentPublishError({
+      status: 0,
+      message: "publishPrCommentRun requires a non-empty marker.",
+    });
+  }
+  const apiBaseUrl = (input.apiBaseUrl ?? PR_COMMENT_PUBLISHER_DEFAULT_API_BASE_URL).replace(/\/+$/, "");
+  const userAgent = input.userAgent ?? PR_COMMENT_PUBLISHER_USER_AGENT;
+
+  if (!/^[^/]+\/[^/]+$/.test(repository)) {
+    throw new PrCommentPublishError({
+      status: 0,
+      message: `publishPrCommentRun: repository must be \`owner/repo\` (received ${JSON.stringify(repository)}).`,
+    });
+  }
+
+  // ---- Walk pages and look for the marker -------------------
+  let pagesScanned = 0;
+  let existingCommentId: number | undefined;
+
+  for (let page = 1; page <= PR_COMMENT_PUBLISHER_MAX_PAGES; page += 1) {
+    pagesScanned = page;
+    const listUrl =
+      `${apiBaseUrl}/repos/${repository}/issues/${issueNumber}/comments`
+      + `?per_page=${PR_COMMENT_PUBLISHER_PAGE_SIZE}&page=${page}`;
+    const response = await callPrCommentApi(listUrl, {
+      method: "GET",
+      token,
+      userAgent,
+    });
+
+    if (!response.ok) {
+      await throwPrCommentApiError(response, "publishPrCommentRun: list comments");
+    }
+
+    let parsed: unknown;
+    try {
+      const raw = await readPrCommentResponseBodySafely(response);
+      parsed = raw ? JSON.parse(raw) : [];
+    } catch (cause) {
+      throw new PrCommentPublishError({
+        status: response.status,
+        message: `publishPrCommentRun: GitHub PR comments list returned a 2xx response with an unparseable body: ${(cause as Error).message ?? cause}`,
+      });
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new PrCommentPublishError({
+        status: response.status,
+        message: `publishPrCommentRun: GitHub PR comments list returned a non-array body (received ${typeof parsed}).`,
+      });
+    }
+
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const record = item as Record<string, unknown>;
+      const candidateBody = typeof record.body === "string" ? record.body : "";
+      const candidateId = typeof record.id === "number" ? record.id : undefined;
+      if (candidateId !== undefined && candidateBody.includes(marker)) {
+        existingCommentId = candidateId;
+        break;
+      }
+    }
+
+    if (existingCommentId !== undefined) break;
+    if (parsed.length < PR_COMMENT_PUBLISHER_PAGE_SIZE) {
+      // No more pages — GitHub returns fewer than per_page on
+      // the final page.
+      break;
+    }
+  }
+
+  if (existingCommentId === undefined && pagesScanned >= PR_COMMENT_PUBLISHER_MAX_PAGES) {
+    // We hit the page cap without finding a marker. This is
+    // exceedingly rare (would require >2000 comments on the
+    // PR); treat as an error so operators are alerted rather
+    // than silently re-POSTing a duplicate Rekon comment.
+    throw new PrCommentPublishError({
+      status: 0,
+      message: `publishPrCommentRun: exhausted ${PR_COMMENT_PUBLISHER_MAX_PAGES} pages of issue comments without finding the marker. Refusing to POST a new comment to avoid duplicates.`,
+    });
+  }
+
+  // ---- POST or PATCH ----------------------------------------
+  if (existingCommentId === undefined) {
+    const postUrl = `${apiBaseUrl}/repos/${repository}/issues/${issueNumber}/comments`;
+    const response = await callPrCommentApi(postUrl, {
+      method: "POST",
+      token,
+      userAgent,
+      body: { body },
+    });
+
+    if (!response.ok) {
+      await throwPrCommentApiError(response, "publishPrCommentRun: create comment");
+    }
+
+    let json: unknown;
+    try {
+      json = await response.json();
+    } catch (cause) {
+      throw new PrCommentPublishError({
+        status: response.status,
+        message: `publishPrCommentRun: GitHub PR comments create returned a 2xx response with an unparseable body: ${(cause as Error).message ?? cause}`,
+      });
+    }
+
+    return {
+      action: "created",
+      id: pickPrCommentNumberField(json, "id"),
+      url: pickPrCommentStringField(json, "url"),
+      htmlUrl: pickPrCommentStringField(json, "html_url", "htmlUrl"),
+      issueUrl: pickPrCommentStringField(json, "issue_url", "issueUrl"),
+      pagesScanned,
+    };
+  }
+
+  const patchUrl = `${apiBaseUrl}/repos/${repository}/issues/comments/${existingCommentId}`;
+  const response = await callPrCommentApi(patchUrl, {
+    method: "PATCH",
+    token,
+    userAgent,
+    body: { body },
+  });
+
+  if (!response.ok) {
+    await throwPrCommentApiError(response, "publishPrCommentRun: update comment");
+  }
+
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch (cause) {
+    throw new PrCommentPublishError({
+      status: response.status,
+      message: `publishPrCommentRun: GitHub PR comments update returned a 2xx response with an unparseable body: ${(cause as Error).message ?? cause}`,
+    });
+  }
+
+  return {
+    action: "updated",
+    id: pickPrCommentNumberField(json, "id") ?? existingCommentId,
+    url: pickPrCommentStringField(json, "url"),
+    htmlUrl: pickPrCommentStringField(json, "html_url", "htmlUrl"),
+    issueUrl: pickPrCommentStringField(json, "issue_url", "issueUrl"),
+    pagesScanned,
+  };
+}

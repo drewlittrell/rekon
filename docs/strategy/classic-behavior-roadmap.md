@@ -5259,6 +5259,120 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **PR comment API writer (P1.1
+  pr-comment-send-cli slice).** ✅
+  Shipped. **Step 7f** of the CI / GitHub
+  adapter implementation sequence pinned
+  by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment API Writer Go/No-Go Review](pr-comment-api-writer-go-no-go-review.md).
+  Adds Rekon's first GitHub PR-comment
+  write surface.
+
+  **New helper:**
+  `publishPrCommentRun(input)` in
+  `@rekon/capability-docs` (parallel to
+  `publishGitHubCheckRun`). Uses
+  Node's built-in `fetch`; no third-party
+  network client. Lists existing PR
+  timeline comments via
+  `GET /repos/{owner}/{repo}/issues/{n}/comments`
+  paginated (`per_page=100`, bounded at
+  20 pages), filters by the marker
+  `<!-- rekon:pr-comment:v1 -->`, PATCHes
+  the first marker-bearing comment via
+  `PATCH /repos/{owner}/{repo}/issues/comments/{id}`
+  on match, or POSTs a new comment via
+  `POST /repos/{owner}/{repo}/issues/{n}/comments`
+  on miss. Never deletes reviewer-touched
+  comments. Bounded response-body reads
+  (≤ 64 KiB). Sanitized error class
+  `PrCommentPublishError` carries
+  `{ status, message, documentationUrl }`
+  — the token never appears.
+
+  **New CLI mode:**
+  `rekon publish pr-comment --send
+  [--root <path>] [--pr-number <n>]
+  [--confirm-pr-comment-write]
+  [--api-base-url <url>] [--json]`.
+  Mutually exclusive with `--dry-run`;
+  passing both or neither is exit 1.
+  Reads `process.env` (`GITHUB_TOKEN`,
+  `GITHUB_REPOSITORY`,
+  `GITHUB_PR_NUMBER` / `PR_NUMBER`,
+  `REKON_PR_COMMENTS`,
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED`,
+  event context) only in the `--send`
+  branch. Refuses unless the readiness
+  assessor returns
+  `ready: true`. Exit 0 on API success
+  regardless of underlying proof status;
+  exit 1 on readiness failure or API
+  error.
+
+  **Workflow template update:**
+  [`docs/examples/workflows/rekon-pr-comment-send.yml`](../examples/workflows/rekon-pr-comment-send.yml)
+  now declares a required
+  `workflow_dispatch` input
+  `pr-number` and runs both
+  `publish pr-comment --dry-run` (as a
+  preview) AND
+  `publish pr-comment --send
+  --confirm-pr-comment-write` (the
+  actual write).
+
+  **Validator profile update:** the
+  `github-pr-comment-send` profile now
+  REQUIRES the `--send` step + the
+  `--confirm-pr-comment-write` flag.
+  New issue codes:
+  `missing-publish-pr-comment-send`,
+  `missing-confirm-pr-comment-write-flag`.
+  The previously emitted
+  `forbidden-publish-pr-comment-send`
+  code has been retired (the writer
+  shipped). New mode value:
+  `pr-comment-send`. New summary field:
+  `hasConfirmPrCommentWriteFlag`.
+
+  **Pinned reminders carried forward:**
+  - PR comments are not canonical truth;
+    Rekon artifacts remain canonical.
+  - The idempotency marker is not proof;
+    it is only an update-in-place handle.
+  - Forked PRs remain denied by default.
+  - `pull_request_target` remains denied
+    unconditionally.
+  - The token never appears in stdout /
+    stderr or in errors (sentinel-token
+    contract test pins this).
+
+  **Tests:** new contract suite
+  `tests/contract/pr-comment-send-cli.test.mjs`
+  with 19 tests using a local `node:http`
+  fake server + `--api-base-url`
+  redirection. Covers readiness gates,
+  pagination walks, PATCH-on-marker /
+  POST-on-miss, sanitized errors,
+  sentinel-token leak prevention,
+  dry-run still no-token / no-network,
+  artifact index byte-identical before /
+  after `--send`, exit 0 on proof
+  failed / stale. Validator contract
+  suite extended (now 57 tests). New
+  docs suite
+  `tests/docs/pr-comment-send-cli.test.mjs`
+  with 9 assertions. Full suite expected
+  ≥ 1492 passed / 1 skipped.
+
+  **Out-of-scope (deferred to step 7g):**
+  bounded retry / rate-limit backoff,
+  same-repo `pull_request` guard,
+  hosted publisher, PR-review endpoints
+  (rejected by Option C in the go/no-go
+  review).
 - **PR comment API writer go/no-go
   review (P1.1
   pr-comment-api-writer-go-no-go-review

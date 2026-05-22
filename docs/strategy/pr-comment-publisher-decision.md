@@ -546,13 +546,29 @@ If the Option-B path is approved:
    `REKON_PR_COMMENTS=1` +
    `REKON_PR_COMMENTS_WRITE_CONFIRMED=1` + trusted
    event context + explicit write confirmation.
-6. **PR comment send API write** (future slice,
-   step 7f). Recommended by the 7e go/no-go review.
-   Adds the actual `--send` mode behind the
-   readiness gate. Update-in-place logic. Sanitized
-   errors. Sentinel-token contract test. No raw log
-   content. `--api-base-url` flag for fake-API
-   contract tests.
+6. **PR comment API writer** (step 7f). ✅ Shipped.
+   Adds `publishPrCommentRun(input)` to
+   `@rekon/capability-docs` (parallel to
+   `publishGitHubCheckRun`) using GitHub's issue-
+   comments REST endpoints
+   (`GET/POST /repos/{owner}/{repo}/issues/{n}/comments`,
+   `PATCH /repos/{owner}/{repo}/issues/comments/{id}`).
+   Adds `rekon publish pr-comment --send` CLI mode
+   gated on readiness + explicit write
+   confirmation. Update-in-place via the
+   `<!-- rekon:pr-comment:v1 -->` marker (PATCH on
+   marker match; POST when no match; never delete
+   reviewer-touched comments). Paginates with a
+   bounded 20-page cap. Sanitized errors
+   (`{ status, message, documentationUrl }` only;
+   token never echoed). Built-in `fetch`; no
+   third-party network client. Sentinel-token
+   contract test pins the no-token-leak invariant.
+   `--api-base-url` flag enables fake-API contract
+   tests. The validator's `github-pr-comment-send`
+   profile now requires both the dry-run preview
+   step and the `--send` step (with
+   `--confirm-pr-comment-write`).
 7. **PR comment safety review** (step 7g). Only if
    7f ships. Walks the full publishing path end-to-
    end, parallel to the GitHub Check publisher

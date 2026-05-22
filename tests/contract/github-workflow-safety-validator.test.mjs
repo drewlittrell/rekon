@@ -588,13 +588,14 @@ test("github-pr-comment-send profile validates the bundled PR comment template",
   const report = validateGitHubWorkflowSafety({ path: prCommentWorkflowPath, content, profile: "github-pr-comment-send" });
   assert.equal(report.valid, true, `unexpected issues: ${JSON.stringify(report.issues, null, 2)}`);
   assert.equal(report.profile, "github-pr-comment-send");
-  assert.equal(report.mode, "pr-comment-dry-run");
+  assert.equal(report.mode, "pr-comment-send");
   assert.equal(report.summary.hasPullRequestsWrite, true);
   assert.equal(report.summary.hasChecksWrite, false);
   assert.equal(report.summary.hasRekonPrCommentsOptIn, true);
   assert.equal(report.summary.hasPrCommentsWriteConfirmation, true);
   assert.equal(report.summary.hasPublishPrCommentDryRun, true);
-  assert.equal(report.summary.hasPublishPrCommentSend, false);
+  assert.equal(report.summary.hasPublishPrCommentSend, true);
+  assert.equal(report.summary.hasConfirmPrCommentWriteFlag, true);
   assert.equal(report.summary.hasPrCommentMarkerReminder, true);
 });
 
@@ -630,16 +631,22 @@ test("github-pr-comment-send profile requires publish pr-comment --dry-run step"
   assert.ok(report.issues.some((issue) => issue.code === "missing-publish-pr-comment-dry-run"));
 });
 
-test("github-pr-comment-send profile rejects publish pr-comment --send", async () => {
+test("github-pr-comment-send profile requires publish pr-comment --send step", async () => {
   const content = await readFile(prCommentWorkflowPath, "utf8");
-  // Inject a stray --send step alongside the dry-run preview.
-  const withSend = content.replace(
-    /node packages\/cli\/dist\/index\.js publish pr-comment \\\n\s*--root \. \\\n\s*--dry-run \\\n\s*--json/,
-    "node packages/cli/dist/index.js publish pr-comment --root . --dry-run --json\n          node packages/cli/dist/index.js publish pr-comment --root . --send --json",
-  );
-  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: withSend, profile: "github-pr-comment-send" });
+  // Strip the --send invocation entirely; only the dry-run
+  // preview remains.
+  const noSend = content.replace(/publish\s+pr-comment[\s\S]*?--send[\s\S]*?--json/g, "publish pr-comment --noop");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noSend, profile: "github-pr-comment-send" });
   assert.equal(report.valid, false);
-  assert.ok(report.issues.some((issue) => issue.code === "forbidden-publish-pr-comment-send"));
+  assert.ok(report.issues.some((issue) => issue.code === "missing-publish-pr-comment-send"));
+});
+
+test("github-pr-comment-send profile requires --confirm-pr-comment-write flag", async () => {
+  const content = await readFile(prCommentWorkflowPath, "utf8");
+  const noConfirmFlag = content.replace(/--confirm-pr-comment-write/g, "");
+  const report = validateGitHubWorkflowSafety({ path: "synthetic.yml", content: noConfirmFlag, profile: "github-pr-comment-send" });
+  assert.equal(report.valid, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-confirm-pr-comment-write-flag"));
 });
 
 test("github-pr-comment-send profile rejects pull_request_target", async () => {

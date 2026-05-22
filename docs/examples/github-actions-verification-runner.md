@@ -1018,34 +1018,32 @@ Every rendered body **excludes**:
 
 **Actual PR comment posting remains future work.**
 
-## Optional: preview a PR comment workflow
+## Optional: post a PR comment workflow
 
-The PR Comment Publisher API Decision Gate
-([`docs/strategy/pr-comment-publisher-api-decision-gate.md`](../strategy/pr-comment-publisher-api-decision-gate.md))
-chose **Option C**: build the workflow / validator
-profile boundary before any API writer ships. That
-slice is now landed.
+Step 7f (the
+[PR Comment API Writer](../strategy/pr-comment-api-writer-go-no-go-review.md))
+shipped `rekon publish pr-comment --send` —
+Rekon's first GitHub PR-comment write surface.
+The bundled template now wires both the dry-run
+preview AND the actual send call.
 
-To **preview a copyable workflow** that wires
-`publish pr-comment --dry-run` with the future
-`pull-requests: write` boundary in place — but
-still **does not post a comment** — copy the
-template at
+To adopt, copy
 [`docs/examples/workflows/rekon-pr-comment-send.yml`](workflows/rekon-pr-comment-send.yml)
 into your own repo's `.github/workflows/`
-directory.
+directory and trigger it from the Actions tab with
+the PR number you want to comment on.
 
-This template is the **first** Rekon workflow
+This template is the **only** Rekon workflow
 template that requests `pull-requests: write`. Read
 the alpha read-only / GitHub Check workflows first
-(adopt one of them) before considering this one.
+(adopt one of them) before adding PR comments.
 
 The template is intentionally narrower than the
 GitHub Check opt-in template:
 
-- **Triggers:** `workflow_dispatch` only. No
-  `pull_request` trigger by default; no
-  `pull_request_target` ever.
+- **Triggers:** `workflow_dispatch` only with a
+  required `pr-number` input. No `pull_request`
+  trigger; no `pull_request_target` ever.
 - **Permissions:** `contents: read` +
   `pull-requests: write` only. No other GitHub
   write scopes — and `checks: write` is
@@ -1054,54 +1052,54 @@ GitHub Check opt-in template:
 - **Required env (workflow-level):**
   - `REKON_PR_COMMENTS: "1"`
   - `REKON_PR_COMMENTS_WRITE_CONFIRMED: "1"`
-- **Required dry-run step:**
-  `publish pr-comment --dry-run`.
-- **Forbidden step:**
-  `publish pr-comment --send` — the API writer is
-  not implemented yet; the validator refuses
-  workflows that include `--send`.
+- **Required steps:**
+  - `publish pr-comment --dry-run` (preview),
+  - `publish pr-comment --send --confirm-pr-comment-write --pr-number ...`
+    (actual write).
 - **Validator:** after copying, run
   `rekon verify github-workflow validate --path
   .github/workflows/<your-copy>.yml --profile
   github-pr-comment-send --json`. The
   `github-pr-comment-send` profile permits
   `pull-requests: write` only, requires the Rekon
-  opt-in env vars + the dry-run step, and refuses
-  every other write scope, the `pull_request`
-  trigger, `pull_request_target`, and any
-  `publish pr-comment --send` invocation.
+  opt-in env vars + both the dry-run step and the
+  `--send` step with `--confirm-pr-comment-write`,
+  and refuses every other write scope plus the
+  `pull_request` trigger and
+  `pull_request_target`.
 
-The
-[PR Comment API Writer Go/No-Go Review](../strategy/pr-comment-api-writer-go-no-go-review.md)
-(step 7e) has now reviewed the full pre-API path
-and recommends **Go (Option B)**: proceed to
-`rekon publish pr-comment --send` using GitHub
-issue comments, update-in-place by
-`<!-- rekon:pr-comment:v1 -->`, gated by the env
-vars above + trusted event context + explicit write
-confirmation. The writer slice (step 7f) is the
-next batch — it does not ship in this slice. Until
-7f lands, this template still **does not post a
-comment**.
+### How the send works
 
-**What the PR comment template still does not
-do:**
+`rekon publish pr-comment --send` uses GitHub's
+**issue-comments API** (PR timeline comments are
+issue comments under the hood). The CLI:
 
-- Does not post or update a PR comment. The API
-  writer (`publish pr-comment --send`) is not
-  implemented; the
-  [PR Comment API Writer Go/No-Go Review](../strategy/pr-comment-api-writer-go-no-go-review.md)
-  has recommended proceeding to step 7f, but no
-  posting code ships in this slice.
-- Does not call any GitHub API.
-- Does not read `GITHUB_TOKEN` (the dry-run CLI
-  receives an empty env map).
-- Does not request `issues: write`,
-  `id-token: write`, or any other GitHub write
-  scope.
-- Does not auto-resolve findings.
-- Does not auto-apply reconciliation.
-- Does not upload raw logs.
+1. **Lists** existing PR timeline comments via
+   `GET /repos/{owner}/{repo}/issues/{n}/comments`,
+   paginated (`per_page=100`, bounded at 20
+   pages).
+2. **Filters** by the idempotency marker
+   `<!-- rekon:pr-comment:v1 -->`.
+3. **PATCHes** the first marker-bearing comment
+   in place via
+   `PATCH /repos/{owner}/{repo}/issues/comments/{id}`,
+   OR
+4. **POSTs** a new comment via
+   `POST /repos/{owner}/{repo}/issues/{n}/comments`
+   when no marker match is found.
+
+The send **never deletes** reviewer-touched
+comments, **never echoes the token** in stdout /
+stderr / errors, and **never mutates Rekon
+artifacts**. The artifact index is byte-identical
+before and after a `--send` run.
+
+**Exit codes:**
+- exit `0` on API success regardless of underlying
+  proof status (the CLI op succeeded; the comment
+  body describes the proof state);
+- exit `1` on readiness failure or API error
+  (sanitized: `{ status, message, documentationUrl }`).
 
 **Pinned reminders the template carries forward:**
 
@@ -1109,6 +1107,22 @@ do:**
   artifacts remain canonical.`
 - `The PR comment marker is an idempotency
   handle, not proof.`
+
+**What the PR comment template still does not
+do:**
+
+- Does not call any GitHub API other than the
+  bounded issue-comments endpoints.
+- Does not request `issues: write`,
+  `id-token: write`, or any other GitHub write
+  scope.
+- Does not auto-resolve findings.
+- Does not auto-apply reconciliation.
+- Does not upload raw logs.
+- Does not run on `pull_request` or
+  `pull_request_target` triggers (forked PRs
+  remain denied by default at the workflow,
+  validator, and runtime readiness layers).
 
 The Rekon repository itself does **not** install
 this workflow.

@@ -534,7 +534,7 @@ cross-references.
 | 7c | API Implementation Decision Gate (**this memo**) | ✅ Shipped |
 | 7d | PR comment workflow / validator profile + opt-in template | ✅ Shipped |
 | 7e | [PR Comment API Writer Go/No-Go Review](pr-comment-api-writer-go-no-go-review.md) | ✅ Shipped |
-| 7f | PR comment API writer (`publish pr-comment --send`) | Future; recommended by the 7e go/no-go review |
+| 7f | PR comment API writer (`publish pr-comment --send`) | ✅ Shipped |
 | 7g | PR comment safety review | Future; only if 7f ships |
 
 The 7d slice (next, if approved) ships:

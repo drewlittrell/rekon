@@ -9,16 +9,19 @@ import docsCapability, {
   GitHubCheckPublishError,
   PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER,
   PR_COMMENT_PUBLISHER_MARKER,
+  PrCommentPublishError,
   assessGitHubCheckPublisherReadiness,
   assessPrCommentPublisherReadiness,
   buildGitHubCheckPayload,
   buildPrCommentBody,
   publishGitHubCheckRun,
+  publishPrCommentRun,
   type GitHubCheckPublishResult,
   type GitHubCheckPublisherReadiness,
   type GitHubCheckPublisherReadinessEvent,
   type GitHubCheckPublisherRunStatus,
   type PrCommentBody,
+  type PrCommentPublishResult,
   type PrCommentPublisherReadiness,
   type PrCommentPublisherReadinessEvent,
 } from "@rekon/capability-docs";
@@ -608,40 +611,56 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "publish" && subcommand === "pr-comment") {
-    // Step 7b of the CI / GitHub adapter implementation
-    // sequence pinned by
-    // docs/strategy/pr-comment-publisher-decision.md.
+    // Step 7b (`--dry-run`) and step 7f (`--send`) of the CI /
+    // GitHub adapter implementation sequence pinned by
+    // docs/strategy/pr-comment-publisher-decision.md,
+    // docs/strategy/pr-comment-publisher-api-decision-gate.md,
+    // and docs/strategy/pr-comment-api-writer-go-no-go-review.md.
     //
-    // Local-only dry-run renderer. The command reads local
-    // Rekon artifacts, builds the PR comment markdown body
-    // via `buildPrCommentBody`, evaluates `assessPrComment
-    // PublisherReadiness`, and prints both. **This command
-    // never calls GitHub.** It does not authenticate, does
-    // not read `GITHUB_TOKEN`, and imports no network
-    // client.
+    // The command supports two mutually exclusive modes:
     //
-    // `--dry-run` is **required** in this slice so operators
-    // cannot accidentally invoke a not-yet-built publish
-    // path. The actual PR comment API write is gated by its
-    // own future decision memo.
+    // - `--dry-run`: reads local Rekon artifacts, builds the
+    //   PR comment markdown body via `buildPrCommentBody`,
+    //   evaluates `assessPrCommentPublisherReadiness`, and
+    //   prints both. **Never calls GitHub.** **Never reads
+    //   `GITHUB_TOKEN`** — the readiness assessor receives an
+    //   empty env map.
+    // - `--send`: reads local Rekon artifacts AND reads
+    //   `process.env` (GITHUB_TOKEN, GITHUB_REPOSITORY,
+    //   GITHUB_PR_NUMBER / PR_NUMBER, REKON_PR_COMMENTS,
+    //   event context, write-permission confirmation), runs
+    //   the readiness gate, and — only when ready —
+    //   list-then-PATCH-or-POSTs a Rekon-owned PR timeline
+    //   comment via `publishPrCommentRun`. Update-in-place
+    //   via the marker `<!-- rekon:pr-comment:v1 -->`.
+    //
+    // Exactly one of `--dry-run` / `--send` is required;
+    // passing both is exit 1. The send path NEVER leaks the
+    // token in error messages.
     const dryRun = parsed.flags["dry-run"] === true;
-    const forbiddenWriteFlags: Array<keyof typeof parsed.flags> = [
-      "send",
+    const send = parsed.flags["send"] === true;
+    const forbiddenAliases: Array<keyof typeof parsed.flags> = [
       "publish",
       "execute",
     ];
 
-    for (const flag of forbiddenWriteFlags) {
+    for (const flag of forbiddenAliases) {
       if (parsed.flags[flag] === true) {
         throw new Error(
-          `rekon publish pr-comment does not support --${String(flag)} yet. The PR comment API write is deferred. See docs/strategy/pr-comment-publisher-decision.md.`,
+          `rekon publish pr-comment does not support --${String(flag)}. Use --dry-run or --send. See docs/strategy/pr-comment-api-writer-go-no-go-review.md.`,
         );
       }
     }
 
-    if (!dryRun) {
+    if (!dryRun && !send) {
       throw new Error(
-        "rekon publish pr-comment requires --dry-run. The actual PR comment API write is not yet implemented. See docs/strategy/pr-comment-publisher-decision.md.",
+        "rekon publish pr-comment requires either --dry-run or --send. See docs/strategy/pr-comment-api-writer-go-no-go-review.md.",
+      );
+    }
+
+    if (dryRun && send) {
+      throw new Error(
+        "rekon publish pr-comment: --dry-run and --send are mutually exclusive. Choose exactly one.",
       );
     }
 
@@ -690,16 +709,6 @@ export async function main(argv: string[]): Promise<void> {
       artifactsValid,
     });
 
-    // Readiness assessor receives an empty env map + a
-    // workflow_dispatch event. The dry-run path NEVER reads
-    // GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_PR_NUMBER, etc.
-    // — those reads belong to the (still-future) send mode.
-    const readiness: PrCommentPublisherReadiness = assessPrCommentPublisherReadiness({
-      env: {},
-      event: { name: "workflow_dispatch" },
-      writePermissionConfirmed: false,
-    });
-
     const citedRefs: Record<string, string | undefined> = {
       verificationResult: verificationResultRef ? `${verificationResultRef.type}:${verificationResultRef.id}` : undefined,
       verificationRun: verificationRunRef ? `${verificationRunRef.type}:${verificationRunRef.id}` : undefined,
@@ -709,42 +718,183 @@ export async function main(argv: string[]): Promise<void> {
       agentContract: agentContractRef ? `${agentContractRef.type}:${agentContractRef.id}` : undefined,
     };
 
-    const output: PrCommentDryRunOutput = {
-      kind: "rekon.pr-comment.dry-run",
-      dryRun: true,
-      wouldPublish: false,
+    if (dryRun) {
+      // Dry-run branch — step 7b. **No token read, no network
+      // call.** Readiness uses an explicitly empty env map so
+      // `GITHUB_TOKEN` is never consulted.
+      const readiness: PrCommentPublisherReadiness = assessPrCommentPublisherReadiness({
+        env: {},
+        event: { name: "workflow_dispatch" },
+        writePermissionConfirmed: false,
+      });
+
+      const output: PrCommentDryRunOutput = {
+        kind: "rekon.pr-comment.dry-run",
+        dryRun: true,
+        wouldPublish: false,
+        readiness,
+        comment: {
+          marker: comment.marker,
+          markdown: comment.markdown,
+          summary: comment.summary,
+        },
+        citedRefs,
+        canonicalTruthReminder: PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+      };
+
+      if (json) {
+        writeOutput(output, true);
+      } else {
+        const lines: string[] = [];
+        lines.push("PR comment publisher dry-run");
+        lines.push("");
+        lines.push(`Readiness: ${readiness.ready ? "ready" : "not ready"}`);
+        if (readiness.issues.length > 0) {
+          lines.push("Issues:");
+          for (const issue of readiness.issues) {
+            lines.push(`- ${issue.code}: ${issue.message}`);
+          }
+        }
+        lines.push("");
+        lines.push("Comment preview:");
+        lines.push(comment.markdown);
+        lines.push("");
+        lines.push("No GitHub API call was made.");
+        lines.push("No PR comment was posted.");
+        writeOutput(lines.join("\n"), false);
+      }
+
+      return;
+    }
+
+    // Send branch (`--send`) — step 7f.
+    //
+    // Below is the **only** code path in the PR comment CLI
+    // that reads `process.env.GITHUB_TOKEN`. The dry-run
+    // branch never reaches this code.
+    const sendEnv = collectPrCommentSendEnv(process.env);
+    const event = resolvePrCommentEventFromEnv(process.env);
+    const confirmFlag = parsed.flags["confirm-pr-comment-write"] === true;
+    const envConfirm = isTruthyFlag(process.env.REKON_PR_COMMENTS_WRITE_CONFIRMED);
+    const writePermissionConfirmed = confirmFlag || envConfirm;
+    const apiBaseUrl = typeof parsed.flags["api-base-url"] === "string"
+      ? parsed.flags["api-base-url"] as string
+      : undefined;
+
+    // PR number: prefer the --pr-number flag, then env
+    // (`GITHUB_PR_NUMBER` / `PR_NUMBER`). The env reads are
+    // wired through `collectPrCommentSendEnv` so the readiness
+    // assessor sees a consistent env map.
+    const prNumberFlag = parsed.flags["pr-number"];
+    if (typeof prNumberFlag === "string" && prNumberFlag.trim() !== "") {
+      sendEnv.GITHUB_PR_NUMBER = prNumberFlag.trim();
+    } else if (typeof prNumberFlag === "number") {
+      sendEnv.GITHUB_PR_NUMBER = String(prNumberFlag);
+    }
+
+    const readiness: PrCommentPublisherReadiness = assessPrCommentPublisherReadiness({
+      env: sendEnv,
+      event,
+      writePermissionConfirmed,
+    });
+
+    if (!readiness.ready) {
+      // No network call. The readiness payload includes the
+      // issue list so operators can see exactly what is
+      // missing. Exit 1 because the operator asked for
+      // --send and we cannot fulfil it.
+      const output: PrCommentSendOutput = {
+        kind: "rekon.pr-comment.send",
+        sent: false,
+        reason: "readiness-failed",
+        readiness,
+        comment: {
+          marker: comment.marker,
+          summary: comment.summary,
+        },
+        citedRefs,
+        canonicalTruthReminder: PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+      };
+
+      writeOutput(output, json);
+
+      if (!json) {
+        process.stderr.write(
+          `rekon publish pr-comment --send: refusing to publish. Readiness issues:\n${
+            readiness.issues.map((issue) => `  - ${issue.code}: ${issue.message}`).join("\n")
+          }\n`,
+        );
+      }
+
+      process.exitCode = 1;
+      return;
+    }
+
+    const prNumberRaw = sendEnv.GITHUB_PR_NUMBER ?? sendEnv.PR_NUMBER ?? "";
+    const issueNumber = Number.parseInt(String(prNumberRaw), 10);
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      // Defensive: readiness already required a PR number,
+      // but parse it explicitly here so the API helper never
+      // sees a malformed value.
+      process.stderr.write(
+        `rekon publish pr-comment --send: PR number ${JSON.stringify(prNumberRaw)} is not a positive integer. Refusing to call the GitHub PR comments API.\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    let github: PrCommentPublishResult;
+    try {
+      github = await publishPrCommentRun({
+        token: sendEnv.GITHUB_TOKEN as string,
+        repository: sendEnv.GITHUB_REPOSITORY as string,
+        issueNumber,
+        body: comment.markdown,
+        apiBaseUrl,
+      });
+    } catch (cause) {
+      const sanitized = sanitizePrCommentSendError(cause);
+      if (json) {
+        const output: PrCommentSendOutput = {
+          kind: "rekon.pr-comment.send",
+          sent: false,
+          reason: "api-error",
+          readiness,
+          comment: {
+            marker: comment.marker,
+            summary: comment.summary,
+          },
+          citedRefs,
+          error: sanitized,
+          canonicalTruthReminder: PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER,
+        };
+        writeOutput(output, true);
+      } else {
+        process.stderr.write(
+          `rekon publish pr-comment --send: GitHub PR comments API error (status ${sanitized.status}): ${sanitized.message}\n${
+            sanitized.documentationUrl ? `Docs: ${sanitized.documentationUrl}\n` : ""
+          }`,
+        );
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    const output: PrCommentSendOutput = {
+      kind: "rekon.pr-comment.send",
+      sent: true,
+      action: github.action,
       readiness,
       comment: {
         marker: comment.marker,
-        markdown: comment.markdown,
         summary: comment.summary,
       },
       citedRefs,
+      github,
       canonicalTruthReminder: PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER,
     };
 
-    if (json) {
-      writeOutput(output, true);
-    } else {
-      const lines: string[] = [];
-      lines.push("PR comment publisher dry-run");
-      lines.push("");
-      lines.push(`Readiness: ${readiness.ready ? "ready" : "not ready"}`);
-      if (readiness.issues.length > 0) {
-        lines.push("Issues:");
-        for (const issue of readiness.issues) {
-          lines.push(`- ${issue.code}: ${issue.message}`);
-        }
-      }
-      lines.push("");
-      lines.push("Comment preview:");
-      lines.push(comment.markdown);
-      lines.push("");
-      lines.push("No GitHub API call was made.");
-      lines.push("No PR comment was posted.");
-      writeOutput(lines.join("\n"), false);
-    }
-
+    writeOutput(output, json);
     return;
   }
 
@@ -4007,6 +4157,22 @@ type PrCommentDryRunOutput = {
   canonicalTruthReminder: typeof PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER;
 };
 
+type PrCommentSendOutput = {
+  kind: "rekon.pr-comment.send";
+  sent: boolean;
+  action?: "created" | "updated";
+  reason?: "readiness-failed" | "api-error";
+  readiness: PrCommentPublisherReadiness;
+  comment: {
+    marker: typeof PR_COMMENT_PUBLISHER_MARKER;
+    summary: PrCommentBody["summary"];
+  };
+  citedRefs: Record<string, string | undefined>;
+  github?: PrCommentPublishResult;
+  error?: { status: number; message: string; documentationUrl?: string };
+  canonicalTruthReminder: typeof PR_COMMENT_PUBLISHER_CANONICAL_TRUTH_REMINDER;
+};
+
 const GITHUB_CHECK_SEND_ENV_KEYS = [
   "REKON_GITHUB_CHECKS",
   "REKON_GITHUB_CHECKS_WRITE_CONFIRMED",
@@ -4079,6 +4245,65 @@ function sanitizeGitHubCheckSendError(
   cause: unknown,
 ): { status: number; message: string; documentationUrl?: string } {
   if (cause instanceof GitHubCheckPublishError) {
+    return {
+      status: cause.status,
+      message: cause.message,
+      documentationUrl: cause.documentationUrl,
+    };
+  }
+  if (cause instanceof Error) {
+    return { status: 0, message: cause.message };
+  }
+  return { status: 0, message: String(cause ?? "unknown error") };
+}
+
+const PR_COMMENT_SEND_ENV_KEYS = [
+  "REKON_PR_COMMENTS",
+  "REKON_PR_COMMENTS_WRITE_CONFIRMED",
+  "GITHUB_TOKEN",
+  "GITHUB_REPOSITORY",
+  "GITHUB_PR_NUMBER",
+  "PR_NUMBER",
+  "GITHUB_EVENT_NAME",
+  "GITHUB_SERVER_URL",
+  "GITHUB_RUN_ID",
+  "GITHUB_RUN_ATTEMPT",
+] as const;
+
+function collectPrCommentSendEnv(
+  env: NodeJS.ProcessEnv,
+): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const key of PR_COMMENT_SEND_ENV_KEYS) {
+    out[key] = env[key];
+  }
+  return out;
+}
+
+function resolvePrCommentEventFromEnv(
+  env: NodeJS.ProcessEnv,
+): PrCommentPublisherReadinessEvent {
+  const name = env.GITHUB_EVENT_NAME?.trim() || "workflow_dispatch";
+  // Parallel posture to the GitHub Check publisher: any
+  // `pull_request` event without explicit operator override is
+  // treated as fork-suspicious. `pull_request_target` is
+  // refused unconditionally by the readiness assessor.
+  let pullRequestIsFork: boolean | undefined;
+  if (name === "pull_request" || name === "pull_request_target") {
+    const explicit = env.REKON_PR_COMMENTS_PR_IS_FORK;
+    if (explicit === undefined) {
+      pullRequestIsFork = true;
+    } else {
+      pullRequestIsFork = isTruthyFlag(explicit);
+    }
+  }
+  return { name, pullRequestIsFork };
+}
+
+function sanitizePrCommentSendError(
+  cause: unknown,
+): { status: number; message: string; documentationUrl?: string } {
+  if (cause instanceof PrCommentPublishError) {
     return {
       status: cause.status,
       message: cause.message,
@@ -5500,7 +5725,8 @@ export type GitHubWorkflowSafetyIssueCode =
   | "missing-rekon-pr-comments-opt-in"
   | "missing-pr-comments-write-confirmation"
   | "missing-publish-pr-comment-dry-run"
-  | "forbidden-publish-pr-comment-send"
+  | "missing-publish-pr-comment-send"
+  | "missing-confirm-pr-comment-write-flag"
   | "missing-pr-comment-marker-reminder"
   | "pull-request-trigger-disallowed"
   | "unknown-mode";
@@ -5517,6 +5743,7 @@ export type GitHubWorkflowSafetyMode =
   | "dry-run"
   | "check-send"
   | "pr-comment-dry-run"
+  | "pr-comment-send"
   | "unknown";
 
 export type GitHubWorkflowSafetyProfile =
@@ -5556,6 +5783,7 @@ export type GitHubWorkflowSafetyReport = {
     hasPrCommentsWriteConfirmation: boolean;
     hasPublishPrCommentDryRun: boolean;
     hasPublishPrCommentSend: boolean;
+    hasConfirmPrCommentWriteFlag: boolean;
     hasPrCommentMarkerReminder: boolean;
   };
 };
@@ -5652,10 +5880,13 @@ export function validateGitHubWorkflowSafety(
     if (hasPublishCheckSendCommand) mode = "check-send";
     else mode = "unknown";
   } else if (profile === "github-pr-comment-send") {
-    // The PR comment workflow template is dry-run only in step
-    // 7d. Mode reports `pr-comment-dry-run` when the dry-run
-    // command is present.
-    if (hasPublishPrCommentDryRunCommand) mode = "pr-comment-dry-run";
+    // Step 7f wired `publish pr-comment --send` into the
+    // bundled template; the validator now reports
+    // `pr-comment-send` when the send command is present and
+    // falls back to `pr-comment-dry-run` for legacy templates
+    // that still run the dry-run preview only.
+    if (hasPublishPrCommentSendCommand) mode = "pr-comment-send";
+    else if (hasPublishPrCommentDryRunCommand) mode = "pr-comment-dry-run";
     else mode = "unknown";
   } else {
     if (hasExecute && !hasDryRun) mode = "execute";
@@ -5678,9 +5909,9 @@ export function validateGitHubWorkflowSafety(
         code: "unknown-mode",
         severity: "error",
         message:
-          "Workflow does not invoke `rekon publish pr-comment --dry-run`.",
+          "Workflow does not invoke `rekon publish pr-comment --send`.",
         recommendedFix:
-          "Add a step that runs `rekon publish pr-comment --dry-run --json` after the proof loop. The PR comment API writer (`--send`) is not yet implemented.",
+          "Add a step that runs `rekon publish pr-comment --send --confirm-pr-comment-write --pr-number <n> --json` after the dry-run preview step.",
       });
     } else {
       issues.push({
@@ -5960,6 +6191,7 @@ export function validateGitHubWorkflowSafety(
     /REKON_PR_COMMENTS:\s*["']?(?:1|true)["']?/i.test(yaml);
   const hasPrCommentsWriteConfirmation =
     /REKON_PR_COMMENTS_WRITE_CONFIRMED:\s*["']?(?:1|true)["']?/i.test(yaml);
+  const hasConfirmPrCommentWriteFlag = /--confirm-pr-comment-write\b/.test(yaml);
   // The marker-not-proof reminder is required so the operator
   // copy of the template carries an explicit statement that the
   // idempotency marker is not canonical truth.
@@ -6045,19 +6277,29 @@ export function validateGitHubWorkflowSafety(
         code: "missing-publish-pr-comment-dry-run",
         severity: "error",
         message:
-          "Workflow does not invoke `rekon publish pr-comment --dry-run`. The `github-pr-comment-send` profile requires the dry-run preview step because the API writer (`--send`) is not yet implemented.",
+          "Workflow does not invoke `rekon publish pr-comment --dry-run`. The `github-pr-comment-send` profile requires the dry-run preview step before the send call so reviewers can audit the payload + readiness.",
         recommendedFix:
-          "Add a step that runs `node packages/cli/dist/index.js publish pr-comment --root . --dry-run --json` after the proof loop.",
+          "Add a step that runs `node packages/cli/dist/index.js publish pr-comment --root . --dry-run --json` before the send step.",
       });
     }
-    if (hasPublishPrCommentSendCommand) {
+    if (!hasPublishPrCommentSendCommand) {
       issues.push({
-        code: "forbidden-publish-pr-comment-send",
+        code: "missing-publish-pr-comment-send",
         severity: "error",
         message:
-          "Workflow invokes `rekon publish pr-comment --send`. The PR comment API writer is not implemented yet; the `github-pr-comment-send` profile refuses workflows that include `--send`.",
+          "Workflow does not invoke `rekon publish pr-comment --send`. The `github-pr-comment-send` profile requires it (step 7f shipped the writer).",
         recommendedFix:
-          "Remove the `publish pr-comment --send` step. The current opt-in template is dry-run only; the API writer ships in a future slice with its own go/no-go review.",
+          "Add a step that runs `node packages/cli/dist/index.js publish pr-comment --root . --send --confirm-pr-comment-write --pr-number <n> --json` after the dry-run step.",
+      });
+    }
+    if (hasPublishPrCommentSendCommand && !hasConfirmPrCommentWriteFlag) {
+      issues.push({
+        code: "missing-confirm-pr-comment-write-flag",
+        severity: "error",
+        message:
+          "Workflow invokes `publish pr-comment --send` without `--confirm-pr-comment-write`. The send CLI refuses to run without explicit pr-comment-write confirmation.",
+        recommendedFix:
+          "Pass `--confirm-pr-comment-write` to the `publish pr-comment --send` invocation, or set `REKON_PR_COMMENTS_WRITE_CONFIRMED=1` at the workflow / job env level (the bundled template does both for defense in depth).",
       });
     }
     if (!hasPrCommentMarkerReminder) {
@@ -6106,6 +6348,7 @@ export function validateGitHubWorkflowSafety(
       hasPrCommentsWriteConfirmation,
       hasPublishPrCommentDryRun: hasPublishPrCommentDryRunCommand,
       hasPublishPrCommentSend: hasPublishPrCommentSendCommand,
+      hasConfirmPrCommentWriteFlag,
       hasPrCommentMarkerReminder,
     },
   };
@@ -6146,7 +6389,8 @@ function renderGitHubWorkflowSafetyHuman(report: GitHubWorkflowSafetyReport): st
     check("REKON_PR_COMMENTS opt-in", report.summary.hasRekonPrCommentsOptIn);
     check("REKON_PR_COMMENTS_WRITE_CONFIRMED", report.summary.hasPrCommentsWriteConfirmation);
     check("publish pr-comment --dry-run step", report.summary.hasPublishPrCommentDryRun);
-    check("no publish pr-comment --send step", !report.summary.hasPublishPrCommentSend);
+    check("publish pr-comment --send step", report.summary.hasPublishPrCommentSend);
+    check("--confirm-pr-comment-write flag", report.summary.hasConfirmPrCommentWriteFlag);
     check("no pull_request trigger", !report.summary.hasPullRequestTrigger);
   } else {
     check("no GitHub write permissions", !report.summary.hasWritePermissions);
@@ -6203,6 +6447,7 @@ function usage(): string {
     "rekon publish github-check --dry-run [--root <path>] [--json]",
     "rekon publish github-check --send [--root <path>] [--confirm-checks-write] [--api-base-url <url>] [--json]",
     "rekon publish pr-comment --dry-run [--root <path>] [--json]",
+    "rekon publish pr-comment --send [--root <path>] [--pr-number <n>] [--confirm-pr-comment-write] [--api-base-url <url>] [--json]",
     "rekon agent-contract export --output <path> [--force] [--root <path>] [--json]",
     "rekon publish list [--root <path>] [--json]",
     "rekon publish run <publisher-id> [--root <path>] [--input-json <json>] [--json]",

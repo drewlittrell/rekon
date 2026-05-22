@@ -1106,6 +1106,56 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PR comment API writer (P1.1 pr-comment-send-cli
+  slice): **step 7f** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment API Writer Go/No-Go Review](pr-comment-api-writer-go-no-go-review.md).
+  Adds Rekon's first GitHub PR-comment write
+  surface. New `publishPrCommentRun(input)` helper
+  in `@rekon/capability-docs` (parallel to
+  `publishGitHubCheckRun`) using GitHub's
+  issue-comments REST endpoints
+  (`GET/POST /repos/{owner}/{repo}/issues/{n}/comments`,
+  `PATCH /repos/{owner}/{repo}/issues/comments/{id}`).
+  New CLI mode `rekon publish pr-comment --send
+  [--root <path>] [--pr-number <n>]
+  [--confirm-pr-comment-write]
+  [--api-base-url <url>] [--json]` behind the
+  readiness gate. Update-in-place via the
+  `<!-- rekon:pr-comment:v1 -->` marker (PATCH on
+  match; POST on miss; never delete reviewer-
+  touched comments). Paginates with a bounded
+  20-page cap. Built-in `fetch`; no third-party
+  network client. Sanitized error class
+  `PrCommentPublishError`
+  (`{ status, message, documentationUrl }` only;
+  token never echoed). Sentinel-token contract
+  test pins no-token-leak. The bundled workflow
+  template adds a required `workflow_dispatch`
+  input `pr-number` and runs both the dry-run
+  preview AND the `--send` step. The
+  `github-pr-comment-send` validator profile now
+  requires the `--send` step + the
+  `--confirm-pr-comment-write` flag; new issue
+  codes `missing-publish-pr-comment-send` and
+  `missing-confirm-pr-comment-write-flag`; new
+  mode value `pr-comment-send`. Required
+  statements: PR comments are not canonical truth;
+  Rekon artifacts remain canonical; the
+  idempotency marker is not proof; forked PRs
+  remain denied by default;
+  `pull_request_target` remains denied
+  unconditionally. 19 new contract tests + 9 new
+  docs assertions. Artifact index byte-identical
+  before / after `--send`. Exit 0 on API success
+  regardless of proof status; exit 1 on readiness
+  fail or API error. Out-of-scope (deferred to
+  step 7g): bounded retry, same-repo
+  `pull_request` guard, hosted publisher,
+  PR-review endpoints. No `schemaVersion` bump.
+  No version bump. No npm publish.
 - PR comment API writer go/no-go review (P1.1
   pr-comment-api-writer-go-no-go-review slice):
   **step 7e** of the CI / GitHub adapter

@@ -68,7 +68,7 @@ Check path:
 | 7c | API Implementation Decision Gate | ✅ Shipped |
 | 7d | Workflow / validator profile | ✅ Shipped |
 | **7e** | **Go/no-go review (this memo)** | ✅ **Shipped** |
-| 7f | API writer (`publish pr-comment --send`) | Future; go if recommended |
+| 7f | API writer (`publish pr-comment --send`) | ✅ Shipped |
 | 7g | PR comment safety review | Future; if 7f ships |
 
 Skipping from 7d straight to a writer batch would
@@ -580,7 +580,7 @@ cross-references.
 | 7c | API Implementation Decision Gate | ✅ Shipped |
 | 7d | Workflow / validator profile | ✅ Shipped |
 | 7e | **Go/no-go review (this memo)** | ✅ **Shipped** |
-| 7f | API writer (`publish pr-comment --send`) | Next slice |
+| 7f | API writer (`publish pr-comment --send`) | ✅ Shipped |
 | 7g | PR comment safety review | After 7f |
 
 The 7f slice (next) ships:

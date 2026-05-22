@@ -347,32 +347,53 @@ test("`publish pr-comment --dry-run` does not surface GITHUB_TOKEN even when set
   });
 });
 
-// ---------- 14: refuses missing --dry-run ----------
+// ---------- 14: refuses missing --dry-run / --send ----------
+//
+// Step 7f added `--send` as the second mode. The CLI now
+// refuses when both are missing rather than only "requires
+// --dry-run".
 
-test("CLI refuses missing --dry-run", async () => {
+test("CLI refuses missing --dry-run / --send", async () => {
   await withFixture(async (root) => {
     const result = await runCli({
       args: ["publish", "pr-comment", "--root", root, "--json"],
       env: { PATH: process.env.PATH ?? "" },
     });
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /requires --dry-run/i);
+    assert.match(result.stderr, /requires either --dry-run or --send/i);
   });
 });
 
-// ---------- 15: refuses --send ----------
+// ---------- 15: refuses --publish / --execute aliases ----------
+//
+// Step 7f wired `--send` into the CLI as the actual API
+// writer mode; passing both `--dry-run` and `--send` is now
+// "mutually exclusive" rather than "deferred". The remaining
+// forbidden aliases are `--publish` and `--execute`; the CLI
+// refuses them outright.
 
-test("CLI refuses --send / --publish / --execute", async () => {
-  for (const flag of ["send", "publish", "execute"]) {
+test("CLI refuses --publish / --execute aliases", async () => {
+  for (const flag of ["publish", "execute"]) {
     await withFixture(async (root) => {
       const result = await runCli({
         args: ["publish", "pr-comment", "--dry-run", `--${flag}`, "--root", root, "--json"],
         env: { PATH: process.env.PATH ?? "" },
       });
       assert.equal(result.status, 1, `--${flag} should be refused`);
-      assert.match(result.stderr, /(does not support|is deferred)/i);
+      assert.match(result.stderr, /does not support/i);
     });
   }
+});
+
+test("CLI refuses --dry-run + --send (mutually exclusive)", async () => {
+  await withFixture(async (root) => {
+    const result = await runCli({
+      args: ["publish", "pr-comment", "--dry-run", "--send", "--root", root, "--json"],
+      env: { PATH: process.env.PATH ?? "" },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /mutually exclusive/i);
+  });
 });
 
 // ---------- 16: artifact index unchanged ----------

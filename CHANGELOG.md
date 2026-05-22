@@ -4,6 +4,138 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **PR comment API writer** (P1.1
+  pr-comment-send-cli slice). **Step 7f** of
+  the CI / GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment API Writer Go/No-Go Review](docs/strategy/pr-comment-api-writer-go-no-go-review.md).
+  Adds Rekon's first GitHub PR-comment write
+  surface.
+
+  **New helper:**
+  `publishPrCommentRun(input)` in
+  `@rekon/capability-docs` (parallel to
+  `publishGitHubCheckRun`). Uses Node's
+  built-in `fetch`; no third-party network
+  client. Lists existing PR timeline comments
+  via
+  `GET /repos/{owner}/{repo}/issues/{n}/comments`
+  paginated (`per_page=100`, bounded at 20
+  pages), filters by the marker
+  `<!-- rekon:pr-comment:v1 -->`, PATCHes the
+  first marker-bearing comment in place via
+  `PATCH /repos/{owner}/{repo}/issues/comments/{id}`
+  on match, or POSTs a new comment via
+  `POST /repos/{owner}/{repo}/issues/{n}/comments`
+  on miss. Never deletes reviewer-touched
+  comments. Bounded response-body reads (≤ 64
+  KiB). Sanitized error class
+  `PrCommentPublishError` carries
+  `{ status, message, documentationUrl }` —
+  the token never appears.
+
+  **New CLI mode:**
+  `rekon publish pr-comment --send
+  [--root <path>] [--pr-number <n>]
+  [--confirm-pr-comment-write]
+  [--api-base-url <url>] [--json]`.
+  Mutually exclusive with `--dry-run`. Reads
+  `process.env` (`GITHUB_TOKEN`,
+  `GITHUB_REPOSITORY`,
+  `GITHUB_PR_NUMBER` / `PR_NUMBER`,
+  `REKON_PR_COMMENTS`,
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED`,
+  event context) only in the `--send`
+  branch. Exit 0 on API success regardless
+  of underlying proof status; exit 1 on
+  readiness failure or API error.
+
+  **Workflow template update:**
+  [`docs/examples/workflows/rekon-pr-comment-send.yml`](docs/examples/workflows/rekon-pr-comment-send.yml)
+  now declares a required `workflow_dispatch`
+  input `pr-number` and runs both
+  `publish pr-comment --dry-run` (preview) and
+  `publish pr-comment --send
+  --confirm-pr-comment-write` (actual write).
+
+  **Validator profile update:** the
+  `github-pr-comment-send` profile now
+  REQUIRES the `--send` step + the
+  `--confirm-pr-comment-write` flag. New issue
+  codes: `missing-publish-pr-comment-send`,
+  `missing-confirm-pr-comment-write-flag`. The
+  previously emitted
+  `forbidden-publish-pr-comment-send` code has
+  been retired. New mode value:
+  `pr-comment-send`. New summary field:
+  `hasConfirmPrCommentWriteFlag`.
+
+  **Required statements pinned by the docs +
+  the docs test:**
+  - PR comments are not canonical truth; Rekon
+    artifacts remain canonical.
+  - The idempotency marker is not proof; it is
+    only an update-in-place handle.
+  - Forked PRs remain denied by default.
+  - `pull_request_target` remains denied
+    unconditionally.
+
+  **Tests:** new contract suite
+  `tests/contract/pr-comment-send-cli.test.mjs`
+  with 19 tests using a local `node:http`
+  fake server + `--api-base-url`. Covers
+  readiness gates, pagination walks,
+  PATCH-on-marker / POST-on-miss, sanitized
+  errors, sentinel-token leak prevention,
+  dry-run still no-token / no-network,
+  artifact index byte-identical before / after
+  `--send`, exit 0 on proof failed / stale.
+  Validator contract suite extended (now 57
+  tests). New docs suite
+  `tests/docs/pr-comment-send-cli.test.mjs`
+  with 9 assertions. Full suite expected
+  ≥ 1492 passed / 1 skipped.
+
+  **Docs:** 13 updated (go/no-go review
+  memo flips 7f to ✅; API decision gate
+  Implementation Sequence updated; PR comment
+  publisher decision memo step 7f flipped to
+  ✅; CI / GitHub adapter decision memo step
+  7f flipped to ✅; operator guide rewritten
+  for the new send wiring; workflow template
+  + validator profile; classic-behavior
+  roadmap + roadmap entries; governance memo
+  step 56 added). README + CHANGELOG updated.
+  New review packet
+  `.rekon-dev/review-packets/pr-comment-send-cli.md`.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No bounded retry / rate-limit backoff
+    (deferred to step 7g).
+  - No same-repo `pull_request` guard.
+  - No hosted publisher (Option D from the
+    API decision gate, rejected).
+  - No PR-review endpoints (Option C from
+    the writer go/no-go review, rejected).
+  - No artifact-shape change.
+  - No `schemaVersion` bump. No version bump.
+    No npm publish.
+
+  **Stop conditions honoured:** the writer
+  uses `pull-requests: write` (not
+  `issues: write`); the token never appears
+  in stdout / stderr or errors (sentinel-token
+  contract test); send cannot create duplicate
+  comments when the marker is present (PATCH-
+  first / never delete reviewer-touched);
+  forked PR + `pull_request_target` cannot
+  send (three-layer denial); dry-run still
+  reads no token + calls no network; no test
+  requires a real GitHub token (fake
+  `node:http` server only).
+
 - Shipped **PR comment API writer go/no-go
   review** (P1.1
   pr-comment-api-writer-go-no-go-review slice).
