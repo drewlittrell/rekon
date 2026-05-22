@@ -4665,17 +4665,107 @@ scope:
 
   **Recommended next slice:**
   **GitHub Check publisher send
-  workflow safety review** — a
-  strategy review over the completed
-  Check path (payload helper, dry-run
-  CLI, send CLI, both workflow
-  templates, validator profiles) to
-  confirm beta readiness or surface
-  remaining blockers before considering
-  step 7 (PR comments).
+  workflow safety review**.
+  **Shipped next; see the entry
+  below.**
+- **GitHub Check publisher send
+  workflow safety review (P1.1
+  github-check-publisher-send-workflow-safety-review
+  slice).** ✅ Shipped. **Step 6e** of
+  the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Strategy / docs / tests-only batch.
+  **No runtime behaviour change.** New
+  strategy memo at
+  [`docs/strategy/github-check-publisher-send-workflow-safety-review.md`](github-check-publisher-send-workflow-safety-review.md)
+  reviews the full GitHub Check
+  publishing path (payload helper,
+  readiness helper, dry-run CLI, send
+  CLI, read-only + opt-in workflow
+  templates, validator profiles, token
+  / permission behaviour, fork / event
+  safety, canonical-artifact boundary,
+  test coverage, remaining risks).
+  Contains the workflow-surface
+  diagnostic table + the
+  risk diagnostic table required by
+  the work order.
+
+  **Decision: beta-ready as an opt-in
+  surface.** Read-only templates
+  remain the recommended alpha
+  default. PR comments remain
+  deferred until the PR Comment
+  Publisher Decision Memo (next
+  slice) decides whether they add
+  review-time value worth their
+  broader scope.
+
+  **Reinforced invariants:**
+  - GitHub status is not canonical
+    truth; Rekon artifacts remain
+    canonical.
+  - Forked PRs and
+    `pull_request_target` remain
+    blocked by default (three-layer
+    defence: template trigger list,
+    validator profile, runtime
+    readiness assessor).
+  - No automatic finding resolution
+    or reconciliation apply is
+    implied by a successful GitHub
+    Check.
+  - Tokens never echo into stdout /
+    stderr; the helper's sanitizer
+    shape is `{ status, message,
+    documentationUrl }` only.
+  - The Rekon artifact index is
+    byte-identical before / after a
+    `--send` run.
+
+  **Tests:** new docs suite
+  `tests/docs/github-check-publisher-send-workflow-safety-review.test.mjs`
+  (16 assertions covering memo
+  existence, required headings,
+  beta-ready language, read-only
+  alpha default, canonical-truth
+  language, fork / pull_request_target
+  blocked, PR comments deferred,
+  dry-run / send / validator /
+  opt-in template references,
+  no-auto-resolution language,
+  CHANGELOG mention, review-packet
+  PURPOSE PRESERVATION CHECK).
+  Full suite expected ≥ 1347 passed
+  / 1 skipped.
+
+  **Docs:** 11 updated (new memo;
+  CI / GitHub adapter decision memo
+  step 6 amended; GitHub Check
+  publisher decision memo step 7
+  added; operator guide + concept /
+  artifact docs Cross-References
+  lists; this file, `roadmap.md`,
+  `issue-governance-architecture-decision.md`
+  — step 50 flipped to ✅).
+  `README.md` and `CHANGELOG.md`
+  updated. New review packet
+  `.rekon-dev/review-packets/github-check-publisher-send-workflow-safety-review.md`.
+
+  **Recommended next slice:**
+  **PR Comment Publisher Decision
+  Memo** — decide whether Rekon
+  adds a PR comment surface after
+  GitHub Checks, or whether Check
+  Runs + artifacts are sufficient
+  for beta. Do not implement PR
+  comments until the decision is
+  pinned.
 
   No active workflow. No GitHub
   Check API call by default. No
+  runtime behaviour change. No
   artifact-shape change. No
   `schemaVersion` bump. No
   `FindingStatusLedger` /

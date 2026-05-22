@@ -996,6 +996,21 @@ slices:
      existing contract; the bundled
      read-only templates still validate
      clean.
+   - **6e (shipped).** ✅ Strategy
+     safety review at
+     [`github-check-publisher-send-workflow-safety-review.md`](github-check-publisher-send-workflow-safety-review.md).
+     Reviews the full path (payload
+     helper, readiness helper, dry-run
+     CLI, send CLI, read-only +
+     opt-in templates, validator
+     profiles, token / permission
+     behaviour, fork / event safety,
+     canonical-artifact boundary, test
+     coverage, remaining risks).
+     Decision: beta-ready as an opt-in
+     surface; read-only templates
+     remain alpha default; PR
+     comments remain deferred.
 
 7. **PR comment publisher (beta+).**
    Similar to step 6 but writes inline

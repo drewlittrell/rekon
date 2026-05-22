@@ -450,6 +450,17 @@ This batch ships **step 6a** of the sequence below. Steps
    those constraints. Default-profile behaviour
    (`read-only`) is unchanged so the existing
    templates continue to validate clean.
+8. **Safety review (step 6e).** ✅ Shipped. See
+   [`github-check-publisher-send-workflow-safety-review.md`](github-check-publisher-send-workflow-safety-review.md).
+   Reviews the full GitHub Check publishing path
+   (payload helper, readiness helper, dry-run CLI,
+   send CLI, read-only + opt-in templates, validator
+   profiles, token / permission behaviour, fork /
+   event safety, canonical-artifact boundary, test
+   coverage, remaining risks). Decision: **beta-ready
+   as an opt-in surface; read-only templates remain
+   alpha default; PR comments remain deferred.** No
+   runtime behaviour change.
 7. **PR comment publisher (step 7).** Future slice.
 8. **Cross-CI documentation (step 8).** Future slice.
 

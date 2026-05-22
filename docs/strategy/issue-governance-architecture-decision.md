@@ -1686,14 +1686,41 @@ review packets unless an ADR promotes them. Promotion requires:
     active workflow in
     `.github/workflows/` of the Rekon
     repo.
-50. **(future)** Per-module `ObservedSystem`
+50. **Shipped (✅).** GitHub Check publisher
+    send workflow safety review (step 6e).
+    Strategy memo at
+    [`docs/strategy/github-check-publisher-send-workflow-safety-review.md`](github-check-publisher-send-workflow-safety-review.md)
+    reviews the full GitHub Check publishing
+    path (payload helper, readiness helper,
+    dry-run CLI, send CLI, read-only +
+    opt-in workflow templates, validator
+    profiles, token / permission behaviour,
+    fork / event safety, canonical-artifact
+    boundary, test coverage, remaining
+    risks). Decision: **beta-ready as an
+    opt-in surface; read-only templates
+    remain alpha default; PR comments
+    remain deferred.** Pinned safety facts:
+    dry-run reads no token and makes no
+    network call; send is default-deny
+    gated at three layers (template,
+    validator, runtime); forked PRs and
+    `pull_request_target` denied by
+    default; the send CLI never echoes the
+    token; the Rekon artifact index is
+    byte-identical before/after a `--send`
+    run. No runtime behaviour change. 16
+    docs assertions pin the memo's
+    contract; full suite expected ≥ 1347
+    passed / 1 skipped.
+51. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-51. **(future)** Persistent exclusion lists, and
+52. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

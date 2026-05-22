@@ -1106,6 +1106,45 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- GitHub Check publisher send workflow safety review
+  (P1.1
+  github-check-publisher-send-workflow-safety-review
+  slice): **step 6e** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI
+  command, no new helper, no workflow-template
+  modification. New strategy memo at
+  [`docs/strategy/github-check-publisher-send-workflow-safety-review.md`](github-check-publisher-send-workflow-safety-review.md)
+  reviews the full GitHub Check publishing path:
+  payload helper, readiness helper, dry-run CLI, send
+  CLI, read-only execute + dry-run workflow templates,
+  opt-in checks-write workflow template, validator
+  profiles (read-only + github-check-send), token /
+  permission behaviour, fork / event safety,
+  canonical-artifact boundary, test coverage, and
+  remaining risks. **Decision: beta-ready as an
+  opt-in surface; read-only templates remain alpha
+  default; PR comments remain deferred until the PR
+  Comment Publisher Decision Memo (next slice).**
+  Reinforces the canonical-truth invariant ("GitHub
+  status is not canonical truth; Rekon artifacts
+  remain canonical"), the three-layer fork-safety
+  contract (template, validator, runtime readiness),
+  and the no-auto-resolution invariant (a successful
+  GitHub Check implies no finding resolution or
+  reconciliation apply). 16 new docs assertions in
+  `tests/docs/github-check-publisher-send-workflow-safety-review.test.mjs`
+  pin the memo's contract. Full suite expected ≥
+  1347 passed / 1 skipped.
+  **Recommended next slice:** PR Comment Publisher
+  Decision Memo — decide whether Rekon adds a PR
+  comment surface or whether Check Runs + artifacts
+  are sufficient for beta. Do not implement PR
+  comments until the decision is pinned.
+  No `schemaVersion` bump. No version bump. No npm
+  publish.
 - Verification runner GitHub Check publisher opt-in
   workflow template (P1.1
   github-check-publisher-opt-in-workflow-template
@@ -1144,10 +1183,11 @@ is the first stop before proposing a new capability batch.
   templates first.
   **Recommended next slice:** GitHub Check publisher
   send workflow safety review — a strategy review over
-  the completed Check path (payload helper, dry-run
-  CLI, send CLI, workflow templates, validator
-  profiles) to confirm beta readiness or surface
-  remaining blockers before step 7 (PR comments).
+  the completed Check path. **Shipped next; see the
+  entry above.** Decision: beta-ready as an opt-in
+  surface; read-only templates remain alpha default;
+  PR comments remain deferred. Then **PR Comment
+  Publisher Decision Memo** as the next slice.
   No `schemaVersion` bump. No version bump. No npm
   publish.
 - Verification runner GitHub Check publisher send mode

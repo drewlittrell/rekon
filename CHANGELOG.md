@@ -4,6 +4,100 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **GitHub Check publisher send workflow
+  safety review** (P1.1
+  github-check-publisher-send-workflow-safety-review
+  slice). **Step 6e** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **Strategy / docs / tests-only batch.** No runtime
+  behaviour change. No new package, no new CLI
+  command, no new helper, no workflow-template
+  modification.
+
+  **New strategy memo:**
+  [`docs/strategy/github-check-publisher-send-workflow-safety-review.md`](docs/strategy/github-check-publisher-send-workflow-safety-review.md)
+  reviews the full GitHub Check publishing path:
+  - the `buildGitHubCheckPayload` +
+    `assessGitHubCheckPublisherReadiness` helpers,
+  - the `publishGitHubCheckRun` API client,
+  - the `rekon publish github-check --dry-run` and
+    `--send` CLI modes,
+  - the read-only execute + dry-run workflow
+    templates,
+  - the opt-in checks-write workflow template,
+  - the workflow validator's `read-only` and
+    `github-check-send` profiles,
+  - token / permission behaviour,
+  - fork / event safety at three layers (template,
+    validator, runtime),
+  - the canonical-artifact boundary,
+  - test coverage,
+  - remaining risks.
+
+  **Decision: beta-ready as an opt-in surface.**
+  Read-only templates remain the recommended alpha
+  default. PR comments remain deferred until the
+  next slice (the PR Comment Publisher Decision
+  Memo) decides whether they add review-time value
+  worth their broader scope.
+
+  **Reinforced invariants** (no new mechanism;
+  invariant statements appear in the new memo + the
+  diagnostic tables):
+  - GitHub status is not canonical truth; Rekon
+    artifacts remain canonical.
+  - Forked PRs and `pull_request_target` remain
+    blocked by default at three layers (template
+    trigger list, validator profile, runtime
+    readiness assessor).
+  - No automatic finding resolution or
+    reconciliation apply is implied by a successful
+    GitHub Check.
+  - Tokens are read only inside the `--send` CLI
+    branch and never echoed in error output.
+  - The Rekon artifact index is byte-identical
+    before / after a `--send` run.
+
+  **Tests:** new docs suite at
+  `tests/docs/github-check-publisher-send-workflow-safety-review.test.mjs`
+  (16 assertions: memo existence; all 13 required
+  headings; beta-ready language; read-only alpha
+  default language; canonical-truth language;
+  fork / `pull_request_target` blocked-by-default
+  language; PR comments deferred; dry-run / send /
+  validator-profile / opt-in-template references;
+  no-auto-resolution language; CHANGELOG mention;
+  review-packet PURPOSE PRESERVATION CHECK). Full
+  suite expected ≥ 1347 passed / 1 skipped.
+
+  **Docs:** 11 updated (new memo; CI / GitHub
+  adapter decision memo step 6 amended; GitHub
+  Check publisher decision memo step 7 / 8 added;
+  operator guide + four concept / artifact docs
+  Cross-References lists; classic-behavior roadmap
+  + roadmap + issue-governance memo — step 50
+  flipped to ✅). README + CHANGELOG updated. New
+  review packet
+  `.rekon-dev/review-packets/github-check-publisher-send-workflow-safety-review.md`.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No runtime behaviour change. The payload
+    helper, readiness helper, send helper, CLI
+    surface, and all three workflow templates are
+    unchanged.
+  - No PR comments. The PR Comment Publisher
+    Decision Memo is the next slice.
+  - No GitHub API calls added. No new GitHub write
+    surface.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** no safety fact is
+  claimed without a test pin; the memo does not
+  claim beta readiness for any surface that lacks
+  test coverage; GitHub status is described as a
+  downstream surface, not canonical truth.
+
 - Shipped verification runner **GitHub Check
   publisher opt-in workflow template** (P1.1
   github-check-publisher-opt-in-workflow-template

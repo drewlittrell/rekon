@@ -412,6 +412,7 @@ templates still validate clean under
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runner CI / GitHub adapter decision](../strategy/verification-runner-ci-github-decision.md)
 - [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
+- [GitHub Check publisher send workflow safety review](../strategy/github-check-publisher-send-workflow-safety-review.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [Capability model](../strategy/capability-model.md)

@@ -222,6 +222,12 @@ node packages/cli/dist/index.js publish github-check --dry-run --root examples/s
 node packages/cli/dist/index.js verify github-workflow validate \
   --path docs/examples/workflows/rekon-verification-check-send.yml \
   --profile github-check-send --json
+# The full GitHub Check publishing path has a recorded safety
+# review at
+# docs/strategy/github-check-publisher-send-workflow-safety-review.md.
+# Decision: beta-ready as an opt-in surface; read-only templates
+# remain the recommended alpha default; PR comments remain
+# deferred until the next decision memo.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
