@@ -417,6 +417,7 @@ templates still validate clean under
 - [PR comment publisher API decision gate](../strategy/pr-comment-publisher-api-decision-gate.md)
 - [PR comment API writer go/no-go review](../strategy/pr-comment-api-writer-go-no-go-review.md)
 - [PR comment publisher safety review](../strategy/pr-comment-publisher-safety-review.md)
+- [GitHub review surfaces parity review](../strategy/github-review-surfaces-parity-review.md)
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [Opt-in PR comment workflow template](../examples/workflows/rekon-pr-comment-send.yml)

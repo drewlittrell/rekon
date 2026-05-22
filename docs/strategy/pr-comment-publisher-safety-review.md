@@ -621,5 +621,16 @@ In order of expected priority:
    Rekon has a hosted surface; currently rejected
    (Option D from the API decision gate).
 
-**The path is beta-ready as an opt-in. The next
-slice is the GitHub review surfaces parity review.**
+**The path is beta-ready as an opt-in.**
+
+**Update — step 8 shipped.** The
+[GitHub Review Surfaces Parity Review](github-review-surfaces-parity-review.md)
+has reviewed the combined GitHub review surface
+(Checks + PR comments + workflow templates +
+validator profiles + publications + uploaded
+artifacts) and declared it **beta-complete as an
+opt-in surface**. GitHub Checks remain the primary
+status surface; PR comments are the narrative
+companion surface. The next slice is the
+**Verification / GitHub Trust-Boundary Hardening**
+batch, not another review-surface batch.

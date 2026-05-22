@@ -1159,11 +1159,56 @@ slices:
      surface; PR comments are a
      narrative companion surface.
 
-8. **Cross-CI documentation (beta+).**
-   Document the same workflow pattern for
-   GitLab CI, Jenkins, CircleCI, etc. The
-   CLI surface is identical; only the
-   YAML envelope differs.
+8. **GitHub Review Surfaces Parity
+   Review (shipped).** ✅ Strategy memo
+   at
+   [`github-review-surfaces-parity-review.md`](github-review-surfaces-parity-review.md)
+   reviews the combined GitHub review
+   surface end-to-end (read-only
+   templates, opt-in Check + PR comment
+   workflow templates, three validator
+   profiles, both publishers, proof /
+   architecture-summary / agent-contract
+   publications, uploaded
+   `.rekon/artifacts`, job summary
+   markdown, `rekon artifacts latest`
+   helper, canonical artifact boundary,
+   fork / token / permission safety,
+   operator ergonomics). **Decision:
+   beta-complete as an opt-in surface.**
+   Read-only templates remain the alpha
+   default; GitHub Checks remain the
+   primary status surface; PR comments
+   are the narrative companion surface;
+   uploaded Rekon artifacts remain
+   canonical truth. **No additional
+   GitHub API surface is needed before
+   beta.** The next slice is the
+   **Verification / GitHub Trust-Boundary
+   Hardening** batch, not another
+   review-surface batch.
+
+9. **Verification / GitHub Trust-Boundary
+   Hardening (next).** Return to
+   foundational hardening before adding
+   any new review surfaces: coherent
+   VerificationResult →
+   VerificationRun proof-chain selection
+   for GitHub Check payloads; bounded
+   stdout/stderr streaming memory;
+   process-tree timeout semantics;
+   `NODE_OPTIONS` removal from runner
+   env; bounded GitHub API error-body
+   reads (re-confirm); PR head-SHA
+   policy.
+
+10. **Cross-CI documentation (beta+).**
+    Document the same workflow pattern
+    for GitLab CI, Jenkins, CircleCI,
+    etc. The CLI surface is identical;
+    only the YAML envelope differs. Out
+    of scope for the GitHub adapter
+    sequence; reconsider after step 9.
 
 ## Future GitHub Check Publisher
 

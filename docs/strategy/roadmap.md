@@ -1106,6 +1106,57 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- GitHub review surfaces parity review (P1.1
+  github-review-surfaces-parity-review slice): **step 8**
+  of the CI / GitHub adapter implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI
+  command, no new helper, no workflow-template change,
+  no validator profile change, no GitHub API call. New
+  strategy memo at
+  [`docs/strategy/github-review-surfaces-parity-review.md`](github-review-surfaces-parity-review.md)
+  reviews the combined GitHub review surface end-to-
+  end (read-only workflow templates, opt-in Check + PR
+  comment workflow templates, three validator
+  profiles, both publishers' dry-run + send CLIs,
+  proof / architecture-summary / agent-contract
+  publications, uploaded `.rekon/artifacts`, job
+  summary markdown, `rekon artifacts latest` helper,
+  canonical artifact boundary, fork / token /
+  permission safety, operator ergonomics gaps) and
+  pins **beta-complete as an opt-in surface**.
+  Read-only templates remain the alpha default;
+  GitHub Checks remain the primary status surface; PR
+  comments are the narrative companion surface;
+  uploaded Rekon artifacts remain canonical truth;
+  **no additional GitHub API surface is needed
+  before beta**. Required statements pinned by the
+  memo + the docs test: GitHub status and comments
+  are not canonical truth; Rekon artifacts remain
+  canonical; a successful GitHub Check or PR comment
+  publish does not imply findings are resolved or
+  reconciliation has been applied; forked PRs and
+  `pull_request_target` remain blocked by default;
+  read-only workflows remain the recommended
+  starting point. Three diagnostic tables: surface
+  (read-only / Check / PR comment / publishers /
+  uploaded artifacts / job summary), risk (status-
+  as-truth / comment noise / fork token misuse /
+  stale proof / raw log leakage), beta decision
+  (every criterion passes). 20 new docs assertions.
+  Full suite expected ≥ 1532 passed / 1 skipped.
+  **Recommended next slice:** Verification / GitHub
+  Trust-Boundary Hardening — return to foundational
+  hardening before adding any new review surfaces:
+  coherent VerificationResult → VerificationRun
+  proof-chain selection; bounded stdout/stderr
+  streaming memory; process-tree timeout semantics;
+  `NODE_OPTIONS` removal from runner env; bounded
+  GitHub API error-body reads (re-confirm); PR
+  head-SHA policy. No `schemaVersion` bump. No
+  version bump. No npm publish.
 - PR comment publisher safety review (P1.1
   pr-comment-publisher-safety-review slice): **step 7g**
   of the CI / GitHub adapter implementation sequence

@@ -5259,6 +5259,105 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **GitHub review surfaces parity review
+  (P1.1 github-review-surfaces-parity-review
+  slice).** ✅ Shipped. **Step 8** of the CI
+  / GitHub adapter implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package,
+  no new CLI command, no new helper, no
+  workflow-template change, no validator
+  profile change, no GitHub API call.
+
+  **New strategy memo** at
+  [`docs/strategy/github-review-surfaces-parity-review.md`](github-review-surfaces-parity-review.md)
+  reviews the combined GitHub review surface
+  end-to-end (read-only workflow templates,
+  opt-in Check + PR comment workflow
+  templates, three validator profiles,
+  both publishers' dry-run + send CLIs,
+  proof / architecture-summary / agent-
+  contract publications, uploaded
+  `.rekon/artifacts`, job summary markdown,
+  `rekon artifacts latest` helper,
+  canonical artifact boundary, fork / token
+  / permission safety, operator ergonomics
+  gaps).
+
+  **Decision: beta-complete as an opt-in
+  surface.** Read-only templates remain the
+  recommended alpha default. GitHub Checks
+  remain the primary status surface. PR
+  comments remain the narrative companion
+  surface. Uploaded Rekon artifacts remain
+  canonical truth. **No additional GitHub
+  API surface is needed before beta.**
+
+  **Required statements pinned by the memo
+  + the docs test:**
+  - GitHub status and comments are not
+    canonical truth; Rekon artifacts remain
+    canonical.
+  - A successful GitHub Check or PR comment
+    publish does not imply findings are
+    resolved or reconciliation has been
+    applied.
+  - Forked PRs and `pull_request_target`
+    remain blocked by default.
+  - Read-only workflows remain the
+    recommended starting point for
+    adoption.
+
+  **Three diagnostic tables in the memo:**
+  - Surface table: read-only dry-run /
+    execute / Check workflow / PR comment
+    workflow / Check publisher / PR comment
+    publisher / uploaded artifacts / job
+    summary — each with role + status +
+    notes.
+  - Risk table: GitHub status treated as
+    truth / comment noise / fork token
+    misuse / stale proof / raw log leakage
+    — each with current guardrail and
+    remaining follow-up.
+  - Beta decision table: canonical
+    artifacts preserved / Check status
+    surface exists / narrative PR surface
+    exists / read-only adoption path
+    exists / workflow safety validation
+    exists / fork-default-deny posture
+    preserved / automatic resolution
+    avoided — every criterion passes.
+
+  **Tests:** new docs suite
+  `tests/docs/github-review-surfaces-parity-review.test.mjs`
+  with 20 assertions. Full suite expected
+  ≥ 1532 passed / 1 skipped.
+
+  **Recommended next slice:** **Verification
+  / GitHub Trust-Boundary Hardening.** Return
+  to foundational hardening before adding any
+  new review surfaces: coherent
+  VerificationResult → VerificationRun proof-
+  chain selection for GitHub Check payloads;
+  bounded stdout/stderr streaming memory;
+  process-tree timeout semantics;
+  `NODE_OPTIONS` removal from runner env;
+  bounded GitHub API error-body reads (re-
+  confirm); PR head-SHA policy.
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API
+  call, no token read, no artifact-shape
+  change, no `schemaVersion` bump, no
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation, no version
+  bump, no npm publish.
 - **PR comment publisher safety review
   (P1.1 pr-comment-publisher-safety-review
   slice).** ✅ Shipped. **Step 7g** of the

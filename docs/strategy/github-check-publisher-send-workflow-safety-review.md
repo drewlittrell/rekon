@@ -509,7 +509,16 @@ In order of expected priority:
    when an operator requests it.
 
 This review is informational; it does not change
-runtime behaviour. The next runtime-changing slice is
-the PR Comment Publisher Decision Memo's outcome (or,
-if the memo defers indefinitely, real-world adoption
-work).
+runtime behaviour.
+
+**Update — step 8 shipped.** The
+[GitHub Review Surfaces Parity Review](github-review-surfaces-parity-review.md)
+has reviewed the combined GitHub review surface
+(Checks + PR comments + workflow templates + validator
+profiles + publications + uploaded artifacts) and
+declared it **beta-complete as an opt-in surface**.
+GitHub Checks remain the primary status surface; PR
+comments are the narrative companion surface. The next
+runtime-changing slice is the **Verification / GitHub
+Trust-Boundary Hardening** batch, not another review-
+surface batch.

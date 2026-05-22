@@ -668,3 +668,18 @@ When the API call succeeds but the payload's
 The Rekon repo's own `.github/workflows/` directory
 remains empty in this slice. The send command is wired
 in via operator-copied workflows only.
+
+## Update — GitHub Review Surfaces Parity Review
+
+The
+[GitHub Review Surfaces Parity Review](github-review-surfaces-parity-review.md)
+(step 8) has reviewed the combined GitHub review
+surface (Checks + PR comments + workflow templates +
+validator profiles + publications + uploaded
+artifacts) and declared it **beta-complete as an
+opt-in surface**. GitHub Checks remain the primary
+status surface. The next slice is the **Verification /
+GitHub Trust-Boundary Hardening** batch — coherent
+proof-chain selection, bounded stdout/stderr streaming
+memory, process-tree timeout semantics, and related
+edges — not another review-surface batch.

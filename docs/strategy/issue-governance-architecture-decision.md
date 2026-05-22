@@ -1936,14 +1936,49 @@ review packets unless an ADR promotes them. Promotion requires:
     reconciliation apply is implied by a
     successful PR comment publish. 18 docs
     assertions pin the memo's contract.
-58. **(future)** Per-module `ObservedSystem`
+58. **Shipped (✅).** GitHub review surfaces
+    parity review (step 8).
+    [`docs/strategy/github-review-surfaces-parity-review.md`](github-review-surfaces-parity-review.md)
+    reviews the combined GitHub review surface
+    end-to-end (read-only workflow templates,
+    opt-in Check + PR comment workflow
+    templates, three validator profiles, Check
+    publisher dry-run + send CLI, PR comment
+    publisher dry-run + send CLI, proof /
+    architecture-summary / agent-contract
+    publications, uploaded `.rekon/artifacts`,
+    job summary markdown, `rekon artifacts
+    latest` helper, canonical artifact
+    boundary, fork / token / permission safety,
+    operator ergonomics gaps) and pins
+    **beta-complete as an opt-in surface**.
+    Read-only templates remain the alpha
+    default; GitHub Checks remain the primary
+    status surface; PR comments are a
+    narrative companion surface; uploaded
+    Rekon artifacts remain canonical truth;
+    no additional GitHub API surface is
+    needed before beta. Required statements:
+    GitHub status and comments are not
+    canonical truth; Rekon artifacts remain
+    canonical; a successful GitHub Check or
+    PR comment publish does not imply
+    findings are resolved or reconciliation
+    has been applied; forked PRs and
+    `pull_request_target` remain blocked by
+    default; read-only workflows remain the
+    recommended starting point. 20 docs
+    assertions pin the memo's contract. The
+    next slice is the **Verification /
+    GitHub Trust-Boundary Hardening** batch.
+59. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-59. **(future)** Persistent exclusion lists, and
+60. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

@@ -302,6 +302,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # primary status surface; PR comments are a narrative companion
 # surface. No automatic finding resolution or reconciliation
 # apply is implied by a successful PR comment publish.
+#
+# Step 8 shipped the GitHub Review Surfaces Parity Review at
+# docs/strategy/github-review-surfaces-parity-review.md. The
+# combined GitHub review surface (read-only workflow templates
+# + opt-in Check + PR comment workflow templates + three
+# validator profiles + both publishers + publications +
+# uploaded .rekon/artifacts + job summary + canonical-artifact
+# boundary + fork/token/permission safety) is beta-complete as
+# an opt-in surface. Read-only templates remain the alpha
+# default. No additional GitHub API surface is needed before
+# beta. The next slice is the Verification / GitHub
+# Trust-Boundary Hardening batch.
+#
+# GitHub status and comments are not canonical truth; Rekon
+# artifacts remain canonical. A successful GitHub Check or PR
+# comment publish does not imply findings are resolved or
+# reconciliation has been applied. Forked PRs and
+# pull_request_target remain blocked by default. Read-only
+# workflows remain the recommended starting point for
+# adoption.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

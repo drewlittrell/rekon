@@ -622,3 +622,18 @@ review surface is exactly what the
 documents: GitHub Checks + uploaded `.rekon/artifacts`
 + job summaries. **That combination is beta-ready
 without PR comments.**
+
+## Update — GitHub Review Surfaces Parity Review
+
+The
+[GitHub Review Surfaces Parity Review](github-review-surfaces-parity-review.md)
+(step 8) has reviewed the combined GitHub review
+surface (Checks + PR comments + workflow templates +
+validator profiles + publications + uploaded
+artifacts) and declared it **beta-complete as an
+opt-in surface**. GitHub Checks remain the primary
+status surface; PR comments are the narrative
+companion surface. The two are complementary; each
+can ship independently. The next slice is the
+**Verification / GitHub Trust-Boundary Hardening**
+batch, not another review-surface batch.
