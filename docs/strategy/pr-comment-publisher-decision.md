@@ -507,19 +507,31 @@ If the Option-B path is approved:
      env map). **The CLI imports no network
      client and calls no GitHub API.** Behavioural
      and source-scan tests pin both.
-3. **Validator / docs for permissions** (future
-   slice). Adds the `github-pr-comment-send`
-   profile to the workflow validator (rejects every
-   write scope except `pull-requests: write` and the
-   already-permitted `checks: write` when the send
-   variant is layered on top of the existing opt-in
-   template). Documents the broader scope and the
-   noise / staleness controls.
-4. **PR comment send API write** (future slice).
-   Only after step 3. Adds the actual `--send` mode
-   behind the readiness gate. Update-in-place
-   logic. Sanitized errors. Sentinel-token contract
-   test. No raw log content.
+3. **API Implementation Decision Gate** (step
+   7c). ✅ Shipped at
+   [`pr-comment-publisher-api-decision-gate.md`](pr-comment-publisher-api-decision-gate.md).
+   Reviews the shipped dry-run components +
+   permission / fork / comment-body / idempotency
+   model and decides whether the next slice
+   implements the API writer or the
+   workflow/validator profile gate first.
+   **Decision: Option C — add a workflow /
+   validator profile gate before any API writer.**
+4. **Validator / docs for permissions** (next
+   slice, step 7d). Adds the
+   `github-pr-comment-send` profile to the workflow
+   validator (rejects every write scope except
+   `pull-requests: write` and the already-permitted
+   `checks: write` when the send variant is layered
+   on top of the existing opt-in template).
+   Documents the broader scope and the noise /
+   staleness controls.
+5. **PR comment send API write** (future slice,
+   step 7e). Only after step 4. Adds the actual
+   `--send` mode behind the readiness gate.
+   Update-in-place logic. Sanitized errors.
+   Sentinel-token contract test. No raw log
+   content.
 
 Each step lands as its own batch with its own
 decision memo / review packet / contract test

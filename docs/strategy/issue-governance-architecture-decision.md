@@ -1783,14 +1783,43 @@ review packets unless an ADR promotes them. Promotion requires:
     comment publisher implementation
     (next slice's decision gate
     decides if posting ever ships).
-53. **(future)** Per-module `ObservedSystem`
+53. **Shipped (✅).** PR Comment Publisher API
+    Decision Gate (step 7c). Strategy
+    memo at
+    [`docs/strategy/pr-comment-publisher-api-decision-gate.md`](pr-comment-publisher-api-decision-gate.md)
+    reviews the shipped PR comment
+    dry-run components (`buildPrCommentBody`,
+    `assessPrCommentPublisherReadiness`,
+    `rekon publish pr-comment --dry-run`),
+    the GitHub permission boundary
+    (`issues: write` / `pull-requests:
+    write` required; broader than
+    `checks: write`), the fork-default-
+    deny posture, the comment-body
+    model, the idempotency + noise
+    strategy, and four implementation
+    options. **Decision: Option C — add
+    a workflow / validator profile gate
+    first; do not implement the API
+    writer in the next slice.**
+    Required statements pinned: actual
+    PR comment posting remains deferred
+    until a PR comment workflow /
+    validator profile exists; PR
+    comments are not canonical truth;
+    the idempotency marker is not proof.
+    No runtime behaviour change. 18
+    docs assertions pin the memo's
+    contract; full suite expected ≥
+    1410 passed / 1 skipped.
+54. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-54. **(future)** Persistent exclusion lists, and
+55. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

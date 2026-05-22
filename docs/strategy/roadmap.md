@@ -1106,6 +1106,50 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PR Comment Publisher API Decision Gate (P1.1
+  pr-comment-publisher-api-decision-gate slice):
+  **step 7c** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the PR comment publisher decision memo.
+  Strategy / docs / tests-only batch — **no
+  runtime behaviour change.** No new package, no
+  new CLI command, no new helper, no workflow-
+  template modification, no validator profile
+  change, no GitHub API call. New strategy memo at
+  [`docs/strategy/pr-comment-publisher-api-decision-gate.md`](pr-comment-publisher-api-decision-gate.md)
+  reviews the shipped PR comment dry-run components
+  (`buildPrCommentBody`,
+  `assessPrCommentPublisherReadiness`,
+  `rekon publish pr-comment --dry-run`), the
+  GitHub permission boundary (`issues: write` /
+  `pull-requests: write` required; broader than
+  `checks: write`), the fork-default-deny posture,
+  the comment-body model, the idempotency + noise
+  strategy, and four implementation options.
+  **Decision: Option C — add a workflow / validator
+  profile gate first; do not implement the API
+  writer in the next slice.** Required statements
+  pinned: actual PR comment posting remains
+  deferred until a PR comment workflow / validator
+  profile exists; PR comments are not canonical
+  truth; the idempotency marker is not proof;
+  forked PRs must not receive secret-bearing
+  comment publishing by default. 18 new docs
+  assertions in
+  `tests/docs/pr-comment-publisher-api-decision-gate.test.mjs`
+  pin the memo's contract (including the component
+  status table and the risk table). Full suite
+  expected ≥ 1410 passed / 1 skipped.
+  **Recommended next slice (if Option C approved):**
+  PR comment workflow / validator profile (step
+  7d) — add a `github-pr-comment-send` validator
+  profile + opt-in workflow template variant that
+  requests `pull-requests: write`, enforces same-
+  repo / trusted-context posture, and still does
+  not post comments.
+  No `schemaVersion` bump. No version bump. No
+  npm publish.
 - PR comment body dry-run helper + CLI (P1.1
   pr-comment-dry-run-cli slice): **step 7b** of the
   CI / GitHub adapter implementation sequence pinned
@@ -1138,10 +1182,10 @@ is the first stop before proposing a new capability batch.
   tests + 9 docs assertions; full suite expected ≥
   1392 passed / 1 skipped.
   **Recommended next slice:** PR comment publisher
-  API implementation decision gate — review the
-  dry-run body / readiness model and decide whether
-  actual PR comment posting is worth adding. Do not
-  implement posting until the decision is pinned.
+  API implementation decision gate. **Shipped next;
+  see the entry above.** Decision: Option C — add a
+  workflow / validator profile gate first; defer the
+  API writer until the boundary is pinned.
   No `schemaVersion` bump. No version bump. No npm
   publish.
 - PR Comment Publisher Decision Memo (P1.1

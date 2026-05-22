@@ -1028,6 +1028,7 @@ review packet.
 - [Verification runner GitHub Check publisher decision](../strategy/verification-runner-github-check-publisher-decision.md)
 - [GitHub Check publisher send workflow safety review](../strategy/github-check-publisher-send-workflow-safety-review.md)
 - [PR comment publisher decision](../strategy/pr-comment-publisher-decision.md)
+- [PR comment publisher API decision gate](../strategy/pr-comment-publisher-api-decision-gate.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runs concept](../concepts/verification-runs.md)
 - [Verification results concept](../concepts/verification-results.md)

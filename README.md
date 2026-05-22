@@ -243,6 +243,14 @@ node packages/cli/dist/index.js verify github-workflow validate \
 # Preview the comment body locally — no GitHub API call, no token
 # read, no comment posted:
 node packages/cli/dist/index.js publish pr-comment --root examples/simple-js-ts --dry-run --json
+#
+# The PR Comment Publisher API Decision Gate at
+# docs/strategy/pr-comment-publisher-api-decision-gate.md reviews
+# the shipped dry-run components and decides whether to ship the
+# API writer next. Decision: Option C — add a workflow / validator
+# profile gate first (next slice), then re-evaluate the API writer.
+# Actual PR comment posting remains deferred until that profile
+# exists.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

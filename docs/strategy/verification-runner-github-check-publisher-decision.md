@@ -468,11 +468,14 @@ This batch ships **step 6a** of the sequence below. Steps
    after GitHub Checks or whether Check Runs +
    artifacts are sufficient for beta. **Decision:
    Option B — design a PR comment dry-run renderer;
-   defer actual PR comment posting.** If approved,
-   the next slice ships the dry-run renderer + CLI
-   (no GitHub API call); the actual API write is
-   deferred to a later slice with its own decision
-   memo. No runtime behaviour change in this batch.
+   defer actual PR comment posting.** Step 7b
+   shipped the dry-run helper + CLI;
+   [step 7c](pr-comment-publisher-api-decision-gate.md)
+   ships the API Implementation Decision Gate
+   recommending **Option C** (build the
+   workflow / validator profile boundary first,
+   then re-evaluate the API writer). No runtime
+   behaviour change in either gate batch.
 7. **PR comment publisher (step 7).** Future slice.
 8. **Cross-CI documentation (step 8).** Future slice.
 

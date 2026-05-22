@@ -480,9 +480,13 @@ In order of expected priority:
    posting.** PR comments are not required for beta
    if GitHub Checks + Rekon artifacts are sufficient
    for review (this review already pinned that
-   they are). The next slice, if approved, ships
-   the dry-run renderer + CLI with no GitHub API
-   call.
+   they are). **Step 7b** shipped the dry-run
+   renderer + CLI; **step 7c** ships the
+   [API Implementation Decision Gate](pr-comment-publisher-api-decision-gate.md)
+   recommending **Option C** (workflow / validator
+   profile boundary first; re-evaluate the API
+   writer afterwards). No GitHub API call has
+   landed for PR comments.
 2. **Operator-facing "what the Check is / isn't" page**
    when adoption grows. The canonical-truth phrase in
    the payload + memo is correct but terse; an

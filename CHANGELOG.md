@@ -4,6 +4,125 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **PR Comment Publisher API Decision
+  Gate** (P1.1
+  pr-comment-publisher-api-decision-gate slice).
+  **Step 7c** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  and the
+  [PR comment publisher decision memo](docs/strategy/pr-comment-publisher-decision.md).
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package, no new
+  CLI command, no new helper, no workflow-template
+  modification, no validator profile change, no
+  GitHub API call.
+
+  **New strategy memo:**
+  [`docs/strategy/pr-comment-publisher-api-decision-gate.md`](docs/strategy/pr-comment-publisher-api-decision-gate.md)
+  reviews the shipped PR comment dry-run components
+  (`buildPrCommentBody`,
+  `assessPrCommentPublisherReadiness`,
+  `rekon publish pr-comment --dry-run`), the
+  GitHub permission boundary, the
+  fork-default-deny posture, the comment-body
+  model, the idempotency + noise strategy, and
+  four implementation options.
+
+  **Decision: Option C — add a workflow /
+  validator profile gate first; do not implement
+  the API writer in the next slice.** Re-evaluate
+  the API writer after the gate exists and
+  operators have inspected the concrete permission
+  boundary.
+
+  **Required statements pinned by the memo + the
+  docs test:**
+  - Actual PR comment posting remains deferred
+    until a PR comment workflow / validator
+    profile exists.
+  - PR comments are not canonical truth; Rekon
+    artifacts remain canonical.
+  - The idempotency marker is not proof; it is
+    only an update-in-place handle.
+  - Forked PRs must not receive secret-bearing
+    comment publishing by default.
+
+  **Permission boundary** (informational; no
+  permission added in this batch): creating or
+  updating PR timeline comments requires
+  `issues: write` or `pull-requests: write` —
+  broader than the `checks: write` the GitHub
+  Check publisher uses today. A future
+  `github-pr-comment-send` validator profile (step
+  7d) will permit the broader scope and reject
+  every other write scope. GitHub Actions itself
+  denies write tokens to forked-PR workflows by
+  default.
+
+  **Diagnostic tables in the memo:**
+  - Component table: `buildPrCommentBody` /
+    `assessPrCommentPublisherReadiness` / `publish
+    pr-comment --dry-run` / idempotency marker
+    shipped; API writer + workflow/validator
+    profile not shipped.
+  - Risk table: comment spam / stale comment /
+    fork token misuse / comment treated as proof —
+    each with a current guardrail and a remaining
+    follow-up.
+
+  **Tests:** new docs suite
+  `tests/docs/pr-comment-publisher-api-decision-gate.test.mjs`
+  (18 assertions: memo existence; all 13 required
+  headings; Option C recommendation;
+  defer-posting language; profile-before-API-
+  writer language; canonical-truth and
+  artifacts-canonical phrases; marker-not-proof
+  phrase; helper references
+  (`buildPrCommentBody`,
+  `assessPrCommentPublisherReadiness`); CLI
+  reference (`publish pr-comment --dry-run`);
+  permission scopes (`issues: write`,
+  `pull-requests: write`); fork-default-deny;
+  both diagnostic tables; CHANGELOG mention;
+  review-packet PURPOSE PRESERVATION CHECK). Full
+  suite expected ≥ 1410 passed / 1 skipped.
+
+  **Docs:** 11 updated (new memo; PR comment
+  publisher decision memo Implementation Sequence
+  updated to thread step 7c into the staged path;
+  CI / GitHub adapter decision memo step 7c
+  flipped to ✅; GitHub Check publisher decision
+  memo step 9 cross-reference; GitHub Check
+  publisher safety review Follow-Up Work updated;
+  operator guide + four concept / artifact docs
+  Cross-References lists; classic-behavior
+  roadmap + roadmap + issue-governance memo —
+  step 53 added). README + CHANGELOG updated. New
+  review packet
+  `.rekon-dev/review-packets/pr-comment-publisher-api-decision-gate.md`.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No PR comment publisher API writer.
+  - No `rekon publish pr-comment --send` CLI mode.
+  - No `github-pr-comment-send` validator profile
+    (next slice, if Option C approved).
+  - No new workflow template (next slice, if
+    Option C approved).
+  - No new GitHub API calls.
+  - No new GitHub write permissions in any
+    workflow template.
+  - No artifact-shape change.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the memo does
+  not implement PR comment posting; no GitHub API
+  calls added; no workflow templates added or
+  permissions changed; the memo does not claim
+  PR comments are required for beta; fork / secret
+  safety is preserved; comments are not implied
+  to be canonical truth.
+
 - Shipped **PR comment body dry-run helper + CLI**
   (P1.1 pr-comment-dry-run-cli slice). **Step 7b**
   of the CI / GitHub adapter implementation

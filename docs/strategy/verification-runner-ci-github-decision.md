@@ -1052,6 +1052,23 @@ slices:
      ref. `--send` / `--publish` /
      `--execute` are refused with
      exit 1.
+   - **7c (shipped).** ✅ PR Comment
+     Publisher API Decision Gate at
+     [`pr-comment-publisher-api-decision-gate.md`](pr-comment-publisher-api-decision-gate.md).
+     Reviews the shipped dry-run
+     components, the GitHub permission
+     boundary (`issues: write` /
+     `pull-requests: write` required;
+     broader than `checks: write`),
+     the fork-default-deny posture, the
+     comment-body model, the
+     idempotency + noise strategy, and
+     four implementation options.
+     Decision: **Option C — add a
+     workflow / validator / profile
+     gate first; do not implement the
+     API writer in the next slice.**
+     No runtime behaviour change.
    - **7c (later, if approved).** New
      workflow validator profile
      (e.g. `github-pr-comment-send`)
