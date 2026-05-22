@@ -286,18 +286,34 @@ test("readiness passes for push with all gates green", () => {
   assert.equal(report.ready, true);
 });
 
-test("readiness passes for same-repo pull_request with all gates green", () => {
+test("readiness passes for same-repo pull_request with explicit head SHA + all gates green", () => {
+  // Trust-boundary hardening (step 9, fix #6): `pull_request`
+  // events require an explicit head SHA — GITHUB_SHA on
+  // pull_request is the merge commit, not the PR head.
   const report = assessGitHubCheckPublisherReadiness(
-    makeReadinessInput({ event: { name: "pull_request", pullRequestIsFork: false } }),
+    makeReadinessInput({
+      event: { name: "pull_request", pullRequestIsFork: false },
+      headShaOverride: "feedface00000000000000000000000000000001",
+    }),
   );
   assert.equal(report.ready, true);
 });
 
-test("readiness allows fork with explicit forkOverride", () => {
+test("readiness rejects pull_request without an explicit head SHA", () => {
+  // Trust-boundary hardening (step 9, fix #6).
+  const report = assessGitHubCheckPublisherReadiness(
+    makeReadinessInput({ event: { name: "pull_request", pullRequestIsFork: false } }),
+  );
+  assert.equal(report.ready, false);
+  assert.ok(report.issues.some((issue) => issue.code === "missing-pr-head-sha"));
+});
+
+test("readiness allows fork with explicit forkOverride and head SHA", () => {
   const report = assessGitHubCheckPublisherReadiness(
     makeReadinessInput({
       event: { name: "pull_request", pullRequestIsFork: true },
       forkOverride: true,
+      headShaOverride: "feedface00000000000000000000000000000002",
     }),
   );
   assert.equal(report.ready, true);

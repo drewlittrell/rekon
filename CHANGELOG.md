@@ -4,6 +4,130 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **Verification / GitHub Trust-Boundary
+  Hardening** (P1.1
+  verification-github-trust-boundary-hardening slice).
+  **Step 9** of the CI / GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  Hardening batch — runtime code changes in
+  `@rekon/capability-docs`,
+  `@rekon/capability-verify`, and the CLI; no new
+  surfaces, no new workflow templates, no new GitHub
+  API calls.
+
+  Six trust-boundary fixes (one per row of the bug
+  register paged by the
+  [GitHub Review Surfaces Parity Review](docs/strategy/github-review-surfaces-parity-review.md)):
+
+  1. **Coherent GitHub Check proof-chain selection.**
+     `rekon publish github-check` now picks the
+     VerificationRun cited by
+     `VerificationResult.header.inputRefs` instead of
+     the unrelated latest VerificationRun. A missing
+     cited run surfaces a `proofChainWarnings` entry
+     on the output instead of silently substituting.
+  2. **Bounded stdout/stderr streaming capture.** The
+     runner's spawn path now uses an incremental
+     sha256 hash + a bounded excerpt buffer; large
+     streams cannot exhaust memory before truncation.
+     `originalBytes` still reflects the full stream;
+     the digest covers every byte.
+  3. **POSIX process-tree timeout kill semantics.**
+     On POSIX, the runner spawns commands `detached`
+     and kills the process group via
+     `process.kill(-pid, signal)` on timeout, so
+     grandchildren no longer outlive the runner.
+     Windows direct-child-only kill is documented
+     honestly.
+  4. **`NODE_OPTIONS` removed from runner env
+     allowlist.** `VERIFICATION_RUN_ENV_ALLOWLIST`
+     no longer includes `NODE_OPTIONS` — preloading
+     modules into plan-command children would
+     compromise proof repeatability.
+     `NPM_CONFIG_USERCONFIG` is kept as a deliberate
+     trade-off (npm semantics depend on it; the
+     secret-key scrub still applies).
+  5. **Bounded GitHub API error-body reads.** Both
+     `publishGitHubCheckRun` and `publishPrCommentRun`
+     now use a new shared `readBoundedResponseBody`
+     that streams via `response.body.getReader()`,
+     aborts at 64 KiB, and cancels the reader so the
+     connection releases promptly.
+  6. **PR head SHA safety on `pull_request` events.**
+     New readiness issue code `missing-pr-head-sha`.
+     `pull_request` / `pull_request_target` events
+     require an explicit head SHA (via
+     `--head-sha <sha>` flag or `GITHUB_HEAD_SHA`
+     env). `push` / `workflow_dispatch` continue
+     using `GITHUB_SHA`. `pull_request_target`
+     remains unconditionally denied.
+
+  **Public API changes** (all additive or explicit
+  scope reductions):
+  - `@rekon/capability-docs`: new readiness issue
+    code `missing-pr-head-sha`; the bounded body
+    reader is internal but is reused by both
+    publishers.
+  - `@rekon/capability-verify`:
+    `VERIFICATION_RUN_ENV_ALLOWLIST` no longer
+    contains `NODE_OPTIONS` (subtractive).
+  - CLI: new optional `--head-sha <sha>` flag on
+    `publish github-check --send`; new optional
+    `proofChainWarnings` field on `publish
+    github-check` dry-run + send JSON output.
+  - No validator-profile changes. No workflow-template
+    changes. No artifact-shape change.
+
+  **Tests:** new contract suite
+  `tests/contract/verification-github-trust-boundary-hardening.test.mjs`
+  with 17 tests across 5 groups (proof-chain
+  coherence, execution bounds, timeout semantics,
+  GitHub API error bounds, PR head SHA). Two
+  existing readiness tests updated to pass explicit
+  `headShaOverride`; one new readiness rejection
+  test added. Full suite **1550 passed / 1
+  skipped**.
+
+  **Docs:** updated decision memos
+  (verification-runner-v1-decision, Check publisher
+  decision, Check publisher safety review, PR
+  comment publisher safety review, GitHub review
+  surfaces parity review), the
+  VerificationRun artifact + verification-runs
+  concept (POSIX vs. Windows kill semantics +
+  bounded streaming + `NODE_OPTIONS` policy), the
+  operator guide (PR head SHA section), the
+  governance memo (step 59), classic-behavior
+  roadmap + master roadmap. New review packet at
+  `.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md`.
+
+  **Recommended next slice:** Verification / GitHub
+  trust-boundary safety review — strategy review
+  over the hardening results.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No new GitHub surfaces.
+  - No PR comment refinements (the safety review
+    already declared the surface beta-ready).
+  - No GitHub Check refinements beyond hardening.
+  - No VerificationRun / VerificationResult schema
+    change.
+  - No automatic finding resolution / reconciliation
+    apply.
+  - No active `.github/workflows/*.yml` files.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** no schema change
+  (only behavioural fixes to existing fields);
+  bounded streaming preserves digests; process-tree
+  kill is implemented safely on POSIX + documented
+  honestly on Windows; `NODE_OPTIONS` removal
+  doesn't break existing tests; token never appears
+  in error output (sentinel-token tests still
+  green); `pull_request --send` cannot silently use
+  `GITHUB_SHA`.
+
 - Shipped **GitHub review surfaces parity review**
   (P1.1 github-review-surfaces-parity-review slice).
   **Step 8** of the CI / GitHub adapter

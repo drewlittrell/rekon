@@ -322,6 +322,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remain blocked by default. Read-only
 # workflows remain the recommended starting point for
 # adoption.
+#
+# Step 9 shipped the Verification / GitHub Trust-Boundary
+# Hardening batch. Six fixes (see CHANGELOG):
+#   1. Coherent GitHub Check proof-chain selection (Check
+#      payloads use the VerificationRun cited by the
+#      VerificationResult, not the unrelated latest run).
+#   2. Bounded stdout/stderr streaming capture (incremental
+#      sha256 + bounded excerpt buffer; large streams cannot
+#      exhaust memory before truncation).
+#   3. POSIX process-tree timeout kill (descendants no longer
+#      outlive the runner on timeout; Windows direct-child-only
+#      documented).
+#   4. NODE_OPTIONS removed from the runner env allowlist.
+#   5. Bounded GitHub API error-body reads (both publishers).
+#   6. PR head SHA safety: pull_request events require an
+#      explicit --head-sha (or GITHUB_HEAD_SHA); GITHUB_SHA on
+#      pull_request is the merge commit, not the PR head.
+#
+# `publish github-check --send` now accepts --head-sha <sha>
+# and emits proofChainWarnings when the cited VerificationRun
+# is missing from the local store.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

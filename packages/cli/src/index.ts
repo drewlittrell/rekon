@@ -390,14 +390,12 @@ export async function main(argv: string[]): Promise<void> {
     await store.init();
 
     const verificationResultEntry = await pickLatestArtifactEntry(store, "VerificationResult");
-    const verificationRunEntry = await pickLatestArtifactEntry(store, "VerificationRun");
     const verificationPlanEntry = await pickLatestArtifactEntry(store, "VerificationPlan");
     const proofReportEntry = await pickLatestPublicationByKind(store, "proof-report");
     const architectureSummaryEntry = await pickLatestPublicationByKind(store, "architecture-summary");
     const agentContractEntry = await pickLatestPublicationByKind(store, "agent-contract");
 
     const verificationResultRef = verificationResultEntry ? toArtifactRef(verificationResultEntry) : undefined;
-    const verificationRunRef = verificationRunEntry ? toArtifactRef(verificationRunEntry) : undefined;
     const verificationPlanRef = verificationPlanEntry ? toArtifactRef(verificationPlanEntry) : undefined;
     const proofReportRef = proofReportEntry ? toArtifactRef(proofReportEntry) : undefined;
     const architectureSummaryRef = architectureSummaryEntry ? toArtifactRef(architectureSummaryEntry) : undefined;
@@ -415,19 +413,23 @@ export async function main(argv: string[]): Promise<void> {
       }
     }
 
-    let verificationRunBody: GitHubCheckVerificationRunBodyLike | undefined;
-
-    if (verificationRunEntry) {
-      try {
-        verificationRunBody = (await store.read(
-          verificationRunEntry,
-        )) as GitHubCheckVerificationRunBodyLike;
-      } catch (cause) {
-        throw new Error(
-          `Failed to read VerificationRun body ${verificationRunEntry.id}: ${(cause as Error).message ?? cause}`,
-        );
-      }
-    }
+    // Step 9 — Proof-chain coherence (verification / GitHub
+    // trust-boundary hardening). Pick the VerificationRun
+    // **cited by the VerificationResult**, not the unrelated
+    // latest run. If the result cites a missing run, leave
+    // the payload's `verificationRun` undefined so the
+    // payload builder reports `proof === "missing"` →
+    // `action_required` instead of substituting a stale run.
+    // Only fall back to latest VerificationRun when no
+    // VerificationResult exists.
+    const verificationRunChain = await resolveCoherentVerificationRunForGitHubCheck(
+      store,
+      verificationResult,
+    );
+    const verificationRunEntry = verificationRunChain.entry;
+    const verificationRunBody = verificationRunChain.body;
+    const verificationRunRef = verificationRunEntry ? toArtifactRef(verificationRunEntry) : undefined;
+    const proofChainCoherenceWarning = verificationRunChain.warning;
 
     const runStatus: GitHubCheckPublisherRunStatus | undefined = verificationRunBody
       ? mapVerificationRunStatusForGitHubCheck(verificationRunBody)
@@ -477,6 +479,9 @@ export async function main(argv: string[]): Promise<void> {
         dryRun: true,
         payload,
         readiness,
+        proofChainWarnings: proofChainCoherenceWarning
+          ? [proofChainCoherenceWarning]
+          : undefined,
         canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
       };
 
@@ -498,10 +503,24 @@ export async function main(argv: string[]): Promise<void> {
       ? parsed.flags["api-base-url"] as string
       : undefined;
 
+    // Trust-boundary hardening (step 9, fix #6): resolve PR
+    // head SHA from --head-sha flag, then GITHUB_HEAD_SHA env.
+    // `assessGitHubCheckPublisherReadiness` refuses
+    // pull_request events without an explicit head SHA so we
+    // never attach a Check to the merge commit by accident.
+    const headShaFlag = typeof parsed.flags["head-sha"] === "string"
+      ? (parsed.flags["head-sha"] as string).trim()
+      : undefined;
+    const headShaOverride = headShaFlag && headShaFlag.length > 0
+      ? headShaFlag
+      : (sendEnv.GITHUB_HEAD_SHA && sendEnv.GITHUB_HEAD_SHA.trim().length > 0
+          ? sendEnv.GITHUB_HEAD_SHA.trim()
+          : undefined);
+
     const config = {
       enabled: true,
       repository: sendEnv.GITHUB_REPOSITORY,
-      headSha: sendEnv.GITHUB_SHA,
+      headSha: headShaOverride ?? sendEnv.GITHUB_SHA,
       runUrl: buildGitHubActionsRunUrl(process.env),
     };
 
@@ -522,6 +541,7 @@ export async function main(argv: string[]): Promise<void> {
       env: sendEnv,
       event,
       writePermissionConfirmed,
+      headShaOverride,
     });
 
     if (!readiness.ready) {
@@ -536,6 +556,9 @@ export async function main(argv: string[]): Promise<void> {
         payload,
         readiness,
         github: undefined,
+        proofChainWarnings: proofChainCoherenceWarning
+          ? [proofChainCoherenceWarning]
+          : undefined,
         canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
       };
 
@@ -583,6 +606,9 @@ export async function main(argv: string[]): Promise<void> {
           readiness,
           github: undefined,
           error: sanitized,
+          proofChainWarnings: proofChainCoherenceWarning
+            ? [proofChainCoherenceWarning]
+            : undefined,
           canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
         };
         writeOutput(output, true);
@@ -603,6 +629,9 @@ export async function main(argv: string[]): Promise<void> {
       payload,
       readiness,
       github,
+      proofChainWarnings: proofChainCoherenceWarning
+        ? [proofChainCoherenceWarning]
+        : undefined,
       canonicalTruthReminder: GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
     };
 
@@ -4129,6 +4158,7 @@ type GitHubCheckDryRunOutput = {
   dryRun: true;
   payload: ReturnType<typeof buildGitHubCheckPayload>;
   readiness: ReturnType<typeof assessGitHubCheckPublisherReadiness>;
+  proofChainWarnings?: string[];
   canonicalTruthReminder: typeof GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER;
 };
 
@@ -4140,6 +4170,7 @@ type GitHubCheckSendOutput = {
   readiness: GitHubCheckPublisherReadiness;
   github?: GitHubCheckPublishResult;
   error?: { status: number; message: string; documentationUrl?: string };
+  proofChainWarnings?: string[];
   canonicalTruthReminder: typeof GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER;
 };
 
@@ -4323,6 +4354,103 @@ async function pickLatestArtifactEntry(
   const entries = await store.list(artifactType);
   if (entries.length === 0) return undefined;
   return sortByWrittenAtDesc(entries)[0];
+}
+
+type GitHubCheckRunChainResolution = {
+  entry: ArtifactIndexEntry | undefined;
+  body: GitHubCheckVerificationRunBodyLike | undefined;
+  warning?: string;
+};
+
+/**
+ * Trust-boundary hardening (step 9, fix #1) — proof-chain
+ * coherence. Resolve the VerificationRun **cited by the
+ * VerificationResult**, not the unrelated latest run. This
+ * prevents the GitHub Check payload from combining a
+ * VerificationResult from run N with a VerificationRun from
+ * run N+1.
+ *
+ * Rules:
+ *   1. If a VerificationResult exists and its header.inputRefs
+ *      cite a VerificationRun, load **that specific run**.
+ *   2. If a VerificationResult exists and its header.inputRefs
+ *      cite a VerificationRun that no longer exists in the
+ *      store, return `entry: undefined` + a coherence warning
+ *      so the payload builder reports
+ *      `proof === "missing"` → `action_required`.
+ *   3. If no VerificationResult exists, fall back to latest
+ *      VerificationRun (existing behaviour; the proof status
+ *      is still `missing` at the result layer).
+ *   4. If a VerificationResult exists but cites no
+ *      VerificationRun in its inputRefs at all
+ *      (manually-recorded results), do not substitute the
+ *      latest unrelated run — report `entry: undefined` so
+ *      the payload reports `runner-run-missing`.
+ */
+async function resolveCoherentVerificationRunForGitHubCheck(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  verificationResult: VerificationResultBodyLike | undefined,
+): Promise<GitHubCheckRunChainResolution> {
+  if (!verificationResult) {
+    // No result yet — fall back to latest run so operators
+    // who run --execute but not --result still see something.
+    const latestRun = await pickLatestArtifactEntry(store, "VerificationRun");
+    if (!latestRun) return { entry: undefined, body: undefined };
+
+    try {
+      const body = (await store.read(latestRun)) as GitHubCheckVerificationRunBodyLike;
+      return { entry: latestRun, body };
+    } catch (cause) {
+      throw new Error(
+        `Failed to read VerificationRun body ${latestRun.id}: ${(cause as Error).message ?? cause}`,
+      );
+    }
+  }
+
+  // VerificationResult exists — find the VerificationRun ref
+  // it cites in its inputRefs. The result must cite the run
+  // it was derived from (deriveVerificationResultFromRun does
+  // this; manually-recorded results may not, in which case we
+  // refuse to substitute).
+  const headerRefs = Array.isArray(verificationResult.header?.inputRefs)
+    ? verificationResult.header!.inputRefs
+    : [];
+  const citedRunRef = headerRefs.find(
+    (ref): ref is ArtifactRef =>
+      Boolean(ref) && typeof ref === "object" && (ref as ArtifactRef).type === "VerificationRun",
+  );
+
+  if (!citedRunRef) {
+    return {
+      entry: undefined,
+      body: undefined,
+      warning:
+        "VerificationResult does not cite a VerificationRun in its inputRefs. The GitHub Check payload will report `runner-run-missing`; reviewers should follow up before treating the Check as authoritative.",
+    };
+  }
+
+  const allRuns = await store.list("VerificationRun");
+  const citedEntry = allRuns.find(
+    (candidate) => candidate.type === "VerificationRun" && candidate.id === citedRunRef.id,
+  );
+
+  if (!citedEntry) {
+    return {
+      entry: undefined,
+      body: undefined,
+      warning:
+        `VerificationResult cites VerificationRun:${citedRunRef.id}, but that run is not present in the local artifact store. The GitHub Check payload will report \`runner-run-missing\` instead of substituting an unrelated latest run.`,
+    };
+  }
+
+  try {
+    const body = (await store.read(citedEntry)) as GitHubCheckVerificationRunBodyLike;
+    return { entry: citedEntry, body };
+  } catch (cause) {
+    throw new Error(
+      `Failed to read cited VerificationRun body ${citedEntry.id}: ${(cause as Error).message ?? cause}`,
+    );
+  }
 }
 
 async function pickLatestPublicationByKind(
@@ -6445,7 +6573,7 @@ function usage(): string {
     "rekon publish proof [--root <path>] [--json]",
     "rekon publish agent-contract [--root <path>] [--json]",
     "rekon publish github-check --dry-run [--root <path>] [--json]",
-    "rekon publish github-check --send [--root <path>] [--confirm-checks-write] [--api-base-url <url>] [--json]",
+    "rekon publish github-check --send [--root <path>] [--confirm-checks-write] [--head-sha <sha>] [--api-base-url <url>] [--json]",
     "rekon publish pr-comment --dry-run [--root <path>] [--json]",
     "rekon publish pr-comment --send [--root <path>] [--pr-number <n>] [--confirm-pr-comment-write] [--api-base-url <url>] [--json]",
     "rekon agent-contract export --output <path> [--force] [--root <path>] [--json]",

@@ -1189,18 +1189,27 @@ slices:
    review-surface batch.
 
 9. **Verification / GitHub Trust-Boundary
-   Hardening (next).** Return to
-   foundational hardening before adding
-   any new review surfaces: coherent
-   VerificationResult →
+   Hardening (shipped).** ✅ Six fixes
+   landed: coherent VerificationResult →
    VerificationRun proof-chain selection
-   for GitHub Check payloads; bounded
-   stdout/stderr streaming memory;
-   process-tree timeout semantics;
-   `NODE_OPTIONS` removal from runner
-   env; bounded GitHub API error-body
-   reads (re-confirm); PR head-SHA
-   policy.
+   (CLI emits `proofChainWarnings` when
+   the cited run is missing); bounded
+   stdout/stderr streaming capture
+   (incremental sha256 + bounded
+   excerpt buffer); POSIX process-tree
+   timeout kill (Windows direct-child
+   only, documented); `NODE_OPTIONS`
+   removed from
+   `VERIFICATION_RUN_ENV_ALLOWLIST`;
+   bounded GitHub API error-body reads
+   in both publishers; PR head SHA
+   safety (new `missing-pr-head-sha`
+   readiness issue;
+   `pull_request*` events require
+   explicit `--head-sha` or
+   `GITHUB_HEAD_SHA`). See review packet
+   at
+   `.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md`.
 
 10. **Cross-CI documentation (beta+).**
     Document the same workflow pattern

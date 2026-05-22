@@ -641,3 +641,12 @@ In order of expected priority:
 **The GitHub review surface is beta-complete. The
 next slice is the Verification / GitHub
 Trust-Boundary Hardening batch.**
+
+**Update — step 9 shipped.** The hardening batch
+landed every fix paged above (coherent proof-chain
+selection, bounded streaming capture, POSIX
+process-tree timeout, NODE_OPTIONS removal, bounded
+GitHub API error reads, PR head SHA safety). See
+[`verification-github-trust-boundary-hardening.md`](../../.rekon-dev/review-packets/verification-github-trust-boundary-hardening.md)
+(review packet) for the full bug register + tests.
+The next slice is the trust-boundary safety review.

@@ -4150,6 +4150,7 @@ export type GitHubCheckPublisherReadinessIssueCode =
   | "missing-token"
   | "missing-repository"
   | "missing-sha"
+  | "missing-pr-head-sha"
   | "untrusted-event"
   | "write-permission-not-confirmed";
 
@@ -4304,7 +4305,28 @@ export function assessGitHubCheckPublisherReadiness(
     });
   }
 
-  const headSha = input.headShaOverride ?? input.env.GITHUB_SHA;
+  // Trust-boundary hardening (step 9, fix #6): PR head SHA
+  // safety. On `pull_request` events, GITHUB_SHA is the merge
+  // commit SHA — Checks attached to it appear on the wrong
+  // commit. Require an explicit head SHA
+  // (`headShaOverride` / `--head-sha` / `GITHUB_HEAD_SHA`)
+  // before allowing a pull_request send.
+  const isPullRequestEvent =
+    input.event.name === "pull_request" || input.event.name === "pull_request_target";
+  const explicitHeadSha =
+    input.headShaOverride !== undefined && String(input.headShaOverride).trim() !== ""
+      ? String(input.headShaOverride).trim()
+      : undefined;
+
+  if (isPullRequestEvent && !explicitHeadSha) {
+    issues.push({
+      code: "missing-pr-head-sha",
+      message:
+        "pull_request events require an explicit head SHA (--head-sha or GITHUB_HEAD_SHA). GITHUB_SHA on pull_request events is the merge commit SHA, not the PR head; attaching a Check to it would render against the wrong commit.",
+    });
+  }
+
+  const headSha = explicitHeadSha ?? input.env.GITHUB_SHA;
   if (!headSha || String(headSha).trim() === "") {
     issues.push({
       code: "missing-sha",
@@ -4684,14 +4706,81 @@ function mapPayloadToGitHubRequestBody(payload: GitHubCheckPayload): Record<stri
   return body;
 }
 
+/**
+ * Trust-boundary hardening (step 9, fix #5). Read a Response
+ * body **as a bounded stream**, aborting as soon as the byte
+ * cap is reached. This prevents a misbehaving upstream (or a
+ * very large GitHub error body) from being fully buffered
+ * into memory before truncation.
+ *
+ * `response.text()` would otherwise read the entire body into
+ * a string first. The fetch reader is cancelled after the cap
+ * so the underlying connection releases promptly.
+ *
+ * Never includes the request token in the result; the bound
+ * also stops a misbehaving proxy from echoing it back without
+ * us noticing.
+ */
+const GITHUB_ERROR_BODY_BYTE_CAP = 64 * 1024;
+
+async function readBoundedResponseBody(response: Response): Promise<string> {
+  // If the body has been disposed (no reader, e.g. HEAD), fall
+  // back to text() — there's nothing to stream.
+  if (!response.body) {
+    try {
+      const text = await response.text();
+      return text.length > GITHUB_ERROR_BODY_BYTE_CAP
+        ? `${text.slice(0, GITHUB_ERROR_BODY_BYTE_CAP)}… [truncated]`
+        : text;
+    } catch {
+      return "";
+    }
+  }
+
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  const reader = response.body.getReader();
+  let collected = "";
+  let collectedBytes = 0;
+  let truncated = false;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      const remaining = GITHUB_ERROR_BODY_BYTE_CAP - collectedBytes;
+      if (remaining <= 0) {
+        truncated = true;
+        break;
+      }
+      const slice = value.byteLength > remaining ? value.subarray(0, remaining) : value;
+      collected += decoder.decode(slice, { stream: true });
+      collectedBytes += slice.byteLength;
+      if (value.byteLength > remaining) {
+        truncated = true;
+        break;
+      }
+    }
+    // Flush any remaining bytes in the decoder.
+    collected += decoder.decode();
+  } catch {
+    // Body read errored; keep whatever we collected.
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      // already closed
+    }
+  }
+
+  return truncated ? `${collected}… [truncated]` : collected;
+}
+
 async function readResponseBodySafely(response: Response): Promise<string> {
-  // Read up to ~64 KiB of response body so an unbounded GitHub
-  // error doesn't fill the operator's terminal. Never include the
-  // request token in the result; it isn't in the response anyway,
-  // but the bound stays so a misbehaving proxy can't echo it back
-  // without us noticing.
-  const text = await response.text();
-  return text.length > 64 * 1024 ? `${text.slice(0, 64 * 1024)}… [truncated]` : text;
+  // Backwards-compatible alias that now uses the bounded
+  // streaming reader. The 2xx-success path (`response.json()`)
+  // is unchanged; only the error-handling branch uses this.
+  return readBoundedResponseBody(response);
 }
 
 function pickStringField(value: unknown, ...keys: string[]): string | undefined {
@@ -5373,16 +5462,13 @@ function ensurePrCommentPositiveInteger(value: number, fieldLabel: string): numb
 }
 
 async function readPrCommentResponseBodySafely(response: Response): Promise<string> {
-  // Read up to ~64 KiB of response body so an unbounded GitHub
-  // error doesn't fill the operator's terminal. Mirror the
-  // GitHub Check helper's bounded-read posture; the GitHub
-  // Check helper uses `response.text()` then truncates after
-  // the fact, which is the right ordering for clamping output
-  // — `text()` doesn't run unbounded since `fetch` already
-  // buffered the response, but the post-read clamp ensures the
-  // string we keep is bounded.
-  const text = await response.text();
-  return text.length > 64 * 1024 ? `${text.slice(0, 64 * 1024)}… [truncated]` : text;
+  // Trust-boundary hardening (step 9, fix #5). Mirror the
+  // GitHub Check helper's bounded streaming reader: read at
+  // most `GITHUB_ERROR_BODY_BYTE_CAP` bytes and cancel the
+  // underlying response stream so the connection releases
+  // promptly. The 2xx-success path (`response.json()`) is
+  // unchanged.
+  return readBoundedResponseBody(response);
 }
 
 function pickPrCommentStringField(value: unknown, ...keys: string[]): string | undefined {

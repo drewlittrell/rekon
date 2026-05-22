@@ -96,10 +96,30 @@ is now the opt-in execution surface. It:
   per-plan timeout (default 600 s) caps each
   command's effective timeout to the remaining
   budget and marks unspawned commands `not-run`.
+- **Process-tree kill on POSIX** (step 9
+  hardening): commands are spawned `detached` and
+  the timeout signals the whole process group via
+  `process.kill(-pid, SIGTERM/SIGKILL)`. This
+  reaches every descendant (grandchildren spawned
+  by the runner-invoked process). **Windows
+  falls back to direct-child kill**: the runner
+  cannot signal grandchildren on Windows, so
+  long-running grandchildren can outlive the
+  command. Plans that spawn long-running
+  grandchildren on Windows should kill them
+  explicitly.
 - Captures `stdoutDigest` / `stderrDigest`
   (sha256 of the full pre-redaction stream) plus
   bounded redacted excerpts (default 8 KB per
-  stream).
+  stream). **Streaming capture is bounded by
+  construction** (step 9 hardening): the runner
+  hashes each chunk incrementally and only retains
+  enough buffered text to produce the bounded
+  excerpt. Large stdout / stderr streams cannot
+  exhaust memory before truncation.
+  `originalBytes` reflects the **full** stream
+  byte count even when only ≪ 1% is retained as
+  the excerpt.
 - Records each command's status — including the
   new first-class `timeout` / `killed` statuses
   — and derives the run's overall status using

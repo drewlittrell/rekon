@@ -589,6 +589,19 @@ export const VERIFICATION_RUN_EXECUTION_RUNNER_ID = "rekon.local.exec";
  * **value** looks token-like (i.e., the key matches the secret
  * guard). Platform-critical variables (Windows `SystemRoot` etc.)
  * are also allowed so commands can resolve `node` on Windows.
+ *
+ * **Step 9 hardening (fix #4):** `NODE_OPTIONS` is **not** in the
+ * allowlist. `NODE_OPTIONS=--require ...` can preload modules into
+ * any spawned Node.js process and silently alter proof execution,
+ * which would weaken the repeatability guarantees that downstream
+ * GitHub Check / PR comment surfaces depend on. Operators who need
+ * specific Node.js flags can set them inline on the command in
+ * their `VerificationPlan`.
+ *
+ * `NPM_CONFIG_USERCONFIG` remains forwarded so commands that
+ * resolve npm packages can find the operator's `~/.npmrc`. This is
+ * a deliberate trade-off (npm semantics depend on it) and is
+ * documented in the trust-boundary hardening review packet.
  */
 export const VERIFICATION_RUN_ENV_ALLOWLIST = Object.freeze([
   "PATH",
@@ -600,7 +613,6 @@ export const VERIFICATION_RUN_ENV_ALLOWLIST = Object.freeze([
   "TEMP",
   "TMP",
   "NODE_ENV",
-  "NODE_OPTIONS",
   "NPM_CONFIG_USERCONFIG",
   "CI",
   "LANG",
@@ -799,6 +811,39 @@ function buildStreamExcerpt(
   };
 }
 
+/**
+ * Trust-boundary hardening (step 9, fix #2). Convert a
+ * `BoundedStreamCapture` returned by the new streaming sink
+ * into a `VerificationRunStreamExcerpt`. The capture already
+ * holds an incremental sha256 + a bounded-by-construction
+ * excerpt buffer, so we only apply redaction + the byte-cap
+ * truncation here. The full stream is never materialised.
+ */
+function finalizeBoundedStreamSummary(
+  capture: BoundedStreamCapture,
+  maxBytes: number,
+): { excerpt: VerificationRunStreamExcerpt; digest: string; matches: number; patternIds: string[] } {
+  const redacted = redactVerificationRunStreamText(capture.excerpt);
+  const truncated = truncateToBytes(redacted.text, maxBytes);
+  // `originalBytes` reflects the **full** stream that flowed
+  // through the sink, not just the excerpt buffer the sink
+  // retained. The streaming sink already tracked this.
+  const excerpt: VerificationRunStreamExcerpt = {
+    text: truncated.text,
+    redacted: redacted.redactedMatches > 0,
+    truncated: truncated.truncated || capture.truncated,
+    originalBytes: capture.originalBytes,
+    storedBytes: truncated.storedBytes,
+  };
+
+  return {
+    excerpt,
+    digest: capture.digest,
+    matches: redacted.redactedMatches,
+    patternIds: redacted.patterns,
+  };
+}
+
 export type VerificationRunExecutionOptions = {
   /** Working directory used by every spawned command. Required. */
   cwd: string;
@@ -902,12 +947,13 @@ export async function executeVerificationRun(
       env: scrubbedEnv,
       commandTimeoutMs: effectiveCommandTimeout,
       killGraceMs,
+      maxLogBytes,
     });
     const endedAt = new Date().toISOString();
     const durationMs = Date.now() - startMs;
 
-    const stdoutSummary = buildStreamExcerpt(spawnResult.stdout, maxLogBytes);
-    const stderrSummary = buildStreamExcerpt(spawnResult.stderr, maxLogBytes);
+    const stdoutSummary = finalizeBoundedStreamSummary(spawnResult.stdout, maxLogBytes);
+    const stderrSummary = finalizeBoundedStreamSummary(spawnResult.stderr, maxLogBytes);
 
     redactedMatchesTotal += stdoutSummary.matches + stderrSummary.matches;
     for (const pattern of stdoutSummary.patternIds) {
@@ -1008,17 +1054,74 @@ type SpawnPlanCommandOptions = {
   env: Record<string, string>;
   commandTimeoutMs: number;
   killGraceMs: number;
+  /**
+   * Per-stream byte cap for the bounded excerpt buffer
+   * (default `VERIFICATION_RUN_DEFAULT_MAX_LOG_BYTES`).
+   */
+  maxLogBytes: number;
+};
+
+type BoundedStreamCapture = {
+  excerpt: string;
+  digest: string;
+  originalBytes: number;
+  truncated: boolean;
 };
 
 type SpawnPlanCommandResult = {
   exitCode: number | null;
   signal: string | null;
-  stdout: string;
-  stderr: string;
+  stdout: BoundedStreamCapture;
+  stderr: BoundedStreamCapture;
   timedOut: boolean;
   killed: boolean;
   startError?: string;
 };
+
+/**
+ * Build a stream sink that incrementally hashes every chunk
+ * and retains only the first `maxBytes` bytes as a bounded
+ * excerpt. Anything past the cap is hashed and discarded; the
+ * `originalBytes` counter still reflects the full stream.
+ *
+ * This prevents large stdout/stderr from exhausting memory
+ * before truncation (step 9, fix #2 — bounded streaming
+ * capture).
+ */
+function createBoundedStreamSink(maxBytes: number): {
+  onChunk: (chunk: Buffer) => void;
+  finalize: () => BoundedStreamCapture;
+} {
+  const hash = createHash("sha256");
+  // Cap the buffered excerpt at a small multiple of maxBytes
+  // so we keep enough context for boundary-aware redaction +
+  // truncation without retaining unbounded text.
+  const excerptCap = Math.max(maxBytes * 2, 4096);
+  let excerptBuffer = "";
+  let originalBytes = 0;
+
+  return {
+    onChunk(chunk) {
+      hash.update(chunk);
+      originalBytes += chunk.byteLength;
+      if (excerptBuffer.length < excerptCap) {
+        const remaining = excerptCap - excerptBuffer.length;
+        excerptBuffer += chunk
+          .subarray(0, Math.min(chunk.byteLength, remaining))
+          .toString("utf8");
+      }
+    },
+    finalize() {
+      const digest = hash.digest("hex");
+      return {
+        excerpt: excerptBuffer,
+        digest,
+        originalBytes,
+        truncated: originalBytes > excerptBuffer.length,
+      };
+    },
+  };
+}
 
 async function spawnPlanCommand(
   planned: VerificationRunCommand,
@@ -1026,13 +1129,19 @@ async function spawnPlanCommand(
 ): Promise<SpawnPlanCommandResult> {
   return new Promise<SpawnPlanCommandResult>((resolve) => {
     const argv = planned.argv;
+    const emptyCapture: BoundedStreamCapture = {
+      excerpt: "",
+      digest: createHash("sha256").update("").digest("hex"),
+      originalBytes: 0,
+      truncated: false,
+    };
 
     if (!argv || argv.length === 0) {
       resolve({
         exitCode: null,
         signal: null,
-        stdout: "",
-        stderr: "Empty argv; nothing spawned.",
+        stdout: emptyCapture,
+        stderr: { ...emptyCapture, excerpt: "Empty argv; nothing spawned." },
         timedOut: false,
         killed: false,
         startError: "empty-argv",
@@ -1041,6 +1150,13 @@ async function spawnPlanCommand(
     }
 
     let child;
+    // Process-tree kill semantics (step 9, fix #3): on POSIX
+    // platforms, spawn the child in its own process group so
+    // a SIGTERM / SIGKILL on `-pid` reaches every descendant
+    // (the runner-spawned process and its grandchildren). On
+    // Windows we rely on `child.kill()` only — see the
+    // platform note in docs/concepts/verification-runs.md.
+    const useProcessGroup = process.platform !== "win32";
 
     try {
       child = spawn(argv[0]!, argv.slice(1), {
@@ -1049,6 +1165,7 @@ async function spawnPlanCommand(
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
+        detached: useProcessGroup,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1056,8 +1173,8 @@ async function spawnPlanCommand(
       resolve({
         exitCode: null,
         signal: null,
-        stdout: "",
-        stderr: `spawn failed: ${message}`,
+        stdout: emptyCapture,
+        stderr: { ...emptyCapture, excerpt: `spawn failed: ${message}` },
         timedOut: false,
         killed: false,
         startError: message,
@@ -1066,20 +1183,32 @@ async function spawnPlanCommand(
       return;
     }
 
-    let stdout = "";
-    let stderr = "";
+    const stdoutSink = createBoundedStreamSink(options.maxLogBytes);
+    const stderrSink = createBoundedStreamSink(options.maxLogBytes);
     let timedOut = false;
     let killed = false;
 
     child.stdout?.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
+      stdoutSink.onChunk(chunk);
     });
     child.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
+      stderrSink.onChunk(chunk);
     });
 
     const killChild = (signal: NodeJS.Signals) => {
       try {
+        if (useProcessGroup && typeof child.pid === "number") {
+          // Negative pid signals the entire process group, so
+          // grandchildren spawned by the runner-invoked process
+          // also receive the signal. Falls back to direct-child
+          // kill if the process group call throws.
+          try {
+            process.kill(-child.pid, signal);
+            return;
+          } catch {
+            // group kill failed; fall back to direct child kill.
+          }
+        }
         child.kill(signal);
       } catch {
         // already dead
@@ -1103,11 +1232,19 @@ async function spawnPlanCommand(
 
     child.on("error", (error: Error) => {
       clearTimeout(termTimer);
+      const stderrCapture = stderrSink.finalize();
+      const augmented: BoundedStreamCapture = {
+        ...stderrCapture,
+        excerpt:
+          stderrCapture.excerpt
+          + (stderrCapture.excerpt.length > 0 ? "\n" : "")
+          + `child error: ${error.message}`,
+      };
       resolve({
         exitCode: null,
         signal: null,
-        stdout,
-        stderr: stderr + (stderr.length > 0 ? "\n" : "") + `child error: ${error.message}`,
+        stdout: stdoutSink.finalize(),
+        stderr: augmented,
         timedOut,
         killed,
         startError: error.message,
@@ -1119,8 +1256,8 @@ async function spawnPlanCommand(
       resolve({
         exitCode: typeof exitCode === "number" ? exitCode : null,
         signal: typeof signal === "string" ? signal : null,
-        stdout,
-        stderr,
+        stdout: stdoutSink.finalize(),
+        stderr: stderrSink.finalize(),
         timedOut,
         killed,
       });
