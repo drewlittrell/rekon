@@ -1911,14 +1911,39 @@ review packets unless an ADR promotes them. Promotion requires:
     unconditionally. 19 new contract tests + 9
     new docs assertions; the artifact index is
     byte-identical before / after `--send`.
-57. **(future)** Per-module `ObservedSystem`
+57. **Shipped (✅).** PR comment publisher
+    safety review (step 7g).
+    [`docs/strategy/pr-comment-publisher-safety-review.md`](pr-comment-publisher-safety-review.md)
+    walks the full PR comment publishing path
+    end-to-end (body helper, readiness helper,
+    dry-run CLI, send CLI, API writer, workflow
+    template, validator profile, idempotency
+    marker, pagination + update-in-place, token
+    + error sanitization, fork + event safety,
+    canonical-artifact boundary, test coverage)
+    and pins **beta-ready as an opt-in,
+    trusted-context-only, update-in-place review
+    surface**. Read-only templates remain the
+    alpha default; GitHub Checks remain the
+    primary status surface; PR comments are a
+    narrative companion surface. Required
+    statements pinned by the memo + the docs
+    test: PR comments are not canonical truth;
+    Rekon artifacts remain canonical; the
+    idempotency marker is not proof; forked PRs
+    and `pull_request_target` remain blocked by
+    default; no automatic finding resolution or
+    reconciliation apply is implied by a
+    successful PR comment publish. 18 docs
+    assertions pin the memo's contract.
+58. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-58. **(future)** Persistent exclusion lists, and
+59. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

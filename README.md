@@ -294,6 +294,14 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # update-in-place handle. Forked PRs remain denied by default;
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
+#
+# Step 7g shipped the PR Comment Publisher Safety Review at
+# docs/strategy/pr-comment-publisher-safety-review.md.
+# Decision: beta-ready as an opt-in, trusted-context-only,
+# update-in-place review surface. GitHub Checks remain the
+# primary status surface; PR comments are a narrative companion
+# surface. No automatic finding resolution or reconciliation
+# apply is implied by a successful PR comment publish.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

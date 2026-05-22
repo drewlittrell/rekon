@@ -569,10 +569,20 @@ If the Option-B path is approved:
    profile now requires both the dry-run preview
    step and the `--send` step (with
    `--confirm-pr-comment-write`).
-7. **PR comment safety review** (step 7g). Only if
-   7f ships. Walks the full publishing path end-to-
-   end, parallel to the GitHub Check publisher
-   safety review.
+7. **PR Comment Publisher Safety Review** (step
+   7g). ✅ Shipped at
+   [`pr-comment-publisher-safety-review.md`](pr-comment-publisher-safety-review.md).
+   Walks the full publishing path end-to-end (body
+   helper, readiness helper, dry-run CLI, send
+   CLI, API writer, workflow template, validator
+   profile, idempotency marker, pagination + update
+   -in-place, token + error sanitization, fork +
+   event safety, canonical-artifact boundary, test
+   coverage). Decision: **beta-ready as an opt-in,
+   trusted-context-only, update-in-place review
+   surface.** GitHub Checks remain the primary
+   status surface; PR comments are a narrative
+   companion surface.
 
 Each step lands as its own batch with its own
 decision memo / review packet / contract test

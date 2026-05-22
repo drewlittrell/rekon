@@ -1106,6 +1106,49 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PR comment publisher safety review (P1.1
+  pr-comment-publisher-safety-review slice): **step 7g**
+  of the CI / GitHub adapter implementation sequence
+  pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md).
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI
+  command, no new helper, no workflow-template change,
+  no validator profile change, no GitHub API call. New
+  strategy memo at
+  [`docs/strategy/pr-comment-publisher-safety-review.md`](pr-comment-publisher-safety-review.md)
+  walks the full PR comment publishing path end-to-end
+  (body helper, readiness helper, dry-run CLI, send
+  CLI, API writer, workflow template, validator
+  profile, idempotency marker, pagination + update-in-
+  place, token + error sanitization, fork + event
+  safety, canonical-artifact boundary, test coverage)
+  and pins **beta-ready as an opt-in, trusted-context-
+  only, update-in-place review surface**. Read-only
+  templates remain the alpha default; GitHub Checks
+  remain the primary status surface; PR comments are
+  a narrative companion surface. Required statements
+  pinned by the memo + the docs test: PR comments are
+  not canonical truth; Rekon artifacts remain
+  canonical; the idempotency marker is not proof;
+  forked PRs and `pull_request_target` remain blocked
+  by default; no automatic finding resolution or
+  reconciliation apply is implied by a successful PR
+  comment publish. Three diagnostic tables: component
+  status (every shipped surface beta-ready), risk
+  (duplicate comments / stale comments / fork token
+  misuse / token leakage / comment-as-proof), pinned-
+  safety-facts (cross-references every test pinning
+  the safety contract). 18 new docs assertions. Full
+  suite expected ≥ 1512 passed / 1 skipped.
+  **Recommended next slice:** GitHub review surfaces
+  parity review — walk the combined GitHub surface
+  (Checks, PR comments, workflow templates,
+  validators, proof publications, uploaded artifacts)
+  and decide whether the GitHub review surface is
+  beta-complete or whether Check / PR comment
+  refinements remain. No `schemaVersion` bump. No
+  version bump. No npm publish.
 - PR comment API writer (P1.1 pr-comment-send-cli
   slice): **step 7f** of the CI / GitHub adapter
   implementation sequence pinned by

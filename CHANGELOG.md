@@ -4,6 +4,127 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **PR comment publisher safety review**
+  (P1.1 pr-comment-publisher-safety-review slice).
+  **Step 7g** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md).
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package, no
+  new CLI command, no new helper, no workflow-
+  template change, no validator profile change,
+  no GitHub API call, no token read.
+
+  **New strategy memo:**
+  [`docs/strategy/pr-comment-publisher-safety-review.md`](docs/strategy/pr-comment-publisher-safety-review.md)
+  walks the full PR comment publishing path
+  end-to-end. Components reviewed:
+  `buildPrCommentBody`,
+  `assessPrCommentPublisherReadiness`,
+  `publishPrCommentRun`,
+  `rekon publish pr-comment --dry-run`,
+  `rekon publish pr-comment --send`,
+  [`docs/examples/workflows/rekon-pr-comment-send.yml`](docs/examples/workflows/rekon-pr-comment-send.yml),
+  the `github-pr-comment-send` validator profile,
+  the idempotency marker, pagination + update-in-
+  place behaviour, token + error sanitization,
+  fork + event safety, and the canonical-artifact
+  boundary.
+
+  **Decision: beta-ready as an opt-in,
+  trusted-context-only, update-in-place review
+  surface.** Read-only templates remain the alpha
+  default. GitHub Checks remain the primary
+  status surface; PR comments are a narrative
+  companion surface.
+
+  **Required statements pinned by the memo + the
+  docs test:**
+  - PR comments are not canonical truth; Rekon
+    artifacts remain canonical.
+  - The idempotency marker is not proof; it is
+    only an update-in-place handle.
+  - Forked PRs and `pull_request_target` remain
+    blocked by default.
+  - No automatic finding resolution or
+    reconciliation apply is implied by a
+    successful PR comment publish.
+
+  **Three diagnostic tables in the memo:**
+  - Component status table: body helper /
+    readiness helper / dry-run CLI / send CLI /
+    API writer / workflow template / validator
+    profile — all shipped + beta-ready.
+  - Pinned-safety-facts table: cross-references
+    every test that pins the safety contract
+    (helper PATCH/POST, pagination, no-token-
+    leak, dry-run no-network, readiness gates,
+    workflow triggers, validator rejections,
+    artifact-index byte-identical).
+  - Risk table: duplicate comments / stale
+    comments / fork token misuse / token
+    leakage / comment treated as proof — each
+    with current guardrail and remaining
+    follow-up.
+
+  **Tests:** new docs suite
+  `tests/docs/pr-comment-publisher-safety-review.test.mjs`
+  with 18 assertions (memo existence; all 15
+  required headings; beta-ready language;
+  GitHub Checks primary / PR comments companion
+  language; canonical-truth + Rekon-artifacts-
+  canonical phrases; marker-not-proof phrase;
+  forked PRs blocked; `pull_request_target`
+  blocked; no auto-resolve language;
+  `publishPrCommentRun` reference; `--send`
+  reference; `github-pr-comment-send` reference;
+  component table; risk table; CHANGELOG
+  mention; review-packet PURPOSE PRESERVATION
+  CHECK). Full suite expected ≥ 1512 passed /
+  1 skipped.
+
+  **Docs:** 12 updated (writer go/no-go review
+  memo flips 7g to ✅; API decision gate
+  Implementation Sequence; PR comment publisher
+  decision memo step 7g flipped to ✅; CI /
+  GitHub adapter decision memo step 7g flipped
+  to ✅; operator guide adds safety-review
+  pointer; three concept docs +
+  proof-report artifact doc Cross-References
+  lists; governance memo step 57 added;
+  classic-behavior roadmap entry; master
+  roadmap entry). README + CHANGELOG updated.
+  New review packet
+  `.rekon-dev/review-packets/pr-comment-publisher-safety-review.md`.
+
+  **Recommended next slice:** GitHub review
+  surfaces parity review — walk the combined
+  GitHub surface (Checks, PR comments, workflow
+  templates, validators, proof publications,
+  uploaded artifacts) and decide whether the
+  GitHub review surface is beta-complete or
+  whether Check / PR comment refinements
+  remain.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No change to PR comment send behaviour.
+  - No new GitHub API calls.
+  - No active `.github/workflows/*.yml` files
+    added to the Rekon repo.
+  - No change to workflow templates or
+    validator behaviour.
+  - No change to GitHub Check behaviour.
+  - No artifact-shape change.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the review
+  preserves the canonical artifact boundary; it
+  does not change send behaviour; it does not
+  claim beta readiness on any safety fact that
+  is not already test-pinned; every safety fact
+  in the work order's "required facts" list is
+  cross-referenced to an existing test.
+
 - Shipped **PR comment API writer** (P1.1
   pr-comment-send-cli slice). **Step 7f** of
   the CI / GitHub adapter implementation

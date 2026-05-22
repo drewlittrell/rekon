@@ -69,7 +69,7 @@ Check path:
 | 7d | Workflow / validator profile | ✅ Shipped |
 | **7e** | **Go/no-go review (this memo)** | ✅ **Shipped** |
 | 7f | API writer (`publish pr-comment --send`) | ✅ Shipped |
-| 7g | PR comment safety review | Future; if 7f ships |
+| 7g | [PR Comment Publisher Safety Review](pr-comment-publisher-safety-review.md) | ✅ Shipped |
 
 Skipping from 7d straight to a writer batch would
 have collapsed three separate review questions
@@ -581,7 +581,7 @@ cross-references.
 | 7d | Workflow / validator profile | ✅ Shipped |
 | 7e | **Go/no-go review (this memo)** | ✅ **Shipped** |
 | 7f | API writer (`publish pr-comment --send`) | ✅ Shipped |
-| 7g | PR comment safety review | After 7f |
+| 7g | [PR Comment Publisher Safety Review](pr-comment-publisher-safety-review.md) | ✅ Shipped |
 
 The 7f slice (next) ships:
 

@@ -1025,7 +1025,13 @@ Step 7f (the
 shipped `rekon publish pr-comment --send` —
 Rekon's first GitHub PR-comment write surface.
 The bundled template now wires both the dry-run
-preview AND the actual send call.
+preview AND the actual send call. Step 7g (the
+[PR Comment Publisher Safety Review](../strategy/pr-comment-publisher-safety-review.md))
+approved the path as **beta-ready as an opt-in,
+trusted-context-only, update-in-place review
+surface**. GitHub Checks remain the primary
+status surface; PR comments are a narrative
+companion surface.
 
 To adopt, copy
 [`docs/examples/workflows/rekon-pr-comment-send.yml`](workflows/rekon-pr-comment-send.yml)
@@ -1135,6 +1141,7 @@ this workflow.
 - [PR comment publisher decision](../strategy/pr-comment-publisher-decision.md)
 - [PR comment publisher API decision gate](../strategy/pr-comment-publisher-api-decision-gate.md)
 - [PR comment API writer go/no-go review](../strategy/pr-comment-api-writer-go-no-go-review.md)
+- [PR comment publisher safety review](../strategy/pr-comment-publisher-safety-review.md)
 - [Opt-in PR comment workflow template](workflows/rekon-pr-comment-send.yml)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runs concept](../concepts/verification-runs.md)
