@@ -1088,16 +1088,45 @@ slices:
      `publish pr-comment --send`
      (the API writer is not yet
      implemented).
-   - **7c (later, if approved).** New
-     workflow validator profile
-     (e.g. `github-pr-comment-send`)
-     + docs for the broader scope.
-   - **7d (later, if approved).** PR
+   - **7e (shipped).** ✅ PR Comment
+     API Writer Go/No-Go Review at
+     [`pr-comment-api-writer-go-no-go-review.md`](pr-comment-api-writer-go-no-go-review.md).
+     Reviews the full pre-API
+     PR comment path (dry-run helper +
+     CLI, workflow template, validator
+     profile, idempotency marker,
+     permission model, endpoint model,
+     fork / event safety, canonical-
+     artifact boundary). Decision:
+     **Go — adopt Option B.** Proceed
+     to `rekon publish pr-comment
+     --send` using GitHub issue
+     comments, update-in-place by
+     `<!-- rekon:pr-comment:v1 -->`,
+     `pull-requests: write` permission
+     (already declared by the bundled
+     template), gated by
+     `REKON_PR_COMMENTS=1`,
+     `REKON_PR_COMMENTS_WRITE_CONFIRMED=1`,
+     trusted event context, and
+     explicit write confirmation. No
+     GitHub API call, no `--send`,
+     no validator / template change
+     in this batch.
+   - **7f (later, if approved).** PR
      comment API write behind the
      readiness gate. Update-in-place
      via the
      `<!-- rekon:pr-comment:v1 -->`
      marker. Sanitized errors.
+     Sentinel-token contract test.
+     `--api-base-url` flag for fake-
+     API contract tests.
+   - **7g (later, if 7f ships).** PR
+     comment safety review walking the
+     full publishing path end-to-end,
+     parallel to the GitHub Check
+     publisher safety review.
 
 8. **Cross-CI documentation (beta+).**
    Document the same workflow pattern for

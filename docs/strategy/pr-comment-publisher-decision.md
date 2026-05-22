@@ -531,12 +531,32 @@ If the Option-B path is approved:
    [`docs/examples/workflows/rekon-pr-comment-send.yml`](../examples/workflows/rekon-pr-comment-send.yml)
    that respects the new profile. Documents the
    broader scope and the noise / staleness controls.
-5. **PR comment send API write** (future slice,
-   step 7e). Only after the API writer go/no-go
-   review. Adds the actual `--send` mode behind the
+5. **PR Comment API Writer Go/No-Go Review** (step
+   7e). ✅ Shipped at
+   [`pr-comment-api-writer-go-no-go-review.md`](pr-comment-api-writer-go-no-go-review.md).
+   Reviews the full pre-API PR comment path (dry-run
+   helper + CLI, workflow template, validator
+   profile, idempotency marker, permission model,
+   endpoint model, fork / event safety, canonical-
+   artifact boundary) and pins **Go (Option B)** for
+   the writer slice: proceed with `rekon publish
+   pr-comment --send` using GitHub issue comments,
+   update-in-place by
+   `<!-- rekon:pr-comment:v1 -->`, gated by
+   `REKON_PR_COMMENTS=1` +
+   `REKON_PR_COMMENTS_WRITE_CONFIRMED=1` + trusted
+   event context + explicit write confirmation.
+6. **PR comment send API write** (future slice,
+   step 7f). Recommended by the 7e go/no-go review.
+   Adds the actual `--send` mode behind the
    readiness gate. Update-in-place logic. Sanitized
    errors. Sentinel-token contract test. No raw log
-   content.
+   content. `--api-base-url` flag for fake-API
+   contract tests.
+7. **PR comment safety review** (step 7g). Only if
+   7f ships. Walks the full publishing path end-to-
+   end, parallel to the GitHub Check publisher
+   safety review.
 
 Each step lands as its own batch with its own
 decision memo / review packet / contract test

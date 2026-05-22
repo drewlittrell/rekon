@@ -4,6 +4,160 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **PR comment API writer go/no-go
+  review** (P1.1
+  pr-comment-api-writer-go-no-go-review slice).
+  **Step 7e** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](docs/strategy/verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment Publisher API Decision Gate](docs/strategy/pr-comment-publisher-api-decision-gate.md).
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package, no
+  new CLI command, no new helper, no workflow-
+  template change, no validator profile change,
+  no GitHub API call, no token read.
+
+  **New strategy memo:**
+  [`docs/strategy/pr-comment-api-writer-go-no-go-review.md`](docs/strategy/pr-comment-api-writer-go-no-go-review.md)
+  reviews the full pre-API PR comment publishing
+  path (dry-run body helper `buildPrCommentBody`;
+  readiness helper
+  `assessPrCommentPublisherReadiness`; dry-run
+  CLI `rekon publish pr-comment --dry-run`;
+  workflow template
+  [`docs/examples/workflows/rekon-pr-comment-send.yml`](docs/examples/workflows/rekon-pr-comment-send.yml);
+  `github-pr-comment-send` validator profile;
+  idempotency marker
+  `<!-- rekon:pr-comment:v1 -->`; permission
+  model; endpoint model; fork / event safety;
+  canonical-artifact boundary).
+
+  **Decision: Go — adopt Option B.** Proceed to
+  `rekon publish pr-comment --send` using GitHub
+  issue comments
+  (`POST/PATCH/GET /repos/{owner}/{repo}/issues/{n}/comments`),
+  update-in-place by
+  `<!-- rekon:pr-comment:v1 -->`,
+  `pull-requests: write` permission (already
+  declared by the bundled template), gated by
+  `REKON_PR_COMMENTS=1` +
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED=1` + trusted
+  event context + explicit write confirmation.
+
+  **Required statements pinned by the memo + the
+  docs test:**
+  - PR comments are not canonical truth; Rekon
+    artifacts remain canonical.
+  - The idempotency marker is not proof; it is
+    only an update-in-place handle.
+  - Forked PRs remain denied by default.
+  - `pull_request_target` remains denied
+    unconditionally.
+
+  **Permission boundary** (informational; no
+  permission added in this batch): the future
+  writer slice (step 7f) will use only the
+  shipped `pull-requests: write` scope. The
+  validator's permission scan continues to refuse
+  every other write scope under the
+  `github-pr-comment-send` profile.
+
+  **Diagnostic tables in the memo:**
+  - Component status table: 7a / 7b / 7c / 7d /
+    7e Shipped; 7f (writer) flagged Next; 7g
+    (safety review) flagged Future.
+  - Permission table: GitHub Check
+    (`checks: write`) / PR comment
+    (`pull-requests: write` or `issues: write`) /
+    read-only (`contents: read`).
+  - Risk table: comment spam / stale comment /
+    fork token misuse / endpoint permission
+    mismatch — each with current guardrail and
+    remaining follow-up.
+
+  **Tests:** new docs suite
+  `tests/docs/pr-comment-api-writer-go-no-go-review.test.mjs`
+  (18 assertions: memo existence; all 13 required
+  headings; Go / Option B recommendation;
+  endpoint pinned to issue-comment endpoints;
+  permission pinned to `pull-requests: write`;
+  marker pinned to
+  `<!-- rekon:pr-comment:v1 -->`; canonical-truth
+  + Rekon-artifacts-canonical language; marker-
+  not-proof language; forked-PR denied-by-
+  default; `pull_request_target` denied
+  unconditionally; no `--send` implementation
+  in this batch; no GitHub API call in this
+  batch; references the prior PR comment slices
+  (`buildPrCommentBody`,
+  `assessPrCommentPublisherReadiness`, `publish
+  pr-comment --dry-run`, workflow template,
+  validator profile); component status table;
+  permission table; risk table; CHANGELOG
+  mention; review-packet PURPOSE PRESERVATION
+  CHECK).
+
+  **Docs:** 11 updated (new memo; PR Comment
+  Publisher API Decision Gate Status block + 7e
+  Implementation Sequence row; PR comment
+  publisher decision memo Implementation
+  Sequence updated with steps 7e / 7f / 7g; CI /
+  GitHub adapter decision memo step 7e flipped
+  to ✅ + numbering refactored to 7f / 7g for
+  remaining future slices; operator guide +
+  three concept docs + the proof-report artifact
+  doc Cross-References lists; issue-governance
+  memo step 55 added; classic-behavior roadmap +
+  roadmap entries). README + CHANGELOG updated.
+  New review packet
+  `.rekon-dev/review-packets/pr-comment-api-writer-go-no-go-review.md`.
+
+  **Recommended next slice:** **PR comment API
+  writer** (step 7f). Ship the
+  `publishPrCommentRun(input)` helper in
+  `@rekon/capability-docs` (parallel to
+  `publishGitHubCheckRun`), the `rekon publish
+  pr-comment --send` CLI mode, the workflow
+  template `--send` step, a validator-profile
+  lift (or a separate
+  `github-pr-comment-send-active` profile —
+  decided inside 7f), contract tests at
+  `tests/contract/pr-comment-send-cli.test.mjs`
+  using a local `node:http` fake server +
+  `--api-base-url` flag, and a sentinel-token
+  contract test. Then step 7g (safety review)
+  walks the full publishing path end-to-end,
+  parallel to the GitHub Check publisher safety
+  review.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No PR comment posting.
+  - No `rekon publish pr-comment --send` CLI
+    mode.
+  - No new validator profile.
+  - No new workflow template.
+  - No modification to existing workflow
+    templates.
+  - No new GitHub API calls.
+  - No new GitHub write permissions in any
+    workflow template.
+  - No artifact-shape change.
+  - No `schemaVersion` bump. No version bump.
+    No npm publish.
+
+  **Stop conditions honoured:** the memo does
+  not implement PR comment posting; no GitHub
+  API calls added; no workflow templates added
+  or modified; no validator behaviour change;
+  no new permissions in existing templates; no
+  GitHub Check behaviour change; PR comments
+  are not implied to be canonical truth; the
+  idempotency marker is not implied to be
+  proof; forked PRs remain denied by default
+  at three layers; `pull_request_target`
+  remains denied unconditionally.
+
 - Shipped **PR comment workflow / validator
   profile** (P1.1
   pr-comment-workflow-validator-profile slice).

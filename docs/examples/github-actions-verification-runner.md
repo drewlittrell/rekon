@@ -1071,14 +1071,28 @@ GitHub Check opt-in template:
   trigger, `pull_request_target`, and any
   `publish pr-comment --send` invocation.
 
+The
+[PR Comment API Writer Go/No-Go Review](../strategy/pr-comment-api-writer-go-no-go-review.md)
+(step 7e) has now reviewed the full pre-API path
+and recommends **Go (Option B)**: proceed to
+`rekon publish pr-comment --send` using GitHub
+issue comments, update-in-place by
+`<!-- rekon:pr-comment:v1 -->`, gated by the env
+vars above + trusted event context + explicit write
+confirmation. The writer slice (step 7f) is the
+next batch — it does not ship in this slice. Until
+7f lands, this template still **does not post a
+comment**.
+
 **What the PR comment template still does not
 do:**
 
 - Does not post or update a PR comment. The API
   writer (`publish pr-comment --send`) is not
-  implemented; the API writer go/no-go review
-  must approve it before any posting code
-  ships.
+  implemented; the
+  [PR Comment API Writer Go/No-Go Review](../strategy/pr-comment-api-writer-go-no-go-review.md)
+  has recommended proceeding to step 7f, but no
+  posting code ships in this slice.
 - Does not call any GitHub API.
 - Does not read `GITHUB_TOKEN` (the dry-run CLI
   receives an empty env map).
@@ -1106,6 +1120,7 @@ this workflow.
 - [GitHub Check publisher send workflow safety review](../strategy/github-check-publisher-send-workflow-safety-review.md)
 - [PR comment publisher decision](../strategy/pr-comment-publisher-decision.md)
 - [PR comment publisher API decision gate](../strategy/pr-comment-publisher-api-decision-gate.md)
+- [PR comment API writer go/no-go review](../strategy/pr-comment-api-writer-go-no-go-review.md)
 - [Opt-in PR comment workflow template](workflows/rekon-pr-comment-send.yml)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
 - [Verification runs concept](../concepts/verification-runs.md)

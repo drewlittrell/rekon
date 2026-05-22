@@ -264,6 +264,20 @@ node packages/cli/dist/index.js verify github-workflow validate \
 # opt-in env; runs publish pr-comment --dry-run (no --send). The
 # validator rejects publish pr-comment --send because the API
 # writer is not implemented yet.
+#
+# Step 7e shipped the PR Comment API Writer Go/No-Go Review at
+# docs/strategy/pr-comment-api-writer-go-no-go-review.md.
+# Decision: Go — adopt Option B. Proceed to rekon publish
+# pr-comment --send using GitHub issue comments, update-in-place
+# by <!-- rekon:pr-comment:v1 -->, pull-requests: write
+# permission, gated by REKON_PR_COMMENTS=1 +
+# REKON_PR_COMMENTS_WRITE_CONFIRMED=1 + trusted event context +
+# explicit write confirmation. The writer slice (step 7f) is the
+# next batch; this slice ships the review only. PR comments are
+# not canonical truth; Rekon artifacts remain canonical. The
+# idempotency marker is not proof; it is only an update-in-place
+# handle. Forked PRs remain denied by default;
+# pull_request_target remains denied unconditionally.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

@@ -1,5 +1,11 @@
 # PR Comment Publisher API Decision Gate
 
+**Status:** Step 7c shipped. Step 7d (workflow /
+validator profile) shipped. Step 7e
+([PR Comment API Writer Go/No-Go Review](pr-comment-api-writer-go-no-go-review.md))
+shipped and recommends **Go (Option B)** for the
+writer slice (step 7f).
+
 ## Decision Summary
 
 **Recommendation: Option C — add a workflow /
@@ -527,8 +533,9 @@ cross-references.
 | 7b | Dry-run helper + CLI (`buildPrCommentBody`, `assessPrCommentPublisherReadiness`, `publish pr-comment --dry-run`) | ✅ Shipped |
 | 7c | API Implementation Decision Gate (**this memo**) | ✅ Shipped |
 | 7d | PR comment workflow / validator profile + opt-in template | ✅ Shipped |
-| 7e | PR comment API writer (`publish pr-comment --send`) | Future; only if approved after 7d go/no-go review |
-| 7f | PR comment safety review | Future; only if 7e ships |
+| 7e | [PR Comment API Writer Go/No-Go Review](pr-comment-api-writer-go-no-go-review.md) | ✅ Shipped |
+| 7f | PR comment API writer (`publish pr-comment --send`) | Future; recommended by the 7e go/no-go review |
+| 7g | PR comment safety review | Future; only if 7f ships |
 
 The 7d slice (next, if approved) ships:
 

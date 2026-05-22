@@ -5259,6 +5259,118 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **PR comment API writer go/no-go
+  review (P1.1
+  pr-comment-api-writer-go-no-go-review
+  slice).** ✅ Shipped. **Step 7e** of
+  the CI / GitHub adapter implementation
+  sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment Publisher API Decision Gate](pr-comment-publisher-api-decision-gate.md).
+  **Strategy / docs / tests-only batch.**
+  No runtime behaviour change. No new
+  package, no new CLI command, no new
+  helper, no workflow-template change,
+  no validator profile change, no
+  GitHub API call.
+
+  **New strategy memo** at
+  [`docs/strategy/pr-comment-api-writer-go-no-go-review.md`](pr-comment-api-writer-go-no-go-review.md)
+  reviews the full pre-API PR comment
+  publishing path (dry-run body helper,
+  readiness helper, dry-run CLI,
+  workflow template, validator profile,
+  idempotency marker, permission model,
+  endpoint model, fork / event safety,
+  canonical-artifact boundary).
+
+  **Decision: Go — adopt Option B.**
+  Proceed to `rekon publish pr-comment
+  --send` using GitHub issue comments
+  (`POST/PATCH/GET /repos/{owner}/{repo}/issues/{n}/comments`),
+  update-in-place by
+  `<!-- rekon:pr-comment:v1 -->`,
+  `pull-requests: write` permission
+  (already declared by the bundled
+  template), gated by
+  `REKON_PR_COMMENTS=1` +
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED=1`
+  + trusted event context + explicit
+  write confirmation.
+
+  **Required statements pinned by the
+  memo + the docs test:**
+  - PR comments are not canonical
+    truth; Rekon artifacts remain
+    canonical.
+  - The idempotency marker is not
+    proof; it is only an update-in-
+    place handle.
+  - Forked PRs remain denied by
+    default.
+  - `pull_request_target` remains
+    denied unconditionally.
+
+  **Diagnostic tables in the memo:**
+  - Component status table: every
+    pre-API slice (7a / 7b / 7c / 7d /
+    7e) marked Shipped; 7f / 7g
+    flagged as next / future.
+  - Permission table: GitHub Check
+    (`checks: write`) vs PR comment
+    (`pull-requests: write`) vs
+    read-only (`contents: read`).
+  - Risk table: comment spam / stale
+    comment / fork token misuse /
+    endpoint permission mismatch —
+    each with current guardrail and
+    remaining follow-up.
+
+  **Tests:** new docs suite
+  `tests/docs/pr-comment-api-writer-go-no-go-review.test.mjs`
+  (18 assertions: memo existence; all
+  13 required headings; Go / Option B
+  recommendation; endpoint pinned to
+  issue-comment endpoints; permission
+  pinned to `pull-requests: write`;
+  marker pinned to
+  `<!-- rekon:pr-comment:v1 -->`;
+  canonical-truth language; marker-not-
+  proof language; forked-PR denied-by-
+  default; `pull_request_target` denied
+  unconditionally; no `--send` /
+  no GitHub API call in this batch;
+  references the prior PR comment
+  slices (7a / 7b / 7d) by name; all
+  three diagnostic tables; CHANGELOG
+  mention; review-packet PURPOSE
+  PRESERVATION CHECK).
+
+  **Recommended next slice:** **PR
+  comment API writer** (step 7f) — add
+  `publishPrCommentRun(input)` helper
+  in `@rekon/capability-docs` (parallel
+  to `publishGitHubCheckRun`) + `rekon
+  publish pr-comment --send` CLI mode +
+  workflow template update +
+  validator-profile lift +
+  `tests/contract/pr-comment-send-cli.test.mjs`
+  with a local `node:http` fake server
+  + `--api-base-url` flag + sentinel-
+  token contract test.
+
+  No new package, no new CLI command,
+  no new helper, no workflow template
+  change, no validator profile change,
+  no GitHub API call, no token read,
+  no artifact-shape change, no
+  `schemaVersion` bump, no
+  `FindingStatusLedger` /
+  `FindingLifecycleReport` /
+  `CoherencyDelta` /
+  `ReconciliationPlan` mutation, no
+  version bump, no npm publish.
 - **Issue adjudication v2: deterministic cross-rule merge hints
   (P1.1 merge-hints slice).** ✅ Shipped.
   `IssueAdjudicationReport` now exposes an optional

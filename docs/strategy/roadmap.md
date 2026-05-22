@@ -1106,6 +1106,61 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PR comment API writer go/no-go review (P1.1
+  pr-comment-api-writer-go-no-go-review slice):
+  **step 7e** of the CI / GitHub adapter
+  implementation sequence pinned by
+  [`docs/strategy/verification-runner-ci-github-decision.md`](verification-runner-ci-github-decision.md)
+  and the
+  [PR Comment Publisher API Decision Gate](pr-comment-publisher-api-decision-gate.md).
+  Strategy / docs / tests-only batch — **no
+  runtime behaviour change.** No new package, no
+  new CLI command, no new helper, no workflow-
+  template change, no validator profile change, no
+  GitHub API call. New strategy memo at
+  [`docs/strategy/pr-comment-api-writer-go-no-go-review.md`](pr-comment-api-writer-go-no-go-review.md)
+  reviews the full pre-API PR comment publishing
+  path (dry-run body helper, readiness helper,
+  dry-run CLI, workflow template, validator
+  profile, idempotency marker, permission model,
+  endpoint model, fork / event safety, canonical-
+  artifact boundary). **Decision: Go — adopt
+  Option B.** Proceed to `rekon publish pr-comment
+  --send` using GitHub issue comments
+  (`POST/PATCH/GET /repos/{owner}/{repo}/issues/{n}/comments`),
+  update-in-place by
+  `<!-- rekon:pr-comment:v1 -->`,
+  `pull-requests: write` permission (already
+  declared by the bundled template), gated by
+  `REKON_PR_COMMENTS=1` +
+  `REKON_PR_COMMENTS_WRITE_CONFIRMED=1` + trusted
+  event context + explicit write confirmation.
+  Required statements pinned by the memo + the
+  docs test: PR comments are not canonical truth;
+  Rekon artifacts remain canonical; the
+  idempotency marker is not proof; forked PRs
+  remain denied by default; `pull_request_target`
+  remains denied unconditionally. Three diagnostic
+  tables in the memo: component status (every
+  pre-API slice 7a / 7b / 7c / 7d / 7e Shipped;
+  7f / 7g flagged next / future); permission
+  (GitHub Check `checks: write` vs PR comment
+  `pull-requests: write` vs read-only
+  `contents: read`); risk (comment spam, stale
+  comment, fork token misuse, endpoint permission
+  mismatch). 18 new docs assertions pin the
+  memo's contract. **Recommended next slice:** PR
+  comment API writer (step 7f) — add the
+  `publishPrCommentRun` helper, the `rekon
+  publish pr-comment --send` CLI mode, workflow
+  template update, validator-profile lift,
+  contract tests with a fake `node:http` server,
+  sentinel-token contract test. Then step 7g
+  (PR comment safety review) walks the full
+  publishing path end-to-end, parallel to the
+  GitHub Check publisher safety review. No
+  `schemaVersion` bump. No version bump. No npm
+  publish.
 - PR comment workflow / validator profile (P1.1
   pr-comment-workflow-validator-profile slice):
   **step 7d** of the CI / GitHub adapter

@@ -1843,14 +1843,49 @@ review packets unless an ADR promotes them. Promotion requires:
     `.github/workflows/` of the Rekon
     repo; still no PR comment posted;
     still no GitHub API call.
-55. **(future)** Per-module `ObservedSystem`
+55. **Shipped (✅).** PR comment API
+    writer go/no-go review (step 7e).
+    [`docs/strategy/pr-comment-api-writer-go-no-go-review.md`](pr-comment-api-writer-go-no-go-review.md)
+    reviews the full pre-API PR comment
+    path (dry-run helper + CLI, workflow
+    template, validator profile,
+    idempotency marker, permission model,
+    endpoint model, fork / event safety,
+    canonical-artifact boundary) and pins
+    **Go (Option B)**: proceed with the
+    writer slice (step 7f) using GitHub
+    issue comments
+    (`POST/PATCH/GET /repos/{owner}/{repo}/issues/{n}/comments`),
+    update-in-place by
+    `<!-- rekon:pr-comment:v1 -->`,
+    `pull-requests: write` permission
+    (already declared by the bundled
+    template), gated by
+    `REKON_PR_COMMENTS=1` +
+    `REKON_PR_COMMENTS_WRITE_CONFIRMED=1`
+    + trusted event context + explicit
+    write confirmation. The memo
+    explicitly does not ship the writer,
+    a workflow template change, a
+    validator profile change, or any
+    GitHub API call. Pinned reminders
+    carried forward: PR comments are not
+    canonical truth; Rekon artifacts
+    remain canonical; the idempotency
+    marker is not proof; forked PRs
+    remain denied by default;
+    `pull_request_target` remains denied
+    unconditionally. 18 docs assertions
+    pin the memo's contract; full suite
+    expected to grow accordingly.
+56. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-56. **(future)** Persistent exclusion lists, and
+57. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions
