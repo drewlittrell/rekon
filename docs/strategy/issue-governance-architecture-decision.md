@@ -2094,14 +2094,51 @@ review packets unless an ADR promotes them. Promotion requires:
     pin the memo's contract. **Next slice:
     watcher / path freshness policy decision
     memo** (second of three beta blockers).
-63. **(future)** Per-module `ObservedSystem`
+63. **Shipped (✅).** Watcher / path freshness
+    policy decision memo.
+    [`docs/strategy/watcher-path-freshness-policy-decision.md`](watcher-path-freshness-policy-decision.md)
+    resolves the **second of three beta blockers**
+    identified by the beta-readiness review.
+    **Decision: Option C — watcher-lite / path
+    freshness policy for beta. No daemon by
+    default; explicit `rekon refresh` remains the
+    canonical operator action; future
+    `PathFreshnessReport` artifact reserved by
+    name; agent contract instructs agents to
+    refresh after source edits.** Four options
+    analysed (manual refresh only / full daemon /
+    watcher-lite + path policy / opt-in daemon).
+    Pinned reminders carried forward: watcher
+    daemon is not required for beta; path/source
+    freshness policy is required for beta; Rekon
+    must not silently mutate artifacts in the
+    background; agents should treat artifacts as
+    stale after source edits until `rekon
+    refresh` has run; artifact lineage freshness
+    is not the same as working-tree freshness.
+    The memo reserves the `PathFreshnessReport`
+    artifact name (docs-only reservation; SDK /
+    runtime registration belongs to a later
+    slice) and pins that file mtimes alone are
+    not sufficient as canonical freshness
+    evidence — content hashes / git working-tree
+    state preferred. Three diagnostic tables
+    (policy, option, risk) + a 7-step
+    implementation sequence (steps 2-3 are the
+    remaining beta blocker + release execution;
+    steps 4-7 are the post-beta path-freshness +
+    watcher roadmap). 17 docs assertions pin the
+    memo's contract. **Next slice: beta release
+    readiness checklist memo** (third and final
+    of three beta blockers).
+64. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-63. **(future)** Persistent exclusion lists, and
+65. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

@@ -1106,6 +1106,49 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Watcher / path freshness policy decision memo (P1.1
+  watcher-path-freshness-policy-decision slice):
+  **second of three beta blockers** identified by the
+  Beta Readiness / Remaining Classic-Parity Review.
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI command,
+  no new helper, no workflow-template change, no
+  validator profile change, no GitHub API call, no
+  file-system event subscription, no daemon, no
+  background refresh, no path mtime tracking, no
+  artifact-type registration, no `ArtifactHeader` change.
+  New strategy memo at
+  [`docs/strategy/watcher-path-freshness-policy-decision.md`](watcher-path-freshness-policy-decision.md)
+  pins the watcher / path freshness boundary for beta.
+  **Decision: Option C — watcher-lite / path freshness
+  policy for beta. No daemon by default; explicit `rekon
+  refresh` remains the canonical operator action; future
+  `PathFreshnessReport` artifact reserved by name; agent
+  contract instructs agents to refresh after source
+  edits.** Four options analysed (manual refresh only /
+  full daemon / watcher-lite + path policy / opt-in
+  daemon). Pinned reminders carried forward: watcher
+  daemon is not required for beta; path/source freshness
+  policy is required for beta; Rekon must not silently
+  mutate artifacts in the background; agents should treat
+  artifacts as stale after source edits until `rekon
+  refresh` has run; artifact lineage freshness is not the
+  same as working-tree freshness. The memo reserves the
+  `PathFreshnessReport` artifact name (docs-only
+  reservation; SDK / runtime registration belongs to a
+  later slice) and pins that file mtimes alone are not
+  sufficient as canonical freshness evidence — content
+  hashes / git working-tree state preferred. Three
+  diagnostic tables: policy (8 rows), option (4 rows),
+  risk (5 rows). 7-step implementation sequence pinned
+  (step 2 is the remaining beta blocker; step 3 is the
+  beta release execution; steps 4-7 are the post-beta
+  path-freshness + watcher roadmap). 17 new docs
+  assertions. Full suite expected ≥ 1622 passed / 1
+  skipped. **Recommended next slice:** beta release
+  readiness checklist memo (third and final of three
+  beta blockers). No `schemaVersion` bump. No version
+  bump. No npm publish.
 - Source-write reconciliation policy decision memo (P1.1
   source-write-reconciliation-policy-decision slice):
   **first of three beta blockers** identified by the

@@ -418,3 +418,9 @@ are accepted. See
 - [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)
+- [Watcher / path freshness policy decision](../strategy/watcher-path-freshness-policy-decision.md) —
+  pins the agent contract policy: agents should treat
+  artifacts as stale after source edits until `rekon
+  refresh` has run; agents must not invoke `rekon
+  refresh` on the operator's behalf without explicit
+  permission.

@@ -5259,6 +5259,105 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Watcher / path freshness policy decision memo
+  (P1.1 watcher-path-freshness-policy-decision
+  slice).** ✅ Shipped. **Second of three beta
+  blockers** identified by the Beta Readiness /
+  Remaining Classic-Parity Review. **Strategy /
+  docs / tests-only batch.** No runtime behaviour
+  change. No new package, no new CLI command, no
+  new helper, no workflow-template change, no
+  validator profile change, no GitHub API call,
+  no file-system event subscription, no daemon,
+  no background refresh, no path mtime tracking,
+  no artifact-type registration, no
+  `ArtifactHeader` change.
+
+  **New strategy memo** at
+  [`docs/strategy/watcher-path-freshness-policy-decision.md`](watcher-path-freshness-policy-decision.md)
+  pins the watcher / path freshness boundary for
+  beta. **Decision: Option C — watcher-lite /
+  path freshness policy for beta. No daemon by
+  default; explicit `rekon refresh` remains the
+  canonical operator action; future
+  `PathFreshnessReport` artifact reserved by
+  name; agent contract instructs agents to
+  refresh after source edits.** Four options
+  analysed (manual refresh only / full daemon /
+  watcher-lite + path policy / opt-in daemon);
+  Option C wins because it resolves the beta
+  policy blocker without shipping a daemon and
+  preserves the no-background-mutation
+  invariant.
+
+  **Pinned reminders carried forward by the memo
+  + the docs test:**
+  - Watcher daemon is not required for beta.
+  - Path/source freshness policy is required
+    for beta.
+  - Rekon must not silently mutate artifacts in
+    the background.
+  - Agents should treat artifacts as stale after
+    source edits until `rekon refresh` has run.
+  - Artifact lineage freshness is not the same
+    as working-tree freshness.
+
+  **Reserved by name (docs-only reservation; no
+  SDK / runtime registration):**
+  `PathFreshnessReport` artifact type. Registers
+  in a post-beta implementation slice, not this
+  memo.
+
+  **Three diagnostic tables in the memo:**
+  - Policy table (8 rows: beta watcher daemon
+    not required / background refresh not
+    allowed by default / refresh command
+    explicit / source edits require refresh /
+    path freshness evidence content-hash + git
+    state preferred / mtimes advisory only /
+    `PathFreshnessReport` reserved / agent
+    guidance to recommend refresh).
+  - Option table (4 rows: manual refresh only /
+    full daemon / watcher-lite + path policy /
+    opt-in daemon).
+  - Risk table (5 rows: stale source context /
+    hidden artifact mutation / mtime
+    unreliability / agent stale inference /
+    daemon lifecycle complexity — each with its
+    guardrail).
+
+  **Implementation Sequence pinned:**
+  1. Watcher / path freshness policy decision
+     memo (this memo, shipped).
+  2. Beta release readiness checklist memo
+     (next slice — third beta blocker).
+  3. Beta release execution (final pre-beta
+     slice).
+  4. Path freshness artefact slice (post-beta).
+  5. Watcher daemon design memo (post-beta).
+  6. Watcher daemon implementation slice
+     (post-beta).
+  7. Watcher / path freshness safety review
+     slice (post-beta).
+
+  **Tests:** new docs suite
+  `tests/docs/watcher-path-freshness-policy-decision.test.mjs`
+  with 17 assertions. Full suite expected ≥
+  1622 passed / 1 skipped.
+
+  **Recommended next slice:** **Beta release
+  readiness checklist memo** (third and final
+  of three beta blockers).
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API call,
+  no token read, no `ArtifactHeader` change, no
+  `schemaVersion` bump, no
+  `IntelligenceSnapshot` / `EvidenceGraph` /
+  `ObservedRepo` / `FindingReport` /
+  `VerificationRun` schema change, no version
+  bump, no npm publish.
 - **Source-write reconciliation policy decision
   memo (P1.1
   source-write-reconciliation-policy-decision

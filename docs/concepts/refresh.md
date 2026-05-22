@@ -307,3 +307,6 @@ latest-major check inside `refresh` already filters those.
   the publication `rekon refresh` writes at step 9.
 - [coherency-delta.md](coherency-delta.md), [finding-lifecycle.md](finding-lifecycle.md) —
   the governance artifacts the refresh derives.
+- [Watcher / path freshness policy decision](../strategy/watcher-path-freshness-policy-decision.md) —
+  pins `rekon refresh` as the explicit operator action for
+  beta; no daemon by default; no background refresh.

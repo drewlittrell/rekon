@@ -4,6 +4,156 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **Watcher / Path Freshness Policy
+  Decision Memo** (P1.1
+  watcher-path-freshness-policy-decision slice).
+  **Second of three beta blockers** identified by
+  the Beta Readiness / Remaining Classic-Parity
+  Review. **Strategy / docs / tests-only batch.**
+  No runtime behaviour change. No new package, no
+  new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no file-system
+  event subscription, no daemon, no background
+  refresh, no path mtime tracking, no
+  artifact-type registration, no `ArtifactHeader`
+  change.
+
+  **New strategy memo:**
+  [`docs/strategy/watcher-path-freshness-policy-decision.md`](docs/strategy/watcher-path-freshness-policy-decision.md)
+  pins the watcher / path freshness boundary for
+  beta: **Option C — watcher-lite / path
+  freshness policy for beta. No daemon by
+  default; explicit `rekon refresh` remains the
+  canonical operator action; future
+  `PathFreshnessReport` artifact reserved by
+  name; agent contract instructs agents to
+  refresh after source edits.**
+
+  **Pinned reminders carried forward by the memo
+  + the docs test:**
+  - Watcher daemon is not required for beta.
+  - Path/source freshness policy is required for
+    beta.
+  - Rekon must not silently mutate artifacts in
+    the background.
+  - Agents should treat artifacts as stale after
+    source edits until `rekon refresh` has run.
+  - Artifact lineage freshness is not the same
+    as working-tree freshness.
+
+  **Four options analysed:** A (manual refresh
+  only), B (full watcher daemon), **C
+  (watcher-lite / path freshness policy —
+  recommended)**, D (opt-in experimental
+  watcher). C wins because it resolves the beta
+  policy blocker without shipping a daemon and
+  preserves the no-background-mutation
+  invariant.
+
+  **Three diagnostic tables in the memo:**
+  - Policy table (8 rows: beta watcher daemon
+    not required / background refresh not
+    allowed by default / refresh command
+    explicit / source edits require refresh /
+    path freshness evidence content-hash + git
+    state preferred / mtimes advisory only /
+    `PathFreshnessReport` reserved / agent
+    guidance to recommend refresh).
+  - Option table (4 rows: manual refresh only /
+    full daemon / watcher-lite + path policy /
+    opt-in daemon).
+  - Risk table (5 rows: stale source context /
+    hidden artifact mutation / mtime
+    unreliability / agent stale inference /
+    daemon lifecycle complexity — each with its
+    guardrail).
+
+  **Reserved by name (docs-only reservation; no
+  SDK / runtime registration):**
+  `PathFreshnessReport` artifact type. Registers
+  in the post-beta path-freshness implementation
+  slice, not this memo.
+
+  **Implementation Sequence pinned:**
+  1. Watcher / path freshness policy decision
+     memo (this memo, shipped).
+  2. Beta release readiness checklist memo (next
+     slice — third beta blocker).
+  3. Beta release execution (final pre-beta
+     slice).
+  4. Path freshness artefact slice (post-beta) —
+     adds `PathFreshnessReport` registration +
+     `rekon paths freshness` (or equivalent) CLI.
+  5. Watcher daemon design memo (post-beta).
+  6. Watcher daemon implementation slice
+     (post-beta).
+  7. Watcher / path freshness safety review
+     slice (post-beta).
+
+  **Tests:** new docs suite
+  `tests/docs/watcher-path-freshness-policy-decision.test.mjs`
+  with 17 assertions (memo existence; all 13
+  required `##` headings; Option C
+  recommendation; five pinned reminder
+  statements; policy / option / risk tables;
+  reserved `PathFreshnessReport` artifact name;
+  CHANGELOG mention; review-packet PURPOSE
+  PRESERVATION CHECK). Full suite expected ≥
+  1622 passed / 1 skipped.
+
+  **Docs:** 12 updated (beta-readiness review
+  marks the watcher blocker resolved;
+  source-write decision adds next-slice pointer;
+  governance memo step 63 added; classic-behavior
+  roadmap + master roadmap entries;
+  classic-guarantees-audit + classic-alignment-map
+  pointers; refresh concept +
+  freshness-and-invalidation concept +
+  agent-operating-contract concept pointers;
+  architecture-summary-publication +
+  agent-contract-publication artifact pointers).
+  README + CHANGELOG updated. New review packet
+  at
+  `.rekon-dev/review-packets/watcher-path-freshness-policy-decision.md`.
+
+  **Recommended next slice:** **Beta release
+  readiness checklist memo.** Pin the final beta
+  release contract: versioning / npm publish
+  decision; package audit commands; install
+  smoke requirements; docs completeness; beta
+  known limitations; release blockers; no hidden
+  runtime changes. Third (and final) of three
+  beta blockers.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No watcher implementation.
+  - No daemon.
+  - No file-system event subscriptions.
+  - No background refresh.
+  - No change to `rekon refresh` behaviour.
+  - No change to `rekon artifacts freshness`
+    behaviour.
+  - No path mtime tracking.
+  - No `ArtifactHeader` change.
+  - No `IntelligenceSnapshot` / `EvidenceGraph`
+    / `ObservedRepo` / `FindingReport` /
+    `VerificationRun` schema change.
+  - No `PathFreshnessReport` artifact-type
+    registration.
+  - No GitHub API calls.
+  - No active `.github/workflows/*.yml` files.
+  - No version bump. No npm publish.
+
+  **Stop conditions honoured:** the memo does
+  not implement watcher behaviour; does not add
+  the artifact type; does not add background
+  refresh; does not claim full classic watcher
+  parity; does not claim beta-ready (release
+  checklist blocker remains); all 12 listed
+  supporting docs in the work order exist and
+  were updated (no skips needed).
+
 - Shipped **Source-Write Reconciliation Policy
   Decision Memo** (P1.1
   source-write-reconciliation-policy-decision slice).

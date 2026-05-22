@@ -1104,3 +1104,10 @@ deferred post-beta; reserved `ReconciliationApplyReport`
 + `source:write` names; no agent-autonomous source
 writes), see
 [source-write-reconciliation-policy-decision.md](source-write-reconciliation-policy-decision.md).
+For the pinned beta policy on watcher / path
+freshness (Option C — watcher-lite / path freshness
+policy; no daemon by default; reserved
+`PathFreshnessReport`; agent contract instructs
+refresh after edits; content hashes / git state
+preferred over mtimes), see
+[watcher-path-freshness-policy-decision.md](watcher-path-freshness-policy-decision.md).

@@ -374,3 +374,10 @@ assuming advisory merge candidates are accepted. See
 - [Capability model](../strategy/capability-model.md)
 - [Classic guarantees audit](../strategy/classic-guarantees-audit.md)
 - [Classic guarantee regression plan](../strategy/classic-guarantee-regression-plan.md)
+- [Watcher / path freshness policy decision](../strategy/watcher-path-freshness-policy-decision.md) —
+  this publication is the primary surface for the agent
+  contract refresh-after-edit policy. A future `###
+  Working Tree Freshness` subsection will render with
+  the path-freshness implementation slice; the existing
+  `### Governance Freshness` subsection covers
+  artifact-lineage freshness only.

@@ -316,3 +316,8 @@ for decision-making. All warnings recommend
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
 - [Issue merge decision freshness guardrails](../strategy/issue-merge-decision-freshness-guardrails.md)
+- [Watcher / path freshness policy decision](../strategy/watcher-path-freshness-policy-decision.md) —
+  pins the distinction between artifact lineage freshness
+  (this doc) and working-tree freshness (future
+  `PathFreshnessReport` slice); reserves the artifact
+  name; no daemon in beta; mtimes advisory only.

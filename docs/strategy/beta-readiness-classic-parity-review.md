@@ -324,8 +324,8 @@ implementation:
 | Blocker | Why It Blocks Beta | Recommended Next Slice |
 | --- | --- | --- |
 | Source-write reconciliation policy | users need clear boundary for applying changes | ✅ resolved by [Source-write reconciliation policy decision memo](source-write-reconciliation-policy-decision.md) (Option C — beta pins policy + preview requirements; apply deferred post-beta) |
-| Watcher/path freshness policy | beta users need to know how stale local artifacts behave after file changes | Watcher/path freshness decision memo (next slice) |
-| Release readiness checklist | public beta needs packaging/version/docs constraints pinned | Beta release readiness checklist |
+| Watcher/path freshness policy | beta users need to know how stale local artifacts behave after file changes | ✅ resolved by [Watcher / path freshness policy decision memo](watcher-path-freshness-policy-decision.md) (Option C — watcher-lite / path freshness policy for beta; no daemon by default; `rekon refresh` remains explicit; `PathFreshnessReport` reserved; agent contract instructs refresh after edits) |
+| Release readiness checklist | public beta needs packaging/version/docs constraints pinned | Beta release readiness checklist (next slice) |
 
 **Why these are blockers, not polish:**
 

@@ -55,3 +55,4 @@ Cross-references:
 - [codebase-intel-classic-migration.md](codebase-intel-classic-migration.md)
 - [beta-readiness-classic-parity-review.md](beta-readiness-classic-parity-review.md)
 - [source-write-reconciliation-policy-decision.md](source-write-reconciliation-policy-decision.md)
+- [watcher-path-freshness-policy-decision.md](watcher-path-freshness-policy-decision.md)

@@ -388,8 +388,30 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # The memo reserves the ReconciliationApplyReport artifact
 # name and the source:write permission name (docs-only
 # reservation; the SDK / runtime registration belongs to a
-# later slice). The next slice is the watcher / path
-# freshness policy decision memo (blocker 2).
+# later slice).
+#
+# The Watcher / Path Freshness Policy Decision Memo at
+# docs/strategy/watcher-path-freshness-policy-decision.md
+# resolved blocker (2). Decision: Option C — watcher-lite
+# / path freshness policy for beta. No daemon by default;
+# explicit `rekon refresh` remains the canonical operator
+# action; future PathFreshnessReport artifact reserved by
+# name; agent contract instructs agents to refresh after
+# source edits. Pinned reminders carried forward:
+#   - Watcher daemon is not required for beta.
+#   - Path/source freshness policy is required for beta.
+#   - Rekon must not silently mutate artifacts in the
+#     background.
+#   - Agents should treat artifacts as stale after source
+#     edits until `rekon refresh` has run.
+#   - Artifact lineage freshness is not the same as
+#     working-tree freshness.
+# The memo reserves PathFreshnessReport (docs-only;
+# registration is a later slice) and pins that file mtimes
+# alone are not sufficient as canonical freshness evidence
+# — content hashes / git state preferred. The next slice
+# is the beta release readiness checklist memo (blocker
+# 3).
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before

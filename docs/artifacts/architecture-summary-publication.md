@@ -303,3 +303,8 @@ starting point. See
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+- [Watcher / path freshness policy decision](../strategy/watcher-path-freshness-policy-decision.md) —
+  reserves a future `## Working Tree Freshness` section
+  that will land with the path-freshness implementation
+  slice. The existing Input Freshness Warnings section
+  covers artifact-lineage freshness only.
