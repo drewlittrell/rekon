@@ -464,6 +464,25 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # publish step requires explicit operator
 # authorization.
 #
+# The Real-Repo Beta Dogfood Report at
+# docs/strategy/real-repo-beta-dogfood-report.md
+# executed the dogfood matrix against a temp copy of
+# the Rekon repository itself (489 files at SHA
+# 83ba723). Dogfood Decision:
+# pass-with-known-limitations. Two genuine wins vs.
+# the fixture: `verify run --execute` actually ran
+# `npm run typecheck` + `npm run test` + `npm run
+# build` and all 3 passed (first end-to-end pass
+# against real commands); `publish github-check
+# --dry-run` propagated `conclusion: success`. 36
+# artifacts written across 19 types; final artifacts
+# validate clean. The single surviving finding is the
+# intentional import-boundary-rule-pack demo fixture.
+# This batch does not publish to npm, does not change
+# package versions, does not create a git tag, and
+# does not create a GitHub Release. The next publish
+# step still requires explicit operator authorization.
+#
 # Next slice: beta npm publish authorization work order
 # (the first slice allowed to invoke `npm publish`, and
 # only with explicit operator authorization).

@@ -558,7 +558,8 @@ named:
 | 1 | **Beta release readiness checklist memo (this memo)** | ✅ **Shipped** |
 | 2 | [Beta release candidate execution plan](beta-release-candidate-execution-plan.md) | ✅ **Shipped** — checklist executed against SHA `54d1dfd`; recommended beta version `0.1.0-beta.0` |
 | 3 | [Beta version bump execution report](beta-version-bump-execution-report.md) | ✅ **Shipped** — `0.1.0-beta.0` applied coherently across root + 20 workspace packages + lockfile; mandatory verification + CLI smoke matrix re-run on bumped tree |
-| 4 | Beta npm publish authorization work order | Next slice — explicit operator authorisation; `npm publish --provenance`; git tag; GitHub Release |
+| 4 | [Real-repo beta dogfood report](real-repo-beta-dogfood-report.md) | ✅ **Shipped** — `pass-with-known-limitations` against the Rekon repo itself; verify run --execute + publish github-check --dry-run both passed end-to-end |
+| 5 | Beta npm publish authorization work order | Next slice — explicit operator authorisation; `npm publish --provenance`; git tag; GitHub Release |
 | 4 | Source-write apply roadmap (4 post-beta slices) | Post-beta |
 | 5 | Path freshness + watcher roadmap (4 post-beta slices) | Post-beta |
 | 6 | Post-beta breadth / maturity / polish work | Ongoing |

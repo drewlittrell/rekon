@@ -337,7 +337,8 @@ maturity + polish).
 | 1 | [Beta release readiness checklist memo](beta-release-readiness-checklist.md) | ✅ Shipped |
 | 2 | [Beta release candidate execution plan](beta-release-candidate-execution-plan.md) | ✅ Shipped — checklist executed against SHA `54d1dfd` |
 | 3 | **Beta version bump execution report (this report)** | ✅ **Shipped** — version `0.1.0-beta.0` applied; mandatory verification + CLI smoke matrix re-run on the bumped tree |
-| 4 | Beta npm publish authorization work order | Next slice — explicit operator authorization; `npm publish --provenance`; git tag; GitHub Release |
+| 4 | [Real-repo beta dogfood report](real-repo-beta-dogfood-report.md) | ✅ **Shipped** — `pass-with-known-limitations` against the Rekon repo itself; verify run --execute + publish github-check --dry-run both passed end-to-end |
+| 5 | Beta npm publish authorization work order | Next slice — explicit operator authorization; `npm publish --provenance`; git tag; GitHub Release |
 | 5 | Post-beta source-write apply roadmap (4 slices) | Post-beta |
 | 6 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta |
 | 7 | Post-beta breadth / maturity / polish work | Ongoing |

@@ -4,6 +4,198 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Real-Repo Beta Dogfood Report** (P1.1
+  real-repo-beta-dogfood slice). **Step 4 of the
+  post-blocker release sequence** pinned by the
+  Beta Release Readiness Checklist + advanced by
+  the Beta Release Candidate Execution Plan + the
+  Beta Version Bump Execution Report.
+  **Release-validation (real-repo dogfood)
+  batch.** No runtime behaviour change. No new
+  package, no new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`,
+  no version bump, no release tag, no GitHub
+  Release, no active workflow YAML, no mutation
+  of committed examples.
+
+  **Dogfood Decision:**
+  **`pass-with-known-limitations`.**
+
+  **New strategy memo:**
+  [`docs/strategy/real-repo-beta-dogfood-report.md`](docs/strategy/real-repo-beta-dogfood-report.md)
+  records the full dogfood run against a temp
+  copy of the Rekon repository itself (489 files
+  / 7.8 MB rsync copy at SHA `83ba723`; `node_modules`,
+  `dist`, `*.tsbuildinfo`, `.rekon` excluded;
+  `npm ci` + `npm run build` succeeded inside the
+  copy). The local CLI at `0.1.0-beta.0`
+  exercised every documented surface against the
+  dogfood root.
+
+  **Pinned reminders carried forward by the memo
+  + the docs test:**
+  - This batch does not publish to npm.
+  - This batch does not change package versions.
+  - This batch does not create a git tag.
+  - This batch does not create a GitHub Release.
+  - The dogfood run used a temp copy of a real
+    repository and did not mutate committed
+    examples.
+  - The next publish step still requires
+    explicit operator authorization.
+
+  **Two genuine dogfood wins** (vs. the smaller
+  example fixture used by Batches 30 + 31):
+  - **`verify run --execute` actually ran real
+    commands and all passed.** Against the
+    dogfood Rekon copy, the auto-generated
+    VerificationPlan ran `npm run typecheck`
+    (exit 0 / 280ms) + `npm run test` (exit 0 /
+    37 246ms) + `npm run build` (exit 0 /
+    2 214ms). VerificationRun written with
+    `status: passed`. **First evidence that the
+    verify-runner works end-to-end on a real
+    monorepo.**
+  - **`publish github-check --dry-run`
+    propagated success end-to-end.** The Check
+    payload reports `conclusion: success` +
+    `output.title: "Verification: passed
+    (fresh)"`. The fixture smokes had recorded
+    `conclusion: failure` because the fixture
+    has no real test commands; the dogfood
+    proves the conclusion correctly flips when
+    verification passes.
+
+  **Dogfood command matrix (24 entries):**
+  init, refresh (14 lifecycle steps, status
+  passed, freshness fresh), artifacts validate
+  (clean), artifacts freshness (fresh post-
+  refresh; aggregate stale with 20 historical
+  issues post-matrix — documented latest-major
+  pattern), findings filter (134 filtered all
+  test-file / 1 kept / filterRate 0.9926 / 0
+  alerts), findings filter-health, findings
+  list, issues adjudicate (1 group, 1 active),
+  issues list (0; surface lists merge candidates
+  of which 0 exist), coherency delta (1 active
+  item — the intentional `import-boundary-rule-pack`
+  demo fixture), publish proof/architecture/
+  agent-contract, resolve preflight, intent
+  work-order (IntentMap + WorkOrder +
+  VerificationPlan), verify run --dry-run
+  (not-run), verify run --execute (passed
+  end-to-end), verify result from-run (passed),
+  republish all three, publish github-check
+  --dry-run (success), publish pr-comment
+  --dry-run (5 expected readiness gaps), 4
+  workflow validators (all valid:true, 0
+  issues), final validate (clean), final
+  freshness (aggregate stale with 20 historical
+  issues — documented).
+
+  **Artifact summary:** 36 artefacts across 19
+  types written to the dogfood's `.rekon/artifacts/**`
+  tree. Every artefact validated clean; no
+  corruption; no unreadable publication.
+
+  **Finding signal:** the 134 raw findings (all
+  `import` type in Rekon's own test files) are
+  correctly filtered by the `test-file` filter
+  reason; the 1 surviving finding is in
+  `examples/import-boundary-rule-pack/fixtures/bad-imports/src/feature/handler.ts`
+  — the intentional "bad imports" demo fixture.
+  **No false positive in the production source
+  tree.**
+
+  **Known limitations observed (all previously
+  disclosed):** source-write apply unavailable;
+  watcher daemon unavailable; hosted GitHub App
+  unavailable; active workflows not installed
+  automatically; GitHub writes opt-in only;
+  aggregate freshness historical stale entries;
+  host Node engine 25.9.0 vs. declared
+  `^20.12 || ^22 || ^24` (`EBADENGINE` warning;
+  non-blocking); `pr-comment --dry-run`
+  readiness gaps without GitHub env. None is a
+  new defect.
+
+  **Implementation Sequence updated:**
+  1. Beta release readiness checklist memo
+     (shipped).
+  2. Beta release candidate execution plan
+     (shipped — against SHA `54d1dfd`).
+  3. Beta version bump execution report
+     (shipped — `0.1.0-beta.0` applied).
+  4. Real-repo beta dogfood report (this
+     report, shipped — `pass-with-known-
+     limitations` against the Rekon repo
+     itself).
+  5. Beta npm publish authorization work order
+     (next slice — explicit operator
+     authorization; `npm publish --provenance`;
+     git tag; GitHub Release).
+  6. Post-beta source-write apply roadmap (4
+     post-beta slices).
+  7. Post-beta path freshness + watcher roadmap
+     (4 post-beta slices).
+  8. Post-beta breadth / maturity / polish
+     work.
+
+  **Tests:** new docs suite
+  `tests/docs/real-repo-beta-dogfood-report.test.mjs`
+  with 15 assertions (memo existence; all 13
+  required `##` headings; six pinned required
+  statements verbatim; four diagnostic-table
+  assertions; Dogfood Decision recorded;
+  CHANGELOG mention; review-packet PURPOSE
+  PRESERVATION CHECK). Full suite expected ≥
+  1695 passed / 1 skipped.
+
+  **Docs:** 5 strategy docs updated (execution
+  plan + bump report + checklist implementation
+  sequences advanced; master roadmap +
+  classic-behavior-roadmap entries). README +
+  CHANGELOG updated. New review packet at
+  `.rekon-dev/review-packets/real-repo-beta-dogfood.md`.
+
+  **Recommended next slice:** **Beta npm publish
+  authorization work order** — the first slice
+  in the entire Rekon sequence allowed to invoke
+  `npm publish`, and only with explicit operator
+  authorization.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No `npm publish` invocation.
+  - No `npm publish --provenance`.
+  - No `package.json` `version` field mutation
+    (still `0.1.0-beta.0`).
+  - No `v0.1.0-beta.0` git tag.
+  - No GitHub Release.
+  - No active `.github/workflows/*.yml`.
+  - No new runtime behaviour.
+  - No new CLI command.
+  - No new validator profile.
+  - No new workflow template.
+  - No new artifact type.
+  - No new permission.
+  - No mutation of any `packages/*/src/*.ts`
+    file.
+  - No mutation of the committed
+    `examples/simple-js-ts` fixture (the dogfood
+    targeted the Rekon repo itself, not the
+    example fixture).
+  - No commit of any `.rekon/**` artefact
+    produced by the dogfood run (the dogfood
+    root lives under `mktemp -d`).
+
+  **Stop conditions honoured:** the report does
+  not publish; does not bump versions; does not
+  tag; does not create a GitHub Release; does
+  not hide any smoke result; no release-blocking
+  defect was discovered; the dogfood matrix
+  passed end-to-end.
+
 - Shipped **Beta Version Bump Execution Report**
   (P1.1 beta-version-bump slice). **Step 3 of the
   post-blocker release sequence** pinned by the
