@@ -437,11 +437,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # parity not claimed; plus reserved-but-not-implemented
 # artifact + permission names).
 #
-# With all three beta blockers resolved, the next slice
-# is the beta release candidate execution plan, which
-# executes this checklist against main on the release
-# SHA. The actual `npm publish` is a separate explicit
-# operator work order.
+# The Beta Release Candidate Execution Plan at
+# docs/strategy/beta-release-candidate-execution-plan.md
+# executed the pinned checklist against main. Decision:
+# the current main SHA qualifies as a beta release
+# candidate. All 9 mandatory verification commands
+# passed; the 15-entry CLI smoke matrix ran against a
+# temporary fixture root with results recorded
+# honestly. Recommended beta version: 0.1.0-beta.0
+# (deferred to the beta version bump work order). This
+# batch does not publish to npm, does not bump
+# versions, and does not tag a release.
+#
+# Next slice: beta version bump work order (applies
+# 0.1.0-beta.0 to root + every workspace package;
+# re-runs audits + smokes on the bumped SHA). The
+# actual `npm publish` remains the separate explicit
+# operator work order that follows the bump.
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before

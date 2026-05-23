@@ -325,7 +325,7 @@ implementation:
 | --- | --- | --- |
 | Source-write reconciliation policy | users need clear boundary for applying changes | ✅ resolved by [Source-write reconciliation policy decision memo](source-write-reconciliation-policy-decision.md) (Option C — beta pins policy + preview requirements; apply deferred post-beta) |
 | Watcher/path freshness policy | beta users need to know how stale local artifacts behave after file changes | ✅ resolved by [Watcher / path freshness policy decision memo](watcher-path-freshness-policy-decision.md) (Option C — watcher-lite / path freshness policy for beta; no daemon by default; `rekon refresh` remains explicit; `PathFreshnessReport` reserved; agent contract instructs refresh after edits) |
-| Release readiness checklist | public beta needs packaging/version/docs constraints pinned | ✅ resolved by [Beta release readiness checklist memo](beta-release-readiness-checklist.md) (mandatory verification commands + CLI smoke matrix + known limitations + release stop conditions pinned; beta-ready is a checklist state, not an npm publish event) |
+| Release readiness checklist | public beta needs packaging/version/docs constraints pinned | ✅ resolved by [Beta release readiness checklist memo](beta-release-readiness-checklist.md) (mandatory verification commands + CLI smoke matrix + known limitations + release stop conditions pinned; beta-ready is a checklist state, not an npm publish event). Checklist executed against `main` SHA `54d1dfd` by the [Beta release candidate execution plan](beta-release-candidate-execution-plan.md); all mandatory verification passed; recommended beta version `0.1.0-beta.0`. |
 
 **Why these are blockers, not polish:**
 

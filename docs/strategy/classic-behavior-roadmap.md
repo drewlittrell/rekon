@@ -5259,6 +5259,75 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Beta release candidate execution plan (P1.1
+  beta-release-candidate-execution-plan slice).**
+  ✅ Shipped. **Step 2 of the post-blocker release
+  sequence** pinned by the Beta Release Readiness
+  Checklist. **Release-candidate execution + docs
+  batch.** No runtime behaviour change. No new
+  package, no new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`, no
+  version bump, no release tag, no active workflow
+  YAML.
+
+  **New strategy memo** at
+  [`docs/strategy/beta-release-candidate-execution-plan.md`](beta-release-candidate-execution-plan.md)
+  executes the pinned checklist against `main` SHA
+  `54d1dfd`. **Decision: the current `main` SHA
+  qualifies as a beta release candidate.** This
+  batch does not publish to npm, does not bump
+  versions, and does not tag a release.
+
+  **Recommended beta version: `0.1.0-beta.0`**
+  (deferred to the version bump work order).
+
+  **All 9 mandatory verification commands passed**
+  (typecheck; test 1644/1; build; git diff --check;
+  package-exports audit; license audit; publish
+  dry-run; install smoke; install tarball smoke).
+
+  **15-entry CLI smoke matrix ran against a
+  temporary fixture root**; results recorded
+  honestly in the memo's CLI Smoke Matrix Results
+  table. Two documented first-class behaviours
+  (failed `verify run --execute` against a fixture
+  with no real test command; `pr-comment
+  --dry-run` readiness reporting expected gaps
+  with no GitHub env set) are not regressions.
+
+  **Package / version state recorded:** root
+  `0.1.0-alpha.1`; all 20 workspace packages
+  coherent.
+
+  **No release stop condition was triggered.**
+  Release candidate qualifies.
+
+  **8-step release work order preview pinned**
+  (gated by operator authorisation before
+  publish): pre-flight → version bump → re-run
+  audits + smokes on bumped SHA → operator
+  authorisation gate → `npm publish --provenance`
+  → push tag → GitHub Release → post-publish
+  smoke from npm.
+
+  **Tests:** new docs suite
+  `tests/docs/beta-release-candidate-execution-plan.test.mjs`
+  with 18 assertions. Full suite expected ≥ 1662
+  passed / 1 skipped.
+
+  **Recommended next slice:** **Beta version bump
+  work order** (applies `0.1.0-beta.0` to root +
+  every workspace package; re-runs audits + smokes
+  on the bumped SHA; still avoids `npm publish`
+  unless operator explicitly authorises).
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API call, no
+  token read, no artifact-shape change, no
+  `schemaVersion` bump, no version bump, no npm
+  publish, no release tag.
 - **Beta release readiness checklist memo (P1.1
   beta-release-readiness-checklist slice).** ✅
   Shipped. **Third (and final) of three beta

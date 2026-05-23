@@ -4,6 +4,179 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **Beta Release Candidate Execution
+  Plan** (P1.1
+  beta-release-candidate-execution-plan slice).
+  **Step 2 of the post-blocker release sequence**
+  pinned by the Beta Release Readiness Checklist.
+  **Release-candidate execution + docs batch.**
+  No runtime behaviour change. No new package, no
+  new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`,
+  no version bump, no release tag, no active
+  workflow YAML.
+
+  **New strategy memo:**
+  [`docs/strategy/beta-release-candidate-execution-plan.md`](docs/strategy/beta-release-candidate-execution-plan.md)
+  executes the pinned checklist against `main`
+  and records the results. **Decision: the
+  current `main` SHA qualifies as a beta release
+  candidate under the pinned checklist.** This
+  batch does not publish to npm, does not bump
+  versions, and does not tag a release.
+  **Recommended beta version: `0.1.0-beta.0`.**
+
+  **Release candidate SHA recorded:**
+  `54d1dfd2cd360434a82738d3963ec9cbb5b709f2`
+  (HEAD = main = origin/main; detached-HEAD
+  worktree; working tree clean before final
+  commit).
+
+  **Package / version state recorded:** root
+  `0.1.0-alpha.1`; all 20 workspace packages
+  match.
+
+  **All 9 mandatory verification commands
+  passed:** `npm run typecheck`, `npm run test`
+  (1644 passed / 1 skipped), `npm run build`,
+  `git diff --check`,
+  `node scripts/audit-package-exports.mjs` (20
+  packages; 0 issues),
+  `node scripts/audit-license.mjs` (20 packages;
+  Apache-2.0),
+  `node scripts/publish-dry-run.mjs` (20
+  packages; no publish attempted),
+  `node scripts/install-smoke.mjs`,
+  `node scripts/install-tarball-smoke.mjs` (20
+  tarballs; 13 artifact families emit).
+
+  **15-entry CLI smoke matrix executed against a
+  temporary fixture root** (`mktemp -d` copy of
+  `examples/simple-js-ts`): `refresh`,
+  `artifacts validate`, `artifacts freshness`,
+  `intent work-order`, `verify run --dry-run`,
+  `verify run --execute`, `verify result
+  from-run`, `publish proof`, `publish
+  architecture`, `publish agent-contract`,
+  `publish github-check --dry-run`, `publish
+  pr-comment --dry-run`, three `verify
+  github-workflow validate` profiles (read-only
+  for `rekon-verification.yml` +
+  `rekon-verification-dry-run.yml`,
+  github-check-send for
+  `rekon-verification-check-send.yml`,
+  github-pr-comment-send for
+  `rekon-pr-comment-send.yml`), final
+  `artifacts validate`, final `artifacts
+  freshness`. Two recorded first-class
+  behaviours (failed `verify run --execute`
+  against a fixture with no real test command;
+  `pr-comment --dry-run` readiness reporting
+  expected gaps with no GitHub env set) are
+  documented in the memo's CLI Smoke Matrix
+  Results table — neither is a regression and
+  neither triggered a release stop condition.
+
+  **Known beta limitations re-confirmed** (15
+  total carried forward from the checklist: no
+  source-write apply; no watcher daemon; no
+  hosted GitHub App; active workflows not
+  installed automatically; GitHub writes opt-in
+  only; Windows process-tree kill
+  direct-child-only; full classic parity not
+  claimed; plus 8 additional reserved-but-not-
+  implemented / post-beta-polish items).
+
+  **No release stop condition was triggered.**
+  No required audit failed; no required smoke
+  failed unexpectedly; version coherence holds
+  across all 20 packages; export audit clean;
+  license audit clean; no accidental publish;
+  no hidden source-write; no hidden background
+  refresh; no hidden artifact mutation.
+
+  **Release work order preview pinned** (8-step
+  sequence gated by operator authorisation
+  before publish): pre-flight on release SHA →
+  version bump → re-run audits + smokes on
+  bumped SHA → operator authorisation gate →
+  `npm publish --provenance` → push tag →
+  GitHub Release → post-publish smoke from
+  npm. Reversible up to step 5; once any
+  publish runs, the prerelease semver is
+  consumed.
+
+  **Implementation Sequence updated:**
+  1. Beta release readiness checklist memo
+     (shipped).
+  2. Beta release candidate execution plan
+     (this memo, shipped).
+  3. Beta version bump work order (next slice).
+  4. Beta release work order (explicit operator
+     authorisation; `npm publish --provenance`;
+     git tag; GitHub Release).
+  5. Post-beta source-write apply roadmap (4
+     post-beta slices).
+  6. Post-beta path freshness + watcher roadmap
+     (4 post-beta slices).
+  7. Post-beta breadth / maturity / polish
+     work.
+
+  **Tests:** new docs suite
+  `tests/docs/beta-release-candidate-execution-plan.test.mjs`
+  with 18 assertions (memo existence; all 11
+  required `##` headings; release-candidate-
+  qualifies statement; no-publish + no-version-
+  bump + no-release-tag verbatim statements;
+  beta version recommendation; git state table;
+  mandatory verification table; CLI smoke
+  matrix table; known limitations table;
+  mandatory verification commands; CHANGELOG
+  mention; review-packet PURPOSE PRESERVATION
+  CHECK). Full suite expected ≥ 1662 passed / 1
+  skipped.
+
+  **Docs:** 4 strategy docs updated (checklist
+  memo + parity review + classic-behavior
+  roadmap + master roadmap). README + CHANGELOG
+  updated. New review packet at
+  `.rekon-dev/review-packets/beta-release-candidate-execution-plan.md`.
+
+  **Recommended next slice:** **Beta version
+  bump work order.** Apply `0.1.0-beta.0` (or
+  the operator-approved successor) to root +
+  every workspace package; re-run the audit /
+  smoke matrix on the bumped SHA; prepare the
+  explicit `npm publish` step for operator
+  authorisation. Still avoids `npm publish`
+  unless the operator explicitly authorises it
+  in that work order.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No `npm publish` invocation.
+  - No `package.json` `version` field mutation
+    (root or workspace).
+  - No release tag creation.
+  - No GitHub Release creation.
+  - No active `.github/workflows/*.yml`.
+  - No new runtime behaviour.
+  - No new CLI command.
+  - No new validator profile.
+  - No new workflow template.
+  - No new artifact type.
+  - No new permission.
+  - No mutation of the committed
+    `examples/simple-js-ts` fixture (smokes ran
+    against a `mktemp -d` copy).
+
+  **Stop conditions honoured:** the memo does
+  not publish; does not bump versions; does not
+  tag a release; does not hide any smoke
+  failure; all 4 listed supporting strategy
+  docs in the work order exist and were updated
+  (no skips needed).
+
 - Shipped **Beta Release Readiness Checklist
   Memo** (P1.1
   beta-release-readiness-checklist slice).

@@ -1106,6 +1106,45 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Beta release candidate execution plan (P1.1
+  beta-release-candidate-execution-plan slice):
+  **step 2 of the post-blocker release sequence**
+  pinned by the Beta Release Readiness Checklist.
+  Release-candidate execution + docs batch — **no
+  runtime behaviour change.** No new package, no new
+  CLI command, no new helper, no workflow-template
+  change, no validator profile change, no GitHub API
+  call, no `npm publish`, no version bump, no release
+  tag, no active workflow YAML. New strategy memo at
+  [`docs/strategy/beta-release-candidate-execution-plan.md`](beta-release-candidate-execution-plan.md)
+  executes the pinned checklist against `main` SHA
+  `54d1dfd2cd360434a82738d3963ec9cbb5b709f2`.
+  **Decision: the current `main` SHA qualifies as a
+  beta release candidate.** All 9 mandatory
+  verification commands passed (typecheck, test
+  1644/1, build, git diff --check, package-exports
+  audit, license audit, publish-dry-run, install-
+  smoke, install-tarball-smoke). 15-entry CLI smoke
+  matrix ran against a temporary fixture root
+  (`mktemp -d` copy of `examples/simple-js-ts`); two
+  documented first-class behaviours recorded
+  honestly (failed `verify run --execute` against a
+  fixture with no real test command; `pr-comment
+  --dry-run` readiness reporting expected gaps with
+  no GitHub env set). Package / version state
+  recorded (root `0.1.0-alpha.1`; all 20 workspace
+  packages coherent). **Recommended beta version:
+  `0.1.0-beta.0`** (deferred to the version bump
+  work order). 8-step release work order preview
+  pinned (gated by operator authorisation before
+  publish). 18 new docs assertions. Full suite
+  expected ≥ 1662 passed / 1 skipped. **Recommended
+  next slice:** beta version bump work order
+  (applies `0.1.0-beta.0`; re-runs audits + smokes
+  on the bumped SHA; still avoids `npm publish`
+  unless operator explicitly authorises). No
+  `schemaVersion` bump. No version bump. No npm
+  publish. No release tag.
 - Beta release readiness checklist memo (P1.1
   beta-release-readiness-checklist slice): **third (and
   final) of three beta blockers** identified by the
