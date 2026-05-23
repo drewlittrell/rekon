@@ -421,14 +421,24 @@ This batch **does not**:
 
 ## Follow-Up Work
 
-**Recommended next slice: Beta npm publish
-authorization work order.**
+**Recommended next slice: No-NPM beta
+distribution policy** (shipped immediately
+after this report; see
+[`no-npm-beta-distribution-policy.md`](no-npm-beta-distribution-policy.md)),
+followed by an **additional real-repo dogfood
+cohort plan**.
 
-The dogfood pass clears the last release-
-validation gate before publish. The publish
-work order is the first slice in the entire
-Rekon sequence allowed to invoke `npm publish`,
-and only with explicit operator authorization.
+After reviewing this report, the operator
+decided that **Rekon beta will not be
+published to npm**. A sample size of one
+dogfood (Rekon itself) is not enough to
+commit a public npm version. Beta remains
+source-checkout + local-build + tarball-smoke
+based; publish is deferred until after beta
+or until a new explicit operator decision
+reverses the policy. See the
+[No-NPM Beta Distribution Policy](no-npm-beta-distribution-policy.md)
+for the full pinning.
 
 **Implementation Sequence (updated):**
 
@@ -438,28 +448,32 @@ and only with explicit operator authorization.
 | 2 | [Beta release candidate execution plan](beta-release-candidate-execution-plan.md) | ✅ Shipped (against SHA `54d1dfd`) |
 | 3 | [Beta version bump execution report](beta-version-bump-execution-report.md) | ✅ Shipped (`0.1.0-beta.0` applied) |
 | 4 | **Real-repo beta dogfood report (this report)** | ✅ **Shipped** — `pass-with-known-limitations` against the Rekon repo itself |
-| 5 | Beta npm publish authorization work order | Next slice — explicit operator authorisation; `npm publish --provenance`; git tag; GitHub Release |
-| 6 | Post-beta source-write apply roadmap (4 slices) | Post-beta |
-| 7 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta |
-| 8 | Post-beta breadth / maturity / polish work | Ongoing |
+| 5 | [No-NPM beta distribution policy](no-npm-beta-distribution-policy.md) | ✅ Shipped — replaces the previously-planned publish authorization work order |
+| 6 | Additional real-repo dogfood cohort plan | Next slice — defines 3–5 more real repositories / repo archetypes to dogfood before any post-beta publish is reconsidered |
+| 7 | Additional real-repo dogfood execution | After step 6 |
+| 8 | Post-beta source-write apply roadmap (4 slices) | Post-beta |
+| 9 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta |
+| 10 | Post-beta breadth / maturity / polish work | Ongoing |
+| 11 | (Optional, deferred) Post-beta npm publish authorization work order | Only after broader real-repo dogfood + an explicit later operator decision reverses the no-NPM policy |
 
-After the publish work order, the beta release
-is live and post-beta work proceeds against
-the deferred surfaces.
-
-**Optional follow-up — additional dogfood
-targets.** This first dogfood used Rekon
-itself. Future dogfood batches (not required
-for beta) could exercise the CLI against:
+**Additional dogfood targets** that the
+cohort plan (step 6) will define + the cohort
+execution (step 7) will run:
 
 - A small external TypeScript app (e.g., a
   CRA / Vite project).
 - A non-monorepo single-package project (to
   confirm OwnershipMap behaviour with one
   workspace).
-- A Python-only project (to confirm the CLI
-  fails gracefully when no JS/TS evidence
-  provider matches).
+- A Next.js app.
+- A mixed JS/TS repo (some `.js`, some `.ts`,
+  no enforced module boundary).
+- A repo with existing `.github/workflows/*.yml`
+  (to confirm Rekon's workflow templates
+  coexist).
 
-None of these is a beta blocker. They are
-hardening work post-publish.
+**These are now release-relevant.** Under the
+[No-NPM Beta Distribution Policy](no-npm-beta-distribution-policy.md),
+broader real-repo dogfood is **required**
+before any post-beta publish is reconsidered;
+the cohort is no longer optional hardening.

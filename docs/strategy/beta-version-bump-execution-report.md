@@ -337,8 +337,10 @@ maturity + polish).
 | 1 | [Beta release readiness checklist memo](beta-release-readiness-checklist.md) | ✅ Shipped |
 | 2 | [Beta release candidate execution plan](beta-release-candidate-execution-plan.md) | ✅ Shipped — checklist executed against SHA `54d1dfd` |
 | 3 | **Beta version bump execution report (this report)** | ✅ **Shipped** — version `0.1.0-beta.0` applied; mandatory verification + CLI smoke matrix re-run on the bumped tree |
-| 4 | [Real-repo beta dogfood report](real-repo-beta-dogfood-report.md) | ✅ **Shipped** — `pass-with-known-limitations` against the Rekon repo itself; verify run --execute + publish github-check --dry-run both passed end-to-end |
-| 5 | Beta npm publish authorization work order | Next slice — explicit operator authorization; `npm publish --provenance`; git tag; GitHub Release |
+| 4 | [Real-repo beta dogfood report](real-repo-beta-dogfood-report.md) | ✅ **Shipped** — `pass-with-known-limitations` against the Rekon repo itself |
+| 5 | [No-NPM beta distribution policy](no-npm-beta-distribution-policy.md) | ✅ **Shipped** — replaces the previously-planned publish authorization work order; beta distribution is source-checkout / local-build / tarball-smoke based; npm publish deferred |
+| 6 | Additional real-repo dogfood cohort plan | Next slice — 3–5 more real repositories / repo archetypes |
+| 7 | (Optional, deferred) Post-beta npm publish authorization work order | Only after broader real-repo dogfood + an explicit later operator decision reverses the no-NPM policy |
 | 5 | Post-beta source-write apply roadmap (4 slices) | Post-beta |
 | 6 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta |
 | 7 | Post-beta breadth / maturity / polish work | Ongoing |

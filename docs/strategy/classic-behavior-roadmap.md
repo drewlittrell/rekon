@@ -5259,6 +5259,94 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **No-NPM beta distribution policy (P1.1
+  no-npm-beta-distribution-policy slice).** ✅
+  Shipped. **Step 5 of the post-blocker release
+  sequence** — **replaces** the previously-planned
+  publish authorization work order. **Strategy /
+  docs / tests-only batch.** No runtime behaviour
+  change. No new package, no new CLI command, no
+  new helper, no workflow-template change, no
+  validator profile change, no GitHub API call, no
+  `npm publish`, no version bump, no release tag,
+  no GitHub Release, no active workflow YAML, no
+  `package.json` / `package-lock.json` mutation.
+
+  **New strategy memo** at
+  [`docs/strategy/no-npm-beta-distribution-policy.md`](no-npm-beta-distribution-policy.md)
+  pins the post-dogfood release posture.
+  **Decision: Rekon beta will not be published to
+  npm.** Beta is a validated product / checklist
+  state, not an npm-published package state.
+  Distribution during beta is source-controlled,
+  local-build, and tarball-smoke based; the npm
+  registry path is deferred until after beta or
+  until a new explicit operator decision reverses
+  the policy.
+
+  **Pinned reminders carried forward by the memo
+  + the docs test:**
+  - Rekon beta will not be published to npm.
+  - npm publish is deferred until after beta or
+    until a new explicit operator decision
+    reverses this policy.
+  - `0.1.0-beta.0` remains the internal / repo
+    version for beta validation.
+  - Beta distribution is source-controlled /
+    local-build / tarball-smoke based, not
+    public npm registry based.
+
+  **Required statements pinned verbatim:**
+  - Beta readiness is a product / checklist
+    state, not an npm-published state.
+  - No npm publish should be attempted during
+    beta.
+  - Real-repo dogfood passed and should continue
+    across more repos before public package
+    release.
+
+  **Three diagnostic tables in the memo:**
+  distribution (6 rows: source checkout +
+  local build + local tarball smoke + GitHub
+  workflow templates allowed; npm registry +
+  GitHub Release deferred); policy (6 rows: npm
+  publish deferred, version already at
+  `0.1.0-beta.0`, public registry install not
+  supported, source checkout install supported,
+  more real-repo dogfood required, publish
+  authorization work order replaced); dogfood (1
+  row: Rekon repo temp copy passed).
+
+  **Implementation Sequence updated to 11
+  steps:** checklist memo → execution plan →
+  version bump report → dogfood report →
+  **no-NPM policy (this step, shipped)** →
+  additional dogfood cohort plan (next) →
+  cohort execution → post-beta source-write
+  apply roadmap (4 slices) → post-beta path
+  freshness + watcher roadmap (4 slices) →
+  post-beta breadth / maturity / polish work →
+  (optional, deferred) post-beta publish
+  authorization work order.
+
+  **Tests:** new docs suite
+  `tests/docs/no-npm-beta-distribution-policy.test.mjs`
+  with 15 assertions. Full suite expected ≥
+  1710 passed / 1 skipped.
+
+  **Recommended next slice:** **Additional
+  real-repo dogfood cohort plan** (defines 3–5
+  more real repositories / repo archetypes to
+  dogfood before any post-beta publish is
+  reconsidered).
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API call,
+  no token read, no artifact-shape change, no
+  `schemaVersion` bump, no version bump, no
+  npm publish, no release tag, no GitHub
+  Release.
 - **Real-repo beta dogfood report (P1.1
   real-repo-beta-dogfood slice).** ✅ Shipped.
   **Step 4 of the post-blocker release sequence**

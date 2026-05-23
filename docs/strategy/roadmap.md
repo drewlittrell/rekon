@@ -1106,6 +1106,57 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- No-NPM beta distribution policy (P1.1
+  no-npm-beta-distribution-policy slice): **step
+  5 of the post-blocker release sequence** —
+  **replaces** the previously-planned publish
+  authorization work order. Strategy / docs /
+  tests-only batch — **no runtime behaviour
+  change.** No new package, no new CLI command,
+  no new helper, no workflow-template change, no
+  validator profile change, no GitHub API call,
+  no `npm publish`, no version bump, no release
+  tag, no GitHub Release, no active workflow
+  YAML, no `package.json` / `package-lock.json`
+  mutation. New strategy memo at
+  [`docs/strategy/no-npm-beta-distribution-policy.md`](no-npm-beta-distribution-policy.md)
+  pins the post-dogfood release posture.
+  **Decision: Rekon beta will not be published
+  to npm.** Beta is a validated product /
+  checklist state, not an npm-published package
+  state. Distribution during beta is
+  source-controlled, local-build, and
+  tarball-smoke based; the npm registry path is
+  deferred until after beta or until a new
+  explicit operator decision reverses the
+  policy. Pinned reminders: Rekon beta will not
+  be published to npm; npm publish is deferred
+  until after beta; `0.1.0-beta.0` remains the
+  internal / repo version for beta validation;
+  beta distribution is source-controlled /
+  local-build / tarball-smoke based. Required
+  statements: beta readiness is a product /
+  checklist state, not an npm-published state;
+  no npm publish should be attempted during
+  beta; real-repo dogfood passed and should
+  continue across more repos before public
+  package release. Three diagnostic tables:
+  distribution (6 rows), policy (6 rows),
+  dogfood (1 row). 11-step implementation
+  sequence pinned (this memo is step 5; the
+  additional real-repo dogfood cohort plan is
+  step 6; publish authorization is deferred to
+  step 11 "Optional, deferred"). 15 new docs
+  assertions. Full suite expected ≥ 1710 passed
+  / 1 skipped. **Recommended next slice:**
+  additional real-repo dogfood cohort plan
+  (defines 3–5 more real repositories / repo
+  archetypes — small TS package, medium
+  monorepo, Next.js app, mixed JS/TS repo, repo
+  with existing GitHub workflows — to dogfood
+  before any post-beta publish reconsideration).
+  No `schemaVersion` bump. No npm publish. No
+  release tag. No GitHub Release.
 - Real-repo beta dogfood report (P1.1
   real-repo-beta-dogfood slice): **step 4 of the
   post-blocker release sequence** pinned by the

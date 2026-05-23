@@ -478,14 +478,39 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # artifacts written across 19 types; final artifacts
 # validate clean. The single surviving finding is the
 # intentional import-boundary-rule-pack demo fixture.
-# This batch does not publish to npm, does not change
-# package versions, does not create a git tag, and
-# does not create a GitHub Release. The next publish
-# step still requires explicit operator authorization.
 #
-# Next slice: beta npm publish authorization work order
-# (the first slice allowed to invoke `npm publish`, and
-# only with explicit operator authorization).
+# The No-NPM Beta Distribution Policy at
+# docs/strategy/no-npm-beta-distribution-policy.md
+# pins the post-dogfood release posture. Decision:
+# Rekon beta will NOT be published to npm. Beta is a
+# validated product / checklist state, not an
+# npm-published package state. Distribution during
+# beta is source-controlled, local-build, and
+# tarball-smoke based; the npm registry path is
+# deferred until after beta or until a new explicit
+# operator decision reverses the policy. Operator
+# install path during beta: git clone → npm ci →
+# npm run build → invoke node packages/cli/dist/index.js
+# against your own repo. No `npm install @rekon/cli`
+# during beta. No public package surface. No GitHub
+# Release object.
+#
+# Pinned reminders:
+#   - Rekon beta will not be published to npm.
+#   - npm publish is deferred until after beta.
+#   - 0.1.0-beta.0 remains the internal / repo
+#     version for beta validation.
+#   - Beta readiness is a product / checklist state,
+#     not an npm-published state.
+#   - No npm publish should be attempted during beta.
+#   - Real-repo dogfood passed and should continue
+#     across more repos before public package release.
+#
+# Next slice: additional real-repo dogfood cohort plan
+# (defines 3–5 more real repositories / repo
+# archetypes to dogfood before any post-beta publish
+# is reconsidered). A future post-beta publish remains
+# possible only via a new explicit operator decision.
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before
