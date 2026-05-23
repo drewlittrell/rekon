@@ -1106,6 +1106,63 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Beta version bump execution report (P1.1
+  beta-version-bump slice): **step 3 of the
+  post-blocker release sequence** pinned by the
+  Beta Release Readiness Checklist + advanced by
+  the Beta Release Candidate Execution Plan.
+  Release-prep (version-coherence) batch — **no
+  runtime behaviour change.** No new package, no
+  new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`,
+  no release tag, no GitHub Release, no active
+  workflow YAML. **Does mutate `package.json`
+  `version` fields + `package-lock.json` —
+  intentionally, exactly per the version bump
+  scope.** Version `0.1.0-beta.0` applied to root
+  `package.json` + 20 workspace `package.json`
+  files + `package-lock.json` (root version + 21
+  workspace version entries + 70 `@rekon/*`
+  dependency pins) + 70 `@rekon/*` dependency
+  pins inside workspace `package.json` files.
+  Method: deterministic Node JSON rewrite (not
+  `npm version`; not `npm install
+  --package-lock-only` — the lockfile was
+  rewritten directly to avoid registry lookups
+  for unpublished `@rekon/*` packages). Coherence
+  verified: 0 `0.1.0-alpha.1` references remain.
+  New strategy memo at
+  [`docs/strategy/beta-version-bump-execution-report.md`](beta-version-bump-execution-report.md)
+  records the bump + the re-verification
+  results. **Decision: Version `0.1.0-beta.0`
+  has been applied coherently across the root
+  package and all 20 workspace packages.** This
+  batch does not publish to npm, does not create
+  a git tag, and does not create a GitHub
+  Release. The next publish step requires
+  explicit operator authorization. All 9
+  mandatory verification commands passed on the
+  bumped tree (test count 1662 passed / 1
+  skipped, matching pre-bump count; no
+  regressions). 15-entry CLI smoke matrix
+  re-run against a temporary fixture root with
+  results identical in shape to the pre-bump run
+  — confirming the bump introduces no
+  behavioural change. One existing test updated
+  (`release-readiness.test.mjs` `EXPECTED_VERSION`
+  constant bumped from `0.1.0-alpha.1` to
+  `0.1.0-beta.0`; alpha-release-document
+  existence assertions remain intact as
+  historical artefacts). 18 new docs assertions.
+  Full suite expected ≥ 1680 passed / 1
+  skipped. **Recommended next slice:** beta npm
+  publish authorization work order — the first
+  slice in the entire Rekon sequence allowed to
+  invoke `npm publish`, and only with explicit
+  operator authorization. No `schemaVersion`
+  bump. No npm publish. No release tag. No
+  GitHub Release.
 - Beta release candidate execution plan (P1.1
   beta-release-candidate-execution-plan slice):
   **step 2 of the post-blocker release sequence**

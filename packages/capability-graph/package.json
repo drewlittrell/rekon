@@ -1,6 +1,6 @@
 {
   "name": "@rekon/capability-graph",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-beta.0",
   "description": "Built-in Rekon graph projector capability.",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,11 +18,11 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/kernel-artifacts": "0.1.0-alpha.1",
-    "@rekon/kernel-graph": "0.1.0-alpha.1",
-    "@rekon/sdk": "0.1.0-alpha.1"
+    "@rekon/kernel-artifacts": "0.1.0-beta.0",
+    "@rekon/kernel-graph": "0.1.0-beta.0",
+    "@rekon/sdk": "0.1.0-beta.0"
   },
   "devDependencies": {
-    "@rekon/runtime": "0.1.0-alpha.1"
+    "@rekon/runtime": "0.1.0-beta.0"
   }
 }

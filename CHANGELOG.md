@@ -2,6 +2,191 @@
 
 All notable changes to Rekon will be documented in this file.
 
+## 0.1.0-beta.0
+
+- Shipped **Beta Version Bump Execution Report**
+  (P1.1 beta-version-bump slice). **Step 3 of the
+  post-blocker release sequence** pinned by the
+  Beta Release Readiness Checklist + advanced by
+  the Beta Release Candidate Execution Plan.
+  **Release-prep (version-coherence) batch.** No
+  runtime behaviour change. No new package, no
+  new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`,
+  no release tag, no GitHub Release, no active
+  workflow YAML. **Does mutate `package.json`
+  `version` fields + `package-lock.json` —
+  intentionally, exactly per the version bump
+  scope.**
+
+  **Applied version `0.1.0-beta.0`** to:
+  - `package.json` (root).
+  - `packages/*/package.json` (20 workspace
+    packages).
+  - `package-lock.json` (root version + 21
+    workspace version entries + 70 `@rekon/*`
+    dependency pins).
+  - 70 `@rekon/*` dependency pins inside
+    workspace `package.json` files.
+
+  **Method:** deterministic Node JSON rewrite
+  (not `npm version`; not `npm install
+  --package-lock-only` — the lockfile was
+  rewritten directly to avoid registry lookups
+  for unpublished `@rekon/*` packages).
+
+  **Coherence verified:** `grep -c
+  "0.1.0-alpha.1"` returns **0** across every
+  `package.json` and `package-lock.json`; every
+  workspace + lockfile entry matches root
+  `0.1.0-beta.0`.
+
+  **New strategy memo:**
+  [`docs/strategy/beta-version-bump-execution-report.md`](docs/strategy/beta-version-bump-execution-report.md)
+  records the bump + the re-verification
+  results. **Decision: Version `0.1.0-beta.0`
+  has been applied coherently across the root
+  package and all 20 workspace packages.** This
+  batch does not publish to npm, does not create
+  a git tag, and does not create a GitHub
+  Release. The next publish step requires
+  explicit operator authorization.
+
+  **All 9 mandatory verification commands
+  passed on the bumped tree:** `npm run
+  typecheck` (reports `rekon@0.1.0-beta.0`),
+  `npm run test` (1662 passed / 1 skipped —
+  matches the pre-bump count), `npm run build`
+  (reports `@rekon/sdk@0.1.0-beta.0`),
+  `git diff --check`, all 5 audit/smoke scripts
+  (package-exports, license, publish-dry-run
+  reporting per-package `0.1.0-beta.0`, install-
+  smoke, install-tarball-smoke with 20 tarballs
+  + 13 artifact families).
+
+  **15-entry CLI smoke matrix re-run against a
+  temporary fixture root** (`mktemp -d` copy of
+  `examples/simple-js-ts`). Results identical in
+  shape to Batch 30's pre-bump run — confirming
+  the version bump introduces no behavioural
+  change. The two recorded first-class
+  behaviours (failed `verify run --execute`
+  against a fixture with no real test command;
+  `pr-comment --dry-run` readiness reporting
+  expected gaps with no GitHub env set) are
+  documented; neither triggered a release stop
+  condition.
+
+  **One existing test updated:**
+  `tests/docs/release-readiness.test.mjs`
+  `EXPECTED_VERSION` constant bumped from
+  `0.1.0-alpha.1` to `0.1.0-beta.0`; one test
+  description updated to match. The alpha-
+  release-document existence assertions remain
+  intact because those documents are historical
+  artefacts of the alpha release prep and
+  continue to be useful as references.
+
+  **Publish posture pinned:**
+  - No `npm publish` invocation in this batch.
+  - No release tag created in this batch.
+  - No GitHub Release created in this batch.
+  - The next publish step requires explicit
+    operator authorization.
+
+  **Release Work Order Preview advanced one
+  step:** steps 1 (pre-flight), 4 (operator
+  authorization gate), 5 (`npm publish
+  --provenance`), 6 (push tag), 7 (GitHub
+  Release), 8 (post-publish smoke) remain
+  pending; steps 2 (version bump) + 3 (re-run
+  audits + smokes on bumped SHA) are complete.
+  Step 4 is the point of operator authorization;
+  steps 5–8 are operator-authorized actions and
+  cannot be invoked autonomously by any future
+  agent or workflow.
+
+  **Implementation Sequence updated:**
+  1. Beta release readiness checklist memo
+     (shipped).
+  2. Beta release candidate execution plan
+     (shipped — executed against SHA `54d1dfd`).
+  3. Beta version bump execution report (this
+     report, shipped — `0.1.0-beta.0` applied
+     coherently; mandatory verification + CLI
+     smoke matrix re-run on the bumped tree).
+  4. Beta npm publish authorization work order
+     (next slice — explicit operator
+     authorization; `npm publish --provenance`;
+     git tag; GitHub Release).
+  5. Post-beta source-write apply roadmap (4
+     post-beta slices).
+  6. Post-beta path freshness + watcher roadmap
+     (4 post-beta slices).
+  7. Post-beta breadth / maturity / polish
+     work.
+
+  **Tests:** new docs suite
+  `tests/docs/beta-version-bump-execution-report.test.mjs`
+  with 18 assertions (memo existence; all 10
+  required `##` headings; four pinned required
+  statements verbatim;
+  `0.1.0-beta.0`-coherence claims; diagnostic
+  tables; mandatory verification commands;
+  CHANGELOG mention; review-packet PURPOSE
+  PRESERVATION CHECK). Full suite expected ≥
+  1680 passed / 1 skipped.
+
+  **Docs:** 5 strategy docs updated (execution
+  plan + checklist implementation sequences
+  advanced; parity review pointer; master
+  roadmap + classic-behavior-roadmap entries).
+  README + CHANGELOG updated (CHANGELOG header
+  also advanced to `0.1.0-beta.0`). New review
+  packet at
+  `.rekon-dev/review-packets/beta-version-bump.md`.
+
+  **Recommended next slice:** **Beta npm publish
+  authorization work order** — the first slice
+  in the entire Rekon sequence allowed to invoke
+  `npm publish`, and only with explicit operator
+  authorization. The work order re-runs the
+  mandatory verification commands + the CLI
+  smoke matrix on the publish SHA, requires
+  explicit operator confirmation immediately
+  before `npm publish --provenance`, publishes
+  each workspace package in dependency order,
+  pushes the `v0.1.0-beta.0` git tag only after
+  publish succeeds, creates the GitHub Release,
+  and confirms a post-publish install smoke.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No `npm publish` invocation.
+  - No `npm publish --provenance`.
+  - No `v0.1.0-beta.0` git tag.
+  - No GitHub Release.
+  - No active `.github/workflows/*.yml`.
+  - No new runtime behaviour.
+  - No new CLI command.
+  - No new validator profile.
+  - No new workflow template.
+  - No new artifact type.
+  - No new permission.
+  - No mutation of any `packages/*/src/*.ts`
+    file.
+  - No mutation of the committed
+    `examples/simple-js-ts` fixture (smokes ran
+    against a `mktemp -d` copy).
+
+  **Stop conditions honoured:** the report does
+  not publish; does not bump beyond
+  `0.1.0-beta.0`; does not tag; does not create
+  a GitHub Release; does not hide any smoke
+  result; all 5 listed supporting strategy docs
+  in the work order exist and were updated (no
+  skips needed).
+
 ## 0.1.0-alpha.1
 
 - Shipped **Beta Release Candidate Execution

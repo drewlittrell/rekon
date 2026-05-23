@@ -1,6 +1,6 @@
 {
   "name": "@rekon/capability-docs",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-beta.0",
   "description": "Built-in Rekon docs publisher capability.",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,14 +18,14 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/capability-intent": "0.1.0-alpha.1",
-    "@rekon/kernel-artifacts": "0.1.0-alpha.1",
-    "@rekon/kernel-findings": "0.1.0-alpha.1",
-    "@rekon/kernel-repo-model": "0.1.0-alpha.1",
-    "@rekon/kernel-snapshot": "0.1.0-alpha.1",
-    "@rekon/sdk": "0.1.0-alpha.1"
+    "@rekon/capability-intent": "0.1.0-beta.0",
+    "@rekon/kernel-artifacts": "0.1.0-beta.0",
+    "@rekon/kernel-findings": "0.1.0-beta.0",
+    "@rekon/kernel-repo-model": "0.1.0-beta.0",
+    "@rekon/kernel-snapshot": "0.1.0-beta.0",
+    "@rekon/sdk": "0.1.0-beta.0"
   },
   "devDependencies": {
-    "@rekon/runtime": "0.1.0-alpha.1"
+    "@rekon/runtime": "0.1.0-beta.0"
   }
 }

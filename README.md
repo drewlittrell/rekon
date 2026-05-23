@@ -449,11 +449,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # batch does not publish to npm, does not bump
 # versions, and does not tag a release.
 #
-# Next slice: beta version bump work order (applies
-# 0.1.0-beta.0 to root + every workspace package;
-# re-runs audits + smokes on the bumped SHA). The
-# actual `npm publish` remains the separate explicit
-# operator work order that follows the bump.
+# The Beta Version Bump Execution Report at
+# docs/strategy/beta-version-bump-execution-report.md
+# applied 0.1.0-beta.0 coherently across the root
+# package + all 20 workspace packages + the lockfile.
+# Decision: Version 0.1.0-beta.0 has been applied
+# coherently. All 9 mandatory verification commands
+# passed on the bumped tree (test count holds at 1662
+# passed / 1 skipped, confirming no regression); the
+# 15-entry CLI smoke matrix was re-run against a
+# temporary fixture with identical results. This batch
+# does not publish to npm, does not create a git tag,
+# and does not create a GitHub Release. The next
+# publish step requires explicit operator
+# authorization.
+#
+# Next slice: beta npm publish authorization work order
+# (the first slice allowed to invoke `npm publish`, and
+# only with explicit operator authorization).
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before

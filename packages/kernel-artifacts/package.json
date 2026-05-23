@@ -1,6 +1,6 @@
 {
   "name": "@rekon/kernel-artifacts",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-beta.0",
   "description": "Rekon artifact headers, refs, schema metadata, and validation helpers.",
   "license": "Apache-2.0",
   "type": "module",

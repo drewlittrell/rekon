@@ -1,6 +1,6 @@
 {
   "name": "@rekon/capability-verify",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-beta.0",
   "description": "Built-in Rekon verification runner capability. v1 ships the manifest + skeleton only; command execution is not implemented yet.",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,8 +18,8 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/capability-intent": "0.1.0-alpha.1",
-    "@rekon/kernel-artifacts": "0.1.0-alpha.1",
-    "@rekon/sdk": "0.1.0-alpha.1"
+    "@rekon/capability-intent": "0.1.0-beta.0",
+    "@rekon/kernel-artifacts": "0.1.0-beta.0",
+    "@rekon/sdk": "0.1.0-beta.0"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "rekon",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-beta.0",
   "private": true,
   "description": "Open-source intelligence substrate for codebases.",
   "license": "Apache-2.0",

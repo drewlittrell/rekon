@@ -365,8 +365,8 @@ GitHub Release steps.
 | --- | --- | --- |
 | 1 | [Beta release readiness checklist memo](beta-release-readiness-checklist.md) | ✅ Shipped |
 | 2 | **Beta release candidate execution plan (this memo)** | ✅ **Shipped** |
-| 3 | Beta version bump work order | Next slice — applies `0.1.0-beta.0`; re-runs audits + smokes on the bumped SHA |
-| 4 | Beta release work order | Explicit operator authorisation; `npm publish --provenance`; git tag; GitHub Release |
+| 3 | [Beta version bump execution report](beta-version-bump-execution-report.md) | ✅ **Shipped** — `0.1.0-beta.0` applied coherently; mandatory verification + CLI smoke matrix re-run on the bumped tree |
+| 4 | Beta npm publish authorization work order | Next slice — explicit operator authorisation; `npm publish --provenance`; git tag; GitHub Release |
 | 5 | Post-beta source-write apply roadmap | 4 post-beta slices (patch preview → permission + rollback design → apply implementation → safety review) |
 | 6 | Post-beta path freshness + watcher roadmap | 4 post-beta slices (path freshness artefact → daemon design → daemon implementation → safety review) |
 | 7 | Post-beta breadth / maturity / polish work | Ongoing (hosted GitHub App; deeper rule catalog; memory promotion; PR comment refinements; Windows process-tree kill) |
