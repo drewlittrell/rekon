@@ -321,3 +321,8 @@ for decision-making. All warnings recommend
   (this doc) and working-tree freshness (future
   `PathFreshnessReport` slice); reserves the artifact
   name; no daemon in beta; mtimes advisory only.
+- [Beta release readiness checklist](../strategy/beta-release-readiness-checklist.md) —
+  the release-slice CLI smoke matrix includes
+  `rekon artifacts validate` + `rekon artifacts
+  freshness` to confirm both freshness oracles emit
+  on fixture input.

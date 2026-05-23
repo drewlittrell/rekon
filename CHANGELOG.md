@@ -4,6 +4,194 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-alpha.1
 
+- Shipped **Beta Release Readiness Checklist
+  Memo** (P1.1
+  beta-release-readiness-checklist slice).
+  **Third (and final) of three beta blockers**
+  identified by the Beta Readiness / Remaining
+  Classic-Parity Review. **Strategy / docs /
+  tests-only batch.** No runtime behaviour
+  change. No new package, no new CLI command, no
+  new helper, no workflow-template change, no
+  validator profile change, no GitHub API call,
+  no version bump, no npm publish, no release
+  tag, no active workflow YAML.
+
+  **New strategy memo:**
+  [`docs/strategy/beta-release-readiness-checklist.md`](docs/strategy/beta-release-readiness-checklist.md)
+  pins the final beta release readiness contract.
+  **Decision: with this checklist pinned + the
+  mandatory verification commands passing on
+  main, Rekon is beta-ready. Beta-ready is a
+  checklist state, not an npm publish event. The
+  actual publish is a separate explicit operator
+  work order.**
+
+  **Pinned reminders carried forward by the memo
+  + the docs test:**
+  - Beta readiness is a checklist state, not an
+    npm publish event.
+  - npm publish requires a separate explicit
+    release work order.
+  - No version bump occurs in this checklist
+    batch.
+  - Known beta limitations must be documented
+    before beta is announced.
+
+  **All three beta blockers resolved:**
+  1. Source-write reconciliation policy
+     (resolved by source-write policy memo).
+  2. Watcher / path freshness policy (resolved
+     by watcher / path freshness policy memo).
+  3. Release readiness checklist (resolved by
+     this memo).
+
+  **Four diagnostic tables in the memo:**
+  - Beta blocker table (3 rows; all marked
+    resolved with evidence pointer).
+  - Verification command table (9 rows; every
+    command marked required-before-beta).
+  - Known limitations table (7 rows: source-
+    write apply / watcher daemon / hosted
+    GitHub App / active workflows / GitHub
+    writes / Windows process-tree kill / full
+    classic parity).
+  - Release stop-condition table (5 rows: any
+    required audit fails / any required smoke
+    fails / version bump missing / known
+    limitations not documented / accidental npm
+    publish).
+
+  **Mandatory verification commands pinned**
+  (9 commands the release slice must re-run on
+  the release SHA): `npm run typecheck`,
+  `npm run test`, `npm run build`, `git diff
+  --check`,
+  `node scripts/audit-package-exports.mjs`,
+  `node scripts/audit-license.mjs`,
+  `node scripts/publish-dry-run.mjs`,
+  `node scripts/install-smoke.mjs`,
+  `node scripts/install-tarball-smoke.mjs`.
+
+  **CLI smoke matrix pinned** (14 commands for
+  the release slice to execute on fixture
+  inputs): `rekon refresh`, `rekon verify run
+  --dry-run`, `rekon verify run --execute`,
+  `rekon verify result from-run`, `rekon
+  publish proof`, `rekon publish architecture`,
+  `rekon publish agent-contract`, `rekon
+  publish github-check --dry-run`, `rekon
+  publish pr-comment --dry-run`, `rekon verify
+  github-workflow validate` (three profiles:
+  read-only, github-check-send,
+  github-pr-comment-send), `rekon artifacts
+  validate`, `rekon artifacts freshness`. No
+  `--send` paths in the smoke matrix —
+  operator-supplied tokens required.
+
+  **Versioning policy pinned:** current root
+  version `0.1.0-alpha.1`; beta target naming
+  `0.1.0-beta.<n>` (specific `<n>` decided in
+  release slice); workspace version coherence
+  required (every `@rekon/*` package matches
+  root). **No version bump in this batch.**
+
+  **NPM publish policy pinned:** no `npm
+  publish` in this batch; publish requires its
+  own work order; publish-dry-run mandatory
+  before publish; no automated publish
+  triggers.
+
+  **Known limitations disclosed** (15 total:
+  7 primary table rows + 8 carried forward from
+  the upstream policy memos including
+  `PathFreshnessReport` reserved-not-implemented,
+  `ReconciliationApplyReport` reserved-not-
+  implemented, `source:write` reserved-not-
+  registered, `paths` / `events` invalidation
+  rules as public intent only, PR comment
+  bounded-retry as post-beta polish, same-repo
+  `pull_request` guard as post-beta polish,
+  memory promotion/supersession as post-beta
+  maturity, deeper rule catalog expansion as
+  post-beta breadth).
+
+  **Implementation Sequence pinned:**
+  1. Beta release readiness checklist memo
+     (this memo, shipped).
+  2. Beta release candidate execution plan
+     (next slice).
+  3. Beta release (explicit operator work order
+     — applies version bump + invokes publish).
+  4. Source-write apply roadmap (4 post-beta
+     slices).
+  5. Path freshness + watcher roadmap (4
+     post-beta slices).
+  6. Post-beta breadth / maturity / polish work.
+
+  **Tests:** new docs suite
+  `tests/docs/beta-release-readiness-checklist.test.mjs`
+  with 22 assertions (memo existence; all 13
+  required `##` headings; four pinned reminder
+  statements; three resolved-blocker rows;
+  mandatory verification commands; CLI smoke
+  matrix; six known-limitation pinned
+  statements; four diagnostic tables; CHANGELOG
+  mention; review-packet PURPOSE PRESERVATION
+  CHECK). Full suite expected ≥ 1644 passed / 1
+  skipped.
+
+  **Docs:** 14 updated (beta-readiness review
+  marks the release checklist blocker resolved;
+  source-write + watcher / path freshness memos
+  updated implementation sequences;
+  github-review-surfaces-parity-review +
+  verification-github-trust-boundary-safety-review
+  checklist pointers; governance memo step 64
+  added; classic-behavior roadmap + master
+  roadmap entries; classic-guarantees-audit +
+  classic-alignment-map pointers;
+  verification-runs + proof-report-publication +
+  agent-operating-contract +
+  freshness-and-invalidation concept pointers).
+  README + CHANGELOG updated. New review packet
+  at
+  `.rekon-dev/review-packets/beta-release-readiness-checklist.md`.
+
+  **Recommended next slice:** **Beta release
+  candidate execution plan.** Execute the pinned
+  checklist against main on the release SHA;
+  run all mandatory verification commands + the
+  CLI smoke matrix; confirm package / version
+  state; decide the exact beta version; prepare
+  an explicit version-bump + npm-publish work
+  order if approved. Still avoid `npm publish`
+  unless the operator explicitly authorises it.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No `npm publish` invocation.
+  - No `package.json` `version` field mutation
+    (root or workspace).
+  - No release tag creation.
+  - No GitHub Release creation.
+  - No active `.github/workflows/*.yml`.
+  - No new runtime behaviour.
+  - No new CLI command.
+  - No new validator profile.
+  - No new workflow template.
+  - No new artifact type registration.
+  - No new permission registration.
+
+  **Stop conditions honoured:** the memo does
+  not publish; does not bump versions; does not
+  tag releases; does not claim full classic
+  parity; does not claim beta-ready beyond the
+  conditional "with this checklist pinned + the
+  mandatory verification commands passing on
+  main" framing; all 14 listed supporting docs
+  in the work order exist and were updated (no
+  skips needed).
+
 - Shipped **Watcher / Path Freshness Policy
   Decision Memo** (P1.1
   watcher-path-freshness-policy-decision slice).

@@ -409,9 +409,39 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # The memo reserves PathFreshnessReport (docs-only;
 # registration is a later slice) and pins that file mtimes
 # alone are not sufficient as canonical freshness evidence
-# — content hashes / git state preferred. The next slice
-# is the beta release readiness checklist memo (blocker
-# 3).
+# — content hashes / git state preferred.
+#
+# The Beta Release Readiness Checklist Memo at
+# docs/strategy/beta-release-readiness-checklist.md
+# resolved blocker (3) — the third and final beta blocker.
+# Decision: with this checklist pinned + the mandatory
+# verification commands passing on main, Rekon is
+# beta-ready. Beta-ready is a checklist state, not an npm
+# publish event; the actual publish is a separate
+# explicit operator work order. Pinned reminders:
+#   - Beta readiness is a checklist state, not an npm
+#     publish event.
+#   - npm publish requires a separate explicit release
+#     work order.
+#   - No version bump occurs in this checklist batch.
+#   - Known beta limitations must be documented before
+#     beta is announced.
+# Nine mandatory verification commands pinned
+# (typecheck, test, build, git diff --check, five audit
+# / smoke scripts). 14-command CLI smoke matrix pinned
+# for the release slice. Known beta limitations
+# disclosed (no source-write apply; no watcher daemon;
+# no hosted GitHub App; active workflows not installed
+# automatically; GitHub writes opt-in only; Windows
+# process-tree kill direct-child-only; full classic
+# parity not claimed; plus reserved-but-not-implemented
+# artifact + permission names).
+#
+# With all three beta blockers resolved, the next slice
+# is the beta release candidate execution plan, which
+# executes this checklist against main on the release
+# SHA. The actual `npm publish` is a separate explicit
+# operator work order.
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before

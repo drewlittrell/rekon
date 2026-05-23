@@ -614,8 +614,8 @@ cross-references.
 | --- | --- | --- |
 | 1 | **Source-write reconciliation policy decision memo (this memo)** | ✅ **Shipped** |
 | 2 | [Watcher / path freshness policy decision memo](watcher-path-freshness-policy-decision.md) | ✅ **Shipped** (second beta blocker) |
-| 3 | Beta release readiness checklist | Next slice (third beta blocker) |
-| 4 | Beta release execution | Final pre-beta slice |
+| 3 | [Beta release readiness checklist memo](beta-release-readiness-checklist.md) | ✅ **Shipped** (third beta blocker) |
+| 4 | Beta release candidate execution plan | Next slice — executes checklist on release SHA |
 | 5 | Patch preview artefact (post-beta) | Adds exact-diff preview shape to `ReconciliationPlan` or a sibling artefact; apply-blind |
 | 6 | Apply permission + rollback design memo (post-beta) | Pins `source:write` registration + atomic-apply contract + rollback mechanism |
 | 7 | Apply implementation slice (post-beta) | Adds `reconcile apply` (or equivalent) CLI mode + `ReconciliationApplyReport` registration |

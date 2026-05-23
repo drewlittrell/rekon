@@ -616,8 +616,8 @@ cross-references.
 | Step | Slice | Status |
 | --- | --- | --- |
 | 1 | **Watcher / path freshness policy decision memo (this memo)** | ✅ **Shipped** |
-| 2 | Beta release readiness checklist memo | Next slice (third beta blocker) |
-| 3 | Beta release execution | Final pre-beta slice |
+| 2 | [Beta release readiness checklist memo](beta-release-readiness-checklist.md) | ✅ **Shipped** (third beta blocker) |
+| 3 | Beta release candidate execution plan | Next slice — executes checklist on release SHA |
 | 4 | Path freshness artefact slice (post-beta) | Adds `PathFreshnessReport` registration + `rekon paths freshness` (or equivalent) CLI |
 | 5 | Watcher daemon design memo (post-beta) | Pins daemon lifecycle + permission contract + cross-platform strategy + opt-in default |
 | 6 | Watcher daemon implementation slice (post-beta) | Adds `rekon watch` (or equivalent) — opt-in default |

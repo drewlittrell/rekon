@@ -200,6 +200,10 @@ Rebuild with `rekon publish proof`.
   pins post-apply verification as mandatory; a
   failed post-apply VerificationResult leaves
   visible failed proof in this surface.
+- [Beta release readiness checklist](../strategy/beta-release-readiness-checklist.md) —
+  the release-slice CLI smoke matrix includes
+  `rekon publish proof` to confirm this
+  surface emits on fixture input.
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [Opt-in PR comment workflow template](../examples/workflows/rekon-pr-comment-send.yml)

@@ -2131,14 +2131,64 @@ review packets unless an ADR promotes them. Promotion requires:
     memo's contract. **Next slice: beta release
     readiness checklist memo** (third and final
     of three beta blockers).
-64. **(future)** Per-module `ObservedSystem`
+64. **Shipped (✅).** Beta release readiness
+    checklist memo.
+    [`docs/strategy/beta-release-readiness-checklist.md`](beta-release-readiness-checklist.md)
+    resolves the **third (and final) of three
+    beta blockers** identified by the
+    beta-readiness review. **Decision: with this
+    checklist pinned + the mandatory verification
+    commands passing on main, Rekon is
+    beta-ready. Beta-ready is a checklist state,
+    not an npm publish event; the actual publish
+    is a separate explicit operator work
+    order.** Pinned reminders carried forward:
+    beta readiness is a checklist state, not an
+    npm publish event; npm publish requires a
+    separate explicit release work order; no
+    version bump occurs in this checklist batch;
+    known beta limitations must be documented
+    before beta is announced. Four diagnostic
+    tables (beta blocker / verification command
+    / known limitations / release stop-condition).
+    Nine mandatory verification commands pinned
+    (typecheck, test, build, git diff --check,
+    package-exports audit, license audit,
+    publish-dry-run, install-smoke, install-
+    tarball-smoke). 14-command CLI smoke matrix
+    pinned for the release slice. 15 known
+    limitations disclosed (no source-write
+    apply; no watcher daemon; no hosted GitHub
+    App; active workflows not installed
+    automatically; GitHub writes opt-in only;
+    Windows process-tree kill direct-child-only;
+    full classic parity not claimed; plus 8
+    additional limitations carried forward from
+    the upstream policy memos). Versioning
+    policy pinned (current `0.1.0-alpha.1`; beta
+    target `0.1.0-beta.<n>`; no version bump in
+    this batch). NPM publish policy pinned (no
+    publish in this batch; separate work order
+    required; publish-dry-run mandatory).
+    Implementation sequence pinned (6 steps:
+    checklist memo → execution plan → release →
+    post-beta source-write apply roadmap →
+    post-beta path-freshness + watcher roadmap →
+    post-beta breadth / maturity / polish work).
+    22 docs assertions pin the memo's contract.
+    **All three beta blockers are now resolved.
+    Next slice: beta release candidate execution
+    plan** (executes checklist on release SHA;
+    still avoids `npm publish` unless operator
+    explicitly authorises).
+65. **(future)** Per-module `ObservedSystem`
     projection + CapabilityMap `role` field —
     the deferred substrates documented in the
     factory / module-gate v1 memo. Optional;
     activate if real-repo data shows
     `DetectorDetails` fallback dominance for
     factory / module-gate.
-65. **(future)** Persistent exclusion lists, and
+66. **(future)** Persistent exclusion lists, and
     any further product-extension expansion.
 
 ## Open Questions

@@ -210,7 +210,7 @@ test("memo includes the implementation sequence with the correct ordering", asyn
     /\|\s*1\s*\|[\s\S]{0,200}policy decision memo[\s\S]{0,80}Shipped/i,
     /\|\s*2\s*\|[\s\S]{0,200}Watcher ?\/ ?path freshness/i,
     /\|\s*3\s*\|[\s\S]{0,200}release readiness checklist/i,
-    /\|\s*4\s*\|[\s\S]{0,200}[Bb]eta release execution/i,
+    /\|\s*4\s*\|[\s\S]{0,200}[Bb]eta release[\s\S]{0,80}execution/i,
     /\|\s*5\s*\|[\s\S]{0,200}[Pp]atch preview/i,
     /\|\s*6\s*\|[\s\S]{0,200}[Aa]pply permission/i,
     /\|\s*7\s*\|[\s\S]{0,200}[Aa]pply implementation/i,

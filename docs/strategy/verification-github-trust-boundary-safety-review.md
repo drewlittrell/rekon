@@ -636,3 +636,15 @@ reconciliation policy, watcher / path freshness
 policy, release readiness checklist). The trust
 boundary remains beta-stable; the next slice is the
 **source-write reconciliation policy decision memo**.
+
+**Update — all three beta blockers resolved.** The
+[source-write reconciliation policy decision memo](source-write-reconciliation-policy-decision.md),
+the
+[watcher / path freshness policy decision memo](watcher-path-freshness-policy-decision.md),
+and the
+[Beta release readiness checklist memo](beta-release-readiness-checklist.md)
+have all shipped. The verification / GitHub trust
+boundary remains beta-stable; the next slice is the
+beta release candidate execution plan — no trust-
+boundary work; just executes the pinned checklist on
+the release SHA.

@@ -5259,6 +5259,97 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Beta release readiness checklist memo (P1.1
+  beta-release-readiness-checklist slice).** ✅
+  Shipped. **Third (and final) of three beta
+  blockers** identified by the Beta Readiness /
+  Remaining Classic-Parity Review. **Strategy /
+  docs / tests-only batch.** No runtime behaviour
+  change. No new package, no new CLI command, no
+  new helper, no workflow-template change, no
+  validator profile change, no GitHub API call,
+  no version bump, no npm publish, no release
+  tag, no active workflow YAML.
+
+  **New strategy memo** at
+  [`docs/strategy/beta-release-readiness-checklist.md`](beta-release-readiness-checklist.md)
+  pins the final beta release readiness contract.
+  **Decision: with this checklist pinned + the
+  mandatory verification commands passing on
+  main, Rekon is beta-ready. Beta-ready is a
+  checklist state, not an npm publish event; the
+  actual publish is a separate explicit operator
+  work order.**
+
+  **Pinned reminders carried forward by the memo
+  + the docs test:**
+  - Beta readiness is a checklist state, not an
+    npm publish event.
+  - npm publish requires a separate explicit
+    release work order.
+  - No version bump occurs in this checklist
+    batch.
+  - Known beta limitations must be documented
+    before beta is announced.
+
+  **All three beta blockers resolved**
+  (source-write reconciliation policy; watcher
+  / path freshness policy; release readiness
+  checklist).
+
+  **Four diagnostic tables in the memo:** beta
+  blocker / verification command / known
+  limitations / release stop-condition.
+
+  **Mandatory verification commands pinned**
+  (9 commands). **CLI smoke matrix pinned**
+  (14 commands). **Versioning policy pinned**
+  (current `0.1.0-alpha.1`; beta target
+  `0.1.0-beta.<n>`). **NPM publish policy
+  pinned** (no publish in this batch; separate
+  work order required).
+
+  **Known limitations disclosed** (15 total:
+  source-write apply not available; watcher
+  daemon not available; hosted GitHub App not
+  available; active workflows not installed
+  automatically; GitHub writes opt-in only;
+  Windows process-tree kill direct-child-only;
+  full classic parity not claimed; plus 8
+  additional reserved-but-not-implemented /
+  post-beta-polish items).
+
+  **Implementation Sequence pinned:**
+  1. Beta release readiness checklist memo
+     (this memo, shipped).
+  2. Beta release candidate execution plan
+     (next slice).
+  3. Beta release (explicit operator work
+     order).
+  4. Post-beta source-write apply roadmap (4
+     slices).
+  5. Post-beta path freshness + watcher
+     roadmap (4 slices).
+  6. Post-beta breadth / maturity / polish
+     work.
+
+  **Tests:** new docs suite
+  `tests/docs/beta-release-readiness-checklist.test.mjs`
+  with 22 assertions. Full suite expected ≥
+  1644 passed / 1 skipped.
+
+  **Recommended next slice:** **Beta release
+  candidate execution plan** (executes
+  checklist on release SHA; still avoids `npm
+  publish` unless operator explicitly
+  authorises).
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API call,
+  no token read, no artifact-shape change, no
+  `schemaVersion` bump, no version bump, no
+  npm publish, no release tag.
 - **Watcher / path freshness policy decision memo
   (P1.1 watcher-path-freshness-policy-decision
   slice).** ✅ Shipped. **Second of three beta

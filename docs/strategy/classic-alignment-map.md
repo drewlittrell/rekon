@@ -56,3 +56,4 @@ Cross-references:
 - [beta-readiness-classic-parity-review.md](beta-readiness-classic-parity-review.md)
 - [source-write-reconciliation-policy-decision.md](source-write-reconciliation-policy-decision.md)
 - [watcher-path-freshness-policy-decision.md](watcher-path-freshness-policy-decision.md)
+- [beta-release-readiness-checklist.md](beta-release-readiness-checklist.md)

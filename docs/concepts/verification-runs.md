@@ -443,6 +443,12 @@ templates still validate clean under
 - [Source-write reconciliation policy decision](../strategy/source-write-reconciliation-policy-decision.md) —
   pins post-apply VerificationResult as
   mandatory when future apply slices ship.
+- [Beta release readiness checklist](../strategy/beta-release-readiness-checklist.md) —
+  the release-slice CLI smoke matrix includes
+  `rekon verify run --dry-run` + `rekon verify run
+  --execute` + `rekon verify result from-run`; no
+  `--send` paths run without operator-supplied
+  tokens.
 - [GitHub Actions workflow template guide](../examples/github-actions-verification-runner.md)
 - [Opt-in GitHub Check send workflow template](../examples/workflows/rekon-verification-check-send.yml)
 - [Opt-in PR comment workflow template](../examples/workflows/rekon-pr-comment-send.yml)

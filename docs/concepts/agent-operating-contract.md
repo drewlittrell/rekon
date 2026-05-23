@@ -424,3 +424,9 @@ are accepted. See
   refresh` has run; agents must not invoke `rekon
   refresh` on the operator's behalf without explicit
   permission.
+- [Beta release readiness checklist](../strategy/beta-release-readiness-checklist.md) —
+  the release-slice CLI smoke matrix includes
+  `rekon publish agent-contract` to confirm this
+  surface emits on fixture input. Beta limitations
+  carried forward: known limitations must be
+  documented before beta is announced.

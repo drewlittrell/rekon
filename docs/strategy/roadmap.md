@@ -1106,6 +1106,55 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Beta release readiness checklist memo (P1.1
+  beta-release-readiness-checklist slice): **third (and
+  final) of three beta blockers** identified by the
+  Beta Readiness / Remaining Classic-Parity Review.
+  Strategy / docs / tests-only batch — **no runtime
+  behaviour change.** No new package, no new CLI
+  command, no new helper, no workflow-template change,
+  no validator profile change, no GitHub API call, no
+  version bump, no npm publish, no release tag, no
+  active workflow YAML. New strategy memo at
+  [`docs/strategy/beta-release-readiness-checklist.md`](beta-release-readiness-checklist.md)
+  pins the final beta release readiness contract.
+  **Decision: with this checklist pinned + the
+  mandatory verification commands passing on main,
+  Rekon is beta-ready. Beta-ready is a checklist
+  state, not an npm publish event; the actual publish
+  is a separate explicit operator work order.** Pinned
+  reminders: beta readiness is a checklist state, not
+  an npm publish event; npm publish requires a
+  separate explicit release work order; no version
+  bump occurs in this checklist batch; known beta
+  limitations must be documented before beta is
+  announced. All three beta blockers resolved
+  (source-write reconciliation policy; watcher / path
+  freshness policy; release readiness checklist).
+  Four diagnostic tables: beta blocker (3 rows; all
+  resolved), verification command (9 rows; all
+  required-before-beta), known limitations (7 primary
+  rows + 8 carried forward), release stop-condition
+  (5 rows). Nine mandatory verification commands
+  pinned (typecheck, test, build, git diff --check,
+  package-exports audit, license audit, publish
+  dry-run, install smoke, install tarball smoke).
+  14-command CLI smoke matrix pinned for the release
+  slice. Versioning policy pinned (current
+  `0.1.0-alpha.1`; beta target `0.1.0-beta.<n>`; no
+  version bump in this batch). NPM publish policy
+  pinned (no publish in this batch; separate work
+  order required). 6-step implementation sequence
+  pinned (checklist memo → execution plan → release →
+  post-beta source-write apply roadmap → post-beta
+  path-freshness + watcher roadmap → post-beta
+  breadth / maturity / polish work). 22 new docs
+  assertions. Full suite expected ≥ 1644 passed / 1
+  skipped. **Recommended next slice:** beta release
+  candidate execution plan (executes checklist on
+  release SHA; still avoids `npm publish` unless
+  operator explicitly authorises). No `schemaVersion`
+  bump. No version bump. No npm publish.
 - Watcher / path freshness policy decision memo (P1.1
   watcher-path-freshness-policy-decision slice):
   **second of three beta blockers** identified by the

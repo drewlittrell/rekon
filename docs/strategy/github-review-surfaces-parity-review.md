@@ -669,3 +669,16 @@ checklist) — none require new GitHub review surfaces.
 **Rekon should not add more GitHub review surfaces
 before beta.** The next slice is the source-write
 reconciliation policy decision memo.
+
+**Update — all three beta blockers resolved.** The
+[source-write reconciliation policy decision memo](source-write-reconciliation-policy-decision.md),
+the
+[watcher / path freshness policy decision memo](watcher-path-freshness-policy-decision.md),
+and the
+[Beta release readiness checklist memo](beta-release-readiness-checklist.md)
+have all shipped. The GitHub review surface remains
+beta-complete (per this memo) and beta-stable (per the
+trust-boundary safety review). The next slice is the
+beta release candidate execution plan — no GitHub
+review surface work; no `npm publish`; just executes
+the pinned checklist on the release SHA.

@@ -1111,3 +1111,10 @@ policy; no daemon by default; reserved
 refresh after edits; content hashes / git state
 preferred over mtimes), see
 [watcher-path-freshness-policy-decision.md](watcher-path-freshness-policy-decision.md).
+For the pinned beta release readiness contract
+(mandatory verification commands + CLI smoke matrix +
+known limitations + release stop conditions; beta-
+ready is a checklist state, not an npm publish
+event; the actual publish is a separate explicit
+operator work order), see
+[beta-release-readiness-checklist.md](beta-release-readiness-checklist.md).
