@@ -153,12 +153,21 @@ Three honest signals from the cohort:
    least one of those scripts missing:
    structured-evals (monorepo, no root
    `build`); figma-ds (no `test`).
-   First-class failure recording handles
-   this correctly today, but a future
-   enhancement could detect missing scripts
-   and mark them `not-applicable` instead of
-   `failed`. **Post-beta polish; not a
-   release blocker.**
+   First-class failure recording handled
+   this correctly at cohort time. **Status:
+   addressed post-cohort.** A polish slice
+   ([VerificationPlan Missing-Script
+   Tolerance](verification-missing-script-tolerance.md))
+   teaches the runner a pre-flight check:
+   `npm | pnpm | yarn run <script>`
+   commands whose script is absent from the
+   operator's `package.json` are now
+   recorded `skipped` (not `failed`) with a
+   `missing-script: <name>` note and the
+   package manager is never spawned. Re-runs
+   on the same cohort would now record
+   `partial` (not `failed`) for the two
+   non-`pass` rows.
 
 3. **Rekon's import-boundary / structural
    rule packs don't surface findings on

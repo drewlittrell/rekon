@@ -562,6 +562,16 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Rekon should not add more GitHub review surfaces before
 # beta. The remaining pre-beta work is policy / guardrail
 # oriented.
+#
+# First post-beta polish slice: VerificationPlan
+# Missing-Script Tolerance. See
+# docs/strategy/verification-missing-script-tolerance.md.
+# The runner now records `skipped` (not `failed`) for
+# `npm | pnpm | yarn run <script>` commands whose
+# script is provably absent from the operator's
+# `package.json`; the package manager is never
+# spawned. No schema change, no new permission, no
+# version bump. Surfaced by the real-repo cohort.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

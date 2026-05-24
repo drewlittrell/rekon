@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type VerificationCommandResult,
@@ -844,6 +846,93 @@ function finalizeBoundedStreamSummary(
   };
 }
 
+// ---------- Missing-script tolerance (post-beta polish) ----------
+//
+// `detectMissingScriptCommands` lets `executeVerificationRun`
+// classify a planned `npm run X` / `pnpm run X` / `yarn run X`
+// command as `skipped` (with a `missing-script:<name>` note) when
+// the target repo's `package.json` does not declare that script.
+// The first real-repo dogfood cohort surfaced this: two of three
+// targets had a planned script the repo did not define, and the
+// runner correctly recorded `failed` (exit 1 from the package
+// manager). `failed` is honest but noisy; `skipped` is the more
+// useful classification when the cause is "the script isn't
+// there." See
+// `docs/strategy/verification-missing-script-tolerance.md`.
+//
+// Safety contract:
+//
+//   1. Pure read-only filesystem touch — we only read the target's
+//      `package.json`. No spawn.
+//   2. Conservative match: only `npm run <name>` / `pnpm run <name>`
+//      / `yarn run <name>` argv shapes count. Anything else falls
+//      through to the existing spawn path.
+//   3. On unreadable / malformed `package.json` we return an empty
+//      map and let the existing spawn path run, preserving the
+//      previous behaviour for atypical setups.
+//   4. Never mutates the target repo.
+
+const MISSING_SCRIPT_PACKAGE_MANAGERS = new Set(["npm", "pnpm", "yarn"]);
+
+/**
+ * Detect commands in `commands` whose argv is `npm run <script>`,
+ * `pnpm run <script>`, or `yarn run <script>` where `<script>`
+ * is not present in `<cwd>/package.json` `scripts`.
+ *
+ * Returns a map from command index → `{ scriptName, packageManager }`
+ * for each missing-script command. Commands that don't match the
+ * pattern, or whose script IS present, are absent from the map.
+ *
+ * Pure read-only filesystem touch. Never spawns.
+ */
+export function detectMissingScriptCommands(
+  commands: ReadonlyArray<{ argv: ReadonlyArray<string> }>,
+  cwd: string,
+): Map<number, { scriptName: string; packageManager: string }> {
+  const result = new Map<number, { scriptName: string; packageManager: string }>();
+  if (!cwd) return result;
+
+  // Read package.json scripts once per call. Resilient to
+  // missing / malformed files — returns null and we fall through.
+  const scripts = readPackageScripts(cwd);
+  if (scripts === null) return result;
+
+  for (let index = 0; index < commands.length; index += 1) {
+    const argv = commands[index]?.argv;
+    if (!Array.isArray(argv) || argv.length < 3) continue;
+
+    const packageManager = argv[0];
+    if (typeof packageManager !== "string") continue;
+    if (!MISSING_SCRIPT_PACKAGE_MANAGERS.has(packageManager)) continue;
+
+    if (argv[1] !== "run") continue;
+
+    const scriptName = argv[2];
+    if (typeof scriptName !== "string" || scriptName.length === 0) continue;
+
+    if (!Object.prototype.hasOwnProperty.call(scripts, scriptName)) {
+      result.set(index, { scriptName, packageManager });
+    }
+  }
+
+  return result;
+}
+
+function readPackageScripts(cwd: string): Record<string, unknown> | null {
+  try {
+    const path = join(cwd, "package.json");
+    const raw = readFileSync(path, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const scripts = (parsed as { scripts?: unknown }).scripts;
+    if (!scripts || typeof scripts !== "object") return {};
+    return scripts as Record<string, unknown>;
+  } catch {
+    // ENOENT, EISDIR, JSON parse error, etc. all fall through.
+    return null;
+  }
+}
+
 export type VerificationRunExecutionOptions = {
   /** Working directory used by every spawned command. Required. */
   cwd: string;
@@ -913,6 +1002,14 @@ export async function executeVerificationRun(
   const scrubbedEnv = buildScrubbedEnvironment(options.env ?? process.env);
 
   const planCommands = dryRun.verificationRun.commands;
+
+  // Missing-script tolerance (post-beta polish):
+  // pre-flight detect `npm run X` / `pnpm run X` / `yarn run X`
+  // commands whose script is not in `<cwd>/package.json` and mark
+  // them `skipped` with a `missing-script:<name>` note instead of
+  // spawning the package manager only to exit 1.
+  const missingScripts = detectMissingScriptCommands(planCommands, options.cwd);
+
   const executed: VerificationRunCommand[] = [];
   const planStart = Date.now();
   const planDeadline = planStart + planTimeoutMs;
@@ -922,6 +1019,18 @@ export async function executeVerificationRun(
 
   for (let index = 0; index < planCommands.length; index += 1) {
     const planned = planCommands[index]!;
+
+    // Pre-flight skip for commands whose script doesn't exist
+    // in the target's package.json. No spawn; no exit-code noise.
+    const missing = missingScripts.get(index);
+    if (missing) {
+      executed.push({
+        ...planned,
+        status: "skipped",
+        notes: `missing-script: ${missing.scriptName} (no \"${missing.scriptName}\" script in ${missing.packageManager}'s package.json scripts)`,
+      });
+      continue;
+    }
 
     // Per-plan timeout: if we've already exceeded the budget,
     // mark all remaining as not-run.

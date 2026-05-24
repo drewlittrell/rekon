@@ -138,6 +138,36 @@ is now the opt-in execution surface. It:
   run's overall status is `failed` / `timeout` /
   `killed`; the artifact is still written.
 
+### Missing-Script Tolerance (post-beta polish)
+
+A pre-flight check inspects each `npm | pnpm |
+yarn run <script>` command in the plan against
+`<cwd>/package.json`. Commands whose script is
+provably absent are recorded `skipped` with a
+`missing-script: <name>` note **without spawning a
+process**. The check is conservative: only the
+`pkgmgr run <name>` argv shape is inspected, only
+the cwd's `package.json` is read (no directory
+walk, no monorepo workspace resolution), and a
+missing / unreadable / malformed `package.json`
+falls through to the normal spawn path.
+
+The aggregate run status follows the existing
+rules — `partial` when some commands passed and
+some were skipped, `not-run` when all are
+skipped, `failed` only when at least one command
+truly failed. `deriveVerificationResultFromRun`
+maps `skipped → skipped` and carries the note
+through to `VerificationResult.commandResults`.
+
+See [VerificationPlan Missing-Script
+Tolerance](../strategy/verification-missing-script-tolerance.md)
+for the full slice memo. Surfaced by the first
+real-repo cohort
+([summary](../strategy/real-repo-cohort-summary.md))
+where two of three targets had at least one of
+`build` / `test` absent from `package.json`.
+
 ### Derivation (Step 6, Shipped)
 
 `rekon verify result from-run --run <id|type:id>

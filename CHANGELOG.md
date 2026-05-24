@@ -4,6 +4,63 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **VerificationPlan Missing-Script
+  Tolerance** (post-beta polish slice surfaced by
+  the first real-repo cohort). The
+  `@rekon/capability-verify` runner now performs a
+  pre-flight check on each `npm | pnpm | yarn run
+  <script>` command in the plan: when the
+  operator's `<cwd>/package.json` proves the
+  script is absent, the command is recorded
+  `skipped` (not `failed`) with a
+  `missing-script: <name>` note and **no process
+  is spawned**. The aggregate run status follows
+  the existing rules — `partial` for mixed pass +
+  skip, `not-run` for all-skipped, `failed` only
+  on true failure.
+
+  **Runtime polish + tests + docs batch.** No
+  schema change, no new permission, no new
+  artifact type, no new CLI command, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`,
+  no version bump, no release tag, no GitHub
+  Release, no active workflow YAML, no
+  `package.json` / `package-lock.json` mutation,
+  no source mutation in any target repo, no
+  network I/O.
+
+  Why: the cohort's two non-`pass` rows
+  (`structured-evals` missing `build`; `figma-ds`
+  missing `test`) both stemmed from absent
+  package.json scripts. Recording those as
+  `failed` was technically honest but
+  operationally misleading. The fix lives at the
+  runner: one pure helper
+  (`detectMissingScriptCommands`) plus a
+  one-statement wire-in in
+  `executeVerificationRun`. `skipped` was
+  already wired end-to-end in the schema and
+  aggregator — the runner just wasn't emitting
+  it for this case.
+
+  Tests: new
+  `tests/contract/verification-missing-script-tolerance.test.mjs`
+  (15 cases: 7 helper unit + 7 integration + 1
+  derivation). Existing 25 cases in
+  `verification-run-execution.test.mjs` still
+  pass.
+
+  Docs: new strategy memo
+  `docs/strategy/verification-missing-script-tolerance.md`;
+  new docs test
+  `tests/docs/verification-missing-script-tolerance.test.mjs`;
+  Missing-Script Tolerance subsection added to
+  `docs/concepts/verification-runs.md`; review
+  packet
+  `.rekon-dev/review-packets/verification-missing-script-tolerance.md`;
+  README link to the memo.
+
 - Shipped **Additional Real-Repo Dogfood
   Execution** (P1.1
   additional-real-repo-dogfood-execution slice).

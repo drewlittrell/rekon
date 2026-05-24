@@ -1106,6 +1106,64 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- VerificationPlan missing-script tolerance (P1.1
+  verification-missing-script-tolerance slice):
+  **first post-beta polish slice** surfaced by the
+  real-repo cohort. Runtime polish + tests + docs
+  batch — no schema change, no new permission, no
+  new artifact type, no new CLI command, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`, no
+  version bump, no release tag, no GitHub Release,
+  no active workflow YAML, no `package.json` /
+  `package-lock.json` mutation, no source-file
+  mutation, no mutation of any target repo, no
+  network I/O. New helper `detectMissingScriptCommands`
+  in `@rekon/capability-verify` + one-statement
+  wire-in in `executeVerificationRun`. Pre-flight
+  inspects each `npm | pnpm | yarn run <script>`
+  command against the runner's `<cwd>/package.json`;
+  commands whose script is provably absent are
+  recorded `skipped` (not `failed`) with a
+  `missing-script: <name>` note and **no process
+  is spawned**. Conservative by construction:
+  only the `pkgmgr run <name>` argv shape is
+  inspected; only the cwd's `package.json` is
+  read (no directory walk, no monorepo workspace
+  resolution); missing / unreadable / malformed
+  `package.json` falls through to the normal
+  spawn path. Aggregate run status follows the
+  existing rules — `partial` for mixed pass +
+  skip, `not-run` for all-skipped, `failed` only
+  on true failure.
+  `deriveVerificationResultFromRun` maps
+  `skipped → skipped` and carries the note
+  through to `VerificationResult.commandResults`.
+  Real-world impact on the cohort: structured-evals
+  (missing `build`) and figma-ds (missing `test`)
+  rows move from `failed` to `partial`. New
+  strategy memo at
+  [`docs/strategy/verification-missing-script-tolerance.md`](verification-missing-script-tolerance.md);
+  Missing-Script Tolerance subsection added to
+  [`docs/concepts/verification-runs.md`](../concepts/verification-runs.md);
+  review packet
+  `.rekon-dev/review-packets/verification-missing-script-tolerance.md`;
+  README link to the memo. **Tests:** new
+  `tests/contract/verification-missing-script-tolerance.test.mjs`
+  (15 cases: 7 helper unit + 7 integration + 1
+  derivation); pre-existing 25 cases in
+  `verification-run-execution.test.mjs` still
+  pass; ~12 new docs assertions. Full suite
+  expected ≥ 1780 passed / 1 skipped.
+  **Recommended next slice:** operator decision
+  about whether to continue post-beta polish
+  (additional dogfood-surfaced enhancements as
+  they arise), pivot to post-beta tracks (source
+  write / watcher / breadth), or open a no-NPM
+  policy revision (still requires explicit
+  operator decision). No `schemaVersion` bump.
+  No npm publish. No release tag. No GitHub
+  Release.
 - Additional real-repo dogfood execution (P1.1
   additional-real-repo-dogfood-execution slice):
   **step 7b of the post-blocker release

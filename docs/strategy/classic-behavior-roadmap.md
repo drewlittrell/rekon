@@ -5259,6 +5259,42 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **VerificationPlan missing-script tolerance
+  (P1.1 verification-missing-script-tolerance
+  slice).** ✅ Shipped. **First post-beta polish
+  slice** surfaced by the real-repo cohort.
+  Runtime polish + tests + docs batch. **No
+  schema change. No new permission. No new
+  artifact type. No new CLI command. No
+  workflow-template change. No npm publish.**
+  Pre-flight detection in
+  `executeVerificationRun`: `npm | pnpm | yarn
+  run <script>` commands whose script is
+  provably absent from the runner's
+  `<cwd>/package.json` are recorded `skipped`
+  (not `failed`) with a `missing-script: <name>`
+  note and the package manager is never spawned.
+  Aggregate run status follows the existing
+  rules — `partial` for mixed pass + skip,
+  `not-run` for all-skipped, `failed` only on
+  true failure. New strategy memo at
+  [`docs/strategy/verification-missing-script-tolerance.md`](verification-missing-script-tolerance.md).
+  New helper `detectMissingScriptCommands` in
+  `@rekon/capability-verify`. Conservative by
+  construction: only the `pkgmgr run <name>`
+  argv shape is inspected; only the cwd's
+  `package.json` is read (no directory walk, no
+  monorepo workspace resolution); missing /
+  unreadable / malformed `package.json` falls
+  through to the normal spawn path. Real-world
+  impact on the cohort: structured-evals
+  (missing `build`) and figma-ds (missing
+  `test`) rows move from `failed` to
+  `partial`. **Recommended next slice:**
+  operator decision about whether to continue
+  post-beta polish, pivot to post-beta tracks
+  (source-write / watcher / breadth), or open a
+  no-NPM policy revision.
 - **Additional real-repo dogfood execution
   (P1.1 additional-real-repo-dogfood-execution
   slice).** ✅ Shipped. **Step 7b of the
