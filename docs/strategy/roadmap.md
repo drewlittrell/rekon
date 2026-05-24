@@ -1106,6 +1106,58 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Additional real-repo dogfood cohort plan (P1.1
+  additional-real-repo-dogfood-cohort-plan
+  slice): **step 6 of the post-blocker release
+  sequence** pinned by the No-NPM Beta
+  Distribution Policy. Strategy / docs /
+  tests-only batch — **no runtime behaviour
+  change. Does not run the cohort.** No new
+  package, no new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`,
+  no version bump, no release tag, no GitHub
+  Release, no active workflow YAML, no
+  `package.json` / `package-lock.json` mutation,
+  no source-file mutation. New strategy memo at
+  [`docs/strategy/additional-real-repo-dogfood-cohort-plan.md`](additional-real-repo-dogfood-cohort-plan.md)
+  defines the 5-archetype cohort plan. Five
+  archetypes pinned (placeholders): small TS
+  package; medium monorepo; Next.js / React
+  app; mixed JS/TS repo; existing GitHub
+  workflows repo. Cohort must include at least
+  3 distinct real repositories; single-repo
+  consolidation allowed when a repo legitimately
+  covers multiple archetypes; no cohort target
+  may be Rekon itself. Command matrix mirrors
+  the first dogfood matrix (core + representative
+  -path + workflow validator) for cross-target
+  comparability. Metrics-to-record list: 27
+  required metrics per target. Success criteria
+  + acceptable outcomes + release blocker
+  taxonomy (9 categories: refresh crash;
+  artifacts validate invalid; malformed
+  artefact; publication render failure; CLI
+  crash; token / log leak; source mutation
+  outside temp copy; workflow validator invalid
+  for Rekon-supplied template; --dry-run mode
+  actually executes / makes network call).
+  Reporting format pinned (per-target dogfood
+  reports under
+  `docs/strategy/real-repo-cohort/`; cohort
+  summary report; cohort execution review
+  packet; cohort execution docs test — all
+  written by the next slice). 18 new docs
+  assertions. Full suite expected ≥ 1728
+  passed / 1 skipped. **Recommended next
+  slice:** additional real-repo dogfood
+  execution (substitutes operator-selected
+  concrete repositories for each archetype
+  placeholder; runs the matrix; writes
+  per-target + cohort reports). Still no npm
+  publish; still no version bump; still no
+  git tag. No `schemaVersion` bump. No GitHub
+  Release.
 - No-NPM beta distribution policy (P1.1
   no-npm-beta-distribution-policy slice): **step
   5 of the post-blocker release sequence** —

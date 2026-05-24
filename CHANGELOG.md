@@ -4,6 +4,235 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Additional Real-Repo Dogfood Cohort
+  Plan** (P1.1
+  additional-real-repo-dogfood-cohort-plan slice).
+  **Step 6 of the post-blocker release sequence**
+  pinned by the No-NPM Beta Distribution Policy.
+  **Strategy / docs / tests-only batch.** Does not
+  run the cohort. No runtime behaviour change. No
+  new package, no new CLI command, no new helper,
+  no workflow-template change, no validator
+  profile change, no GitHub API call, no `npm
+  publish`, no version bump, no release tag, no
+  GitHub Release, no active workflow YAML, no
+  `package.json` / `package-lock.json` mutation,
+  no source-file mutation.
+
+  **New strategy memo:**
+  [`docs/strategy/additional-real-repo-dogfood-cohort-plan.md`](docs/strategy/additional-real-repo-dogfood-cohort-plan.md)
+  defines the 5-archetype cohort plan for the
+  next dogfood batches. Contains all 11 required
+  headings; three diagnostic tables (cohort
+  archetype: 5 rows; success / blocker: 7-row
+  success + 6-row acceptable + 9-row blocker;
+  metrics: 27-row required-metric list).
+
+  **Five cohort archetypes pinned** (placeholders
+  for operator-supplied repos at cohort-execution
+  time):
+  - `<small-ts-package>` — package-scale local
+    loop.
+  - `<medium-monorepo>` — workspace / package
+    breadth without Rekon-itself bias.
+  - `<nextjs-app>` — route / app / front-end
+    patterns.
+  - `<mixed-js-ts-repo>` — language-mix
+    behaviour.
+  - `<github-workflows-repo>` — workflow-adjacent
+    review surfaces.
+
+  **Cohort constraint:** must include **at least
+  three distinct real repositories**. Single-repo
+  consolidation is allowed when a repo
+  legitimately covers multiple archetypes
+  (documented explicitly). No cohort target may
+  be Rekon itself.
+
+  **Pinned reminders carried forward from the
+  No-NPM Beta Distribution Policy:**
+  - No npm publish during beta.
+  - Beta is private / local / repo-based.
+  - At least three distinct real repositories
+    must be exercised before any post-beta
+    publish reconsideration.
+  - Findings are acceptable outcomes when
+    recorded honestly.
+  - Failed verification is acceptable when the
+    `VerificationRun` + `VerificationResult`
+    accurately record the failed proof and
+    `artifacts validate` remains clean.
+  - `artifacts validate: invalid` is a release
+    blocker.
+
+  **Command matrix pinned** (mirrors the first
+  dogfood matrix for cross-target comparability):
+  core matrix per target (init, refresh,
+  validate, freshness, findings filter +
+  filter-health + list, issues adjudicate +
+  list, coherency delta, publish proof +
+  architecture + agent-contract);
+  representative-path matrix per target (resolve
+  preflight, intent work-order, verify run
+  dry-run + execute, verify result from-run,
+  republish all three, publish github-check +
+  pr-comment dry-runs, final validate +
+  freshness); workflow validator matrix (once
+  from the Rekon repo, plus the
+  `<github-workflows-repo>` archetype validates
+  operator-supplied YAML).
+
+  **No `--send` flow anywhere in the matrix.**
+  No GitHub API call. No npm publish. No version
+  bump. No source mutation outside the temp copy.
+
+  **Metrics-to-record list:** 27 required metrics
+  per target covering repo archetype + size +
+  refresh outcome + artifact validation +
+  EvidenceGraph / FindingReport /
+  FindingFilterReport / FindingFilterHealthReport
+  / IssueAdjudicationReport / CoherencyDelta /
+  Publication / ResolverPacket / VerificationPlan
+  / VerificationRun / VerificationResult details
+  + GitHub dry-run results + workflow validator
+  results + unexpected errors + wall-clock time.
+
+  **Success criteria + acceptable outcomes:**
+  cohort is successful if every target completes
+  refresh, validates clean, renders all three
+  publications, renders both GitHub dry-runs
+  without network, no CLI crash, no artefact
+  corruption, no token leak, no source mutation
+  outside the temp copy. Findings exist (Rekon's
+  job to surface), failed `verify run --execute`
+  recorded honestly, aggregate freshness stale
+  (latest-major pattern), PR comment readiness
+  gaps without GitHub env — all acceptable.
+
+  **Release blocker taxonomy (9 categories):**
+  refresh crash; artifacts validate invalid;
+  malformed artefact; publication render failure;
+  CLI crash; token / log leak; source mutation
+  outside temp copy; workflow validator invalid
+  for a Rekon-supplied template; `--dry-run` mode
+  actually executes / makes a network call.
+
+  **Reporting format pinned:** per-target
+  dogfood reports under
+  `docs/strategy/real-repo-cohort/`; cohort
+  summary report at
+  `docs/strategy/real-repo-cohort-summary.md`;
+  cohort execution review packet at
+  `.rekon-dev/review-packets/additional-real-repo-dogfood-cohort-execution.md`;
+  cohort execution docs test at
+  `tests/docs/real-repo-cohort-summary.test.mjs`.
+  The cohort execution work order writes all
+  four; this plan batch does not.
+
+  **Implementation Sequence updated to 11
+  steps:**
+  1. Beta release readiness checklist memo
+     (shipped).
+  2. Beta release candidate execution plan
+     (shipped — against SHA `54d1dfd`).
+  3. Beta version bump execution report
+     (shipped — `0.1.0-beta.0` applied).
+  4. Real-repo beta dogfood report (shipped —
+     `pass-with-known-limitations`).
+  5. No-NPM beta distribution policy (shipped
+     — replaces the previously-planned publish
+     authorization work order).
+  6. **Additional real-repo dogfood cohort plan
+     (this plan, shipped)**.
+  7. Additional real-repo dogfood execution
+     (next slice — substitutes operator-selected
+     repos for each archetype; runs the matrix;
+     writes per-target + cohort reports).
+  8. Post-beta source-write apply roadmap (4
+     slices).
+  9. Post-beta path freshness + watcher roadmap
+     (4 slices).
+  10. Post-beta breadth / maturity / polish
+      work.
+  11. (Optional, deferred) Post-beta npm publish
+      authorization work order — only after
+      broader real-repo dogfood + an explicit
+      later operator decision reverses the
+      no-NPM policy.
+
+  **Tests:** new docs suite
+  `tests/docs/additional-real-repo-dogfood-cohort-plan.test.mjs`
+  with 18 assertions (memo existence; all 11
+  required `##` headings; no-NPM-during-beta +
+  private-local-repo-based + at-least-three-
+  distinct-repositories + command-matrix +
+  metrics-to-record + success-criteria + release-
+  blocker-taxonomy + findings-acceptable +
+  failed-verification-acceptable + validate-
+  invalid-is-blocker statements; three diagnostic
+  tables; CHANGELOG mention; review-packet
+  PURPOSE PRESERVATION CHECK). Full suite
+  expected ≥ 1728 passed / 1 skipped.
+
+  **Docs:** 6 supporting strategy docs updated
+  (no-NPM policy + dogfood report + checklist +
+  parity review + master roadmap +
+  classic-behavior-roadmap implementation
+  sequences advanced). README + CHANGELOG
+  updated. New review packet at
+  `.rekon-dev/review-packets/additional-real-repo-dogfood-cohort-plan.md`.
+
+  **Recommended next slice:** **Additional
+  real-repo dogfood execution** — substitutes
+  operator-selected concrete repositories for
+  each archetype placeholder, runs the command
+  matrix defined in this plan against every
+  target, records the metrics, classifies
+  outcomes using the success / blocker taxonomy,
+  and writes the per-target dogfood reports +
+  the cohort summary report + the cohort
+  execution review packet + the cohort execution
+  docs test. Still does not publish to npm, bump
+  versions, create a git tag, or create a GitHub
+  Release.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No cohort execution. The plan defines the
+    cohort; the next slice runs it.
+  - No hard-coded private repository names.
+    Placeholders are intentional; the operator
+    substitutes concrete repos at
+    cohort-execution time.
+  - No `docs/strategy/real-repo-cohort/`
+    per-target report files (written by the
+    cohort execution work order).
+  - No cohort summary report (written by the
+    cohort execution work order).
+  - No `npm publish` invocation.
+  - No `package.json` / `package-lock.json`
+    mutation (still `0.1.0-beta.0`).
+  - No `v0.1.0-beta.0` git tag.
+  - No GitHub Release.
+  - No active `.github/workflows/*.yml`.
+  - No new runtime behaviour.
+  - No new CLI command.
+  - No new validator profile.
+  - No new workflow template.
+  - No new artifact type.
+  - No new permission.
+  - No mutation of any `packages/*/src/*.ts`
+    file.
+  - No mutation of the committed
+    `examples/simple-js-ts` fixture.
+  - No change to the beta-ready decision or the
+    no-NPM beta posture.
+
+  **Stop conditions honoured:** the plan does
+  not run the cohort; does not publish; does not
+  bump versions; does not tag; does not hard-code
+  private repo names; does not pre-authorise a
+  publish reconsideration.
+
 - Shipped **No-NPM Beta Distribution Policy**
   (P1.1 no-npm-beta-distribution-policy slice).
   **Step 5 of the post-blocker release sequence**

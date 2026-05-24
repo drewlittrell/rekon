@@ -383,8 +383,8 @@ This batch **does not**:
 | 3 | [Beta version bump execution report](beta-version-bump-execution-report.md) | ✅ Shipped (`0.1.0-beta.0` applied) |
 | 4 | [Real-repo beta dogfood report](real-repo-beta-dogfood-report.md) | ✅ Shipped (`pass-with-known-limitations` against the Rekon repo itself) |
 | 5 | **No-NPM beta distribution policy (this memo)** | ✅ **Shipped** — replaces the previously-planned publish authorization work order |
-| 6 | Additional real-repo dogfood cohort plan | Next slice — define 3–5 more real repositories / repo archetypes to dogfood before any post-beta publish is reconsidered |
-| 7 | Additional real-repo dogfood execution | After step 6 |
+| 6 | [Additional real-repo dogfood cohort plan](additional-real-repo-dogfood-cohort-plan.md) | ✅ **Shipped** — 5 archetypes (small TS package; medium monorepo; Next.js / React app; mixed JS/TS repo; existing GitHub workflows repo); at least 3 distinct real repositories required; command matrix + metrics + success criteria + release blocker taxonomy + reporting format pinned |
+| 7 | Additional real-repo dogfood execution | Next slice — substitutes operator-selected concrete repositories for each archetype; runs the matrix; writes per-target + cohort reports |
 | 8 | Post-beta source-write apply roadmap (4 slices) | Post-beta |
 | 9 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta |
 | 10 | Post-beta breadth / maturity / polish work | Ongoing |

@@ -506,11 +506,29 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   - Real-repo dogfood passed and should continue
 #     across more repos before public package release.
 #
-# Next slice: additional real-repo dogfood cohort plan
-# (defines 3–5 more real repositories / repo
-# archetypes to dogfood before any post-beta publish
-# is reconsidered). A future post-beta publish remains
-# possible only via a new explicit operator decision.
+# The Additional Real-Repo Dogfood Cohort Plan at
+# docs/strategy/additional-real-repo-dogfood-cohort-plan.md
+# defines the next dogfood batches. Five archetypes
+# pinned (small TypeScript package; medium monorepo;
+# Next.js / React app; mixed JS/TS repo; existing
+# GitHub workflows repo). At least three distinct
+# real repositories required. Command matrix mirrors
+# the first dogfood's matrix for cross-target
+# comparability. Success / acceptable-outcome /
+# release-blocker taxonomy pinned (findings exist =
+# acceptable; failed verify run --execute = acceptable
+# when recorded honestly; artifacts validate invalid =
+# release blocker). Reporting format pinned (per-target
+# dogfood reports + cohort summary report + cohort
+# execution review packet + cohort execution docs
+# test, all written by the next slice).
+#
+# Next slice: additional real-repo dogfood execution
+# (substitutes operator-selected concrete repositories
+# for each archetype placeholder; runs the command
+# matrix; writes per-target + cohort reports). Still
+# no npm publish; still no version bump; still no
+# git tag.
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before
