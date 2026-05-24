@@ -5259,6 +5259,80 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Real-repo dogfood cohort intake request
+  (P1.1 real-repo-cohort-intake-request slice).**
+  ✅ Shipped. **Step 7a of the post-blocker
+  release sequence** — the cohort execution
+  batch's intake substep, triggered when the
+  operator did not supply concrete cohort repos
+  in the work-order prompt. **Strategy / docs /
+  tests-only batch.** No runtime behaviour
+  change. No new package, no new CLI command,
+  no new helper, no workflow-template change,
+  no validator profile change, no GitHub API
+  call, no `npm publish`, no version bump, no
+  release tag, no GitHub Release, no active
+  workflow YAML, no `package.json` /
+  `package-lock.json` mutation, no source-file
+  mutation, **no invented repo names**.
+
+  **New strategy memo** at
+  [`docs/strategy/real-repo-cohort-intake-request.md`](real-repo-cohort-intake-request.md)
+  records the intake request the operator needs
+  to answer before the cohort execution can
+  run. Honors the work-order stop condition
+  verbatim: "If the operator has not supplied
+  repos yet: Stop after writing a short intake
+  request. Do not invent repo names. Do not run
+  the cohort."
+
+  **The cohort itself was not run.** Step 7b
+  (additional real-repo dogfood execution)
+  remains blocked on the operator's intake
+  response.
+
+  **Pre-cohort verification (run on this
+  commit):** all 9 mandatory verification
+  commands passed (typecheck; test 1728 / 1
+  skipped; build; git diff --check;
+  audit-package-exports; audit-license;
+  publish-dry-run; install-smoke;
+  install-tarball-smoke). The Rekon CLI is
+  ready; only the cohort execution is blocked.
+
+  **Pinned reminders carried forward by the
+  memo + the docs test:**
+  - No npm publish during beta.
+  - Beta is private / local / repo-based.
+  - At least three distinct real repositories
+    must be exercised before any post-beta
+    publish reconsideration.
+  - No cohort target may be Rekon itself.
+  - Do not invent repo names.
+  - This batch does not run the cohort.
+
+  **Implementation Sequence updated:** step 6
+  (cohort plan) shipped; step 7a (intake
+  request, this slice) shipped; step 7b
+  (cohort execution) blocked on operator
+  intake. Steps 8-11 unchanged.
+
+  **Tests:** new docs suite
+  `tests/docs/real-repo-cohort-intake-request.test.mjs`
+  with 10 assertions. Full suite expected ≥
+  1738 passed / 1 skipped.
+
+  **Recommended next slice:** wait for operator
+  intake response; then the additional
+  real-repo dogfood execution batch can run.
+
+  No new package, no new CLI command, no new
+  helper, no workflow template change, no
+  validator profile change, no GitHub API
+  call, no token read, no artifact-shape
+  change, no `schemaVersion` bump, no version
+  bump, no npm publish, no release tag, no
+  GitHub Release.
 - **Additional real-repo dogfood cohort plan
   (P1.1
   additional-real-repo-dogfood-cohort-plan

@@ -4,6 +4,176 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Real-Repo Dogfood Cohort Intake
+  Request** (P1.1 real-repo-cohort-intake-request
+  slice). **Step 7a of the post-blocker release
+  sequence** — the cohort execution batch's
+  intake substep, triggered when the operator
+  did not supply concrete cohort repos in the
+  work-order prompt. Per the work-order stop
+  condition ("If the operator has not supplied
+  repos yet: Stop after writing a short intake
+  request. Do not invent repo names. Do not run
+  the cohort."), this batch wrote the intake
+  request and stopped. **The cohort itself was
+  not run; the cohort execution (step 7b)
+  remains blocked on operator intake.**
+
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package, no
+  new CLI command, no new helper, no
+  workflow-template change, no validator profile
+  change, no GitHub API call, no `npm publish`,
+  no version bump, no release tag, no GitHub
+  Release, no active workflow YAML, no
+  `package.json` / `package-lock.json` mutation,
+  no source-file mutation, **no invented repo
+  names**.
+
+  **New strategy memo:**
+  [`docs/strategy/real-repo-cohort-intake-request.md`](docs/strategy/real-repo-cohort-intake-request.md)
+  records:
+  - The pre-cohort verification gate result (all
+    9 mandatory commands passed on the primary
+    tree at SHA `b80be3e`; 1728 / 1 skipped).
+  - The intake table the operator needs to fill
+    in (5-row table with placeholders for the
+    cohort plan's 5 archetypes; at least 3
+    distinct concrete repos required;
+    representative path per row;
+    anonymisation-preference column).
+  - Operator selection guidance carried forward
+    from the cohort plan.
+  - Anonymisation posture: default to anonymise
+    private repo names in cohort reports unless
+    the operator explicitly approves naming.
+  - Updated implementation sequence with step
+    7a (this memo, shipped) + step 7b (cohort
+    execution, blocked on operator intake).
+
+  **Pinned reminders carried forward verbatim:**
+  - No npm publish during beta.
+  - Beta is private / local / repo-based.
+  - At least three distinct real repositories
+    must be exercised before any post-beta
+    publish reconsideration.
+  - No cohort target may be Rekon itself.
+  - Do not invent repo names.
+  - This batch does not run the cohort.
+
+  **Pre-cohort verification (run on this
+  commit):** all 9 mandatory verification
+  commands passed (typecheck; test 1728 / 1
+  skipped; build; git diff --check;
+  audit-package-exports; audit-license;
+  publish-dry-run; install-smoke;
+  install-tarball-smoke). The Rekon CLI is
+  ready; only the cohort execution is blocked.
+
+  **Implementation Sequence updated:**
+  1. Beta release readiness checklist memo
+     (shipped).
+  2. Beta release candidate execution plan
+     (shipped — against SHA `54d1dfd`).
+  3. Beta version bump execution report
+     (shipped — `0.1.0-beta.0` applied).
+  4. Real-repo beta dogfood report (shipped —
+     `pass-with-known-limitations`).
+  5. No-NPM beta distribution policy (shipped
+     — replaces the previously-planned publish
+     authorization work order).
+  6. Additional real-repo dogfood cohort plan
+     (shipped — 5 archetypes; ≥ 3 distinct
+     real repositories required).
+  7a. **Real-repo dogfood cohort intake
+      request (this memo, shipped)** —
+      awaiting operator-supplied intake table.
+  7b. Additional real-repo dogfood execution
+      — **blocked on operator intake.**
+      Resumes once the operator answers the
+      intake table.
+  8. Post-beta source-write apply roadmap (4
+     slices). Independent of cohort.
+  9. Post-beta path freshness + watcher
+     roadmap (4 slices). Independent.
+  10. Post-beta breadth / maturity / polish
+      work. Independent.
+  11. (Optional, deferred) Post-beta npm
+      publish authorization work order — only
+      after broader real-repo dogfood + an
+      explicit later operator decision
+      reverses the no-NPM policy.
+
+  **Tests:** new docs suite
+  `tests/docs/real-repo-cohort-intake-request.test.mjs`
+  with 10 assertions (memo existence; all 10
+  required `##` headings; all 5 archetype
+  placeholders; "do not invent repo names" +
+  "no cohort target may be Rekon itself" +
+  "this batch does not run the cohort" +
+  "cohort execution blocked on operator
+  intake" verbatim; pre-cohort verification
+  recorded; CHANGELOG mention; review-packet
+  PURPOSE PRESERVATION CHECK). Full suite
+  expected ≥ 1738 passed / 1 skipped.
+
+  **Docs:** 4 supporting strategy docs updated
+  (cohort plan + no-NPM policy + master
+  roadmap + classic-behavior-roadmap
+  implementation sequences advanced to mark
+  step 7a shipped + step 7b blocked).
+  README + CHANGELOG updated. New review
+  packet at
+  `.rekon-dev/review-packets/real-repo-cohort-intake-request.md`.
+
+  **Recommended next slice:** wait for
+  operator intake response. Once the operator
+  supplies the intake table, the **additional
+  real-repo dogfood execution** batch can run:
+  substitutes the operator's concrete repos
+  for each archetype placeholder; runs the
+  per-target matrix; writes per-target
+  reports + cohort summary + cohort execution
+  review packet + cohort execution docs test.
+  Still no npm publish; still no version
+  bump; still no git tag.
+
+  **Out-of-scope and explicitly not shipped:**
+  - No cohort execution. The cohort is
+    blocked on operator intake.
+  - No invented repo names. Placeholders stay
+    placeholders.
+  - No `docs/strategy/real-repo-cohort/`
+    per-target report files (written by the
+    cohort execution batch).
+  - No `docs/strategy/real-repo-cohort-summary.md`
+    (written by the cohort execution batch).
+  - No `npm publish` invocation.
+  - No `package.json` / `package-lock.json`
+    mutation (still `0.1.0-beta.0`).
+  - No `v0.1.0-beta.0` git tag.
+  - No GitHub Release.
+  - No active `.github/workflows/*.yml`.
+  - No new runtime behaviour.
+  - No new CLI command.
+  - No new validator profile.
+  - No new workflow template.
+  - No new artifact type.
+  - No new permission.
+  - No mutation of any `packages/*/src/*.ts`
+    file.
+  - No mutation of the committed
+    `examples/simple-js-ts` fixture.
+  - No change to the beta-ready decision or
+    the no-NPM beta posture.
+
+  **Stop conditions honoured:** stopped after
+  writing the intake request; did not invent
+  repo names; did not run the cohort; did not
+  substitute Rekon itself as a target; did
+  not publish; did not bump versions; did not
+  tag.
+
 - Shipped **Additional Real-Repo Dogfood Cohort
   Plan** (P1.1
   additional-real-repo-dogfood-cohort-plan slice).

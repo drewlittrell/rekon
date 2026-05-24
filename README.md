@@ -521,14 +521,29 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # release blocker). Reporting format pinned (per-target
 # dogfood reports + cohort summary report + cohort
 # execution review packet + cohort execution docs
-# test, all written by the next slice).
+# test, all written by the cohort execution batch).
 #
-# Next slice: additional real-repo dogfood execution
-# (substitutes operator-selected concrete repositories
-# for each archetype placeholder; runs the command
-# matrix; writes per-target + cohort reports). Still
-# no npm publish; still no version bump; still no
-# git tag.
+# The Real-Repo Dogfood Cohort Intake Request at
+# docs/strategy/real-repo-cohort-intake-request.md
+# captures the cohort execution batch's required
+# operator input. The work order's stop condition
+# was triggered (no concrete repos supplied in the
+# prompt); the intake request records the 5-row
+# intake table the operator needs to fill in (at
+# least 3 distinct concrete repos + a representative
+# path per row + an anonymisation preference).
+# Pre-cohort verification was run on this commit and
+# passed all 9 mandatory commands; the cohort itself
+# is blocked only on operator intake. No invented
+# repo names. No cohort target may be Rekon itself.
+#
+# Next step: operator answers the intake table.
+# After that, the additional real-repo dogfood
+# execution batch substitutes the operator's
+# concrete repos for each archetype placeholder,
+# runs the command matrix, and writes per-target +
+# cohort reports. Still no npm publish; still no
+# version bump; still no git tag.
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before

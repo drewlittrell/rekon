@@ -1106,6 +1106,52 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Real-repo dogfood cohort intake request (P1.1
+  real-repo-cohort-intake-request slice): **step
+  7a of the post-blocker release sequence** —
+  the cohort execution batch's intake substep,
+  triggered when the operator did not supply
+  concrete cohort repos in the work-order
+  prompt. Strategy / docs / tests-only batch —
+  **no runtime behaviour change. No invented
+  repo names. The cohort was not run.** No new
+  package, no new CLI command, no new helper,
+  no workflow-template change, no validator
+  profile change, no GitHub API call, no `npm
+  publish`, no version bump, no release tag,
+  no GitHub Release, no active workflow YAML,
+  no `package.json` / `package-lock.json`
+  mutation, no source-file mutation. New
+  strategy memo at
+  [`docs/strategy/real-repo-cohort-intake-request.md`](real-repo-cohort-intake-request.md)
+  records the pre-cohort verification gate
+  (all 9 mandatory commands passed on the
+  primary tree at SHA `b80be3e`; 1728 / 1
+  skipped) + the intake table the operator
+  needs to fill in (5-row table with all 5
+  archetype placeholders; at least 3 distinct
+  concrete repos required; representative path
+  per row; anonymisation-preference column).
+  Pinned reminders carried forward: no npm
+  publish during beta; beta is private /
+  local / repo-based; at least three distinct
+  real repositories required before any
+  post-beta publish reconsideration; no cohort
+  target may be Rekon itself; do not invent
+  repo names; this batch does not run the
+  cohort. **Cohort execution (step 7b)
+  remains blocked on operator intake.** 10
+  new docs assertions. Full suite expected ≥
+  1738 passed / 1 skipped. **Recommended next
+  slice:** wait for operator intake response;
+  then the additional real-repo dogfood
+  execution batch substitutes the operator's
+  concrete repos for each archetype
+  placeholder, runs the matrix, and writes
+  per-target + cohort reports. Still no npm
+  publish; still no version bump; still no
+  git tag. No `schemaVersion` bump. No GitHub
+  Release.
 - Additional real-repo dogfood cohort plan (P1.1
   additional-real-repo-dogfood-cohort-plan
   slice): **step 6 of the post-blocker release
