@@ -4,6 +4,228 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Additional Real-Repo Dogfood
+  Execution** (P1.1
+  additional-real-repo-dogfood-execution slice).
+  **Step 7b of the post-blocker release
+  sequence** — the cohort execution itself,
+  following the operator's approved intake
+  table. **Cohort decision:
+  `pass-with-known-limitations`. No release
+  blockers found.**
+
+  **Release-validation (cohort execution) +
+  docs batch.** No runtime behaviour change.
+  No new package, no new CLI command, no new
+  helper, no workflow-template change, no
+  validator profile change, no GitHub API
+  call, no `npm publish`, no version bump, no
+  release tag, no GitHub Release, no active
+  workflow YAML, no `package.json` /
+  `package-lock.json` mutation, no source-file
+  mutation, no mutation of any cohort target
+  repo's actual source tree outside `mktemp -d`
+  copies.
+
+  **Three distinct operator-approved real
+  repositories** dogfooded against the
+  local-built Rekon CLI at version
+  `0.1.0-beta.0`, covering all five archetypes
+  via two documented consolidations:
+  - `boundary-contracts` →
+    `<small-ts-package>` +
+    `<github-workflows-repo>` (consolidated).
+    Outcome: **`pass`**. All 3 verify commands
+    (typecheck/test/build) passed; conclusion
+    `success`; 34 artefacts; validate clean.
+  - `structured-evals` → `<medium-monorepo>`.
+    Outcome:
+    **`pass-with-known-limitations`**. 6-
+    workspace monorepo; typecheck + test
+    passed; `npm run build` failed with
+    "Missing script: build" — first-class
+    behaviour per the cohort plan; validate
+    clean.
+  - `figma-ds` → `<nextjs-app>` +
+    `<mixed-js-ts-repo>` (consolidated).
+    Outcome:
+    **`pass-with-known-limitations`**. Next.js
+    App Router + 251 TS/TSX + 353 JS/JSX/MJS/CJS
+    (genuine mix); typecheck failed with real TS
+    errors in operator source; test script
+    missing; build passed; validate clean.
+
+  **Aggregate cohort metrics:** 102 artefacts
+  across 19 types (34 per target × 3 targets);
+  every artefact validated clean; no
+  corruption; no unreadable publication; no
+  token leak; no source mutation outside any
+  temp copy; no CLI crash. The verify → result
+  → proof → Check dry-run pipeline propagated
+  state correctly in both directions
+  (`conclusion: success` for boundary-contracts;
+  `conclusion: failure` for the two failed
+  verifications).
+
+  **Pinned reminders carried forward verbatim:**
+  - This batch does not publish to npm.
+  - This batch does not change package
+    versions.
+  - This batch does not create a git tag.
+  - This batch does not create a GitHub
+    Release.
+  - Every target ran from a temp `mktemp -d`
+    copy.
+  - The next publish step still requires
+    explicit operator authorization.
+  - Successful cohort does not automatically
+    trigger npm publish; revisiting the no-NPM
+    posture requires a separate explicit
+    operator decision.
+
+  **No release blockers found.** Two targets'
+  honest verification failures (structured-
+  evals: monorepo missing root `build` script;
+  figma-ds: real TS errors + missing `test`
+  script) are acceptable outcomes per the
+  cohort plan's success criteria.
+
+  **Three observations surfaced by the cohort
+  (post-beta polish; not release blockers):**
+  1. The verify → result → proof → Check
+     dry-run pipeline propagates state
+     correctly in both directions
+     (`success` ↔ `failure`).
+  2. The auto-generated VerificationPlan's
+     three-command default
+     (typecheck/test/build) is reasonable but
+     not universal. Future enhancement could
+     detect missing scripts and mark
+     `not-applicable` instead of `failed`.
+  3. Rekon's import-boundary / structural
+     rule packs surface 0 findings on these
+     three targets. Could mean clean targets
+     or rule-pack-pattern gaps. Broader future
+     cohorts would strengthen confidence.
+
+  **Implementation Sequence updated:**
+  1. Beta release readiness checklist memo
+     (shipped).
+  2. Beta release candidate execution plan
+     (shipped — against SHA `54d1dfd`).
+  3. Beta version bump execution report
+     (shipped — `0.1.0-beta.0` applied).
+  4. Real-repo beta dogfood report (shipped —
+     `pass-with-known-limitations`).
+  5. No-NPM beta distribution policy (shipped).
+  6. Additional real-repo dogfood cohort plan
+     (shipped).
+  7a. Real-repo dogfood cohort intake request
+      (shipped).
+  7b. **Additional real-repo dogfood execution
+      (this batch, shipped)** —
+      `pass-with-known-limitations` across 3
+      distinct real repos covering all 5
+      archetypes.
+  8. Post-beta source-write apply roadmap (4
+     slices). Independent of cohort.
+  9. Post-beta path freshness + watcher
+     roadmap (4 slices). Independent.
+  10. Post-beta breadth / maturity / polish
+      work. One item (VerificationPlan
+      missing-script tolerance) surfaced by
+      this cohort. Independent.
+  11. (Optional, deferred) Post-beta npm
+      publish authorization work order — only
+      after an explicit later operator
+      decision reverses the no-NPM policy.
+
+  **New strategy artefacts:**
+  - [`docs/strategy/real-repo-cohort-summary.md`](docs/strategy/real-repo-cohort-summary.md)
+    cohort summary with all 11 required
+    headings + 4 required tables + Dogfood
+    Decision recorded.
+  - [`docs/strategy/real-repo-cohort/boundary-contracts.md`](docs/strategy/real-repo-cohort/boundary-contracts.md)
+    per-target report (outcome: `pass`).
+  - [`docs/strategy/real-repo-cohort/structured-evals.md`](docs/strategy/real-repo-cohort/structured-evals.md)
+    per-target report
+    (`pass-with-known-limitations`).
+  - [`docs/strategy/real-repo-cohort/figma-ds.md`](docs/strategy/real-repo-cohort/figma-ds.md)
+    per-target report
+    (`pass-with-known-limitations`).
+
+  **Tests:** new docs suite
+  `tests/docs/additional-real-repo-dogfood-execution.test.mjs`
+  with 15 assertions (cohort summary
+  existence; all 11 required `##` headings;
+  five pinned-statement assertions verbatim;
+  cohort target + per-target summary tables;
+  blocker table or "No release blockers
+  found"; Dogfood Decision recorded; at least
+  3 per-target reports exist; each per-target
+  report contains all 11 required headings +
+  the metrics table; CHANGELOG mention;
+  review-packet PURPOSE PRESERVATION CHECK).
+  Full suite expected ≥ 1753 passed / 1
+  skipped.
+
+  **Docs:** 6 supporting strategy docs updated
+  (cohort plan + intake request + no-NPM
+  policy + first dogfood report + master
+  roadmap + classic-behavior-roadmap
+  implementation sequences advanced to mark
+  step 7b shipped). README + CHANGELOG
+  updated. New review packet at
+  `.rekon-dev/review-packets/additional-real-repo-dogfood-execution.md`.
+
+  **Recommended next slice:** operator
+  decision. The no-NPM beta posture defers
+  this explicitly:
+  - Continue beta with the no-NPM posture
+    indefinitely.
+  - Author additional cohort batches (more
+    repos / different archetypes).
+  - Pivot to post-beta tracks (source-write
+    apply roadmap; path freshness + watcher
+    roadmap; breadth / maturity / polish).
+  - Open a no-NPM-policy-revision work order
+    (requires a new explicit operator
+    decision; this batch does not
+    pre-authorise one).
+
+  **Out-of-scope and explicitly not shipped:**
+  - No `npm publish` invocation.
+  - No `package.json` / `package-lock.json`
+    mutation (still `0.1.0-beta.0`).
+  - No `v0.1.0-beta.0` git tag.
+  - No GitHub Release.
+  - No active `.github/workflows/*.yml`.
+  - No new runtime behaviour.
+  - No new CLI command.
+  - No new validator profile.
+  - No new workflow template.
+  - No new artifact type.
+  - No new permission.
+  - No mutation of any `packages/*/src/*.ts`
+    file.
+  - No mutation of any cohort target repo's
+    source tree outside `mktemp -d` copies.
+  - No commit of any `.rekon/**` artefact
+    produced by the cohort runs (cohort
+    artefacts live in temp directories;
+    intentionally ephemeral).
+  - No change to the beta-ready decision or
+    the no-NPM beta posture.
+
+  **Stop conditions honoured:** every target
+  ran from a temp copy; no source mutation
+  outside temp copies; no GitHub API call; no
+  npm publish; no version bump; no git tag;
+  no GitHub Release; no release blocker
+  discovered; honest verification failures
+  recorded per the cohort plan's
+  first-class-failure contract.
+
 - Shipped **Real-Repo Dogfood Cohort Intake
   Request** (P1.1 real-repo-cohort-intake-request
   slice). **Step 7a of the post-blocker release

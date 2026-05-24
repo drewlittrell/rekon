@@ -248,8 +248,8 @@ This batch **does not**:
 | 4 | [Real-repo beta dogfood report](real-repo-beta-dogfood-report.md) | ✅ Shipped (`pass-with-known-limitations`) |
 | 5 | [No-NPM beta distribution policy](no-npm-beta-distribution-policy.md) | ✅ Shipped (replaces the previously-planned publish authorization work order) |
 | 6 | [Additional real-repo dogfood cohort plan](additional-real-repo-dogfood-cohort-plan.md) | ✅ Shipped (5 archetypes; ≥ 3 distinct real repositories required) |
-| 7a | **Real-repo dogfood cohort intake request (this memo)** | ✅ **Shipped** — awaiting operator-supplied intake table |
-| 7b | Additional real-repo dogfood execution | Blocked on operator intake. Resumes once the operator answers the intake table above. |
+| 7a | **Real-repo dogfood cohort intake request (this memo)** | ✅ **Shipped** |
+| 7b | [Additional real-repo dogfood execution](real-repo-cohort-summary.md) | ✅ **Shipped** — operator approved 3 distinct repos (`boundary-contracts`, `structured-evals`, `figma-ds`); cohort ran with `pass-with-known-limitations`; no release blockers |
 | 8 | Post-beta source-write apply roadmap (4 slices) | Post-beta |
 | 9 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta |
 | 10 | Post-beta breadth / maturity / polish work | Ongoing |

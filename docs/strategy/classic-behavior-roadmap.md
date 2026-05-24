@@ -5259,6 +5259,37 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Additional real-repo dogfood execution
+  (P1.1 additional-real-repo-dogfood-execution
+  slice).** ✅ Shipped. **Step 7b of the
+  post-blocker release sequence** — the cohort
+  execution itself, following the operator's
+  approved intake table. Release-validation +
+  docs batch. **No runtime behaviour change. No
+  npm publish.** Three distinct operator-approved
+  real repositories dogfooded
+  (`boundary-contracts`, `structured-evals`,
+  `figma-ds`) covering all 5 archetypes via 2
+  documented consolidations. **Cohort decision:
+  `pass-with-known-limitations`. No release
+  blockers found.** Aggregate metrics: 102
+  artefacts across 19 types; every artefact
+  validated clean; no corruption; no token leak;
+  no source mutation outside any `mktemp -d`
+  copy. Verify pipeline propagated state
+  correctly in both directions (`success` ↔
+  `failure`). Two honest verification failures
+  recorded as first-class behaviour per the
+  cohort plan's success criteria. New cohort
+  summary at
+  [`docs/strategy/real-repo-cohort-summary.md`](real-repo-cohort-summary.md);
+  per-target reports under
+  `docs/strategy/real-repo-cohort/`. 15 new
+  docs assertions. Recommended next slice:
+  operator decision (continue beta with
+  no-NPM posture, add more cohort targets,
+  pivot to post-beta tracks, or open a
+  no-NPM-policy-revision work order).
 - **Real-repo dogfood cohort intake request
   (P1.1 real-repo-cohort-intake-request slice).**
   ✅ Shipped. **Step 7a of the post-blocker

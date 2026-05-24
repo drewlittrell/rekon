@@ -525,25 +525,38 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #
 # The Real-Repo Dogfood Cohort Intake Request at
 # docs/strategy/real-repo-cohort-intake-request.md
-# captures the cohort execution batch's required
-# operator input. The work order's stop condition
-# was triggered (no concrete repos supplied in the
-# prompt); the intake request records the 5-row
-# intake table the operator needs to fill in (at
-# least 3 distinct concrete repos + a representative
-# path per row + an anonymisation preference).
-# Pre-cohort verification was run on this commit and
-# passed all 9 mandatory commands; the cohort itself
-# is blocked only on operator intake. No invented
-# repo names. No cohort target may be Rekon itself.
+# captured the operator's required intake table.
 #
-# Next step: operator answers the intake table.
-# After that, the additional real-repo dogfood
-# execution batch substitutes the operator's
-# concrete repos for each archetype placeholder,
-# runs the command matrix, and writes per-target +
-# cohort reports. Still no npm publish; still no
-# version bump; still no git tag.
+# The cohort then ran. Cohort summary at
+# docs/strategy/real-repo-cohort-summary.md +
+# per-target reports under
+# docs/strategy/real-repo-cohort/. Three distinct
+# operator-approved real repositories were dogfooded
+# (boundary-contracts, structured-evals, figma-ds)
+# covering all 5 archetypes via two documented
+# consolidations. Cohort decision:
+# pass-with-known-limitations. No release blockers.
+# 102 artefacts across 19 types written (34 per
+# target × 3); every artefact validated clean.
+# The verify → result → proof → Check dry-run
+# pipeline propagated state correctly in both
+# directions (success ↔ failure).
+#
+# Pinned reminders: this batch did not publish to
+# npm, did not change package versions, did not
+# create a git tag, did not create a GitHub
+# Release. Every target ran from a temp `mktemp -d`
+# copy; no source mutation outside temp copies; no
+# `.rekon/**` artefacts from any target committed.
+#
+# Next step: operator decision. The no-NPM beta
+# posture defers explicitly between (a) continue
+# beta with no-NPM indefinitely, (b) add more
+# cohort targets, (c) pivot to post-beta tracks
+# (source-write / watcher / breadth / polish), or
+# (d) open a no-NPM-policy-revision work order
+# (requires explicit operator decision; this
+# cohort does not pre-authorise one).
 #
 # Beta readiness is not the same as full classic parity.
 # Rekon should not add more GitHub review surfaces before

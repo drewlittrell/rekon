@@ -1106,6 +1106,64 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Additional real-repo dogfood execution (P1.1
+  additional-real-repo-dogfood-execution slice):
+  **step 7b of the post-blocker release
+  sequence** — the cohort execution itself,
+  following the operator's approved intake table.
+  Release-validation (cohort execution) + docs
+  batch — **no runtime behaviour change**, **no
+  npm publish**, no version bump, no release
+  tag, no GitHub Release, no active workflow
+  YAML, no `package.json` / `package-lock.json`
+  mutation, no source-file mutation, no mutation
+  of any cohort target repo's source tree
+  outside `mktemp -d` copies. Three distinct
+  operator-approved real repositories dogfooded
+  against the local-built Rekon CLI at version
+  `0.1.0-beta.0`, covering all 5 archetypes via
+  2 documented consolidations: `boundary-contracts`
+  → `<small-ts-package>` + `<github-workflows-repo>`
+  (pass — all 3 verify commands passed;
+  conclusion success); `structured-evals` →
+  `<medium-monorepo>` (pass-with-known-limitations
+  — typecheck + test passed; missing root
+  `build` script propagated as honest failure;
+  conclusion failure honestly propagated);
+  `figma-ds` → `<nextjs-app>` + `<mixed-js-ts-repo>`
+  (pass-with-known-limitations — typecheck
+  failed with real TS errors in operator
+  source; test script missing; build passed;
+  conclusion failure honestly propagated).
+  **Cohort decision: `pass-with-known-limitations`;
+  no release blockers found.** Aggregate
+  metrics: 102 artefacts across 19 types (34
+  per target × 3); every artefact validated
+  clean; no corruption; no token leak; no
+  source mutation outside temp copies. New
+  cohort summary at
+  [`docs/strategy/real-repo-cohort-summary.md`](real-repo-cohort-summary.md);
+  per-target reports under
+  `docs/strategy/real-repo-cohort/`. Three
+  observations surfaced (all post-beta polish,
+  none release blockers): verify-pipeline
+  propagates state correctly in both directions;
+  VerificationPlan three-command default isn't
+  universal (post-beta `not-applicable` for
+  missing scripts would improve signal-to-noise);
+  0 Rekon-detected findings on these targets
+  (broader future cohorts would strengthen
+  confidence). 15 new docs assertions. Full
+  suite expected ≥ 1753 passed / 1 skipped.
+  **Recommended next slice:** operator decision
+  about whether to continue beta as-is, add more
+  cohort targets, pivot to post-beta tracks
+  (source-write / watcher / breadth / polish),
+  or open a no-NPM-policy-revision work order
+  (requires explicit operator decision; this
+  cohort does not pre-authorise one). No
+  `schemaVersion` bump. No npm publish. No
+  release tag. No GitHub Release.
 - Real-repo dogfood cohort intake request (P1.1
   real-repo-cohort-intake-request slice): **step
   7a of the post-blocker release sequence** —
