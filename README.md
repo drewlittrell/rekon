@@ -572,6 +572,19 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # `package.json`; the package manager is never
 # spawned. No schema change, no new permission, no
 # version bump. Surfaced by the real-repo cohort.
+#
+# Post-beta dogfood evidence triage decision at
+# docs/strategy/post-beta-dogfood-evidence-triage.md
+# classifies every cohort observation, reviews
+# Options A-E for the next slice, and selects
+# Option C (watcher / path freshness implementation,
+# starting with the PathFreshnessReport artifact +
+# source-state fingerprint skeleton). Source-write
+# apply (Option B), rule breadth (Option D), and
+# memory maturity (Option E) remain queued but
+# later in sequence; each still requires its own
+# work order. No npm publish; no version bump; no
+# schema change in this triage batch.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

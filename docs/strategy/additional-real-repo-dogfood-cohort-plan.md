@@ -601,8 +601,10 @@ independently of cohort outcomes:
 | 6 | **Additional real-repo dogfood cohort plan (this plan)** | ✅ **Shipped** |
 | 7a | [Real-repo dogfood cohort intake request](real-repo-cohort-intake-request.md) | ✅ **Shipped** |
 | 7b | [Additional real-repo dogfood execution](real-repo-cohort-summary.md) | ✅ **Shipped** — `pass-with-known-limitations` across 3 distinct real repos (`boundary-contracts`, `structured-evals`, `figma-ds`) covering all 5 archetypes via two documented consolidations; no release blockers |
-| 8 | Post-beta source-write apply roadmap (4 slices) | Post-beta |
-| 9 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta |
+| 7c | [VerificationPlan missing-script tolerance](verification-missing-script-tolerance.md) | ✅ **Shipped** — first post-beta polish slice surfaced by this cohort; `skipped` is now emitted for `npm \| pnpm \| yarn run <absent-script>` instead of `failed` |
+| 7d | [Post-beta dogfood evidence triage decision](post-beta-dogfood-evidence-triage.md) | ✅ **Shipped** — classifies every cohort observation; selects **Option C (watcher / path freshness implementation)** as the next slice |
+| 8 | Post-beta source-write apply roadmap (4 slices) | Post-beta — sequence-deferred behind path freshness per the triage memo |
+| 9 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta — **next slice up**: `PathFreshnessReport` artifact + source-state fingerprint skeleton |
 | 10 | Post-beta breadth / maturity / polish work | Ongoing |
 | 11 | (Optional, deferred) Post-beta npm publish authorization work order | Only after broader real-repo dogfood + an explicit later operator decision reverses the no-NPM policy |
 

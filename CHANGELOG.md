@@ -4,6 +4,78 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Post-Beta Dogfood Evidence Triage
+  Decision** (strategy / docs / tests-only
+  batch). Reviewed the real-repo cohort
+  findings plus the first post-beta polish
+  slice (VerificationPlan missing-script
+  tolerance) and selected the **next post-beta
+  track: Option C — watcher / path freshness
+  implementation, starting with the
+  `PathFreshnessReport` artifact +
+  source-state fingerprint skeleton slice.**
+
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No new package,
+  no new CLI command, no new helper, no
+  schema change, no new artifact type, no new
+  permission, no new role, no workflow
+  template change, no validator profile
+  change, no GitHub API call, no `npm
+  publish`, no version bump, no release tag,
+  no GitHub Release, no active workflow YAML,
+  no `package.json` / `package-lock.json`
+  mutation, no source-file mutation in any
+  `packages/*/src/*`, no mutation of any
+  operator repo, no network I/O.
+
+  Evidence classification:
+  - `npm | pnpm | yarn run <missing-script>`
+    classification observation — addressed by
+    the missing-script tolerance slice
+    already shipped on `cee7af4`.
+  - figma-ds typecheck failures in operator
+    source — honest failure detection; not a
+    Rekon defect; no action.
+  - source-write apply unavailable, watcher
+    daemon unavailable, hosted GitHub App
+    unavailable, Windows process-tree
+    direct-child kill, `pr-comment --dry-run`
+    readiness false without env — all
+    deferred post-beta tracks governed by
+    existing policy memos.
+  - 0 Rekon-detected findings on three
+    cohort targets — no false positives is
+    itself a valuable signal; **future
+    cohort expansion**, not a polish slice.
+
+  Options reviewed: Option A (continue
+  dogfood-surfaced verification polish —
+  rejected, no further evidence), Option B
+  (source-write apply roadmap — rejected,
+  needs path-freshness signals first +
+  highest risk surface), Option C (watcher /
+  path freshness implementation —
+  **selected**, foundational, policy
+  already pinned), Option D (rule breadth /
+  graph-aware filters — rejected, freshness
+  precedes breadth), Option E (memory
+  maturity — rejected, fixing derived layer
+  before source layer compounds stale
+  signal).
+
+  New strategy memo
+  `docs/strategy/post-beta-dogfood-evidence-triage.md`;
+  new docs test
+  `tests/docs/post-beta-dogfood-evidence-triage.test.mjs`
+  (12 assertions); review packet
+  `.rekon-dev/review-packets/post-beta-dogfood-evidence-triage.md`
+  with PURPOSE PRESERVATION CHECK; cross-link
+  updates to cohort plan, cohort summary,
+  missing-script tolerance memo, watcher /
+  path freshness policy memo, roadmap,
+  classic-behaviour roadmap, and README.
+
 - Shipped **VerificationPlan Missing-Script
   Tolerance** (post-beta polish slice surfaced by
   the first real-repo cohort). The

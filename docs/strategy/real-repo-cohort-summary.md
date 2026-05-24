@@ -364,7 +364,8 @@ to a separate decision):
 | 7b | **Additional real-repo dogfood execution (this cohort summary)** | ✅ **Shipped** — `pass-with-known-limitations` across 3 distinct real repos covering all 5 archetypes |
 | 8 | Post-beta source-write apply roadmap (4 slices) | Post-beta; independent of cohort |
 | 9 | Post-beta path freshness + watcher roadmap (4 slices) | Post-beta; independent |
-| 10 | Post-beta breadth / maturity / polish work | Post-beta; one item (VerificationPlan missing-script tolerance) surfaced by this cohort |
+| 10 | Post-beta breadth / maturity / polish work | Post-beta; one item ([VerificationPlan missing-script tolerance](verification-missing-script-tolerance.md)) shipped post-cohort on `cee7af4` |
+| 10a | [Post-beta dogfood evidence triage decision](post-beta-dogfood-evidence-triage.md) | ✅ Shipped — classifies every cohort observation; selects **Option C (watcher / path freshness implementation)** as the next slice |
 | 11 | (Optional, deferred) Post-beta npm publish authorization work order | Only after an explicit later operator decision reverses the no-NPM policy |
 
 **No npm publish during beta. Beta is private

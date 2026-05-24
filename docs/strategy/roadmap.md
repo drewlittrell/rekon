@@ -1106,6 +1106,72 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Post-beta dogfood evidence triage decision
+  (P1.1 post-beta-dogfood-evidence-triage slice):
+  **strategy / docs / tests-only batch**
+  following the first post-beta polish slice.
+  No runtime behaviour change. No new package,
+  no new CLI command, no new helper, no schema
+  change, no new artifact type, no new
+  permission, no new role, no workflow template
+  change, no validator profile change, no
+  GitHub API call, no `npm publish`, no version
+  bump, no release tag, no GitHub Release, no
+  active workflow YAML, no `package.json` /
+  `package-lock.json` mutation, no source-file
+  mutation in any `packages/*/src/*`, no
+  mutation of any operator repo, no network
+  I/O. Reviewed the real-repo cohort findings
+  plus the first post-beta polish slice
+  (VerificationPlan missing-script tolerance)
+  and selected the **next post-beta track:
+  Option C — watcher / path freshness
+  implementation, starting with the
+  `PathFreshnessReport` artifact +
+  source-state fingerprint skeleton.** Evidence
+  classification confirmed no further
+  dogfood-surfaced verification polish slice
+  is warranted: the only verification-class
+  observation from the cohort
+  (`npm | pnpm | yarn run <absent-script>`) is
+  shipped; figma-ds typecheck failures are
+  honest detection of real operator-source
+  defects, not a Rekon defect; the remaining
+  cohort limitations are deferred post-beta
+  tracks governed by existing policy memos
+  (source-write reconciliation, watcher / path
+  freshness, hosted GitHub App). Options A
+  (continue verification polish) rejected
+  (no further evidence); Option B (source-write
+  apply) rejected (highest risk surface;
+  needs path-freshness signals first); Option
+  C selected (foundational, policy already
+  pinned, `PathFreshnessReport` name
+  reserved); Option D (rule breadth) rejected
+  (freshness precedes breadth); Option E
+  (memory maturity) rejected (fixing derived
+  layer before source layer compounds stale
+  signal). New strategy memo at
+  [`docs/strategy/post-beta-dogfood-evidence-triage.md`](post-beta-dogfood-evidence-triage.md);
+  review packet
+  `.rekon-dev/review-packets/post-beta-dogfood-evidence-triage.md`
+  with PURPOSE PRESERVATION CHECK; new docs
+  test
+  `tests/docs/post-beta-dogfood-evidence-triage.test.mjs`
+  (12 assertions); cross-link updates to
+  cohort plan, cohort summary, missing-script
+  tolerance memo, watcher / path freshness
+  policy memo, classic-behaviour roadmap, and
+  README. Full suite expected ≥ 1793 passed /
+  1 skipped (1781 + 12 new docs assertions).
+  **Recommended next slice:** the
+  `PathFreshnessReport` artifact registration
+  + source-state fingerprint helper +
+  `rekon paths freshness` CLI (final naming
+  deferred). Still no daemon. Still no
+  background refresh. Still no source writes.
+  Still no npm publish. Still no version
+  bump.
 - VerificationPlan missing-script tolerance (P1.1
   verification-missing-script-tolerance slice):
   **first post-beta polish slice** surfaced by the

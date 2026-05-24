@@ -5259,6 +5259,31 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Post-beta dogfood evidence triage decision
+  (P1.1 post-beta-dogfood-evidence-triage
+  slice).** ✅ Shipped. **Strategy / docs /
+  tests-only batch.** No runtime behaviour
+  change. No schema change. No new permission,
+  no new artifact type, no new CLI command,
+  no workflow-template change, no validator
+  profile change. No npm publish. No version
+  bump. Reviewed cohort findings + the
+  missing-script tolerance slice; selected the
+  next post-beta track: **Option C — watcher /
+  path freshness implementation, starting with
+  the `PathFreshnessReport` artifact +
+  source-state fingerprint skeleton.** Memo
+  classifies every cohort observation as
+  blocker / shipped polish / deferred post-beta
+  track / by-design / not-a-defect. Source-write
+  apply (Option B), rule breadth (Option D),
+  memory maturity (Option E) remain queued but
+  later in sequence; each still requires its
+  own work order. See
+  [`docs/strategy/post-beta-dogfood-evidence-triage.md`](post-beta-dogfood-evidence-triage.md).
+  **Recommended next slice:**
+  `PathFreshnessReport` artifact + source-state
+  fingerprint skeleton.
 - **VerificationPlan missing-script tolerance
   (P1.1 verification-missing-script-tolerance
   slice).** ✅ Shipped. **First post-beta polish

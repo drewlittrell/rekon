@@ -271,3 +271,24 @@ Shipped on 2026-05-23. No version bump (still
 workflow YAML. The change is a pure helper plus
 a one-statement runner wire-in; rollback is a
 single revert.
+
+## Follow-Up Triage
+
+The
+[Post-Beta Dogfood Evidence Triage
+Decision](post-beta-dogfood-evidence-triage.md)
+classified this slice as the only
+verification-classification follow-up the
+real-repo cohort surfaced, marked it
+shipped, and confirmed **no further
+dogfood-surfaced verification polish
+slice is currently warranted**. The next
+slice up is
+**Option C (watcher / path freshness
+implementation, starting with the
+`PathFreshnessReport` artifact +
+source-state fingerprint skeleton)** —
+unrelated to verification-command
+classification. Re-open this slice's
+sibling-pattern work the moment another
+cohort surfaces a concrete pattern.
