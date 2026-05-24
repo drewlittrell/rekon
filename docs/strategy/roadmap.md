@@ -1106,6 +1106,58 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- PathFreshnessReport artifact + source-state
+  fingerprint skeleton (P1.1
+  path-freshness-report slice): **first watcher /
+  path-freshness implementation slice** selected
+  by the post-beta dogfood evidence triage
+  decision (Option C). Runtime + helpers + CLI +
+  tests + docs batch. **No daemon. No background
+  refresh. No automatic `rekon refresh`
+  invocation. No source mutation. No
+  `ArtifactHeader` change. No new permission. No
+  new role. No workflow YAML. No version bump.
+  No `npm publish`. No GitHub Release. No
+  network I/O.** New artifact type
+  `PathFreshnessReport` registered in
+  `@rekon/sdk` + `@rekon/runtime` (category
+  `"actions"`). New pure helpers
+  `createPathFreshnessReport(...)` +
+  `comparePathFreshness(current, baseline?)` in
+  `@rekon/capability-intent`. New pure helper
+  `buildSourceStateFingerprint(input)` in
+  `@rekon/kernel-repo-model` (sha256 content
+  hashes, deterministic ordering, default
+  ignore set, bounded reads, `mtimeAdvisory`
+  opt-in). New CLI `rekon paths freshness
+  [--path <path>] [--root <path>] [--json]`
+  — read-only with respect to source files;
+  writes exactly one new diagnostic
+  `PathFreshnessReport` per invocation;
+  compares to the most recent prior
+  `PathFreshnessReport` baseline; recommends
+  `rekon refresh` when stale but **never spawns
+  refresh itself**. Mtimes are **advisory only
+  — never canonical freshness evidence**.
+  Artifact lineage freshness is **not**
+  working-tree freshness; both surfaces
+  coexist. New artifact doc at
+  [`docs/artifacts/path-freshness-report.md`](../artifacts/path-freshness-report.md);
+  new concept doc at
+  [`docs/concepts/path-freshness.md`](../concepts/path-freshness.md);
+  review packet
+  `.rekon-dev/review-packets/path-freshness-report.md`
+  with PURPOSE PRESERVATION CHECK; 15 new
+  contract assertions + 9 new docs assertions.
+  Full suite expected ≥ 1817 passed / 1
+  skipped (1793 + 24 new). **Recommended next
+  slice:** path freshness publication
+  surfacing — render the latest
+  `PathFreshnessReport` in the architecture
+  summary, agent contract, and (if useful)
+  proof report + GitHub review dry-run
+  payloads. Still no daemon. Still no
+  background refresh.
 - Post-beta dogfood evidence triage decision
   (P1.1 post-beta-dogfood-evidence-triage slice):
   **strategy / docs / tests-only batch**

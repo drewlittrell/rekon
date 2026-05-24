@@ -27,8 +27,12 @@ import docsCapability, {
 } from "@rekon/capability-docs";
 import graphCapability from "@rekon/capability-graph";
 import intentCapability, {
+  comparePathFreshness,
+  createPathFreshnessReport,
   createVerificationResult,
   lookupVerificationEvidence,
+  type PathFreshnessReport,
+  type SourceStateFingerprint,
   type VerificationCommandResult,
   type VerificationEvidenceSummary,
   type VerificationPlanLike,
@@ -70,6 +74,10 @@ import {
   validateArtifactIndex,
 } from "@rekon/runtime";
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  buildSourceStateFingerprint,
+  DEFAULT_SOURCE_FINGERPRINT_IGNORE,
+} from "@rekon/kernel-repo-model";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
   type FindingFilterHealthReport,
@@ -184,6 +192,149 @@ export async function main(argv: string[]): Promise<void> {
       process.exitCode = 1;
     }
 
+    return;
+  }
+
+  if (command === "paths" && subcommand === "freshness") {
+    // `rekon paths freshness [--path <path>] [--path <path>]
+    // [--root <path>] [--json]` — first watcher / path
+    // freshness slice (post-beta). **Read-only with respect
+    // to source files.** Writes a single diagnostic
+    // PathFreshnessReport artifact comparing the current
+    // working-tree fingerprint to the latest prior
+    // PathFreshnessReport baseline. Does NOT run
+    // `rekon refresh`; does NOT mutate any source; does
+    // NOT start a watcher daemon. See
+    // docs/strategy/watcher-path-freshness-policy-decision.md
+    // and docs/strategy/post-beta-dogfood-evidence-triage.md.
+    const requestedPaths = parseRepeatableFlag(parsed.flags.path);
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const generatedAt = new Date().toISOString();
+
+    const currentSourceState = await buildSourceStateFingerprint({
+      repoRoot: root,
+      paths: requestedPaths.length > 0 ? requestedPaths : undefined,
+      generatedAt,
+    });
+
+    const priorReports = await store.list("PathFreshnessReport");
+    // Index entries are appended in write order; the latest
+    // entry is the most recent baseline.
+    const latestPriorEntry = priorReports.at(-1);
+    let baselineSourceState: SourceStateFingerprint | undefined;
+    let baselineRef: ArtifactRef | undefined;
+    let baselineGeneratedAt: string | undefined;
+
+    if (latestPriorEntry) {
+      try {
+        const baselineReport = await store.read(latestPriorEntry) as PathFreshnessReport;
+        if (baselineReport?.currentSourceState) {
+          baselineSourceState = baselineReport.currentSourceState as SourceStateFingerprint;
+          baselineRef = {
+            type: latestPriorEntry.type,
+            id: latestPriorEntry.id,
+            schemaVersion: latestPriorEntry.schemaVersion,
+          };
+          baselineGeneratedAt = baselineReport.header?.generatedAt;
+        }
+      } catch {
+        // Treat unreadable baseline like a missing one;
+        // status will be "unknown" and the operator will
+        // be told to re-run after changes.
+        baselineSourceState = undefined;
+      }
+    }
+
+    // When the operator narrowed the tracking set with --path,
+    // narrow the baseline comparison to the same set so we
+    // don't surface "missing" for paths the prior (broader)
+    // baseline tracked but this run intentionally did not.
+    if (baselineSourceState && requestedPaths.length > 0) {
+      const requested = new Set(
+        requestedPaths.map((entry) =>
+          entry.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\.\//, "").replace(/^\//, ""),
+        ),
+      );
+      baselineSourceState = {
+        ...baselineSourceState,
+        paths: baselineSourceState.paths.filter((entry) => requested.has(entry.path)),
+      };
+    }
+
+    const comparison = comparePathFreshness(
+      currentSourceState as SourceStateFingerprint,
+      baselineSourceState,
+    );
+
+    const artifactId = `path-freshness-${generatedAt.replace(/[:.]/g, "-")}`;
+    const header: ArtifactHeader = {
+      artifactType: "PathFreshnessReport",
+      artifactId,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: {
+        repoId: root,
+        ...(requestedPaths.length > 0 ? { paths: [...requestedPaths] } : {}),
+      },
+      producer: {
+        id: "@rekon/cli.paths-freshness",
+        version: "0.1.0-beta.0",
+      },
+      inputRefs: baselineRef ? [baselineRef] : [],
+    };
+
+    const report = createPathFreshnessReport({
+      header,
+      status: comparison.status,
+      currentSourceState: currentSourceState as SourceStateFingerprint,
+      baselineSourceState,
+      baselineRef,
+      baselineGeneratedAt,
+      entries: comparison.entries,
+      summary: comparison.summary,
+      recommendation: comparison.recommendation,
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: ref,
+          status: report.status,
+          summary: report.summary,
+          recommendation: report.recommendation,
+          entries: report.entries,
+          baselineRef: report.baselineRef,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push(`Path freshness: ${report.status}`);
+      lines.push(
+        `Paths inspected: ${report.summary.total}`
+        + ` (fresh ${report.summary.fresh}, changed ${report.summary.changed},`
+        + ` missing ${report.summary.missing}, new ${report.summary.new},`
+        + ` unknown ${report.summary.unknown})`,
+      );
+      if (report.recommendation.refreshRecommended) {
+        lines.push(
+          `Recommendation: ${report.recommendation.message}`,
+        );
+        if (report.recommendation.commands.length > 0) {
+          lines.push(`Commands: ${report.recommendation.commands.join(", ")}`);
+        }
+      } else if (report.status === "unknown") {
+        lines.push(report.recommendation.message);
+      } else {
+        lines.push(report.recommendation.message);
+      }
+      lines.push(`Artifact: ${ref.type}:${ref.id}`);
+      writeOutput(lines.join("\n"), false);
+    }
     return;
   }
 
@@ -6559,6 +6710,7 @@ function usage(): string {
   return [
     "rekon init [--root <path>]",
     "rekon refresh [--root <path>] [--skip-publish] [--skip-freshness] [--changed-file <path>] [--json]",
+    "rekon paths freshness [--path <path>] [--root <path>] [--json]",
     "rekon config validate [--root <path>] [--json]",
     "rekon capabilities list [--root <path>] [--verbose] [--json]",
     "rekon capabilities inspect <capability-id> [--root <path>] [--json]",

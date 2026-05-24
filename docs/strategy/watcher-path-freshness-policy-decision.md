@@ -618,7 +618,7 @@ cross-references.
 | 1 | **Watcher / path freshness policy decision memo (this memo)** | ✅ **Shipped** |
 | 2 | [Beta release readiness checklist memo](beta-release-readiness-checklist.md) | ✅ **Shipped** (third beta blocker) |
 | 3 | Beta release candidate execution plan | Next slice — executes checklist on release SHA |
-| 4 | Path freshness artefact slice (post-beta) | **Selected as the next slice** by the [Post-Beta Dogfood Evidence Triage Decision](post-beta-dogfood-evidence-triage.md) (Option C). Adds `PathFreshnessReport` registration + source-state fingerprint helper + `rekon paths freshness` (or equivalent) CLI. **No daemon. No background refresh. No source writes.** Publication-surface updates land in a separate follow-on slice. |
+| 4 | [Path freshness artefact slice (post-beta)](../artifacts/path-freshness-report.md) | ✅ **Shipped** — `PathFreshnessReport` artifact registered in `@rekon/sdk` + `@rekon/runtime`; `buildSourceStateFingerprint` helper in `@rekon/kernel-repo-model`; `createPathFreshnessReport` + `comparePathFreshness` helpers in `@rekon/capability-intent`; `rekon paths freshness [--path <path>] [--root <path>] [--json]` CLI. **No daemon. No background refresh. No source writes. mtimes advisory only.** Publication-surface updates land in a separate follow-on slice. |
 | 5 | Watcher daemon design memo (post-beta) | Pins daemon lifecycle + permission contract + cross-platform strategy + opt-in default |
 | 6 | Watcher daemon implementation slice (post-beta) | Adds `rekon watch` (or equivalent) — opt-in default |
 | 7 | Watcher / path freshness safety review slice (post-beta) | Walks the full path-freshness + watcher path end-to-end and declares it beta-stable |

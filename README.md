@@ -585,6 +585,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # later in sequence; each still requires its own
 # work order. No npm publish; no version bump; no
 # schema change in this triage batch.
+#
+# First Option C implementation slice shipped:
+# PathFreshnessReport artifact + source-state
+# fingerprint skeleton. See
+# docs/artifacts/path-freshness-report.md and
+# docs/concepts/path-freshness.md. New CLI
+# `rekon paths freshness [--path <path>] [--json]`
+# computes a deterministic source-state fingerprint
+# (sha256 content hashes; default ignore set;
+# bounded reads) and writes a single
+# PathFreshnessReport diagnostic artifact comparing
+# the working tree against the latest prior
+# baseline. No daemon. No background refresh. No
+# source writes. Mtimes are advisory only — never
+# canonical freshness evidence. Artifact lineage
+# freshness is not working-tree freshness; both
+# surfaces coexist. Publication surfacing of the
+# new report is the next slice.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

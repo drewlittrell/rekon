@@ -253,6 +253,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   VerificationPlan: "actions",
   VerificationResult: "actions",
   VerificationRun: "actions",
+  PathFreshnessReport: "actions",
   ReconciliationPlan: "actions",
   ReconciliationLog: "actions",
   ActionLog: "actions",

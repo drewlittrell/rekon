@@ -431,3 +431,17 @@ bump. No npm publish. No new workflow YAML.
 No runtime behaviour change. Rollback is
 trivial: revert this memo and the supporting
 doc updates.
+
+## Follow-Up
+
+**The next slice spec named here has shipped.**
+See
+[PathFreshnessReport artifact +
+source-state fingerprint skeleton](../artifacts/path-freshness-report.md)
+for the implementation. `rekon paths freshness`
+now writes one diagnostic `PathFreshnessReport`
+per invocation. Still no daemon. Still no
+background refresh. The follow-on slice
+("path freshness publication surfacing")
+remains pending and requires its own work
+order.

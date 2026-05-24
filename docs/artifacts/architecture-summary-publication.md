@@ -308,3 +308,11 @@ starting point. See
   that will land with the path-freshness implementation
   slice. The existing Input Freshness Warnings section
   covers artifact-lineage freshness only.
+- [PathFreshnessReport](path-freshness-report.md) +
+  [Path freshness concept doc](../concepts/path-freshness.md) —
+  the artifact is now shipped (`rekon paths freshness`),
+  but the architecture summary does **not yet** render
+  it. Surfacing the latest report (with its `status`,
+  `summary`, and `recommendation`) is the next slice
+  ("path freshness publication surfacing"); until that
+  ships, operators must inspect the artifact directly.

@@ -326,3 +326,11 @@ for decision-making. All warnings recommend
   `rekon artifacts validate` + `rekon artifacts
   freshness` to confirm both freshness oracles emit
   on fixture input.
+- [Path freshness](path-freshness.md) +
+  [PathFreshnessReport](../artifacts/path-freshness-report.md) —
+  the complementary working-tree freshness surface.
+  **Artifact lineage freshness is not working-tree
+  freshness.** This document covers the artifact
+  lineage half; `PathFreshnessReport` covers the
+  source-state half. Both can be `fresh` while the
+  other is `stale`; both signals matter.

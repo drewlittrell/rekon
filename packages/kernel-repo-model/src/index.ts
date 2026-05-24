@@ -446,3 +446,270 @@ function stripUndefinedObjectValues<T>(value: T): T {
 
   return value;
 }
+
+// ---------- Source-state fingerprint (P1.1 path-freshness-report) ----------
+//
+// Pure (well, IO-only) helper used by the
+// `rekon paths freshness` CLI to capture a bounded,
+// deterministic snapshot of the working tree's source
+// state. Hashes content with sha256; never stores file
+// contents. Treats file mtimes as **advisory only** —
+// hashes are the canonical evidence.
+//
+// Safety contract:
+// - **No source mutation.** Read-only.
+// - **No network.**
+// - **No directory walk outside the supplied repoRoot.**
+// - Default ignore set excludes machine-generated
+//   directories (`.git`, `.rekon`, `node_modules`,
+//   `dist`, `coverage`, `.next`, `.turbo`, `.cache`)
+//   so the fingerprint reflects intentional source
+//   only.
+// - Path entries are sorted lexically; the `rootHash`
+//   is a sha256 over the canonical JSON of `{path,
+//   hash, size, exists}` entries so two runs over the
+//   same tree produce byte-identical fingerprints.
+
+import { createHash } from "node:crypto";
+import { readFile, readdir, stat } from "node:fs/promises";
+import { isAbsolute, join, relative, sep } from "node:path";
+
+/**
+ * The default set of relative path segments that the
+ * source-state walk ignores. Operators can extend this
+ * via `ignoreGlobs` (currently treated as path-segment
+ * names; full glob support is deferred).
+ */
+export const DEFAULT_SOURCE_FINGERPRINT_IGNORE: ReadonlyArray<string> = [
+  ".git",
+  ".rekon",
+  "node_modules",
+  "dist",
+  "coverage",
+  ".next",
+  ".turbo",
+  ".cache",
+];
+
+export type SourcePathFingerprintEntry = {
+  path: string;
+  hash?: string;
+  size?: number;
+  exists: boolean;
+  mtimeAdvisory?: string;
+};
+
+export type SourceStateFingerprintData = {
+  algorithm: "sha256";
+  rootHash: string;
+  paths: SourcePathFingerprintEntry[];
+  generatedAt: string;
+  ignoredGlobs?: string[];
+};
+
+export type BuildSourceStateFingerprintInput = {
+  repoRoot: string;
+  /**
+   * When provided, only these repo-relative paths are
+   * fingerprinted. When omitted, a conservative walk
+   * starting at `repoRoot` is performed; the walk
+   * skips any path whose segment matches any entry in
+   * `ignoreGlobs ?? DEFAULT_SOURCE_FINGERPRINT_IGNORE`.
+   */
+  paths?: ReadonlyArray<string>;
+  /**
+   * Replacement ignore set (segment names). When
+   * omitted, `DEFAULT_SOURCE_FINGERPRINT_IGNORE` is
+   * used.
+   */
+  ignoreGlobs?: ReadonlyArray<string>;
+  /**
+   * When `true`, the fingerprint includes the file's
+   * mtime as **advisory** metadata. The mtime is
+   * **never** used as canonical freshness evidence
+   * during comparison; hashes are. Defaults to
+   * `false` so two clones with identical content
+   * produce identical fingerprints.
+   */
+  includeMtimeAdvisory?: boolean;
+  /**
+   * Override for the `generatedAt` ISO timestamp.
+   * Tests use this to keep snapshots deterministic.
+   */
+  generatedAt?: string;
+};
+
+const MAX_FILE_BYTES_FOR_HASH = 32 * 1024 * 1024; // 32 MiB safety cap
+
+export async function buildSourceStateFingerprint(
+  input: BuildSourceStateFingerprintInput,
+): Promise<SourceStateFingerprintData> {
+  if (!input || typeof input !== "object") {
+    throw new TypeError("buildSourceStateFingerprint requires an input object.");
+  }
+  if (typeof input.repoRoot !== "string" || input.repoRoot.length === 0) {
+    throw new TypeError("buildSourceStateFingerprint requires input.repoRoot.");
+  }
+  if (!isAbsolute(input.repoRoot)) {
+    throw new TypeError("buildSourceStateFingerprint repoRoot must be absolute.");
+  }
+
+  const ignoreGlobs = [
+    ...(input.ignoreGlobs ?? DEFAULT_SOURCE_FINGERPRINT_IGNORE),
+  ];
+  const ignoreSet = new Set(ignoreGlobs);
+  const includeMtimeAdvisory = input.includeMtimeAdvisory === true;
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+
+  let candidatePaths: string[];
+  if (Array.isArray(input.paths) && input.paths.length > 0) {
+    candidatePaths = [...input.paths]
+      .map((entry) => normalizeRepoRelativePath(entry))
+      .filter((entry) => entry.length > 0);
+  } else {
+    candidatePaths = await walkRepo(input.repoRoot, ignoreSet);
+  }
+
+  // De-duplicate + sort for determinism.
+  const uniquePaths = [...new Set(candidatePaths)].sort();
+
+  const entries: SourcePathFingerprintEntry[] = [];
+  for (const relativePath of uniquePaths) {
+    if (containsIgnoredSegment(relativePath, ignoreSet)) {
+      continue;
+    }
+    const absolutePath = join(input.repoRoot, relativePath);
+    const entry = await fingerprintPath(absolutePath, relativePath, {
+      includeMtimeAdvisory,
+    });
+    entries.push(entry);
+  }
+
+  const rootHash = computeRootHash(entries);
+
+  const result: SourceStateFingerprintData = {
+    algorithm: "sha256",
+    rootHash,
+    paths: entries,
+    generatedAt,
+  };
+  if (ignoreGlobs.length > 0) {
+    result.ignoredGlobs = ignoreGlobs;
+  }
+  return result;
+}
+
+function normalizeRepoRelativePath(value: string): string {
+  if (typeof value !== "string") return "";
+  // Normalise path separators to forward slashes for
+  // determinism across platforms. Leading "./" trimmed.
+  let normalized = value.replace(/\\/g, "/").replace(/\/+/g, "/");
+  if (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  if (normalized.startsWith("/")) {
+    normalized = normalized.slice(1);
+  }
+  return normalized;
+}
+
+function containsIgnoredSegment(
+  relativePath: string,
+  ignoreSet: Set<string>,
+): boolean {
+  if (ignoreSet.size === 0) return false;
+  const segments = relativePath.split("/");
+  for (const segment of segments) {
+    if (ignoreSet.has(segment)) return true;
+  }
+  return false;
+}
+
+async function fingerprintPath(
+  absolutePath: string,
+  relativePath: string,
+  options: { includeMtimeAdvisory: boolean },
+): Promise<SourcePathFingerprintEntry> {
+  let stats;
+  try {
+    stats = await stat(absolutePath);
+  } catch {
+    return { path: relativePath, exists: false };
+  }
+  if (!stats.isFile()) {
+    return { path: relativePath, exists: false };
+  }
+  if (stats.size > MAX_FILE_BYTES_FOR_HASH) {
+    // Above the safety cap: record existence + size but
+    // not a hash. Comparators will treat hash absence as
+    // unknown content and fall back to size + exists.
+    const result: SourcePathFingerprintEntry = {
+      path: relativePath,
+      exists: true,
+      size: stats.size,
+    };
+    if (options.includeMtimeAdvisory) {
+      result.mtimeAdvisory = stats.mtime.toISOString();
+    }
+    return result;
+  }
+  const contents = await readFile(absolutePath);
+  const hash = createHash("sha256").update(contents).digest("hex");
+  const result: SourcePathFingerprintEntry = {
+    path: relativePath,
+    exists: true,
+    size: stats.size,
+    hash,
+  };
+  if (options.includeMtimeAdvisory) {
+    result.mtimeAdvisory = stats.mtime.toISOString();
+  }
+  return result;
+}
+
+function computeRootHash(entries: SourcePathFingerprintEntry[]): string {
+  const canonical = entries.map((entry) => ({
+    path: entry.path,
+    hash: entry.hash ?? null,
+    size: typeof entry.size === "number" ? entry.size : null,
+    exists: entry.exists,
+  }));
+  return createHash("sha256")
+    .update(JSON.stringify(canonical))
+    .digest("hex");
+}
+
+async function walkRepo(
+  repoRoot: string,
+  ignoreSet: Set<string>,
+): Promise<string[]> {
+  const results: string[] = [];
+  await walkRepoInner(repoRoot, repoRoot, ignoreSet, results);
+  return results;
+}
+
+async function walkRepoInner(
+  repoRoot: string,
+  currentDir: string,
+  ignoreSet: Set<string>,
+  results: string[],
+): Promise<void> {
+  let dirEntries;
+  try {
+    dirEntries = await readdir(currentDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const dirEntry of dirEntries) {
+    if (ignoreSet.has(dirEntry.name)) continue;
+    const absolutePath = join(currentDir, dirEntry.name);
+    if (dirEntry.isDirectory()) {
+      await walkRepoInner(repoRoot, absolutePath, ignoreSet, results);
+      continue;
+    }
+    if (!dirEntry.isFile()) continue;
+    const relativeFromRoot = relative(repoRoot, absolutePath).split(sep).join("/");
+    if (relativeFromRoot.length === 0) continue;
+    results.push(relativeFromRoot);
+  }
+}

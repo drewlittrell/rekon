@@ -1684,3 +1684,405 @@ function renderRemediationWorkOrder(input: {
 function escapeCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\n+/g, " ");
 }
+
+// ---------- PathFreshnessReport (P1.1 path-freshness-report) ----------
+//
+// `PathFreshnessReport` records a deterministic comparison
+// between the **current** working-tree fingerprint of a
+// declared path set and a **baseline** fingerprint captured
+// by an earlier `PathFreshnessReport` (the first run has no
+// baseline and records status `"unknown"`).
+//
+// **Working-tree freshness is distinct from artifact lineage
+// freshness.** The runtime's `validateArtifactFreshness`
+// flags drift within the *artifact* lineage; this report
+// flags drift between the *source files* and the latest
+// recorded source-state baseline. The two coexist; neither
+// replaces the other.
+//
+// Safety contract:
+// - The report carries hashes + path-level metadata only;
+//   never raw file contents.
+// - File mtimes are advisory only — *never* canonical
+//   freshness evidence.
+// - The report is **read-only with respect to source
+//   files**; the only artifact it writes is itself.
+// - No watcher daemon. No background refresh. The
+//   recommendation field tells operators to run
+//   `rekon refresh` explicitly when the working tree
+//   has drifted.
+
+export type PathFreshnessStatus = "fresh" | "stale" | "unknown";
+
+export type PathFreshnessPathStatus =
+  | "fresh"
+  | "changed"
+  | "missing"
+  | "new"
+  | "unknown";
+
+const PATH_FRESHNESS_STATUSES = new Set<PathFreshnessStatus>([
+  "fresh",
+  "stale",
+  "unknown",
+]);
+
+const PATH_FRESHNESS_ENTRY_STATUSES = new Set<PathFreshnessPathStatus>([
+  "fresh",
+  "changed",
+  "missing",
+  "new",
+  "unknown",
+]);
+
+export type SourcePathFingerprint = {
+  path: string;
+  hash?: string;
+  size?: number;
+  exists: boolean;
+  /**
+   * mtime is **advisory only** — never canonical freshness
+   * evidence. Hash comparison is the source of truth.
+   */
+  mtimeAdvisory?: string;
+};
+
+export type SourceStateFingerprint = {
+  algorithm: "sha256";
+  rootHash: string;
+  paths: SourcePathFingerprint[];
+  generatedAt: string;
+  /**
+   * Globs that were ignored during the walk that produced
+   * this fingerprint. Recorded so audit reviewers can
+   * see what was deliberately excluded.
+   */
+  ignoredGlobs?: string[];
+};
+
+export type PathFreshnessEntry = {
+  path: string;
+  status: PathFreshnessPathStatus;
+  currentHash?: string;
+  baselineHash?: string;
+  currentExists?: boolean;
+  baselineExists?: boolean;
+  message?: string;
+};
+
+export type PathFreshnessRecommendation = {
+  refreshRecommended: boolean;
+  commands: string[];
+  message: string;
+};
+
+export type PathFreshnessSummary = {
+  total: number;
+  fresh: number;
+  changed: number;
+  missing: number;
+  new: number;
+  unknown: number;
+};
+
+export type PathFreshnessReport = {
+  header: ArtifactHeader;
+  status: PathFreshnessStatus;
+  baselineRef?: ArtifactRef;
+  baselineGeneratedAt?: string;
+  currentSourceState: SourceStateFingerprint;
+  baselineSourceState?: SourceStateFingerprint;
+  entries: PathFreshnessEntry[];
+  summary: PathFreshnessSummary;
+  recommendation: PathFreshnessRecommendation;
+};
+
+export type CreatePathFreshnessReportInput = {
+  header: ArtifactHeader;
+  status: PathFreshnessStatus;
+  currentSourceState: SourceStateFingerprint;
+  baselineSourceState?: SourceStateFingerprint;
+  baselineRef?: ArtifactRef;
+  baselineGeneratedAt?: string;
+  entries: PathFreshnessEntry[];
+  summary: PathFreshnessSummary;
+  recommendation: PathFreshnessRecommendation;
+};
+
+export function createPathFreshnessReport(
+  input: CreatePathFreshnessReportInput,
+): PathFreshnessReport {
+  if (!input || typeof input !== "object") {
+    throw new TypeError("createPathFreshnessReport requires an input object.");
+  }
+  if (!input.header || typeof input.header !== "object") {
+    throw new TypeError("createPathFreshnessReport requires input.header.");
+  }
+  if (input.header.artifactType !== "PathFreshnessReport") {
+    throw new TypeError(
+      "createPathFreshnessReport requires input.header.artifactType === \"PathFreshnessReport\".",
+    );
+  }
+  if (!PATH_FRESHNESS_STATUSES.has(input.status)) {
+    throw new TypeError(
+      `createPathFreshnessReport input.status must be one of ${[...PATH_FRESHNESS_STATUSES].join(", ")}.`,
+    );
+  }
+  if (!input.currentSourceState || typeof input.currentSourceState !== "object") {
+    throw new TypeError(
+      "createPathFreshnessReport requires input.currentSourceState.",
+    );
+  }
+  if (input.currentSourceState.algorithm !== "sha256") {
+    throw new TypeError(
+      "createPathFreshnessReport currentSourceState.algorithm must be \"sha256\".",
+    );
+  }
+  if (typeof input.currentSourceState.rootHash !== "string" || input.currentSourceState.rootHash.length === 0) {
+    throw new TypeError(
+      "createPathFreshnessReport currentSourceState.rootHash must be a non-empty string.",
+    );
+  }
+  if (!Array.isArray(input.currentSourceState.paths)) {
+    throw new TypeError(
+      "createPathFreshnessReport currentSourceState.paths must be an array.",
+    );
+  }
+  if (!Array.isArray(input.entries)) {
+    throw new TypeError("createPathFreshnessReport requires input.entries to be an array.");
+  }
+  for (const entry of input.entries) {
+    if (!entry || typeof entry !== "object") {
+      throw new TypeError("createPathFreshnessReport input.entries[] must be objects.");
+    }
+    if (typeof entry.path !== "string" || entry.path.length === 0) {
+      throw new TypeError("createPathFreshnessReport entry.path must be a non-empty string.");
+    }
+    if (!PATH_FRESHNESS_ENTRY_STATUSES.has(entry.status)) {
+      throw new TypeError(
+        `createPathFreshnessReport entry.status must be one of ${[...PATH_FRESHNESS_ENTRY_STATUSES].join(", ")}.`,
+      );
+    }
+  }
+  if (!input.summary || typeof input.summary !== "object") {
+    throw new TypeError("createPathFreshnessReport requires input.summary.");
+  }
+  if (!input.recommendation || typeof input.recommendation !== "object") {
+    throw new TypeError("createPathFreshnessReport requires input.recommendation.");
+  }
+  if (typeof input.recommendation.refreshRecommended !== "boolean") {
+    throw new TypeError(
+      "createPathFreshnessReport recommendation.refreshRecommended must be a boolean.",
+    );
+  }
+  if (!Array.isArray(input.recommendation.commands)) {
+    throw new TypeError(
+      "createPathFreshnessReport recommendation.commands must be an array.",
+    );
+  }
+  if (typeof input.recommendation.message !== "string") {
+    throw new TypeError(
+      "createPathFreshnessReport recommendation.message must be a string.",
+    );
+  }
+
+  const report: PathFreshnessReport = {
+    header: input.header,
+    status: input.status,
+    currentSourceState: input.currentSourceState,
+    entries: input.entries,
+    summary: input.summary,
+    recommendation: input.recommendation,
+  };
+
+  if (input.baselineRef) {
+    report.baselineRef = input.baselineRef;
+  }
+  if (typeof input.baselineGeneratedAt === "string" && input.baselineGeneratedAt.length > 0) {
+    report.baselineGeneratedAt = input.baselineGeneratedAt;
+  }
+  if (input.baselineSourceState) {
+    report.baselineSourceState = input.baselineSourceState;
+  }
+
+  return report;
+}
+
+/**
+ * Compare a `currentSourceState` fingerprint against a
+ * `baselineSourceState` fingerprint and derive
+ * `PathFreshnessReport` entries + summary + status +
+ * recommendation. Pure: no I/O, no source mutation.
+ *
+ * If `baselineSourceState` is `undefined`, every current
+ * path is reported `unknown`; status is `unknown`;
+ * recommendation message names the missing baseline.
+ */
+export function comparePathFreshness(
+  currentSourceState: SourceStateFingerprint,
+  baselineSourceState: SourceStateFingerprint | undefined,
+): {
+  status: PathFreshnessStatus;
+  entries: PathFreshnessEntry[];
+  summary: PathFreshnessSummary;
+  recommendation: PathFreshnessRecommendation;
+} {
+  if (!currentSourceState || typeof currentSourceState !== "object") {
+    throw new TypeError("comparePathFreshness requires currentSourceState.");
+  }
+
+  const entries: PathFreshnessEntry[] = [];
+  const summary: PathFreshnessSummary = {
+    total: 0,
+    fresh: 0,
+    changed: 0,
+    missing: 0,
+    new: 0,
+    unknown: 0,
+  };
+
+  if (!baselineSourceState) {
+    for (const path of currentSourceState.paths) {
+      entries.push({
+        path: path.path,
+        status: "unknown",
+        currentHash: path.hash,
+        currentExists: path.exists,
+        message: "No prior PathFreshnessReport baseline found.",
+      });
+    }
+    summary.total = entries.length;
+    summary.unknown = entries.length;
+    return {
+      status: "unknown",
+      entries,
+      summary,
+      recommendation: {
+        refreshRecommended: false,
+        commands: [],
+        message:
+          "First PathFreshnessReport run on this repo: no baseline to compare against. "
+          + "Re-run `rekon paths freshness` after changes to compare working-tree state to this baseline.",
+      },
+    };
+  }
+
+  const baselineByPath = new Map<string, SourcePathFingerprint>();
+  for (const path of baselineSourceState.paths) {
+    baselineByPath.set(path.path, path);
+  }
+  const currentByPath = new Map<string, SourcePathFingerprint>();
+  for (const path of currentSourceState.paths) {
+    currentByPath.set(path.path, path);
+  }
+
+  const allPaths = new Set<string>([
+    ...baselineByPath.keys(),
+    ...currentByPath.keys(),
+  ]);
+  const sortedPaths = [...allPaths].sort();
+
+  for (const path of sortedPaths) {
+    const current = currentByPath.get(path);
+    const baseline = baselineByPath.get(path);
+
+    if (!current && baseline) {
+      entries.push({
+        path,
+        status: "missing",
+        baselineHash: baseline.hash,
+        currentExists: false,
+        baselineExists: baseline.exists,
+        message: "Path was present in baseline but is absent now.",
+      });
+      summary.missing += 1;
+      continue;
+    }
+    if (current && !baseline) {
+      entries.push({
+        path,
+        status: "new",
+        currentHash: current.hash,
+        currentExists: current.exists,
+        baselineExists: false,
+        message: "Path is new relative to baseline.",
+      });
+      summary.new += 1;
+      continue;
+    }
+    if (current && baseline) {
+      if (current.exists === false && baseline.exists === false) {
+        entries.push({
+          path,
+          status: "fresh",
+          currentExists: false,
+          baselineExists: false,
+        });
+        summary.fresh += 1;
+        continue;
+      }
+      if (current.exists !== baseline.exists) {
+        entries.push({
+          path,
+          status: current.exists ? "new" : "missing",
+          currentHash: current.hash,
+          baselineHash: baseline.hash,
+          currentExists: current.exists,
+          baselineExists: baseline.exists,
+          message: current.exists
+            ? "Path was absent in baseline but is present now."
+            : "Path was present in baseline but is absent now.",
+        });
+        if (current.exists) {
+          summary.new += 1;
+        } else {
+          summary.missing += 1;
+        }
+        continue;
+      }
+      if (current.hash !== baseline.hash) {
+        entries.push({
+          path,
+          status: "changed",
+          currentHash: current.hash,
+          baselineHash: baseline.hash,
+          currentExists: current.exists,
+          baselineExists: baseline.exists,
+          message: "Content hash differs from baseline.",
+        });
+        summary.changed += 1;
+        continue;
+      }
+      entries.push({
+        path,
+        status: "fresh",
+        currentHash: current.hash,
+        baselineHash: baseline.hash,
+        currentExists: current.exists,
+        baselineExists: baseline.exists,
+      });
+      summary.fresh += 1;
+    }
+  }
+
+  summary.total = entries.length;
+
+  const isStale = summary.changed > 0 || summary.missing > 0 || summary.new > 0;
+  const status: PathFreshnessStatus = isStale ? "stale" : "fresh";
+
+  const recommendation: PathFreshnessRecommendation = isStale
+    ? {
+        refreshRecommended: true,
+        commands: ["rekon refresh"],
+        message:
+          "Source paths changed since the last PathFreshnessReport. "
+          + "Run `rekon refresh` before relying on existing artifacts.",
+      }
+    : {
+        refreshRecommended: false,
+        commands: [],
+        message: "Working-tree paths match the baseline; no refresh required.",
+      };
+
+  return { status, entries, summary, recommendation };
+}

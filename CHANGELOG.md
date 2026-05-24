@@ -4,6 +4,99 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **PathFreshnessReport Artifact +
+  Source-State Fingerprint Skeleton** (first
+  watcher / path-freshness implementation slice
+  selected by the post-beta dogfood evidence
+  triage decision; Option C). Introduces a new
+  artifact type, a deterministic source-state
+  fingerprint helper, and a read-only CLI
+  surface — without a daemon, without background
+  refresh, without source mutation.
+
+  **Runtime + helpers + CLI + tests + docs
+  batch.** No watcher daemon. No background
+  refresh. No automatic `rekon refresh`
+  invocation. No source mutation. No
+  `ArtifactHeader` change. No new permission.
+  No new role. No workflow YAML. No version
+  bump. No `npm publish`. No GitHub Release.
+  No GitHub API call. No network I/O.
+
+  **What landed:**
+  - New artifact type `PathFreshnessReport`
+    registered in `@rekon/sdk` conformance and
+    the `@rekon/runtime` category map
+    (`"actions"`).
+  - New pure helpers
+    `createPathFreshnessReport(...)` and
+    `comparePathFreshness(current, baseline?)`
+    in `@rekon/capability-intent`.
+  - New pure helper
+    `buildSourceStateFingerprint(input)` in
+    `@rekon/kernel-repo-model`. Sha256 content
+    hashes, deterministic ordering, default
+    ignore set (`.git`, `.rekon`,
+    `node_modules`, `dist`, `coverage`,
+    `.next`, `.turbo`, `.cache`), bounded
+    reads (32 MiB safety cap), `mtimeAdvisory`
+    opt-in only — **mtimes are never canonical
+    freshness evidence**.
+  - New CLI command `rekon paths freshness
+    [--path <path>] [--root <path>] [--json]`.
+    Read-only with respect to source files.
+    First run records `status: "unknown"` with
+    a "No baseline" recommendation;
+    subsequent runs compare against the most
+    recent prior `PathFreshnessReport` and
+    record `fresh` / `stale` with a per-path
+    entry list and a `rekon refresh`
+    recommendation when stale.
+  - The new artifact is the working-tree
+    counterpart to the existing artifact
+    lineage freshness surface. **Artifact
+    lineage freshness is not working-tree
+    freshness.** The two coexist; neither
+    replaces the other.
+
+  **Tests:** new
+  `tests/contract/path-freshness-report.test.mjs`
+  (15 cases covering deterministic
+  fingerprint, ignore-set correctness,
+  content-change detection, first-run unknown
+  / second-run fresh / changed / missing / new
+  flows, `--path` narrowing, recommendation,
+  artifact validation, `artifacts validate`
+  clean, no-refresh, no source mutation,
+  mtime advisory). New
+  `tests/docs/path-freshness-report.test.mjs`
+  (9 assertions). All other pre-existing
+  tests still pass.
+
+  **Docs:** new
+  `docs/artifacts/path-freshness-report.md`,
+  new `docs/concepts/path-freshness.md`,
+  review packet
+  `.rekon-dev/review-packets/path-freshness-report.md`
+  (with PURPOSE PRESERVATION CHECK).
+  Cross-link updates to the watcher / path
+  freshness policy memo, the post-beta
+  dogfood evidence triage memo, both
+  roadmaps, the refresh concept doc, the
+  freshness-and-invalidation concept doc, the
+  agent operating contract concept doc, the
+  architecture summary + agent contract
+  publication docs (deferred surfacing note),
+  and the README.
+
+  **Out of scope (next slice):** publication
+  surfacing — the latest `PathFreshnessReport`
+  is not yet rendered in the architecture
+  summary, agent contract, or proof report.
+  That work is the next slice ("path
+  freshness publication surfacing"). Still no
+  daemon. Still no background refresh.
+
 - Shipped **Post-Beta Dogfood Evidence Triage
   Decision** (strategy / docs / tests-only
   batch). Reviewed the real-repo cohort

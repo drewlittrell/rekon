@@ -430,3 +430,17 @@ are accepted. See
   surface emits on fixture input. Beta limitations
   carried forward: known limitations must be
   documented before beta is announced.
+
+Agents should additionally treat the latest
+[`PathFreshnessReport`](../artifacts/path-freshness-report.md)
+as authoritative for **working-tree freshness**.
+If the most recent `PathFreshnessReport.status` is
+`stale`, the agent should recommend `rekon
+refresh` before relying on existing artifacts and
+must **not** assume that artifact lineage
+freshness alone implies the source files are
+current. **Artifact lineage freshness is not
+working-tree freshness.** Future agent-contract
+publication surfacing of `PathFreshnessReport` is
+tracked separately as the next slice; until that
+ships, agents must check the artifact directly.

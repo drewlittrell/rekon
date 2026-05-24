@@ -5259,6 +5259,34 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **PathFreshnessReport artifact + source-state
+  fingerprint skeleton (P1.1
+  path-freshness-report slice).** ✅ Shipped.
+  **First watcher / path-freshness
+  implementation slice** selected by the
+  post-beta dogfood evidence triage decision
+  (Option C). New `PathFreshnessReport`
+  artifact type + `buildSourceStateFingerprint`
+  helper + `comparePathFreshness` comparator +
+  `rekon paths freshness` CLI. **No daemon. No
+  background refresh. No source mutation. No
+  `ArtifactHeader` change. No new permission.
+  Mtimes advisory only.** The CLI is read-only
+  with respect to source; it writes exactly one
+  diagnostic `PathFreshnessReport` per
+  invocation and recommends `rekon refresh`
+  when the working tree has drifted — but
+  never spawns refresh itself. **Artifact
+  lineage freshness is not working-tree
+  freshness; both surfaces coexist.** See
+  [`docs/artifacts/path-freshness-report.md`](../artifacts/path-freshness-report.md)
+  and
+  [`docs/concepts/path-freshness.md`](../concepts/path-freshness.md).
+  **Recommended next slice:** path freshness
+  publication surfacing — render the latest
+  report in the architecture summary, agent
+  contract, and (if useful) proof report +
+  GitHub review dry-run payloads.
 - **Post-beta dogfood evidence triage decision
   (P1.1 post-beta-dogfood-evidence-triage
   slice).** ✅ Shipped. **Strategy / docs /

@@ -255,6 +255,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "VerificationPlan", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "VerificationResult", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "VerificationRun", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "PathFreshnessReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ReconciliationPlan", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ReconciliationLog", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ActionLog", schemaVersion: "0.1.0", stability: "experimental" },

@@ -381,3 +381,13 @@ assuming advisory merge candidates are accepted. See
   the path-freshness implementation slice; the existing
   `### Governance Freshness` subsection covers
   artifact-lineage freshness only.
+- [PathFreshnessReport](path-freshness-report.md) +
+  [Path freshness concept doc](../concepts/path-freshness.md) —
+  the artifact is now shipped (`rekon paths freshness`),
+  but the agent contract does **not yet** render it.
+  Surfacing the latest report (with its `status`,
+  `summary`, and `recommendation`) is the next slice
+  ("path freshness publication surfacing"). Until that
+  ships, agents should read the artifact directly per
+  the new clause in the [agent operating
+  contract](../concepts/agent-operating-contract.md).

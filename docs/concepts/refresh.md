@@ -310,3 +310,9 @@ latest-major check inside `refresh` already filters those.
 - [Watcher / path freshness policy decision](../strategy/watcher-path-freshness-policy-decision.md) —
   pins `rekon refresh` as the explicit operator action for
   beta; no daemon by default; no background refresh.
+- [PathFreshnessReport](../artifacts/path-freshness-report.md)
+  + [Path freshness concept doc](path-freshness.md) —
+  the read-only working-tree freshness surface. `rekon
+  paths freshness` recommends `rekon refresh` when the
+  working tree has drifted, but **never spawns refresh
+  itself**.
