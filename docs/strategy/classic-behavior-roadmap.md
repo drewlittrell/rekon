@@ -5259,6 +5259,49 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Reconciliation exact-diff operation
+  v1 (P1.1
+  reconciliation-exact-diff-operation-v1
+  slice).** ✅ Shipped. **First
+  reconciliation implementation slice
+  after the Plan-Generator Diff Data
+  Discovery memo's recommended next
+  step.** Adds the new
+  `exact_text_replacement` operation
+  kind to `ReconciliationOperation` plus
+  optional additive `beforeText` /
+  `afterText` / `diffKind` fields on
+  `CoherencyRemediationStep`,
+  `RemediationItemLike`, and
+  `ReconciliationPlanOperation`. The
+  classifier emits patch fields only
+  when an **eight-precondition safety
+  gate** passes (patch triple non-empty,
+  recognized `diffKind`, `repoRoot`
+  supplied, single repo-relative path,
+  current file exists + matches
+  `beforeText`, `afterText` differs).
+  Any failing check silently drops the
+  patch fields. Reconciliation Preview
+  v1 now renders a **real unified diff**
+  against a real generator output via
+  its existing forward-compatible diff
+  branch. **Source-write apply remains
+  unavailable.** `source:write`
+  permission still unregistered.
+  `ReconciliationApplyReport` still
+  unregistered. `ReconciliationPreviewReport`
+  still unregistered (gating condition
+  #1 now satisfied; reservation still
+  stands since *at least two* signals
+  must fire). New 13-assertion contract
+  test + 7-assertion docs test. Pinned
+  verbatim: *Source-write apply remains
+  unavailable.* / *Exact diff is
+  generated only when deterministic.* /
+  *Previewable diff does not resolve
+  findings.* **Recommended next slice:**
+  exact-diff operation safety review.
 - **Plan-generator diff data discovery
   (P1.1
   plan-generator-diff-data-discovery

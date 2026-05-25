@@ -4,6 +4,137 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Reconciliation Exact-Diff
+  Operation v1** — first reconciliation
+  implementation slice following the
+  Plan-Generator Diff Data Discovery memo's
+  recommended next step. Adds the new
+  `exact_text_replacement` operation kind
+  plus optional additive `beforeText` /
+  `afterText` / `diffKind` fields on
+  `CoherencyRemediationStep`,
+  `RemediationItemLike`, and
+  `ReconciliationPlanOperation`.
+  Reconciliation Preview v1 now renders a
+  real unified diff against a real
+  generator.
+
+  **No source-write apply. No `rekon
+  reconcile apply` CLI. No `source:write`
+  permission registration. No
+  `ReconciliationApplyReport`
+  registration. No `ReconciliationPreviewReport`
+  registration. No durable preview
+  artifact. No schema-version bump (all
+  changes are additive + optional). No
+  auto-resolve of findings. No
+  auto-apply. No auto-verification. No
+  workflow YAML. No GitHub API call. No
+  `package.json` / `package-lock.json`
+  mutation. No source-file mutation in
+  any `packages/*/src/*` outside the
+  edits described below. No npm publish.
+  No version bump. No git tag. No GitHub
+  Release. No new branch. No network
+  I/O. No mutation of any operator
+  repo.**
+
+  **What landed:**
+  - `@rekon/kernel-findings`:
+    `CoherencyRemediationStep` gains
+    optional `beforeText`, `afterText`,
+    `diffKind` fields; the
+    `CoherencyDelta` validator
+    typechecks them when present.
+  - `@rekon/capability-reconcile`:
+    `RemediationItemLike` +
+    `ReconciliationPlanOperation` gain
+    the same three fields;
+    `ReconciliationOperation` union
+    gains the `exact_text_replacement`
+    variant; the new
+    `tryClassifyExactTextReplacement`
+    helper enforces an eight-precondition
+    safety gate; the suggestion-mode
+    actuator + `classifyRemediationItem`
+    + `suggestReconciliationOperations`
+    + `ReconciliationSuggestionInput`
+    learn to honor an optional
+    `repoRoot`.
+  - `packages/cli`: the `rekon
+    reconcile suggest` command passes
+    `repoRoot: root` through the
+    actuator input so the safety
+    gate's file-read check runs
+    against the real working tree.
+  - New deterministic fixture at
+    `tests/fixtures/reconciliation-preview/exact-diff-v1/`
+    with `target.ts` whose content
+    matches the seeded
+    `CoherencyDelta`'s `beforeText`
+    byte-for-byte.
+  - New 13-assertion contract test
+    `tests/contract/reconciliation-exact-diff-operation.test.mjs`
+    exercising the validator, the
+    classifier's happy path + all four
+    failing-precondition paths, the
+    preview's previewable + diff
+    render, the preview's drift
+    rejection, the read-only
+    guarantee on source files +
+    artifacts, and `artifacts
+    validate` cleanliness.
+  - New strategy memo
+    `docs/strategy/reconciliation-exact-diff-operation-v1.md`.
+  - Review packet
+    `.rekon-dev/review-packets/reconciliation-exact-diff-operation-v1.md`
+    with PURPOSE PRESERVATION CHECK +
+    all 11 required sections.
+  - New 7-assertion docs test
+    `tests/docs/reconciliation-exact-diff-operation.test.mjs`.
+  - Cross-link updates: reconciliation
+    preview concept, reconciliation
+    plans concept, ReconciliationPlan
+    artifact reference, plan-generator
+    diff data discovery (Follow-Up
+    resolves to this slice), preview
+    report artifact decision (gating
+    condition #1 now satisfied),
+    source-write reconciliation policy
+    decision, both roadmaps, README.
+
+  **Pinned posture statements
+  (asserted by the docs test):**
+  - *Source-write apply remains
+    unavailable.*
+  - *Exact diff is generated only when
+    deterministic.*
+  - *Previewable diff does not resolve
+    findings.*
+
+  **Eight-precondition safety gate
+  (asserted by the contract test):**
+  1. Patch triple present + non-empty
+  2. `diffKind === "exact-text-replacement"`
+  3. `repoRoot` supplied
+  4. Exactly one file path
+  5. Path is repo-relative (no `/`
+     prefix, no `..` escapes)
+  6. Current file exists + readable
+  7. Current content equals
+     `beforeText` byte-for-byte
+  8. `afterText` differs from
+     `beforeText`
+
+  **Recommended next slice:**
+  *Exact-diff operation safety
+  review.* Reviews whether the
+  eight-precondition shape is right
+  for additional operation classes,
+  ReconciliationPreviewReport
+  registration, and apply permission
+  design.
+
 - Shipped **Plan-Generator Diff Data
   Discovery** — first reconciliation slice
   after the deliberate pause point pinned by

@@ -7240,6 +7240,24 @@ export type CoherencyRemediationStep = {
   files: string[];
   systems: string[];
   severity: CoherencyDeltaSeverity;
+  /**
+   * Optional, additive forward-compatible patch fields. When all three are
+   * present AND a downstream consumer (the reconcile classifier) can verify
+   * the current source file content matches `beforeText`, the consumer may
+   * emit an `exact_text_replacement` reconciliation operation carrying these
+   * fields. Absence is the default; existing CoherencyDelta artifacts
+   * continue to validate cleanly without these fields.
+   *
+   * `diffKind` is currently restricted to `"exact-text-replacement"`; the
+   * exact-diff slice does not authorise any other kind.
+   *
+   * **Source-write apply remains unavailable.** These fields are a *preview*
+   * input, not a permission grant. No source files are mutated by the
+   * presence of these fields.
+   */
+  beforeText?: string;
+  afterText?: string;
+  diffKind?: "exact-text-replacement";
 };
 
 export type CoherencyDeltaSummary = {
@@ -7787,6 +7805,27 @@ function validateRemediationStep(value: unknown, path: string, issues: Validatio
 
   if (!isStringArray(value.systems)) {
     issues.push({ path: `${path}.systems`, message: "Expected an array of strings." });
+  }
+
+  // Optional additive patch fields (exact-diff operation v1). Each must be a
+  // string when present; absence is fine. `diffKind` is restricted to the
+  // single recognized value today.
+  if (value.beforeText !== undefined && typeof value.beforeText !== "string") {
+    issues.push({ path: `${path}.beforeText`, message: "Expected a string when present." });
+  }
+
+  if (value.afterText !== undefined && typeof value.afterText !== "string") {
+    issues.push({ path: `${path}.afterText`, message: "Expected a string when present." });
+  }
+
+  if (
+    value.diffKind !== undefined &&
+    value.diffKind !== "exact-text-replacement"
+  ) {
+    issues.push({
+      path: `${path}.diffKind`,
+      message: 'Expected "exact-text-replacement" when present.',
+    });
   }
 }
 

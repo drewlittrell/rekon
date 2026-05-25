@@ -379,11 +379,25 @@ the **narrow ReconciliationPlan exact-diff
 operation v1** described there — pick one
 deterministic operation class, emit exact
 patch text for it, keep source-write apply
-unavailable. Once that lands, condition #1
-in this decision's *Conditions For Future
-Registration* will be satisfied; this
-decision's reservation can then be
-revisited.
+unavailable.
+
+**Further update:** that slice has shipped —
+see
+[Reconciliation Exact-Diff Operation v1](reconciliation-exact-diff-operation-v1.md).
+The `exact_text_replacement` operation kind
+landed with an eight-precondition safety
+gate. **Gating condition #1 above is now
+satisfied** ("a plan generator emits
+forward-compat `beforeText` + `afterText`
+for at least one real operation class").
+The reservation still stands because *at
+least two* signals must fire before
+registration is worth doing — and only #1
+has fired so far. The exact-diff operation
+safety review slice will explicitly
+re-evaluate whether registration is worth
+doing now (or whether the bar should
+remain at two-of-four).
 
 The natural next slice still depends on
 which of the *Conditions For Future

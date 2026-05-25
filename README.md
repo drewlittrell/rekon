@@ -879,6 +879,36 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # slice as well. Fallback if blocked:
 # ReconciliationPlan operation-shape
 # strengthening decision memo.
+#
+# Reconciliation exact-diff operation v1
+# has shipped at
+# docs/strategy/reconciliation-exact-diff-operation-v1.md.
+# Adds the new exact_text_replacement
+# operation kind plus optional additive
+# beforeText / afterText / diffKind
+# fields on CoherencyRemediationStep +
+# RemediationItemLike +
+# ReconciliationPlanOperation. The
+# classifier emits patch fields only
+# when an eight-precondition safety
+# gate passes (patch triple non-empty,
+# recognized diffKind, repoRoot
+# supplied, single repo-relative path,
+# current file exists + matches
+# beforeText, afterText differs).
+# Reconciliation Preview v1 now renders
+# a real unified diff against a real
+# generator. Source-write apply remains
+# unavailable. ReconciliationPreviewReport
+# remains unregistered (gating
+# condition #1 satisfied; reservation
+# still stands). Pinned verbatim:
+# Source-write apply remains
+# unavailable; Exact diff is generated
+# only when deterministic; Previewable
+# diff does not resolve findings.
+# Recommended next slice: exact-diff
+# operation safety review.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

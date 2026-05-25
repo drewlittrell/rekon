@@ -1106,6 +1106,97 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Reconciliation exact-diff operation v1
+  (P1.1
+  reconciliation-exact-diff-operation-v1
+  slice): **first reconciliation
+  implementation slice after the
+  Plan-Generator Diff Data Discovery
+  memo's recommended next step.** Product
+  capability batch (schema + generator +
+  contract test + docs). **No source-write
+  apply. No `rekon reconcile apply` CLI.
+  No `source:write` permission
+  registration. No `ReconciliationApplyReport`
+  registration. No `ReconciliationPreviewReport`
+  registration. No durable preview
+  artifact. No schema-version bump
+  (changes are additive + optional). No
+  auto-resolve of findings. No
+  auto-apply of reconciliation. No
+  auto-verification. No workflow YAML.
+  No GitHub API call. No `package.json`
+  / `package-lock.json` mutation. No
+  npm publish. No version bump. No git
+  tag. No GitHub Release. No new
+  branch. No network I/O. No mutation
+  of any operator repo.** Adds the new
+  `exact_text_replacement` operation
+  kind to the `ReconciliationOperation`
+  union plus optional additive fields
+  `beforeText` / `afterText` /
+  `diffKind` on `CoherencyRemediationStep`
+  + `RemediationItemLike` +
+  `ReconciliationPlanOperation`. The
+  classifier (`tryClassifyExactTextReplacement`
+  in
+  `packages/capability-reconcile/src/index.ts`)
+  emits patch fields only when **eight**
+  preconditions all hold: patch triple
+  present + non-empty; `diffKind` is the
+  recognized literal; caller supplied
+  `repoRoot`; exactly one file path;
+  path is repo-relative (no `/` prefix,
+  no `..` escapes); current file exists
+  + readable; current content equals
+  `beforeText` byte-for-byte;
+  `afterText` differs from
+  `beforeText`. Any failing precondition
+  silently drops the patch fields and
+  falls through to the regex-based
+  classifier. Reconciliation Preview v1
+  now renders a **real unified diff**
+  against a real generator output via
+  its existing forward-compatible diff
+  branch. New deterministic fixture
+  `tests/fixtures/reconciliation-preview/exact-diff-v1/`.
+  New 13-assertion contract test
+  `tests/contract/reconciliation-exact-diff-operation.test.mjs`
+  exercises every safety check + the
+  full preview render + the
+  artifacts-validate + no-source-write
+  invariants. New strategy memo
+  [`docs/strategy/reconciliation-exact-diff-operation-v1.md`](reconciliation-exact-diff-operation-v1.md).
+  Review packet
+  `.rekon-dev/review-packets/reconciliation-exact-diff-operation-v1.md`
+  with PURPOSE PRESERVATION CHECK + all
+  11 required sections. New 7-assertion
+  docs test
+  `tests/docs/reconciliation-exact-diff-operation.test.mjs`.
+  Required verbatim pins (asserted by
+  docs test): *"Source-write apply
+  remains unavailable."*, *"Exact diff
+  is generated only when
+  deterministic."*, *"Previewable diff
+  does not resolve findings."* Full
+  suite expected ≥ 2030 passed / 1
+  skipped (2010 + 20 new). Gating
+  condition #1 of the
+  [ReconciliationPreviewReport Artifact
+  Decision](reconciliation-preview-report-artifact-decision.md)
+  ("a plan generator emits forward-compat
+  `beforeText` + `afterText` for at
+  least one real operation class") is
+  now **satisfied**; the reservation
+  still stands because at least two
+  signals must fire. **Recommended next
+  slice:** *Exact-diff operation safety
+  review* — review whether the
+  eight-precondition shape is right for
+  additional operation classes,
+  ReconciliationPreviewReport
+  registration, and apply permission
+  design.
 - Plan-generator diff data discovery
   (P1.1
   plan-generator-diff-data-discovery

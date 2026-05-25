@@ -460,6 +460,23 @@ cross-references.
 operation v1.* Scope pinned in the
 *Recommendation* section above.
 
+**Update:** that slice has shipped — see
+[Reconciliation Exact-Diff Operation v1](reconciliation-exact-diff-operation-v1.md).
+The `exact_text_replacement` operation kind
+landed with an eight-precondition safety
+gate; Reconciliation Preview v1 now renders
+a real unified diff against a real
+generator. Gating condition #1 of the
+[ReconciliationPreviewReport Artifact
+Decision](reconciliation-preview-report-artifact-decision.md)
+("a plan generator emits forward-compat
+`beforeText` + `afterText` for at least one
+real operation class") is now **satisfied**;
+the decision's reservation still stands
+because *at least two* signals must fire
+before registration is worth doing.
+Source-write apply remains unavailable.
+
 **Fallback next slice (if Option B's
 operation-class pick is blocked):**
 *ReconciliationPlan operation-shape

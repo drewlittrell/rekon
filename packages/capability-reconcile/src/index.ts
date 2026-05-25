@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, resolve as pathResolve } from "node:path";
+import { join, join as joinPath, resolve as pathResolve } from "node:path";
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
@@ -15,7 +16,19 @@ export type ReconciliationOperation =
   | "safe_import_rewrite"
   | "generated_scaffold_write"
   | "verification_command_run"
-  | "manual_review";
+  | "manual_review"
+  /**
+   * `exact_text_replacement` is emitted only when the upstream
+   * `CoherencyRemediationStep` (or equivalent `RemediationItemLike`) carries
+   * exact `beforeText` + `afterText` + `diffKind: "exact-text-replacement"`
+   * fields AND every plan-generation-time safety check passes (single repo-
+   * relative path, current file exists, current file content equals
+   * `beforeText`, `afterText` differs from `beforeText`). The operation
+   * class is `source-write-deferred` because applying it WOULD mutate a
+   * source file — but **source-write apply is not implemented**. v1 only
+   * makes the operation previewable.
+   */
+  | "exact_text_replacement";
 
 export type ReconciliationOperationClass =
   | "artifact-only"
@@ -48,6 +61,16 @@ export type ReconciliationPlanOperation = {
   systems?: string[];
   suggestedAction?: string;
   requiresPermission?: ReconciliationPermission[];
+  /**
+   * Optional additive exact-diff fields (exact-diff operation v1). All three
+   * must be present together — `beforeText` + `afterText` + `diffKind` — and
+   * are only attached by the classifier when every plan-generation-time
+   * safety check passes. Their presence does NOT grant a source-write apply
+   * path; it makes the operation previewable in Reconciliation Preview v1.
+   */
+  beforeText?: string;
+  afterText?: string;
+  diffKind?: "exact-text-replacement";
 };
 
 export type ReconciliationPlanSummary = {
@@ -84,6 +107,16 @@ export type RemediationItemLike = {
   files?: string[];
   systems?: string[];
   severity?: string;
+  /**
+   * Optional additive patch fields (exact-diff operation v1). When present
+   * AND the plan-generation-time safety checks pass, the classifier emits an
+   * `exact_text_replacement` operation that carries the patch through to
+   * Reconciliation Preview v1. See `classifyRemediationItem` for the safety
+   * check chain.
+   */
+  beforeText?: string;
+  afterText?: string;
+  diffKind?: "exact-text-replacement";
 };
 
 export type ReconciliationSuggestionInput = {
@@ -92,6 +125,15 @@ export type ReconciliationSuggestionInput = {
   limit?: number;
   priority?: CoherencyRemediationPriority;
   findingId?: string;
+  /**
+   * Optional. When supplied, the classifier may perform plan-generation-time
+   * safety checks for `exact_text_replacement` candidates (single repo-
+   * relative path, current file exists, current content matches `beforeText`,
+   * `afterText` differs). Absence leaves the classifier in its prior
+   * regex-only mode — patch fields are dropped from any operation that
+   * would otherwise become `exact_text_replacement`.
+   */
+  repoRoot?: string;
 };
 
 export function suggestReconciliationOperations(
@@ -107,7 +149,7 @@ export function suggestReconciliationOperations(
     ? "work-order"
     : "coherency-delta";
 
-  return items.map((item) => classifyRemediationItem(item, source));
+  return items.map((item) => classifyRemediationItem(item, source, input.repoRoot));
 }
 
 export const reconcileActuator: Actuator = {
@@ -248,12 +290,16 @@ async function runSuggestionMode({
     ? Math.floor(input.limit)
     : undefined;
 
+  const repoRoot = typeof input.repoRoot === "string" && input.repoRoot.length > 0
+    ? input.repoRoot
+    : undefined;
   const suggested = suggestReconciliationOperations({
     workOrder,
     coherencyDelta,
     findingId: filterFindingId,
     priority: filterPriority,
     limit: filterLimit,
+    repoRoot,
   });
   const operations = suggested.map((operation) => applyStatus(operation, dryRun));
   const inputRefs: ArtifactRef[] = [];
@@ -338,6 +384,7 @@ function pickRemediationItems(input: ReconciliationSuggestionInput): Remediation
 function classifyRemediationItem(
   item: RemediationItemLike,
   source: ReconciliationOperationSource,
+  repoRoot?: string,
 ): ReconciliationPlanOperation {
   const haystack = `${item.title ?? ""} ${item.action ?? ""}`.toLowerCase();
   const base = {
@@ -348,6 +395,21 @@ function classifyRemediationItem(
     suggestedAction: item.action,
     source,
   };
+
+  // Exact-diff operation v1: if the item carries a complete patch triple
+  // (`beforeText` + `afterText` + `diffKind: "exact-text-replacement"`),
+  // attempt to emit an `exact_text_replacement` operation. Every safety
+  // check below must pass — otherwise we silently drop the patch fields
+  // and fall through to the regex-based classification (the item still
+  // generates a deferred operation, just without patch data).
+  const exactDiffResult = tryClassifyExactTextReplacement({
+    item,
+    base,
+    repoRoot,
+  });
+  if (exactDiffResult) {
+    return exactDiffResult;
+  }
 
   if (/\bdocs?\b|documentation|readme|agents\.md|agents/.test(haystack)) {
     return {
@@ -408,6 +470,117 @@ function classifyRemediationItem(
     class: "manual-review",
     status: "deferred",
     reason: "No deterministic reconciliation operation was inferred.",
+  };
+}
+
+/**
+ * Plan-generation-time safety gate for `exact_text_replacement` operations.
+ *
+ * Required preconditions (ALL must hold to emit patch data):
+ *   1. Item carries non-empty `beforeText` + `afterText` + `diffKind`.
+ *   2. `diffKind === "exact-text-replacement"`.
+ *   3. `repoRoot` is supplied (caller has a sandbox to read from).
+ *   4. Item names exactly one file path.
+ *   5. Path is repo-relative (no leading `/`, no `..` segments after resolve
+ *      escapes `repoRoot`).
+ *   6. The current file at `<repoRoot>/<path>` exists and is readable.
+ *   7. Current file content equals `beforeText` byte-for-byte.
+ *   8. `afterText` differs from `beforeText`.
+ *
+ * If ALL hold: returns an `exact_text_replacement` operation with patch
+ * fields attached, class `source-write-deferred`, status `deferred`,
+ * `requiresPermission: ["write:source"]`.
+ *
+ * If any hold fails: returns `undefined` so the caller falls through to the
+ * regex-based classification. This drops the patch fields silently — the
+ * item still produces a deferred operation, just without diff data. We do
+ * NOT emit `exact_text_replacement` with partial / unverifiable patch
+ * fields.
+ *
+ * Read-only: this function never writes any file. It reads `<repoRoot>/<path>`
+ * with a path-escape check and then closes the handle.
+ */
+function tryClassifyExactTextReplacement({
+  item,
+  base,
+  repoRoot,
+}: {
+  item: RemediationItemLike;
+  base: Partial<ReconciliationPlanOperation>;
+  repoRoot?: string;
+}): ReconciliationPlanOperation | undefined {
+  // (1) Patch triple must all be present and non-empty.
+  if (
+    typeof item.beforeText !== "string" ||
+    typeof item.afterText !== "string" ||
+    typeof item.diffKind !== "string"
+  ) {
+    return undefined;
+  }
+
+  // (2) diffKind must be recognized.
+  if (item.diffKind !== "exact-text-replacement") {
+    return undefined;
+  }
+
+  // (3) repoRoot required for the file-read safety check.
+  if (typeof repoRoot !== "string" || repoRoot.length === 0) {
+    return undefined;
+  }
+
+  // (4) Exactly one file path.
+  const files = item.files ?? [];
+  if (files.length !== 1) {
+    return undefined;
+  }
+
+  const path = files[0];
+  if (typeof path !== "string" || path.length === 0) {
+    return undefined;
+  }
+
+  // (5) Path must resolve INSIDE repoRoot. Reject absolute paths + escapes.
+  if (path.startsWith("/")) {
+    return undefined;
+  }
+  const resolvedRoot = pathResolve(repoRoot);
+  const resolvedPath = pathResolve(joinPath(resolvedRoot, path));
+  if (
+    resolvedPath !== resolvedRoot &&
+    !resolvedPath.startsWith(`${resolvedRoot}/`)
+  ) {
+    return undefined;
+  }
+
+  // (6) Current file must exist + be readable.
+  let currentContent: string;
+  try {
+    currentContent = readFileSync(resolvedPath, "utf8");
+  } catch {
+    return undefined;
+  }
+
+  // (7) Current file content must equal beforeText byte-for-byte.
+  if (currentContent !== item.beforeText) {
+    return undefined;
+  }
+
+  // (8) afterText must differ from beforeText (no no-op patches).
+  if (item.afterText === item.beforeText) {
+    return undefined;
+  }
+
+  return {
+    ...base,
+    operation: "exact_text_replacement",
+    class: "source-write-deferred",
+    status: "deferred",
+    reason:
+      "Exact-text replacement candidate; current file matches beforeText. Preview-only; source-write apply unavailable.",
+    requiresPermission: ["write:source"],
+    beforeText: item.beforeText,
+    afterText: item.afterText,
+    diffKind: "exact-text-replacement",
   };
 }
 

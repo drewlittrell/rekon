@@ -203,3 +203,14 @@ Rebuild with `rekon reconcile suggest`.
   CLI continue to write no artifacts; future
   registration is gated on at least two of four
   named product signals.
+- [Reconciliation Exact-Diff Operation v1](../strategy/reconciliation-exact-diff-operation-v1.md)
+  — adds the new `exact_text_replacement`
+  operation kind. When an upstream
+  `CoherencyRemediationStep` carries
+  `beforeText` + `afterText` +
+  `diffKind: "exact-text-replacement"` AND the
+  plan-time safety gate passes, the
+  `ReconciliationPlan` operation carries the
+  patch fields through and Reconciliation
+  Preview v1 renders a real unified diff.
+  Source-write apply remains unavailable.

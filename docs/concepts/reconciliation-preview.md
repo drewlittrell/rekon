@@ -197,6 +197,16 @@ any finding status, and never causes any
   which would finally light up this concept
   doc's forward-compatible diff branch
   against a real generator.
+- [Reconciliation Exact-Diff Operation v1](../strategy/reconciliation-exact-diff-operation-v1.md)
+  — the implementation slice that satisfied
+  the discovery memo's recommendation. Adds
+  the new `exact_text_replacement` operation
+  kind with a plan-time + preview-time
+  double-gate; the preview helper's
+  forward-compatible diff branch now renders
+  real unified diffs against a real
+  generator. **Source-write apply remains
+  unavailable.**
 - [Source-Write Reconciliation Policy Decision](../strategy/source-write-reconciliation-policy-decision.md)
 - [ReconciliationPlan artifact reference](../artifacts/reconciliation-plan.md)
 - [Reconciliation plans concept](reconciliation-plans.md)

@@ -221,3 +221,18 @@ Rebuild with `rekon reconcile suggest`.
   queued / shipped apply slice, a
   publication / review-surface consumer,
   or operator cohort feedback).
+- [Reconciliation Exact-Diff Operation v1](../strategy/reconciliation-exact-diff-operation-v1.md)
+  — adds the new `exact_text_replacement`
+  operation kind to the `ReconciliationOperation`
+  union plus optional additive fields
+  `beforeText` / `afterText` / `diffKind` on
+  `ReconciliationPlanOperation`. Fields are
+  emitted only when an eight-precondition
+  safety gate passes (complete patch triple,
+  repo-relative single-file path, current
+  file exists, current content matches
+  `beforeText`, `afterText` differs). No
+  schema-version bump; existing
+  `ReconciliationPlan` artifacts validate
+  cleanly. **Source-write apply remains
+  unavailable.**

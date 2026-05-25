@@ -1656,6 +1656,10 @@ export async function main(argv: string[]): Promise<void> {
         priority: priorityFlag,
         limit: limitFlag,
         apply,
+        // Pass repoRoot so the classifier can perform the
+        // exact_text_replacement safety checks against the real working tree.
+        // The actuator silently drops patch fields when this is absent.
+        repoRoot: root,
       },
     });
 
