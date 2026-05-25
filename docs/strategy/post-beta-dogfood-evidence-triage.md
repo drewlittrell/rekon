@@ -434,7 +434,7 @@ doc updates.
 
 ## Follow-Up
 
-**Two follow-up slices on this track have
+**Three follow-up slices on this track have
 shipped:**
 
 1. [PathFreshnessReport artifact + source-state
@@ -452,8 +452,20 @@ shipped:**
    reminder forbidding agents from treating
    artifact lineage freshness as proof the working
    tree has not changed.
+3. **Path freshness GitHub review surfacing** —
+   `rekon publish github-check --dry-run`/`--send`
+   and `rekon publish pr-comment --dry-run`/`--send`
+   now read the latest `PathFreshnessReport` and
+   surface it in both the GitHub Check
+   `output.summary` and the PR comment body /
+   warnings list. Both surfaces cite the report
+   in `citedRefs`. **CONCLUSION POLICY: stale
+   path freshness is a visible trust warning but
+   does not by itself flip the GitHub Check
+   conclusion.** Both CLI flows are read-only
+   with respect to the report.
 
 Still no daemon. Still no background refresh.
 The remaining follow-on slice ("path freshness
-GitHub review surfacing") is pending and
-requires its own work order.
+safety review") is pending and requires its own
+work order.

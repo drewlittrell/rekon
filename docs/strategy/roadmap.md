@@ -1106,6 +1106,63 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Path freshness GitHub review surfacing (P1.1
+  path-freshness-github-review-surfacing slice):
+  **third watcher / path-freshness
+  implementation slice**, following the
+  publication-surfacing slice. Builder wiring +
+  helpers + tests + docs batch. **No daemon. No
+  background refresh. No automatic refresh. No
+  automatic `rekon paths freshness`. No source
+  mutation. No new artifact type. No
+  `ArtifactHeader` change. No
+  `PathFreshnessReport` schema change. No
+  GitHub API transport change. No change to
+  existing Check / PR-comment readiness gates.
+  No workflow YAML. No version bump. No `npm
+  publish`. No GitHub Release.** New pure helper
+  `buildPathFreshnessGitHubSummary` in
+  `@rekon/capability-docs` renders the compact
+  `Working tree path freshness:` block that
+  both surfaces (Check `output.summary` + PR
+  comment body) consume. `BuildGitHubCheckPayloadInput`
+  + `PrCommentBodyInput` gain optional
+  `pathFreshnessReport` + `pathFreshnessRef`
+  fields. Both CLI flows (`publish github-check
+  --dry-run`/`--send` and `publish pr-comment
+  --dry-run`/`--send`) read the latest
+  `PathFreshnessReport` and pass it into the
+  builders; missing report is a no-op
+  (no-baseline guidance renders). Both surfaces
+  cite the report in `citedRefs`; PR-comment
+  JSON output adds `citedRefs.pathFreshness`
+  (additive only). **CONCLUSION POLICY (pinned
+  this slice): stale `PathFreshnessReport` is a
+  visible trust warning but does not by itself
+  flip the GitHub Check conclusion.** Conclusion
+  continues to be derived from proof /
+  validation state via the existing
+  `pickConclusion` logic. Both flows are
+  read-only with respect to the report. GitHub
+  status / comments remain non-canonical; both
+  surfaces retain their existing
+  canonical-truth reminders. Review packet at
+  `.rekon-dev/review-packets/path-freshness-github-review-surfacing.md`
+  with PURPOSE PRESERVATION CHECK + CONCLUSION
+  POLICY sections; new contract test
+  `tests/contract/path-freshness-github-review.test.mjs`
+  (14 cases including conclusion-unchanged +
+  fake-API send paths); new docs test
+  `tests/docs/path-freshness-github-review.test.mjs`
+  (9 assertions). Full suite expected ≥ 1862
+  passed / 1 skipped (1839 + 23 new).
+  **Recommended next slice:** path freshness
+  safety review — review the full path-freshness
+  track (artifact + CLI + publication surfacing
+  + GitHub review surfacing + no-daemon
+  guarantee) and decide whether to declare it
+  beta-private stable or do another hardening
+  pass.
 - Path freshness publication surfacing (P1.1
   path-freshness-publication-surfacing slice):
   **second watcher / path-freshness

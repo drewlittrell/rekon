@@ -4545,6 +4545,21 @@ export type BuildGitHubCheckPayloadInput = {
    * `summarizeVerificationProofSurface`.
    */
   freshness?: GitHubCheckPublisherFreshness;
+  /**
+   * Optional latest `PathFreshnessReport` for the workspace.
+   * **Surfaced as a trust warning only; never flips Check
+   * conclusion** in this slice. See
+   * `docs/strategy/watcher-path-freshness-policy-decision.md`
+   * + `docs/strategy/post-beta-dogfood-evidence-triage.md`.
+   */
+  pathFreshnessReport?: PathFreshnessReport;
+  /**
+   * Optional ref for the report cited above. When the
+   * report is supplied but the ref is omitted, the helper
+   * derives a ref from `pathFreshnessReport.header` when
+   * possible.
+   */
+  pathFreshnessRef?: ArtifactRef;
 };
 
 function deriveProofStatus(
@@ -4679,6 +4694,25 @@ export function buildGitHubCheckPayload(
   }
   summaryLines.push("");
 
+  // Path-freshness GitHub review surfacing (P1.1
+  // path-freshness-github-review-surfacing). Rendered as a
+  // compact trust-warning block; **conclusion is unchanged**
+  // by working-tree freshness in this slice. See
+  // docs/strategy/watcher-path-freshness-policy-decision.md.
+  const pathFreshness = buildPathFreshnessGitHubSummary({
+    report: input.pathFreshnessReport,
+    reportRef: input.pathFreshnessRef,
+  });
+  summaryLines.push("Working tree path freshness:");
+  for (const line of pathFreshness.lines) {
+    summaryLines.push(`- ${line}`);
+  }
+  if (pathFreshness.warning.length > 0) {
+    summaryLines.push("");
+    summaryLines.push(`> ${pathFreshness.warning}`);
+  }
+  summaryLines.push("");
+
   summaryLines.push("Cited artifacts:");
   const tracked: Array<[string, ArtifactRef | undefined]> = [
     ["VerificationResult", input.verificationResultRef],
@@ -4687,6 +4721,7 @@ export function buildGitHubCheckPayload(
     ["Proof report", input.proofReportRef],
     ["Architecture summary", input.architectureSummaryRef],
     ["Agent contract", input.agentContractRef],
+    ["PathFreshnessReport", pathFreshness.reportRef],
   ];
   let citedAny = false;
   for (const [label, ref] of tracked) {
@@ -5090,6 +5125,21 @@ export type PrCommentBodyInput = {
    * artifact upload.
    */
   workflowRunUrl?: string;
+  /**
+   * Optional latest `PathFreshnessReport`. **Surfaced as a
+   * trust warning only; never changes PR-comment readiness
+   * gates** in this slice. See
+   * `docs/strategy/watcher-path-freshness-policy-decision.md`
+   * + `docs/strategy/post-beta-dogfood-evidence-triage.md`.
+   */
+  pathFreshnessReport?: PathFreshnessReport;
+  /**
+   * Optional ref for the report cited above. When the
+   * report is supplied but the ref is omitted, the helper
+   * derives a ref from `pathFreshnessReport.header` when
+   * possible.
+   */
+  pathFreshnessRef?: ArtifactRef;
 };
 
 export type PrCommentBodySummary = {
@@ -5207,11 +5257,28 @@ export function buildPrCommentBody(input: PrCommentBodyInput): PrCommentBody {
     );
   }
 
+  // Path-freshness GitHub review surfacing (P1.1
+  // path-freshness-github-review-surfacing). Reuses the
+  // shared helper so the Check payload and the PR comment
+  // body render the same status / message / refresh
+  // recommendation. **Working-tree freshness is a trust
+  // warning; it does not change PR-comment readiness
+  // gates.**
+  const pathFreshness = buildPathFreshnessGitHubSummary({
+    report: input.pathFreshnessReport,
+    reportRef: input.pathFreshnessRef,
+  });
+  if (pathFreshness.warning.length > 0) {
+    warnings.push(pathFreshness.warning);
+  }
+
   const tableRows: Array<[string, string]> = [
     ["VerificationResult", formatPrCommentRef(input.verificationResultRef)],
     ["Status", `\`${status}\``],
     ["Source", `\`${source}\``],
     ["Freshness", `\`${freshness}\``],
+    ["Working-tree freshness", `\`${pathFreshness.status}\``],
+    ["PathFreshnessReport", formatPrCommentRef(pathFreshness.reportRef)],
     ["VerificationPlan", formatPrCommentRef(input.verificationPlanRef)],
     ["VerificationRun", formatPrCommentRef(input.verificationRunRef)],
     ["Proof report", formatPrCommentRef(input.proofReportRef)],
@@ -5235,6 +5302,7 @@ export function buildPrCommentBody(input: PrCommentBodyInput): PrCommentBody {
     input.proofReportRef,
     input.architectureSummaryRef,
     input.agentContractRef,
+    pathFreshness.reportRef,
   ]) {
     if (candidate) citedRefs.push(candidate);
   }
@@ -6026,4 +6094,133 @@ export function buildPathFreshnessPublicationSection(
     };
   }
   return result;
+}
+
+// ---------- Path-freshness GitHub review summary helper (P1.1 path-freshness-github-review-surfacing) ----------
+//
+// Pure helper that produces the compact lines used by the
+// GitHub Check payload's `output.summary` and the PR
+// comment body to surface working-tree freshness state.
+//
+// Design contract pinned by
+// `docs/strategy/watcher-path-freshness-policy-decision.md`
+// + the work order for this slice:
+//
+// - **Stale path freshness is a trust warning. It does not
+//   flip GitHub Check conclusion in this slice.**
+// - **Read-only.** The helper never spawns processes, never
+//   reads disk, never reads env vars, never opens sockets.
+// - The helper interprets only `status`, `summary`,
+//   `recommendation`, and the report's
+//   `header.{artifactType,artifactId}` to derive the
+//   compact lines + warning text.
+// - When the report is `undefined`, lines describe the
+//   no-baseline case and recommend `rekon paths freshness`.
+
+export type BuildPathFreshnessGitHubSummaryInput = {
+  report: PathFreshnessReport | undefined;
+  reportRef?: ArtifactRef;
+};
+
+export type BuildPathFreshnessGitHubSummaryResult = {
+  status: "fresh" | "stale" | "unknown";
+  refreshRecommended: boolean;
+  /**
+   * Lines suitable for appending to a GitHub Check
+   * `output.summary` (no leading heading; the caller adds
+   * a heading or blank-line separator).
+   */
+  lines: string[];
+  /**
+   * Single warning paragraph rendered as a Markdown
+   * blockquote (`> ...`) on stale or unknown reports. Empty
+   * string when the report is `fresh`.
+   */
+  warning: string;
+  /**
+   * The report's artifact ref (when present + recognised)
+   * so the caller can cite it in payload `citedRefs` /
+   * comment `citedRefs` lists.
+   */
+  reportRef?: ArtifactRef;
+};
+
+export function buildPathFreshnessGitHubSummary(
+  input: BuildPathFreshnessGitHubSummaryInput,
+): BuildPathFreshnessGitHubSummaryResult {
+  const { report } = input;
+  const reportRef = pickPathFreshnessReportRef(input);
+
+  if (!report) {
+    return {
+      status: "unknown",
+      refreshRecommended: false,
+      lines: [
+        "Working-tree freshness: `unknown` — no PathFreshnessReport found.",
+        "Run `rekon paths freshness --json` to establish a baseline.",
+      ],
+      warning:
+        "Working-tree freshness is unknown. Run `rekon paths freshness` to establish a baseline.",
+      ...(reportRef ? { reportRef } : {}),
+    };
+  }
+
+  const status: "fresh" | "stale" | "unknown" =
+    report.status === "fresh" || report.status === "stale" ? report.status : "unknown";
+  const refreshRecommended = report.recommendation?.refreshRecommended === true;
+  const summary = report.summary;
+  const total = typeof summary?.total === "number" ? summary.total : 0;
+  const changed = typeof summary?.changed === "number" ? summary.changed : 0;
+  const missing = typeof summary?.missing === "number" ? summary.missing : 0;
+  const created = typeof summary?.new === "number" ? summary.new : 0;
+
+  const lines: string[] = [];
+  lines.push(`Working-tree freshness: \`${status}\``);
+  if (reportRef) {
+    lines.push(`PathFreshnessReport: \`${reportRef.type}:${reportRef.id}\``);
+  }
+  lines.push(`Refresh recommended: \`${refreshRecommended ? "yes" : "no"}\``);
+  if (status === "stale") {
+    lines.push(
+      `Path drift: changed ${changed}, missing ${missing}, new ${created} (of ${total} tracked).`,
+    );
+  } else if (status === "unknown") {
+    lines.push("Baseline not yet established for this repo.");
+  }
+
+  let warning = "";
+  if (status === "stale") {
+    warning =
+      "Working-tree source paths changed since the latest path freshness baseline. "
+      + "Run `rekon refresh` before relying on generated artifacts.";
+  } else if (status === "unknown") {
+    warning =
+      "Working-tree freshness is unknown. Run `rekon paths freshness` to establish a baseline.";
+  }
+
+  return {
+    status,
+    refreshRecommended,
+    lines,
+    warning,
+    ...(reportRef ? { reportRef } : {}),
+  };
+}
+
+function pickPathFreshnessReportRef(
+  input: BuildPathFreshnessGitHubSummaryInput,
+): ArtifactRef | undefined {
+  if (input.reportRef) return input.reportRef;
+  const header = input.report?.header;
+  if (!header) return undefined;
+  if (header.artifactType !== "PathFreshnessReport") return undefined;
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) return undefined;
+  const schemaVersion = typeof header.schemaVersion === "string" && header.schemaVersion.length > 0
+    ? header.schemaVersion
+    : "0.1.0";
+  return {
+    type: header.artifactType,
+    id: header.artifactId,
+    schemaVersion,
+  };
 }

@@ -1152,3 +1152,16 @@ this workflow.
 - [Execute workflow template YAML](workflows/rekon-verification.yml)
 - [Dry-run workflow template YAML](workflows/rekon-verification-dry-run.yml)
 - [Opt-in GitHub Check send workflow template YAML](workflows/rekon-verification-check-send.yml)
+- [PathFreshnessReport artifact](../artifacts/path-freshness-report.md) +
+  [Path freshness concept](../concepts/path-freshness.md) —
+  GitHub Check + PR comment payloads now surface
+  the latest `PathFreshnessReport` as a compact
+  trust warning. **Stale path freshness is
+  visible but does not by itself flip the GitHub
+  Check conclusion**; the existing
+  proof-state-driven conclusion logic is
+  unchanged. Both CLI flows are read-only with
+  respect to the report — they **never** run
+  `rekon paths freshness` or `rekon refresh`. To
+  populate the surface, run `rekon paths
+  freshness` once before publish.

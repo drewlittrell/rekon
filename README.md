@@ -615,9 +615,29 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # as proof the working tree has not changed.
 # Publications remain read-only with respect to
 # the report: they never run `rekon paths
-# freshness` and never run `rekon refresh`. GitHub
-# Check / PR comment dry-run + send payload
-# surfacing is the next slice.
+# freshness` and never run `rekon refresh`.
+#
+# Third Option C slice shipped: path freshness
+# GitHub review surfacing. `rekon publish
+# github-check --dry-run`/`--send` and `rekon
+# publish pr-comment --dry-run`/`--send` now read
+# the latest PathFreshnessReport and surface it in
+# both the Check `output.summary` (a compact
+# `Working tree path freshness:` block) and the PR
+# comment body (two new summary-table rows + a
+# stale/unknown warning in the existing Warnings
+# list). Both surfaces cite the report in
+# `citedRefs`. CONCLUSION POLICY (pinned this
+# slice): stale PathFreshnessReport is a visible
+# trust warning but does NOT by itself flip the
+# GitHub Check conclusion — that continues to
+# reflect proof / validation state via the
+# existing pickConclusion logic. Both flows are
+# read-only with respect to the report; they
+# never run `rekon paths freshness` and never run
+# `rekon refresh`. GitHub status / comments remain
+# non-canonical. Path freshness safety review is
+# the next slice.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

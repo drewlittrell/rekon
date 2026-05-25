@@ -545,6 +545,22 @@ export async function main(argv: string[]): Promise<void> {
     const proofReportEntry = await pickLatestPublicationByKind(store, "proof-report");
     const architectureSummaryEntry = await pickLatestPublicationByKind(store, "architecture-summary");
     const agentContractEntry = await pickLatestPublicationByKind(store, "agent-contract");
+    // Path-freshness GitHub review surfacing (P1.1
+    // path-freshness-github-review-surfacing). Read-only;
+    // missing report is not a CLI failure; **never invokes
+    // `rekon paths freshness` or `rekon refresh`.**
+    const pathFreshnessEntry = await pickLatestArtifactEntry(store, "PathFreshnessReport");
+    const pathFreshnessRef = pathFreshnessEntry ? toArtifactRef(pathFreshnessEntry) : undefined;
+    let pathFreshnessReport: PathFreshnessReport | undefined;
+    if (pathFreshnessEntry) {
+      try {
+        pathFreshnessReport = (await store.read(pathFreshnessEntry)) as PathFreshnessReport;
+      } catch {
+        // Treat unreadable report like a missing one — the
+        // payload helper renders no-baseline guidance.
+        pathFreshnessReport = undefined;
+      }
+    }
 
     const verificationResultRef = verificationResultEntry ? toArtifactRef(verificationResultEntry) : undefined;
     const verificationPlanRef = verificationPlanEntry ? toArtifactRef(verificationPlanEntry) : undefined;
@@ -617,6 +633,8 @@ export async function main(argv: string[]): Promise<void> {
         architectureSummaryRef,
         agentContractRef,
         artifactsValid,
+        pathFreshnessReport,
+        pathFreshnessRef,
       });
 
       const readiness = assessGitHubCheckPublisherReadiness({
@@ -686,6 +704,8 @@ export async function main(argv: string[]): Promise<void> {
       architectureSummaryRef,
       agentContractRef,
       artifactsValid,
+      pathFreshnessReport,
+      pathFreshnessRef,
     });
 
     const readiness = assessGitHubCheckPublisherReadiness({
@@ -854,6 +874,21 @@ export async function main(argv: string[]): Promise<void> {
     const architectureSummaryEntry = await pickLatestPublicationByKind(store, "architecture-summary");
     const agentContractEntry = await pickLatestPublicationByKind(store, "agent-contract");
 
+    // Path-freshness GitHub review surfacing (P1.1
+    // path-freshness-github-review-surfacing). Read-only;
+    // missing report is not a CLI failure; **never invokes
+    // `rekon paths freshness` or `rekon refresh`.**
+    const pathFreshnessEntry = await pickLatestArtifactEntry(store, "PathFreshnessReport");
+    const pathFreshnessRef = pathFreshnessEntry ? toArtifactRef(pathFreshnessEntry) : undefined;
+    let pathFreshnessReport: PathFreshnessReport | undefined;
+    if (pathFreshnessEntry) {
+      try {
+        pathFreshnessReport = (await store.read(pathFreshnessEntry)) as PathFreshnessReport;
+      } catch {
+        pathFreshnessReport = undefined;
+      }
+    }
+
     const verificationResultRef = verificationResultEntry ? toArtifactRef(verificationResultEntry) : undefined;
     const verificationRunRef = verificationRunEntry ? toArtifactRef(verificationRunEntry) : undefined;
     const verificationPlanRef = verificationPlanEntry ? toArtifactRef(verificationPlanEntry) : undefined;
@@ -887,6 +922,8 @@ export async function main(argv: string[]): Promise<void> {
       architectureSummaryRef,
       agentContractRef,
       artifactsValid,
+      pathFreshnessReport,
+      pathFreshnessRef,
     });
 
     const citedRefs: Record<string, string | undefined> = {
@@ -896,6 +933,7 @@ export async function main(argv: string[]): Promise<void> {
       proofReport: proofReportRef ? `${proofReportRef.type}:${proofReportRef.id}` : undefined,
       architectureSummary: architectureSummaryRef ? `${architectureSummaryRef.type}:${architectureSummaryRef.id}` : undefined,
       agentContract: agentContractRef ? `${agentContractRef.type}:${agentContractRef.id}` : undefined,
+      pathFreshness: pathFreshnessRef ? `${pathFreshnessRef.type}:${pathFreshnessRef.id}` : undefined,
     };
 
     if (dryRun) {

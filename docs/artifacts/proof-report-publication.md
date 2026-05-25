@@ -258,7 +258,15 @@ artifact it read (`IssueAdjudicationReport`,
   recommendation, and a bounded per-path table (cap
   20 non-fresh entries) so reviewers see whether the
   proof was taken against a working tree that has
-  drifted since the source-state baseline. The
+  drifted since the source-state baseline. The same
+  `PathFreshnessReport` is surfaced in the GitHub
+  Check + PR comment review surfaces as a compact
+  trust warning per the path-freshness GitHub
+  review surfacing slice; **stale path freshness
+  does not by itself flip the GitHub Check
+  conclusion** in this slice (see the watcher /
+  path freshness policy memo for the pinned
+  conclusion policy). The
   section renders in both the normal-flow proof
   report and the no-VerificationPlan early-bailout
   path. The latest `PathFreshnessReport` is cited

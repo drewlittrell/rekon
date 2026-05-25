@@ -4,6 +4,108 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Path Freshness GitHub Review
+  Surfacing** (third watcher / path-freshness
+  slice, following the publication-surfacing
+  slice). Surfaces the latest
+  `PathFreshnessReport` in the two GitHub review
+  surfaces — Check payload + PR comment body —
+  so reviewers see the same working-tree drift
+  warning operators already see locally.
+
+  **Builder wiring + helpers + tests + docs
+  batch.** No daemon. No background refresh. No
+  automatic `rekon refresh` invocation. No
+  automatic `rekon paths freshness` invocation.
+  No source mutation. No new artifact type. No
+  new permission. No new role. No
+  `ArtifactHeader` change. No
+  `PathFreshnessReport` schema change. No GitHub
+  API transport change. **No change to existing
+  GitHub Check / PR comment readiness gates.**
+  No workflow YAML. No version bump. No `npm
+  publish`. No GitHub Release.
+
+  **What landed:**
+  - New pure helper
+    `buildPathFreshnessGitHubSummary` in
+    `@rekon/capability-docs`. Renders the
+    compact lines + warning paragraph that both
+    surfaces consume.
+  - `BuildGitHubCheckPayloadInput` +
+    `PrCommentBodyInput` gain optional
+    `pathFreshnessReport` + `pathFreshnessRef`
+    fields.
+  - Check `output.summary` renders a `Working
+    tree path freshness:` block (fresh, stale,
+    unknown, or no-baseline guidance). The
+    `PathFreshnessReport` ref is appended to
+    `citedRefs`.
+  - PR comment body adds `Working-tree
+    freshness` + `PathFreshnessReport` summary
+    rows; stale or unknown warning enters the
+    existing `### Warnings` section. JSON output
+    adds `citedRefs.pathFreshness` (additive
+    only).
+  - Both CLI publish flows (`publish
+    github-check --dry-run`/`--send` and
+    `publish pr-comment --dry-run`/`--send`)
+    read the latest `PathFreshnessReport` from
+    the local store and pass it through. Missing
+    report is a no-op.
+
+  **CONCLUSION POLICY (pinned this slice):**
+  stale `PathFreshnessReport` is a **visible
+  trust warning** in the Check output and PR
+  comment body but **does not by itself flip the
+  GitHub Check conclusion**. Conclusion
+  continues to reflect proof / validation state
+  via the existing `pickConclusion` logic. A
+  separate decision memo can revisit if beta
+  evidence supports hard-gating.
+
+  **Read-only guarantee:** both CLI flows call
+  only `pickLatestArtifactEntry` +
+  `store.read(...)` against the local store.
+  **They never invoke `rekon paths freshness`,
+  never invoke `rekon refresh`, never spawn any
+  subprocess, never compute a fingerprint, and
+  never write a new `PathFreshnessReport`.**
+  Contract tests pin this by counting artifacts
+  before/after publish and by re-checking
+  conclusion across fresh + stale runs.
+
+  **GitHub status / comments remain
+  non-canonical;** both surfaces retain their
+  existing canonical-truth reminders.
+
+  **Tests:** new
+  `tests/contract/path-freshness-github-review.test.mjs`
+  (14 cases including conclusion-unchanged +
+  fake-API send paths for both surfaces) + new
+  `tests/docs/path-freshness-github-review.test.mjs`
+  (9 assertions). All other pre-existing tests
+  still pass.
+
+  **Docs:** updated
+  `docs/concepts/path-freshness.md`,
+  `docs/artifacts/path-freshness-report.md`,
+  `docs/concepts/proof-report-publication.md`,
+  `docs/artifacts/proof-report-publication.md`,
+  `docs/examples/github-actions-verification-runner.md`,
+  watcher / path freshness policy memo,
+  post-beta dogfood evidence triage memo, both
+  roadmaps, README. Review packet at
+  `.rekon-dev/review-packets/path-freshness-github-review-surfacing.md`
+  with PURPOSE PRESERVATION CHECK + CONCLUSION
+  POLICY sections.
+
+  **Recommended next slice:** path freshness
+  safety review — review the full path-freshness
+  track and decide whether to declare it
+  beta-private stable or do another hardening
+  pass.
+
 - Shipped **Path Freshness Publication Surfacing**
   (second watcher / path-freshness slice,
   following the PathFreshnessReport artefact

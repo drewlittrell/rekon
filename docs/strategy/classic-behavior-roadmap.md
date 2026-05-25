@@ -5259,6 +5259,28 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Path freshness GitHub review surfacing (P1.1
+  path-freshness-github-review-surfacing
+  slice).** ✅ Shipped. **Third watcher /
+  path-freshness implementation slice**
+  following publication surfacing. New helper
+  `buildPathFreshnessGitHubSummary` in
+  `@rekon/capability-docs`; wired into
+  `buildGitHubCheckPayload` (Check
+  `output.summary`) + `buildPrCommentBody` (PR
+  comment summary table + warnings list). Both
+  CLI flows (`publish github-check
+  --dry-run`/`--send` and `publish pr-comment
+  --dry-run`/`--send`) read the latest
+  `PathFreshnessReport` and pass it through; both
+  surfaces cite the report in `citedRefs`.
+  **CONCLUSION POLICY (pinned this slice): stale
+  `PathFreshnessReport` is a visible trust
+  warning but does not by itself flip the GitHub
+  Check conclusion.** Both flows are read-only
+  with respect to the report. GitHub status /
+  comments remain non-canonical. **Recommended
+  next slice:** path freshness safety review.
 - **Path freshness publication surfacing (P1.1
   path-freshness-publication-surfacing slice).**
   ✅ Shipped. **Second watcher / path-freshness

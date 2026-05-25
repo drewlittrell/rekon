@@ -140,6 +140,58 @@ surfacing is deferred to the next slice
 that ships, operators must inspect the
 publications directly.
 
+## GitHub Review Surfacing
+
+As of the `path-freshness-github-review-surfacing`
+slice, **the latest `PathFreshnessReport` is also
+surfaced in the two GitHub review surfaces**:
+
+- **GitHub Check payload** — both `rekon publish
+  github-check --dry-run` and `--send` read the
+  latest `PathFreshnessReport` and render a
+  compact `Working tree path freshness:` block
+  inside `output.summary`. The block lists
+  status, report ref, refresh recommendation, and
+  (when stale) a per-path drift count + a `Run
+  \`rekon refresh\`` blockquote. The
+  `PathFreshnessReport` ref is appended to
+  `citedRefs`.
+- **PR comment body** — both `rekon publish
+  pr-comment --dry-run` and `--send` render two
+  new rows in the summary table
+  (`Working-tree freshness` + `PathFreshnessReport`)
+  and add the stale / unknown warning to the
+  comment's existing `### Warnings` section. JSON
+  output adds `citedRefs.pathFreshness` (additive
+  only).
+
+**Conclusion policy (pinned for this slice).**
+Stale `PathFreshnessReport` is a **trust warning**
+and recommended-refresh signal — it is **visible
+in the Check output and PR comment body but does
+not by itself flip the GitHub Check conclusion**.
+The Check conclusion continues to reflect proof /
+validation state via the existing
+`pickConclusion` logic. If beta evidence later
+supports hard-gating, that requires a separate
+decision memo + slice.
+
+**Read-only guarantee.** Both GitHub review CLI
+paths use `store.list("PathFreshnessReport")`
+plus `store.read(...)` only. They **never** run
+`rekon paths freshness`, **never** run `rekon
+refresh`, **never** spawn any subprocess,
+**never** compute a fingerprint, and **never**
+write a new `PathFreshnessReport`. Missing
+report is a no-op (no-baseline guidance
+renders).
+
+**GitHub status / comments are not canonical
+truth.** Both surfaces retain their existing
+canonical-truth reminders; the
+`PathFreshnessReport` block is additive context,
+not a replacement for the underlying artefact.
+
 ## Cross-References
 
 - [PathFreshnessReport artifact doc](../artifacts/path-freshness-report.md)

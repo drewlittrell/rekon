@@ -73,12 +73,38 @@ the other is `stale`.
   respect to the report: they never run `rekon
   paths freshness` and never run `rekon refresh`.**
 
+**Shipped (follow-on slice
+`path-freshness-github-review-surfacing`):**
+
+- GitHub Check dry-run / send payload includes a
+  compact `Working tree path freshness:` block in
+  `output.summary` sourced from the latest
+  `PathFreshnessReport`. The Check payload
+  appends the report ref to `citedRefs`.
+- PR comment dry-run / send body includes two new
+  table rows (`Working-tree freshness` +
+  `PathFreshnessReport`) sourced from the latest
+  `PathFreshnessReport`. The comment's
+  `### Warnings` section gains the stale or
+  unknown warning. JSON output adds
+  `citedRefs.pathFreshness` (additive only).
+- **Both GitHub review surfaces read the latest
+  `PathFreshnessReport` and never run `rekon
+  refresh` or `rekon paths freshness`.**
+- **Stale `PathFreshnessReport` is a trust
+  warning — it is visible in the Check output and
+  PR comment body but does not by itself flip the
+  GitHub Check conclusion in this slice.**
+  Conclusion continues to be derived from proof /
+  validation state via the existing
+  `pickConclusion` logic.
+- **GitHub status / comments remain non-canonical;
+  both surfaces retain their existing
+  canonical-truth reminders.**
+
 **Deferred (follow-on slices):**
 
-- GitHub Check dry-run / send payload + PR comment
-  dry-run / send body surfacing. Tracked
-  separately by the next slice
-  ("path freshness GitHub review surfacing").
+- Path freshness safety review (next slice).
 - Watcher daemon design + implementation.
 - Source-write apply.
 
