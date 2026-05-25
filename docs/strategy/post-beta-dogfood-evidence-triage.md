@@ -483,5 +483,15 @@ Still no daemon. Still no background refresh.
    acceptable first-class outcomes, path-freshness
    rerun guidance). Bug-report template at
    [Private Beta Bug Report Template](../beta/private-beta-bug-report-template.md).
-   Recommended next slice: private beta
-   onboarding quickstart.
+6. **[Private Beta Onboarding Quickstart](../beta/private-beta-onboarding-quickstart.md)** —
+   distills the playbook into a concise
+   "start here" path for new operators
+   (install from source checkout, run the
+   first scan, inspect canonical outputs, run
+   path freshness, report blockers). When the
+   quickstart and the playbook conflict, the
+   playbook wins. Recommended next slice:
+   private beta onboarding validation run
+   (operator follows the quickstart end-to-end
+   against a non-Rekon repo and captures any
+   gaps as a short retrospective memo).

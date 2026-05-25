@@ -633,6 +633,12 @@ artifacts — is documented in the
 [Private Beta Support Playbook](../beta/private-beta-support-playbook.md)
 and uses the
 [Private Beta Bug Report Template](../beta/private-beta-bug-report-template.md).
+A concise "start here" path is documented in the
+[Private Beta Onboarding Quickstart](../beta/private-beta-onboarding-quickstart.md)
+(install from source checkout → first scan →
+inspect outputs → run path freshness → report
+blockers). When the quickstart and the playbook
+conflict, the playbook wins.
 The playbook re-states the cohort-level
 acceptable-outcome contract (findings exist;
 failed verification recorded honestly; missing

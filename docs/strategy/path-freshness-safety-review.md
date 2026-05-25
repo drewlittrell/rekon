@@ -487,3 +487,14 @@ working-tree freshness as a first-class signal,
 direct operators to re-run `rekon paths
 freshness` after source edits, and re-state the
 warning-only Check conclusion contract.
+
+The follow-up to the playbook
+([Private Beta Onboarding Quickstart](../beta/private-beta-onboarding-quickstart.md))
+**has also shipped.** It distills the playbook
+into a concise "start here" path (install from
+source checkout, run the first scan, inspect
+canonical outputs, run path freshness, report
+blockers) and pins *"Artifact lineage freshness
+is not working-tree freshness."* verbatim — the
+canonical reference for that contract remains
+this safety review.

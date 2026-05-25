@@ -4,6 +4,96 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Private Beta Onboarding Quickstart**
+  (second post-track operator-support slice
+  following the private beta support playbook).
+  Distills the playbook into a concise "start
+  here" path for new operators: install from
+  source checkout, build, pick a target repo,
+  run the first scan, inspect canonical
+  outputs, run path freshness, optional
+  verification chain + optional GitHub review
+  dry-runs, recognise first-class outcomes
+  vs. blockers, redact before sharing, plan
+  the next step.
+
+  **Strategy / docs / tests-only batch.** No
+  npm publish. No version bump. No git tag.
+  No GitHub Release. No runtime behaviour
+  change. No new CLI command. No new helper.
+  No schema change. No new artifact type. No
+  new permission. No new role. No workflow
+  YAML. No validator profile change. No
+  GitHub API call. No `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation in any
+  `packages/*/src/*`. No mutation of any
+  operator repo. No network I/O. No new
+  branch.
+
+  **What landed:**
+  - New `docs/beta/private-beta-onboarding-quickstart.md`
+    — operator-facing onboarding quickstart
+    with 15 required content headings + three
+    required diagnostic tables (First-Run
+    Command / Output / Blocker) + closing
+    Status section. Includes the full
+    `git clone` + `npm ci` + `npm run build`
+    install snippet, `mktemp -d` + `git clone
+    --local --no-hardlinks` temp-copy pattern
+    (with `rsync` fallback for non-git
+    sources), the first-scan matrix using
+    `CLI="$(pwd)/packages/cli/dist/index.js"`,
+    the findings + governance chain, the
+    publication outputs, the path-freshness
+    first-run guidance, the optional
+    verification chain with trailing `|| true`,
+    and the dry-run GitHub review surfaces.
+  - New review packet
+    `.rekon-dev/review-packets/private-beta-onboarding-quickstart.md`
+    with PURPOSE PRESERVATION CHECK + all 11
+    required sections.
+  - New 24-assertion docs test
+    `tests/docs/private-beta-onboarding-quickstart.test.mjs`.
+  - Cross-link updates to the private beta
+    support playbook, the private beta
+    bug-report template, the no-NPM beta
+    distribution policy, the additional
+    real-repo dogfood cohort plan, the
+    post-beta dogfood evidence triage memo,
+    the path-freshness safety review, both
+    roadmaps, README.
+
+  **Pinned posture statements (all verbatim
+  + asserted by the docs test):**
+  - *Private beta users should not install
+    Rekon from npm.*
+  - *Private beta is source-checkout based.*
+  - *Rekon artifacts are canonical; GitHub
+    Checks and PR comments are downstream
+    review surfaces.*
+  - *Run first scans against a temp copy so
+    Rekon artifacts and any target-side build
+    / test artifacts do not pollute the
+    committed repo.*
+  - *Artifact lineage freshness is not
+    working-tree freshness.*
+  - *Dry-run commands make no network calls.*
+  - *GitHub status and comments are not
+    canonical truth; Rekon artifacts remain
+    canonical.*
+
+  **Recommended next slice:** private beta
+  onboarding validation run — operator
+  follows the quickstart end-to-end against
+  a non-Rekon repo and captures any gaps
+  (confusing commands, missing docs, unclear
+  outputs, support-template gaps,
+  artifact-sharing risks) as a short
+  retrospective memo. Still no daemon, no
+  background refresh, no npm publish, no
+  version bump.
+
 - Shipped **Private Beta Support Playbook**
   (first post-track operator-support slice
   after the path-freshness safety review).

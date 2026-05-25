@@ -668,8 +668,38 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # validation failure is a blocker; findings /
 # failed verification / stale aggregate freshness
 # / GitHub readiness gaps are NOT automatically
-# blockers. Recommended next slice: private beta
-# onboarding quickstart.
+# blockers.
+#
+# Private beta onboarding quickstart at
+# docs/beta/private-beta-onboarding-quickstart.md
+# distills the playbook into a concise "start
+# here" path for new operators: install from
+# source checkout (git clone + npm ci + npm run
+# build), pick a temp-copy target (git clone
+# --local --no-hardlinks into mktemp -d; rsync
+# fallback), run the first-scan matrix (init →
+# refresh → paths freshness → artifacts
+# validate), walk the findings + governance
+# chain, inspect publications, run path
+# freshness, optional verification chain +
+# optional GitHub review dry-runs, recognise
+# first-class outcomes vs. blockers, redact
+# before sharing, plan the next step. Pinned
+# verbatim: private beta users should not
+# install Rekon from npm; private beta is
+# source-checkout based; Rekon artifacts are
+# canonical; GitHub Checks and PR comments are
+# downstream review surfaces; run first scans
+# against a temp copy so artifacts do not
+# pollute the committed repo; artifact lineage
+# freshness is not working-tree freshness;
+# dry-run commands make no network calls;
+# GitHub status and comments are not canonical
+# truth — Rekon artifacts remain canonical.
+# When the quickstart and the playbook
+# conflict, the playbook wins. Recommended
+# next slice: private beta onboarding
+# validation run.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

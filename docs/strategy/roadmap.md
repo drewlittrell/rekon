@@ -1106,6 +1106,69 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Private beta onboarding quickstart (P1.1
+  private-beta-onboarding-quickstart slice):
+  **second post-track operator-support slice
+  after the private beta support playbook.**
+  Strategy / docs / tests-only batch. **No npm
+  publish. No version bump. No git tag. No
+  GitHub Release. No runtime behaviour change.
+  No new CLI command. No new helper. No schema
+  change. No new artifact type. No new
+  permission. No new role. No workflow YAML.
+  No validator profile change. No GitHub API
+  call. No `package.json` /
+  `package-lock.json` mutation. No source-file
+  mutation. No mutation of any operator repo.
+  No network I/O. No new branch.** Distills
+  the now-shipped support playbook into a
+  concise "start here" path for new operators
+  (install from source checkout, build, pick a
+  temp-copy target, run the first scan,
+  inspect canonical outputs, run path
+  freshness, optional verification + GitHub
+  review dry-runs, recognise first-class
+  outcomes vs. blockers, redact before
+  sharing, know what is out of scope, plan
+  the next step). New
+  [`docs/beta/private-beta-onboarding-quickstart.md`](../beta/private-beta-onboarding-quickstart.md)
+  with 15 required content headings + three
+  required diagnostic tables (First-Run
+  Command / Output / Blocker). Review packet
+  `.rekon-dev/review-packets/private-beta-onboarding-quickstart.md`
+  with PURPOSE PRESERVATION CHECK + all 11
+  required sections. New
+  `tests/docs/private-beta-onboarding-quickstart.test.mjs`
+  (24 assertions). Pinned posture statements
+  (all verbatim + asserted): *"Private beta
+  users should not install Rekon from npm."*,
+  *"Private beta is source-checkout based."*,
+  *"Rekon artifacts are canonical; GitHub
+  Checks and PR comments are downstream
+  review surfaces."*, *"Run first scans
+  against a temp copy so Rekon artifacts and
+  any target-side build / test artifacts do
+  not pollute the committed repo."*,
+  *"Artifact lineage freshness is not
+  working-tree freshness."*, *"Dry-run
+  commands make no network calls."*, *"GitHub
+  status and comments are not canonical
+  truth; Rekon artifacts remain canonical."*
+  The quickstart opens with a blockquote
+  pinning *"playbook wins"* on any conflict
+  with the
+  [Private Beta Support Playbook](../beta/private-beta-support-playbook.md).
+  Full suite expected ≥ 1927 passed / 1
+  skipped (1903 + 24 new). **Recommended next
+  slice:** private beta onboarding validation
+  run — an operator follows the quickstart
+  end-to-end against a non-Rekon repo and
+  captures any gaps (confusing commands,
+  missing docs, unclear outputs,
+  support-template gaps, artifact-sharing
+  risks) as a short retrospective memo. Still
+  no daemon, no background refresh, no npm
+  publish, no version bump.
 - Private beta support playbook (P1.1
   private-beta-support-playbook slice):
   **first post-track operator-support slice

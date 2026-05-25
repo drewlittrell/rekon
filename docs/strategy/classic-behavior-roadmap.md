@@ -5259,6 +5259,44 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Private beta onboarding quickstart (P1.1
+  private-beta-onboarding-quickstart slice).**
+  ✅ Shipped. **Second post-track
+  operator-support slice** following the
+  private beta support playbook. Distills the
+  playbook into a concise "start here" path
+  for new operators: install from source
+  checkout (`git clone` + `npm ci` + `npm run
+  build`), pick a target repo (clone into a
+  `mktemp -d` temp copy via `git clone --local
+  --no-hardlinks`, `rsync` fallback), run the
+  first-scan matrix (`init` → `refresh` →
+  `paths freshness` → `artifacts validate`),
+  walk the findings + governance chain,
+  inspect publications, run path freshness,
+  optional verification + GitHub review
+  dry-runs, recognise first-class outcomes
+  vs. blockers, redact before sharing, plan
+  the next step. New
+  [`docs/beta/private-beta-onboarding-quickstart.md`](../beta/private-beta-onboarding-quickstart.md).
+  Pinned verbatim: *"Private beta users
+  should not install Rekon from npm."*,
+  *"Private beta is source-checkout based."*,
+  *"Rekon artifacts are canonical; GitHub
+  Checks and PR comments are downstream
+  review surfaces."*, *"Run first scans
+  against a temp copy so Rekon artifacts and
+  any target-side build / test artifacts do
+  not pollute the committed repo."*,
+  *"Artifact lineage freshness is not
+  working-tree freshness."*, *"Dry-run
+  commands make no network calls."*, *"GitHub
+  status and comments are not canonical
+  truth; Rekon artifacts remain canonical."*
+  Opening blockquote pins the playbook as
+  canonical and *"playbook wins"* on any
+  conflict. **Recommended next slice:**
+  private beta onboarding validation run.
 - **Private beta support playbook (P1.1
   private-beta-support-playbook slice).** ✅
   Shipped. **First post-track operator-support
@@ -5282,9 +5320,9 @@ scope:
   artifact validation failure is a blocker;
   findings / failed verification / stale
   aggregate freshness / GitHub readiness gaps
-  are NOT automatically blockers. **Recommended
-  next slice:** private beta onboarding
-  quickstart.
+  are NOT automatically blockers. **Followed
+  up by:** private beta onboarding quickstart
+  (✅ shipped above).
 - **Path freshness safety review (P1.1
   path-freshness-safety-review slice).** ✅
   Shipped. **Final slice in the post-beta

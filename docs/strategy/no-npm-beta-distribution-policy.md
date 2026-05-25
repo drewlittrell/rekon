@@ -475,6 +475,10 @@ Private-beta operator support is documented in
 [Private Beta Support Playbook](../beta/private-beta-support-playbook.md)
 and uses the
 [Private Beta Bug Report Template](../beta/private-beta-bug-report-template.md).
+New operators should start with the concise
+[Private Beta Onboarding Quickstart](../beta/private-beta-onboarding-quickstart.md);
+when the quickstart and the playbook conflict,
+the playbook wins.
 The playbook pins the no-NPM posture verbatim:
 *"npm install is not supported during beta. Use
 source checkout."* Bug reports must include

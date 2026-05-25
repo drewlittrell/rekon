@@ -458,13 +458,20 @@ This playbook **does not**:
 
 ## Follow-Up Work
 
-Recommended next slice (per the work-order's
-next-step guidance): **Private beta onboarding
-quickstart.** A concise operator-facing
-quickstart built from this playbook — install
-from source checkout, run the first scan,
-inspect the canonical outputs, report issues,
-re-run path freshness after edits.
+**Shipped:** the
+[Private Beta Onboarding Quickstart](private-beta-onboarding-quickstart.md)
+distills this playbook into a concise "start
+here" path (install from source checkout, run
+the first scan, inspect the canonical outputs,
+report issues, re-run path freshness after
+edits). When the quickstart and this playbook
+conflict, the playbook wins.
+
+Recommended next slice: **Private beta
+onboarding validation run.** Have an operator
+follow the quickstart against a non-Rekon
+repo end-to-end and capture any gaps as a
+short retrospective memo.
 
 Other follow-ups that remain post-beta:
 
@@ -478,6 +485,7 @@ Other follow-ups that remain post-beta:
 
 ## Cross-References
 
+- [Private Beta Onboarding Quickstart](private-beta-onboarding-quickstart.md)
 - [Private Beta Bug Report Template](private-beta-bug-report-template.md)
 - [No-NPM Beta Distribution Policy](../strategy/no-npm-beta-distribution-policy.md)
 - [Real-Repo Beta Dogfood Report](../strategy/real-repo-beta-dogfood-report.md)
