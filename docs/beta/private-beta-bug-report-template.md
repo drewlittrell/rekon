@@ -54,9 +54,6 @@ analysed. Useful fields:
 - approximate file count
 - language mix (TS / JS / mixed; Next.js / SPA /
   monorepo)
-- presence of npm / pnpm / yarn lockfile
-- whether the repo defines `typecheck`, `test`,
-  `build` scripts in `package.json`
 - known size of `.rekon/` after the first
   refresh
 
@@ -66,6 +63,36 @@ to share it. A placeholder like
 `<medium-monorepo>` is acceptable; the
 [real-repo cohort summary](../strategy/real-repo-cohort-summary.md)
 is the canonical reference for this style.
+-->
+
+### Package Manager Used By Target Repo
+
+<!--
+Name the package manager the target uses. One
+of: npm, pnpm, yarn (classic), yarn (berry),
+bun, turbo, nx, make / shell only, none.
+
+If the repo uses a workspace tool (pnpm-workspace,
+turborepo, nx), say so explicitly. This matters
+because the VerificationPlan today generates
+`npm run` commands; mismatches are a planning /
+ergonomics report, not an artifact-corruption
+report.
+-->
+
+### Relevant Scripts From `package.json`
+
+<!--
+List only the relevant scripts — typically
+`typecheck`, `test`, `build`, and any
+`lint` / `check` scripts the
+VerificationPlan would name. Do NOT paste
+the full `package.json` if it contains
+sensitive content. Field names only:
+
+  - typecheck: <yes / no / which command>
+  - test: <yes / no / which command>
+  - build: <yes / no / which command>
 -->
 
 ## Commands Run
@@ -137,6 +164,34 @@ If the report is `status: "stale"`, also run
 attach both reports. If the report is `status:
 "fresh"` after a known source edit, **that is a
 blocker** (false fresh = stale truth).
+
+This is **working-tree freshness** — separate
+from artifact-lineage freshness covered by
+the next section.
+-->
+
+## Artifacts Freshness Result
+
+<!--
+Paste the JSON output of:
+
+```bash
+node packages/cli/dist/index.js artifacts freshness --root <repo> --json
+```
+
+This is **artifact-lineage freshness** —
+separate from working-tree freshness. An
+aggregate `status: unknown` is not by itself
+a blocker; inspect whether the warnings are
+historical `newer-input-exists` entries from
+re-publication (acceptable) or whether the
+latest publication / refresh actually failed
+(blocker). The
+[Path Freshness Safety Review](../strategy/path-freshness-safety-review.md)
+and the
+[Private Beta Onboarding Quickstart](private-beta-onboarding-quickstart.md)
+*Three Freshness Surfaces Operators Confuse*
+section spell out the distinction.
 -->
 
 ## Verification Result
@@ -154,6 +209,28 @@ If the result is `failed` but the
 (real typecheck error, real test failure), this
 is an acceptable first-class outcome — see the
 playbook.
+-->
+
+## VerificationPlan ↔ Package Manager Match
+
+<!--
+Run `verify run --dry-run` first and compare
+the planned commands to the target repo's
+package manager + scripts.
+
+- Did the VerificationPlan command match the
+  target repo's package manager?
+  - yes / no / partial
+- If no or partial, which planned command(s)
+  mismatched (e.g., plan says `npm run test`
+  but the repo uses `pnpm run test`)?
+
+A mismatch by itself is a **planning /
+ergonomics** issue, not an artifact-corruption
+issue. The execute step is still safe to run
+— `VerificationRun` records `failed` /
+`skipped` honestly and the proof chain
+captures the result.
 -->
 
 ## GitHub Review Dry-Run Result

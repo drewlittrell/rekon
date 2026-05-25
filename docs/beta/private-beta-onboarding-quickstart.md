@@ -227,6 +227,58 @@ See the
 [Path Freshness Safety Review](../strategy/path-freshness-safety-review.md)
 for the canonical reference.
 
+### Three Freshness Surfaces Operators Confuse
+
+The three CLI commands below all sound
+similar but answer different questions.
+Reading the right one prevents false-positive
+support reports.
+
+| Command | Question it answers |
+| --- | --- |
+| `node "$CLI" artifacts validate --root "$TARGET_ROOT" --json` | are the artifacts on disk structurally valid? |
+| `node "$CLI" artifacts freshness --root "$TARGET_ROOT" --json` | does every artifact still reference the latest version of every input it claims to derive from? (artifact-lineage freshness) |
+| `node "$CLI" paths freshness --root "$TARGET_ROOT" --json` | does the working tree still match the last `PathFreshnessReport` baseline? (working-tree freshness) |
+
+Three rules of thumb:
+
+- **`artifacts validate` is the structural
+  artifact validity gate.** `valid: true`
+  plus a clean publication output usually
+  means artifact structure is healthy. An
+  `invalid` result is a blocker (see the
+  *Report A Blocker* section below).
+- **`artifacts freshness` can report
+  historical `newer-input-exists` entries
+  after re-publication; inspect whether the
+  latest major publication / refresh step
+  passed before treating aggregate stale
+  output as a blocker.** Re-running
+  `publish architecture` (or any
+  publication) produces a newer
+  `Publication` whose older sibling now
+  appears to lag behind the new one. The
+  warning is honest lineage signal, not a
+  product defect. Aggregate
+  `artifacts freshness: unknown` is a
+  first-class acceptable outcome when the
+  latest publish ran cleanly.
+- **`paths freshness` is working-tree
+  freshness and is separate from artifact
+  lineage freshness.** A `stale`
+  `PathFreshnessReport` means the working
+  tree changed and `rekon refresh` is
+  recommended before relying on artifacts.
+  A `fresh` `PathFreshnessReport` says
+  nothing about whether older artifacts
+  were superseded by re-publication.
+
+When in doubt: trust `artifacts validate`
+for *structure*, trust `paths freshness`
+for *source state*, and treat
+`artifacts freshness` historical warnings
+as a lineage hint rather than a blocker.
+
 ## Optional Verification Flow
 
 If you want to capture proof against the
@@ -272,6 +324,70 @@ against `package.json`; absent scripts record
 note) rather than `failed`. See the
 [VerificationPlan missing-script tolerance
 memo](../strategy/verification-missing-script-tolerance.md).
+
+### Inspect The Plan Before Executing
+
+The generated `VerificationPlan` describes
+Rekon's **best local plan** for the target
+— it is not target-aware in detail. Real
+targets pick from a wide set of package
+managers and runners:
+
+| Common package managers / runners | Typical script entrypoint |
+| --- | --- |
+| `npm` | `npm run <script>` |
+| `pnpm` | `pnpm run <script>` |
+| `yarn` (classic + berry) | `yarn run <script>` or `yarn <script>` |
+| `bun` | `bun run <script>` |
+| `turbo` | `turbo run <task>` |
+| `nx` | `nx run <project>:<target>` |
+| `make` / custom shell | repo-specific |
+
+**During private beta, operators should
+inspect the `VerificationPlan` before
+execution.** Run the dry-run first and read
+the command list before passing
+`--execute`:
+
+```bash
+PLAN_REF="$(node "$CLI" artifacts latest --root "$TARGET_ROOT" --type VerificationPlan --id-only)"
+node "$CLI" verify run --root "$TARGET_ROOT" --plan "$PLAN_REF" --dry-run --json
+```
+
+Review the dry-run command list before
+executing. If the repo uses pnpm / yarn /
+bun but the plan names `npm` commands,
+record it in the bug report — this is a
+**planning / ergonomics issue**, not
+artifact corruption.
+
+**Package-manager mismatch is not a Rekon
+blocker if `VerificationRun` records the
+failure honestly.** The `failed` /
+`skipped` status will be captured by the
+proof chain. Aim to:
+
+1. Run the dry-run first.
+2. Compare the plan's commands to the
+   target's `package.json` scripts and
+   the target's installed package
+   manager.
+3. If a mismatch is obvious, file a
+   planning-ergonomics report using the
+   [bug report template](private-beta-bug-report-template.md)
+   — include the package manager you
+   detected and which scripts exist in
+   `package.json`. The execute step is
+   still safe to run; it will just
+   record honest `failed` / `skipped`
+   results.
+
+This is a **planning / ergonomics issue**
+for Rekon to address in a future
+package-manager-aware plan generator.
+It is **not** a sign that the target's
+artifacts are corrupt or that
+verification is misbehaving.
 
 ## Optional GitHub Review Dry-Runs
 

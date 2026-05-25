@@ -4,6 +4,105 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Private Beta Onboarding Quickstart
+  Refinements v2** (fourth post-track
+  operator-support slice following the
+  onboarding validation report). Closes the
+  two documentation gaps surfaced by the
+  validation run.
+
+  **Docs / support / tests-only batch.** No
+  npm publish. No version bump. No git tag.
+  No GitHub Release. No runtime behaviour
+  change. No new CLI command. No new helper.
+  No schema change. No new artifact type. No
+  new permission. No new role. No workflow
+  YAML. No validator profile change. No
+  package-manager detection added. No
+  GitHub API call. No `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation. No mutation of any
+  operator repo. No network I/O. No new
+  branch. No change to VerificationPlan
+  generation. No change to artifacts
+  freshness behaviour. No change to path
+  freshness behaviour. No change to
+  missing-script tolerance.
+
+  **What landed:**
+  - `docs/beta/private-beta-onboarding-quickstart.md`
+    gains *Three Freshness Surfaces
+    Operators Confuse* subsection inside
+    *Run Path Freshness* (diagnostic table
+    + three rules of thumb covering
+    `artifacts validate` / `artifacts
+    freshness` / `paths freshness`).
+  - Same file gains *Inspect The Plan
+    Before Executing* subsection inside
+    *Optional Verification Flow* (covers
+    npm / pnpm / yarn / bun / turbo / nx /
+    make; pins the dry-run-first flow;
+    routes package-manager mismatch as a
+    planning / ergonomics report).
+  - `docs/beta/private-beta-support-playbook.md`
+    *Acceptable First-Class Outcomes*
+    section extended with three new
+    bullets: package-manager mismatch /
+    missing scripts acceptable when
+    `VerificationRun` records them
+    honestly; aggregate `artifacts
+    freshness` historical stale entries
+    not automatically blockers;
+    `artifacts validate: invalid` remains
+    a blocker.
+  - `docs/beta/private-beta-bug-report-template.md`
+    gains *Package Manager Used By Target
+    Repo* + *Relevant Scripts From
+    `package.json`* subsections under
+    *Target Repository Shape*, a new
+    *Artifacts Freshness Result* section
+    after *Path Freshness Result*, and a
+    new *VerificationPlan ↔ Package
+    Manager Match* section after
+    *Verification Result*.
+  - `docs/beta/private-beta-onboarding-validation-report.md`
+    *Follow-Up Work* updated to record
+    that the two documentation gaps were
+    addressed by this v2 batch.
+  - New review packet
+    `.rekon-dev/review-packets/private-beta-onboarding-quickstart-refinements-v2.md`
+    with PURPOSE PRESERVATION CHECK + all
+    11 required sections.
+  - New 18-assertion docs test
+    `tests/docs/private-beta-onboarding-quickstart-refinements-v2.test.mjs`.
+  - Cross-link updates: roadmap,
+    classic-behavior-roadmap, README.
+
+  **Pinned posture statements (asserted
+  by the docs test):**
+  - *`artifacts validate` is the
+    structural artifact validity gate.*
+  - *`artifacts freshness` can report
+    historical `newer-input-exists`
+    entries after re-publication; inspect
+    whether the latest major publication /
+    refresh step passed before treating
+    aggregate stale output as a blocker.*
+  - *`paths freshness` is working-tree
+    freshness and is separate from
+    artifact lineage freshness.*
+
+  **Recommended next slice:** *Private
+  beta cohort onboarding plan* — define
+  how to invite + support the first
+  private beta users / repos using the
+  source-checkout distribution + playbook
+  + quickstart (with v2 refinements) +
+  validation report + bug-report
+  template + redaction policy. Still no
+  daemon, no background refresh, no npm
+  publish, no version bump.
+
 - Shipped **Private Beta Onboarding Validation
   Run — post-intake completion**. The operator
   authorised a target in a subsequent prompt;

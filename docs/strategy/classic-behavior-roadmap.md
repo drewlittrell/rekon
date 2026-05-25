@@ -5259,6 +5259,50 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Private beta onboarding quickstart
+  refinements v2 (P1.1
+  private-beta-onboarding-quickstart-refinements-v2
+  slice).** ✅ Shipped. **Fourth
+  post-track operator-support slice**
+  following the onboarding validation
+  report. Docs / support / tests-only
+  batch. Closes the two documentation
+  gaps surfaced by the validation run:
+  (1) *Three Freshness Surfaces
+  Operators Confuse* subsection inside
+  *Run Path Freshness* with a diagnostic
+  table covering `artifacts validate` vs
+  `artifacts freshness` (historical
+  `newer-input-exists` after
+  re-publication is acceptable) vs
+  `paths freshness` (working-tree
+  freshness) + three rules of thumb;
+  (2) *Inspect The Plan Before
+  Executing* subsection inside *Optional
+  Verification Flow* covering common
+  package managers (npm / pnpm / yarn /
+  bun / turbo / nx / make), the
+  dry-run-first flow, and
+  package-manager mismatch as a
+  planning / ergonomics report.
+  Playbook *Acceptable First-Class
+  Outcomes* extended; bug-report template
+  gains package-manager + scripts +
+  artifacts-freshness +
+  VerificationPlan↔package-manager-match
+  fields. Validation report's
+  *Follow-Up Work* updated to record
+  the gaps were closed. Pinned
+  verbatim: *`artifacts validate` is
+  the structural artifact validity
+  gate.*, *`artifacts freshness` can
+  report historical `newer-input-exists`
+  entries after re-publication ...*,
+  *`paths freshness` is working-tree
+  freshness and is separate from
+  artifact lineage freshness.*
+  **Recommended next slice:** private
+  beta cohort onboarding plan.
 - **Private beta onboarding validation run
   (P1.1
   private-beta-onboarding-validation-run

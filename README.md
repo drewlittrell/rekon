@@ -736,9 +736,51 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # validation run used a temp copy of a
 # non-Rekon repository; Rekon artifacts
 # remain canonical; GitHub dry-runs are
-# downstream previews. Recommended next
-# slice: private beta onboarding
-# quickstart refinements v2.
+# downstream previews.
+#
+# Private beta onboarding quickstart
+# refinements v2 has shipped. The
+# quickstart now carries a Three
+# Freshness Surfaces Operators Confuse
+# subsection inside Run Path Freshness
+# (with a diagnostic table covering
+# artifacts validate vs artifacts
+# freshness vs paths freshness, plus
+# three rules of thumb explaining that
+# historical newer-input-exists after
+# re-publication is acceptable) and an
+# Inspect The Plan Before Executing
+# subsection inside Optional Verification
+# Flow (with a package-manager / runner
+# table covering npm / pnpm / yarn / bun
+# / turbo / nx / make, a
+# dry-run-first-then-execute flow, and
+# routing of package-manager mismatch as
+# a planning / ergonomics report). The
+# support playbook's Acceptable
+# First-Class Outcomes section gains the
+# same three pins. The bug-report
+# template gains Package Manager Used
+# By Target Repo + Relevant Scripts From
+# package.json subsections, a new
+# Artifacts Freshness Result section,
+# and a new VerificationPlan/Package
+# Manager Match section. No runtime
+# change; no package-manager detection
+# in plan generation. Pinned verbatim
+# in the quickstart + asserted by the
+# docs test: artifacts validate is the
+# structural artifact validity gate;
+# artifacts freshness can report
+# historical newer-input-exists entries
+# after re-publication, inspect whether
+# the latest major publication/refresh
+# passed before treating aggregate stale
+# output as a blocker; paths freshness
+# is working-tree freshness and is
+# separate from artifact lineage
+# freshness. Recommended next slice:
+# private beta cohort onboarding plan.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

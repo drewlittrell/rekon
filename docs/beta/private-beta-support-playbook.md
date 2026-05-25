@@ -266,6 +266,35 @@ should not be reported as defects:
   `package.json` (per the
   [VerificationPlan missing-script tolerance
   memo](../strategy/verification-missing-script-tolerance.md)).
+- **Package-manager mismatch / missing
+  scripts are acceptable if `VerificationRun`
+  records `skipped` or `failed` commands
+  honestly.** The generated
+  `VerificationPlan` is Rekon's best local
+  plan and may name `npm run` commands even
+  when the target uses pnpm / yarn / bun /
+  turbo / nx. The proof chain captures the
+  outcome correctly; the mismatch itself is
+  a planning / ergonomics report, not an
+  artifact-corruption report.
+- **Aggregate `artifacts freshness`
+  historical stale entries are not
+  automatically blockers.** Re-publishing
+  the same publication kind (running
+  `publish architecture` twice, for
+  example) produces newer
+  `Publication` artifacts whose older
+  siblings then appear as
+  `newer-input-exists`. Verify whether the
+  latest publication / refresh step passed
+  before treating aggregate stale output as
+  a defect.
+- **`artifacts validate: invalid` remains a
+  blocker.** Structural artifact validity
+  is the non-negotiable gate. If
+  `valid: false` appears, file a bug
+  report immediately with the failing
+  artifact + index.
 
 These outcomes are signals, not failures. The
 right next step is *inspection* (read the

@@ -379,34 +379,55 @@ This batch **does not**:
 
 ## Follow-Up Work
 
+**The two documentation gaps from this
+validation run were addressed by Private
+Beta Onboarding Quickstart Refinements v2.**
+The quickstart now carries:
+
+- a *Three Freshness Surfaces Operators
+  Confuse* table + rules of thumb in *Run
+  Path Freshness*, covering
+  `artifacts validate` vs
+  `artifacts freshness` (historical
+  `newer-input-exists` after
+  re-publication is acceptable) vs
+  `paths freshness` (working-tree
+  freshness).
+- an *Inspect The Plan Before Executing*
+  subsection in *Optional Verification
+  Flow*, naming the common package
+  managers (npm / pnpm / yarn / bun /
+  turbo / nx / make), pinning that
+  package-manager mismatch is a planning
+  / ergonomics issue (not artifact
+  corruption), and directing operators to
+  the bug-report template for the
+  detected manager + script list.
+
+The
+[Private Beta Support Playbook](private-beta-support-playbook.md)
+*Acceptable First-Class Outcomes* section
+was updated to call out package-manager
+mismatch + aggregate `artifacts freshness`
+historical entries as acceptable while
+keeping `artifacts validate: invalid` as
+a non-negotiable blocker. The
+[Private Beta Bug Report Template](private-beta-bug-report-template.md)
+gained explicit fields for the target's
+package manager, relevant `package.json`
+scripts, an *Artifacts Freshness Result*
+section, and a *VerificationPlan ↔
+Package Manager Match* section.
+
 **Recommended next slice:** *Private beta
-onboarding quickstart refinements (v2).*
-Apply the two minor documentation
-refinements recorded in *Quickstart Gaps*:
-
-1. Add a one-line note in *Optional
-   Verification Flow* about non-npm
-   package managers (pnpm / yarn /
-   bun).
-2. Add a one-line note in *Inspect The
-   Main Outputs* about
-   re-publication-induced
-   `newer-input-exists` warnings in
-   `artifacts freshness`.
-
-Both refinements are strategy / docs /
-tests-only, no version bump, no runtime
-behaviour change.
-
-**Recommended slice after that:** *Private
-beta cohort onboarding plan.* With one
-end-to-end validation in hand, define how
-to invite and support the first private
-beta users using the source-checkout
-distribution + the support playbook + the
-quickstart + the validation report + the
-bug-report template as a coherent
-package.
+cohort onboarding plan.* With one
+end-to-end validation in hand + v2
+refinements landed, define how to invite
+and support the first private beta users
+using the source-checkout distribution +
+the support playbook + the quickstart +
+the validation report + the bug-report
+template as a coherent package.
 
 ## Cross-References
 

@@ -1106,6 +1106,100 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Private beta onboarding quickstart
+  refinements v2 (P1.1
+  private-beta-onboarding-quickstart-refinements-v2
+  slice): **fourth post-track
+  operator-support slice** following the
+  onboarding validation report. Docs /
+  support / tests-only batch. **No npm
+  publish. No version bump. No git tag.
+  No GitHub Release. No runtime behaviour
+  change. No new CLI command. No new
+  helper. No schema change. No new
+  artifact type. No new permission. No
+  new role. No workflow YAML. No
+  validator profile change. No GitHub
+  API call. No package-manager
+  detection added to plan generation.
+  No `package.json` mutation. No
+  source-file mutation. No mutation of
+  any operator repo. No network I/O. No
+  new branch. No change to
+  VerificationPlan generation. No
+  change to artifacts freshness
+  behaviour. No change to path freshness
+  behaviour. No change to missing-script
+  tolerance.** Applies the two
+  documentation refinements surfaced by
+  the validation run: (1) new
+  *Three Freshness Surfaces Operators
+  Confuse* subsection inside *Run Path
+  Freshness* with a diagnostic table
+  covering `artifacts validate` vs
+  `artifacts freshness` (historical
+  `newer-input-exists` after
+  re-publication is acceptable) vs
+  `paths freshness` (working-tree
+  freshness), plus three rules of
+  thumb; (2) new *Inspect The Plan
+  Before Executing* subsection inside
+  *Optional Verification Flow* with a
+  package-manager / runner table
+  covering npm / pnpm / yarn / bun /
+  turbo / nx / make, an inspect-then-
+  execute flow, and routing of
+  package-manager mismatch as a
+  planning / ergonomics report. Playbook
+  *Acceptable First-Class Outcomes*
+  extended with three new bullets
+  (package-manager mismatch acceptable
+  when `VerificationRun` records
+  honestly, aggregate `artifacts
+  freshness` historical entries not
+  automatically blockers, `artifacts
+  validate: invalid` remains a
+  blocker). Bug-report template gains
+  *Package Manager Used By Target Repo*
+  + *Relevant Scripts From package.json*
+  subsections under *Target Repository
+  Shape*, a new *Artifacts Freshness
+  Result* section, and a new
+  *VerificationPlan ↔ Package Manager
+  Match* section. Validation report's
+  *Follow-Up Work* updated to record
+  the gaps were closed by this v2
+  batch. Required verbatim pins
+  (asserted by docs test):
+  *"`artifacts validate` is the
+  structural artifact validity gate."*,
+  *"`artifacts freshness` can report
+  historical `newer-input-exists`
+  entries after re-publication;
+  inspect whether the latest major
+  publication / refresh step passed
+  before treating aggregate stale
+  output as a blocker."*, *"`paths
+  freshness` is working-tree freshness
+  and is separate from artifact lineage
+  freshness."* Review packet
+  `.rekon-dev/review-packets/private-beta-onboarding-quickstart-refinements-v2.md`
+  with PURPOSE PRESERVATION CHECK + all
+  11 required sections. New
+  `tests/docs/private-beta-onboarding-quickstart-refinements-v2.test.mjs`
+  (18 assertions). Full suite expected
+  ≥ 1962 passed / 1 skipped (1944 + 18
+  new). **Recommended next slice:**
+  private beta cohort onboarding plan
+  — define how to invite + support the
+  first private beta users using the
+  source-checkout distribution +
+  playbook + quickstart (with v2
+  refinements) + validation report +
+  bug-report template + redaction
+  policy. Still no daemon, no
+  background refresh, no npm publish,
+  no version bump.
 - Private beta onboarding validation run
   (P1.1
   private-beta-onboarding-validation-run
