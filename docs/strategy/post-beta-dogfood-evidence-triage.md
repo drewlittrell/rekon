@@ -472,5 +472,16 @@ Still no daemon. Still no background refresh.
    component end-to-end and pins the decision:
    **the path freshness track is beta-private
    stable.** No additional hardening is required
-   before moving on. Recommended next slice:
-   private beta support playbook.
+   before moving on.
+5. **[Private Beta Support Playbook](../beta/private-beta-support-playbook.md)** —
+   first post-track operator-support slice.
+   Converts the now-stable no-NPM private-beta
+   posture into a repeatable operator support
+   process (source-checkout install, command
+   matrix, artifact-sharing policy with explicit
+   redaction guidance, blocker taxonomy vs
+   acceptable first-class outcomes, path-freshness
+   rerun guidance). Bug-report template at
+   [Private Beta Bug Report Template](../beta/private-beta-bug-report-template.md).
+   Recommended next slice: private beta
+   onboarding quickstart.

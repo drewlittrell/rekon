@@ -623,3 +623,19 @@ Findings are acceptable outcomes. Failed
 verification is acceptable when recorded
 honestly. `artifacts validate: invalid` is a
 release blocker.**
+
+## Operator Support
+
+Operator-facing support for the no-NPM private
+beta — install from source checkout, run the
+command matrix, classify outcomes, share
+artifacts — is documented in the
+[Private Beta Support Playbook](../beta/private-beta-support-playbook.md)
+and uses the
+[Private Beta Bug Report Template](../beta/private-beta-bug-report-template.md).
+The playbook re-states the cohort-level
+acceptable-outcome contract (findings exist;
+failed verification recorded honestly; missing
+scripts skipped honestly; first paths-freshness
+run records unknown) as first-class outcomes
+that do not warrant escalation.

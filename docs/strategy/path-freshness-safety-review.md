@@ -471,3 +471,19 @@ Decision recorded on 2026-05-26. No version bump.
 No npm publish. No runtime behaviour change.
 Rollback is trivial: revert this memo and the
 supporting doc cross-links.
+
+## Follow-Up
+
+The recommended next slice
+([Private Beta Support Playbook](../beta/private-beta-support-playbook.md))
+**has shipped.** It converts the now-stable
+no-NPM private-beta posture (verification +
+GitHub review surfaces + path freshness) into an
+operator-facing support process. The bug-report
+template lives at
+[Private Beta Bug Report Template](../beta/private-beta-bug-report-template.md).
+Both the playbook and the template pin
+working-tree freshness as a first-class signal,
+direct operators to re-run `rekon paths
+freshness` after source edits, and re-state the
+warning-only Check conclusion contract.

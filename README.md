@@ -649,8 +649,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # is explicit and operator-triggered; no daemon
 # or background refresh exists; stale path
 # freshness is a warning, not a GitHub Check
-# conclusion override. Recommended next slice:
-# private beta support playbook.
+# conclusion override.
+#
+# Private beta support playbook at
+# docs/beta/private-beta-support-playbook.md
+# converts the now-stable no-NPM private-beta
+# posture into a repeatable operator support
+# process: source-checkout install, command
+# matrix, artifact-sharing policy with explicit
+# redaction guidance, blocker taxonomy vs
+# acceptable first-class outcomes, path freshness
+# rerun guidance, GitHub review surface guidance.
+# Bug report template at
+# docs/beta/private-beta-bug-report-template.md.
+# Pinned: npm install is not supported during
+# beta; bug reports must include Rekon artifacts
+# or explicit redacted substitutes; artifact
+# validation failure is a blocker; findings /
+# failed verification / stale aggregate freshness
+# / GitHub readiness gaps are NOT automatically
+# blockers. Recommended next slice: private beta
+# onboarding quickstart.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

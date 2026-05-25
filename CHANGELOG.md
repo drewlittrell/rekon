@@ -4,6 +4,80 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Private Beta Support Playbook**
+  (first post-track operator-support slice
+  after the path-freshness safety review).
+  Converts the now-stable no-NPM private-beta
+  posture into a repeatable operator support
+  process.
+
+  **Strategy / docs / tests-only batch.** No
+  npm publish. No version bump. No git tag.
+  No GitHub Release. No runtime behaviour
+  change. No new CLI command. No new helper.
+  No schema change. No new artifact type. No
+  new permission. No new role. No workflow
+  YAML. No validator profile change. No
+  GitHub API call. No `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation in any
+  `packages/*/src/*`. No mutation of any
+  operator repo. No network I/O.
+
+  **What landed:**
+  - New `docs/beta/private-beta-support-playbook.md`
+    — operator-facing support playbook with
+    14 required sections + the three required
+    diagnostic tables (Support Classification
+    / Artifact Attachment / Command Matrix).
+    `docs/beta/` directory created.
+  - New `docs/beta/private-beta-bug-report-template.md`
+    — bug-report template with 14 required
+    section headings.
+  - New review packet
+    `.rekon-dev/review-packets/private-beta-support-playbook.md`
+    with PURPOSE PRESERVATION CHECK + all 12
+    required sections.
+  - New 22-assertion docs test
+    `tests/docs/private-beta-support-playbook.test.mjs`.
+  - Cross-link updates to the no-NPM beta
+    distribution policy, real-repo dogfood
+    report, additional dogfood cohort plan,
+    post-beta dogfood evidence triage memo,
+    path-freshness safety review, both
+    roadmaps, README.
+
+  **Pinned posture statements (all verbatim
+  + asserted by the docs test):**
+  - *Private beta support is source-checkout
+    based.*
+  - *Bug reports must include Rekon artifacts
+    or explicit redacted substitutes.*
+  - *Private beta users should not install
+    from npm.*
+  - *Path freshness should be rerun after
+    source edits before trusting existing
+    artifacts.*
+  - *Findings, failed verification, stale
+    aggregate freshness, and GitHub
+    readiness gaps are not automatically
+    blockers.*
+  - *Artifact validation failure is a
+    blocker.*
+  - *CLI crashes, malformed artifacts,
+    token/log leaks, source mutation outside
+    temp copies, or dry-run network calls
+    are blockers.*
+
+  **Recommended next slice:** private beta
+  onboarding quickstart — a concise
+  operator/user quickstart built from the
+  playbook (install from source checkout,
+  run the first scan, inspect outputs,
+  report issues, refresh after edits). Still
+  no daemon, no background refresh, no npm
+  publish, no version bump.
+
 - Shipped **Path Freshness Safety Review**
   (final slice in the post-beta watcher /
   path-freshness track). Reviews every component

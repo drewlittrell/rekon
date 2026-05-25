@@ -1106,6 +1106,59 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Private beta support playbook (P1.1
+  private-beta-support-playbook slice):
+  **first post-track operator-support slice
+  after the path-freshness safety review.**
+  Strategy / docs / tests-only batch. **No npm
+  publish. No version bump. No git tag. No
+  GitHub Release. No runtime behaviour change.
+  No new CLI command. No new helper. No schema
+  change. No new artifact type. No new
+  permission. No new role. No workflow YAML.
+  No validator profile change. No GitHub API
+  call. No `package.json` /
+  `package-lock.json` mutation. No source-file
+  mutation. No network I/O.** Converts the
+  now-stable no-NPM private-beta posture
+  (verification + GitHub review surfaces +
+  path freshness) into a repeatable operator
+  support process. New
+  [`docs/beta/private-beta-support-playbook.md`](../beta/private-beta-support-playbook.md)
+  with 14 required sections + three required
+  diagnostic tables (Support Classification /
+  Artifact Attachment / Command Matrix). New
+  [`docs/beta/private-beta-bug-report-template.md`](../beta/private-beta-bug-report-template.md)
+  with 14 required section headings. Review
+  packet
+  `.rekon-dev/review-packets/private-beta-support-playbook.md`
+  with PURPOSE PRESERVATION CHECK + all 12
+  required sections. New
+  `tests/docs/private-beta-support-playbook.test.mjs`
+  (22 assertions). Pinned posture statements
+  (all verbatim + asserted): private beta
+  support is source-checkout based; bug
+  reports must include Rekon artifacts or
+  explicit redacted substitutes; private beta
+  users should not install from npm; path
+  freshness should be rerun after source
+  edits before trusting existing artifacts;
+  findings / failed verification / stale
+  aggregate freshness / GitHub readiness gaps
+  are not automatically blockers; artifact
+  validation failure is a blocker; CLI
+  crashes / malformed artifacts / token-log
+  leaks / source mutation outside temp copies
+  / dry-run network calls are blockers. Full
+  suite expected ≥ 1903 passed / 1 skipped
+  (1881 + 22 new). **Recommended next slice:**
+  private beta onboarding quickstart — a
+  concise operator/user quickstart built from
+  the playbook (install from source checkout,
+  run the first scan, inspect outputs, report
+  issues, refresh after edits). Still no
+  daemon, no background refresh, no npm
+  publish, no version bump.
 - Path freshness safety review (P1.1
   path-freshness-safety-review slice): **final
   slice in the post-beta watcher /

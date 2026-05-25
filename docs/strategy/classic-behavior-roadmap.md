@@ -5259,6 +5259,32 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Private beta support playbook (P1.1
+  private-beta-support-playbook slice).** ✅
+  Shipped. **First post-track operator-support
+  slice** after the path-freshness safety
+  review. Converts the now-stable no-NPM
+  private-beta posture (verification + GitHub
+  review surfaces + path freshness) into a
+  repeatable operator support process:
+  source-checkout install, command matrix,
+  artifact-sharing policy with explicit
+  redaction guidance, blocker taxonomy vs
+  acceptable first-class outcomes,
+  path-freshness rerun guidance, GitHub review
+  surface guidance. New
+  [`docs/beta/private-beta-support-playbook.md`](../beta/private-beta-support-playbook.md)
+  + new
+  [`docs/beta/private-beta-bug-report-template.md`](../beta/private-beta-bug-report-template.md).
+  Pinned: npm install is not supported during
+  beta; bug reports must include Rekon
+  artifacts or explicit redacted substitutes;
+  artifact validation failure is a blocker;
+  findings / failed verification / stale
+  aggregate freshness / GitHub readiness gaps
+  are NOT automatically blockers. **Recommended
+  next slice:** private beta onboarding
+  quickstart.
 - **Path freshness safety review (P1.1
   path-freshness-safety-review slice).** ✅
   Shipped. **Final slice in the post-beta

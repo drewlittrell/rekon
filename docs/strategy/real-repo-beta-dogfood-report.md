@@ -478,3 +478,17 @@ execution (step 7) will run:
 broader real-repo dogfood is **required**
 before any post-beta publish is reconsidered;
 the cohort is no longer optional hardening.
+
+## Operator Support
+
+Private-beta operators use the
+[Private Beta Support Playbook](../beta/private-beta-support-playbook.md)
++
+[Private Beta Bug Report Template](../beta/private-beta-bug-report-template.md)
+to install, run, validate, share artifacts, and
+report issues during the no-NPM beta. The
+playbook pins the source-checkout install path,
+the command matrix, the artifact-sharing
+policy with explicit redaction guidance, the
+blocker taxonomy, and the path-freshness rerun
+guidance.
