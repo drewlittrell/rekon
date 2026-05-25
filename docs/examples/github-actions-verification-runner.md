@@ -1165,3 +1165,11 @@ this workflow.
   `rekon paths freshness` or `rekon refresh`. To
   populate the surface, run `rekon paths
   freshness` once before publish.
+- [Path Freshness Safety Review](../strategy/path-freshness-safety-review.md) —
+  the full path-freshness track (artifact + CLI +
+  publication surfacing + GitHub review surfacing
+  + read-only guarantees + no-daemon policy) has
+  been declared **beta-private stable**. No
+  additional hardening is required before moving
+  on. Stale path freshness remains a warning,
+  never a Check conclusion override.

@@ -4,6 +4,90 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Path Freshness Safety Review**
+  (final slice in the post-beta watcher /
+  path-freshness track). Reviews every component
+  end-to-end and pins the decision: **the path
+  freshness track is beta-private stable.** No
+  additional hardening is required before
+  moving on.
+
+  **Strategy / docs / tests-only batch.** No
+  runtime behaviour change. No watcher
+  behaviour. No daemon parity claim. No claim
+  that path freshness is artifact lineage
+  freshness. No claim that stale path freshness
+  changes Check conclusion. No new package, no
+  new CLI command, no new helper, no schema
+  change, no new permission, no new artifact
+  type, no workflow YAML, no GitHub API call, no
+  `npm publish`, no version bump, no release
+  tag, no GitHub Release, no `package.json` /
+  `package-lock.json` mutation, no source-file
+  mutation in any `packages/*/src/*`, no
+  network I/O.
+
+  **Components reviewed (all preserved
+  end-to-end):**
+  - `PathFreshnessReport` artifact — explicit
+    + operator-triggered; schema unchanged
+    across the three implementation slices.
+  - `buildSourceStateFingerprint` — sha256
+    canonical; bounded reads; conservative
+    default ignore set; `mtimeAdvisory`
+    opt-in only.
+  - `rekon paths freshness` CLI — read-only
+    with respect to source; never recurses;
+    never invokes `rekon refresh`.
+  - Publication surfacing (architecture
+    summary / agent contract / proof report)
+    — bounded change table; never invokes
+    `rekon paths freshness` or `rekon
+    refresh`.
+  - GitHub Check + PR comment surfacing —
+    trust-warning only; never changes Check
+    conclusion; never changes readiness
+    gates; never alters GitHub API
+    transport.
+  - No-daemon / no-background-refresh policy
+    — preserved end-to-end.
+
+  **Required statements pinned verbatim:**
+  - *"Artifact lineage freshness is not
+    working-tree freshness."*
+  - *"PathFreshnessReport is explicit and
+    operator-triggered."*
+  - *"No daemon or background refresh
+    exists."*
+  - *"Stale path freshness is a warning, not
+    a GitHub Check conclusion override."*
+
+  **Tests:** new
+  `tests/docs/path-freshness-safety-review.test.mjs`
+  (19 assertions). All other pre-existing
+  tests still pass.
+
+  **Docs:** new strategy memo
+  `docs/strategy/path-freshness-safety-review.md`
+  with three required diagnostic tables
+  (component / risk / decision); review packet
+  `.rekon-dev/review-packets/path-freshness-safety-review.md`
+  with PURPOSE PRESERVATION CHECK + all 11
+  required sections; cross-link updates to
+  watcher memo, triage memo, both roadmaps,
+  path-freshness concept + artifact docs,
+  freshness-and-invalidation concept doc, agent
+  operating contract concept doc, GitHub Actions
+  operator guide, README.
+
+  **Recommended next slice:** private beta
+  support playbook — define how private beta
+  users report issues, attach Rekon artifacts,
+  classify blockers vs acceptable findings,
+  rerun path freshness after source edits, and
+  follow no-npm / source-checkout install
+  instructions.
+
 - Shipped **Path Freshness GitHub Review
   Surfacing** (third watcher / path-freshness
   slice, following the publication-surfacing

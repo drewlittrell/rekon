@@ -636,8 +636,21 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # read-only with respect to the report; they
 # never run `rekon paths freshness` and never run
 # `rekon refresh`. GitHub status / comments remain
-# non-canonical. Path freshness safety review is
-# the next slice.
+# non-canonical.
+#
+# Path freshness safety review at
+# docs/strategy/path-freshness-safety-review.md
+# closes the post-beta watcher / path-freshness
+# track. DECISION: the path freshness track is
+# beta-private stable. No additional hardening is
+# required before moving on. Required statements
+# pinned verbatim: artifact lineage freshness is
+# not working-tree freshness; PathFreshnessReport
+# is explicit and operator-triggered; no daemon
+# or background refresh exists; stale path
+# freshness is a warning, not a GitHub Check
+# conclusion override. Recommended next slice:
+# private beta support playbook.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

@@ -102,11 +102,24 @@ the other is `stale`.
   both surfaces retain their existing
   canonical-truth reminders.**
 
-**Deferred (follow-on slices):**
+**Shipped (final track slice
+`path-freshness-safety-review`):**
 
-- Path freshness safety review (next slice).
+- End-to-end review of every component on the
+  track (artifact + fingerprint helper + CLI +
+  publication surfacing + GitHub review
+  surfacing + read-only guarantees + no-daemon
+  policy + mtime/hash policy + Check
+  conclusion policy). **Decision: the path
+  freshness track is beta-private stable.** See
+  [Path Freshness Safety Review](../strategy/path-freshness-safety-review.md).
+
+**Deferred (post-beta):**
+
 - Watcher daemon design + implementation.
 - Source-write apply.
+- Optional `--path` from `git diff --name-only`
+  in workflow templates.
 
 ## Shape
 

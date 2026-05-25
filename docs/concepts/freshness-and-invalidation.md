@@ -333,4 +333,7 @@ for decision-making. All warnings recommend
   freshness.** This document covers the artifact
   lineage half; `PathFreshnessReport` covers the
   source-state half. Both can be `fresh` while the
-  other is `stale`; both signals matter.
+  other is `stale`; both signals matter. The
+  full path-freshness track has been declared
+  beta-private stable; see
+  [Path Freshness Safety Review](../strategy/path-freshness-safety-review.md).

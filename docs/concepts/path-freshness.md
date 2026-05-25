@@ -192,6 +192,16 @@ canonical-truth reminders; the
 `PathFreshnessReport` block is additive context,
 not a replacement for the underlying artefact.
 
+## Status
+
+**The path freshness track is beta-private
+stable.** See
+[Path Freshness Safety Review](../strategy/path-freshness-safety-review.md)
+for the end-to-end review and the pinned
+decision. Remaining work is post-beta polish;
+the recommended next slice is the private beta
+support playbook.
+
 ## Cross-References
 
 - [PathFreshnessReport artifact doc](../artifacts/path-freshness-report.md)

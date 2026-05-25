@@ -1106,6 +1106,56 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Path freshness safety review (P1.1
+  path-freshness-safety-review slice): **final
+  slice in the post-beta watcher /
+  path-freshness track.** Strategy / docs /
+  tests-only batch. **No runtime behaviour
+  change. No watcher behaviour. No daemon
+  parity claim. No claim that path freshness
+  is artifact lineage freshness. No claim that
+  stale path freshness changes Check
+  conclusion. No new package, no new CLI
+  command, no new helper, no schema change, no
+  new permission, no new artifact type, no
+  workflow YAML, no GitHub API call, no `npm
+  publish`, no version bump, no release tag,
+  no GitHub Release, no `package.json` /
+  `package-lock.json` mutation, no source-file
+  mutation, no network I/O.** Reviews every
+  component on the track end-to-end
+  (`PathFreshnessReport` artifact +
+  source-state fingerprint helper +
+  `rekon paths freshness` CLI + publication
+  surfacing + GitHub review surfacing +
+  read-only guarantees + no-daemon policy +
+  mtime/hash policy + Check conclusion
+  policy). New strategy memo at
+  [`docs/strategy/path-freshness-safety-review.md`](path-freshness-safety-review.md)
+  with three required diagnostic tables
+  (component / risk / decision). Required
+  statements pinned verbatim: *"Artifact
+  lineage freshness is not working-tree
+  freshness." / "PathFreshnessReport is
+  explicit and operator-triggered." / "No
+  daemon or background refresh exists." /
+  "Stale path freshness is a warning, not a
+  GitHub Check conclusion override."*
+  **Decision: the path freshness track is
+  beta-private stable.** Review packet
+  `.rekon-dev/review-packets/path-freshness-safety-review.md`
+  with PURPOSE PRESERVATION CHECK; new docs
+  test
+  `tests/docs/path-freshness-safety-review.test.mjs`
+  (19 assertions). Full suite expected ≥
+  1881 passed / 1 skipped (1862 + 19 new).
+  **Recommended next slice:** private beta
+  support playbook — define how private beta
+  users report issues, attach Rekon
+  artifacts, classify blockers vs acceptable
+  findings, rerun path freshness after source
+  edits, follow no-npm / source-checkout
+  install instructions.
 - Path freshness GitHub review surfacing (P1.1
   path-freshness-github-review-surfacing slice):
   **third watcher / path-freshness

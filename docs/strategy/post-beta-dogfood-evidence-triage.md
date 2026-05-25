@@ -466,6 +466,11 @@ shipped:**
    with respect to the report.
 
 Still no daemon. Still no background refresh.
-The remaining follow-on slice ("path freshness
-safety review") is pending and requires its own
-work order.
+
+4. **[Path freshness safety review](path-freshness-safety-review.md)** —
+   the final slice in the track. Reviews every
+   component end-to-end and pins the decision:
+   **the path freshness track is beta-private
+   stable.** No additional hardening is required
+   before moving on. Recommended next slice:
+   private beta support playbook.

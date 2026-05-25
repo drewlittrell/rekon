@@ -5259,6 +5259,27 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Path freshness safety review (P1.1
+  path-freshness-safety-review slice).** ✅
+  Shipped. **Final slice in the post-beta
+  watcher / path-freshness track.** Reviews
+  every component end-to-end (artifact +
+  fingerprint helper + CLI + publication
+  surfacing + GitHub review surfacing +
+  read-only guarantees + no-daemon policy +
+  mtime/hash policy + Check conclusion
+  policy). **Decision: the path freshness
+  track is beta-private stable.** Required
+  statements pinned verbatim: *"Artifact
+  lineage freshness is not working-tree
+  freshness." / "PathFreshnessReport is
+  explicit and operator-triggered." / "No
+  daemon or background refresh exists." /
+  "Stale path freshness is a warning, not a
+  GitHub Check conclusion override."* See
+  [`docs/strategy/path-freshness-safety-review.md`](path-freshness-safety-review.md).
+  **Recommended next slice:** private beta
+  support playbook.
 - **Path freshness GitHub review surfacing (P1.1
   path-freshness-github-review-surfacing
   slice).** ✅ Shipped. **Third watcher /

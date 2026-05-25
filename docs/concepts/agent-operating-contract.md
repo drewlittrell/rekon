@@ -449,4 +449,6 @@ that pins the lineage-vs-working-tree distinction
 verbatim; agents should treat that subsection as
 the canonical signal and avoid relying on
 artifact lineage freshness alone after source
-edits.
+edits. The full path-freshness track has been
+declared beta-private stable; see
+[Path Freshness Safety Review](../strategy/path-freshness-safety-review.md).
