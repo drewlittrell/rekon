@@ -54,7 +54,12 @@ import jsTsCapability from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability from "@rekon/capability-model";
 import policyCapability from "@rekon/capability-policy";
-import reconcileCapability from "@rekon/capability-reconcile";
+import reconcileCapability, {
+  buildReconciliationPreview,
+  type ReconciliationPlan,
+  type ReconciliationPreview,
+  type ReconciliationPreviewOperation,
+} from "@rekon/capability-reconcile";
 import resolverCapability from "@rekon/capability-resolver";
 import {
   type ArtifactFreshnessEntry,
@@ -1667,6 +1672,51 @@ export async function main(argv: string[]): Promise<void> {
       },
       json,
     );
+    return;
+  }
+
+  if (command === "reconcile" && subcommand === "preview") {
+    const planFlag = typeof parsed.flags.plan === "string"
+      ? parsed.flags.plan.trim()
+      : "";
+
+    if (planFlag.length === 0) {
+      throw new Error(
+        "rekon reconcile preview requires --plan <ReconciliationPlan-id|type:id>.",
+      );
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entry = await findArtifactEntry(store, planFlag);
+
+    if (entry.type !== "ReconciliationPlan") {
+      throw new Error(
+        `rekon reconcile preview --plan must reference a ReconciliationPlan; got ${entry.type}.`,
+      );
+    }
+
+    const plan = (await store.read(entry)) as ReconciliationPlan;
+    const planRef: ArtifactRef = {
+      type: entry.type,
+      id: entry.id,
+      path: entry.path,
+      digest: entry.digest,
+      schemaVersion: entry.schemaVersion ?? "0.1.0",
+    };
+
+    const preview = await buildReconciliationPreview({
+      plan,
+      planRef,
+      repoRoot: root,
+    });
+
+    if (json) {
+      writeOutput(preview, json);
+    } else {
+      writePreviewHumanOutput(preview);
+    }
+
     return;
   }
 
@@ -4864,6 +4914,38 @@ async function ensurePreflight(
   });
 }
 
+function writePreviewHumanOutput(preview: ReconciliationPreview): void {
+  const { planRef, status, summary, operations, recommendation } = preview;
+  const lines: string[] = [];
+  lines.push("Reconciliation preview");
+  lines.push("");
+  lines.push(`Plan: ${planRef.type}:${planRef.id}`);
+  lines.push(`Status: ${status}`);
+  lines.push(
+    `Operations: ${summary.total} total, ${summary.previewable} previewable, ${summary.notPreviewable} not previewable, ${summary.manual} manual, ${summary.highRisk} high-risk`,
+  );
+  lines.push("");
+  lines.push("| # | Operation | Kind | Path | Risk | Preview |");
+  lines.push("| --- | --- | --- | --- | --- | --- |");
+  operations.forEach((op: ReconciliationPreviewOperation, index: number) => {
+    const path = op.path ?? "—";
+    const previewable = op.previewable ? "yes" : "no";
+    const title = op.title.replace(/\|/g, " ");
+    lines.push(
+      `| ${index + 1} | ${title} | ${op.kind} | ${path} | ${op.risk} | ${previewable} |`,
+    );
+  });
+  lines.push("");
+  lines.push(recommendation.message);
+  if (recommendation.nextCommands.length > 0) {
+    lines.push("Next commands:");
+    for (const cmd of recommendation.nextCommands) {
+      lines.push(`  ${cmd}`);
+    }
+  }
+  process.stdout.write(`${lines.join("\n")}\n`);
+}
+
 async function findArtifactEntry(store: ReturnType<typeof createLocalArtifactStore>, id: string): Promise<ArtifactIndexEntry> {
   const entries = await store.list();
   const [type, artifactId] = id.includes(":") ? id.split(":", 2) : [undefined, id];
@@ -6785,6 +6867,7 @@ function usage(): string {
     "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--skip-verified] [--root <path>] [--json]",
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
     "rekon reconcile suggest [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--apply] [--root <path>] [--json]",
+    "rekon reconcile preview --plan <id|type:id> [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

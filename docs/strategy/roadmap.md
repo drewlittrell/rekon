@@ -1106,6 +1106,74 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Reconciliation preview v1 (P1.1
+  reconciliation-preview-v1 slice):
+  **first product capability batch after
+  the private-beta operator-support
+  track.** Helper + CLI + docs + tests
+  batch. **No source-write apply. No
+  `source:write` permission registration.
+  No `ReconciliationApplyReport` artifact
+  (still reserved). No
+  `ReconciliationPreviewReport` artifact
+  in v1 (decision deferred to the next
+  slice). No mutation of
+  `ReconciliationPlan` shape. No
+  auto-resolve of findings. No
+  auto-apply of reconciliation. No
+  auto-verification. No workflow YAML.
+  No GitHub API call. No
+  `package.json` / `package-lock.json`
+  mutation outside additive helper
+  exports. No npm publish. No version
+  bump. No git tag. No GitHub Release.
+  No new branch.** Adds the read-only
+  preview surface that classifies a
+  `ReconciliationPlan` into
+  operator-facing rows. New pure helper
+  `buildReconciliationPreview` in
+  [`@rekon/capability-reconcile`](../../packages/capability-reconcile)
+  with five preview kinds
+  (`artifact-only`, `source-patch`,
+  `generated-file`, `manual`,
+  `not-previewable`) and four risk
+  bands (`low` / `medium` / `high` /
+  `unknown`). New CLI command
+  `rekon reconcile preview --plan
+  <id|type:id> [--root <path>]
+  [--json]`. Forward-compatible
+  unified-diff path emits a diff only
+  when an operation carries
+  `beforeText` + `afterText` AND the
+  current file under `repoRoot`
+  matches the expected before text;
+  v1 plans carry no diff fields, so v1
+  emits no diffs through normal flow.
+  Required verbatim pins (asserted by
+  docs test): *"Source-write apply is
+  not available."*, *"Exact diff
+  preview is mandatory before any
+  apply implementation."*, *"The
+  preview does not resolve findings."*
+  New concept doc
+  [`docs/concepts/reconciliation-preview.md`](../concepts/reconciliation-preview.md)
+  + strategy memo
+  [`docs/strategy/reconciliation-preview-v1.md`](reconciliation-preview-v1.md).
+  Review packet
+  `.rekon-dev/review-packets/reconciliation-preview-v1.md`
+  with PURPOSE PRESERVATION CHECK +
+  all 11 required sections. Contract
+  test `tests/contract/reconciliation-preview.test.mjs`
+  (13 assertions) + docs test
+  `tests/docs/reconciliation-preview.test.mjs`
+  (8 assertions). Full suite expected
+  ≥ 1983 passed / 1 skipped (1962 + 21
+  new). **Recommended next slice:**
+  *ReconciliationPreviewReport
+  artifact decision* — decide whether
+  previews should become durable
+  artifacts before any source-write
+  apply path exists.
 - Private beta onboarding quickstart
   refinements v2 (P1.1
   private-beta-onboarding-quickstart-refinements-v2

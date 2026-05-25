@@ -5259,6 +5259,40 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Reconciliation preview v1 (P1.1
+  reconciliation-preview-v1 slice).** ✅
+  Shipped. **First product capability
+  batch after the private-beta
+  operator-support track.** Adds the
+  read-only `rekon reconcile preview
+  --plan <id> [--json]` CLI + pure
+  `buildReconciliationPreview` helper in
+  `@rekon/capability-reconcile` that
+  projects a `ReconciliationPlan` into
+  five preview kinds (`artifact-only`,
+  `source-patch`, `generated-file`,
+  `manual`, `not-previewable`) with four
+  risk bands (`low`/`medium`/`high`/
+  `unknown`). Forward-compatible
+  unified-diff path emits a diff only
+  when operations carry `beforeText` +
+  `afterText` and the current file
+  matches; v1 plans carry no diff
+  fields, so v1 emits no diffs through
+  normal flow. **Source-write apply is
+  not available.** **`ReconciliationApplyReport`
+  artifact + `source:write` permission
+  + `rekon reconcile apply` command —
+  all still deferred and unchanged.**
+  New concept doc + strategy memo
+  pinning *"Exact diff preview is
+  mandatory before any apply
+  implementation."* and *"The preview
+  does not resolve findings."* New
+  contract test (13 assertions) + docs
+  test (8 assertions). **Recommended
+  next slice:** *ReconciliationPreviewReport
+  artifact decision.*
 - **Private beta onboarding quickstart
   refinements v2 (P1.1
   private-beta-onboarding-quickstart-refinements-v2

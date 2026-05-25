@@ -192,3 +192,19 @@ Rebuild with `rekon reconcile suggest`.
   pre / post `VerificationResult`s when the apply
   slice ships) and the `source:write` permission
   name. No autonomous source writes.
+- [Reconciliation preview concept](../concepts/reconciliation-preview.md) +
+  [Reconciliation preview v1 strategy memo](../strategy/reconciliation-preview-v1.md)
+  — the
+  `rekon reconcile preview --plan <id> [--json]`
+  command projects this artifact into an
+  operator-facing preview with five kinds
+  (`artifact-only`, `source-patch`,
+  `generated-file`, `manual`,
+  `not-previewable`) + four risk bands
+  (`low`/`medium`/`high`/`unknown`). v1
+  emits no diff (the plan shape carries no
+  exact patch data); a forward-compatible
+  diff path triggers only when an operation
+  carries `beforeText` + `afterText` AND
+  the current file matches `beforeText`.
+  Source-write apply remains unavailable.

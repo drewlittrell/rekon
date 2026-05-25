@@ -779,8 +779,41 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # output as a blocker; paths freshness
 # is working-tree freshness and is
 # separate from artifact lineage
-# freshness. Recommended next slice:
-# private beta cohort onboarding plan.
+# freshness.
+#
+# Reconciliation preview v1 has shipped.
+# The new rekon reconcile preview --plan
+# <id> [--json] command projects a
+# ReconciliationPlan into five
+# operator-facing preview kinds
+# (artifact-only, source-patch,
+# generated-file, manual, not-previewable)
+# with four risk bands (low, medium,
+# high, unknown). The helper
+# buildReconciliationPreview lives in
+# @rekon/capability-reconcile. v1 emits
+# no diffs through normal flow because
+# the ReconciliationPlan shape carries
+# no exact patch data; a
+# forward-compatible diff path emits a
+# unified diff only when an operation
+# carries beforeText + afterText AND the
+# current file matches the expected
+# before text. Source-write apply is
+# not available. ReconciliationApplyReport
+# artifact + source:write permission +
+# rekon reconcile apply command are all
+# still deferred. New concept doc
+# docs/concepts/reconciliation-preview.md
+# + strategy memo
+# docs/strategy/reconciliation-preview-v1.md.
+# Pinned verbatim in the docs: exact diff
+# preview is mandatory before any apply
+# implementation; the preview does not
+# resolve findings; non-previewable
+# operations are explicit. Recommended
+# next slice: ReconciliationPreviewReport
+# artifact decision.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

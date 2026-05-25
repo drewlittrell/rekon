@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join, resolve as pathResolve } from "node:path";
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
@@ -603,4 +605,444 @@ function createHeaderFromSubject(
       notes: [provenanceNote],
     },
   };
+}
+
+// ============================================================================
+// Reconciliation preview v1
+// ----------------------------------------------------------------------------
+// Read-only classification of a ReconciliationPlan into operator-facing
+// preview rows. Source-write apply is NOT available; this helper never writes
+// source files and never writes artifacts. Diffs are only generated when the
+// input carries exact before/after text — v1's plan shape carries none, so
+// every non-artifact-only operation is classified `not-previewable` with the
+// reason "ReconciliationPlan does not include exact patch data."
+// ============================================================================
+
+export type ReconciliationPreviewOperationKind =
+  | "artifact-only"
+  | "source-patch"
+  | "generated-file"
+  | "manual"
+  | "not-previewable";
+
+export type ReconciliationPreviewRisk =
+  | "low"
+  | "medium"
+  | "high"
+  | "unknown";
+
+export type ReconciliationPreviewOperation = {
+  id: string;
+  kind: ReconciliationPreviewOperationKind;
+  title: string;
+  description?: string;
+  path?: string;
+  risk: ReconciliationPreviewRisk;
+  previewable: boolean;
+  reason?: string;
+  diff?: {
+    format: "unified";
+    text: string;
+  };
+  sourceRefs?: ArtifactRef[];
+};
+
+export type ReconciliationPreviewSummary = {
+  total: number;
+  previewable: number;
+  sourcePatch: number;
+  artifactOnly: number;
+  generatedFile: number;
+  manual: number;
+  notPreviewable: number;
+  highRisk: number;
+};
+
+export type ReconciliationPreviewRecommendation = {
+  applyAvailable: false;
+  message: string;
+  nextCommands: string[];
+};
+
+export type ReconciliationPreviewStatus =
+  | "previewable"
+  | "partial"
+  | "not-previewable";
+
+export type ReconciliationPreview = {
+  kind: "rekon.reconciliation.preview";
+  planRef: ArtifactRef;
+  status: ReconciliationPreviewStatus;
+  operations: ReconciliationPreviewOperation[];
+  summary: ReconciliationPreviewSummary;
+  recommendation: ReconciliationPreviewRecommendation;
+};
+
+/**
+ * Forward-compatible extension on `ReconciliationPlanOperation`. The v1
+ * `ReconciliationPlan` shape does NOT include these fields, so the preview
+ * helper marks non-artifact-only operations `not-previewable` and emits no
+ * diff. A future plan-generator may attach `beforeText` / `afterText` (and
+ * optionally an `expectedBeforeDigest`) to source-write operations; when those
+ * fields are present, the helper reads the current file under `repoRoot`,
+ * verifies the before-text matches, and emits a unified diff. Never invents a
+ * patch.
+ */
+type ReconciliationPlanOperationDiffExtension = {
+  beforeText?: string;
+  afterText?: string;
+  expectedBeforeDigest?: string;
+};
+
+export type ReconciliationPreviewInput = {
+  plan: ReconciliationPlan;
+  planRef: ArtifactRef;
+  /**
+   * Required only when the plan carries forward-compatible diff fields
+   * (`beforeText` + `afterText`) AND a `files` entry naming a path to read.
+   * v1 plans carry no such fields, so v1 calls never read files even when
+   * `repoRoot` is supplied.
+   */
+  repoRoot?: string;
+};
+
+const APPLY_UNAVAILABLE_MESSAGE =
+  "Source-write apply is not available. Review this preview and apply manually.";
+
+export async function buildReconciliationPreview(
+  input: ReconciliationPreviewInput,
+): Promise<ReconciliationPreview> {
+  const { plan, planRef, repoRoot } = input;
+
+  if (!plan || !Array.isArray(plan.operations)) {
+    throw new Error(
+      "buildReconciliationPreview: plan.operations must be an array",
+    );
+  }
+
+  if (!planRef || planRef.type !== "ReconciliationPlan") {
+    throw new Error(
+      "buildReconciliationPreview: planRef must reference a ReconciliationPlan",
+    );
+  }
+
+  const operations: ReconciliationPreviewOperation[] = [];
+  for (let index = 0; index < plan.operations.length; index += 1) {
+    const op = plan.operations[index];
+    if (!op) continue;
+    operations.push(
+      await classifyOperationForPreview(op, index, planRef.id, repoRoot),
+    );
+  }
+
+  const summary = summarizePreviewOperations(operations);
+  const status = pickPreviewStatus(summary);
+  const recommendation: ReconciliationPreviewRecommendation = {
+    applyAvailable: false,
+    message: APPLY_UNAVAILABLE_MESSAGE,
+    nextCommands: [],
+  };
+
+  return {
+    kind: "rekon.reconciliation.preview",
+    planRef,
+    status,
+    operations,
+    summary,
+    recommendation,
+  };
+}
+
+async function classifyOperationForPreview(
+  operation: ReconciliationPlanOperation,
+  index: number,
+  planArtifactId: string,
+  repoRoot?: string,
+): Promise<ReconciliationPreviewOperation> {
+  const id = `${planArtifactId}::op-${index}`;
+  const path = pickPrimaryPath(operation);
+  const title = pickOperationTitle(operation);
+  const description = operation.suggestedAction || operation.reason;
+
+  // Artifact-only operations are inherently previewable in the "describable
+  // and safe to apply later" sense, but v1's plan shape does not carry the
+  // resulting artifact content, so we do NOT generate a diff. We still mark
+  // them previewable because there is no source mutation to fear.
+  if (operation.class === "artifact-only") {
+    return {
+      id,
+      kind: "artifact-only",
+      title,
+      description,
+      path,
+      risk: "low",
+      previewable: true,
+      reason: operation.reason,
+    };
+  }
+
+  if (operation.class === "source-write-deferred") {
+    const kind: ReconciliationPreviewOperationKind =
+      operation.operation === "generated_scaffold_write"
+        ? "generated-file"
+        : "source-patch";
+
+    const ext = operation as unknown as ReconciliationPlanOperationDiffExtension;
+    const hasDiffFields =
+      typeof ext.beforeText === "string" &&
+      typeof ext.afterText === "string" &&
+      typeof path === "string" &&
+      path.length > 0;
+
+    if (hasDiffFields && repoRoot) {
+      const fileRead = await tryReadFile(repoRoot, path);
+
+      if (!fileRead.ok) {
+        return {
+          id,
+          kind,
+          title,
+          description,
+          path,
+          risk: "high",
+          previewable: false,
+          reason: `Could not read current file content for diff: ${fileRead.error}.`,
+        };
+      }
+
+      if (fileRead.text !== ext.beforeText) {
+        return {
+          id,
+          kind,
+          title,
+          description,
+          path,
+          risk: "high",
+          previewable: false,
+          reason:
+            "Current file content does not match expected before text.",
+        };
+      }
+
+      const diffText = computeUnifiedDiff(
+        path,
+        ext.beforeText as string,
+        ext.afterText as string,
+      );
+
+      return {
+        id,
+        kind,
+        title,
+        description,
+        path,
+        risk: "high",
+        previewable: true,
+        diff: {
+          format: "unified",
+          text: diffText,
+        },
+      };
+    }
+
+    return {
+      id,
+      kind,
+      title,
+      description,
+      path,
+      risk: "high",
+      previewable: false,
+      reason:
+        "ReconciliationPlan does not include exact patch data. Source-write apply is not available.",
+    };
+  }
+
+  if (operation.class === "command-deferred") {
+    return {
+      id,
+      kind: "manual",
+      title,
+      description,
+      path,
+      risk: "medium",
+      previewable: false,
+      reason:
+        "Command-deferred operation. Execute manually via rekon verify run --dry-run before relying on this remediation.",
+    };
+  }
+
+  if (operation.class === "manual-review") {
+    return {
+      id,
+      kind: "manual",
+      title,
+      description,
+      path,
+      risk: "unknown",
+      previewable: false,
+      reason:
+        "ReconciliationPlan classified this remediation as manual-review.",
+    };
+  }
+
+  return {
+    id,
+    kind: "not-previewable",
+    title,
+    description,
+    path,
+    risk: "unknown",
+    previewable: false,
+    reason:
+      "ReconciliationPlan does not include exact patch data. Operation is not previewable.",
+  };
+}
+
+function pickPrimaryPath(operation: ReconciliationPlanOperation): string | undefined {
+  if (!Array.isArray(operation.files) || operation.files.length === 0) {
+    return undefined;
+  }
+  return operation.files[0];
+}
+
+function pickOperationTitle(operation: ReconciliationPlanOperation): string {
+  if (operation.suggestedAction && operation.suggestedAction.trim().length > 0) {
+    return operation.suggestedAction.trim();
+  }
+  return humanizeOperation(operation.operation);
+}
+
+function humanizeOperation(name: ReconciliationOperation): string {
+  switch (name) {
+    case "docs_regeneration":
+      return "Documentation regeneration";
+    case "label_override_write":
+      return "Label override write";
+    case "finding_baseline_write":
+      return "Finding baseline write";
+    case "safe_import_rewrite":
+      return "Safe import rewrite";
+    case "generated_scaffold_write":
+      return "Generated scaffold write";
+    case "verification_command_run":
+      return "Verification command run";
+    case "manual_review":
+      return "Manual review";
+    default:
+      return name;
+  }
+}
+
+function summarizePreviewOperations(
+  operations: ReconciliationPreviewOperation[],
+): ReconciliationPreviewSummary {
+  const summary: ReconciliationPreviewSummary = {
+    total: operations.length,
+    previewable: 0,
+    sourcePatch: 0,
+    artifactOnly: 0,
+    generatedFile: 0,
+    manual: 0,
+    notPreviewable: 0,
+    highRisk: 0,
+  };
+
+  for (const op of operations) {
+    if (op.previewable) summary.previewable += 1;
+    if (op.risk === "high") summary.highRisk += 1;
+    switch (op.kind) {
+      case "artifact-only":
+        summary.artifactOnly += 1;
+        break;
+      case "source-patch":
+        summary.sourcePatch += 1;
+        break;
+      case "generated-file":
+        summary.generatedFile += 1;
+        break;
+      case "manual":
+        summary.manual += 1;
+        break;
+      case "not-previewable":
+        summary.notPreviewable += 1;
+        break;
+    }
+  }
+
+  return summary;
+}
+
+function pickPreviewStatus(
+  summary: ReconciliationPreviewSummary,
+): ReconciliationPreviewStatus {
+  if (summary.total === 0) {
+    return "not-previewable";
+  }
+  if (summary.previewable === summary.total) {
+    return "previewable";
+  }
+  if (summary.previewable === 0) {
+    return "not-previewable";
+  }
+  return "partial";
+}
+
+async function tryReadFile(
+  repoRoot: string,
+  relativePath: string,
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  try {
+    const resolvedRoot = pathResolve(repoRoot);
+    const resolvedPath = pathResolve(join(resolvedRoot, relativePath));
+
+    // Defence in depth: refuse to read a path that escapes the repo root.
+    if (
+      resolvedPath !== resolvedRoot &&
+      !resolvedPath.startsWith(`${resolvedRoot}/`)
+    ) {
+      return {
+        ok: false,
+        error: "path escapes repo root",
+      };
+    }
+
+    const text = await readFile(resolvedPath, "utf8");
+    return { ok: true, text };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Deterministic unified-diff renderer. v1 emits a single hunk that strips the
+ * entire before-text and replaces it with the entire after-text. This is
+ * verbose but always faithful: it never elides changed lines and never invents
+ * context that the input did not supply.
+ */
+function computeUnifiedDiff(
+  path: string,
+  beforeText: string,
+  afterText: string,
+): string {
+  const beforeLines = beforeText.length === 0 ? [] : beforeText.split("\n");
+  const afterLines = afterText.length === 0 ? [] : afterText.split("\n");
+
+  const beforeCount = beforeLines.length;
+  const afterCount = afterLines.length;
+
+  const lines: string[] = [];
+  lines.push(`--- a/${path}`);
+  lines.push(`+++ b/${path}`);
+  lines.push(`@@ -1,${beforeCount} +1,${afterCount} @@`);
+  for (const line of beforeLines) {
+    lines.push(`-${line}`);
+  }
+  for (const line of afterLines) {
+    lines.push(`+${line}`);
+  }
+  return `${lines.join("\n")}\n`;
 }

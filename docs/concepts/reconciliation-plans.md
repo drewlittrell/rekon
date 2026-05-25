@@ -190,3 +190,9 @@ Rebuild with `rekon reconcile suggest`.
   `ReconciliationApplyReport` artifact name and
   `source:write` permission name; no agent-autonomous
   source writes.
+- [Reconciliation preview concept](reconciliation-preview.md) +
+  [Reconciliation preview v1 strategy memo](../strategy/reconciliation-preview-v1.md)
+  — the read-only preview surface
+  (`rekon reconcile preview --plan ...`) that
+  classifies plan operations into operator-facing
+  rows without crossing into source-write apply.

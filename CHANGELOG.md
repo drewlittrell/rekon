@@ -4,6 +4,103 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Reconciliation Preview v1** — the
+  first product capability batch after the
+  private-beta operator-support track. Adds a
+  read-only preview surface that classifies a
+  `ReconciliationPlan` into operator-facing
+  rows without crossing into source-write
+  apply.
+
+  **No source-write apply. No
+  `source:write` permission registration.
+  No `ReconciliationApplyReport` artifact
+  (still reserved). No `ReconciliationPreviewReport`
+  artifact in v1 (decision deferred to the
+  next slice). No mutation of
+  `ReconciliationPlan` shape. No
+  auto-resolve of findings. No auto-apply
+  of reconciliation. No auto-verification.
+  No workflow YAML. No GitHub API call. No
+  `package.json` mutation outside additive
+  helper exports. No npm publish. No
+  version bump. No git tag. No GitHub
+  Release. No new branch.**
+
+  **What landed:**
+  - New pure helper
+    `buildReconciliationPreview` in
+    `@rekon/capability-reconcile` plus the
+    public types `ReconciliationPreview`,
+    `ReconciliationPreviewOperation`,
+    `ReconciliationPreviewOperationKind`
+    (`artifact-only` / `source-patch` /
+    `generated-file` / `manual` /
+    `not-previewable`),
+    `ReconciliationPreviewRisk` (`low` /
+    `medium` / `high` / `unknown`),
+    `ReconciliationPreviewSummary`,
+    `ReconciliationPreviewRecommendation`,
+    `ReconciliationPreviewStatus`, and
+    `ReconciliationPreviewInput`.
+  - New CLI subcommand
+    `rekon reconcile preview --plan
+    <id|type:id> [--root <path>] [--json]`.
+    Reads the plan via the existing
+    artifact store, builds the preview,
+    writes NO artifacts, prints JSON or a
+    short human table with the
+    *"Source-write apply is not available."*
+    recommendation line.
+  - Forward-compatible unified-diff path
+    in the helper: when an operation
+    carries `beforeText` + `afterText` AND
+    `repoRoot` is supplied AND the named
+    file's content matches `beforeText`,
+    the helper emits a deterministic
+    one-hunk unified diff. v1 plans carry
+    no diff fields, so v1 emits no diffs
+    through normal flow.
+  - New concept doc
+    `docs/concepts/reconciliation-preview.md`
+    + strategy memo
+    `docs/strategy/reconciliation-preview-v1.md`.
+  - Contract test
+    `tests/contract/reconciliation-preview.test.mjs`
+    (13 assertions) + docs test
+    `tests/docs/reconciliation-preview.test.mjs`
+    (8 assertions).
+  - Review packet
+    `.rekon-dev/review-packets/reconciliation-preview-v1.md`
+    with PURPOSE PRESERVATION CHECK + all
+    11 required sections.
+  - Cross-link updates: source-write
+    reconciliation policy decision (now
+    lists this slice as step 5; the
+    earlier patch-preview-artefact entry
+    moved to step 5a), reconciliation
+    plans concept, ReconciliationPlan
+    artifact reference, proof report
+    publication concept, roadmap,
+    classic-behavior-roadmap, README.
+
+  **Pinned posture statements (asserted by
+  the docs test):**
+  - *Source-write apply is not available.*
+  - *Exact diff preview is mandatory
+    before any apply implementation.*
+  - *The preview does not resolve
+    findings.*
+  - Non-previewable operations are
+    explicit (every non-previewable
+    operation carries a `reason` string).
+
+  **Recommended next slice:**
+  *ReconciliationPreviewReport artifact
+  decision* — decide whether previews
+  should become durable artifacts before
+  any source-write apply path exists.
+
 - Shipped **Private Beta Onboarding Quickstart
   Refinements v2** (fourth post-track
   operator-support slice following the

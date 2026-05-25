@@ -184,6 +184,15 @@ Rebuild with `rekon publish proof`.
 - [Verification results concept](verification-results.md)
 - [Architecture summary publication concept](architecture-summary-publication.md)
 - [Remediation work orders concept](remediation-work-orders.md)
+- [Reconciliation preview concept](reconciliation-preview.md) +
+  [Reconciliation preview v1 strategy memo](../strategy/reconciliation-preview-v1.md)
+  — when a proof report cites a
+  `ReconciliationPlan` in its verification
+  context, operators can inspect the plan's
+  applyability via
+  `rekon reconcile preview --plan <id>`. The
+  preview is read-only and never affects
+  this proof report.
 - [Reconciliation plans concept](reconciliation-plans.md)
 - [Issue merge decision publication / detail polish](../strategy/issue-merge-decision-publication-detail-polish.md)
 - [Verification runner v1 decision](../strategy/verification-runner-v1-decision.md)
