@@ -4,6 +4,106 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Path Freshness Publication Surfacing**
+  (second watcher / path-freshness slice,
+  following the PathFreshnessReport artefact
+  slice). Renders the latest
+  `PathFreshnessReport` in the user-facing
+  publications operators and agents already
+  consume so working-tree drift surfaces where
+  decisions are made.
+
+  **Publisher wiring + helpers + tests + docs
+  batch.** No daemon. No background refresh. No
+  automatic `rekon refresh` invocation. No
+  automatic `rekon paths freshness` invocation.
+  No source mutation. No new artifact type. No
+  new permission. No new role. No
+  `ArtifactHeader` change. No
+  `PathFreshnessReport` schema change. No
+  GitHub send-semantics change. No workflow
+  YAML. No version bump. No `npm publish`. No
+  GitHub Release. No network I/O.
+
+  **What landed:**
+  - New pure helper
+    `buildPathFreshnessPublicationSection` in
+    `@rekon/capability-docs` (parameterized
+    heading level; bounded change-table at 20
+    non-fresh entries via
+    `PATH_FRESHNESS_PUBLICATION_TABLE_CAP`).
+  - Architecture summary publisher renders
+    `## Working Tree Path Freshness` between
+    `## Verification Proof Status` and `## Proof
+    Loop`.
+  - Agent contract publisher renders
+    `### Working Tree Path Freshness` between
+    the Verification Proof Status block and
+    Memory Guidance, plus a new
+    `## Do Not Do` entry: *"Do not treat
+    artifact lineage freshness as proof that the
+    working tree has not changed; check the
+    latest PathFreshnessReport via `rekon paths
+    freshness --json` and run `rekon refresh` if
+    the report is stale."*
+  - Proof report publisher renders
+    `## Working Tree Path Freshness` before
+    `## Input Artifacts` (in both the
+    normal-flow path and the no-VerificationPlan
+    early-bailout path).
+  - All three publishers cite the latest
+    `PathFreshnessReport` in `header.inputRefs`
+    when present.
+  - `@rekon/capability-docs` capability manifest
+    `consumes` adds `PathFreshnessReport`; new
+    `invalidatedBy` rule
+    `path-freshness.changed` regenerates
+    publications when a new report lands.
+
+  **Read-only guarantee:** publishers call only
+  `latestRef` + `artifacts.read` against the
+  store. They **never** invoke `rekon paths
+  freshness`, **never** invoke `rekon refresh`,
+  and **never** write a new `PathFreshnessReport`
+  themselves. Contract tests pin both claims by
+  count and by id citation.
+
+  **Artifact lineage freshness is distinct from
+  working-tree freshness.** The new section
+  title, body text, and every recommendation
+  message explicitly preserve the distinction.
+
+  **Tests:** new
+  `tests/contract/path-freshness-publications.test.mjs`
+  (13 cases) + new
+  `tests/docs/path-freshness-publications.test.mjs`
+  (9 assertions). All other pre-existing tests
+  still pass.
+
+  **Docs:** updated
+  `docs/concepts/path-freshness.md`,
+  `docs/artifacts/path-freshness-report.md`,
+  `docs/concepts/architecture-summary-publication.md`,
+  `docs/artifacts/architecture-summary-publication.md`,
+  `docs/concepts/agent-operating-contract.md`,
+  `docs/artifacts/agent-contract-publication.md`,
+  `docs/concepts/proof-report-publication.md`,
+  `docs/artifacts/proof-report-publication.md`,
+  watcher / path freshness policy memo,
+  post-beta dogfood evidence triage memo, both
+  roadmaps, README. Review packet at
+  `.rekon-dev/review-packets/path-freshness-publication-surfacing.md`
+  with PURPOSE PRESERVATION CHECK.
+
+  **Deferred (next slice):** GitHub Check
+  dry-run / send payload + PR comment
+  dry-run / send body surfacing. The
+  `buildGitHubCheckPayload` helper computes
+  `conclusion` from proof state today; whether
+  stale path freshness should ever flip
+  conclusion deserves a separate design pass.
+  The work order explicitly authorises deferral.
+
 - Shipped **PathFreshnessReport Artifact +
   Source-State Fingerprint Skeleton** (first
   watcher / path-freshness implementation slice

@@ -5259,6 +5259,29 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Path freshness publication surfacing (P1.1
+  path-freshness-publication-surfacing slice).**
+  ✅ Shipped. **Second watcher / path-freshness
+  implementation slice** following the
+  PathFreshnessReport artefact slice. New helper
+  `buildPathFreshnessPublicationSection` in
+  `@rekon/capability-docs` renders a consistent
+  `Working Tree Path Freshness` block; wired into
+  architecture summary, agent contract, and proof
+  report publishers. Agent contract gains a new
+  `Do Not Do` reminder against treating artifact
+  lineage freshness as proof the working tree has
+  not changed. **Publications are read-only with
+  respect to PathFreshnessReport; they never run
+  `rekon paths freshness` and never run `rekon
+  refresh`.** GitHub Check / PR comment dry-run
+  surfacing **deferred** to the next slice
+  ("path freshness GitHub review surfacing").
+  See
+  [`docs/concepts/path-freshness.md`](../concepts/path-freshness.md)
+  + the publication doc updates for the rendered
+  shape. **Recommended next slice:** path
+  freshness GitHub review surfacing.
 - **PathFreshnessReport artifact + source-state
   fingerprint skeleton (P1.1
   path-freshness-report slice).** ✅ Shipped.

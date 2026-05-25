@@ -212,3 +212,4 @@ Rebuild with `rekon publish proof`.
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+- [PathFreshnessReport](../artifacts/path-freshness-report.md) + [Path freshness concept](path-freshness.md) — the proof report now renders a `## Working Tree Path Freshness` section sourced from the latest `PathFreshnessReport` so reviewers see whether proof was taken against a working tree that has drifted since the source-state baseline. Publication generation is read-only with respect to the report and never runs `rekon paths freshness` or `rekon refresh`. **Working-tree freshness is distinct from artifact lineage freshness.**

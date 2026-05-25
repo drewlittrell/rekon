@@ -263,3 +263,4 @@ opening raw artifacts. See
 - [Capability model](../strategy/capability-model.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+- [PathFreshnessReport](../artifacts/path-freshness-report.md) + [Path freshness concept](path-freshness.md) — the architecture summary now renders a `## Working Tree Path Freshness` section sourced from the latest `PathFreshnessReport`. Publication generation reads the latest report and never runs `rekon paths freshness` or `rekon refresh`. **Artifact lineage freshness is not working-tree freshness; both surfaces coexist.**

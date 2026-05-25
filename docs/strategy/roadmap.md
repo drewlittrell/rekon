@@ -1106,6 +1106,67 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Path freshness publication surfacing (P1.1
+  path-freshness-publication-surfacing slice):
+  **second watcher / path-freshness
+  implementation slice**, following the
+  PathFreshnessReport artefact slice. Publisher
+  wiring + helpers + tests + docs batch. **No
+  daemon. No background refresh. No automatic
+  `rekon refresh` invocation. No automatic `rekon
+  paths freshness` invocation. No source mutation.
+  No new artifact type. No new permission. No new
+  role. No `ArtifactHeader` change. No
+  `PathFreshnessReport` schema change. No GitHub
+  send-semantics change. No workflow YAML. No
+  version bump. No `npm publish`. No GitHub
+  Release. No network I/O.** New pure helper
+  `buildPathFreshnessPublicationSection` in
+  `@rekon/capability-docs` renders a consistent
+  `Working Tree Path Freshness` markdown block
+  (parameterized heading level; bounded
+  change-table at 20 non-fresh entries via
+  `PATH_FRESHNESS_PUBLICATION_TABLE_CAP`). Wired
+  into all three publishers: architecture summary
+  renders the section between `## Verification
+  Proof Status` and `## Proof Loop`; agent
+  contract renders it between Verification Proof
+  Status and Memory Guidance at `###` level; proof
+  report renders it before `## Input Artifacts`
+  in both the normal-flow path and the
+  no-VerificationPlan early-bailout path. Each
+  publisher cites the latest `PathFreshnessReport`
+  in `header.inputRefs` when present. **All three
+  publishers are read-only with respect to the
+  report.** Agent contract gains a new
+  `Do Not Do` reminder: *"Do not treat artifact
+  lineage freshness as proof that the working
+  tree has not changed; check the latest
+  PathFreshnessReport via `rekon paths freshness
+  --json` and run `rekon refresh` if the report is
+  stale."* Capability manifest `consumes` adds
+  `PathFreshnessReport`; new `invalidatedBy` rule
+  `path-freshness.changed`. GitHub Check / PR
+  comment dry-run + send payload surfacing
+  **deferred** to the next slice
+  ("path freshness GitHub review surfacing")
+  because (a) the existing Check helper computes
+  `conclusion` from proof state and deserves a
+  separate design pass on whether stale path
+  freshness should ever flip conclusion, (b) the
+  CLI dry-run flows have their own
+  input-gathering paths to wire through, and (c)
+  the work order explicitly authorises deferral.
+  New contract test
+  `tests/contract/path-freshness-publications.test.mjs`
+  (13 cases) + new docs test
+  `tests/docs/path-freshness-publications.test.mjs`
+  (9 assertions). Review packet at
+  `.rekon-dev/review-packets/path-freshness-publication-surfacing.md`
+  with PURPOSE PRESERVATION CHECK. Full suite
+  expected ≥ 1839 passed / 1 skipped (1817 + 22
+  new). **Recommended next slice:** path
+  freshness GitHub review surfacing.
 - PathFreshnessReport artifact + source-state
   fingerprint skeleton (P1.1
   path-freshness-report slice): **first watcher /

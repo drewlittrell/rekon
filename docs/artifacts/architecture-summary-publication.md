@@ -310,9 +310,19 @@ starting point. See
   covers artifact-lineage freshness only.
 - [PathFreshnessReport](path-freshness-report.md) +
   [Path freshness concept doc](../concepts/path-freshness.md) —
-  the artifact is now shipped (`rekon paths freshness`),
-  but the architecture summary does **not yet** render
-  it. Surfacing the latest report (with its `status`,
-  `summary`, and `recommendation`) is the next slice
-  ("path freshness publication surfacing"); until that
-  ships, operators must inspect the artifact directly.
+  the architecture summary **now renders a `## Working
+  Tree Path Freshness` section** sourced from the
+  latest `PathFreshnessReport`. The section sits
+  between `## Verification Proof Status` and
+  `## Proof Loop` and includes the report ref,
+  baseline ref (if any), refresh recommendation, a
+  per-path table (bounded at 20 non-fresh entries),
+  and the canonical lineage-vs-working-tree
+  distinction. The latest `PathFreshnessReport` is
+  cited in `header.inputRefs` when present.
+  **Publication generation is read-only with respect
+  to working-tree freshness: it never runs `rekon
+  paths freshness` and never runs `rekon refresh`.**
+  When no `PathFreshnessReport` exists, the section
+  renders no-report guidance naming `rekon paths
+  freshness --json`.

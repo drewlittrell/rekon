@@ -440,7 +440,13 @@ refresh` before relying on existing artifacts and
 must **not** assume that artifact lineage
 freshness alone implies the source files are
 current. **Artifact lineage freshness is not
-working-tree freshness.** Future agent-contract
-publication surfacing of `PathFreshnessReport` is
-tracked separately as the next slice; until that
-ships, agents must check the artifact directly.
+working-tree freshness.** As of the
+`path-freshness-publication-surfacing` slice, the
+agent contract publication renders a `### Working
+Tree Path Freshness` subsection (sourced from the
+latest report) plus a new entry in `## Do Not Do`
+that pins the lineage-vs-working-tree distinction
+verbatim; agents should treat that subsection as
+the canonical signal and avoid relying on
+artifact lineage freshness alone after source
+edits.

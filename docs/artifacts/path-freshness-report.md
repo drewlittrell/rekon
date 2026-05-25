@@ -57,13 +57,28 @@ the other is `stale`.
   `PathFreshnessReport` per invocation. **Read-only
   with respect to source files.**
 
+**Shipped (follow-on slice
+`path-freshness-publication-surfacing`):**
+
+- Architecture summary renders a `## Working Tree
+  Path Freshness` section.
+- Agent contract renders a `### Working Tree Path
+  Freshness` subsection + a new Do-Not-Do
+  reminder.
+- Proof report renders a `## Working Tree Path
+  Freshness` section.
+- All three publishers cite the latest
+  `PathFreshnessReport` in `header.inputRefs` when
+  present. **Publications are read-only with
+  respect to the report: they never run `rekon
+  paths freshness` and never run `rekon refresh`.**
+
 **Deferred (follow-on slices):**
 
-- Publication surfacing (architecture summary, agent
-  contract, proof report) of the latest
-  `PathFreshnessReport`. Tracked separately by the
-  next slice ("path freshness publication
-  surfacing").
+- GitHub Check dry-run / send payload + PR comment
+  dry-run / send body surfacing. Tracked
+  separately by the next slice
+  ("path freshness GitHub review surfacing").
 - Watcher daemon design + implementation.
 - Source-write apply.
 

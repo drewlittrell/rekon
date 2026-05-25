@@ -103,6 +103,43 @@ compare against. The recommendation message explains
 this and tells the operator that subsequent runs
 will compare against this baseline.
 
+## Publication Surfacing
+
+As of the `path-freshness-publication-surfacing`
+slice, **the latest `PathFreshnessReport` is
+surfaced in three publications operators and agents
+already consume:**
+
+- **Architecture summary** — renders a `##
+  Working Tree Path Freshness` section between the
+  `## Verification Proof Status` block and the
+  `## Proof Loop` block.
+- **Agent contract** — renders the same content
+  as a `### Working Tree Path Freshness`
+  subsection, plus a new Do-Not-Do reminder
+  forbidding agents from treating artifact lineage
+  freshness as proof that the working tree has not
+  changed.
+- **Proof report** — renders the same content as
+  a `## Working Tree Path Freshness` section so
+  reviewers see whether the proof was taken
+  against a working tree that has drifted.
+
+Each publication cites the latest
+`PathFreshnessReport` in `header.inputRefs` when
+present. **Publication generation is read-only
+with respect to working-tree freshness: it never
+runs `rekon paths freshness` and never runs `rekon
+refresh`.** When no `PathFreshnessReport` exists,
+publications render no-report guidance that names
+the `rekon paths freshness` command.
+
+GitHub Check dry-run and PR comment dry-run
+surfacing is deferred to the next slice
+("path freshness GitHub review surfacing"); until
+that ships, operators must inspect the
+publications directly.
+
 ## Cross-References
 
 - [PathFreshnessReport artifact doc](../artifacts/path-freshness-report.md)

@@ -249,3 +249,24 @@ artifact it read (`IssueAdjudicationReport`,
 - [Opt-in PR comment workflow template](../examples/workflows/rekon-pr-comment-send.yml)
 - [VerificationRun artifact](verification-run.md)
 - [Capability model](../strategy/capability-model.md)
+- [PathFreshnessReport](path-freshness-report.md) +
+  [Path freshness concept doc](../concepts/path-freshness.md) —
+  the proof report **now renders a `## Working Tree
+  Path Freshness` section** sourced from the latest
+  `PathFreshnessReport`. The section surfaces the
+  report ref, baseline ref (if any), refresh
+  recommendation, and a bounded per-path table (cap
+  20 non-fresh entries) so reviewers see whether the
+  proof was taken against a working tree that has
+  drifted since the source-state baseline. The
+  section renders in both the normal-flow proof
+  report and the no-VerificationPlan early-bailout
+  path. The latest `PathFreshnessReport` is cited
+  in `header.inputRefs` when present. **Publication
+  generation is read-only with respect to
+  working-tree freshness: it never runs `rekon paths
+  freshness` and never runs `rekon refresh`.**
+  Working-tree freshness is distinct from artifact
+  lineage freshness; this section complements (does
+  not replace) the existing lineage-freshness
+  surfaces.

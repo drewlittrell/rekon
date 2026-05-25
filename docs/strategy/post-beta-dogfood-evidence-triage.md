@@ -434,14 +434,26 @@ doc updates.
 
 ## Follow-Up
 
-**The next slice spec named here has shipped.**
-See
-[PathFreshnessReport artifact +
-source-state fingerprint skeleton](../artifacts/path-freshness-report.md)
-for the implementation. `rekon paths freshness`
-now writes one diagnostic `PathFreshnessReport`
-per invocation. Still no daemon. Still no
-background refresh. The follow-on slice
-("path freshness publication surfacing")
-remains pending and requires its own work
-order.
+**Two follow-up slices on this track have
+shipped:**
+
+1. [PathFreshnessReport artifact + source-state
+   fingerprint skeleton](../artifacts/path-freshness-report.md)
+   — `rekon paths freshness` writes one diagnostic
+   `PathFreshnessReport` per invocation.
+2. **Path freshness publication surfacing** —
+   architecture summary, agent contract, and proof
+   report now render a `Working Tree Path
+   Freshness` section sourced from the latest
+   `PathFreshnessReport`. Publishers cite the
+   report in `header.inputRefs` when present.
+   Publishers remain read-only with respect to the
+   report. The agent contract gains a Do-Not-Do
+   reminder forbidding agents from treating
+   artifact lineage freshness as proof the working
+   tree has not changed.
+
+Still no daemon. Still no background refresh.
+The remaining follow-on slice ("path freshness
+GitHub review surfacing") is pending and
+requires its own work order.

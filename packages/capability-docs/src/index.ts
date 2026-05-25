@@ -25,6 +25,8 @@ import {
 } from "@rekon/kernel-repo-model";
 import { type IntelligenceSnapshot } from "@rekon/kernel-snapshot";
 import {
+  type PathFreshnessEntry,
+  type PathFreshnessReport,
   type VerificationProofSurfaceSummary,
   type VerificationProofWarning,
   summarizeVerificationProofSurface,
@@ -351,6 +353,20 @@ export const architectureSummaryPublisher: Publisher = {
       artifacts,
       verificationResult,
     );
+    // Path-freshness publication surfacing (P1.1
+    // path-freshness-publication-surfacing). Read-only:
+    // surfaces the latest PathFreshnessReport into the
+    // architecture summary's `## Working Tree Path
+    // Freshness` section. Never re-runs `rekon paths
+    // freshness` and never re-runs `rekon refresh`.
+    const pathFreshnessRef = await latestRef(artifacts, "PathFreshnessReport");
+    const pathFreshnessReport = pathFreshnessRef
+      ? (await artifacts.read(pathFreshnessRef)) as PathFreshnessReport
+      : undefined;
+    if (pathFreshnessRef && !inputRefs.some((existing) =>
+        existing.type === pathFreshnessRef.type && existing.id === pathFreshnessRef.id)) {
+      inputRefs.push(pathFreshnessRef);
+    }
     const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
@@ -383,6 +399,8 @@ export const architectureSummaryPublisher: Publisher = {
         verificationResult,
         verificationResultRef,
         verificationRunArtifactExists,
+        pathFreshnessReport,
+        pathFreshnessRef,
         freshness,
         inputRefs,
         generatedAt,
@@ -483,6 +501,22 @@ export const proofReportPublisher: Publisher = {
         })
       : [];
 
+    // Path-freshness publication surfacing (P1.1
+    // path-freshness-publication-surfacing). Read-only:
+    // surfaces the latest PathFreshnessReport into the
+    // proof report's `## Working Tree Freshness Context`
+    // section so reviewers see whether the proof was
+    // taken against a working tree that may have drifted
+    // since the source-state baseline.
+    const proofPathFreshnessRef = await latestRef(artifacts, "PathFreshnessReport");
+    const proofPathFreshnessReport = proofPathFreshnessRef
+      ? (await artifacts.read(proofPathFreshnessRef)) as PathFreshnessReport
+      : undefined;
+    if (proofPathFreshnessRef && !inputRefs.some((existing) =>
+        existing.type === proofPathFreshnessRef.type && existing.id === proofPathFreshnessRef.id)) {
+      inputRefs.push(proofPathFreshnessRef);
+    }
+
     const generatedAt = new Date().toISOString();
     const subject = pickProofReportSubject({
       snapshot,
@@ -533,6 +567,8 @@ export const proofReportPublisher: Publisher = {
         lifecycleReport,
         mergeCandidateViews: proofMergeCandidateViews,
         mergeRollupFreshness: proofMergeRollupFreshness,
+        pathFreshnessReport: proofPathFreshnessReport,
+        pathFreshnessRef: proofPathFreshnessRef,
         inputRefs,
       }),
     };
@@ -692,6 +728,20 @@ export const agentContractPublisher: Publisher = {
       artifacts,
       verificationResult,
     );
+    // Path-freshness publication surfacing (P1.1
+    // path-freshness-publication-surfacing). Read-only:
+    // surfaces the latest PathFreshnessReport into the
+    // agent contract under its existing operating-state
+    // sections so agents can recognise working-tree
+    // drift without checking the artifact directly.
+    const pathFreshnessRef = await latestRef(artifacts, "PathFreshnessReport");
+    const pathFreshnessReport = pathFreshnessRef
+      ? (await artifacts.read(pathFreshnessRef)) as PathFreshnessReport
+      : undefined;
+    if (pathFreshnessRef && !inputRefs.some((existing) =>
+        existing.type === pathFreshnessRef.type && existing.id === pathFreshnessRef.id)) {
+      inputRefs.push(pathFreshnessRef);
+    }
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
       "MemorySelection",
@@ -732,6 +782,8 @@ export const agentContractPublisher: Publisher = {
         verificationResult,
         verificationResultRef,
         verificationRunArtifactExists,
+        pathFreshnessReport,
+        pathFreshnessRef,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -769,6 +821,7 @@ export default defineCapability({
       "ReconciliationPlan",
       "VerificationPlan",
       "VerificationResult",
+      "PathFreshnessReport",
       "MemorySelection",
       "MemoryCurationReport",
     ],
@@ -832,6 +885,12 @@ export default defineCapability({
         description:
           "Regenerate the agent contract when memory curation recommendations change.",
         inputs: ["MemoryCurationReport"],
+      },
+      {
+        id: "path-freshness.changed",
+        description:
+          "Regenerate the architecture summary, agent contract, and proof report when a new PathFreshnessReport is written so working-tree freshness stays current.",
+        inputs: ["PathFreshnessReport"],
       },
     ],
     compatibility: {
@@ -1192,6 +1251,8 @@ type ArchitectureSummaryInputs = {
   verificationResult?: VerificationResultLike;
   verificationResultRef?: ArtifactRef;
   verificationRunArtifactExists?: boolean;
+  pathFreshnessReport?: PathFreshnessReport;
+  pathFreshnessRef?: ArtifactRef;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -1516,6 +1577,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   renderReconciliationPlansSection(sections, input);
   renderVerificationStatusSection(sections, input);
   renderVerificationProofStatusBlock(sections, input);
+  renderPathFreshnessSection(sections, input.pathFreshnessReport, input.pathFreshnessRef);
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -1726,6 +1788,21 @@ function renderVerificationProofStatusBlock(
   }
 }
 
+function renderPathFreshnessSection(
+  sections: string[],
+  report: PathFreshnessReport | undefined,
+  reportRef: ArtifactRef | undefined,
+): void {
+  const block = buildPathFreshnessPublicationSection({
+    report,
+    reportRef,
+    headingLevel: 2,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
 function renderProofLoopSection(sections: string[], input: ArchitectureSummaryInputs): void {
   sections.push("## Proof Loop");
   sections.push("");
@@ -1814,6 +1891,8 @@ type ProofReportInputs = {
   lifecycleReport?: FindingLifecycleReport;
   mergeCandidateViews?: IssueMergeCandidateView[];
   mergeRollupFreshness?: IssueMergeRollupFreshness;
+  pathFreshnessReport?: PathFreshnessReport;
+  pathFreshnessRef?: ArtifactRef;
   inputRefs: ArtifactRef[];
 };
 
@@ -1929,6 +2008,8 @@ function renderProofReport(input: ProofReportInputs): string {
     lifecycleReport: _lifecycleReport,
     mergeCandidateViews,
     mergeRollupFreshness,
+    pathFreshnessReport,
+    pathFreshnessRef,
     inputRefs,
   } = input;
   const sections: string[] = [];
@@ -1959,6 +2040,20 @@ function renderProofReport(input: ProofReportInputs): string {
       "No VerificationPlan found. Run `rekon intent work-order` or `rekon intent remediation` first.",
     );
     sections.push("");
+
+    // Working Tree Freshness Context — surface
+    // PathFreshnessReport even when no VerificationPlan
+    // exists yet, so reviewers see working-tree state
+    // independent of proof readiness.
+    const earlyProofPathFreshnessBlock = buildPathFreshnessPublicationSection({
+      report: pathFreshnessReport,
+      reportRef: pathFreshnessRef,
+      headingLevel: 2,
+    });
+    for (const line of earlyProofPathFreshnessBlock.lines) {
+      sections.push(line);
+    }
+
     sections.push("## Input Artifacts");
     sections.push("");
 
@@ -2214,6 +2309,21 @@ function renderProofReport(input: ProofReportInputs): string {
   }
   sections.push("");
 
+  // Working Tree Freshness Context — P1.1
+  // path-freshness-publication-surfacing. Compact
+  // section that surfaces the latest
+  // PathFreshnessReport so reviewers know whether the
+  // proof was taken against a working tree that has
+  // drifted since the source-state baseline.
+  const proofPathFreshnessBlock = buildPathFreshnessPublicationSection({
+    report: pathFreshnessReport,
+    reportRef: pathFreshnessRef,
+    headingLevel: 2,
+  });
+  for (const line of proofPathFreshnessBlock.lines) {
+    sections.push(line);
+  }
+
   // Input Artifacts
   sections.push("## Input Artifacts");
   sections.push("");
@@ -2383,6 +2493,8 @@ type AgentContractInputs = {
   verificationResult?: VerificationResultLike;
   verificationResultRef?: ArtifactRef;
   verificationRunArtifactExists?: boolean;
+  pathFreshnessReport?: PathFreshnessReport;
+  pathFreshnessRef?: ArtifactRef;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -2412,6 +2524,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not remove tests or weaken validators to pass verification.",
   "Do not change rules, findings, or status ledgers to hide work.",
   "Do not ignore stale artifacts; re-run `rekon refresh` instead.",
+  "Do not treat artifact lineage freshness as proof that the working tree has not changed; check the latest PathFreshnessReport via `rekon paths freshness --json` and run `rekon refresh` if the report is stale.",
   "Do not apply source-writing reconciliation unless an explicit future capability enables it under `write:source` permission.",
   "Do not treat raw finding count as governed issue count when an IssueAdjudicationReport exists; use governed issue groups (memberFindingIds preserves raw traceability).",
   "Do not treat accepted merge roll-ups as automatic mutation of raw issue groups; inspect mergedIssueGroupIds and memberFindingIds before editing, and consult both member groups for context.",
@@ -2449,6 +2562,8 @@ function renderAgentContract(input: AgentContractInputs): string {
     verificationPlan,
     verificationPlanRef,
     verificationResult,
+    pathFreshnessReport,
+    pathFreshnessRef,
     memorySelection,
     memoryCurationReport,
     freshness,
@@ -2826,6 +2941,22 @@ function renderAgentContract(input: AgentContractInputs): string {
     sections.push(`Runner-derived proof cites ${formatRef(agentProofSurface.verificationRunRef)}.`);
   }
   sections.push("");
+
+  // Working Tree Path Freshness — P1.1
+  // path-freshness-publication-surfacing. Surfaced
+  // here (between proof status and memory guidance)
+  // so agents see working-tree drift before they act
+  // on memory or proof state. The block uses heading
+  // level 3 because the agent contract treats this as
+  // a subsection of the overall operating state.
+  const agentPathFreshnessBlock = buildPathFreshnessPublicationSection({
+    report: pathFreshnessReport,
+    reportRef: pathFreshnessRef,
+    headingLevel: 3,
+  });
+  for (const line of agentPathFreshnessBlock.lines) {
+    sections.push(line);
+  }
 
   // Memory Guidance
   sections.push("## Memory Guidance");
@@ -5716,4 +5847,183 @@ export async function publishPrCommentRun(
     issueUrl: pickPrCommentStringField(json, "issue_url", "issueUrl"),
     pagesScanned,
   };
+}
+
+// ---------- Path-freshness publication surfacing (P1.1 path-freshness-publication-surfacing) ----------
+//
+// Pure helper used by the architecture summary,
+// agent contract, and proof report publishers to
+// render the latest `PathFreshnessReport` consistently
+// in their respective markdown bodies.
+//
+// Safety contract:
+// - **Read-only.** The helper never spawns a process,
+//   never re-runs `rekon paths freshness`, never
+//   re-runs `rekon refresh`, never recomputes
+//   fingerprints, never writes any artifact.
+// - **Bounded changed-path table.** When the report
+//   is `stale`, only the first
+//   `PATH_FRESHNESS_PUBLICATION_TABLE_CAP` non-fresh
+//   entries are rendered; remaining entries get a
+//   summary line. This keeps publications small
+//   regardless of repo size.
+// - **Lineage vs working-tree distinction preserved.**
+//   The section title + recommendation language never
+//   conflate `PathFreshnessReport.status` with
+//   artifact-lineage freshness.
+// - The caller adds the optional `inputRef` to
+//   `header.inputRefs` so publication freshness
+//   downstream can flag the publication stale when a
+//   newer report lands.
+
+export const PATH_FRESHNESS_PUBLICATION_TABLE_CAP = 20;
+
+export type BuildPathFreshnessPublicationSectionInput = {
+  report: PathFreshnessReport | undefined;
+  reportRef?: ArtifactRef;
+  /** Heading level for the section title. */
+  headingLevel: 2 | 3;
+  /**
+   * Top-level section uses "## Working Tree Path
+   * Freshness"; the agent-contract uses "### Working
+   * Tree Path Freshness" inside a wider operating
+   * section. Both render the same body.
+   */
+};
+
+export type BuildPathFreshnessPublicationSectionResult = {
+  lines: string[];
+  /**
+   * If the report exists, returns the artifact ref so
+   * the publisher can append it to inputRefs.
+   */
+  inputRef?: ArtifactRef;
+};
+
+export function buildPathFreshnessPublicationSection(
+  input: BuildPathFreshnessPublicationSectionInput,
+): BuildPathFreshnessPublicationSectionResult {
+  const { report, reportRef, headingLevel } = input;
+  const lines: string[] = [];
+  const heading = headingLevel === 2 ? "##" : "###";
+
+  lines.push(`${heading} Working Tree Path Freshness`);
+  lines.push("");
+
+  if (!report) {
+    lines.push(
+      "No `PathFreshnessReport` found. Run `rekon paths freshness --json` to establish a working-tree freshness baseline.",
+    );
+    lines.push("");
+    lines.push(
+      "Working-tree freshness is distinct from artifact lineage freshness; both surfaces matter and neither replaces the other.",
+    );
+    lines.push("");
+    return { lines };
+  }
+
+  const status = report.status;
+  const summary = report.summary;
+  const refreshRecommended = report.recommendation?.refreshRecommended === true;
+  const commands = Array.isArray(report.recommendation?.commands)
+    ? report.recommendation.commands
+    : [];
+  const message =
+    typeof report.recommendation?.message === "string"
+      ? report.recommendation.message
+      : "";
+
+  lines.push(`- Status: ${status}`);
+  if (reportRef) {
+    lines.push(`- Report: ${formatRef(reportRef)}`);
+  } else if (report.header?.artifactType && report.header?.artifactId) {
+    lines.push(`- Report: ${report.header.artifactType}:${report.header.artifactId}`);
+  }
+  if (report.baselineRef) {
+    lines.push(`- Baseline: ${formatRef(report.baselineRef)}`);
+  } else if (status === "unknown") {
+    lines.push("- Baseline: none yet (first run)");
+  }
+  lines.push(`- Refresh recommended: ${refreshRecommended ? "yes" : "no"}`);
+
+  const total = typeof summary?.total === "number" ? summary.total : 0;
+  const fresh = typeof summary?.fresh === "number" ? summary.fresh : 0;
+  const changed = typeof summary?.changed === "number" ? summary.changed : 0;
+  const missing = typeof summary?.missing === "number" ? summary.missing : 0;
+  const created = typeof summary?.new === "number" ? summary.new : 0;
+  const unknown = typeof summary?.unknown === "number" ? summary.unknown : 0;
+
+  lines.push(
+    `- Paths inspected: ${total} (fresh ${fresh}, changed ${changed}, missing ${missing}, new ${created}, unknown ${unknown})`,
+  );
+
+  if (refreshRecommended || message.length > 0) {
+    lines.push(
+      `- Recommendation: ${
+        message.length > 0
+          ? message
+          : "Run `rekon refresh` before relying on generated artifacts."
+      }`,
+    );
+  }
+  if (commands.length > 0) {
+    lines.push(`- Commands: ${commands.map((c) => `\`${c}\``).join(", ")}`);
+  }
+  lines.push("");
+
+  lines.push(
+    "**Working-tree freshness is distinct from artifact lineage freshness.** A `fresh` artifact chain does not imply that source paths match the latest recorded source-state baseline.",
+  );
+  lines.push("");
+
+  // Bounded change-table only when there is at least
+  // one non-fresh entry. Skipped when status === fresh
+  // (everything matched) or when the report is unknown
+  // (no baseline to compare).
+  const entries = Array.isArray(report.entries) ? report.entries : [];
+  const nonFresh = entries.filter((entry) => entry?.status !== "fresh");
+
+  if (nonFresh.length > 0 && status !== "unknown") {
+    lines.push("| Path | Status | Message |");
+    lines.push("| --- | --- | --- |");
+    const visible = nonFresh.slice(0, PATH_FRESHNESS_PUBLICATION_TABLE_CAP);
+    for (const entry of visible) {
+      const path = escapeCell(typeof entry.path === "string" ? entry.path : "—");
+      const entryStatus = escapeCell(typeof entry.status === "string" ? entry.status : "unknown");
+      const entryMessage = escapeCell(typeof entry.message === "string" ? entry.message : "");
+      lines.push(`| ${path} | ${entryStatus} | ${entryMessage} |`);
+    }
+    if (nonFresh.length > visible.length) {
+      lines.push(
+        `_${nonFresh.length - visible.length} additional non-fresh path(s) omitted; see the source PathFreshnessReport for the full list._`,
+      );
+    }
+    lines.push("");
+  }
+
+  if (status === "stale") {
+    lines.push(
+      "> Working-tree paths have drifted since the last `PathFreshnessReport`. Run `rekon refresh` before relying on existing artifacts.",
+    );
+    lines.push("");
+  } else if (status === "unknown") {
+    lines.push(
+      "> No baseline yet — re-run `rekon paths freshness --json` after any source change to capture a comparison.",
+    );
+    lines.push("");
+  }
+
+  const result: BuildPathFreshnessPublicationSectionResult = { lines };
+  if (reportRef) {
+    result.inputRef = reportRef;
+  } else if (report.header?.artifactType === "PathFreshnessReport"
+    && typeof report.header?.artifactId === "string"
+    && typeof report.header?.schemaVersion === "string") {
+    result.inputRef = {
+      type: report.header.artifactType,
+      id: report.header.artifactId,
+      schemaVersion: report.header.schemaVersion,
+    };
+  }
+  return result;
 }

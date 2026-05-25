@@ -383,11 +383,21 @@ assuming advisory merge candidates are accepted. See
   artifact-lineage freshness only.
 - [PathFreshnessReport](path-freshness-report.md) +
   [Path freshness concept doc](../concepts/path-freshness.md) —
-  the artifact is now shipped (`rekon paths freshness`),
-  but the agent contract does **not yet** render it.
-  Surfacing the latest report (with its `status`,
-  `summary`, and `recommendation`) is the next slice
-  ("path freshness publication surfacing"). Until that
-  ships, agents should read the artifact directly per
-  the new clause in the [agent operating
-  contract](../concepts/agent-operating-contract.md).
+  the agent contract **now renders a `### Working
+  Tree Path Freshness` subsection** sourced from the
+  latest `PathFreshnessReport`. The subsection sits
+  between the Verification Proof Status block and
+  Memory Guidance, surfaces the report ref, baseline
+  ref (if any), refresh recommendation, and a
+  bounded per-path table (cap 20 non-fresh entries).
+  A new entry in the agent contract's `## Do Not Do`
+  list pins: *"Do not treat artifact lineage
+  freshness as proof that the working tree has not
+  changed; check the latest PathFreshnessReport via
+  `rekon paths freshness --json` and run `rekon
+  refresh` if the report is stale."* The latest
+  `PathFreshnessReport` is cited in
+  `header.inputRefs` when present. **Publication
+  generation is read-only with respect to
+  working-tree freshness: it never runs `rekon paths
+  freshness` and never runs `rekon refresh`.**

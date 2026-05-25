@@ -601,8 +601,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # source writes. Mtimes are advisory only — never
 # canonical freshness evidence. Artifact lineage
 # freshness is not working-tree freshness; both
-# surfaces coexist. Publication surfacing of the
-# new report is the next slice.
+# surfaces coexist.
+#
+# Second Option C slice shipped: path freshness
+# publication surfacing. Architecture summary,
+# agent contract, and proof report publications
+# now render a `Working Tree Path Freshness`
+# section sourced from the latest
+# PathFreshnessReport, and cite it in
+# `header.inputRefs` when present. The agent
+# contract gains a Do-Not-Do reminder forbidding
+# agents from treating artifact lineage freshness
+# as proof the working tree has not changed.
+# Publications remain read-only with respect to
+# the report: they never run `rekon paths
+# freshness` and never run `rekon refresh`. GitHub
+# Check / PR comment dry-run + send payload
+# surfacing is the next slice.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
