@@ -1109,6 +1109,77 @@ is the first stop before proposing a new capability batch.
 - Private beta onboarding validation run
   (P1.1
   private-beta-onboarding-validation-run
+  slice — **post-intake completion**):
+  the operator authorised a target in a
+  subsequent prompt, so the prior
+  intake-blocked posture was resolved and
+  the full validation ran end-to-end
+  against a temp copy of one non-Rekon
+  Next.js target (anonymized as
+  `target-1`). **Outcome:
+  `pass-with-known-limitations`.** New
+  canonical
+  [`docs/beta/private-beta-onboarding-validation-report.md`](../beta/private-beta-onboarding-validation-report.md)
+  with all 15 required headings, four
+  required tables (Command Matrix /
+  Output Summary / Gap / Blocker), and
+  all six required verbatim statements.
+  The quickstart was followed verbatim
+  (no silent adjustments); 22 of 25
+  commands returned `pass`, 3 verification
+  commands recorded `failed` honestly
+  (target uses `pnpm-workspace`, install
+  was deliberately not run in the temp
+  copy — first-class acceptable outcome),
+  both GitHub dry-runs made zero HTTP
+  calls, `artifacts validate` returned
+  `valid: true` at both checkpoints, and
+  path freshness produced `unknown` →
+  `fresh` (295 / 295 paths) on the
+  first → second run as the quickstart
+  documents. **Two minor documentation
+  refinements** surfaced (recommended for
+  the v2 quickstart batch): a one-line
+  note about non-npm package managers in
+  *Optional Verification Flow*, and a
+  one-line note about historical
+  `newer-input-exists` warnings after
+  re-publication in *Inspect The Main
+  Outputs*. **Zero blockers.** Review
+  packet
+  `.rekon-dev/review-packets/private-beta-onboarding-validation-run.md`
+  re-written with PURPOSE PRESERVATION
+  CHECK + all 14 required sections.
+  Updated docs test
+  `tests/docs/private-beta-onboarding-validation-run.test.mjs`
+  (17 assertions: 16 work-order-required
+  + 1 historical-record preservation).
+  Full suite expected ≥ 1944 passed / 1
+  skipped (1943 + 1 net new). **Strict
+  no-go list still observed:** no npm
+  publish, no version bump, no git tag,
+  no GitHub Release, no runtime
+  behaviour change, no new CLI command,
+  no new helper, no schema change, no
+  new artifact type, no new permission,
+  no new role, no workflow YAML, no
+  validator profile change, no GitHub
+  API call, no `package.json` /
+  `package-lock.json` mutation, no
+  source-file mutation, no mutation of
+  the operator's original target repo
+  (only the `mktemp -d` temp copy was
+  used and it was deleted after the
+  run), no network I/O, no new branch.
+  **Recommended next slice:** *Private
+  beta onboarding quickstart refinements
+  v2.* Apply the two documentation
+  refinements as a focused docs batch.
+  **Slice after that:** *Private beta
+  cohort onboarding plan.*
+- Private beta onboarding validation run
+  (P1.1
+  private-beta-onboarding-validation-run
   slice): **third post-track operator-support
   slice after the private beta onboarding
   quickstart.** Strategy / docs / tests-only

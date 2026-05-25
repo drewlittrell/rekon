@@ -699,29 +699,46 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # When the quickstart and the playbook
 # conflict, the playbook wins.
 #
-# Private beta onboarding validation intake
-# request at
+# Private beta onboarding validation report
+# at
+# docs/beta/private-beta-onboarding-validation-report.md
+# records the first end-to-end run of the
+# quickstart against a non-Rekon target
+# (anonymized as target-1, a small Next.js
+# TypeScript app). Outcome:
+# pass-with-known-limitations. Quickstart
+# followed verbatim with no silent
+# adjustments; 22 of 25 commands returned
+# pass; 3 verification commands recorded
+# failed honestly (target uses
+# pnpm-workspace, install was deliberately
+# not run in the temp copy -- first-class
+# acceptable outcome); both GitHub dry-runs
+# made zero HTTP calls; path freshness
+# went unknown -> fresh (295/295 paths) on
+# first -> second run as documented;
+# artifacts validate returned valid:true at
+# both checkpoints. Two minor documentation
+# refinements surfaced (non-npm package
+# managers note in Optional Verification
+# Flow, historical newer-input-exists note
+# in Inspect The Main Outputs); zero
+# blockers. The prior intake-blocked posture
+# is preserved at
 # docs/beta/private-beta-onboarding-validation-intake-request.md
-# is the canonical onboarding-validation
-# track entry. The work order requires an
-# operator-supplied non-Rekon target repo
-# plus four other intake fields (representative
-# path inside target, target description,
-# expected install / build hint, and any
-# sensitive paths or artifacts that must be
-# anonymized). Until those fields are
-# supplied, the validation track sits at
-# outcome = intake-blocked. Pinned verbatim
-# in the intake memo + asserted by its docs
-# test: this batch does not publish to npm;
-# this batch does not change package
-# versions; this batch does not create a git
-# tag; this batch does not create a GitHub
-# Release; the validation run, when
-# executed, used a temp copy of a non-Rekon
-# repository; Rekon artifacts remain
-# canonical; GitHub dry-runs are downstream
-# previews.
+# as a historical record. Pinned verbatim
+# in the validation report + asserted by
+# the docs test: this batch does not
+# publish to npm; this batch does not
+# change package versions; this batch does
+# not create a git tag; this batch does
+# not create a GitHub Release; the
+# validation run used a temp copy of a
+# non-Rekon repository; Rekon artifacts
+# remain canonical; GitHub dry-runs are
+# downstream previews. Recommended next
+# slice: private beta onboarding
+# quickstart refinements v2.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

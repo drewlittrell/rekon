@@ -467,17 +467,21 @@ report issues, re-run path freshness after
 edits). When the quickstart and this playbook
 conflict, the playbook wins.
 
-Recommended next slice: **Private beta
-onboarding validation run.** Have an operator
-follow the quickstart against a non-Rekon
-repo end-to-end and capture any gaps as a
-short retrospective memo. The intake
-request for this run is recorded at
+The first onboarding validation run has
+**shipped** with outcome
+`pass-with-known-limitations`. See
+[Private Beta Onboarding Validation Report](private-beta-onboarding-validation-report.md)
+for the canonical record and
 [Private Beta Onboarding Validation Intake
-Request](private-beta-onboarding-validation-intake-request.md);
-until the operator answers the
-questionnaire there, the validation track
-sits at `intake-blocked`.
+Request](private-beta-onboarding-validation-intake-request.md)
+for the prior intake-blocked posture
+(preserved as historical record). Two
+minor documentation refinements surfaced
+in the validation; the recommended next
+slice is **private beta onboarding
+quickstart refinements (v2)** which lands
+those refinements as a focused docs
+batch.
 
 Other follow-ups that remain post-beta:
 

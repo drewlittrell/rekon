@@ -456,15 +456,17 @@ non-Rekon repo and record any gaps:
 - support-template gaps
 - artifact-sharing risks
 
-Until an operator supplies a non-Rekon
-target repository plus the four other
-intake fields, the validation track sits
-at `intake-blocked`. The intake request is
-recorded at the
+The first validation run has shipped:
+[Private Beta Onboarding Validation Report](private-beta-onboarding-validation-report.md)
+(`pass-with-known-limitations` against one
+non-Rekon Next.js target). Two minor
+documentation refinements surfaced — both
+are tracked as follow-up; the quickstart's
+current shape was validated end-to-end with
+zero blockers. The earlier intake-request
+memo is preserved as a historical record at
 [Private Beta Onboarding Validation Intake
-Request](private-beta-onboarding-validation-intake-request.md)
-— answer the questionnaire there to
-unblock the next batch.
+Request](private-beta-onboarding-validation-intake-request.md).
 
 Other places to go from here, in order of
 typical need:

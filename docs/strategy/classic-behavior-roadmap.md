@@ -5262,6 +5262,38 @@ scope:
 - **Private beta onboarding validation run
   (P1.1
   private-beta-onboarding-validation-run
+  slice — post-intake completion).** ✅
+  Shipped. **Outcome:
+  `pass-with-known-limitations`.** The
+  operator authorised a target in a
+  subsequent prompt; the prior
+  intake-blocked posture was resolved
+  and the full validation ran end-to-end
+  against a temp copy of one non-Rekon
+  Next.js target. Quickstart followed
+  verbatim; 22 of 25 commands returned
+  `pass`; 3 verification commands
+  recorded `failed` honestly (target uses
+  `pnpm-workspace`, install was
+  deliberately not run in the temp copy
+  — first-class acceptable outcome);
+  both GitHub dry-runs made zero HTTP
+  calls; path freshness `unknown` →
+  `fresh` (295 / 295) as documented. New
+  canonical
+  [`docs/beta/private-beta-onboarding-validation-report.md`](../beta/private-beta-onboarding-validation-report.md).
+  Two minor documentation refinements
+  surfaced (non-npm package managers in
+  *Optional Verification Flow* +
+  historical `newer-input-exists` after
+  re-publication in *Inspect The Main
+  Outputs*); zero blockers.
+  **Recommended next slice:** private
+  beta onboarding quickstart refinements
+  v2.
+- **Private beta onboarding validation run
+  (P1.1
+  private-beta-onboarding-validation-run
   slice).** ✅ Shipped (intake-blocked).
   **Third post-track operator-support slice**
   following the private beta onboarding

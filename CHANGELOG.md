@@ -5,6 +5,110 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **Private Beta Onboarding Validation
+  Run — post-intake completion**. The operator
+  authorised a target in a subsequent prompt;
+  the prior intake-blocked posture was
+  resolved and the full validation ran
+  end-to-end against a temp copy of one
+  non-Rekon Next.js target (anonymized as
+  `target-1`). **Outcome:
+  `pass-with-known-limitations`.**
+
+  **Strategy / docs / tests-only batch.** No
+  npm publish. No version bump. No git tag.
+  No GitHub Release. No runtime behaviour
+  change. No new CLI command. No new helper.
+  No schema change. No new artifact type. No
+  new permission. No new role. No workflow
+  YAML. No validator profile change. No
+  GitHub API call. No `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation. No mutation of the
+  operator's original target repo (only the
+  `mktemp -d` temp copy was used and the
+  temp copy was deleted after the run). No
+  network I/O. No new branch.
+
+  **What landed:**
+  - New `docs/beta/private-beta-onboarding-validation-report.md`
+    — canonical post-intake validation report
+    with all 15 required headings, four
+    required tables (Command Matrix / Output
+    Summary / Quickstart Gap / Blocker), and
+    all six required verbatim statements. The
+    quickstart was followed verbatim with no
+    silent adjustments; 22 of 25 commands
+    returned `pass`; 3 verification commands
+    recorded `failed` honestly (target uses
+    `pnpm-workspace`, install was deliberately
+    not run in the temp copy — first-class
+    acceptable outcome); both GitHub dry-runs
+    made zero HTTP calls; `artifacts validate`
+    returned `valid: true` at both
+    checkpoints; path freshness went `unknown`
+    → `fresh` (295 / 295 paths) on the first
+    → second run as documented.
+  - Re-written review packet
+    `.rekon-dev/review-packets/private-beta-onboarding-validation-run.md`
+    with PURPOSE PRESERVATION CHECK + all 14
+    required sections — re-framed from the
+    prior intake-blocked posture to reflect
+    the actual post-intake validation run.
+  - Updated 17-assertion docs test
+    `tests/docs/private-beta-onboarding-validation-run.test.mjs`
+    — 16 work-order-required assertions on
+    the canonical validation **report** plus
+    a 17th assertion that the prior
+    intake-request memo is preserved as a
+    historical record.
+  - Closing pointer added to
+    `docs/beta/private-beta-onboarding-validation-intake-request.md`
+    noting that the operator authorised the
+    target in a subsequent prompt and the
+    full validation has shipped (the intake
+    memo itself is preserved verbatim).
+  - Cross-link updates to the onboarding
+    quickstart, support playbook, no-NPM
+    beta distribution policy, both
+    roadmaps, README.
+
+  **Pinned posture statements (all
+  verbatim + asserted by the docs test):**
+  - *This batch does not publish to npm.*
+  - *This batch does not change package
+    versions.*
+  - *This batch does not create a git
+    tag.*
+  - *This batch does not create a GitHub
+    Release.*
+  - *The validation run used a temp copy
+    of a non-Rekon repository.*
+  - *Rekon artifacts remain canonical;
+    GitHub dry-runs are downstream
+    previews.*
+
+  **Quickstart gaps recorded (both minor,
+  documentation-only):**
+  - *Optional Verification Flow* doesn't
+    surface non-npm package managers
+    (pnpm / yarn / bun).
+  - *Inspect The Main Outputs* doesn't
+    surface historical
+    `newer-input-exists` warnings after
+    re-publication.
+
+  **Zero blockers.**
+
+  **Recommended next slice:** *Private
+  beta onboarding quickstart refinements
+  v2* — apply the two documentation
+  refinements as a focused docs batch.
+  **Slice after that:** *Private beta
+  cohort onboarding plan.* Still no
+  daemon, no background refresh, no npm
+  publish, no version bump.
+
+- Shipped **Private Beta Onboarding Validation
   Run** (third post-track operator-support
   slice following the onboarding quickstart) —
   **intake-blocked**. The work order requires

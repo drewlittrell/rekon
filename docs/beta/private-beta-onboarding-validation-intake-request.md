@@ -415,3 +415,13 @@ No new workflow YAML. No mutation of any
 operator repo. Rollback is trivial:
 revert this intake request and the
 supporting doc cross-links.
+
+**Update (2026-05-25):** the operator
+authorised a target in a subsequent
+prompt. The post-intake validation run
+shipped as
+[Private Beta Onboarding Validation Report](private-beta-onboarding-validation-report.md)
+with outcome `pass-with-known-limitations`.
+This intake-request memo is preserved as
+the historical record of the work-order's
+stop-condition behaviour.

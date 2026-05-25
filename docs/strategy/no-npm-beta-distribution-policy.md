@@ -478,12 +478,14 @@ and uses the
 New operators should start with the concise
 [Private Beta Onboarding Quickstart](../beta/private-beta-onboarding-quickstart.md);
 when the quickstart and the playbook conflict,
-the playbook wins. The follow-up validation
-batch is intake-blocked at the
+the playbook wins. The first end-to-end
+validation has shipped at
+[Private Beta Onboarding Validation Report](../beta/private-beta-onboarding-validation-report.md)
+with outcome `pass-with-known-limitations`
+against one non-Rekon Next.js target; the
+prior intake-blocked record is preserved at
 [Private Beta Onboarding Validation Intake
-Request](../beta/private-beta-onboarding-validation-intake-request.md)
-until the operator supplies a non-Rekon
-target repo + the four other intake fields.
+Request](../beta/private-beta-onboarding-validation-intake-request.md).
 The playbook pins the no-NPM posture verbatim:
 *"npm install is not supported during beta. Use
 source checkout."* Bug reports must include
