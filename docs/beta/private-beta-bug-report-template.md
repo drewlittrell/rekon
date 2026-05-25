@@ -277,6 +277,7 @@ Anything else the support reviewer should know:
 
 - [Private Beta Support Playbook](private-beta-support-playbook.md)
 - [Private Beta Onboarding Quickstart](private-beta-onboarding-quickstart.md)
+- [Private Beta Onboarding Validation Intake Request](private-beta-onboarding-validation-intake-request.md)
 - [No-NPM Beta Distribution Policy](../strategy/no-npm-beta-distribution-policy.md)
 - [Path Freshness Safety Review](../strategy/path-freshness-safety-review.md)
 - [VerificationPlan missing-script tolerance memo](../strategy/verification-missing-script-tolerance.md)

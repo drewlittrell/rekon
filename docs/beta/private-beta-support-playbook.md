@@ -471,7 +471,13 @@ Recommended next slice: **Private beta
 onboarding validation run.** Have an operator
 follow the quickstart against a non-Rekon
 repo end-to-end and capture any gaps as a
-short retrospective memo.
+short retrospective memo. The intake
+request for this run is recorded at
+[Private Beta Onboarding Validation Intake
+Request](private-beta-onboarding-validation-intake-request.md);
+until the operator answers the
+questionnaire there, the validation track
+sits at `intake-blocked`.
 
 Other follow-ups that remain post-beta:
 
@@ -486,6 +492,7 @@ Other follow-ups that remain post-beta:
 ## Cross-References
 
 - [Private Beta Onboarding Quickstart](private-beta-onboarding-quickstart.md)
+- [Private Beta Onboarding Validation Intake Request](private-beta-onboarding-validation-intake-request.md)
 - [Private Beta Bug Report Template](private-beta-bug-report-template.md)
 - [No-NPM Beta Distribution Policy](../strategy/no-npm-beta-distribution-policy.md)
 - [Real-Repo Beta Dogfood Report](../strategy/real-repo-beta-dogfood-report.md)

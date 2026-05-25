@@ -1106,6 +1106,89 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Private beta onboarding validation run
+  (P1.1
+  private-beta-onboarding-validation-run
+  slice): **third post-track operator-support
+  slice after the private beta onboarding
+  quickstart.** Strategy / docs / tests-only
+  batch. **No npm publish. No version bump.
+  No git tag. No GitHub Release. No runtime
+  behaviour change. No new CLI command. No
+  new helper. No schema change. No new
+  artifact type. No new permission. No new
+  role. No workflow YAML. No validator
+  profile change. No GitHub API call. No
+  `package.json` / `package-lock.json`
+  mutation. No source-file mutation. No
+  mutation of any operator repo (none was
+  supplied). No network I/O. No new branch.**
+  **Outcome: `intake-blocked`.** The work
+  order requires the operator to supply one
+  non-Rekon target repository path plus four
+  other intake fields (representative path,
+  description, install / build hint, sensitive
+  paths). None were supplied in the batch's
+  prompt, so per the work order's explicit
+  stop condition this batch ships a short
+  intake request memo at
+  [`docs/beta/private-beta-onboarding-validation-intake-request.md`](../beta/private-beta-onboarding-validation-intake-request.md)
+  instead of the full validation report. The
+  intake memo carries the work order's five
+  required intake fields, the operator
+  selection guidance, the anonymization
+  posture, what-happens-next, and the
+  pre-validation gate results on commit
+  `8771cf5`. All 9 pre-validation commands
+  passed (typecheck, test 1927 / 1 skipped,
+  build, `git diff --check`,
+  `audit-package-exports`, `audit-license`,
+  `publish-dry-run`, `install-smoke`,
+  `install-tarball-smoke`). Required verbatim
+  statements pinned in the memo + asserted by
+  the docs test: *"This batch does not
+  publish to npm."*, *"This batch does not
+  change package versions."*, *"This batch
+  does not create a git tag."*, *"This batch
+  does not create a GitHub Release."*, *"The
+  validation run, when executed, used a temp
+  copy of a non-Rekon repository."*, *"Rekon
+  artifacts remain canonical; GitHub dry-runs
+  are downstream previews."* Review packet
+  `.rekon-dev/review-packets/private-beta-onboarding-validation-run.md`
+  with PURPOSE PRESERVATION CHECK + all 14
+  required sections (CHANGES MADE / PUBLIC API
+  CHANGES / PURPOSE PRESERVATION CHECK /
+  CODEBASE-INTEL ALIGNMENT / TARGET REPOSITORY
+  / COMMAND MATRIX / OUTPUT SUMMARY /
+  QUICKSTART GAPS / SUPPORT TEMPLATE GAPS /
+  OUTCOME CLASSIFICATION / TESTS /
+  VERIFICATION / INTENTIONALLY UNTOUCHED /
+  RISKS / FOLLOW-UP / NEXT STEP). New
+  `tests/docs/private-beta-onboarding-validation-run.test.mjs`
+  (16 assertions). Full suite expected ≥
+  1943 passed / 1 skipped (1927 + 16 new).
+  **Next slice (blocking on operator
+  answer):** the post-intake validation run
+  itself, which will produce the canonical
+  `docs/beta/private-beta-onboarding-validation-report.md`
+  with the full structure the work order
+  requires (Decision Summary, Target
+  Repository, Commands Run, Output Summary,
+  Artifact Results, Path Freshness Results,
+  Verification Results, GitHub Dry-Run
+  Results, Quickstart Gaps, Support Template
+  Gaps, Blockers, Outcome Classification,
+  What This Does Not Do, Follow-Up Work),
+  plus the required command matrix / output
+  summary / gap / blocker tables and the
+  same six required verbatim statements.
+  **Post-validation (if pass):** private
+  beta cohort onboarding plan. **Post-
+  validation (if blocked):** private beta
+  onboarding blocker fix. Still no daemon,
+  no background refresh, no npm publish, no
+  version bump.
 - Private beta onboarding quickstart (P1.1
   private-beta-onboarding-quickstart slice):
   **second post-track operator-support slice

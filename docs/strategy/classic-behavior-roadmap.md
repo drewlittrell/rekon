@@ -5259,6 +5259,42 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Private beta onboarding validation run
+  (P1.1
+  private-beta-onboarding-validation-run
+  slice).** ✅ Shipped (intake-blocked).
+  **Third post-track operator-support slice**
+  following the private beta onboarding
+  quickstart. **Outcome:** `intake-blocked`
+  — the work order requires one
+  operator-supplied non-Rekon target repo +
+  four other intake fields, none of which
+  were supplied. Per the work order's
+  explicit stop condition, this batch ships
+  the short intake request memo at
+  [`docs/beta/private-beta-onboarding-validation-intake-request.md`](../beta/private-beta-onboarding-validation-intake-request.md)
+  instead of the full validation report. The
+  memo carries the five required intake
+  fields, operator selection guidance,
+  anonymization posture, what-happens-next,
+  and the pre-validation gate results on
+  commit `8771cf5`. All 9 pre-validation
+  commands passed before the memo was
+  written. Required verbatim pins (asserted
+  by the docs test): *"This batch does not
+  publish to npm."*, *"This batch does not
+  change package versions."*, *"This batch
+  does not create a git tag."*, *"This batch
+  does not create a GitHub Release."*, *"The
+  validation run, when executed, used a temp
+  copy of a non-Rekon repository."*, *"Rekon
+  artifacts remain canonical; GitHub
+  dry-runs are downstream previews."*
+  **Next slice (blocking):** operator
+  answers the intake questionnaire so the
+  post-intake validation run can produce
+  the canonical
+  `docs/beta/private-beta-onboarding-validation-report.md`.
 - **Private beta onboarding quickstart (P1.1
   private-beta-onboarding-quickstart slice).**
   ✅ Shipped. **Second post-track

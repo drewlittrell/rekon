@@ -456,6 +456,16 @@ non-Rekon repo and record any gaps:
 - support-template gaps
 - artifact-sharing risks
 
+Until an operator supplies a non-Rekon
+target repository plus the four other
+intake fields, the validation track sits
+at `intake-blocked`. The intake request is
+recorded at the
+[Private Beta Onboarding Validation Intake
+Request](private-beta-onboarding-validation-intake-request.md)
+— answer the questionnaire there to
+unblock the next batch.
+
 Other places to go from here, in order of
 typical need:
 

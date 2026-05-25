@@ -697,9 +697,31 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # GitHub status and comments are not canonical
 # truth — Rekon artifacts remain canonical.
 # When the quickstart and the playbook
-# conflict, the playbook wins. Recommended
-# next slice: private beta onboarding
-# validation run.
+# conflict, the playbook wins.
+#
+# Private beta onboarding validation intake
+# request at
+# docs/beta/private-beta-onboarding-validation-intake-request.md
+# is the canonical onboarding-validation
+# track entry. The work order requires an
+# operator-supplied non-Rekon target repo
+# plus four other intake fields (representative
+# path inside target, target description,
+# expected install / build hint, and any
+# sensitive paths or artifacts that must be
+# anonymized). Until those fields are
+# supplied, the validation track sits at
+# outcome = intake-blocked. Pinned verbatim
+# in the intake memo + asserted by its docs
+# test: this batch does not publish to npm;
+# this batch does not change package
+# versions; this batch does not create a git
+# tag; this batch does not create a GitHub
+# Release; the validation run, when
+# executed, used a temp copy of a non-Rekon
+# repository; Rekon artifacts remain
+# canonical; GitHub dry-runs are downstream
+# previews.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
