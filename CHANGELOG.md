@@ -4,6 +4,96 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **ReconciliationPreviewReport artifact
+  decision** — first decision slice after the
+  Reconciliation Preview v1 shipment. Records
+  **Option A — reserve the
+  `ReconciliationPreviewReport` artifact name;
+  defer registration.**
+
+  **Strategy / docs / tests-only batch.** No
+  artifact type registered. No validator
+  added. No writer added. No artifact category
+  map change. No new CLI command. No
+  modification of `buildReconciliationPreview`.
+  No modification of `rekon reconcile preview`.
+  No modification of `ReconciliationPlan`
+  shape. No source-write apply. No
+  `source:write` permission registration. No
+  `ReconciliationApplyReport` registration.
+  No GitHub API call. No workflow YAML. No
+  `package.json` / `package-lock.json`
+  mutation. No source-file mutation in any
+  `packages/*/src/*`. No npm publish. No
+  version bump. No git tag. No GitHub
+  Release. No new branch. No network I/O.
+
+  **What landed:**
+  - New strategy memo
+    `docs/strategy/reconciliation-preview-report-artifact-decision.md`
+    with Decision Summary, Why This Decision
+    Exists, Current State, Options
+    Considered (A/B/C), Recommendation,
+    Conditions For Future Registration,
+    Reserved Vocabulary, What This Decision
+    Does Not Do, Cross-References, Status,
+    Follow-Up.
+  - Review packet
+    `.rekon-dev/review-packets/reconciliation-preview-report-artifact-decision.md`
+    with PURPOSE PRESERVATION CHECK + all
+    11 required sections.
+  - New 17-assertion docs test
+    `tests/docs/reconciliation-preview-report-artifact-decision.test.mjs`.
+  - Cross-link updates: reconciliation
+    preview v1 memo (Follow-Up section
+    now resolves to this decision),
+    reconciliation preview concept doc,
+    source-write reconciliation policy
+    decision (step 5a row), reconciliation
+    plans concept, ReconciliationPlan
+    artifact reference, roadmap,
+    classic-behavior-roadmap, README.
+
+  **Pinned posture statements (asserted by
+  the docs test):**
+  - *ReconciliationPreviewReport is not
+    registered as a Rekon artifact in this
+    slice.*
+  - *The artifact name
+    `ReconciliationPreviewReport` is
+    reserved.*
+  - *No `ReconciliationPreviewReport`
+    validator, writer, or category is
+    added.*
+  - *Reconciliation Preview v1 remains a
+    read-only, in-memory projection of
+    `ReconciliationPlan`.*
+  - *Source-write apply remains
+    unavailable.*
+
+  **Future registration gated on at least
+  two of:**
+  1. A plan generator emitting forward-compat
+     `beforeText` + `afterText` for at
+     least one real operation class.
+  2. A source-write apply slice being
+     queued or shipped.
+  3. A publication or GitHub review
+     surface that needs preview content
+     inline.
+  4. Operator cohort feedback explicitly
+     asking for durable previews.
+
+  **Reconciliation track is now at a
+  deliberate pause point.** The next
+  useful slice will be one of:
+  *plan-generator diff data*, *apply
+  permission + rollback design memo*,
+  *publication that consumes preview
+  content*, or *operator cohort
+  onboarding* — whichever product signal
+  arrives first.
+
 - Shipped **Reconciliation Preview v1** — the
   first product capability batch after the
   private-beta operator-support track. Adds a

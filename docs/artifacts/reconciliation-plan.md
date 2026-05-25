@@ -208,3 +208,16 @@ Rebuild with `rekon reconcile suggest`.
   carries `beforeText` + `afterText` AND
   the current file matches `beforeText`.
   Source-write apply remains unavailable.
+- [ReconciliationPreviewReport Artifact
+  Decision](../strategy/reconciliation-preview-report-artifact-decision.md)
+  — records the Option A decision to **reserve**
+  the `ReconciliationPreviewReport` artifact
+  name and **defer** registration. The
+  reconciliation track currently produces
+  only `ReconciliationPlan` artifacts;
+  durable preview snapshots are gated on
+  at least two of four named product
+  signals (forward-compat diff data, a
+  queued / shipped apply slice, a
+  publication / review-surface consumer,
+  or operator cohort feedback).

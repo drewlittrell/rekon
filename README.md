@@ -811,9 +811,40 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # preview is mandatory before any apply
 # implementation; the preview does not
 # resolve findings; non-previewable
-# operations are explicit. Recommended
-# next slice: ReconciliationPreviewReport
-# artifact decision.
+# operations are explicit.
+#
+# ReconciliationPreviewReport artifact
+# decision has shipped at
+# docs/strategy/reconciliation-preview-report-artifact-decision.md
+# with outcome Option A -- reserve the
+# ReconciliationPreviewReport artifact
+# name; defer registration. No artifact
+# type, validator, writer, or category
+# lands. v1 preview helper + CLI
+# continue to write no artifacts. Future
+# registration is gated on at least two
+# of four named product signals
+# (forward-compat plan-generator diff
+# data, a queued / shipped source-write
+# apply slice, a publication / review
+# surface that needs preview content
+# inline, or operator cohort feedback
+# explicitly asking for persistence).
+# Pinned verbatim in the memo + asserted
+# by the docs test:
+# ReconciliationPreviewReport is not
+# registered as a Rekon artifact in this
+# slice; the artifact name
+# ReconciliationPreviewReport is
+# reserved; no
+# ReconciliationPreviewReport
+# validator, writer, or category is
+# added; Reconciliation Preview v1
+# remains a read-only, in-memory
+# projection of ReconciliationPlan;
+# Source-write apply remains
+# unavailable. The reconciliation track
+# is now at a deliberate pause point.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

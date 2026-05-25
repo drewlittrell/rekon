@@ -5259,6 +5259,48 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **ReconciliationPreviewReport artifact
+  decision (P1.1
+  reconciliation-preview-report-artifact-decision
+  slice).** ✅ Shipped. **First decision
+  slice after the Reconciliation Preview
+  v1 shipment.** Records **Option A —
+  reserve the `ReconciliationPreviewReport`
+  artifact name; defer registration.** No
+  artifact type, validator, writer, or
+  category lands. v1 preview helper + CLI
+  continue to write no artifacts. Future
+  registration is gated on at least two
+  of four named product signals
+  (forward-compat plan-generator diff
+  data, a queued / shipped source-write
+  apply slice, a publication / review
+  surface that needs preview content
+  inline, or operator cohort feedback
+  explicitly asking for persistence). New
+  strategy memo at
+  [`docs/strategy/reconciliation-preview-report-artifact-decision.md`](reconciliation-preview-report-artifact-decision.md).
+  Pinned verbatim:
+  *ReconciliationPreviewReport is not
+  registered as a Rekon artifact in this
+  slice.* / *The artifact name
+  `ReconciliationPreviewReport` is
+  reserved.* / *No
+  `ReconciliationPreviewReport`
+  validator, writer, or category is
+  added.* / *Reconciliation Preview v1
+  remains a read-only, in-memory
+  projection of `ReconciliationPlan`.* /
+  *Source-write apply remains
+  unavailable.* **Recommended next
+  slice:** any of plan-generator diff
+  data / apply permission + rollback
+  design memo / publication that
+  consumes preview content / operator
+  cohort onboarding — whichever product
+  signal arrives first. The
+  reconciliation track is now at a
+  deliberate pause point.
 - **Reconciliation preview v1 (P1.1
   reconciliation-preview-v1 slice).** ✅
   Shipped. **First product capability

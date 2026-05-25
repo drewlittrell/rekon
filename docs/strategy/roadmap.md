@@ -1106,6 +1106,85 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- ReconciliationPreviewReport artifact
+  decision (P1.1
+  reconciliation-preview-report-artifact-decision
+  slice): **first decision slice after
+  the Reconciliation Preview v1
+  shipment.** Strategy / docs /
+  tests-only batch. **No npm publish.
+  No version bump. No git tag. No
+  GitHub Release. No runtime behaviour
+  change. No new artifact type (the
+  artifact name is RESERVED, not
+  registered). No new validator. No
+  new writer. No new artifact category
+  map entry. No new CLI command. No
+  modification of
+  `buildReconciliationPreview`. No
+  modification of `rekon reconcile
+  preview`. No modification of
+  `ReconciliationPlan` shape. No
+  source-write apply. No
+  `source:write` permission
+  registration. No `ReconciliationApplyReport`
+  registration. No GitHub API call.
+  No workflow YAML. No `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation. No network
+  I/O. No new branch.** Records
+  **Option A — reserve the
+  `ReconciliationPreviewReport`
+  artifact name; defer registration.**
+  v1 preview helper + CLI continue
+  to write no artifacts. Future
+  registration is gated on **at least
+  two** of: (1) a plan generator
+  emitting forward-compat
+  `beforeText` + `afterText` for at
+  least one real operation class,
+  (2) a source-write apply slice
+  being queued or shipped, (3) a
+  publication or GitHub review
+  surface that needs preview content
+  inline, (4) operator cohort
+  feedback explicitly asking for
+  durable previews. New strategy memo
+  [`docs/strategy/reconciliation-preview-report-artifact-decision.md`](reconciliation-preview-report-artifact-decision.md).
+  Required verbatim pins (asserted by
+  docs test): *"ReconciliationPreviewReport
+  is not registered as a Rekon
+  artifact in this slice."*, *"The
+  artifact name
+  `ReconciliationPreviewReport` is
+  reserved."*, *"No
+  `ReconciliationPreviewReport`
+  validator, writer, or category is
+  added."*, *"Reconciliation Preview
+  v1 remains a read-only, in-memory
+  projection of
+  `ReconciliationPlan`."*, *"Source-write
+  apply remains unavailable."* Review
+  packet
+  `.rekon-dev/review-packets/reconciliation-preview-report-artifact-decision.md`
+  with PURPOSE PRESERVATION CHECK +
+  all 11 required sections. New
+  17-assertion docs test
+  `tests/docs/reconciliation-preview-report-artifact-decision.test.mjs`.
+  Full suite expected ≥ 2000 passed /
+  1 skipped (1983 + 17 new).
+  **Recommended next slice:** any of
+  *plan-generator diff data* (light up
+  the v1 helper's forward-compat diff
+  branch against a real operation),
+  *apply permission + rollback design
+  memo* (the source-write track's
+  next slice), *publication that
+  consumes preview content*, or
+  *operator cohort onboarding* —
+  whichever product signal arrives
+  first. The reconciliation track is
+  now at a **deliberate pause point**.
 - Reconciliation preview v1 (P1.1
   reconciliation-preview-v1 slice):
   **first product capability batch after

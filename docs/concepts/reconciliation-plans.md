@@ -196,3 +196,10 @@ Rebuild with `rekon reconcile suggest`.
   (`rekon reconcile preview --plan ...`) that
   classifies plan operations into operator-facing
   rows without crossing into source-write apply.
+- [ReconciliationPreviewReport Artifact Decision](../strategy/reconciliation-preview-report-artifact-decision.md)
+  — records the Option A decision to reserve the
+  `ReconciliationPreviewReport` artifact name and
+  defer registration. The v1 preview helper +
+  CLI continue to write no artifacts; future
+  registration is gated on at least two of four
+  named product signals.

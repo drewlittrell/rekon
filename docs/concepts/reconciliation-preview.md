@@ -181,6 +181,13 @@ any finding status, and never causes any
 ## See Also
 
 - [Reconciliation Preview v1 strategy memo](../strategy/reconciliation-preview-v1.md)
+- [ReconciliationPreviewReport Artifact Decision](../strategy/reconciliation-preview-report-artifact-decision.md)
+  — records the decision to **reserve** the
+  `ReconciliationPreviewReport` artifact name
+  and **defer** registration. v1 previews
+  remain a read-only, in-memory projection of
+  `ReconciliationPlan`; no durable preview
+  artifact ships in this slice.
 - [Source-Write Reconciliation Policy Decision](../strategy/source-write-reconciliation-policy-decision.md)
 - [ReconciliationPlan artifact reference](../artifacts/reconciliation-plan.md)
 - [Reconciliation plans concept](reconciliation-plans.md)

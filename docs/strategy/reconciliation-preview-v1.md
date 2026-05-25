@@ -234,3 +234,23 @@ any evidence that the preview shape needs
 to grow (e.g., per-operation lineage,
 preview freshness semantics, signed
 preview snapshots).
+
+**Update:** the decision has been
+recorded — see
+[ReconciliationPreviewReport Artifact
+Decision](reconciliation-preview-report-artifact-decision.md).
+**Outcome: Option A — reserve the name,
+defer registration.** No artifact type,
+validator, writer, or category was added;
+the v1 preview helper + CLI continue to
+write no artifacts. Future registration is
+gated on at least two of: (1) a plan
+generator emitting forward-compat
+`beforeText` + `afterText`, (2) a
+source-write apply slice being queued or
+shipped, (3) a publication or GitHub
+review surface that needs preview content
+inline, (4) operator cohort feedback
+explicitly asking for durable previews.
+Until at least two fire, the reconciliation
+track sits at the v1 preview surface.
