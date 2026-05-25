@@ -1106,6 +1106,81 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Plan-generator diff data discovery
+  (P1.1
+  plan-generator-diff-data-discovery
+  slice): **first reconciliation slice
+  after the deliberate pause point
+  pinned by the
+  ReconciliationPreviewReport artifact
+  decision.** Strategy / product-discovery
+  / docs / tests-only batch. **No
+  `ReconciliationPreviewReport`
+  registration. No `source:write`
+  permission registration. No
+  `ReconciliationApplyReport`
+  registration. No source-write apply.
+  No new CLI command. No helper change.
+  No `ReconciliationPlan` schema change
+  in this slice. No
+  `buildReconciliationPreview` change.
+  No `rekon reconcile preview` change.
+  No runtime behaviour change. No
+  GitHub API call. No workflow YAML.
+  No `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation in any
+  `packages/*/src/*`. No network I/O.
+  No npm publish. No version bump. No
+  git tag. No GitHub Release. No new
+  branch.** Inspects Rekon's existing
+  plan generation paths (`runLegacyMode`
+  + `runSuggestionMode` in
+  `packages/capability-reconcile/src/index.ts`,
+  plus a note that `resolve.issue`
+  produces `ResolverPacket` and is NOT
+  a plan generation path) and the
+  shape that `classifyRemediationItem`
+  emits today. **Finding:** zero
+  diff-ready operation classes today.
+  Every emitted operation carries only
+  structural metadata sourced from a
+  `CoherencyRemediationStep` — no
+  `beforeText`, no `afterText`, no
+  `replacementText`, no diff body, no
+  `expectedBeforeDigest`. Required
+  verbatim pins (asserted by docs
+  test): *"Source-write apply remains
+  unavailable."* and
+  *"ReconciliationPreviewReport
+  remains unregistered."* New strategy
+  memo at
+  [`docs/strategy/plan-generator-diff-data-discovery.md`](plan-generator-diff-data-discovery.md).
+  Review packet
+  `.rekon-dev/review-packets/plan-generator-diff-data-discovery.md`
+  with PURPOSE PRESERVATION CHECK +
+  all 11 required sections. New
+  10-assertion docs test
+  `tests/docs/plan-generator-diff-data-discovery.test.mjs`.
+  Full suite expected ≥ 2010 passed /
+  1 skipped (2000 + 10 new).
+  **Recommendation: do NOT register
+  `ReconciliationPreviewReport` yet.
+  Schedule the next slice as narrow
+  `ReconciliationPlan exact-diff
+  operation v1`** — pick one
+  deterministic operation class, teach
+  the generator to read the current
+  file + compute the canonical
+  post-apply content, attach
+  `beforeText` + `afterText` as
+  additive optional fields to
+  `ReconciliationPlanOperation`, keep
+  source-write apply unavailable.
+  Fallback (if the operation-class
+  pick is blocked): *ReconciliationPlan
+  operation-shape strengthening
+  decision* memo.
 - ReconciliationPreviewReport artifact
   decision (P1.1
   reconciliation-preview-report-artifact-decision

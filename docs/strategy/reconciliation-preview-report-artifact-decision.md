@@ -369,9 +369,25 @@ doc cross-links.
 
 ## Follow-Up
 
-The natural next slice depends on which of
-the *Conditions For Future Registration*
-fires first:
+**Update:** the
+[Plan-Generator Diff Data Discovery](plan-generator-diff-data-discovery.md)
+memo recorded the first discovery answer:
+**no current plan generator emits exact
+`beforeText` / `afterText`.** The
+recommended next reconciliation slice is
+the **narrow ReconciliationPlan exact-diff
+operation v1** described there — pick one
+deterministic operation class, emit exact
+patch text for it, keep source-write apply
+unavailable. Once that lands, condition #1
+in this decision's *Conditions For Future
+Registration* will be satisfied; this
+decision's reservation can then be
+revisited.
+
+The natural next slice still depends on
+which of the *Conditions For Future
+Registration* fires first:
 
 - If a plan generator emits forward-compat
   `beforeText` + `afterText`, the next

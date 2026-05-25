@@ -254,3 +254,26 @@ inline, (4) operator cohort feedback
 explicitly asking for durable previews.
 Until at least two fire, the reconciliation
 track sits at the v1 preview surface.
+
+**Discovery update (next slice scoped):**
+the
+[Plan-Generator Diff Data Discovery](plan-generator-diff-data-discovery.md)
+memo confirmed that **no current plan
+generator emits exact patch data** — every
+operation today carries only structural
+metadata sourced from
+`CoherencyRemediationStep`. The
+recommended next reconciliation slice is
+**narrow `ReconciliationPlan` exact-diff
+operation v1**: pick one deterministic
+operation class, teach the generator to
+read the current file + compute the
+canonical post-apply content, attach
+`beforeText` + `afterText` as additive
+optional fields to
+`ReconciliationPlanOperation`. Source-write
+apply remains unavailable through that
+slice as well. Once that lands, the v1
+preview helper's forward-compatible diff
+branch will render real unified diffs
+end-to-end.

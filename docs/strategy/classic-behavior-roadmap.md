@@ -5259,6 +5259,36 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Plan-generator diff data discovery
+  (P1.1
+  plan-generator-diff-data-discovery
+  slice).** ✅ Shipped. **First
+  reconciliation slice after the
+  deliberate pause point pinned by the
+  ReconciliationPreviewReport artifact
+  decision.** Strategy /
+  product-discovery / docs / tests-only
+  batch. Inspects current plan
+  generation paths (`runLegacyMode` +
+  `runSuggestionMode`) and the
+  `classifyRemediationItem` mapping.
+  **Finding:** no current plan
+  generator emits exact `beforeText` /
+  `afterText`. **Recommendation:** do
+  NOT register
+  `ReconciliationPreviewReport` yet;
+  schedule the next slice as **narrow
+  `ReconciliationPlan` exact-diff
+  operation v1** — pick one
+  deterministic operation class, emit
+  exact patch text, keep source-write
+  apply unavailable. Fallback memo
+  ready if operation-class pick is
+  blocked. Pinned verbatim:
+  *Source-write apply remains
+  unavailable.* / *ReconciliationPreviewReport
+  remains unregistered.* See
+  [`docs/strategy/plan-generator-diff-data-discovery.md`](plan-generator-diff-data-discovery.md).
 - **ReconciliationPreviewReport artifact
   decision (P1.1
   reconciliation-preview-report-artifact-decision

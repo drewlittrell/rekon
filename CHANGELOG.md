@@ -4,6 +4,97 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Plan-Generator Diff Data
+  Discovery** — first reconciliation slice
+  after the deliberate pause point pinned by
+  the ReconciliationPreviewReport artifact
+  decision. Strategy / product-discovery /
+  docs / tests-only batch.
+
+  **Finding:** **no current plan generator
+  emits exact `beforeText` / `afterText`
+  data.** Two generation paths exist today
+  (`runLegacyMode` + `runSuggestionMode` in
+  `packages/capability-reconcile/src/index.ts`);
+  both produce `ReconciliationPlan` operations
+  carrying only structural metadata sourced
+  from a `CoherencyRemediationStep` —
+  `operation`, `class`, `status`, `reason`,
+  `findingId`, `priority`, `files` (paths
+  only), `systems`, `suggestedAction`, source,
+  optional `requiresPermission`. **No
+  `beforeText`, no `afterText`, no
+  `replacementText`, no diff body, no
+  `expectedBeforeDigest`.** `resolve.issue`
+  produces `ResolverPacket` and is **not** a
+  plan-generation path.
+
+  No `ReconciliationPreviewReport`
+  registration. No `source:write` permission
+  registration. No `ReconciliationApplyReport`
+  registration. No source-write apply. No new
+  CLI command. No helper change. No
+  `ReconciliationPlan` schema change in this
+  slice. No `buildReconciliationPreview`
+  change. No `rekon reconcile preview`
+  change. No runtime behaviour change. No
+  GitHub API call. No workflow YAML. No
+  `package.json` / `package-lock.json`
+  mutation. No source-file mutation in any
+  `packages/*/src/*`. No npm publish. No
+  version bump. No git tag. No GitHub
+  Release. No new branch.
+
+  **What landed:**
+  - New strategy memo
+    `docs/strategy/plan-generator-diff-data-discovery.md`
+    with Decision Summary, Why This
+    Discovery Exists, Current Plan
+    Generation Paths, Current Operation
+    Shapes, Diff-Ready Operation Classes,
+    Gaps, Options Considered (A/B/C),
+    Recommendation, What This Does Not Do,
+    Follow-Up Work.
+  - Review packet
+    `.rekon-dev/review-packets/plan-generator-diff-data-discovery.md`
+    with PURPOSE PRESERVATION CHECK + all
+    11 required sections.
+  - New 10-assertion docs test
+    `tests/docs/plan-generator-diff-data-discovery.test.mjs`.
+  - Cross-link updates: reconciliation
+    preview report artifact decision
+    (Follow-Up section now references this
+    discovery), reconciliation preview v1
+    memo (next-slice scoped to "narrow
+    `ReconciliationPlan` exact-diff
+    operation v1"), reconciliation preview
+    concept doc, roadmap,
+    classic-behavior-roadmap, README.
+
+  **Pinned posture statements (asserted by
+  the docs test):**
+  - *Source-write apply remains
+    unavailable.*
+  - *ReconciliationPreviewReport remains
+    unregistered.*
+
+  **Recommendation:** do **NOT** register
+  `ReconciliationPreviewReport` yet.
+  Schedule the next reconciliation slice as
+  **narrow `ReconciliationPlan` exact-diff
+  operation v1**: pick one deterministic
+  operation class, teach the generator to
+  read the current file + compute the
+  canonical post-apply content, attach
+  `beforeText` + `afterText` as additive
+  optional fields to
+  `ReconciliationPlanOperation`. Source-write
+  apply stays unavailable through that
+  slice. Fallback if the operation-class
+  pick is blocked: *ReconciliationPlan
+  operation-shape strengthening decision*
+  memo.
+
 - Shipped **ReconciliationPreviewReport artifact
   decision** — first decision slice after the
   Reconciliation Preview v1 shipment. Records

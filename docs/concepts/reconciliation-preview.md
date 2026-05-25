@@ -188,6 +188,15 @@ any finding status, and never causes any
   remain a read-only, in-memory projection of
   `ReconciliationPlan`; no durable preview
   artifact ships in this slice.
+- [Plan-Generator Diff Data Discovery](../strategy/plan-generator-diff-data-discovery.md)
+  — records that **no current plan generator
+  emits exact `beforeText` / `afterText`**.
+  The recommended next reconciliation slice
+  is the **narrow `ReconciliationPlan`
+  exact-diff operation v1** described there,
+  which would finally light up this concept
+  doc's forward-compatible diff branch
+  against a real generator.
 - [Source-Write Reconciliation Policy Decision](../strategy/source-write-reconciliation-policy-decision.md)
 - [ReconciliationPlan artifact reference](../artifacts/reconciliation-plan.md)
 - [Reconciliation plans concept](reconciliation-plans.md)

@@ -845,6 +845,40 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Source-write apply remains
 # unavailable. The reconciliation track
 # is now at a deliberate pause point.
+#
+# Plan-generator diff data discovery has
+# shipped at
+# docs/strategy/plan-generator-diff-data-discovery.md
+# with finding: no current plan generator
+# emits exact beforeText / afterText. Two
+# generation paths exist today
+# (runLegacyMode + runSuggestionMode in
+# packages/capability-reconcile/src/index.ts);
+# both produce ReconciliationPlan
+# operations carrying only structural
+# metadata sourced from
+# CoherencyRemediationStep -- no
+# beforeText, no afterText, no
+# replacementText, no diff body. resolve.issue
+# produces ResolverPacket and is not a
+# plan-generation path. Pinned verbatim in
+# the memo + asserted by the docs test:
+# Source-write apply remains unavailable;
+# ReconciliationPreviewReport remains
+# unregistered. Recommendation: do NOT
+# register ReconciliationPreviewReport
+# yet; schedule the next reconciliation
+# slice as narrow ReconciliationPlan
+# exact-diff operation v1 -- pick one
+# deterministic operation class, teach
+# the generator to read the current file
+# + compute the canonical post-apply
+# content, attach beforeText + afterText
+# as additive optional fields. Source-write
+# apply stays unavailable through that
+# slice as well. Fallback if blocked:
+# ReconciliationPlan operation-shape
+# strengthening decision memo.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
