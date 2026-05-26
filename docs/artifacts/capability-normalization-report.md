@@ -30,8 +30,15 @@ The report is **read-only**:
 | `header.schemaVersion` | `"0.1.0"` |
 | `header.inputRefs` | includes the source `EvidenceGraph` ref |
 | `ontology.source` | `"builtin"` or `"builtin+config"` |
-| `ontology.configPath` | repo-relative path when a config was applied (else absent) |
-| `ontology.configHash` | SHA-256 prefix of the applied config |
+| `ontology.basePack` | always `"base"` in v1 |
+| `ontology.overlayPacks` | ids of applied overlay packs (e.g. `["nextjs-app", "monorepo"]`) |
+| `ontology.overridePath` | repo-relative override file path when loaded (else absent) |
+| `ontology.overrideHash` | SHA-256 prefix of the override file |
+| `ontology.overrideKind` | `"canonical-override"` (overrides file) or `"legacy-compat"` (legacy `.rekon/capability-ontology.json`) |
+| `ontology.legacyOverrideIgnored` | `true` when both override paths exist and the legacy file was ignored |
+| `ontology.systemSeedCount` | number of system-seed verbs injected (build/deploy/test/lint) |
+| `ontology.configPath` | legacy alias for `overridePath` (preserved for back-compat) |
+| `ontology.configHash` | legacy alias for `overrideHash` (preserved for back-compat) |
 | `ontology.effectiveHash` | SHA-256 prefix of the compiled effective ontology |
 | `summary.totalCandidates` | total candidates extracted from the EvidenceGraph |
 | `summary.normalized` | count where verb + noun resolved to canonical entries |
@@ -87,9 +94,13 @@ Each candidate entry carries:
 
 1. Run `rekon refresh` (or `rekon observe`) to write a fresh
    `EvidenceGraph`.
-2. Optionally create `.rekon/capability-ontology.json` with
-   extra verbs / nouns / aliases (see
-   [config schema](../concepts/capability-ontology.md#operator-config)).
+2. Optionally create
+   `.rekon/capability-ontology.overrides.json` with extra
+   verbs / nouns / aliases (see
+   [override schema](../concepts/capability-ontology.md#operator-overrides-canon--override-model)).
+   Legacy `.rekon/capability-ontology.json` is accepted as
+   compatibility input only; the overrides file is the
+   canonical location.
 3. Run `rekon capability ontology normalize [--root <path>]
    [--json]`.
 4. Read the report. Decide whether to extend the ontology

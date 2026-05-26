@@ -45,17 +45,43 @@ implementation and is explicit in
 - `@rekon/capability-ontology` package (`projector` role,
   consumes `EvidenceGraph`, produces
   `CapabilityNormalizationReport`).
-- A built-in baseline vocabulary with verbs, nouns, roles, and
-  patterns (each with categories and aliases).
-- Optional `.rekon/capability-ontology.json` config loader
-  (JSON only — no YAML in v1).
+- **Built-in canon packs** ship with Rekon: `base` (always
+  included) plus three archetype overlays — `nextjs-app`,
+  `library-package`, `monorepo`. Each pack defines canonical
+  verbs / nouns / aliases / categories / noise terms. Packs
+  are the substrate the normalizer compiles from; operators
+  do **not** author them.
+- **Repo-local override file**:
+  `.rekon/capability-ontology.overrides.json` (optional).
+  Overrides extend or supersede canon. Operator-authored
+  canonical terms are added to canon; aliases supersede pack
+  aliases on key collision; noise extends pack noise.
+- **Legacy compatibility**: when the canonical overrides file
+  is absent, Rekon falls back to reading the legacy
+  `.rekon/capability-ontology.json`. When both files exist,
+  the overrides file wins and the report surfaces
+  `legacyOverrideIgnored`. **Rekon never creates or mutates
+  either file automatically.**
 - A deterministic lexical splitter for camelCase, snake_case,
   and kebab-case names.
 - A pure normalizer that maps candidates to canonical
   verb/noun pairs (using exact match + alias lookup).
 - A `CapabilityNormalizationReport` audit artifact with
-  per-candidate provenance and a coarse summary.
+  per-candidate provenance, a coarse summary, and source
+  metadata (`basePack`, `overlayPacks`, `overridePath`,
+  `overrideHash`, `overrideKind`, `legacyOverrideIgnored`,
+  `systemSeedCount`).
+- Conservative overlay auto-detection from `package.json` +
+  repo paths (`next` dependency / `app/` / `pages/` →
+  `nextjs-app`; `workspaces` / `pnpm-workspace.yaml` /
+  `packages/*` → `monorepo`; library-style exports without an
+  app pattern → `library-package`).
 - `rekon capability ontology normalize` CLI command.
+
+**`CapabilityMap` integration remains deferred** until
+reviewed terms produce stable high-confidence normalized
+claims across multiple operator targets. Canon packs do not
+mutate `CapabilityMap`.
 
 ## What v1 Does Not Ship
 
@@ -71,14 +97,16 @@ implementation and is explicit in
   audit rows. They do not raise findings and do not resolve
   any existing finding.
 
-## Operator Config
+## Operator Overrides (canon + override model)
 
-Drop a `.rekon/capability-ontology.json` file next to
-`.rekon/config.json` to extend the built-in vocabulary:
+Drop a `.rekon/capability-ontology.overrides.json` file next
+to `.rekon/config.json` to extend or supersede the built-in
+canon packs:
 
 ```json
 {
   "version": "0.1.0",
+  "extends": ["base", "nextjs-app"],
   "verbs": {
     "canonical": ["dispatch", "publish"],
     "aliases": { "broadcast": "dispatch" },
@@ -90,19 +118,46 @@ Drop a `.rekon/capability-ontology.json` file next to
     "thresholds": { "autoMap": 0.7 }
   },
   "roles": { "canonical": ["worker"] },
-  "patterns": { "canonical": ["fan-out"] }
+  "patterns": { "canonical": ["fan-out"] },
+  "noise": {
+    "verbs": ["legacy-noise-verb"],
+    "nouns": ["legacy-noise-noun"]
+  }
 }
 ```
 
 Rules:
 
 - `version` must equal `"0.1.0"` in v1.
-- All extra canonical entries are merged with the built-in
-  baseline. Built-in entries are never removed.
+- **`extends` is optional.** When present, it selects which
+  built-in packs the compiler applies. `base` is always
+  included implicitly. When absent, Rekon falls back to
+  conservative auto-detection from `package.json` and repo
+  paths.
+- **Operator-supplied canonical entries extend canon.**
+  Built-in entries are never removed.
+- **Operator-supplied aliases supersede pack aliases on key
+  collision.** This is the only path for an alias key to win
+  over canon.
+- **Noise terms suppress suggestion noise, not raw
+  evidence.** The normalizer still records raw `EvidenceGraph`
+  facts; only the review surface uses noise for filtering.
 - Aliases are case-insensitive.
 - Invalid config (bad JSON, wrong version, wrong shape) fails
   the CLI command clearly. The CLI never silently ignores
   config errors.
+- **Rekon never creates or mutates the override file
+  automatically.** Operators apply suggestions manually.
+
+### Legacy compatibility
+
+`.rekon/capability-ontology.json` (the v1 path) is supported
+as a **legacy compatibility fallback** when the canonical
+overrides file is absent. When both files exist, the canonical
+overrides file wins and the report surfaces
+`legacyOverrideIgnored: true` so operators can clean up. There
+is no automatic migration; operators rename the file
+themselves when they are ready.
 
 ## Running The CLI
 

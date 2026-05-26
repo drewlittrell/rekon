@@ -1718,6 +1718,88 @@ is the first stop before proposing a new capability batch.
   `basePack` / `overlayPacks` /
   `overridePath` / `overrideHash` /
   `systemSeedCount`.
+- Capability ontology canon
+  packs v1 (P1.1
+  capability-ontology-canon-packs-v1
+  slice): **eleventh slice on the
+  capability-ontology track and
+  the first implementation slice
+  on the canon + override model.**
+  Implements the next-slice
+  recommendation from the canon +
+  override decision. Ships four
+  built-in canon packs (`base`,
+  `nextjs-app`,
+  `library-package`, `monorepo`),
+  a pack registry, an override
+  loader that prefers
+  `.rekon/capability-ontology.overrides.json`
+  over the legacy
+  `.rekon/capability-ontology.json`,
+  conservative archetype
+  auto-detection, an `extends`
+  field for explicit overlay
+  selection, and an extended
+  `EffectiveCapabilityOntology.source`
+  carrying `basePack` /
+  `overlayPacks` /
+  `overridePath` / `overrideHash` /
+  `overrideKind` /
+  `legacyOverrideIgnored` /
+  `systemSeedCount`. The
+  suggestion-report preview now
+  targets the canonical
+  overrides path. New exports
+  from `@rekon/capability-ontology`:
+  `BASE_PACK_ID`,
+  `BUILTIN_CANON_PACKS`,
+  `basePack`, `nextjsAppPack`,
+  `libraryPackagePack`,
+  `monorepoPack`,
+  `CANON_PACK_VERSION`,
+  `CapabilityOntologyPack` (+
+  entry types), `resolvePacks`,
+  `getBuiltinCanonPack`,
+  `listBuiltinCanonPackIds`,
+  `detectOverlayPacks`,
+  `CAPABILITY_ONTOLOGY_OVERRIDES_PATH`,
+  `CAPABILITY_ONTOLOGY_LEGACY_PATH`,
+  `EffectiveCapabilityOntologySource`,
+  `CapabilityOntologyOverrideKind`.
+  Override behaviors: canonical
+  terms extend canon; aliases
+  supersede on key collision;
+  noise suppresses suggestion
+  noise (not raw evidence). When
+  both override paths exist, the
+  canonical file wins and
+  `legacyOverrideIgnored: true`
+  surfaces in the report. **No
+  override-file mutation. No
+  `CapabilityMap` mutation. No
+  `EvidenceGraph` mutation. No
+  source-write apply. No
+  LLM-only normalization. No
+  version bump. No npm publish.
+  No git tag. No GitHub Release.
+  No new branch.** New
+  23-assertion contract test
+  `tests/contract/capability-ontology-canon-packs.test.mjs`.
+  New 13-assertion docs test
+  `tests/docs/capability-ontology-canon-packs.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-ontology-canon-packs-v1.md`.
+  **Recommended next slice:**
+  *capability ontology canon-pack
+  coverage review* — re-run
+  normalization against fixtures
+  and one real repo, compare
+  unknown / low-confidence rates
+  before and after canon packs,
+  and decide whether more packs
+  are needed, the splitter should
+  improve, or `CapabilityMap` v2
+  can begin.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

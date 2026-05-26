@@ -67,6 +67,7 @@ import ontologyCapability, {
   buildDecidedKeySet,
   compileEffectiveCapabilityOntology,
   DEFAULT_REVIEW_SUGGESTION_LIMIT,
+  detectOverlayPacks,
   loadCapabilityOntologyConfig,
   suggestUnknownTerms,
   validateCapabilityNormalizationReviewLedger,
@@ -436,10 +437,16 @@ export async function main(argv: string[]): Promise<void> {
     >[0]["graph"];
 
     const configResult = await loadCapabilityOntologyConfig(root);
+    const detection = await detectOverlayPacks(root);
     const ontology: EffectiveCapabilityOntology = compileEffectiveCapabilityOntology({
       config: configResult.found ? configResult.config : undefined,
       configPath: configResult.found ? configResult.configPath : undefined,
       configHash: configResult.found ? configResult.configHash : undefined,
+      overrideKind: configResult.found ? configResult.overrideKind : undefined,
+      legacyOverrideIgnored: configResult.found
+        ? configResult.legacyOverrideIgnored
+        : undefined,
+      overlayPackIds: detection.packIds,
     });
 
     const generatedAt = new Date().toISOString();

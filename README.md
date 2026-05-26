@@ -1049,6 +1049,44 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# Capability ontology canon packs v1 has shipped.
+# First implementation slice on the canon + override
+# model. Rekon now compiles every
+# EffectiveCapabilityOntology from built-in canon
+# packs plus optional repo-local overrides:
+#   - four built-in packs: base (always), nextjs-app,
+#     library-package, monorepo;
+#   - canonical override path:
+#     .rekon/capability-ontology.overrides.json;
+#   - legacy compatibility: when overrides is absent,
+#     the loader falls back to
+#     .rekon/capability-ontology.json (when both
+#     exist, the canonical file wins and the report
+#     records legacyOverrideIgnored: true);
+#   - `extends` field for explicit overlay selection
+#     in the override file; otherwise Rekon
+#     conservatively auto-detects overlays from
+#     package.json + repo paths;
+#   - suggestion-preview target is the canonical
+#     overrides path (not the legacy config);
+#   - `EffectiveCapabilityOntology.source` records
+#     basePack / overlayPacks / overridePath /
+#     overrideHash / overrideKind /
+#     legacyOverrideIgnored / systemSeedCount;
+#   - override behaviors: canonical terms extend
+#     canon; aliases supersede on key collision;
+#     noise suppresses suggestion noise (not raw
+#     evidence);
+#   - no override-file mutation, no CapabilityMap
+#     mutation, no EvidenceGraph mutation, no
+#     source writes, no LLM normalization, no
+#     version bump, no npm publish.
+# See docs/concepts/capability-ontology.md and
+# docs/artifacts/capability-normalization-report.md.
+# Recommended next slice: canon-pack coverage review
+# (re-run normalization against fixtures + a real
+# repo and compare unknown / low-confidence rates).
+#
 # Capability ontology canon + override model
 # decision has shipped (strategy / decision / docs /
 # tests-only). Replaces the prior "manual config

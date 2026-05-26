@@ -286,7 +286,7 @@ The suggestion report shape stays preview-only. The agent contract's existing `D
 | Step | Slice | Status |
 | --- | --- | --- |
 | 1 | **Capability Ontology Canon + Override Model Decision** (this memo) | ✅ Shipped |
-| 2 | Capability ontology canon packs v1 — implement `base` pack + the v1 archetype set (`nextjs-app`, `library-package`, `monorepo`), implement `extends` resolution, rename loader target to `.rekon/capability-ontology.overrides.json` with a back-compat alias for the legacy path. Update `EffectiveCapabilityOntology.source` to record `basePack` + `overlayPacks`. | Next slice (recommended) |
+| 2 | Capability ontology canon packs v1 — implement `base` pack + the v1 archetype set (`nextjs-app`, `library-package`, `monorepo`), implement `extends` resolution, rename loader target to `.rekon/capability-ontology.overrides.json` with a back-compat alias for the legacy path. Update `EffectiveCapabilityOntology.source` to record `basePack` + `overlayPacks`. | ✅ Shipped |
 | 3 | Suggestion-report-v2 — render `preview.patch` against the overrides file (not the entire config). Skip canonical-token suggestions when the term is already canonical in any selected pack. | After step 2 |
 | 4 | Automatic archetype detection — infer `extends` from the repo contract / observed package + framework facts when the override file is absent or omits `extends`. | After step 3 |
 | 5 | Override apply decision memo — only after step 4 lands and operator dogfood produces evidence that manual override merging is painful. Apply implementation gates on confirmation token + override-file diff + dedicated safety review. | Deferred |

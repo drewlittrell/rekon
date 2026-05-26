@@ -5607,6 +5607,53 @@ scope:
   loader, rename the loader
   target, and migrate
   `EffectiveCapabilityOntology.source`.
+- **Capability ontology canon packs v1
+  (P1.1 capability-ontology-canon-packs-v1
+  slice).** ✅ Shipped. **Eleventh slice
+  on the capability-ontology track and
+  the first implementation slice on the
+  canon + override model.** Ships four
+  built-in canon packs (`base`,
+  `nextjs-app`, `library-package`,
+  `monorepo`), an override loader that
+  prefers
+  `.rekon/capability-ontology.overrides.json`
+  with legacy
+  `.rekon/capability-ontology.json`
+  fallback, conservative archetype
+  auto-detection (`next` /
+  `app|pages` → `nextjs-app`;
+  `workspaces` / `pnpm-workspace.yaml`
+  / `packages/*` → `monorepo`; library
+  exports without app pattern →
+  `library-package`), an `extends`
+  field for explicit overlay
+  selection, and extended
+  `EffectiveCapabilityOntology.source`
+  carrying `basePack` / `overlayPacks`
+  / `overridePath` / `overrideHash` /
+  `overrideKind` /
+  `legacyOverrideIgnored` /
+  `systemSeedCount`. Suggestion
+  preview targets the canonical
+  overrides path. Override behaviors:
+  canonical terms extend canon;
+  aliases supersede on key collision;
+  noise suppresses suggestion noise
+  (not raw evidence). **No
+  override-file mutation. No
+  `CapabilityMap` mutation. No
+  `EvidenceGraph` mutation. No
+  source-write apply. No LLM-only
+  normalization. No version bump.
+  No npm publish.** New 23-assertion
+  contract test
+  `tests/contract/capability-ontology-canon-packs.test.mjs`.
+  New 13-assertion docs test
+  `tests/docs/capability-ontology-canon-packs.test.mjs`.
+  **Recommended next slice:**
+  capability ontology canon-pack
+  coverage review.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join, resolve as resolvePath } from "node:path";
 import {
   type ArtifactHeader,
@@ -15,6 +15,33 @@ import {
   type Projector,
   defineCapability,
 } from "@rekon/sdk";
+import {
+  BASE_PACK_ID,
+  BUILTIN_CANON_PACKS,
+  basePack,
+  type BuiltinPackId,
+  type CapabilityOntologyPack,
+  getBuiltinCanonPack,
+  resolvePacks,
+} from "./packs/index.js";
+
+export {
+  BASE_PACK_ID,
+  BUILTIN_CANON_PACKS,
+  basePack,
+  type BuiltinPackId,
+  type CapabilityOntologyPack,
+  type CapabilityOntologyPackNamedEntry,
+  type CapabilityOntologyPackNounEntry,
+  type CapabilityOntologyPackVerbEntry,
+  CANON_PACK_VERSION,
+  getBuiltinCanonPack,
+  libraryPackagePack,
+  listBuiltinCanonPackIds,
+  monorepoPack,
+  nextjsAppPack,
+  resolvePacks,
+} from "./packs/index.js";
 
 // ---------- Capability identity ----------
 
@@ -54,11 +81,20 @@ export type CapabilityNounCategory =
 export type CapabilityOntologyConfig = {
   /** Schema version of the operator-supplied config (must equal "0.1.0" in v1). */
   version: string;
+  /**
+   * Optional list of pack ids to select. If present, the base pack
+   * is still always included; entries here add overlays on top.
+   * If absent, the compiler falls back to caller-supplied overlay
+   * ids (typically auto-detected from package.json / repo paths).
+   */
+  extends?: string[];
   verbs?: {
     canonical?: string[];
     aliases?: Record<string, string>;
     categories?: Record<string, CapabilityVerbCategory>;
     includeSystemVerbs?: boolean;
+    /** Optional noise tokens that suppress suggestion noise (not raw evidence). */
+    noise?: string[];
   };
   nouns?: {
     canonical?: string[];
@@ -66,95 +102,116 @@ export type CapabilityOntologyConfig = {
     categories?: Record<string, CapabilityNounCategory>;
     thresholds?: { autoMap?: number };
     includeSystemNouns?: boolean;
+    /** Optional noise tokens that suppress suggestion noise (not raw evidence). */
+    noise?: string[];
   };
   roles?: { canonical?: string[]; aliases?: Record<string, string> };
   patterns?: { canonical?: string[]; aliases?: Record<string, string> };
+  /** Optional noise terms shared across verb / noun / candidate review noise. */
+  noise?: {
+    verbs?: string[];
+    nouns?: string[];
+    candidates?: string[];
+  };
+};
+
+export type EffectiveCapabilityOntologySource = {
+  builtinVersion: string;
+  /** Always "base" in v1; reserved for future extension. */
+  basePack: typeof BASE_PACK_ID;
+  /** Selected overlay packs (not including the base pack). */
+  overlayPacks: string[];
+  /** Repo-relative override file path, if loaded. */
+  overridePath?: string;
+  /** Hash of the override file contents, if loaded. */
+  overrideHash?: string;
+  /** Which file the override was loaded from. */
+  overrideKind?: "canonical-override" | "legacy-compat";
+  /**
+   * True when both `.rekon/capability-ontology.overrides.json` and
+   * the legacy `.rekon/capability-ontology.json` exist and the
+   * legacy file was ignored in favor of the overrides file.
+   */
+  legacyOverrideIgnored?: boolean;
+  systemSeedCount: number;
+  /**
+   * Legacy field preserved for backward compatibility with callers
+   * that read `source.configPath`. Mirrors `overridePath`.
+   */
+  configPath?: string;
+  /**
+   * Legacy field preserved for backward compatibility with callers
+   * that read `source.configHash`. Mirrors `overrideHash`.
+   */
+  configHash?: string;
 };
 
 export type EffectiveCapabilityOntology = {
   version: string;
-  source: {
-    builtinVersion: string;
-    configPath?: string;
-    configHash?: string;
-    systemSeedCount: number;
-  };
+  source: EffectiveCapabilityOntologySource;
   verbs: {
     canonical: string[];
     aliasToCanonical: Record<string, string>;
     categoryByCanonical: Record<string, CapabilityVerbCategory>;
+    /** Noise tokens collected from packs + overrides (deduped). */
+    noise: string[];
   };
   nouns: {
     canonical: string[];
     aliasToCanonical: Record<string, string>;
     categoryByCanonical: Record<string, CapabilityNounCategory>;
     autoMapThreshold: number;
+    /** Noise tokens collected from packs + overrides (deduped). */
+    noise: string[];
   };
   roles: { canonical: string[]; aliasToCanonical: Record<string, string> };
   patterns: { canonical: string[]; aliasToCanonical: Record<string, string> };
   effectiveHash: string;
 };
 
+// System seed verbs are always injected when at least one
+// canonical verb already exists in the effective ontology. They
+// capture lifecycle commands every repo cares about regardless of
+// whether the operator added them by hand.
+const SYSTEM_SEED_VERBS = ["build", "deploy", "test", "lint"] as const;
+
+const BUILTIN_ONTOLOGY_VERSION = "0.1.0";
+
+// Derived constants from the base canon pack. Preserved as
+// public exports so existing callers (tests, consumers) keep
+// reading the same shape; the source-of-truth is now
+// `packages/capability-ontology/src/packs/base.ts`.
 const BUILTIN_VERBS: ReadonlyArray<{
   canonical: string;
   category: CapabilityVerbCategory;
   aliases?: string[];
-}> = [
-  { canonical: "get", category: "read", aliases: ["fetch", "load", "find", "lookup", "read"] },
-  { canonical: "list", category: "read", aliases: ["all", "index", "enumerate"] },
-  { canonical: "set", category: "write", aliases: ["assign", "store"] },
-  { canonical: "save", category: "write", aliases: ["persist", "write"] },
-  { canonical: "update", category: "write", aliases: ["modify", "patch", "edit", "change"] },
-  { canonical: "create", category: "create", aliases: ["make", "build", "add", "new", "construct"] },
-  { canonical: "delete", category: "delete", aliases: ["remove", "destroy", "drop"] },
-  { canonical: "validate", category: "validate", aliases: ["verify", "check", "assert"] },
-  { canonical: "render", category: "transform", aliases: ["draw", "paint", "display"] },
-  { canonical: "parse", category: "transform", aliases: ["decode", "interpret"] },
-  { canonical: "serialize", category: "transform", aliases: ["encode", "stringify"] },
-  { canonical: "navigate", category: "navigate", aliases: ["route", "redirect", "goto"] },
-  { canonical: "send", category: "communicate", aliases: ["dispatch", "emit", "publish", "post"] },
-  { canonical: "receive", category: "communicate", aliases: ["subscribe", "listen", "consume"] },
-];
+}> = (basePack.verbs?.canonical ?? []).map((entry) => ({
+  canonical: entry.canonical,
+  category: entry.category,
+  aliases: entry.aliases ? [...entry.aliases] : undefined,
+}));
 
 const BUILTIN_NOUNS: ReadonlyArray<{
   canonical: string;
   category: CapabilityNounCategory;
   aliases?: string[];
-}> = [
-  { canonical: "user", category: "domain", aliases: ["account", "person", "member"] },
-  { canonical: "session", category: "domain", aliases: ["login"] },
-  { canonical: "token", category: "infrastructure", aliases: ["secret", "credential", "apikey"] },
-  { canonical: "request", category: "infrastructure", aliases: ["req"] },
-  { canonical: "response", category: "infrastructure", aliases: ["res", "reply"] },
-  { canonical: "route", category: "infrastructure", aliases: ["endpoint", "url", "path"] },
-  { canonical: "config", category: "infrastructure", aliases: ["configuration", "settings", "options"] },
-  { canonical: "view", category: "ui", aliases: ["screen", "page"] },
-  { canonical: "component", category: "ui", aliases: ["widget", "control"] },
-  { canonical: "form", category: "ui", aliases: [] },
-  { canonical: "report", category: "process", aliases: ["summary", "digest"] },
-  { canonical: "job", category: "process", aliases: ["task", "worker"] },
-  { canonical: "record", category: "data", aliases: ["row", "entity", "item", "doc", "document"] },
-  { canonical: "list", category: "data", aliases: ["collection", "set", "array"] },
-];
+}> = (basePack.nouns?.canonical ?? []).map((entry) => ({
+  canonical: entry.canonical,
+  category: entry.category,
+  aliases: entry.aliases ? [...entry.aliases] : undefined,
+}));
 
-const BUILTIN_ROLES: ReadonlyArray<{ canonical: string; aliases?: string[] }> = [
-  { canonical: "controller" },
-  { canonical: "service", aliases: ["manager"] },
-  { canonical: "repository", aliases: ["repo", "store", "dao"] },
-  { canonical: "view" },
-  { canonical: "handler", aliases: ["listener"] },
-];
+const BUILTIN_ROLES: ReadonlyArray<{ canonical: string; aliases?: string[] }> =
+  (basePack.roles?.canonical ?? []).map((entry) => ({
+    canonical: entry.canonical,
+    aliases: entry.aliases ? [...entry.aliases] : undefined,
+  }));
 
-const BUILTIN_PATTERNS: ReadonlyArray<{ canonical: string; aliases?: string[] }> = [
-  { canonical: "crud" },
-  { canonical: "rest-route", aliases: ["restful", "rest"] },
-  { canonical: "background-job", aliases: ["worker", "queue"] },
-  { canonical: "validator" },
-];
-
-const SYSTEM_SEED_VERBS = ["build", "deploy", "test", "lint"] as const;
-
-const BUILTIN_ONTOLOGY_VERSION = "0.1.0";
+const BUILTIN_PATTERNS: ReadonlyArray<{ canonical: string; aliases?: string[] }> =
+  (basePack.patterns?.canonical ?? []).map((entry) => ({
+    canonical: entry.canonical,
+    aliases: entry.aliases ? [...entry.aliases] : undefined,
+  }));
 
 export const BUILTIN_CAPABILITY_ONTOLOGY = Object.freeze({
   version: BUILTIN_ONTOLOGY_VERSION,
@@ -165,19 +222,97 @@ export const BUILTIN_CAPABILITY_ONTOLOGY = Object.freeze({
   systemSeedVerbs: SYSTEM_SEED_VERBS,
 });
 
-// ---------- Config loading ----------
+// ---------- Override config loading ----------
+//
+// The override file is operator-supplied repo-local overrides on
+// top of the built-in canon packs. It is not a baseline; it
+// extends or supersedes the canonical vocabulary.
+//
+// File-resolution order:
+// 1. `.rekon/capability-ontology.overrides.json` (canonical)
+// 2. `.rekon/capability-ontology.json` (legacy compatibility only)
+//
+// When both files exist, the overrides file wins and a
+// `legacyOverrideIgnored` flag surfaces in the report so operators
+// can clean up. Rekon never creates or mutates either file.
+
+export const CAPABILITY_ONTOLOGY_OVERRIDES_PATH =
+  ".rekon/capability-ontology.overrides.json";
+export const CAPABILITY_ONTOLOGY_LEGACY_PATH =
+  ".rekon/capability-ontology.json";
+
+export type CapabilityOntologyOverrideKind =
+  | "canonical-override"
+  | "legacy-compat";
 
 export type LoadOntologyConfigResult =
-  | { found: false; configPath?: undefined; configHash?: undefined; config?: undefined }
-  | { found: true; configPath: string; configHash: string; config: CapabilityOntologyConfig };
+  | {
+    found: false;
+    configPath?: undefined;
+    configHash?: undefined;
+    config?: undefined;
+    overrideKind?: undefined;
+    legacyOverrideIgnored?: boolean;
+  }
+  | {
+    found: true;
+    configPath: string;
+    configHash: string;
+    config: CapabilityOntologyConfig;
+    overrideKind: CapabilityOntologyOverrideKind;
+    legacyOverrideIgnored?: boolean;
+  };
 
-const DEFAULT_CONFIG_RELATIVE_PATH = ".rekon/capability-ontology.json";
-
+/**
+ * Load the repo-local override config. Prefers the canonical
+ * overrides path; falls back to the legacy
+ * `.rekon/capability-ontology.json` when overrides is absent. When
+ * both exist, the canonical path wins and `legacyOverrideIgnored`
+ * is set to `true`.
+ *
+ * The `relativePath` parameter is preserved for compatibility with
+ * existing callers that explicitly pass a path. New callers should
+ * omit it.
+ */
 export async function loadCapabilityOntologyConfig(
   repoRoot: string,
-  relativePath: string = DEFAULT_CONFIG_RELATIVE_PATH,
+  relativePath?: string,
 ): Promise<LoadOntologyConfigResult> {
-  const absolute = join(resolvePath(repoRoot), relativePath);
+  const root = resolvePath(repoRoot);
+
+  // Explicit-path mode: preserve legacy single-file behavior.
+  if (relativePath) {
+    return readSingleOverrideFile(root, relativePath, "canonical-override");
+  }
+
+  const overridesExists = await fileExists(join(root, CAPABILITY_ONTOLOGY_OVERRIDES_PATH));
+  const legacyExists = await fileExists(join(root, CAPABILITY_ONTOLOGY_LEGACY_PATH));
+
+  if (overridesExists) {
+    const result = await readSingleOverrideFile(
+      root,
+      CAPABILITY_ONTOLOGY_OVERRIDES_PATH,
+      "canonical-override",
+    );
+    if (result.found && legacyExists) {
+      result.legacyOverrideIgnored = true;
+    }
+    return result;
+  }
+
+  if (legacyExists) {
+    return readSingleOverrideFile(root, CAPABILITY_ONTOLOGY_LEGACY_PATH, "legacy-compat");
+  }
+
+  return { found: false };
+}
+
+async function readSingleOverrideFile(
+  root: string,
+  relativePath: string,
+  overrideKind: CapabilityOntologyOverrideKind,
+): Promise<LoadOntologyConfigResult> {
+  const absolute = join(root, relativePath);
 
   let raw: string;
   try {
@@ -187,7 +322,7 @@ export async function loadCapabilityOntologyConfig(
       return { found: false };
     }
     throw new Error(
-      `Failed to read capability ontology config at ${relativePath}: ${
+      `Failed to read capability ontology override at ${relativePath}: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
@@ -198,7 +333,7 @@ export async function loadCapabilityOntologyConfig(
     parsed = JSON.parse(raw);
   } catch (error) {
     throw new Error(
-      `capability ontology config at ${relativePath} is not valid JSON: ${
+      `capability ontology override at ${relativePath} is not valid JSON: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
@@ -207,7 +342,133 @@ export async function loadCapabilityOntologyConfig(
   const config = assertCapabilityOntologyConfig(parsed, relativePath);
   const configHash = hashString(raw);
 
-  return { found: true, configPath: relativePath, configHash, config };
+  return {
+    found: true,
+    configPath: relativePath,
+    configHash,
+    config,
+    overrideKind,
+  };
+}
+
+async function fileExists(absolutePath: string): Promise<boolean> {
+  try {
+    const stats = await stat(absolutePath);
+    return stats.isFile();
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function directoryExists(absolutePath: string): Promise<boolean> {
+  try {
+    const stats = await stat(absolutePath);
+    return stats.isDirectory();
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+// ---------- Overlay auto-detection ----------
+//
+// Conservative archetype detection from package.json + repo paths.
+// The goal is to add the smallest number of overlay packs that
+// improves normalization without overfitting.
+//
+// Rules:
+// - Always include base (handled by the resolver, not here).
+// - nextjs-app if package.json depends on `next` or repo contains
+//   `app/` / `pages/` route-like directories.
+// - monorepo if package.json declares `workspaces`, or
+//   `pnpm-workspace.yaml` exists, or `packages/*` exists.
+// - library-package if package.json declares `exports` / `main` /
+//   `module` / `types` AND no obvious app/pages pattern.
+//
+// Auto-detection is skipped when the override config supplies
+// `extends` — that field is the explicit override path.
+
+export type DetectOverlayPacksResult = {
+  packIds: BuiltinPackId[];
+  signals: {
+    hasNextDep: boolean;
+    hasAppDir: boolean;
+    hasPagesDir: boolean;
+    hasWorkspaces: boolean;
+    hasPnpmWorkspaceFile: boolean;
+    hasPackagesDir: boolean;
+    hasLibraryExports: boolean;
+  };
+};
+
+export async function detectOverlayPacks(
+  repoRoot: string,
+): Promise<DetectOverlayPacksResult> {
+  const root = resolvePath(repoRoot);
+
+  const packageJsonPath = join(root, "package.json");
+  let pkg: Record<string, unknown> | undefined;
+  try {
+    const raw = await readFile(packageJsonPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (isRecord(parsed)) pkg = parsed;
+  } catch (error) {
+    if (!isFileNotFoundError(error)) {
+      // Malformed package.json: be conservative and do not auto-detect.
+    }
+  }
+
+  const dependencies = isRecord(pkg?.dependencies) ? pkg.dependencies : {};
+  const devDependencies = isRecord(pkg?.devDependencies) ? pkg.devDependencies : {};
+  const hasNextDep =
+    typeof dependencies.next === "string" || typeof devDependencies.next === "string";
+  const hasAppDir = (await directoryExists(join(root, "app")))
+    || (await directoryExists(join(root, "src", "app")));
+  const hasPagesDir = (await directoryExists(join(root, "pages")))
+    || (await directoryExists(join(root, "src", "pages")));
+  const hasWorkspaces =
+    Array.isArray(pkg?.workspaces)
+    || (isRecord(pkg?.workspaces) && Array.isArray(pkg.workspaces.packages));
+  const hasPnpmWorkspaceFile = await fileExists(join(root, "pnpm-workspace.yaml"));
+  const hasPackagesDir = await directoryExists(join(root, "packages"));
+  const hasLibraryExports = pkg
+    ? typeof pkg.exports !== "undefined"
+      || typeof pkg.main === "string"
+      || typeof pkg.module === "string"
+      || typeof pkg.types === "string"
+    : false;
+
+  const packIds: BuiltinPackId[] = [];
+  if (hasNextDep || hasAppDir || hasPagesDir) {
+    packIds.push("nextjs-app");
+  }
+  if (hasWorkspaces || hasPnpmWorkspaceFile || hasPackagesDir) {
+    packIds.push("monorepo");
+  }
+  // Library-package: package exposes a library surface AND not
+  // obviously a Next.js app. Monorepos can still ship library
+  // packages; do not exclude.
+  if (hasLibraryExports && !(hasNextDep || hasAppDir || hasPagesDir)) {
+    packIds.push("library-package");
+  }
+
+  return {
+    packIds,
+    signals: {
+      hasNextDep,
+      hasAppDir,
+      hasPagesDir,
+      hasWorkspaces: Boolean(hasWorkspaces),
+      hasPnpmWorkspaceFile,
+      hasPackagesDir,
+      hasLibraryExports,
+    },
+  };
 }
 
 function assertCapabilityOntologyConfig(
@@ -226,10 +487,31 @@ function assertCapabilityOntologyConfig(
     );
   }
 
+  if (value.extends !== undefined && !isStringArray(value.extends)) {
+    throw new Error(
+      `capability ontology config at ${origin}: extends must be a string[] when present.`,
+    );
+  }
+
   validateOntologyConfigSection(value.verbs, "verbs", origin, true);
   validateOntologyConfigSection(value.nouns, "nouns", origin, true);
   validateOntologyConfigSection(value.roles, "roles", origin, false);
   validateOntologyConfigSection(value.patterns, "patterns", origin, false);
+
+  if (value.noise !== undefined) {
+    if (!isRecord(value.noise)) {
+      throw new Error(
+        `capability ontology config at ${origin}: noise must be an object when present.`,
+      );
+    }
+    for (const key of ["verbs", "nouns", "candidates"] as const) {
+      if (value.noise[key] !== undefined && !isStringArray(value.noise[key])) {
+        throw new Error(
+          `capability ontology config at ${origin}: noise.${key} must be a string[] when present.`,
+        );
+      }
+    }
+  }
 
   return value as CapabilityOntologyConfig;
 }
@@ -281,9 +563,33 @@ function validateOntologyConfigSection(
 // ---------- Effective ontology compiler ----------
 
 export type CompileEffectiveCapabilityOntologyInput = {
+  /**
+   * Repo-local override config (already loaded + validated). When
+   * absent, the ontology compiles from canon packs + system seeds
+   * only.
+   */
   config?: CapabilityOntologyConfig;
+  /** Repo-relative override file path, if loaded. */
   configPath?: string;
+  /** Hash of the override file contents, if loaded. */
   configHash?: string;
+  /**
+   * Override file kind. Defaults to "canonical-override". Set to
+   * "legacy-compat" when the override came from the legacy
+   * `.rekon/capability-ontology.json` path.
+   */
+  overrideKind?: CapabilityOntologyOverrideKind;
+  /**
+   * True when both override paths exist and the legacy file was
+   * ignored. Surfaced on the report so operators can clean up.
+   */
+  legacyOverrideIgnored?: boolean;
+  /**
+   * Overlay pack ids to apply on top of the base pack. The base
+   * pack is always included implicitly. When `config.extends` is
+   * present, it takes precedence over this list.
+   */
+  overlayPackIds?: ReadonlyArray<string>;
 };
 
 const DEFAULT_NOUN_AUTOMAP_THRESHOLD = 0.65;
@@ -293,17 +599,34 @@ export function compileEffectiveCapabilityOntology(
 ): EffectiveCapabilityOntology {
   const config = input.config;
   const includeSystemVerbs = config?.verbs?.includeSystemVerbs !== false;
-  const includeSystemNouns = config?.nouns?.includeSystemNouns !== false;
+  // includeSystemNouns is preserved on the config for forward-compat
+  // but does not affect v1 noun seeds (none ship today).
+
+  // Resolve packs: base + overlays (config.extends wins over caller).
+  const overlayIds: ReadonlyArray<string> =
+    config?.extends && config.extends.length > 0
+      ? config.extends.filter((id) => id !== BASE_PACK_ID)
+      : (input.overlayPackIds ?? []).filter((id) => id !== BASE_PACK_ID);
+  const packs = resolvePacks(overlayIds);
 
   const verbCanonical = new Set<string>();
   const verbAliases: Record<string, string> = {};
   const verbCategories: Record<string, CapabilityVerbCategory> = {};
+  const verbNoise = new Set<string>();
 
-  for (const entry of BUILTIN_VERBS) {
-    verbCanonical.add(entry.canonical);
-    verbCategories[entry.canonical] = entry.category;
-    for (const alias of entry.aliases ?? []) {
-      verbAliases[alias.toLowerCase()] = entry.canonical;
+  for (const pack of packs) {
+    for (const entry of pack.verbs?.canonical ?? []) {
+      verbCanonical.add(entry.canonical);
+      verbCategories[entry.canonical] = entry.category;
+      for (const alias of entry.aliases ?? []) {
+        verbAliases[alias.toLowerCase()] = entry.canonical;
+      }
+    }
+    for (const [alias, canonical] of Object.entries(pack.verbs?.aliases ?? {})) {
+      verbAliases[alias.toLowerCase()] = canonical.toLowerCase();
+    }
+    for (const noiseToken of pack.verbs?.noise ?? []) {
+      verbNoise.add(noiseToken.toLowerCase());
     }
   }
 
@@ -318,6 +641,9 @@ export function compileEffectiveCapabilityOntology(
     }
   }
 
+  // Apply override config on top of packs. Override aliases
+  // supersede pack aliases on key collision; canonical entries
+  // extend; noise extends.
   if (config?.verbs?.canonical) {
     for (const canonical of config.verbs.canonical) {
       verbCanonical.add(canonical.toLowerCase());
@@ -335,23 +661,32 @@ export function compileEffectiveCapabilityOntology(
       }
     }
   }
+  for (const token of config?.verbs?.noise ?? []) {
+    verbNoise.add(token.toLowerCase());
+  }
+  for (const token of config?.noise?.verbs ?? []) {
+    verbNoise.add(token.toLowerCase());
+  }
 
   const nounCanonical = new Set<string>();
   const nounAliases: Record<string, string> = {};
   const nounCategories: Record<string, CapabilityNounCategory> = {};
+  const nounNoise = new Set<string>();
 
-  for (const entry of BUILTIN_NOUNS) {
-    nounCanonical.add(entry.canonical);
-    nounCategories[entry.canonical] = entry.category;
-    for (const alias of entry.aliases ?? []) {
-      nounAliases[alias.toLowerCase()] = entry.canonical;
+  for (const pack of packs) {
+    for (const entry of pack.nouns?.canonical ?? []) {
+      nounCanonical.add(entry.canonical);
+      nounCategories[entry.canonical] = entry.category;
+      for (const alias of entry.aliases ?? []) {
+        nounAliases[alias.toLowerCase()] = entry.canonical;
+      }
     }
-  }
-
-  if (!includeSystemNouns) {
-    // System nouns are not currently distinct from domain nouns
-    // in the built-in baseline; the toggle is preserved for
-    // forward-compat with future "system" noun seeds.
+    for (const [alias, canonical] of Object.entries(pack.nouns?.aliases ?? {})) {
+      nounAliases[alias.toLowerCase()] = canonical.toLowerCase();
+    }
+    for (const noiseToken of pack.nouns?.noise ?? []) {
+      nounNoise.add(noiseToken.toLowerCase());
+    }
   }
 
   if (config?.nouns?.canonical) {
@@ -371,14 +706,26 @@ export function compileEffectiveCapabilityOntology(
       }
     }
   }
+  for (const token of config?.nouns?.noise ?? []) {
+    nounNoise.add(token.toLowerCase());
+  }
+  for (const token of config?.noise?.nouns ?? []) {
+    nounNoise.add(token.toLowerCase());
+  }
 
   const autoMapThreshold = config?.nouns?.thresholds?.autoMap ?? DEFAULT_NOUN_AUTOMAP_THRESHOLD;
 
-  const roleCanonical = new Set<string>(BUILTIN_ROLES.map((entry) => entry.canonical));
+  const roleCanonical = new Set<string>();
   const roleAliases: Record<string, string> = {};
-  for (const entry of BUILTIN_ROLES) {
-    for (const alias of entry.aliases ?? []) {
-      roleAliases[alias.toLowerCase()] = entry.canonical;
+  for (const pack of packs) {
+    for (const entry of pack.roles?.canonical ?? []) {
+      roleCanonical.add(entry.canonical);
+      for (const alias of entry.aliases ?? []) {
+        roleAliases[alias.toLowerCase()] = entry.canonical;
+      }
+    }
+    for (const [alias, canonical] of Object.entries(pack.roles?.aliases ?? {})) {
+      roleAliases[alias.toLowerCase()] = canonical.toLowerCase();
     }
   }
   if (config?.roles?.canonical) {
@@ -392,11 +739,17 @@ export function compileEffectiveCapabilityOntology(
     }
   }
 
-  const patternCanonical = new Set<string>(BUILTIN_PATTERNS.map((entry) => entry.canonical));
+  const patternCanonical = new Set<string>();
   const patternAliases: Record<string, string> = {};
-  for (const entry of BUILTIN_PATTERNS) {
-    for (const alias of entry.aliases ?? []) {
-      patternAliases[alias.toLowerCase()] = entry.canonical;
+  for (const pack of packs) {
+    for (const entry of pack.patterns?.canonical ?? []) {
+      patternCanonical.add(entry.canonical);
+      for (const alias of entry.aliases ?? []) {
+        patternAliases[alias.toLowerCase()] = entry.canonical;
+      }
+    }
+    for (const [alias, canonical] of Object.entries(pack.patterns?.aliases ?? {})) {
+      patternAliases[alias.toLowerCase()] = canonical.toLowerCase();
     }
   }
   if (config?.patterns?.canonical) {
@@ -410,24 +763,46 @@ export function compileEffectiveCapabilityOntology(
     }
   }
 
+  const overlayPacksOut = packs
+    .map((pack) => pack.id)
+    .filter((id) => id !== BASE_PACK_ID);
+
+  const source: EffectiveCapabilityOntologySource = {
+    builtinVersion: BUILTIN_ONTOLOGY_VERSION,
+    basePack: BASE_PACK_ID,
+    overlayPacks: overlayPacksOut,
+    systemSeedCount,
+  };
+  if (input.configPath) {
+    source.overridePath = input.configPath;
+    source.configPath = input.configPath;
+  }
+  if (input.configHash) {
+    source.overrideHash = input.configHash;
+    source.configHash = input.configHash;
+  }
+  if (input.configPath) {
+    source.overrideKind = input.overrideKind ?? "canonical-override";
+  }
+  if (input.legacyOverrideIgnored) {
+    source.legacyOverrideIgnored = true;
+  }
+
   const ontology: Omit<EffectiveCapabilityOntology, "effectiveHash"> = {
     version: BUILTIN_ONTOLOGY_VERSION,
-    source: {
-      builtinVersion: BUILTIN_ONTOLOGY_VERSION,
-      configPath: input.configPath,
-      configHash: input.configHash,
-      systemSeedCount,
-    },
+    source,
     verbs: {
       canonical: sortUnique(verbCanonical),
       aliasToCanonical: sortRecord(verbAliases),
       categoryByCanonical: sortRecord(verbCategories) as Record<string, CapabilityVerbCategory>,
+      noise: sortUnique(verbNoise),
     },
     nouns: {
       canonical: sortUnique(nounCanonical),
       aliasToCanonical: sortRecord(nounAliases),
       categoryByCanonical: sortRecord(nounCategories) as Record<string, CapabilityNounCategory>,
       autoMapThreshold,
+      noise: sortUnique(nounNoise),
     },
     roles: {
       canonical: sortUnique(roleCanonical),
@@ -807,10 +1182,39 @@ export type CapabilityNormalizationReportCandidate = {
 export type CapabilityNormalizationReport = {
   header: ArtifactHeader;
   ontology: {
+    /**
+     * High-level source label. "builtin" when no override file is
+     * loaded; "builtin+config" when an override file is loaded.
+     * "config" is preserved for back-compat with v1 schema only.
+     */
     source: "builtin" | "config" | "builtin+config";
+    /** Mirrors `overridePath`; preserved for back-compat. */
     configPath?: string;
+    /** Mirrors `overrideHash`; preserved for back-compat. */
     configHash?: string;
     effectiveHash: string;
+    /** Always "base" in v1. */
+    basePack?: typeof BASE_PACK_ID;
+    /** Overlay packs applied on top of the base pack. */
+    overlayPacks?: string[];
+    /** Repo-relative override file path, if loaded. */
+    overridePath?: string;
+    /** Hash of the override file, if loaded. */
+    overrideHash?: string;
+    /**
+     * `canonical-override` when loaded from
+     * `.rekon/capability-ontology.overrides.json`,
+     * `legacy-compat` when loaded from the legacy
+     * `.rekon/capability-ontology.json`.
+     */
+    overrideKind?: CapabilityOntologyOverrideKind;
+    /**
+     * True when both override paths exist and the legacy file was
+     * ignored.
+     */
+    legacyOverrideIgnored?: boolean;
+    /** Number of system-seed verbs injected (build/deploy/test/lint). */
+    systemSeedCount?: number;
   };
   summary: CapabilityNormalizationReportSummary;
   candidates: CapabilityNormalizationReportCandidate[];
@@ -852,18 +1256,36 @@ export function buildCapabilityNormalizationReport(
   const summary = summarize(reportCandidates);
 
   const ontologySource: CapabilityNormalizationReport["ontology"]["source"] = input.ontology.source
-    .configPath
+    .overridePath
     ? "builtin+config"
     : "builtin";
 
+  const sourceMeta = input.ontology.source;
+  const reportOntology: CapabilityNormalizationReport["ontology"] = {
+    source: ontologySource,
+    effectiveHash: input.ontology.effectiveHash,
+    basePack: sourceMeta.basePack,
+    overlayPacks: [...sourceMeta.overlayPacks],
+    systemSeedCount: sourceMeta.systemSeedCount,
+  };
+  if (sourceMeta.overridePath) {
+    reportOntology.overridePath = sourceMeta.overridePath;
+    reportOntology.configPath = sourceMeta.overridePath;
+  }
+  if (sourceMeta.overrideHash) {
+    reportOntology.overrideHash = sourceMeta.overrideHash;
+    reportOntology.configHash = sourceMeta.overrideHash;
+  }
+  if (sourceMeta.overrideKind) {
+    reportOntology.overrideKind = sourceMeta.overrideKind;
+  }
+  if (sourceMeta.legacyOverrideIgnored) {
+    reportOntology.legacyOverrideIgnored = true;
+  }
+
   return {
     header: input.header,
-    ontology: {
-      source: ontologySource,
-      configPath: input.ontology.source.configPath,
-      configHash: input.ontology.source.configHash,
-      effectiveHash: input.ontology.effectiveHash,
-    },
+    ontology: reportOntology,
     summary,
     candidates: reportCandidates,
   };
@@ -1311,7 +1733,13 @@ export type CapabilityOntologySuggestionSummary = {
 };
 
 export type CapabilityOntologySuggestionPreview = {
-  configPath: ".rekon/capability-ontology.json";
+  /**
+   * Canonical override file path (canon + override decision).
+   * Legacy `.rekon/capability-ontology.json` is supported as
+   * compatibility input only; suggestion previews always target
+   * the canonical `.rekon/capability-ontology.overrides.json`.
+   */
+  configPath: ".rekon/capability-ontology.overrides.json";
   patch?: {
     format: "json";
     before: string;
@@ -1456,11 +1884,11 @@ function buildSuggestionPreview(
   existingConfig: CapabilityOntologyConfig | undefined,
 ): CapabilityOntologySuggestionPreview {
   const message =
-    "Preview-only proposal. `.rekon/capability-ontology.json` is **not** mutated by this report. Apply the proposed config manually if desired.";
+    "Preview-only proposal. `.rekon/capability-ontology.overrides.json` is **not** mutated by this report. Suggestions propose override-file changes, not canon edits. Apply the proposed override manually if desired.";
 
   if (suggestions.length === 0) {
     return {
-      configPath: ".rekon/capability-ontology.json",
+      configPath: ".rekon/capability-ontology.overrides.json",
       message,
     };
   }
@@ -1475,7 +1903,7 @@ function buildSuggestionPreview(
   }
 
   return {
-    configPath: ".rekon/capability-ontology.json",
+    configPath: ".rekon/capability-ontology.overrides.json",
     patch: {
       format: "json",
       before: JSON.stringify(beforeConfig, null, 2),
@@ -1600,10 +2028,16 @@ export const normalizationProjector: Projector = {
 
     const { graph, ref } = await resolveEvidenceGraph(artifacts, explicitGraphRef);
     const configResult = await loadCapabilityOntologyConfig(repoRoot);
+    const detection = await detectOverlayPacks(repoRoot);
     const ontology = compileEffectiveCapabilityOntology({
       config: configResult.found ? configResult.config : undefined,
       configPath: configResult.found ? configResult.configPath : undefined,
       configHash: configResult.found ? configResult.configHash : undefined,
+      overrideKind: configResult.found ? configResult.overrideKind : undefined,
+      legacyOverrideIgnored: configResult.found
+        ? configResult.legacyOverrideIgnored
+        : undefined,
+      overlayPackIds: detection.packIds,
     });
 
     const generatedAt = new Date().toISOString();

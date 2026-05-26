@@ -4,6 +4,83 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability Ontology Canon Packs v1** —
+  implementation slice that lands the canon + override
+  model decision shipped at `d9716f9`. Rekon now compiles
+  every `EffectiveCapabilityOntology` from built-in
+  canonical ontology packs + optional repo-local
+  overrides:
+
+    - **Four built-in canon packs:** `base` (always
+      included), plus three archetype overlays —
+      `nextjs-app`, `library-package`, `monorepo`. Each
+      pack defines canonical verbs / nouns / aliases /
+      categories / noise terms. Packs live in
+      `packages/capability-ontology/src/packs/`.
+    - **Canonical override path:**
+      `.rekon/capability-ontology.overrides.json`. When
+      present, overrides extend canonical entries and
+      supersede pack aliases on key collision. Noise
+      terms suppress suggestion noise (not raw evidence).
+    - **Legacy compatibility:** the v1 path
+      `.rekon/capability-ontology.json` is still loaded
+      when the canonical overrides file is absent. When
+      both exist, the canonical file wins and the report
+      surfaces `legacyOverrideIgnored: true` so operators
+      can clean up. **No automatic migration.**
+    - **`extends` field:** overrides may declare
+      `extends: ["base", "nextjs-app"]` to explicitly
+      select packs. When omitted, Rekon falls back to
+      conservative auto-detection from `package.json` +
+      repo paths (`next` dep / `app|pages` → `nextjs-app`;
+      `workspaces` / `pnpm-workspace.yaml` /
+      `packages/*` → `monorepo`; library-style exports
+      without app pattern → `library-package`).
+    - **`EffectiveCapabilityOntology.source`** now
+      records `basePack` / `overlayPacks` /
+      `overridePath` / `overrideHash` / `overrideKind` /
+      `legacyOverrideIgnored` / `systemSeedCount`.
+      `configPath` / `configHash` are preserved as
+      back-compat aliases.
+    - **`CapabilityNormalizationReport.ontology`**
+      surfaces the same metadata so operators see which
+      packs and override the run consumed.
+    - **`CapabilityOntologySuggestionReport.preview`** now
+      targets `.rekon/capability-ontology.overrides.json`
+      (not the legacy `.rekon/capability-ontology.json`).
+      Suggestions propose override-file changes, not
+      canon edits.
+    - **Unknown pack id fails clearly.** Override config
+      shipping an unknown `extends` entry surfaces a
+      readable error listing known packs.
+    - New exports from `@rekon/capability-ontology`:
+      `BASE_PACK_ID`, `BUILTIN_CANON_PACKS`, `basePack`,
+      `nextjsAppPack`, `libraryPackagePack`,
+      `monorepoPack`, `CANON_PACK_VERSION`,
+      `CapabilityOntologyPack`, `resolvePacks`,
+      `getBuiltinCanonPack`, `listBuiltinCanonPackIds`,
+      `detectOverlayPacks`,
+      `CAPABILITY_ONTOLOGY_OVERRIDES_PATH`,
+      `CAPABILITY_ONTOLOGY_LEGACY_PATH`,
+      `EffectiveCapabilityOntologySource`.
+
+  **No npm publish. No version bump. No git tag. No
+  GitHub Release. No new branch. No `CapabilityMap`
+  mutation. No `EvidenceGraph` mutation. No source-write
+  apply. No LLM normalization. No override-file mutation.
+  No new permission. No workflow YAML.**
+
+  23-assertion contract test
+  `tests/contract/capability-ontology-canon-packs.test.mjs`.
+  13-assertion docs test
+  `tests/docs/capability-ontology-canon-packs.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-ontology-canon-packs-v1.md`.
+  Recommended next slice: capability ontology canon-pack
+  coverage review — re-run normalization against fixtures
+  + real repos and compare unknown / low-confidence rates
+  before / after canon packs.
+
 - Shipped **Capability Ontology Canon + Override Model
   Decision** — strategy / decision / docs / tests-only
   batch on the capability-ontology track. **Revises** the

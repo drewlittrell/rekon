@@ -123,15 +123,15 @@ test("alias resolution flags aliasApplied on the outcome", () => {
     candidates: [
       {
         id: "candidate-0000",
-        raw: { name: "fetchUser", verb: "fetch", noun: "user", splitConfidence: "high" },
-        source: { kind: "symbol", path: "src/users.ts", symbol: "fetchUser" },
+        raw: { name: "retrieveUser", verb: "retrieve", noun: "user", splitConfidence: "high" },
+        source: { kind: "symbol", path: "src/users.ts", symbol: "retrieveUser" },
       },
     ],
     ontology,
   });
   assert.equal(outcomes[0].status, "normalized");
   assert.equal(outcomes[0].normalized?.verb, "get");
-  assert.equal(outcomes[0].normalized?.verbAliasApplied, "fetch");
+  assert.equal(outcomes[0].normalized?.verbAliasApplied, "retrieve");
 });
 
 // ---------- 6: candidate extraction reads symbol/export/capability_hint ----------

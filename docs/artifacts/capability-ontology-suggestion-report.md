@@ -10,19 +10,29 @@ plans).
 A `CapabilityOntologySuggestionReport` is the **preview-only**
 projection of `extend-ontology` decisions in the latest
 [`CapabilityNormalizationReviewLedger`](capability-normalization-review-ledger.md)
-into a proposed `.rekon/capability-ontology.json` patch. It
-is the next stage of the capability ontology translation
-track after the operator review surface.
+into a proposed `.rekon/capability-ontology.overrides.json`
+override-file patch. It is the next stage of the capability
+ontology translation track after the operator review
+surface. **Suggestions propose override-file changes, not
+canon edits** — the built-in canon packs (`base` +
+`nextjs-app` / `library-package` / `monorepo`) are
+Rekon-provided and are never modified by suggestions.
 
 The report is **read-only with respect to source files and
-ontology config**:
+ontology overrides**:
 
 - It is written **only** by explicit operator CLI invocation
   (`rekon capability ontology suggestions`).
-- It **does not** mutate `.rekon/capability-ontology.json`.
-  The proposed config is rendered as a `before` / `after`
-  JSON string inside the report. Operators apply the change
-  manually if desired.
+- It **does not** mutate
+  `.rekon/capability-ontology.overrides.json`. The proposed
+  override is rendered as a `before` / `after` JSON string
+  inside the report. Operators apply the change manually if
+  desired.
+- It **does not** mutate the legacy
+  `.rekon/capability-ontology.json`. When the legacy file
+  exists and the canonical overrides file does not, the
+  suggestion preview still targets
+  `.rekon/capability-ontology.overrides.json`.
 - It **does not** mutate the
   `CapabilityNormalizationReviewLedger`. Decisions are
   preserved exactly.
@@ -48,7 +58,7 @@ ontology config**:
 | `summary.skipped` | count of decisions skipped in v1 |
 | `suggestions[]` | one entry per proposed config edit |
 | `skipped[]` | one entry per decision skipped in v1 |
-| `preview.configPath` | always `".rekon/capability-ontology.json"` |
+| `preview.configPath` | always `".rekon/capability-ontology.overrides.json"` (canonical override path) |
 | `preview.patch.before` | JSON string of the existing config (or seed `{ "version": "0.1.0" }`) |
 | `preview.patch.after` | JSON string of the proposed config after all suggestions are applied |
 | `preview.message` | always notes the config is not mutated automatically |
