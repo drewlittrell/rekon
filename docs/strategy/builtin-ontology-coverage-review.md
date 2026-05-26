@@ -186,6 +186,11 @@ In priority order:
   `extend-ontology` ledger decisions. Shipped as
   *capability ontology vocabulary expansion v1*, the
   preview-first realisation of Option A from this memo.
+  The architecture summary and agent contract publications
+  now also surface the latest suggestion report
+  inline (capability ontology suggestion publication
+  surfacing slice). Proof report surfacing remains
+  deferred.
 - [Capability ontology concept](../concepts/capability-ontology.md)
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)

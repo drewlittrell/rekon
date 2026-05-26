@@ -452,3 +452,15 @@ artifact lineage freshness alone after source
 edits. The full path-freshness track has been
 declared beta-private stable; see
 [Path Freshness Safety Review](../strategy/path-freshness-safety-review.md).
+
+The agent operating contract now also surfaces the latest
+[`CapabilityOntologySuggestionReport`](../artifacts/capability-ontology-suggestion-report.md)
+under a `### Capability Ontology Suggestions` subsection
+in the operating-state group, and appends a `Do Not Do`
+reminder pinning that the report is preview-only — entries
+must **not** be treated as applied ontology config. The
+publication is read-only with respect to
+`.rekon/capability-ontology.json`, the
+`CapabilityNormalizationReviewLedger`, and `CapabilityMap`.
+Operators apply proposed config changes manually outside
+the publication.

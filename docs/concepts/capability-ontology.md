@@ -223,6 +223,17 @@ Rules:
 - `CapabilityMap` integration (Layer 6) remains deferred
   until vocabulary expansion reaches a steady state across
   multiple targets.
+- The architecture summary and agent contract publishers
+  surface the latest
+  `CapabilityOntologySuggestionReport` so operators see
+  ontology expansion proposals next to repo state without
+  running the suggestions CLI directly. The publication
+  surfaces are **read-only**: they never mutate
+  `.rekon/capability-ontology.json`, the ledger, the
+  suggestion report, or `CapabilityMap`. The agent contract
+  adds a `Do Not Do` reminder pinning that suggestions are
+  **not applied vocabulary**. Proof report surfacing
+  remains deferred.
 
 ## Lexical Splitter Confidence
 

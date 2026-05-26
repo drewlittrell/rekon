@@ -1049,6 +1049,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# Capability ontology suggestion publication
+# surfacing has shipped. The architecture summary
+# and agent contract publishers now surface the
+# latest CapabilityOntologySuggestionReport
+# inline. The architecture summary renders a
+# `## Capability Ontology Suggestions` section
+# with summary counts and a bounded suggestion
+# table; the agent contract renders a
+# `### Capability Ontology Suggestions`
+# subsection and adds a Do Not Do reminder pinning
+# that suggestions are NOT applied vocabulary.
+# Both publishers cite the source report in
+# header.inputRefs. Read-only: publications never
+# run the suggestions CLI, never mutate
+# .rekon/capability-ontology.json, never mutate
+# the review ledger, the suggestion report, or
+# CapabilityMap. Proof report surfacing is
+# deliberately deferred. See
+# docs/artifacts/capability-ontology-suggestion-report.md.
+#
 # Capability ontology vocabulary expansion v1 has
 # shipped. New artifact
 # CapabilityOntologySuggestionReport (registered in

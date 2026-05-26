@@ -141,14 +141,40 @@ rekon capability ontology suggestions \
 - `--json` emits the canonical report. Human-mode prints a
   short summary and ends with *"Config remains unchanged."*.
 
-## Forward Compatibility
+## Publication Surfacing
 
-A future *capability ontology suggestion publication
-surfacing* slice will surface the latest suggestion report
-inside `architecture-summary` / `agent-contract`
-publications so operators see ontology expansion proposals
-without running the dedicated CLI. The publication path will
-still not mutate the config file.
+The *capability ontology suggestion publication surfacing*
+slice has shipped. The `architecture-summary` and
+`agent-contract` publishers now **read the latest
+`CapabilityOntologySuggestionReport`** and render it inline:
+
+- The architecture summary surfaces a `## Capability
+  Ontology Suggestions` section with the summary counts, a
+  bounded suggestion table, and an explicit "config remains
+  unchanged" pin. When no report exists the section emits
+  guidance directing the operator at
+  `rekon capability ontology suggestions --json`.
+- The agent contract surfaces a `### Capability Ontology
+  Suggestions` subsection in the operating-state group and
+  appends a `Do Not Do` reminder pinning that
+  `CapabilityOntologySuggestionReport` entries are **not
+  applied vocabulary**.
+- Both publishers cite the source report in
+  `header.inputRefs` so the publication's freshness chain
+  tracks it.
+- Publications **do not mutate** `.rekon/capability-ontology.json`,
+  the `CapabilityNormalizationReviewLedger`, the suggestion
+  report itself, `CapabilityMap`, or `EvidenceGraph`.
+- Publications **do not** run the suggestions CLI; they only
+  render the latest existing report.
+
+Proof report surfacing is deliberately deferred — ontology
+suggestions are operator vocabulary proposals, not
+verification proof. Re-evaluate the deferral once a future
+batch defines a natural ontology / context section for the
+proof report.
+
+## Forward Compatibility
 
 `CapabilityMap` integration (Layer 6) remains deferred until
 operator review + vocabulary expansion reach a steady state

@@ -5448,6 +5448,41 @@ scope:
   the latest suggestion report
   inside `architecture-summary` /
   `agent-contract` publications.
+- **Capability ontology suggestion
+  publication surfacing (P1.1
+  capability-ontology-suggestion-publications
+  slice).** ✅ Shipped. **Seventh
+  slice on the capability-ontology
+  track and the fourth runtime
+  implementation batch.** Wires
+  the latest
+  `CapabilityOntologySuggestionReport`
+  into the architecture summary
+  (`## Capability Ontology
+  Suggestions`) and agent contract
+  (`### Capability Ontology
+  Suggestions` + `Do Not Do`
+  reminder). Both publishers cite
+  the source report in
+  `header.inputRefs`. Manifest
+  `consumes` and a new
+  `capability-ontology-suggestions.changed`
+  invalidation rule keep
+  publications fresh when a new
+  report lands. **Read-only —
+  publications never mutate
+  `.rekon/capability-ontology.json`,
+  the review ledger, the
+  suggestion report, or
+  `CapabilityMap`.** Proof report
+  surfacing is deliberately
+  deferred (suggestions are
+  vocabulary / config proposals,
+  not verification proof). See
+  [`docs/artifacts/capability-ontology-suggestion-report.md`](../artifacts/capability-ontology-suggestion-report.md).
+  **Recommended next slice:**
+  *capability ontology suggestion
+  safety review*.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

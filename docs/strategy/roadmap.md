@@ -1431,6 +1431,67 @@ is the first stop before proposing a new capability batch.
   suggestion report inside
   `architecture-summary` /
   `agent-contract` publications.
+- Capability ontology suggestion
+  publication surfacing (P1.1
+  capability-ontology-suggestion-publications
+  slice): **seventh slice on the
+  capability-ontology track and the
+  fourth runtime implementation
+  batch.** The architecture summary
+  and agent contract publishers now
+  surface the latest
+  `CapabilityOntologySuggestionReport`
+  inline. The architecture summary
+  renders a `## Capability Ontology
+  Suggestions` section with the
+  report ref, summary counts, an
+  explicit `Preview-only.` callout,
+  and a bounded suggestion table.
+  The agent contract renders a
+  `### Capability Ontology
+  Suggestions` subsection in the
+  operating-state group and adds a
+  `Do Not Do` reminder pinning that
+  `CapabilityOntologySuggestionReport`
+  entries are **not applied
+  vocabulary**. Both publishers
+  cite the source report in
+  `header.inputRefs` when present.
+  Manifest `consumes` adds
+  `CapabilityOntologySuggestionReport`
+  and a new `invalidatedBy` rule
+  `capability-ontology-suggestions.changed`
+  regenerates publications when a
+  new report lands. **Read-only:
+  publications never run
+  `rekon capability ontology
+  suggestions`, never mutate
+  `.rekon/capability-ontology.json`,
+  never mutate the
+  `CapabilityNormalizationReviewLedger`,
+  never write a new
+  `CapabilityOntologySuggestionReport`,
+  and never mutate `CapabilityMap`.**
+  Proof report surfacing is
+  deliberately deferred —
+  suggestions are vocabulary /
+  config proposals, not
+  verification proof. New
+  13-assertion contract test +
+  9-assertion docs test. New
+  review packet
+  `.rekon-dev/review-packets/capability-ontology-suggestion-publications.md`.
+  Full suite expected ≥ 2175
+  passed (2149 + 13 contract + 9
+  docs + 4 absorbed updates).
+  **Recommended next slice:**
+  *capability ontology suggestion
+  safety review* — review the
+  full normalize → review → suggest
+  → publish loop end-to-end before
+  deciding whether to add an
+  operator-approved config apply
+  step.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

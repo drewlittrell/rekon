@@ -401,3 +401,24 @@ assuming advisory merge candidates are accepted. See
   generation is read-only with respect to
   working-tree freshness: it never runs `rekon paths
   freshness` and never runs `rekon refresh`.**
+- **Capability ontology suggestion publication
+  surfacing.** The agent contract publisher reads
+  the latest `CapabilityOntologySuggestionReport`
+  and renders a `### Capability Ontology
+  Suggestions` subsection. The publisher also
+  appends a `Do Not Do` reminder pinning that the
+  report is preview-only — entries are **not
+  applied vocabulary**, and the operator must
+  apply proposed
+  `.rekon/capability-ontology.json` changes
+  manually outside the publication. The latest
+  report is cited in `header.inputRefs` when
+  present. **Publication generation is read-only
+  with respect to ontology state: it never mutates
+  `.rekon/capability-ontology.json`, never mutates
+  the `CapabilityNormalizationReviewLedger`, never
+  writes a new
+  `CapabilityOntologySuggestionReport`, and never
+  mutates `CapabilityMap`.** When no report
+  exists the subsection renders no-report
+  guidance.

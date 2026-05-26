@@ -278,3 +278,15 @@ artifact it read (`IssueAdjudicationReport`,
   lineage freshness; this section complements (does
   not replace) the existing lineage-freshness
   surfaces.
+- **Capability ontology suggestion publication
+  surfacing — deferred for the proof report.**
+  Ontology suggestions are operator vocabulary /
+  config proposals, not verification proof. The
+  `capability-ontology-suggestion-publications`
+  slice intentionally **does not** add a Capability
+  Ontology Suggestions section to this artifact.
+  The architecture summary and agent contract
+  publishers surface the suggestion report today;
+  re-evaluate this deferral when a future batch
+  defines a natural ontology / context section for
+  the proof report.

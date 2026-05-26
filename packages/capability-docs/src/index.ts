@@ -169,6 +169,44 @@ type MemoryCurationReportLike = {
   }>;
 };
 
+// Capability ontology suggestion publication surfacing
+// (P1.1 capability-ontology-suggestion-publications). Local
+// duck type so the capability-docs package does not import
+// `@rekon/capability-ontology` directly. The shape mirrors
+// the public `CapabilityOntologySuggestionReport` artifact
+// (see `docs/artifacts/capability-ontology-suggestion-report.md`)
+// but the renderer is **read-only** with respect to the
+// ontology config and tolerates partial data.
+type CapabilityOntologySuggestionReportLike = {
+  header: ArtifactHeader;
+  summary?: {
+    total?: number;
+    addCanonicalVerb?: number;
+    addCanonicalNoun?: number;
+    addVerbAlias?: number;
+    addNounAlias?: number;
+    skipped?: number;
+  };
+  suggestions?: Array<{
+    id?: string;
+    kind?: string;
+    term?: string;
+    canonical?: string;
+    reason?: string;
+    sourceDecisionId?: string;
+  }>;
+  skipped?: Array<{
+    decisionId?: string;
+    term?: string;
+    termKind?: string;
+    reason?: string;
+  }>;
+  preview?: {
+    configPath?: string;
+    message?: string;
+  };
+};
+
 export const docsPublisher: Publisher = {
   id: "@rekon/capability-docs.publisher",
   produces: ["Publication"],
@@ -367,6 +405,30 @@ export const architectureSummaryPublisher: Publisher = {
         existing.type === pathFreshnessRef.type && existing.id === pathFreshnessRef.id)) {
       inputRefs.push(pathFreshnessRef);
     }
+    // Capability ontology suggestion surfacing (P1.1
+    // capability-ontology-suggestion-publications). Read-only:
+    // surfaces the latest CapabilityOntologySuggestionReport
+    // into the architecture summary so operators see ontology
+    // expansion proposals without running the suggestions CLI
+    // directly. Never re-runs `rekon capability ontology
+    // suggestions`. Never mutates `.rekon/capability-ontology.json`.
+    // Never mutates CapabilityMap. Never writes a new
+    // CapabilityOntologySuggestionReport.
+    const ontologySuggestionRef = await latestRef(
+      artifacts,
+      "CapabilityOntologySuggestionReport",
+    );
+    const ontologySuggestionReport = ontologySuggestionRef
+      ? (await artifacts.read(ontologySuggestionRef)) as CapabilityOntologySuggestionReportLike
+      : undefined;
+    if (
+      ontologySuggestionRef
+      && !inputRefs.some((existing) =>
+        existing.type === ontologySuggestionRef.type
+        && existing.id === ontologySuggestionRef.id)
+    ) {
+      inputRefs.push(ontologySuggestionRef);
+    }
     const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
@@ -401,6 +463,8 @@ export const architectureSummaryPublisher: Publisher = {
         verificationRunArtifactExists,
         pathFreshnessReport,
         pathFreshnessRef,
+        ontologySuggestionReport,
+        ontologySuggestionRef,
         freshness,
         inputRefs,
         generatedAt,
@@ -742,6 +806,27 @@ export const agentContractPublisher: Publisher = {
         existing.type === pathFreshnessRef.type && existing.id === pathFreshnessRef.id)) {
       inputRefs.push(pathFreshnessRef);
     }
+    // Capability ontology suggestion surfacing (P1.1
+    // capability-ontology-suggestion-publications). Agent
+    // contract mirrors the architecture-summary publisher
+    // and surfaces ontology expansion proposals so agents
+    // know they are preview-only and must not be treated as
+    // applied vocabulary.
+    const ontologySuggestionRef = await latestRef(
+      artifacts,
+      "CapabilityOntologySuggestionReport",
+    );
+    const ontologySuggestionReport = ontologySuggestionRef
+      ? (await artifacts.read(ontologySuggestionRef)) as CapabilityOntologySuggestionReportLike
+      : undefined;
+    if (
+      ontologySuggestionRef
+      && !inputRefs.some((existing) =>
+        existing.type === ontologySuggestionRef.type
+        && existing.id === ontologySuggestionRef.id)
+    ) {
+      inputRefs.push(ontologySuggestionRef);
+    }
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
       "MemorySelection",
@@ -784,6 +869,8 @@ export const agentContractPublisher: Publisher = {
         verificationRunArtifactExists,
         pathFreshnessReport,
         pathFreshnessRef,
+        ontologySuggestionReport,
+        ontologySuggestionRef,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -822,6 +909,7 @@ export default defineCapability({
       "VerificationPlan",
       "VerificationResult",
       "PathFreshnessReport",
+      "CapabilityOntologySuggestionReport",
       "MemorySelection",
       "MemoryCurationReport",
     ],
@@ -891,6 +979,12 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary, agent contract, and proof report when a new PathFreshnessReport is written so working-tree freshness stays current.",
         inputs: ["PathFreshnessReport"],
+      },
+      {
+        id: "capability-ontology-suggestions.changed",
+        description:
+          "Regenerate the architecture summary and agent contract when a new CapabilityOntologySuggestionReport is written so operators see ontology expansion proposals next to repo state. Publications never apply the suggestions automatically.",
+        inputs: ["CapabilityOntologySuggestionReport"],
       },
     ],
     compatibility: {
@@ -1253,6 +1347,8 @@ type ArchitectureSummaryInputs = {
   verificationRunArtifactExists?: boolean;
   pathFreshnessReport?: PathFreshnessReport;
   pathFreshnessRef?: ArtifactRef;
+  ontologySuggestionReport?: CapabilityOntologySuggestionReportLike;
+  ontologySuggestionRef?: ArtifactRef;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -1578,6 +1674,12 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   renderVerificationStatusSection(sections, input);
   renderVerificationProofStatusBlock(sections, input);
   renderPathFreshnessSection(sections, input.pathFreshnessReport, input.pathFreshnessRef);
+  renderCapabilityOntologySuggestionSection(
+    sections,
+    input.ontologySuggestionReport,
+    input.ontologySuggestionRef,
+    2,
+  );
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -1797,6 +1899,22 @@ function renderPathFreshnessSection(
     report,
     reportRef,
     headingLevel: 2,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
+function renderCapabilityOntologySuggestionSection(
+  sections: string[],
+  report: CapabilityOntologySuggestionReportLike | undefined,
+  reportRef: ArtifactRef | undefined,
+  headingLevel: 2 | 3,
+): void {
+  const block = buildCapabilityOntologySuggestionPublicationSection({
+    report,
+    reportRef,
+    headingLevel,
   });
   for (const line of block.lines) {
     sections.push(line);
@@ -2495,6 +2613,8 @@ type AgentContractInputs = {
   verificationRunArtifactExists?: boolean;
   pathFreshnessReport?: PathFreshnessReport;
   pathFreshnessRef?: ArtifactRef;
+  ontologySuggestionReport?: CapabilityOntologySuggestionReportLike;
+  ontologySuggestionRef?: ArtifactRef;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -2538,6 +2658,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not assume advisory merge candidates are accepted; check IssueMergeDecisionLedger or run `rekon issues merge candidates --undecided`.",
   "Do not treat passed verification as automatic finding resolution; status changes require explicit lifecycle/status artifacts.",
   "Do not treat stale, partial, failed, timeout, killed, or not-run verification as proof of completion.",
+  "Do not treat CapabilityOntologySuggestionReport entries as applied ontology config; the report is preview-only and `.rekon/capability-ontology.json` is not mutated automatically. Operators must apply proposed changes manually.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -2957,6 +3078,19 @@ function renderAgentContract(input: AgentContractInputs): string {
   for (const line of agentPathFreshnessBlock.lines) {
     sections.push(line);
   }
+
+  // Capability ontology suggestion surfacing (P1.1
+  // capability-ontology-suggestion-publications). Heading
+  // level 3 so the section sits inside the operating-state
+  // group. Always rendered (with no-report guidance when
+  // empty) so agents know they must not treat suggestions
+  // as applied vocabulary.
+  renderCapabilityOntologySuggestionSection(
+    sections,
+    input.ontologySuggestionReport,
+    input.ontologySuggestionRef,
+    3,
+  );
 
   // Memory Guidance
   sections.push("## Memory Guidance");
@@ -6087,6 +6221,150 @@ export function buildPathFreshnessPublicationSection(
   } else if (report.header?.artifactType === "PathFreshnessReport"
     && typeof report.header?.artifactId === "string"
     && typeof report.header?.schemaVersion === "string") {
+    result.inputRef = {
+      type: report.header.artifactType,
+      id: report.header.artifactId,
+      schemaVersion: report.header.schemaVersion,
+    };
+  }
+  return result;
+}
+
+// ---------- Capability ontology suggestion publication surfacing helper ----------
+//
+// Pure helper that renders the publication block for a
+// `CapabilityOntologySuggestionReport`. **Read-only**: never
+// runs the suggestions CLI, never mutates the ontology
+// config, never mutates `CapabilityMap`, never writes a new
+// report. When the publisher cannot find a report the
+// renderer emits a no-report guidance block so operators
+// know how to produce one.
+
+export type BuildCapabilityOntologySuggestionPublicationSectionInput = {
+  report?: CapabilityOntologySuggestionReportLike;
+  reportRef?: ArtifactRef;
+  /** 2 → architecture summary; 3 → agent contract */
+  headingLevel?: 2 | 3;
+  /** Cap the rendered suggestion / skipped tables; default 10. */
+  tableLimit?: number;
+};
+
+export type BuildCapabilityOntologySuggestionPublicationSectionResult = {
+  lines: string[];
+  inputRef?: ArtifactRef;
+};
+
+const DEFAULT_ONTOLOGY_SUGGESTION_TABLE_LIMIT = 10;
+
+export function buildCapabilityOntologySuggestionPublicationSection(
+  input: BuildCapabilityOntologySuggestionPublicationSectionInput,
+): BuildCapabilityOntologySuggestionPublicationSectionResult {
+  const { report, reportRef } = input;
+  const headingLevel = input.headingLevel ?? 2;
+  const heading = headingLevel === 2 ? "##" : "###";
+  const tableLimit = input.tableLimit ?? DEFAULT_ONTOLOGY_SUGGESTION_TABLE_LIMIT;
+  const lines: string[] = [];
+
+  lines.push(`${heading} Capability Ontology Suggestions`);
+  lines.push("");
+
+  if (!report) {
+    lines.push(
+      "No `CapabilityNormalizationReviewLedger`-derived `CapabilityOntologySuggestionReport` found. Run `rekon capability ontology suggestions --json` after reviewing unknown terms to preview ontology config changes.",
+    );
+    lines.push("");
+    lines.push(
+      "Ontology suggestions are preview-only. `.rekon/capability-ontology.json` is not mutated automatically. Operators must apply proposed changes manually.",
+    );
+    lines.push("");
+    return { lines };
+  }
+
+  const summary = report.summary ?? {};
+  const total = typeof summary.total === "number" ? summary.total : 0;
+  const addCanonicalVerb =
+    typeof summary.addCanonicalVerb === "number" ? summary.addCanonicalVerb : 0;
+  const addCanonicalNoun =
+    typeof summary.addCanonicalNoun === "number" ? summary.addCanonicalNoun : 0;
+  const addVerbAlias = typeof summary.addVerbAlias === "number" ? summary.addVerbAlias : 0;
+  const addNounAlias = typeof summary.addNounAlias === "number" ? summary.addNounAlias : 0;
+  const skippedCount = typeof summary.skipped === "number" ? summary.skipped : 0;
+  const configPath = report.preview?.configPath ?? ".rekon/capability-ontology.json";
+
+  if (reportRef) {
+    lines.push(`- Report: ${formatRef(reportRef)}`);
+  } else if (
+    report.header?.artifactType === "CapabilityOntologySuggestionReport"
+    && typeof report.header?.artifactId === "string"
+  ) {
+    lines.push(
+      `- Report: ${report.header.artifactType}:${report.header.artifactId}`,
+    );
+  }
+  lines.push(`- Config path: \`${configPath}\``);
+  lines.push(
+    `- Suggestions: ${total}`
+    + ` (add-canonical-verb ${addCanonicalVerb},`
+    + ` add-canonical-noun ${addCanonicalNoun},`
+    + ` add-verb-alias ${addVerbAlias},`
+    + ` add-noun-alias ${addNounAlias})`,
+  );
+  if (skippedCount > 0) {
+    lines.push(`- Skipped: ${skippedCount} (candidate-level decisions require manual ontology editing)`);
+  }
+  lines.push("");
+  lines.push(
+    "**Preview-only.** `.rekon/capability-ontology.json` remains unchanged. Operators must review the proposed config and apply it manually if desired.",
+  );
+  lines.push("");
+
+  const suggestions = Array.isArray(report.suggestions) ? report.suggestions : [];
+  if (suggestions.length > 0) {
+    lines.push("| Kind | Term | Canonical | Reason |");
+    lines.push("| --- | --- | --- | --- |");
+    const bounded = suggestions.slice(0, tableLimit);
+    for (const entry of bounded) {
+      const kind = entry.kind ?? "-";
+      const term = entry.term ?? "-";
+      const canonical = entry.canonical ?? "—";
+      const reason = (entry.reason ?? "").replace(/\|/g, "\\|").trim() || "—";
+      lines.push(`| ${kind} | ${term} | ${canonical} | ${reason} |`);
+    }
+    if (suggestions.length > bounded.length) {
+      lines.push(
+        `| … | … | … | ${suggestions.length - bounded.length} additional suggestion(s) omitted; see the artifact for the full list. |`,
+      );
+    }
+    lines.push("");
+  }
+
+  const skipped = Array.isArray(report.skipped) ? report.skipped : [];
+  if (skipped.length > 0) {
+    lines.push("**Skipped decisions (v1):**");
+    lines.push("");
+    const bounded = skipped.slice(0, tableLimit);
+    for (const entry of bounded) {
+      const termKind = entry.termKind ?? "-";
+      const term = entry.term ?? "-";
+      const reason = (entry.reason ?? "").trim() || "—";
+      lines.push(`- ${termKind} \`${term}\` — ${reason}`);
+    }
+    if (skipped.length > bounded.length) {
+      lines.push(
+        `- … ${skipped.length - bounded.length} additional skipped entry(ies) omitted; see the artifact for the full list.`,
+      );
+    }
+    lines.push("");
+  }
+
+  const result: BuildCapabilityOntologySuggestionPublicationSectionResult = { lines };
+  if (reportRef) {
+    result.inputRef = reportRef;
+  } else if (
+    report.header?.artifactType === "CapabilityOntologySuggestionReport"
+    && typeof report.header?.artifactId === "string"
+    && typeof report.header?.schemaVersion === "string"
+  ) {
     result.inputRef = {
       type: report.header.artifactType,
       id: report.header.artifactId,

@@ -326,3 +326,26 @@ starting point. See
   When no `PathFreshnessReport` exists, the section
   renders no-report guidance naming `rekon paths
   freshness --json`.
+- **Capability ontology suggestion publication
+  surfacing.** The publisher reads the latest
+  `CapabilityOntologySuggestionReport` and renders
+  a **`## Capability Ontology Suggestions`
+  section** with the report ref, summary counts by
+  suggestion kind, an explicit `Preview-only.`
+  callout pinning that
+  `.rekon/capability-ontology.json` remains
+  unchanged, and a bounded suggestion table. When
+  the report has `skipped` entries the section
+  appends them as `Skipped decisions (v1)` so
+  agents understand which decisions were not
+  translated. The latest report is cited in
+  `header.inputRefs` when present. **Publication
+  generation is read-only with respect to ontology
+  state: it never mutates
+  `.rekon/capability-ontology.json`, never mutates
+  the `CapabilityNormalizationReviewLedger`, never
+  writes a new
+  `CapabilityOntologySuggestionReport`, and never
+  mutates `CapabilityMap`.** When no report exists,
+  the section renders no-report guidance naming
+  `rekon capability ontology suggestions --json`.

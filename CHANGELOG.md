@@ -4,6 +4,52 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability ontology suggestion publication
+  surfacing** — step 4c of the capability-ontology
+  translation-layer implementation sequence. The
+  architecture summary and agent contract publishers now
+  surface the latest `CapabilityOntologySuggestionReport`:
+
+    - The architecture summary renders a `## Capability
+      Ontology Suggestions` section with the report ref,
+      summary counts by suggestion kind, an explicit
+      `Preview-only.` callout pinning that
+      `.rekon/capability-ontology.json` remains unchanged,
+      and a bounded suggestion table.
+    - The agent contract renders a `### Capability
+      Ontology Suggestions` subsection in the
+      operating-state group and adds a new `Do Not Do`
+      reminder: *"Do not treat
+      `CapabilityOntologySuggestionReport` entries as
+      applied ontology config."*
+    - Both publishers cite the source report in
+      `header.inputRefs`. Manifest `consumes` adds
+      `CapabilityOntologySuggestionReport` and a new
+      `capability-ontology-suggestions.changed`
+      invalidation rule regenerates publications when a
+      new report lands.
+
+  **Read-only.** Publications never run `rekon capability
+  ontology suggestions`, never mutate
+  `.rekon/capability-ontology.json`, never mutate the
+  `CapabilityNormalizationReviewLedger`, never write a new
+  `CapabilityOntologySuggestionReport`, and never mutate
+  `CapabilityMap`. Proof report surfacing is deliberately
+  deferred (suggestions are vocabulary / config
+  proposals, not verification proof). No LLM
+  normalization. No source-write apply. No new
+  permission. No new role. No workflow YAML. No new
+  package. No version bump. No npm publish. No git tag.
+  No GitHub Release. New public helper
+  `buildCapabilityOntologySuggestionPublicationSection`
+  in `@rekon/capability-docs`. New 13-assertion contract
+  test + 9-assertion docs test. Review packet
+  [`.rekon-dev/review-packets/capability-ontology-suggestion-publications.md`](.rekon-dev/review-packets/capability-ontology-suggestion-publications.md).
+  Recommended next slice: *capability ontology suggestion
+  safety review* — review the full normalize → review →
+  suggest → publish loop end-to-end before deciding
+  whether to add an operator-approved config apply step.
+
 - Shipped **Capability ontology vocabulary expansion v1** —
   step 4b of the capability-ontology translation-layer
   implementation sequence. New artifact
