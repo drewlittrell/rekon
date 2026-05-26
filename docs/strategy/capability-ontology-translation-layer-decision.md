@@ -854,7 +854,8 @@ supporting-doc cross-references.
 | 4b | Capability ontology vocabulary expansion v1 (preview-first Option A) — `CapabilityOntologySuggestionReport` + `rekon capability ontology suggestions` | ✅ Shipped — preview-only `.rekon/capability-ontology.json` patch; never mutates the config file. See [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md). |
 | 4c | Capability ontology suggestion publication surfacing — architecture summary + agent contract render `CapabilityOntologySuggestionReport` | ✅ Shipped — read-only; publications never mutate `.rekon/capability-ontology.json` or `CapabilityMap`. Agent contract `Do Not Do` pins that suggestions are not applied vocabulary. Proof report surfacing remains deferred. |
 | 4d | Capability ontology suggestion safety review — end-to-end review of the `normalize → review → suggest → publish` loop | ✅ Shipped — workflow is safe / stable as preview-only; manual editing of `.rekon/capability-ontology.json` remains the operator-control boundary; no config apply command in this batch. See [Capability Ontology Suggestion Safety Review](capability-ontology-suggestion-safety-review.md). |
-| 4e | Capability ontology config authoring guide + review-loop quickstart | ✅ Shipped — docs-only operator path: [authoring guide](../beta/capability-ontology-config-authoring-guide.md) + [quickstart](../beta/capability-ontology-review-loop-quickstart.md). Pins manual editing of `.rekon/capability-ontology.json` as the only mutation channel. No runtime change. |
+| 4e | Capability ontology config authoring guide + review-loop quickstart | ✅ Shipped — docs-only operator path: [authoring guide](../beta/capability-ontology-config-authoring-guide.md) + [quickstart](../beta/capability-ontology-review-loop-quickstart.md). Pins manual editing of `.rekon/capability-ontology.json` as the only mutation channel. No runtime change. **Subsequently reframed as a fallback / emergency manual path by step 4f.** |
+| 4f | Capability Ontology Canon + Override Model Decision | ✅ Shipped — corrects the product posture. Rekon ships canonical ontology packs + archetype overlays; repo-local overrides extend or supersede canon. The override file renames to `.rekon/capability-ontology.overrides.json` in the canon-packs-v1 implementation slice. See [Capability Ontology Canon + Override Model Decision](capability-ontology-canon-override-model-decision.md). |
 | 5 | `CapabilityMap` normalized-claims integration | v2; gated on step 3 + step 4 |
 | 6 | Built-in ontology expansion (verbs / nouns / roles / patterns / layers) | Iterative with step 3 + step 4 |
 | 7 | Unknown-term operator-review CLI / surface | After step 3, gated on operator feedback |
@@ -903,8 +904,14 @@ the layered model is preserved.
   + [Capability Ontology Review-Loop
   Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
   — step 4e. Docs-only operator path documenting the
-  manual editing workflow. Treats operator friction as
-  the gate for any future apply-command decision memo.
+  manual editing workflow. Reframed as a fallback /
+  emergency manual path by step 4f.
+- [Capability Ontology Canon + Override Model
+  Decision](capability-ontology-canon-override-model-decision.md)
+  — step 4f. Commits Rekon to shipping canonical
+  ontology packs + repo-local overrides. Replaces the
+  "manual editing is the steady-state model" direction
+  selected in step 4d.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

@@ -1049,6 +1049,44 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# Capability ontology canon + override model
+# decision has shipped (strategy / decision / docs /
+# tests-only). Replaces the prior "manual config
+# authoring guide is the steady-state model"
+# direction. Pinned verbatim:
+#   CapabilityOntology is not user-authored from
+#   scratch. CapabilityOntology is Rekon-provided
+#   canon + repo-local overrides.
+# Selects Option C: built-in canonical ontology
+# packs (`base` + archetype overlays) +
+# repo-local overrides file. v1 ship set: `base`,
+# `nextjs-app`, `library-package`, `monorepo`.
+# Override file rename target for the
+# canon-packs-v1 implementation slice:
+# .rekon/capability-ontology.overrides.json.
+# Override behaviors: canonical terms extend
+# canon; aliases supersede on key collision;
+# noise suppresses suggestion noise (not raw
+# evidence). Rejects manual editing as
+# steady-state model, rejects one-global-ontology
+# direction, rejects LLM normalization.
+# Operator-approved override apply command
+# remains deferred behind its own decision memo +
+# pre/post diff artifact + safety review.
+# **No canonical packs implementation yet. No
+# override apply command yet. No
+# .rekon/capability-ontology.json mutation. No
+# normalizer behavior change. No CapabilityMap
+# mutation. No EvidenceGraph mutation. No
+# source-write apply. No LLM-only normalization.
+# No version bump. No npm publish.** The
+# existing authoring guide + review-loop
+# quickstart remain available as fallback /
+# emergency manual references. See
+# docs/strategy/capability-ontology-canon-override-model-decision.md.
+# Recommended next slice: capability ontology
+# canon packs v1.
+#
 # Capability ontology config authoring guide +
 # review-loop quickstart have shipped (docs / support /
 # tests-only). Two new operator-facing docs:
@@ -1066,6 +1104,9 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #     and not applied vocabulary;
 #   - CapabilityMap integration remains deferred;
 #   - suggestions do not mutate config or CapabilityMap.
+# Subsequently reframed as a fallback / emergency
+# manual path by the canon + override model
+# decision above.
 #
 # Capability ontology suggestion safety review
 # has shipped (strategy / docs / tests-only).

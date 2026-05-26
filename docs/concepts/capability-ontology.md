@@ -245,7 +245,8 @@ Rules:
   config apply command ships yet. `CapabilityMap`
   integration remains deferred until reviewed terms
   produce stable high-confidence normalized claims.
-- Operators executing the manual path should read the
+- Operators executing the manual fallback path should
+  read the
   [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   for the canonical config shape and the
@@ -255,6 +256,16 @@ Rules:
   pin verbatim that `.rekon/capability-ontology.json` is
   optional, that Rekon never creates or mutates it
   automatically, and that suggestions remain preview-only.
+  They are emergency manual references, not the
+  steady-state product model.
+- The steady-state product model is the
+  [Capability Ontology Canon + Override Model
+  Decision](../strategy/capability-ontology-canon-override-model-decision.md):
+  Rekon ships canonical ontology packs (`base` +
+  archetype overlays) and repo-local overrides extend or
+  supersede them. The override file is being renamed
+  `.rekon/capability-ontology.overrides.json` in the
+  canon-packs-v1 implementation slice.
 
 ## Lexical Splitter Confidence
 
@@ -290,7 +301,13 @@ considered normalized.
   + [Capability Ontology Review-Loop
   Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
   — operator-facing manual editing reference and
-  seven-step quickstart.
+  seven-step quickstart. Fallback / emergency manual
+  path.
+- [Capability Ontology Canon + Override Model
+  Decision](../strategy/capability-ontology-canon-override-model-decision.md)
+  — steady-state product model. Rekon ships canonical
+  packs + archetype overlays; repo-local overrides
+  extend or supersede them.
 - [Capability Ontology Translation Layer
   Decision](../strategy/capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact

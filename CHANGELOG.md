@@ -4,6 +4,65 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability Ontology Canon + Override Model
+  Decision** — strategy / decision / docs / tests-only
+  batch on the capability-ontology track. **Revises** the
+  prior direction (the *Capability Ontology Suggestion
+  Safety Review* selected manual editing as the
+  operator-control boundary). New product posture:
+
+    - *"`CapabilityOntology` is not user-authored from
+      scratch. `CapabilityOntology` is Rekon-provided
+      canon + repo-local overrides."*
+    - Rekon will ship a built-in canonical ontology
+      baseline (`base` pack always loaded) plus a small
+      set of repo-archetype overlays (v1 ship set:
+      `base`, `nextjs-app`, `library-package`,
+      `monorepo`).
+    - Repo-local overrides **supersede or extend** the
+      canonical set. The override file is renamed
+      `.rekon/capability-ontology.overrides.json` to make
+      the operator's responsibility unambiguous.
+    - `EffectiveCapabilityOntology` is compiled from
+      `built-in canon → archetype overlays → repo
+      overrides → system seeds`, deterministically, with
+      later layers superseding earlier.
+    - `CapabilityOntologySuggestionReport` v2 will
+      propose patches against the overrides file, not
+      against the entire config.
+    - The previous authoring guide + review-loop
+      quickstart remain in `docs/beta/` as **fallback /
+      emergency manual** references, not the steady-state
+      product model.
+
+  Options considered: manual config authoring (rejected),
+  one global built-in ontology (rejected), canon packs +
+  repo overrides (selected), auto-apply suggestions
+  (deferred), LLM-generated ontology (rejected).
+
+  **No runtime change. No canonical pack content shipped
+  yet. No override loader change. No file rename yet.
+  No CLI change. No artifact shape change. No new
+  artifact registration. No `.rekon/capability-ontology.json`
+  mutation. No `CapabilityMap` mutation. No
+  `EvidenceGraph` mutation. No source-write apply. No
+  new permission. No workflow YAML. No version bump. No
+  npm publish. No git tag. No GitHub Release.**
+
+  New strategy memo
+  [`docs/strategy/capability-ontology-canon-override-model-decision.md`](docs/strategy/capability-ontology-canon-override-model-decision.md)
+  with the option / canon pack / override tables and the
+  `EffectiveCapabilityOntology` type sketch. New
+  14-assertion docs test. Review packet
+  [`.rekon-dev/review-packets/capability-ontology-canon-override-model-decision.md`](.rekon-dev/review-packets/capability-ontology-canon-override-model-decision.md).
+  Recommended next slice: *capability ontology canon
+  packs v1* — implement the canon pack registry, ship
+  the v1 archetype set, rename the loader target to
+  `.rekon/capability-ontology.overrides.json` with a
+  back-compat alias, and update
+  `EffectiveCapabilityOntology.source` to record
+  `basePack` + `overlayPacks`.
+
 - Shipped **Capability ontology config authoring guide +
   review-loop quickstart** — docs / support / tests-only
   batch on the capability-ontology track. Follows the

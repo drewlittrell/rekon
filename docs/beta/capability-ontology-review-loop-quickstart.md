@@ -5,10 +5,15 @@ want to run the full ontology review loop end-to-end against
 their own repo.
 **Companion:** [Capability Ontology Config Authoring
 Guide](capability-ontology-config-authoring-guide.md).
-**Status:** v1. Manual config editing only. No config-apply
-command ships (per the
-[Capability Ontology Suggestion Safety
-Review](../strategy/capability-ontology-suggestion-safety-review.md)).
+**Status:** v1. **Fallback / emergency manual path.** The
+steady-state product model is now the
+[Capability Ontology Canon + Override Model
+Decision](../strategy/capability-ontology-canon-override-model-decision.md):
+Rekon ships canonical packs and repo-local overrides extend
+or supersede them. This quickstart documents the manual path
+that remains available today and will be updated when the
+canon-packs-v1 implementation slice ships (loader target
+renames to `.rekon/capability-ontology.overrides.json`).
 
 ## Who This Is For
 

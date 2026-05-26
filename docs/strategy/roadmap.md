@@ -1617,6 +1617,107 @@ is the first stop before proposing a new capability batch.
   and measure operator friction
   before any apply-command
   decision memo lands.
+  **Subsequently reframed as a
+  fallback / emergency manual
+  path by the canon + override
+  model decision below.**
+- Capability ontology canon +
+  override model decision (P1.1
+  capability-ontology-canon-override-model-decision
+  slice): **tenth slice on the
+  capability-ontology track and
+  the steady-state product
+  posture revision for the
+  track.** Strategy / decision /
+  docs / tests-only batch.
+  **Do not implement canonical
+  packs yet. Do not implement
+  override apply yet. Do not
+  mutate
+  `.rekon/capability-ontology.json`.
+  Do not change normalizer
+  behavior. Do not mutate
+  `CapabilityMap`. Do not mutate
+  `EvidenceGraph`. Do not add
+  source writes. Do not add
+  LLM-only normalization. Do not
+  publish to npm. Do not bump
+  versions. Do not create a
+  branch.** Pins verbatim that
+  **CapabilityOntology is not
+  user-authored from scratch.
+  CapabilityOntology is
+  Rekon-provided canon +
+  repo-local overrides.** Replaces
+  the prior "manual config
+  authoring guide is the
+  steady-state model" direction
+  selected in the
+  capability-ontology-suggestion-safety-review
+  slice. Selects **Option C —
+  built-in canonical ontology
+  packs (`base` + archetype
+  overlays) + repo-local
+  overrides file**. Rejects
+  Option A (manual editing as
+  steady-state model), Option B
+  (single global canonical
+  ontology), and Option E (LLM
+  normalization). Defers Option D
+  (operator-approved override
+  apply command). Names the v1
+  ship set: `base`, `nextjs-app`,
+  `library-package`, `monorepo`.
+  Defines the override file
+  rename target
+  `.rekon/capability-ontology.overrides.json`
+  for the canon-packs-v1
+  implementation slice. Defines
+  the `EffectiveCapabilityOntology`
+  source surface
+  (`basePack` / `overlayPacks` /
+  `overridePath` / `overrideHash` /
+  `systemSeedCount`). Defines
+  override behaviors: canonical
+  terms extend canon; aliases
+  supersede on key collision;
+  noise suppresses suggestion
+  noise (not raw evidence).
+  Revises the suggestion
+  workflow to ReviewLedger →
+  SuggestionReport →
+  OverridePatchPreview →
+  operator-approved apply (apply
+  remains deferred). New strategy
+  memo
+  [`docs/strategy/capability-ontology-canon-override-model-decision.md`](capability-ontology-canon-override-model-decision.md)
+  with all 12 required headings
+  + 3 required diagnostic tables
+  (option / canon pack /
+  override). Review packet
+  `.rekon-dev/review-packets/capability-ontology-canon-override-model-decision.md`.
+  New 14-assertion docs test
+  `tests/docs/capability-ontology-canon-override-model-decision.test.mjs`.
+  Full suite expected ≥ 2221
+  passed (2207 + 14 new).
+  **Recommended next slice:**
+  *capability ontology canon
+  packs v1* — ship the
+  `base` / `nextjs-app` /
+  `library-package` / `monorepo`
+  packs as Rekon-provided
+  canonical ontology, register
+  the pack loader, rename the
+  loader target from
+  `.rekon/capability-ontology.json`
+  to
+  `.rekon/capability-ontology.overrides.json`,
+  and migrate
+  `EffectiveCapabilityOntology.source`
+  to surface
+  `basePack` / `overlayPacks` /
+  `overridePath` / `overrideHash` /
+  `systemSeedCount`.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

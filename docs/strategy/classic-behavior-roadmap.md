@@ -5554,6 +5554,59 @@ scope:
   *manual ontology config
   dogfood* — exercise the guide
   end-to-end on one real repo.
+  **Subsequently reframed as a
+  fallback / emergency manual
+  path by the canon + override
+  model decision below.**
+- **Capability ontology canon +
+  override model decision (P1.1
+  capability-ontology-canon-override-model-decision
+  slice).** ✅ Shipped. **Tenth
+  slice on the capability-ontology
+  track and the steady-state
+  product posture revision for
+  the track.** Strategy /
+  decision / docs / tests-only
+  batch. Pins verbatim that
+  **CapabilityOntology is not
+  user-authored from scratch.
+  CapabilityOntology is
+  Rekon-provided canon +
+  repo-local overrides.** Replaces
+  the prior "manual config
+  authoring guide is the
+  steady-state model" direction.
+  Selects **Option C — built-in
+  canonical ontology packs
+  (`base` + archetype overlays)
+  + repo-local overrides file**.
+  Names v1 ship set: `base`,
+  `nextjs-app`, `library-package`,
+  `monorepo`. Defines the
+  override file rename target
+  `.rekon/capability-ontology.overrides.json`
+  for the canon-packs-v1
+  implementation slice. **Do not
+  implement canonical packs yet.
+  Do not implement override
+  apply yet. Do not mutate
+  `.rekon/capability-ontology.json`.
+  Do not change normalizer
+  behavior. Do not mutate
+  `CapabilityMap`. Do not mutate
+  `EvidenceGraph`. Do not add
+  source writes. Do not add
+  LLM-only normalization. Do not
+  publish to npm. Do not bump
+  versions.** See
+  [`docs/strategy/capability-ontology-canon-override-model-decision.md`](capability-ontology-canon-override-model-decision.md).
+  **Recommended next slice:**
+  capability ontology canon packs
+  v1 — ship the four canonical
+  packs, register the pack
+  loader, rename the loader
+  target, and migrate
+  `EffectiveCapabilityOntology.source`.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

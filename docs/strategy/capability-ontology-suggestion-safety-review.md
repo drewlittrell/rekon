@@ -6,6 +6,20 @@
 
 This memo is **strategy / docs / tests only**. It does **not** change any runtime behavior, does **not** add an apply command, does **not** mutate `.rekon/capability-ontology.json`, does **not** mutate `CapabilityMap`, and does **not** add proof-report surfacing.
 
+> **Superseded direction.** The recommendation that
+> "manual editing remains the operator-control boundary"
+> has been revised by the
+> [Capability Ontology Canon + Override Model
+> Decision](capability-ontology-canon-override-model-decision.md).
+> Rekon now commits to shipping canonical ontology packs +
+> archetype overlays. The override file is being renamed
+> `.rekon/capability-ontology.overrides.json` in a future
+> implementation slice. Manual editing remains available
+> as a fallback but is no longer the steady-state product
+> model. The mutation-boundary statements in this memo
+> remain accurate: nothing in the suggestion workflow
+> mutates ontology config or `CapabilityMap` today.
+
 ## Decision Summary
 
 - **The capability ontology suggestion workflow is safe and stable as a preview-only loop.** Every step is read-only with respect to the ontology config, `CapabilityMap`, `EvidenceGraph` raw facts, and findings. Operators see the full audit chain in normal Rekon publications.

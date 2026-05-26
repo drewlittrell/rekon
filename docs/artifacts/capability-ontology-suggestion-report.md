@@ -207,4 +207,19 @@ across multiple targets.
   — operator-facing reference + seven-step quickstart for
   turning the entries in this report into hand-applied
   edits to `.rekon/capability-ontology.json`. Both docs
-  repeat the preview-only / no-mutation pins.
+  repeat the preview-only / no-mutation pins. **Fallback /
+  emergency manual path** — the steady-state product
+  model is the canon + override decision below.
+- [Capability Ontology Canon + Override Model
+  Decision](../strategy/capability-ontology-canon-override-model-decision.md)
+  — steady-state product model. Rekon ships canonical
+  ontology packs (`base` + archetype overlays) and
+  repo-local overrides extend or supersede them. The
+  override file is being renamed
+  `.rekon/capability-ontology.overrides.json` in the
+  canon-packs-v1 implementation slice; once it ships, the
+  suggestion report's `preview.configPath` and
+  `preview.patch.*` fields will target the overrides file
+  and emit pack-aware proposals. Until then, this report
+  continues to target `.rekon/capability-ontology.json`
+  as a manual fallback.

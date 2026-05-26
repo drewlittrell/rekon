@@ -4,10 +4,16 @@
 capability vocabulary against their own repo.
 **Companion:** [Capability Ontology Review-Loop
 Quickstart](capability-ontology-review-loop-quickstart.md).
-**Status:** v1. Manual editing only. No config-apply command
-ships in this batch (per the
-[Capability Ontology Suggestion Safety
-Review](../strategy/capability-ontology-suggestion-safety-review.md)).
+**Status:** v1. **Fallback / emergency manual path.** The
+steady-state product model is now defined by the
+[Capability Ontology Canon + Override Model
+Decision](../strategy/capability-ontology-canon-override-model-decision.md):
+Rekon ships canonical ontology packs (`base` + archetype
+overlays) and repo-local overrides extend or supersede them.
+This guide remains useful for operators who need to author
+the file directly today, and will be updated when the
+canon-packs-v1 implementation slice lands (loader target
+renames to `.rekon/capability-ontology.overrides.json`).
 
 ## Purpose
 
