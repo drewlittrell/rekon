@@ -314,12 +314,20 @@ by operators.
 
 ### Layer 6 — `CapabilityMap`
 
-Future consumer of normalized
-capability claims. **Not touched in
+Future consumer of **stable
+`CapabilityPhrase` claims**, not raw
+normalization rows. **Not touched in
 v1.** The existing capability
 projection is unchanged. v2 wires the
-audit artifact into `CapabilityMap`
-as an **additive** input.
+semantic projection (via Layer 5b
+`CapabilityPhrase`) into
+`CapabilityMap` as an **additive**
+input. See
+[CapabilityPhrase + CapabilityContract Architecture Decision](capability-phrase-contract-architecture-decision.md)
+for the semantic primitive that
+slots between Layer 5
+(`CapabilityNormalizationReport`)
+and Layer 6.
 
 ### Layer 7 — `RefactorPreservationContract`
 

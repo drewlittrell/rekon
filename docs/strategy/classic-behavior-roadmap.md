@@ -5654,6 +5654,77 @@ scope:
   **Recommended next slice:**
   capability ontology canon-pack
   coverage review.
+- **CapabilityPhrase + CapabilityContract
+  architecture decision (P1.1
+  capability-phrase-contract-architecture-decision
+  slice).** ✅ Shipped. **Twelfth
+  slice on the capability-ontology
+  track and the semantic primitive
+  every later layer depends on.**
+  Strategy / architecture / docs /
+  tests-only batch. Reserves
+  `CapabilityPhrase` as the
+  intermediate semantic unit
+  between
+  `CapabilityNormalizationReport`
+  and the future `CapabilityMap`
+  v2, and reserves
+  `CapabilityContract` as the
+  future policy / preservation
+  layer (distinct from
+  `RefactorPreservationContract`,
+  which is a phase-specific
+  projection). Pins verbatim that
+  AST evidence is optional
+  enrichment, not foundational
+  truth; that repo / language /
+  architecture agnostic evidence
+  is required; that
+  `CapabilityMap` v2 consumes only
+  stable, confidence-scored
+  `CapabilityPhrase` claims; and
+  that source writes remain
+  unavailable. Sketches the v1
+  `CapabilityPhrase` shape
+  (required `verb` + `noun` +
+  `confidence` + `evidenceRefs`;
+  optional v1 `qualifier` /
+  `domain` / `pattern` / `layer`;
+  reserved future `sideEffects` /
+  `inputs` / `outputs`) plus the
+  `CapabilityContract` shape
+  (`allowedLayers` /
+  `allowedSystems` /
+  `forbiddenLayers` /
+  `requiredChecks` /
+  `requiredNeighbors` /
+  `forbiddenNeighbors` /
+  `preservationRules`). Defines
+  the evidence-source matrix, the
+  use-cases unlocked, and the
+  layer-boundary table. **No
+  runtime change. No new artifact
+  registration. No `CapabilityMap`
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No `EvidenceGraph`
+  mutation. No source-write apply.
+  No AST-first assumption. No
+  LLM-only inference. No version
+  bump. No npm publish.** New
+  18-assertion docs test
+  `tests/docs/capability-phrase-contract-architecture-decision.test.mjs`.
+  See
+  [`docs/strategy/capability-phrase-contract-architecture-decision.md`](capability-phrase-contract-architecture-decision.md).
+  **Recommended next slice:**
+  CapabilityPhrase v1 artifact /
+  report decision — pick Option
+  A (enrich
+  `CapabilityNormalizationReport`),
+  Option B (new
+  `CapabilityPhraseReport`), or
+  Option C (wait). Preferred:
+  **Option B**.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

@@ -4,6 +4,71 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityPhrase + CapabilityContract
+  Architecture Decision** — strategy / architecture /
+  docs / tests-only batch. Reserves the semantic primitive
+  the capability-ontology track needs before
+  `CapabilityMap` v2, source-write apply, or any
+  architecture-aware feature can ship.
+
+  Pinned verbatim:
+
+    - **`CapabilityPhrase`** is the intermediate semantic
+      unit between `CapabilityNormalizationReport` and
+      `CapabilityMap` v2.
+    - **`CapabilityPhrase` is different from a normalized
+      verb/noun.** It enriches the canonical pair with
+      `qualifier` / `domain` / `pattern` / `layer` /
+      future `sideEffects` / `inputs` / `outputs` plus
+      required `confidence` + `evidenceRefs`.
+    - **`CapabilityContract` is the future policy /
+      preservation layer.** It binds a phrase to allowed
+      layers / required checks / required + forbidden
+      neighbours / preservation rules. **Not the same as**
+      `RefactorPreservationContract`, which is a
+      phase-specific projection of contract policy onto a
+      refactor.
+    - **`CapabilityMap` v2 should consume only stable,
+      confidence-scored `CapabilityPhrase` claims.**
+    - **AST / typechecker evidence is optional
+      enrichment, not foundational truth.** Lexical,
+      path, ownership, framework, and operator-decision
+      evidence remain the baseline.
+    - **Repo / language / architecture agnostic evidence
+      is required** — the phrase model must work on Ruby,
+      Python, Go, Rust, shell, and config-only repos as
+      well as TypeScript / JavaScript.
+    - **Source writes remain unavailable.**
+
+  Use cases unlocked once phrases ship: architecture
+  linting, naming honesty, overloaded-file detection,
+  resolver routing, verification planning, semantic
+  impact analysis, memory anchoring, refactor
+  preservation, docs / publication clustering, and
+  `CapabilityMap` v2.
+
+  **No runtime change. No new artifact registration. No
+  `CapabilityMap` mutation. No `CapabilityNormalizationReport`
+  mutation. No `EvidenceGraph` mutation. No source
+  writes. No AST-first assumption. No LLM-only semantic
+  inference. No new CLI command. No new permission. No
+  workflow YAML change. No version bump. No npm publish.
+  No git tag. No GitHub Release. No new branch.**
+
+  New strategy memo
+  `docs/strategy/capability-phrase-contract-architecture-decision.md`
+  with all 16 required headings + 3 required diagnostic
+  tables (evidence-source, use-case, layer / boundary).
+  New 18-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-phrase-contract-architecture-decision.md`.
+
+  Recommended next slice: *CapabilityPhrase v1 artifact /
+  report decision* — pick Option A (enrich
+  `CapabilityNormalizationReport`), Option B (new
+  `CapabilityPhraseReport`), or Option C (wait).
+  Preferred: **Option B**, preserving the boundary
+  *normalization audit ≠ semantic purpose projection*.
+
 - Shipped **Capability Ontology Canon Packs v1** —
   implementation slice that lands the canon + override
   model decision shipped at `d9716f9`. Rekon now compiles

@@ -1049,6 +1049,54 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# CapabilityPhrase + CapabilityContract architecture
+# decision has shipped (strategy / architecture / docs /
+# tests-only). Reserves the semantic primitive every
+# later capability-ontology layer depends on.
+#
+# Pinned verbatim:
+#   - CapabilityPhrase is the intermediate semantic
+#     unit between CapabilityNormalizationReport and
+#     CapabilityMap v2.
+#   - CapabilityPhrase is different from a normalized
+#     verb/noun. It enriches the canonical pair with
+#     optional qualifier / domain / pattern / layer
+#     plus reserved future sideEffects / inputs /
+#     outputs, and required confidence + evidenceRefs.
+#   - CapabilityContract is the future policy /
+#     preservation layer; it binds a phrase to allowed
+#     layers / required checks / required + forbidden
+#     neighbours / preservation rules. NOT the same as
+#     RefactorPreservationContract (a phase-specific
+#     projection of contract policy onto a refactor).
+#   - CapabilityMap v2 should consume only stable,
+#     confidence-scored CapabilityPhrase claims.
+#   - AST / typechecker evidence is optional
+#     enrichment, not foundational truth.
+#   - Repo / language / architecture agnostic evidence
+#     is required.
+#   - Source writes remain unavailable.
+#
+# Use cases unlocked once phrases ship: architecture
+# linting, naming honesty, overloaded-file detection,
+# resolver routing, verification planning, semantic
+# impact analysis, memory anchoring, refactor
+# preservation, docs / publication clustering, and
+# CapabilityMap v2.
+#
+# No runtime change. No new artifact registration. No
+# CapabilityMap mutation. No CapabilityNormalizationReport
+# mutation. No EvidenceGraph mutation. No source-write
+# apply. No AST-first assumption. No LLM-only
+# inference. No version bump. No npm publish.
+#
+# See docs/strategy/capability-phrase-contract-architecture-decision.md
+# Recommended next slice: CapabilityPhrase v1 artifact /
+# report decision — Option A (enrich
+# CapabilityNormalizationReport), Option B (new
+# CapabilityPhraseReport), or Option C (wait).
+# Preferred: Option B.
+#
 # Capability ontology canon packs v1 has shipped.
 # First implementation slice on the canon + override
 # model. Rekon now compiles every

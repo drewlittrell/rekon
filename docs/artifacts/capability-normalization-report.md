@@ -124,6 +124,20 @@ A future slice (deferred to v2 of the ontology track) will:
 Until those slices land, this artifact is the **only** runtime
 surface of the layered capability ontology.
 
+## Downstream Consumers
+
+The
+[CapabilityPhrase + CapabilityContract Architecture
+Decision](../strategy/capability-phrase-contract-architecture-decision.md)
+reserves the semantic primitive that consumes this report.
+`CapabilityPhrase` enriches the canonical verb / noun pair
+with `qualifier` / `domain` / `pattern` / `layer` plus
+required `confidence` and `evidenceRefs`. The future
+`CapabilityMap` v2 consumes only stable, confidence-scored
+`CapabilityPhrase` claims — never raw normalization rows.
+`CapabilityContract` (further future) binds a phrase to
+placement / proof / preservation policy.
+
 ## See Also
 
 - [Capability Ontology

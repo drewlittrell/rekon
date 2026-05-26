@@ -290,7 +290,8 @@ The suggestion report shape stays preview-only. The agent contract's existing `D
 | 3 | Suggestion-report-v2 — render `preview.patch` against the overrides file (not the entire config). Skip canonical-token suggestions when the term is already canonical in any selected pack. | After step 2 |
 | 4 | Automatic archetype detection — infer `extends` from the repo contract / observed package + framework facts when the override file is absent or omits `extends`. | After step 3 |
 | 5 | Override apply decision memo — only after step 4 lands and operator dogfood produces evidence that manual override merging is painful. Apply implementation gates on confirmation token + override-file diff + dedicated safety review. | Deferred |
-| 6 | `CapabilityMap` v2 — gated on stable canon + overrides + apply path. | Deferred |
+| 6 | `CapabilityMap` v2 — gated on stable canon + overrides + apply path. **Now additionally gated on the [CapabilityPhrase architecture decision](capability-phrase-contract-architecture-decision.md):** v2 consumes only stable, confidence-scored `CapabilityPhrase` claims, never raw normalization rows. | Deferred |
+| 7 | **CapabilityPhrase + CapabilityContract Architecture Decision** — reserve the semantic primitive between `CapabilityNormalizationReport` and `CapabilityMap` v2; pin v1 phrase field shape; defer `CapabilityContract` to a separate future memo. | ✅ Shipped |
 
 Steps 2 – 4 are the next implementation work. Step 1 lands now as a strategy decision.
 

@@ -1800,6 +1800,102 @@ is the first stop before proposing a new capability batch.
   are needed, the splitter should
   improve, or `CapabilityMap` v2
   can begin.
+- CapabilityPhrase +
+  CapabilityContract architecture
+  decision (P1.1
+  capability-phrase-contract-architecture-decision
+  slice): **twelfth slice on the
+  capability-ontology track and
+  the semantic primitive that
+  every later layer depends on.**
+  Strategy / architecture / docs /
+  tests-only batch. **No runtime
+  change. No new artifact
+  registration. No `CapabilityMap`
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No `EvidenceGraph`
+  mutation. No source-write apply.
+  No AST-first assumption. No
+  LLM-only inference. No new
+  CLI command. No new permission.
+  No new role. No workflow YAML.
+  No `package.json` /
+  `package-lock.json` mutation.
+  No version bump. No npm publish.
+  No git tag. No GitHub Release.
+  No new branch.** Pins verbatim:
+  **`CapabilityPhrase` is the
+  intermediate semantic unit
+  between `CapabilityNormalizationReport`
+  and `CapabilityMap` v2.**
+  **`CapabilityPhrase` is
+  different from a normalized
+  verb/noun.**
+  **`CapabilityContract` is the
+  future policy / preservation
+  layer** (not the same as
+  `RefactorPreservationContract`,
+  which is a phase-specific
+  projection). **`CapabilityMap`
+  v2 should consume stable,
+  confidence-scored
+  `CapabilityPhrase` claims.**
+  **AST / typechecker evidence
+  is optional enrichment, not
+  foundational truth.** **Repo /
+  language / architecture
+  agnostic evidence is
+  required.** Sketches the v1
+  `CapabilityPhrase` shape
+  (required: `verb`, `noun`,
+  `confidence`, `evidenceRefs`;
+  optional v1: `qualifier`,
+  `domain`, `pattern`, `layer`;
+  reserved future: `sideEffects`,
+  `inputs`, `outputs`) plus the
+  `CapabilityContract` shape
+  (`allowedLayers`,
+  `allowedSystems`,
+  `forbiddenLayers`,
+  `requiredChecks`,
+  `requiredNeighbors`,
+  `forbiddenNeighbors`,
+  `preservationRules`). Defines
+  the evidence-source matrix per
+  field, the use-cases unlocked
+  (architecture linting, naming
+  honesty, overloaded files,
+  resolver routing, verification
+  planning, semantic impact,
+  memory, refactor preservation,
+  docs, `CapabilityMap` v2), and
+  the layer-boundary table
+  (`CapabilityNormalizationReport`
+  → `CapabilityPhrase` →
+  `CapabilityMap` →
+  `CapabilityContract` →
+  `RefactorPreservationContract`).
+  New strategy memo
+  [`docs/strategy/capability-phrase-contract-architecture-decision.md`](capability-phrase-contract-architecture-decision.md)
+  with all 16 required headings
+  + 3 required diagnostic tables.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-contract-architecture-decision.md`.
+  New 18-assertion docs test
+  `tests/docs/capability-phrase-contract-architecture-decision.test.mjs`.
+  **Recommended next slice:**
+  *CapabilityPhrase v1 artifact /
+  report decision* — pick Option
+  A (enrich
+  `CapabilityNormalizationReport`),
+  Option B (new
+  `CapabilityPhraseReport`), or
+  Option C (wait for more
+  evidence-source slices).
+  Preferred: **Option B** —
+  preserves *normalization audit
+  ≠ semantic purpose projection*.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

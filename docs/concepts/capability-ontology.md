@@ -332,6 +332,27 @@ Low-confidence candidates are classified `low-confidence` in
 the report regardless of ontology lookup. They are not
 considered normalized.
 
+## Semantic Layer (CapabilityPhrase)
+
+The normalization report answers "what does this symbol
+look like?" The next layer — `CapabilityPhrase` — answers
+"what does this *do*?" A phrase enriches the canonical
+verb / noun pair with optional `qualifier` / `domain` /
+`pattern` / `layer` fields plus required `confidence` and
+`evidenceRefs`. `CapabilityPhrase` is the intermediate
+semantic unit between `CapabilityNormalizationReport` and
+the future `CapabilityMap` v2.
+
+`CapabilityPhrase` is not implemented yet. The
+[CapabilityPhrase + CapabilityContract Architecture
+Decision](../strategy/capability-phrase-contract-architecture-decision.md)
+reserves the name, pins the v1 field shape, and pins the
+boundary between phrase (observed semantic claim) and
+contract (operator-authored placement / proof /
+preservation policy). `CapabilityContract` is the future
+policy layer; `RefactorPreservationContract` is a
+phase-specific projection of that policy.
+
 ## See Also
 
 - [`CapabilityNormalizationReport` artifact
