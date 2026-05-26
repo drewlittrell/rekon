@@ -5518,6 +5518,42 @@ scope:
   *capability ontology config
   authoring guide + review-loop
   quickstart* (docs-only).
+- **Capability ontology config
+  authoring guide + review-loop
+  quickstart (P1.1
+  capability-ontology-config-authoring-guide
+  slice).** ✅ Shipped. **Ninth
+  slice on the capability-ontology
+  track. Docs / support / tests-only
+  batch.** Two new operator-facing
+  docs under `docs/beta/`: the
+  authoring guide
+  ([`capability-ontology-config-authoring-guide.md`](../beta/capability-ontology-config-authoring-guide.md))
+  and the seven-step quickstart
+  ([`capability-ontology-review-loop-quickstart.md`](../beta/capability-ontology-review-loop-quickstart.md)).
+  Documents the full operator path
+  (refresh → normalize → review →
+  decide → suggest → inspect
+  publications → manually edit
+  `.rekon/capability-ontology.json`
+  → rerun normalize). Both docs
+  pin verbatim that the config
+  file is optional, that Rekon
+  never creates or mutates it
+  automatically, that JSON only
+  is supported in v1, and that
+  suggestions remain preview-only.
+  **No runtime change. No CLI
+  change. No artifact shape
+  change. No
+  `.rekon/capability-ontology.json`
+  mutation. No `CapabilityMap`
+  mutation. No source-write
+  apply. No new permission.**
+  **Recommended next slice:**
+  *manual ontology config
+  dogfood* — exercise the guide
+  end-to-end on one real repo.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

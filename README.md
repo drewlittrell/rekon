@@ -1049,6 +1049,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# Capability ontology config authoring guide +
+# review-loop quickstart have shipped (docs / support /
+# tests-only). Two new operator-facing docs:
+#   docs/beta/capability-ontology-config-authoring-guide.md
+#   docs/beta/capability-ontology-review-loop-quickstart.md
+# Documents the full manual operator path:
+#   refresh -> normalize -> review unknowns -> decide -> suggest
+#   -> inspect publications -> manually edit
+#   .rekon/capability-ontology.json -> rerun normalize.
+# Both docs pin verbatim:
+#   - the config file is optional;
+#   - Rekon never creates or mutates it automatically;
+#   - JSON only in v1, no YAML;
+#   - CapabilityOntologySuggestionReport is preview-only
+#     and not applied vocabulary;
+#   - CapabilityMap integration remains deferred;
+#   - suggestions do not mutate config or CapabilityMap.
+#
 # Capability ontology suggestion safety review
 # has shipped (strategy / docs / tests-only).
 # Reviews the full normalize -> review ledger ->

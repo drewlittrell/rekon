@@ -1561,6 +1561,62 @@ is the first stop before proposing a new capability batch.
   quickstart* — docs-only
   follow-up walking operators
   through the manual path.
+- Capability ontology config
+  authoring guide + review-loop
+  quickstart (P1.1
+  capability-ontology-config-authoring-guide
+  slice): **ninth slice on the
+  capability-ontology track.**
+  Docs / support / tests-only
+  batch. Two new operator-facing
+  docs under `docs/beta/`: the
+  [authoring guide](../beta/capability-ontology-config-authoring-guide.md)
+  (canonical config shape +
+  every supported field + manual
+  editing workflow + validation
+  loop + what suggestions mean)
+  and the seven-step
+  [review-loop quickstart](../beta/capability-ontology-review-loop-quickstart.md)
+  (refresh → normalize → review
+  → decide → suggest → inspect
+  publications → manually edit
+  → rerun normalize). Both docs
+  repeat the verbatim pins:
+  config file is optional;
+  Rekon never creates or mutates
+  it automatically; JSON only
+  in v1, no YAML;
+  `CapabilityOntologySuggestionReport`
+  is preview-only and not
+  applied vocabulary;
+  `CapabilityMap` integration
+  remains deferred; suggestions
+  do not mutate config or
+  `CapabilityMap`. **No runtime
+  change. No CLI change. No
+  artifact shape change. No new
+  artifact registration. No
+  `.rekon/capability-ontology.json`
+  mutation. No `CapabilityMap`
+  mutation. No `EvidenceGraph`
+  mutation. No source-write
+  apply. No new permission. No
+  workflow YAML. No version
+  bump. No npm publish. No git
+  tag. No GitHub Release.** New
+  22-assertion docs test
+  `tests/docs/capability-ontology-config-authoring-guide.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-ontology-config-authoring-guide.md`.
+  Full suite expected ≥ 2207
+  passed (2185 + 22 new).
+  **Recommended next slice:**
+  *manual ontology config
+  dogfood* — exercise the guide
+  end-to-end on one real repo
+  and measure operator friction
+  before any apply-command
+  decision memo lands.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

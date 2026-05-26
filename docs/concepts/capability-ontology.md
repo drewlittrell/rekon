@@ -245,6 +245,16 @@ Rules:
   config apply command ships yet. `CapabilityMap`
   integration remains deferred until reviewed terms
   produce stable high-confidence normalized claims.
+- Operators executing the manual path should read the
+  [Capability Ontology Config Authoring
+  Guide](../beta/capability-ontology-config-authoring-guide.md)
+  for the canonical config shape and the
+  [Capability Ontology Review-Loop
+  Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
+  for the seven-step procedural walkthrough. Both docs
+  pin verbatim that `.rekon/capability-ontology.json` is
+  optional, that Rekon never creates or mutates it
+  automatically, and that suggestions remain preview-only.
 
 ## Lexical Splitter Confidence
 
@@ -275,6 +285,12 @@ considered normalized.
   `normalize → review → suggest → publish` loop. Pins
   the preview-only contract and defers any config apply
   command.
+- [Capability Ontology Config Authoring
+  Guide](../beta/capability-ontology-config-authoring-guide.md)
+  + [Capability Ontology Review-Loop
+  Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
+  — operator-facing manual editing reference and
+  seven-step quickstart.
 - [Capability Ontology Translation Layer
   Decision](../strategy/capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact

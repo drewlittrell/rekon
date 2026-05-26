@@ -223,5 +223,10 @@ In priority order:
 - [`CapabilityNormalizationReviewLedger` artifact reference](../artifacts/capability-normalization-review-ledger.md)
 - [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md)
 - [Capability ontology concept](../concepts/capability-ontology.md)
+- [Capability Ontology Config Authoring Guide](../beta/capability-ontology-config-authoring-guide.md)
+  — operator reference for editing `.rekon/capability-ontology.json` by hand,
+  shipped as the docs-only follow-up to this safety review.
+- [Capability Ontology Review-Loop Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
+  — seven-step operator quickstart walking through the manual path.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)

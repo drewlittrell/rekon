@@ -200,3 +200,11 @@ across multiple targets.
   that this report stays preview-only and that manual
   editing of `.rekon/capability-ontology.json` remains
   the operator-control boundary.
+- [Capability Ontology Config Authoring
+  Guide](../beta/capability-ontology-config-authoring-guide.md)
+  + [Capability Ontology Review-Loop
+  Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
+  — operator-facing reference + seven-step quickstart for
+  turning the entries in this report into hand-applied
+  edits to `.rekon/capability-ontology.json`. Both docs
+  repeat the preview-only / no-mutation pins.

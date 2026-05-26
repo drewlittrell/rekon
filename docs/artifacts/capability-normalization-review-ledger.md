@@ -166,6 +166,13 @@ multiple operator targets.
   Review](../strategy/capability-ontology-suggestion-safety-review.md)
   — pins that this ledger remains append-only and never
   drives automatic config mutation.
+- [Capability Ontology Config Authoring
+  Guide](../beta/capability-ontology-config-authoring-guide.md)
+  + [Capability Ontology Review-Loop
+  Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
+  — operator-facing reference for the manual `decide →
+  suggest → edit → rerun` loop that turns ledger entries
+  into hand-edited canonical entries / aliases.
 - [Capability Ontology
   concept](../concepts/capability-ontology.md)
 - [Capability Ontology Translation Layer

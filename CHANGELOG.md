@@ -4,6 +4,59 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability ontology config authoring guide +
+  review-loop quickstart** — docs / support / tests-only
+  batch on the capability-ontology track. Follows the
+  suggestion safety review's selection of manual config
+  editing as the operator-control boundary.
+
+  Two new operator-facing docs under `docs/beta/`:
+
+    - [`capability-ontology-config-authoring-guide.md`](docs/beta/capability-ontology-config-authoring-guide.md)
+      — full reference for editing
+      `.rekon/capability-ontology.json` by hand. Includes
+      the canonical JSON shape, every supported field
+      (`verbs.{canonical,aliases,categories,includeSystemVerbs}`,
+      `nouns.{canonical,aliases,categories,thresholds.autoMap,includeSystemNouns}`),
+      the manual editing workflow, the validation loop,
+      what each suggestion kind means, and a
+      decision-meaning table.
+    - [`capability-ontology-review-loop-quickstart.md`](docs/beta/capability-ontology-review-loop-quickstart.md)
+      — seven-step operator quickstart from
+      `rekon refresh` through `rekon capability ontology
+      normalize` → `review suggestions` → `review decide` →
+      `capability ontology suggestions` → inspect
+      publications → manually edit
+      `.rekon/capability-ontology.json` → rerun normalize.
+
+  Verbatim pins repeated in both docs and asserted by the
+  docs test:
+
+    - *"The file is optional. If absent, Rekon uses the
+      built-in baseline ontology."*
+    - *"Rekon never creates or mutates this file
+      automatically."*
+    - *"JSON only in v1. YAML is not supported."*
+    - *"`CapabilityOntologySuggestionReport` is
+      preview-only and not applied vocabulary."*
+    - *"`CapabilityMap` integration remains deferred."*
+    - *"Suggestions do not mutate
+      `.rekon/capability-ontology.json`."*
+    - *"Suggestions do not mutate `CapabilityMap`."*
+
+  **No runtime change. No CLI change. No artifact shape
+  change. No new artifact registration. No
+  `.rekon/capability-ontology.json` mutation. No
+  `CapabilityMap` mutation. No `EvidenceGraph` mutation. No
+  source-write apply. No new permission. No workflow YAML.
+  No version bump. No npm publish. No git tag. No GitHub
+  Release.** New 22-assertion docs test. Review packet
+  [`.rekon-dev/review-packets/capability-ontology-config-authoring-guide.md`](.rekon-dev/review-packets/capability-ontology-config-authoring-guide.md).
+  Recommended next slice: *manual ontology config dogfood*
+  — exercise the guide end-to-end on one real repo and
+  measure operator friction before any apply-command
+  decision memo lands.
+
 - Shipped **Capability ontology suggestion safety review** —
   strategy / docs / tests-only batch on the
   capability-ontology track. Reviews the full

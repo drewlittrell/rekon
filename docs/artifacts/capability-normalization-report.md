@@ -135,6 +135,12 @@ surface of the layered capability ontology.
   Review](../strategy/capability-ontology-suggestion-safety-review.md)
   — confirms this report stays audit-only across the full
   ontology suggestion loop.
+- [Capability Ontology Config Authoring
+  Guide](../beta/capability-ontology-config-authoring-guide.md)
+  + [Capability Ontology Review-Loop
+  Quickstart](../beta/capability-ontology-review-loop-quickstart.md)
+  — operator path for translating this report's unknown
+  rows into manual ontology config edits.
 - [`EvidenceGraph` artifact reference](evidence-graph.md)
 - [Reconciliation preview
   concept](../concepts/reconciliation-preview.md)
