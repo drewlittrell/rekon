@@ -474,6 +474,17 @@ during the filter step.
 ## Cross-References
 
 - [GraphOntologyValidator-lite audit](../strategy/graph-ontology-validator-lite-audit.md)
+- [Capability Ontology Architecture Impact Review](../strategy/capability-ontology-architecture-impact-review.md)
+  — pins the boundary between the
+  structural graph-aware filters
+  documented here and the future
+  canonical-purpose translation
+  layer. Phase-3 in that review
+  schedules an opt-in policy
+  provider that filters by canonical
+  capability purpose; until that
+  phase ships, graph-aware filters
+  remain structural-only.
 - [Finding filters](finding-filters.md)
 - [Finding filter policy status](finding-filter-policy-status.md)
 - [Finding filter policy suggestions](finding-filter-policy-suggestions.md)

@@ -207,6 +207,16 @@ any finding status, and never causes any
   real unified diffs against a real
   generator. **Source-write apply remains
   unavailable.**
+- [Capability Ontology Architecture Impact Review](../strategy/capability-ontology-architecture-impact-review.md)
+  — pins the phase-5 future where a
+  `RefactorPreservationContract` (name
+  reserved, registration deferred) feeds
+  preservation obligations into
+  reconciliation planning. Until that phase
+  lands, this preview's classifier remains
+  unaware of canonical capability purpose.
+  Source-write apply remains unavailable
+  through that future track as well.
 - [Source-Write Reconciliation Policy Decision](../strategy/source-write-reconciliation-policy-decision.md)
 - [ReconciliationPlan artifact reference](../artifacts/reconciliation-plan.md)
 - [Reconciliation plans concept](reconciliation-plans.md)

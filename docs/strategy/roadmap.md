@@ -1106,6 +1106,114 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Capability ontology architecture
+  impact review (P1.1
+  capability-ontology-architecture-impact-review
+  slice): **first slice on the
+  capability-ontology track.** Strategy
+  / architecture / docs / tests-only
+  batch. **No `CapabilityOntology`
+  implementation. No `CapabilityNormalizationReport`
+  registration. No
+  `RefactorPreservationContract`
+  registration. No `EvidenceGraph` /
+  `CapabilityMap` / `FindingReport` /
+  `FindingFilterReport` /
+  `IssueAdjudicationReport` /
+  `CoherencyDelta` / `ReconciliationPlan`
+  / `ReconciliationPreview` /
+  `VerificationRun` /
+  `VerificationResult` / memory /
+  publication behaviour change. No
+  new capability package. No new CLI
+  command. No new validator. No new
+  writer. No new permission. No new
+  role. No workflow YAML. No
+  `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation. No source-write
+  apply. No LLM-only normalization. No
+  port of the classic
+  `GraphOntologyValidator` monolith.
+  No npm publish. No version bump. No
+  git tag. No GitHub Release. No new
+  branch. No network I/O.** Maps the
+  blast radius of a future
+  capability-ontology / translation
+  layer across every Rekon surface
+  (`EvidenceGraph`, `ObservedRepo`,
+  `OwnershipMap`, `CapabilityMap`,
+  `FindingReport`, `FindingFilterReport`,
+  `IssueAdjudicationReport`,
+  `CoherencyDelta`, `ReconciliationPlan`,
+  `ReconciliationPreview`,
+  `VerificationRun` /
+  `VerificationResult`, memory,
+  architecture summary, agent
+  contract, GitHub review surfaces,
+  future `RefactorPreservationContract`).
+  Pins **eight architectural decisions**
+  that must hold for any future
+  implementation slice: (1) Rekon
+  still needs the ontology function;
+  (2) the ontology function should
+  not be a monolithic validator; (3)
+  raw evidence must remain separate
+  from normalized purpose; (4)
+  normalization decisions need an
+  audit artifact; (5) `CapabilityMap`
+  should eventually consume normalized
+  capability claims; (6)
+  `RefactorPreservationContract`
+  depends on normalized capability
+  language; (7) LLM-only normalization
+  is not acceptable as truth; (8)
+  unknown verbs / nouns must surface
+  to operators. Establishes the
+  **five-layer boundary**:
+  `EvidenceGraph` (raw facts) →
+  `CapabilityOntology` (vocabulary)
+  → `CapabilityNormalizationReport`
+  (audit) → `CapabilityMap`
+  (normalized projection) →
+  `RefactorPreservationContract`
+  (preservation obligations).
+  Reserves the three names
+  (`CapabilityOntology`,
+  `CapabilityNormalizationReport`,
+  `RefactorPreservationContract`)
+  for the future translation-layer
+  decision slice. New strategy memo
+  [`docs/strategy/capability-ontology-architecture-impact-review.md`](capability-ontology-architecture-impact-review.md)
+  with all 13 required headings + 3
+  required diagnostic tables
+  (architecture impact / boundary /
+  risk). Review packet
+  `.rekon-dev/review-packets/capability-ontology-architecture-impact-review.md`
+  with PURPOSE PRESERVATION CHECK +
+  all 11 required sections. New
+  15-assertion docs test
+  `tests/docs/capability-ontology-architecture-impact-review.test.mjs`.
+  Required verbatim pins (asserted
+  by docs test): the eight
+  decisions above (each in full
+  sentence form), the no-LLM-only
+  pin, the no-wholesale-port pin,
+  the raw-evidence-immutable pin.
+  Full suite expected ≥ 2045
+  passed / 1 skipped (2030 + 15
+  new). **Recommended next slice:**
+  *Capability Ontology Translation
+  Layer Decision* memo — decide
+  whether `CapabilityOntology` is
+  config / artifact / both, name
+  the owning capability package,
+  define the phase-1 audit
+  artifact shape, pin the
+  unknown-term review path. Until
+  that decision memo lands, no
+  ontology implementation slice
+  is queued.
 - Reconciliation exact-diff operation v1
   (P1.1
   reconciliation-exact-diff-operation-v1

@@ -4,6 +4,118 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability Ontology Architecture
+  Impact Review** — first slice on the
+  capability-ontology track. Strategy /
+  architecture / docs / tests-only batch.
+  Maps the blast radius of a future
+  capability-ontology / translation layer
+  across every Rekon surface
+  (`EvidenceGraph`, `ObservedRepo`,
+  `OwnershipMap`, `CapabilityMap`,
+  `FindingReport`, `FindingFilterReport`,
+  `IssueAdjudicationReport`,
+  `CoherencyDelta`, `ReconciliationPlan`,
+  `ReconciliationPreview`,
+  `VerificationRun` / `VerificationResult`,
+  memory, architecture summary, agent
+  contract, GitHub review surfaces, future
+  `RefactorPreservationContract`).
+
+  **No `CapabilityOntology` implementation.
+  No `CapabilityNormalizationReport`
+  registration. No
+  `RefactorPreservationContract`
+  registration. No `EvidenceGraph` /
+  `CapabilityMap` / `FindingReport` /
+  `FindingFilterReport` /
+  `IssueAdjudicationReport` /
+  `CoherencyDelta` / `ReconciliationPlan` /
+  `ReconciliationPreview` /
+  `VerificationRun` / `VerificationResult`
+  / memory / publication behaviour change.
+  No new capability package. No new CLI
+  command. No new validator. No new
+  writer. No new permission. No new role.
+  No workflow YAML. No `package.json`
+  mutation. No source-file mutation. No
+  source-write apply. No LLM-only
+  normalization. No port of the classic
+  `GraphOntologyValidator` monolith. No
+  npm publish. No version bump. No git
+  tag. No GitHub Release. No new branch.
+  No network I/O.**
+
+  **What landed:**
+  - New strategy memo
+    `docs/strategy/capability-ontology-architecture-impact-review.md`
+    with 13 required headings + 3 required
+    diagnostic tables (architecture impact
+    / boundary / risk).
+  - Review packet
+    `.rekon-dev/review-packets/capability-ontology-architecture-impact-review.md`
+    with PURPOSE PRESERVATION CHECK + all
+    11 required sections.
+  - New 15-assertion docs test
+    `tests/docs/capability-ontology-architecture-impact-review.test.mjs`.
+  - Cross-link updates:
+    `docs/strategy/graph-ontology-validator-lite-audit.md`
+    forward-pointer; `docs/concepts/graph-aware-finding-filters.md`
+    notes the future phase-3 consumer;
+    `docs/artifacts/evidence-graph.md`
+    pins the raw-evidence-immutable
+    boundary; `docs/concepts/reconciliation-preview.md`
+    forward-links the phase-5
+    `RefactorPreservationContract`
+    future; both roadmaps and README
+    updated.
+
+  **Eight architectural decisions pinned
+  (asserted by the docs test):**
+  1. Rekon still needs the ontology
+     function.
+  2. The ontology function should not be
+     a monolithic validator.
+  3. Raw evidence must remain separate
+     from normalized purpose.
+  4. Normalization decisions need an
+     audit artifact.
+  5. `CapabilityMap` should eventually
+     consume normalized capability
+     claims.
+  6. `RefactorPreservationContract`
+     depends on normalized capability
+     language.
+  7. LLM-only normalization is not
+     acceptable as truth.
+  8. Unknown verbs / nouns must surface
+     to operators.
+
+  **Five-layer boundary established:**
+  - `EvidenceGraph` — raw observed facts
+  - `CapabilityOntology` — canonical
+    vocabulary / aliases (name reserved;
+    config-vs-artifact deferred to the
+    next slice)
+  - `CapabilityNormalizationReport` —
+    translation audit (name reserved;
+    registration deferred)
+  - `CapabilityMap` — normalized
+    capability projection (consumer)
+  - `RefactorPreservationContract` —
+    preservation obligations (name
+    reserved; registration deferred to a
+    much later slice)
+
+  **Recommended next slice:** *Capability
+  Ontology Translation Layer Decision*
+  memo. That memo will decide whether
+  `CapabilityOntology` is config /
+  artifact / both, name the owning
+  capability package, define the
+  phase-1 audit artifact shape, and pin
+  the unknown-term review path.
+
 - Shipped **Reconciliation Exact-Diff
   Operation v1** — first reconciliation
   implementation slice following the

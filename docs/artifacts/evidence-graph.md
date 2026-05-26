@@ -215,3 +215,15 @@ that will consume these facts.
 
 Evidence facts must carry provenance. Derived artifacts should point back to
 the `EvidenceGraph` through `inputRefs` or evidence refs.
+
+## Raw Evidence vs Normalized Purpose
+
+`EvidenceGraph` is the canonical home of **raw observed facts**. It is the
+read-only input to every downstream interpretation layer. The
+[Capability Ontology Architecture Impact Review](../strategy/capability-ontology-architecture-impact-review.md)
+pins this boundary explicitly: the future capability-ontology / translation
+layer reads `EvidenceGraph` symbols / exports / imports but **never mutates**
+them. Normalized capability claims live in a separate audit artifact
+(`CapabilityNormalizationReport` — name reserved, registration deferred).
+Operators must always be able to trace a normalized purpose claim back to the
+raw symbol facts in this artifact.

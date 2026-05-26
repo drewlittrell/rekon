@@ -909,6 +909,55 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # diff does not resolve findings.
 # Recommended next slice: exact-diff
 # operation safety review.
+#
+# Capability ontology architecture
+# impact review has shipped at
+# docs/strategy/capability-ontology-architecture-impact-review.md.
+# Strategy / architecture / docs /
+# tests-only batch. Maps the blast
+# radius of a future capability-
+# ontology / translation layer across
+# every Rekon surface (EvidenceGraph,
+# ObservedRepo, OwnershipMap,
+# CapabilityMap, FindingReport,
+# FindingFilterReport,
+# IssueAdjudicationReport,
+# CoherencyDelta, ReconciliationPlan,
+# ReconciliationPreview,
+# VerificationRun/Result, memory,
+# architecture summary, agent contract,
+# GitHub review surfaces, future
+# RefactorPreservationContract). Pins
+# eight architectural decisions:
+# Rekon still needs the ontology
+# function; the ontology function
+# should not be a monolithic
+# validator; raw evidence must remain
+# separate from normalized purpose;
+# normalization decisions need an
+# audit artifact; CapabilityMap
+# should eventually consume normalized
+# capability claims;
+# RefactorPreservationContract
+# depends on normalized capability
+# language; LLM-only normalization is
+# not acceptable as truth; unknown
+# verbs / nouns must surface to
+# operators. Establishes the
+# five-layer boundary: EvidenceGraph
+# (raw facts) -> CapabilityOntology
+# (vocabulary) ->
+# CapabilityNormalizationReport
+# (audit) -> CapabilityMap
+# (normalized projection) ->
+# RefactorPreservationContract
+# (preservation obligations).
+# Reserves three names; registers
+# none. No port of the classic
+# GraphOntologyValidator monolith.
+# No runtime change. Recommended
+# next slice: capability ontology
+# translation layer decision memo.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

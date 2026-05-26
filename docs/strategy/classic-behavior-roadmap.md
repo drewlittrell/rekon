@@ -5259,6 +5259,41 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Capability ontology architecture
+  impact review (P1.1
+  capability-ontology-architecture-impact-review
+  slice).** ✅ Shipped. **First slice
+  on the capability-ontology track.**
+  Strategy / architecture / docs /
+  tests-only batch. Maps the blast
+  radius of a future ontology /
+  translation layer across every Rekon
+  surface. Pins **eight architectural
+  decisions** (ontology still needed;
+  must not be monolithic; raw
+  evidence remains separate from
+  normalized purpose; normalization
+  decisions need an audit artifact;
+  `CapabilityMap` eventually consumes
+  normalized claims;
+  `RefactorPreservationContract`
+  depends on the layer; LLM-only
+  normalization not acceptable as
+  truth; unknown verbs / nouns must
+  surface to operators). Establishes
+  the **five-layer boundary**
+  (`EvidenceGraph` → `CapabilityOntology`
+  → `CapabilityNormalizationReport`
+  → `CapabilityMap` →
+  `RefactorPreservationContract`).
+  Reserves three names; registers
+  none. No port of the classic
+  `GraphOntologyValidator` monolith.
+  No runtime change. See
+  [`docs/strategy/capability-ontology-architecture-impact-review.md`](capability-ontology-architecture-impact-review.md).
+  **Recommended next slice:**
+  capability ontology translation
+  layer decision memo.
 - **Reconciliation exact-diff operation
   v1 (P1.1
   reconciliation-exact-diff-operation-v1

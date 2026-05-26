@@ -649,3 +649,18 @@ required for alpha.
 - [Finding filter policy suggestions concept](../concepts/finding-filter-policy-suggestions.md)
 - [FindingFilterReport artifact](../artifacts/finding-filter-report.md)
 - [FindingFilterHealthReport artifact](../artifacts/finding-filter-health-report.md)
+- [Capability Ontology Architecture Impact Review](capability-ontology-architecture-impact-review.md)
+  — forward pointer. This audit's
+  pre-existing conclusion that the
+  classic `GraphOntologyValidator`
+  monolith should NOT be ported
+  wholesale is carried forward and
+  extended by the architecture
+  impact review: ontology decomposes
+  into `CapabilityOntology` (vocabulary)
+  + `CapabilityNormalizationReport`
+  (audit) + audit-backed consumers
+  (`CapabilityMap` first, then filter
+  providers, governance, memory,
+  publications, and finally
+  `RefactorPreservationContract`).
