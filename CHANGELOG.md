@@ -4,6 +4,45 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability ontology vocabulary expansion v1** —
+  step 4b of the capability-ontology translation-layer
+  implementation sequence. New artifact
+  `CapabilityOntologySuggestionReport` (registered in
+  `@rekon/sdk` + `@rekon/runtime`, category `actions`). New
+  CLI command:
+
+    - `rekon capability ontology suggestions
+      [--ledger <CapabilityNormalizationReviewLedger-id|type:id>]
+      [--root <path>] [--json]`
+
+  The report is **preview-only**: it transforms
+  `extend-ontology` decisions in the latest
+  `CapabilityNormalizationReviewLedger` into a proposed
+  `.rekon/capability-ontology.json` patch rendered as
+  `before` / `after` JSON strings under `preview.patch`. It
+  **does not** mutate the config file, the ledger,
+  `CapabilityNormalizationReport`, `CapabilityMap`, or
+  `EvidenceGraph`. No LLM normalization. No source-write
+  apply. Suggestion kinds: `add-canonical-verb`,
+  `add-canonical-noun`, `add-verb-alias`, `add-noun-alias`.
+  `termKind: candidate` decisions are skipped in v1 with
+  the reason *"candidate-level decisions require manual
+  ontology editing."*. `rename-symbol`, `noise-filter`,
+  `defer` decisions are ignored. Duplicates are deduped
+  deterministically.
+
+  No version bump. No npm publish. No git tag. No GitHub
+  Release. No new permission. No workflow YAML. No new
+  package. New 17-assertion contract test + 9-assertion
+  docs test. New docs at
+  [`docs/artifacts/capability-ontology-suggestion-report.md`](docs/artifacts/capability-ontology-suggestion-report.md).
+  Review packet
+  [`.rekon-dev/review-packets/capability-ontology-suggestions.md`](.rekon-dev/review-packets/capability-ontology-suggestions.md).
+  Recommended next slice: *capability ontology suggestion
+  publication surfacing* — surface the latest suggestion
+  report inside `architecture-summary` /
+  `agent-contract` publications.
+
 - Shipped **Capability ontology unknown-term operator review
   surface** — Option C from the built-in baseline coverage
   review, and step 4a of the capability-ontology

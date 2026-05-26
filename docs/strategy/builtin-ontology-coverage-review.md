@@ -179,6 +179,13 @@ In priority order:
   reference](../artifacts/capability-normalization-review-ledger.md)
   — append-only operator review surface shipped as the
   follow-up to this memo (Option C).
+- [`CapabilityOntologySuggestionReport` artifact
+  reference](../artifacts/capability-ontology-suggestion-report.md)
+  — preview-only proposal for
+  `.rekon/capability-ontology.json` produced from
+  `extend-ontology` ledger decisions. Shipped as
+  *capability ontology vocabulary expansion v1*, the
+  preview-first realisation of Option A from this memo.
 - [Capability ontology concept](../concepts/capability-ontology.md)
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)

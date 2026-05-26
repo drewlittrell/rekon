@@ -137,25 +137,31 @@ and `decisions` are read-only.
 
 ## Forward Compatibility
 
-A future *capability ontology vocabulary expansion v1* slice
-will:
+The *capability ontology vocabulary expansion v1* slice has
+shipped as the next step on this track. See
+[`CapabilityOntologySuggestionReport`](capability-ontology-suggestion-report.md).
+It:
 
-- Read the latest ledger.
-- Filter `extend-ontology` entries.
-- Produce a **preview** of `.rekon/capability-ontology.json`
-  with the additions applied, without writing it
-  automatically.
-- Surface the preview as a separate artifact so operators can
-  inspect it before applying.
+- Reads the latest ledger (or a pinned `--ledger`).
+- Filters `extend-ontology` entries.
+- Produces a **preview-only**
+  `.rekon/capability-ontology.json` patch with the
+  additions applied, without writing the file.
+- Surfaces the preview as a `CapabilityOntologySuggestionReport`
+  artifact so operators can inspect it before applying.
 
 `CapabilityMap` integration (Layer 6) remains deferred until
-the ledger reaches a steady state across multiple operator
-targets.
+the ledger + suggestion report reach a steady state across
+multiple operator targets.
 
 ## See Also
 
 - [`CapabilityNormalizationReport` artifact
   reference](capability-normalization-report.md)
+- [`CapabilityOntologySuggestionReport` artifact
+  reference](capability-ontology-suggestion-report.md) —
+  preview-only proposal for
+  `.rekon/capability-ontology.json` based on this ledger.
 - [Capability Ontology
   concept](../concepts/capability-ontology.md)
 - [Capability Ontology Translation Layer

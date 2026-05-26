@@ -1266,6 +1266,328 @@ export function buildDecidedKeySet(
   return set;
 }
 
+// ---------- CapabilityOntologySuggestionReport ----------
+//
+// Preview-only translation of `extend-ontology` decisions in
+// the latest `CapabilityNormalizationReviewLedger` into a
+// proposed `.rekon/capability-ontology.json` patch. This
+// helper **does not** read or write the config file directly.
+// The CLI reads the config (if present), passes it in, and
+// the helper builds an audit-only report with `before` /
+// `after` JSON strings. Source-write apply remains
+// unavailable.
+
+export type CapabilityOntologySuggestionKind =
+  | "add-canonical-verb"
+  | "add-canonical-noun"
+  | "add-verb-alias"
+  | "add-noun-alias";
+
+export type CapabilityOntologySuggestion = {
+  id: string;
+  kind: CapabilityOntologySuggestionKind;
+  term: string;
+  canonical?: string;
+  sourceDecisionId: string;
+  sourceLedgerRef: ArtifactRef;
+  reason: string;
+  status: "proposed";
+};
+
+export type CapabilityOntologySuggestionSkipped = {
+  decisionId: string;
+  term: string;
+  termKind: CapabilityNormalizationReviewTermKind;
+  reason: string;
+};
+
+export type CapabilityOntologySuggestionSummary = {
+  total: number;
+  addCanonicalVerb: number;
+  addCanonicalNoun: number;
+  addVerbAlias: number;
+  addNounAlias: number;
+  skipped: number;
+};
+
+export type CapabilityOntologySuggestionPreview = {
+  configPath: ".rekon/capability-ontology.json";
+  patch?: {
+    format: "json";
+    before: string;
+    after: string;
+  };
+  message: string;
+};
+
+export type CapabilityOntologySuggestionReport = {
+  header: ArtifactHeader;
+  summary: CapabilityOntologySuggestionSummary;
+  suggestions: CapabilityOntologySuggestion[];
+  skipped: CapabilityOntologySuggestionSkipped[];
+  preview: CapabilityOntologySuggestionPreview;
+};
+
+export type BuildCapabilityOntologySuggestionReportInput = {
+  header: ArtifactHeader;
+  ledger: CapabilityNormalizationReviewLedger;
+  ledgerRef: ArtifactRef;
+  /** Existing config contents (parsed JSON); undefined if the file does not exist. */
+  existingConfig?: CapabilityOntologyConfig;
+};
+
+const CANDIDATE_SKIPPED_REASON =
+  "candidate-level decisions require manual ontology editing.";
+
+export function buildCapabilityOntologySuggestionReport(
+  input: BuildCapabilityOntologySuggestionReportInput,
+): CapabilityOntologySuggestionReport {
+  const suggestions: CapabilityOntologySuggestion[] = [];
+  const skipped: CapabilityOntologySuggestionSkipped[] = [];
+  const seenSuggestionKeys = new Set<string>();
+  const seenSkippedKeys = new Set<string>();
+
+  for (const entry of input.ledger.entries) {
+    if (entry.decision !== "extend-ontology") {
+      continue; // non-extend decisions are intentionally ignored.
+    }
+
+    if (entry.termKind === "candidate") {
+      const skipKey = `${entry.id}:${entry.term}`;
+      if (!seenSkippedKeys.has(skipKey)) {
+        skipped.push({
+          decisionId: entry.id,
+          term: entry.term,
+          termKind: entry.termKind,
+          reason: CANDIDATE_SKIPPED_REASON,
+        });
+        seenSkippedKeys.add(skipKey);
+      }
+      continue;
+    }
+
+    const kind = resolveSuggestionKind(entry.termKind, entry.suggestedCanonical);
+    if (!kind) {
+      // Defensive — `extend-ontology` requires a known termKind.
+      continue;
+    }
+
+    const dedupeKey = entry.suggestedCanonical
+      ? `${kind}:${normalizeTerm(entry.term)}:${normalizeTerm(entry.suggestedCanonical)}`
+      : `${kind}:${normalizeTerm(entry.term)}`;
+    if (seenSuggestionKeys.has(dedupeKey)) {
+      continue;
+    }
+    seenSuggestionKeys.add(dedupeKey);
+
+    suggestions.push({
+      id: `suggestion-${suggestions.length.toString(10).padStart(4, "0")}-${kind}`,
+      kind,
+      term: entry.term,
+      ...(entry.suggestedCanonical ? { canonical: entry.suggestedCanonical } : {}),
+      sourceDecisionId: entry.id,
+      sourceLedgerRef: input.ledgerRef,
+      reason: entry.reason,
+      status: "proposed",
+    });
+  }
+
+  const summary = summarizeOntologySuggestions(suggestions, skipped);
+  const preview = buildSuggestionPreview(suggestions, input.existingConfig);
+
+  return {
+    header: input.header,
+    summary,
+    suggestions,
+    skipped,
+    preview,
+  };
+}
+
+function resolveSuggestionKind(
+  termKind: CapabilityNormalizationReviewTermKind,
+  suggestedCanonical: string | undefined,
+): CapabilityOntologySuggestionKind | null {
+  if (termKind === "verb") {
+    return suggestedCanonical ? "add-verb-alias" : "add-canonical-verb";
+  }
+  if (termKind === "noun") {
+    return suggestedCanonical ? "add-noun-alias" : "add-canonical-noun";
+  }
+  return null;
+}
+
+function summarizeOntologySuggestions(
+  suggestions: CapabilityOntologySuggestion[],
+  skipped: CapabilityOntologySuggestionSkipped[],
+): CapabilityOntologySuggestionSummary {
+  let addCanonicalVerb = 0;
+  let addCanonicalNoun = 0;
+  let addVerbAlias = 0;
+  let addNounAlias = 0;
+  for (const entry of suggestions) {
+    switch (entry.kind) {
+      case "add-canonical-verb":
+        addCanonicalVerb += 1;
+        break;
+      case "add-canonical-noun":
+        addCanonicalNoun += 1;
+        break;
+      case "add-verb-alias":
+        addVerbAlias += 1;
+        break;
+      case "add-noun-alias":
+        addNounAlias += 1;
+        break;
+    }
+  }
+  return {
+    total: suggestions.length,
+    addCanonicalVerb,
+    addCanonicalNoun,
+    addVerbAlias,
+    addNounAlias,
+    skipped: skipped.length,
+  };
+}
+
+function buildSuggestionPreview(
+  suggestions: CapabilityOntologySuggestion[],
+  existingConfig: CapabilityOntologyConfig | undefined,
+): CapabilityOntologySuggestionPreview {
+  const message =
+    "Preview-only proposal. `.rekon/capability-ontology.json` is **not** mutated by this report. Apply the proposed config manually if desired.";
+
+  if (suggestions.length === 0) {
+    return {
+      configPath: ".rekon/capability-ontology.json",
+      message,
+    };
+  }
+
+  const beforeConfig: CapabilityOntologyConfig = existingConfig
+    ? deepCloneConfig(existingConfig)
+    : { version: "0.1.0" };
+  const afterConfig = deepCloneConfig(beforeConfig);
+
+  for (const suggestion of suggestions) {
+    applySuggestionToConfig(afterConfig, suggestion);
+  }
+
+  return {
+    configPath: ".rekon/capability-ontology.json",
+    patch: {
+      format: "json",
+      before: JSON.stringify(beforeConfig, null, 2),
+      after: JSON.stringify(afterConfig, null, 2),
+    },
+    message,
+  };
+}
+
+function applySuggestionToConfig(
+  config: CapabilityOntologyConfig,
+  suggestion: CapabilityOntologySuggestion,
+): void {
+  switch (suggestion.kind) {
+    case "add-canonical-verb": {
+      const section = ensureSection(config, "verbs");
+      addCanonical(section, suggestion.term);
+      break;
+    }
+    case "add-canonical-noun": {
+      const section = ensureSection(config, "nouns");
+      addCanonical(section, suggestion.term);
+      break;
+    }
+    case "add-verb-alias": {
+      const section = ensureSection(config, "verbs");
+      addAlias(section, suggestion.term, suggestion.canonical ?? suggestion.term);
+      break;
+    }
+    case "add-noun-alias": {
+      const section = ensureSection(config, "nouns");
+      addAlias(section, suggestion.term, suggestion.canonical ?? suggestion.term);
+      break;
+    }
+  }
+}
+
+function ensureSection(
+  config: CapabilityOntologyConfig,
+  key: "verbs" | "nouns",
+): { canonical?: string[]; aliases?: Record<string, string> } {
+  const existing = config[key];
+  if (!existing) {
+    const created: { canonical?: string[]; aliases?: Record<string, string> } = {};
+    (config as { verbs?: typeof created; nouns?: typeof created })[key] = created;
+    return created;
+  }
+  return existing as { canonical?: string[]; aliases?: Record<string, string> };
+}
+
+function addCanonical(
+  section: { canonical?: string[] },
+  term: string,
+): void {
+  const list = section.canonical ?? [];
+  const normalized = term.toLowerCase();
+  if (!list.includes(normalized)) {
+    list.push(normalized);
+    list.sort((a, b) => a.localeCompare(b));
+  }
+  section.canonical = list;
+}
+
+function addAlias(
+  section: { aliases?: Record<string, string> },
+  alias: string,
+  canonical: string,
+): void {
+  const aliases = section.aliases ?? {};
+  aliases[alias.toLowerCase()] = canonical.toLowerCase();
+  section.aliases = sortRecord(aliases);
+}
+
+function deepCloneConfig(config: CapabilityOntologyConfig): CapabilityOntologyConfig {
+  return JSON.parse(JSON.stringify(config)) as CapabilityOntologyConfig;
+}
+
+function normalizeTerm(term: string): string {
+  return term.trim().toLowerCase();
+}
+
+export function validateCapabilityOntologySuggestionReport(
+  value: unknown,
+): { ok: true; report: CapabilityOntologySuggestionReport } | { ok: false; reason: string } {
+  if (!isRecord(value)) {
+    return { ok: false, reason: "report must be an object" };
+  }
+  if (!isRecord(value.header)) {
+    return { ok: false, reason: "report.header must be an object" };
+  }
+  const header = value.header as ArtifactHeader;
+  if (header.artifactType !== "CapabilityOntologySuggestionReport") {
+    return {
+      ok: false,
+      reason: `report.header.artifactType must be "CapabilityOntologySuggestionReport", got ${String(header.artifactType)}`,
+    };
+  }
+  if (!isRecord(value.summary)) {
+    return { ok: false, reason: "report.summary must be an object" };
+  }
+  if (!Array.isArray((value as { suggestions?: unknown }).suggestions)) {
+    return { ok: false, reason: "report.suggestions must be an array" };
+  }
+  if (!Array.isArray((value as { skipped?: unknown }).skipped)) {
+    return { ok: false, reason: "report.skipped must be an array" };
+  }
+  if (!isRecord(value.preview)) {
+    return { ok: false, reason: "report.preview must be an object" };
+  }
+  return { ok: true, report: value as CapabilityOntologySuggestionReport };
+}
+
 // ---------- Capability manifest + projector ----------
 
 export const normalizationProjector: Projector = {

@@ -851,6 +851,7 @@ supporting-doc cross-references.
 | 3 | `CapabilityNormalizationReport` v1 — register artifact + implement first-pass normalization | ✅ Shipped |
 | 4 | Built-in baseline ontology coverage review | ✅ Shipped — baseline acceptable for audit-only v1; recommended next slice is Option C (operator review surface). See [Built-In Baseline Ontology Coverage Review](builtin-ontology-coverage-review.md). |
 | 4a | Capability ontology unknown-term operator review surface (Option C) — `CapabilityNormalizationReviewLedger` + `rekon capability ontology review {suggestions,decide,decisions}` | ✅ Shipped — append-only; does not mutate `.rekon/capability-ontology.json` or `CapabilityMap`. See [`CapabilityNormalizationReviewLedger` artifact reference](../artifacts/capability-normalization-review-ledger.md). |
+| 4b | Capability ontology vocabulary expansion v1 (preview-first Option A) — `CapabilityOntologySuggestionReport` + `rekon capability ontology suggestions` | ✅ Shipped — preview-only `.rekon/capability-ontology.json` patch; never mutates the config file. See [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md). |
 | 5 | `CapabilityMap` normalized-claims integration | v2; gated on step 3 + step 4 |
 | 6 | Built-in ontology expansion (verbs / nouns / roles / patterns / layers) | Iterative with step 3 + step 4 |
 | 7 | Unknown-term operator-review CLI / surface | After step 3, gated on operator feedback |
@@ -884,6 +885,10 @@ the layered model is preserved.
   reference](../artifacts/capability-normalization-review-ledger.md)
   — step 4a (Option C). Append-only operator review surface
   selected by the coverage review.
+- [`CapabilityOntologySuggestionReport` artifact
+  reference](../artifacts/capability-ontology-suggestion-report.md)
+  — step 4b. Preview-only vocabulary expansion proposal
+  driven by `extend-ontology` ledger decisions.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

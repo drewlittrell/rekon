@@ -1371,6 +1371,66 @@ is the first stop before proposing a new capability batch.
   `extend-ontology` entries and
   produce a `.rekon/capability-ontology.json`
   preview without applying it.
+- Capability ontology vocabulary
+  expansion v1 (P1.1
+  capability-ontology-suggestions
+  slice): **sixth slice on the
+  capability-ontology track and the
+  third runtime implementation
+  batch.** Ships
+  `CapabilityOntologySuggestionReport`
+  (registered in the SDK + runtime,
+  category `actions`) and one new
+  CLI command
+  `rekon capability ontology suggestions
+  [--ledger <ref>] [--root <path>]
+  [--json]`. The report is
+  **preview-only**: it renders the
+  proposed `.rekon/capability-ontology.json`
+  as `before` / `after` JSON
+  strings under `preview.patch`.
+  **No `.rekon/capability-ontology.json`
+  mutation. No
+  `CapabilityNormalizationReviewLedger`
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No `CapabilityMap`
+  mutation. No `EvidenceGraph`
+  mutation. No source-write apply.
+  No LLM normalization. No new
+  permission. No new role. No
+  workflow YAML. No new package.
+  No version bump. No npm publish.
+  No git tag. No GitHub Release.**
+  Suggestion kinds:
+  `add-canonical-verb`,
+  `add-canonical-noun`,
+  `add-verb-alias`,
+  `add-noun-alias`. `termKind:
+  candidate` decisions are skipped
+  in v1 with the reason
+  "candidate-level decisions
+  require manual ontology
+  editing." `rename-symbol`,
+  `noise-filter`, and `defer`
+  decisions are ignored.
+  Duplicates are deduped
+  deterministically. New
+  17-assertion contract test +
+  9-assertion docs test. New
+  artifact reference
+  [`docs/artifacts/capability-ontology-suggestion-report.md`](../artifacts/capability-ontology-suggestion-report.md).
+  Review packet
+  `.rekon-dev/review-packets/capability-ontology-suggestions.md`.
+  Full suite expected ≥ 2149
+  passed (2123 + 17 contract + 9
+  docs). **Recommended next
+  slice:** *capability ontology
+  suggestion publication
+  surfacing* — surface the latest
+  suggestion report inside
+  `architecture-summary` /
+  `agent-contract` publications.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

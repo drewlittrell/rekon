@@ -1049,6 +1049,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# Capability ontology vocabulary expansion v1 has
+# shipped. New artifact
+# CapabilityOntologySuggestionReport (registered in
+# the SDK + runtime, category actions). New CLI:
+#   rekon capability ontology suggestions
+#     [--ledger <CapabilityNormalizationReviewLedger:id>]
+#     [--root <path>] [--json]
+# Preview-only. .rekon/capability-ontology.json is
+# NOT mutated automatically. Suggestion kinds:
+# add-canonical-verb, add-canonical-noun,
+# add-verb-alias, add-noun-alias. Candidate-level
+# decisions are skipped in v1 with the reason
+# "candidate-level decisions require manual ontology
+# editing." CapabilityMap integration remains
+# deferred. See
+# docs/artifacts/capability-ontology-suggestion-report.md.
+#
 # Capability ontology unknown-term operator review
 # surface has shipped (Option C from the coverage
 # review). New artifact

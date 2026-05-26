@@ -192,6 +192,38 @@ Rules:
   **`noise-filter`** (term is not a capability — symbol
   noise), and **`defer`** (operator is not yet sure).
 
+## Vocabulary Expansion Preview
+
+The
+[`CapabilityOntologySuggestionReport`](../artifacts/capability-ontology-suggestion-report.md)
+is the **preview-only** projection of the review ledger's
+`extend-ontology` decisions into a proposed
+`.rekon/capability-ontology.json` patch. It is the next
+stage of the translation track and is driven by:
+
+```bash
+rekon capability ontology suggestions \
+  [--ledger <CapabilityNormalizationReviewLedger-id|type:id>] \
+  [--root <path>] [--json]
+```
+
+Rules:
+
+- The surface is **preview-only**. The report contains a
+  `before` / `after` JSON string under `preview.patch`;
+  `.rekon/capability-ontology.json` is **not** mutated
+  automatically.
+- Only `extend-ontology` ledger decisions feed the report.
+  `rename-symbol`, `noise-filter`, and `defer` decisions
+  are ignored.
+- `termKind: candidate` is skipped in v1 with the reason
+  *"candidate-level decisions require manual ontology
+  editing."* (single-token decisions need operator
+  judgement that v1 does not encode).
+- `CapabilityMap` integration (Layer 6) remains deferred
+  until vocabulary expansion reaches a steady state across
+  multiple targets.
+
 ## Lexical Splitter Confidence
 
 - **High**: 2 tokens (`getUser`, `save_token`).
@@ -210,6 +242,11 @@ considered normalized.
   reference](../artifacts/capability-normalization-review-ledger.md)
   — append-only operator decisions over unknown /
   low-confidence terms.
+- [`CapabilityOntologySuggestionReport` artifact
+  reference](../artifacts/capability-ontology-suggestion-report.md)
+  — preview-only proposal for
+  `.rekon/capability-ontology.json` based on
+  `extend-ontology` ledger decisions.
 - [Capability Ontology Translation Layer
   Decision](../strategy/capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact

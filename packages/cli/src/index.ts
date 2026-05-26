@@ -63,6 +63,7 @@ import reconcileCapability, {
 import ontologyCapability, {
   appendCapabilityNormalizationReviewDecision,
   buildCapabilityNormalizationReport,
+  buildCapabilityOntologySuggestionReport,
   buildDecidedKeySet,
   compileEffectiveCapabilityOntology,
   DEFAULT_REVIEW_SUGGESTION_LIMIT,
@@ -75,6 +76,7 @@ import ontologyCapability, {
   type CapabilityNormalizationReviewLedger,
   type CapabilityNormalizationReviewSuggestion,
   type CapabilityNormalizationReviewTermKind,
+  type CapabilityOntologySuggestionReport,
   type EffectiveCapabilityOntology,
 } from "@rekon/capability-ontology";
 import resolverCapability from "@rekon/capability-resolver";
@@ -773,6 +775,147 @@ export async function main(argv: string[]): Promise<void> {
     throw new Error(
       "rekon capability ontology review requires a subcommand: suggestions | decide | decisions.",
     );
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "ontology"
+    && positional === "suggestions"
+  ) {
+    // `rekon capability ontology suggestions
+    // [--ledger <ref>] [--root <path>] [--json]` — preview-only
+    // proposal for `.rekon/capability-ontology.json` based on
+    // `extend-ontology` decisions in the latest
+    // CapabilityNormalizationReviewLedger. **Never** mutates
+    // the config file. See
+    // docs/artifacts/capability-ontology-suggestion-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const ledgerFlag = typeof parsed.flags.ledger === "string"
+      ? parsed.flags.ledger.trim()
+      : "";
+
+    let ledger: CapabilityNormalizationReviewLedger | undefined;
+    let ledgerEntry: ArtifactIndexEntry | undefined;
+    if (ledgerFlag.length > 0) {
+      const entry = await findArtifactEntry(store, ledgerFlag);
+      if (entry.type !== "CapabilityNormalizationReviewLedger") {
+        throw new Error(
+          `rekon capability ontology suggestions --ledger must reference a CapabilityNormalizationReviewLedger; got ${entry.type}.`,
+        );
+      }
+      ledgerEntry = entry;
+      const raw = (await store.read(entry)) as unknown;
+      const result = validateCapabilityNormalizationReviewLedger(raw);
+      if (!result.ok) {
+        throw new Error(
+          `Pinned CapabilityNormalizationReviewLedger is invalid: ${result.reason}`,
+        );
+      }
+      ledger = result.ledger;
+    } else {
+      const entries = await store.list("CapabilityNormalizationReviewLedger");
+      if (entries.length > 0) {
+        ledgerEntry = entries.at(-1)!;
+        const raw = (await store.read(ledgerEntry)) as unknown;
+        const result = validateCapabilityNormalizationReviewLedger(raw);
+        if (!result.ok) {
+          throw new Error(
+            `Latest CapabilityNormalizationReviewLedger is invalid: ${result.reason}`,
+          );
+        }
+        ledger = result.ledger;
+      }
+    }
+
+    if (!ledger || !ledgerEntry) {
+      throw new Error(
+        "rekon capability ontology suggestions: no CapabilityNormalizationReviewLedger exists. Run `rekon capability ontology review decide` first.",
+      );
+    }
+
+    const ledgerRef: ArtifactRef = {
+      type: ledgerEntry.type,
+      id: ledgerEntry.id,
+      path: ledgerEntry.path,
+      digest: ledgerEntry.digest,
+      schemaVersion: ledgerEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const existingConfigResult = await loadCapabilityOntologyConfig(root);
+    const existingConfig = existingConfigResult.found
+      ? existingConfigResult.config
+      : undefined;
+
+    const generatedAt = new Date().toISOString();
+    const artifactId = `capability-ontology-suggestions-${generatedAt.replace(/[:.]/g, "-")}`;
+    const header: ArtifactHeader = {
+      artifactType: "CapabilityOntologySuggestionReport",
+      artifactId,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: {
+        id: "@rekon/cli.capability-ontology-suggestions",
+        version: "0.1.0-beta.0",
+      },
+      inputRefs: [ledgerRef],
+      freshness: { status: "fresh" },
+    };
+
+    const report: CapabilityOntologySuggestionReport = buildCapabilityOntologySuggestionReport({
+      header,
+      ledger,
+      ledgerRef,
+      existingConfig,
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: ref,
+          ledgerRef,
+          summary: report.summary,
+          suggestions: report.suggestions,
+          skipped: report.skipped,
+          preview: report.preview,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Capability ontology suggestions");
+      lines.push("");
+      lines.push(`Suggestions: ${report.summary.total}`);
+      if (report.suggestions.length > 0) {
+        for (const suggestion of report.suggestions) {
+          if (suggestion.kind === "add-canonical-verb") {
+            lines.push(`- add canonical verb: ${suggestion.term}`);
+          } else if (suggestion.kind === "add-canonical-noun") {
+            lines.push(`- add canonical noun: ${suggestion.term}`);
+          } else if (suggestion.kind === "add-verb-alias") {
+            lines.push(`- add verb alias: ${suggestion.term} -> ${suggestion.canonical ?? "?"}`);
+          } else if (suggestion.kind === "add-noun-alias") {
+            lines.push(`- add noun alias: ${suggestion.term} -> ${suggestion.canonical ?? "?"}`);
+          }
+        }
+      }
+      if (report.skipped.length > 0) {
+        lines.push("");
+        lines.push(`Skipped: ${report.skipped.length}`);
+        for (const entry of report.skipped) {
+          lines.push(`- ${entry.termKind} "${entry.term}" — ${entry.reason}`);
+        }
+      }
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push("Config remains unchanged.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
   }
 
   if (command === "observe") {
@@ -7300,6 +7443,7 @@ function usage(): string {
     "rekon capability ontology review suggestions --report <id|type:id> [--limit <n>] [--include-decided] [--root <path>] [--json]",
     "rekon capability ontology review decide --term <text> --term-kind verb|noun|candidate --decision extend-ontology|rename-symbol|noise-filter|defer --reason <text> [--suggested-canonical <text>] [--report <id|type:id>] [--candidate <id>] [--root <path>] [--json]",
     "rekon capability ontology review decisions [--root <path>] [--json]",
+    "rekon capability ontology suggestions [--ledger <id|type:id>] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",
