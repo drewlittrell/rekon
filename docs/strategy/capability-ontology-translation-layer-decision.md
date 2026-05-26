@@ -320,14 +320,15 @@ normalization rows. **Not touched in
 v1.** The existing capability
 projection is unchanged. v2 wires the
 semantic projection (via Layer 5b
-`CapabilityPhrase`) into
+`CapabilityPhraseReport`) into
 `CapabilityMap` as an **additive**
 input. See
 [CapabilityPhrase + CapabilityContract Architecture Decision](capability-phrase-contract-architecture-decision.md)
-for the semantic primitive that
-slots between Layer 5
-(`CapabilityNormalizationReport`)
-and Layer 6.
+for the semantic primitive and the
+[CapabilityPhraseReport Decision](capability-phrase-report-decision.md)
+for the committed v1 carrier
+(`CapabilityPhraseReport`, separate
+from `CapabilityNormalizationReport`).
 
 ### Layer 7 — `RefactorPreservationContract`
 

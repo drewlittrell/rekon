@@ -349,9 +349,17 @@ Decision](../strategy/capability-phrase-contract-architecture-decision.md)
 reserves the name, pins the v1 field shape, and pins the
 boundary between phrase (observed semantic claim) and
 contract (operator-authored placement / proof /
-preservation policy). `CapabilityContract` is the future
-policy layer; `RefactorPreservationContract` is a
-phase-specific projection of that policy.
+preservation policy). The
+[CapabilityPhraseReport
+Decision](../strategy/capability-phrase-report-decision.md)
+commits to the v1 carrier: a separate
+`CapabilityPhraseReport` artifact (Option B), not
+enrichment of `CapabilityNormalizationReport` — keeping
+the **translation audit** and the **semantic purpose
+projection** as distinct layers. `CapabilityContract`
+remains the future policy layer;
+`RefactorPreservationContract` is a phase-specific
+projection of that policy.
 
 ## See Also
 

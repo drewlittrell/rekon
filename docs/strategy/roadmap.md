@@ -1896,6 +1896,96 @@ is the first stop before proposing a new capability batch.
   Preferred: **Option B** —
   preserves *normalization audit
   ≠ semantic purpose projection*.
+- CapabilityPhraseReport decision
+  (P1.1
+  capability-phrase-report-decision
+  slice): **thirteenth slice on
+  the capability-ontology track
+  and the carrier commitment for
+  `CapabilityPhrase` v1.**
+  Strategy / decision / docs /
+  tests-only batch. Resolves the
+  open question deferred by the
+  CapabilityPhrase +
+  CapabilityContract architecture
+  decision. **No runtime change.
+  No new artifact registration.
+  No `CapabilityNormalizationReport`
+  shape mutation. No
+  `CapabilityMap` mutation. No
+  `EvidenceGraph` mutation. No
+  source-write apply. No
+  LLM-only inference. No new
+  CLI command. No new
+  permission. No workflow YAML
+  change. No version bump. No
+  npm publish. No git tag. No
+  GitHub Release. No new
+  branch.** Selects **Option B**:
+  emit `CapabilityPhrase` v1 as
+  a separate
+  `CapabilityPhraseReport`
+  artifact, not enrichment of
+  `CapabilityNormalizationReport`.
+  Rejects Option A (enrich the
+  normalization report) and
+  Option C (wait / defer). Pins
+  verbatim:
+  **`CapabilityNormalizationReport`
+  is a translation audit.**
+  **`CapabilityPhraseReport` is a
+  semantic purpose projection.**
+  **`CapabilityMap` v2 should
+  consume `CapabilityPhraseReport`
+  (not raw normalization rows).**
+  **Only high-confidence / stable
+  `CapabilityPhrase` claims are
+  eligible for `CapabilityMap`
+  v2.** **`CapabilityContract` is
+  the future policy /
+  preservation layer** (not
+  implemented in
+  `CapabilityPhraseReport` v1).
+  **AST / typechecker evidence is
+  optional enrichment, not
+  foundational truth.**
+  **`CapabilityPhrase` v1 must
+  remain repo / language /
+  architecture agnostic.** V1
+  field policy: required `id`,
+  `verb`, `noun`, `confidence`,
+  `evidenceRefs`,
+  `sourceCandidateIds`, `status`;
+  partial `qualifier` / `domain`
+  / `pattern` / `layer` /
+  `message`; reserved future
+  `sideEffects` / `inputs` /
+  `outputs`. Future fields land
+  only when deterministic
+  evidence exists. New strategy
+  memo
+  [`docs/strategy/capability-phrase-report-decision.md`](capability-phrase-report-decision.md)
+  with all 12 required headings
+  + 3 required diagnostic tables
+  (option / field policy /
+  boundary). Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-decision.md`.
+  New 15-assertion docs test
+  `tests/docs/capability-phrase-report-decision.test.mjs`.
+  **Recommended next slice:**
+  *CapabilityPhraseReport v1* —
+  register the artifact in the
+  SDK + runtime, implement
+  deterministic projection from
+  high-confidence
+  `CapabilityNormalizationReport`
+  candidates, cite normalization
+  report + `EvidenceGraph` in
+  `inputRefs`. Populate v1
+  required fields only. No
+  `CapabilityMap` mutation. No
+  `CapabilityContract`. No
+  source writes.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

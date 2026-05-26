@@ -5725,6 +5725,69 @@ scope:
   `CapabilityPhraseReport`), or
   Option C (wait). Preferred:
   **Option B**.
+- **CapabilityPhraseReport decision
+  (P1.1
+  capability-phrase-report-decision
+  slice).** ✅ Shipped.
+  **Thirteenth slice on the
+  capability-ontology track and
+  the carrier commitment for
+  `CapabilityPhrase` v1.**
+  Strategy / decision / docs /
+  tests-only batch. Resolves the
+  carrier question deferred by
+  the previous architecture
+  decision. Selects **Option B**:
+  emit `CapabilityPhrase` v1 as
+  a separate
+  `CapabilityPhraseReport`
+  artifact, not enrichment of
+  `CapabilityNormalizationReport`.
+  Rejects Option A (enrich the
+  normalization report) and
+  Option C (wait / defer). Pins
+  verbatim that
+  `CapabilityNormalizationReport`
+  is a translation audit;
+  `CapabilityPhraseReport` is a
+  semantic purpose projection;
+  `CapabilityMap` v2 should
+  consume `CapabilityPhraseReport`
+  (not raw normalization rows);
+  only high-confidence / stable
+  `CapabilityPhrase` claims are
+  eligible for `CapabilityMap`
+  v2; `CapabilityContract` is the
+  future policy / preservation
+  layer; AST / typechecker
+  evidence is optional
+  enrichment, not foundational
+  truth; phrase v1 must remain
+  repo / language / architecture
+  agnostic; source writes remain
+  unavailable. **No runtime
+  change. No new artifact
+  registration. No
+  `CapabilityNormalizationReport`
+  shape mutation. No
+  `CapabilityMap` mutation. No
+  `EvidenceGraph` mutation. No
+  source writes. No LLM-only
+  inference. No version bump.
+  No npm publish.** See
+  [`docs/strategy/capability-phrase-report-decision.md`](capability-phrase-report-decision.md).
+  **Recommended next slice:**
+  *CapabilityPhraseReport v1* —
+  register the artifact in the
+  SDK + runtime, implement
+  deterministic projection from
+  high-confidence
+  `CapabilityNormalizationReport`
+  candidates, cite normalization
+  + EvidenceGraph in
+  `inputRefs`. v1 required
+  fields only. No `CapabilityMap`
+  mutation. No `CapabilityContract`.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

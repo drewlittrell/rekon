@@ -545,8 +545,12 @@ Selected direction:
 ## Follow-Up Work
 
 - **CapabilityPhrase v1 artifact / report decision** —
-  Option A vs. B vs. C above. Recommended preference:
-  Option B (separate `CapabilityPhraseReport`).
+  ✅ Resolved by the
+  [CapabilityPhraseReport Decision](capability-phrase-report-decision.md).
+  Selected: **Option B** — separate
+  `CapabilityPhraseReport`. The next implementation
+  slice (CapabilityPhraseReport v1) registers the
+  artifact.
 - **Phrase confidence model decision** — define the
   formula. Initial sketch: lexical-only (low), lexical +
   canon-pack match (medium), lexical + canon + at least

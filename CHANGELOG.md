@@ -4,6 +4,72 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityPhraseReport Decision** — strategy /
+  architecture / docs / tests-only batch that commits to
+  the carrier the previous architecture decision deferred.
+  Selects **Option B**: emit `CapabilityPhrase` v1 as a
+  separate `CapabilityPhraseReport` artifact, not
+  enrichment of `CapabilityNormalizationReport`. Rejects
+  Option A (enrich the normalization report) and Option C
+  (wait / defer).
+
+  Pinned verbatim:
+
+    - `CapabilityNormalizationReport` is a **translation
+      audit**.
+    - `CapabilityPhraseReport` is a **semantic purpose
+      projection**.
+    - `CapabilityMap` v2 should consume
+      `CapabilityPhraseReport` (not raw normalization
+      rows).
+    - **Only high-confidence / stable `CapabilityPhrase`
+      claims are eligible for `CapabilityMap` v2.**
+    - `CapabilityContract` is the **future policy /
+      preservation layer** (not implemented in
+      `CapabilityPhraseReport` v1).
+    - AST / typechecker evidence is **optional
+      enrichment, not foundational truth**.
+    - `CapabilityPhrase` v1 must remain **repo /
+      language / architecture agnostic**.
+    - Source writes remain unavailable.
+
+  V1 field policy:
+
+    - Required: `id`, `verb`, `noun`, `confidence`,
+      `evidenceRefs`, `sourceCandidateIds`, `status`.
+    - Partial (v1): `qualifier`, `domain`, `pattern`,
+      `layer`, `message`.
+    - Reserved (future): `sideEffects`, `inputs`,
+      `outputs`.
+    - Future fields appear only when deterministic
+      evidence exists. No vibes-driven inference.
+
+  **No runtime change. No new artifact registration. No
+  `CapabilityNormalizationReport` shape mutation. No
+  `CapabilityMap` mutation. No `EvidenceGraph` mutation.
+  No `CapabilityContract`. No `RefactorPreservationContract`.
+  No source writes. No LLM-only inference. No new CLI
+  command. No new permission. No workflow YAML change. No
+  version bump. No npm publish. No git tag. No GitHub
+  Release. No new branch.**
+
+  New strategy memo
+  `docs/strategy/capability-phrase-report-decision.md`
+  with all 12 required headings + 3 required diagnostic
+  tables (option / field policy / boundary). New
+  15-assertion docs test
+  `tests/docs/capability-phrase-report-decision.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-decision.md`.
+
+  Recommended next slice: **CapabilityPhraseReport v1** —
+  register the artifact, implement deterministic
+  projection from high-confidence
+  `CapabilityNormalizationReport` candidates, cite the
+  source normalization report and `EvidenceGraph` in
+  `header.inputRefs`. Populate v1 required fields only.
+  No `CapabilityMap` mutation. No `CapabilityContract`.
+
 - Shipped **CapabilityPhrase + CapabilityContract
   Architecture Decision** — strategy / architecture /
   docs / tests-only batch. Reserves the semantic primitive

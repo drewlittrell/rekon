@@ -132,9 +132,18 @@ Decision](../strategy/capability-phrase-contract-architecture-decision.md)
 reserves the semantic primitive that consumes this report.
 `CapabilityPhrase` enriches the canonical verb / noun pair
 with `qualifier` / `domain` / `pattern` / `layer` plus
-required `confidence` and `evidenceRefs`. The future
-`CapabilityMap` v2 consumes only stable, confidence-scored
-`CapabilityPhrase` claims — never raw normalization rows.
+required `confidence` and `evidenceRefs`. The
+[CapabilityPhraseReport
+Decision](../strategy/capability-phrase-report-decision.md)
+commits to the v1 carrier: a separate
+`CapabilityPhraseReport` artifact that cites this report
+in `header.inputRefs`. **This report's shape is
+unchanged.** Phrase enrichment lands in the next slice
+without mutating the translation-audit artifact.
+
+The future `CapabilityMap` v2 consumes only
+high-confidence / stable `CapabilityPhrase` claims from
+`CapabilityPhraseReport` — never raw normalization rows.
 `CapabilityContract` (further future) binds a phrase to
 placement / proof / preservation policy.
 

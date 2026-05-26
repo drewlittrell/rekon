@@ -1049,6 +1049,57 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# CapabilityPhraseReport decision has shipped (strategy /
+# decision / docs / tests-only). Commits to the carrier
+# the architecture decision deferred.
+#
+# Selected: Option B — emit CapabilityPhrase v1 as a
+# separate CapabilityPhraseReport artifact, not
+# enrichment of CapabilityNormalizationReport.
+# Rejected: Option A (enrich the normalization report)
+# and Option C (wait / defer).
+#
+# Pinned verbatim:
+#   - CapabilityNormalizationReport is a translation
+#     audit.
+#   - CapabilityPhraseReport is a semantic purpose
+#     projection.
+#   - CapabilityMap v2 should consume
+#     CapabilityPhraseReport (not raw normalization
+#     rows).
+#   - Only high-confidence / stable CapabilityPhrase
+#     claims are eligible for CapabilityMap v2.
+#   - CapabilityContract is the future policy /
+#     preservation layer (not implemented in
+#     CapabilityPhraseReport v1).
+#   - AST / typechecker evidence is optional
+#     enrichment, not foundational truth.
+#   - CapabilityPhrase v1 must remain repo / language /
+#     architecture agnostic.
+#   - Source writes remain unavailable.
+#
+# V1 field policy:
+#   - Required: id, verb, noun, confidence,
+#     evidenceRefs, sourceCandidateIds, status.
+#   - Partial (v1): qualifier, domain, pattern, layer,
+#     message.
+#   - Reserved (future): sideEffects, inputs, outputs.
+#   - Future fields appear only when deterministic
+#     evidence exists. No vibes-driven inference.
+#
+# No runtime change. No new artifact registration. No
+# CapabilityNormalizationReport shape mutation. No
+# CapabilityMap mutation. No EvidenceGraph mutation. No
+# source writes. No LLM-only inference. No version
+# bump. No npm publish.
+#
+# See docs/strategy/capability-phrase-report-decision.md
+# Recommended next slice: CapabilityPhraseReport v1 —
+# register the artifact, implement deterministic
+# projection from high-confidence
+# CapabilityNormalizationReport candidates, cite
+# normalization + EvidenceGraph in inputRefs.
+#
 # CapabilityPhrase + CapabilityContract architecture
 # decision has shipped (strategy / architecture / docs /
 # tests-only). Reserves the semantic primitive every
