@@ -671,6 +671,31 @@ Layer Decision.* Inputs:
   classic monolith is the wrong
   port shape).
 
+**Update:** the decision has been
+recorded — see
+[Capability Ontology Translation
+Layer Decision](capability-ontology-translation-layer-decision.md).
+**Outcome: Option C — layered
+config-first ontology +
+artifact-backed normalization
+report.** The decision refines
+this review's macro five-layer
+boundary into an eight-layer
+internal model (Layer 0
+`EvidenceGraph` → Layer 7
+`RefactorPreservationContract`),
+selects `@rekon/capability-ontology`
+as the owning package (new),
+picks `.rekon/capability-ontology.json`
+as the v1 config source, and
+pins `CapabilityNormalizationReport`
+as the **first registered
+artifact** of the track.
+`CapabilityMap` integration is
+deferred to v2. The next slice
+is `CapabilityNormalizationReport`
+v1.
+
 **Subsequent slices** (in order,
 each gated on the prior's
 operator-review feedback):

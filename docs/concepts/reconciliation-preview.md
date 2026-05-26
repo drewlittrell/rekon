@@ -217,6 +217,20 @@ any finding status, and never causes any
   unaware of canonical capability purpose.
   Source-write apply remains unavailable
   through that future track as well.
+- [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
+  — selects Option C (layered config-first
+  ontology + artifact-backed normalization
+  report) and pins `RefactorPreservationContract`
+  as Layer 7 of the eight-layer model. Layer 5
+  (`CapabilityNormalizationReport`) ships
+  first; `CapabilityMap` integration is
+  deferred to v2; preservation contracts are
+  far-future and gate on multiple operator
+  runs of the normalization audit. This
+  preview's classifier still remains
+  unaware of canonical capability purpose
+  until those phases land. Source-write
+  apply remains unavailable throughout.
 - [Source-Write Reconciliation Policy Decision](../strategy/source-write-reconciliation-policy-decision.md)
 - [ReconciliationPlan artifact reference](../artifacts/reconciliation-plan.md)
 - [Reconciliation plans concept](reconciliation-plans.md)

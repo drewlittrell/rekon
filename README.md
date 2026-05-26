@@ -958,6 +958,66 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # No runtime change. Recommended
 # next slice: capability ontology
 # translation layer decision memo.
+#
+# Capability ontology translation
+# layer decision has shipped at
+# docs/strategy/capability-ontology-translation-layer-decision.md.
+# Pins Option C -- layered
+# config-first ontology +
+# artifact-backed normalization
+# report. Defines the eight-layer
+# internal model that refines the
+# architecture impact review's
+# macro five-layer boundary:
+# Layer 0 EvidenceGraph (raw
+# facts, input) -> Layer 1
+# CapabilityCandidateSet
+# (extracted candidates, helper)
+# -> Layer 2 CapabilityLexicalSplit
+# (verb/noun split, helper) ->
+# Layer 3 CapabilityOntology
+# (vocabulary / aliases, config)
+# -> Layer 4
+# EffectiveCapabilityOntology
+# (compiled vocabulary, internal)
+# -> Layer 5
+# CapabilityNormalizationReport
+# (translation audit, first
+# artifact) -> Layer 6
+# CapabilityMap (normalized
+# projection, deferred to v2) ->
+# Layer 7
+# RefactorPreservationContract
+# (preservation obligations,
+# future). Owning package
+# selected: @rekon/capability-ontology
+# (new). V1 config source:
+# .rekon/capability-ontology.json
+# (optional; built-in baseline
+# otherwise). Three core types
+# sketched (CapabilityOntologyConfig,
+# EffectiveCapabilityOntology,
+# CapabilityNormalizationReport)
+# but none implemented in this
+# slice. Pinned verbatim:
+# CapabilityOntology starts as
+# config / source vocabulary;
+# EffectiveCapabilityOntology is
+# internal in v1;
+# CapabilityNormalizationReport
+# is the first registered
+# artifact; CapabilityMap
+# integration is deferred to v2;
+# EvidenceGraph raw facts are
+# unchanged; Unknown verbs /
+# nouns must surface to operators;
+# LLM suggestions are not truth
+# in v1; Do not flatten the
+# ontology into a single config
+# / report layer. Recommended
+# next slice:
+# CapabilityNormalizationReport
+# v1.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

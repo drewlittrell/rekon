@@ -5259,6 +5259,40 @@ scope:
   `CoherencyDelta` /
   `ReconciliationPlan` mutation. No
   version bump. No npm publish.
+- **Capability ontology translation
+  layer decision (P1.1
+  capability-ontology-translation-layer-decision
+  slice).** ✅ Shipped. **Second slice
+  on the capability-ontology track.**
+  Pins **Option C — layered
+  config-first ontology +
+  artifact-backed normalization
+  report**, defining the eight-layer
+  internal model (Layer 0
+  `EvidenceGraph` → Layer 7
+  `RefactorPreservationContract`)
+  that refines the architecture
+  impact review's macro five-layer
+  boundary. Selects
+  `@rekon/capability-ontology` as the
+  owning package (new) and
+  `.rekon/capability-ontology.json`
+  as the v1 config source.
+  `CapabilityNormalizationReport`
+  becomes the first registered
+  artifact; `CapabilityMap`
+  integration is deferred to v2.
+  Pinned verbatim: do not flatten
+  the ontology into a single
+  config / report layer;
+  EvidenceGraph raw facts are
+  unchanged; LLM suggestions are
+  not truth in v1; unknown verbs /
+  nouns must surface to operators.
+  See
+  [`docs/strategy/capability-ontology-translation-layer-decision.md`](capability-ontology-translation-layer-decision.md).
+  **Recommended next slice:**
+  `CapabilityNormalizationReport` v1.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

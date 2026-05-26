@@ -485,6 +485,25 @@ during the filter step.
   capability purpose; until that
   phase ships, graph-aware filters
   remain structural-only.
+- [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
+  — pins the layered ontology
+  shape (eight layers from raw
+  evidence to preservation
+  contracts) and selects Option C
+  (layered config-first ontology
+  + artifact-backed normalization
+  report). The future
+  capability-purpose filter
+  provider listed in phase 3 of
+  the architecture impact review
+  will consume the
+  `CapabilityNormalizationReport`
+  artifact registered by that
+  decision's v1 implementation
+  slice. Until that artifact
+  ships, the graph-aware filters
+  documented here remain
+  structural-only.
 - [Finding filters](finding-filters.md)
 - [Finding filter policy status](finding-filter-policy-status.md)
 - [Finding filter policy suggestions](finding-filter-policy-suggestions.md)

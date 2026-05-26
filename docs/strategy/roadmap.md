@@ -1106,6 +1106,118 @@ is the first stop before proposing a new capability batch.
   No source-file reads. No LLM / semantic / fuzzy /
   embedding matching. No `GraphOntologyValidator`
   port. No version bump. No npm publish.
+- Capability ontology translation layer
+  decision (P1.1
+  capability-ontology-translation-layer-decision
+  slice): **second slice on the
+  capability-ontology track.** Strategy
+  / decision / docs / tests-only batch.
+  **No `@rekon/capability-ontology`
+  package implementation. No
+  `CapabilityNormalizationReport`
+  registration. No
+  `RefactorPreservationContract`
+  registration. No `EvidenceGraph` /
+  `CapabilityMap` / `FindingReport` /
+  `FindingFilterReport` /
+  `IssueAdjudicationReport` /
+  `CoherencyDelta` / `ReconciliationPlan`
+  / `ReconciliationPreview` /
+  `VerificationRun` /
+  `VerificationResult` / memory /
+  publication behaviour change. No new
+  capability package shipped. No new
+  CLI command. No new validator. No
+  new writer. No new permission. No
+  new role. No workflow YAML. No
+  `package.json` /
+  `package-lock.json` mutation. No
+  source-file mutation. No source-write
+  apply. No LLM-only normalization. No
+  port of the classic
+  `GraphOntologyValidator` monolith.
+  No npm publish. No version bump. No
+  git tag. No GitHub Release. No new
+  branch. No network I/O.** Pins
+  **Option C — layered config-first
+  ontology + artifact-backed
+  normalization report.** Defines the
+  **eight-layer internal model** that
+  refines the architecture impact
+  review's macro five-layer boundary:
+  Layer 0 `EvidenceGraph` (raw facts)
+  → Layer 1 `CapabilityCandidateSet`
+  (extracted candidates, helper) →
+  Layer 2 `CapabilityLexicalSplit`
+  (verb/noun split, helper) → Layer 3
+  `CapabilityOntology` (vocabulary /
+  aliases, **config**) → Layer 4
+  `EffectiveCapabilityOntology`
+  (compiled vocabulary, **internal**)
+  → Layer 5
+  `CapabilityNormalizationReport`
+  (translation audit, **first
+  artifact**) → Layer 6
+  `CapabilityMap` (normalized
+  projection, **deferred to v2**) →
+  Layer 7
+  `RefactorPreservationContract`
+  (preservation obligations, future).
+  Owning package selected:
+  `@rekon/capability-ontology` (new).
+  V1 config source:
+  `.rekon/capability-ontology.json`
+  (optional; built-in baseline
+  otherwise). Sketches three core
+  types (`CapabilityOntologyConfig`,
+  `EffectiveCapabilityOntology`,
+  `CapabilityNormalizationReport`)
+  without implementing any. Required
+  verbatim pins (asserted by docs
+  test): "Layered config-first
+  ontology + artifact-backed
+  normalization report",
+  "CapabilityOntology starts as
+  config / source vocabulary",
+  "EffectiveCapabilityOntology is
+  internal in v1",
+  "CapabilityNormalizationReport is
+  the first registered artifact",
+  "CapabilityMap integration is
+  deferred to v2", "EvidenceGraph
+  raw facts are unchanged", "Unknown
+  verbs / nouns must surface to
+  operators", "LLM suggestions are
+  not truth in v1", "Do not flatten
+  the ontology into a single
+  config / report layer." New
+  strategy memo
+  [`docs/strategy/capability-ontology-translation-layer-decision.md`](capability-ontology-translation-layer-decision.md)
+  with all 18 required headings + 3
+  required diagnostic tables (option
+  / layer / unknown term). Review
+  packet
+  `.rekon-dev/review-packets/capability-ontology-translation-layer-decision.md`
+  with PURPOSE PRESERVATION CHECK +
+  all 13 required sections. New
+  16-assertion docs test
+  `tests/docs/capability-ontology-translation-layer-decision.test.mjs`.
+  Full suite expected ≥ 2061
+  passed / 1 skipped (2045 + 16
+  new). **Recommended next slice:**
+  *`CapabilityNormalizationReport` v1*
+  — register the artifact,
+  implement first-pass normalization
+  from `EvidenceGraph`
+  symbol / export / capability-hint
+  facts using the built-in baseline
+  vocabulary + optional
+  `.rekon/capability-ontology.json`,
+  surface unknown verbs / nouns as
+  first-class entries. No
+  `CapabilityMap` mutation. No
+  LLM-only normalization. No source
+  writes.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

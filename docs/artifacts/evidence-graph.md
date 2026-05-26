@@ -227,3 +227,15 @@ them. Normalized capability claims live in a separate audit artifact
 (`CapabilityNormalizationReport` — name reserved, registration deferred).
 Operators must always be able to trace a normalized purpose claim back to the
 raw symbol facts in this artifact.
+
+The
+[Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
+refines this boundary into an eight-layer internal model: `EvidenceGraph`
+(Layer 0) feeds a `CapabilityCandidateSet` (Layer 1, internal helper) →
+`CapabilityLexicalSplit` (Layer 2, helper) → `CapabilityOntology` (Layer 3,
+config) → `EffectiveCapabilityOntology` (Layer 4, internal compiled model) →
+`CapabilityNormalizationReport` (Layer 5, **first registered artifact**) →
+`CapabilityMap` (Layer 6, deferred to v2) →
+`RefactorPreservationContract` (Layer 7, future). `EvidenceGraph` remains
+Layer 0 and is unchanged. **EvidenceGraph raw facts are unchanged** by the
+ontology track.

@@ -664,3 +664,24 @@ required for alpha.
   providers, governance, memory,
   publications, and finally
   `RefactorPreservationContract`).
+- [Capability Ontology Translation
+  Layer Decision](capability-ontology-translation-layer-decision.md)
+  — concrete decision following the
+  architecture impact review.
+  **Outcome:** Option C — layered
+  config-first ontology +
+  artifact-backed normalization
+  report. Defines the eight-layer
+  internal model (Layer 0
+  `EvidenceGraph` → Layer 7
+  `RefactorPreservationContract`),
+  selects `@rekon/capability-ontology`
+  as the owning package, picks
+  `.rekon/capability-ontology.json`
+  as the v1 config source, and
+  registers `CapabilityNormalizationReport`
+  as the first artifact (v1
+  implementation slice ships next).
+  The decomposition replaces the
+  monolithic validator pattern
+  this audit deferred.
