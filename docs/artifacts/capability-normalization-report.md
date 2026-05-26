@@ -127,6 +127,10 @@ surface of the layered capability ontology.
   Next.js TypeScript target. Confirms the baseline is
   sufficient for audit-only v1 and that `CapabilityMap` v2
   remains deferred.
+- [`CapabilityNormalizationReviewLedger` artifact
+  reference](capability-normalization-review-ledger.md) —
+  append-only operator decisions over the unknown /
+  low-confidence rows produced by this report.
 - [`EvidenceGraph` artifact reference](evidence-graph.md)
 - [Reconciliation preview
   concept](../concepts/reconciliation-preview.md)

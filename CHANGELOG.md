@@ -4,6 +4,43 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability ontology unknown-term operator review
+  surface** — Option C from the built-in baseline coverage
+  review, and step 4a of the capability-ontology
+  translation-layer implementation sequence. New artifact
+  `CapabilityNormalizationReviewLedger` (registered in
+  `@rekon/sdk` + `@rekon/runtime`, category `actions`).
+  Three new CLI subcommands:
+
+    - `rekon capability ontology review suggestions
+      --report <CapabilityNormalizationReport-id|type:id>
+      [--limit <n>] [--include-decided] [--json]`
+    - `rekon capability ontology review decide --term <text>
+      --term-kind verb|noun|candidate --decision
+      extend-ontology|rename-symbol|noise-filter|defer
+      --reason <text> [--suggested-canonical <text>]
+      [--report <CapabilityNormalizationReport-id|type:id>]
+      [--candidate <candidate-id>] [--json]`
+    - `rekon capability ontology review decisions [--json]`
+
+  The ledger is **append-only**. Decisions are operator-
+  supplied; recording `extend-ontology` does **not**
+  automatically mutate `.rekon/capability-ontology.json`.
+  The surface does **not** mutate
+  `CapabilityNormalizationReport`, `CapabilityMap`, or
+  `EvidenceGraph`. No LLM normalization. No source-write
+  apply. No new permission. No workflow YAML. No version
+  bump. No npm publish. No git tag. No GitHub Release. New
+  18-assertion contract test + 12-assertion docs test. New
+  docs at
+  [`docs/artifacts/capability-normalization-review-ledger.md`](docs/artifacts/capability-normalization-review-ledger.md).
+  Review packet
+  [`.rekon-dev/review-packets/capability-normalization-review-ledger.md`](.rekon-dev/review-packets/capability-normalization-review-ledger.md).
+  Recommended next slice: *capability ontology vocabulary
+  expansion v1* — read `extend-ontology` entries and produce
+  a `.rekon/capability-ontology.json` preview without
+  applying it.
+
 - Shipped **Built-In Baseline Ontology Coverage Review** —
   strategy / dogfood-analysis batch (step 4 of the
   capability-ontology track implementation sequence). Ran

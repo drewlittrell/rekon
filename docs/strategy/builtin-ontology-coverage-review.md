@@ -175,6 +175,10 @@ In priority order:
 - [Capability Ontology Translation Layer Decision](capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact Review](capability-ontology-architecture-impact-review.md)
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
+- [`CapabilityNormalizationReviewLedger` artifact
+  reference](../artifacts/capability-normalization-review-ledger.md)
+  — append-only operator review surface shipped as the
+  follow-up to this memo (Option C).
 - [Capability ontology concept](../concepts/capability-ontology.md)
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)

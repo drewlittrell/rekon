@@ -258,6 +258,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   ReconciliationLog: "actions",
   ActionLog: "actions",
   CapabilityNormalizationReport: "projections",
+  CapabilityNormalizationReviewLedger: "actions",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [

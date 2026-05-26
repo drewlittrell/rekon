@@ -1320,6 +1320,57 @@ is the first stop before proposing a new capability batch.
   next slice:** Option C
   implementation (unknown-term
   operator review surface).
+- Capability ontology unknown-term
+  operator review surface (P1.1
+  capability-normalization-review-ledger
+  slice; Option C from the coverage
+  review): **fifth slice on the
+  capability-ontology track and the
+  second runtime implementation
+  batch.** Ships
+  `CapabilityNormalizationReviewLedger`
+  (registered in the SDK + runtime,
+  category `actions`) + three new
+  CLI subcommands
+  `rekon capability ontology review
+  {suggestions,decide,decisions}`.
+  The ledger is **append-only**.
+  `decide` writes one entry and
+  cites the source
+  `CapabilityNormalizationReport`
+  when supplied; it does **not**
+  rewrite or remove existing
+  entries. **No `.rekon/capability-ontology.json`
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No `CapabilityMap`
+  mutation. No `EvidenceGraph`
+  mutation. No source-write apply.
+  No LLM normalization. No new
+  permission. No new role. No
+  workflow YAML. No new package.
+  No version bump. No npm publish.
+  No git tag. No GitHub Release.**
+  Four decision values:
+  `extend-ontology` (real vocabulary
+  gap), `rename-symbol` (source repo
+  should rename), `noise-filter`
+  (term is not a capability), and
+  `defer` (operator unsure). New
+  18-assertion contract test +
+  12-assertion docs test. New
+  artifact reference
+  [`docs/artifacts/capability-normalization-review-ledger.md`](../artifacts/capability-normalization-review-ledger.md).
+  Review packet
+  `.rekon-dev/review-packets/capability-normalization-review-ledger.md`.
+  Full suite expected ≥ 2123 passed
+  (2093 + 18 contract + 12 docs).
+  **Recommended next slice:**
+  *capability ontology vocabulary
+  expansion v1* — read
+  `extend-ontology` entries and
+  produce a `.rekon/capability-ontology.json`
+  preview without applying it.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

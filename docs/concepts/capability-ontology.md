@@ -145,6 +145,53 @@ whether to:
 
 Rekon never auto-extends the ontology. Unknowns must surface.
 
+## Operator Review Surface
+
+The
+[`CapabilityNormalizationReviewLedger`](../artifacts/capability-normalization-review-ledger.md)
+is the **append-only** operator surface for triaging unknown
+/ low-confidence terms before any vocabulary expansion or
+`CapabilityMap` integration. It is the runtime surface
+selected by the
+[built-in baseline coverage review](../strategy/builtin-ontology-coverage-review.md).
+
+Three CLI subcommands drive the workflow:
+
+```bash
+rekon capability ontology review suggestions \
+  --report <CapabilityNormalizationReport-id|type:id> \
+  [--limit <n>] [--include-decided] [--json]
+
+rekon capability ontology review decide \
+  --term <text> \
+  --term-kind verb|noun|candidate \
+  --decision extend-ontology|rename-symbol|noise-filter|defer \
+  --reason <text> \
+  [--suggested-canonical <text>] \
+  [--report <CapabilityNormalizationReport-id|type:id>] \
+  [--candidate <candidate-id>] \
+  [--json]
+
+rekon capability ontology review decisions [--json]
+```
+
+Rules:
+
+- The ledger is **append-only**. Each `decide` appends one
+  entry; existing entries are never rewritten or removed.
+- Recording an `extend-ontology` decision does **not**
+  automatically mutate `.rekon/capability-ontology.json`.
+  Vocabulary expansion ships in a separate slice that uses
+  the ledger as input.
+- The review surface does **not** mutate
+  `CapabilityNormalizationReport`, `CapabilityMap`, or
+  `EvidenceGraph`.
+- The four decision values are: **`extend-ontology`** (term
+  is a real capability verb / noun missing from the
+  baseline), **`rename-symbol`** (source repo should rename),
+  **`noise-filter`** (term is not a capability — symbol
+  noise), and **`defer`** (operator is not yet sure).
+
 ## Lexical Splitter Confidence
 
 - **High**: 2 tokens (`getUser`, `save_token`).
@@ -159,6 +206,10 @@ considered normalized.
 
 - [`CapabilityNormalizationReport` artifact
   reference](../artifacts/capability-normalization-report.md)
+- [`CapabilityNormalizationReviewLedger` artifact
+  reference](../artifacts/capability-normalization-review-ledger.md)
+  — append-only operator decisions over unknown /
+  low-confidence terms.
 - [Capability Ontology Translation Layer
   Decision](../strategy/capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact

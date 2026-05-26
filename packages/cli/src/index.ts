@@ -61,10 +61,20 @@ import reconcileCapability, {
   type ReconciliationPreviewOperation,
 } from "@rekon/capability-reconcile";
 import ontologyCapability, {
+  appendCapabilityNormalizationReviewDecision,
   buildCapabilityNormalizationReport,
+  buildDecidedKeySet,
   compileEffectiveCapabilityOntology,
+  DEFAULT_REVIEW_SUGGESTION_LIMIT,
   loadCapabilityOntologyConfig,
+  suggestUnknownTerms,
+  validateCapabilityNormalizationReviewLedger,
   type CapabilityNormalizationReport,
+  type CapabilityNormalizationReviewDecision,
+  type CapabilityNormalizationReviewEntry,
+  type CapabilityNormalizationReviewLedger,
+  type CapabilityNormalizationReviewSuggestion,
+  type CapabilityNormalizationReviewTermKind,
   type EffectiveCapabilityOntology,
 } from "@rekon/capability-ontology";
 import resolverCapability from "@rekon/capability-resolver";
@@ -488,6 +498,281 @@ export async function main(argv: string[]): Promise<void> {
       writeOutput(lines.join("\n"), false);
     }
     return;
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "ontology"
+    && positional === "review"
+  ) {
+    // `rekon capability ontology review <suggestions|decide|decisions>` —
+    // operator-facing review surface for unknown / low-confidence
+    // terms produced by CapabilityNormalizationReport. **Append-only.**
+    // Does NOT mutate `.rekon/capability-ontology.json`. Does NOT
+    // mutate CapabilityMap. Does NOT re-run the normalizer. See
+    // docs/artifacts/capability-normalization-review-ledger.md.
+    const reviewSubcommand = parsed.positionals[3];
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    if (reviewSubcommand === "suggestions") {
+      const reportFlag = typeof parsed.flags.report === "string"
+        ? parsed.flags.report.trim()
+        : "";
+      if (reportFlag.length === 0) {
+        throw new Error(
+          "rekon capability ontology review suggestions requires --report <CapabilityNormalizationReport-id|type:id>.",
+        );
+      }
+      const limitFlag = typeof parsed.flags.limit === "string"
+        ? Number.parseInt(parsed.flags.limit, 10)
+        : Number.parseInt(String(parsed.flags.limit ?? ""), 10);
+      const limit =
+        Number.isFinite(limitFlag) && limitFlag > 0
+          ? limitFlag
+          : DEFAULT_REVIEW_SUGGESTION_LIMIT;
+      const includeDecided = Boolean(parsed.flags["include-decided"]);
+
+      const reportEntry = await findArtifactEntry(store, reportFlag);
+      if (reportEntry.type !== "CapabilityNormalizationReport") {
+        throw new Error(
+          `rekon capability ontology review suggestions --report must reference a CapabilityNormalizationReport; got ${reportEntry.type}.`,
+        );
+      }
+      const report = (await store.read(reportEntry)) as CapabilityNormalizationReport;
+      const reportRef: ArtifactRef = {
+        type: reportEntry.type,
+        id: reportEntry.id,
+        path: reportEntry.path,
+        digest: reportEntry.digest,
+        schemaVersion: reportEntry.schemaVersion ?? "0.1.0",
+      };
+
+      let excludeDecidedKeys: Set<string> | undefined;
+      if (!includeDecided) {
+        const latest = await readLatestReviewLedger(store);
+        excludeDecidedKeys = buildDecidedKeySet(latest);
+      }
+
+      const suggestions = suggestUnknownTerms(report, {
+        limit,
+        excludeDecidedKeys,
+      });
+
+      if (json) {
+        writeOutput(
+          {
+            kind: "rekon.capability-ontology.review.suggestions",
+            reportRef,
+            limit,
+            includeDecided,
+            suggestions,
+          },
+          true,
+        );
+      } else {
+        const lines: string[] = [];
+        lines.push(
+          `Capability ontology review suggestions for ${reportRef.type}:${reportRef.id}.`,
+        );
+        if (excludeDecidedKeys && excludeDecidedKeys.size > 0) {
+          lines.push(
+            `Excluding ${excludeDecidedKeys.size} term(s) already decided in the latest ledger. Pass --include-decided to override.`,
+          );
+        }
+        if (suggestions.length === 0) {
+          lines.push("No outstanding unknown / low-confidence terms.");
+        } else {
+          lines.push(`Top ${suggestions.length} term(s) by frequency:`);
+          for (const suggestion of suggestions) {
+            lines.push(
+              `  ${suggestion.termKind} "${suggestion.term}" (${suggestion.count}) `
+              + `statuses=${suggestion.statuses.join(",")}`,
+            );
+          }
+        }
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
+    if (reviewSubcommand === "decide") {
+      const term = typeof parsed.flags.term === "string" ? parsed.flags.term.trim() : "";
+      if (term.length === 0) {
+        throw new Error("rekon capability ontology review decide requires --term <text>.");
+      }
+      const termKindRaw = typeof parsed.flags["term-kind"] === "string"
+        ? parsed.flags["term-kind"].trim()
+        : "";
+      const decisionRaw = typeof parsed.flags.decision === "string"
+        ? parsed.flags.decision.trim()
+        : "";
+      const reason = typeof parsed.flags.reason === "string" ? parsed.flags.reason : "";
+      const suggestedCanonical = typeof parsed.flags["suggested-canonical"] === "string"
+        ? parsed.flags["suggested-canonical"].trim() || undefined
+        : undefined;
+      const candidateId = typeof parsed.flags.candidate === "string"
+        ? parsed.flags.candidate.trim() || undefined
+        : undefined;
+      const reportRefFlag = typeof parsed.flags.report === "string"
+        ? parsed.flags.report.trim()
+        : "";
+
+      if (termKindRaw === "" || !isReviewTermKind(termKindRaw)) {
+        throw new Error(
+          "rekon capability ontology review decide --term-kind must be one of verb|noun|candidate.",
+        );
+      }
+      if (decisionRaw === "" || !isReviewDecision(decisionRaw)) {
+        throw new Error(
+          "rekon capability ontology review decide --decision must be one of extend-ontology|rename-symbol|noise-filter|defer.",
+        );
+      }
+      if (reason.trim().length === 0) {
+        throw new Error(
+          "rekon capability ontology review decide requires --reason <text>.",
+        );
+      }
+
+      let sourceReportRef: ArtifactRef | undefined;
+      if (reportRefFlag.length > 0) {
+        const reportEntry = await findArtifactEntry(store, reportRefFlag);
+        if (reportEntry.type !== "CapabilityNormalizationReport") {
+          throw new Error(
+            `rekon capability ontology review decide --report must reference a CapabilityNormalizationReport; got ${reportEntry.type}.`,
+          );
+        }
+        sourceReportRef = {
+          type: reportEntry.type,
+          id: reportEntry.id,
+          path: reportEntry.path,
+          digest: reportEntry.digest,
+          schemaVersion: reportEntry.schemaVersion ?? "0.1.0",
+        };
+      }
+
+      const priorLedger = await readLatestReviewLedger(store);
+      const generatedAt = new Date().toISOString();
+      const ledgerId = priorLedger?.header?.artifactId
+        ?? `capability-normalization-review-${generatedAt.replace(/[:.]/g, "-")}`;
+      const inputRefs = sourceReportRef ? [sourceReportRef] : (priorLedger?.header?.inputRefs ?? []);
+      const header: ArtifactHeader = {
+        artifactType: "CapabilityNormalizationReviewLedger",
+        artifactId: ledgerId,
+        schemaVersion: "0.1.0",
+        generatedAt,
+        subject: { repoId: root },
+        producer: {
+          id: "@rekon/cli.capability-ontology-review",
+          version: "0.1.0-beta.0",
+        },
+        inputRefs,
+        freshness: { status: "fresh" },
+      };
+
+      const ledger = appendCapabilityNormalizationReviewDecision({
+        ledger: priorLedger,
+        header,
+        entry: {
+          term,
+          termKind: termKindRaw as CapabilityNormalizationReviewTermKind,
+          decision: decisionRaw as CapabilityNormalizationReviewDecision,
+          reason,
+          ...(sourceReportRef ? { sourceReportRef } : {}),
+          ...(candidateId ? { sourceCandidateId: candidateId } : {}),
+          ...(suggestedCanonical ? { suggestedCanonical } : {}),
+        },
+      });
+
+      const ref = await store.write(ledger, { category: "actions" });
+      const newEntry = ledger.entries[ledger.entries.length - 1] as CapabilityNormalizationReviewEntry;
+
+      if (json) {
+        writeOutput(
+          {
+            artifact: ref,
+            entry: newEntry,
+            summary: ledger.summary,
+          },
+          true,
+        );
+      } else {
+        const lines: string[] = [];
+        lines.push("Recorded capability normalization review decision:");
+        lines.push(`term: ${newEntry.term}`);
+        lines.push(`term-kind: ${newEntry.termKind}`);
+        lines.push(`decision: ${newEntry.decision}`);
+        lines.push(`reason: ${newEntry.reason}`);
+        lines.push(`ledger: ${ref.type}:${ref.id}`);
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
+    if (reviewSubcommand === "decisions") {
+      const ledger = await readLatestReviewLedger(store);
+      if (!ledger) {
+        if (json) {
+          writeOutput(
+            {
+              kind: "rekon.capability-ontology.review.decisions",
+              ledger: null,
+              entries: [],
+              summary: {
+                total: 0,
+                extendOntology: 0,
+                renameSymbol: 0,
+                noiseFilter: 0,
+                defer: 0,
+              },
+            },
+            true,
+          );
+        } else {
+          writeOutput(
+            "No capability normalization review ledger exists yet. Run `rekon capability ontology review decide` first.",
+            false,
+          );
+        }
+        return;
+      }
+      const ref: ArtifactRef = {
+        type: "CapabilityNormalizationReviewLedger",
+        id: ledger.header.artifactId,
+        schemaVersion: ledger.header.schemaVersion,
+      };
+      if (json) {
+        writeOutput(
+          {
+            kind: "rekon.capability-ontology.review.decisions",
+            ledger: ref,
+            entries: ledger.entries,
+            summary: ledger.summary,
+          },
+          true,
+        );
+      } else {
+        const lines: string[] = [];
+        lines.push(`Capability normalization review ledger: ${ref.type}:${ref.id}.`);
+        lines.push(
+          `Total: ${ledger.summary.total} (extend-ontology ${ledger.summary.extendOntology}, `
+          + `rename-symbol ${ledger.summary.renameSymbol}, `
+          + `noise-filter ${ledger.summary.noiseFilter}, `
+          + `defer ${ledger.summary.defer}).`,
+        );
+        for (const entry of ledger.entries) {
+          lines.push(
+            `  [${entry.decision}] ${entry.termKind} "${entry.term}" — ${entry.reason}`,
+          );
+        }
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
+    throw new Error(
+      "rekon capability ontology review requires a subcommand: suggestions | decide | decisions.",
+    );
   }
 
   if (command === "observe") {
@@ -5060,6 +5345,35 @@ function writePreviewHumanOutput(preview: ReconciliationPreview): void {
   process.stdout.write(`${lines.join("\n")}\n`);
 }
 
+function isReviewTermKind(value: string): value is CapabilityNormalizationReviewTermKind {
+  return value === "verb" || value === "noun" || value === "candidate";
+}
+
+function isReviewDecision(value: string): value is CapabilityNormalizationReviewDecision {
+  return (
+    value === "extend-ontology"
+    || value === "rename-symbol"
+    || value === "noise-filter"
+    || value === "defer"
+  );
+}
+
+async function readLatestReviewLedger(
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<CapabilityNormalizationReviewLedger | undefined> {
+  const entries = await store.list("CapabilityNormalizationReviewLedger");
+  if (entries.length === 0) return undefined;
+  const latest = entries.at(-1) as ArtifactIndexEntry;
+  const raw = (await store.read(latest)) as unknown;
+  const result = validateCapabilityNormalizationReviewLedger(raw);
+  if (!result.ok) {
+    throw new Error(
+      `Latest CapabilityNormalizationReviewLedger is invalid: ${result.reason}`,
+    );
+  }
+  return result.ledger;
+}
+
 async function findArtifactEntry(store: ReturnType<typeof createLocalArtifactStore>, id: string): Promise<ArtifactIndexEntry> {
   const entries = await store.list();
   const [type, artifactId] = id.includes(":") ? id.split(":", 2) : [undefined, id];
@@ -6983,6 +7297,9 @@ function usage(): string {
     "rekon reconcile suggest [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--apply] [--root <path>] [--json]",
     "rekon reconcile preview --plan <id|type:id> [--root <path>] [--json]",
     "rekon capability ontology normalize [--root <path>] [--json]",
+    "rekon capability ontology review suggestions --report <id|type:id> [--limit <n>] [--include-decided] [--root <path>] [--json]",
+    "rekon capability ontology review decide --term <text> --term-kind verb|noun|candidate --decision extend-ontology|rename-symbol|noise-filter|defer --reason <text> [--suggested-canonical <text>] [--report <id|type:id>] [--candidate <id>] [--root <path>] [--json]",
+    "rekon capability ontology review decisions [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

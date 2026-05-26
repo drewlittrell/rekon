@@ -919,6 +919,353 @@ function summarize(
   };
 }
 
+// ---------- CapabilityNormalizationReviewLedger ----------
+//
+// Operator-facing review surface for the unknown / low-
+// confidence terms produced by CapabilityNormalizationReport.
+// The ledger is **append-only** and captures explicit operator
+// decisions; it never mutates the ontology config, never
+// touches CapabilityMap, and never re-runs the normalizer.
+
+export type CapabilityNormalizationReviewDecision =
+  | "extend-ontology"
+  | "rename-symbol"
+  | "noise-filter"
+  | "defer";
+
+export type CapabilityNormalizationReviewTermKind = "verb" | "noun" | "candidate";
+
+export type CapabilityNormalizationReviewEntry = {
+  id: string;
+  term: string;
+  termKind: CapabilityNormalizationReviewTermKind;
+  decision: CapabilityNormalizationReviewDecision;
+  reason: string;
+  createdAt: string;
+  createdBy?: string;
+  sourceReportRef?: ArtifactRef;
+  sourceCandidateId?: string;
+  suggestedCanonical?: string;
+};
+
+export type CapabilityNormalizationReviewLedgerSummary = {
+  total: number;
+  extendOntology: number;
+  renameSymbol: number;
+  noiseFilter: number;
+  defer: number;
+};
+
+export type CapabilityNormalizationReviewLedger = {
+  header: ArtifactHeader;
+  entries: CapabilityNormalizationReviewEntry[];
+  summary: CapabilityNormalizationReviewLedgerSummary;
+};
+
+const VALID_REVIEW_DECISIONS: ReadonlySet<string> = new Set([
+  "extend-ontology",
+  "rename-symbol",
+  "noise-filter",
+  "defer",
+]);
+
+const VALID_REVIEW_TERM_KINDS: ReadonlySet<string> = new Set([
+  "verb",
+  "noun",
+  "candidate",
+]);
+
+export function isCapabilityNormalizationReviewDecision(
+  value: unknown,
+): value is CapabilityNormalizationReviewDecision {
+  return typeof value === "string" && VALID_REVIEW_DECISIONS.has(value);
+}
+
+export function isCapabilityNormalizationReviewTermKind(
+  value: unknown,
+): value is CapabilityNormalizationReviewTermKind {
+  return typeof value === "string" && VALID_REVIEW_TERM_KINDS.has(value);
+}
+
+export function summarizeCapabilityNormalizationReviewLedger(
+  entries: CapabilityNormalizationReviewEntry[],
+): CapabilityNormalizationReviewLedgerSummary {
+  let extendOntology = 0;
+  let renameSymbol = 0;
+  let noiseFilter = 0;
+  let defer = 0;
+
+  for (const entry of entries) {
+    switch (entry.decision) {
+      case "extend-ontology":
+        extendOntology += 1;
+        break;
+      case "rename-symbol":
+        renameSymbol += 1;
+        break;
+      case "noise-filter":
+        noiseFilter += 1;
+        break;
+      case "defer":
+        defer += 1;
+        break;
+    }
+  }
+
+  return {
+    total: entries.length,
+    extendOntology,
+    renameSymbol,
+    noiseFilter,
+    defer,
+  };
+}
+
+export function validateCapabilityNormalizationReviewLedger(
+  value: unknown,
+): { ok: true; ledger: CapabilityNormalizationReviewLedger } | { ok: false; reason: string } {
+  if (!isRecord(value)) {
+    return { ok: false, reason: "ledger must be an object" };
+  }
+  if (!isRecord(value.header)) {
+    return { ok: false, reason: "ledger.header must be an object" };
+  }
+  const header = value.header as ArtifactHeader;
+  if (header.artifactType !== "CapabilityNormalizationReviewLedger") {
+    return {
+      ok: false,
+      reason: `ledger.header.artifactType must be "CapabilityNormalizationReviewLedger", got ${String(header.artifactType)}`,
+    };
+  }
+  if (!Array.isArray((value as { entries?: unknown }).entries)) {
+    return { ok: false, reason: "ledger.entries must be an array" };
+  }
+  const entriesRaw = (value as { entries: unknown[] }).entries;
+  for (const entry of entriesRaw) {
+    if (!isRecord(entry)) {
+      return { ok: false, reason: "ledger.entries[*] must be objects" };
+    }
+    if (!isNonEmpty(entry.id)) {
+      return { ok: false, reason: "ledger.entries[*].id must be a non-empty string" };
+    }
+    if (!isNonEmpty(entry.term)) {
+      return { ok: false, reason: "ledger.entries[*].term must be a non-empty string" };
+    }
+    if (!isCapabilityNormalizationReviewTermKind(entry.termKind)) {
+      return {
+        ok: false,
+        reason: "ledger.entries[*].termKind must be verb|noun|candidate",
+      };
+    }
+    if (!isCapabilityNormalizationReviewDecision(entry.decision)) {
+      return {
+        ok: false,
+        reason:
+          "ledger.entries[*].decision must be extend-ontology|rename-symbol|noise-filter|defer",
+      };
+    }
+    if (!isNonEmpty(entry.reason)) {
+      return { ok: false, reason: "ledger.entries[*].reason must be a non-empty string" };
+    }
+    if (!isNonEmpty(entry.createdAt)) {
+      return { ok: false, reason: "ledger.entries[*].createdAt must be a non-empty string" };
+    }
+  }
+  const summary = isRecord((value as { summary?: unknown }).summary)
+    ? (value as { summary: CapabilityNormalizationReviewLedgerSummary }).summary
+    : summarizeCapabilityNormalizationReviewLedger(
+      entriesRaw as CapabilityNormalizationReviewEntry[],
+    );
+
+  return {
+    ok: true,
+    ledger: {
+      header,
+      entries: entriesRaw as CapabilityNormalizationReviewEntry[],
+      summary,
+    },
+  };
+}
+
+export type AppendCapabilityNormalizationReviewDecisionInput = {
+  ledger?: CapabilityNormalizationReviewLedger;
+  header: ArtifactHeader;
+  entry: Omit<CapabilityNormalizationReviewEntry, "id" | "createdAt"> & {
+    id?: string;
+    createdAt?: string;
+  };
+};
+
+export function appendCapabilityNormalizationReviewDecision(
+  input: AppendCapabilityNormalizationReviewDecisionInput,
+): CapabilityNormalizationReviewLedger {
+  if (!isCapabilityNormalizationReviewDecision(input.entry.decision)) {
+    throw new Error(
+      `capability ontology review: decision must be one of extend-ontology|rename-symbol|noise-filter|defer; got ${String(input.entry.decision)}`,
+    );
+  }
+  if (!isCapabilityNormalizationReviewTermKind(input.entry.termKind)) {
+    throw new Error(
+      `capability ontology review: termKind must be one of verb|noun|candidate; got ${String(input.entry.termKind)}`,
+    );
+  }
+  if (!isNonEmpty(input.entry.term)) {
+    throw new Error("capability ontology review: term must be a non-empty string.");
+  }
+  if (!isNonEmpty(input.entry.reason)) {
+    throw new Error("capability ontology review: reason must be a non-empty string.");
+  }
+
+  const createdAt = input.entry.createdAt ?? new Date().toISOString();
+  const entryId =
+    input.entry.id
+    ?? `review-${createdAt.replace(/[:.]/g, "-")}-${input.entry.termKind}-${slug(input.entry.term)}`;
+
+  const newEntry: CapabilityNormalizationReviewEntry = {
+    id: entryId,
+    term: input.entry.term,
+    termKind: input.entry.termKind,
+    decision: input.entry.decision,
+    reason: input.entry.reason,
+    createdAt,
+    ...(input.entry.createdBy ? { createdBy: input.entry.createdBy } : {}),
+    ...(input.entry.sourceReportRef ? { sourceReportRef: input.entry.sourceReportRef } : {}),
+    ...(input.entry.sourceCandidateId ? { sourceCandidateId: input.entry.sourceCandidateId } : {}),
+    ...(input.entry.suggestedCanonical
+      ? { suggestedCanonical: input.entry.suggestedCanonical }
+      : {}),
+  };
+
+  const priorEntries = input.ledger?.entries ?? [];
+  const entries: CapabilityNormalizationReviewEntry[] = [...priorEntries, newEntry];
+
+  return {
+    header: input.header,
+    entries,
+    summary: summarizeCapabilityNormalizationReviewLedger(entries),
+  };
+}
+
+// ---------- Suggestion aggregation ----------
+
+export type CapabilityNormalizationReviewSuggestion = {
+  term: string;
+  termKind: CapabilityNormalizationReviewTermKind;
+  count: number;
+  statuses: CapabilityNormalizationStatus[];
+  exampleCandidateIds: string[];
+};
+
+export type SuggestUnknownTermsOptions = {
+  /** Maximum number of suggestions to return. Default: 20. */
+  limit?: number;
+  /** Optional set of `${termKind}:${term}` keys already decided in the ledger. */
+  excludeDecidedKeys?: ReadonlySet<string>;
+};
+
+export const DEFAULT_REVIEW_SUGGESTION_LIMIT = 20;
+
+export function suggestUnknownTerms(
+  report: CapabilityNormalizationReport,
+  options: SuggestUnknownTermsOptions = {},
+): CapabilityNormalizationReviewSuggestion[] {
+  const limit = options.limit ?? DEFAULT_REVIEW_SUGGESTION_LIMIT;
+  const excluded = options.excludeDecidedKeys ?? new Set<string>();
+
+  const aggregates = new Map<
+    string,
+    {
+      term: string;
+      termKind: CapabilityNormalizationReviewTermKind;
+      count: number;
+      statuses: Set<CapabilityNormalizationStatus>;
+      exampleCandidateIds: string[];
+    }
+  >();
+
+  function ensure(
+    term: string,
+    termKind: CapabilityNormalizationReviewTermKind,
+    status: CapabilityNormalizationStatus,
+    candidateId: string,
+  ): void {
+    if (!term) return;
+    const key = `${termKind}:${term}`;
+    if (excluded.has(key)) return;
+    let bucket = aggregates.get(key);
+    if (!bucket) {
+      bucket = {
+        term,
+        termKind,
+        count: 0,
+        statuses: new Set<CapabilityNormalizationStatus>(),
+        exampleCandidateIds: [],
+      };
+      aggregates.set(key, bucket);
+    }
+    bucket.count += 1;
+    bucket.statuses.add(status);
+    if (bucket.exampleCandidateIds.length < 3) {
+      bucket.exampleCandidateIds.push(candidateId);
+    }
+  }
+
+  for (const candidate of report.candidates ?? []) {
+    switch (candidate.status) {
+      case "unknown-verb": {
+        const verb = candidate.raw.verb;
+        if (verb) ensure(verb, "verb", candidate.status, candidate.id);
+        break;
+      }
+      case "unknown-noun": {
+        const noun = candidate.raw.noun;
+        if (noun) ensure(noun, "noun", candidate.status, candidate.id);
+        break;
+      }
+      case "unknown": {
+        const verb = candidate.raw.verb;
+        const noun = candidate.raw.noun;
+        if (verb) ensure(verb, "verb", candidate.status, candidate.id);
+        if (noun) ensure(noun, "noun", candidate.status, candidate.id);
+        break;
+      }
+      case "low-confidence": {
+        ensure(candidate.raw.name, "candidate", candidate.status, candidate.id);
+        break;
+      }
+      // normalized / ignored: nothing to suggest.
+      default:
+        break;
+    }
+  }
+
+  return [...aggregates.values()]
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      if (a.termKind !== b.termKind) return a.termKind.localeCompare(b.termKind);
+      return a.term.localeCompare(b.term);
+    })
+    .slice(0, limit)
+    .map((entry) => ({
+      term: entry.term,
+      termKind: entry.termKind,
+      count: entry.count,
+      statuses: [...entry.statuses].sort(),
+      exampleCandidateIds: entry.exampleCandidateIds,
+    }));
+}
+
+export function buildDecidedKeySet(
+  ledger: CapabilityNormalizationReviewLedger | undefined,
+): Set<string> {
+  const set = new Set<string>();
+  if (!ledger) return set;
+  for (const entry of ledger.entries) {
+    set.add(`${entry.termKind}:${entry.term}`);
+  }
+  return set;
+}
+
 // ---------- Capability manifest + projector ----------
 
 export const normalizationProjector: Projector = {
@@ -1062,4 +1409,13 @@ function sortRecord<T>(record: Record<string, T>): Record<string, T> {
     sorted[key] = record[key] as T;
   }
   return sorted;
+}
+
+function isNonEmpty(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function slug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40)
+    || "term";
 }

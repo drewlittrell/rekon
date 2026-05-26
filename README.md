@@ -1049,6 +1049,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# Capability ontology unknown-term operator review
+# surface has shipped (Option C from the coverage
+# review). New artifact
+# CapabilityNormalizationReviewLedger (registered in
+# the SDK + runtime, category actions). New CLI
+# subcommands:
+#   rekon capability ontology review suggestions
+#     --report <CapabilityNormalizationReport:id> [--limit n]
+#     [--include-decided] [--json]
+#   rekon capability ontology review decide
+#     --term <text> --term-kind verb|noun|candidate
+#     --decision extend-ontology|rename-symbol|noise-filter|defer
+#     --reason <text> [--suggested-canonical <text>]
+#     [--report <id|type:id>] [--candidate <id>] [--json]
+#   rekon capability ontology review decisions [--json]
+# Ledger is append-only. extend-ontology decisions do
+# NOT automatically mutate .rekon/capability-ontology.json.
+# CapabilityMap integration remains deferred. No LLM
+# normalization. No source-write apply. See
+# docs/artifacts/capability-normalization-review-ledger.md.
+#
 # Built-in baseline ontology coverage review has shipped
 # at docs/strategy/builtin-ontology-coverage-review.md.
 # Step 4 of the capability-ontology track implementation

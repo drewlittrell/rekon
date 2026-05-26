@@ -260,6 +260,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "ReconciliationLog", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ActionLog", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "CapabilityNormalizationReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "CapabilityNormalizationReviewLedger", schemaVersion: "0.1.0", stability: "experimental" },
 ];
 
 export function defineCapability(definition: CapabilityDefinition): CapabilityDefinition {

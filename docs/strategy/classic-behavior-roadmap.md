@@ -5369,6 +5369,43 @@ scope:
   No CLI change. No new permission.
   No source-write apply.** See
   [`docs/strategy/builtin-ontology-coverage-review.md`](builtin-ontology-coverage-review.md).
+- **Capability ontology unknown-term
+  operator review surface (P1.1
+  capability-normalization-review-ledger
+  slice).** ✅ Shipped. **Fifth slice
+  on the capability-ontology track
+  and the second runtime
+  implementation batch.** Ships
+  `CapabilityNormalizationReviewLedger`
+  (registered in the SDK + runtime,
+  category `actions`) plus three
+  new CLI subcommands
+  `rekon capability ontology review
+  {suggestions,decide,decisions}`.
+  Append-only operator decisions
+  over unknown / low-confidence
+  terms produced by
+  `CapabilityNormalizationReport`.
+  Four decision values:
+  `extend-ontology`,
+  `rename-symbol`, `noise-filter`,
+  `defer`. **No automatic
+  `.rekon/capability-ontology.json`
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No `CapabilityMap`
+  mutation. No `EvidenceGraph`
+  mutation. No source-write apply.
+  No LLM normalization. No new
+  permission.** See
+  [`docs/artifacts/capability-normalization-review-ledger.md`](../artifacts/capability-normalization-review-ledger.md).
+  **Recommended next slice:**
+  *capability ontology vocabulary
+  expansion v1* — produce a
+  `.rekon/capability-ontology.json`
+  preview from `extend-ontology`
+  ledger entries without applying
+  it.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review
