@@ -853,6 +853,7 @@ supporting-doc cross-references.
 | 4a | Capability ontology unknown-term operator review surface (Option C) — `CapabilityNormalizationReviewLedger` + `rekon capability ontology review {suggestions,decide,decisions}` | ✅ Shipped — append-only; does not mutate `.rekon/capability-ontology.json` or `CapabilityMap`. See [`CapabilityNormalizationReviewLedger` artifact reference](../artifacts/capability-normalization-review-ledger.md). |
 | 4b | Capability ontology vocabulary expansion v1 (preview-first Option A) — `CapabilityOntologySuggestionReport` + `rekon capability ontology suggestions` | ✅ Shipped — preview-only `.rekon/capability-ontology.json` patch; never mutates the config file. See [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md). |
 | 4c | Capability ontology suggestion publication surfacing — architecture summary + agent contract render `CapabilityOntologySuggestionReport` | ✅ Shipped — read-only; publications never mutate `.rekon/capability-ontology.json` or `CapabilityMap`. Agent contract `Do Not Do` pins that suggestions are not applied vocabulary. Proof report surfacing remains deferred. |
+| 4d | Capability ontology suggestion safety review — end-to-end review of the `normalize → review → suggest → publish` loop | ✅ Shipped — workflow is safe / stable as preview-only; manual editing of `.rekon/capability-ontology.json` remains the operator-control boundary; no config apply command in this batch. See [Capability Ontology Suggestion Safety Review](capability-ontology-suggestion-safety-review.md). |
 | 5 | `CapabilityMap` normalized-claims integration | v2; gated on step 3 + step 4 |
 | 6 | Built-in ontology expansion (verbs / nouns / roles / patterns / layers) | Iterative with step 3 + step 4 |
 | 7 | Unknown-term operator-review CLI / surface | After step 3, gated on operator feedback |
@@ -890,6 +891,12 @@ the layered model is preserved.
   reference](../artifacts/capability-ontology-suggestion-report.md)
   — step 4b. Preview-only vocabulary expansion proposal
   driven by `extend-ontology` ledger decisions.
+- [Capability Ontology Suggestion Safety
+  Review](capability-ontology-suggestion-safety-review.md)
+  — step 4d. End-to-end safety review of the full
+  `normalize → review → suggest → publish` loop. Pins
+  the preview-only contract; defers any operator-approved
+  config apply command.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

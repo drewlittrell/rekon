@@ -1049,6 +1049,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# Capability ontology suggestion safety review
+# has shipped (strategy / docs / tests-only).
+# Reviews the full normalize -> review ledger ->
+# suggestion report -> publication surfacing loop
+# end-to-end. Pins verbatim:
+#   - CapabilityOntologySuggestionReport entries
+#     are preview-only and not applied vocabulary.
+#   - No current ontology suggestion path mutates
+#     .rekon/capability-ontology.json.
+#   - No current ontology suggestion path mutates
+#     CapabilityMap.
+#   - Proof report surfacing remains deferred.
+#   - CapabilityMap integration remains deferred.
+# Decision: the workflow is safe / stable as a
+# preview-only loop; manual editing of
+# .rekon/capability-ontology.json remains the
+# operator-control boundary; no operator-approved
+# config apply command ships in this batch. See
+# docs/strategy/capability-ontology-suggestion-safety-review.md.
+#
 # Capability ontology suggestion publication
 # surfacing has shipped. The architecture summary
 # and agent contract publishers now surface the

@@ -131,6 +131,10 @@ surface of the layered capability ontology.
   reference](capability-normalization-review-ledger.md) —
   append-only operator decisions over the unknown /
   low-confidence rows produced by this report.
+- [Capability Ontology Suggestion Safety
+  Review](../strategy/capability-ontology-suggestion-safety-review.md)
+  — confirms this report stays audit-only across the full
+  ontology suggestion loop.
 - [`EvidenceGraph` artifact reference](evidence-graph.md)
 - [Reconciliation preview
   concept](../concepts/reconciliation-preview.md)

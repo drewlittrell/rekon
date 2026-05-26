@@ -4,6 +4,48 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability ontology suggestion safety review** —
+  strategy / docs / tests-only batch on the
+  capability-ontology track. Reviews the full
+  `normalize → review ledger → suggestion report →
+  publication surfacing` loop end-to-end. Pins verbatim:
+
+    - *"`CapabilityOntologySuggestionReport` entries are
+      preview-only and not applied vocabulary."*
+    - *"No current ontology suggestion path mutates
+      `.rekon/capability-ontology.json`."*
+    - *"No current ontology suggestion path mutates
+      `CapabilityMap`."*
+    - *"Proof report surfacing remains deferred because
+      ontology suggestions are vocabulary/config proposals,
+      not verification proof."*
+    - *"CapabilityMap integration remains deferred until
+      reviewed terms produce stable high-confidence
+      normalized claims."*
+
+  **Decision: the suggestion workflow is safe and stable as
+  a preview-only loop. Manual editing of
+  `.rekon/capability-ontology.json` remains the
+  operator-control boundary. No config apply command in
+  this batch.** Recommended next slice: *capability ontology
+  config authoring guide + review-loop quickstart*
+  (docs-only) that documents the full manual path. Any
+  future apply command must ship behind its own decision
+  memo + explicit confirmation token + pre / post config
+  diff artifact + dedicated safety review.
+
+  New strategy memo
+  [`docs/strategy/capability-ontology-suggestion-safety-review.md`](docs/strategy/capability-ontology-suggestion-safety-review.md)
+  with the three required diagnostic tables (workflow /
+  option / risk). New 14-assertion docs test. Review packet
+  [`.rekon-dev/review-packets/capability-ontology-suggestion-safety-review.md`](.rekon-dev/review-packets/capability-ontology-suggestion-safety-review.md).
+  **No runtime change. No ontology vocabulary change. No
+  CLI change. No artifact shape change. No new artifact
+  registration. No `EvidenceGraph` mutation. No
+  `CapabilityMap` mutation. No source-write apply. No new
+  permission. No workflow YAML. No version bump. No npm
+  publish. No git tag. No GitHub Release.**
+
 - Shipped **Capability ontology suggestion publication
   surfacing** — step 4c of the capability-ontology
   translation-layer implementation sequence. The

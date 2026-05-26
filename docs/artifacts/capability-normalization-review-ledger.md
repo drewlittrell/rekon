@@ -162,6 +162,10 @@ multiple operator targets.
   reference](capability-ontology-suggestion-report.md) —
   preview-only proposal for
   `.rekon/capability-ontology.json` based on this ledger.
+- [Capability Ontology Suggestion Safety
+  Review](../strategy/capability-ontology-suggestion-safety-review.md)
+  — pins that this ledger remains append-only and never
+  drives automatic config mutation.
 - [Capability Ontology
   concept](../concepts/capability-ontology.md)
 - [Capability Ontology Translation Layer

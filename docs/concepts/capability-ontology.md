@@ -234,6 +234,17 @@ Rules:
   adds a `Do Not Do` reminder pinning that suggestions are
   **not applied vocabulary**. Proof report surfacing
   remains deferred.
+- The full `normalize → review → suggest → publish` loop
+  has been reviewed end-to-end as a preview-only operator-
+  control surface; see the
+  [Capability Ontology Suggestion Safety
+  Review](../strategy/capability-ontology-suggestion-safety-review.md).
+  The review pins that **manual editing of
+  `.rekon/capability-ontology.json` remains the
+  operator-control boundary** and that no operator-approved
+  config apply command ships yet. `CapabilityMap`
+  integration remains deferred until reviewed terms
+  produce stable high-confidence normalized claims.
 
 ## Lexical Splitter Confidence
 
@@ -258,6 +269,12 @@ considered normalized.
   — preview-only proposal for
   `.rekon/capability-ontology.json` based on
   `extend-ontology` ledger decisions.
+- [Capability Ontology Suggestion Safety
+  Review](../strategy/capability-ontology-suggestion-safety-review.md)
+  — end-to-end safety review of the
+  `normalize → review → suggest → publish` loop. Pins
+  the preview-only contract and defers any config apply
+  command.
 - [Capability Ontology Translation Layer
   Decision](../strategy/capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact

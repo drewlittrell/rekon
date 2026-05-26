@@ -1492,6 +1492,75 @@ is the first stop before proposing a new capability batch.
   deciding whether to add an
   operator-approved config apply
   step.
+- Capability ontology suggestion
+  safety review (P1.1
+  capability-ontology-suggestion-safety-review
+  slice): **eighth slice on the
+  capability-ontology track and the
+  safety gate before any new
+  mutation path on the track.**
+  Strategy / docs / tests-only
+  batch. **No runtime change. No
+  ontology vocabulary change. No
+  CLI change. No artifact shape
+  change. No new artifact
+  registration. No
+  `.rekon/capability-ontology.json`
+  mutation. No `CapabilityMap`
+  mutation. No `EvidenceGraph`
+  mutation. No source-write apply.
+  No new permission. No workflow
+  YAML. No version bump. No npm
+  publish. No git tag. No GitHub
+  Release.** Pins verbatim that
+  `CapabilityOntologySuggestionReport`
+  entries are preview-only and not
+  applied vocabulary; that no
+  current ontology suggestion path
+  mutates
+  `.rekon/capability-ontology.json`;
+  that no current ontology
+  suggestion path mutates
+  `CapabilityMap`; that proof
+  report surfacing remains
+  deferred because ontology
+  suggestions are vocabulary /
+  config proposals, not
+  verification proof; and that
+  `CapabilityMap` integration
+  remains deferred until reviewed
+  terms produce stable
+  high-confidence normalized
+  claims. **Decision: the
+  suggestion workflow is safe and
+  stable as a preview-only loop;
+  manual editing of
+  `.rekon/capability-ontology.json`
+  remains the operator-control
+  boundary; no operator-approved
+  config apply command ships in
+  this batch.** Any future apply
+  must ship behind its own
+  decision memo, an explicit
+  confirmation token, a
+  pre / post config diff artifact,
+  and a dedicated safety review.
+  New strategy memo
+  [`docs/strategy/capability-ontology-suggestion-safety-review.md`](capability-ontology-suggestion-safety-review.md)
+  with the three required
+  diagnostic tables (workflow /
+  option / risk). Review packet
+  `.rekon-dev/review-packets/capability-ontology-suggestion-safety-review.md`.
+  New 14-assertion docs test
+  `tests/docs/capability-ontology-suggestion-safety-review.test.mjs`.
+  Full suite expected ≥ 2185
+  passed (2171 + 14 new).
+  **Recommended next slice:**
+  *capability ontology config
+  authoring guide + review-loop
+  quickstart* — docs-only
+  follow-up walking operators
+  through the manual path.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

@@ -191,6 +191,14 @@ In priority order:
   inline (capability ontology suggestion publication
   surfacing slice). Proof report surfacing remains
   deferred.
+- [Capability Ontology Suggestion Safety
+  Review](capability-ontology-suggestion-safety-review.md)
+  — end-to-end review of the
+  `normalize → review → suggest → publish` loop. Pins
+  that the loop is safe and stable as preview-only and
+  defers any operator-approved config apply command in
+  favour of manual editing of
+  `.rekon/capability-ontology.json`.
 - [Capability ontology concept](../concepts/capability-ontology.md)
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)

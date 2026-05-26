@@ -193,3 +193,10 @@ across multiple targets.
 - [Built-In Baseline Ontology Coverage
   Review](../strategy/builtin-ontology-coverage-review.md)
 - [`EvidenceGraph` artifact reference](evidence-graph.md)
+- [Capability Ontology Suggestion Safety
+  Review](../strategy/capability-ontology-suggestion-safety-review.md)
+  — end-to-end review of the
+  `normalize → review → suggest → publish` loop. Pins
+  that this report stays preview-only and that manual
+  editing of `.rekon/capability-ontology.json` remains
+  the operator-control boundary.

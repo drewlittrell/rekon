@@ -5483,6 +5483,41 @@ scope:
   **Recommended next slice:**
   *capability ontology suggestion
   safety review*.
+- **Capability ontology suggestion
+  safety review (P1.1
+  capability-ontology-suggestion-safety-review
+  slice).** ✅ Shipped. **Eighth
+  slice on the capability-ontology
+  track and the safety gate before
+  any new mutation path.** Strategy
+  / docs / tests-only batch.
+  Reviews the full
+  `normalize → review ledger →
+  suggestion report → publication
+  surfacing` loop end-to-end. Pins
+  verbatim: suggestion entries are
+  preview-only and not applied
+  vocabulary; no current path
+  mutates
+  `.rekon/capability-ontology.json`
+  or `CapabilityMap`; proof report
+  surfacing remains deferred;
+  `CapabilityMap` integration
+  remains deferred until reviewed
+  terms produce stable
+  high-confidence claims.
+  **Decision: the workflow is safe
+  / stable as a preview-only loop;
+  manual editing of
+  `.rekon/capability-ontology.json`
+  remains the operator-control
+  boundary; no config apply
+  command in this batch.** See
+  [`docs/strategy/capability-ontology-suggestion-safety-review.md`](capability-ontology-suggestion-safety-review.md).
+  **Recommended next slice:**
+  *capability ontology config
+  authoring guide + review-loop
+  quickstart* (docs-only).
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review
