@@ -739,6 +739,12 @@ additive consumer described**.
   architecture (ontology translation layer v1 shipped behind
   `rekon capability ontology normalize`).
 - [Capability ontology concept](../concepts/capability-ontology.md)
+- [Built-In Baseline Ontology Coverage
+  Review](builtin-ontology-coverage-review.md) — first
+  coverage review against a real Next.js TypeScript target;
+  baseline acceptable for audit-only v1, `CapabilityMap`
+  integration remains deferred until the operator review
+  surface ships.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

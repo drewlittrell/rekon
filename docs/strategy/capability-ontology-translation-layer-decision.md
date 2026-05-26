@@ -849,7 +849,7 @@ supporting-doc cross-references.
 | 1 | [Capability ontology architecture impact review](capability-ontology-architecture-impact-review.md) | ✅ Shipped |
 | 2 | **Capability ontology translation layer decision (this memo)** | ✅ Shipped |
 | 3 | `CapabilityNormalizationReport` v1 — register artifact + implement first-pass normalization | ✅ Shipped |
-| 4 | Built-in baseline ontology coverage review | After step 3, gated on operator feedback |
+| 4 | Built-in baseline ontology coverage review | ✅ Shipped — baseline acceptable for audit-only v1; recommended next slice is Option C (operator review surface). See [Built-In Baseline Ontology Coverage Review](builtin-ontology-coverage-review.md). |
 | 5 | `CapabilityMap` normalized-claims integration | v2; gated on step 3 + step 4 |
 | 6 | Built-in ontology expansion (verbs / nouns / roles / patterns / layers) | Iterative with step 3 + step 4 |
 | 7 | Unknown-term operator-review CLI / surface | After step 3, gated on operator feedback |
@@ -874,6 +874,11 @@ the layered model is preserved.
 - [Capability ontology concept](../concepts/capability-ontology.md)
   — concept-level guidance for operators and capability
   authors.
+- [Built-In Baseline Ontology Coverage
+  Review](builtin-ontology-coverage-review.md) — step 4 of
+  the implementation sequence. Records evidence-based
+  baseline-sufficiency + `CapabilityMap` readiness decisions
+  against a real Next.js TypeScript target.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

@@ -1048,6 +1048,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Try it:
 #   rekon refresh
 #   rekon capability ontology normalize --json
+#
+# Built-in baseline ontology coverage review has shipped
+# at docs/strategy/builtin-ontology-coverage-review.md.
+# Step 4 of the capability-ontology track implementation
+# sequence. Ran the normalize CLI against the in-repo
+# fixture examples/simple-js-ts (4 candidates) and an
+# anonymized real-world Next.js TypeScript target
+# labelled target-1 (9,110 candidates: 100 normalized,
+# 5,558 unknown, 2,054 low-confidence, 226 ignored,
+# 561 alias-applied). Pins: baseline acceptable for
+# audit-only v1; baseline not yet sufficient for
+# CapabilityMap v2; unknowns are dominated by symbol
+# noise + lexical-split limitations rather than pure
+# vocabulary gap. Selected next slice: Option C --
+# capability ontology unknown-term operator review
+# surface. Option A (vocabulary expansion) follows,
+# gated on Option C. Option B (CapabilityMap v2)
+# remains deferred.
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

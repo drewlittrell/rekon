@@ -5334,6 +5334,41 @@ scope:
   decision implementation sequence) —
   gated on one or more operator runs
   of the normalize CLI.
+- **Built-in baseline ontology
+  coverage review (P1.1
+  builtin-ontology-coverage-review
+  slice).** ✅ Shipped. **Fourth
+  slice on the capability-ontology
+  track. Strategy /
+  dogfood-analysis batch.** Ran
+  `rekon capability ontology normalize`
+  against `examples/simple-js-ts`
+  (4 candidates) and an anonymized
+  real-world Next.js TypeScript
+  target (`target-1`, 9,110
+  candidates: 100 normalized,
+  5,558 unknown, 2,054
+  low-confidence, 226 ignored,
+  561 alias-applied). Pins:
+  baseline acceptable for
+  audit-only v1; baseline not yet
+  sufficient for `CapabilityMap`
+  v2; unknowns dominated by symbol
+  noise + lexical-split
+  limitations rather than pure
+  vocabulary gap. **Selected next
+  slice: Option C — capability
+  ontology unknown-term operator
+  review surface.** Option A
+  (vocabulary expansion) follows,
+  gated on Option C. Option B
+  (`CapabilityMap` v2) remains
+  deferred. **No runtime change.
+  No vocabulary change. No splitter
+  change. No artifact-shape change.
+  No CLI change. No new permission.
+  No source-write apply.** See
+  [`docs/strategy/builtin-ontology-coverage-review.md`](builtin-ontology-coverage-review.md).
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

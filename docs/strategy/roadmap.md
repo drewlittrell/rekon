@@ -1263,6 +1263,63 @@ is the first stop before proposing a new capability batch.
   implementation sequence) — gated on
   one or more operator runs of the
   normalize CLI.
+- Built-in baseline ontology coverage
+  review (P1.1
+  builtin-ontology-coverage-review
+  slice): **fourth slice on the
+  capability-ontology track.**
+  Strategy / dogfood-analysis batch.
+  **No runtime change. No ontology
+  vocabulary change. No splitter
+  change. No CLI change. No artifact
+  shape change. No new artifact
+  registration. No `EvidenceGraph`
+  mutation. No `CapabilityMap`
+  mutation. No source-write apply.
+  No new permission. No workflow
+  YAML. No version bump. No npm
+  publish. No git tag. No GitHub
+  Release.** Ran
+  `rekon capability ontology normalize`
+  against the in-repo fixture
+  `examples/simple-js-ts` (4
+  candidates) and an anonymized
+  real-world Next.js TypeScript
+  target labelled `target-1` (9,110
+  candidates: 100 normalized, 5,558
+  unknown, 2,054 low-confidence,
+  226 ignored, 561 alias-applied).
+  Pinned: **baseline acceptable for
+  audit-only v1; baseline not yet
+  sufficient for `CapabilityMap`
+  v2** because unknowns are
+  dominated by symbol noise +
+  lexical-split limitations on
+  proper-noun-prefixed identifiers
+  and path-shaped capability hints,
+  not by a pure vocabulary gap.
+  **Selected next slice: Option C
+  — capability ontology unknown-term
+  operator review surface.** Option
+  A (vocabulary expansion) follows,
+  gated on Option C. Option B
+  (`CapabilityMap` v2) remains
+  deferred. New strategy memo
+  [`docs/strategy/builtin-ontology-coverage-review.md`](builtin-ontology-coverage-review.md)
+  with the three required diagnostic
+  tables (target / summary / cause)
+  + options-considered table +
+  baseline-sufficiency and
+  CapabilityMap readiness decisions.
+  Review packet
+  `.rekon-dev/review-packets/builtin-ontology-coverage-review.md`.
+  New 11-assertion docs test
+  `tests/docs/builtin-ontology-coverage-review.test.mjs`.
+  Full suite expected ≥ 2093 passed
+  (2082 + 11 new). **Recommended
+  next slice:** Option C
+  implementation (unknown-term
+  operator review surface).
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

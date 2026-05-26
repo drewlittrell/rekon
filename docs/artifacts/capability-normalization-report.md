@@ -121,6 +121,12 @@ surface of the layered capability ontology.
   Decision](../strategy/capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact
   Review](../strategy/capability-ontology-architecture-impact-review.md)
+- [Built-In Baseline Ontology Coverage
+  Review](../strategy/builtin-ontology-coverage-review.md) —
+  evidence-based review of the v1 baseline against a real
+  Next.js TypeScript target. Confirms the baseline is
+  sufficient for audit-only v1 and that `CapabilityMap` v2
+  remains deferred.
 - [`EvidenceGraph` artifact reference](evidence-graph.md)
 - [Reconciliation preview
   concept](../concepts/reconciliation-preview.md)

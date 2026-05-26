@@ -4,6 +4,39 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Built-In Baseline Ontology Coverage Review** —
+  strategy / dogfood-analysis batch (step 4 of the
+  capability-ontology track implementation sequence). Ran
+  `rekon capability ontology normalize` against the in-repo
+  fixture `examples/simple-js-ts` (4 candidates) and against a
+  real-world Next.js TypeScript repo anonymized as `target-1`
+  (9,110 candidates: 100 normalized, 5,558 unknown, 2,054
+  low-confidence, 226 ignored, 561 alias-applied). The review
+  pins:
+    - **Baseline is sufficient** for audit-only v1.
+    - **Baseline is not yet sufficient** for `CapabilityMap`
+      v2 — the unknown set is dominated by symbol noise plus
+      lexical-split limitations on proper-noun-prefixed
+      identifiers and path-shaped capability hints, not by a
+      pure vocabulary gap.
+    - **Next implementation slice: Option C** — capability
+      ontology unknown-term operator review surface. Option A
+      (vocabulary expansion) follows, gated on Option C.
+      Option B (`CapabilityMap` v2) remains deferred.
+
+  New strategy memo
+  [`docs/strategy/builtin-ontology-coverage-review.md`](docs/strategy/builtin-ontology-coverage-review.md)
+  with the three required diagnostic tables (target / summary
+  / cause), the options-considered table, and the
+  baseline-sufficiency + `CapabilityMap` readiness decisions.
+  New 11-assertion docs test. Review packet
+  [`.rekon-dev/review-packets/builtin-ontology-coverage-review.md`](.rekon-dev/review-packets/builtin-ontology-coverage-review.md).
+  **No runtime change. No ontology vocabulary change. No CLI
+  change. No artifact shape change. No version bump. No npm
+  publish. No git tag. No GitHub Release. No source-write
+  apply. No `EvidenceGraph` mutation. No `CapabilityMap`
+  mutation.**
+
 - Shipped **CapabilityNormalizationReport v1**
   — first runtime implementation slice on
   the capability-ontology track. Ships

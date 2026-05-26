@@ -163,6 +163,13 @@ considered normalized.
   Decision](../strategy/capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Architecture Impact
   Review](../strategy/capability-ontology-architecture-impact-review.md)
+- [Built-In Baseline Ontology Coverage
+  Review](../strategy/builtin-ontology-coverage-review.md) —
+  evidence-based review of the v1 baseline against a real
+  Next.js TypeScript target. Recommends Option C (operator
+  review surface) as the next implementation slice. Vocabulary
+  expansion (Option A) follows; `CapabilityMap` v2 (Option B)
+  remains deferred.
 - [`EvidenceGraph` artifact reference](../artifacts/evidence-graph.md)
 - [Reconciliation preview
   concept](reconciliation-preview.md)
