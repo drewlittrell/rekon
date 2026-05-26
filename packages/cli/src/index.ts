@@ -60,6 +60,13 @@ import reconcileCapability, {
   type ReconciliationPreview,
   type ReconciliationPreviewOperation,
 } from "@rekon/capability-reconcile";
+import ontologyCapability, {
+  buildCapabilityNormalizationReport,
+  compileEffectiveCapabilityOntology,
+  loadCapabilityOntologyConfig,
+  type CapabilityNormalizationReport,
+  type EffectiveCapabilityOntology,
+} from "@rekon/capability-ontology";
 import resolverCapability from "@rekon/capability-resolver";
 import {
   type ArtifactFreshnessEntry,
@@ -379,6 +386,107 @@ export async function main(argv: string[]): Promise<void> {
       },
       json,
     );
+    return;
+  }
+
+  if (command === "capability" && subcommand === "ontology" && positional === "normalize") {
+    // `rekon capability ontology normalize [--root <path>] [--json]` —
+    // first runtime slice of the layered capability-ontology
+    // translation system (Layer 1 baseline + optional Layer 2
+    // config → Layer 3 effective ontology → Layer 4 candidate
+    // extraction + Layer 5 audit report). **Read-only** with
+    // respect to source files. Writes a single
+    // `CapabilityNormalizationReport`. Does NOT mutate
+    // `EvidenceGraph` raw facts. Does NOT update
+    // `CapabilityMap` (Layer 6 is deferred to v2). Does NOT
+    // silently resolve any finding. See
+    // docs/concepts/capability-ontology.md and
+    // docs/artifacts/capability-normalization-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const evidenceEntries = await store.list("EvidenceGraph");
+    if (evidenceEntries.length === 0) {
+      throw new Error(
+        "rekon capability ontology normalize: no EvidenceGraph found. Run `rekon refresh` (or `rekon observe`) first.",
+      );
+    }
+    const latestEvidence = evidenceEntries.at(-1)!;
+    const evidenceRef: ArtifactRef = {
+      type: latestEvidence.type,
+      id: latestEvidence.id,
+      path: latestEvidence.path,
+      digest: latestEvidence.digest,
+      schemaVersion: latestEvidence.schemaVersion ?? "0.1.0",
+    };
+    const graph = (await store.read(latestEvidence)) as Parameters<
+      typeof buildCapabilityNormalizationReport
+    >[0]["graph"];
+
+    const configResult = await loadCapabilityOntologyConfig(root);
+    const ontology: EffectiveCapabilityOntology = compileEffectiveCapabilityOntology({
+      config: configResult.found ? configResult.config : undefined,
+      configPath: configResult.found ? configResult.configPath : undefined,
+      configHash: configResult.found ? configResult.configHash : undefined,
+    });
+
+    const generatedAt = new Date().toISOString();
+    const artifactId = `capability-normalization-${generatedAt.replace(/[:.]/g, "-")}`;
+    const header: ArtifactHeader = {
+      artifactType: "CapabilityNormalizationReport",
+      artifactId,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: {
+        id: "@rekon/cli.capability-ontology-normalize",
+        version: "0.1.0-beta.0",
+      },
+      inputRefs: [evidenceRef],
+      freshness: { status: "fresh" },
+    };
+
+    const report: CapabilityNormalizationReport = buildCapabilityNormalizationReport({
+      header,
+      ontology,
+      graph,
+      graphRef: evidenceRef,
+    });
+
+    const ref = await store.write(report, { category: "projections" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: ref,
+          ontology: report.ontology,
+          summary: report.summary,
+          candidates: report.candidates,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push(
+        `Capability ontology normalization: ${report.summary.totalCandidates} candidate(s).`,
+      );
+      lines.push(
+        `Ontology source: ${report.ontology.source}`
+        + (report.ontology.configPath ? ` (${report.ontology.configPath})` : "")
+        + `; effective hash ${report.ontology.effectiveHash}.`,
+      );
+      lines.push(
+        `Normalized: ${report.summary.normalized}. `
+        + `unknown-verb: ${report.summary.unknownVerb}. `
+        + `unknown-noun: ${report.summary.unknownNoun}. `
+        + `unknown: ${report.summary.unknown}. `
+        + `ignored: ${report.summary.ignored}. `
+        + `low-confidence: ${report.summary.lowConfidence}. `
+        + `aliases applied: ${report.summary.aliasApplied}.`,
+      );
+      lines.push(`Artifact: ${ref.type}:${ref.id}`);
+      writeOutput(lines.join("\n"), false);
+    }
     return;
   }
 
@@ -3415,6 +3523,7 @@ const BUILT_IN_CAPABILITIES: Record<string, CapabilityDefinition> = {
   "@rekon/capability-js-ts": jsTsCapability,
   "@rekon/capability-memory": memoryCapability,
   "@rekon/capability-model": modelCapability,
+  "@rekon/capability-ontology": ontologyCapability,
   "@rekon/capability-policy": policyCapability,
   "@rekon/capability-reconcile": reconcileCapability,
   "@rekon/capability-resolver": resolverCapability,
@@ -3429,6 +3538,7 @@ const DEFAULT_CAPABILITIES = [
   "@rekon/capability-docs",
   "@rekon/capability-memory",
   "@rekon/capability-intent",
+  "@rekon/capability-ontology",
   "@rekon/capability-reconcile",
 ];
 
@@ -6872,6 +6982,7 @@ function usage(): string {
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
     "rekon reconcile suggest [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--apply] [--root <path>] [--json]",
     "rekon reconcile preview --plan <id|type:id> [--root <path>] [--json]",
+    "rekon capability ontology normalize [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

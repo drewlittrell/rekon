@@ -1018,6 +1018,36 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # next slice:
 # CapabilityNormalizationReport
 # v1.
+#
+# CapabilityNormalizationReport v1
+# has shipped. New package
+# @rekon/capability-ontology
+# (projector role) registers
+# CapabilityNormalizationReport in
+# the SDK + runtime (projections
+# category). New CLI command
+# rekon capability ontology normalize
+# reads the latest EvidenceGraph,
+# compiles an in-memory
+# EffectiveCapabilityOntology from
+# the built-in baseline + optional
+# .rekon/capability-ontology.json,
+# deterministically splits symbol /
+# export / capability-hint /
+# ownership-hint names into verb +
+# noun tokens (camelCase /
+# snake_case / kebab-case), and
+# writes an audit-only normalization
+# report. No EvidenceGraph mutation.
+# No CapabilityMap mutation. No
+# finding mutation. No LLM
+# normalization. No source-write
+# apply. No new permission. See
+# docs/artifacts/capability-normalization-report.md
+# and docs/concepts/capability-ontology.md.
+# Try it:
+#   rekon refresh
+#   rekon capability ontology normalize --json
 node packages/cli/dist/index.js artifacts list --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts show <id-or-type:id> --root examples/simple-js-ts --json
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json

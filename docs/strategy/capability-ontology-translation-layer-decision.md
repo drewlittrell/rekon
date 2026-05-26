@@ -848,7 +848,7 @@ supporting-doc cross-references.
 | --- | --- | --- |
 | 1 | [Capability ontology architecture impact review](capability-ontology-architecture-impact-review.md) | ✅ Shipped |
 | 2 | **Capability ontology translation layer decision (this memo)** | ✅ Shipped |
-| 3 | `CapabilityNormalizationReport` v1 — register artifact + implement first-pass normalization | Next slice (recommended) |
+| 3 | `CapabilityNormalizationReport` v1 — register artifact + implement first-pass normalization | ✅ Shipped |
 | 4 | Built-in baseline ontology coverage review | After step 3, gated on operator feedback |
 | 5 | `CapabilityMap` normalized-claims integration | v2; gated on step 3 + step 4 |
 | 6 | Built-in ontology expansion (verbs / nouns / roles / patterns / layers) | Iterative with step 3 + step 4 |
@@ -868,6 +868,12 @@ the layered model is preserved.
 - [Graph-Aware Finding Filters concept](../concepts/graph-aware-finding-filters.md)
 - [EvidenceGraph artifact reference](../artifacts/evidence-graph.md)
 - [Reconciliation preview concept doc](../concepts/reconciliation-preview.md)
+- [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
+  — the first runtime artifact registered against this
+  decision (step 3 of the implementation sequence above).
+- [Capability ontology concept](../concepts/capability-ontology.md)
+  — concept-level guidance for operators and capability
+  authors.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

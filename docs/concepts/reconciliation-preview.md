@@ -231,6 +231,16 @@ any finding status, and never causes any
   unaware of canonical capability purpose
   until those phases land. Source-write
   apply remains unavailable throughout.
+- [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
+  — Layer 5 shipped behind
+  `rekon capability ontology normalize`. The
+  audit report exists but does **not** flow
+  into reconciliation planning yet, so this
+  preview's behaviour is unchanged.
+- [Capability ontology concept](capability-ontology.md)
+  — concept-level guidance for the translation
+  layer that produces the normalization
+  report.
 - [Source-Write Reconciliation Policy Decision](../strategy/source-write-reconciliation-policy-decision.md)
 - [ReconciliationPlan artifact reference](../artifacts/reconciliation-plan.md)
 - [Reconciliation plans concept](reconciliation-plans.md)

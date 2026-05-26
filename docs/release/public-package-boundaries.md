@@ -36,8 +36,9 @@ explicitly rather than forcing it.
 | `@rekon/capability-intent` | publish | Built-in intent/work-order actuator. |
 | `@rekon/capability-reconcile` | publish | Built-in reconciliation actuator. |
 | `@rekon/capability-verify` | publish | Built-in verification runner capability skeleton. v1 declares the runner / `execute:verification` boundary; command execution is not implemented yet. |
+| `@rekon/capability-ontology` | publish | Built-in capability ontology translation layer (`projector` role). Produces `CapabilityNormalizationReport`. Layer 5 of the layered ontology decision; `CapabilityMap` integration (Layer 6) is deferred to v2. |
 
-All 20 packages are scheduled for publish at `0.1.0-alpha.1`, all under the
+All 21 packages are scheduled for publish at `0.1.0-alpha.1`, all under the
 `experimental, public` stability label defined in
 [docs/concepts/stability.md](../concepts/stability.md).
 

@@ -28,6 +28,7 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
         { package: "@rekon/capability-docs" },
         { package: "@rekon/capability-memory" },
         { package: "@rekon/capability-intent" },
+        { package: "@rekon/capability-ontology" },
         { package: "@rekon/capability-reconcile" },
       ],
     );
@@ -50,7 +51,7 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     assert.equal(project.status, 0, project.stderr);
     assert.deepEqual(
       JSON.parse(project.stdout).artifacts.map((artifact) => artifact.type).sort(),
-      ["CapabilityMap", "GraphSlice", "GraphSlice", "GraphSlice", "ObservedRepo", "OwnershipMap"],
+      ["CapabilityMap", "CapabilityNormalizationReport", "GraphSlice", "GraphSlice", "GraphSlice", "ObservedRepo", "OwnershipMap"],
     );
 
     const evaluate = runCli(["evaluate", "--root", root, "--json"]);

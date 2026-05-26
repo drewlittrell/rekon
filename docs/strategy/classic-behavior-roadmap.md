@@ -5293,6 +5293,47 @@ scope:
   [`docs/strategy/capability-ontology-translation-layer-decision.md`](capability-ontology-translation-layer-decision.md).
   **Recommended next slice:**
   `CapabilityNormalizationReport` v1.
+- **CapabilityNormalizationReport v1
+  (P1.1 capability-normalization-report-v1
+  slice).** ✅ Shipped. **First runtime
+  implementation slice on the
+  capability-ontology track.** Ships
+  `@rekon/capability-ontology` (new
+  package, `projector` role,
+  read-only) + registers
+  `CapabilityNormalizationReport` in
+  the SDK + runtime
+  (`projections` category). The
+  package compiles an in-memory
+  `EffectiveCapabilityOntology` from
+  the built-in baseline + optional
+  `.rekon/capability-ontology.json`,
+  extracts candidates from
+  `EvidenceGraph` symbol / export /
+  capability-hint / ownership-hint
+  facts, deterministically splits
+  names (camelCase / snake_case /
+  kebab-case), and emits an
+  audit-only normalization report.
+  New CLI command
+  `rekon capability ontology normalize`.
+  **No `EvidenceGraph` mutation. No
+  `CapabilityMap` mutation. No
+  finding mutation. No LLM
+  normalization. No source-write
+  apply. No new permission. No
+  workflow YAML. No version bump.
+  No npm publish.** See
+  [`docs/artifacts/capability-normalization-report.md`](../artifacts/capability-normalization-report.md)
+  and
+  [`docs/concepts/capability-ontology.md`](../concepts/capability-ontology.md).
+  **Recommended next slice:** built-in
+  baseline ontology coverage review
+  against operator dogfood output
+  (step 4 of the translation-layer
+  decision implementation sequence) —
+  gated on one or more operator runs
+  of the normalize CLI.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

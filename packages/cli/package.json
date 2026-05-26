@@ -26,6 +26,7 @@
     "@rekon/capability-intent": "0.1.0-beta.0",
     "@rekon/capability-js-ts": "0.1.0-beta.0",
     "@rekon/capability-memory": "0.1.0-beta.0",
+    "@rekon/capability-ontology": "0.1.0-beta.0",
     "@rekon/capability-model": "0.1.0-beta.0",
     "@rekon/capability-policy": "0.1.0-beta.0",
     "@rekon/capability-reconcile": "0.1.0-beta.0",

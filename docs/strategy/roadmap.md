@@ -1218,6 +1218,51 @@ is the first stop before proposing a new capability batch.
   `CapabilityMap` mutation. No
   LLM-only normalization. No source
   writes.
+- CapabilityNormalizationReport v1 (P1.1
+  capability-normalization-report-v1
+  slice): **third slice on the
+  capability-ontology track and the
+  first runtime implementation
+  batch.** Ships
+  `@rekon/capability-ontology` (new
+  package, `projector` role) +
+  registers
+  `CapabilityNormalizationReport` in
+  the SDK + runtime
+  (`projections` category). Loads
+  `EvidenceGraph` (latest), compiles
+  an in-memory
+  `EffectiveCapabilityOntology` from
+  the built-in baseline + optional
+  `.rekon/capability-ontology.json`,
+  extracts candidates from
+  `symbol` / `export` /
+  `capability_hint` / `ownership_hint`
+  facts, deterministically splits
+  camelCase / snake_case / kebab-case
+  names, and emits a
+  `CapabilityNormalizationReport`
+  audit artifact. New CLI command
+  `rekon capability ontology normalize
+  [--root <path>] [--json]`. No
+  `EvidenceGraph` mutation. No
+  `CapabilityMap` mutation. No
+  finding mutation. No LLM
+  normalization. No source-write
+  apply. No new permission. No
+  workflow YAML. No version bump.
+  No npm publish. Full suite expected
+  ≥ 2091 passed / 1 skipped (2061
+  + 19 contract + 10 docs +
+  unrelated package additions).
+  **Recommended next slice:**
+  built-in baseline ontology coverage
+  review against operator dogfood
+  output (step 4 of the
+  translation-layer decision
+  implementation sequence) — gated on
+  one or more operator runs of the
+  normalize CLI.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

@@ -224,7 +224,9 @@ read-only input to every downstream interpretation layer. The
 pins this boundary explicitly: the future capability-ontology / translation
 layer reads `EvidenceGraph` symbols / exports / imports but **never mutates**
 them. Normalized capability claims live in a separate audit artifact
-(`CapabilityNormalizationReport` — name reserved, registration deferred).
+(`CapabilityNormalizationReport`, **registered as of v1**; see the
+[`CapabilityNormalizationReport` artifact reference](capability-normalization-report.md)
+and the [capability ontology concept](../concepts/capability-ontology.md)).
 Operators must always be able to trace a normalized purpose claim back to the
 raw symbol facts in this artifact.
 

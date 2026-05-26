@@ -733,6 +733,12 @@ additive consumer described**.
 - [Reconciliation preview concept doc](../concepts/reconciliation-preview.md)
 - [Reconciliation exact-diff operation v1](reconciliation-exact-diff-operation-v1.md)
 - [Source-Write Reconciliation Policy Decision](source-write-reconciliation-policy-decision.md)
+- [Capability Ontology Translation Layer Decision](capability-ontology-translation-layer-decision.md)
+- [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
+  — the first runtime artifact emitted under this
+  architecture (ontology translation layer v1 shipped behind
+  `rekon capability ontology normalize`).
+- [Capability ontology concept](../concepts/capability-ontology.md)
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

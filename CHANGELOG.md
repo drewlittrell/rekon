@@ -4,6 +4,52 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityNormalizationReport v1**
+  — first runtime implementation slice on
+  the capability-ontology track. Ships
+  `@rekon/capability-ontology` (new package,
+  `projector` role) + registers
+  `CapabilityNormalizationReport` in the
+  SDK + runtime (`projections` category).
+  The package compiles an in-memory
+  `EffectiveCapabilityOntology` from a
+  built-in baseline vocabulary + optional
+  `.rekon/capability-ontology.json`,
+  extracts candidates from `EvidenceGraph`
+  `symbol` / `export` / `capability_hint` /
+  `ownership_hint` facts, deterministically
+  splits camelCase / snake_case /
+  kebab-case names into verb + noun tokens,
+  and emits a
+  `CapabilityNormalizationReport` audit
+  artifact. New CLI command
+  `rekon capability ontology normalize
+  [--root <path>] [--json]`. **No
+  `EvidenceGraph` mutation. No
+  `CapabilityMap` mutation. No finding
+  mutation. No LLM normalization. No
+  source-write apply. No new permission.
+  No workflow YAML. No version bump. No
+  npm publish. No git tag. No GitHub
+  Release.** New 19-assertion contract
+  test + 10-assertion docs test. New docs
+  at
+  [`docs/artifacts/capability-normalization-report.md`](docs/artifacts/capability-normalization-report.md)
+  and
+  [`docs/concepts/capability-ontology.md`](docs/concepts/capability-ontology.md).
+  Review packet
+  [`.rekon-dev/review-packets/capability-normalization-report-v1.md`](.rekon-dev/review-packets/capability-normalization-report-v1.md).
+  Layer 6 (`CapabilityMap` integration) is
+  still deferred to v2. Layer 7
+  (`RefactorPreservationContract`) is
+  far-future. Recommended next slice:
+  built-in baseline ontology coverage
+  review against operator dogfood output
+  (step 4 of the translation-layer
+  decision implementation sequence) —
+  gated on one or more operator runs of
+  the normalize CLI.
+
 - Shipped **Capability Ontology Translation
   Layer Decision** — second slice on the
   capability-ontology track. Strategy /
