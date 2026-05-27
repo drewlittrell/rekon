@@ -182,11 +182,16 @@ normalization audit. Run
 `rekon capability phrase project --report <ref>` to
 generate the phrase projection.
 
-The future `CapabilityMap` v2 consumes only
-high-confidence / stable `CapabilityPhrase` claims from
-`CapabilityPhraseReport` — never raw normalization rows.
-`CapabilityContract` (further future) binds a phrase to
-placement / proof / preservation policy.
+[`CapabilityMap` v2](capability-map.md) has shipped.
+**`CapabilityMap` v2 consumes `CapabilityPhraseReport`,
+not raw `CapabilityNormalizationReport` rows.** Only
+high-confidence / stable `CapabilityPhrase` claims
+from `CapabilityPhraseReport` project into
+`CapabilityMap` v2 — raw normalization rows are
+never consumed by `CapabilityMap` v2. This report
+remains the translation audit layer.
+`CapabilityContract` (further future) binds a phrase
+to placement / proof / preservation policy.
 
 ## See Also
 

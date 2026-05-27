@@ -28,9 +28,11 @@ Verbatim pins (the docs test asserts these):
 - `CapabilityPhraseReport` consumes the latest
   `CapabilityNormalizationReport`.
 - Only **high-confidence normalized** claims project in v1.
-- **`CapabilityMap` integration remains deferred** —
-  `CapabilityMap` v2 will consume `CapabilityPhraseReport`,
-  not raw normalization rows.
+- **[`CapabilityMap` v2](capability-map.md) has shipped.**
+  `CapabilityMap` v2 consumes `CapabilityPhraseReport`,
+  not raw `CapabilityNormalizationReport` rows. Only
+  stable high-confidence phrases project into
+  `CapabilityMap.phraseBackedCapabilities`.
 - AST / typechecker evidence is **optional enrichment, not
   foundational truth**.
 - **No LLM-only inference** in v1.
@@ -48,7 +50,11 @@ artifacts**:
   `CapabilityNormalizationReport`.
 - It **does not** mutate `EvidenceGraph`.
 - It **does not** mutate `CapabilityMap` — Layer 6
-  integration is deferred to a future slice.
+  integration (the additive v2 phrase-backed
+  projection) is performed by
+  `@rekon/capability-model`, which reads this report
+  and emits new `CapabilityMap` artifacts but never
+  writes back into the phrase report.
 - It **does not** mutate any operator decision (ledger,
   suggestion report).
 - It **does not** invoke an LLM.

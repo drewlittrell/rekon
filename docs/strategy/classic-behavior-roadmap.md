@@ -6257,6 +6257,55 @@ scope:
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
 - **CapabilityMap v2 high-confidence-
+  only implementation (P1.1
+  capability-map-v2-high-confidence-implementation
+  slice).** ✅ Shipped.
+  **Twenty-eighth slice on the
+  capability-ontology track.**
+  Product / capability batch.
+  Implements the additive v2
+  projection committed to by the
+  twenty-seventh slice's decision
+  memo. `@rekon/kernel-repo-model`
+  `CapabilityMap` type gains three
+  optional fields:
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` /
+  `phraseSourceRef`. v1
+  `entries[]` is unchanged.
+  `@rekon/capability-model`
+  projector reads the latest
+  `CapabilityPhraseReport` (when
+  present) and emits the additive
+  v2 fields after applying the
+  conjunctive eligibility filter
+  (status stable + confidence high
+  + non-empty verb + noun +
+  evidenceRefs + sourceCandidateIds).
+  New manifest invalidation rule
+  `capability-phrases.changed`. New
+  artifact reference doc
+  [`docs/artifacts/capability-map.md`](../artifacts/capability-map.md).
+  New 19-assertion contract test +
+  11-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/capability-map-v2-high-confidence-implementation.md`.
+  All six decision-memo pins carry
+  through unchanged. **No
+  `EvidenceGraph` /
+  `CapabilityNormalizationReport` /
+  `CapabilityPhraseReport`
+  mutation. No partial-phrase
+  consumption. No
+  `CapabilityContract`. No source
+  writes. No LLM-only inference.
+  No npm publish. No version
+  bump.** **Recommended next
+  slice:** *`CapabilityMap` v2
+  high-confidence-only safety
+  review* — read-only audit of the
+  additive projection.
+- **CapabilityMap v2 high-confidence-
   only decision (P1.1
   capability-map-v2-high-confidence-decision
   slice).** ✅ Shipped.

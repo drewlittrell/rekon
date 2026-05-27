@@ -5,6 +5,87 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **CapabilityMap v2 high-confidence-only
+  implementation** — additive projection wired into
+  the `@rekon/capability-model` producer. Twenty-eighth
+  slice on the capability-ontology track. Implements
+  the v2 shape committed to by the previous slice's
+  decision memo.
+
+  Pinned verbatim:
+
+    - `CapabilityMap` v2 consumes
+      `CapabilityPhraseReport`, not raw
+      `CapabilityNormalizationReport` rows.
+    - Only stable high-confidence
+      `CapabilityPhrase` claims are eligible for
+      `CapabilityMap` v2.
+    - Partial phrases remain semantic context and
+      are not `CapabilityMap`-ready ownership or
+      placement policy.
+    - `CapabilityMap` v2 is not `CapabilityContract`.
+    - `CapabilityMap` v2 is additive and existing
+      `CapabilityMap` fields remain valid.
+    - `CapabilityMap` should be stale when the
+      consumed `CapabilityPhraseReport` changes.
+
+  Implementation details:
+
+    - `CapabilityMap` gains three optional fields:
+      `phraseBackedCapabilities?`,
+      `phraseBackedSummary?`, `phraseSourceRef?`.
+      v1 `entries[]` is unchanged and continues to
+      validate.
+    - `@rekon/capability-model` projector now reads
+      the latest `CapabilityPhraseReport` (when
+      present), filters phrases conjunctively
+      (`status === "stable"` and
+      `confidence === "high"` and non-empty
+      `verb` / `noun` / `evidenceRefs` /
+      `sourceCandidateIds`), and emits the
+      additive v2 fields.
+    - Deterministic ordering: verb asc, noun asc,
+      id asc. Summary record keys
+      (`byVerb` / `byNoun`) sorted alphabetically.
+    - Entries carry deterministic IDs
+      `capability-phrase:<phraseId>`. Each entry
+      cites its source phrase via
+      `phraseRef.report` + `phraseRef.phraseId`.
+      The top-level `phraseSourceRef` mirrors the
+      consumed report ref. `CapabilityMap.header.inputRefs`
+      includes the consumed phrase report.
+    - Manifest invalidation rule
+      `capability-phrases.changed` consumes
+      `CapabilityPhraseReport`. Absence of a
+      `CapabilityPhraseReport` is benign — the
+      projector emits a clean v1-shape
+      `CapabilityMap`.
+    - New artifact reference doc
+      `docs/artifacts/capability-map.md`.
+    - Validator: optional v2 fields are validated
+      when present (non-empty `evidenceRefs`,
+      non-empty `sourceCandidateIds`, literal
+      `confidence: "high"` and `status: "stable"`).
+    - `@rekon/capability-model` does **not** depend
+      on `@rekon/capability-ontology`. The
+      phrase-backed helper uses structural typing
+      (`PhraseReportLike`) against the documented
+      phrase-report JSON shape.
+
+  No `EvidenceGraph` mutation. No
+  `CapabilityNormalizationReport` mutation. No
+  `CapabilityPhraseReport` mutation. No existing
+  v1 `entries[]` field removed, renamed, or
+  changed in behaviour. No partial-phrase
+  consumption. No low-confidence-phrase
+  consumption. No raw normalization row
+  consumption. No `CapabilityContract`. No
+  `RefactorPreservationContract`. No architecture
+  linting. No resolver routing. No verification
+  planning. No source writes. No LLM-only
+  inference. No npm publish. No version bump. No
+  git tag. No GitHub Release. No new branch.
+
+- Shipped **CapabilityMap v2 high-confidence-only
   decision** — strategy / architecture decision memo.
   Twenty-seventh slice on the capability-ontology
   track. Commits Rekon to an **additive**

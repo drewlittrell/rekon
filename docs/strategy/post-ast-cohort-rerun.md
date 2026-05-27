@@ -436,8 +436,14 @@ supporting-doc cross-references.
   sourceCandidateIds + canonical-vocabulary
   match). The implementation slice ships next.
 - **`CapabilityMap` v2 high-confidence-only
-  implementation** (next slice; runtime).
-  Conditioned on the decision memo above.
+  implementation** — ✅ shipped as the
+  twenty-eighth slice. `@rekon/capability-model`
+  now reads the latest `CapabilityPhraseReport`
+  (when present) and emits the additive
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` / `phraseSourceRef`
+  fields. See
+  [`CapabilityMap` artifact reference](../artifacts/capability-map.md).
 - **`CapabilityNormalizationReport` AST-metadata
   candidate integration** (parallel polish lane).
   Goal: reduce target-1's unknown-verb / unknown-

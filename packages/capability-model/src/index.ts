@@ -8,6 +8,18 @@ import {
   createOwnershipMap,
 } from "@rekon/kernel-repo-model";
 import { type Projector, defineCapability } from "@rekon/sdk";
+import {
+  type PhraseReportLike,
+  buildPhraseBackedCapabilityMapAdditions,
+} from "./phrase-backed.js";
+
+export {
+  type BuildPhraseBackedAdditionsInput,
+  type PhraseBackedAdditions,
+  type PhraseLike,
+  type PhraseReportLike,
+  buildPhraseBackedCapabilityMapAdditions,
+} from "./phrase-backed.js";
 
 type EvidenceGraphLike = {
   header: ArtifactHeader;
@@ -31,6 +43,14 @@ export const modelProjector: Projector = {
     }
 
     const graph = await artifacts.read(evidenceRef) as EvidenceGraphLike;
+    // Optional: latest CapabilityPhraseReport for the
+    // additive CapabilityMap v2 projection. Absence is
+    // fine — v2 fields stay omitted and the projector
+    // emits a clean v1-shape CapabilityMap.
+    const phraseReportRef = await latestPhraseReportRef(artifacts);
+    const phraseReport = phraseReportRef
+      ? (await artifacts.read(phraseReportRef) as PhraseReportLike)
+      : undefined;
     const ownershipEntries = graph.facts
       .filter((fact) => fact.kind === "ownership_hint")
       .map((fact) => ({
@@ -63,6 +83,9 @@ export const modelProjector: Projector = {
         return fromValue ?? fact.subject;
       })
       .filter((path): path is string => typeof path === "string" && path.length > 0);
+    // CapabilityMap inputRefs include the optional
+    // CapabilityPhraseReport when it is consumed; the
+    // ObservedRepo / OwnershipMap headers stay v1-only.
     const baseHeader = {
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
@@ -79,6 +102,9 @@ export const modelProjector: Projector = {
         confidence: 0.85,
       },
     };
+    const capabilityMapInputRefs = phraseReportRef
+      ? [evidenceRef, phraseReportRef]
+      : [evidenceRef];
     const observedRepo = createObservedRepo({
       header: {
         ...baseHeader,
@@ -104,13 +130,19 @@ export const modelProjector: Projector = {
       },
       entries: ownershipEntries,
     });
+    const phraseBackedAdditions = buildPhraseBackedCapabilityMapAdditions({
+      phraseReport,
+      phraseReportRef,
+    });
     const capabilityMap = createCapabilityMap({
       header: {
         ...baseHeader,
         artifactType: "CapabilityMap",
         artifactId: `capability-map-${Date.now()}`,
+        inputRefs: capabilityMapInputRefs,
       },
       entries: capabilityEntries,
+      ...phraseBackedAdditions,
     });
 
     return [
@@ -127,7 +159,7 @@ export default defineCapability({
     name: "Repository Model Projection",
     version: "0.1.0",
     roles: ["projector"],
-    consumes: ["EvidenceGraph"],
+    consumes: ["EvidenceGraph", "CapabilityPhraseReport"],
     produces: ["ObservedRepo", "OwnershipMap", "CapabilityMap"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -135,6 +167,11 @@ export default defineCapability({
         id: "evidence.changed",
         description: "Repository model projections are invalid when the evidence graph changes.",
         inputs: ["EvidenceGraph"],
+      },
+      {
+        id: "capability-phrases.changed",
+        description: "CapabilityMap is stale when the consumed CapabilityPhraseReport changes (additive v2 fields).",
+        inputs: ["CapabilityPhraseReport"],
       },
     ],
     compatibility: {
@@ -156,6 +193,22 @@ async function latestEvidenceRef(artifacts: {
   const refs = await artifacts.list("EvidenceGraph");
 
   return refs.at(-1);
+}
+
+async function latestPhraseReportRef(artifacts: {
+  list?: (type?: string) => Promise<ArtifactRef[]>;
+} & { read(ref: ArtifactRef): Promise<unknown> }): Promise<ArtifactRef | undefined> {
+  if (!artifacts.list) {
+    return undefined;
+  }
+  try {
+    const refs = await artifacts.list("CapabilityPhraseReport");
+    return refs.at(-1);
+  } catch {
+    // Older runtimes may not know the CapabilityPhraseReport
+    // type. Absence is benign — v2 fields stay omitted.
+    return undefined;
+  }
 }
 
 function buildSystems(

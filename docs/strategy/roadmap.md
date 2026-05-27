@@ -2641,6 +2641,84 @@ is the first stop before proposing a new capability batch.
   extraction layer, not vocabulary
   or splitter precision.
 - CapabilityMap v2 high-confidence-
+  only implementation (P1.1
+  capability-map-v2-high-confidence-implementation
+  slice): **twenty-eighth slice on
+  the capability-ontology track.**
+  Product / capability batch.
+  Implements the additive v2
+  projection committed to by the
+  twenty-seventh slice's decision
+  memo. **Pinned verbatim** (all
+  six guarantees from the decision
+  memo carry through unchanged):
+  *`CapabilityMap` v2 consumes
+  `CapabilityPhraseReport`, not raw
+  `CapabilityNormalizationReport`
+  rows. Only stable high-confidence
+  `CapabilityPhrase` claims are
+  eligible for `CapabilityMap` v2.
+  Partial phrases remain semantic
+  context and are not
+  `CapabilityMap`-ready ownership
+  or placement policy.
+  `CapabilityMap` v2 is not
+  `CapabilityContract`.
+  `CapabilityMap` v2 is additive
+  and existing `CapabilityMap`
+  fields remain valid.
+  `CapabilityMap` should be stale
+  when the consumed
+  `CapabilityPhraseReport`
+  changes.* Three additive optional
+  fields shipped:
+  `phraseBackedCapabilities?` /
+  `phraseBackedSummary?` /
+  `phraseSourceRef?`. v1
+  `entries[]` is unchanged.
+  Eligibility filter implemented as
+  conjunctive guard.
+  `@rekon/capability-model`
+  projector reads the latest
+  `CapabilityPhraseReport` (when
+  present), filters phrases, emits
+  the additive v2 fields, stamps
+  the consumed report into
+  `CapabilityMap.header.inputRefs`,
+  and uses the new
+  `capability-phrases.changed`
+  invalidation rule. New artifact
+  reference doc
+  [`docs/artifacts/capability-map.md`](../artifacts/capability-map.md).
+  New 19-assertion contract test
+  `tests/contract/capability-map-v2.test.mjs`.
+  New 11-assertion docs test
+  `tests/docs/capability-map-v2.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-map-v2-high-confidence-implementation.md`.
+  **No `EvidenceGraph` mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No
+  `CapabilityPhraseReport`
+  mutation. No partial-phrase
+  consumption. No
+  low-confidence-phrase
+  consumption. No raw normalization
+  row consumption. No
+  `CapabilityContract`. No source
+  writes. No LLM-only inference. No
+  npm publish. No version bump.**
+  **Recommended next slice:**
+  *`CapabilityMap` v2
+  high-confidence-only safety
+  review* — a read-only audit of
+  the additive projection
+  (eligibility enforcement,
+  citation chain walkability,
+  freshness semantics,
+  structural-typing boundary,
+  `CapabilityContract` gap).
+- CapabilityMap v2 high-confidence-
   only decision (P1.1
   capability-map-v2-high-confidence-decision
   slice): **twenty-seventh slice on

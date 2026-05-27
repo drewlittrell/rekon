@@ -68,6 +68,59 @@ export type OwnershipMap = {
   }>;
 };
 
+/**
+ * Phrase-backed capability entry (CapabilityMap v2,
+ * additive). Projected from a single stable
+ * high-confidence `CapabilityPhrase`. v2 entries
+ * never replace or invalidate v1 `entries[]`;
+ * existing consumers reading `entries[]` continue
+ * to work unchanged.
+ *
+ * Eligibility (enforced by the producer, not by
+ * this type): phrase `status === "stable"` AND
+ * `confidence === "high"` AND `verb` / `noun`
+ * non-empty AND `evidenceRefs` non-empty AND
+ * `sourceCandidateIds` non-empty. Partial / low-
+ * confidence phrases never appear here. Raw
+ * `CapabilityNormalizationReport` rows never appear
+ * here. See
+ * `docs/strategy/capability-map-v2-high-confidence-decision.md`.
+ */
+export type CapabilityMapPhraseBackedCapability = {
+  /** Deterministic identifier; stable across runs. */
+  id: string;
+  /** Citation back to the source CapabilityPhrase. */
+  phraseRef: {
+    report: ArtifactRef;
+    phraseId: string;
+  };
+  verb: string;
+  noun: string;
+  qualifier?: string[];
+  domain?: string;
+  pattern?: string;
+  layer?: string;
+  /** Citations carried from the source phrase. */
+  evidenceRefs: ArtifactRef[];
+  /** Source normalization-report candidate ids. */
+  sourceCandidateIds: string[];
+  /** Literal — eligibility filter guarantees it. */
+  confidence: "high";
+  /** Literal — eligibility filter guarantees it. */
+  status: "stable";
+};
+
+export type CapabilityMapPhraseBackedSummary = {
+  total: number;
+  /** Deterministic sorted-key record by canonical verb. */
+  byVerb: Record<string, number>;
+  /** Deterministic sorted-key record by canonical noun. */
+  byNoun: Record<string, number>;
+  withDomain: number;
+  withPattern: number;
+  withLayer: number;
+};
+
 export type CapabilityMap = {
   header: ArtifactHeader;
   entries: Array<{
@@ -77,6 +130,14 @@ export type CapabilityMap = {
     confidence: number;
     evidence: ArtifactRef[];
   }>;
+  /**
+   * Optional v2 additions. Populated only when the
+   * producer consumed a `CapabilityPhraseReport`.
+   * Existing v1 consumers ignore these fields safely.
+   */
+  phraseBackedCapabilities?: CapabilityMapPhraseBackedCapability[];
+  phraseBackedSummary?: CapabilityMapPhraseBackedSummary;
+  phraseSourceRef?: ArtifactRef;
 };
 
 export function createObservedRepo(input: ObservedRepo): ObservedRepo {
@@ -130,7 +191,7 @@ export function createOwnershipMap(input: OwnershipMap): OwnershipMap {
 }
 
 export function createCapabilityMap(input: CapabilityMap): CapabilityMap {
-  return assertCapabilityMap({
+  const normalized: CapabilityMap = {
     header: input.header,
     entries: [...dedupeBy(input.entries, (entry) => entry.capability).values()]
       .map((entry) => ({
@@ -140,7 +201,82 @@ export function createCapabilityMap(input: CapabilityMap): CapabilityMap {
         evidence: normalizeRefs(entry.evidence),
       }))
       .sort((left, right) => left.capability.localeCompare(right.capability)),
-  });
+  };
+
+  // ---- v2 additive fields ----
+  if (Array.isArray(input.phraseBackedCapabilities)) {
+    const phraseBacked = [...input.phraseBackedCapabilities]
+      .map((entry) => normalizePhraseBackedCapability(entry))
+      .sort(comparePhraseBackedCapability);
+    if (phraseBacked.length > 0 || input.phraseBackedSummary || input.phraseSourceRef) {
+      normalized.phraseBackedCapabilities = phraseBacked;
+    }
+  }
+  if (input.phraseBackedSummary) {
+    normalized.phraseBackedSummary = normalizePhraseBackedSummary(
+      input.phraseBackedSummary,
+    );
+  }
+  if (input.phraseSourceRef) {
+    normalized.phraseSourceRef = assertArtifactRef(input.phraseSourceRef);
+  }
+
+  return assertCapabilityMap(normalized);
+}
+
+function normalizePhraseBackedCapability(
+  entry: CapabilityMapPhraseBackedCapability,
+): CapabilityMapPhraseBackedCapability {
+  const out: CapabilityMapPhraseBackedCapability = {
+    id: entry.id,
+    phraseRef: {
+      report: assertArtifactRef(entry.phraseRef.report),
+      phraseId: entry.phraseRef.phraseId,
+    },
+    verb: entry.verb,
+    noun: entry.noun,
+    evidenceRefs: normalizeRefs(entry.evidenceRefs),
+    sourceCandidateIds: uniqueSorted(entry.sourceCandidateIds),
+    confidence: "high",
+    status: "stable",
+  };
+  if (entry.qualifier && entry.qualifier.length > 0) {
+    out.qualifier = uniqueSorted(entry.qualifier);
+  }
+  if (entry.domain) out.domain = entry.domain;
+  if (entry.pattern) out.pattern = entry.pattern;
+  if (entry.layer) out.layer = entry.layer;
+  return out;
+}
+
+function comparePhraseBackedCapability(
+  left: CapabilityMapPhraseBackedCapability,
+  right: CapabilityMapPhraseBackedCapability,
+): number {
+  if (left.verb !== right.verb) return left.verb.localeCompare(right.verb);
+  if (left.noun !== right.noun) return left.noun.localeCompare(right.noun);
+  return left.id.localeCompare(right.id);
+}
+
+function normalizePhraseBackedSummary(
+  summary: CapabilityMapPhraseBackedSummary,
+): CapabilityMapPhraseBackedSummary {
+  return {
+    total: summary.total,
+    byVerb: sortRecord(summary.byVerb ?? {}),
+    byNoun: sortRecord(summary.byNoun ?? {}),
+    withDomain: summary.withDomain,
+    withPattern: summary.withPattern,
+    withLayer: summary.withLayer,
+  };
+}
+
+function sortRecord(record: Record<string, number>): Record<string, number> {
+  const sorted: Record<string, number> = {};
+  for (const key of Object.keys(record).sort()) {
+    sorted[key] = record[key]!;
+  }
+  return sorted;
 }
 
 export function validateObservedRepo(value: unknown): ValidationResult<ObservedRepo> {
@@ -205,6 +341,29 @@ export function validateCapabilityMap(value: unknown): ValidationResult<Capabili
     issues.push({ path: "$.entries", message: "Expected an array." });
   } else {
     value.entries.forEach((entry, index) => validateCapabilityEntry(entry, `$.entries[${index}]`, issues));
+  }
+
+  // v2 additive fields. All optional; absence is fine.
+  if (value.phraseBackedCapabilities !== undefined) {
+    if (!Array.isArray(value.phraseBackedCapabilities)) {
+      issues.push({
+        path: "$.phraseBackedCapabilities",
+        message: "Expected an array when present.",
+      });
+    } else {
+      value.phraseBackedCapabilities.forEach((entry, index) =>
+        validatePhraseBackedCapability(entry, `$.phraseBackedCapabilities[${index}]`, issues),
+      );
+    }
+  }
+  if (value.phraseBackedSummary !== undefined) {
+    validatePhraseBackedSummary(value.phraseBackedSummary, "$.phraseBackedSummary", issues);
+  }
+  if (value.phraseSourceRef !== undefined) {
+    const result = validateArtifactRef(value.phraseSourceRef);
+    if (!result.ok) {
+      issues.push(...prefixIssues(result.issues, "$.phraseSourceRef"));
+    }
   }
 
   return validationResult(value as CapabilityMap, issues);
@@ -359,6 +518,116 @@ function validateCapabilityEntry(value: unknown, path: string, issues: Validatio
 function validateConfidence(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
     issues.push({ path, message: "Expected a finite number between 0 and 1." });
+  }
+}
+
+function validatePhraseBackedCapability(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  pushRequiredStringIssue(issues, value.id, `${path}.id`);
+  pushRequiredStringIssue(issues, value.verb, `${path}.verb`);
+  pushRequiredStringIssue(issues, value.noun, `${path}.noun`);
+
+  if (!isRecord(value.phraseRef)) {
+    issues.push({ path: `${path}.phraseRef`, message: "Expected an object." });
+  } else {
+    pushRequiredStringIssue(issues, value.phraseRef.phraseId, `${path}.phraseRef.phraseId`);
+    const refResult = validateArtifactRef(value.phraseRef.report);
+    if (!refResult.ok) {
+      issues.push(...prefixIssues(refResult.issues, `${path}.phraseRef.report`));
+    }
+  }
+
+  validateRefs(value.evidenceRefs, `${path}.evidenceRefs`, issues);
+  if (Array.isArray(value.evidenceRefs) && value.evidenceRefs.length === 0) {
+    issues.push({
+      path: `${path}.evidenceRefs`,
+      message: "Expected at least one evidence ref (eligibility rule).",
+    });
+  }
+
+  if (!isStringArray(value.sourceCandidateIds)) {
+    issues.push({
+      path: `${path}.sourceCandidateIds`,
+      message: "Expected an array of strings.",
+    });
+  } else if (value.sourceCandidateIds.length === 0) {
+    issues.push({
+      path: `${path}.sourceCandidateIds`,
+      message: "Expected at least one source candidate id (eligibility rule).",
+    });
+  }
+
+  if (value.confidence !== "high") {
+    issues.push({
+      path: `${path}.confidence`,
+      message: 'Expected literal "high" (eligibility rule).',
+    });
+  }
+  if (value.status !== "stable") {
+    issues.push({
+      path: `${path}.status`,
+      message: 'Expected literal "stable" (eligibility rule).',
+    });
+  }
+
+  if (value.qualifier !== undefined && !isStringArray(value.qualifier)) {
+    issues.push({
+      path: `${path}.qualifier`,
+      message: "Expected an array of strings when present.",
+    });
+  }
+  for (const field of ["domain", "pattern", "layer"] as const) {
+    const fieldValue = (value as Record<string, unknown>)[field];
+    if (fieldValue !== undefined && typeof fieldValue !== "string") {
+      issues.push({
+        path: `${path}.${field}`,
+        message: "Expected a string when present.",
+      });
+    }
+  }
+}
+
+function validatePhraseBackedSummary(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  for (const field of ["total", "withDomain", "withPattern", "withLayer"] as const) {
+    if (typeof value[field] !== "number" || !Number.isInteger(value[field] as number) || (value[field] as number) < 0) {
+      issues.push({
+        path: `${path}.${field}`,
+        message: "Expected a non-negative integer.",
+      });
+    }
+  }
+  for (const field of ["byVerb", "byNoun"] as const) {
+    const recordValue = value[field];
+    if (!isRecord(recordValue)) {
+      issues.push({
+        path: `${path}.${field}`,
+        message: "Expected an object.",
+      });
+      continue;
+    }
+    for (const [key, count] of Object.entries(recordValue)) {
+      if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+        issues.push({
+          path: `${path}.${field}.${key}`,
+          message: "Expected a non-negative integer.",
+        });
+      }
+    }
   }
 }
 

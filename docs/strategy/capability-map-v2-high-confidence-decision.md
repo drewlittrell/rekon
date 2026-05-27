@@ -486,8 +486,8 @@ supporting-doc cross-references.
 | --- | --- | --- |
 | 1 | [Post-AST Cohort Re-Run](post-ast-cohort-rerun.md) | ✅ Shipped |
 | 2 | **`CapabilityMap` v2 high-confidence-only decision (this memo)** | ✅ Shipped |
-| 3 | `CapabilityMap` v2 high-confidence-only implementation — extend `@rekon/kernel-repo-model` `CapabilityMap` type; `@rekon/capability-model` reads latest `CapabilityPhraseReport`, filters per the eligibility table, emits the additive section; new manifest invalidation rule `capability-phrases.changed`; contract tests; create `docs/artifacts/capability-map.md` | next slice |
-| 4 | Post-`CapabilityMap`-v2 coverage review — measure phrase-backed entry quality on the cohort + fixture | gated on step 3 |
+| 3 | **`CapabilityMap` v2 high-confidence-only implementation** — extend `@rekon/kernel-repo-model` `CapabilityMap` type; `@rekon/capability-model` reads latest `CapabilityPhraseReport`, filters per the eligibility table, emits the additive section; new manifest invalidation rule `capability-phrases.changed`; contract tests; create [`docs/artifacts/capability-map.md`](../artifacts/capability-map.md) | ✅ Shipped (twenty-eighth slice) |
+| 4 | Post-`CapabilityMap`-v2 coverage review — measure phrase-backed entry quality on the cohort + fixture | next slice |
 | 5 | `CapabilityContract` decision memo | far future; gated on step 4 |
 
 Parallel polish lane:

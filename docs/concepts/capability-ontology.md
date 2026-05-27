@@ -28,8 +28,13 @@ The macro 5-layer boundary is:
    `.rekon/capability-ontology.json`.
 3. `CapabilityNormalizationReport` — first registered audit
    artifact (this slice).
-4. `CapabilityMap` — canonical capability claims. Integration
-   is deferred to v2.
+4. `CapabilityMap` — canonical capability claims. v1
+   `entries[]` shipped earlier. **CapabilityMap v2** is now
+   shipped as an additive projection: optional
+   `phraseBackedCapabilities` / `phraseBackedSummary` /
+   `phraseSourceRef` populated **only** from stable
+   high-confidence `CapabilityPhraseReport` claims. See
+   [the artifact reference](../artifacts/capability-map.md).
 5. `RefactorPreservationContract` — far-future preservation
    contracts. Name reserved; registration deferred.
 
