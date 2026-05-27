@@ -236,6 +236,9 @@ capability-ontology track.
 ## Related Documents
 
 - [CapabilityMap v2 High-Confidence-Only Decision](../strategy/capability-map-v2-high-confidence-decision.md)
+- [CapabilityMap v2 Safety Review](../strategy/capability-map-v2-safety-review.md)
+  — read-only audit confirming v2 is safe / stable
+  as additive high-confidence projection.
 - [CapabilityPhraseReport artifact](capability-phrase-report.md)
 - [CapabilityNormalizationReport artifact](capability-normalization-report.md)
 - [Capability Ontology concept](../concepts/capability-ontology.md)

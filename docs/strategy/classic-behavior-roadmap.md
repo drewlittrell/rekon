@@ -6256,6 +6256,63 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityMap v2 safety review
+  (P1.1
+  capability-map-v2-safety-review
+  slice).** ✅ Shipped.
+  **Twenty-ninth slice on the
+  capability-ontology track.**
+  Strategy / safety review / docs
+  / tests-only batch. Read-only
+  audit of the additive
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` /
+  `phraseSourceRef` projection
+  committed by the twenty-eighth
+  slice. **Recommendation: v2
+  safe / stable as additive
+  high-confidence projection. No
+  blockers.** Projection path
+  walked end-to-end; eligibility
+  filter enforced at three layers
+  (helper guard, validator guard,
+  TypeScript literal types);
+  citation chain complete and
+  walkable; freshness model
+  sufficient; v1 `entries[]`
+  compatibility preserved;
+  projection vs policy boundary
+  preserved; no source writes.
+  All five required statements
+  carry through (additive,
+  consumes phrase report not raw
+  normalization rows, partial
+  phrases excluded, not
+  `CapabilityContract`, no policy
+  / routing / linting / writes).
+  Five options evaluated:
+  publication surfacing selected
+  next; `CapabilityContract`
+  deferred; resolver routing
+  deferred. New strategy memo
+  [`docs/strategy/capability-map-v2-safety-review.md`](capability-map-v2-safety-review.md).
+  New 14-assertion docs test +
+  review packet. **No runtime
+  changes. No `CapabilityMap`
+  mutation. No
+  `CapabilityContract`. No
+  source writes. No npm
+  publish.** **Recommended next
+  slice:** *`CapabilityMap` v2
+  publication surfacing* —
+  extend
+  `@rekon/capability-docs` with
+  a `buildCapabilityMapV2PublicationSection`
+  helper, wire it into the
+  architecture summary + agent
+  contract publishers, contract
+  + docs tests, cite this
+  safety review as the gate.
 - **CapabilityMap v2 high-confidence-
   only implementation (P1.1
   capability-map-v2-high-confidence-implementation

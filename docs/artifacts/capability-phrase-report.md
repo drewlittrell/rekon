@@ -28,11 +28,16 @@ Verbatim pins (the docs test asserts these):
 - `CapabilityPhraseReport` consumes the latest
   `CapabilityNormalizationReport`.
 - Only **high-confidence normalized** claims project in v1.
-- **[`CapabilityMap` v2](capability-map.md) has shipped.**
+- **[`CapabilityMap` v2](capability-map.md) has shipped
+  and passed a [safety review](../strategy/capability-map-v2-safety-review.md).**
   `CapabilityMap` v2 consumes `CapabilityPhraseReport`,
   not raw `CapabilityNormalizationReport` rows. Only
   stable high-confidence phrases project into
-  `CapabilityMap.phraseBackedCapabilities`.
+  `CapabilityMap.phraseBackedCapabilities`. The
+  safety review confirms `CapabilityMap` v2 is
+  additive, projection-only (not policy), and does
+  not imply resolver routing, architecture linting,
+  verification planning, or source writes.
 - AST / typechecker evidence is **optional enrichment, not
   foundational truth**.
 - **No LLM-only inference** in v1.

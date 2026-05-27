@@ -4,6 +4,84 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityMap v2 safety review** —
+  read-only audit of the additive
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` / `phraseSourceRef`
+  projection committed by the previous slice.
+  Twenty-ninth slice on the capability-ontology
+  track. Strategy / safety review / docs / tests-
+  only batch.
+
+  Pinned verbatim:
+
+    - `CapabilityMap` v2 is additive; existing
+      `entries[]` remain valid.
+    - `CapabilityMap` v2 consumes
+      `CapabilityPhraseReport`, not raw
+      `CapabilityNormalizationReport` rows.
+    - Partial phrases are excluded from
+      `phraseBackedCapabilities`.
+    - `CapabilityMap` v2 is not `CapabilityContract`.
+    - `CapabilityMap` v2 does not imply placement
+      policy, ownership policy, resolver routing,
+      architecture linting, verification planning,
+      or source writes.
+
+  Review findings:
+
+    - **Recommendation: safe / stable as additive
+      high-confidence projection. No blockers.**
+    - Projection path reviewed end-to-end:
+      `CapabilityPhraseReport` →
+      `buildPhraseBackedCapabilityMapAdditions`
+      helper → `CapabilityMap`. Each step's
+      boundary holds.
+    - Eligibility filter enforced at three layers
+      (helper guard, validator guard, TypeScript
+      literal types). Raw normalization rows
+      cannot leak into v2.
+    - Citation chain is complete and walkable
+      (entry → phrase → candidate → fact).
+    - Freshness model sufficient
+      (`capability-phrases.changed` invalidation
+      rule + digest tracking on `inputRefs`).
+    - Boundary preservation: v1 `entries[]`
+      compatibility, projection vs policy, no
+      source writes — all hold.
+    - Five options evaluated: declare v2 safe /
+      stable selected; publication surfacing
+      selected as next slice; `CapabilityContract`
+      deferred; resolver routing deferred; more
+      dogfood before surfacing deferred (the
+      implementation smoke + tests are sufficient
+      gate for visibility-only surfacing).
+
+  New strategy memo
+  `docs/strategy/capability-map-v2-safety-review.md`.
+  New 14-assertion docs test
+  `tests/docs/capability-map-v2-safety-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-map-v2-safety-review.md`.
+
+  No runtime changes. No `CapabilityMap` mutation.
+  No `EvidenceGraph` / `CapabilityNormalizationReport`
+  / `CapabilityPhraseReport` mutation. No
+  `CapabilityContract`. No architecture linting.
+  No resolver routing. No verification planning.
+  No source writes. No LLM-only inference. No npm
+  publish. No version bump. No git tag. No GitHub
+  Release. No new branch.
+
+  Recommended next slice: **`CapabilityMap` v2
+  publication surfacing** — extend
+  `@rekon/capability-docs` with a
+  `buildCapabilityMapV2PublicationSection` (or
+  equivalent) helper, wire it into the
+  architecture summary + agent contract
+  publishers, contract + docs tests, cite this
+  safety review as the gate.
+
 - Shipped **CapabilityMap v2 high-confidence-only
   implementation** — additive projection wired into
   the `@rekon/capability-model` producer. Twenty-eighth

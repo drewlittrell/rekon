@@ -487,7 +487,9 @@ supporting-doc cross-references.
 | 1 | [Post-AST Cohort Re-Run](post-ast-cohort-rerun.md) | ✅ Shipped |
 | 2 | **`CapabilityMap` v2 high-confidence-only decision (this memo)** | ✅ Shipped |
 | 3 | **`CapabilityMap` v2 high-confidence-only implementation** — extend `@rekon/kernel-repo-model` `CapabilityMap` type; `@rekon/capability-model` reads latest `CapabilityPhraseReport`, filters per the eligibility table, emits the additive section; new manifest invalidation rule `capability-phrases.changed`; contract tests; create [`docs/artifacts/capability-map.md`](../artifacts/capability-map.md) | ✅ Shipped (twenty-eighth slice) |
-| 4 | Post-`CapabilityMap`-v2 coverage review — measure phrase-backed entry quality on the cohort + fixture | next slice |
+| 4 | **[`CapabilityMap` v2 safety review](capability-map-v2-safety-review.md)** — read-only audit of the additive projection (projection path, eligibility enforcement, additive shape, citation chain, freshness model, boundary review). Recommends v2 safe / stable. | ✅ Shipped (twenty-ninth slice) |
+| 5 | `CapabilityMap` v2 publication surfacing — extend `@rekon/capability-docs` (`buildCapabilityMapV2PublicationSection` or equivalent), wire it into architecture summary + agent contract publishers, contract + docs tests | next slice |
+| 6 | Post-`CapabilityMap`-v2 coverage review — measure phrase-backed entry quality on the cohort + fixture once operators can see the output | gated on step 5 |
 | 5 | `CapabilityContract` decision memo | far future; gated on step 4 |
 
 Parallel polish lane:

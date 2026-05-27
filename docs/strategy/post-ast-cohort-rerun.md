@@ -444,6 +444,13 @@ supporting-doc cross-references.
   `phraseBackedSummary` / `phraseSourceRef`
   fields. See
   [`CapabilityMap` artifact reference](../artifacts/capability-map.md).
+- **`CapabilityMap` v2 safety review** — ✅
+  shipped as the twenty-ninth slice. Read-only
+  audit of the additive projection; recommends
+  v2 safe / stable as additive high-confidence
+  projection. Next slice: publication surfacing.
+  See
+  [CapabilityMap v2 Safety Review](capability-map-v2-safety-review.md).
 - **`CapabilityNormalizationReport` AST-metadata
   candidate integration** (parallel polish lane).
   Goal: reduce target-1's unknown-verb / unknown-
