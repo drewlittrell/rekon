@@ -33,7 +33,15 @@ Verbatim pins (the docs test asserts these):
   and a [publication safety review](../strategy/capability-map-v2-publication-safety-review.md),
   and is now surfaced in the architecture summary
   + agent contract publications as projection
-  context.**
+  context.** The
+  [CapabilityContract Architecture Decision](../strategy/capability-contract-architecture-decision.md)
+  (thirty-second slice) commits Rekon to a policy
+  layer that consumes `CapabilityMap` v2 (and
+  optionally cites this phrase report); the
+  implementation slice is next. Until then,
+  `CapabilityPhraseReport` remains semantic
+  purpose projection and `CapabilityMap` v2
+  remains stable capability projection.
   `CapabilityMap` v2 consumes `CapabilityPhraseReport`,
   not raw `CapabilityNormalizationReport` rows. Only
   stable high-confidence phrases project into

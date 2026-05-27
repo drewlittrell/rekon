@@ -291,8 +291,13 @@ for the rendered surfaces.
 - [CapabilityMap v2 Publication Safety Review](../strategy/capability-map-v2-publication-safety-review.md)
   — read-only audit confirming the publication
   surfacing is safe / stable as read-only
-  visibility (next slice:
-  `CapabilityContract` architecture decision).
+  visibility.
+- [CapabilityContract Architecture Decision](../strategy/capability-contract-architecture-decision.md)
+  — the policy layer that consumes
+  `CapabilityMap` v2. Commits Rekon to Option B
+  (config + artifact effective contract). Pins
+  that `CapabilityMap` v2 must not grow policy
+  fields.
 - [Architecture summary publication](architecture-summary-publication.md)
   — surfaces the v2 phrase-backed projection as
   operator context.

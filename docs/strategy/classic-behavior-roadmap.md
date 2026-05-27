@@ -6256,6 +6256,51 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityContract Architecture
+  Decision (P1.1
+  capability-contract-architecture-decision
+  slice).** ✅ Shipped.
+  **Thirty-second slice on the
+  capability-ontology track.**
+  Strategy / architecture decision
+  / docs / tests-only batch.
+  Commits Rekon to Option B
+  (config + artifact effective
+  contract): operator config at
+  `.rekon/capability-contracts.json`
+  expresses policy; Rekon emits a
+  `CapabilityContract` artifact
+  citing the latest `CapabilityMap`
+  v2. All seven required boundary
+  statements asserted (policy not
+  projection; CapabilityMap v2
+  remains projection; not
+  architecture linting; not
+  resolver routing; not
+  verification planning; not source
+  writes; RefactorPreservationContract
+  remains phase-specific). Five
+  options evaluated; B selected.
+  V1 emits `configured` +
+  `unmatched` rows only;
+  `suggested` deferred. All future
+  consumers deferred until the
+  contract artifact exists and
+  passes safety review. New
+  strategy memo
+  [`docs/strategy/capability-contract-architecture-decision.md`](capability-contract-architecture-decision.md).
+  New 16-assertion docs test +
+  review packet. **No
+  implementation. No artifact /
+  type / helper. No CapabilityMap
+  mutation. No source writes. No
+  npm publish.** **Recommended next
+  slice:** *CapabilityContract v1
+  implementation* — register the
+  artifact type and ship a
+  producer reading
+  `.rekon/capability-contracts.json`
+  + the latest CapabilityMap v2.
 - **CapabilityMap v2 publication safety
   review (P1.1
   capability-map-v2-publication-safety-review

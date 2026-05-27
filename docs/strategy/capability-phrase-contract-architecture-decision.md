@@ -277,6 +277,16 @@ Sketch only — **no implementation in this batch, and no v1
 slice planned in the next track step.** The name is
 reserved.
 
+> **Update (thirty-second slice):** The
+> [CapabilityContract Architecture Decision](capability-contract-architecture-decision.md)
+> has now shipped. It selects Option B
+> (config + artifact effective contract) and pins the
+> projection / policy boundary against `CapabilityMap`
+> v2. The next slice is `CapabilityContract` v1
+> implementation. The sketch below remains a useful
+> placeholder; the architecture decision memo
+> supersedes it for the artifact shape detail.
+
 ```ts
 type CapabilityContract = {
   capability: CapabilityPhrase;

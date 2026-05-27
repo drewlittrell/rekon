@@ -215,8 +215,13 @@ visibility (no mutation of `CapabilityMap`,
 `CapabilityNormalizationReport`, or
 `EvidenceGraph`), the boundary statement is
 always emitted, and the proof-report deferral is
-preserved. The next slice is the
-`CapabilityContract` architecture decision.
+preserved. The
+[CapabilityContract Architecture Decision](../strategy/capability-contract-architecture-decision.md)
+has now shipped; future architecture-summary
+surfacing of `CapabilityContract` is gated on
+the v1 implementation slice plus its own
+decision + safety review pair before any
+contract-driven content is rendered.
 
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from

@@ -450,11 +450,14 @@ Deferred (gated on `CapabilityContract` decision
 
 ## Follow-Up Work
 
-- **`CapabilityContract` architecture decision**
-  (next slice). Strategy / decision memo only.
-  Pins policy / placement / preservation
-  semantics for the next layer of the capability
-  ontology.
+- **`CapabilityContract` architecture decision** —
+  ✅ shipped as the thirty-second slice. Selects
+  Option B (config + artifact effective contract);
+  pins the projection / policy split; commits
+  Rekon to `.rekon/capability-contracts.json` as
+  the operator policy source and a
+  `CapabilityContract` artifact for audit. See
+  [CapabilityContract Architecture Decision](capability-contract-architecture-decision.md).
 - **`CapabilityContract` implementation** (gated
   on the decision memo). Adds the artifact type +
   type definitions to `@rekon/kernel-repo-model`

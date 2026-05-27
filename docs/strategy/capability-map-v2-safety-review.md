@@ -482,10 +482,13 @@ feedback):
   (gated on publication surfacing). Measure
   phrase-backed entry quality on the cohort +
   fixture once operators can see the output.
-- **`CapabilityContract` decision memo** (further
-  future; gated on coverage review + publication
-  surfacing feedback).
-- **`RefactorPreservationContract`** (phase-5).
+- **`CapabilityContract` architecture decision** —
+  ✅ shipped as the thirty-second slice. Selects
+  Option B (config + artifact effective contract).
+  See
+  [CapabilityContract Architecture Decision](capability-contract-architecture-decision.md).
+- **`RefactorPreservationContract`** (phase-5;
+  inherits from `CapabilityContract`).
 
 ## Cross-References
 

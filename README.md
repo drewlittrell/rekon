@@ -1103,6 +1103,99 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityContract Architecture Decision has
+# shipped. Strategy / architecture decision / docs
+# / tests-only batch. Thirty-second slice on the
+# capability-ontology track. Commits Rekon to
+# Option B: CapabilityContract is an
+# artifact-backed policy layer generated from
+# operator config (.rekon/capability-contracts.json)
+# + the latest CapabilityMap v2. Decision memo
+# only -- no implementation, no artifact
+# registration, no producer or helper shipped.
+#
+# Pinned verbatim:
+#   - CapabilityContract is policy, not
+#     projection.
+#   - CapabilityMap v2 remains projection and must
+#     not grow policy fields.
+#   - CapabilityContract does not implement
+#     architecture linting by itself.
+#   - CapabilityContract does not implement
+#     resolver routing by capability.
+#   - CapabilityContract does not implement
+#     verification planning by capability.
+#   - CapabilityContract does not implement source
+#     writes.
+#   - RefactorPreservationContract remains
+#     phase-specific and comes later.
+#
+# Five options evaluated:
+#   - reserve name only (rejected/deferred; boundary
+#     is clear enough to model);
+#   - config + artifact effective contract
+#     (selected; operator policy + artifact
+#     audit);
+#   - artifact-only inferred contract (rejected;
+#     projection would become policy);
+#   - add policy fields to CapabilityMap (rejected;
+#     blurs projection and policy);
+#   - only inside RefactorPreservationContract
+#     (rejected; policy should exist before
+#     refactor phase).
+#
+# Decision details:
+#   - Config sketch at
+#     .rekon/capability-contracts.json with
+#     match{verb, noun, domain?, pattern?, layer?},
+#     allowedLayers[], forbiddenLayers[],
+#     allowedSystems[], forbiddenSystems[],
+#     requiredChecks[], requiredNeighbors[],
+#     forbiddenNeighbors[], preservationRules[].
+#     Missing config allowed. No inferred contract
+#     is binding without explicit operator
+#     authorisation.
+#   - Artifact sketch: header + source + summary +
+#     contracts[] with capabilityRef.capabilityMapRef
+#     + capabilityRef.phraseCapabilityId + status
+#     (configured / suggested / unmatched). V1
+#     emits only configured + unmatched; suggested
+#     is deferred until a suggestion / review
+#     workflow ships.
+#   - All future consumers (architecture linting,
+#     resolver routing, verification planning,
+#     semantic impact, refactor preservation,
+#     publication surfacing) deferred until the
+#     contract artifact exists and passes safety
+#     review.
+#
+# No implementation. No CapabilityContract artifact
+# / type / helper shipped. No CapabilityMap
+# mutation. No EvidenceGraph /
+# CapabilityNormalizationReport /
+# CapabilityPhraseReport mutation. No npm publish.
+# No version bump.
+#
+# New strategy memo
+# docs/strategy/capability-contract-architecture-decision.md
+# with 11 required headings + 3 required tables
+# (option / boundary / consumer). New 16-assertion
+# docs test
+# tests/docs/capability-contract-architecture-decision.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/capability-contract-architecture-decision.md.
+#
+# Recommended next slice: CapabilityContract v1
+# implementation -- register the artifact type in
+# @rekon/kernel-repo-model + SDK + runtime; ship a
+# producer that reads
+# .rekon/capability-contracts.json (when present)
+# and the latest CapabilityMap v2 and emits the
+# effective contract artifact. Emits configured +
+# unmatched rows only. No publication surfacing
+# yet. No linting / routing / verification /
+# writes.
+#
 # CapabilityMap v2 publication safety review has
 # shipped. Strategy / safety review / docs /
 # tests-only batch. Thirty-first slice on the
