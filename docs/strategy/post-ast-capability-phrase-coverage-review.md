@@ -427,9 +427,11 @@ supporting-doc cross-references.
   `CapabilityMap` v2 high-confidence-only decision
   memo becomes the next slice.
 - **`CapabilityMap` v2 high-confidence-only
-  design / implementation plan** — gated on the
-  cohort re-run delivering real-repo stable-density
-  improvement.
+  decision memo** — ✅ shipped as the
+  twenty-seventh slice. See
+  [CapabilityMap v2 High-Confidence-Only Decision](capability-map-v2-high-confidence-decision.md).
+  Selected Option B (additive stable-phrase-backed
+  v2). Implementation slice ships next.
 - **`CapabilityNormalizationReport` AST-metadata
   candidate integration** (parallel polish; gated
   on the cohort re-run identifying the need).

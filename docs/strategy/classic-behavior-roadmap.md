@@ -6256,6 +6256,50 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityMap v2 high-confidence-
+  only decision (P1.1
+  capability-map-v2-high-confidence-decision
+  slice).** ✅ Shipped.
+  **Twenty-seventh slice on the
+  capability-ontology track.**
+  Strategy / architecture / docs /
+  tests-only batch. Commits Rekon
+  to an **additive**
+  `CapabilityMap` v2 projection
+  consuming **only stable
+  high-confidence**
+  `CapabilityPhraseReport` claims.
+  Option B (additive stable-
+  phrase-backed v2) selected;
+  section name
+  `phraseBackedCapabilities`;
+  conjunctive eligibility filter
+  (status stable + confidence
+  high + evidenceRefs +
+  sourceCandidateIds +
+  canonical-vocabulary lookup);
+  freshness via
+  `capability-phrases.changed`
+  invalidation rule (reserved
+  for the implementation slice).
+  `CapabilityContract` boundary
+  explicitly pinned (read-only
+  projection, not policy).
+  Documentation gap noted:
+  `docs/artifacts/capability-map.md`
+  is created in the
+  implementation slice. New
+  strategy memo
+  [`docs/strategy/capability-map-v2-high-confidence-decision.md`](capability-map-v2-high-confidence-decision.md)
+  with 11 required headings +
+  4 required tables. New
+  16-assertion docs test.
+  Review packet
+  `.rekon-dev/review-packets/capability-map-v2-high-confidence-decision.md`.
+  **Recommended next slice:**
+  *`CapabilityMap` v2
+  high-confidence-only
+  implementation.*
 - **Post-AST cohort re-run (P1.1
   post-ast-cohort-rerun
   slice).** ✅ Shipped.

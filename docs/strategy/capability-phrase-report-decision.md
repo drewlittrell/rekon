@@ -500,6 +500,16 @@ is the next slice. Step 2 landed as a strategy decision.
 - [CapabilityPhraseReport Safety Review](capability-phrase-report-safety-review.md)
 - [CapabilityPhraseReport Real-Repo Coverage Review](capability-phrase-report-coverage-review.md)
 - [CapabilityPhraseReport Phrase Enrichment v1](capability-phrase-enrichment-v1.md)
+- [CapabilityMap v2 High-Confidence-Only Decision](capability-map-v2-high-confidence-decision.md)
+  — twenty-seventh slice. Commits Rekon to an
+  additive `CapabilityMap` v2 projection that
+  consumes *only* stable high-confidence
+  `CapabilityPhraseReport` claims (the carrier this
+  decision committed to). Validates Option B's
+  separate-carrier choice in production: `CapabilityMap`
+  consumes the phrase report read-only without
+  collapsing the translation-audit / semantic-
+  projection boundary.
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
 - [`CapabilityNormalizationReviewLedger` artifact reference](../artifacts/capability-normalization-review-ledger.md)
 - [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md)

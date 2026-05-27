@@ -161,7 +161,13 @@ unknown-noun count (~6,500 out-of-vocabulary
 candidates) is the canonical-vocabulary ceiling,
 not an AST limitation — the **parallel polish lane**
 (candidate extractor consumes AST `symbolKind` /
-`exportKind` metadata) addresses this.
+`exportKind` metadata) addresses this. The
+[CapabilityMap v2 High-Confidence-Only Decision](../strategy/capability-map-v2-high-confidence-decision.md)
+(twenty-seventh slice) explicitly **excludes raw
+normalization rows** from the future `CapabilityMap`
+v2 projection — `CapabilityMap` v2 consumes
+`CapabilityPhraseReport` exclusively, preserving
+this report's role as the translation audit layer.
 
 ## Downstream Consumers
 

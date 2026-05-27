@@ -381,6 +381,25 @@ v2 stays deferred until one real-repo phrase coverage
 review measures stable-phrase quality across the canon-
 pack archetypes.**
 
+**Update (twenty-seventh slice, post-AST cohort
+re-run completed):** the
+[Post-AST Cohort Re-Run](post-ast-cohort-rerun.md)
+provided the real-repo evidence this safety review
+required (target-1 16 → 37 stable phrases, +131.3%
+lift). The
+[CapabilityMap v2 High-Confidence-Only Decision](capability-map-v2-high-confidence-decision.md)
+(twenty-seventh slice) is now recorded — pinning
+**only stable high-confidence phrase claims** as
+eligible for `CapabilityMap` v2, **additive** to the
+existing v1 shape, with `capability-phrases.changed`
+freshness propagation. The safety review's pinned
+guarantees (partials as context only;
+`CapabilityMap` v2 stays evidence-gated; only
+stable high-confidence phrases eligible) all
+survive that decision. **`CapabilityMap` runtime
+v2 implementation has not yet shipped** — that is
+the next slice.
+
 Recommended next slice: **CapabilityPhraseReport
 real-repo coverage review** — strategy / docs / tests
 batch that runs `refresh → normalize → phrase project`

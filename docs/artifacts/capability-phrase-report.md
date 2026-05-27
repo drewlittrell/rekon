@@ -361,10 +361,19 @@ textbook pairs `get:response` (14), `build:plan`
 `save:response` (8), `build:report` (8).
 **`target-2` (small TS + workflows): 2 → 2 stable
 phrases** — unchanged, no regression. **The
-readiness gate accepts narrower evidence and the
-`CapabilityMap` v2 high-confidence-only decision
-memo is now the next slice on the
-capability-ontology track.**
+readiness gate accepts narrower evidence; the
+[CapabilityMap v2 High-Confidence-Only Decision](../strategy/capability-map-v2-high-confidence-decision.md)
+(twenty-seventh slice) has now shipped.** The
+decision commits Rekon to an **additive** `CapabilityMap`
+v2 projection consuming **only stable high-confidence
+phrase claims** (the same threshold this report's
+safety review pinned). v2 is additive over v1 — the
+existing `CapabilityMap` `entries[]` field stays
+untouched, and the new `phraseBackedCapabilities` /
+`phraseBackedSummary` / `phraseSourceRef` fields are
+optional. `CapabilityMap` v2 implementation is the
+next slice; until that ships, this report remains
+the canonical semantic-purpose projection layer.
 **The stable threshold remains unchanged.** **AST v1
 does not mutate `CapabilityMap`** — `CapabilityMap`
 v2 stays evidence-gated on the post-AST coverage

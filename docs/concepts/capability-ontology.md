@@ -456,11 +456,19 @@ verb:noun pairs (`get:response`, `build:plan`,
 `get:schema`, `get:session`, `save:response`,
 `build:report`); `target-2` neutral (2 → 2, no
 regression). With the readiness gate's
-narrower-evidence escape clause invoked,
-**`CapabilityMap` v2 design is ready to begin** and
-the `CapabilityMap` v2 high-confidence-only
-decision memo is the next slice on the
-capability-ontology track.
+narrower-evidence escape clause invoked, the
+[CapabilityMap v2 High-Confidence-Only Decision](../strategy/capability-map-v2-high-confidence-decision.md)
+(twenty-seventh slice) has now shipped. The
+decision pins **Option B (additive stable-phrase-
+backed v2)** and the conjunctive eligibility filter
+(status stable + confidence high + evidenceRefs +
+sourceCandidateIds + canonical-vocabulary match).
+The new fields (`phraseBackedCapabilities`,
+`phraseBackedSummary`, `phraseSourceRef`) sit
+**additively** alongside the existing
+`CapabilityMap` `entries[]` field — v1 consumers
+continue to work unchanged. The implementation
+slice ships next.
 
 ## See Also
 

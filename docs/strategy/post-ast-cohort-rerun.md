@@ -427,11 +427,17 @@ supporting-doc cross-references.
 ## Follow-Up Work
 
 - **`CapabilityMap` v2 high-confidence-only
-  decision memo** (primary next slice). Design
-  decision; no runtime change.
+  decision memo** — ✅ shipped as the
+  twenty-seventh slice; see
+  [CapabilityMap v2 High-Confidence-Only Decision](capability-map-v2-high-confidence-decision.md).
+  Selects Option B (additive stable-phrase-backed
+  v2). Pins conjunctive eligibility (status
+  stable + confidence high + evidenceRefs +
+  sourceCandidateIds + canonical-vocabulary
+  match). The implementation slice ships next.
 - **`CapabilityMap` v2 high-confidence-only
-  implementation plan** (gated on the decision
-  memo).
+  implementation** (next slice; runtime).
+  Conditioned on the decision memo above.
 - **`CapabilityNormalizationReport` AST-metadata
   candidate integration** (parallel polish lane).
   Goal: reduce target-1's unknown-verb / unknown-

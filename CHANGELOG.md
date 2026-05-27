@@ -4,6 +4,104 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityMap v2 high-confidence-only
+  decision** — strategy / architecture decision memo.
+  Twenty-seventh slice on the capability-ontology
+  track. Commits Rekon to an **additive**
+  `CapabilityMap` v2 projection consuming **only
+  stable high-confidence** `CapabilityPhraseReport`
+  claims. Implements the recommendation from the
+  Post-AST Cohort Re-Run.
+
+  Pinned verbatim:
+
+    - `CapabilityMap` v2 consumes
+      `CapabilityPhraseReport`, not raw
+      `CapabilityNormalizationReport` rows.
+    - Only stable high-confidence
+      `CapabilityPhrase` claims are eligible for
+      `CapabilityMap` v2.
+    - Partial phrases remain semantic context and
+      are not `CapabilityMap`-ready ownership or
+      placement policy.
+    - `CapabilityMap` v2 is not `CapabilityContract`.
+    - `CapabilityMap` v2 is additive and existing
+      `CapabilityMap` fields remain valid.
+    - `CapabilityMap` should be stale when the
+      consumed `CapabilityPhraseReport` changes.
+
+  Decision details:
+
+    - Five options evaluated; **Option B (additive
+      stable-phrase-backed v2)** selected.
+    - Section name: **`phraseBackedCapabilities`**
+      (not `normalizedCapabilities` — the map
+      projects phrases, not normalization rows).
+    - Eligibility (conjunctive): phrase
+      `status === "stable"`, `confidence === "high"`,
+      `evidenceRefs` non-empty, `sourceCandidateIds`
+      non-empty, verb + noun present,
+      canonical-vocabulary lookup succeeds.
+    - Additive shape sketched but **not
+      implemented** in this batch: optional
+      `phraseBackedCapabilities?` /
+      `phraseBackedSummary?` / `phraseSourceRef?`
+      on `CapabilityMap`. v1 `entries[]` stays
+      untouched.
+    - Freshness: new `capability-phrases.changed`
+      invalidation rule (implementation manifest)
+      so `CapabilityMap` is stale when the upstream
+      phrase report changes. Stale phrase report
+      treated as missing for v2 emission.
+    - Citation chain: `CapabilityMap` v2 entry →
+      `CapabilityPhrase` →
+      `CapabilityNormalizationReport` candidate →
+      `EvidenceGraph` fact is fully walkable.
+
+  `CapabilityContract` boundary explicitly pinned:
+  v2 surfaces capabilities (read-only projection);
+  `CapabilityContract` (future) sets policy
+  (required checks, allowed layers, allowed
+  neighbours, preservation rules). The two are
+  distinct surfaces; this decision does **not**
+  create or mutate `CapabilityContract`.
+
+  No `CapabilityMap` implementation in this batch.
+  No `CapabilityMap` mutation. No `EvidenceGraph`
+  mutation. No `CapabilityNormalizationReport`
+  mutation. No `CapabilityPhraseReport` mutation.
+  No partial-phrase consumption. No
+  `CapabilityContract`. No `RefactorPreservationContract`.
+  No architecture linting. No resolver routing. No
+  source writes. No LLM-only inference. No
+  typechecker dependency. No npm publish. No
+  version bump. No git tag. No GitHub Release. No
+  new branch.
+
+  Documentation gap noted: `docs/artifacts/capability-map.md`
+  does not exist; the implementation slice creates
+  it (the artifact reference must reflect the v2
+  shape the implementation finalises).
+
+  New strategy memo:
+  [`docs/strategy/capability-map-v2-high-confidence-decision.md`](docs/strategy/capability-map-v2-high-confidence-decision.md)
+  with 11 required headings + 4 required tables
+  (evidence / option / eligibility / boundary).
+  New 16-assertion docs test
+  `tests/docs/capability-map-v2-high-confidence-decision.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-map-v2-high-confidence-decision.md`.
+
+  Recommended next slice: **`CapabilityMap` v2
+  high-confidence-only implementation** — extends
+  the `CapabilityMap` type in
+  `@rekon/kernel-repo-model`, updates
+  `@rekon/capability-model` to read the latest
+  `CapabilityPhraseReport` and emit the additive
+  section, adds the `capability-phrases.changed`
+  invalidation rule, ships contract tests, and
+  creates `docs/artifacts/capability-map.md`.
+
 - Shipped **Post-AST Cohort Re-Run** — strategy /
   dogfood-analysis batch. Twenty-sixth slice on the
   capability-ontology track. Fifth coverage review
