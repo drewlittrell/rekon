@@ -1103,6 +1103,107 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# JS/TS AST EvidenceGraph Provider v1 has shipped.
+# Runtime implementation slice. Twenty-fourth slice on
+# the capability-ontology track. Upgrades
+# @rekon/capability-js-ts so JS/TS evidence extraction
+# uses the TypeScript compiler parser API as the
+# primary path. Regex extraction is preserved as
+# labelled fallback only.
+#
+# Implementation details:
+#   - New packages/capability-js-ts/src/ast-extractor.ts
+#     module. Parser-only (ts.createSourceFile +
+#     ts.forEachChild). No Program, no typechecker, no
+#     tsconfig resolution. Emits typed records
+#     (AstSymbolRecord, AstExportRecord, AstImportRecord).
+#   - packages/capability-js-ts/src/index.ts rewires
+#     the per-file pipeline: AST-first, regex-fallback
+#     on parser failure.
+#   - typescript: ^5.4.5 added to
+#     @rekon/capability-js-ts dependencies.
+#   - Existing fact kinds (file, import, export,
+#     symbol, ownership_hint, capability_hint)
+#     unchanged. AST v1 enriches value payloads with
+#     additive optional fields: extractionMethod,
+#     language, syntaxKind, symbolKind/exportKind/
+#     importKind, location, confidence.
+#   - Dedupe semantics preserved: export/symbol value
+#     omits location (matches legacy regex); import
+#     value retains location + legacy line.
+#   - __extractRegexFallbackFactsForTesting exported
+#     as @internal for contract tests.
+#
+# Pinned verbatim:
+#   - JS/TS AST extraction is primary where available.
+#   - Regex extraction is fallback only.
+#   - The selected parser is the TypeScript compiler
+#     parser API.
+#   - V1 is parser-only; typechecker semantics are
+#     deferred.
+#   - AST facts use extractionMethod ast.
+#   - Fallback facts use extractionMethod
+#     regex-fallback.
+#   - Call graph is deferred.
+#   - EvidenceGraph remains the repo-agnostic
+#     protocol.
+#   - AST v1 should improve CapabilityNormalizationReport
+#     candidate quality.
+#   - AST v1 may improve CapabilityPhraseReport
+#     stable phrase density.
+#   - AST v1 does not mutate CapabilityMap.
+#
+# Construct coverage in v1: function declarations,
+# class declarations, class methods, arrow-function
+# assignments, function-expression assignments,
+# interfaces, type aliases, enum declarations, named
+# exports, default exports, re-exports (export { x }
+# + export * from + export * as alias from),
+# type-only imports + exports, namespace imports,
+# side-effect imports, import equals (CommonJS-style).
+# Call graph, type resolution, symbol references,
+# inferred return types, side-effect analysis, JSX
+# component tree, test-to-source map, schema
+# inference all deferred.
+#
+# No EvidenceGraph schema mutation. No
+# CapabilityNormalizationReport mutation. No
+# CapabilityPhraseReport mutation. No CapabilityMap
+# mutation. No new fact kinds. No new artifact
+# registration. No new CLI command. No source
+# writes. No LLM-only inference. No typechecker
+# dependency. No npm publish. No version bump. No
+# git tag. No GitHub Release. No new branch.
+#
+# Public API additions (all additive):
+#   - @rekon/capability-js-ts re-exports
+#     AstConfidence, AstExportKind, AstImportKind,
+#     AstLanguage, AstSymbolKind type aliases.
+#   - @rekon/capability-js-ts now declares
+#     typescript: ^5.4.5 in dependencies.
+#   - EvidenceGraph import/export/symbol value
+#     payloads carry optional extractionMethod,
+#     language, syntaxKind, symbolKind/exportKind/
+#     importKind, location, confidence fields.
+#     Older artifacts validate unchanged.
+#
+# New test fixture
+# tests/fixtures/js-ts-ast-evidence/ (7 source files
+# + package.json). New 25-assertion contract test
+# tests/contract/js-ts-ast-evidence-provider.test.mjs.
+# New 9-assertion docs test
+# tests/docs/js-ts-ast-evidence-provider.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/js-ts-ast-evidence-provider-v1.md.
+#
+# Recommended next slice: Post-AST
+# CapabilityPhraseReport Coverage Review - measure
+# CapabilityNormalizationReport candidate quality and
+# CapabilityPhraseReport stable phrase density
+# before/after AST extraction on fixture + target-1
+# + target-2. Decides whether CapabilityMap v2
+# design can begin.
+#
 # JS/TS AST Evidence Adapter Decision has shipped.
 # Strategy / architecture / docs / tests-only batch.
 # Twenty-third slice on the capability-ontology track.

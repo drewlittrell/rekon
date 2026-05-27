@@ -404,9 +404,15 @@ architecture review's evidence-source recommendation.
   and **AST v1 should improve CapabilityPhraseReport
   stable phrase density**. The runtime slice below
   inherits these answers.
-- **JS/TS AST EvidenceGraph Provider v1** — runtime
-  implementation in `@rekon/capability-js-ts`.
-  Conditioned on the decision memo above.
+- **JS/TS AST EvidenceGraph Provider v1** — ✅
+  shipped as the twenty-fourth slice. Runtime
+  implementation in `@rekon/capability-js-ts` using
+  the TypeScript compiler parser API. AST-backed
+  `symbol` / `export` / `import` facts now carry
+  `extractionMethod: "ast"` and richer metadata;
+  regex stays as labelled fallback. The next slice
+  (post-AST coverage review) measures the impact on
+  candidate quality and stable phrase density.
 - **Phrase enrichment v2** (parallel; framework /
   architecture-profile-derived `pattern` and `layer`
   enrichment). Lands behind the architecture review.

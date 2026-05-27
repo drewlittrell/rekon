@@ -1,0 +1,8 @@
+{
+  "name": "js-ts-ast-evidence-fixture",
+  "version": "0.0.0-fixture",
+  "private": true,
+  "description": "Construct coverage fixture for the JS/TS AST EvidenceGraph Provider v1 (twenty-fourth slice on the capability-ontology track). Do not publish.",
+  "license": "Apache-2.0",
+  "scripts": {}
+}

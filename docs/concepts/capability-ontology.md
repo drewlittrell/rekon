@@ -427,21 +427,22 @@ is measured.
 
 The
 [JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
-(twenty-third slice) commits Rekon to **parser-only
+(twenty-third slice) committed Rekon to **parser-only
 AST extraction using the TypeScript compiler parser
-API**. Existing fact kinds (`symbol`, `export`,
-`import`) remain unchanged; AST v1 enriches their
-`value` payloads with additive optional fields
-(`extractionMethod`, `language`, `syntaxKind`,
-`symbolKind`, `exportKind`, `importKind`, `location`,
-`confidence`). Regex extraction remains in place as
-**fallback only**. No typechecker semantics in v1;
-call graph, type resolution, and symbol references
-are deferred. **The stable threshold remains
-unchanged.** **AST v1 does not mutate `CapabilityMap`.**
-The runtime slice that follows
-(*JS/TS AST EvidenceGraph Provider v1*) ships the
-implementation.
+API**, and the **JS/TS AST EvidenceGraph Provider v1**
+(twenty-fourth slice) has now shipped. Existing fact
+kinds (`symbol`, `export`, `import`) remain unchanged;
+AST facts enrich their `value` payloads with additive
+optional fields (`extractionMethod`, `language`,
+`syntaxKind`, `symbolKind`, `exportKind`, `importKind`,
+`location`, `confidence`). Regex extraction remains in
+place as **labelled fallback only**. No typechecker
+semantics in v1; call graph, type resolution, and
+symbol references are deferred. **The stable
+threshold remains unchanged.** **AST v1 does not
+mutate `CapabilityMap`.** The post-AST coverage review
+(next slice) measures the impact on candidate quality
+and stable phrase density.
 
 ## See Also
 

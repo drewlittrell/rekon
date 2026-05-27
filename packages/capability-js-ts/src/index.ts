@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { digestJson } from "@rekon/kernel-artifacts";
 import {
@@ -9,9 +9,45 @@ import {
   dedupeEvidenceFacts,
 } from "@rekon/kernel-evidence";
 import { defineCapability } from "@rekon/sdk";
+import {
+  type AstConfidence,
+  type AstExportKind,
+  type AstExtractionResult,
+  type AstImportKind,
+  type AstLanguage,
+  type AstSymbolKind,
+  astSupportsExtension,
+  extractAstRecords,
+} from "./ast-extractor.js";
 
-const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]);
+const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
 const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", "dist", "build", "coverage"]);
+
+export {
+  type AstConfidence,
+  type AstExportKind,
+  type AstImportKind,
+  type AstLanguage,
+  type AstSymbolKind,
+} from "./ast-extractor.js";
+
+/**
+ * @internal — exposed for contract tests so the regex
+ * fallback path can be exercised even when the
+ * TypeScript parser tolerates the input. Not part of
+ * the public API and may change between releases.
+ */
+export function __extractRegexFallbackFactsForTesting(
+  path: string,
+  content: string,
+): EvidenceFact[] {
+  const language = languageForPath(path);
+  return [
+    ...extractImportFacts(path, content, language),
+    ...extractExportFacts(path, content, language),
+    ...extractSymbolFacts(path, content, language),
+  ];
+}
 
 export const jsTsProvider: EvidenceProvider = {
   id: "@rekon/capability-js-ts.provider",
@@ -29,9 +65,33 @@ export const jsTsProvider: EvidenceProvider = {
         const content = await readFile(absolutePath, "utf8");
 
         facts.push(createFileFact(path));
-        facts.push(...extractImportFacts(path, content));
-        facts.push(...extractExportFacts(path, content));
-        facts.push(...extractSymbolFacts(path, content));
+
+        const extension = extensionForPath(path);
+        const language = languageForPath(path);
+        let astFacts: EvidenceFact[] | undefined;
+
+        if (astSupportsExtension(extension)) {
+          try {
+            const result = extractAstRecords({ path, content });
+            astFacts = factsFromAstResult(path, result);
+          } catch {
+            // Fall through to regex fallback.
+            astFacts = undefined;
+          }
+        }
+
+        if (astFacts) {
+          facts.push(...astFacts);
+        } else {
+          // Regex fallback. Mark every emitted fact with
+          // extractionMethod: "regex-fallback" so downstream
+          // consumers can distinguish AST evidence from
+          // fallback evidence.
+          facts.push(...extractImportFacts(path, content, language));
+          facts.push(...extractExportFacts(path, content, language));
+          facts.push(...extractSymbolFacts(path, content, language));
+        }
+
         facts.push(createOwnershipHintFact(path));
         facts.push(createCapabilityHintFact(path));
       } catch (error) {
@@ -59,7 +119,7 @@ export default defineCapability({
       {
         id: "source.changed",
         description: "JavaScript/TypeScript evidence is invalid when source files change.",
-        paths: ["**/*.{js,jsx,mjs,cjs,ts,tsx}"],
+        paths: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
       },
     ],
     compatibility: {
@@ -112,7 +172,160 @@ function createFileFact(path: string): EvidenceFact {
   }, path);
 }
 
-function extractImportFacts(path: string, content: string): EvidenceFact[] {
+// ---------- AST -> facts -------------------------------------------------
+
+function factsFromAstResult(path: string, result: AstExtractionResult): EvidenceFact[] {
+  const facts: EvidenceFact[] = [];
+
+  // ---- imports ----
+  // Imports keep `location` in `value` to mirror the
+  // legacy `line` field. Each unique (target, location)
+  // remains a distinct fact, matching the legacy
+  // multiple-imports-per-target behaviour.
+  for (const importRecord of result.imports) {
+    facts.push(
+      fact(
+        "import",
+        `${path}:${importRecord.target}`,
+        {
+          source: path,
+          target: importRecord.target,
+          line: importRecord.location.line,
+          extractionMethod: "ast" as const,
+          language: result.language,
+          syntaxKind: importRecord.syntaxKind,
+          importKind: importRecord.importKind,
+          location: importRecord.location,
+          confidence: "high" as AstConfidence,
+        },
+        path,
+        importRecord.location.line,
+      ),
+    );
+  }
+
+  // ---- exports ----
+  // Exports intentionally OMIT `location` from `value`
+  // so duplicate declarations (or repeated re-exports)
+  // continue to dedupe via the canonical
+  // `kind + subject + value + provenance` key, matching
+  // the legacy regex behaviour.
+  for (const exportRecord of result.exports) {
+    const legacyKind = legacyExportKind(exportRecord);
+    const value: Record<string, unknown> = {
+      name: exportRecord.name,
+      kind: legacyKind,
+      extractionMethod: "ast" as const,
+      language: result.language,
+      syntaxKind: exportRecord.syntaxKind,
+      exportKind: exportRecord.exportKind,
+      confidence: "high" as AstConfidence,
+    };
+    if (exportRecord.isDefault) {
+      value.default = true;
+    }
+    if (exportRecord.moduleSpecifier) {
+      value.moduleSpecifier = exportRecord.moduleSpecifier;
+    }
+    facts.push(fact("export", path, value, path));
+  }
+
+  // ---- symbols ----
+  // Symbols also OMIT `location` from `value` (legacy
+  // dedupe parity). The richer AST classification rides
+  // alongside the legacy `kind` field.
+  for (const symbolRecord of result.symbols) {
+    const value: Record<string, unknown> = {
+      name: symbolRecord.name,
+      kind: legacySymbolKind(symbolRecord),
+      exported: symbolRecord.exported,
+      extractionMethod: "ast" as const,
+      language: result.language,
+      syntaxKind: symbolRecord.syntaxKind,
+      symbolKind: symbolRecord.symbolKind,
+      confidence: "high" as AstConfidence,
+    };
+    facts.push(fact("symbol", path, value, path));
+  }
+
+  return facts;
+}
+
+// Map the AST export to the legacy `value.kind` enum
+// downstream consumers (regex era) already understand.
+// The richer `exportKind` rides alongside.
+function legacyExportKind(record: {
+  declarationKeyword:
+    | "function" | "class" | "const" | "let" | "var" | "type"
+    | "interface" | "namespace" | "enum" | "default" | "unknown";
+  isDefault: boolean;
+  exportKind: AstExportKind;
+}): FileExportSymbolKind {
+  if (record.isDefault) {
+    return "default";
+  }
+  switch (record.declarationKeyword) {
+    case "function":
+      return "function";
+    case "class":
+      return "class";
+    case "const":
+      return "const";
+    case "let":
+      return "let";
+    case "var":
+      return "var";
+    case "type":
+      return "type";
+    case "interface":
+      return "interface";
+    case "namespace":
+      return "namespace";
+    case "enum":
+      return "namespace";
+    case "default":
+      return "default";
+    case "unknown":
+    default:
+      return "unknown";
+  }
+}
+
+function legacySymbolKind(record: {
+  declarationKeyword:
+    | "function" | "class" | "const" | "let" | "var" | "type"
+    | "interface" | "namespace" | "enum" | "default" | "unknown";
+}): FileExportSymbolKind {
+  switch (record.declarationKeyword) {
+    case "function":
+      return "function";
+    case "class":
+      return "class";
+    case "const":
+      return "const";
+    case "let":
+      return "let";
+    case "var":
+      return "var";
+    case "type":
+      return "type";
+    case "interface":
+      return "interface";
+    case "namespace":
+      return "namespace";
+    case "enum":
+      return "namespace";
+    case "default":
+      return "default";
+    case "unknown":
+    default:
+      return "unknown";
+  }
+}
+
+// ---------- Regex fallback -----------------------------------------------
+
+function extractImportFacts(path: string, content: string, language: AstLanguage): EvidenceFact[] {
   const facts: EvidenceFact[] = [];
   const importRegex = /\bimport\s+(?:type\s+)?(?:[^'"]+\s+from\s+)?["']([^"']+)["']|import\(["']([^"']+)["']\)|\brequire\(["']([^"']+)["']\)/g;
   let match: RegExpExecArray | null;
@@ -121,35 +334,33 @@ function extractImportFacts(path: string, content: string): EvidenceFact[] {
     const target = match[1] ?? match[2] ?? match[3];
 
     if (target) {
+      const line = lineForIndex(content, match.index);
       facts.push(fact("import", `${path}:${target}`, {
         source: path,
         target,
-        line: lineForIndex(content, match.index),
-      }, path, lineForIndex(content, match.index)));
+        line,
+        extractionMethod: "regex-fallback" as const,
+        language,
+        confidence: "medium" as AstConfidence,
+      }, path, line));
     }
   }
 
   return facts;
 }
 
-// ---------- Export / symbol facts (substrate v1) ----------
+// ---------- Export / symbol facts (regex fallback) -----------------------
 //
 // EvidenceGraph export/symbol facts projection v1 (per the
-// graph-aware filter provider v3 decision memo). Deterministic
-// regex-based extraction — no AST, no type checker, no LLM, no
-// semantic role inference. Conservative: tolerate false
-// negatives better than false positives.
-//
-// Fact shape (per work order spec):
-//   { kind: "export", subject: <path>, value: { name, kind, default? } }
-//   { kind: "symbol", subject: <path>, value: { name, kind, exported? } }
-//
-// The subject is the repo-relative file path. `name`, `kind`
-// (function / class / const / let / var / type / interface /
-// namespace / default / unknown), and the `default` /
-// `exported` flag live in `value` so multiple exports / symbols
-// per file are distinct after the kernel-evidence dedupe
-// (`kind + subject + value + provenance` canonical key).
+// graph-aware filter provider v3 decision memo).
+// Deterministic regex-based extraction — no AST, no type
+// checker, no LLM, no semantic role inference. Conservative:
+// tolerate false negatives better than false positives. Used
+// only as fallback when AST parsing fails or is unsupported
+// for the file. Every fallback fact is stamped with
+// `extractionMethod: "regex-fallback"` and
+// `confidence: "medium"` (per the JS/TS AST Evidence Adapter
+// Decision).
 
 type FileExportSymbolKind =
   | "function"
@@ -192,7 +403,7 @@ const NAMED_EXPORT_LIST_RE = /\bexport\s*\{([^}]+)\}/g;
 const STAR_REEXPORT_RE
   = /\bexport\s+\*(?:\s+as\s+([A-Za-z_$][\w$]*))?\s+from\s+["']([^"']+)["']/g;
 
-function extractExportFacts(path: string, content: string): EvidenceFact[] {
+function extractExportFacts(path: string, content: string, language: AstLanguage): EvidenceFact[] {
   const collected: Array<{
     name: string;
     kind: FileExportSymbolKind;
@@ -213,9 +424,7 @@ function extractExportFacts(path: string, content: string): EvidenceFact[] {
     });
   }
 
-  // (2) `export default function/class ...` — name is "default";
-  //     kind is "default" so consumers can distinguish from
-  //     named exports.
+  // (2) `export default function/class ...`.
   for (const m of content.matchAll(DEFAULT_FUNCTION_OR_CLASS_RE)) {
     if (m.index === undefined) continue;
     collected.push({
@@ -226,8 +435,7 @@ function extractExportFacts(path: string, content: string): EvidenceFact[] {
     });
   }
 
-  // (3) `export default <other>` (anything that isn't a
-  //     function/class declaration).
+  // (3) `export default <other>`.
   for (const m of content.matchAll(DEFAULT_EXPRESSION_RE)) {
     if (m.index === undefined) continue;
     collected.push({
@@ -238,9 +446,7 @@ function extractExportFacts(path: string, content: string): EvidenceFact[] {
     });
   }
 
-  // (4) `export { a, b as c }` — extract the renamed half of
-  //     each entry. Default re-exports (`export { default }`)
-  //     are recorded with kind "default".
+  // (4) `export { a, b as c }`.
   for (const m of content.matchAll(NAMED_EXPORT_LIST_RE)) {
     const body = m[1];
     if (!body || m.index === undefined) continue;
@@ -272,28 +478,21 @@ function extractExportFacts(path: string, content: string): EvidenceFact[] {
     });
   }
 
-  // Note: `line` intentionally NOT included in provenance so
-  // two identical declarations on different lines dedupe via
-  // the kernel-evidence canonical key
-  // (`kind + subject + value + provenance`). The work order
-  // dedupe rule is `kind + subject + value.name + value.kind +
-  // value.default/exported` — dropping line achieves that.
-  return collected.map((entry) =>
-    fact(
-      "export",
-      path,
-      entry.isDefault
-        ? { name: entry.name, kind: entry.kind, default: true }
-        : { name: entry.name, kind: entry.kind },
-      path,
-    ),
-  );
+  return collected.map((entry) => {
+    const value: Record<string, unknown> = entry.isDefault
+      ? { name: entry.name, kind: entry.kind, default: true }
+      : { name: entry.name, kind: entry.kind };
+    value.extractionMethod = "regex-fallback" as const;
+    value.language = language;
+    value.confidence = "medium" as AstConfidence;
+    return fact("export", path, value, path);
+  });
 }
 
 const SYMBOL_DECL_RE
   = /(?:^|\s|;)(export\s+(?:default\s+)?)?(?:async\s+)?(function|class|const|let|var|type|interface|namespace|enum)\s+([A-Za-z_$][\w$]*)/g;
 
-function extractSymbolFacts(path: string, content: string): EvidenceFact[] {
+function extractSymbolFacts(path: string, content: string, language: AstLanguage): EvidenceFact[] {
   const facts: EvidenceFact[] = [];
 
   for (const m of content.matchAll(SYMBOL_DECL_RE)) {
@@ -302,21 +501,15 @@ function extractSymbolFacts(path: string, content: string): EvidenceFact[] {
     const name = m[3];
     if (!keyword || !name || m.index === undefined) continue;
 
-    const value: { name: string; kind: FileExportSymbolKind; exported?: boolean } = {
+    const value: Record<string, unknown> = {
       name,
       kind: DECL_KIND_MAP[keyword] ?? "unknown",
+      exported: Boolean(exportedPrefix),
+      extractionMethod: "regex-fallback" as const,
+      language,
+      confidence: "medium" as AstConfidence,
     };
-    // Only mark exported when the declaration *itself* begins
-    // with `export`. v1 is conservative — symbols re-exported
-    // via a later `export { ... }` clause are NOT marked
-    // exported. The export facts produced by
-    // `extractExportFacts` capture the re-export side
-    // independently.
-    if (exportedPrefix) value.exported = true;
-    else value.exported = false;
 
-    // `line` intentionally NOT included in provenance — see
-    // comment in `extractExportFacts`.
     facts.push(fact("symbol", path, value, path));
   }
 
@@ -379,10 +572,10 @@ function extensionForPath(path: string): string {
   return match?.[0] ?? "";
 }
 
-function languageForPath(path: string): string {
+function languageForPath(path: string): AstLanguage {
   const extension = extensionForPath(path);
 
-  if (extension === ".ts" || extension === ".tsx") {
+  if (extension === ".ts" || extension === ".tsx" || extension === ".mts" || extension === ".cts") {
     return "typescript";
   }
 

@@ -2640,6 +2640,82 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- JS/TS AST EvidenceGraph Provider
+  v1 (P1.1
+  js-ts-ast-evidence-provider-v1
+  slice): **twenty-fourth slice on
+  the capability-ontology track.**
+  Product capability batch.
+  Runtime implementation of the
+  AST adapter decision. Upgrades
+  `@rekon/capability-js-ts` so JS
+  / TS evidence extraction uses
+  the **TypeScript compiler parser
+  API** as the primary extraction
+  path. Regex extraction is
+  preserved as **labelled
+  fallback only**. AST facts
+  carry `extractionMethod: "ast"`,
+  `language`, `syntaxKind`,
+  `symbolKind` / `exportKind` /
+  `importKind`, `location` (on
+  `import`), and
+  `confidence: "high"`.
+  Fallback facts carry
+  `extractionMethod:
+  "regex-fallback"` and
+  `confidence: "medium"`. New
+  `ast-extractor.ts` module
+  (parser-only, no Program / no
+  typechecker / no tsconfig). New
+  `typescript: ^5.4.5` dependency
+  on `@rekon/capability-js-ts`.
+  Construct coverage: function /
+  class / method / arrow /
+  function-expression / interface
+  / type alias / enum / object /
+  named / default / re-export /
+  type-only / namespace /
+  side-effect import. Call graph,
+  type resolution, symbol
+  references, inferred return
+  types, side-effect analysis,
+  JSX component tree, test-to-
+  source map, schema inference
+  all deferred. **No
+  `EvidenceGraph` schema
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No
+  `CapabilityPhraseReport`
+  mutation. No `CapabilityMap`
+  mutation. No new fact kinds.
+  No new artifact registration.
+  No new CLI command. No source
+  writes. No LLM-only inference.
+  No typechecker dependency. No
+  npm publish. No version bump.
+  No git tag. No GitHub Release.
+  No new branch.** New 7-file
+  test fixture
+  `tests/fixtures/js-ts-ast-evidence/`.
+  New 25-assertion contract test
+  `tests/contract/js-ts-ast-evidence-provider.test.mjs`.
+  New 9-assertion docs test
+  `tests/docs/js-ts-ast-evidence-provider.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/js-ts-ast-evidence-provider-v1.md`.
+  **Recommended next slice:**
+  *Post-AST `CapabilityPhraseReport`
+  Coverage Review* — measure
+  `CapabilityNormalizationReport`
+  candidate quality and
+  `CapabilityPhraseReport` stable
+  phrase density before/after
+  AST extraction on fixture +
+  target-1 + target-2. Decides
+  whether `CapabilityMap` v2
+  design can begin.
 - JS/TS AST Evidence Adapter
   Decision (P1.1
   js-ts-ast-evidence-adapter-decision

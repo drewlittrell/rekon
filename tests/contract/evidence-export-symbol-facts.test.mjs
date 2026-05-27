@@ -107,21 +107,20 @@ test("JS/TS provider emits export fact for `export default function|class|expres
       "src/default-expr.ts": "const handler = () => {};\nexport default handler;\n",
     },
     ({ facts }) => {
-      const fn = exportsForFile(facts, "src/default-fn.tsx");
-      const cls = exportsForFile(facts, "src/default-class.ts");
-      const expr = exportsForFile(facts, "src/default-expr.ts");
-      assert.deepEqual(
-        fn.filter((e) => e.name === "default"),
-        [{ name: "default", kind: "default", default: true }],
-      );
-      assert.deepEqual(
-        cls.filter((e) => e.name === "default"),
-        [{ name: "default", kind: "default", default: true }],
-      );
-      assert.deepEqual(
-        expr.filter((e) => e.name === "default"),
-        [{ name: "default", kind: "default", default: true }],
-      );
+      // AST-backed provider emits additive fields
+      // (extractionMethod, language, syntaxKind,
+      // exportKind, confidence). Assert legacy contract
+      // (name, kind, default) without rejecting the
+      // additive enrichment.
+      const fn = exportsForFile(facts, "src/default-fn.tsx").filter((e) => e.name === "default");
+      const cls = exportsForFile(facts, "src/default-class.ts").filter((e) => e.name === "default");
+      const expr = exportsForFile(facts, "src/default-expr.ts").filter((e) => e.name === "default");
+      for (const list of [fn, cls, expr]) {
+        assert.equal(list.length, 1, "exactly one default export per file");
+        assert.equal(list[0].name, "default");
+        assert.equal(list[0].kind, "default");
+        assert.equal(list[0].default, true);
+      }
     },
   );
 });

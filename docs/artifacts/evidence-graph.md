@@ -242,19 +242,21 @@ config) → `EffectiveCapabilityOntology` (Layer 4, internal compiled model) →
 Layer 0 and is unchanged. **EvidenceGraph raw facts are unchanged** by the
 ontology track.
 
-### Upcoming: AST-backed JS/TS provider
+### AST-backed JS/TS extraction (v1, shipped)
 
 The
 [Classic Scanner/Ontology Parity Audit](../strategy/classic-scanner-ontology-parity-audit.md)
-maps Rekon's current scanner / taxonomy / ontology stack
-against `codebase-intel-classic` as design prior art and
-identifies the **evidence-model bottleneck**: regex-based
-JS/TS extraction misses the structured names AST
-traversal would surface. The audit selects the JS/TS AST
-Evidence Adapter as the next slice on the
-capability-ontology track. The
+identified the **evidence-model bottleneck**:
+regex-based JS/TS extraction missed the structured
+names AST traversal would surface. The
 [JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
-(twenty-third slice) commits to the design:
+(twenty-third slice) committed to the design, and the
+**JS/TS AST EvidenceGraph Provider v1** (twenty-fourth
+slice) has now shipped. `@rekon/capability-js-ts` uses
+AST-backed JS/TS extraction as the primary path; regex
+extraction is fallback only.
+
+Provider v1 design:
 
 - **Parser:** the TypeScript compiler parser API
   (`ts.createSourceFile`, `ts.forEachChild`); parses
@@ -265,10 +267,9 @@ capability-ontology track. The
   deferred.
 - **Existing fact kinds unchanged.** AST v1 emits the
   same `symbol` / `export` / `import` fact kinds as
-  today's regex extractor.
-- **Proposed additive value-fields** on `symbol` /
-  `export` / `import` facts (documented in the decision
-  memo; implemented by the runtime slice that follows):
+  the regex era.
+- **Additive value-fields** on `symbol` / `export` /
+  `import` facts (shipped by Provider v1):
   - `extractionMethod?: "ast" | "regex-fallback"`
   - `language?: "typescript" | "javascript"`
   - `syntaxKind?: string` (diagnostic)
@@ -289,17 +290,18 @@ capability-ontology track. The
   carry `extractionMethod: "regex-fallback"` and
   `confidence: "low"` or `"medium"`.
 
-The decision memo pins these verbatim guarantees:
+The decision memo pins these verbatim guarantees,
+preserved by Provider v1:
 
 - **`EvidenceGraph` remains the repo-agnostic protocol.**
   Adding an AST-backed JS/TS provider does **not** change
   the shape or protocol of this artifact. The adapter is
   an additional provider, not a replacement layer.
-- **JS/TS AST extraction should be primary where
-  available.**
-- **Regex extraction is fallback only.**
-- **No type-checker dependency in v1.** AST alone closes
-  most of the regex gap.
+- **AST-backed JS/TS extraction** is primary where
+  available.
+- **Regex extraction is fallback only** for JS/TS.
+- **Typechecker semantics are deferred.** AST alone
+  closes most of the regex gap.
 - **AST stays optional enrichment, not foundational truth
   in v1.** The eight architectural reservations from the
   Capability Ontology Architecture Impact Review remain
@@ -309,6 +311,18 @@ The decision memo pins these verbatim guarantees:
   capability claims. The translation layer
   (`CapabilityNormalizationReport`) still decides what
   these facts mean.
+
+**Convention pin (Provider v1):** `location.line` and
+`location.column` are 1-based. AST facts carry
+`extractionMethod: "ast"` and `confidence: "high"`.
+Regex fallback facts carry
+`extractionMethod: "regex-fallback"` and
+`confidence: "medium"`. `import` facts include
+`location` in `value` (mirroring the legacy `line`
+field); `export` / `symbol` facts intentionally omit
+`location` from `value` so duplicate declarations
+continue to dedupe via the canonical
+`kind + subject + value + provenance` key.
 
 The audit explicitly pins
 `codebase-intel-classic` as **design prior art, not

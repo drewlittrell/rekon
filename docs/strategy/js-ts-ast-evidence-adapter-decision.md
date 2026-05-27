@@ -582,8 +582,8 @@ supporting-doc cross-references.
 | --- | --- | --- |
 | 1 | [Classic Scanner/Ontology Parity Audit](classic-scanner-ontology-parity-audit.md) | ✅ Shipped |
 | 2 | **JS/TS AST Evidence Adapter Decision (this memo)** | ✅ Shipped |
-| 3 | JS/TS AST EvidenceGraph Provider v1 — runtime implementation in `@rekon/capability-js-ts` | next slice |
-| 4 | Post-AST coverage review — re-run normalization + phrase projection on fixture + cohort targets; measure stable phrase density | gated on step 3 |
+| 3 | JS/TS AST EvidenceGraph Provider v1 — runtime implementation in `@rekon/capability-js-ts` | ✅ Shipped — twenty-fourth slice. Parser-only AST extraction lives in `packages/capability-js-ts/src/ast-extractor.ts`; the provider emits `extractionMethod: "ast"` facts with `language` / `syntaxKind` / `symbolKind` / `exportKind` / `importKind` / `location` / `confidence` metadata, falling back to regex on parser failure. |
+| 4 | Post-AST coverage review — re-run normalization + phrase projection on fixture + cohort targets; measure stable phrase density | next slice |
 | 5 | `CapabilityMap` v2 high-confidence-only design decision | gated on step 4 |
 
 Parallel follow-ups (independent tracks):

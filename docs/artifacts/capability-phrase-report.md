@@ -335,20 +335,23 @@ foundation. The
 identified the evidence model itself as the
 bottleneck. The
 [Classic Scanner/Ontology Parity Audit](../strategy/classic-scanner-ontology-parity-audit.md)
-selected the JS/TS AST adapter as the next slice, and
-the
+selected the JS/TS AST adapter as the next slice; the
 [JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
-(twenty-third slice) commits Rekon to **parser-only
-AST extraction using the TypeScript compiler parser
-API**, with regex as fallback only. AST v1 is
-expected to **improve stable phrase density** by
+(twenty-third slice) committed to **parser-only AST
+extraction using the TypeScript compiler parser API**;
+and the **JS/TS AST EvidenceGraph Provider v1**
+(twenty-fourth slice) has now shipped — see
+[`EvidenceGraph` artifact reference](evidence-graph.md).
+**AST facts may improve stable phrase density** by
 expanding candidate coverage (class methods,
 arrow-function assignments, accurate type-vs-value
 distinctions) without changing this report's shape or
-projection rules. **The stable threshold remains
-unchanged.** **AST v1 does not mutate `CapabilityMap`**
-— `CapabilityMap` v2 stays evidence-gated on a
-post-AST coverage review.
+projection rules. The post-AST coverage review (next
+slice) measures whether the improvement materialises.
+**The stable threshold remains unchanged.** **AST v1
+does not mutate `CapabilityMap`** — `CapabilityMap`
+v2 stays evidence-gated on the post-AST coverage
+review.
 
 ## See Also
 

@@ -130,21 +130,26 @@ Candidate quality in this report depends on the
 upstream `EvidenceGraph` provider for each language.
 For JS/TS, the
 [JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
-(twenty-third slice on the capability-ontology track)
-commits Rekon to upgrading the JS/TS provider from
-regex-only extraction to AST-backed extraction using
-the TypeScript compiler parser API. The runtime slice
-that follows will emit AST-derived `symbol` / `export`
-/ `import` facts with additive `extractionMethod` /
-`symbolKind` / `exportKind` / `importKind` /
-`confidence` metadata. **This report's shape and
-semantics are unchanged by that work** — the splitter
-and normalizer continue to read raw evidence and emit
-normalization rows. AST v1 is expected to **improve
-candidate quality** (better coverage of class methods,
+(twenty-third slice) committed Rekon to upgrading the
+JS/TS provider from regex-only extraction to AST-backed
+extraction using the TypeScript compiler parser API.
+The runtime slice — **JS/TS AST EvidenceGraph Provider
+v1** (twenty-fourth slice) — has now shipped.
+`@rekon/capability-js-ts` emits AST-derived `symbol` /
+`export` / `import` facts with additive
+`extractionMethod` / `symbolKind` / `exportKind` /
+`importKind` / `confidence` metadata when AST parsing
+succeeds, and regex-fallback facts (clearly labelled)
+when it does not. **This report's shape and semantics
+are unchanged by that work** — the splitter and
+normalizer continue to read raw evidence and emit
+normalization rows. **AST facts improve candidate
+quality** (better coverage of class methods,
 arrow-function assignments, type-vs-value distinctions)
 without changing the contract this report exposes to
-downstream consumers.
+downstream consumers. The post-AST coverage review
+(next slice) measures the improvement on fixture +
+`target-1` + `target-2`.
 
 ## Downstream Consumers
 

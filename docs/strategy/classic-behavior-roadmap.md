@@ -6256,6 +6256,66 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **JS/TS AST EvidenceGraph Provider
+  v1 (P1.1
+  js-ts-ast-evidence-provider-v1
+  slice).** ✅ Shipped.
+  **Twenty-fourth slice on the
+  capability-ontology track.**
+  Product capability batch.
+  Runtime implementation of the
+  AST adapter decision. Upgrades
+  `@rekon/capability-js-ts` so JS
+  / TS evidence extraction uses
+  the **TypeScript compiler parser
+  API** as primary; regex stays
+  as **labelled fallback only**.
+  AST facts carry
+  `extractionMethod: "ast"`,
+  `language`, `syntaxKind`,
+  `symbolKind` / `exportKind` /
+  `importKind`, `location` (on
+  imports), and `confidence:
+  "high"`. New `ast-extractor.ts`
+  module (parser-only). New
+  `typescript: ^5.4.5` dependency
+  on `@rekon/capability-js-ts`.
+  Construct coverage: function /
+  class / method / arrow /
+  function-expression / interface
+  / type alias / enum / object /
+  named / default / re-export /
+  type-only / namespace /
+  side-effect import. Call graph,
+  type resolution, symbol
+  references, inferred return
+  types, side-effect analysis,
+  JSX component tree, test-to-
+  source map, schema inference
+  all deferred. **No
+  `EvidenceGraph` schema
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No
+  `CapabilityPhraseReport`
+  mutation. No `CapabilityMap`
+  mutation. No new fact kinds.
+  No new artifact registration.
+  No new CLI command. No source
+  writes. No LLM-only inference.
+  No typechecker dependency. No
+  npm publish. No version bump.
+  No git tag. No GitHub Release.
+  No new branch.** New 7-file
+  fixture
+  `tests/fixtures/js-ts-ast-evidence/`.
+  New 25-assertion contract test.
+  New 9-assertion docs test.
+  Review packet
+  `.rekon-dev/review-packets/js-ts-ast-evidence-provider-v1.md`.
+  **Recommended next slice:**
+  *Post-AST CapabilityPhraseReport
+  Coverage Review.*
 - **JS/TS AST Evidence Adapter
   Decision (P1.1
   js-ts-ast-evidence-adapter-decision

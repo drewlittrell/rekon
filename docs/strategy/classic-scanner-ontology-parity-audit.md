@@ -564,8 +564,14 @@ Parallel follow-ups (do not block the AST track):
   `importKind` / `location` / `confidence` fields
   on existing `symbol` / `export` / `import` facts.
   The runtime slice below inherits these answers.
-- **JS/TS AST EvidenceGraph Provider v1** — runtime
-  slice, conditioned on the decision memo.
+- **JS/TS AST EvidenceGraph Provider v1** — ✅
+  shipped as the twenty-fourth slice. Runtime
+  implementation in `@rekon/capability-js-ts` using
+  the TypeScript compiler parser API, parser-only,
+  with regex preserved as labelled fallback. AST
+  facts carry `extractionMethod` / `language` /
+  `syntaxKind` / `symbolKind` / `exportKind` /
+  `importKind` / `location` / `confidence`.
 - **Post-AST coverage review** — fourth coverage
   review on the phrase track; conditioned on
   Provider v1.
