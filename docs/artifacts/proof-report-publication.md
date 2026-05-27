@@ -203,7 +203,9 @@ artifact.
   Surfacing v2 here would conflate semantic
   projection with verification proof; the
   decision to defer is documented in the
-  [`CapabilityMap` artifact reference](capability-map.md).
+  [`CapabilityMap` artifact reference](capability-map.md)
+  and reaffirmed by the
+  [publication safety review](../strategy/capability-map-v2-publication-safety-review.md).
 
 ## Issue Merge Decision Context
 

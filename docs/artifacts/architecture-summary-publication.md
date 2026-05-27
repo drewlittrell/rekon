@@ -383,3 +383,7 @@ starting point. See
   guidance line and still emits the boundary
   statement. See
   [`CapabilityMap` artifact reference](capability-map.md).
+  The publication surfacing passed a
+  [publication safety review](../strategy/capability-map-v2-publication-safety-review.md)
+  (next slice: `CapabilityContract` architecture
+  decision).

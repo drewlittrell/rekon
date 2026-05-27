@@ -29,7 +29,8 @@ Verbatim pins (the docs test asserts these):
   `CapabilityNormalizationReport`.
 - Only **high-confidence normalized** claims project in v1.
 - **[`CapabilityMap` v2](capability-map.md) has shipped,
-  passed a [safety review](../strategy/capability-map-v2-safety-review.md),
+  passed a [projection safety review](../strategy/capability-map-v2-safety-review.md)
+  and a [publication safety review](../strategy/capability-map-v2-publication-safety-review.md),
   and is now surfaced in the architecture summary
   + agent contract publications as projection
   context.**

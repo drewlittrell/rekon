@@ -2640,6 +2640,74 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityMap v2 publication safety
+  review (P1.1
+  capability-map-v2-publication-safety-review
+  slice): **thirty-first slice on the
+  capability-ontology track.**
+  Strategy / safety review / docs /
+  tests-only batch. Read-only audit of
+  the publication surfacing committed
+  by the thirtieth slice.
+  **Recommendation: publication
+  surfacing is safe / stable as
+  read-only visibility. No blockers.**
+  **Pinned verbatim:** *CapabilityMap
+  v2 publication surfacing is read-only
+  visibility. CapabilityMap v2
+  phrase-backed capabilities are
+  projection context, not
+  CapabilityContract policy.
+  CapabilityMap v2 phrase-backed
+  capabilities do not imply resolver
+  routing, architecture linting,
+  verification planning, source-write
+  permission, or finding resolution.
+  Proof report surfacing remains
+  deferred because CapabilityMap v2 is
+  semantic projection, not
+  verification proof. CapabilityContract
+  decision work may begin after this
+  safety review if no blockers are
+  found.* Helper is pure (no fs.write,
+  artifacts.write, spawn, LLM, or
+  network call); both publishers
+  strictly read-only over CapabilityMap
+  + upstream artifacts. Boundary
+  statement rendered in every shipped
+  surface and emitted even when v2
+  fields are absent. Agent contract
+  Do Not Do reminder covers all five
+  overclaim surfaces. Finding
+  resolution noted as a low-priority
+  follow-up. Proof report deferral
+  reaffirmed. Four options evaluated:
+  declare surfacing safe / stable
+  (selected); CapabilityContract
+  decision next (selected); more
+  publication polish first (deferred);
+  resolver routing next (rejected).
+  New strategy memo
+  [`docs/strategy/capability-map-v2-publication-safety-review.md`](capability-map-v2-publication-safety-review.md)
+  with 11 required headings + 3
+  required tables (surface /
+  boundary / option). New 13-assertion
+  docs test. Review packet
+  `.rekon-dev/review-packets/capability-map-v2-publication-safety-review.md`.
+  **No runtime changes. No publisher
+  mutation. No CapabilityMap mutation.
+  No CapabilityContract introduced. No
+  architecture linting. No resolver
+  routing. No verification planning.
+  No source writes. No LLM-only
+  inference. No npm publish. No
+  version bump.** **Recommended next
+  slice:** *CapabilityContract
+  architecture decision* — strategy /
+  decision memo only. Pins policy /
+  placement / preservation semantics
+  for the next layer of the capability
+  ontology.
 - CapabilityMap v2 publication surfacing
   (P1.1 capability-map-v2-publications
   slice): **thirtieth slice on the

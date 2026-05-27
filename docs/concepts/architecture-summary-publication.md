@@ -207,6 +207,17 @@ plan / result.
 
 ## CapabilityMap v2 Surfacing
 
+This surface passed a
+[publication safety review](../strategy/capability-map-v2-publication-safety-review.md)
+confirming the rendered section is read-only
+visibility (no mutation of `CapabilityMap`,
+`CapabilityPhraseReport`,
+`CapabilityNormalizationReport`, or
+`EvidenceGraph`), the boundary statement is
+always emitted, and the proof-report deferral is
+preserved. The next slice is the
+`CapabilityContract` architecture decision.
+
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from
 the latest `CapabilityMap` when the v2 fields

@@ -4,6 +4,93 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityMap v2 publication safety
+  review** — read-only audit of the publication
+  surfacing committed by the thirtieth slice.
+  Thirty-first slice on the capability-ontology
+  track. Strategy / safety review / docs / tests-
+  only batch.
+
+  Pinned verbatim:
+
+    - `CapabilityMap` v2 publication surfacing is
+      read-only visibility.
+    - `CapabilityMap` v2 phrase-backed capabilities
+      are projection context, not
+      `CapabilityContract` policy.
+    - `CapabilityMap` v2 phrase-backed capabilities
+      do not imply resolver routing, architecture
+      linting, verification planning,
+      source-write permission, or finding
+      resolution.
+    - Proof report surfacing remains deferred
+      because `CapabilityMap` v2 is semantic
+      projection, not verification proof.
+    - `CapabilityContract` decision work may begin
+      after this safety review if no blockers are
+      found.
+
+  Review findings:
+
+    - **Recommendation: publication surfacing is
+      safe / stable as read-only visibility. No
+      blockers.**
+    - Helper is pure (no `fs.write*`,
+      `artifacts.write`, `spawn*`, LLM, or
+      network call); both publishers are
+      strictly read-only over `CapabilityMap` and
+      every upstream artifact.
+    - Boundary statement rendered in every
+      shipped surface (architecture summary at
+      level 2; agent contract at level 3) and
+      emitted even when v2 fields are absent.
+    - Agent contract `Do Not Do` reminder covers
+      `CapabilityContract` policy, resolver
+      routing authority, architecture lint
+      findings, verification requirements, and
+      source-write permission. Finding resolution
+      noted as a low-priority follow-up (no
+      current surface links v2 to findings).
+    - Proof report deferral remains correct;
+      enforced by the existing contract test +
+      proof-report concept + artifact reference.
+    - Four options evaluated: declare surfacing
+      safe / stable (selected);
+      `CapabilityContract` decision next
+      (selected); more publication polish first
+      (deferred — no blocker); resolver routing
+      next (rejected — needs
+      `CapabilityContract` first).
+
+  New strategy memo
+  `docs/strategy/capability-map-v2-publication-safety-review.md`.
+  New 13-assertion docs test
+  `tests/docs/capability-map-v2-publication-safety-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-map-v2-publication-safety-review.md`.
+
+  No runtime changes. No publisher mutation. No
+  `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` /
+  `CapabilityNormalizationReport` /
+  `EvidenceGraph` mutation. No
+  `CapabilityContract` artifact / type / helper
+  introduced. No architecture linting. No
+  resolver routing. No verification planning. No
+  source writes. No LLM-only inference. No npm
+  publish. No version bump. No git tag. No
+  GitHub Release. No new branch.
+
+  Recommended next slice: **`CapabilityContract`
+  architecture decision** — strategy / decision
+  memo only. Pins policy / placement /
+  preservation semantics (allowed layers, allowed
+  systems, forbidden layers, required checks,
+  required / forbidden neighbouring capabilities,
+  preservation rules). No implementation, no
+  linting, no routing, no verification planning,
+  no source writes.
+
 - Shipped **CapabilityMap v2 publication surfacing**
   — architecture summary and agent contract
   publications now render the additive

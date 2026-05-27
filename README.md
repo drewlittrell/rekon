@@ -1103,6 +1103,78 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityMap v2 publication safety review has
+# shipped. Strategy / safety review / docs /
+# tests-only batch. Thirty-first slice on the
+# capability-ontology track. Read-only audit of
+# the publication surfacing committed by the
+# thirtieth slice. Recommendation: publication
+# surfacing is safe / stable as read-only
+# visibility. No blockers. Next slice:
+# CapabilityContract architecture decision.
+#
+# Pinned verbatim:
+#   - CapabilityMap v2 publication surfacing is
+#     read-only visibility.
+#   - CapabilityMap v2 phrase-backed capabilities
+#     are projection context, not
+#     CapabilityContract policy.
+#   - CapabilityMap v2 phrase-backed capabilities
+#     do not imply resolver routing, architecture
+#     linting, verification planning, source-write
+#     permission, or finding resolution.
+#   - Proof report surfacing remains deferred
+#     because CapabilityMap v2 is semantic
+#     projection, not verification proof.
+#   - CapabilityContract decision work may begin
+#     after this safety review if no blockers are
+#     found.
+#
+# Review findings:
+#   - Helper is pure (no fs.write*,
+#     artifacts.write, spawn*, LLM, or network
+#     call). Both publishers strictly read-only
+#     over CapabilityMap + upstream artifacts.
+#   - Boundary statement rendered in every shipped
+#     surface (architecture summary level 2;
+#     agent contract level 3) and emitted even
+#     when v2 fields are absent.
+#   - Agent contract Do Not Do reminder covers
+#     CapabilityContract policy, resolver routing
+#     authority, architecture lint findings,
+#     verification requirements, and source-write
+#     permission. Finding resolution noted as a
+#     low-priority follow-up.
+#   - Proof report deferral remains correct.
+#
+# Four options evaluated: declare surfacing safe
+# / stable (selected); CapabilityContract
+# decision next (selected); more publication
+# polish first (deferred -- no blocker); resolver
+# routing next (rejected -- needs
+# CapabilityContract first).
+#
+# New strategy memo
+# docs/strategy/capability-map-v2-publication-safety-review.md.
+# New 13-assertion docs test
+# tests/docs/capability-map-v2-publication-safety-review.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/capability-map-v2-publication-safety-review.md.
+#
+# No runtime changes. No publisher mutation. No
+# CapabilityMap mutation. No CapabilityContract
+# introduced. No architecture linting. No
+# resolver routing. No verification planning. No
+# source writes. No LLM-only inference. No npm
+# publish. No version bump.
+#
+# Recommended next slice: CapabilityContract
+# architecture decision -- strategy / decision
+# memo only. Pins policy / placement /
+# preservation semantics. No implementation, no
+# linting, no routing, no verification planning,
+# no source writes.
+#
 # CapabilityMap v2 publication surfacing has
 # shipped. Product / capability batch. Thirtieth
 # slice on the capability-ontology track. The

@@ -185,6 +185,12 @@ Rebuild with `rekon publish proof`.
   summary and agent contract carry the v2
   surfacing; the proof report would conflate
   semantic projection with verification proof.
+  The
+  [publication safety review](../strategy/capability-map-v2-publication-safety-review.md)
+  re-confirms this deferral and recommends the
+  next slice be `CapabilityContract`
+  architecture decision rather than proof-report
+  surfacing.
 
 ## Cross-References
 

@@ -470,6 +470,14 @@ feedback):
   strictly read-only over `CapabilityMap` and
   every upstream artifact. Proof-report
   surfacing remains deferred.
+- **`CapabilityMap` v2 publication safety
+  review** — ✅ shipped as the thirty-first
+  slice. Read-only audit of the publication
+  surfacing; recommends publication surfacing
+  safe / stable as read-only visibility. Next
+  slice: `CapabilityContract` architecture
+  decision. See
+  [CapabilityMap v2 Publication Safety Review](capability-map-v2-publication-safety-review.md).
 - **Post-`CapabilityMap`-v2 coverage review**
   (gated on publication surfacing). Measure
   phrase-backed entry quality on the cohort +

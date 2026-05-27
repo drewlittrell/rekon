@@ -38,9 +38,13 @@ The macro 5-layer boundary is:
    now **surface** v2 as projection context (read-only;
    publications never mutate `CapabilityMap`).
    Proof-report surfacing is deferred. See
-   [the artifact reference](../artifacts/capability-map.md)
+   [the artifact reference](../artifacts/capability-map.md),
+   the
+   [v2 safety review](../strategy/capability-map-v2-safety-review.md),
    and the
-   [v2 safety review](../strategy/capability-map-v2-safety-review.md).
+   [v2 publication safety review](../strategy/capability-map-v2-publication-safety-review.md)
+   (publication surfacing safe / stable; next:
+   `CapabilityContract` architecture decision).
 5. `RefactorPreservationContract` — far-future preservation
    contracts. Name reserved; registration deferred.
 

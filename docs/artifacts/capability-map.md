@@ -288,6 +288,11 @@ for the rendered surfaces.
 - [CapabilityMap v2 Safety Review](../strategy/capability-map-v2-safety-review.md)
   — read-only audit confirming v2 is safe / stable
   as additive high-confidence projection.
+- [CapabilityMap v2 Publication Safety Review](../strategy/capability-map-v2-publication-safety-review.md)
+  — read-only audit confirming the publication
+  surfacing is safe / stable as read-only
+  visibility (next slice:
+  `CapabilityContract` architecture decision).
 - [Architecture summary publication](architecture-summary-publication.md)
   — surfaces the v2 phrase-backed projection as
   operator context.

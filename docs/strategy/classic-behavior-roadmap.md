@@ -6256,6 +6256,50 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityMap v2 publication safety
+  review (P1.1
+  capability-map-v2-publication-safety-review
+  slice).** ✅ Shipped.
+  **Thirty-first slice on the
+  capability-ontology track.**
+  Strategy / safety review / docs
+  / tests-only batch. Read-only
+  audit of the publication
+  surfacing committed by the
+  thirtieth slice. **Recommendation:
+  safe / stable as read-only
+  visibility. No blockers.** Helper
+  confirmed pure; both publishers
+  strictly read-only; boundary
+  statement always emitted;
+  proof-report deferral preserved;
+  agent contract Do Not Do reminder
+  covers all five overclaim
+  surfaces. All five required
+  statements carry through
+  (read-only visibility, projection
+  context not CapabilityContract
+  policy, no implication of
+  routing / linting / verification /
+  writes / resolution, proof report
+  deferred, CapabilityContract
+  decision may begin). Four options
+  evaluated: declare surfacing
+  safe / stable + CapabilityContract
+  decision next (both selected);
+  more publication polish first
+  (deferred); resolver routing next
+  (rejected). New strategy memo
+  [`docs/strategy/capability-map-v2-publication-safety-review.md`](capability-map-v2-publication-safety-review.md).
+  New 13-assertion docs test +
+  review packet. **No runtime
+  changes. No publisher mutation.
+  No CapabilityContract introduced.
+  No source writes. No npm
+  publish.** **Recommended next
+  slice:** *CapabilityContract
+  architecture decision* —
+  strategy / decision memo only.
 - **CapabilityMap v2 publication
   surfacing (P1.1
   capability-map-v2-publications

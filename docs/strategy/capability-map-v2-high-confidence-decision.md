@@ -489,8 +489,9 @@ supporting-doc cross-references.
 | 3 | **`CapabilityMap` v2 high-confidence-only implementation** — extend `@rekon/kernel-repo-model` `CapabilityMap` type; `@rekon/capability-model` reads latest `CapabilityPhraseReport`, filters per the eligibility table, emits the additive section; new manifest invalidation rule `capability-phrases.changed`; contract tests; create [`docs/artifacts/capability-map.md`](../artifacts/capability-map.md) | ✅ Shipped (twenty-eighth slice) |
 | 4 | **[`CapabilityMap` v2 safety review](capability-map-v2-safety-review.md)** — read-only audit of the additive projection (projection path, eligibility enforcement, additive shape, citation chain, freshness model, boundary review). Recommends v2 safe / stable. | ✅ Shipped (twenty-ninth slice) |
 | 5 | **`CapabilityMap` v2 publication surfacing** — extends `@rekon/capability-docs` with `buildCapabilityMapV2PublicationSection`; architecture summary + agent contract publications surface `phraseBackedCapabilities` / `phraseBackedSummary` / `phraseSourceRef` as projection context (read-only). Proof-report surfacing deferred. | ✅ Shipped (thirtieth slice) |
-| 6 | `CapabilityMap` v2 publication safety review — read-only audit of the publication surfacing (boundary statements, read-only guarantee, proof-report deferral) | next slice |
-| 7 | Post-`CapabilityMap`-v2 coverage review — measure phrase-backed entry quality on the cohort + fixture now that operators can see the output | gated on step 6 |
+| 6 | **[`CapabilityMap` v2 publication safety review](capability-map-v2-publication-safety-review.md)** — read-only audit of the publication surfacing (boundary statements, read-only guarantee, proof-report deferral, Do-Not-Do reminder coverage). Recommends publication surfacing safe / stable. | ✅ Shipped (thirty-first slice) |
+| 7 | `CapabilityContract` architecture decision — strategy / decision memo only. Pins policy / placement / preservation semantics for the next layer. **No implementation, no linting, no routing, no verification planning, no source writes.** | next slice |
+| 8 | Post-`CapabilityMap`-v2 coverage review — measure phrase-backed entry quality on the cohort + fixture now that operators can see the output | parallel / opportunistic |
 | 5 | `CapabilityContract` decision memo | far future; gated on step 4 |
 
 Parallel polish lane:
