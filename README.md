@@ -1103,6 +1103,77 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityPhraseReport enrichment coverage review has
+# shipped. Strategy / dogfood-analysis / docs / tests-only
+# batch. Measured phrase output AFTER Phrase Enrichment
+# v1 on the fixture (examples/simple-js-ts) and one real,
+# anonymized Next.js TypeScript target (target-1).
+#
+# Before / after on target-1:
+#   - total phrases: 16 -> 239 (+1394%)
+#   - stable phrases: 16 -> 16 (UNCHANGED)
+#   - partial phrases: 0 -> 223 (new)
+#   - withDomain: 0 -> 239 (100% of phrases)
+#   - withPattern: 0 -> 0 (upstream ObservedRepo projector
+#     limitation)
+#   - withLayer: 0 -> 95 (40% of phrases)
+#
+# Verdict: phrase enrichment v1 materially improved
+# coverage for publication and agent-context use, but the
+# stable phrase count is unchanged at 16. The stable
+# threshold remains strict, as designed. CapabilityMap v2
+# STAYS DEFERRED. The bottleneck is upstream: 97.4% of
+# candidates are not normalized at all.
+#
+# Pinned verbatim:
+#   - Phrase enrichment materially improved coverage.
+#   - The stable threshold remains unchanged.
+#   - Partial phrases alone do not justify CapabilityMap
+#     v2.
+#   - CapabilityMap v2 is evidence-gated.
+#
+# Seven readiness gates evaluated; six pass; the seventh
+# (stable coverage sufficient for canonical projection)
+# has not moved since the pre-enrichment review.
+#
+# Options considered:
+#   - CapabilityMap v2 high-confidence-only -> still
+#     deferred (stable count unchanged).
+#   - Phrase enrichment v2 -> deferred (parallel; raises
+#     pattern coverage, secondary to candidate-quality).
+#   - Candidate-quality improvements -> selected as next
+#     slice (canon-pack expansion + lexical-splitter
+#     sharpening to raise normalized count).
+#   - More dogfood -> deferred (parallel).
+#   - Projection-rule hardening -> rejected (partial
+#     output is meaningful; no rule-hardening needed).
+#
+# No runtime change. No CapabilityMap mutation. No
+# CapabilityPhraseReport shape change. No phrase
+# projection rule change. No canon-pack change (canon-
+# pack expansion is the NEXT slice; this review only
+# recommends it). No new artifact registration. No new
+# CLI command. No source writes. No LLM-only inference.
+# No npm publish. No version bump. No git tag. No
+# GitHub Release. No new branch.
+#
+# New strategy memo:
+# docs/strategy/capability-phrase-enrichment-coverage-review.md
+# with 14 required headings + 6 required tables (target /
+# normalization / phrase / enrichment / readiness /
+# option). New 14-assertion docs test
+# tests/docs/capability-phrase-enrichment-coverage-review.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/capability-phrase-enrichment-coverage-review.md.
+#
+# Recommended next slice: candidate-quality improvements
+# - canon-pack expansion of frequently-appearing
+# partial-only verb/noun pairs (save:schema (24),
+# save:request (16), get:response (14), build:plan (13)
+# etc.) + lexical-splitter sharpening for unknown-verb /
+# unknown-noun candidates. A third coverage review
+# measures the delta.
+#
 # CapabilityPhraseReport phrase enrichment v1 has shipped.
 # Product capability batch. The phrase projection helper
 # (buildCapabilityPhraseReport in

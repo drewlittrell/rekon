@@ -356,6 +356,12 @@ land.
   only with deterministic enrichment context. Stable
   threshold unchanged. Coverage on `target-1` rose from
   16 → 239 phrases (15× yield).
+- **Enrichment coverage review** — ✅ Shipped. See
+  [Enrichment Coverage Review](capability-phrase-enrichment-coverage-review.md).
+  Confirmed: stable count unchanged at 16; partial
+  coverage rich (223); `CapabilityMap` v2 stays
+  deferred. Next slice is candidate-quality
+  improvements.
 - **Second coverage review** after phrase enrichment v1
   lands. Measure: stable-phrase ratio change, partial
   phrase yield, enrichment field coverage, publication

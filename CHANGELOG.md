@@ -4,6 +4,91 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityPhraseReport enrichment coverage
+  review** — dogfood-analysis batch measuring phrase
+  output **after** Phrase Enrichment v1 on a fixture
+  (`examples/simple-js-ts`) and one real, anonymized
+  Next.js TypeScript target (`target-1`). Compares
+  against the pre-enrichment coverage review.
+
+  Measurements on `target-1` (post-enrichment vs.
+  pre-enrichment baseline):
+
+    - **Total phrases**: 16 → **239** (+1394%).
+    - **Stable phrases**: 16 → **16** (unchanged).
+    - **Partial phrases**: 0 → **223** (new).
+    - **withDomain**: 0 → **239** (100% of phrases).
+    - **withPattern**: 0 → **0** (upstream
+      `ObservedRepo` projector does not populate
+      `systems[].kind` on this target).
+    - **withLayer**: 0 → **95** (40% of phrases).
+
+  Verdict: **Phrase enrichment v1 materially improved
+  coverage for publication and agent-context use, but
+  the stable phrase count is unchanged at 16.** The
+  stable threshold remains strict, as designed.
+  **`CapabilityMap` v2 stays deferred.** The
+  bottleneck is upstream: 97.4% of candidates are not
+  normalized at all (241 of 9,110). Enrichment v1
+  cannot move that — it only consumes normalized
+  candidates.
+
+  Pinned verbatim:
+
+    - Phrase enrichment materially improved coverage.
+    - The stable threshold remains unchanged.
+    - Partial phrases alone do not justify
+      `CapabilityMap` v2.
+    - `CapabilityMap` v2 is evidence-gated.
+
+  Seven readiness gates evaluated; six pass; the
+  seventh — *stable coverage sufficient for canonical
+  projection* — has not moved since the pre-enrichment
+  review.
+
+  Options considered:
+
+    - `CapabilityMap` v2 high-confidence-only → still
+      deferred (stable count unchanged).
+    - Phrase enrichment v2 (framework / architecture-
+      profile enrichment) → deferred (parallel;
+      primarily raises `pattern` coverage, secondary to
+      candidate-quality).
+    - **Candidate-quality improvements → selected** as
+      next slice (canon-pack expansion +
+      lexical-splitter sharpening to raise the
+      *normalized* count).
+    - More dogfood → deferred (parallel).
+    - Projection-rule hardening → rejected (partial
+      output is meaningful; no rule-hardening needed).
+
+  No runtime change. No `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape change. No phrase
+  projection rule change. No canon-pack change (canon-
+  pack expansion is the *next* slice; this review only
+  recommends it). No new artifact registration. No new
+  CLI command. No source writes. No LLM-only inference.
+  No npm publish. No version bump. No git tag. No
+  GitHub Release. No new branch.
+
+  New strategy memo:
+  [`docs/strategy/capability-phrase-enrichment-coverage-review.md`](docs/strategy/capability-phrase-enrichment-coverage-review.md)
+  with 14 required headings + 6 required tables
+  (target / normalization / phrase / enrichment /
+  readiness / option). New 14-assertion docs test
+  `tests/docs/capability-phrase-enrichment-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-enrichment-coverage-review.md`.
+
+  Recommended next slice: **Candidate-quality
+  improvements** — canon-pack expansion of frequently-
+  appearing partial-only verb/noun pairs (`save:schema`
+  (24), `save:request` (16), `get:response` (14),
+  `build:plan` (13), etc.) + lexical-splitter
+  sharpening for unknown-verb / unknown-noun
+  candidates. A third coverage review measures the
+  delta.
+
 - Shipped **CapabilityPhraseReport phrase enrichment v1** —
   product capability batch. `buildCapabilityPhraseReport`
   in `@rekon/capability-ontology` now consumes optional

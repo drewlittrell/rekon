@@ -366,6 +366,12 @@ returns `{ lines, inputRef? }`.
   enables `partial` emission, keeps the stable
   threshold unchanged. Coverage on `target-1` rose 15×
   (16 → 239 phrases).
+- [CapabilityPhraseReport Enrichment Coverage Review](../strategy/capability-phrase-enrichment-coverage-review.md)
+  — measured stable + partial + enrichment-field
+  coverage after Phrase Enrichment v1. Verdict: stable
+  count unchanged at 16; partial coverage rich; next
+  slice is candidate-quality improvements; `CapabilityMap`
+  v2 stays deferred.
 - [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
   — the eight-layer model. Layer 6 (`CapabilityMap`) will
   eventually consume this report.

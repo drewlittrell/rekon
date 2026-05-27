@@ -207,14 +207,21 @@ known domain / pattern / layer.
 
 ## Follow-Up Work
 
-- **Second coverage review** (next slice). Run fixture +
-  at least one real cohort target through the enrichment
-  pipeline. Measure: stable count, partial count,
-  withDomain / withPattern / withLayer ratios, publication
-  usefulness, and whether `CapabilityMap` v2 is finally
-  ready to design.
+- **Second coverage review** — ✅ Shipped. See
+  [Enrichment Coverage Review](capability-phrase-enrichment-coverage-review.md).
+  Measured: stable count 16 (unchanged), total 239,
+  partial 223, withDomain 100%, withLayer 40%,
+  withPattern 0%. Verdict: stable count unchanged;
+  `CapabilityMap` v2 stays deferred; next slice is
+  candidate-quality improvements.
+- **Candidate-quality improvements** — next slice.
+  Canon-pack expansion of frequently-appearing
+  partial-only pairs + lexical-splitter sharpening.
+  Targets raising the *normalized* count (currently
+  2.6%) to lift the stable phrase foundation.
 - **`CapabilityMap` v2 high-confidence-only design
-  decision** — gated on the second coverage review.
+  decision** — gated on a **third** coverage review
+  after candidate-quality ships.
 - **Per-evidence-source enrichment slices** (one per
   source): framework convention enrichment, architecture
   profile enrichment, future AST adapters, LLM as audit

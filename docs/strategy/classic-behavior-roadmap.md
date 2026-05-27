@@ -6092,6 +6092,52 @@ scope:
   stable + partial yield, enrichment
   ratios, and publication
   usefulness.
+- **CapabilityPhraseReport
+  enrichment coverage review (P1.1
+  capability-phrase-enrichment-coverage-review
+  slice).** ✅ Shipped. **Nineteenth
+  slice on the capability-ontology
+  track.** Strategy / dogfood-
+  analysis / docs / tests-only
+  batch. Measured phrase output
+  after Phrase Enrichment v1 on
+  the fixture + `target-1`.
+  Before / after on `target-1`:
+  total 16 → 239 (+1394%), stable
+  16 → 16 (**unchanged**), partial
+  0 → 223. Pinned verbatim: phrase
+  enrichment materially improved
+  coverage; the stable threshold
+  remains unchanged; partial
+  phrases alone do not justify
+  `CapabilityMap` v2;
+  `CapabilityMap` v2 is
+  evidence-gated. **No runtime
+  change. No `CapabilityMap`
+  mutation. No
+  `CapabilityPhraseReport` shape
+  change. No phrase projection
+  rule change. No canon-pack
+  change. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No version
+  bump. No npm publish. No git
+  tag. No GitHub Release. No new
+  branch.** New strategy memo
+  [`docs/strategy/capability-phrase-enrichment-coverage-review.md`](capability-phrase-enrichment-coverage-review.md)
+  with 14 required headings + 6
+  required tables. New
+  14-assertion docs test
+  `tests/docs/capability-phrase-enrichment-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-enrichment-coverage-review.md`.
+  **Recommended next slice:**
+  candidate-quality improvements
+  — canon-pack expansion +
+  lexical-splitter sharpening to
+  raise the upstream normalized
+  count (currently 2.6%).
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

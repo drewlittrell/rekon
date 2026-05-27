@@ -2403,6 +2403,88 @@ is the first stop before proposing a new capability batch.
   Output drives the `CapabilityMap`
   v2 high-confidence-only
   decision.
+- CapabilityPhraseReport enrichment
+  coverage review (P1.1
+  capability-phrase-enrichment-coverage-review
+  slice): **nineteenth slice on
+  the capability-ontology track.**
+  Strategy / dogfood-analysis /
+  docs / tests-only batch.
+  Measured phrase output after
+  Phrase Enrichment v1 on the
+  fixture + `target-1`. Fixture:
+  0 phrases (strict v1 rules
+  hold). `target-1`: 9,110
+  candidates, 241 normalized,
+  **239 total phrases (16 stable
+  + 223 partial; 0
+  low-confidence)**. Before /
+  after on `target-1`: total
+  16 → 239 (+1394%), stable 16
+  → 16 (**unchanged**), partial
+  0 → 223, withDomain 0 → 239
+  (100%), withPattern 0 → 0
+  (upstream `ObservedRepo`
+  projector limitation),
+  withLayer 0 → 95 (40%). Pinned
+  verbatim: **Phrase enrichment
+  materially improved coverage.**
+  **The stable threshold remains
+  unchanged.** **Partial phrases
+  alone do not justify
+  `CapabilityMap` v2.**
+  **`CapabilityMap` v2 is
+  evidence-gated.** Seven
+  readiness gates: real-repo
+  non-trivial stable phrases —
+  pass (sparse); stable evidence
+  refs present — pass; stable
+  terms meaningful — pass;
+  partials not used for
+  `CapabilityMap` — pass;
+  publications understandable —
+  pass; artifacts validate clean
+  — pass; stable coverage
+  sufficient for canonical
+  projection — **fail (unchanged
+  at 0.18%)**. **No runtime
+  change. No `CapabilityMap`
+  mutation. No
+  `CapabilityPhraseReport` shape
+  change. No phrase projection
+  rule change. No canon-pack
+  change. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No version
+  bump. No npm publish. No git
+  tag. No GitHub Release. No new
+  branch.** New strategy memo
+  [`docs/strategy/capability-phrase-enrichment-coverage-review.md`](capability-phrase-enrichment-coverage-review.md)
+  with 14 required headings + 6
+  required tables (target /
+  normalization / phrase /
+  enrichment / readiness /
+  option). New 14-assertion docs
+  test
+  `tests/docs/capability-phrase-enrichment-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-enrichment-coverage-review.md`.
+  **Recommended next slice:**
+  *candidate-quality improvements*
+  — canon-pack expansion of
+  frequently-appearing partial-
+  only verb/noun pairs (e.g.,
+  `save:schema` (24),
+  `save:request` (16),
+  `get:response` (14),
+  `build:plan` (13)) +
+  lexical-splitter sharpening for
+  unknown-verb / unknown-noun
+  candidates. A third coverage
+  review measures the delta and
+  revisits the `CapabilityMap`
+  v2 gate.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

@@ -449,6 +449,14 @@ partial; 0 low-confidence). `sideEffects` / `inputs` /
   `pattern` / `layer` enrichment from `ObservedRepo` +
   `OwnershipMap`. Enables `partial` phrase emission while
   keeping the stable threshold unchanged.
+- [CapabilityPhraseReport Enrichment Coverage
+  Review](../strategy/capability-phrase-enrichment-coverage-review.md)
+  — coverage / dogfood-analysis review that measures
+  phrase output after Phrase Enrichment v1. Verdict:
+  enrichment raised partial coverage richly (16 → 239)
+  but stable count is unchanged. Next slice is
+  candidate-quality improvements; `CapabilityMap` v2
+  stays deferred.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

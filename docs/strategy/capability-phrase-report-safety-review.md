@@ -447,6 +447,12 @@ registration.
   Partial phrases emit only with deterministic
   context. Stable threshold unchanged. Coverage on
   `target-1` rose 15× (16 → 239 phrases).
+- **Enrichment coverage review** — ✅ Shipped. See
+  [Enrichment Coverage Review](capability-phrase-enrichment-coverage-review.md).
+  Confirms enrichment v1 raised partial coverage but
+  not stable count. `CapabilityMap` v2 stays deferred.
+  Next slice is candidate-quality improvements
+  (canon-pack expansion + lexical-splitter sharpening).
 - **Second coverage review** after phrase enrichment v1
   lands. Measures stable + partial yield, enrichment
   field coverage, and publication usefulness.
