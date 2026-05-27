@@ -1103,6 +1103,43 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityContract v1 implementation has shipped.
+# Thirty-third slice on the capability-ontology
+# track. Registers the CapabilityContract artifact
+# in @rekon/kernel-repo-model + SDK + runtime
+# (category "actions"). Ships
+# buildCapabilityContract in @rekon/capability-model
+# and the new CLI command:
+#
+#   rekon capability contract generate \
+#     [--root <path>] \
+#     [--json] \
+#     [--capability-map <id|type:id>]
+#
+# Reads the latest (or specified) CapabilityMap v2
+# plus an optional .rekon/capability-contracts.json
+# config and emits the effective contract artifact.
+# Missing config is allowed. V1 emits configured +
+# unmatched rows only; suggested is reserved for
+# future. Match is conjunctive (verb + noun
+# required; domain / pattern / layer checked when
+# populated); most-specific match wins; ties break
+# by phrase-backed id asc. Citation chain
+# (CapabilityContract -> CapabilityMap ->
+# CapabilityPhrase -> EvidenceGraph) preserved on
+# every configured row.
+#
+# Diagnostic only -- no architecture linting, no
+# resolver routing by capability, no verification
+# planning by capability, no source mutation, no
+# config mutation. No publication surfacing yet.
+# No npm publish. No version bump.
+#
+# See docs/artifacts/capability-contract.md and
+# docs/concepts/capability-contracts.md.
+# Recommended next slice: CapabilityContract v1
+# safety review.
+#
 # CapabilityContract Architecture Decision has
 # shipped. Strategy / architecture decision / docs
 # / tests-only batch. Thirty-second slice on the

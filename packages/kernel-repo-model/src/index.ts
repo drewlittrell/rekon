@@ -140,6 +140,126 @@ export type CapabilityMap = {
   phraseSourceRef?: ArtifactRef;
 };
 
+// --------------------------------------------------------------
+// CapabilityContract (policy layer over CapabilityMap v2)
+// --------------------------------------------------------------
+//
+// `CapabilityContract` is the **policy** artifact pinned by
+// the CapabilityContract Architecture Decision (Option B,
+// thirty-second slice). It is not a projection. It carries
+// per-capability binding rules — placement, neighbors,
+// required checks, preservation notes — that operators have
+// authorised by writing them into
+// `.rekon/capability-contracts.json`. The artifact is
+// **diagnostic**: nothing routes, lints, or gates on it in
+// v1. A future safety review and a separate decision must
+// land before any downstream consumer reads it.
+//
+// V1 emits only `configured` and `unmatched` rows.
+// `suggested` is reserved for a future
+// suggestion/review workflow and never appears in v1.
+//
+// **Producer guarantees (enforced upstream, surfaced here
+// by the validator):**
+// - Every `configured` row carries
+//   `capabilityRef.capabilityMapRef` and
+//   `capabilityRef.phraseCapabilityId`. The citation chain
+//   runs back through the matched phrase-backed capability
+//   into the `CapabilityPhrase` and `EvidenceGraph`.
+// - `unmatched` rows do NOT carry any policy fields
+//   (placement / neighbors / checks / preservation /
+//   messages). They exist purely to surface contract IDs
+//   that did not bind to a v2 phrase-backed capability so
+//   operators can see config drift.
+// - `configured` rows carry at least one populated policy
+//   field. A configured contract with no rules is a config
+//   mistake and the validator rejects it.
+//
+// **Boundary pins (must not change):**
+// - `CapabilityContract` is policy, not projection.
+// - `CapabilityMap` v2 remains projection and must not grow
+//   policy fields.
+// - No source mutation. No config write. No LLM inference.
+//   No architecture linting, resolver routing, or
+//   verification planning by capability.
+
+export type CapabilityContractPolicyStatus =
+  | "configured"
+  | "suggested"
+  | "unmatched";
+
+export type CapabilityContractCapabilityRef = {
+  capabilityMapRef: ArtifactRef;
+  phraseCapabilityId: string;
+};
+
+export type CapabilityContractMatch = {
+  verb: string;
+  noun: string;
+  domain?: string;
+  pattern?: string;
+  layer?: string;
+};
+
+export type CapabilityContractNeighbor = {
+  verb: string;
+  noun: string;
+};
+
+export type CapabilityContractEntry = {
+  /** Stable identifier from the config file (or
+   *  generator). Unique within the artifact. */
+  id: string;
+  /** Citation back into the source `CapabilityMap` v2
+   *  entry. Required for `configured` rows. Omitted for
+   *  `unmatched` rows. */
+  capabilityRef?: CapabilityContractCapabilityRef;
+  /** Match block. Conjunctive: every populated field must
+   *  agree with the matched phrase-backed capability. */
+  match: CapabilityContractMatch;
+  /** Policy status. v1 emits `configured` or `unmatched`. */
+  status: CapabilityContractPolicyStatus;
+  allowedLayers?: string[];
+  forbiddenLayers?: string[];
+  allowedSystems?: string[];
+  forbiddenSystems?: string[];
+  requiredChecks?: string[];
+  requiredNeighbors?: CapabilityContractNeighbor[];
+  forbiddenNeighbors?: CapabilityContractNeighbor[];
+  preservationRules?: string[];
+  /** Free-form operator notes. Diagnostic only. */
+  messages?: string[];
+};
+
+export type CapabilityContractSummary = {
+  total: number;
+  configured: number;
+  suggested: number;
+  unmatched: number;
+  withRequiredChecks: number;
+  withPlacementRules: number;
+  withPreservationRules: number;
+};
+
+export type CapabilityContractSource = {
+  /** Repo-relative path to the consumed config file.
+   *  Omitted when no config file was present. */
+  configPath?: string;
+  /** Stable sha256 over the canonical JSON of the
+   *  consumed config. Omitted when no config was
+   *  present. */
+  configHash?: string;
+  capabilityMapRef: ArtifactRef;
+  phraseReportRef?: ArtifactRef;
+};
+
+export type CapabilityContract = {
+  header: ArtifactHeader;
+  source: CapabilityContractSource;
+  summary: CapabilityContractSummary;
+  contracts: CapabilityContractEntry[];
+};
+
 export function createObservedRepo(input: ObservedRepo): ObservedRepo {
   const systems = normalizeSystems(input.systems);
   // Normalize files to a sorted unique list of repo-relative
@@ -224,6 +344,67 @@ export function createCapabilityMap(input: CapabilityMap): CapabilityMap {
   return assertCapabilityMap(normalized);
 }
 
+/**
+ * Normalise and validate a `CapabilityContract` artifact.
+ *
+ * Deterministic ordering:
+ * - `contracts` are sorted by `(verb asc, noun asc, id
+ *   asc)` so two runs over identical input produce
+ *   byte-identical artifacts.
+ * - Inside each entry, repeated string fields
+ *   (`allowed*`, `forbidden*`, `requiredChecks`,
+ *   `preservationRules`) are uniqueSorted; neighbor
+ *   arrays are deduplicated by `${verb}${noun}`
+ *   and sorted by `(verb, noun)`.
+ *
+ * No source mutation. No config write. No artifact
+ * mutation upstream. The producer is responsible for
+ * supplying a valid `summary` — the validator re-checks
+ * the totals against `contracts.length` and the status
+ * counts.
+ */
+export function createCapabilityContract(
+  input: CapabilityContract,
+): CapabilityContract {
+  const seenIds = new Set<string>();
+  const entries: CapabilityContractEntry[] = [];
+  for (const raw of input.contracts) {
+    if (!raw) continue;
+    if (seenIds.has(raw.id)) {
+      // Drop later duplicates deterministically; the
+      // validator will not see the dropped row, but the
+      // producer's tie-break should already have prevented
+      // this. Defensive only.
+      continue;
+    }
+    seenIds.add(raw.id);
+    entries.push(normalizeCapabilityContractEntry(raw));
+  }
+  entries.sort(compareCapabilityContractEntry);
+
+  const summary = recountCapabilityContractSummary(entries);
+
+  const source: CapabilityContractSource = {
+    capabilityMapRef: assertArtifactRef(input.source.capabilityMapRef),
+  };
+  if (input.source.configPath !== undefined) {
+    source.configPath = input.source.configPath;
+  }
+  if (input.source.configHash !== undefined) {
+    source.configHash = input.source.configHash;
+  }
+  if (input.source.phraseReportRef !== undefined) {
+    source.phraseReportRef = assertArtifactRef(input.source.phraseReportRef);
+  }
+
+  return assertCapabilityContract({
+    header: input.header,
+    source,
+    summary,
+    contracts: entries,
+  });
+}
+
 function normalizePhraseBackedCapability(
   entry: CapabilityMapPhraseBackedCapability,
 ): CapabilityMapPhraseBackedCapability {
@@ -277,6 +458,131 @@ function sortRecord(record: Record<string, number>): Record<string, number> {
     sorted[key] = record[key]!;
   }
   return sorted;
+}
+
+function normalizeCapabilityContractEntry(
+  entry: CapabilityContractEntry,
+): CapabilityContractEntry {
+  const out: CapabilityContractEntry = {
+    id: entry.id,
+    match: {
+      verb: entry.match.verb,
+      noun: entry.match.noun,
+    },
+    status: entry.status,
+  };
+  if (entry.match.domain !== undefined) out.match.domain = entry.match.domain;
+  if (entry.match.pattern !== undefined) out.match.pattern = entry.match.pattern;
+  if (entry.match.layer !== undefined) out.match.layer = entry.match.layer;
+
+  if (entry.capabilityRef) {
+    out.capabilityRef = {
+      capabilityMapRef: assertArtifactRef(entry.capabilityRef.capabilityMapRef),
+      phraseCapabilityId: entry.capabilityRef.phraseCapabilityId,
+    };
+  }
+
+  if (entry.allowedLayers && entry.allowedLayers.length > 0) {
+    out.allowedLayers = uniqueSorted(entry.allowedLayers);
+  }
+  if (entry.forbiddenLayers && entry.forbiddenLayers.length > 0) {
+    out.forbiddenLayers = uniqueSorted(entry.forbiddenLayers);
+  }
+  if (entry.allowedSystems && entry.allowedSystems.length > 0) {
+    out.allowedSystems = uniqueSorted(entry.allowedSystems);
+  }
+  if (entry.forbiddenSystems && entry.forbiddenSystems.length > 0) {
+    out.forbiddenSystems = uniqueSorted(entry.forbiddenSystems);
+  }
+  if (entry.requiredChecks && entry.requiredChecks.length > 0) {
+    out.requiredChecks = uniqueSorted(entry.requiredChecks);
+  }
+  if (entry.requiredNeighbors && entry.requiredNeighbors.length > 0) {
+    out.requiredNeighbors = normalizeNeighbors(entry.requiredNeighbors);
+  }
+  if (entry.forbiddenNeighbors && entry.forbiddenNeighbors.length > 0) {
+    out.forbiddenNeighbors = normalizeNeighbors(entry.forbiddenNeighbors);
+  }
+  if (entry.preservationRules && entry.preservationRules.length > 0) {
+    out.preservationRules = uniqueSorted(entry.preservationRules);
+  }
+  if (entry.messages && entry.messages.length > 0) {
+    out.messages = entry.messages.filter((m): m is string => typeof m === "string" && m.length > 0);
+    if (out.messages.length === 0) delete out.messages;
+  }
+
+  return out;
+}
+
+function normalizeNeighbors(
+  neighbors: CapabilityContractNeighbor[],
+): CapabilityContractNeighbor[] {
+  const seen = new Set<string>();
+  const out: CapabilityContractNeighbor[] = [];
+  for (const n of neighbors) {
+    if (!n || typeof n.verb !== "string" || typeof n.noun !== "string") continue;
+    const key = `${n.verb} ${n.noun}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ verb: n.verb, noun: n.noun });
+  }
+  out.sort((left, right) => {
+    if (left.verb !== right.verb) return left.verb.localeCompare(right.verb);
+    return left.noun.localeCompare(right.noun);
+  });
+  return out;
+}
+
+function compareCapabilityContractEntry(
+  left: CapabilityContractEntry,
+  right: CapabilityContractEntry,
+): number {
+  if (left.match.verb !== right.match.verb) {
+    return left.match.verb.localeCompare(right.match.verb);
+  }
+  if (left.match.noun !== right.match.noun) {
+    return left.match.noun.localeCompare(right.match.noun);
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function recountCapabilityContractSummary(
+  entries: CapabilityContractEntry[],
+): CapabilityContractSummary {
+  let configured = 0;
+  let suggested = 0;
+  let unmatched = 0;
+  let withRequiredChecks = 0;
+  let withPlacementRules = 0;
+  let withPreservationRules = 0;
+  for (const entry of entries) {
+    if (entry.status === "configured") configured++;
+    else if (entry.status === "suggested") suggested++;
+    else if (entry.status === "unmatched") unmatched++;
+
+    if (entry.requiredChecks && entry.requiredChecks.length > 0) {
+      withRequiredChecks++;
+    }
+    const hasPlacement = !!(
+      (entry.allowedLayers && entry.allowedLayers.length > 0)
+      || (entry.forbiddenLayers && entry.forbiddenLayers.length > 0)
+      || (entry.allowedSystems && entry.allowedSystems.length > 0)
+      || (entry.forbiddenSystems && entry.forbiddenSystems.length > 0)
+    );
+    if (hasPlacement) withPlacementRules++;
+    if (entry.preservationRules && entry.preservationRules.length > 0) {
+      withPreservationRules++;
+    }
+  }
+  return {
+    total: entries.length,
+    configured,
+    suggested,
+    unmatched,
+    withRequiredChecks,
+    withPlacementRules,
+    withPreservationRules,
+  };
 }
 
 export function validateObservedRepo(value: unknown): ValidationResult<ObservedRepo> {
@@ -369,6 +675,267 @@ export function validateCapabilityMap(value: unknown): ValidationResult<Capabili
   return validationResult(value as CapabilityMap, issues);
 }
 
+export function validateCapabilityContract(
+  value: unknown,
+): ValidationResult<CapabilityContract> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "CapabilityContract", "$.header", issues);
+
+  // ---- source ----
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    const sourceRefResult = validateArtifactRef(value.source.capabilityMapRef);
+    if (!sourceRefResult.ok) {
+      issues.push(...prefixIssues(sourceRefResult.issues, "$.source.capabilityMapRef"));
+    }
+    if (value.source.phraseReportRef !== undefined) {
+      const phraseRefResult = validateArtifactRef(value.source.phraseReportRef);
+      if (!phraseRefResult.ok) {
+        issues.push(...prefixIssues(phraseRefResult.issues, "$.source.phraseReportRef"));
+      }
+    }
+    if (
+      value.source.configPath !== undefined
+      && typeof value.source.configPath !== "string"
+    ) {
+      issues.push({
+        path: "$.source.configPath",
+        message: "Expected a string when present.",
+      });
+    }
+    if (
+      value.source.configHash !== undefined
+      && typeof value.source.configHash !== "string"
+    ) {
+      issues.push({
+        path: "$.source.configHash",
+        message: "Expected a string when present.",
+      });
+    }
+  }
+
+  // ---- contracts ----
+  let entries: unknown[] = [];
+  if (!Array.isArray(value.contracts)) {
+    issues.push({ path: "$.contracts", message: "Expected an array." });
+  } else {
+    entries = value.contracts;
+    const seenIds = new Set<string>();
+    entries.forEach((entry, index) =>
+      validateCapabilityContractEntry(
+        entry,
+        `$.contracts[${index}]`,
+        issues,
+        seenIds,
+      ),
+    );
+  }
+
+  // ---- summary ----
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    for (const field of [
+      "total",
+      "configured",
+      "suggested",
+      "unmatched",
+      "withRequiredChecks",
+      "withPlacementRules",
+      "withPreservationRules",
+    ] as const) {
+      const fieldValue = value.summary[field];
+      if (
+        typeof fieldValue !== "number"
+        || !Number.isInteger(fieldValue)
+        || fieldValue < 0
+      ) {
+        issues.push({
+          path: `$.summary.${field}`,
+          message: "Expected a non-negative integer.",
+        });
+      }
+    }
+    // Re-derive and compare counts to the producer-supplied
+    // summary so artifacts with stale counts are rejected.
+    if (Array.isArray(entries)) {
+      const computed = recountCapabilityContractSummary(
+        entries.filter(isRecord) as unknown as CapabilityContractEntry[],
+      );
+      for (const field of [
+        "total",
+        "configured",
+        "suggested",
+        "unmatched",
+        "withRequiredChecks",
+        "withPlacementRules",
+        "withPreservationRules",
+      ] as const) {
+        if (
+          typeof value.summary[field] === "number"
+          && value.summary[field] !== computed[field]
+        ) {
+          issues.push({
+            path: `$.summary.${field}`,
+            message: `Expected ${computed[field]} (recomputed from contracts).`,
+          });
+        }
+      }
+    }
+  }
+
+  return validationResult(value as CapabilityContract, issues);
+}
+
+function validateCapabilityContractEntry(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  pushRequiredStringIssue(issues, value.id, `${path}.id`);
+  if (typeof value.id === "string") {
+    if (seenIds.has(value.id)) {
+      issues.push({
+        path: `${path}.id`,
+        message: `Duplicate contract id ${JSON.stringify(value.id)}.`,
+      });
+    } else {
+      seenIds.add(value.id);
+    }
+  }
+
+  // ---- status ----
+  if (
+    value.status !== "configured"
+    && value.status !== "suggested"
+    && value.status !== "unmatched"
+  ) {
+    issues.push({
+      path: `${path}.status`,
+      message: 'Expected one of "configured" | "suggested" | "unmatched".',
+    });
+  }
+
+  // ---- match block ----
+  if (!isRecord(value.match)) {
+    issues.push({ path: `${path}.match`, message: "Expected an object." });
+  } else {
+    pushRequiredStringIssue(issues, value.match.verb, `${path}.match.verb`);
+    pushRequiredStringIssue(issues, value.match.noun, `${path}.match.noun`);
+    for (const field of ["domain", "pattern", "layer"] as const) {
+      const fieldValue = (value.match as Record<string, unknown>)[field];
+      if (fieldValue !== undefined && typeof fieldValue !== "string") {
+        issues.push({
+          path: `${path}.match.${field}`,
+          message: "Expected a string when present.",
+        });
+      }
+    }
+  }
+
+  // ---- capabilityRef (required for configured) ----
+  if (value.status === "configured") {
+    if (!isRecord(value.capabilityRef)) {
+      issues.push({
+        path: `${path}.capabilityRef`,
+        message: "Expected an object for configured rows.",
+      });
+    } else {
+      pushRequiredStringIssue(
+        issues,
+        value.capabilityRef.phraseCapabilityId,
+        `${path}.capabilityRef.phraseCapabilityId`,
+      );
+      const refResult = validateArtifactRef(value.capabilityRef.capabilityMapRef);
+      if (!refResult.ok) {
+        issues.push(
+          ...prefixIssues(refResult.issues, `${path}.capabilityRef.capabilityMapRef`),
+        );
+      }
+    }
+  } else if (value.capabilityRef !== undefined) {
+    // unmatched / suggested rows MUST NOT carry a capabilityRef.
+    issues.push({
+      path: `${path}.capabilityRef`,
+      message: `Expected absent for ${value.status} rows.`,
+    });
+  }
+
+  // ---- policy fields ----
+  const stringArrayFields = [
+    "allowedLayers",
+    "forbiddenLayers",
+    "allowedSystems",
+    "forbiddenSystems",
+    "requiredChecks",
+    "preservationRules",
+    "messages",
+  ] as const;
+  let policyFieldCount = 0;
+  for (const field of stringArrayFields) {
+    const fieldValue = (value as Record<string, unknown>)[field];
+    if (fieldValue === undefined) continue;
+    if (!isStringArray(fieldValue)) {
+      issues.push({
+        path: `${path}.${field}`,
+        message: "Expected an array of strings when present.",
+      });
+      continue;
+    }
+    if (fieldValue.length > 0) policyFieldCount++;
+  }
+  for (const field of ["requiredNeighbors", "forbiddenNeighbors"] as const) {
+    const fieldValue = (value as Record<string, unknown>)[field];
+    if (fieldValue === undefined) continue;
+    if (!Array.isArray(fieldValue)) {
+      issues.push({
+        path: `${path}.${field}`,
+        message: "Expected an array when present.",
+      });
+      continue;
+    }
+    fieldValue.forEach((neighbor, index) => {
+      if (!isRecord(neighbor)) {
+        issues.push({
+          path: `${path}.${field}[${index}]`,
+          message: "Expected an object.",
+        });
+        return;
+      }
+      pushRequiredStringIssue(issues, neighbor.verb, `${path}.${field}[${index}].verb`);
+      pushRequiredStringIssue(issues, neighbor.noun, `${path}.${field}[${index}].noun`);
+    });
+    if (fieldValue.length > 0) policyFieldCount++;
+  }
+
+  // unmatched rows MUST carry no policy fields.
+  if (value.status === "unmatched" && policyFieldCount > 0) {
+    issues.push({
+      path,
+      message: "Expected no policy fields populated for unmatched rows.",
+    });
+  }
+  // configured rows MUST carry at least one policy field.
+  if (value.status === "configured" && policyFieldCount === 0) {
+    issues.push({
+      path,
+      message: "Expected at least one populated policy field for configured rows.",
+    });
+  }
+}
+
 export function assertObservedRepo(value: unknown): ObservedRepo {
   return assertValid(validateObservedRepo(value), "ObservedRepo");
 }
@@ -379,6 +946,10 @@ export function assertOwnershipMap(value: unknown): OwnershipMap {
 
 export function assertCapabilityMap(value: unknown): CapabilityMap {
   return assertValid(validateCapabilityMap(value), "CapabilityMap");
+}
+
+export function assertCapabilityContract(value: unknown): CapabilityContract {
+  return assertValid(validateCapabilityContract(value), "CapabilityContract");
 }
 
 export const observedRepoSchema: ArtifactSchema<ObservedRepo> = {
@@ -394,6 +965,11 @@ export const ownershipMapSchema: ArtifactSchema<OwnershipMap> = {
 export const capabilityMapSchema: ArtifactSchema<CapabilityMap> = {
   validate: validateCapabilityMap,
   parse: assertCapabilityMap,
+};
+
+export const capabilityContractSchema: ArtifactSchema<CapabilityContract> = {
+  validate: validateCapabilityContract,
+  parse: assertCapabilityContract,
 };
 
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {

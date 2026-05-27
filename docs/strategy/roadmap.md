@@ -2640,6 +2640,39 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityContract v1 implementation
+  (P1.1 capability-contract-v1 slice):
+  **thirty-third slice on the
+  capability-ontology track.** Registers
+  the `CapabilityContract` artifact in
+  `@rekon/kernel-repo-model` + SDK +
+  runtime; adds `buildCapabilityContract`
+  in `@rekon/capability-model`; ships
+  `rekon capability contract generate`
+  CLI. Reads the latest CapabilityMap v2
+  + optional
+  `.rekon/capability-contracts.json` and
+  emits the effective contract artifact.
+  V1 emits **`configured`** +
+  **`unmatched`** rows only;
+  `suggested` reserved for future. Match
+  is conjunctive (`verb` + `noun`
+  required; `domain` / `pattern` /
+  `layer` checked when populated);
+  most-specific match wins; id
+  tie-break. Diagnostic only — no
+  architecture linting, no resolver
+  routing by capability, no verification
+  planning by capability, no source
+  mutation, no config mutation. No
+  publication surfacing yet. New
+  artifact reference at
+  [`docs/artifacts/capability-contract.md`](../artifacts/capability-contract.md)
+  + concept doc at
+  [`docs/concepts/capability-contracts.md`](../concepts/capability-contracts.md).
+  20-assertion contract test +
+  21-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-contract-v1.md`.
 - CapabilityContract Architecture
   Decision (P1.1
   capability-contract-architecture-decision

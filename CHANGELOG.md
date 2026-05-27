@@ -4,6 +4,52 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityContract v1 implementation**
+  — thirty-third slice on the capability-ontology
+  track. Registers `CapabilityContract` as a typed
+  artifact in `@rekon/kernel-repo-model` (types +
+  `createCapabilityContract` +
+  `validateCapabilityContract` +
+  `assertCapabilityContract` +
+  `capabilityContractSchema`), in the SDK
+  `BUILT_IN_ARTIFACT_TYPES`, and in the runtime
+  `ARTIFACT_CATEGORY_BY_TYPE` map (category
+  `actions`). Ships `buildCapabilityContract` in
+  `@rekon/capability-model` plus the
+  `rekon capability contract generate
+  [--root <path>] [--json]
+  [--capability-map <id|type:id>]` CLI. Reads the
+  latest (or specified) `CapabilityMap` v2 +
+  optional `.rekon/capability-contracts.json` and
+  emits the effective contract artifact. V1 emits
+  **`configured`** + **`unmatched`** rows only;
+  `suggested` reserved for future. Match is
+  conjunctive (`verb` + `noun` required;
+  `domain` / `pattern` / `layer` checked when
+  populated); most-specific match wins; ties
+  break by phrase-backed id asc. Citation chain
+  (`CapabilityContract` → `CapabilityMap` →
+  `CapabilityPhrase` → `EvidenceGraph`)
+  preserved on every configured row. **Diagnostic
+  only — no architecture linting, no resolver
+  routing by capability, no verification planning
+  by capability, no source mutation, no config
+  mutation.** No publication surfacing yet. New
+  artifact reference
+  `docs/artifacts/capability-contract.md` +
+  concept doc
+  `docs/concepts/capability-contracts.md`.
+  20-assertion contract test
+  `tests/contract/capability-contract.test.mjs` +
+  21-assertion docs test
+  `tests/docs/capability-contract.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-contract-v1.md`.
+  **No CapabilityMap mutation. No
+  CapabilityPhraseReport mutation. No source
+  mutation. No config mutation. No npm publish.
+  No version bump.**
+
 - Shipped **CapabilityContract Architecture
   Decision** — strategy / architecture decision
   memo. Thirty-second slice on the

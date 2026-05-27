@@ -593,7 +593,7 @@ contract.
 | --- | --- | --- |
 | 1 | [CapabilityMap v2 Publication Safety Review](capability-map-v2-publication-safety-review.md) | ✅ Shipped (thirty-first slice) |
 | 2 | **`CapabilityContract` Architecture Decision (this memo)** | ✅ Shipped (thirty-second slice) |
-| 3 | `CapabilityContract` v1 implementation — register the artifact type in `@rekon/kernel-repo-model` + SDK + runtime; add producer that reads `.rekon/capability-contracts.json` (when present) and the latest `CapabilityMap` v2 and emits the effective contract artifact. Emits `configured` + `unmatched` rows only. No publication surfacing yet. | next slice |
+| 3 | `CapabilityContract` v1 implementation — register the artifact type in `@rekon/kernel-repo-model` + SDK + runtime; add producer that reads `.rekon/capability-contracts.json` (when present) and the latest `CapabilityMap` v2 and emits the effective contract artifact. Emits `configured` + `unmatched` rows only. No publication surfacing yet. | ✅ Shipped (thirty-third slice). See [`CapabilityContract` artifact reference](../artifacts/capability-contract.md). |
 | 4 | `CapabilityContract` v1 safety review | gated on step 3 |
 | 5 | `CapabilityContract` publication surfacing (architecture summary + agent contract; read-only; carries new `Do Not Do` reminders) | gated on step 4 |
 | 6 | `CapabilityContract` publication safety review | gated on step 5 |

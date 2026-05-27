@@ -344,10 +344,13 @@ returns `{ lines, inputRef? }`.
   placement policy**, and that **proof report surfacing
   remains deferred because phrase projection is semantic
   context, not verification proof**.
-- `CapabilityContract` is the future policy / preservation
-  layer; it binds a phrase to allowed layers / required
-  checks / required + forbidden neighbours / preservation
-  rules. Not implemented in v1.
+- [`CapabilityContract`](capability-contract.md) is the
+  downstream policy / preservation layer. v1 shipped in
+  the thirty-third slice and binds operator-authored rows
+  to v2 phrase-backed capabilities (placement, required
+  checks, required + forbidden neighbours, preservation
+  rules). v1 is **diagnostic only** — no linting, no
+  routing, no verification planning by capability.
 
 ### Upstream Stable-Density Lever
 

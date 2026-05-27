@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
@@ -52,7 +53,10 @@ import verifyCapability, {
 } from "@rekon/capability-verify";
 import jsTsCapability from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
-import modelCapability from "@rekon/capability-model";
+import modelCapability, {
+  buildCapabilityContract,
+  type CapabilityContractConfig,
+} from "@rekon/capability-model";
 import policyCapability from "@rekon/capability-policy";
 import reconcileCapability, {
   buildReconciliationPreview,
@@ -104,6 +108,8 @@ import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   buildSourceStateFingerprint,
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
+  type CapabilityContract,
+  type CapabilityMap,
   type ObservedRepo,
   type OwnershipMap,
 } from "@rekon/kernel-repo-model";
@@ -958,6 +964,162 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("");
       lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push("CapabilityMap remains unchanged.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "contract"
+    && positional === "generate"
+  ) {
+    // `rekon capability contract generate
+    // [--root <path>] [--json] [--capability-map <ref>]` —
+    // v1 CapabilityContract policy artifact emission.
+    // Reads the latest (or specified) CapabilityMap v2 and
+    // an optional `.rekon/capability-contracts.json`
+    // config and writes an effective contract artifact.
+    //
+    // Diagnostic only. Does not lint, route, gate, or
+    // verify by capability. CapabilityMap is never
+    // mutated. Config is never mutated. Source is never
+    // mutated. See
+    // docs/strategy/capability-contract-architecture-decision.md
+    // and docs/artifacts/capability-contract.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const capabilityMapFlag = typeof parsed.flags["capability-map"] === "string"
+      ? parsed.flags["capability-map"].trim()
+      : "";
+
+    let capabilityMapEntry: ArtifactIndexEntry | undefined;
+    if (capabilityMapFlag.length > 0) {
+      capabilityMapEntry = await findArtifactEntry(store, capabilityMapFlag);
+      if (capabilityMapEntry.type !== "CapabilityMap") {
+        throw new Error(
+          `rekon capability contract generate --capability-map must reference a CapabilityMap; got ${capabilityMapEntry.type}.`,
+        );
+      }
+    } else {
+      const mapEntries = await store.list("CapabilityMap");
+      capabilityMapEntry = mapEntries.at(-1);
+      if (!capabilityMapEntry) {
+        throw new Error(
+          "rekon capability contract generate: no CapabilityMap found. Run `rekon refresh` (or `rekon project`) first.",
+        );
+      }
+    }
+
+    const capabilityMap = (await store.read(capabilityMapEntry)) as CapabilityMap;
+    const capabilityMapRef: ArtifactRef = {
+      type: capabilityMapEntry.type,
+      id: capabilityMapEntry.id,
+      path: capabilityMapEntry.path,
+      digest: capabilityMapEntry.digest,
+      schemaVersion: capabilityMapEntry.schemaVersion ?? "0.1.0",
+    };
+
+    // Optional .rekon/capability-contracts.json — missing is fine.
+    const configRelative = ".rekon/capability-contracts.json";
+    const configPath = resolve(root, configRelative);
+    let config: CapabilityContractConfig | undefined;
+    let configHash: string | undefined;
+    let configPresent = false;
+    try {
+      const raw = await readFile(configPath, "utf8");
+      configPresent = true;
+      try {
+        const parsedConfig = JSON.parse(raw) as unknown;
+        if (parsedConfig && typeof parsedConfig === "object") {
+          config = parsedConfig as CapabilityContractConfig;
+        }
+      } catch (error) {
+        throw new Error(
+          `rekon capability contract generate: failed to parse ${configRelative}: ${(error as Error).message}`,
+        );
+      }
+      // Canonical-JSON hash of the consumed config so a
+      // future safety review can diff what we generated
+      // against what shipped.
+      configHash = `sha256:${sha256Hex(JSON.stringify(canonicalJson(config ?? null)))}`;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+
+    // Optional CapabilityPhraseReport input ref — surfaced
+    // when the CapabilityMap consumed one (v2). Stamped
+    // into source.phraseReportRef + header.inputRefs.
+    let phraseReportRef: ArtifactRef | undefined;
+    if (capabilityMap.phraseSourceRef) {
+      phraseReportRef = capabilityMap.phraseSourceRef;
+    } else {
+      const phraseEntries = await store.list("CapabilityPhraseReport");
+      const latestPhrase = phraseEntries.at(-1);
+      if (latestPhrase) {
+        phraseReportRef = {
+          type: latestPhrase.type,
+          id: latestPhrase.id,
+          path: latestPhrase.path,
+          digest: latestPhrase.digest,
+          schemaVersion: latestPhrase.schemaVersion ?? "0.1.0",
+        };
+      }
+    }
+
+    const generatedAt = new Date().toISOString();
+    const contract = buildCapabilityContract({
+      capabilityMap,
+      capabilityMapRef,
+      config,
+      configPath: configPresent ? configRelative : undefined,
+      configHash,
+      generatedAt,
+      phraseReportRef,
+    });
+
+    const ref = await store.write(contract, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: ref,
+          source: contract.source,
+          summary: contract.summary,
+          contracts: contract.contracts,
+          configPresent,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Capability contract generation");
+      lines.push("");
+      lines.push(`CapabilityMap: ${capabilityMapRef.type}:${capabilityMapRef.id}`);
+      if (configPresent) {
+        lines.push(`Config: ${configRelative}`);
+      } else {
+        lines.push(`Config: (none — missing config is allowed)`);
+      }
+      if (phraseReportRef) {
+        lines.push(`PhraseReport: ${phraseReportRef.type}:${phraseReportRef.id}`);
+      }
+      lines.push("");
+      lines.push(`Total: ${contract.summary.total}`);
+      lines.push(`Configured: ${contract.summary.configured}`);
+      lines.push(`Unmatched: ${contract.summary.unmatched}`);
+      lines.push(
+        `Policy: requiredChecks ${contract.summary.withRequiredChecks}, placement ${contract.summary.withPlacementRules}, preservation ${contract.summary.withPreservationRules}`,
+      );
+      lines.push("");
+      lines.push(`Artifact: ${ref.type}:${ref.id}`);
+      lines.push("CapabilityMap remains unchanged. Config remains unchanged.");
+      lines.push(
+        "Diagnostic only. No architecture linting, resolver routing, or verification planning by capability in v1.",
+      );
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -7514,6 +7676,27 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function sha256Hex(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+/** Canonicalise a JSON value: object keys sorted, arrays
+ *  preserved in declared order. Stable across runtimes so
+ *  the `configHash` we emit is reproducible. */
+function canonicalJson(value: unknown): unknown {
+  if (value === null) return null;
+  if (Array.isArray(value)) return value.map((item) => canonicalJson(item));
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(obj).sort()) {
+      out[key] = canonicalJson(obj[key]);
+    }
+    return out;
+  }
+  return value;
+}
+
 function renderGitHubWorkflowSafetyHuman(report: GitHubWorkflowSafetyReport): string {
   const lines: string[] = [];
   const status = report.valid ? "valid" : "invalid";
@@ -7631,6 +7814,7 @@ function usage(): string {
     "rekon capability ontology review decisions [--root <path>] [--json]",
     "rekon capability ontology suggestions [--ledger <id|type:id>] [--root <path>] [--json]",
     "rekon capability phrase project --report <CapabilityNormalizationReport-id|type:id> [--root <path>] [--json]",
+    "rekon capability contract generate [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

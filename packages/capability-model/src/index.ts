@@ -21,6 +21,12 @@ export {
   buildPhraseBackedCapabilityMapAdditions,
 } from "./phrase-backed.js";
 
+export {
+  type BuildCapabilityContractInput,
+  type CapabilityContractConfig,
+  buildCapabilityContract,
+} from "./capability-contract.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

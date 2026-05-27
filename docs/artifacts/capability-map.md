@@ -50,7 +50,7 @@ It exposes two complementary shapes:
 | 4 | `CapabilityNormalizationReport` | translation audit (raw + normalized rows, all confidences) |
 | 5 | `CapabilityPhraseReport` | semantic purpose projection (high-confidence normalized only) |
 | 6 (this doc) | `CapabilityMap` v1 + v2 | canonical capability projection: heuristic hints (v1) + phrase-backed claims (v2) |
-| 7+ | `CapabilityContract` (deferred) | enforceable ownership / placement policy |
+| 7 | `CapabilityContract` v1 | policy layer — operator-authorised binding rules over v2 phrase-backed capabilities; diagnostic only, no linting / routing / verification planning yet |
 
 `CapabilityMap` v2 is the **projection layer**. It
 publishes the high-confidence subset of the phrase
@@ -60,8 +60,9 @@ GitHub Check / PR-comment surfaces) can cite without
 re-doing the eligibility filter themselves.
 
 `CapabilityMap` v2 is **not** the enforcement layer.
-A future `CapabilityContract` artifact (deferred) will
-own the *policy* surface — what code *must* live
+The [`CapabilityContract`](capability-contract.md)
+artifact (v1 shipped, thirty-third slice) owns the
+*policy* surface — what code *must* live
 where, which capabilities *must* exist, which paths
 *must* match an owner. v2 stops at projection.
 

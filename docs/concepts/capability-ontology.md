@@ -44,12 +44,17 @@ The macro 5-layer boundary is:
    and the
    [v2 publication safety review](../strategy/capability-map-v2-publication-safety-review.md).
 5. `CapabilityContract` — policy / placement / proof /
-   preservation layer. **Decision recorded; v1
-   implementation is the next slice.** Operator config
-   at `.rekon/capability-contracts.json` expresses
-   policy; Rekon emits a `CapabilityContract` artifact
-   citing the latest `CapabilityMap` v2. See the
+   preservation layer. **v1 shipped (thirty-third
+   slice).** Operator config at
+   `.rekon/capability-contracts.json` expresses policy;
+   Rekon emits a `CapabilityContract` artifact citing the
+   latest `CapabilityMap` v2. See the
+   [`CapabilityContract` artifact reference](../artifacts/capability-contract.md),
+   the [`CapabilityContract` concept doc](capability-contracts.md),
+   and the
    [CapabilityContract Architecture Decision](../strategy/capability-contract-architecture-decision.md).
+   v1 is **diagnostic only** — no linting / routing /
+   verification planning by capability yet.
    `CapabilityMap` v2 stays as projection — the
    decision pins that v2 must not grow policy fields.
 6. `RefactorPreservationContract` — phase-specific
