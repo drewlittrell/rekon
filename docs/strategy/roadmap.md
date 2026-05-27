@@ -2225,6 +2225,90 @@ is the first stop before proposing a new capability batch.
   cohort target. Output drives
   the high-confidence-only
   `CapabilityMap` v2 decision.
+- CapabilityPhraseReport real-repo
+  coverage review (P1.1
+  capability-phrase-report-coverage-review
+  slice): **seventeenth slice on
+  the capability-ontology track.**
+  Strategy / dogfood-analysis /
+  docs / tests-only batch. Measured
+  phrase output on a fixture
+  (`examples/simple-js-ts`) and one
+  real, anonymized Next.js
+  TypeScript target (`target-1`).
+  Fixture: 4 candidates, 0
+  normalized, 0 phrases (strict v1
+  rules hold). `target-1`: 9,110
+  candidates, 241 normalized, 524
+  alias-applied, **16 stable
+  phrases (0.18% of candidates,
+  6.6% of normalized)**. Every
+  phrase carries an `EvidenceGraph`
+  ref; every phrase is
+  `status="stable"`,
+  `confidence="high"`; no
+  enrichment fields populated
+  (`withDomain 0, withPattern 0,
+  withLayer 0` — consistent with
+  v1 deferred behavior). Phrase
+  table renders cleanly in
+  architecture summary + agent
+  contract publications; both
+  surfaces carry the
+  deferred-`CapabilityMap`
+  callout. Artifacts validate
+  clean on both targets. **No
+  runtime change. No
+  `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape
+  change. No phrase projection
+  rule change. No canon-pack
+  change. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No npm
+  publish. No version bump. No
+  git tag. No GitHub Release. No
+  new branch.** Verdict: **phrase
+  quality is high; coverage is
+  sparse.** Pinned verbatim:
+  **`CapabilityMap` v2 is
+  evidence-gated.** **Stable
+  high-confidence phrases were
+  measured on a real repo.**
+  **Unknown / low-confidence rows
+  remain excluded.** Six readiness
+  gates: real-repo non-trivial
+  stable phrases — pass (sparse);
+  evidence refs present — pass;
+  unknown / low-confidence
+  excluded — pass; publications
+  understandable — pass;
+  artifacts validate clean —
+  pass; phrase coverage
+  sufficient for a useful
+  canonical projection — **fail
+  (0.18% too sparse)**. New
+  strategy memo
+  [`docs/strategy/capability-phrase-report-coverage-review.md`](capability-phrase-report-coverage-review.md)
+  with 13 required headings + 5
+  required tables (target /
+  normalization / phrase /
+  readiness / option). New
+  12-assertion docs test
+  `tests/docs/capability-phrase-report-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-coverage-review.md`.
+  **Recommended next slice:**
+  *phrase enrichment v1* —
+  deterministic `domain` /
+  `pattern` / `layer` enrichment
+  from `ObservedRepo` +
+  `OwnershipMap`; allows
+  `partial` phrases to emit;
+  keeps `stable` reserved for the
+  strictest (`CapabilityMap`
+  v2-eligible) case.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

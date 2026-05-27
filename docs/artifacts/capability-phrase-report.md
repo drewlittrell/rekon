@@ -284,6 +284,13 @@ returns `{ lines, inputRef? }`.
 - `partial` and `low-confidence` statuses are reserved for
   future deterministic enrichment slices (domain / pattern /
   layer / side-effect / IO). v1 always emits `stable`.
+- The
+  [CapabilityPhraseReport Real-Repo Coverage Review](../strategy/capability-phrase-report-coverage-review.md)
+  measured phrase output on a fixture (`examples/simple-js-ts`)
+  and one real Next.js TypeScript target (`target-1`):
+  16 stable phrases on 9,110 candidates (0.18%; 6.6% of
+  normalized). Phrase quality is high; coverage is sparse.
+  The next slice is **phrase enrichment v1**.
 - `CapabilityMap` v2 will consume `CapabilityPhraseReport`,
   not raw `CapabilityNormalizationReport` rows. v2 ships
   only after phrase claims stabilize across multiple cohort
@@ -292,7 +299,8 @@ returns `{ lines, inputRef? }`.
   pins **`CapabilityMap` integration remains deferred until
   phrase coverage is measured on real repos**, and **only
   stable high-confidence phrases are eligible for future
-  `CapabilityMap` v2**.
+  `CapabilityMap` v2**. The coverage review re-confirms the
+  deferral: **CapabilityMap v2 is evidence-gated.**
 - The safety review also pins that `CapabilityPhraseReport`
   is **semantic purpose projection, not ownership or
   placement policy**, and that **proof report surfacing
@@ -334,6 +342,12 @@ returns `{ lines, inputRef? }`.
   real-repo phrase coverage is measured, proof report
   surfacing stays deferred, and only stable high-confidence
   phrases are eligible for future `CapabilityMap` v2.
+- [CapabilityPhraseReport Real-Repo Coverage Review](../strategy/capability-phrase-report-coverage-review.md)
+  — measures phrase output on a fixture + one real
+  Next.js TS target. 16 stable phrases on 9,110
+  candidates; pins **`CapabilityMap` v2 is
+  evidence-gated** and selects **phrase enrichment v1**
+  as the next slice.
 - [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
   — the eight-layer model. Layer 6 (`CapabilityMap`) will
   eventually consume this report.

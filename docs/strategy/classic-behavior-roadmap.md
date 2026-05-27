@@ -5962,6 +5962,69 @@ scope:
   distribution, and publication
   usefulness on the fixture + at
   least one real cohort target.
+- **CapabilityPhraseReport real-repo
+  coverage review (P1.1
+  capability-phrase-report-coverage-review
+  slice).** ✅ Shipped. **Seventeenth
+  slice on the capability-ontology
+  track.** Strategy / dogfood-
+  analysis / docs / tests-only
+  batch. Measured phrase output on
+  a fixture (`examples/simple-js-ts`)
+  and one real, anonymized Next.js
+  TypeScript target (`target-1`).
+  Fixture: 0 phrases (strict v1
+  rules hold). `target-1`: 9,110
+  candidates, 241 normalized, **16
+  stable phrases (0.18% of
+  candidates; 6.6% of normalized)**.
+  All 16 phrases carry
+  `EvidenceGraph` refs;
+  `status="stable"`,
+  `confidence="high"`. Phrase
+  publications render cleanly with
+  deferred-`CapabilityMap` callout.
+  Artifacts validate clean on both
+  targets. Verdict: **phrase
+  quality is high; coverage is
+  sparse.** Pinned verbatim:
+  **`CapabilityMap` v2 is
+  evidence-gated. Stable
+  high-confidence phrases were
+  measured on a real repo.
+  Unknown / low-confidence rows
+  remain excluded.** Six readiness
+  gates evaluated; five pass; the
+  sixth (coverage density) fails
+  at 0.18%. **No runtime change.
+  No `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape
+  change. No phrase projection
+  rule change. No canon-pack
+  change. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No npm
+  publish. No version bump. No
+  git tag. No GitHub Release. No
+  new branch.** New strategy memo
+  [`docs/strategy/capability-phrase-report-coverage-review.md`](capability-phrase-report-coverage-review.md)
+  with 13 required headings + 5
+  required tables. New 12-assertion
+  docs test
+  `tests/docs/capability-phrase-report-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-coverage-review.md`.
+  **Recommended next slice:**
+  phrase enrichment v1 —
+  deterministic `domain` /
+  `pattern` / `layer` enrichment
+  from `ObservedRepo` +
+  `OwnershipMap`; allows `partial`
+  phrases to emit; keeps `stable`
+  reserved for the strictest
+  (`CapabilityMap` v2-eligible)
+  case.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

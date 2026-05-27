@@ -432,9 +432,23 @@ registration.
 
 ## Follow-Up Work
 
-- **CapabilityPhraseReport real-repo coverage review**
-  (recommended next slice). Measures the four signals
-  above. Strategy / docs / tests-only.
+- **CapabilityPhraseReport real-repo coverage review** —
+  ✅ Shipped. See
+  [CapabilityPhraseReport Real-Repo Coverage Review](capability-phrase-report-coverage-review.md).
+  Verdict: 16 stable phrases on `target-1` (0.18% of
+  candidates, 6.6% of normalized). All gates pass except
+  *phrase coverage sufficient for a useful canonical
+  projection*. Recommended next slice is **phrase
+  enrichment v1**, not `CapabilityMap` v2.
+- **Phrase enrichment v1** — next slice. Adds
+  deterministic `domain` / `pattern` / `layer`
+  enrichment from `ObservedRepo` + `OwnershipMap`;
+  allows `partial` phrases to emit; keeps `stable`
+  reserved for the strictest (and `CapabilityMap`
+  v2-eligible) case.
+- **Second coverage review** after phrase enrichment v1
+  lands. Measures stable + partial yield, enrichment
+  field coverage, and publication usefulness.
 - **Phrase confidence + status model decision** —
   formalize the formula that maps lexical / ontology /
   corroborating-source signal into `confidence` and
@@ -444,8 +458,8 @@ registration.
   source: path / ownership / framework / architecture
   profile / future AST / LLM-as-audit-signal). Each
   ships behind its own decision memo. Only land after
-  the coverage review.
-- **`CapabilityMap` v2 design** — gated on the
+  enrichment v1 + the second coverage review.
+- **`CapabilityMap` v2 design** — gated on the second
   coverage review and on stable claims across
   multiple cohort targets.
 - **`CapabilityContract` decision** — far-future,
@@ -461,6 +475,7 @@ registration.
 - [Capability Ontology Translation Layer Decision](capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Canon + Override Model Decision](capability-ontology-canon-override-model-decision.md)
 - [Capability Ontology Suggestion Safety Review](capability-ontology-suggestion-safety-review.md)
+- [CapabilityPhraseReport Real-Repo Coverage Review](capability-phrase-report-coverage-review.md)
 - [`CapabilityPhraseReport` artifact reference](../artifacts/capability-phrase-report.md)
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
 - [Capability ontology concept](../concepts/capability-ontology.md)

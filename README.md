@@ -1103,6 +1103,76 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityPhraseReport real-repo coverage review has
+# shipped. Strategy / dogfood-analysis / docs / tests-only
+# batch. Measured phrase output on a fixture
+# (examples/simple-js-ts) and one real, anonymized
+# Next.js TypeScript target (target-1).
+#
+# Results:
+#   - fixture: 4 candidates, 0 normalized, 0 phrases
+#     (strict v1 rules hold).
+#   - target-1: 9,110 candidates, 241 normalized, 524
+#     alias-applied, 16 stable phrases.
+#   - stable phrase ratios: 16 / 9,110 = 0.18% of
+#     candidates; 16 / 241 = 6.6% of normalized.
+#   - every phrase carries an EvidenceGraph ref;
+#     status="stable", confidence="high"; no enrichment
+#     fields populated (withDomain 0, withPattern 0,
+#     withLayer 0 — v1 deferred behavior intact).
+#
+# Verdict: phrase quality is high; phrase coverage is
+# sparse. CapabilityMap v2 remains deferred.
+#
+# Pinned verbatim:
+#   - CapabilityMap v2 is evidence-gated.
+#   - Stable high-confidence phrases were measured on a
+#     real repo.
+#   - Unknown / low-confidence rows remain excluded from
+#     phrases and from any future CapabilityMap v2.
+#
+# Readiness gates (six total):
+#   - real-repo non-trivial stable phrases: pass
+#     (sparse).
+#   - evidence refs present: pass (16/16).
+#   - unknown / low-confidence excluded: pass.
+#   - publications understandable: pass.
+#   - artifacts validate clean: pass.
+#   - phrase coverage sufficient for a useful canonical
+#     projection: fail (0.18% too sparse).
+#
+# Options considered:
+#   - CapabilityMap v2 high-confidence-only → deferred
+#     (needs richer phrase yield).
+#   - Phrase enrichment v1 → selected as next slice.
+#   - Candidate-quality improvements → deferred
+#     (parallel).
+#   - Canon-pack expansion → deferred (parallel).
+#   - More dogfood → deferred (parallel).
+#
+# No runtime change. No CapabilityMap mutation. No
+# CapabilityPhraseReport shape change. No phrase
+# projection rule change. No canon-pack change. No new
+# artifact registration. No new CLI command. No source
+# writes. No LLM-only inference. No npm publish. No
+# version bump. No git tag. No GitHub Release. No new
+# branch.
+#
+# New strategy memo:
+# docs/strategy/capability-phrase-report-coverage-review.md
+# with 13 required headings + 5 required tables (target /
+# normalization / phrase / readiness / option). New
+# 12-assertion docs test
+# tests/docs/capability-phrase-report-coverage-review.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/capability-phrase-report-coverage-review.md.
+#
+# Recommended next slice: phrase enrichment v1 — add
+# deterministic domain / pattern / layer enrichment from
+# ObservedRepo + OwnershipMap; allow partial phrases to
+# emit; keep stable reserved for the strictest case
+# (CapabilityMap v2-eligible).
+#
 # CapabilityPhraseReport safety review has shipped.
 # Strategy / docs / tests-only batch. End-to-end review
 # of the CapabilityNormalizationReport ->

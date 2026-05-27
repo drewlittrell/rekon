@@ -384,6 +384,22 @@ contract carry a read-only `Capability Phrases` section
 that surfaces the deferred-`CapabilityMap` callout; the
 proof report does not.
 
+The
+[CapabilityPhraseReport Real-Repo Coverage Review](../strategy/capability-phrase-report-coverage-review.md)
+measured phrase output on a fixture
+(`examples/simple-js-ts`) and one real, anonymized
+Next.js TypeScript target (`target-1`): **16 stable
+phrases on 9,110 candidates (0.18%; 6.6% of normalized).
+Every phrase carries an `EvidenceGraph` ref; every phrase
+is `status === "stable"`, `confidence === "high"`.**
+Phrase quality is high; phrase coverage is sparse. The
+review pins **`CapabilityMap` v2 is evidence-gated** and
+selects **phrase enrichment v1** (deterministic `domain`
+/ `pattern` / `layer` enrichment from `ObservedRepo` +
+`OwnershipMap`) as the next slice — *before* the
+`CapabilityMap` v2 high-confidence-only design decision
+lands.
+
 ## See Also
 
 - [`CapabilityNormalizationReport` artifact
@@ -410,6 +426,13 @@ proof report does not.
   semantic-purpose-projection boundary, the deferred
   `CapabilityMap` v2 gate, and the deferred proof report
   surfacing.
+- [CapabilityPhraseReport Real-Repo Coverage
+  Review](../strategy/capability-phrase-report-coverage-review.md)
+  — coverage / dogfood-analysis review measuring phrase
+  output on a fixture + one real Next.js TS target.
+  Verdict: phrase quality is high; coverage is sparse.
+  Next slice is **phrase enrichment v1** rather than
+  `CapabilityMap` v2.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop
