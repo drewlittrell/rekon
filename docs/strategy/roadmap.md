@@ -2558,6 +2558,88 @@ is the first stop before proposing a new capability batch.
   target to decide whether the
   `CapabilityMap` v2 design can
   begin.
+- CapabilityPhraseReport
+  post-quality coverage review
+  (P1.1
+  capability-phrase-post-quality-coverage-review
+  slice): **twenty-first slice on
+  the capability-ontology track.**
+  Strategy / dogfood-analysis /
+  docs / tests-only batch. Third
+  coverage review on the phrase
+  track. Measured fixture +
+  `target-1` (Next.js TS) + new
+  `target-2` (small TS +
+  workflows). Three-stage
+  comparison on `target-1`: stable
+  16 → 16 → **16 (unchanged)**;
+  total 16 → 239 → 239;
+  `unknown` 4,088 → 4,088 →
+  3,865; `ignored` 226 → 226 →
+  449; `normalized` 241 → 241 →
+  241. `target-2`: 408 candidates,
+  12 normalized (2.9%), 2 stable
+  + 10 partial. Cross-target
+  evidence: stable density is
+  consistently sparse (0.18% on
+  `target-1`, 0.49% on
+  `target-2`); ~3% normalization
+  ceiling on both real repos.
+  **Bottleneck identified**: the
+  symbol/export-name evidence
+  model is structurally
+  insufficient — three coverage
+  reviews + two runtime slices
+  have not moved the stable
+  foundation. Pinned verbatim:
+  **Candidate-quality improvements
+  reduced unknown noise.**
+  **Stable phrase count remained
+  unchanged.** **`CapabilityMap`
+  v2 is evidence-gated.**
+  **Partial phrases alone do not
+  justify `CapabilityMap` v2.**
+  Seven readiness gates evaluated;
+  six pass; the seventh (stable
+  density sufficient for
+  canonical projection) fails.
+  **No runtime change. No
+  `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape
+  change. No phrase projection
+  rule change. No canon-pack
+  change. No splitter change. No
+  new artifact registration. No
+  new CLI command. No source
+  writes. No LLM-only inference.
+  No npm publish. No version
+  bump. No git tag. No GitHub
+  Release. No new branch.** New
+  strategy memo
+  [`docs/strategy/capability-phrase-post-quality-coverage-review.md`](capability-phrase-post-quality-coverage-review.md)
+  with 15 required headings + 7
+  required tables (target / pack
+  / normalization / phrase /
+  before-after / readiness /
+  option). New 15-assertion docs
+  test
+  `tests/docs/capability-phrase-post-quality-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-post-quality-coverage-review.md`.
+  **Recommended next slice:**
+  *repo-agnostic purpose
+  understanding architecture
+  review* — strategy memo
+  surveying deterministic
+  evidence sources beyond
+  symbol/export names. Output
+  drives the next product slice
+  (phrase enrichment v2,
+  candidate extraction, or
+  canon-pack expansion v2) and
+  pins the gates `CapabilityMap`
+  v2 must hit on a fourth
+  coverage review.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

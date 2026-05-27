@@ -464,6 +464,14 @@ partial; 0 low-confidence). `sideEffects` / `inputs` /
   upstream normalization noise. Reduced `unknown`
   candidates on `target-1` by 223 without changing
   stable phrase count.
+- [CapabilityPhraseReport Post-Quality Coverage
+  Review](../strategy/capability-phrase-post-quality-coverage-review.md)
+  — third coverage review measuring fixture +
+  target-1 + new target-2 after Candidate-Quality v1.
+  Cross-target evidence confirms stable density does
+  not respond to vocabulary or splitter tweaks. Next
+  slice is a repo-agnostic purpose understanding
+  architecture review.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

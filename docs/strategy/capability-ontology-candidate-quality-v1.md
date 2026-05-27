@@ -220,11 +220,15 @@ never become stable phrases either.
 ## Follow-Up Work
 
 - **CapabilityPhraseReport post-quality coverage
-  review** (next slice). Re-run fixture + `target-1` +
-  at least one additional cohort target to measure
-  whether stable phrase count moves, whether splitter
-  still needs work, or whether more canon-pack
-  expansion is required.
+  review** — ✅ Shipped. See
+  [Post-Quality Coverage Review](capability-phrase-post-quality-coverage-review.md).
+  Measured `target-1` + new `target-2`. Verdict: stable
+  count unchanged at 16 on `target-1` (third coverage
+  review confirming this); `target-2` shows the same
+  ~3% normalization ceiling. Next slice is a
+  **repo-agnostic purpose understanding architecture
+  review** — the evidence model is the bottleneck, not
+  vocabulary or splitter precision.
 - **Canon-pack expansion v2** — per-archetype additions
   for terms observed only in specific overlays (e.g.
   Next.js-specific tokens). Each pack expansion ships

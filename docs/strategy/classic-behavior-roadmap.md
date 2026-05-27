@@ -6195,6 +6195,62 @@ scope:
   **Recommended next slice:**
   `CapabilityPhraseReport`
   post-quality coverage review.
+- **CapabilityPhraseReport
+  post-quality coverage review
+  (P1.1
+  capability-phrase-post-quality-coverage-review
+  slice).** ✅ Shipped.
+  **Twenty-first slice on the
+  capability-ontology track.**
+  Third coverage review on the
+  phrase track. Measured fixture
+  + `target-1` + new `target-2`.
+  Three-stage comparison on
+  target-1: stable phrases
+  unchanged at 16 through all
+  three coverage reviews;
+  `unknown` 4,088 → 3,865;
+  `ignored` 226 → 449; total
+  phrases 16 → 239 → 239.
+  `target-2`: 408 candidates,
+  12 normalized, 2 stable + 10
+  partial. Cross-target verdict:
+  stable density consistently
+  sparse on both real repos
+  (0.18% and 0.49%); the
+  evidence model is the
+  bottleneck. Pinned verbatim:
+  candidate-quality improvements
+  reduced unknown noise; stable
+  phrase count remained
+  unchanged; `CapabilityMap` v2
+  is evidence-gated; partial
+  phrases alone do not justify
+  `CapabilityMap` v2. **No
+  runtime change. No
+  `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape
+  change. No phrase projection
+  rule change. No canon-pack
+  change. No splitter change. No
+  new artifact registration. No
+  new CLI command. No source
+  writes. No LLM-only inference.
+  No npm publish. No version
+  bump. No git tag. No GitHub
+  Release. No new branch.** New
+  strategy memo
+  [`docs/strategy/capability-phrase-post-quality-coverage-review.md`](capability-phrase-post-quality-coverage-review.md)
+  with 15 required headings + 7
+  required tables. New
+  15-assertion docs test
+  `tests/docs/capability-phrase-post-quality-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-post-quality-coverage-review.md`.
+  **Recommended next slice:**
+  repo-agnostic purpose
+  understanding architecture
+  review.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

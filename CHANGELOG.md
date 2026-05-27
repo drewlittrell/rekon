@@ -4,6 +4,93 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityPhraseReport post-quality coverage
+  review** — dogfood-analysis batch measuring phrase
+  output **after** Candidate-Quality v1 across a
+  fixture (`examples/simple-js-ts`) + **two** real
+  cohort targets (`target-1` Next.js TS, `target-2`
+  small TS + workflows). Compares against pre-
+  enrichment baseline and post-enrichment v1 results.
+
+  Three-stage `target-1` comparison:
+
+  | Metric | Pre-Enrichment | Post-Enrichment | Post-Quality |
+  | --- | ---: | ---: | ---: |
+  | stable phrases | 16 | 16 | **16 (unchanged)** |
+  | total phrases | 16 | 239 | 239 |
+  | `unknown` | 4,088 | 4,088 | 3,865 |
+  | `ignored` | 226 | 226 | 449 |
+  | `normalized` | 241 | 241 | 241 |
+
+  `target-2` (new in this review): 408 candidates, 12
+  normalized (2.9%), 2 stable + 10 partial = 12 total
+  phrases. Same shape as `target-1` at smaller scale.
+
+  Verdict: **Candidate-quality improvements reduced
+  unknown noise** as designed, but **stable phrase
+  count remained unchanged across both real repos**.
+  Stable density is consistently sparse: 0.18% on
+  `target-1`, 0.49% on `target-2`. Three coverage
+  reviews + two runtime slices (enrichment v1 +
+  candidate-quality v1) now confirm the stable
+  foundation **does not respond to vocabulary or
+  splitter tweaks** — the bottleneck is the evidence
+  model itself.
+
+  Pinned verbatim:
+
+    - Candidate-quality improvements reduced unknown
+      noise.
+    - Stable phrase count remained unchanged.
+    - `CapabilityMap` v2 is evidence-gated.
+    - Partial phrases alone do not justify
+      `CapabilityMap` v2.
+
+  Seven readiness gates evaluated; six pass; the
+  seventh — *stable density sufficient for canonical
+  projection* — has not moved through three coverage
+  reviews and two runtime slices.
+
+  Options considered:
+
+    - `CapabilityMap` v2 high-confidence-only → still
+      deferred (stable count unchanged).
+    - Phrase enrichment v2 → deferred (parallel; does
+      not move stable count).
+    - Candidate extraction improvements → deferred
+      (parallel; secondary to architecture review).
+    - Canon-pack expansion v2 → deferred (parallel).
+    - **Repo-agnostic purpose understanding architecture
+      review → SELECTED** as next slice.
+    - More dogfood → deferred (parallel).
+
+  No runtime change. No `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape change. No phrase
+  projection rule change. No canon-pack change. No
+  splitter change. No new artifact registration. No
+  new CLI command. No source writes. No LLM-only
+  inference. No npm publish. No version bump. No git
+  tag. No GitHub Release. No new branch.
+
+  New strategy memo:
+  [`docs/strategy/capability-phrase-post-quality-coverage-review.md`](docs/strategy/capability-phrase-post-quality-coverage-review.md)
+  with 15 required headings + 7 required tables
+  (target / pack / normalization / phrase / before-
+  after / readiness / option). New 15-assertion docs
+  test
+  `tests/docs/capability-phrase-post-quality-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-post-quality-coverage-review.md`.
+
+  Recommended next slice: **Repo-agnostic purpose
+  understanding architecture review** — strategy memo
+  surveying deterministic evidence sources beyond
+  symbol/export names. Output drives the next product
+  slice (phrase enrichment v2, candidate extraction,
+  or canon-pack expansion v2) and pins the gates
+  `CapabilityMap` v2 must hit on a fourth coverage
+  review.
+
 - Shipped **capability ontology candidate-quality
   improvements v1** — product capability batch. Two
   deterministic improvements to reduce upstream

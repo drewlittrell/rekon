@@ -221,6 +221,13 @@ known domain / pattern / layer.
   `target-1` by 223 candidates without changing stable
   phrase count. Canon-pack confirmed already covers the
   four observed-frequent nouns and three verbs.
+- **Post-quality coverage review** — ✅ Shipped. See
+  [Post-Quality Coverage Review](capability-phrase-post-quality-coverage-review.md).
+  Added `target-2` (real small TS + workflows). Cross-
+  target evidence confirms stable density does not
+  respond to vocabulary or splitter tweaks. Next slice
+  is a repo-agnostic purpose understanding architecture
+  review.
 - **`CapabilityMap` v2 high-confidence-only design
   decision** — gated on a **third** coverage review
   after candidate-quality ships.

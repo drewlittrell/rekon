@@ -453,6 +453,17 @@ registration.
   not stable count. `CapabilityMap` v2 stays deferred.
   Next slice is candidate-quality improvements
   (canon-pack expansion + lexical-splitter sharpening).
+- **Candidate-quality improvements v1** — ✅ Shipped.
+  See
+  [Candidate-Quality v1 Memo](capability-ontology-candidate-quality-v1.md).
+  Splitter sharpening reduced unknown noise without
+  changing stable phrase count.
+- **Post-quality coverage review** — ✅ Shipped. See
+  [Post-Quality Coverage Review](capability-phrase-post-quality-coverage-review.md).
+  Cross-target evidence (target-1 + target-2) confirms
+  stable density does not respond to vocabulary or
+  splitter tweaks. Next slice is a repo-agnostic
+  purpose understanding architecture review.
 - **Second coverage review** after phrase enrichment v1
   lands. Measures stable + partial yield, enrichment
   field coverage, and publication usefulness.

@@ -372,6 +372,13 @@ returns `{ lines, inputRef? }`.
   count unchanged at 16; partial coverage rich; next
   slice is candidate-quality improvements; `CapabilityMap`
   v2 stays deferred.
+- [CapabilityPhraseReport Post-Quality Coverage Review](../strategy/capability-phrase-post-quality-coverage-review.md)
+  — measured fixture + target-1 + new target-2 after
+  Candidate-Quality v1. Verdict: stable count unchanged
+  on `target-1` (third coverage review confirming
+  this); `target-2` shows same ~3% normalization
+  ceiling. Next slice is a repo-agnostic purpose
+  understanding architecture review.
 - [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
   — the eight-layer model. Layer 6 (`CapabilityMap`) will
   eventually consume this report.

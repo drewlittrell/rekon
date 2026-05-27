@@ -418,6 +418,13 @@ candidate-quality takes priority.
   Measured on `target-1`: 223 path-shaped candidates
   moved from `unknown` → `ignored`; stable count
   unchanged at 16; partial count unchanged at 223.
+- **Post-quality coverage review** — ✅ Shipped. See
+  [Post-Quality Coverage Review](capability-phrase-post-quality-coverage-review.md).
+  Added `target-2` (real small TS + workflows). Cross-
+  target verdict: stable density sparse on both real
+  repos (0.18% on `target-1`, 0.49% on `target-2`).
+  Next slice is a repo-agnostic purpose understanding
+  architecture review.
 - **Third coverage review** after candidate-quality
   improvements land. Measure stable count + partial
   count + enrichment coverage on `target-1` + at least
