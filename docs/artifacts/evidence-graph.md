@@ -241,3 +241,45 @@ config) → `EffectiveCapabilityOntology` (Layer 4, internal compiled model) →
 `RefactorPreservationContract` (Layer 7, future). `EvidenceGraph` remains
 Layer 0 and is unchanged. **EvidenceGraph raw facts are unchanged** by the
 ontology track.
+
+### Upcoming: AST-backed JS/TS provider
+
+The
+[Classic Scanner/Ontology Parity Audit](../strategy/classic-scanner-ontology-parity-audit.md)
+maps Rekon's current scanner / taxonomy / ontology stack
+against `codebase-intel-classic` as design prior art and
+identifies the **evidence-model bottleneck**: regex-based
+JS/TS extraction misses the structured names AST
+traversal would surface. The audit selects the **JS/TS
+AST Evidence Adapter Decision** as the next slice on the
+capability-ontology track and pins the following
+guarantees:
+
+- **`EvidenceGraph` remains the repo-agnostic protocol.**
+  Adding an AST-backed JS/TS provider does **not** change
+  the shape or protocol of this artifact. The adapter is
+  an additional provider, not a replacement layer.
+- **JS/TS AST extraction should be primary where
+  available.** When a JS/TS target is in scope and an AST
+  parser is available, AST-derived facts are the primary
+  evidence source.
+- **Regex extraction is fallback, not primary, for
+  JS/TS.** The existing regex extractor in
+  `@rekon/capability-js-ts` stays in place as the
+  fallback for AST-unavailable environments. The audit
+  does **not** remove it.
+- **No type-checker dependency in v1.** AST alone closes
+  most of the regex gap; a deeper type-checker
+  integration is a later, separate decision.
+- **AST stays optional enrichment, not foundational truth
+  in v1.** The eight architectural reservations from the
+  Capability Ontology Architecture Impact Review remain
+  in force.
+
+The audit explicitly pins
+`codebase-intel-classic` as **design prior art, not
+dependency** — Rekon does not import classic code; the
+audit names which classic *patterns* (`ExtractedName` /
+`SplitName` / taxonomy discovery / verb-noun aliases /
+canonical+alias vocabularies) to repeat / adapt /
+reject inside Rekon's artifact-first model.

@@ -6247,10 +6247,130 @@ scope:
   `tests/docs/capability-phrase-post-quality-coverage-review.test.mjs`.
   Review packet
   `.rekon-dev/review-packets/capability-phrase-post-quality-coverage-review.md`.
-  **Recommended next slice:**
-  repo-agnostic purpose
+  **Recommended next slice
+  (superseded by the parity audit
+  below):** *repo-agnostic purpose
   understanding architecture
-  review.
+  review* was the original framing,
+  but the twenty-second slice
+  (parity audit) selects the
+  **JS/TS AST Evidence Adapter
+  Decision** as the next slice.
+- **Classic scanner / ontology
+  parity audit (P1.1
+  classic-scanner-ontology-parity-audit
+  slice).** ✅ Shipped.
+  **Twenty-second slice on the
+  capability-ontology track.**
+  Strategy / architecture / docs /
+  tests-only batch. Reverses the
+  recent posture of solving the
+  ontology / scanner problem from
+  scratch and treats
+  `codebase-intel-classic` as
+  **design prior art** per
+  [ADR 0004](../adr/0004-codebase-intel-classic-is-reference-not-dependency.md)
+  (reference, not dependency). Maps
+  classic's scanner pipeline
+  (source scan → AST parse →
+  `ExtractedName` → `SplitName` →
+  taxonomy discovery → hierarchy →
+  runtime normalization →
+  `GraphOntologyValidator`) and
+  ontology / taxonomy pipeline
+  (`lib/verb-rules.ts` /
+  `lib/noun-rules.ts` /
+  `domain/ontology/mergeOntology.ts`
+  / `infra/repositories/TaxonomyRepository.ts`)
+  against Rekon's current
+  `EvidenceGraph` /
+  `CapabilityNormalizationReport`
+  / `CapabilityPhraseReport`
+  pipeline. **Pinned verbatim:**
+  *codebase-intel is design prior
+  art.* *JS/TS AST extraction
+  should be primary where
+  available.* *Regex extraction is
+  fallback, not primary, for
+  JS/TS.* *`EvidenceGraph` remains
+  the repo-agnostic protocol.*
+  *`GraphOntologyValidator` should
+  not be ported wholesale.*
+  *Classic taxonomy extraction /
+  split / discovery / normalization
+  should be adapted.*
+  *`CapabilityMap` v2 should wait
+  until post-AST coverage is
+  measured.* Parity matrix
+  decisions: `ExtractedName` /
+  `SplitName` → adapt (needs AST
+  extraction to be strong);
+  taxonomy discovery → adapt
+  (deferred artifact); verb /
+  noun aliases → repeat (shipped);
+  base + workspace ontology merge
+  → repeat (shipped);
+  `synonymsApplied` → adapt
+  (per-candidate shipped; aggregate
+  is a future polish);
+  `GraphOntologyValidator`
+  monolith → reject wholesale (per
+  the lite audit); AST-backed
+  scanner → adapt (the next
+  product slice);
+  `TaxonomyRepository` standalone
+  persistence layer → reject
+  (artifact store already covers
+  persistence). **No runtime
+  change. No `CapabilityMap`
+  mutation. No
+  `CapabilityPhraseReport` shape
+  change. No
+  `CapabilityNormalizationReport`
+  semantics change. No
+  `EvidenceGraph` mutation. No
+  phrase projection rule change.
+  No canon-pack change. No
+  splitter change. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No npm
+  publish. No version bump. No
+  git tag. No GitHub Release. No
+  new branch.** New strategy memo
+  [`docs/strategy/classic-scanner-ontology-parity-audit.md`](classic-scanner-ontology-parity-audit.md)
+  with 15 required headings + 3
+  required tables (classic method /
+  scanner parity / next-step
+  decision). New 13-assertion docs
+  test
+  `tests/docs/classic-scanner-ontology-parity-audit.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/classic-scanner-ontology-parity-audit.md`.
+  **Recommended next slice:**
+  *JS/TS AST Evidence Adapter
+  Decision* — strategy memo that
+  picks a parser (TypeScript
+  compiler API, ts-morph, swc, or
+  alternative); defines emitted
+  `EvidenceGraph` fact shapes
+  (likely extending `export` /
+  `symbol` / `import` with
+  `function-signature` /
+  `class-member` / `type-alias`
+  / `enum-member`); pins fallback
+  behaviour for non-JS/TS targets
+  and AST-unavailable
+  environments (regex stays
+  available as fallback); pins
+  per-fact confidence metadata;
+  lists test fixtures; pins **no
+  source writes**, **no LLM-only
+  inference**, **no type-checker
+  dependency in v1**; pins
+  **AST adapter is the primary
+  JS/TS scanner where available;
+  regex is fallback**.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

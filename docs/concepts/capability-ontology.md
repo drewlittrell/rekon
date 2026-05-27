@@ -410,6 +410,21 @@ eligible for future `CapabilityMap` v2. Coverage on
 partial; 0 low-confidence). `sideEffects` / `inputs` /
 `outputs` remain deferred per the architecture decision.
 
+The
+[Classic Scanner/Ontology Parity
+Audit](../strategy/classic-scanner-ontology-parity-audit.md)
+maps Rekon's current scanner / taxonomy / ontology stack
+against `codebase-intel-classic` as design prior art and
+identifies the evidence-model bottleneck: regex-based
+JS/TS extraction misses the structured names AST
+traversal would surface. The audit selects the **JS/TS
+AST Evidence Adapter Decision** as the next slice on the
+capability-ontology track. `EvidenceGraph` remains the
+repo-agnostic protocol; regex extraction stays available
+as fallback for AST-unavailable environments;
+`CapabilityMap` v2 stays deferred until post-AST coverage
+is measured.
+
 ## See Also
 
 - [`CapabilityNormalizationReport` artifact
@@ -469,9 +484,19 @@ partial; 0 low-confidence). `sideEffects` / `inputs` /
   — third coverage review measuring fixture +
   target-1 + new target-2 after Candidate-Quality v1.
   Cross-target evidence confirms stable density does
-  not respond to vocabulary or splitter tweaks. Next
-  slice is a repo-agnostic purpose understanding
-  architecture review.
+  not respond to vocabulary or splitter tweaks; the
+  bottleneck is the evidence model itself, not
+  vocabulary or splitter precision.
+- [Classic Scanner/Ontology Parity
+  Audit](../strategy/classic-scanner-ontology-parity-audit.md)
+  — strategy / architecture audit that maps
+  `codebase-intel-classic` against Rekon's current
+  scanner / taxonomy / ontology stack and selects the
+  JS/TS AST Evidence Adapter Decision as the next
+  slice on the capability-ontology track. Pins AST as
+  primary where available; regex as fallback;
+  `EvidenceGraph` as the repo-agnostic protocol that
+  survives the adapter slice.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

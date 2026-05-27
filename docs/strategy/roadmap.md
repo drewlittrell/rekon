@@ -2626,20 +2626,100 @@ is the first stop before proposing a new capability batch.
   `tests/docs/capability-phrase-post-quality-coverage-review.test.mjs`.
   Review packet
   `.rekon-dev/review-packets/capability-phrase-post-quality-coverage-review.md`.
-  **Recommended next slice:**
+  **Recommended next slice (superseded by
+  the parity audit below):** the
   *repo-agnostic purpose
   understanding architecture
-  review* — strategy memo
-  surveying deterministic
-  evidence sources beyond
-  symbol/export names. Output
-  drives the next product slice
-  (phrase enrichment v2,
-  candidate extraction, or
-  canon-pack expansion v2) and
-  pins the gates `CapabilityMap`
-  v2 must hit on a fourth
-  coverage review.
+  review* was the original framing,
+  but the twenty-second slice
+  (parity audit) selects the
+  **JS/TS AST Evidence Adapter
+  Decision** as the next slice on
+  this track. The evidence-model
+  bottleneck is now named directly:
+  it is the regex-only JS/TS
+  extraction layer, not vocabulary
+  or splitter precision.
+- Classic scanner / ontology
+  parity audit (P1.1
+  classic-scanner-ontology-parity-audit
+  slice): **twenty-second slice on
+  the capability-ontology track.**
+  Strategy / architecture /
+  docs / tests-only batch. Reverses
+  the recent posture of solving the
+  ontology / scanner problem from
+  scratch and treats
+  `codebase-intel-classic` as
+  design prior art per
+  [ADR 0004](../adr/0004-codebase-intel-classic-is-reference-not-dependency.md).
+  Maps classic's scanner pipeline
+  (source scan → AST parse →
+  `ExtractedName` → `SplitName` →
+  taxonomy discovery → hierarchy
+  → runtime normalization →
+  `GraphOntologyValidator`)
+  against Rekon's current
+  `EvidenceGraph` /
+  `CapabilityNormalizationReport`
+  / `CapabilityPhraseReport`
+  pipeline. **Pinned verbatim:**
+  *codebase-intel is design prior
+  art.* *JS/TS AST extraction
+  should be primary where
+  available.* *Regex extraction is
+  fallback, not primary, for
+  JS/TS.* *`EvidenceGraph` remains
+  the repo-agnostic protocol.*
+  *`GraphOntologyValidator` should
+  not be ported wholesale.*
+  *Classic taxonomy extraction /
+  split / discovery / normalization
+  should be adapted.*
+  *`CapabilityMap` v2 should wait
+  until post-AST coverage is
+  measured.* **No runtime change.
+  No `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape
+  change. No
+  `CapabilityNormalizationReport`
+  semantics change. No
+  `EvidenceGraph` mutation. No
+  phrase projection rule change.
+  No canon-pack change. No
+  splitter change. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No npm
+  publish. No version bump. No
+  git tag. No GitHub Release. No
+  new branch.** New strategy memo
+  [`docs/strategy/classic-scanner-ontology-parity-audit.md`](classic-scanner-ontology-parity-audit.md)
+  with 15 required headings + 3
+  required tables (classic method
+  / scanner parity / next-step
+  decision). New 13-assertion
+  docs test
+  `tests/docs/classic-scanner-ontology-parity-audit.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/classic-scanner-ontology-parity-audit.md`.
+  **Recommended next slice:**
+  *JS/TS AST Evidence Adapter
+  Decision* — strategy memo that
+  picks a parser (TypeScript
+  compiler API, ts-morph, swc, or
+  alternative), defines emitted
+  `EvidenceGraph` fact shapes,
+  pins fallback behaviour for
+  non-JS/TS targets and
+  AST-unavailable environments
+  (regex stays available as
+  fallback), pins per-fact
+  confidence metadata, and pins
+  **no source writes**, **no
+  LLM-only inference**, **no
+  type-checker dependency in
+  v1**.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

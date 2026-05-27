@@ -380,10 +380,19 @@ architecture review's evidence-source recommendation.
 
 ## Follow-Up Work
 
-- **Repo-agnostic purpose understanding architecture
-  review** (next slice). Strategy memo; examines
-  deterministic evidence sources beyond symbol/export
-  names.
+- **Classic scanner/ontology parity audit** —
+  ✅ Shipped. See
+  [Classic Scanner/Ontology Parity Audit](classic-scanner-ontology-parity-audit.md).
+  Maps codebase-intel-classic's scanner / taxonomy /
+  ontology / GraphOntologyValidator design against
+  Rekon's current track. Identifies regex-only JS/TS
+  extraction in `@rekon/capability-js-ts` as the
+  evidence-model bottleneck. Selects **JS/TS AST
+  Evidence Adapter Decision** as the next slice.
+- **JS/TS AST Evidence Adapter Decision** (next
+  slice). Strategy memo; picks parser, defines
+  `EvidenceGraph` fact shapes, pins fallback, AST is
+  primary where available.
 - **Phrase enrichment v2** (parallel; framework /
   architecture-profile-derived `pattern` and `layer`
   enrichment). Lands behind the architecture review.

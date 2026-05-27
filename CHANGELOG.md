@@ -4,6 +4,99 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **classic scanner/ontology parity audit** —
+  strategy / architecture audit batch that maps
+  `codebase-intel-classic`'s scanner, taxonomy,
+  ontology, and `GraphOntologyValidator` design
+  against Rekon's current `EvidenceGraph` /
+  `CapabilityNormalizationReport` /
+  `CapabilityPhraseReport` track. Course-corrects the
+  capability-ontology track: classic is design prior
+  art, not history.
+
+  Pinned verbatim:
+
+    - codebase-intel is design prior art.
+    - JS/TS AST extraction should be primary where
+      available.
+    - Regex extraction is fallback, not primary, for
+      JS/TS.
+    - `EvidenceGraph` remains the repo-agnostic
+      protocol.
+    - `GraphOntologyValidator` should not be ported
+      wholesale.
+    - Classic taxonomy extraction / split / discovery
+      / normalization should be adapted.
+    - `CapabilityMap` v2 should wait until post-AST
+      coverage is measured.
+
+  Audit finding (verbatim):
+
+  > Three coverage reviews + two runtime slices on
+  > the phrase track confirm canon-pack tuning and
+  > splitter sharpening cannot move the stable
+  > foundation. The bottleneck is `@rekon/capability-js-ts`'s
+  > **regex-only** evidence extractor. Classic
+  > used AST-backed scanning for the same job.
+
+  Parity matrix decisions:
+
+    - Verb / noun aliases + categories → **repeat**
+      (shipped via canon packs).
+    - Base + workspace ontology merge → **repeat**
+      (shipped).
+    - `ExtractedName` / `SplitName` shape → **adapt**
+      (needs AST to strengthen).
+    - Taxonomy discovery as artifact → **adapt**
+      (deferred until AST lands).
+    - `synonymsApplied` aggregate surface → **adapt**
+      (per-candidate already shipped).
+    - AST-backed scanner → **adapt** (the next
+      product slice).
+    - `GraphOntologyValidator` monolith → **reject
+      wholesale** (per the lite audit).
+    - `TaxonomyRepository` standalone persistence
+      → **reject** (artifact store covers it).
+    - LLM-augmented extraction → **rejected** (per
+      architecture decision).
+
+  Implementation sequence selected:
+
+    1. **JS/TS AST Evidence Adapter Decision**
+       (next slice; strategy memo).
+    2. JS/TS AST `EvidenceGraph` Provider v1
+       (runtime slice; conditioned on the decision).
+    3. Post-AST coverage review (fourth coverage
+       review on the phrase track).
+    4. `CapabilityMap` v2 high-confidence-only
+       design decision (gated on post-AST coverage).
+
+  No runtime change. No `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape change. No
+  `CapabilityNormalizationReport` semantics change.
+  No `EvidenceGraph` mutation. No phrase projection
+  rule change. No canon-pack change. No splitter
+  change. No new artifact registration. No new CLI
+  command. No source writes. No LLM-only inference.
+  No npm publish. No version bump. No git tag. No
+  GitHub Release. No new branch.
+
+  New strategy memo:
+  [`docs/strategy/classic-scanner-ontology-parity-audit.md`](docs/strategy/classic-scanner-ontology-parity-audit.md)
+  with 15 required headings + 3 required tables
+  (classic method / scanner parity / next-step
+  decision). New 13-assertion docs test
+  `tests/docs/classic-scanner-ontology-parity-audit.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/classic-scanner-ontology-parity-audit.md`.
+
+  Recommended next slice: **JS/TS AST Evidence
+  Adapter Decision** — strategy memo. Picks parser,
+  defines `EvidenceGraph` fact shapes, pins fallback
+  behaviour, confidence metadata, test fixtures. AST
+  is primary where available; regex stays as
+  fallback.
+
 - Shipped **CapabilityPhraseReport post-quality coverage
   review** — dogfood-analysis batch measuring phrase
   output **after** Candidate-Quality v1 across a

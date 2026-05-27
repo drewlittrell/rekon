@@ -725,6 +725,33 @@ runtime behaviour change to
 existing surfaces beyond the
 additive consumer described**.
 
+**Parity-audit reconfirmation
+(2026-05-26):** the
+[Classic Scanner/Ontology Parity
+Audit](classic-scanner-ontology-parity-audit.md)
+re-confirms all eight
+architectural reservations
+above. In particular,
+reservation #8 (unknown verbs
+/ nouns must surface to
+operators) is preserved by the
+audit's selection of
+**AST-backed JS/TS extraction as
+the next product slice** —
+extraction gets stronger, but
+the audit / suggestion /
+ledger surfaces remain the
+canonical operator-review path.
+AST stays optional enrichment,
+not foundational truth in v1:
+the parity audit pins regex
+extraction as fallback for
+AST-unavailable environments
+and pins `EvidenceGraph` as
+the repo-agnostic protocol that
+survives the AST adapter
+slice.
+
 ## Cross-References
 
 - [Graph Ontology Validator Lite Audit](graph-ontology-validator-lite-audit.md)
@@ -745,6 +772,18 @@ additive consumer described**.
   baseline acceptable for audit-only v1, `CapabilityMap`
   integration remains deferred until the operator review
   surface ships.
+- [Classic Scanner/Ontology Parity
+  Audit](classic-scanner-ontology-parity-audit.md)
+  — re-confirms all eight architectural
+  reservations from this review and
+  selects the JS/TS AST Evidence Adapter
+  Decision as the next slice on the
+  capability-ontology track. Pins AST as
+  optional enrichment, not foundational
+  truth in v1; pins regex as fallback;
+  pins `EvidenceGraph` as the
+  repo-agnostic protocol that survives
+  the AST adapter slice.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 

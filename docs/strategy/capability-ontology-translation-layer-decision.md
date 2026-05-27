@@ -211,6 +211,20 @@ capability hints. Already exists.
 **Read-only** input to every layer
 above. Never mutated by ontology.
 
+**Upcoming:** the
+[Classic Scanner/Ontology Parity Audit](classic-scanner-ontology-parity-audit.md)
+identifies AST-backed JS/TS extraction
+as the next product slice that feeds
+this layer. The next slice on the
+capability-ontology track is the
+**JS/TS AST Evidence Adapter Decision**
+strategy memo. `EvidenceGraph` shape
+and protocol remain unchanged; the
+adapter is an additional provider.
+Regex extraction stays in place as
+fallback for AST-unavailable
+environments.
+
 ### Layer 1 — `CapabilityCandidateSet` (conceptual / helper)
 
 The set of candidate name-bearing
@@ -921,6 +935,14 @@ the layered model is preserved.
   ontology packs + repo-local overrides. Replaces the
   "manual editing is the steady-state model" direction
   selected in step 4d.
+- [Classic Scanner/Ontology Parity
+  Audit](classic-scanner-ontology-parity-audit.md)
+  — strategy / architecture audit that maps the
+  classic scanner / taxonomy / ontology stack against
+  Rekon's current state and selects the JS/TS AST
+  Evidence Adapter Decision as the next slice on the
+  capability-ontology track. Pins AST extraction as
+  primary where available; regex as fallback.
 - [Roadmap](roadmap.md)
 - [Classic-behaviour roadmap](classic-behavior-roadmap.md)
 
