@@ -457,6 +457,13 @@ partial; 0 low-confidence). `sideEffects` / `inputs` /
   but stable count is unchanged. Next slice is
   candidate-quality improvements; `CapabilityMap` v2
   stays deferred.
+- [Capability Ontology Candidate-Quality Improvements
+  v1](../strategy/capability-ontology-candidate-quality-v1.md)
+  — product slice that sharpens the lexical splitter
+  (path-shaped + noun-only detection) to reduce
+  upstream normalization noise. Reduced `unknown`
+  candidates on `target-1` by 223 without changing
+  stable phrase count.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

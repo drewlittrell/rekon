@@ -2485,6 +2485,79 @@ is the first stop before proposing a new capability batch.
   review measures the delta and
   revisits the `CapabilityMap`
   v2 gate.
+- Capability ontology candidate-
+  quality improvements v1 (P1.1
+  capability-ontology-candidate-quality-v1
+  slice): **twentieth slice on the
+  capability-ontology track.**
+  Product capability batch. Two
+  deterministic improvements:
+  (1) canon-pack confirmation —
+  the four observed-frequent
+  nouns (`schema`, `request`,
+  `response`, `plan`) and three
+  verbs (`save`, `get`, `build`)
+  are confirmed already canonical
+  in the base pack; no
+  duplicates introduced; (2)
+  lexical-splitter sharpening —
+  the splitter now emits a
+  structural `kind` hint
+  (`"name" | "path"`), and the
+  normalizer classifies path-
+  shaped names (`/`-bearing,
+  bare-extension `.tsx`) as
+  `ignored` rather than
+  `unknown`, plus emits a
+  precise low-confidence message
+  for single-token known nouns
+  (`Known noun "X" without a
+  verb; insufficient for a
+  capability phrase.`).
+  **Stable threshold unchanged.**
+  **Noun-only candidates do not
+  become phrases.**
+  Measured on `target-1`:
+  `unknown` 4,088 → 3,865 (−223),
+  `ignored` 226 → 449 (+223),
+  `normalized` unchanged at 241,
+  stable phrases unchanged at
+  16, total phrases unchanged at
+  239. **Public API additions
+  (all additive)**:
+  `CapabilityNameSplitKind`,
+  `CapabilityNameSplit.kind`,
+  `CapabilityCandidate.raw.splitKind`.
+  **No `CapabilityMap` mutation.
+  No `CapabilityPhraseReport`
+  shape change. No phrase
+  projection rule change. No
+  `CapabilityNormalizationReport`
+  semantics change. No
+  `EvidenceGraph` mutation. No
+  new artifact registration. No
+  new CLI command. No source
+  reads. No AST/typechecker/LLM
+  evidence. No source writes. No
+  version bump. No npm publish.
+  No git tag. No GitHub Release.
+  No new branch.** New strategy
+  memo
+  [`docs/strategy/capability-ontology-candidate-quality-v1.md`](capability-ontology-candidate-quality-v1.md).
+  New 16-assertion contract test
+  `tests/contract/capability-ontology-candidate-quality.test.mjs`.
+  New 9-assertion docs test
+  `tests/docs/capability-ontology-candidate-quality.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-ontology-candidate-quality-v1.md`.
+  **Recommended next slice:**
+  *CapabilityPhraseReport
+  post-quality coverage review* —
+  re-run fixture + `target-1` +
+  at least one additional cohort
+  target to decide whether the
+  `CapabilityMap` v2 design can
+  begin.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

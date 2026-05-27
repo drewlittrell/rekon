@@ -408,12 +408,16 @@ candidate-quality takes priority.
 
 ## Follow-Up Work
 
-- **Candidate-quality improvements** (next slice).
-  Canon-pack expansion of frequently-appearing partial
-  verb/noun pairs (`save`, `normalize`, `schema`,
-  `response`, `request`, `plan`, etc.). Lexical-splitter
-  sharpening for `unknown-verb` / `unknown-noun` rows.
-  Coverage measured by a follow-up review.
+- **Candidate-quality improvements v1** — ✅ Shipped. See
+  [Candidate-Quality v1 Memo](capability-ontology-candidate-quality-v1.md).
+  Canon-pack confirmation (all four observed-frequent
+  nouns and three observed-frequent verbs already
+  canonical) + lexical-splitter sharpening (path-shaped
+  candidates classified as `ignored`, single-token
+  known nouns get precise `low-confidence` messages).
+  Measured on `target-1`: 223 path-shaped candidates
+  moved from `unknown` → `ignored`; stable count
+  unchanged at 16; partial count unchanged at 223.
 - **Third coverage review** after candidate-quality
   improvements land. Measure stable count + partial
   count + enrichment coverage on `target-1` + at least

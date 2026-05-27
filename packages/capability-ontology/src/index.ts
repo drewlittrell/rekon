@@ -826,24 +826,60 @@ export function compileEffectiveCapabilityOntology(
 
 export type CapabilitySplitConfidence = "high" | "medium" | "low";
 
+/**
+ * Structural kind hint emitted by the splitter.
+ *
+ * - `"name"`: an identifier-style name (camelCase, snake_case,
+ *   PascalCase, etc.). Default.
+ * - `"path"`: the raw input looks like a file/directory path
+ *   (contains `/`), which the normalizer should classify as
+ *   `ignored` rather than `unknown` — path tokens like `src` and
+ *   `ts` are not capability verbs/nouns.
+ *
+ * Candidate-quality v1 added this hint to reduce path-shaped
+ * noise without changing the normalized-phrase contract.
+ */
+export type CapabilityNameSplitKind = "name" | "path";
+
 export type CapabilityNameSplit = {
   tokens: string[];
   verb?: string;
   noun?: string;
   confidence: CapabilitySplitConfidence;
+  kind: CapabilityNameSplitKind;
 };
 
 const SPLIT_TOKEN_RE = /[a-z]+|[A-Z]+(?=[A-Z][a-z])|[A-Z][a-z]+|[A-Z]+|[0-9]+/g;
 
+/**
+ * Returns true when the raw candidate name looks like a file or
+ * directory path. Detection rules:
+ *
+ * - contains a `/` (e.g. `src/index.ts`, `app/api/users/route.ts`);
+ * - **or** is bare-extension-only (e.g. `.ts`, `.tsx`, `.js`).
+ *
+ * Path-shaped names tokenize into capability-meaningless tokens
+ * (`src`, `ts`, etc.). The candidate-quality v1 normalizer
+ * classifies them as `ignored` rather than `unknown`.
+ */
+function looksLikePath(name: string): boolean {
+  if (name.includes("/")) return true;
+  if (/^\.[a-z0-9]+$/i.test(name)) return true;
+  return false;
+}
+
 export function splitCapabilityName(name: string): CapabilityNameSplit {
   const cleaned = (name ?? "").trim();
   if (cleaned.length === 0) {
-    return { tokens: [], confidence: "low" };
+    return { tokens: [], confidence: "low", kind: "name" };
   }
 
-  // Replace non-word delimiters (snake_case, kebab-case, dots) with a
-  // single space so the camelCase regex can still split sub-tokens.
-  const delimited = cleaned.replace(/[._\-\s]+/g, " ");
+  const kind: CapabilityNameSplitKind = looksLikePath(cleaned) ? "path" : "name";
+
+  // Replace non-word delimiters (snake_case, kebab-case, dots,
+  // path separators) with a single space so the camelCase regex
+  // can still split sub-tokens.
+  const delimited = cleaned.replace(/[._\-\s/]+/g, " ");
 
   const tokens: string[] = [];
   for (const piece of delimited.split(" ")) {
@@ -859,19 +895,19 @@ export function splitCapabilityName(name: string): CapabilityNameSplit {
   }
 
   if (tokens.length === 0) {
-    return { tokens: [], confidence: "low" };
+    return { tokens: [], confidence: "low", kind };
   }
 
   if (tokens.length === 1) {
     // Single-token name: ambiguous — could be verb-only or noun-only.
-    return { tokens, verb: tokens[0], confidence: "low" };
+    return { tokens, verb: tokens[0], confidence: "low", kind };
   }
 
   const verb = tokens[0];
   const noun = tokens[tokens.length - 1];
   const confidence: CapabilitySplitConfidence = tokens.length === 2 ? "high" : "medium";
 
-  return { tokens, verb, noun, confidence };
+  return { tokens, verb, noun, confidence, kind };
 }
 
 // ---------- Candidate extraction ----------
@@ -899,6 +935,14 @@ export type CapabilityCandidate = {
     verb?: string;
     noun?: string;
     splitConfidence: CapabilitySplitConfidence;
+    /**
+     * Structural kind hint from the lexical splitter. `"path"` means
+     * the raw name looked like a file/directory path; the normalizer
+     * classifies such candidates as `ignored` rather than `unknown`.
+     * Optional — older artifacts and producers that didn't surface a
+     * splitter `kind` continue to work; consumers default to `"name"`.
+     */
+    splitKind?: CapabilityNameSplitKind;
   };
   source: CapabilityCandidateSource;
 };
@@ -937,6 +981,7 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         verb: split.verb,
         noun: split.noun,
         splitConfidence: split.confidence,
+        splitKind: split.kind,
       },
       source: { factId: fact.id, factKind: fact.kind, path, symbol, kind: "symbol" },
     };
@@ -953,6 +998,7 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         verb: split.verb,
         noun: split.noun,
         splitConfidence: split.confidence,
+        splitKind: split.kind,
       },
       source: { factId: fact.id, factKind: fact.kind, path, exportName, kind: "export" },
     };
@@ -968,6 +1014,7 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         verb: split.verb,
         noun: split.noun,
         splitConfidence: split.confidence,
+        splitKind: split.kind,
       },
       source: { factId: fact.id, factKind: fact.kind, path, kind: "capability_hint" },
     };
@@ -983,6 +1030,7 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         verb: split.verb,
         noun: split.noun,
         splitConfidence: split.confidence,
+        splitKind: split.kind,
       },
       source: { factId: fact.id, factKind: fact.kind, path, kind: "ownership_hint" },
     };
@@ -1042,10 +1090,47 @@ function normalizeOneCandidate(
     };
   }
 
+  // Candidate-quality v1: path-shaped names (e.g. `src/index.ts`,
+  // `app/api/users/route.ts`, bare `.tsx`) tokenize into capability-
+  // meaningless tokens. The splitter flags `kind === "path"`;
+  // classify these as `ignored` rather than `unknown` so the audit
+  // report distinguishes path noise from genuine vocabulary gaps.
+  if (candidate.raw.splitKind === "path") {
+    return {
+      candidate,
+      status: "ignored",
+      confidence: candidate.raw.splitConfidence,
+      message: "Path-shaped candidate; not a capability identifier.",
+    };
+  }
+
   const verbRaw = candidate.raw.verb?.toLowerCase();
   const nounRaw = candidate.raw.noun?.toLowerCase();
 
   if (!verbRaw || !nounRaw) {
+    // Candidate-quality v1: when the single lexical token is itself
+    // a known canonical noun (or noun alias), report it as a known
+    // noun without a verb rather than the generic "split did not
+    // yield both a verb and a noun" — this surfaces the precise
+    // reason no phrase emitted (no verb context, not lexical
+    // failure) without inventing a verb.
+    if (verbRaw && !nounRaw) {
+      const nounMatch = lookupNoun(verbRaw, ontology);
+      if (nounMatch) {
+        return {
+          candidate,
+          status: "low-confidence",
+          confidence: "low",
+          message: `Known noun "${nounMatch.canonical}" without a verb; insufficient for a capability phrase.`,
+          normalized: {
+            verb: verbRaw,
+            noun: nounMatch.canonical,
+            nounAliasApplied: nounMatch.aliasApplied,
+            nounCategory: ontology.nouns.categoryByCanonical[nounMatch.canonical],
+          },
+        };
+      }
+    }
     return {
       candidate,
       status: "low-confidence",

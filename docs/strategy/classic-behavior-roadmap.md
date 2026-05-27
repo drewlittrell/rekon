@@ -6138,6 +6138,63 @@ scope:
   lexical-splitter sharpening to
   raise the upstream normalized
   count (currently 2.6%).
+- **Capability ontology
+  candidate-quality improvements
+  v1 (P1.1
+  capability-ontology-candidate-quality-v1
+  slice).** ✅ Shipped. **Twentieth
+  slice on the capability-ontology
+  track.** Product capability
+  batch. Two deterministic
+  improvements: canon-pack
+  confirmation (four nouns +
+  three verbs already canonical;
+  no duplicates) and
+  lexical-splitter sharpening
+  (path-shaped → `ignored`,
+  single-token known nouns →
+  precise low-confidence
+  message). Pinned verbatim:
+  candidate-quality improvements
+  are deterministic; canon-pack
+  additions are evidence-backed;
+  lexical splitter sharpening
+  reduces noise; noun-only
+  candidates do not become
+  phrases; stable phrase
+  threshold remains unchanged;
+  `CapabilityMap` integration
+  remains deferred. Measured on
+  `target-1`: 223 path-shaped
+  candidates moved from
+  `unknown` → `ignored`; stable
+  count unchanged at 16; total
+  unchanged at 239. **No
+  `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` shape
+  change. No phrase projection
+  rule change. No
+  `CapabilityNormalizationReport`
+  semantics change. No
+  `EvidenceGraph` mutation. No
+  new artifact registration. No
+  new CLI command. No source
+  reads. No AST/typechecker/LLM
+  evidence. No source writes. No
+  version bump. No npm publish.
+  No git tag. No GitHub Release.
+  No new branch.** New strategy
+  memo
+  [`docs/strategy/capability-ontology-candidate-quality-v1.md`](capability-ontology-candidate-quality-v1.md).
+  New 16-assertion contract test
+  `tests/contract/capability-ontology-candidate-quality.test.mjs`.
+  New 9-assertion docs test
+  `tests/docs/capability-ontology-candidate-quality.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-ontology-candidate-quality-v1.md`.
+  **Recommended next slice:**
+  `CapabilityPhraseReport`
+  post-quality coverage review.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

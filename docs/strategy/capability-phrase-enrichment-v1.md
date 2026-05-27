@@ -214,11 +214,13 @@ known domain / pattern / layer.
   withPattern 0%. Verdict: stable count unchanged;
   `CapabilityMap` v2 stays deferred; next slice is
   candidate-quality improvements.
-- **Candidate-quality improvements** — next slice.
-  Canon-pack expansion of frequently-appearing
-  partial-only pairs + lexical-splitter sharpening.
-  Targets raising the *normalized* count (currently
-  2.6%) to lift the stable phrase foundation.
+- **Candidate-quality improvements v1** — ✅ Shipped.
+  See [Candidate-Quality v1 Memo](capability-ontology-candidate-quality-v1.md).
+  Lexical-splitter sharpening (path-shaped + noun-only
+  detection) reduced upstream `unknown` noise on
+  `target-1` by 223 candidates without changing stable
+  phrase count. Canon-pack confirmed already covers the
+  four observed-frequent nouns and three verbs.
 - **`CapabilityMap` v2 high-confidence-only design
   decision** — gated on a **third** coverage review
   after candidate-quality ships.

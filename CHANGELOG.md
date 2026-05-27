@@ -4,6 +4,87 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **capability ontology candidate-quality
+  improvements v1** — product capability batch. Two
+  deterministic improvements to reduce upstream
+  normalization noise without weakening the
+  `CapabilityPhraseReport` stable threshold:
+
+    1. **Canon-pack confirmation** — the four observed
+       high-frequency partial-only nouns (`schema`,
+       `request`, `response`, `plan`) and three
+       observed verbs (`save`, `get`, `build`) are
+       confirmed already canonical in the base pack.
+       No new canonical entries added; no duplicates
+       introduced. Contract test pins both invariants.
+    2. **Lexical splitter sharpening** — the splitter
+       now emits a structural `kind` hint
+       (`"name" | "path"`). Path-shaped names
+       (containing `/` or bare file extensions like
+       `.tsx`) are flagged `"path"`; the normalizer
+       classifies them as `ignored` rather than
+       `unknown`. Single-token names whose token is a
+       known canonical noun receive a precise
+       `low-confidence` message (`Known noun "X"
+       without a verb; insufficient for a capability
+       phrase.`) instead of the generic split failure
+       message, and `normalized.noun` is populated with
+       the canonical noun — but **no canonical verb is
+       invented**.
+
+  Pinned verbatim:
+
+    - Candidate-quality improvements are deterministic.
+    - Canon-pack additions are evidence-backed.
+    - Lexical splitter sharpening reduces noise.
+    - Noun-only candidates do not become phrases.
+    - Stable phrase threshold remains unchanged.
+    - `CapabilityMap` integration remains deferred.
+
+  Measured impact on `target-1` (real anonymized
+  Next.js TS):
+
+    - `unknown` 4,088 → 3,865 (−223 path-shaped
+      candidates correctly reclassified).
+    - `ignored` 226 → 449 (+223).
+    - `normalized` 241 → 241 (unchanged).
+    - `lowConfidence` 2,054 → 2,054 (unchanged).
+    - Stable phrases 16 → 16 (**unchanged**).
+    - Total phrases 239 → 239 (**unchanged**).
+
+  Public API additions (all additive):
+
+    - `CapabilityNameSplitKind = "name" | "path"`
+      (new exported type alias).
+    - `CapabilityNameSplit.kind` (new required field on
+      the split result).
+    - `CapabilityCandidate.raw.splitKind` (new optional
+      field; older artifacts continue to validate).
+
+  No `CapabilityMap` mutation. No `CapabilityPhraseReport`
+  shape change. No phrase projection rule change. No
+  `CapabilityNormalizationReport` semantics change. No
+  `EvidenceGraph` mutation. No new artifact
+  registration. No new CLI command. No source reads.
+  No AST / typechecker / LLM evidence. No source
+  writes. No npm publish. No version bump. No git tag.
+  No GitHub Release. No new branch.
+
+  New strategy memo:
+  [`docs/strategy/capability-ontology-candidate-quality-v1.md`](docs/strategy/capability-ontology-candidate-quality-v1.md).
+  New 16-assertion contract test
+  `tests/contract/capability-ontology-candidate-quality.test.mjs`.
+  New 9-assertion docs test
+  `tests/docs/capability-ontology-candidate-quality.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-ontology-candidate-quality-v1.md`.
+
+  Recommended next slice: **CapabilityPhraseReport
+  post-quality coverage review** — re-run fixture +
+  `target-1` + at least one additional cohort target
+  to measure stable phrase count delta and decide
+  whether `CapabilityMap` v2 design can begin.
+
 - Shipped **CapabilityPhraseReport enrichment coverage
   review** — dogfood-analysis batch measuring phrase
   output **after** Phrase Enrichment v1 on a fixture

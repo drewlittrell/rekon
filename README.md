@@ -1103,6 +1103,74 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Capability ontology candidate-quality improvements v1
+# has shipped. Product capability batch. Two
+# deterministic improvements to the
+# CapabilityNormalizationReport pipeline:
+#
+# 1. Canon-pack confirmation - the four observed-frequent
+#    nouns (schema, request, response, plan) and three
+#    verbs (save, get, build) are confirmed already
+#    canonical in the base pack. No new canonical entries
+#    added; no duplicates introduced.
+# 2. Lexical splitter sharpening - the splitter now emits
+#    a structural kind hint ("name" | "path"). Path-shaped
+#    names (containing / or bare file extensions like
+#    .tsx) are classified as `ignored` rather than
+#    `unknown`. Single-token names whose token is a known
+#    canonical noun receive a precise low-confidence
+#    message (Known noun "X" without a verb; insufficient
+#    for a capability phrase.). No canonical verb is
+#    invented.
+#
+# Pinned verbatim:
+#   - Candidate-quality improvements are deterministic.
+#   - Canon-pack additions are evidence-backed.
+#   - Lexical splitter sharpening reduces noise.
+#   - Noun-only candidates do not become phrases.
+#   - Stable phrase threshold remains unchanged.
+#   - CapabilityMap integration remains deferred.
+#
+# Measured on target-1:
+#   - unknown 4,088 -> 3,865 (-223 path-shaped candidates
+#     correctly reclassified).
+#   - ignored 226 -> 449 (+223).
+#   - normalized 241 -> 241 (unchanged).
+#   - lowConfidence 2,054 -> 2,054 (unchanged).
+#   - Stable phrases 16 -> 16 (UNCHANGED).
+#   - Total phrases 239 -> 239 (UNCHANGED).
+#
+# Public API additions (all additive):
+#   - CapabilityNameSplitKind = "name" | "path" (new
+#     exported type alias).
+#   - CapabilityNameSplit.kind (new required field on
+#     the split result).
+#   - CapabilityCandidate.raw.splitKind (new optional
+#     field; older artifacts continue to validate).
+#
+# No CapabilityMap mutation. No CapabilityPhraseReport
+# shape change. No phrase projection rule change. No
+# CapabilityNormalizationReport semantics change. No
+# EvidenceGraph mutation. No new artifact registration.
+# No new CLI command. No source reads. No AST/
+# typechecker/LLM evidence. No source writes. No npm
+# publish. No version bump. No git tag. No GitHub
+# Release. No new branch.
+#
+# New strategy memo:
+# docs/strategy/capability-ontology-candidate-quality-v1.md.
+# New 16-assertion contract test
+# tests/contract/capability-ontology-candidate-quality.test.mjs.
+# New 9-assertion docs test
+# tests/docs/capability-ontology-candidate-quality.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/capability-ontology-candidate-quality-v1.md.
+#
+# Recommended next slice: CapabilityPhraseReport
+# post-quality coverage review - re-run fixture +
+# target-1 + at least one additional cohort target to
+# decide whether the CapabilityMap v2 design can begin.
+#
 # CapabilityPhraseReport enrichment coverage review has
 # shipped. Strategy / dogfood-analysis / docs / tests-only
 # batch. Measured phrase output AFTER Phrase Enrichment
