@@ -175,6 +175,16 @@ Rebuild with `rekon publish proof`.
   readiness gate.
 - Not a sufficiency scorer. Failures stay first-class; the publisher
   does not weight or rank them.
+- **Not a `CapabilityMap` v2 surface.**
+  Proof-report surfacing of `CapabilityMap` v2 is
+  deferred. `CapabilityMap` v2 is semantic
+  capability projection (additive
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` / `phraseSourceRef`),
+  not verification proof. The architecture
+  summary and agent contract carry the v2
+  surfacing; the proof report would conflate
+  semantic projection with verification proof.
 
 ## Cross-References
 

@@ -33,13 +33,14 @@ The macro 5-layer boundary is:
    shipped as an additive projection: optional
    `phraseBackedCapabilities` / `phraseBackedSummary` /
    `phraseSourceRef` populated **only** from stable
-   high-confidence `CapabilityPhraseReport` claims. See
+   high-confidence `CapabilityPhraseReport` claims. The
+   architecture summary and agent contract publications
+   now **surface** v2 as projection context (read-only;
+   publications never mutate `CapabilityMap`).
+   Proof-report surfacing is deferred. See
    [the artifact reference](../artifacts/capability-map.md)
    and the
-   [v2 safety review](../strategy/capability-map-v2-safety-review.md),
-   which confirms v2 is safe / stable as an additive
-   high-confidence projection (next slice:
-   publication surfacing).
+   [v2 safety review](../strategy/capability-map-v2-safety-review.md).
 5. `RefactorPreservationContract` — far-future preservation
    contracts. Name reserved; registration deferred.
 

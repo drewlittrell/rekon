@@ -1003,7 +1003,7 @@ export default defineCapability({
       {
         id: "coherency.changed",
         description:
-          "Regenerate the architecture summary when coherency, ownership, or repo model changes.",
+          "Regenerate the architecture summary and agent contract when coherency, ownership, repo model, or CapabilityMap changes. CapabilityMap drives both the v1 entries section and the v2 phrase-backed capabilities section; publications read both shapes but never mutate `CapabilityMap`.",
         inputs: ["CoherencyDelta", "OwnershipMap", "CapabilityMap", "ObservedRepo"],
       },
       {
@@ -1773,6 +1773,23 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     input.capabilityPhraseRef,
     2,
   );
+  // CapabilityMap v2 publication surfacing
+  // (capability-map-v2-publications). The architecture
+  // summary surfaces the high-confidence phrase-backed
+  // projection that already lives on `CapabilityMap`.
+  // Strictly read-only — never re-runs model projection,
+  // never mutates `CapabilityMap`, never mutates
+  // `CapabilityPhraseReport`, never mutates
+  // `CapabilityNormalizationReport`, never mutates
+  // `EvidenceGraph`, never implies placement / ownership /
+  // routing / linting / verification / source-write
+  // authority.
+  renderCapabilityMapV2Section(
+    sections,
+    input.capabilityMap,
+    pickCapabilityMapRefFromHeader(input.capabilityMap?.header),
+    2,
+  );
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -2023,6 +2040,22 @@ function renderCapabilityPhraseSection(
   const block = buildCapabilityPhrasePublicationSection({
     report,
     reportRef,
+    headingLevel,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
+function renderCapabilityMapV2Section(
+  sections: string[],
+  capabilityMap: CapabilityMapV2Like | undefined,
+  capabilityMapRef: ArtifactRef | undefined,
+  headingLevel: 2 | 3,
+): void {
+  const block = buildCapabilityMapV2PublicationSection({
+    capabilityMap,
+    capabilityMapRef,
     headingLevel,
   });
   for (const line of block.lines) {
@@ -2770,7 +2803,8 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat passed verification as automatic finding resolution; status changes require explicit lifecycle/status artifacts.",
   "Do not treat stale, partial, failed, timeout, killed, or not-run verification as proof of completion.",
   "Do not treat CapabilityOntologySuggestionReport entries as applied ontology config; the report is preview-only and `.rekon/capability-ontology.json` is not mutated automatically. Operators must apply proposed changes manually.",
-  "Do not treat CapabilityPhraseReport entries as CapabilityMap ownership or placement policy; CapabilityPhraseReport is semantic purpose projection, CapabilityNormalizationReport remains translation audit, and CapabilityMap integration remains deferred.",
+  "Do not treat CapabilityPhraseReport entries as CapabilityMap ownership or placement policy; CapabilityPhraseReport is semantic purpose projection and CapabilityNormalizationReport remains translation audit. The high-confidence subset projects into CapabilityMap.phraseBackedCapabilities (v2); CapabilityContract policy remains deferred.",
+  "Do not treat CapabilityMap v2 phrase-backed capabilities as CapabilityContract policy, resolver routing authority, architecture lint findings, verification requirements, or source-write permission. CapabilityMap v2 phrase-backed capabilities are stable capability projection; they are not placement policy, ownership policy, or source-write authority.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -3214,6 +3248,21 @@ function renderAgentContract(input: AgentContractInputs): string {
     sections,
     input.capabilityPhraseReport,
     input.capabilityPhraseRef,
+    3,
+  );
+
+  // CapabilityMap v2 publication surfacing
+  // (capability-map-v2-publications). Heading level 3 so
+  // agents see phrase-backed capabilities inside the
+  // operating-state group. Always rendered (with
+  // no-report guidance when empty) so agents know
+  // phrase-backed capabilities are stable capability
+  // projection, not placement policy or source-write
+  // authority.
+  renderCapabilityMapV2Section(
+    sections,
+    input.capabilityMap,
+    pickCapabilityMapRefFromHeader(input.capabilityMap?.header),
     3,
   );
 
@@ -6755,4 +6804,261 @@ function pickPhraseReportRefFromHeader(
     id: header.artifactId,
     schemaVersion,
   };
+}
+
+/**
+ * CapabilityMap v2 publication surfacing.
+ *
+ * The architecture-summary and agent-contract publishers
+ * surface the high-confidence phrase-backed projection
+ * shipped by `@rekon/capability-model` in the twenty-eighth
+ * slice (`phraseBackedCapabilities` /
+ * `phraseBackedSummary` / `phraseSourceRef`), gated by the
+ * twenty-ninth-slice safety review. Both surfaces are
+ * **strictly read-only**: they render data already present
+ * on the `CapabilityMap` artifact, never re-run model
+ * projection, never mutate `CapabilityMap`, never mutate
+ * `CapabilityPhraseReport`, never mutate
+ * `CapabilityNormalizationReport`, never mutate
+ * `EvidenceGraph`, and never imply placement policy,
+ * ownership policy, resolver routing, architecture linting,
+ * verification planning, or source-write authority.
+ *
+ * The helper uses structural typing
+ * (`CapabilityMapV2Like` is a duck type, not an import
+ * from `@rekon/kernel-repo-model`'s `CapabilityMap`) so
+ * the surfacing layer never tightens to a specific
+ * runtime version.
+ */
+
+export type CapabilityMapV2PhraseBackedLike = {
+  id?: unknown;
+  verb?: unknown;
+  noun?: unknown;
+  qualifier?: unknown;
+  domain?: unknown;
+  pattern?: unknown;
+  layer?: unknown;
+  confidence?: unknown;
+  status?: unknown;
+  evidenceRefs?: unknown;
+  sourceCandidateIds?: unknown;
+  phraseRef?: {
+    report?: unknown;
+    phraseId?: unknown;
+  };
+};
+
+export type CapabilityMapV2SummaryLike = {
+  total?: unknown;
+  byVerb?: unknown;
+  byNoun?: unknown;
+  withDomain?: unknown;
+  withPattern?: unknown;
+  withLayer?: unknown;
+};
+
+export type CapabilityMapV2Like = {
+  header?: ArtifactHeader;
+  phraseSourceRef?: ArtifactRef;
+  phraseBackedSummary?: CapabilityMapV2SummaryLike;
+  phraseBackedCapabilities?: CapabilityMapV2PhraseBackedLike[];
+};
+
+export type BuildCapabilityMapV2PublicationSectionInput = {
+  capabilityMap?: CapabilityMapV2Like;
+  capabilityMapRef?: ArtifactRef;
+  /** 2 → architecture summary; 3 → agent contract. */
+  headingLevel?: 2 | 3;
+  /** Cap the rendered v2 table; default 20. */
+  tableLimit?: number;
+  /** Cap the top-N verb / noun summaries; default 5. */
+  topListLimit?: number;
+};
+
+export type BuildCapabilityMapV2PublicationSectionResult = {
+  lines: string[];
+  /**
+   * CapabilityMap ref the section is rendered against,
+   * when discoverable. The producer is responsible for
+   * citing this in `header.inputRefs`; the helper does
+   * not mutate any header.
+   */
+  inputRef?: ArtifactRef;
+};
+
+const DEFAULT_CAPABILITY_MAP_V2_TABLE_LIMIT = 20;
+const DEFAULT_CAPABILITY_MAP_V2_TOP_LIST_LIMIT = 5;
+
+const CAPABILITY_MAP_V2_BOUNDARY_LINE =
+  "These entries are projection context, not CapabilityContract placement policy. CapabilityMap v2 does not imply placement policy, ownership policy, resolver routing, architecture linting, verification planning, or source writes.";
+
+const CAPABILITY_MAP_V2_PROOF_DEFERRAL_LINE =
+  "Proof-report surfacing of CapabilityMap v2 is deferred. CapabilityMap v2 is semantic capability projection, not verification proof.";
+
+export function buildCapabilityMapV2PublicationSection(
+  input: BuildCapabilityMapV2PublicationSectionInput,
+): BuildCapabilityMapV2PublicationSectionResult {
+  const { capabilityMap, capabilityMapRef } = input;
+  const headingLevel = input.headingLevel ?? 2;
+  const heading = headingLevel === 2 ? "##" : "###";
+  const tableLimit = input.tableLimit ?? DEFAULT_CAPABILITY_MAP_V2_TABLE_LIMIT;
+  const topListLimit = input.topListLimit ?? DEFAULT_CAPABILITY_MAP_V2_TOP_LIST_LIMIT;
+  const lines: string[] = [];
+
+  lines.push(`${heading} CapabilityMap v2 Phrase-Backed Capabilities`);
+  lines.push("");
+
+  if (!capabilityMap) {
+    lines.push(
+      "No `CapabilityMap` found. Run `rekon refresh --json` after `rekon capability phrase project --report <CapabilityNormalizationReport:id> --json`.",
+    );
+    lines.push("");
+    lines.push(CAPABILITY_MAP_V2_BOUNDARY_LINE);
+    lines.push("");
+    return { lines };
+  }
+
+  const resolvedMapRef = capabilityMapRef
+    ?? pickCapabilityMapRefFromHeader(capabilityMap.header);
+  const phraseSourceRef = isArtifactRefLike(capabilityMap.phraseSourceRef)
+    ? capabilityMap.phraseSourceRef
+    : undefined;
+
+  if (resolvedMapRef) {
+    lines.push(`- CapabilityMap: ${formatRef(resolvedMapRef)}`);
+  }
+  if (phraseSourceRef) {
+    lines.push(`- CapabilityPhraseReport: ${formatRef(phraseSourceRef)}`);
+  }
+
+  const entries = Array.isArray(capabilityMap.phraseBackedCapabilities)
+    ? capabilityMap.phraseBackedCapabilities
+    : [];
+
+  // When the CapabilityMap exists but has no v2 fields
+  // (e.g. older runtimes, missing CapabilityPhraseReport)
+  // we still emit a section + boundary line so operators
+  // see that v2 was considered.
+  if (entries.length === 0) {
+    lines.push(
+      "No phrase-backed capabilities available. CapabilityMap v2 is populated only when a `CapabilityPhraseReport` is present and at least one phrase is stable + high-confidence.",
+    );
+    lines.push("");
+    lines.push(CAPABILITY_MAP_V2_BOUNDARY_LINE);
+    lines.push("");
+    lines.push(CAPABILITY_MAP_V2_PROOF_DEFERRAL_LINE);
+    lines.push("");
+    return { lines, inputRef: resolvedMapRef };
+  }
+
+  const summary = capabilityMap.phraseBackedSummary ?? {};
+  const total = typeof summary.total === "number"
+    ? summary.total
+    : entries.length;
+  const withDomain = typeof summary.withDomain === "number" ? summary.withDomain : 0;
+  const withPattern = typeof summary.withPattern === "number" ? summary.withPattern : 0;
+  const withLayer = typeof summary.withLayer === "number" ? summary.withLayer : 0;
+
+  lines.push(
+    `- Phrase-backed capabilities: ${total}`
+    + ` (withDomain ${withDomain}, withPattern ${withPattern}, withLayer ${withLayer})`,
+  );
+  lines.push("");
+
+  const byVerb = isStringNumberRecord(summary.byVerb) ? summary.byVerb : undefined;
+  const byNoun = isStringNumberRecord(summary.byNoun) ? summary.byNoun : undefined;
+  const topVerbs = byVerb ? pickTopEntries(byVerb, topListLimit) : [];
+  const topNouns = byNoun ? pickTopEntries(byNoun, topListLimit) : [];
+  if (topVerbs.length > 0) {
+    lines.push(`- Top verbs: ${topVerbs.map(([k, v]) => `${k} (${v})`).join(", ")}`);
+  }
+  if (topNouns.length > 0) {
+    lines.push(`- Top nouns: ${topNouns.map(([k, v]) => `${k} (${v})`).join(", ")}`);
+  }
+  if (topVerbs.length > 0 || topNouns.length > 0) {
+    lines.push("");
+  }
+
+  lines.push(CAPABILITY_MAP_V2_BOUNDARY_LINE);
+  lines.push("");
+  lines.push(CAPABILITY_MAP_V2_PROOF_DEFERRAL_LINE);
+  lines.push("");
+
+  lines.push("| Verb | Noun | Domain | Pattern | Layer | Evidence |");
+  lines.push("| --- | --- | --- | --- | --- | --- |");
+  const bounded = entries.slice(0, tableLimit);
+  for (const entry of bounded) {
+    const verb = typeof entry.verb === "string" && entry.verb.length > 0 ? entry.verb : "-";
+    const noun = typeof entry.noun === "string" && entry.noun.length > 0 ? entry.noun : "-";
+    const domain = typeof entry.domain === "string" && entry.domain.length > 0
+      ? entry.domain
+      : "—";
+    const pattern = typeof entry.pattern === "string" && entry.pattern.length > 0
+      ? entry.pattern
+      : "—";
+    const layer = typeof entry.layer === "string" && entry.layer.length > 0
+      ? entry.layer
+      : "—";
+    const evidenceCount = Array.isArray(entry.evidenceRefs)
+      ? entry.evidenceRefs.length
+      : 0;
+    const evidenceLabel = evidenceCount === 1 ? "1 ref" : `${evidenceCount} refs`;
+    lines.push(`| ${verb} | ${noun} | ${domain} | ${pattern} | ${layer} | ${evidenceLabel} |`);
+  }
+  if (entries.length > bounded.length) {
+    lines.push("");
+    lines.push(
+      `(${entries.length - bounded.length} additional phrase-backed capabilit${
+        entries.length - bounded.length === 1 ? "y" : "ies"
+      } omitted; inspect the artifact for full detail.)`,
+    );
+  }
+  lines.push("");
+
+  return { lines, inputRef: resolvedMapRef };
+}
+
+function pickCapabilityMapRefFromHeader(
+  header: ArtifactHeader | undefined,
+): ArtifactRef | undefined {
+  if (!header) return undefined;
+  if (header.artifactType !== "CapabilityMap") return undefined;
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) return undefined;
+  const schemaVersion = typeof header.schemaVersion === "string" && header.schemaVersion.length > 0
+    ? header.schemaVersion
+    : "0.1.0";
+  return {
+    type: header.artifactType,
+    id: header.artifactId,
+    schemaVersion,
+  };
+}
+
+function isArtifactRefLike(value: unknown): value is ArtifactRef {
+  return (
+    !!value
+    && typeof value === "object"
+    && typeof (value as Record<string, unknown>).type === "string"
+    && typeof (value as Record<string, unknown>).id === "string"
+  );
+}
+
+function isStringNumberRecord(value: unknown): value is Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  for (const v of Object.values(value as Record<string, unknown>)) {
+    if (typeof v !== "number") return false;
+  }
+  return true;
+}
+
+function pickTopEntries(
+  record: Record<string, number>,
+  limit: number,
+): Array<[string, number]> {
+  const sorted = Object.entries(record).sort((left, right) => {
+    if (left[1] !== right[1]) return right[1] - left[1];
+    return left[0].localeCompare(right[0]);
+  });
+  return sorted.slice(0, limit);
 }

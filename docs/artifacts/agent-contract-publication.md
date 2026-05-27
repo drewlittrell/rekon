@@ -361,6 +361,59 @@ A new `Do Not Do` reminder warns the agent against
 assuming advisory merge candidates are accepted. See
 [issue merge decision operator ergonomics](../strategy/issue-merge-decision-operator-ergonomics.md).
 
+## CapabilityMap v2 Phrase-Backed Capabilities
+
+The agent contract renders a **`### CapabilityMap
+v2 Phrase-Backed Capabilities`** subsection
+sourced from the latest `CapabilityMap` when the v2
+fields (`phraseBackedCapabilities`,
+`phraseBackedSummary`, `phraseSourceRef`) are
+populated. The subsection sits inside the
+operating-state group, after `### Capability
+Phrases`, and surfaces:
+
+- the `CapabilityMap` ref;
+- the consumed `CapabilityPhraseReport` ref
+  (`phraseSourceRef`);
+- `total` / `withDomain` / `withPattern` /
+  `withLayer` counts from
+  `phraseBackedSummary`;
+- top-verb / top-noun summaries when available;
+- a boundary statement (*"These entries are
+  projection context, not `CapabilityContract`
+  placement policy. `CapabilityMap` v2 does not
+  imply placement policy, ownership policy,
+  resolver routing, architecture linting,
+  verification planning, or source writes."*);
+- a proof-report-deferral line; and
+- a bounded table capped at 20 phrase-backed
+  capabilities.
+
+The agent contract's `## Do Not Do` list carries a
+verbatim reminder: *"Do not treat `CapabilityMap`
+v2 phrase-backed capabilities as
+`CapabilityContract` policy, resolver routing
+authority, architecture lint findings, verification
+requirements, or source-write permission.
+`CapabilityMap` v2 phrase-backed capabilities are
+stable capability projection; they are not
+placement policy, ownership policy, or source-write
+authority."*
+
+**Publications are read-only over `CapabilityMap`:**
+the agent contract publisher reads the latest
+`CapabilityMap` and never mutates `CapabilityMap`,
+never mutates `CapabilityPhraseReport`, never
+mutates `CapabilityNormalizationReport`, never
+mutates `EvidenceGraph`, and never re-runs `rekon
+capability phrase project` or `rekon refresh`.
+When the latest `CapabilityMap` has no v2 fields,
+the subsection renders no-report guidance and
+still emits the boundary statement.
+
+See
+[`CapabilityMap` artifact reference](capability-map.md).
+
 ## Cross-References
 
 - [Agent contract concept](../concepts/agent-operating-contract.md)

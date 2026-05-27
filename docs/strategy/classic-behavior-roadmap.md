@@ -6256,6 +6256,56 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityMap v2 publication
+  surfacing (P1.1
+  capability-map-v2-publications
+  slice).** ✅ Shipped.
+  **Thirtieth slice on the
+  capability-ontology track.**
+  Product / capability batch.
+  Architecture summary and agent
+  contract publications now
+  render the additive
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` /
+  `phraseSourceRef` projection as
+  operator + agent context. New
+  `buildCapabilityMapV2PublicationSection`
+  helper in `@rekon/capability-docs`,
+  structurally typed
+  (CapabilityMapV2Like), pure
+  function. Architecture summary
+  renders `## CapabilityMap v2
+  Phrase-Backed Capabilities`;
+  agent contract renders
+  `### CapabilityMap v2
+  Phrase-Backed Capabilities`.
+  Both surfaces emit the same
+  boundary statement (*projection
+  context, not CapabilityContract
+  policy; does not imply
+  placement / ownership / routing
+  / linting / verification /
+  source-write authority*) plus a
+  proof-report-deferral line.
+  Agent contract `Do Not Do` list
+  extended with a v2-specific
+  reminder. Proof report
+  surfacing explicitly deferred.
+  New 16-assertion contract test +
+  9-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/capability-map-v2-publications.md`.
+  **No runtime changes outside
+  the publication helper. No
+  CapabilityMap mutation. No
+  CapabilityContract. No source
+  writes. No npm publish.**
+  **Recommended next slice:**
+  *CapabilityMap v2 publication
+  safety review* — read-only
+  audit of the publication
+  surfacing.
 - **CapabilityMap v2 safety review
   (P1.1
   capability-map-v2-safety-review

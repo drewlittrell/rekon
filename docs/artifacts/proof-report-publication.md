@@ -192,6 +192,18 @@ artifact.
 - Not a substitute for the architecture summary. The architecture
   summary still covers the broader governance state; this report
   zooms into the proof loop.
+- **Not a `CapabilityMap` v2 surface.** Proof-report
+  surfacing of `CapabilityMap` v2 is deferred.
+  `CapabilityMap` v2 is semantic capability
+  projection (additive `phraseBackedCapabilities`
+  / `phraseBackedSummary` /
+  `phraseSourceRef` fields), not verification
+  proof. The architecture summary and agent
+  contract publications carry the v2 surfacing.
+  Surfacing v2 here would conflate semantic
+  projection with verification proof; the
+  decision to defer is documented in the
+  [`CapabilityMap` artifact reference](capability-map.md).
 
 ## Issue Merge Decision Context
 

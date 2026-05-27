@@ -205,6 +205,33 @@ publications complement each other: the architecture summary covers
 the broader governance loop; the proof report zooms into the latest
 plan / result.
 
+## CapabilityMap v2 Surfacing
+
+The summary renders a **`## CapabilityMap v2
+Phrase-Backed Capabilities`** section sourced from
+the latest `CapabilityMap` when the v2 fields
+(`phraseBackedCapabilities`,
+`phraseBackedSummary`, `phraseSourceRef`) are
+populated. The section surfaces the
+`CapabilityMap` ref, the consumed
+`CapabilityPhraseReport` ref, summary counts
+(`total` / `withDomain` / `withPattern` /
+`withLayer`), optional top-verb / top-noun lines,
+a boundary statement (*"These entries are
+projection context, not `CapabilityContract`
+placement policy. `CapabilityMap` v2 does not
+imply placement policy, ownership policy,
+resolver routing, architecture linting,
+verification planning, or source writes."*), a
+proof-report-deferral line, and a bounded table
+(`| Verb | Noun | Domain | Pattern | Layer |
+Evidence |`, capped at 20 rows). When the latest
+`CapabilityMap` has no v2 fields, the section
+renders no-report guidance and still emits the
+boundary statement. **Publications never mutate
+`CapabilityMap`, never re-run model projection,
+and never trigger CLI commands.**
+
 ## What This Is Not
 
 - Not canonical architecture truth. Generated docs never are. The

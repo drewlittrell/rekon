@@ -4,6 +4,125 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityMap v2 publication surfacing**
+  — architecture summary and agent contract
+  publications now render the additive
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` / `phraseSourceRef`
+  projection as operator + agent context.
+  Thirtieth slice on the capability-ontology
+  track. Product / capability batch.
+
+  Pinned verbatim:
+
+    - Architecture summary and agent contract
+      surface `CapabilityMap` v2.
+    - Proof report surfacing is deferred.
+    - Publications read `CapabilityMap` v2 fields.
+    - Publications do not mutate `CapabilityMap`.
+    - Phrase-backed capabilities are projection
+      context, not `CapabilityContract` policy.
+    - Phrase-backed capabilities do not imply
+      resolver routing, architecture linting,
+      verification planning, or source writes.
+
+  Implementation details:
+
+    - New helper
+      `buildCapabilityMapV2PublicationSection` in
+      `@rekon/capability-docs`. Structurally typed
+      input (`CapabilityMapV2Like`); pure function
+      (no I/O). Emits a section header
+      (`## CapabilityMap v2 Phrase-Backed
+      Capabilities` for level 2,
+      `### CapabilityMap v2 Phrase-Backed
+      Capabilities` for level 3), the
+      `CapabilityMap` ref, the
+      `CapabilityPhraseReport` ref
+      (`phraseSourceRef`), summary counts
+      (`total`, `withDomain`, `withPattern`,
+      `withLayer`), optional top-verb / top-noun
+      lines, an explicit boundary statement
+      (*"These entries are projection context,
+      not CapabilityContract placement policy.
+      CapabilityMap v2 does not imply placement
+      policy, ownership policy, resolver routing,
+      architecture linting, verification
+      planning, or source writes."*), a
+      proof-report-deferral line, and a bounded
+      table (`| Verb | Noun | Domain | Pattern |
+      Layer | Evidence |`, capped at 20 rows).
+    - Wired into the architecture summary
+      publisher and agent contract publisher,
+      sitting after the existing Capability
+      Phrases section. Both publishers continue
+      to cite `CapabilityMap` in
+      `header.inputRefs` (already a v1
+      requirement).
+    - Agent contract `## Do Not Do` list extended
+      with: *"Do not treat CapabilityMap v2
+      phrase-backed capabilities as
+      CapabilityContract policy, resolver routing
+      authority, architecture lint findings,
+      verification requirements, or source-write
+      permission. CapabilityMap v2 phrase-backed
+      capabilities are stable capability
+      projection; they are not placement policy,
+      ownership policy, or source-write
+      authority."* The existing
+      CapabilityPhraseReport Do-Not-Do entry now
+      acknowledges v2 has shipped.
+    - Manifest `consumes` already included
+      `CapabilityMap`; the `coherency.changed`
+      invalidation rule description was tightened
+      to mention v2 surfacing.
+    - **Proof report surfacing is explicitly
+      deferred** (documented in both the proof
+      report concept and artifact reference
+      docs).
+    - New contract test
+      `tests/contract/capability-map-v2-publications.test.mjs`
+      (16 assertions: helper renders, summary
+      counts, bounded table, projection-context
+      boundary, no duplication of phrase table,
+      agent contract section, stable capability
+      projection language, placement-policy
+      negation, Do-Not-Do reminder, no
+      `CapabilityMap` / `CapabilityPhraseReport`
+      / `CapabilityNormalizationReport` /
+      `EvidenceGraph` mutation, proof-report
+      deferral, artifacts validate clean).
+    - New 9-assertion docs test
+      `tests/docs/capability-map-v2-publications.test.mjs`.
+    - Updated 9 supporting docs (capability-map,
+      capability-phrase-report, capability-ontology
+      concept, architecture-summary publication
+      artifact + concept, agent-contract
+      publication + agent-operating-contract
+      concept, proof-report publication + concept,
+      decision memo, safety review, roadmaps).
+    - Review packet
+      `.rekon-dev/review-packets/capability-map-v2-publications.md`.
+
+  No runtime changes outside the new publication
+  helper. No `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` /
+  `CapabilityNormalizationReport` / `EvidenceGraph`
+  mutation. No `CapabilityContract`. No resolver
+  routing by capability. No architecture linting.
+  No verification planning by capability. No source
+  writes. No LLM-only inference. No new artifact
+  type. No new invalidation rule (the existing
+  `coherency.changed` rule already covers
+  `CapabilityMap` changes). No npm publish. No
+  version bump. No git tag. No GitHub Release. No
+  new branch.
+
+  Recommended next slice: **`CapabilityMap` v2
+  publication safety review** — read-only audit of
+  the publication surfacing (boundary statements,
+  read-only guarantee, proof-report deferral).
+
 - Shipped **CapabilityMap v2 safety review** —
   read-only audit of the additive
   `phraseBackedCapabilities` /

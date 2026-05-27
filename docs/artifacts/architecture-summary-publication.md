@@ -349,3 +349,37 @@ starting point. See
   mutates `CapabilityMap`.** When no report exists,
   the section renders no-report guidance naming
   `rekon capability ontology suggestions --json`.
+- **CapabilityMap v2 publication surfacing.** The
+  publisher reads the latest `CapabilityMap` and,
+  when the v2 fields are populated, renders a
+  **`## CapabilityMap v2 Phrase-Backed Capabilities`
+  section** with the `CapabilityMap` ref, the
+  consumed `CapabilityPhraseReport` ref
+  (`phraseSourceRef`), a count line surfacing
+  `total` / `withDomain` / `withPattern` /
+  `withLayer`, optional top-verb / top-noun
+  summaries (when `phraseBackedSummary.byVerb` /
+  `byNoun` is present), an explicit boundary
+  statement (`These entries are projection context,
+  not CapabilityContract placement policy.
+  CapabilityMap v2 does not imply placement
+  policy, ownership policy, resolver routing,
+  architecture linting, verification planning, or
+  source writes.`), a proof-report-deferral line
+  (`Proof-report surfacing of CapabilityMap v2 is
+  deferred. CapabilityMap v2 is semantic
+  capability projection, not verification proof.`),
+  and a bounded table (`| Verb | Noun | Domain |
+  Pattern | Layer | Evidence |`, capped at 20
+  rows). The latest `CapabilityMap` is cited in
+  `header.inputRefs` (already a v1 requirement);
+  the publisher never mutates `CapabilityMap`,
+  never mutates `CapabilityPhraseReport`, never
+  mutates `CapabilityNormalizationReport`, never
+  mutates `EvidenceGraph`, and never re-runs
+  `rekon capability phrase project` or `rekon
+  refresh`. When the latest `CapabilityMap` has no
+  v2 fields, the section renders a no-report
+  guidance line and still emits the boundary
+  statement. See
+  [`CapabilityMap` artifact reference](capability-map.md).

@@ -75,6 +75,7 @@ state is current.
 | Operating Rules | always | n/a (durable rules) |
 | Resolver Workflow | always | n/a (durable flow) |
 | Ownership And Capabilities | `ObservedRepo` and/or `CapabilityMap` present | `ObservedRepo`, `OwnershipMap`, `CapabilityMap` |
+| CapabilityMap v2 Phrase-Backed Capabilities | `CapabilityMap` v2 fields present | `CapabilityMap` (rendered as `### CapabilityMap v2 Phrase-Backed Capabilities`; projection context only — **not** placement policy, ownership policy, resolver routing authority, architecture lint findings, verification requirements, or source-write permission) |
 | Active Governance State | `CoherencyDelta` present | `CoherencyDelta`, `FindingLifecycleReport`, `IssueAdjudicationReport`, `FindingFilterReport`, `FindingFilterHealthReport`, `FindingFilterPolicySuggestionReport` (Governed Issue Groups + Accepted Issue Merge Roll-ups + Finding Filter Health + Finding Filter Policy Freshness + Finding Filter Policy Suggestions + Governance Freshness subsections) |
 | Proof And Verification State | always | `WorkOrder`, `ReconciliationPlan`, `VerificationPlan`, `VerificationResult` |
 | Memory Guidance | always (table only when ranked items exist) | `MemorySelection` |

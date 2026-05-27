@@ -1103,6 +1103,73 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityMap v2 publication surfacing has
+# shipped. Product / capability batch. Thirtieth
+# slice on the capability-ontology track. The
+# architecture summary and agent contract
+# publications now render the additive
+# phraseBackedCapabilities /
+# phraseBackedSummary / phraseSourceRef
+# projection as operator + agent context.
+#
+# Pinned verbatim:
+#   - Architecture summary and agent contract
+#     surface CapabilityMap v2.
+#   - Proof report surfacing is deferred.
+#   - Publications read CapabilityMap v2 fields.
+#   - Publications do not mutate CapabilityMap.
+#   - Phrase-backed capabilities are projection
+#     context, not CapabilityContract policy.
+#   - Phrase-backed capabilities do not imply
+#     resolver routing, architecture linting,
+#     verification planning, or source writes.
+#
+# Implementation details:
+#   - New helper
+#     buildCapabilityMapV2PublicationSection in
+#     @rekon/capability-docs. Structurally typed
+#     (CapabilityMapV2Like); pure function. Emits
+#     section header, CapabilityMap ref,
+#     CapabilityPhraseReport ref, summary counts,
+#     top-verb / top-noun lines, explicit
+#     boundary statement, proof-report-deferral
+#     line, and a bounded table (capped at 20
+#     rows).
+#   - Wired into the architecture summary
+#     publisher (## level) and agent contract
+#     publisher (### level), after the existing
+#     Capability Phrases section.
+#   - Agent contract Do-Not-Do list extended with
+#     a v2-specific reminder. Existing
+#     CapabilityPhraseReport Do-Not-Do entry
+#     updated to acknowledge v2 has shipped.
+#   - Proof report surfacing is explicitly
+#     deferred (documented in proof report
+#     concept + artifact reference).
+#   - New 16-assertion contract test
+#     tests/contract/capability-map-v2-publications.test.mjs.
+#   - New 9-assertion docs test
+#     tests/docs/capability-map-v2-publications.test.mjs.
+#   - Review packet
+#     .rekon-dev/review-packets/capability-map-v2-publications.md.
+#
+# No runtime changes outside the new publication
+# helper. No CapabilityMap mutation. No
+# CapabilityPhraseReport /
+# CapabilityNormalizationReport / EvidenceGraph
+# mutation. No CapabilityContract. No resolver
+# routing by capability. No architecture linting.
+# No verification planning by capability. No
+# source writes. No LLM-only inference. No new
+# artifact type. No new invalidation rule. No
+# npm publish. No version bump.
+#
+# Recommended next slice: CapabilityMap v2
+# publication safety review -- read-only audit
+# of the publication surfacing (boundary
+# statements, read-only guarantee, proof-report
+# deferral).
+#
 # CapabilityMap v2 safety review has shipped.
 # Strategy / safety review / docs / tests-only
 # batch. Twenty-ninth slice on the capability-

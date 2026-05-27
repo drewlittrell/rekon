@@ -2640,6 +2640,67 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityMap v2 publication surfacing
+  (P1.1 capability-map-v2-publications
+  slice): **thirtieth slice on the
+  capability-ontology track.**
+  Product / capability batch. The
+  architecture summary and agent
+  contract publications now render
+  the additive
+  `phraseBackedCapabilities` /
+  `phraseBackedSummary` /
+  `phraseSourceRef` projection as
+  operator + agent context.
+  **Pinned verbatim:** *Architecture
+  summary and agent contract surface
+  CapabilityMap v2. Proof report
+  surfacing is deferred. Publications
+  read CapabilityMap v2 fields.
+  Publications do not mutate
+  CapabilityMap. Phrase-backed
+  capabilities are projection
+  context, not CapabilityContract
+  policy. Phrase-backed capabilities
+  do not imply resolver routing,
+  architecture linting, verification
+  planning, or source writes.* New
+  helper
+  `buildCapabilityMapV2PublicationSection`
+  in `@rekon/capability-docs`,
+  structurally typed (CapabilityMapV2Like),
+  pure function. Emits section
+  header, CapabilityMap +
+  CapabilityPhraseReport refs,
+  summary counts, top-verb /
+  top-noun lines, boundary
+  statement, proof-report-deferral
+  line, and a bounded table capped
+  at 20 rows. Agent contract
+  `## Do Not Do` list extended with
+  a v2-specific reminder
+  (CapabilityContract policy /
+  resolver routing /
+  architecture linting /
+  verification requirements /
+  source-write permission). Proof
+  report surfacing explicitly
+  deferred. New 16-assertion
+  contract test + 9-assertion docs
+  test. Review packet
+  `.rekon-dev/review-packets/capability-map-v2-publications.md`.
+  **No runtime changes outside the
+  publication helper. No
+  CapabilityMap mutation. No
+  CapabilityContract. No resolver
+  routing. No architecture linting.
+  No verification planning. No
+  source writes. No new artifact
+  type. No new invalidation rule.
+  No npm publish. No version bump.**
+  **Recommended next slice:**
+  *CapabilityMap v2 publication
+  safety review.*
 - CapabilityMap v2 safety review (P1.1
   capability-map-v2-safety-review
   slice): **twenty-ninth slice on

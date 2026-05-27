@@ -458,11 +458,18 @@ feedback):
 
 ## Follow-Up Work
 
-- **`CapabilityMap` v2 publication surfacing**
-  (next slice). Extends architecture summary +
-  agent contract publishers to render
+- **`CapabilityMap` v2 publication surfacing** —
+  ✅ shipped as the thirtieth slice.
+  `@rekon/capability-docs` gained
+  `buildCapabilityMapV2PublicationSection`; the
+  architecture summary publication and agent
+  contract publication now surface
   `phraseBackedCapabilities` /
-  `phraseBackedSummary`.
+  `phraseBackedSummary` / `phraseSourceRef` as
+  projection context. Both surfaces are
+  strictly read-only over `CapabilityMap` and
+  every upstream artifact. Proof-report
+  surfacing remains deferred.
 - **Post-`CapabilityMap`-v2 coverage review**
   (gated on publication surfacing). Measure
   phrase-backed entry quality on the cohort +

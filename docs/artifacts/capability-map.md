@@ -233,12 +233,68 @@ capability-ontology track.
   treat the v2 fields as optional and not require
   them.
 
+## Publication Surfacing
+
+The architecture summary and agent contract
+publications surface the three v2 fields
+(`phraseBackedCapabilities`,
+`phraseBackedSummary`, `phraseSourceRef`) for
+operators and agents. Both surfaces are **strictly
+read-only**: they render data already on
+`CapabilityMap` and never mutate it, never re-run
+model projection, and never trigger CLI commands.
+
+| Field | Read by | Rendered in |
+| --- | --- | --- |
+| `phraseBackedCapabilities` | architecture summary, agent contract | bounded table (verb / noun / domain / pattern / layer / evidence) |
+| `phraseBackedSummary` | architecture summary, agent contract | count + top verbs / nouns |
+| `phraseSourceRef` | architecture summary, agent contract | cited as the consumed `CapabilityPhraseReport` |
+
+Both surfaces carry the same boundary statement:
+
+> These entries are projection context, not
+> `CapabilityContract` placement policy.
+> `CapabilityMap` v2 does not imply placement
+> policy, ownership policy, resolver routing,
+> architecture linting, verification planning, or
+> source writes.
+
+The `Do Not Do` block in the agent contract carries
+a reminder that v2 phrase-backed capabilities are
+not `CapabilityContract` policy, not resolver
+routing authority, not architecture lint findings,
+not verification requirements, and not source-write
+permission.
+
+**Proof-report surfacing of `CapabilityMap` v2 is
+deferred.** The proof report describes verification
+proof; `CapabilityMap` v2 is semantic capability
+projection. Surfacing v2 there would create proof
+confusion.
+
+Publications **read** `CapabilityMap` v2 fields and
+**never** mutate `CapabilityMap`,
+`CapabilityPhraseReport`,
+`CapabilityNormalizationReport`, or
+`EvidenceGraph`. See
+[`architecture-summary-publication.md`](architecture-summary-publication.md)
+and
+[`agent-contract-publication.md`](agent-contract-publication.md)
+for the rendered surfaces.
+
 ## Related Documents
 
 - [CapabilityMap v2 High-Confidence-Only Decision](../strategy/capability-map-v2-high-confidence-decision.md)
 - [CapabilityMap v2 Safety Review](../strategy/capability-map-v2-safety-review.md)
   — read-only audit confirming v2 is safe / stable
   as additive high-confidence projection.
+- [Architecture summary publication](architecture-summary-publication.md)
+  — surfaces the v2 phrase-backed projection as
+  operator context.
+- [Agent contract publication](agent-contract-publication.md)
+  — surfaces the v2 phrase-backed projection as
+  agent guidance with explicit
+  `CapabilityContract` boundary.
 - [CapabilityPhraseReport artifact](capability-phrase-report.md)
 - [CapabilityNormalizationReport artifact](capability-normalization-report.md)
 - [Capability Ontology concept](../concepts/capability-ontology.md)
