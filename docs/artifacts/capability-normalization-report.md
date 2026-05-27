@@ -126,20 +126,16 @@ surface of the layered capability ontology.
 
 ## Downstream Consumers
 
-The
-[CapabilityPhrase + CapabilityContract Architecture
-Decision](../strategy/capability-phrase-contract-architecture-decision.md)
-reserves the semantic primitive that consumes this report.
-`CapabilityPhrase` enriches the canonical verb / noun pair
-with `qualifier` / `domain` / `pattern` / `layer` plus
-required `confidence` and `evidenceRefs`. The
-[CapabilityPhraseReport
-Decision](../strategy/capability-phrase-report-decision.md)
-commits to the v1 carrier: a separate
-`CapabilityPhraseReport` artifact that cites this report
-in `header.inputRefs`. **This report's shape is
-unchanged.** Phrase enrichment lands in the next slice
-without mutating the translation-audit artifact.
+[`CapabilityPhraseReport`](capability-phrase-report.md) v1
+has shipped. The phrase report consumes high-confidence
+normalized candidates from this report and projects them
+into stable `CapabilityPhrase` entries. **This report's
+shape is unchanged** — the phrase report cites this
+artifact in `header.inputRefs` and the new
+`sourceNormalizationReportRef` field; it never mutates the
+normalization audit. Run
+`rekon capability phrase project --report <ref>` to
+generate the phrase projection.
 
 The future `CapabilityMap` v2 consumes only
 high-confidence / stable `CapabilityPhrase` claims from

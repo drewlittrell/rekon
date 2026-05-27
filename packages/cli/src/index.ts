@@ -64,6 +64,7 @@ import ontologyCapability, {
   appendCapabilityNormalizationReviewDecision,
   buildCapabilityNormalizationReport,
   buildCapabilityOntologySuggestionReport,
+  buildCapabilityPhraseReport,
   buildDecidedKeySet,
   compileEffectiveCapabilityOntology,
   DEFAULT_REVIEW_SUGGESTION_LIMIT,
@@ -78,6 +79,7 @@ import ontologyCapability, {
   type CapabilityNormalizationReviewSuggestion,
   type CapabilityNormalizationReviewTermKind,
   type CapabilityOntologySuggestionReport,
+  type CapabilityPhraseReport,
   type EffectiveCapabilityOntology,
 } from "@rekon/capability-ontology";
 import resolverCapability from "@rekon/capability-resolver";
@@ -782,6 +784,97 @@ export async function main(argv: string[]): Promise<void> {
     throw new Error(
       "rekon capability ontology review requires a subcommand: suggestions | decide | decisions.",
     );
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "phrase"
+    && positional === "project"
+  ) {
+    // `rekon capability phrase project --report <ref>
+    // [--root <path>] [--json]` — v1 CapabilityPhraseReport
+    // projection from a CapabilityNormalizationReport. The phrase
+    // report is the **semantic purpose projection**; the
+    // normalization report stays as the **translation audit**.
+    // CapabilityMap is never mutated. See
+    // docs/artifacts/capability-phrase-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const reportFlag = typeof parsed.flags.report === "string"
+      ? parsed.flags.report.trim()
+      : "";
+    if (reportFlag.length === 0) {
+      throw new Error(
+        "rekon capability phrase project requires --report <CapabilityNormalizationReport-id|type:id>.",
+      );
+    }
+
+    const reportEntry = await findArtifactEntry(store, reportFlag);
+    if (reportEntry.type !== "CapabilityNormalizationReport") {
+      throw new Error(
+        `rekon capability phrase project --report must reference a CapabilityNormalizationReport; got ${reportEntry.type}.`,
+      );
+    }
+
+    const normalizationReport = (await store.read(reportEntry)) as CapabilityNormalizationReport;
+    const reportRef: ArtifactRef = {
+      type: reportEntry.type,
+      id: reportEntry.id,
+      path: reportEntry.path,
+      digest: reportEntry.digest,
+      schemaVersion: reportEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const generatedAt = new Date().toISOString();
+    const artifactId = `capability-phrase-${generatedAt.replace(/[:.]/g, "-")}`;
+    const header: ArtifactHeader = {
+      artifactType: "CapabilityPhraseReport",
+      artifactId,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: {
+        id: "@rekon/cli.capability-phrase-project",
+        version: "0.1.0-beta.0",
+      },
+      inputRefs: [reportRef],
+      freshness: { status: "fresh" },
+    };
+
+    const phraseReport: CapabilityPhraseReport = buildCapabilityPhraseReport({
+      header,
+      normalizationReport,
+      normalizationReportRef: reportRef,
+    });
+
+    const ref = await store.write(phraseReport, { category: "projections" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: ref,
+          sourceNormalizationReportRef: reportRef,
+          summary: phraseReport.summary,
+          phrases: phraseReport.phrases,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Capability phrase projection");
+      lines.push("");
+      lines.push(`Source: ${reportRef.type}:${reportRef.id}`);
+      lines.push(`Phrases: ${phraseReport.summary.totalPhrases}`);
+      lines.push(`Stable: ${phraseReport.summary.stable}`);
+      lines.push(`Partial: ${phraseReport.summary.partial}`);
+      lines.push(`Low confidence: ${phraseReport.summary.lowConfidence}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push("CapabilityMap remains unchanged.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
   }
 
   if (
@@ -7451,6 +7544,7 @@ function usage(): string {
     "rekon capability ontology review decide --term <text> --term-kind verb|noun|candidate --decision extend-ontology|rename-symbol|noise-filter|defer --reason <text> [--suggested-canonical <text>] [--report <id|type:id>] [--candidate <id>] [--root <path>] [--json]",
     "rekon capability ontology review decisions [--root <path>] [--json]",
     "rekon capability ontology suggestions [--ledger <id|type:id>] [--root <path>] [--json]",
+    "rekon capability phrase project --report <CapabilityNormalizationReport-id|type:id> [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

@@ -1049,6 +1049,67 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# CapabilityPhraseReport v1 has shipped. First runtime
+# implementation of the Layer 5b semantic-purpose-
+# projection carrier the architecture + carrier decisions
+# reserved.
+#
+# Behaviour:
+#   - Consumes the latest CapabilityNormalizationReport.
+#   - Projects high-confidence normalized candidates into
+#     stable CapabilityPhrase entries.
+#   - Emits a phrase only when status="normalized" +
+#     confidence="high" + high-confidence lexical split.
+#     Unknown / ignored / low-confidence rows remain in
+#     the audit artifact and never project.
+#   - Every emitted phrase has status="stable" in v1;
+#     partial / low-confidence reserved.
+#   - Deterministic ids (phrase-<candidate-id>-<verb>-<noun>)
+#     and ordering (path -> verb -> noun -> candidate id).
+#   - Each phrase cites sourceCandidateIds + evidenceRefs.
+#   - The report cites CapabilityNormalizationReport (and
+#     EvidenceGraph when upstream cites it) in
+#     header.inputRefs.
+#   - Read-only with respect to upstream artifacts.
+#
+# Pinned verbatim:
+#   - CapabilityNormalizationReport remains the
+#     translation audit.
+#   - CapabilityPhraseReport is the semantic purpose
+#     projection.
+#   - CapabilityMap integration remains deferred — v2
+#     will consume CapabilityPhraseReport, not raw
+#     normalization rows.
+#   - AST / typechecker evidence is optional enrichment,
+#     not foundational truth.
+#   - No LLM-only inference.
+#   - Source writes remain unavailable.
+#
+# New exports from @rekon/capability-ontology:
+# CapabilityPhrase, CapabilityPhraseConfidence,
+# CapabilityPhraseStatus, CapabilityPhraseReportSummary,
+# CapabilityPhraseReport, BuildCapabilityPhraseReportInput,
+# buildCapabilityPhraseReport, validateCapabilityPhraseReport.
+#
+# @rekon/sdk.BUILT_IN_ARTIFACT_TYPES gains
+# CapabilityPhraseReport (schemaVersion 0.1.0,
+# experimental). @rekon/runtime.ARTIFACT_CATEGORY_BY_TYPE
+# maps CapabilityPhraseReport: projections.
+#
+# CLI: rekon capability phrase project --report
+# <CapabilityNormalizationReport-id|type:id> [--root <path>]
+# [--json]
+#
+# No CapabilityNormalizationReport shape mutation. No
+# CapabilityMap mutation. No EvidenceGraph mutation. No
+# source writes. No LLM-only inference. No version bump.
+# No npm publish.
+#
+# See docs/artifacts/capability-phrase-report.md.
+# Recommended next slice: CapabilityPhraseReport
+# publication surfacing — render phrase summary in
+# architecture summary + agent contract publications.
+#
 # CapabilityPhraseReport decision has shipped (strategy /
 # decision / docs / tests-only). Commits to the carrier
 # the architecture decision deferred.

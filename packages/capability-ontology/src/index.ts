@@ -2016,6 +2016,273 @@ export function validateCapabilityOntologySuggestionReport(
   return { ok: true, report: value as CapabilityOntologySuggestionReport };
 }
 
+// ---------- CapabilityPhraseReport ----------
+//
+// Layer 5b in the capability-ontology layered model. Semantic
+// purpose projection sitting between `CapabilityNormalizationReport`
+// (Layer 5, translation audit) and the future `CapabilityMap` v2
+// (Layer 6, canonical projection). v1 emits a phrase only when the
+// upstream normalized claim is high-confidence and deterministic;
+// unknown / ignored / low-confidence rows stay in the normalization
+// audit and never project into a phrase.
+//
+// See:
+// - docs/strategy/capability-phrase-contract-architecture-decision.md
+// - docs/strategy/capability-phrase-report-decision.md
+// - docs/artifacts/capability-phrase-report.md
+
+export type CapabilityPhraseConfidence = "high" | "medium" | "low";
+
+export type CapabilityPhraseStatus =
+  | "stable"
+  | "partial"
+  | "low-confidence";
+
+export type CapabilityPhrase = {
+  /** Stable per-report identifier (deterministic). */
+  id: string;
+  verb: string;
+  noun: string;
+  qualifier?: string[];
+  domain?: string;
+  pattern?: string;
+  layer?: string;
+  /** Reserved future fields; v1 never populates these. */
+  sideEffects?: string[];
+  inputs?: string[];
+  outputs?: string[];
+  confidence: CapabilityPhraseConfidence;
+  /** Citations to contributing artifacts (normalization report + EvidenceGraph). */
+  evidenceRefs: ArtifactRef[];
+  /** Source normalization-report candidate ids that this phrase projects from. */
+  sourceCandidateIds: string[];
+  status: CapabilityPhraseStatus;
+  message?: string;
+};
+
+export type CapabilityPhraseReportSummary = {
+  totalPhrases: number;
+  stable: number;
+  partial: number;
+  lowConfidence: number;
+  withDomain: number;
+  withPattern: number;
+  withLayer: number;
+};
+
+export type CapabilityPhraseReport = {
+  header: ArtifactHeader;
+  /** The CapabilityNormalizationReport this phrase report projects from. */
+  sourceNormalizationReportRef: ArtifactRef;
+  summary: CapabilityPhraseReportSummary;
+  phrases: CapabilityPhrase[];
+};
+
+export type BuildCapabilityPhraseReportInput = {
+  header: ArtifactHeader;
+  normalizationReport: CapabilityNormalizationReport;
+  normalizationReportRef: ArtifactRef;
+};
+
+/**
+ * Build a v1 `CapabilityPhraseReport` from a
+ * `CapabilityNormalizationReport`. Pure, deterministic; cites the
+ * normalization report and (if the normalization report cites it)
+ * the underlying `EvidenceGraph` in `header.inputRefs`.
+ *
+ * v1 projection rules:
+ * - emit phrases only for `status === "normalized"` candidates
+ *   whose lexical-split confidence is `"high"`;
+ * - emitted phrases always have `status === "stable"` in v1
+ *   (partial / low-confidence are reserved);
+ * - no AST / typechecker / LLM / source-file evidence;
+ * - never mutates the normalization report or any other artifact.
+ *
+ * Future fields (`qualifier`, `domain`, `pattern`, `layer`) land
+ * per evidence-source slice behind their own decision memos.
+ */
+export function buildCapabilityPhraseReport(
+  input: BuildCapabilityPhraseReportInput,
+): CapabilityPhraseReport {
+  const { normalizationReport, normalizationReportRef } = input;
+  const candidateById = new Map<
+    string,
+    CapabilityNormalizationReportCandidate
+  >();
+  for (const candidate of normalizationReport.candidates ?? []) {
+    candidateById.set(candidate.id, candidate);
+  }
+
+  const phrases: CapabilityPhrase[] = [];
+  for (const candidate of normalizationReport.candidates ?? []) {
+    if (candidate.status !== "normalized") continue;
+    if (candidate.confidence !== "high") continue;
+    const normalized = candidate.normalized;
+    if (!normalized) continue;
+    if (!isNonEmpty(normalized.verb) || !isNonEmpty(normalized.noun)) continue;
+
+    const evidenceRefs: ArtifactRef[] = [];
+    const sourceRef = candidate.source?.artifactRef;
+    if (sourceRef) evidenceRefs.push(sourceRef);
+
+    phrases.push({
+      id: `phrase-${candidate.id}-${normalized.verb}-${normalized.noun}`,
+      verb: normalized.verb,
+      noun: normalized.noun,
+      confidence: "high",
+      evidenceRefs,
+      sourceCandidateIds: [candidate.id],
+      status: "stable",
+    });
+  }
+
+  // Deterministic ordering: source path (when available), then
+  // verb, then noun, then sourceCandidateIds[0]. This survives
+  // re-runs against the same normalization report.
+  phrases.sort((a, b) => {
+    const pathA = pathFromCandidate(candidateById.get(a.sourceCandidateIds[0]!));
+    const pathB = pathFromCandidate(candidateById.get(b.sourceCandidateIds[0]!));
+    if (pathA !== pathB) return pathA.localeCompare(pathB);
+    if (a.verb !== b.verb) return a.verb.localeCompare(b.verb);
+    if (a.noun !== b.noun) return a.noun.localeCompare(b.noun);
+    return (a.sourceCandidateIds[0] ?? "").localeCompare(
+      b.sourceCandidateIds[0] ?? "",
+    );
+  });
+
+  const summary: CapabilityPhraseReportSummary = {
+    totalPhrases: phrases.length,
+    stable: phrases.filter((phrase) => phrase.status === "stable").length,
+    partial: phrases.filter((phrase) => phrase.status === "partial").length,
+    lowConfidence: phrases.filter(
+      (phrase) => phrase.status === "low-confidence",
+    ).length,
+    withDomain: phrases.filter((phrase) => Boolean(phrase.domain)).length,
+    withPattern: phrases.filter((phrase) => Boolean(phrase.pattern)).length,
+    withLayer: phrases.filter((phrase) => Boolean(phrase.layer)).length,
+  };
+
+  // Ensure the source normalization report is in inputRefs, plus
+  // any EvidenceGraph the normalization report already cites.
+  const headerInputRefs = mergeInputRefs(
+    input.header.inputRefs ?? [],
+    [normalizationReportRef],
+    (normalizationReport.header.inputRefs ?? []).filter(
+      (ref) => ref.type === "EvidenceGraph",
+    ),
+  );
+
+  const header: ArtifactHeader = {
+    ...input.header,
+    inputRefs: headerInputRefs,
+  };
+
+  return {
+    header,
+    sourceNormalizationReportRef: normalizationReportRef,
+    summary,
+    phrases,
+  };
+}
+
+function pathFromCandidate(
+  candidate: CapabilityNormalizationReportCandidate | undefined,
+): string {
+  return candidate?.source?.path ?? "";
+}
+
+function mergeInputRefs(...groups: ReadonlyArray<ArtifactRef>[]): ArtifactRef[] {
+  const seen = new Set<string>();
+  const merged: ArtifactRef[] = [];
+  for (const group of groups) {
+    for (const ref of group) {
+      const key = `${ref.type}:${ref.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(ref);
+    }
+  }
+  return merged;
+}
+
+export function validateCapabilityPhraseReport(
+  value: unknown,
+): { ok: true; report: CapabilityPhraseReport } | { ok: false; reason: string } {
+  if (!isRecord(value)) {
+    return { ok: false, reason: "report must be an object" };
+  }
+  if (!isRecord(value.header)) {
+    return { ok: false, reason: "report.header must be an object" };
+  }
+  const header = value.header as ArtifactHeader;
+  if (header.artifactType !== "CapabilityPhraseReport") {
+    return {
+      ok: false,
+      reason: `report.header.artifactType must be "CapabilityPhraseReport", got ${String(header.artifactType)}`,
+    };
+  }
+  if (!isRecord((value as { sourceNormalizationReportRef?: unknown }).sourceNormalizationReportRef)) {
+    return {
+      ok: false,
+      reason: "report.sourceNormalizationReportRef must be an ArtifactRef",
+    };
+  }
+  if (!isRecord(value.summary)) {
+    return { ok: false, reason: "report.summary must be an object" };
+  }
+  if (!Array.isArray((value as { phrases?: unknown }).phrases)) {
+    return { ok: false, reason: "report.phrases must be an array" };
+  }
+  const phrases = (value as { phrases: unknown[] }).phrases;
+  for (const entry of phrases) {
+    if (!isRecord(entry)) {
+      return { ok: false, reason: "report.phrases[*] must be objects" };
+    }
+    if (!isNonEmpty(entry.id)) {
+      return { ok: false, reason: "report.phrases[*].id must be a non-empty string" };
+    }
+    if (!isNonEmpty(entry.verb)) {
+      return { ok: false, reason: "report.phrases[*].verb must be a non-empty string" };
+    }
+    if (!isNonEmpty(entry.noun)) {
+      return { ok: false, reason: "report.phrases[*].noun must be a non-empty string" };
+    }
+    if (
+      entry.confidence !== "high"
+      && entry.confidence !== "medium"
+      && entry.confidence !== "low"
+    ) {
+      return {
+        ok: false,
+        reason: "report.phrases[*].confidence must be high|medium|low",
+      };
+    }
+    if (
+      entry.status !== "stable"
+      && entry.status !== "partial"
+      && entry.status !== "low-confidence"
+    ) {
+      return {
+        ok: false,
+        reason: "report.phrases[*].status must be stable|partial|low-confidence",
+      };
+    }
+    if (!Array.isArray((entry as { sourceCandidateIds?: unknown }).sourceCandidateIds)) {
+      return {
+        ok: false,
+        reason: "report.phrases[*].sourceCandidateIds must be a string[]",
+      };
+    }
+    if (!Array.isArray((entry as { evidenceRefs?: unknown }).evidenceRefs)) {
+      return {
+        ok: false,
+        reason: "report.phrases[*].evidenceRefs must be ArtifactRef[]",
+      };
+    }
+  }
+  return { ok: true, report: value as CapabilityPhraseReport };
+}
+
 // ---------- Capability manifest + projector ----------
 
 export const normalizationProjector: Projector = {

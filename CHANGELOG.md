@@ -4,6 +4,93 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityPhraseReport v1** — first runtime
+  slice on the semantic-purpose-projection layer (Layer
+  5b) the architecture + carrier decisions reserved.
+  Registers `CapabilityPhraseReport` as a new artifact
+  type, adds the `buildCapabilityPhraseReport` helper to
+  `@rekon/capability-ontology`, and ships
+  `rekon capability phrase project --report <ref>`.
+
+  Behaviour:
+
+    - Consumes the latest
+      `CapabilityNormalizationReport` and projects
+      high-confidence normalized candidates into stable
+      `CapabilityPhrase` entries.
+    - Emits a phrase **only when** the source candidate
+      is `status === "normalized"` + `confidence === "high"`
+      + lexical split is high-confidence. Unknown /
+      ignored / low-confidence rows remain in the audit
+      artifact and never project.
+    - Every emitted phrase has `status === "stable"` in
+      v1. `partial` and `low-confidence` statuses are
+      reserved for future deterministic enrichment slices.
+    - Deterministic IDs: `phrase-<candidate-id>-<verb>-<noun>`.
+    - Deterministic ordering: path → verb → noun →
+      candidate id.
+    - Each phrase cites `sourceCandidateIds` and
+      `evidenceRefs`; the report cites
+      `CapabilityNormalizationReport` (and `EvidenceGraph`
+      when the upstream report cites it) in
+      `header.inputRefs`.
+    - **Read-only with respect to upstream artifacts.**
+      The normalization report, `EvidenceGraph`, review
+      ledger, suggestion report, and `CapabilityMap` are
+      never mutated.
+
+  Pinned verbatim:
+
+    - `CapabilityNormalizationReport` remains the
+      **translation audit**.
+    - `CapabilityPhraseReport` is the **semantic purpose
+      projection**.
+    - `CapabilityMap` integration **remains deferred** —
+      v2 will consume `CapabilityPhraseReport`, not raw
+      normalization rows.
+    - AST / typechecker evidence is **optional
+      enrichment, not foundational truth**.
+    - **No LLM-only inference** in v1.
+    - `CapabilityContract` and
+      `RefactorPreservationContract` remain future
+      layers.
+    - Source writes remain unavailable.
+
+  New exports from `@rekon/capability-ontology`:
+  `CapabilityPhrase`, `CapabilityPhraseConfidence`,
+  `CapabilityPhraseStatus`,
+  `CapabilityPhraseReportSummary`,
+  `CapabilityPhraseReport`,
+  `BuildCapabilityPhraseReportInput`,
+  `buildCapabilityPhraseReport`,
+  `validateCapabilityPhraseReport`.
+
+  `@rekon/sdk.BUILT_IN_ARTIFACT_TYPES` gains
+  `CapabilityPhraseReport` (`schemaVersion: "0.1.0"`,
+  `stability: "experimental"`).
+  `@rekon/runtime.ARTIFACT_CATEGORY_BY_TYPE` maps
+  `CapabilityPhraseReport: "projections"` (sits next to
+  `CapabilityNormalizationReport` and `CapabilityMap`).
+
+  **No `CapabilityNormalizationReport` shape mutation.
+  No `CapabilityMap` mutation. No `EvidenceGraph`
+  mutation. No source-write apply. No LLM-only
+  inference. No version bump. No npm publish. No git
+  tag. No GitHub Release. No new branch.**
+
+  New 20-assertion contract test
+  `tests/contract/capability-phrase-report.test.mjs`.
+  New 11-assertion docs test
+  `tests/docs/capability-phrase-report.test.mjs`. New
+  artifact doc `docs/artifacts/capability-phrase-report.md`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-v1.md`.
+
+  Recommended next slice: **CapabilityPhraseReport
+  publication surfacing** — render the phrase summary in
+  the architecture summary and agent contract
+  publications. Read-only. No `CapabilityMap` mutation.
+
 - Shipped **CapabilityPhraseReport Decision** — strategy /
   architecture / docs / tests-only batch that commits to
   the carrier the previous architecture decision deferred.

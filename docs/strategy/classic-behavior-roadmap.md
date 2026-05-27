@@ -5788,6 +5788,63 @@ scope:
   `inputRefs`. v1 required
   fields only. No `CapabilityMap`
   mutation. No `CapabilityContract`.
+- **CapabilityPhraseReport v1
+  (P1.1 capability-phrase-report-v1
+  slice).** ✅ Shipped.
+  **Fourteenth slice on the
+  capability-ontology track and
+  the first runtime
+  implementation of the Layer 5b
+  semantic-purpose-projection
+  carrier.** Implements the
+  CapabilityPhraseReport
+  Decision: registers
+  `CapabilityPhraseReport` as a
+  new `projections` artifact
+  type in the SDK + runtime, adds
+  `buildCapabilityPhraseReport`
+  + `validateCapabilityPhraseReport`
+  to `@rekon/capability-ontology`,
+  and ships the
+  `rekon capability phrase project
+  --report <CapabilityNormalizationReport-id|type:id>`
+  CLI command. Projection rules:
+  emit a phrase **only when** the
+  source candidate is
+  `status === "normalized"` +
+  `confidence === "high"` +
+  high-confidence lexical split.
+  Every emitted phrase has
+  `status === "stable"` in v1.
+  Deterministic ids
+  (`phrase-<candidate-id>-<verb>-<noun>`)
+  and ordering. Pinned verbatim
+  that `CapabilityNormalizationReport`
+  remains the translation audit,
+  `CapabilityPhraseReport` is
+  the semantic purpose
+  projection, `CapabilityMap`
+  integration remains deferred,
+  AST / typechecker evidence is
+  optional enrichment, no
+  LLM-only inference, and
+  source writes remain
+  unavailable. **No
+  `CapabilityNormalizationReport`
+  shape mutation. No
+  `CapabilityMap` mutation. No
+  `EvidenceGraph` mutation. No
+  version bump. No npm
+  publish.** New 20-assertion
+  contract test
+  `tests/contract/capability-phrase-report.test.mjs`.
+  New 11-assertion docs test
+  `tests/docs/capability-phrase-report.test.mjs`.
+  New artifact doc
+  [`docs/artifacts/capability-phrase-report.md`](../artifacts/capability-phrase-report.md).
+  **Recommended next slice:**
+  CapabilityPhraseReport
+  publication surfacing.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

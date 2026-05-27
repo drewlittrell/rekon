@@ -548,9 +548,14 @@ Selected direction:
   ✅ Resolved by the
   [CapabilityPhraseReport Decision](capability-phrase-report-decision.md).
   Selected: **Option B** — separate
-  `CapabilityPhraseReport`. The next implementation
-  slice (CapabilityPhraseReport v1) registers the
-  artifact.
+  `CapabilityPhraseReport`. **CapabilityPhraseReport v1**
+  has shipped (see
+  [`docs/artifacts/capability-phrase-report.md`](../artifacts/capability-phrase-report.md));
+  the artifact registers in the SDK + runtime, the
+  `buildCapabilityPhraseReport` helper lives in
+  `@rekon/capability-ontology`, and the
+  `rekon capability phrase project --report <ref>` CLI
+  command writes the report.
 - **Phrase confidence model decision** — define the
   formula. Initial sketch: lexical-only (low), lexical +
   canon-pack match (medium), lexical + canon + at least

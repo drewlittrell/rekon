@@ -1986,6 +1986,107 @@ is the first stop before proposing a new capability batch.
   `CapabilityMap` mutation. No
   `CapabilityContract`. No
   source writes.
+- CapabilityPhraseReport v1 (P1.1
+  capability-phrase-report-v1
+  slice): **fourteenth slice on
+  the capability-ontology track
+  and the first runtime
+  implementation of the Layer 5b
+  semantic-purpose-projection
+  carrier.** Implements the
+  CapabilityPhraseReport
+  Decision. Registers
+  `CapabilityPhraseReport` as a
+  new artifact type in the SDK +
+  runtime (`projections`
+  category), adds the
+  `buildCapabilityPhraseReport`
+  helper + `validateCapabilityPhraseReport`
+  validator to
+  `@rekon/capability-ontology`,
+  and ships the
+  `rekon capability phrase project
+  --report <CapabilityNormalizationReport-id|type:id>
+  [--root <path>] [--json]` CLI
+  command. Projection rules: emit
+  a phrase **only when** the
+  source candidate is
+  `status === "normalized"` +
+  `confidence === "high"` +
+  lexical split is high-
+  confidence. Every emitted
+  phrase has `status === "stable"`
+  in v1; `partial` and
+  `low-confidence` statuses are
+  reserved. Deterministic ids
+  (`phrase-<candidate-id>-<verb>-<noun>`)
+  and ordering (path → verb →
+  noun → candidate id). Each
+  phrase cites
+  `sourceCandidateIds` and
+  `evidenceRefs`; the report
+  cites `CapabilityNormalizationReport`
+  (and `EvidenceGraph` when the
+  upstream report cites it) in
+  `header.inputRefs`. Pinned
+  verbatim:
+  **`CapabilityNormalizationReport`
+  remains the translation
+  audit.** **`CapabilityPhraseReport`
+  is the semantic purpose
+  projection.** **`CapabilityMap`
+  integration remains deferred**
+  — v2 will consume
+  `CapabilityPhraseReport`, not
+  raw normalization rows.
+  **AST / typechecker evidence
+  is optional enrichment, not
+  foundational truth.** **No
+  LLM-only inference.** **Source
+  writes remain unavailable.**
+  New exports from
+  `@rekon/capability-ontology`:
+  `CapabilityPhrase`,
+  `CapabilityPhraseConfidence`,
+  `CapabilityPhraseStatus`,
+  `CapabilityPhraseReportSummary`,
+  `CapabilityPhraseReport`,
+  `BuildCapabilityPhraseReportInput`,
+  `buildCapabilityPhraseReport`,
+  `validateCapabilityPhraseReport`.
+  `@rekon/sdk.BUILT_IN_ARTIFACT_TYPES`
+  gains `CapabilityPhraseReport`
+  (`schemaVersion: "0.1.0"`,
+  `stability: "experimental"`).
+  `@rekon/runtime.ARTIFACT_CATEGORY_BY_TYPE`
+  maps
+  `CapabilityPhraseReport: "projections"`.
+  Read-only with respect to
+  every upstream artifact —
+  normalization report,
+  `EvidenceGraph`,
+  `CapabilityMap`, review ledger,
+  and suggestion report are
+  never mutated. **No version
+  bump. No npm publish. No git
+  tag. No GitHub Release. No new
+  branch.** New 20-assertion
+  contract test
+  `tests/contract/capability-phrase-report.test.mjs`.
+  New 11-assertion docs test
+  `tests/docs/capability-phrase-report.test.mjs`.
+  New artifact doc
+  [`docs/artifacts/capability-phrase-report.md`](../artifacts/capability-phrase-report.md).
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-v1.md`.
+  **Recommended next slice:**
+  *CapabilityPhraseReport
+  publication surfacing* —
+  render the phrase summary in
+  the architecture summary and
+  agent contract publications.
+  Read-only. No `CapabilityMap`
+  mutation.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

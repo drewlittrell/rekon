@@ -475,7 +475,7 @@ batch or in the next phrase implementation slice.
 | --- | --- | --- |
 | 1 | [CapabilityPhrase + CapabilityContract Architecture Decision](capability-phrase-contract-architecture-decision.md) | ✅ Shipped |
 | 2 | **CapabilityPhraseReport v1 artifact / report decision** (this memo) | ✅ Shipped |
-| 3 | CapabilityPhraseReport v1 — register the artifact, implement deterministic projection from high-confidence normalized candidates, cite normalization report + `EvidenceGraph` in `inputRefs`. v1 required fields only. | Next slice (recommended) |
+| 3 | **CapabilityPhraseReport v1** — register the artifact, implement deterministic projection from high-confidence normalized candidates, cite normalization report + `EvidenceGraph` in `inputRefs`. v1 required fields only. See [`docs/artifacts/capability-phrase-report.md`](../artifacts/capability-phrase-report.md). | ✅ Shipped |
 | 4 | Confidence + status model decision — formalize the formula that maps lexical / ontology / corroborating-source signal into `confidence` and `status`. | After step 3 |
 | 5 | Per-evidence-source enrichment slices — one per source (path / ownership / framework / architecture profile / future AST / LLM as audit signal). | After step 4 |
 | 6 | `CapabilityMap` v2 design — gated on stable phrase claims across cohort targets. | Deferred |

@@ -1,0 +1,263 @@
+# `CapabilityPhraseReport` Artifact
+
+**Status:** v1 shipped.
+**Stability:** experimental, public.
+**Producer:** `@rekon/cli.capability-phrase-project`.
+**Category:** `projections` (sits next to
+`CapabilityNormalizationReport` and `CapabilityMap`).
+
+A `CapabilityPhraseReport` is the **semantic purpose
+projection** that sits between
+[`CapabilityNormalizationReport`](capability-normalization-report.md)
+(the **translation audit**, Layer 5) and the future
+`CapabilityMap` v2 (Layer 6, canonical projection).
+
+The phrase report **consumes the latest
+`CapabilityNormalizationReport`** and projects
+high-confidence normalized candidates into repo / language /
+architecture agnostic `CapabilityPhrase` entries. Unknown,
+ignored, or low-confidence normalization rows remain visible
+in the audit artifact and **never project** into a phrase.
+
+Verbatim pins (the docs test asserts these):
+
+- `CapabilityPhraseReport` is the **semantic purpose
+  projection**.
+- `CapabilityNormalizationReport` remains the **translation
+  audit**.
+- `CapabilityPhraseReport` consumes the latest
+  `CapabilityNormalizationReport`.
+- Only **high-confidence normalized** claims project in v1.
+- **`CapabilityMap` integration remains deferred** —
+  `CapabilityMap` v2 will consume `CapabilityPhraseReport`,
+  not raw normalization rows.
+- AST / typechecker evidence is **optional enrichment, not
+  foundational truth**.
+- **No LLM-only inference** in v1.
+- The phrase report never mutates `EvidenceGraph`,
+  `CapabilityNormalizationReport`, `CapabilityMap`,
+  `CapabilityNormalizationReviewLedger`, or
+  `CapabilityOntologySuggestionReport`.
+
+The report is **read-only with respect to upstream
+artifacts**:
+
+- It is written **only** by explicit operator CLI invocation
+  (`rekon capability phrase project --report <ref>`).
+- It **does not** mutate the source
+  `CapabilityNormalizationReport`.
+- It **does not** mutate `EvidenceGraph`.
+- It **does not** mutate `CapabilityMap` — Layer 6
+  integration is deferred to a future slice.
+- It **does not** mutate any operator decision (ledger,
+  suggestion report).
+- It **does not** invoke an LLM.
+
+## Schema (v1)
+
+| Field | Meaning |
+| --- | --- |
+| `header.artifactType` | always `"CapabilityPhraseReport"` |
+| `header.schemaVersion` | `"0.1.0"` |
+| `header.inputRefs` | includes the source `CapabilityNormalizationReport` ref; includes `EvidenceGraph` when the normalization report cites it |
+| `sourceNormalizationReportRef` | `ArtifactRef` pointing at the consumed `CapabilityNormalizationReport` |
+| `summary.totalPhrases` | total `CapabilityPhrase` entries in this report |
+| `summary.stable` | count with `status === "stable"` |
+| `summary.partial` | count with `status === "partial"` (reserved; always `0` in v1) |
+| `summary.lowConfidence` | count with `status === "low-confidence"` (reserved; always `0` in v1) |
+| `summary.withDomain` | count of phrases with a populated `domain` |
+| `summary.withPattern` | count of phrases with a populated `pattern` |
+| `summary.withLayer` | count of phrases with a populated `layer` |
+| `phrases[]` | one entry per projected `CapabilityPhrase` |
+
+Each `CapabilityPhrase` entry carries:
+
+| Field | Status | Meaning |
+| --- | --- | --- |
+| `id` | required | deterministic per-report identifier (`phrase-<candidate-id>-<verb>-<noun>`) |
+| `verb` | required | canonical verb from the source normalization claim |
+| `noun` | required | canonical noun from the source normalization claim |
+| `confidence` | required | `"high"` / `"medium"` / `"low"` — derived from the source claim |
+| `evidenceRefs` | required | `ArtifactRef[]` citing contributing artifacts (typically the upstream `EvidenceGraph`) |
+| `sourceCandidateIds` | required | `string[]` of source `CapabilityNormalizationReportCandidate.id` values |
+| `status` | required | `"stable"` (v1 projection), `"partial"` (reserved), or `"low-confidence"` (reserved) |
+| `qualifier` | partial | lexical-split tokens beyond verb / noun (v1 leaves absent unless deterministic evidence exists) |
+| `domain` | partial | coarse business / system domain (v1 leaves absent unless ownership / path evidence is already present) |
+| `pattern` | partial | recognized architecture pattern (v1 leaves absent unless deterministic evidence) |
+| `layer` | partial | repo-layer placement (v1 leaves absent unless deterministic evidence) |
+| `sideEffects` | future | reserved — populated by future evidence-source slices |
+| `inputs` / `outputs` | future | reserved — populated by future evidence-source slices |
+| `message` | partial | optional human-readable note (always informational) |
+
+## V1 Projection Rules
+
+v1 is conservative. A `CapabilityPhrase` is emitted **only
+when** all of the following hold for a normalization
+candidate:
+
+- `candidate.status === "normalized"`
+- `candidate.normalized` exists with both `verb` and `noun`
+- `candidate.confidence === "high"`
+- the source candidate's lexical split was high-confidence
+
+No phrase is emitted for:
+
+- `unknown-verb` candidates
+- `unknown-noun` candidates
+- `unknown` candidates
+- `ignored` candidates
+- `low-confidence` candidates
+- medium-confidence normalized rows
+
+Status assignment in v1:
+
+- `stable` — v1's default for every emitted phrase.
+- `partial` — reserved for future deterministic
+  domain / pattern / layer enrichments. Not emitted in v1.
+- `low-confidence` — reserved. Not emitted in v1.
+
+Non-emitted candidates remain inspectable in the source
+`CapabilityNormalizationReport`. The phrase report is a
+projection cleanup boundary, not an alternate audit.
+
+## Deterministic IDs and Ordering
+
+Phrase IDs follow the deterministic pattern:
+
+```
+phrase-<candidate-id>-<verb>-<noun>
+```
+
+Identical normalization reports always produce identical
+phrase ids. Re-running the projector against the same input
+yields byte-identical phrase rows (modulo the header
+timestamp, which is the artifact's only nondeterministic
+field).
+
+Phrases are sorted by:
+
+1. source candidate `path` (alphabetic);
+2. `verb` (alphabetic);
+3. `noun` (alphabetic);
+4. first `sourceCandidateIds` entry (alphabetic).
+
+No nondeterministic timestamps appear inside phrase entries.
+
+## Evidence Sources (v1)
+
+Allowed:
+
+- `CapabilityNormalizationReport` normalized claims —
+  primary source of `verb`, `noun`, `confidence`,
+  `sourceCandidateIds`.
+- `EvidenceGraph` source refs — provenance citation. Cited
+  in `header.inputRefs` and per-phrase `evidenceRefs` when
+  the source candidate's `source.artifactRef` is populated.
+- `ObservedRepo` / `OwnershipMap` / repo-archetype overlays
+  — reserved for future `domain` / `pattern` / `layer`
+  enrichment. Not used in v1.
+
+Deferred (future enrichment, behind their own decision
+memos):
+
+- AST / typechecker call graph.
+- Runtime side-effect evidence.
+- API schemas / input-output contracts.
+- Test-to-capability mapping.
+- LLM-generated semantic labels.
+
+Pin: **AST / typechecker evidence is optional enrichment,
+not foundational truth.** Pin: **No LLM-only inference.**
+
+## What This Artifact Is Not
+
+- **Not the translation audit.** That is
+  `CapabilityNormalizationReport`. The audit shape is
+  unchanged.
+- **Not a `CapabilityMap`.** Layer 6 integration is
+  deferred. `CapabilityMap` v2 will consume this report
+  later.
+- **Not a `CapabilityContract`.** Contract is the future
+  policy / preservation layer.
+- **Not a `RefactorPreservationContract`.** That is a
+  phase-specific projection of contract policy.
+- **Not LLM output.** v1 projection is pure deterministic
+  filtering over normalized rows.
+- **Not a source-write trigger.** Source-write apply
+  remains unavailable across the entire ontology track.
+
+## Operator Workflow
+
+1. Run `rekon refresh` (or `rekon observe`) to write a fresh
+   `EvidenceGraph`.
+2. Run `rekon capability ontology normalize` to produce the
+   `CapabilityNormalizationReport`.
+3. Run
+   `rekon capability phrase project --report <CapabilityNormalizationReport:id> [--json]`.
+4. Read the report. The summary shows how many high-
+   confidence claims projected into stable phrases.
+
+The CLI command is the canonical surface; the
+`buildCapabilityPhraseReport` helper is exported from
+`@rekon/capability-ontology` for callers building tooling
+on top.
+
+## CLI Surface
+
+```bash
+rekon capability phrase project \
+  --report <CapabilityNormalizationReport-id|type:id> \
+  [--root <path>] [--json]
+```
+
+- `--report` is required.
+- Reads the referenced `CapabilityNormalizationReport`.
+- Writes a single `CapabilityPhraseReport` under
+  `.rekon/artifacts/projections/`.
+- `--json` emits the canonical report. Human-mode prints a
+  short summary and ends with *"CapabilityMap remains
+  unchanged."*.
+
+## Forward Compatibility
+
+- `partial` and `low-confidence` statuses are reserved for
+  future deterministic enrichment slices (domain / pattern /
+  layer / side-effect / IO). v1 always emits `stable`.
+- `CapabilityMap` v2 will consume `CapabilityPhraseReport`,
+  not raw `CapabilityNormalizationReport` rows. v2 ships
+  only after phrase claims stabilize across multiple cohort
+  targets.
+- `CapabilityContract` is the future policy / preservation
+  layer; it binds a phrase to allowed layers / required
+  checks / required + forbidden neighbours / preservation
+  rules. Not implemented in v1.
+
+## See Also
+
+- [`CapabilityNormalizationReport` artifact
+  reference](capability-normalization-report.md) — Layer 5
+  translation audit consumed by this report.
+- [`CapabilityNormalizationReviewLedger` artifact
+  reference](capability-normalization-review-ledger.md) —
+  operator decisions over unknown / low-confidence
+  normalization rows (separate concern from phrase
+  projection).
+- [`CapabilityOntologySuggestionReport` artifact
+  reference](capability-ontology-suggestion-report.md) —
+  preview-only override-file proposals (separate concern).
+- [Capability ontology
+  concept](../concepts/capability-ontology.md) — overall
+  layered ontology model.
+- [CapabilityPhrase + CapabilityContract Architecture
+  Decision](../strategy/capability-phrase-contract-architecture-decision.md)
+  — the architectural reservation that this artifact
+  realizes.
+- [CapabilityPhraseReport Decision](../strategy/capability-phrase-report-decision.md)
+  — the carrier commitment (Option B) this artifact
+  implements.
+- [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
+  — the eight-layer model. Layer 6 (`CapabilityMap`) will
+  eventually consume this report.
+- [Capability Ontology Canon + Override Model Decision](../strategy/capability-ontology-canon-override-model-decision.md)
+  — canon packs + overrides supply the canonical
+  vocabulary phrases anchor on.

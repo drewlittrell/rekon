@@ -343,23 +343,30 @@ verb / noun pair with optional `qualifier` / `domain` /
 semantic unit between `CapabilityNormalizationReport` and
 the future `CapabilityMap` v2.
 
-`CapabilityPhrase` is not implemented yet. The
+**`CapabilityPhraseReport` v1 has shipped.** The
 [CapabilityPhrase + CapabilityContract Architecture
 Decision](../strategy/capability-phrase-contract-architecture-decision.md)
-reserves the name, pins the v1 field shape, and pins the
-boundary between phrase (observed semantic claim) and
-contract (operator-authored placement / proof /
-preservation policy). The
+reserved the name and field shape, and the
 [CapabilityPhraseReport
 Decision](../strategy/capability-phrase-report-decision.md)
-commits to the v1 carrier: a separate
-`CapabilityPhraseReport` artifact (Option B), not
-enrichment of `CapabilityNormalizationReport` — keeping
-the **translation audit** and the **semantic purpose
-projection** as distinct layers. `CapabilityContract`
-remains the future policy layer;
-`RefactorPreservationContract` is a phase-specific
-projection of that policy.
+committed to Option B (a separate artifact carrier). The
+runtime now registers
+[`CapabilityPhraseReport`](../artifacts/capability-phrase-report.md)
+as a new `projections` artifact type. The
+`buildCapabilityPhraseReport` helper in
+`@rekon/capability-ontology` projects high-confidence
+normalized candidates from
+`CapabilityNormalizationReport` into stable
+`CapabilityPhrase` entries. The
+`rekon capability phrase project --report <ref>` CLI
+command writes the report. **The translation audit
+(`CapabilityNormalizationReport`) and the semantic
+purpose projection (`CapabilityPhraseReport`) remain
+distinct layers.** `CapabilityMap` is not mutated — v2
+will consume the phrase report later, not raw
+normalization rows. `CapabilityContract` remains the
+future policy layer; `RefactorPreservationContract` is a
+phase-specific projection of that policy.
 
 ## See Also
 
