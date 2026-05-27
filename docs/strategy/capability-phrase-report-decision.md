@@ -476,14 +476,17 @@ batch or in the next phrase implementation slice.
 | 1 | [CapabilityPhrase + CapabilityContract Architecture Decision](capability-phrase-contract-architecture-decision.md) | ✅ Shipped |
 | 2 | **CapabilityPhraseReport v1 artifact / report decision** (this memo) | ✅ Shipped |
 | 3 | **CapabilityPhraseReport v1** — register the artifact, implement deterministic projection from high-confidence normalized candidates, cite normalization report + `EvidenceGraph` in `inputRefs`. v1 required fields only. See [`docs/artifacts/capability-phrase-report.md`](../artifacts/capability-phrase-report.md). | ✅ Shipped |
-| 4 | Confidence + status model decision — formalize the formula that maps lexical / ontology / corroborating-source signal into `confidence` and `status`. | After step 3 |
-| 5 | Per-evidence-source enrichment slices — one per source (path / ownership / framework / architecture profile / future AST / LLM as audit signal). | After step 4 |
-| 6 | `CapabilityMap` v2 design — gated on stable phrase claims across cohort targets. | Deferred |
-| 7 | `CapabilityContract` decision — only after phrases stabilize. | Deferred |
-| 8 | `RefactorPreservationContract` decision — far-future. | Deferred |
+| 4 | **CapabilityPhraseReport publication surfacing** — architecture summary + agent contract carry a read-only `Capability Phrases` section that quotes the deferred-`CapabilityMap` callout, summary counts, and a bounded phrase table. | ✅ Shipped |
+| 5 | **CapabilityPhraseReport safety review** — pins that `CapabilityPhraseReport` is semantic purpose projection (not ownership or placement policy), `CapabilityNormalizationReport` remains the translation audit, `CapabilityMap` integration remains deferred until phrase coverage is measured on real repos, proof report surfacing remains deferred, and only stable high-confidence phrases are eligible for future `CapabilityMap` v2. See [Safety Review](capability-phrase-report-safety-review.md). | ✅ Shipped |
+| 6 | **CapabilityPhraseReport real-repo coverage review** — measure phrase count per archetype, stable-phrase ratio, evidence-ref distribution, and publication usefulness on the fixture + at least one real cohort target. | Next slice |
+| 7 | Confidence + status model decision — formalize the formula that maps lexical / ontology / corroborating-source signal into `confidence` and `status`. | After step 6 |
+| 8 | Per-evidence-source enrichment slices — one per source (path / ownership / framework / architecture profile / future AST / LLM as audit signal). | After step 7 |
+| 9 | `CapabilityMap` v2 design — gated on stable phrase claims across cohort targets. | Deferred |
+| 10 | `CapabilityContract` decision — only after phrases stabilize. | Deferred |
+| 11 | `RefactorPreservationContract` decision — far-future. | Deferred |
 
-Steps 3 – 5 are the next implementation work. Step 2 lands
-now as a strategy decision.
+Steps 3 – 5 have shipped. Step 6 is the next slice. Step 2
+landed as a strategy decision.
 
 ## See Also
 
@@ -492,6 +495,7 @@ now as a strategy decision.
 - [Capability Ontology Canon + Override Model Decision](capability-ontology-canon-override-model-decision.md)
 - [Capability Ontology Architecture Impact Review](capability-ontology-architecture-impact-review.md)
 - [Capability Ontology Suggestion Safety Review](capability-ontology-suggestion-safety-review.md)
+- [CapabilityPhraseReport Safety Review](capability-phrase-report-safety-review.md)
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
 - [`CapabilityNormalizationReviewLedger` artifact reference](../artifacts/capability-normalization-review-ledger.md)
 - [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md)

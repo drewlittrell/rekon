@@ -5898,6 +5898,70 @@ scope:
   **Recommended next slice:**
   CapabilityPhraseReport safety
   review.
+- **CapabilityPhraseReport safety
+  review (P1.1
+  capability-phrase-report-safety-review
+  slice).** ✅ Shipped. **Sixteenth
+  slice on the capability-ontology
+  track.** Strategy / docs /
+  tests-only batch. End-to-end
+  review of the
+  `CapabilityNormalizationReport →
+  CapabilityPhraseReport →
+  architecture summary / agent
+  contract publication surfacing`
+  path. Verdict:
+  **CapabilityPhraseReport is safe
+  and stable as the semantic
+  purpose projection layer.
+  `CapabilityMap` v2 stays
+  deferred until one real-repo
+  phrase coverage review measures
+  stable-phrase quality.** Pinned
+  verbatim:
+  **`CapabilityPhraseReport` is
+  semantic purpose projection, not
+  ownership or placement policy.**
+  **`CapabilityNormalizationReport`
+  remains the translation audit.**
+  **`CapabilityMap` integration
+  remains deferred until phrase
+  coverage is measured on real
+  repos.** **Proof report
+  surfacing remains deferred
+  because phrase projection is
+  semantic context, not
+  verification proof.** **Only
+  stable high-confidence phrases
+  are eligible for future
+  `CapabilityMap` v2.** **No
+  runtime change. No
+  `CapabilityMap` mutation. No
+  phrase projection rule change.
+  No new artifact registration. No
+  new CLI command. No source
+  writes. No LLM-only inference.
+  No npm publish. No version bump.
+  No git tag. No GitHub Release.
+  No new branch.** New strategy
+  memo
+  [`docs/strategy/capability-phrase-report-safety-review.md`](capability-phrase-report-safety-review.md)
+  with 14 required headings + 3
+  required diagnostic tables
+  (projection path / option /
+  boundary). New 12-assertion docs
+  test
+  `tests/docs/capability-phrase-report-safety-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-safety-review.md`.
+  **Recommended next slice:**
+  CapabilityPhraseReport real-repo
+  coverage review — measure phrase
+  count per archetype,
+  stable-phrase ratio, evidence-ref
+  distribution, and publication
+  usefulness on the fixture + at
+  least one real cohort target.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

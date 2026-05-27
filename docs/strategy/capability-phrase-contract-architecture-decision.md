@@ -556,15 +556,39 @@ Selected direction:
   `@rekon/capability-ontology`, and the
   `rekon capability phrase project --report <ref>` CLI
   command writes the report.
+- **CapabilityPhraseReport publication surfacing** —
+  ✅ Shipped. Architecture summary + agent contract carry a
+  read-only `Capability Phrases` section with the
+  deferred-`CapabilityMap` callout, summary counts, and a
+  bounded phrase table. Proof report surfacing remains
+  deferred.
+- **CapabilityPhraseReport safety review** —
+  ✅ Shipped. Pins that `CapabilityPhraseReport` is semantic
+  purpose projection (not ownership or placement policy),
+  `CapabilityNormalizationReport` remains the translation
+  audit, `CapabilityMap` integration remains deferred until
+  phrase coverage is measured on real repos, proof report
+  surfacing remains deferred because phrase projection is
+  semantic context (not verification proof), and only stable
+  high-confidence phrases are eligible for future
+  `CapabilityMap` v2. See
+  [Safety Review](capability-phrase-report-safety-review.md).
+- **CapabilityPhraseReport real-repo coverage review** —
+  next slice. Measure phrase count per archetype,
+  stable-phrase ratio, evidence-ref distribution, and
+  publication usefulness on the fixture + at least one
+  real cohort target. Output drives the
+  high-confidence-only `CapabilityMap` v2 decision.
 - **Phrase confidence model decision** — define the
   formula. Initial sketch: lexical-only (low), lexical +
   canon-pack match (medium), lexical + canon + at least
   one ownership / framework / operator source (high).
+  Lands after the real-repo coverage review.
 - **Domain / pattern / layer evidence-source slices** —
   one per source. Each lands behind its own decision memo.
 - **CapabilityMap v2 design** — gated on phrase
-  stability. Decides additive vs. replacement projection
-  semantics.
+  stability and the safety review. Decides additive vs.
+  replacement projection semantics.
 - **CapabilityContract decision** — only after phrases
   stabilize. Defines schema, authoring surface, suggestion
   workflow, and review-ledger semantics.
@@ -582,6 +606,7 @@ Selected direction:
 - [Capability Ontology Canon + Override Model Decision](capability-ontology-canon-override-model-decision.md)
 - [Capability Ontology Architecture Impact Review](capability-ontology-architecture-impact-review.md)
 - [Capability Ontology Suggestion Safety Review](capability-ontology-suggestion-safety-review.md)
+- [CapabilityPhraseReport Safety Review](capability-phrase-report-safety-review.md)
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
 - [`CapabilityNormalizationReviewLedger` artifact reference](../artifacts/capability-normalization-review-ledger.md)
 - [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md)

@@ -4,6 +4,83 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityPhraseReport safety review** —
+  end-to-end review of the
+  `CapabilityNormalizationReport → CapabilityPhraseReport
+  → architecture summary / agent contract publication
+  surfacing` path. Strategy / docs / tests-only batch.
+
+  Verdict: **`CapabilityPhraseReport` is safe and stable
+  as the semantic purpose projection layer.**
+  `CapabilityMap` v2 stays deferred until one real-repo
+  phrase coverage review measures stable-phrase quality
+  across the canon-pack archetypes.
+
+  Pinned verbatim:
+
+    - `CapabilityPhraseReport` is semantic purpose
+      projection, not ownership or placement policy.
+    - `CapabilityNormalizationReport` remains the
+      translation audit.
+    - `CapabilityMap` integration remains deferred
+      until phrase coverage is measured on real repos.
+    - Proof report surfacing remains deferred because
+      phrase projection is semantic context, not
+      verification proof.
+    - Only stable high-confidence phrases are eligible
+      for future `CapabilityMap` v2.
+
+  The review walks every layer of the projection path
+  (`CapabilityNormalizationReport` → projection rules
+  → `CapabilityPhraseReport` → architecture summary /
+  agent contract surfacing) and confirms the boundaries
+  established by the architecture + carrier decisions
+  are preserved end-to-end. The no-mutation guarantee
+  table enumerates every reader / writer in the path;
+  contract tests on the phrase-report v1 + publication
+  surfacing slices enforce the guarantee mechanically.
+
+  Options considered:
+  - Proceed directly to `CapabilityMap` v2 → deferred
+    (needs measured coverage).
+  - Phrase coverage review (selected).
+  - Add phrase enrichment first → deferred (needs
+    coverage data).
+  - Add `CapabilityContract` now → rejected (policy
+    layer too early).
+
+  **No runtime change. No `CapabilityMap` mutation. No
+  `CapabilityPhraseReport` mutation. No
+  `CapabilityNormalizationReport` mutation. No
+  `EvidenceGraph` mutation. No phrase-projection rule
+  change. No `CapabilityContract`. No
+  `RefactorPreservationContract`. No architecture
+  linting. No resolver routing by capability. No
+  verification planning by capability. No AST /
+  typechecker evidence. No LLM-only inference. No
+  source-write apply. No new CLI command. No new
+  artifact registration. No version bump. No npm
+  publish. No git tag. No GitHub Release. No new
+  branch.**
+
+  New strategy memo
+  `docs/strategy/capability-phrase-report-safety-review.md`
+  with all 14 required headings + 3 required diagnostic
+  tables (projection path, option, boundary). New
+  12-assertion docs test
+  `tests/docs/capability-phrase-report-safety-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-report-safety-review.md`.
+
+  Recommended next slice: **CapabilityPhraseReport
+  real-repo coverage review** — run `refresh →
+  normalize → phrase project` against the fixture and
+  at least one real cohort target. Measure phrase
+  count by archetype, stable-phrase ratio, evidence-ref
+  distribution, and publication usefulness. Output
+  drives the `CapabilityMap` v2 high-confidence-only
+  decision.
+
 - Shipped **CapabilityPhraseReport publication
   surfacing** — the architecture summary and agent
   contract publishers now surface the latest

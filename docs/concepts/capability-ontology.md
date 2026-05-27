@@ -368,6 +368,22 @@ normalization rows. `CapabilityContract` remains the
 future policy layer; `RefactorPreservationContract` is a
 phase-specific projection of that policy.
 
+The
+[CapabilityPhraseReport Safety Review](../strategy/capability-phrase-report-safety-review.md)
+pins these verbatim guarantees: `CapabilityPhraseReport`
+is **semantic purpose projection, not ownership or
+placement policy**; `CapabilityNormalizationReport`
+**remains the translation audit**; `CapabilityMap`
+**integration remains deferred until phrase coverage is
+measured on real repos**; **proof report surfacing
+remains deferred because phrase projection is semantic
+context, not verification proof**; and **only stable
+high-confidence phrases are eligible for future
+`CapabilityMap` v2**. The architecture summary and agent
+contract carry a read-only `Capability Phrases` section
+that surfaces the deferred-`CapabilityMap` callout; the
+proof report does not.
+
 ## See Also
 
 - [`CapabilityNormalizationReport` artifact
@@ -387,6 +403,13 @@ phase-specific projection of that policy.
   `normalize → review → suggest → publish` loop. Pins
   the preview-only contract and defers any config apply
   command.
+- [CapabilityPhraseReport Safety
+  Review](../strategy/capability-phrase-report-safety-review.md)
+  — end-to-end safety review of the
+  `normalize → phrase project → publish` path. Pins
+  semantic-purpose-projection boundary, the deferred
+  `CapabilityMap` v2 gate, and the deferred proof report
+  surfacing.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

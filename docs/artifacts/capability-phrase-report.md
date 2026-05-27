@@ -287,7 +287,17 @@ returns `{ lines, inputRef? }`.
 - `CapabilityMap` v2 will consume `CapabilityPhraseReport`,
   not raw `CapabilityNormalizationReport` rows. v2 ships
   only after phrase claims stabilize across multiple cohort
-  targets.
+  targets — the
+  [CapabilityPhraseReport Safety Review](../strategy/capability-phrase-report-safety-review.md)
+  pins **`CapabilityMap` integration remains deferred until
+  phrase coverage is measured on real repos**, and **only
+  stable high-confidence phrases are eligible for future
+  `CapabilityMap` v2**.
+- The safety review also pins that `CapabilityPhraseReport`
+  is **semantic purpose projection, not ownership or
+  placement policy**, and that **proof report surfacing
+  remains deferred because phrase projection is semantic
+  context, not verification proof**.
 - `CapabilityContract` is the future policy / preservation
   layer; it binds a phrase to allowed layers / required
   checks / required + forbidden neighbours / preservation
@@ -316,6 +326,14 @@ returns `{ lines, inputRef? }`.
 - [CapabilityPhraseReport Decision](../strategy/capability-phrase-report-decision.md)
   — the carrier commitment (Option B) this artifact
   implements.
+- [CapabilityPhraseReport Safety Review](../strategy/capability-phrase-report-safety-review.md)
+  — verbatim guarantees pinning that phrases are semantic
+  purpose projection (not ownership or placement policy),
+  `CapabilityNormalizationReport` remains the translation
+  audit, `CapabilityMap` integration stays deferred until
+  real-repo phrase coverage is measured, proof report
+  surfacing stays deferred, and only stable high-confidence
+  phrases are eligible for future `CapabilityMap` v2.
 - [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
   — the eight-layer model. Layer 6 (`CapabilityMap`) will
   eventually consume this report.
