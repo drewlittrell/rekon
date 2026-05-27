@@ -6256,6 +6256,41 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Post-AST cohort re-run (P1.1
+  post-ast-cohort-rerun
+  slice).** ✅ Shipped.
+  **Twenty-sixth slice on the
+  capability-ontology track.**
+  Strategy / dogfood-analysis /
+  docs / tests-only batch. Fifth
+  coverage review on the phrase
+  track. Real-repo measurement on
+  `target-1` and `target-2` with
+  anonymized labels only.
+  Headline: target-1 16 → 37
+  stable phrases (+131.3%, 2.3×
+  lift) with textbook verb:noun
+  pairs (`get:response`,
+  `build:plan`, `get:schema`,
+  `get:session`, `save:response`,
+  `build:report`); target-2
+  neutral (2 → 2, no
+  regression). Readiness gate
+  accepts narrower evidence;
+  **`CapabilityMap` v2
+  high-confidence-only decision
+  memo becomes the primary next
+  slice.** New strategy memo
+  [`docs/strategy/post-ast-cohort-rerun.md`](post-ast-cohort-rerun.md)
+  with 15 required headings +
+  7 required tables. New
+  15-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/post-ast-cohort-rerun.md`.
+  **Recommended next slice:**
+  *`CapabilityMap` v2
+  high-confidence-only decision
+  memo.*
 - **Post-AST CapabilityPhraseReport
   Coverage Review (P1.1
   post-ast-capability-phrase-coverage-review

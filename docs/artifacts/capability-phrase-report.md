@@ -351,11 +351,20 @@ projection rules. The
 (twenty-fifth slice) measured the impact on available
 targets: on the AST-rich fixture, **6 stable phrases
 on 66 candidates** with meaningful pairs (`create:user`,
-`fetch:user`, `handle:request`). Real-repo re-runs on
-`target-1` and `target-2` remain pending an intake
-request; the readiness gate explicitly accepts
-narrower evidence and `CapabilityMap` v2 stays
-deferred.
+`fetch:user`, `handle:request`). The
+[Post-AST Cohort Re-Run](../strategy/post-ast-cohort-rerun.md)
+(twenty-sixth slice) completed the real-repo
+measurement: **`target-1` (Next.js TS scale): 16 →
+37 stable phrases (+131.3%, 2.3× lift)** with
+textbook pairs `get:response` (14), `build:plan`
+(13), `get:schema` (12), `get:session` (10),
+`save:response` (8), `build:report` (8).
+**`target-2` (small TS + workflows): 2 → 2 stable
+phrases** — unchanged, no regression. **The
+readiness gate accepts narrower evidence and the
+`CapabilityMap` v2 high-confidence-only decision
+memo is now the next slice on the
+capability-ontology track.**
 **The stable threshold remains unchanged.** **AST v1
 does not mutate `CapabilityMap`** — `CapabilityMap`
 v2 stays evidence-gated on the post-AST coverage

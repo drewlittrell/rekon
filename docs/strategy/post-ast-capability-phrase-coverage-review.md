@@ -416,12 +416,16 @@ supporting-doc cross-references.
 
 ## Follow-Up Work
 
-- **Post-AST cohort re-run** (primary next slice;
-  intake request issued). Re-execute the matrix
-  against `target-1` and `target-2`. Output
-  recorded under
-  `docs/strategy/post-ast-cohort-rerun-results.md`
-  (TBD).
+- **Post-AST cohort re-run** — ✅ shipped as the
+  twenty-sixth slice. See
+  [Post-AST Cohort Re-Run](post-ast-cohort-rerun.md).
+  Real-repo measurement on `target-1` and
+  `target-2`. **Headline:** target-1 16 → 37
+  stable phrases (+131.3%, 2.3× lift); target-2
+  neutral (no regression). The readiness gate's
+  narrower-evidence escape clause is invoked; the
+  `CapabilityMap` v2 high-confidence-only decision
+  memo becomes the next slice.
 - **`CapabilityMap` v2 high-confidence-only
   design / implementation plan** — gated on the
   cohort re-run delivering real-repo stable-density

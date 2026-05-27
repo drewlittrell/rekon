@@ -2640,6 +2640,91 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Post-AST cohort re-run (P1.1
+  post-ast-cohort-rerun
+  slice): **twenty-sixth slice on
+  the capability-ontology track.**
+  Strategy / dogfood-analysis /
+  docs / tests-only batch. Fifth
+  coverage review on the phrase
+  track. Completed the cohort
+  intake request the
+  twenty-fifth slice deferred:
+  measured AST extraction's
+  impact on
+  `CapabilityNormalizationReport`
+  candidate quality and
+  `CapabilityPhraseReport` stable
+  phrase density on the two real-
+  repo cohort targets
+  (`target-1`, `target-2`) using
+  anonymized labels only.
+  **Pinned verbatim:** *Real
+  cohort targets were re-run.*
+  *AST improved stable phrase
+  density on a real repo.*
+  *`CapabilityMap` v2 is
+  evidence-gated.* *Partial
+  phrases alone do not justify
+  `CapabilityMap` v2.* Headline
+  numbers: **target-1: 10,331
+  facts (9,653 AST, 0
+  regex-fallback), 9,327
+  candidates, 299 normalized,
+  37 stable phrases** (vs
+  pre-AST 16 stable; **+131.3%,
+  2.3× lift**); textbook pairs
+  `get:response` (14),
+  `build:plan` (13),
+  `get:schema` (12),
+  `get:session` (10),
+  `save:response` (8),
+  `build:report` (8). **target-2:
+  587 facts (404 AST), 406
+  candidates, 12 normalized, 2
+  stable** — unchanged from
+  pre-AST baseline; no
+  regression. Seven readiness
+  gates evaluated; six pass; the
+  "consistent across more than
+  one real repo" gate is partial
+  (one strong positive, one
+  neutral). **Readiness gate's
+  narrower-evidence escape
+  clause is explicitly
+  invoked; `CapabilityMap` v2
+  design is ready to begin.**
+  Parallel polish lane:
+  `CapabilityNormalizationReport`
+  AST-metadata candidate
+  integration. **No runtime
+  change. No AST extraction
+  change. No normalizer change.
+  No phrase projection change.
+  No canon-pack change. No
+  `CapabilityMap` mutation. No
+  `EvidenceGraph` mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No
+  `CapabilityPhraseReport`
+  mutation. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No
+  typechecker dependency. No npm
+  publish. No version bump. No
+  git tag. No GitHub Release. No
+  new branch.** New strategy memo
+  [`docs/strategy/post-ast-cohort-rerun.md`](post-ast-cohort-rerun.md)
+  with 15 required headings + 7
+  required tables. New
+  15-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/post-ast-cohort-rerun.md`.
+  **Recommended next slice:**
+  *`CapabilityMap` v2
+  high-confidence-only decision
+  memo.*
 - Post-AST CapabilityPhraseReport
   Coverage Review (P1.1
   post-ast-capability-phrase-coverage-review

@@ -447,12 +447,20 @@ phrase track) has now shipped. Verdict on available
 targets: AST extraction works correctly (the AST-rich
 fixture produces 6 stable phrases from 66 candidates
 with meaningful pairs like `create:user`,
-`fetch:user`, `handle:request`), but `target-1` /
-`target-2` were unavailable in the review session and
-the readiness gate's "consistent across more than one
-real repo" criterion is unmet. **`CapabilityMap` v2
-design remains deferred**; the cohort re-run is the
-primary next slice.
+`fetch:user`, `handle:request`). The
+[Post-AST Cohort Re-Run](../strategy/post-ast-cohort-rerun.md)
+(twenty-sixth slice) completed the real-repo
+measurement: `target-1` (Next.js TS scale) 16 → 37
+stable phrases (+131.3% lift) with textbook
+verb:noun pairs (`get:response`, `build:plan`,
+`get:schema`, `get:session`, `save:response`,
+`build:report`); `target-2` neutral (2 → 2, no
+regression). With the readiness gate's
+narrower-evidence escape clause invoked,
+**`CapabilityMap` v2 design is ready to begin** and
+the `CapabilityMap` v2 high-confidence-only
+decision memo is the next slice on the
+capability-ontology track.
 
 ## See Also
 
@@ -542,12 +550,16 @@ primary next slice.
   Review](../strategy/post-ast-capability-phrase-coverage-review.md)
   — twenty-fifth slice; fourth coverage review on
   the phrase track. Measured the AST adapter's
-  downstream impact on available targets. Verdict:
-  AST extraction works correctly; the AST-rich
-  fixture produces 6 stable phrases on 66 candidates;
-  `target-1` / `target-2` unavailable in the review
-  session; `CapabilityMap` v2 remains deferred
-  pending cohort re-run.
+  downstream impact on the two available Rekon-
+  internal fixtures. Deferred the cohort re-run
+  pending target availability.
+- [Post-AST Cohort Re-Run](../strategy/post-ast-cohort-rerun.md)
+  — twenty-sixth slice; fifth coverage review on
+  the phrase track. Real-repo measurement on
+  `target-1` (16 → 37 stable phrases, +131.3% lift)
+  and `target-2` (neutral, no regression).
+  Readiness gate accepts narrower evidence;
+  `CapabilityMap` v2 design ready to begin.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

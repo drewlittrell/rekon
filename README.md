@@ -1103,6 +1103,109 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Post-AST cohort re-run has shipped. Strategy /
+# dogfood-analysis / docs / tests-only batch.
+# Twenty-sixth slice on the capability-ontology
+# track. Fifth coverage review on the phrase track.
+# Completed the cohort intake request the
+# twenty-fifth slice deferred: measured AST
+# extraction's impact on CapabilityNormalizationReport
+# candidate quality and CapabilityPhraseReport
+# stable phrase density on the two real-repo cohort
+# targets (target-1, target-2) using anonymized
+# labels only.
+#
+# Headline numbers (post-AST, real repos):
+#   - target-1 (Next.js TS scale): 10,331 facts
+#     (9,653 AST = 93.4%, 0 regex-fallback), 9,327
+#     candidates, 299 normalized, 37 stable phrases,
+#     260 partial. Stable pairs include get:response
+#     (14), build:plan (13), get:schema (12),
+#     get:session (10), save:response (8),
+#     build:report (8) -- textbook capability
+#     phrases.
+#   - target-2 (small TS + workflows): 587 facts
+#     (404 AST = 68.8%), 406 candidates, 12
+#     normalized, 2 stable, 10 partial. Stable
+#     pair: test:session (2).
+#
+# Pre/post lift:
+#   - target-1 stable phrases: 16 -> 37 (+131.3%,
+#     2.3x lift).
+#   - target-1 normalized: 241 -> 299 (+24.1%).
+#   - target-1 total phrases: 239 -> 297 (+24.3%).
+#   - target-2: all metrics unchanged; no
+#     regression.
+#
+# Pinned verbatim:
+#   - Real cohort targets were re-run.
+#   - AST improved stable phrase density on a real
+#     repo.
+#   - CapabilityMap v2 is evidence-gated.
+#   - Partial phrases alone do not justify
+#     CapabilityMap v2.
+#
+# Seven readiness gates evaluated:
+#   1. stable phrase density materially improved ->
+#      pass on target-1; neutral on target-2.
+#   2. stable evidence refs present -> pass.
+#   3. stable terms meaningful -> pass.
+#   4. partials not used for CapabilityMap -> pass.
+#   5. publications understandable -> pass.
+#   6. artifacts validate clean -> pass.
+#   7. consistent across more than one real repo ->
+#      partial (one strong positive, one neutral,
+#      no regression).
+#
+# Overall verdict: readiness gate's narrower-
+# evidence escape clause is explicitly invoked.
+# CapabilityMap v2 design is ready to begin. The
+# CapabilityMap v2 high-confidence-only decision
+# memo is the primary next slice.
+#
+# Options considered:
+#   - CapabilityMap v2 high-confidence-only decision
+#     memo -> selected as primary next slice.
+#   - Normalization consumes AST metadata (candidate
+#     extractor weights by symbolKind / exportKind)
+#     -> selected as parallel polish lane.
+#   - JS/TS AST Provider v2 construct coverage ->
+#     deferred (stable density bottleneck is
+#     canonical vocabulary, not AST coverage).
+#   - More dogfood (third real repo) -> deferred.
+#   - Canon-pack expansion v2 -> deferred.
+#
+# Privacy: deliverables use anonymized target-1 /
+# target-2 labels only. No private repo names
+# appear in any artifact.
+#
+# No runtime change. No AST extraction change. No
+# normalizer change. No phrase projection change.
+# No canon-pack change. No CapabilityMap mutation.
+# No EvidenceGraph mutation. No
+# CapabilityNormalizationReport mutation. No
+# CapabilityPhraseReport mutation. No new artifact
+# registration. No new CLI command. No source
+# writes. No LLM-only inference. No typechecker
+# dependency. No npm publish. No version bump. No
+# git tag. No GitHub Release. No new branch.
+#
+# New strategy memo:
+# docs/strategy/post-ast-cohort-rerun.md with 15
+# required headings + 7 required tables. New
+# 15-assertion docs test
+# tests/docs/post-ast-cohort-rerun.test.mjs. Review
+# packet
+# .rekon-dev/review-packets/post-ast-cohort-rerun.md.
+#
+# Recommended next slice: CapabilityMap v2
+# high-confidence-only decision memo -- pin
+# status === stable + confidence === high as the
+# only eligibility criterion for CapabilityMap v2
+# projection, select v2 shape additively over the
+# existing v1 projection, pin no source writes / no
+# LLM-only inference / no EvidenceGraph mutation.
+#
 # Post-AST CapabilityPhraseReport Coverage Review has
 # shipped. Strategy / dogfood-analysis / docs /
 # tests-only batch. Twenty-fifth slice on the

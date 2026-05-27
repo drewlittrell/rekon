@@ -346,8 +346,18 @@ stable phrases** with meaningful verb:noun pairs
 (`create:user`, `fetch:user`, `handle:request`).
 `examples/simple-js-ts` is unchanged from the pre-AST
 baseline — expected, since the fixture has too little
-structure to exercise AST richness. **`target-1` and
-`target-2` were unavailable in the review session;
-the cohort re-run remains pending an intake
-request.** `CapabilityMap` v2 design stays gated on
-real-repo evidence.
+structure to exercise AST richness. The
+[Post-AST Cohort Re-Run](../strategy/post-ast-cohort-rerun.md)
+(twenty-sixth slice) completed the cohort
+measurement: **`target-1` (Next.js TS scale): 10,331
+facts (93.4% AST), 9,327 candidates, 299 normalized,
+37 stable phrases — a 131% lift vs the 16 stable
+phrases pre-AST.** Stable pairs include
+`get:response` (14), `build:plan` (13),
+`get:schema` (12), `get:session` (10),
+`save:response` (8), `build:report` (8). **`target-2`
+(small TS + workflows): 587 facts (68.8% AST), 406
+candidates, 12 normalized, 2 stable** — unchanged
+from pre-AST baseline, neutral signal. With narrower
+evidence accepted, `CapabilityMap` v2 design is now
+ready to begin.

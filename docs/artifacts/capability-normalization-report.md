@@ -152,9 +152,16 @@ downstream consumers. The
 (twenty-fifth slice) measured the impact on available
 targets: on the AST-rich fixture, 66 candidates
 normalize 8 (12.1%) — substantially richer than the
-pre-AST `examples/simple-js-ts` baseline. Real-repo
-re-runs on `target-1` and `target-2` remain pending
-an intake request.
+pre-AST `examples/simple-js-ts` baseline. The
+[Post-AST Cohort Re-Run](../strategy/post-ast-cohort-rerun.md)
+(twenty-sixth slice) confirmed the lift on a real
+repo: `target-1` normalization 241 → 299 (+24.1%).
+target-1's large remaining unknown-verb /
+unknown-noun count (~6,500 out-of-vocabulary
+candidates) is the canonical-vocabulary ceiling,
+not an AST limitation — the **parallel polish lane**
+(candidate extractor consumes AST `symbolKind` /
+`exportKind` metadata) addresses this.
 
 ## Downstream Consumers
 

@@ -575,10 +575,17 @@ Parallel follow-ups (do not block the AST track):
 - **Post-AST coverage review** — ✅ shipped as the
   twenty-fifth slice; see
   [Post-AST CapabilityPhraseReport Coverage Review](post-ast-capability-phrase-coverage-review.md).
-  Verdict: `CapabilityMap` v2 remains deferred;
-  narrower evidence accepted (target-1 / target-2
-  unavailable in the review session); cohort re-run
-  is the primary next slice.
+  Deferred the cohort re-run pending target
+  availability.
+- **Post-AST cohort re-run** — ✅ shipped as the
+  twenty-sixth slice; see
+  [Post-AST Cohort Re-Run](post-ast-cohort-rerun.md).
+  Real-repo measurement on `target-1` (16 → 37
+  stable phrases, +131.3% lift) and `target-2`
+  (neutral). Readiness gate satisfied with
+  narrower-evidence escape clause; `CapabilityMap`
+  v2 high-confidence-only decision memo becomes
+  the next slice on the capability-ontology track.
 - **`CapabilityMap` v2 high-confidence-only design
   decision** — gated on the post-AST coverage
   review.
