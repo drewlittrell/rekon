@@ -2640,6 +2640,89 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Post-AST CapabilityPhraseReport
+  Coverage Review (P1.1
+  post-ast-capability-phrase-coverage-review
+  slice): **twenty-fifth slice on
+  the capability-ontology track.**
+  Strategy / dogfood-analysis /
+  docs / tests-only batch. Fourth
+  coverage review on the phrase
+  track. Measured AST extraction's
+  impact on
+  `CapabilityNormalizationReport`
+  candidate quality and
+  `CapabilityPhraseReport` stable
+  phrase density on available
+  targets. **Pinned verbatim:**
+  *AST extraction was measured.*
+  *Stable phrase density
+  materially improved on the AST
+  fixture.* *`CapabilityMap` v2 is
+  evidence-gated.* *Partial
+  phrases alone do not justify
+  `CapabilityMap` v2.* Headline
+  numbers: AST fixture 80 facts
+  (56 AST), 66 candidates, 8
+  normalized, **6 stable phrases**,
+  2 partial; `simple-js-ts` 5
+  facts (2 AST), 4 candidates,
+  0 normalized, 0 stable
+  (unchanged from pre-AST
+  baseline — expected for a
+  single-file fixture);
+  **`target-1` and `target-2`
+  unavailable in this session,**
+  intake request issued. Seven
+  readiness gates evaluated; six
+  pass; the "consistent across
+  more than one real repo" gate
+  fails. **`CapabilityMap` v2
+  design remains deferred** —
+  narrower evidence accepted; the
+  primary next slice is the
+  post-AST cohort re-run. Parallel
+  polish lane selected:
+  `CapabilityNormalizationReport`
+  AST-metadata candidate
+  integration (additive, low
+  risk). **No runtime change. No
+  AST extraction change. No
+  normalizer change. No phrase
+  projection change. No canon-
+  pack change. No `CapabilityMap`
+  mutation. No `EvidenceGraph`
+  mutation. No
+  `CapabilityNormalizationReport`
+  mutation. No
+  `CapabilityPhraseReport`
+  mutation. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No
+  typechecker dependency. No npm
+  publish. No version bump. No
+  git tag. No GitHub Release. No
+  new branch.** New strategy memo
+  [`docs/strategy/post-ast-capability-phrase-coverage-review.md`](post-ast-capability-phrase-coverage-review.md)
+  with 11 required headings + 7
+  required tables (target /
+  EvidenceGraph / normalization /
+  phrase / pre-post comparison /
+  readiness / option). New
+  15-assertion docs test
+  `tests/docs/post-ast-capability-phrase-coverage-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/post-ast-capability-phrase-coverage-review.md`.
+  **Recommended next slice:**
+  *Post-AST cohort re-run* —
+  re-execute the `refresh +
+  normalize + phrase project +
+  publish + validate` matrix
+  against `target-1` and
+  `target-2` once those targets
+  are available. Gates
+  `CapabilityMap` v2 design.
 - JS/TS AST EvidenceGraph Provider
   v1 (P1.1
   js-ts-ast-evidence-provider-v1

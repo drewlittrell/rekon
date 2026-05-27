@@ -331,3 +331,23 @@ audit names which classic *patterns* (`ExtractedName` /
 `SplitName` / taxonomy discovery / verb-noun aliases /
 canonical+alias vocabularies) to repeat / adapt /
 reject inside Rekon's artifact-first model.
+
+### Downstream impact (measured)
+
+The
+[Post-AST CapabilityPhraseReport Coverage Review](../strategy/post-ast-capability-phrase-coverage-review.md)
+(twenty-fifth slice) measured AST extraction's impact
+on `CapabilityNormalizationReport` candidate quality
+and `CapabilityPhraseReport` stable phrase density on
+the two available targets. On the AST-rich fixture
+(`tests/fixtures/js-ts-ast-evidence`): 80 facts (70%
+AST-derived), 8 normalized candidates from 66, **6
+stable phrases** with meaningful verb:noun pairs
+(`create:user`, `fetch:user`, `handle:request`).
+`examples/simple-js-ts` is unchanged from the pre-AST
+baseline — expected, since the fixture has too little
+structure to exercise AST richness. **`target-1` and
+`target-2` were unavailable in the review session;
+the cohort re-run remains pending an intake
+request.** `CapabilityMap` v2 design stays gated on
+real-repo evidence.

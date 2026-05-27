@@ -147,9 +147,14 @@ normalization rows. **AST facts improve candidate
 quality** (better coverage of class methods,
 arrow-function assignments, type-vs-value distinctions)
 without changing the contract this report exposes to
-downstream consumers. The post-AST coverage review
-(next slice) measures the improvement on fixture +
-`target-1` + `target-2`.
+downstream consumers. The
+[Post-AST CapabilityPhraseReport Coverage Review](../strategy/post-ast-capability-phrase-coverage-review.md)
+(twenty-fifth slice) measured the impact on available
+targets: on the AST-rich fixture, 66 candidates
+normalize 8 (12.1%) — substantially richer than the
+pre-AST `examples/simple-js-ts` baseline. Real-repo
+re-runs on `target-1` and `target-2` remain pending
+an intake request.
 
 ## Downstream Consumers
 

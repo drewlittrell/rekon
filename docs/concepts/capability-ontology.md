@@ -440,9 +440,19 @@ place as **labelled fallback only**. No typechecker
 semantics in v1; call graph, type resolution, and
 symbol references are deferred. **The stable
 threshold remains unchanged.** **AST v1 does not
-mutate `CapabilityMap`.** The post-AST coverage review
-(next slice) measures the impact on candidate quality
-and stable phrase density.
+mutate `CapabilityMap`.** The
+[Post-AST CapabilityPhraseReport Coverage Review](../strategy/post-ast-capability-phrase-coverage-review.md)
+(twenty-fifth slice; fourth coverage review on the
+phrase track) has now shipped. Verdict on available
+targets: AST extraction works correctly (the AST-rich
+fixture produces 6 stable phrases from 66 candidates
+with meaningful pairs like `create:user`,
+`fetch:user`, `handle:request`), but `target-1` /
+`target-2` were unavailable in the review session and
+the readiness gate's "consistent across more than one
+real repo" criterion is unmet. **`CapabilityMap` v2
+design remains deferred**; the cohort re-run is the
+primary next slice.
 
 ## See Also
 
@@ -528,6 +538,16 @@ and stable phrase density.
   `CapabilityNormalizationReport` candidate quality
   and `CapabilityPhraseReport` stable phrase density
   without mutating `CapabilityMap`.
+- [Post-AST CapabilityPhraseReport Coverage
+  Review](../strategy/post-ast-capability-phrase-coverage-review.md)
+  — twenty-fifth slice; fourth coverage review on
+  the phrase track. Measured the AST adapter's
+  downstream impact on available targets. Verdict:
+  AST extraction works correctly; the AST-rich
+  fixture produces 6 stable phrases on 66 candidates;
+  `target-1` / `target-2` unavailable in the review
+  session; `CapabilityMap` v2 remains deferred
+  pending cohort re-run.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

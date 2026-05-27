@@ -410,9 +410,18 @@ architecture review's evidence-source recommendation.
   the TypeScript compiler parser API. AST-backed
   `symbol` / `export` / `import` facts now carry
   `extractionMethod: "ast"` and richer metadata;
-  regex stays as labelled fallback. The next slice
-  (post-AST coverage review) measures the impact on
-  candidate quality and stable phrase density.
+  regex stays as labelled fallback.
+- **Post-AST CapabilityPhraseReport coverage
+  review** — ✅ shipped as the twenty-fifth slice
+  (fourth coverage review on the phrase track). See
+  [Post-AST CapabilityPhraseReport Coverage Review](post-ast-capability-phrase-coverage-review.md).
+  Verdict: `CapabilityMap` v2 remains deferred;
+  narrower evidence accepted because `target-1` and
+  `target-2` were unavailable in the review session;
+  AST-fixture stable density is encouraging (6
+  stable on 66 candidates with meaningful pairs
+  `create:user` / `fetch:user` / `handle:request`);
+  intake request issued for cohort re-run.
 - **Phrase enrichment v2** (parallel; framework /
   architecture-profile-derived `pattern` and `layer`
   enrichment). Lands behind the architecture review.

@@ -6256,6 +6256,51 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Post-AST CapabilityPhraseReport
+  Coverage Review (P1.1
+  post-ast-capability-phrase-coverage-review
+  slice).** ✅ Shipped.
+  **Twenty-fifth slice on the
+  capability-ontology track.**
+  Strategy / dogfood-analysis /
+  docs / tests-only batch. Fourth
+  coverage review on the phrase
+  track. Measured AST extraction's
+  impact on
+  `CapabilityNormalizationReport`
+  candidate quality and
+  `CapabilityPhraseReport` stable
+  phrase density on available
+  targets (AST fixture +
+  `simple-js-ts`). Headline:
+  AST-rich fixture produced 6
+  stable phrases (`create:user`,
+  `fetch:user`, `handle:request`)
+  on 66 candidates;
+  `simple-js-ts` unchanged from
+  pre-AST baseline (expected for
+  single-file fixture);
+  `target-1` and `target-2`
+  unavailable in the review
+  session. Seven readiness gates
+  evaluated; six pass; the
+  "consistent across more than
+  one real repo" gate fails.
+  **`CapabilityMap` v2 design
+  remains deferred** — narrower
+  evidence accepted; the primary
+  next slice is the post-AST
+  cohort re-run (intake request
+  issued inside the memo). New
+  strategy memo
+  [`docs/strategy/post-ast-capability-phrase-coverage-review.md`](post-ast-capability-phrase-coverage-review.md)
+  with 11 required headings + 7
+  required tables. New
+  15-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/post-ast-capability-phrase-coverage-review.md`.
+  **Recommended next slice:**
+  *Post-AST cohort re-run.*
 - **JS/TS AST EvidenceGraph Provider
   v1 (P1.1
   js-ts-ast-evidence-provider-v1

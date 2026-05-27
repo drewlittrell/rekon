@@ -572,9 +572,13 @@ Parallel follow-ups (do not block the AST track):
   facts carry `extractionMethod` / `language` /
   `syntaxKind` / `symbolKind` / `exportKind` /
   `importKind` / `location` / `confidence`.
-- **Post-AST coverage review** — fourth coverage
-  review on the phrase track; conditioned on
-  Provider v1.
+- **Post-AST coverage review** — ✅ shipped as the
+  twenty-fifth slice; see
+  [Post-AST CapabilityPhraseReport Coverage Review](post-ast-capability-phrase-coverage-review.md).
+  Verdict: `CapabilityMap` v2 remains deferred;
+  narrower evidence accepted (target-1 / target-2
+  unavailable in the review session); cohort re-run
+  is the primary next slice.
 - **`CapabilityMap` v2 high-confidence-only design
   decision** — gated on the post-AST coverage
   review.

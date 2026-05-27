@@ -346,8 +346,16 @@ and the **JS/TS AST EvidenceGraph Provider v1**
 expanding candidate coverage (class methods,
 arrow-function assignments, accurate type-vs-value
 distinctions) without changing this report's shape or
-projection rules. The post-AST coverage review (next
-slice) measures whether the improvement materialises.
+projection rules. The
+[Post-AST CapabilityPhraseReport Coverage Review](../strategy/post-ast-capability-phrase-coverage-review.md)
+(twenty-fifth slice) measured the impact on available
+targets: on the AST-rich fixture, **6 stable phrases
+on 66 candidates** with meaningful pairs (`create:user`,
+`fetch:user`, `handle:request`). Real-repo re-runs on
+`target-1` and `target-2` remain pending an intake
+request; the readiness gate explicitly accepts
+narrower evidence and `CapabilityMap` v2 stays
+deferred.
 **The stable threshold remains unchanged.** **AST v1
 does not mutate `CapabilityMap`** — `CapabilityMap`
 v2 stays evidence-gated on the post-AST coverage
