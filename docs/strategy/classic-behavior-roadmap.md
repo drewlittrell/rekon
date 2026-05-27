@@ -6025,6 +6025,73 @@ scope:
   reserved for the strictest
   (`CapabilityMap` v2-eligible)
   case.
+- **CapabilityPhraseReport phrase
+  enrichment v1 (P1.1
+  capability-phrase-enrichment-v1
+  slice).** ✅ Shipped. **Eighteenth
+  slice on the capability-ontology
+  track.** Product capability
+  batch. `buildCapabilityPhraseReport`
+  in `@rekon/capability-ontology`
+  now consumes optional
+  `ObservedRepo` + `OwnershipMap`
+  and populates `domain` /
+  `pattern` / `layer` enrichment
+  fields when deterministic context
+  is available. CLI reads latest
+  enrichment artifacts
+  automatically; missing context
+  is not a failure. **The stable
+  threshold is unchanged.** New
+  `partial` phrases emit only when
+  at least one deterministic
+  enrichment field is present.
+  **Partial phrases are semantic
+  context, not `CapabilityMap`-
+  ready placement or ownership
+  policy.** Coverage on `target-1`
+  rose from 16 → 239 phrases (16
+  stable + 223 partial; 0 low-
+  confidence). Pinned verbatim:
+  Phrase enrichment v1 uses
+  deterministic artifact context;
+  the stable threshold is
+  unchanged; partial phrases are
+  semantic context, not
+  `CapabilityMap`-ready placement
+  or ownership policy; `domain` /
+  `pattern` / `layer` can be
+  enriched deterministically from
+  `ObservedRepo` + `OwnershipMap`;
+  `sideEffects` / `inputs` /
+  `outputs` remain deferred;
+  `CapabilityMap` integration
+  remains deferred. **No
+  CapabilityMap mutation. No
+  CapabilityPhraseReport shape
+  change. No CapabilityNormalization-
+  Report semantics change. No
+  EvidenceGraph mutation. No new
+  artifact registration. No new
+  CLI command. No source reads.
+  No AST/typechecker/LLM evidence.
+  No source writes. No version
+  bump. No npm publish. No git
+  tag. No GitHub Release. No new
+  branch.** New strategy memo
+  [`docs/strategy/capability-phrase-enrichment-v1.md`](capability-phrase-enrichment-v1.md).
+  New 22-assertion contract test
+  `tests/contract/capability-phrase-enrichment.test.mjs`.
+  New 10-assertion docs test
+  `tests/docs/capability-phrase-enrichment.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-enrichment-v1.md`.
+  **Recommended next slice:**
+  CapabilityPhraseReport enrichment
+  coverage review — re-measure
+  stable + partial yield, enrichment
+  ratios, and publication
+  usefulness.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

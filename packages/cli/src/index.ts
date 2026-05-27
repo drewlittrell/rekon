@@ -104,6 +104,8 @@ import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   buildSourceStateFingerprint,
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
+  type ObservedRepo,
+  type OwnershipMap,
 } from "@rekon/kernel-repo-model";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
@@ -826,6 +828,51 @@ export async function main(argv: string[]): Promise<void> {
       schemaVersion: reportEntry.schemaVersion ?? "0.1.0",
     };
 
+    // Phrase Enrichment v1: optionally consume the latest
+    // ObservedRepo + OwnershipMap as deterministic
+    // enrichment context. Missing context is not a failure;
+    // it just reduces enrichment. No source reads. No AST.
+    // No LLM. No mutation of upstream artifacts.
+    let observedRepo: ObservedRepo | undefined;
+    let observedRepoRef: ArtifactRef | undefined;
+    const observedEntries = await store.list("ObservedRepo");
+    const latestObservedEntry = observedEntries.at(-1);
+    if (latestObservedEntry) {
+      try {
+        observedRepo = (await store.read(latestObservedEntry)) as ObservedRepo;
+        observedRepoRef = {
+          type: latestObservedEntry.type,
+          id: latestObservedEntry.id,
+          path: latestObservedEntry.path,
+          digest: latestObservedEntry.digest,
+          schemaVersion: latestObservedEntry.schemaVersion ?? "0.1.0",
+        };
+      } catch {
+        observedRepo = undefined;
+        observedRepoRef = undefined;
+      }
+    }
+
+    let ownershipMap: OwnershipMap | undefined;
+    let ownershipMapRef: ArtifactRef | undefined;
+    const ownershipEntries = await store.list("OwnershipMap");
+    const latestOwnershipEntry = ownershipEntries.at(-1);
+    if (latestOwnershipEntry) {
+      try {
+        ownershipMap = (await store.read(latestOwnershipEntry)) as OwnershipMap;
+        ownershipMapRef = {
+          type: latestOwnershipEntry.type,
+          id: latestOwnershipEntry.id,
+          path: latestOwnershipEntry.path,
+          digest: latestOwnershipEntry.digest,
+          schemaVersion: latestOwnershipEntry.schemaVersion ?? "0.1.0",
+        };
+      } catch {
+        ownershipMap = undefined;
+        ownershipMapRef = undefined;
+      }
+    }
+
     const generatedAt = new Date().toISOString();
     const artifactId = `capability-phrase-${generatedAt.replace(/[:.]/g, "-")}`;
     const header: ArtifactHeader = {
@@ -846,15 +893,41 @@ export async function main(argv: string[]): Promise<void> {
       header,
       normalizationReport,
       normalizationReportRef: reportRef,
+      observedRepo,
+      observedRepoRef,
+      ownershipMap,
+      ownershipMapRef,
     });
 
     const ref = await store.write(phraseReport, { category: "projections" });
+
+    // contextRefs is additive — surfaces which enrichment
+    // artifacts the CLI read from the store. The helper only
+    // cites the ones it actually consumed in
+    // header.inputRefs (e.g. an ObservedRepo may exist but
+    // not match any candidate path); contextRefs records the
+    // read so operators can see whether enrichment input was
+    // available at projection time.
+    const contextRefs: {
+      observedRepo?: ArtifactRef;
+      ownershipMap?: ArtifactRef;
+    } = {};
+    if (observedRepoRef) contextRefs.observedRepo = observedRepoRef;
+    if (ownershipMapRef) contextRefs.ownershipMap = ownershipMapRef;
+
+    const consumedObservedRepoRef = phraseReport.header.inputRefs.find(
+      (entry) => entry.type === "ObservedRepo",
+    );
+    const consumedOwnershipMapRef = phraseReport.header.inputRefs.find(
+      (entry) => entry.type === "OwnershipMap",
+    );
 
     if (json) {
       writeOutput(
         {
           artifact: ref,
           sourceNormalizationReportRef: reportRef,
+          contextRefs,
           summary: phraseReport.summary,
           phrases: phraseReport.phrases,
         },
@@ -865,10 +938,23 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("Capability phrase projection");
       lines.push("");
       lines.push(`Source: ${reportRef.type}:${reportRef.id}`);
+      if (consumedObservedRepoRef) {
+        lines.push(`Context: ObservedRepo:${consumedObservedRepoRef.id}`);
+      } else if (observedRepoRef) {
+        lines.push(`Context available (not consumed): ObservedRepo:${observedRepoRef.id}`);
+      }
+      if (consumedOwnershipMapRef) {
+        lines.push(`Context: OwnershipMap:${consumedOwnershipMapRef.id}`);
+      } else if (ownershipMapRef) {
+        lines.push(`Context available (not consumed): OwnershipMap:${ownershipMapRef.id}`);
+      }
       lines.push(`Phrases: ${phraseReport.summary.totalPhrases}`);
       lines.push(`Stable: ${phraseReport.summary.stable}`);
       lines.push(`Partial: ${phraseReport.summary.partial}`);
       lines.push(`Low confidence: ${phraseReport.summary.lowConfidence}`);
+      lines.push(
+        `Enrichment: withDomain ${phraseReport.summary.withDomain}, withPattern ${phraseReport.summary.withPattern}, withLayer ${phraseReport.summary.withLayer}`,
+      );
       lines.push("");
       lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push("CapabilityMap remains unchanged.");

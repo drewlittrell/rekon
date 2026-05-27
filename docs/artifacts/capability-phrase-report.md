@@ -281,9 +281,21 @@ returns `{ lines, inputRef? }`.
 
 ## Forward Compatibility
 
-- `partial` and `low-confidence` statuses are reserved for
-  future deterministic enrichment slices (domain / pattern /
-  layer / side-effect / IO). v1 always emits `stable`.
+- **`partial` is now emitted** by Phrase Enrichment v1
+  (shipped). A `partial` phrase requires (a) the
+  candidate is normalized, (b) confidence and split are
+  both at least `"medium"`, (c) the candidate does
+  **not** meet the stable threshold, AND (d) at least
+  one deterministic enrichment field (`domain` /
+  `pattern` / `layer`) is present. Partial phrases are
+  **semantic context, not `CapabilityMap`-ready
+  placement or ownership policy**. See
+  [Phrase Enrichment v1 Memo](../strategy/capability-phrase-enrichment-v1.md).
+- `low-confidence` remains reserved; not emitted in v1
+  or in Phrase Enrichment v1.
+- `qualifier[]` / `sideEffects[]` / `inputs[]` /
+  `outputs[]` remain deferred. Each ships behind its own
+  decision memo.
 - The
   [CapabilityPhraseReport Real-Repo Coverage Review](../strategy/capability-phrase-report-coverage-review.md)
   measured phrase output on a fixture (`examples/simple-js-ts`)
@@ -348,6 +360,12 @@ returns `{ lines, inputRef? }`.
   candidates; pins **`CapabilityMap` v2 is
   evidence-gated** and selects **phrase enrichment v1**
   as the next slice.
+- [CapabilityPhraseReport Phrase Enrichment v1](../strategy/capability-phrase-enrichment-v1.md)
+  — adds deterministic `domain` / `pattern` / `layer`
+  enrichment from `ObservedRepo` + `OwnershipMap`,
+  enables `partial` emission, keeps the stable
+  threshold unchanged. Coverage on `target-1` rose 15×
+  (16 → 239 phrases).
 - [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
   — the eight-layer model. Layer 6 (`CapabilityMap`) will
   eventually consume this report.

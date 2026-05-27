@@ -440,12 +440,13 @@ registration.
   *phrase coverage sufficient for a useful canonical
   projection*. Recommended next slice is **phrase
   enrichment v1**, not `CapabilityMap` v2.
-- **Phrase enrichment v1** — next slice. Adds
-  deterministic `domain` / `pattern` / `layer`
-  enrichment from `ObservedRepo` + `OwnershipMap`;
-  allows `partial` phrases to emit; keeps `stable`
-  reserved for the strictest (and `CapabilityMap`
-  v2-eligible) case.
+- **Phrase enrichment v1** — ✅ Shipped. See
+  [Phrase Enrichment v1 Memo](capability-phrase-enrichment-v1.md).
+  Deterministic `domain` / `pattern` / `layer`
+  enrichment from `ObservedRepo` + `OwnershipMap`.
+  Partial phrases emit only with deterministic
+  context. Stable threshold unchanged. Coverage on
+  `target-1` rose 15× (16 → 239 phrases).
 - **Second coverage review** after phrase enrichment v1
   lands. Measures stable + partial yield, enrichment
   field coverage, and publication usefulness.

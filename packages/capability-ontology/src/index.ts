@@ -10,6 +10,10 @@ import {
   type EvidenceGraph,
 } from "@rekon/kernel-evidence";
 import {
+  type ObservedRepo,
+  type OwnershipMap,
+} from "@rekon/kernel-repo-model";
+import {
   type ArtifactReader,
   type ArtifactWriter,
   type Projector,
@@ -2082,29 +2086,72 @@ export type BuildCapabilityPhraseReportInput = {
   header: ArtifactHeader;
   normalizationReport: CapabilityNormalizationReport;
   normalizationReportRef: ArtifactRef;
+  /**
+   * Optional deterministic enrichment context (Phrase
+   * Enrichment v1). When present, the builder cites the
+   * artifact in `header.inputRefs` and uses owner / system /
+   * layer / kind metadata to populate the phrase's `domain` /
+   * `pattern` / `layer` fields. Missing context just reduces
+   * enrichment; the builder never reads source files, never
+   * uses AST/typechecker evidence, and never invents data.
+   */
+  observedRepo?: ObservedRepo;
+  observedRepoRef?: ArtifactRef;
+  ownershipMap?: OwnershipMap;
+  ownershipMapRef?: ArtifactRef;
 };
 
 /**
- * Build a v1 `CapabilityPhraseReport` from a
- * `CapabilityNormalizationReport`. Pure, deterministic; cites the
- * normalization report and (if the normalization report cites it)
- * the underlying `EvidenceGraph` in `header.inputRefs`.
+ * Build a `CapabilityPhraseReport` from a
+ * `CapabilityNormalizationReport`. Pure, deterministic;
+ * cites the normalization report and (if the normalization
+ * report cites it) the underlying `EvidenceGraph` in
+ * `header.inputRefs`. Phrase Enrichment v1 adds optional
+ * deterministic enrichment from `ObservedRepo` +
+ * `OwnershipMap` when those artifacts are supplied.
  *
- * v1 projection rules:
- * - emit phrases only for `status === "normalized"` candidates
- *   whose lexical-split confidence is `"high"`;
- * - emitted phrases always have `status === "stable"` in v1
- *   (partial / low-confidence are reserved);
- * - no AST / typechecker / LLM / source-file evidence;
- * - never mutates the normalization report or any other artifact.
+ * Projection rules:
+ * - `stable` (strictest, eligible for future `CapabilityMap`
+ *   v2): `status === "normalized"`, `confidence === "high"`,
+ *   raw split confidence `"high"`. The stable threshold is
+ *   **unchanged** by enrichment — enrichment only adds
+ *   `domain` / `pattern` / `layer` fields when deterministic
+ *   context is available.
+ * - `partial` (semantic context, **not** `CapabilityMap`-
+ *   ready): `status === "normalized"`, confidence and split
+ *   are both at least `"medium"`, the candidate does **not**
+ *   meet the stable threshold, and at least one
+ *   deterministic enrichment field (`domain`, `pattern`,
+ *   `layer`) is present. Partial phrases never emit without
+ *   real enrichment context — they exist to surface
+ *   semantic-purpose signal, not to inflate counts.
+ * - Unknown / ignored / low-confidence candidates never
+ *   project.
  *
- * Future fields (`qualifier`, `domain`, `pattern`, `layer`) land
- * per evidence-source slice behind their own decision memos.
+ * Enrichment sources are strictly deterministic:
+ * `OwnershipMap.entries[]` (path → ownerSystem / layer) and
+ * `ObservedRepo.systems[]` (path prefix → system id, kind,
+ * layer). No source reads, no AST, no LLM, no heuristic
+ * guessing.
+ *
+ * Future fields (`sideEffects`, `inputs`, `outputs`) remain
+ * deferred — they require richer evidence (schemas, runtime
+ * effects, tests, AST/call graph, or operator contracts)
+ * and ship per evidence-source slice behind their own
+ * decision memos.
  */
 export function buildCapabilityPhraseReport(
   input: BuildCapabilityPhraseReportInput,
 ): CapabilityPhraseReport {
-  const { normalizationReport, normalizationReportRef } = input;
+  const {
+    normalizationReport,
+    normalizationReportRef,
+    observedRepo,
+    observedRepoRef,
+    ownershipMap,
+    ownershipMapRef,
+  } = input;
+
   const candidateById = new Map<
     string,
     CapabilityNormalizationReportCandidate
@@ -2113,27 +2160,58 @@ export function buildCapabilityPhraseReport(
     candidateById.set(candidate.id, candidate);
   }
 
+  const enrichmentIndex = buildEnrichmentIndex(observedRepo, ownershipMap);
+  let observedRepoConsumed = false;
+  let ownershipMapConsumed = false;
+
   const phrases: CapabilityPhrase[] = [];
   for (const candidate of normalizationReport.candidates ?? []) {
     if (candidate.status !== "normalized") continue;
-    if (candidate.confidence !== "high") continue;
     const normalized = candidate.normalized;
     if (!normalized) continue;
     if (!isNonEmpty(normalized.verb) || !isNonEmpty(normalized.noun)) continue;
+
+    const candidateConfidence = candidate.confidence;
+    const splitConfidence = candidate.raw.splitConfidence;
+    if (candidateConfidence === "low" || splitConfidence === "low") continue;
+
+    const meetsStableThreshold =
+      candidateConfidence === "high" && splitConfidence === "high";
+
+    const enrichment = enrichForCandidate(candidate, enrichmentIndex);
+    if (enrichment.usedOwnershipMap) ownershipMapConsumed = true;
+    if (enrichment.usedObservedRepo) observedRepoConsumed = true;
+
+    // Stable threshold is unchanged. `partial` only emits when
+    // the candidate would not have emitted under v1 strict
+    // rules AND we have deterministic enrichment that adds
+    // real semantic-purpose signal.
+    if (!meetsStableThreshold) {
+      const hasEnrichment = Boolean(
+        enrichment.domain || enrichment.pattern || enrichment.layer,
+      );
+      if (!hasEnrichment) continue;
+    }
 
     const evidenceRefs: ArtifactRef[] = [];
     const sourceRef = candidate.source?.artifactRef;
     if (sourceRef) evidenceRefs.push(sourceRef);
 
-    phrases.push({
+    const phrase: CapabilityPhrase = {
       id: `phrase-${candidate.id}-${normalized.verb}-${normalized.noun}`,
       verb: normalized.verb,
       noun: normalized.noun,
-      confidence: "high",
+      confidence: meetsStableThreshold ? "high" : "medium",
       evidenceRefs,
       sourceCandidateIds: [candidate.id],
-      status: "stable",
-    });
+      status: meetsStableThreshold ? "stable" : "partial",
+    };
+
+    if (enrichment.domain) phrase.domain = enrichment.domain;
+    if (enrichment.pattern) phrase.pattern = enrichment.pattern;
+    if (enrichment.layer) phrase.layer = enrichment.layer;
+
+    phrases.push(phrase);
   }
 
   // Deterministic ordering: source path (when available), then
@@ -2163,13 +2241,23 @@ export function buildCapabilityPhraseReport(
   };
 
   // Ensure the source normalization report is in inputRefs, plus
-  // any EvidenceGraph the normalization report already cites.
+  // any EvidenceGraph the normalization report already cites,
+  // plus enrichment artifact refs when consumed.
+  const enrichmentInputRefs: ArtifactRef[] = [];
+  if (observedRepoConsumed && observedRepoRef) {
+    enrichmentInputRefs.push(observedRepoRef);
+  }
+  if (ownershipMapConsumed && ownershipMapRef) {
+    enrichmentInputRefs.push(ownershipMapRef);
+  }
+
   const headerInputRefs = mergeInputRefs(
     input.header.inputRefs ?? [],
     [normalizationReportRef],
     (normalizationReport.header.inputRefs ?? []).filter(
       (ref) => ref.type === "EvidenceGraph",
     ),
+    enrichmentInputRefs,
   );
 
   const header: ArtifactHeader = {
@@ -2183,6 +2271,175 @@ export function buildCapabilityPhraseReport(
     summary,
     phrases,
   };
+}
+
+// ---------- Phrase Enrichment v1 helpers ----------
+
+type EnrichmentResult = {
+  domain?: string;
+  pattern?: string;
+  layer?: string;
+  usedObservedRepo: boolean;
+  usedOwnershipMap: boolean;
+};
+
+type OwnershipIndexEntry = {
+  path: string;
+  ownerSystem: string;
+  layer?: string;
+};
+
+type ObservedSystemIndexEntry = {
+  id: string;
+  paths: string[];
+  layers: string[];
+  kind?: string;
+};
+
+type EnrichmentIndex = {
+  ownership: OwnershipIndexEntry[];
+  systems: ObservedSystemIndexEntry[];
+};
+
+function buildEnrichmentIndex(
+  observedRepo: ObservedRepo | undefined,
+  ownershipMap: OwnershipMap | undefined,
+): EnrichmentIndex {
+  const ownership: OwnershipIndexEntry[] = [];
+  if (ownershipMap) {
+    for (const entry of ownershipMap.entries ?? []) {
+      if (typeof entry.path !== "string" || entry.path.length === 0) continue;
+      if (!isMeaningfulValue(entry.ownerSystem)) continue;
+      ownership.push({
+        path: entry.path,
+        ownerSystem: entry.ownerSystem,
+        layer: isMeaningfulValue(entry.layer) ? entry.layer : undefined,
+      });
+    }
+    // Sort by path length descending so longest-prefix match wins.
+    ownership.sort((a, b) => b.path.length - a.path.length);
+  }
+
+  const systems: ObservedSystemIndexEntry[] = [];
+  if (observedRepo) {
+    for (const system of observedRepo.systems ?? []) {
+      const paths = Array.isArray(system.paths)
+        ? system.paths.filter((p): p is string => typeof p === "string" && p.length > 0)
+        : [];
+      if (paths.length === 0) continue;
+      systems.push({
+        id: system.id,
+        paths,
+        layers: Array.isArray(system.layers)
+          ? system.layers.filter((l): l is string => isMeaningfulValue(l))
+          : [],
+        kind: isMeaningfulValue(system.kind) ? system.kind : undefined,
+      });
+    }
+    // Sort each system's paths longest-first for prefix matching.
+    for (const system of systems) {
+      system.paths.sort((a, b) => b.length - a.length);
+    }
+  }
+
+  return { ownership, systems };
+}
+
+/**
+ * Treat empty / `"unknown"` / `"none"` values as
+ * non-enriching. These appear in upstream artifacts when
+ * the projector lacks confident evidence; surfacing them
+ * as phrase enrichment would falsely imply we know the
+ * domain / pattern / layer.
+ */
+function isMeaningfulValue(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return false;
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "unknown") return false;
+  if (normalized === "none") return false;
+  return true;
+}
+
+function enrichForCandidate(
+  candidate: CapabilityNormalizationReportCandidate,
+  index: EnrichmentIndex,
+): EnrichmentResult {
+  const path = candidate.source?.path;
+  if (typeof path !== "string" || path.length === 0) {
+    return { usedObservedRepo: false, usedOwnershipMap: false };
+  }
+
+  let domain: string | undefined;
+  let layer: string | undefined;
+  let pattern: string | undefined;
+  let usedOwnershipMap = false;
+  let usedObservedRepo = false;
+
+  // OwnershipMap → owner system + layer. Longest-prefix wins.
+  for (const entry of index.ownership) {
+    if (pathMatchesPrefix(path, entry.path)) {
+      domain = entry.ownerSystem;
+      if (entry.layer) layer = entry.layer;
+      usedOwnershipMap = true;
+      break;
+    }
+  }
+
+  // ObservedRepo → system id, kind, layer. Longest-prefix wins.
+  // Owner from OwnershipMap takes priority for `domain`; the
+  // observed system fills in only when ownership did not match.
+  let matchedSystem: ObservedSystemIndexEntry | undefined;
+  for (const system of index.systems) {
+    if (system.paths.some((systemPath) => pathMatchesPrefix(path, systemPath))) {
+      matchedSystem = system;
+      break;
+    }
+  }
+  if (matchedSystem) {
+    usedObservedRepo = true;
+    if (!domain) domain = matchedSystem.id;
+    if (!layer && matchedSystem.layers.length === 1) {
+      layer = matchedSystem.layers[0];
+    }
+    if (matchedSystem.kind) {
+      pattern = mapSystemKindToPattern(matchedSystem.kind);
+    }
+  }
+
+  return {
+    domain: domain && domain.length > 0 ? domain : undefined,
+    pattern: pattern && pattern.length > 0 ? pattern : undefined,
+    layer: layer && layer.length > 0 ? layer : undefined,
+    usedObservedRepo,
+    usedOwnershipMap,
+  };
+}
+
+function pathMatchesPrefix(candidatePath: string, prefix: string): boolean {
+  if (prefix.length === 0) return false;
+  if (candidatePath === prefix) return true;
+  // Normalize "src/" vs "src" — treat as directory prefix.
+  const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
+  return candidatePath.startsWith(normalizedPrefix);
+}
+
+function mapSystemKindToPattern(kind: string): string | undefined {
+  switch (kind) {
+    case "route":
+      return "route-handler";
+    case "service":
+      return "service";
+    case "ui":
+      return "component";
+    case "module":
+      return "module";
+    case "infra":
+      return "infra";
+    default:
+      return undefined;
+  }
 }
 
 function pathFromCandidate(

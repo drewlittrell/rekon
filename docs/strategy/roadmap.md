@@ -2309,6 +2309,100 @@ is the first stop before proposing a new capability batch.
   keeps `stable` reserved for the
   strictest (`CapabilityMap`
   v2-eligible) case.
+- CapabilityPhraseReport phrase
+  enrichment v1 (P1.1
+  capability-phrase-enrichment-v1
+  slice): **eighteenth slice on
+  the capability-ontology
+  track.** Product capability
+  batch. `buildCapabilityPhraseReport`
+  in `@rekon/capability-ontology`
+  now consumes optional
+  `ObservedRepo` + `OwnershipMap`
+  and populates `domain` /
+  `pattern` / `layer` enrichment
+  fields when deterministic
+  context is available. The CLI
+  `rekon capability phrase
+  project` reads the latest
+  `ObservedRepo` / `OwnershipMap`
+  automatically; missing context
+  is not a failure. **The stable
+  threshold is unchanged.** New
+  `partial` phrases emit only
+  when at least one deterministic
+  enrichment field is present.
+  **Partial phrases are semantic
+  context, not `CapabilityMap`-
+  ready placement or ownership
+  policy.** Coverage on `target-1`
+  rose from 16 stable phrases
+  (the safety-review baseline) to
+  239 total (16 stable + 223
+  partial; 0 low-confidence) on
+  the same input — a 15× yield
+  increase without weakening the
+  stable threshold. Pinned
+  verbatim: **Phrase enrichment
+  v1 uses deterministic artifact
+  context.** **The stable
+  threshold is unchanged.**
+  **Partial phrases are semantic
+  context, not `CapabilityMap`-
+  ready placement or ownership
+  policy.** **`domain` /
+  `pattern` / `layer` can be
+  enriched deterministically from
+  `ObservedRepo` +
+  `OwnershipMap`.** **`sideEffects`
+  / `inputs` / `outputs` remain
+  deferred.** **`CapabilityMap`
+  integration remains deferred.**
+  Enrichment sources: longest-
+  prefix `OwnershipMap.entries[]`
+  match → `ownerSystem` →
+  `domain`; `layer` → `layer`.
+  Longest-prefix
+  `ObservedRepo.systems[]` match
+  → `id` → fallback `domain`;
+  `kind` (`route`/`service`/
+  `ui`/`module`/`infra`) →
+  `pattern`; single-layer system
+  → fallback `layer`. Empty /
+  `"unknown"` / `"none"` skipped.
+  **No CapabilityMap mutation.
+  No CapabilityPhraseReport
+  shape change. No
+  CapabilityNormalizationReport
+  semantics change. No
+  EvidenceGraph mutation. No new
+  artifact registration. No new
+  CLI command. No source reads.
+  No AST/typechecker/LLM
+  evidence. No source writes. No
+  version bump. No npm publish.
+  No git tag. No GitHub Release.
+  No new branch.** New strategy
+  memo
+  [`docs/strategy/capability-phrase-enrichment-v1.md`](capability-phrase-enrichment-v1.md).
+  New 22-assertion contract test
+  `tests/contract/capability-phrase-enrichment.test.mjs`.
+  New 10-assertion docs test
+  `tests/docs/capability-phrase-enrichment.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-enrichment-v1.md`.
+  **Recommended next slice:**
+  *CapabilityPhraseReport
+  enrichment coverage review* —
+  re-measure stable + partial
+  yield, `withDomain` /
+  `withPattern` / `withLayer`
+  ratios, and publication
+  usefulness on the fixture + at
+  least one real cohort target.
+  Output drives the `CapabilityMap`
+  v2 high-confidence-only
+  decision.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

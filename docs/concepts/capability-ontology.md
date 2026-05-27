@@ -394,11 +394,21 @@ Every phrase carries an `EvidenceGraph` ref; every phrase
 is `status === "stable"`, `confidence === "high"`.**
 Phrase quality is high; phrase coverage is sparse. The
 review pins **`CapabilityMap` v2 is evidence-gated** and
-selects **phrase enrichment v1** (deterministic `domain`
-/ `pattern` / `layer` enrichment from `ObservedRepo` +
-`OwnershipMap`) as the next slice — *before* the
-`CapabilityMap` v2 high-confidence-only design decision
-lands.
+selected **phrase enrichment v1** as the next slice.
+
+[Phrase Enrichment v1](../strategy/capability-phrase-enrichment-v1.md)
+has shipped. The builder now consumes optional
+`ObservedRepo` + `OwnershipMap` and populates the phrase
+`domain` / `pattern` / `layer` fields when deterministic
+context is available. Partial phrases emit only when at
+least one enrichment field is present — they are
+**semantic context, not `CapabilityMap`-ready placement
+or ownership policy**. **The stable threshold is
+unchanged**: only stable high-confidence phrases remain
+eligible for future `CapabilityMap` v2. Coverage on
+`target-1` rose from 16 → 239 phrases (16 stable + 223
+partial; 0 low-confidence). `sideEffects` / `inputs` /
+`outputs` remain deferred per the architecture decision.
 
 ## See Also
 
@@ -433,6 +443,12 @@ lands.
   Verdict: phrase quality is high; coverage is sparse.
   Next slice is **phrase enrichment v1** rather than
   `CapabilityMap` v2.
+- [CapabilityPhraseReport Phrase Enrichment
+  v1](../strategy/capability-phrase-enrichment-v1.md)
+  — product slice that adds deterministic `domain` /
+  `pattern` / `layer` enrichment from `ObservedRepo` +
+  `OwnershipMap`. Enables `partial` phrase emission while
+  keeping the stable threshold unchanged.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

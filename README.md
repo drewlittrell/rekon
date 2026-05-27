@@ -1103,6 +1103,84 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityPhraseReport phrase enrichment v1 has shipped.
+# Product capability batch. The phrase projection helper
+# (buildCapabilityPhraseReport in
+# @rekon/capability-ontology) now consumes optional
+# ObservedRepo + OwnershipMap artifacts and populates
+# domain / pattern / layer enrichment fields when
+# deterministic context is available. The CLI
+# `rekon capability phrase project` reads the latest
+# enrichment artifacts automatically; missing context is
+# not a failure.
+#
+# Verdict: coverage on target-1 rose from 16 stable
+# phrases (the safety-review baseline) to 239 total (16
+# stable + 223 partial; 0 low-confidence) on the same
+# input — a 15x yield increase with the stable threshold
+# unchanged.
+#
+# Pinned verbatim:
+#   - Phrase enrichment v1 uses deterministic artifact
+#     context.
+#   - The stable threshold is unchanged.
+#   - Partial phrases are semantic context, not
+#     CapabilityMap-ready placement or ownership policy.
+#   - domain / pattern / layer can be enriched
+#     deterministically from ObservedRepo + OwnershipMap.
+#   - sideEffects / inputs / outputs remain deferred.
+#   - CapabilityMap integration remains deferred.
+#
+# Enrichment sources (deterministic only):
+#   - OwnershipMap.entries[] path-prefix match ->
+#     ownerSystem becomes phrase.domain; layer becomes
+#     phrase.layer.
+#   - ObservedRepo.systems[] longest path-prefix match
+#     -> id becomes fallback domain; kind (route /
+#     service / ui / module / infra) maps to
+#     phrase.pattern; single-layer systems contribute
+#     fallback layer.
+#   - Empty / "unknown" / "none" values are treated as
+#     non-enriching at the source.
+#
+# Status model:
+#   - stable: strictest, threshold unchanged. Eligible
+#     for future CapabilityMap v2.
+#   - partial: semantic context only. Emits only when at
+#     least one deterministic enrichment field is
+#     present. Not CapabilityMap-ready.
+#   - low-confidence: reserved; not emitted in v1.
+#
+# buildCapabilityPhraseReport now accepts optional
+# observedRepo / observedRepoRef / ownershipMap /
+# ownershipMapRef. CLI JSON output gains an additive
+# contextRefs field. CLI human output adds an
+# `Enrichment: withDomain N, withPattern N, withLayer N`
+# line.
+#
+# No CapabilityMap mutation. No CapabilityPhraseReport
+# shape change. No CapabilityNormalizationReport
+# semantics change. No EvidenceGraph mutation. No new
+# artifact registration. No new CLI command. No source
+# reads. No AST/typechecker/LLM evidence. No source
+# writes. No version bump. No npm publish. No git tag.
+# No GitHub Release. No new branch.
+#
+# New strategy memo:
+# docs/strategy/capability-phrase-enrichment-v1.md. New
+# 22-assertion contract test
+# tests/contract/capability-phrase-enrichment.test.mjs.
+# New 10-assertion docs test
+# tests/docs/capability-phrase-enrichment.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/capability-phrase-enrichment-v1.md.
+#
+# Recommended next slice: CapabilityPhraseReport
+# enrichment coverage review - re-measure stable +
+# partial yield, withDomain / withPattern / withLayer
+# ratios, and publication usefulness on the fixture +
+# at least one real cohort target.
+#
 # CapabilityPhraseReport real-repo coverage review has
 # shipped. Strategy / dogfood-analysis / docs / tests-only
 # batch. Measured phrase output on a fixture

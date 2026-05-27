@@ -574,18 +574,31 @@ Selected direction:
   `CapabilityMap` v2. See
   [Safety Review](capability-phrase-report-safety-review.md).
 - **CapabilityPhraseReport real-repo coverage review** —
-  next slice. Measure phrase count per archetype,
-  stable-phrase ratio, evidence-ref distribution, and
-  publication usefulness on the fixture + at least one
-  real cohort target. Output drives the
-  high-confidence-only `CapabilityMap` v2 decision.
+  ✅ Shipped. See
+  [Coverage Review](capability-phrase-report-coverage-review.md).
+  16 stable phrases on `target-1` (0.18% of candidates;
+  6.6% of normalized). Phrase quality high, coverage
+  sparse. Selected next slice: phrase enrichment v1.
+- **Phrase enrichment v1** —
+  ✅ Shipped. See
+  [Phrase Enrichment v1 Memo](capability-phrase-enrichment-v1.md).
+  Deterministic `domain` / `pattern` / `layer`
+  enrichment from `ObservedRepo` + `OwnershipMap`.
+  Coverage on `target-1` rose 15× (16 → 239 phrases).
+  Stable threshold unchanged.
+- **Second coverage review** — next slice. Re-measure
+  stable + partial yield after enrichment lands across
+  fixture + at least one real cohort target. Output
+  drives the `CapabilityMap` v2 high-confidence-only
+  decision.
 - **Phrase confidence model decision** — define the
   formula. Initial sketch: lexical-only (low), lexical +
   canon-pack match (medium), lexical + canon + at least
   one ownership / framework / operator source (high).
-  Lands after the real-repo coverage review.
-- **Domain / pattern / layer evidence-source slices** —
-  one per source. Each lands behind its own decision memo.
+  Lands after the second coverage review.
+- **Per-evidence-source enrichment slices** (framework /
+  architecture profile / future AST / LLM as audit
+  signal). Each lands behind its own decision memo.
 - **CapabilityMap v2 design** — gated on phrase
   stability and the safety review. Decides additive vs.
   replacement projection semantics.
@@ -607,6 +620,8 @@ Selected direction:
 - [Capability Ontology Architecture Impact Review](capability-ontology-architecture-impact-review.md)
 - [Capability Ontology Suggestion Safety Review](capability-ontology-suggestion-safety-review.md)
 - [CapabilityPhraseReport Safety Review](capability-phrase-report-safety-review.md)
+- [CapabilityPhraseReport Real-Repo Coverage Review](capability-phrase-report-coverage-review.md)
+- [CapabilityPhraseReport Phrase Enrichment v1](capability-phrase-enrichment-v1.md)
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
 - [`CapabilityNormalizationReviewLedger` artifact reference](../artifacts/capability-normalization-review-ledger.md)
 - [`CapabilityOntologySuggestionReport` artifact reference](../artifacts/capability-ontology-suggestion-report.md)

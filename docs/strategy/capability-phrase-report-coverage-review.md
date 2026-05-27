@@ -349,10 +349,13 @@ land.
 
 ## Follow-Up Work
 
-- **Phrase enrichment v1** (next slice). Deterministic
-  `domain` / `pattern` / `layer` from `ObservedRepo` +
-  `OwnershipMap`. Allows `partial` phrases to emit. Keeps
-  `stable` reserved for the strictest case.
+- **Phrase enrichment v1** — ✅ Shipped. See
+  [Phrase Enrichment v1 Memo](capability-phrase-enrichment-v1.md).
+  Deterministic `domain` / `pattern` / `layer` from
+  `ObservedRepo` + `OwnershipMap`. `partial` phrases emit
+  only with deterministic enrichment context. Stable
+  threshold unchanged. Coverage on `target-1` rose from
+  16 → 239 phrases (15× yield).
 - **Second coverage review** after phrase enrichment v1
   lands. Measure: stable-phrase ratio change, partial
   phrase yield, enrichment field coverage, publication

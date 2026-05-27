@@ -12,6 +12,7 @@
   "references": [
     { "path": "../kernel-artifacts" },
     { "path": "../kernel-evidence" },
+    { "path": "../kernel-repo-model" },
     { "path": "../sdk" },
     { "path": "../runtime" }
   ]
