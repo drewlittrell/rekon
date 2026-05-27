@@ -1103,6 +1103,102 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# JS/TS AST Evidence Adapter Decision has shipped.
+# Strategy / architecture / docs / tests-only batch.
+# Twenty-third slice on the capability-ontology track.
+# Follows the Classic Scanner/Ontology Parity Audit and
+# commits Rekon to upgrading JS/TS evidence extraction
+# from regex-only to AST-backed.
+#
+# Decision summary:
+#   - Parser: TypeScript compiler parser API
+#     (ts.createSourceFile, ts.forEachChild). First-
+#     party, parses TS/TSX/JS/JSX with one API surface,
+#     no native compilation step, no tsconfig
+#     resolution required.
+#   - Parser-only v1 boundary: AST node kinds are
+#     captured; no typechecker semantics, no cross-file
+#     type resolution, no call graph.
+#   - EvidenceGraph fact model: existing fact kinds
+#     (file, import, export, symbol, ownership_hint,
+#     capability_hint) remain unchanged. AST v1
+#     enriches the value payloads of symbol / export /
+#     import with proposed additive optional fields:
+#     extractionMethod, language, syntaxKind,
+#     symbolKind, exportKind, importKind, location,
+#     confidence. Additive only; old facts validate;
+#     no new fact kind.
+#   - Construct coverage in v1: function declarations,
+#     class declarations, class methods, arrow-function
+#     assignments, function-expression assignments,
+#     interface declarations, type aliases, enums,
+#     named exports, default exports, re-exports,
+#     type-only imports, type-only exports, namespace
+#     imports, side-effect imports. Call graph, type
+#     resolution, symbol references, inferred return
+#     types, side-effect analysis, JSX component tree,
+#     test-to-source map, schema inference are deferred.
+#   - Regex fallback policy: regex fires only on AST
+#     parse failure or unsupported file extension. AST
+#     facts carry confidence high; fallback facts carry
+#     confidence low or medium.
+#
+# Pinned verbatim:
+#   - JS/TS AST extraction should be primary where
+#     available.
+#   - Regex extraction is fallback only.
+#   - The selected parser is the TypeScript compiler
+#     parser API.
+#   - V1 is parser-only; typechecker semantics are
+#     deferred.
+#   - AST facts use extractionMethod ast.
+#   - Fallback facts use extractionMethod
+#     regex-fallback.
+#   - Call graph is deferred.
+#   - EvidenceGraph remains the repo-agnostic
+#     protocol.
+#   - AST v1 should improve CapabilityNormalizationReport
+#     candidate quality.
+#   - AST v1 should improve CapabilityPhraseReport
+#     stable phrase density.
+#   - AST v1 does not mutate CapabilityMap.
+#
+# Implementation sequence after this decision:
+#   1. JS/TS AST EvidenceGraph Provider v1 (runtime
+#      implementation in @rekon/capability-js-ts).
+#   2. Post-AST coverage review (fourth coverage review
+#      on the phrase track).
+#   3. CapabilityMap v2 high-confidence-only design
+#      decision (gated on post-AST coverage).
+#
+# No runtime change. No @rekon/capability-js-ts runtime
+# behavior change. No EvidenceGraph schema mutation
+# beyond documenting proposed additive fields. No
+# CapabilityNormalizationReport mutation. No
+# CapabilityPhraseReport mutation. No CapabilityMap
+# mutation. No new artifact registration. No new CLI
+# command. No source writes. No LLM-only inference. No
+# typechecker dependency. No npm publish. No version
+# bump. No git tag. No GitHub Release. No new branch.
+#
+# New strategy memo:
+# docs/strategy/js-ts-ast-evidence-adapter-decision.md
+# with 14 required headings + 3 required tables
+# (option / construct coverage / fallback). New
+# 18-assertion docs test
+# tests/docs/js-ts-ast-evidence-adapter-decision.test.mjs.
+# Review packet
+# .rekon-dev/review-packets/js-ts-ast-evidence-adapter-decision.md.
+#
+# Recommended next slice: JS/TS AST EvidenceGraph
+# Provider v1 - runtime implementation in
+# @rekon/capability-js-ts. Emits AST symbol / import /
+# export facts with extractionMethod metadata. Retains
+# regex extraction as fallback. No typechecker
+# semantics. No CapabilityMap mutation. No
+# CapabilityPhraseReport shape change. No
+# CapabilityNormalizationReport semantics change.
+#
 # Classic scanner / ontology parity audit has shipped.
 # Strategy / architecture / docs / tests-only batch.
 # Twenty-second slice on the capability-ontology track.

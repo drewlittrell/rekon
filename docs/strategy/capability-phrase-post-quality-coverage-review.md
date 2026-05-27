@@ -389,10 +389,24 @@ architecture review's evidence-source recommendation.
   extraction in `@rekon/capability-js-ts` as the
   evidence-model bottleneck. Selects **JS/TS AST
   Evidence Adapter Decision** as the next slice.
-- **JS/TS AST Evidence Adapter Decision** (next
-  slice). Strategy memo; picks parser, defines
-  `EvidenceGraph` fact shapes, pins fallback, AST is
-  primary where available.
+- **JS/TS AST Evidence Adapter Decision** — ✅
+  Shipped. See
+  [JS/TS AST Evidence Adapter Decision](js-ts-ast-evidence-adapter-decision.md).
+  Selects the **TypeScript compiler parser API** for
+  parser-only AST v1. Pins regex as fallback only.
+  Pins additive `extractionMethod` /
+  `language` / `syntaxKind` / `symbolKind` /
+  `exportKind` / `importKind` / `location` /
+  `confidence` fields on existing `symbol` / `export`
+  / `import` facts. Pins **no typechecker
+  dependency** in v1. Pins **AST v1 should improve
+  CapabilityNormalizationReport candidate quality**
+  and **AST v1 should improve CapabilityPhraseReport
+  stable phrase density**. The runtime slice below
+  inherits these answers.
+- **JS/TS AST EvidenceGraph Provider v1** — runtime
+  implementation in `@rekon/capability-js-ts`.
+  Conditioned on the decision memo above.
 - **Phrase enrichment v2** (parallel; framework /
   architecture-profile-derived `pattern` and `layer`
   enrichment). Lands behind the architecture review.
@@ -430,4 +444,11 @@ architecture review's evidence-source recommendation.
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)
 - [Capability ontology concept](../concepts/capability-ontology.md)
 - [Roadmap](roadmap.md)
+- [Classic Scanner/Ontology Parity Audit](classic-scanner-ontology-parity-audit.md)
+  — twenty-second slice; selected AST extraction as
+  the next product slice.
+- [JS/TS AST Evidence Adapter Decision](js-ts-ast-evidence-adapter-decision.md)
+  — twenty-third slice; commits Rekon to parser-only
+  AST extraction using the TypeScript compiler parser
+  API. Regex stays as fallback only.
 - [Classic-behavior roadmap](classic-behavior-roadmap.md)

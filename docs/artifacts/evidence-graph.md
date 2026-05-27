@@ -250,31 +250,65 @@ maps Rekon's current scanner / taxonomy / ontology stack
 against `codebase-intel-classic` as design prior art and
 identifies the **evidence-model bottleneck**: regex-based
 JS/TS extraction misses the structured names AST
-traversal would surface. The audit selects the **JS/TS
-AST Evidence Adapter Decision** as the next slice on the
-capability-ontology track and pins the following
-guarantees:
+traversal would surface. The audit selects the JS/TS AST
+Evidence Adapter as the next slice on the
+capability-ontology track. The
+[JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
+(twenty-third slice) commits to the design:
+
+- **Parser:** the TypeScript compiler parser API
+  (`ts.createSourceFile`, `ts.forEachChild`); parses
+  TS / TSX / JS / JSX with one API surface; no
+  `tsconfig` resolution required.
+- **Parser-only in v1:** no typechecker semantics; call
+  graph, type resolution, and symbol references are
+  deferred.
+- **Existing fact kinds unchanged.** AST v1 emits the
+  same `symbol` / `export` / `import` fact kinds as
+  today's regex extractor.
+- **Proposed additive value-fields** on `symbol` /
+  `export` / `import` facts (documented in the decision
+  memo; implemented by the runtime slice that follows):
+  - `extractionMethod?: "ast" | "regex-fallback"`
+  - `language?: "typescript" | "javascript"`
+  - `syntaxKind?: string` (diagnostic)
+  - `symbolKind?: "function" | "class" | "method" |
+    "variable" | "interface" | "type" | "enum" |
+    "object" | "unknown"`
+  - `exportKind?: "named" | "default" | "re-export" |
+    "type-only" | "namespace"`
+  - `importKind?: "value" | "type-only" | "namespace" |
+    "side-effect"`
+  - `location?: { line: number; column: number }`
+  - `confidence?: "high" | "medium" | "low"`
+- **Additive only.** Old facts validate. No new fact
+  kind. No new subject convention. Dedup keys
+  unchanged.
+- **Regex stays as fallback.** Regex fires on AST parse
+  failure or unsupported file extension. Fallback facts
+  carry `extractionMethod: "regex-fallback"` and
+  `confidence: "low"` or `"medium"`.
+
+The decision memo pins these verbatim guarantees:
 
 - **`EvidenceGraph` remains the repo-agnostic protocol.**
   Adding an AST-backed JS/TS provider does **not** change
   the shape or protocol of this artifact. The adapter is
   an additional provider, not a replacement layer.
 - **JS/TS AST extraction should be primary where
-  available.** When a JS/TS target is in scope and an AST
-  parser is available, AST-derived facts are the primary
-  evidence source.
-- **Regex extraction is fallback, not primary, for
-  JS/TS.** The existing regex extractor in
-  `@rekon/capability-js-ts` stays in place as the
-  fallback for AST-unavailable environments. The audit
-  does **not** remove it.
+  available.**
+- **Regex extraction is fallback only.**
 - **No type-checker dependency in v1.** AST alone closes
-  most of the regex gap; a deeper type-checker
-  integration is a later, separate decision.
+  most of the regex gap.
 - **AST stays optional enrichment, not foundational truth
   in v1.** The eight architectural reservations from the
   Capability Ontology Architecture Impact Review remain
   in force.
+- **Raw evidence stays raw.** `symbolKind`, `exportKind`,
+  and `importKind` are *syntactic* categories, not
+  capability claims. The translation layer
+  (`CapabilityNormalizationReport`) still decides what
+  these facts mean.
 
 The audit explicitly pins
 `codebase-intel-classic` as **design prior art, not

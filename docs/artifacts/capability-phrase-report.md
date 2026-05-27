@@ -323,6 +323,33 @@ returns `{ lines, inputRef? }`.
   checks / required + forbidden neighbours / preservation
   rules. Not implemented in v1.
 
+### Upstream Stable-Density Lever
+
+Stable phrase density depends on the upstream
+`EvidenceGraph` provider for each language. Three
+coverage reviews (real-repo, enrichment, post-quality)
++ two runtime slices (phrase enrichment v1,
+candidate-quality v1) did not move the stable
+foundation. The
+[CapabilityPhraseReport Post-Quality Coverage Review](../strategy/capability-phrase-post-quality-coverage-review.md)
+identified the evidence model itself as the
+bottleneck. The
+[Classic Scanner/Ontology Parity Audit](../strategy/classic-scanner-ontology-parity-audit.md)
+selected the JS/TS AST adapter as the next slice, and
+the
+[JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
+(twenty-third slice) commits Rekon to **parser-only
+AST extraction using the TypeScript compiler parser
+API**, with regex as fallback only. AST v1 is
+expected to **improve stable phrase density** by
+expanding candidate coverage (class methods,
+arrow-function assignments, accurate type-vs-value
+distinctions) without changing this report's shape or
+projection rules. **The stable threshold remains
+unchanged.** **AST v1 does not mutate `CapabilityMap`**
+— `CapabilityMap` v2 stays evidence-gated on a
+post-AST coverage review.
+
 ## See Also
 
 - [`CapabilityNormalizationReport` artifact
@@ -377,8 +404,17 @@ returns `{ lines, inputRef? }`.
   Candidate-Quality v1. Verdict: stable count unchanged
   on `target-1` (third coverage review confirming
   this); `target-2` shows same ~3% normalization
-  ceiling. Next slice is a repo-agnostic purpose
-  understanding architecture review.
+  ceiling. Identified the evidence model itself as the
+  bottleneck.
+- [Classic Scanner/Ontology Parity Audit](../strategy/classic-scanner-ontology-parity-audit.md)
+  — twenty-second slice. Selected AST extraction as
+  the next product slice based on classic prior art.
+- [JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
+  — twenty-third slice; the upstream stable-density
+  lever. Selects the TypeScript compiler parser API
+  for parser-only AST v1. Pins regex as fallback only.
+  Expected to improve stable phrase density without
+  changing this report's shape.
 - [Capability Ontology Translation Layer Decision](../strategy/capability-ontology-translation-layer-decision.md)
   — the eight-layer model. Layer 6 (`CapabilityMap`) will
   eventually consume this report.

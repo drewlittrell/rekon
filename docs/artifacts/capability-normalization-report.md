@@ -124,6 +124,28 @@ A future slice (deferred to v2 of the ontology track) will:
 Until those slices land, this artifact is the **only** runtime
 surface of the layered capability ontology.
 
+### Upstream Candidate-Quality Lever
+
+Candidate quality in this report depends on the
+upstream `EvidenceGraph` provider for each language.
+For JS/TS, the
+[JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
+(twenty-third slice on the capability-ontology track)
+commits Rekon to upgrading the JS/TS provider from
+regex-only extraction to AST-backed extraction using
+the TypeScript compiler parser API. The runtime slice
+that follows will emit AST-derived `symbol` / `export`
+/ `import` facts with additive `extractionMethod` /
+`symbolKind` / `exportKind` / `importKind` /
+`confidence` metadata. **This report's shape and
+semantics are unchanged by that work** — the splitter
+and normalizer continue to read raw evidence and emit
+normalization rows. AST v1 is expected to **improve
+candidate quality** (better coverage of class methods,
+arrow-function assignments, type-vs-value distinctions)
+without changing the contract this report exposes to
+downstream consumers.
+
 ## Downstream Consumers
 
 [`CapabilityPhraseReport`](capability-phrase-report.md) v1
@@ -172,5 +194,11 @@ placement / proof / preservation policy.
   — operator path for translating this report's unknown
   rows into manual ontology config edits.
 - [`EvidenceGraph` artifact reference](evidence-graph.md)
+- [JS/TS AST Evidence Adapter
+  Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
+  — upstream candidate-quality lever. Selects the
+  TypeScript compiler parser API for parser-only AST
+  v1; pins regex as fallback only. Expected to improve
+  candidate quality in this report.
 - [Reconciliation preview
   concept](../concepts/reconciliation-preview.md)

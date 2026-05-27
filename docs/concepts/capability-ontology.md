@@ -425,6 +425,24 @@ as fallback for AST-unavailable environments;
 `CapabilityMap` v2 stays deferred until post-AST coverage
 is measured.
 
+The
+[JS/TS AST Evidence Adapter Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
+(twenty-third slice) commits Rekon to **parser-only
+AST extraction using the TypeScript compiler parser
+API**. Existing fact kinds (`symbol`, `export`,
+`import`) remain unchanged; AST v1 enriches their
+`value` payloads with additive optional fields
+(`extractionMethod`, `language`, `syntaxKind`,
+`symbolKind`, `exportKind`, `importKind`, `location`,
+`confidence`). Regex extraction remains in place as
+**fallback only**. No typechecker semantics in v1;
+call graph, type resolution, and symbol references
+are deferred. **The stable threshold remains
+unchanged.** **AST v1 does not mutate `CapabilityMap`.**
+The runtime slice that follows
+(*JS/TS AST EvidenceGraph Provider v1*) ships the
+implementation.
+
 ## See Also
 
 - [`CapabilityNormalizationReport` artifact
@@ -497,6 +515,18 @@ is measured.
   primary where available; regex as fallback;
   `EvidenceGraph` as the repo-agnostic protocol that
   survives the adapter slice.
+- [JS/TS AST Evidence Adapter
+  Decision](../strategy/js-ts-ast-evidence-adapter-decision.md)
+  — strategy / architecture decision memo. Commits
+  Rekon to parser-only AST extraction using the
+  TypeScript compiler parser API. Pins additive
+  `extractionMethod` / `symbolKind` / `exportKind` /
+  `importKind` / `confidence` metadata on existing
+  `symbol` / `export` / `import` facts. Pins regex as
+  fallback only. Expected to improve
+  `CapabilityNormalizationReport` candidate quality
+  and `CapabilityPhraseReport` stable phrase density
+  without mutating `CapabilityMap`.
 - [Capability Ontology Config Authoring
   Guide](../beta/capability-ontology-config-authoring-guide.md)
   + [Capability Ontology Review-Loop

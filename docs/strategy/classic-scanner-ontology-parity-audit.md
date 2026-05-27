@@ -553,10 +553,17 @@ Parallel follow-ups (do not block the AST track):
 
 ## Follow-Up Work
 
-- **JS/TS AST Evidence Adapter Decision** (next
-  slice). Strategy memo; picks parser, defines
-  `EvidenceGraph` fact shapes, pins fallback,
-  confidence, fixtures.
+- **JS/TS AST Evidence Adapter Decision** — ✅ shipped
+  as the
+  [JS/TS AST Evidence Adapter Decision](js-ts-ast-evidence-adapter-decision.md)
+  (twenty-third slice). Selected the **TypeScript
+  compiler parser API** for parser-only AST v1.
+  Pinned regex extraction as fallback only. Pinned
+  the additive `extractionMethod` / `language` /
+  `syntaxKind` / `symbolKind` / `exportKind` /
+  `importKind` / `location` / `confidence` fields
+  on existing `symbol` / `export` / `import` facts.
+  The runtime slice below inherits these answers.
 - **JS/TS AST EvidenceGraph Provider v1** — runtime
   slice, conditioned on the decision memo.
 - **Post-AST coverage review** — fourth coverage
@@ -591,6 +598,11 @@ Parallel follow-ups (do not block the AST track):
 - [Capability Ontology Architecture Impact Review](capability-ontology-architecture-impact-review.md)
 - [Capability Ontology Translation Layer Decision](capability-ontology-translation-layer-decision.md)
 - [Capability Ontology Canon + Override Model Decision](capability-ontology-canon-override-model-decision.md)
+- [JS/TS AST Evidence Adapter Decision](js-ts-ast-evidence-adapter-decision.md)
+  — twenty-third slice; the next slice on the
+  capability-ontology track. Selects the TypeScript
+  compiler parser API; pins parser-only v1; pins
+  regex as fallback only.
 - [CapabilityPhraseReport Post-Quality Coverage Review](capability-phrase-post-quality-coverage-review.md)
 - [`EvidenceGraph` artifact reference](../artifacts/evidence-graph.md)
 - [`CapabilityNormalizationReport` artifact reference](../artifacts/capability-normalization-report.md)

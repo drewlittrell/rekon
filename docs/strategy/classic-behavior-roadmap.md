@@ -6256,6 +6256,95 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **JS/TS AST Evidence Adapter
+  Decision (P1.1
+  js-ts-ast-evidence-adapter-decision
+  slice).** ✅ Shipped.
+  **Twenty-third slice on the
+  capability-ontology track.**
+  Strategy / architecture / docs /
+  tests-only batch. Follows the
+  Classic Scanner/Ontology Parity
+  Audit and commits Rekon to
+  upgrading JS/TS evidence
+  extraction from regex-only to
+  AST-backed, using the
+  **TypeScript compiler parser
+  API**, **parser-only in v1** (no
+  typechecker semantics). Regex
+  remains in place as **fallback
+  only**. **Pinned verbatim:**
+  *JS/TS AST extraction should be
+  primary where available.* *Regex
+  extraction is fallback only.*
+  *The selected parser is the
+  TypeScript compiler parser API.*
+  *V1 is parser-only; typechecker
+  semantics are deferred.* *AST
+  facts use `extractionMethod:
+  "ast"`.* *Fallback facts use
+  `extractionMethod:
+  "regex-fallback"`.* *Call graph
+  is deferred.* *`EvidenceGraph`
+  remains the repo-agnostic
+  protocol.* *AST v1 should
+  improve `CapabilityNormalizationReport`
+  candidate quality.* *AST v1
+  should improve
+  `CapabilityPhraseReport` stable
+  phrase density.* *AST v1 does
+  not mutate `CapabilityMap`.*
+  Existing `EvidenceGraph` fact
+  kinds (`symbol`, `export`,
+  `import`) remain unchanged; AST
+  v1 enriches `value` payloads
+  with additive optional fields
+  (`extractionMethod`, `language`,
+  `syntaxKind`, `symbolKind`,
+  `exportKind`, `importKind`,
+  `location`, `confidence`).
+  Construct coverage in v1:
+  function / class / method /
+  arrow / interface / type alias /
+  enum / named / default / re-
+  export / type-only / namespace
+  / side-effect. Call graph, type
+  resolution, symbol references,
+  inferred return types, side-
+  effect analysis, JSX component
+  tree, test-to-source map,
+  schema inference are deferred.
+  **No runtime change. No
+  `@rekon/capability-js-ts`
+  runtime behavior change. No
+  `EvidenceGraph` schema
+  mutation beyond documenting
+  proposed additive fields. No
+  `CapabilityNormalizationReport`
+  mutation. No
+  `CapabilityPhraseReport`
+  mutation. No `CapabilityMap`
+  mutation. No new artifact
+  registration. No new CLI
+  command. No source writes. No
+  LLM-only inference. No
+  typechecker dependency. No npm
+  publish. No version bump. No
+  git tag. No GitHub Release. No
+  new branch.** New strategy memo
+  [`docs/strategy/js-ts-ast-evidence-adapter-decision.md`](js-ts-ast-evidence-adapter-decision.md)
+  with 14 required headings + 3
+  required tables (option /
+  construct coverage / fallback).
+  New 18-assertion docs test
+  `tests/docs/js-ts-ast-evidence-adapter-decision.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/js-ts-ast-evidence-adapter-decision.md`.
+  **Recommended next slice:**
+  *JS/TS AST EvidenceGraph
+  Provider v1* — runtime
+  implementation in
+  `@rekon/capability-js-ts`.
 - **Classic scanner / ontology
   parity audit (P1.1
   classic-scanner-ontology-parity-audit
