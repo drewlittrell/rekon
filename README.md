@@ -1049,6 +1049,60 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 #   rekon refresh
 #   rekon capability ontology normalize --json
 #
+# CapabilityPhraseReport publication surfacing has
+# shipped. The architecture summary and agent contract
+# publishers now surface the latest
+# CapabilityPhraseReport inline so operators and agents
+# see semantic purpose projection where they already
+# inspect repo state.
+#
+# Behavior:
+#   - Architecture summary renders `## Capability
+#     Phrases` with report ref, source
+#     CapabilityNormalizationReport ref, summary counts,
+#     and a bounded phrase table.
+#   - Agent contract renders `### Capability Phrases`
+#     under the operating-state group with the same
+#     metadata, plus a new Do Not Do reminder against
+#     treating phrases as CapabilityMap ownership or
+#     placement policy.
+#   - Both publications cite the report in
+#     header.inputRefs when present; the new
+#     `capability-phrases.changed` invalidation rule
+#     propagates freshness.
+#   - Proof report surfacing is deferred —
+#     CapabilityPhraseReport is semantic context, not
+#     verification proof.
+#
+# Pinned verbatim:
+#   - CapabilityNormalizationReport remains the
+#     translation audit.
+#   - CapabilityPhraseReport is the semantic purpose
+#     projection.
+#   - CapabilityMap integration remains deferred.
+#   - AST / typechecker evidence is optional
+#     enrichment, not foundational truth.
+#   - No LLM-only inference.
+#
+# Both publishers are strictly read-only: never run
+# phrase projection, never run normalization, never
+# mutate CapabilityPhraseReport,
+# CapabilityNormalizationReport, CapabilityMap, or
+# EvidenceGraph.
+#
+# New export from @rekon/capability-docs:
+# buildCapabilityPhrasePublicationSection.
+# @rekon/capability-docs.consumes gains
+# CapabilityPhraseReport. New manifest invalidation rule
+# capability-phrases.changed.
+#
+# No new artifact registration. No new CLI command. No
+# version bump. No npm publish.
+#
+# See docs/artifacts/capability-phrase-report.md.
+# Recommended next slice: CapabilityPhraseReport safety
+# review.
+#
 # CapabilityPhraseReport v1 has shipped. First runtime
 # implementation of the Layer 5b semantic-purpose-
 # projection carrier the architecture + carrier decisions

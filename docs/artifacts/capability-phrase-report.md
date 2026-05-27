@@ -218,6 +218,67 @@ rekon capability phrase project \
   short summary and ends with *"CapabilityMap remains
   unchanged."*.
 
+## Publication Surfacing
+
+The `architecture-summary` and `agent-contract` publishers
+read the latest `CapabilityPhraseReport` and surface it
+inline:
+
+- **Architecture summary** renders a `## Capability
+  Phrases` section with the report ref, source
+  `CapabilityNormalizationReport` ref, summary counts
+  (`totalPhrases`, `stable`, `partial`, `lowConfidence`,
+  `withDomain`, `withPattern`, `withLayer`), and a bounded
+  phrase table (verb, noun, status, confidence, evidence
+  count). When no report exists the section emits guidance
+  directing the operator at
+  `rekon capability phrase project --report
+  <CapabilityNormalizationReport:id> --json`.
+- **Agent contract** renders a `### Capability Phrases`
+  subsection inside the operating-state group with the
+  same metadata, and appends a `Do Not Do` reminder
+  pinning that **`CapabilityPhraseReport` entries are not
+  `CapabilityMap` ownership or placement policy** —
+  `CapabilityPhraseReport` is semantic purpose projection,
+  `CapabilityNormalizationReport` remains translation
+  audit, and `CapabilityMap` integration remains deferred.
+
+Both publications cite the report in `header.inputRefs`
+when present so freshness propagates: when a new
+`CapabilityPhraseReport` lands,
+`rekon artifacts freshness` flags the publications stale
+via the manifest's `capability-phrases.changed`
+invalidation rule.
+
+Both publishers are strictly **read-only**:
+
+- Publication generation never runs phrase projection
+  (`rekon capability phrase project` is never invoked
+  from inside a publisher).
+- They never run normalization.
+- The architecture summary publisher never mutates
+  `CapabilityMap`.
+- The agent contract publisher never mutates
+  `CapabilityMap`.
+- They never mutate `CapabilityPhraseReport`,
+  `CapabilityNormalizationReport`, `EvidenceGraph`,
+  the review ledger, or the suggestion report.
+- They never write a new `CapabilityPhraseReport`.
+
+**Proof report surfacing is deferred.** `CapabilityPhraseReport`
+is semantic context, not verification proof; surfacing it
+in the proof report would mix semantic projection with
+proof status. A future slice may revisit once an
+appropriate proof-side section exists.
+
+The
+[`@rekon/capability-docs` `buildCapabilityPhrasePublicationSection`
+helper](../../packages/capability-docs/src/index.ts) is the
+pure renderer both publishers call. It accepts `report` +
+`reportRef` + `headingLevel` (`2` for architecture summary,
+`3` for agent contract) + `tableLimit` (default 10) and
+returns `{ lines, inputRef? }`.
+
 ## Forward Compatibility
 
 - `partial` and `low-confidence` statuses are reserved for

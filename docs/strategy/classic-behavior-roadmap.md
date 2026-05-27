@@ -5845,6 +5845,59 @@ scope:
   **Recommended next slice:**
   CapabilityPhraseReport
   publication surfacing.
+- **CapabilityPhraseReport
+  publication surfacing (P1.1
+  capability-phrase-publications
+  slice).** ✅ Shipped.
+  **Fifteenth slice on the
+  capability-ontology track.**
+  Surfaces the latest
+  `CapabilityPhraseReport` in the
+  architecture summary
+  (`## Capability Phrases`) and
+  agent contract
+  (`### Capability Phrases`)
+  publishers. **Read-only**:
+  neither publisher mutates the
+  phrase report, the source
+  `CapabilityNormalizationReport`,
+  `CapabilityMap`, or
+  `EvidenceGraph`. Proof report
+  surfacing is deferred —
+  `CapabilityPhraseReport` is
+  semantic context, not
+  verification proof. New export
+  from `@rekon/capability-docs`:
+  `buildCapabilityPhrasePublicationSection`.
+  `@rekon/capability-docs.consumes`
+  gains `CapabilityPhraseReport`;
+  new manifest invalidation rule
+  `capability-phrases.changed`.
+  Agent contract gains a new
+  `Do Not Do` reminder against
+  treating phrases as
+  `CapabilityMap` ownership or
+  placement policy. Pinned
+  verbatim that
+  `CapabilityNormalizationReport`
+  remains the translation audit,
+  `CapabilityPhraseReport` is
+  the semantic purpose
+  projection, `CapabilityMap`
+  integration remains deferred,
+  AST evidence is optional
+  enrichment, and no LLM-only
+  inference. **No new artifact
+  registration. No new CLI
+  command. No version bump. No
+  npm publish.** New 18-assertion
+  contract test
+  `tests/contract/capability-phrase-publications.test.mjs`.
+  New 10-assertion docs test
+  `tests/docs/capability-phrase-publications.test.mjs`.
+  **Recommended next slice:**
+  CapabilityPhraseReport safety
+  review.
 - **Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

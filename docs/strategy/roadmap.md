@@ -2087,6 +2087,77 @@ is the first stop before proposing a new capability batch.
   agent contract publications.
   Read-only. No `CapabilityMap`
   mutation.
+- CapabilityPhraseReport
+  publication surfacing (P1.1
+  capability-phrase-publications
+  slice): **fifteenth slice on
+  the capability-ontology track.**
+  Surfaces the latest
+  `CapabilityPhraseReport` in the
+  architecture summary
+  (`## Capability Phrases`) and
+  agent contract
+  (`### Capability Phrases`)
+  publishers so operators and
+  agents see semantic purpose
+  projection where they already
+  inspect repo state. **Read-
+  only**: neither publisher
+  mutates the phrase report, the
+  source
+  `CapabilityNormalizationReport`,
+  `CapabilityMap`, or
+  `EvidenceGraph`. Proof report
+  surfacing is deliberately
+  deferred —
+  `CapabilityPhraseReport` is
+  semantic context, not
+  verification proof. New export
+  from `@rekon/capability-docs`:
+  `buildCapabilityPhrasePublicationSection`
+  (accepts `report`, `reportRef`,
+  `headingLevel`, `tableLimit`).
+  `@rekon/capability-docs.consumes`
+  gains `CapabilityPhraseReport`.
+  New manifest invalidation rule
+  `capability-phrases.changed`.
+  Agent contract gains a new
+  `Do Not Do` reminder: *Do not
+  treat `CapabilityPhraseReport`
+  entries as `CapabilityMap`
+  ownership or placement policy.*
+  Pinned verbatim:
+  **`CapabilityNormalizationReport`
+  remains the translation
+  audit.** **`CapabilityPhraseReport`
+  is the semantic purpose
+  projection.** **`CapabilityMap`
+  integration remains deferred.**
+  **AST / typechecker evidence is
+  optional enrichment, not
+  foundational truth.** **No
+  LLM-only inference.** **No new
+  artifact registration. No new
+  CLI command. No version bump.
+  No npm publish.** New
+  18-assertion contract test
+  `tests/contract/capability-phrase-publications.test.mjs`.
+  New 10-assertion docs test
+  `tests/docs/capability-phrase-publications.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-publications.md`.
+  **Recommended next slice:**
+  *CapabilityPhraseReport safety
+  review* — end-to-end review
+  of the
+  `CapabilityNormalizationReport
+  → CapabilityPhraseReport →
+  publication surfacing` path.
+  Decides whether phrases are
+  stable enough for
+  `CapabilityMap` v2
+  high-confidence-only
+  consumption.
 - Capability ontology architecture
   impact review (P1.1
   capability-ontology-architecture-impact-review

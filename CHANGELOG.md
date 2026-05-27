@@ -4,6 +4,88 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityPhraseReport publication
+  surfacing** — the architecture summary and agent
+  contract publishers now surface the latest
+  `CapabilityPhraseReport` inline so operators and
+  agents see semantic purpose projection where they
+  already inspect repo state. **Read-only**: neither
+  publisher mutates the phrase report, the source
+  `CapabilityNormalizationReport`, `CapabilityMap`,
+  or `EvidenceGraph`.
+
+  Behaviour:
+
+    - Architecture summary renders a `## Capability
+      Phrases` section with the report ref, source
+      `CapabilityNormalizationReport` ref, summary counts
+      (`totalPhrases`, `stable`, `partial`,
+      `lowConfidence`, `withDomain`, `withPattern`,
+      `withLayer`), and a bounded phrase table. When no
+      report exists, emits no-report guidance pointing at
+      `rekon capability phrase project`.
+    - Agent contract renders `### Capability Phrases`
+      under the operating-state group with the same
+      metadata, plus a new `Do Not Do` reminder:
+      *Do not treat CapabilityPhraseReport entries as
+      CapabilityMap ownership or placement policy.*
+    - Both publications cite the report in
+      `header.inputRefs` when present; freshness
+      propagates via the new `capability-phrases.changed`
+      invalidation rule.
+    - **Proof report surfacing is deferred** —
+      CapabilityPhraseReport is semantic context, not
+      verification proof, so mixing it into the proof
+      surface would dilute proof status.
+
+  Pinned verbatim:
+
+    - `CapabilityNormalizationReport` remains the
+      translation audit.
+    - `CapabilityPhraseReport` is the semantic purpose
+      projection.
+    - `CapabilityMap` integration remains deferred — v2
+      will consume `CapabilityPhraseReport`, not raw
+      normalization rows.
+    - AST / typechecker evidence is optional enrichment,
+      not foundational truth.
+    - No LLM-only inference.
+    - Source writes remain unavailable.
+
+  New export from `@rekon/capability-docs`:
+  `buildCapabilityPhrasePublicationSection`
+  (pure renderer; accepts `report`, `reportRef`,
+  `headingLevel`, `tableLimit`; returns
+  `{ lines, inputRef? }`).
+
+  `@rekon/capability-docs.consumes` gains
+  `CapabilityPhraseReport`. New manifest invalidation
+  rule `capability-phrases.changed`.
+
+  **No new artifact registration. No
+  `CapabilityNormalizationReport` shape mutation. No
+  `CapabilityMap` mutation. No `EvidenceGraph` mutation.
+  No phrase report mutation. No source-write apply. No
+  LLM-only inference. No new CLI command. No version
+  bump. No npm publish. No git tag. No GitHub Release.
+  No new branch.**
+
+  New 18-assertion contract test
+  `tests/contract/capability-phrase-publications.test.mjs`.
+  New 10-assertion docs test
+  `tests/docs/capability-phrase-publications.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-phrase-publications.md`.
+
+  Recommended next slice: **CapabilityPhraseReport
+  safety review** — review the
+  `CapabilityNormalizationReport → CapabilityPhraseReport
+  → publication surfacing` path end-to-end and decide
+  whether phrase claims are stable enough to gate
+  `CapabilityMap` v2, whether enrichment evidence
+  sources need to ship first, or whether more dogfood is
+  required.
+
 - Shipped **CapabilityPhraseReport v1** — first runtime
   slice on the semantic-purpose-projection layer (Layer
   5b) the architecture + carrier decisions reserved.

@@ -207,6 +207,42 @@ type CapabilityOntologySuggestionReportLike = {
   };
 };
 
+// Capability phrase publication surfacing
+// (capability-phrase-publications). Local duck type so the
+// capability-docs package does not import
+// `@rekon/capability-ontology` directly. Mirrors the public
+// `CapabilityPhraseReport` artifact (see
+// `docs/artifacts/capability-phrase-report.md`) but the
+// renderer is **read-only** with respect to every upstream
+// artifact and tolerates partial data.
+type CapabilityPhraseReportLike = {
+  header: ArtifactHeader;
+  sourceNormalizationReportRef?: ArtifactRef;
+  summary?: {
+    totalPhrases?: number;
+    stable?: number;
+    partial?: number;
+    lowConfidence?: number;
+    withDomain?: number;
+    withPattern?: number;
+    withLayer?: number;
+  };
+  phrases?: Array<{
+    id?: string;
+    verb?: string;
+    noun?: string;
+    qualifier?: string[];
+    domain?: string;
+    pattern?: string;
+    layer?: string;
+    confidence?: string;
+    status?: string;
+    evidenceRefs?: ArtifactRef[];
+    sourceCandidateIds?: string[];
+    message?: string;
+  }>;
+};
+
 export const docsPublisher: Publisher = {
   id: "@rekon/capability-docs.publisher",
   produces: ["Publication"],
@@ -429,6 +465,26 @@ export const architectureSummaryPublisher: Publisher = {
     ) {
       inputRefs.push(ontologySuggestionRef);
     }
+    // Capability phrase publication surfacing
+    // (capability-phrase-publications). Read-only:
+    // surfaces the latest CapabilityPhraseReport so
+    // operators see semantic-purpose projection alongside
+    // repo state. Never re-runs `rekon capability phrase
+    // project`. Never mutates `CapabilityPhraseReport`,
+    // `CapabilityNormalizationReport`, `CapabilityMap`,
+    // or `EvidenceGraph`.
+    const capabilityPhraseRef = await latestRef(artifacts, "CapabilityPhraseReport");
+    const capabilityPhraseReport = capabilityPhraseRef
+      ? (await artifacts.read(capabilityPhraseRef)) as CapabilityPhraseReportLike
+      : undefined;
+    if (
+      capabilityPhraseRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityPhraseRef.type
+        && existing.id === capabilityPhraseRef.id)
+    ) {
+      inputRefs.push(capabilityPhraseRef);
+    }
     const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
@@ -465,6 +521,8 @@ export const architectureSummaryPublisher: Publisher = {
         pathFreshnessRef,
         ontologySuggestionReport,
         ontologySuggestionRef,
+        capabilityPhraseReport,
+        capabilityPhraseRef,
         freshness,
         inputRefs,
         generatedAt,
@@ -827,6 +885,24 @@ export const agentContractPublisher: Publisher = {
     ) {
       inputRefs.push(ontologySuggestionRef);
     }
+    // Capability phrase publication surfacing
+    // (capability-phrase-publications). Agent contract
+    // mirrors the architecture-summary publisher and
+    // surfaces phrase counts + the deferred-CapabilityMap
+    // callout so agents know phrases are semantic
+    // projection, not placement policy.
+    const capabilityPhraseRef = await latestRef(artifacts, "CapabilityPhraseReport");
+    const capabilityPhraseReport = capabilityPhraseRef
+      ? (await artifacts.read(capabilityPhraseRef)) as CapabilityPhraseReportLike
+      : undefined;
+    if (
+      capabilityPhraseRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityPhraseRef.type
+        && existing.id === capabilityPhraseRef.id)
+    ) {
+      inputRefs.push(capabilityPhraseRef);
+    }
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
       "MemorySelection",
@@ -871,6 +947,8 @@ export const agentContractPublisher: Publisher = {
         pathFreshnessRef,
         ontologySuggestionReport,
         ontologySuggestionRef,
+        capabilityPhraseReport,
+        capabilityPhraseRef,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -910,6 +988,7 @@ export default defineCapability({
       "VerificationResult",
       "PathFreshnessReport",
       "CapabilityOntologySuggestionReport",
+      "CapabilityPhraseReport",
       "MemorySelection",
       "MemoryCurationReport",
     ],
@@ -985,6 +1064,12 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary and agent contract when a new CapabilityOntologySuggestionReport is written so operators see ontology expansion proposals next to repo state. Publications never apply the suggestions automatically.",
         inputs: ["CapabilityOntologySuggestionReport"],
+      },
+      {
+        id: "capability-phrases.changed",
+        description:
+          "Regenerate the architecture summary and agent contract when a new CapabilityPhraseReport is written so operators and agents see semantic purpose projection alongside repo state. Publications never run phrase projection automatically and never mutate CapabilityMap.",
+        inputs: ["CapabilityPhraseReport"],
       },
     ],
     compatibility: {
@@ -1349,6 +1434,8 @@ type ArchitectureSummaryInputs = {
   pathFreshnessRef?: ArtifactRef;
   ontologySuggestionReport?: CapabilityOntologySuggestionReportLike;
   ontologySuggestionRef?: ArtifactRef;
+  capabilityPhraseReport?: CapabilityPhraseReportLike;
+  capabilityPhraseRef?: ArtifactRef;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -1680,6 +1767,12 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     input.ontologySuggestionRef,
     2,
   );
+  renderCapabilityPhraseSection(
+    sections,
+    input.capabilityPhraseReport,
+    input.capabilityPhraseRef,
+    2,
+  );
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -1912,6 +2005,22 @@ function renderCapabilityOntologySuggestionSection(
   headingLevel: 2 | 3,
 ): void {
   const block = buildCapabilityOntologySuggestionPublicationSection({
+    report,
+    reportRef,
+    headingLevel,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
+function renderCapabilityPhraseSection(
+  sections: string[],
+  report: CapabilityPhraseReportLike | undefined,
+  reportRef: ArtifactRef | undefined,
+  headingLevel: 2 | 3,
+): void {
+  const block = buildCapabilityPhrasePublicationSection({
     report,
     reportRef,
     headingLevel,
@@ -2615,6 +2724,8 @@ type AgentContractInputs = {
   pathFreshnessRef?: ArtifactRef;
   ontologySuggestionReport?: CapabilityOntologySuggestionReportLike;
   ontologySuggestionRef?: ArtifactRef;
+  capabilityPhraseReport?: CapabilityPhraseReportLike;
+  capabilityPhraseRef?: ArtifactRef;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -2659,6 +2770,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat passed verification as automatic finding resolution; status changes require explicit lifecycle/status artifacts.",
   "Do not treat stale, partial, failed, timeout, killed, or not-run verification as proof of completion.",
   "Do not treat CapabilityOntologySuggestionReport entries as applied ontology config; the report is preview-only and `.rekon/capability-ontology.json` is not mutated automatically. Operators must apply proposed changes manually.",
+  "Do not treat CapabilityPhraseReport entries as CapabilityMap ownership or placement policy; CapabilityPhraseReport is semantic purpose projection, CapabilityNormalizationReport remains translation audit, and CapabilityMap integration remains deferred.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -3089,6 +3201,19 @@ function renderAgentContract(input: AgentContractInputs): string {
     sections,
     input.ontologySuggestionReport,
     input.ontologySuggestionRef,
+    3,
+  );
+
+  // Capability phrase publication surfacing
+  // (capability-phrase-publications). Heading level 3 so
+  // the section sits inside the operating-state group.
+  // Always rendered (with no-report guidance when empty)
+  // so agents know phrases are semantic purpose
+  // projection, not CapabilityMap placement policy.
+  renderCapabilityPhraseSection(
+    sections,
+    input.capabilityPhraseReport,
+    input.capabilityPhraseRef,
     3,
   );
 
@@ -6492,6 +6617,135 @@ function pickPathFreshnessReportRef(
   const header = input.report?.header;
   if (!header) return undefined;
   if (header.artifactType !== "PathFreshnessReport") return undefined;
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) return undefined;
+  const schemaVersion = typeof header.schemaVersion === "string" && header.schemaVersion.length > 0
+    ? header.schemaVersion
+    : "0.1.0";
+  return {
+    type: header.artifactType,
+    id: header.artifactId,
+    schemaVersion,
+  };
+}
+
+// ---------- Capability phrase publication surfacing helper ----------
+//
+// Pure helper that renders the publication block for a
+// `CapabilityPhraseReport`. **Read-only**: never runs the
+// phrase projection CLI, never runs normalization, never
+// mutates the phrase report, the normalization report,
+// `CapabilityMap`, or `EvidenceGraph`. When the publisher
+// cannot find a report the renderer emits a no-report
+// guidance block so operators know how to produce one.
+
+export type BuildCapabilityPhrasePublicationSectionInput = {
+  report?: CapabilityPhraseReportLike;
+  reportRef?: ArtifactRef;
+  /** 2 → architecture summary; 3 → agent contract */
+  headingLevel?: 2 | 3;
+  /** Cap the rendered phrase table; default 10. */
+  tableLimit?: number;
+};
+
+export type BuildCapabilityPhrasePublicationSectionResult = {
+  lines: string[];
+  inputRef?: ArtifactRef;
+};
+
+const DEFAULT_CAPABILITY_PHRASE_TABLE_LIMIT = 10;
+
+const CAPABILITY_PHRASE_DEFERRED_LINE =
+  "CapabilityMap integration remains deferred. CapabilityPhraseReport is semantic purpose projection; CapabilityNormalizationReport remains translation audit.";
+
+export function buildCapabilityPhrasePublicationSection(
+  input: BuildCapabilityPhrasePublicationSectionInput,
+): BuildCapabilityPhrasePublicationSectionResult {
+  const { report, reportRef } = input;
+  const headingLevel = input.headingLevel ?? 2;
+  const heading = headingLevel === 2 ? "##" : "###";
+  const tableLimit = input.tableLimit ?? DEFAULT_CAPABILITY_PHRASE_TABLE_LIMIT;
+  const lines: string[] = [];
+
+  lines.push(`${heading} Capability Phrases`);
+  lines.push("");
+
+  if (!report) {
+    lines.push(
+      "No `CapabilityPhraseReport` found. Run `rekon capability phrase project --report <CapabilityNormalizationReport:id> --json` after normalization.",
+    );
+    lines.push("");
+    lines.push(CAPABILITY_PHRASE_DEFERRED_LINE);
+    lines.push("");
+    return { lines };
+  }
+
+  const summary = report.summary ?? {};
+  const totalPhrases = typeof summary.totalPhrases === "number" ? summary.totalPhrases : 0;
+  const stable = typeof summary.stable === "number" ? summary.stable : 0;
+  const partial = typeof summary.partial === "number" ? summary.partial : 0;
+  const lowConfidence = typeof summary.lowConfidence === "number" ? summary.lowConfidence : 0;
+  const withDomain = typeof summary.withDomain === "number" ? summary.withDomain : 0;
+  const withPattern = typeof summary.withPattern === "number" ? summary.withPattern : 0;
+  const withLayer = typeof summary.withLayer === "number" ? summary.withLayer : 0;
+
+  const resolvedReportRef = reportRef ?? pickPhraseReportRefFromHeader(report.header);
+  const sourceRef = report.sourceNormalizationReportRef;
+
+  if (resolvedReportRef) {
+    lines.push(`- Report: ${formatRef(resolvedReportRef)}`);
+  } else if (
+    report.header?.artifactType === "CapabilityPhraseReport"
+    && typeof report.header?.artifactId === "string"
+  ) {
+    lines.push(`- Report: ${report.header.artifactType}:${report.header.artifactId}`);
+  }
+  if (sourceRef) {
+    lines.push(`- Source: ${formatRef(sourceRef)}`);
+  }
+  lines.push(
+    `- Phrases: ${totalPhrases}`
+    + ` (stable ${stable}, partial ${partial}, low-confidence ${lowConfidence})`,
+  );
+  lines.push(
+    `- Enrichment: withDomain ${withDomain}, withPattern ${withPattern}, withLayer ${withLayer}`,
+  );
+  lines.push("");
+  lines.push(CAPABILITY_PHRASE_DEFERRED_LINE);
+  lines.push("");
+
+  const phrases = Array.isArray(report.phrases) ? report.phrases : [];
+  if (phrases.length > 0) {
+    lines.push("| Verb | Noun | Status | Confidence | Evidence |");
+    lines.push("| --- | --- | --- | --- | --- |");
+    const bounded = phrases.slice(0, tableLimit);
+    for (const phrase of bounded) {
+      const verb = phrase.verb ?? "-";
+      const noun = phrase.noun ?? "-";
+      const status = phrase.status ?? "-";
+      const confidence = phrase.confidence ?? "-";
+      const evidenceCount = Array.isArray(phrase.evidenceRefs)
+        ? phrase.evidenceRefs.length
+        : 0;
+      const evidenceLabel = evidenceCount === 1 ? "1 ref" : `${evidenceCount} refs`;
+      lines.push(`| ${verb} | ${noun} | ${status} | ${confidence} | ${evidenceLabel} |`);
+    }
+    if (phrases.length > bounded.length) {
+      lines.push("");
+      lines.push(
+        `(${phrases.length - bounded.length} additional phrase(s) omitted; inspect the artifact for full detail.)`,
+      );
+    }
+    lines.push("");
+  }
+
+  return { lines, inputRef: resolvedReportRef };
+}
+
+function pickPhraseReportRefFromHeader(
+  header: ArtifactHeader | undefined,
+): ArtifactRef | undefined {
+  if (!header) return undefined;
+  if (header.artifactType !== "CapabilityPhraseReport") return undefined;
   if (typeof header.artifactId !== "string" || header.artifactId.length === 0) return undefined;
   const schemaVersion = typeof header.schemaVersion === "string" && header.schemaVersion.length > 0
     ? header.schemaVersion
