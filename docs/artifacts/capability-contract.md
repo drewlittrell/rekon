@@ -217,6 +217,16 @@ rekon capability contract generate \
 
 - [`CapabilityContract` Architecture Decision](../strategy/capability-contract-architecture-decision.md)
   — pins the policy / projection boundary.
+- [`CapabilityArchitectureLintReport` artifact](capability-architecture-lint-report.md)
+  — thirty-eighth slice; consumes `CapabilityContract`
+  to produce a separate **evaluation** artifact. Does
+  NOT mutate `CapabilityContract`,
+  `CapabilityMap`, `FindingReport`,
+  `FindingLifecycleReport`, or `CoherencyDelta`.
+- [Capability-Aware Architecture Linting concept](../concepts/capability-aware-architecture-linting.md)
+  — thirty-eighth slice; explains how
+  `CapabilityArchitectureLintReport` reads
+  `CapabilityContract` as evaluation input only.
 - [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)
   — thirty-fourth slice; declares v1 safe / stable as
   an artifact-backed policy layer and recommends

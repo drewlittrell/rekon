@@ -468,6 +468,12 @@ Tracked, not gating this safety review:
 - [CapabilityContract v1 implementation](capability-contract-architecture-decision.md)
   — thirty-third slice; the implementation reviewed
   by this memo.
+- [`CapabilityArchitectureLintReport` artifact](../artifacts/capability-architecture-lint-report.md)
+  — thirty-eighth slice; v1 evaluation artifact built
+  on top of `CapabilityContract`. Reads
+  `CapabilityContract` as input only; does NOT mutate
+  it. Does NOT mutate `FindingReport`,
+  `FindingLifecycleReport`, or `CoherencyDelta`.
 - [`CapabilityContract` artifact reference](../artifacts/capability-contract.md)
 - [`CapabilityContract` concept doc](../concepts/capability-contracts.md)
 - [`CapabilityMap` v2 publication safety review](capability-map-v2-publication-safety-review.md)

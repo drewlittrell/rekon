@@ -6256,6 +6256,59 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityArchitectureLintReport v1
+  implementation (P1.1
+  capability-architecture-lint-report-v1 slice).**
+  ✅ Shipped. **Thirty-eighth slice on the
+  capability-ontology track.** Product capability
+  batch. Registers
+  `CapabilityArchitectureLintReport` in SDK +
+  runtime + kernel-repo-model.
+  `buildCapabilityArchitectureLintReport` helper
+  added to `@rekon/capability-model`. New CLI
+  command `rekon capability lint architecture`
+  (with optional `--capability-contract` /
+  `--capability-map` pins). v1 scope:
+  `allowed/forbidden layer` rules emit
+  `pass` / `violation` / `not-evaluated`;
+  `allowed/forbidden system` rules emit
+  `not-evaluated` until a deterministic system
+  field exists on phrase-backed capabilities.
+  `requiredChecks` reserved as a row kind but
+  not evaluated. Neighbor + preservation rules
+  deferred. All six required boundary statements
+  honored at runtime: evaluation, not enforcement;
+  not `FindingReport`; does NOT mutate
+  `FindingFilterReport`,
+  `FindingLifecycleReport`, or `CoherencyDelta`;
+  does NOT add resolver routing or verification
+  planning; does NOT add
+  `RefactorPreservationContract`; does NOT add
+  source writes. `findingCandidate` on violation
+  rows is a preview payload only — `FindingReport`
+  is never authored by the lint command. New
+  artifact doc
+  [`docs/artifacts/capability-architecture-lint-report.md`](../artifacts/capability-architecture-lint-report.md).
+  New concept doc
+  [`docs/concepts/capability-aware-architecture-linting.md`](../concepts/capability-aware-architecture-linting.md).
+  23-assertion contract test
+  `tests/contract/capability-architecture-lint-report.test.mjs`.
+  12-assertion docs test
+  `tests/docs/capability-architecture-lint-report.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-report-v1.md`.
+  **No version bump. No npm publish. No
+  CapabilityContract / CapabilityMap /
+  CapabilityPhraseReport / EvidenceGraph mutation.
+  No FindingReport / FindingFilterReport /
+  FindingLifecycleReport / CoherencyDelta
+  mutation. No resolver routing. No verification
+  planning. No source writes.**
+  **Recommended next slice:**
+  *`CapabilityArchitectureLintReport` safety
+  review* — review the lint artifact and confirm
+  it is safe / stable before any publication
+  surfacing or finding bridge decision.
 - **Capability-aware architecture linting
   decision (P1.1
   capability-aware-architecture-linting-decision

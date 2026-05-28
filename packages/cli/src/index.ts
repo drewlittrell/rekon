@@ -54,6 +54,7 @@ import verifyCapability, {
 import jsTsCapability from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability, {
+  buildCapabilityArchitectureLintReport,
   buildCapabilityContract,
   type CapabilityContractConfig,
 } from "@rekon/capability-model";
@@ -108,6 +109,7 @@ import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   buildSourceStateFingerprint,
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
+  type CapabilityArchitectureLintReport,
   type CapabilityContract,
   type CapabilityMap,
   type ObservedRepo,
@@ -1119,6 +1121,138 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("CapabilityMap remains unchanged. Config remains unchanged.");
       lines.push(
         "Diagnostic only. No architecture linting, resolver routing, or verification planning by capability in v1.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "lint"
+    && positional === "architecture"
+  ) {
+    // `rekon capability lint architecture
+    // [--root <path>] [--json]
+    // [--capability-contract <ref>] [--capability-map <ref>]` —
+    // v1 capability-aware architecture lint evaluation.
+    //
+    // Reads the latest (or specified) `CapabilityContract`
+    // and `CapabilityMap`, evaluates `allowedLayers` /
+    // `forbiddenLayers` / `allowedSystems` /
+    // `forbiddenSystems` rules from configured contract
+    // rows, and writes a `CapabilityArchitectureLintReport`
+    // evaluation artifact.
+    //
+    // **Evaluation, not enforcement.** This command does
+    // **not** write `FindingReport`, mutate
+    // `FindingFilterReport`, `FindingLifecycleReport`, or
+    // `CoherencyDelta`. It does **not** add resolver
+    // routing, verification planning, or source writes.
+    // See
+    // docs/strategy/capability-aware-architecture-linting-decision.md
+    // and docs/artifacts/capability-architecture-lint-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const contractFlag
+      = typeof parsed.flags["capability-contract"] === "string"
+        ? parsed.flags["capability-contract"].trim()
+        : "";
+    const capabilityMapFlag
+      = typeof parsed.flags["capability-map"] === "string"
+        ? parsed.flags["capability-map"].trim()
+        : "";
+
+    let contractEntry: ArtifactIndexEntry | undefined;
+    if (contractFlag.length > 0) {
+      contractEntry = await findArtifactEntry(store, contractFlag);
+      if (contractEntry.type !== "CapabilityContract") {
+        throw new Error(
+          `rekon capability lint architecture --capability-contract must reference a CapabilityContract; got ${contractEntry.type}.`,
+        );
+      }
+    } else {
+      const contractEntries = await store.list("CapabilityContract");
+      contractEntry = contractEntries.at(-1);
+      if (!contractEntry) {
+        throw new Error(
+          "rekon capability lint architecture: no CapabilityContract found. Run `rekon capability contract generate` first.",
+        );
+      }
+    }
+
+    let capabilityMapEntry: ArtifactIndexEntry | undefined;
+    if (capabilityMapFlag.length > 0) {
+      capabilityMapEntry = await findArtifactEntry(store, capabilityMapFlag);
+      if (capabilityMapEntry.type !== "CapabilityMap") {
+        throw new Error(
+          `rekon capability lint architecture --capability-map must reference a CapabilityMap; got ${capabilityMapEntry.type}.`,
+        );
+      }
+    } else {
+      const mapEntries = await store.list("CapabilityMap");
+      capabilityMapEntry = mapEntries.at(-1);
+      if (!capabilityMapEntry) {
+        throw new Error(
+          "rekon capability lint architecture: no CapabilityMap found. Run `rekon refresh` (or `rekon project`) first.",
+        );
+      }
+    }
+
+    const capabilityContract = (await store.read(contractEntry)) as CapabilityContract;
+    const capabilityMap = (await store.read(capabilityMapEntry)) as CapabilityMap;
+    const capabilityContractRef: ArtifactRef = {
+      type: contractEntry.type,
+      id: contractEntry.id,
+      path: contractEntry.path,
+      digest: contractEntry.digest,
+      schemaVersion: contractEntry.schemaVersion ?? "0.1.0",
+    };
+    const capabilityMapRef: ArtifactRef = {
+      type: capabilityMapEntry.type,
+      id: capabilityMapEntry.id,
+      path: capabilityMapEntry.path,
+      digest: capabilityMapEntry.digest,
+      schemaVersion: capabilityMapEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const report = buildCapabilityArchitectureLintReport({
+      capabilityContract,
+      capabilityContractRef,
+      capabilityMap,
+      capabilityMapRef,
+      generatedAt: new Date().toISOString(),
+    });
+
+    const ref = await store.write(report, { category: "findings" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: ref,
+          source: report.source,
+          summary: report.summary,
+          rows: report.rows,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Capability architecture lint");
+      lines.push("");
+      lines.push(`Contracts: ${capabilityContractRef.type}:${capabilityContractRef.id}`);
+      lines.push(`CapabilityMap: ${capabilityMapRef.type}:${capabilityMapRef.id}`);
+      lines.push("");
+      lines.push(`Rows: ${report.summary.total}`);
+      lines.push(`Violations: ${report.summary.violations}`);
+      lines.push(`Passes: ${report.summary.passes}`);
+      lines.push(`Not evaluated: ${report.summary.notEvaluated}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push("No findings were written.");
+      lines.push(
+        "Evaluation only. CapabilityContract, CapabilityMap, FindingReport, FindingLifecycleReport, and CoherencyDelta are not mutated.",
       );
       writeOutput(lines.join("\n"), false);
     }
@@ -7815,6 +7949,7 @@ function usage(): string {
     "rekon capability ontology suggestions [--ledger <id|type:id>] [--root <path>] [--json]",
     "rekon capability phrase project --report <CapabilityNormalizationReport-id|type:id> [--root <path>] [--json]",
     "rekon capability contract generate [--capability-map <id|type:id>] [--root <path>] [--json]",
+    "rekon capability lint architecture [--capability-contract <id|type:id>] [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

@@ -262,6 +262,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   CapabilityOntologySuggestionReport: "actions",
   CapabilityPhraseReport: "projections",
   CapabilityContract: "actions",
+  CapabilityArchitectureLintReport: "findings",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [

@@ -262,3 +262,14 @@ These are intentionally deferred. See
   selected rows through the finding lifecycle.
   Until that bridge ships, `CoherencyDelta` does
   **not** read `CapabilityArchitectureLintReport`.
+- [`CapabilityArchitectureLintReport` artifact](../artifacts/capability-architecture-lint-report.md)
+  — thirty-eighth slice; v1 evaluation artifact
+  shipped. **`CoherencyDelta` does NOT consume
+  `CapabilityArchitectureLintReport` in v1.** The
+  lint artifact carries `findingCandidate` previews
+  on violation rows, but no `FindingReport` is
+  written, no `FindingLifecycleReport` is updated,
+  and no `CoherencyDelta` is mutated. A future
+  explicit bridge slice would be required before
+  any lint row could enter the remediation queue.
+- [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

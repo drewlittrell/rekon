@@ -11,6 +11,21 @@ No linting implementation, no finding emission, no
 resolver routing, no verification planning, no source
 writes ship in this slice.
 
+> **Status update (thirty-eighth slice — shipped).**
+> `CapabilityArchitectureLintReport` v1 has shipped per
+> Option B. Artifact, validator, producer, and
+> `rekon capability lint architecture` CLI all land in
+> the thirty-eighth slice. The v1 implementation honors
+> every pinned boundary in this memo: no
+> `FindingReport` mutation, no
+> `FindingFilterReport`/`FindingLifecycleReport`/
+> `CoherencyDelta` mutation, no resolver routing, no
+> verification planning, no `RefactorPreservationContract`,
+> no source writes, no LLM-only inference. See
+> [../artifacts/capability-architecture-lint-report.md](../artifacts/capability-architecture-lint-report.md)
+> and
+> [../concepts/capability-aware-architecture-linting.md](../concepts/capability-aware-architecture-linting.md).
+
 ## Decision Summary
 
 **Select Option B: emit a separate

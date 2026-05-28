@@ -53,7 +53,12 @@ The macro 5-layer boundary is:
    (thirty-seventh slice) — selects a separate
    `CapabilityArchitectureLintReport` artifact for
    future evaluation rather than emitting
-   `FindingReport` directly.** Operator config at
+   `FindingReport` directly;
+   `CapabilityArchitectureLintReport` v1 shipped
+   (thirty-eighth slice) — evaluation artifact +
+   `buildCapabilityArchitectureLintReport` helper +
+   `rekon capability lint architecture` CLI; see
+   [layer 6](#layer-6) below.** Operator config at
    `.rekon/capability-contracts.json` expresses policy;
    Rekon emits a `CapabilityContract` artifact citing the
    latest `CapabilityMap` v2. See the

@@ -1103,6 +1103,62 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityArchitectureLintReport v1 has shipped.
+# Thirty-eighth slice on the codebase-intel-classic
+# capability-ontology track. Product capability
+# batch. Registers a new evaluation artifact + producer
+# + CLI. Implements the Capability-Aware Architecture
+# Linting Decision (Option B).
+#
+# Pinned verbatim:
+#   - CapabilityArchitectureLintReport is
+#     evaluation, not enforcement.
+#   - V1 does not write FindingReport.
+#   - V1 does not mutate FindingFilterReport,
+#     FindingLifecycleReport, or CoherencyDelta.
+#   - V1 does not mutate CapabilityContract or
+#     CapabilityMap.
+#   - V1 does not add resolver routing by capability.
+#   - V1 does not add verification planning by
+#     capability.
+#   - V1 does not add RefactorPreservationContract.
+#   - V1 does not add source writes.
+#   - findingCandidate on violation rows is a
+#     preview payload only; a future explicit bridge
+#     slice may promote selected rows through the
+#     finding lifecycle.
+#
+# V1 evaluation scope:
+#   - allowed-layer / forbidden-layer: pass /
+#     violation / not-evaluated.
+#   - allowed-system / forbidden-system: emitted as
+#     not-evaluated (no deterministic system field
+#     on phrase-backed capabilities yet).
+#
+# Deferred: requiredNeighbors, forbiddenNeighbors,
+# preservationRules. requiredChecks reserved as a
+# row kind but not evaluated.
+#
+# New artifact type registered:
+# CapabilityArchitectureLintReport (schemaVersion
+# 0.1.0, stability experimental). New CLI command
+# `rekon capability lint architecture
+# [--capability-contract <id|type:id>]
+# [--capability-map <id|type:id>] [--root <path>]
+# [--json]`. New helper
+# buildCapabilityArchitectureLintReport in
+# @rekon/capability-model.
+#
+# Recommended next slice:
+# CapabilityArchitectureLintReport safety review.
+# Still no FindingReport mutation. Still no
+# CoherencyDelta mutation. Still no resolver
+# routing. Still no verification planning. Still no
+# source writes.
+#
+# See docs/artifacts/capability-architecture-lint-report.md
+# and docs/concepts/capability-aware-architecture-linting.md.
+#
 # Capability-aware architecture linting decision
 # has shipped. Thirty-seventh slice on the
 # capability-ontology track. Strategy /

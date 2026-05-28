@@ -285,6 +285,13 @@ for the rendered surfaces.
 
 ## Related Documents
 
+- [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)
+  — thirty-eighth slice; consumes
+  `CapabilityMap.phraseBackedCapabilities[]` as
+  **read-only** evaluation input to evaluate
+  `CapabilityContract` placement policy. Does NOT
+  mutate `CapabilityMap`.
+- [Capability-Aware Architecture Linting concept](../concepts/capability-aware-architecture-linting.md)
 - [CapabilityMap v2 High-Confidence-Only Decision](../strategy/capability-map-v2-high-confidence-decision.md)
 - [CapabilityMap v2 Safety Review](../strategy/capability-map-v2-safety-review.md)
   — read-only audit confirming v2 is safe / stable

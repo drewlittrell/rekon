@@ -393,6 +393,14 @@ Tracked, not gating this safety review:
 
 ## Cross-references
 
+- [`CapabilityArchitectureLintReport` artifact](../artifacts/capability-architecture-lint-report.md)
+  — thirty-eighth slice; v1 evaluation artifact built
+  on top of `CapabilityContract`. Surfacing remains
+  read-only; lint evaluation lives in a separate
+  artifact and does NOT mutate the publication
+  surface, `FindingReport`, `FindingLifecycleReport`,
+  or `CoherencyDelta`.
+- [Capability-Aware Architecture Linting concept](../concepts/capability-aware-architecture-linting.md)
 - [CapabilityContract publication surfacing](capability-contract-architecture-decision.md)
   — thirty-fifth slice; the surfacing reviewed by
   this memo.

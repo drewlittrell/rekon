@@ -2640,6 +2640,42 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityArchitectureLintReport v1
+  implementation (P1.1
+  capability-architecture-lint-report-v1 slice):
+  **thirty-eighth slice on the capability-ontology
+  track.** Product capability batch. Registers a
+  new evaluation artifact (`CapabilityArchitectureLintReport`),
+  producer (`buildCapabilityArchitectureLintReport`),
+  and CLI (`rekon capability lint architecture`).
+  v1 evaluates configured `CapabilityContract` rows
+  against `CapabilityMap` v2 phrase-backed
+  capabilities for `allowed/forbidden layer` and
+  `allowed/forbidden system` rules. Layer rules emit
+  `pass` / `violation` / `not-evaluated`. System
+  rules emit `not-evaluated` in v1 (no deterministic
+  system field on phrase-backed entries yet).
+  `requiredChecks`, `requiredNeighbors`,
+  `forbiddenNeighbors`, `preservationRules` deferred.
+  Pinned verbatim: evaluation, not enforcement; does
+  NOT write `FindingReport`; does NOT mutate
+  `FindingFilterReport`, `FindingLifecycleReport`,
+  or `CoherencyDelta`; does NOT add resolver routing
+  or verification planning; does NOT add
+  `RefactorPreservationContract`; does NOT add source
+  writes. `findingCandidate` on violation rows is a
+  preview payload only. New artifact doc
+  [`docs/artifacts/capability-architecture-lint-report.md`](../artifacts/capability-architecture-lint-report.md),
+  concept doc
+  [`docs/concepts/capability-aware-architecture-linting.md`](../concepts/capability-aware-architecture-linting.md),
+  review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-report-v1.md`,
+  23-assertion contract test, 12-assertion docs
+  test. **No version bump. No npm publish. No
+  CapabilityContract / CapabilityMap /
+  CapabilityPhraseReport / EvidenceGraph mutation.**
+  Recommended next slice:
+  CapabilityArchitectureLintReport safety review.
 - Capability-aware architecture linting
   decision (P1.1
   capability-aware-architecture-linting-decision

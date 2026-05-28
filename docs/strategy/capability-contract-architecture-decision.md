@@ -637,6 +637,14 @@ track):
   (`CapabilityArchitectureLintReport` artifact) over
   direct `FindingReport` emission; v1 scope is
   placement rules (`allowed/forbidden Layers/Systems`).
+- [`CapabilityArchitectureLintReport` artifact reference](../artifacts/capability-architecture-lint-report.md)
+  — thirty-eighth slice; v1 shipped per Option B.
+  Evaluation, not enforcement. Does NOT mutate
+  `FindingReport`, `FindingFilterReport`,
+  `FindingLifecycleReport`, or `CoherencyDelta`.
+- [Capability-Aware Architecture Linting concept](../concepts/capability-aware-architecture-linting.md)
+  — thirty-eighth slice; concept page for the
+  evaluation layer.
 - [`CapabilityMap` artifact reference](../artifacts/capability-map.md)
 - [`CapabilityPhraseReport` artifact](../artifacts/capability-phrase-report.md)
 - [Capability Ontology concept](../concepts/capability-ontology.md)

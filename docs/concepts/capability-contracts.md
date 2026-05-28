@@ -192,6 +192,18 @@ arriving as a surprise the moment the artifact ships.
 ## Cross-references
 
 - [`CapabilityContract` artifact reference](../artifacts/capability-contract.md)
+- [`CapabilityArchitectureLintReport` artifact](../artifacts/capability-architecture-lint-report.md)
+  — thirty-eighth slice; v1 evaluation artifact that
+  reads `CapabilityContract` (configured rows only) +
+  `CapabilityMap` v2 phrase-backed capabilities and
+  emits pass / violation / not-evaluated rows for
+  `allowed/forbidden layer` and
+  `allowed/forbidden system` rules. Does NOT mutate
+  `CapabilityContract`, `CapabilityMap`,
+  `FindingReport`, `FindingLifecycleReport`, or
+  `CoherencyDelta`.
+- [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)
+  — thirty-eighth slice.
 - [`CapabilityContract` Architecture Decision](../strategy/capability-contract-architecture-decision.md)
 - [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)
   — thirty-fourth slice; declares v1 safe / stable

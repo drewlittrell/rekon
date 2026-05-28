@@ -4,6 +4,95 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityArchitectureLintReport v1** —
+  thirty-eighth slice on the codebase-intel-classic
+  capability-ontology track. New evaluation artifact
+  + producer + CLI implementing the Capability-Aware
+  Architecture Linting Decision.
+
+  - New artifact type:
+    `CapabilityArchitectureLintReport` (schemaVersion
+    `0.1.0`, stability `experimental`). Registered in
+    `@rekon/sdk` artifact type list and
+    `@rekon/runtime` artifact category map (under
+    `findings` for directory layout; **does not**
+    mutate governed-findings pipeline artifacts).
+  - New types and validator in
+    `@rekon/kernel-repo-model`:
+    `CapabilityArchitectureLintStatus`,
+    `CapabilityArchitectureLintRule`,
+    `CapabilityArchitectureLintSeverity`,
+    `CapabilityArchitectureLintConfidence`,
+    `CapabilityArchitectureLintRow`,
+    `CapabilityArchitectureLintReport`,
+    `createCapabilityArchitectureLintReport`,
+    `validateCapabilityArchitectureLintReport`,
+    `assertCapabilityArchitectureLintReport`,
+    `capabilityArchitectureLintReportSchema`.
+  - New helper
+    `buildCapabilityArchitectureLintReport` in
+    `@rekon/capability-model`. Evaluates configured
+    `CapabilityContract` rows against the matched
+    phrase-backed `CapabilityMap` v2 capability.
+  - New CLI command
+    `rekon capability lint architecture
+    [--capability-contract <id|type:id>]
+    [--capability-map <id|type:id>] [--root <path>]
+    [--json]`.
+
+  V1 evaluation scope:
+
+  - `allowed-layer` / `forbidden-layer`: emit
+    `pass` / `violation` / `not-evaluated`.
+  - `allowed-system` / `forbidden-system`: emit
+    `not-evaluated` (no deterministic system field
+    on phrase-backed capabilities yet).
+
+  Deferred to later slices:
+  `requiredNeighbors`, `forbiddenNeighbors`,
+  `preservationRules`. `requiredChecks` is reserved
+  as a row kind but not evaluated.
+
+  Pinned verbatim boundary invariants:
+
+  - `CapabilityArchitectureLintReport` is
+    **evaluation**, not enforcement.
+  - V1 does **not** write `FindingReport`.
+  - V1 does **not** mutate
+    `FindingFilterReport`,
+    `FindingLifecycleReport`, or `CoherencyDelta`.
+  - V1 does **not** mutate `CapabilityContract` or
+    `CapabilityMap`.
+  - V1 does **not** add resolver routing by
+    capability.
+  - V1 does **not** add verification planning by
+    capability.
+  - V1 does **not** add
+    `RefactorPreservationContract`.
+  - V1 does **not** add source writes.
+  - `findingCandidate` on `violation` rows is a
+    **preview** payload only; a future explicit
+    bridge slice would promote selected rows through
+    the finding lifecycle.
+
+  New docs:
+  `docs/artifacts/capability-architecture-lint-report.md`
+  and
+  `docs/concepts/capability-aware-architecture-linting.md`.
+  Supporting docs cross-referenced (capability-
+  contract artifact + concept, capability-map
+  artifact, capability-phrase-report artifact,
+  capability-aware architecture linting decision,
+  finding-report artifact, finding-lifecycle
+  concept, graph-aware finding filters concept,
+  coherency-delta concept, capability-ontology
+  concept, roadmap, classic-behavior-roadmap).
+
+  New review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-report-v1.md`.
+  Recommended next slice:
+  **CapabilityArchitectureLintReport safety review**.
+
 - Shipped **Capability-Aware Architecture Linting
   Decision** — thirty-seventh slice on the
   capability-ontology track. Strategy / architecture

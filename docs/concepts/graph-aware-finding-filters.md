@@ -524,3 +524,13 @@ during the filter step.
   not bypassed). Until the bridge decision lands, no
   finding consumer reads
   `CapabilityArchitectureLintReport`.
+- [`CapabilityArchitectureLintReport` artifact](../artifacts/capability-architecture-lint-report.md)
+  — thirty-eighth slice; v1 evaluation artifact
+  shipped. **The finding filter chain documented
+  here is NOT bypassed** — the lint artifact emits
+  evaluation rows independently and does not enter
+  `FindingReport`, `FindingFilterReport`, or
+  `FindingLifecycleReport` in v1. A future explicit
+  bridge slice would be required before lint rows
+  could flow through this filter chain.
+- [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -260,6 +260,115 @@ export type CapabilityContract = {
   contracts: CapabilityContractEntry[];
 };
 
+// ---------- CapabilityArchitectureLintReport (v1) ----------
+//
+// `CapabilityArchitectureLintReport` is the
+// **evaluation** artifact pinned by the Capability-Aware
+// Architecture Linting Decision. It records whether
+// each configured `CapabilityContract` row's placement
+// policy holds against the currently projected
+// `CapabilityMap` v2 phrase-backed capability.
+//
+// v1 evaluates four rule kinds only:
+//   - `allowed-layer` / `forbidden-layer`
+//   - `allowed-system` / `forbidden-system`
+//
+// Neighbor and preservation rules are deferred. The
+// `required-check` rule is reserved as a row kind but
+// is not evaluated in v1; helpers may emit
+// `not-evaluated` rows for it.
+//
+// **Boundary.** This artifact is evaluation, not
+// enforcement. It does **not** mutate `FindingReport`,
+// `FindingFilterReport`, `FindingLifecycleReport`, or
+// `CoherencyDelta`. It does **not** add resolver
+// routing, verification planning, or source writes.
+// A future explicit bridge slice may promote selected
+// rows through the finding lifecycle, but no bridge
+// ships in v1.
+//
+// See:
+// - docs/strategy/capability-aware-architecture-linting-decision.md
+// - docs/concepts/capability-aware-architecture-linting.md
+// - docs/artifacts/capability-architecture-lint-report.md
+
+export type CapabilityArchitectureLintStatus =
+  | "violation"
+  | "pass"
+  | "not-evaluated";
+
+export type CapabilityArchitectureLintRule =
+  | "allowed-layer"
+  | "forbidden-layer"
+  | "allowed-system"
+  | "forbidden-system"
+  | "required-check"
+  | "required-neighbor"
+  | "forbidden-neighbor"
+  | "preservation-rule";
+
+export type CapabilityArchitectureLintSeverity =
+  | "low"
+  | "medium"
+  | "high";
+
+export type CapabilityArchitectureLintConfidence =
+  | "low"
+  | "medium"
+  | "high";
+
+export type CapabilityArchitectureLintFindingCandidate = {
+  title: string;
+  category: string;
+  severity: CapabilityArchitectureLintSeverity;
+};
+
+export type CapabilityArchitectureLintRow = {
+  /** Deterministic identifier; stable across runs. */
+  id: string;
+  /** Citation back to the source `CapabilityContract`
+   *  entry. */
+  contractId: string;
+  /** Citation back to the matched
+   *  `CapabilityMap.phraseBackedCapabilities[]` entry.
+   *  Empty string when no matching phrase-backed
+   *  capability exists (`not-evaluated` rows only). */
+  phraseCapabilityId: string;
+  rule: CapabilityArchitectureLintRule;
+  status: CapabilityArchitectureLintStatus;
+  severity: CapabilityArchitectureLintSeverity;
+  confidence: CapabilityArchitectureLintConfidence;
+  message: string;
+  /** Optional citations to upstream evidence. */
+  evidenceRefs: ArtifactRef[];
+  /** Preview payload reserved for a future finding
+   *  bridge slice. Populated only for `violation`
+   *  rows. v1 never writes `FindingReport`; this is
+   *  context, not enforcement. */
+  findingCandidate?: CapabilityArchitectureLintFindingCandidate;
+};
+
+export type CapabilityArchitectureLintSummary = {
+  total: number;
+  violations: number;
+  passes: number;
+  notEvaluated: number;
+  byRule: Record<string, number>;
+  bySeverity: Record<string, number>;
+};
+
+export type CapabilityArchitectureLintSource = {
+  capabilityContractRef: ArtifactRef;
+  capabilityMapRef: ArtifactRef;
+};
+
+export type CapabilityArchitectureLintReport = {
+  header: ArtifactHeader;
+  source: CapabilityArchitectureLintSource;
+  summary: CapabilityArchitectureLintSummary;
+  rows: CapabilityArchitectureLintRow[];
+};
+
 export function createObservedRepo(input: ObservedRepo): ObservedRepo {
   const systems = normalizeSystems(input.systems);
   // Normalize files to a sorted unique list of repo-relative
@@ -402,6 +511,49 @@ export function createCapabilityContract(
     source,
     summary,
     contracts: entries,
+  });
+}
+
+/**
+ * Normalise and validate a `CapabilityArchitectureLintReport`
+ * artifact.
+ *
+ * Deterministic ordering:
+ * - `rows` are sorted by `(contractId asc, rule asc,
+ *   phraseCapabilityId asc, id asc)` so two runs over
+ *   identical input produce byte-identical artifacts.
+ * - `summary.byRule` / `summary.bySeverity` are key-sorted.
+ *
+ * No source mutation. No artifact mutation upstream.
+ * The producer is responsible for supplying a valid
+ * `summary`; the validator re-derives counts and
+ * rejects mismatches.
+ */
+export function createCapabilityArchitectureLintReport(
+  input: CapabilityArchitectureLintReport,
+): CapabilityArchitectureLintReport {
+  const rows: CapabilityArchitectureLintRow[] = [];
+  const seenIds = new Set<string>();
+  for (const raw of input.rows ?? []) {
+    if (!raw) continue;
+    if (seenIds.has(raw.id)) continue;
+    seenIds.add(raw.id);
+    rows.push(normalizeCapabilityArchitectureLintRow(raw));
+  }
+  rows.sort(compareCapabilityArchitectureLintRow);
+
+  const summary = recountCapabilityArchitectureLintSummary(rows);
+
+  const source: CapabilityArchitectureLintSource = {
+    capabilityContractRef: assertArtifactRef(input.source.capabilityContractRef),
+    capabilityMapRef: assertArtifactRef(input.source.capabilityMapRef),
+  };
+
+  return assertCapabilityArchitectureLintReport({
+    header: input.header,
+    source,
+    summary,
+    rows,
   });
 }
 
@@ -582,6 +734,71 @@ function recountCapabilityContractSummary(
     withRequiredChecks,
     withPlacementRules,
     withPreservationRules,
+  };
+}
+
+function normalizeCapabilityArchitectureLintRow(
+  row: CapabilityArchitectureLintRow,
+): CapabilityArchitectureLintRow {
+  const out: CapabilityArchitectureLintRow = {
+    id: row.id,
+    contractId: row.contractId,
+    phraseCapabilityId: row.phraseCapabilityId ?? "",
+    rule: row.rule,
+    status: row.status,
+    severity: row.severity,
+    confidence: row.confidence,
+    message: row.message,
+    evidenceRefs: normalizeRefs(row.evidenceRefs ?? []),
+  };
+  if (row.findingCandidate) {
+    out.findingCandidate = {
+      title: row.findingCandidate.title,
+      category: row.findingCandidate.category,
+      severity: row.findingCandidate.severity,
+    };
+  }
+  return out;
+}
+
+function compareCapabilityArchitectureLintRow(
+  left: CapabilityArchitectureLintRow,
+  right: CapabilityArchitectureLintRow,
+): number {
+  if (left.contractId !== right.contractId) {
+    return left.contractId.localeCompare(right.contractId);
+  }
+  if (left.rule !== right.rule) {
+    return left.rule.localeCompare(right.rule);
+  }
+  if (left.phraseCapabilityId !== right.phraseCapabilityId) {
+    return left.phraseCapabilityId.localeCompare(right.phraseCapabilityId);
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function recountCapabilityArchitectureLintSummary(
+  rows: CapabilityArchitectureLintRow[],
+): CapabilityArchitectureLintSummary {
+  let violations = 0;
+  let passes = 0;
+  let notEvaluated = 0;
+  const byRule: Record<string, number> = {};
+  const bySeverity: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.status === "violation") violations++;
+    else if (row.status === "pass") passes++;
+    else if (row.status === "not-evaluated") notEvaluated++;
+    byRule[row.rule] = (byRule[row.rule] ?? 0) + 1;
+    bySeverity[row.severity] = (bySeverity[row.severity] ?? 0) + 1;
+  }
+  return {
+    total: rows.length,
+    violations,
+    passes,
+    notEvaluated,
+    byRule: sortRecord(byRule),
+    bySeverity: sortRecord(bySeverity),
   };
 }
 
@@ -936,6 +1153,220 @@ function validateCapabilityContractEntry(
   }
 }
 
+const LINT_STATUSES = new Set<string>([
+  "violation",
+  "pass",
+  "not-evaluated",
+]);
+const LINT_RULES = new Set<string>([
+  "allowed-layer",
+  "forbidden-layer",
+  "allowed-system",
+  "forbidden-system",
+  "required-check",
+  "required-neighbor",
+  "forbidden-neighbor",
+  "preservation-rule",
+]);
+const LINT_SEVERITIES = new Set<string>(["low", "medium", "high"]);
+const LINT_CONFIDENCES = new Set<string>(["low", "medium", "high"]);
+
+export function validateCapabilityArchitectureLintReport(
+  value: unknown,
+): ValidationResult<CapabilityArchitectureLintReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(
+    value.header,
+    "CapabilityArchitectureLintReport",
+    "$.header",
+    issues,
+  );
+
+  // ---- source ----
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    const contractResult = validateArtifactRef(value.source.capabilityContractRef);
+    if (!contractResult.ok) {
+      issues.push(
+        ...prefixIssues(contractResult.issues, "$.source.capabilityContractRef"),
+      );
+    }
+    const mapResult = validateArtifactRef(value.source.capabilityMapRef);
+    if (!mapResult.ok) {
+      issues.push(
+        ...prefixIssues(mapResult.issues, "$.source.capabilityMapRef"),
+      );
+    }
+  }
+
+  // ---- rows ----
+  let rows: unknown[] = [];
+  if (!Array.isArray(value.rows)) {
+    issues.push({ path: "$.rows", message: "Expected an array." });
+  } else {
+    rows = value.rows;
+    const seenIds = new Set<string>();
+    rows.forEach((row, index) =>
+      validateCapabilityArchitectureLintRow(row, `$.rows[${index}]`, issues, seenIds),
+    );
+  }
+
+  // ---- summary ----
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    for (const field of [
+      "total",
+      "violations",
+      "passes",
+      "notEvaluated",
+    ] as const) {
+      const v = (value.summary as Record<string, unknown>)[field];
+      if (typeof v !== "number" || !Number.isInteger(v) || v < 0) {
+        issues.push({
+          path: `$.summary.${field}`,
+          message: "Expected a non-negative integer.",
+        });
+      }
+    }
+    for (const field of ["byRule", "bySeverity"] as const) {
+      const v = (value.summary as Record<string, unknown>)[field];
+      if (!isRecord(v)) {
+        issues.push({
+          path: `$.summary.${field}`,
+          message: "Expected an object of non-negative integers.",
+        });
+        continue;
+      }
+      for (const [key, count] of Object.entries(v as Record<string, unknown>)) {
+        if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+          issues.push({
+            path: `$.summary.${field}.${key}`,
+            message: "Expected a non-negative integer.",
+          });
+        }
+      }
+    }
+    // Re-derive and compare counts to the producer-supplied
+    // summary so artifacts with stale counts are rejected.
+    if (Array.isArray(rows)) {
+      const computed = recountCapabilityArchitectureLintSummary(
+        rows.filter(isRecord) as unknown as CapabilityArchitectureLintRow[],
+      );
+      for (const field of [
+        "total",
+        "violations",
+        "passes",
+        "notEvaluated",
+      ] as const) {
+        const supplied = (value.summary as Record<string, unknown>)[field];
+        if (typeof supplied === "number" && supplied !== computed[field]) {
+          issues.push({
+            path: `$.summary.${field}`,
+            message: `Expected ${computed[field]} (recomputed from rows).`,
+          });
+        }
+      }
+    }
+  }
+
+  return validationResult(value as CapabilityArchitectureLintReport, issues);
+}
+
+function validateCapabilityArchitectureLintRow(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  pushRequiredStringIssue(issues, value.id, `${path}.id`);
+  pushRequiredStringIssue(issues, value.contractId, `${path}.contractId`);
+  if (typeof value.id === "string" && value.id.length > 0) {
+    if (seenIds.has(value.id)) {
+      issues.push({ path: `${path}.id`, message: "Expected a unique row id." });
+    } else {
+      seenIds.add(value.id);
+    }
+  }
+  if (typeof value.phraseCapabilityId !== "string") {
+    issues.push({
+      path: `${path}.phraseCapabilityId`,
+      message: "Expected a string (may be empty for not-evaluated rows).",
+    });
+  }
+  if (typeof value.rule !== "string" || !LINT_RULES.has(value.rule)) {
+    issues.push({
+      path: `${path}.rule`,
+      message:
+        "Expected one of allowed-layer | forbidden-layer | allowed-system | forbidden-system | required-check | required-neighbor | forbidden-neighbor | preservation-rule.",
+    });
+  }
+  if (typeof value.status !== "string" || !LINT_STATUSES.has(value.status)) {
+    issues.push({
+      path: `${path}.status`,
+      message: "Expected one of violation | pass | not-evaluated.",
+    });
+  }
+  if (typeof value.severity !== "string" || !LINT_SEVERITIES.has(value.severity)) {
+    issues.push({
+      path: `${path}.severity`,
+      message: "Expected one of low | medium | high.",
+    });
+  }
+  if (typeof value.confidence !== "string" || !LINT_CONFIDENCES.has(value.confidence)) {
+    issues.push({
+      path: `${path}.confidence`,
+      message: "Expected one of low | medium | high.",
+    });
+  }
+  pushRequiredStringIssue(issues, value.message, `${path}.message`);
+  if (!Array.isArray(value.evidenceRefs)) {
+    issues.push({
+      path: `${path}.evidenceRefs`,
+      message: "Expected an array of artifact refs.",
+    });
+  } else {
+    value.evidenceRefs.forEach((ref, index) => {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) {
+        issues.push(...prefixIssues(result.issues, `${path}.evidenceRefs[${index}]`));
+      }
+    });
+  }
+  if (value.findingCandidate !== undefined) {
+    const candidate = value.findingCandidate;
+    if (!isRecord(candidate)) {
+      issues.push({
+        path: `${path}.findingCandidate`,
+        message: "Expected an object when present.",
+      });
+    } else {
+      pushRequiredStringIssue(issues, candidate.title, `${path}.findingCandidate.title`);
+      pushRequiredStringIssue(issues, candidate.category, `${path}.findingCandidate.category`);
+      if (
+        typeof candidate.severity !== "string"
+        || !LINT_SEVERITIES.has(candidate.severity)
+      ) {
+        issues.push({
+          path: `${path}.findingCandidate.severity`,
+          message: "Expected one of low | medium | high.",
+        });
+      }
+    }
+  }
+}
+
 export function assertObservedRepo(value: unknown): ObservedRepo {
   return assertValid(validateObservedRepo(value), "ObservedRepo");
 }
@@ -950,6 +1381,15 @@ export function assertCapabilityMap(value: unknown): CapabilityMap {
 
 export function assertCapabilityContract(value: unknown): CapabilityContract {
   return assertValid(validateCapabilityContract(value), "CapabilityContract");
+}
+
+export function assertCapabilityArchitectureLintReport(
+  value: unknown,
+): CapabilityArchitectureLintReport {
+  return assertValid(
+    validateCapabilityArchitectureLintReport(value),
+    "CapabilityArchitectureLintReport",
+  );
 }
 
 export const observedRepoSchema: ArtifactSchema<ObservedRepo> = {
@@ -970,6 +1410,11 @@ export const capabilityMapSchema: ArtifactSchema<CapabilityMap> = {
 export const capabilityContractSchema: ArtifactSchema<CapabilityContract> = {
   validate: validateCapabilityContract,
   parse: assertCapabilityContract,
+};
+
+export const capabilityArchitectureLintReportSchema: ArtifactSchema<CapabilityArchitectureLintReport> = {
+  validate: validateCapabilityArchitectureLintReport,
+  parse: assertCapabilityArchitectureLintReport,
 };
 
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {

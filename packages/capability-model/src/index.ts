@@ -27,6 +27,13 @@ export {
   buildCapabilityContract,
 } from "./capability-contract.js";
 
+export {
+  type BuildCapabilityArchitectureLintReportInput,
+  CAPABILITY_ARCHITECTURE_LINT_ARTIFACT_ID_PREFIX,
+  CAPABILITY_ARCHITECTURE_LINT_FINDING_CATEGORY,
+  buildCapabilityArchitectureLintReport,
+} from "./capability-architecture-lint.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{
