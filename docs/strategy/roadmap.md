@@ -2640,6 +2640,44 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityArchitectureLintReport publication safety
+  review (P1.1
+  capability-architecture-lint-publication-safety-review
+  slice): **forty-first slice on the
+  capability-ontology track.** Strategy / safety-review
+  batch. Read-only end-to-end audit of the
+  `CapabilityArchitectureLintReport` publication
+  surfacing shipped at `d01fe23`. **Recommendation:
+  surfacing is safe / stable as read-only visibility.**
+  Reviewed the
+  `buildCapabilityArchitectureLintPublicationSection`
+  helper, both publication sections, the agent-contract
+  `Do Not Do` reminder, the proof-report deferral, and
+  the contract / docs tests. All seven boundary
+  statements asserted (read-only visibility; evaluation
+  not enforcement; `findingCandidate` preview-only;
+  surfacing does not imply `FindingReport` /
+  `FindingLifecycleReport` / `CoherencyDelta` mutation,
+  resolver routing, verification planning,
+  `RefactorPreservationContract`, or source writes;
+  publications read latest and never run `rekon
+  capability lint architecture`; proof-report deferred;
+  finding-bridge decision work may begin). Five options
+  evaluated; declare surfacing safe / stable +
+  finding-bridge decision next selected. New strategy
+  memo
+  [`docs/strategy/capability-architecture-lint-publication-safety-review.md`](capability-architecture-lint-publication-safety-review.md)
+  with 11 required headings + 3 required tables. New
+  14-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-publication-safety-review.md`.
+  **No runtime behavior changes. No publication behavior
+  changes. No new artifact type. No new CLI command. No
+  FindingReport / FindingFilterReport /
+  FindingLifecycleReport / CoherencyDelta mutation. No
+  CapabilityContract / CapabilityMap mutation. No npm
+  publish. No version bump.** Recommended next slice:
+  CapabilityArchitectureLintReport → FindingReport
+  bridge decision.
 - CapabilityArchitectureLintReport publication
   surfacing (P1.1
   capability-architecture-lint-publications slice):

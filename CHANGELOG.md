@@ -5,6 +5,65 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **CapabilityArchitectureLintReport publication
+  safety review** — forty-first slice on the
+  codebase-intel-classic capability-ontology track.
+  Strategy / safety-review batch. Read-only end-to-end
+  audit of the `CapabilityArchitectureLintReport`
+  publication surfacing shipped at `d01fe23`.
+  **Recommendation: publication surfacing is safe /
+  stable as read-only visibility.**
+
+  Reviewed the
+  `buildCapabilityArchitectureLintPublicationSection`
+  helper, the architecture summary + agent contract
+  `Capability Architecture Linting` sections, the agent
+  contract `Do Not Do` reminder, the proof-report
+  deferral, and the contract / docs tests.
+
+  Pinned verbatim:
+
+  - `CapabilityArchitectureLintReport` publication
+    surfacing is read-only visibility.
+  - `CapabilityArchitectureLintReport` is evaluation,
+    not enforcement.
+  - `findingCandidate` is preview-only and writes no
+    `FindingReport`.
+  - `CapabilityArchitectureLintReport` publication
+    surfacing does not imply `FindingReport` mutation,
+    `FindingLifecycleReport` mutation, `CoherencyDelta`
+    mutation, resolver routing, verification planning,
+    `RefactorPreservationContract` behavior, or
+    source-write permission.
+  - Publications read the latest
+    `CapabilityArchitectureLintReport`; they never run
+    `rekon capability lint architecture`.
+  - Proof report surfacing remains deferred because
+    `CapabilityArchitectureLintReport` is evaluation
+    context, not verification proof.
+  - Finding-bridge decision work may begin after this
+    safety review.
+
+  Five options evaluated; declare surfacing safe / stable
+  + finding-bridge decision next selected; more
+  publication polish deferred (no blocker); resolver
+  routing and verification planning rejected (wait for the
+  governed finding bridge). New strategy memo
+  `docs/strategy/capability-architecture-lint-publication-safety-review.md`
+  with 11 required headings + 3 required tables (surface /
+  boundary / option). New 14-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/capability-architecture-lint-publication-safety-review.md`.
+  **No runtime behavior changes. No publication behavior
+  changes. No source files under `packages/` modified.
+  No new artifact type. No new CLI command. No
+  FindingReport / FindingFilterReport /
+  FindingLifecycleReport / CoherencyDelta mutation. No
+  CapabilityContract / CapabilityMap mutation. No npm
+  publish. No version bump.** Recommended next slice:
+  **CapabilityArchitectureLintReport → FindingReport
+  bridge decision**.
+
+- Shipped **CapabilityArchitectureLintReport publication
   surfacing** — fortieth slice on the
   codebase-intel-classic capability-ontology track.
   Product capability batch. The architecture summary and

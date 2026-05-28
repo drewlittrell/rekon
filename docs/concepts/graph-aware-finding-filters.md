@@ -539,4 +539,13 @@ during the filter step.
   bypass this filter chain. Declares v1 safe / stable
   and selects publication surfacing (not a finding
   bridge) as the next slice.
+- [Capability-Aware Architecture Linting Publication Safety Review](../strategy/capability-architecture-lint-publication-safety-review.md)
+  — forty-first slice; read-only audit confirming the
+  publication surfacing does NOT mutate
+  `FindingFilterReport` or bypass this filter chain.
+  Declares the surfacing safe / stable as read-only
+  visibility; the `CapabilityArchitectureLintReport` →
+  `FindingReport` bridge decision (next slice) must
+  preserve this filter chain if any lint row is ever
+  promoted.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

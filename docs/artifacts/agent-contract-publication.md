@@ -518,8 +518,12 @@ is explicitly **deferred**. See the
 [`CapabilityArchitectureLintReport` artifact reference](capability-architecture-lint-report.md),
 the
 [capability-aware architecture linting concept](../concepts/capability-aware-architecture-linting.md),
+the
+[`CapabilityArchitectureLintReport` safety review](../strategy/capability-architecture-lint-report-safety-review.md),
 and the
-[`CapabilityArchitectureLintReport` safety review](../strategy/capability-architecture-lint-report-safety-review.md).
+[`CapabilityArchitectureLintReport` publication safety review](../strategy/capability-architecture-lint-publication-safety-review.md)
+— forty-first slice; declares this surfacing safe /
+stable as read-only visibility.
 
 ## Cross-References
 

@@ -6256,6 +6256,48 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityArchitectureLintReport publication safety
+  review (P1.1
+  capability-architecture-lint-publication-safety-review
+  slice).** ✅ Shipped. **Forty-first slice on the
+  capability-ontology track.** Strategy / safety-review
+  batch. Read-only end-to-end audit of the
+  `CapabilityArchitectureLintReport` publication
+  surfacing shipped at `d01fe23`. **Recommendation:
+  surfacing is safe / stable as read-only visibility.**
+  Reviewed the publication helper, both sections, the
+  agent-contract `Do Not Do` reminder, the proof-report
+  deferral, and the contract / docs tests. All seven
+  boundary statements asserted: read-only visibility;
+  evaluation not enforcement; `findingCandidate`
+  preview-only and writes no `FindingReport`; surfacing
+  does not imply `FindingReport` mutation,
+  `FindingLifecycleReport` mutation, `CoherencyDelta`
+  mutation, resolver routing, verification planning,
+  `RefactorPreservationContract` behavior, or
+  source-write permission; publications read the latest
+  report and never run `rekon capability lint
+  architecture`; proof-report surfacing remains
+  deferred; finding-bridge decision work may begin. Five
+  options evaluated; declare surfacing safe / stable +
+  finding-bridge decision next selected; more
+  publication polish deferred (no blocker); resolver
+  routing and verification planning rejected. New
+  strategy memo
+  [`docs/strategy/capability-architecture-lint-publication-safety-review.md`](capability-architecture-lint-publication-safety-review.md).
+  New 14-assertion docs test
+  `tests/docs/capability-architecture-lint-publication-safety-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-publication-safety-review.md`.
+  **No runtime behavior changes. No publication behavior
+  changes. No source files under `packages/` modified.
+  No new artifact type. No new CLI command. No
+  FindingReport / FindingFilterReport /
+  FindingLifecycleReport / CoherencyDelta mutation. No
+  CapabilityContract / CapabilityMap mutation. No npm
+  publish. No version bump.** **Recommended next
+  slice:** *CapabilityArchitectureLintReport →
+  FindingReport bridge decision*.
 - **CapabilityArchitectureLintReport publication
   surfacing (P1.1
   capability-architecture-lint-publications slice).**

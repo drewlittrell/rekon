@@ -278,4 +278,14 @@ These are intentionally deferred. See
   `CoherencyDelta` or enter the remediation queue.
   Declares v1 safe / stable; selects publication
   surfacing (not a finding bridge) as the next slice.
+- [Capability-Aware Architecture Linting Publication Safety Review](../strategy/capability-architecture-lint-publication-safety-review.md)
+  — forty-first slice; read-only audit confirming the
+  publication surfacing of
+  `CapabilityArchitectureLintReport` does NOT mutate
+  `CoherencyDelta`. Declares the surfacing safe / stable
+  as read-only visibility and selects the
+  `CapabilityArchitectureLintReport` → `FindingReport`
+  bridge decision as the next slice (where any
+  `CoherencyDelta` integration would have to be designed
+  explicitly).
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -164,6 +164,16 @@ publication does not surface
 report is policy-evaluation context, not verification
 proof.
 
+The
+[`CapabilityArchitectureLintReport` publication safety
+review](../strategy/capability-architecture-lint-publication-safety-review.md)
+(forty-first slice) audited this surfacing end-to-end and
+declared it **safe / stable as read-only visibility**,
+confirming the read-only boundary holds and proof-report
+surfacing remains deferred. The next slice is the
+`CapabilityArchitectureLintReport` → `FindingReport`
+bridge decision.
+
 ## Finding Bridge (Future)
 
 `violation` rows carry an optional `findingCandidate`

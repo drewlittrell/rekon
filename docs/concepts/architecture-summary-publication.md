@@ -300,7 +300,11 @@ policy-evaluation signals, not governed findings, and
 Proof-report surfacing of
 `CapabilityArchitectureLintReport` is **deferred** —
 it is policy-evaluation context, not verification
-proof. See
+proof. The
+[`CapabilityArchitectureLintReport` publication safety
+review](../strategy/capability-architecture-lint-publication-safety-review.md)
+(forty-first slice) declares this surfacing **safe /
+stable as read-only visibility**. See
 [`CapabilityArchitectureLintReport` artifact](../artifacts/capability-architecture-lint-report.md)
 and
 [capability-aware architecture linting concept](capability-aware-architecture-linting.md).

@@ -55,6 +55,22 @@ writes ship in this slice.
 > `CapabilityArchitectureLintReport` publication safety
 > review.
 
+> **Status update (forty-first slice — shipped).**
+> The
+> [`CapabilityArchitectureLintReport` publication safety
+> review](capability-architecture-lint-publication-safety-review.md)
+> declared the publication surfacing **safe / stable as
+> read-only visibility**. The read-only boundary holds,
+> `findingCandidate` stays preview-only, and proof-report
+> surfacing remains deferred. **Finding-bridge decision
+> work may now begin.** Recommended next slice:
+> `CapabilityArchitectureLintReport` → `FindingReport`
+> **bridge decision** — decide whether/how selected lint
+> rows become governed findings. Bridge implementation,
+> lifecycle / `CoherencyDelta` mutation, resolver
+> routing, verification planning, and source writes stay
+> deferred to that decision + its own safety review.
+
 ## Decision Summary
 
 **Select Option B: emit a separate

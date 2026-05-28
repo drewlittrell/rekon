@@ -235,9 +235,13 @@ artifact.
   [agent contract publication](agent-contract-publication.md)
   carry the read-only Capability Architecture Linting
   section instead; `findingCandidate` stays
-  preview-only. Re-evaluate only when a separate
-  decision + safety-review pair defines a natural
-  evaluation section for the proof report.
+  preview-only. The
+  [`CapabilityArchitectureLintReport` publication safety
+  review](../strategy/capability-architecture-lint-publication-safety-review.md)
+  (forty-first slice) re-confirms this deferral.
+  Re-evaluate only when a separate decision +
+  safety-review pair defines a natural evaluation
+  section for the proof report.
 
 ## Issue Merge Decision Context
 

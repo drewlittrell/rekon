@@ -1103,6 +1103,48 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityArchitectureLintReport publication safety
+# review has shipped. Forty-first slice on the
+# codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch. Read-only end-to-end
+# audit of the CapabilityArchitectureLintReport
+# publication surfacing shipped at d01fe23.
+#
+# Recommendation: publication surfacing is safe / stable
+# as read-only visibility.
+#
+# Pinned verbatim:
+#   - CapabilityArchitectureLintReport publication
+#     surfacing is read-only visibility.
+#   - CapabilityArchitectureLintReport is evaluation,
+#     not enforcement.
+#   - findingCandidate is preview-only and writes no
+#     FindingReport.
+#   - Surfacing does not imply FindingReport mutation,
+#     FindingLifecycleReport mutation, CoherencyDelta
+#     mutation, resolver routing, verification planning,
+#     RefactorPreservationContract behavior, or
+#     source-write permission.
+#   - Publications read the latest
+#     CapabilityArchitectureLintReport; they never run
+#     `rekon capability lint architecture`.
+#   - Proof report surfacing remains deferred.
+#   - Finding-bridge decision work may begin after this
+#     safety review.
+#
+# Recommended next slice:
+# CapabilityArchitectureLintReport -> FindingReport
+# bridge decision (strategy / decision memo only). Bridge
+# implementation, lifecycle / CoherencyDelta mutation,
+# resolver routing, verification planning, and source
+# writes stay deferred.
+#
+# No runtime behavior changes. No publication behavior
+# changes. No source files under packages/ modified. No
+# npm publish. No version bump.
+#
+# See docs/strategy/capability-architecture-lint-publication-safety-review.md.
+#
 # CapabilityArchitectureLintReport publication surfacing
 # has shipped. Fortieth slice on the
 # codebase-intel-classic capability-ontology track.

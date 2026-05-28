@@ -167,6 +167,14 @@ Publications are strictly read-only:
 context, not verification proof, so the proof-report
 publication does not surface it.
 
+The
+[`CapabilityArchitectureLintReport` publication safety
+review](../strategy/capability-architecture-lint-publication-safety-review.md)
+(forty-first slice) declares this surfacing **safe /
+stable as read-only visibility** and selects the
+`CapabilityArchitectureLintReport` → `FindingReport`
+bridge decision as the next slice.
+
 ## Boundary Invariants
 
 - V1 evaluates configured `CapabilityContract` rows only.

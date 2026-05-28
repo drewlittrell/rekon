@@ -10,6 +10,22 @@ behavior changes. No new artifact type. No new CLI
 command. No source files under `packages/` modified
 beyond docs cross-references.
 
+> **Status update (forty-first slice — shipped).**
+> The
+> [`CapabilityArchitectureLintReport` publication safety
+> review](capability-architecture-lint-publication-safety-review.md)
+> audited the publication surfacing end-to-end and
+> declared it **safe / stable as read-only visibility**.
+> It confirms publications are read-only, the
+> evaluation-vs-enforcement boundary holds,
+> `findingCandidate` stays preview-only, the agent
+> contract `Do Not Do` reminder covers all seven
+> overclaim risks, and proof-report surfacing remains
+> deferred. Recommended next slice:
+> `CapabilityArchitectureLintReport` → `FindingReport`
+> **bridge decision** (strategy / decision memo only) —
+> finding-bridge decision work may now begin.
+
 > **Status update (fortieth slice — shipped).**
 > `CapabilityArchitectureLintReport` **publication
 > surfacing** has shipped. The architecture summary and
