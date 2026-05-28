@@ -223,6 +223,10 @@ rekon capability contract generate \
   NOT mutate `CapabilityContract`,
   `CapabilityMap`, `FindingReport`,
   `FindingLifecycleReport`, or `CoherencyDelta`.
+- [Capability-Aware Architecture Linting Safety Review](../strategy/capability-architecture-lint-report-safety-review.md)
+  — thirty-ninth slice; declares the lint artifact
+  safe / stable as evaluation-only and selects
+  publication surfacing next.
 - [Capability-Aware Architecture Linting concept](../concepts/capability-aware-architecture-linting.md)
   — thirty-eighth slice; explains how
   `CapabilityArchitectureLintReport` reads

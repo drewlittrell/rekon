@@ -172,6 +172,10 @@ that slice ships:
 
 ## Cross-References
 
+- [Capability-Aware Architecture Linting Safety Review (strategy)](../strategy/capability-architecture-lint-report-safety-review.md)
+  — thirty-ninth slice; declares v1 safe / stable as a
+  separate evaluation artifact and selects publication
+  surfacing (not a finding bridge) as the next slice.
 - [Capability-aware architecture linting decision (strategy)](../strategy/capability-aware-architecture-linting-decision.md)
 - [Capability-aware architecture linting concept](../concepts/capability-aware-architecture-linting.md)
 - [CapabilityContract artifact](capability-contract.md)

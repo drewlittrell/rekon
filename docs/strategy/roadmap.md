@@ -2640,6 +2640,44 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityArchitectureLintReport safety review
+  (P1.1 capability-architecture-lint-report-safety-review
+  slice): **thirty-ninth slice on the
+  capability-ontology track.** Strategy /
+  safety-review batch. Read-only end-to-end audit of
+  the `CapabilityArchitectureLintReport` v1
+  implementation shipped at `0bd7af0`.
+  **Recommendation: v1 is safe / stable as a separate
+  evaluation artifact.** Reviewed type shape, factory,
+  validator / assert / schema,
+  `buildCapabilityArchitectureLintReport` helper,
+  `rekon capability lint architecture` CLI, rule
+  evaluation (configured rows only; allowed/forbidden
+  layer + system; system rules `not-evaluated` when no
+  deterministic system field exists), the
+  `findingCandidate` preview payload, and the contract
+  / docs tests. All five required boundary statements
+  asserted (evaluation, not enforcement;
+  `findingCandidate` preview-only, no `FindingReport`
+  write; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `CoherencyDelta` mutation;
+  no resolver routing / verification planning /
+  `RefactorPreservationContract` / source writes; next
+  slice may surface but must not bridge to findings).
+  Four options evaluated; declare v1 safe / stable +
+  publication surfacing next selected. New strategy memo
+  [`docs/strategy/capability-architecture-lint-report-safety-review.md`](capability-architecture-lint-report-safety-review.md)
+  with 12 required headings + 4 required tables. New
+  13-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-report-safety-review.md`.
+  **No runtime behavior changes. No new artifact type.
+  No new CLI command. No FindingReport /
+  FindingFilterReport / FindingLifecycleReport /
+  CoherencyDelta mutation. No CapabilityContract /
+  CapabilityMap mutation. No npm publish. No version
+  bump.** Recommended next slice:
+  CapabilityArchitectureLintReport publication
+  surfacing.
 - CapabilityArchitectureLintReport v1
   implementation (P1.1
   capability-architecture-lint-report-v1 slice):

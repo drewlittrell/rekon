@@ -533,4 +533,10 @@ during the filter step.
   `FindingLifecycleReport` in v1. A future explicit
   bridge slice would be required before lint rows
   could flow through this filter chain.
+- [Capability-Aware Architecture Linting Safety Review](../strategy/capability-architecture-lint-report-safety-review.md)
+  — thirty-ninth slice; read-only audit confirming the
+  lint report does NOT mutate `FindingFilterReport` or
+  bypass this filter chain. Declares v1 safe / stable
+  and selects publication surfacing (not a finding
+  bridge) as the next slice.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

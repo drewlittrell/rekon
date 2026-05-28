@@ -204,6 +204,13 @@ arriving as a surprise the moment the artifact ships.
   `CoherencyDelta`.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)
   — thirty-eighth slice.
+- [Capability-Aware Architecture Linting Safety Review](../strategy/capability-architecture-lint-report-safety-review.md)
+  — thirty-ninth slice; declares
+  `CapabilityArchitectureLintReport` v1 safe / stable
+  as a separate evaluation artifact. The lint report
+  reads `CapabilityContract` as input only; it never
+  mutates it, and it never enters governed findings in
+  v1.
 - [`CapabilityContract` Architecture Decision](../strategy/capability-contract-architecture-decision.md)
 - [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)
   — thirty-fourth slice; declares v1 safe / stable

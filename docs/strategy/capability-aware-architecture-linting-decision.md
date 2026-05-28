@@ -26,6 +26,20 @@ writes ship in this slice.
 > and
 > [../concepts/capability-aware-architecture-linting.md](../concepts/capability-aware-architecture-linting.md).
 
+> **Status update (thirty-ninth slice — shipped).**
+> The
+> [`CapabilityArchitectureLintReport` safety review](capability-architecture-lint-report-safety-review.md)
+> audited the v1 implementation end-to-end and declared
+> it **safe / stable as a separate evaluation
+> artifact**. It confirms the evaluation-vs-enforcement
+> boundary holds, that `findingCandidate` is
+> preview-only, and that no governance artifact is
+> mutated. Recommended next slice:
+> `CapabilityArchitectureLintReport` **publication
+> surfacing** (read-only visibility) — the finding
+> bridge stays deferred to its own decision + safety
+> review pair.
+
 ## Decision Summary
 
 **Select Option B: emit a separate

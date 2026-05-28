@@ -6256,6 +6256,48 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityArchitectureLintReport safety review
+  (P1.1 capability-architecture-lint-report-safety-review
+  slice).** ✅ Shipped. **Thirty-ninth slice on the
+  capability-ontology track.** Strategy /
+  safety-review batch. Read-only end-to-end audit of
+  the `CapabilityArchitectureLintReport` v1
+  implementation shipped at `0bd7af0`.
+  **Recommendation: v1 is safe / stable as a separate
+  evaluation artifact.** Reviewed artifact type shape,
+  factory, validator / assert / schema,
+  `buildCapabilityArchitectureLintReport` helper,
+  `rekon capability lint architecture` CLI, rule
+  evaluation, the `findingCandidate` preview payload,
+  and the contract / docs tests. All five required
+  boundary statements asserted: evaluation, not
+  enforcement; `findingCandidate` is preview-only and
+  does not write `FindingReport`; does not mutate
+  `FindingFilterReport`, `FindingLifecycleReport`, or
+  `CoherencyDelta`; does not implement resolver
+  routing, verification planning,
+  `RefactorPreservationContract`, or source writes;
+  the next slice may surface
+  `CapabilityArchitectureLintReport` in publications
+  but must not bridge to findings yet. Four options
+  evaluated; declare v1 safe / stable + publication
+  surfacing next selected; finding bridge and resolver
+  routing rejected/deferred. New strategy memo
+  [`docs/strategy/capability-architecture-lint-report-safety-review.md`](capability-architecture-lint-report-safety-review.md).
+  New 13-assertion docs test
+  `tests/docs/capability-architecture-lint-report-safety-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-report-safety-review.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new
+  CLI command. No FindingReport / FindingFilterReport /
+  FindingLifecycleReport / CoherencyDelta mutation. No
+  CapabilityContract / CapabilityMap mutation. No npm
+  publish. No version bump.** **Recommended next
+  slice:** *CapabilityArchitectureLintReport
+  publication surfacing* — surface lint report summary /
+  violations / not-evaluated rows read-only in
+  architecture summary + agent contract.
 - **CapabilityArchitectureLintReport v1
   implementation (P1.1
   capability-architecture-lint-report-v1 slice).**

@@ -1103,6 +1103,43 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityArchitectureLintReport safety review has
+# shipped. Thirty-ninth slice on the
+# codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch. Read-only end-to-end
+# audit of the CapabilityArchitectureLintReport v1
+# implementation shipped at 0bd7af0.
+#
+# Recommendation: CapabilityArchitectureLintReport v1
+# is safe / stable as a separate evaluation artifact.
+#
+# Pinned verbatim:
+#   - CapabilityArchitectureLintReport is evaluation,
+#     not enforcement.
+#   - findingCandidate is preview-only and does not
+#     write FindingReport.
+#   - CapabilityArchitectureLintReport does not mutate
+#     FindingFilterReport, FindingLifecycleReport, or
+#     CoherencyDelta.
+#   - CapabilityArchitectureLintReport does not
+#     implement resolver routing, verification
+#     planning, RefactorPreservationContract, or
+#     source writes.
+#   - The next slice may surface
+#     CapabilityArchitectureLintReport in publications,
+#     but must not bridge to findings yet.
+#
+# Recommended next slice:
+# CapabilityArchitectureLintReport publication
+# surfacing (read-only visibility in architecture
+# summary + agent contract). Finding bridge deferred.
+#
+# No runtime behavior changes. No source files under
+# packages/ modified. No new artifact type. No new
+# CLI command. No npm publish. No version bump.
+#
+# See docs/strategy/capability-architecture-lint-report-safety-review.md.
+#
 # CapabilityArchitectureLintReport v1 has shipped.
 # Thirty-eighth slice on the codebase-intel-classic
 # capability-ontology track. Product capability

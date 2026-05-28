@@ -272,4 +272,10 @@ These are intentionally deferred. See
   and no `CoherencyDelta` is mutated. A future
   explicit bridge slice would be required before
   any lint row could enter the remediation queue.
+- [Capability-Aware Architecture Linting Safety Review](../strategy/capability-architecture-lint-report-safety-review.md)
+  — thirty-ninth slice; read-only audit confirming
+  `CapabilityArchitectureLintReport` does NOT mutate
+  `CoherencyDelta` or enter the remediation queue.
+  Declares v1 safe / stable; selects publication
+  surfacing (not a finding bridge) as the next slice.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

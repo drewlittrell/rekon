@@ -57,7 +57,11 @@ The macro 5-layer boundary is:
    `CapabilityArchitectureLintReport` v1 shipped
    (thirty-eighth slice) — evaluation artifact +
    `buildCapabilityArchitectureLintReport` helper +
-   `rekon capability lint architecture` CLI; see
+   `rekon capability lint architecture` CLI; lint
+   safety review shipped (thirty-ninth slice) —
+   declares v1 safe / stable as a separate evaluation
+   artifact and selects publication surfacing (not a
+   finding bridge) as the next slice; see
    [layer 6](#layer-6) below.** Operator config at
    `.rekon/capability-contracts.json` expresses policy;
    Rekon emits a `CapabilityContract` artifact citing the

@@ -4,6 +4,57 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityArchitectureLintReport safety
+  review** — thirty-ninth slice on the
+  codebase-intel-classic capability-ontology track.
+  Strategy / safety-review batch. Read-only end-to-end
+  audit of the `CapabilityArchitectureLintReport` v1
+  implementation shipped at `0bd7af0`. **Recommendation:
+  `CapabilityArchitectureLintReport` v1 is safe / stable
+  as a separate evaluation artifact.**
+
+  Reviewed the artifact type shape, factory, validator /
+  assert / schema, `buildCapabilityArchitectureLintReport`
+  helper, `rekon capability lint architecture` CLI, rule
+  evaluation (configured rows only; allowed/forbidden
+  layer + system; system rules `not-evaluated` when no
+  deterministic system field exists), the
+  `findingCandidate` preview payload, and the contract /
+  docs tests.
+
+  Pinned verbatim:
+
+  - `CapabilityArchitectureLintReport` is evaluation, not
+    enforcement.
+  - `findingCandidate` is preview-only and does not write
+    `FindingReport`.
+  - `CapabilityArchitectureLintReport` does not mutate
+    `FindingFilterReport`, `FindingLifecycleReport`, or
+    `CoherencyDelta`.
+  - `CapabilityArchitectureLintReport` does not implement
+    resolver routing, verification planning,
+    `RefactorPreservationContract`, or source writes.
+  - The next slice may surface
+    `CapabilityArchitectureLintReport` in publications,
+    but must not bridge to findings yet.
+
+  Four options evaluated; declare v1 safe / stable +
+  publication surfacing next selected; finding bridge and
+  resolver routing rejected/deferred. New strategy memo
+  `docs/strategy/capability-architecture-lint-report-safety-review.md`
+  with 12 required headings + 4 required tables (surface /
+  rule / boundary / option). New 13-assertion docs test.
+  Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-report-safety-review.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI
+  command. No FindingReport / FindingFilterReport /
+  FindingLifecycleReport / CoherencyDelta mutation. No
+  CapabilityContract / CapabilityMap mutation. No npm
+  publish. No version bump.** Recommended next slice:
+  **CapabilityArchitectureLintReport publication
+  surfacing**.
+
 - Shipped **CapabilityArchitectureLintReport v1** —
   thirty-eighth slice on the codebase-intel-classic
   capability-ontology track. New evaluation artifact

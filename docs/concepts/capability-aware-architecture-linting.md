@@ -159,6 +159,12 @@ remains a standalone evaluation artifact.
 
 ## Cross-References
 
+- [Capability-Aware Architecture Linting Safety Review](../strategy/capability-architecture-lint-report-safety-review.md)
+  — thirty-ninth slice; read-only audit declaring v1
+  safe / stable. Confirms evaluation-only boundary,
+  preview-only `findingCandidate`, and zero governance
+  mutation; selects publication surfacing as the next
+  slice.
 - [CapabilityArchitectureLintReport artifact](../artifacts/capability-architecture-lint-report.md)
 - [CapabilityContract artifact](../artifacts/capability-contract.md)
 - [CapabilityContracts concept](capability-contracts.md)
