@@ -4,6 +4,47 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityContract v1 safety review** —
+  thirty-fourth slice on the capability-ontology
+  track. Strategy / safety-review batch. Read-only
+  end-to-end audit of the `CapabilityContract` v1
+  artifact, helper, validator, config model, and
+  CLI shipped at `63e7b71`. **Recommendation:
+  declare v1 safe / stable as an artifact-backed
+  policy layer.** All seven required boundary
+  statements asserted (CapabilityContract is policy,
+  not projection; CapabilityMap v2 remains
+  projection; configured + unmatched rows only;
+  suggested remains reserved; no architecture
+  linting, resolver routing, verification planning,
+  source writes, or RefactorPreservationContract
+  behavior; next slice may surface
+  CapabilityContract in publications but must not
+  create policy enforcement). Four options evaluated;
+  publication surfacing selected as next slice
+  (read-only visibility in architecture summary +
+  agent contract on the same model used by the
+  CapabilityMap v2 publication safety review).
+  Enforcement consumers (architecture linting,
+  resolver routing, verification planning, source
+  writes, `RefactorPreservationContract`) remain
+  deferred and gated on their own decision + safety
+  review pairs. New strategy memo
+  `docs/strategy/capability-contract-v1-safety-review.md`
+  with 11 required headings + 4 required tables
+  (surface / matching / boundary / option). New
+  13-assertion docs test
+  `tests/docs/capability-contract-v1-safety-review.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-contract-v1-safety-review.md`.
+  **No runtime behavior changes. No source files
+  under `packages/` modified. No artifact validator,
+  helper, or CLI command modified. No publication
+  surface modified. No CapabilityMap mutation. No
+  CapabilityPhraseReport mutation. No
+  `.rekon/capability-contracts.json` mutation. No
+  npm publish. No version bump.**
+
 - Shipped **CapabilityContract v1 implementation**
   — thirty-third slice on the capability-ontology
   track. Registers `CapabilityContract` as a typed

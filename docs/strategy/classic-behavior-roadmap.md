@@ -6256,6 +6256,57 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityContract v1 safety review
+  (P1.1 capability-contract-v1-safety-review
+  slice).** ✅ Shipped. **Thirty-fourth
+  slice on the capability-ontology
+  track.** Strategy / safety-review batch.
+  Read-only end-to-end audit of the v1
+  artifact, helper, validator, config
+  model, and CLI shipped at `63e7b71`.
+  **Recommendation: declare v1 safe /
+  stable as an artifact-backed policy
+  layer.** All seven required boundary
+  statements asserted (CapabilityContract
+  is policy, not projection;
+  CapabilityMap v2 remains projection;
+  configured + unmatched rows only;
+  suggested reserved; no architecture
+  linting / resolver routing /
+  verification planning / source writes /
+  RefactorPreservationContract; next
+  slice may surface CapabilityContract in
+  publications but must not create
+  enforcement). Four options evaluated;
+  publication surfacing selected as next
+  slice (read-only visibility in
+  architecture summary + agent contract,
+  same model as CapabilityMap v2
+  publication safety review).
+  Enforcement consumers (architecture
+  linting, resolver routing,
+  verification planning, source writes,
+  RefactorPreservationContract) remain
+  deferred and gated on their own
+  decision + safety review pairs. New
+  strategy memo
+  [`docs/strategy/capability-contract-v1-safety-review.md`](capability-contract-v1-safety-review.md).
+  New 13-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/capability-contract-v1-safety-review.md`.
+  **No runtime behavior changes. No
+  source files under `packages/`
+  modified. No publication surface
+  modified. No CapabilityMap mutation.
+  No CapabilityPhraseReport mutation.
+  No `.rekon/capability-contracts.json`
+  mutation. No npm publish. No version
+  bump.** **Recommended next slice:**
+  *CapabilityContract publication
+  surfacing* — read-only visibility in
+  architecture summary + agent contract,
+  carrying the boundary statement
+  verbatim, with no enforcement consumer.
 - **CapabilityContract v1 implementation
   (P1.1 capability-contract-v1
   slice).** ✅ Shipped. **Thirty-third

@@ -1103,6 +1103,46 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityContract v1 safety review has shipped.
+# Thirty-fourth slice on the capability-ontology
+# track. Strategy / safety-review batch. Read-only
+# end-to-end audit of the v1 artifact, helper,
+# validator, config model, and CLI shipped at
+# 63e7b71.
+#
+# Pinned verbatim:
+#   - CapabilityContract is policy, not projection.
+#   - CapabilityMap v2 remains projection.
+#   - CapabilityContract v1 emits configured and
+#     unmatched rows only; suggested remains
+#     reserved.
+#   - CapabilityContract v1 does not implement
+#     architecture linting, resolver routing,
+#     verification planning, source writes, or
+#     RefactorPreservationContract behavior.
+#   - The next slice may surface CapabilityContract
+#     in publications, but must not create policy
+#     enforcement.
+#
+# Recommendation: declare v1 safe / stable as an
+# artifact-backed policy layer. Ship publication
+# surfacing as the next slice -- read-only
+# visibility in architecture summary + agent
+# contract, on the same model used by the
+# CapabilityMap v2 publication safety review.
+#
+# No runtime behavior changes. No source files
+# under packages/ modified. No artifact validator,
+# helper, or CLI command modified. No publication
+# surface modified. No CapabilityMap mutation. No
+# CapabilityPhraseReport mutation. No
+# .rekon/capability-contracts.json mutation. No
+# npm publish. No version bump.
+#
+# See docs/strategy/capability-contract-v1-safety-review.md.
+# Recommended next slice: CapabilityContract
+# publication surfacing.
+#
 # CapabilityContract v1 implementation has shipped.
 # Thirty-third slice on the capability-ontology
 # track. Registers the CapabilityContract artifact

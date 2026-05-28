@@ -193,6 +193,10 @@ arriving as a surprise the moment the artifact ships.
 
 - [`CapabilityContract` artifact reference](../artifacts/capability-contract.md)
 - [`CapabilityContract` Architecture Decision](../strategy/capability-contract-architecture-decision.md)
+- [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)
+  — thirty-fourth slice; declares v1 safe / stable
+  and selects publication surfacing as the next
+  slice.
 - [`CapabilityMap` artifact reference](../artifacts/capability-map.md)
 - [`CapabilityPhraseReport` artifact reference](../artifacts/capability-phrase-report.md)
 - [Capability Ontology concept](capability-ontology.md)

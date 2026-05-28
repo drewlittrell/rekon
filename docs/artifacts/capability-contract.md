@@ -217,6 +217,10 @@ rekon capability contract generate \
 
 - [`CapabilityContract` Architecture Decision](../strategy/capability-contract-architecture-decision.md)
   — pins the policy / projection boundary.
+- [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)
+  — thirty-fourth slice; declares v1 safe / stable as
+  an artifact-backed policy layer and recommends
+  publication surfacing as the next slice.
 - [`CapabilityMap` artifact](capability-map.md) — the
   projection layer this artifact consumes.
 - [`CapabilityPhraseReport` artifact](capability-phrase-report.md)

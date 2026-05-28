@@ -299,6 +299,10 @@ for the rendered surfaces.
   (config + artifact effective contract). Pins
   that `CapabilityMap` v2 must not grow policy
   fields.
+- [CapabilityContract v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)
+  — thirty-fourth slice; declares the policy layer
+  safe / stable as a read-only artifact and pins
+  again that `CapabilityMap` v2 remains projection.
 - [Architecture summary publication](architecture-summary-publication.md)
   — surfaces the v2 phrase-backed projection as
   operator context.

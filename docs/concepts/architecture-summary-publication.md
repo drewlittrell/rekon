@@ -217,18 +217,22 @@ visibility (no mutation of `CapabilityMap`,
 always emitted, and the proof-report deferral is
 preserved. The
 [CapabilityContract Architecture Decision](../strategy/capability-contract-architecture-decision.md)
-has shipped and its v1 implementation has
-shipped (thirty-third slice — see
+has shipped, its v1 implementation has shipped
+(thirty-third slice — see
 [`CapabilityContract` artifact reference](../artifacts/capability-contract.md)
 and the
-[`CapabilityContract` concept doc](capability-contracts.md)).
+[`CapabilityContract` concept doc](capability-contracts.md)),
+and its v1 safety review has shipped
+(thirty-fourth slice — see
+[`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)).
+The v1 safety review **declares v1 safe / stable
+as an artifact-backed policy layer and selects
+publication surfacing as the next slice**.
 Architecture-summary surfacing of
-`CapabilityContract` is still gated; **no
-publication surfacing ships in the v1 slice**.
-A separate publication-surfacing decision plus
-its own safety review must land before any
-contract-driven content is rendered into the
-architecture summary or agent contract.
+`CapabilityContract` is still not yet in scope —
+the publication slice is the immediate next one
+and will land read-only visibility only (no
+enforcement consumer ships alongside it).
 
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from
