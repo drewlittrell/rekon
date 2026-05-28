@@ -4,6 +4,71 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityArchitectureLintReport publication
+  surfacing** — fortieth slice on the
+  codebase-intel-classic capability-ontology track.
+  Product capability batch. The architecture summary and
+  agent contract publications now surface the latest
+  `CapabilityArchitectureLintReport` as **read-only
+  visibility** into capability-aware placement-policy
+  evaluation.
+
+  - New `@rekon/capability-docs` helper
+    `buildCapabilityArchitectureLintPublicationSection`
+    (pure, structural-typed) renders a `Capability
+    Architecture Linting` section: report ref, source
+    `CapabilityContract` + `CapabilityMap` refs, summary
+    counts (total / violations / passes / not-evaluated),
+    optional byRule / bySeverity, and a bounded lint-row
+    table (cap 20).
+  - Architecture summary publisher (heading level 2) and
+    agent contract publisher (heading level 3) read the
+    latest lint report, render the section, and cite the
+    report in `header.inputRefs`. Both render no-report
+    guidance when absent.
+  - New agent-contract "Do Not Do" reminder covering
+    FindingReport mutation, lifecycle mutation,
+    CoherencyDelta remediation, resolver routing,
+    verification planning, RefactorPreservationContract,
+    and source-write permission.
+  - `@rekon/capability-docs` manifest `consumes` gains
+    `CapabilityArchitectureLintReport`; new invalidation
+    rule `capability-architecture-lint.changed`.
+
+  Pinned verbatim:
+
+  - `CapabilityArchitectureLintReport` is evaluation
+    visibility only; this publication does not write
+    findings, mutate lifecycle state, route resolvers,
+    generate verification plans, or write source files.
+  - `findingCandidate` is preview-only and writes no
+    `FindingReport`.
+  - Publications read the latest
+    `CapabilityArchitectureLintReport`; they never run
+    `rekon capability lint architecture`.
+  - Publications never mutate `FindingReport`,
+    `FindingFilterReport`, `FindingLifecycleReport`,
+    `CoherencyDelta`, `CapabilityContract`, or
+    `CapabilityMap`.
+  - Surfacing does not imply resolver routing,
+    verification planning, `RefactorPreservationContract`,
+    or source writes.
+  - Proof-report surfacing of
+    `CapabilityArchitectureLintReport` is **deferred** —
+    it is policy-evaluation context, not verification
+    proof.
+
+  New contract test
+  `tests/contract/capability-architecture-lint-publications.test.mjs`
+  (20 assertions). New docs test
+  `tests/docs/capability-architecture-lint-publications.test.mjs`
+  (10 assertions). Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-publications.md`.
+  **No new artifact type. No new CLI command. No version
+  bump. No npm publish.** Recommended next slice:
+  **CapabilityArchitectureLintReport publication safety
+  review**.
+
 - Shipped **CapabilityArchitectureLintReport safety
   review** — thirty-ninth slice on the
   codebase-intel-classic capability-ontology track.

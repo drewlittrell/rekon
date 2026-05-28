@@ -478,6 +478,49 @@ and the
 — thirty-sixth slice; declares this surfacing safe /
 stable as read-only visibility.
 
+## Capability Architecture Linting
+
+The agent contract also renders a **`### Capability
+Architecture Linting`** subsection sourced from the
+latest `CapabilityArchitectureLintReport` (**fortieth
+slice** on the capability-ontology track), inside the
+operating-state group after `### Capability Contracts`.
+It surfaces the lint report ref, the source
+`CapabilityContract` + `CapabilityMap` refs, summary
+counts (`total` / `violations` / `passes` /
+`notEvaluated`), optional byRule / bySeverity lines, and
+a bounded lint-row table (`| Status | Rule | Contract |
+Capability | Severity | Confidence | Message |`, capped
+at 20 rows). When no report exists, the subsection
+renders no-report guidance pointing operators at `rekon
+capability lint architecture --json`.
+
+The agent contract's `## Do Not Do` list carries a
+verbatim reminder: *"Do not treat
+`CapabilityArchitectureLintReport` publication surfacing
+as FindingReport mutation, lifecycle mutation,
+CoherencyDelta remediation, resolver routing,
+verification planning, RefactorPreservationContract, or
+source-write permission. The Capability Architecture
+Linting section is evaluation visibility only; violation
+rows are policy-evaluation signals, not governed
+findings, and findingCandidate is preview-only."*
+
+**Publications are read-only over
+`CapabilityArchitectureLintReport`:** the agent contract
+publisher reads the latest lint report and never mutates
+the lint report, `CapabilityContract`, `CapabilityMap`,
+`FindingReport`, `FindingFilterReport`,
+`FindingLifecycleReport`, or `CoherencyDelta`, and never
+re-runs `rekon capability lint architecture`. Proof
+report surfacing of `CapabilityArchitectureLintReport`
+is explicitly **deferred**. See the
+[`CapabilityArchitectureLintReport` artifact reference](capability-architecture-lint-report.md),
+the
+[capability-aware architecture linting concept](../concepts/capability-aware-architecture-linting.md),
+and the
+[`CapabilityArchitectureLintReport` safety review](../strategy/capability-architecture-lint-report-safety-review.md).
+
 ## Cross-References
 
 - [Agent contract concept](../concepts/agent-operating-contract.md)

@@ -140,6 +140,33 @@ The command:
 plus an `ArtifactRef` pair. No source reads, no network,
 no LLM.
 
+## Publication Surfacing
+
+The architecture summary and agent contract publications
+surface the latest `CapabilityArchitectureLintReport` as
+**read-only** operator/agent visibility (fortieth slice).
+Both publishers read the latest lint report, render a
+`Capability Architecture Linting` section (summary +
+bounded row table), and cite the report in
+`header.inputRefs`. The helper is
+`buildCapabilityArchitectureLintPublicationSection` in
+`@rekon/capability-docs`.
+
+Publications are strictly read-only:
+
+- They **never** run `rekon capability lint architecture`.
+- They **never** mutate the lint report,
+  `CapabilityContract`, `CapabilityMap`, `FindingReport`,
+  `FindingFilterReport`, `FindingLifecycleReport`, or
+  `CoherencyDelta`.
+- `findingCandidate` stays **preview-only** in the
+  rendered surface — no `FindingReport` is written.
+
+**Proof-report surfacing is deferred.**
+`CapabilityArchitectureLintReport` is policy-evaluation
+context, not verification proof, so the proof-report
+publication does not surface it.
+
 ## Boundary Invariants
 
 - V1 evaluates configured `CapabilityContract` rows only.

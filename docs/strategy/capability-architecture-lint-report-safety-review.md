@@ -10,6 +10,26 @@ behavior changes. No new artifact type. No new CLI
 command. No source files under `packages/` modified
 beyond docs cross-references.
 
+> **Status update (fortieth slice — shipped).**
+> `CapabilityArchitectureLintReport` **publication
+> surfacing** has shipped. The architecture summary and
+> agent contract now render a read-only `Capability
+> Architecture Linting` section sourced from the latest
+> lint report, citing it in `header.inputRefs`. Surfacing
+> is strictly read-only: publications never run `rekon
+> capability lint architecture` and never mutate the lint
+> report, `CapabilityContract`, `CapabilityMap`,
+> `FindingReport`, `FindingFilterReport`,
+> `FindingLifecycleReport`, or `CoherencyDelta`;
+> `findingCandidate` stays preview-only; proof-report
+> surfacing is deferred. See
+> [../artifacts/capability-architecture-lint-report.md](../artifacts/capability-architecture-lint-report.md)
+> and the review packet
+> `.rekon-dev/review-packets/capability-architecture-lint-publications.md`.
+> Recommended next slice:
+> `CapabilityArchitectureLintReport` publication safety
+> review.
+
 ## Decision Summary
 
 **`CapabilityArchitectureLintReport` v1 is safe / stable

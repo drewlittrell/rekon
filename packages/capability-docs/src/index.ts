@@ -503,6 +503,28 @@ export const architectureSummaryPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityContractRef);
     }
+    // CapabilityArchitectureLintReport publication surfacing
+    // (capability-architecture-lint-publications). Strictly
+    // read-only: never runs `rekon capability lint
+    // architecture`; never mutates the lint report,
+    // `CapabilityContract`, `CapabilityMap`,
+    // `FindingReport`, `FindingFilterReport`,
+    // `FindingLifecycleReport`, or `CoherencyDelta`.
+    const capabilityArchitectureLintRef = await latestRef(
+      artifacts,
+      "CapabilityArchitectureLintReport",
+    );
+    const capabilityArchitectureLintReport = capabilityArchitectureLintRef
+      ? (await artifacts.read(capabilityArchitectureLintRef)) as CapabilityArchitectureLintReportLike
+      : undefined;
+    if (
+      capabilityArchitectureLintRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityArchitectureLintRef.type
+        && existing.id === capabilityArchitectureLintRef.id)
+    ) {
+      inputRefs.push(capabilityArchitectureLintRef);
+    }
     const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
@@ -543,6 +565,8 @@ export const architectureSummaryPublisher: Publisher = {
         capabilityPhraseRef,
         capabilityContract,
         capabilityContractRef,
+        capabilityArchitectureLintReport,
+        capabilityArchitectureLintRef,
         freshness,
         inputRefs,
         generatedAt,
@@ -941,6 +965,28 @@ export const agentContractPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityContractRef);
     }
+    // CapabilityArchitectureLintReport publication surfacing
+    // (capability-architecture-lint-publications). Agent
+    // contract mirrors the architecture-summary publisher
+    // and surfaces capability placement-policy evaluation
+    // counts so agents see violation / pass / not-evaluated
+    // signals alongside policy + projection layers. Strictly
+    // read-only.
+    const capabilityArchitectureLintRef = await latestRef(
+      artifacts,
+      "CapabilityArchitectureLintReport",
+    );
+    const capabilityArchitectureLintReport = capabilityArchitectureLintRef
+      ? (await artifacts.read(capabilityArchitectureLintRef)) as CapabilityArchitectureLintReportLike
+      : undefined;
+    if (
+      capabilityArchitectureLintRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityArchitectureLintRef.type
+        && existing.id === capabilityArchitectureLintRef.id)
+    ) {
+      inputRefs.push(capabilityArchitectureLintRef);
+    }
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
       "MemorySelection",
@@ -989,6 +1035,8 @@ export const agentContractPublisher: Publisher = {
         capabilityPhraseRef,
         capabilityContract,
         capabilityContractRef,
+        capabilityArchitectureLintReport,
+        capabilityArchitectureLintRef,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -1030,6 +1078,7 @@ export default defineCapability({
       "CapabilityOntologySuggestionReport",
       "CapabilityPhraseReport",
       "CapabilityContract",
+      "CapabilityArchitectureLintReport",
       "MemorySelection",
       "MemoryCurationReport",
     ],
@@ -1117,6 +1166,12 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary and agent contract when a new CapabilityContract is written so operators and agents see configured/unmatched policy rows alongside repo state. Publications never run `rekon capability contract generate` automatically, never mutate `.rekon/capability-contracts.json`, and never mutate CapabilityMap, CapabilityPhraseReport, or EvidenceGraph.",
         inputs: ["CapabilityContract"],
+      },
+      {
+        id: "capability-architecture-lint.changed",
+        description:
+          "Regenerate the architecture summary and agent contract when a new CapabilityArchitectureLintReport is written so operators and agents see capability placement-policy evaluation (violations / passes / not-evaluated) alongside repo state. Publications never run `rekon capability lint architecture` automatically, never mutate the lint report, and never mutate CapabilityContract, CapabilityMap, FindingReport, FindingFilterReport, FindingLifecycleReport, or CoherencyDelta. findingCandidate stays preview-only.",
+        inputs: ["CapabilityArchitectureLintReport"],
       },
     ],
     compatibility: {
@@ -1485,6 +1540,8 @@ type ArchitectureSummaryInputs = {
   capabilityPhraseRef?: ArtifactRef;
   capabilityContract?: CapabilityContractLike;
   capabilityContractRef?: ArtifactRef;
+  capabilityArchitectureLintReport?: CapabilityArchitectureLintReportLike;
+  capabilityArchitectureLintRef?: ArtifactRef;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -1855,6 +1912,23 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     input.capabilityContractRef,
     2,
   );
+  // CapabilityArchitectureLintReport publication surfacing
+  // (capability-architecture-lint-publications). Read-only:
+  // surfaces the latest CapabilityArchitectureLintReport so
+  // operators see capability placement-policy evaluation
+  // (violations / passes / not-evaluated) alongside the
+  // policy + projection layers above, before the proof /
+  // verification sections. Never runs `rekon capability
+  // lint architecture`, never mutates the lint report,
+  // CapabilityContract, CapabilityMap, FindingReport,
+  // FindingFilterReport, FindingLifecycleReport, or
+  // CoherencyDelta.
+  renderCapabilityArchitectureLintSection(
+    sections,
+    input.capabilityArchitectureLintReport,
+    input.capabilityArchitectureLintRef,
+    2,
+  );
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -2137,6 +2211,22 @@ function renderCapabilityContractSection(
   const block = buildCapabilityContractPublicationSection({
     contract,
     contractRef,
+    headingLevel,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
+function renderCapabilityArchitectureLintSection(
+  sections: string[],
+  report: CapabilityArchitectureLintReportLike | undefined,
+  reportRef: ArtifactRef | undefined,
+  headingLevel: 2 | 3,
+): void {
+  const block = buildCapabilityArchitectureLintPublicationSection({
+    report,
+    reportRef,
     headingLevel,
   });
   for (const line of block.lines) {
@@ -2842,6 +2932,8 @@ type AgentContractInputs = {
   capabilityPhraseRef?: ArtifactRef;
   capabilityContract?: CapabilityContractLike;
   capabilityContractRef?: ArtifactRef;
+  capabilityArchitectureLintReport?: CapabilityArchitectureLintReportLike;
+  capabilityArchitectureLintRef?: ArtifactRef;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -2889,6 +2981,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat CapabilityPhraseReport entries as CapabilityMap ownership or placement policy; CapabilityPhraseReport is semantic purpose projection and CapabilityNormalizationReport remains translation audit. The high-confidence subset projects into CapabilityMap.phraseBackedCapabilities (v2); CapabilityContract policy remains deferred.",
   "Do not treat CapabilityMap v2 phrase-backed capabilities as CapabilityContract policy, resolver routing authority, architecture lint findings, verification requirements, or source-write permission. CapabilityMap v2 phrase-backed capabilities are stable capability projection; they are not placement policy, ownership policy, or source-write authority.",
   "Do not treat CapabilityContract publication surfacing as architecture linting, resolver routing, verification planning, finding resolution, RefactorPreservationContract, or source-write permission. The CapabilityContract section in this contract is policy visibility only; configured / unmatched rows are operator-authored policy records, not enforced behavior.",
+  "Do not treat CapabilityArchitectureLintReport publication surfacing as FindingReport mutation, lifecycle mutation, CoherencyDelta remediation, resolver routing, verification planning, RefactorPreservationContract, or source-write permission. The Capability Architecture Linting section is evaluation visibility only; violation rows are policy-evaluation signals, not governed findings, and findingCandidate is preview-only.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -3365,6 +3458,24 @@ function renderAgentContract(input: AgentContractInputs): string {
     sections,
     input.capabilityContract,
     input.capabilityContractRef,
+    3,
+  );
+
+  // CapabilityArchitectureLintReport publication surfacing
+  // (capability-architecture-lint-publications). Heading
+  // level 3 so the section sits inside the operating-state
+  // group. Always rendered (with no-report guidance when
+  // empty) so agents see capability placement-policy
+  // evaluation alongside repo state. Strictly read-only —
+  // never runs `rekon capability lint architecture`, never
+  // mutates the lint report, CapabilityContract,
+  // CapabilityMap, FindingReport, FindingFilterReport,
+  // FindingLifecycleReport, or CoherencyDelta, never implies
+  // enforcement.
+  renderCapabilityArchitectureLintSection(
+    sections,
+    input.capabilityArchitectureLintReport,
+    input.capabilityArchitectureLintRef,
     3,
   );
 
@@ -7418,3 +7529,243 @@ export const CAPABILITY_CONTRACT_PUBLICATION_BOUNDARY_LINE =
   CAPABILITY_CONTRACT_BOUNDARY_LINE;
 export const CAPABILITY_CONTRACT_PUBLICATION_PROOF_DEFERRAL_LINE =
   CAPABILITY_CONTRACT_PROOF_DEFERRAL_LINE;
+
+// --------------------------------------------------------
+// CapabilityArchitectureLintReport publication surfacing
+// (capability-architecture-lint-publications).
+//
+// Architecture-summary and agent-contract publishers
+// surface the latest `CapabilityArchitectureLintReport`
+// as read-only operator/agent visibility into
+// capability-aware placement-policy evaluation. They
+// never run `rekon capability lint architecture`, never
+// mutate the lint report, never mutate
+// `CapabilityContract`, `CapabilityMap`, `FindingReport`,
+// `FindingFilterReport`, `FindingLifecycleReport`, or
+// `CoherencyDelta`. The helper uses structural typing
+// (`CapabilityArchitectureLintReportLike` is a duck type,
+// not an import from `@rekon/kernel-repo-model`).
+//
+// Boundary statement carried verbatim from the lint
+// safety review:
+//   "CapabilityArchitectureLintReport is evaluation
+//    visibility only; this publication does not write
+//    findings, mutate lifecycle state, route resolvers,
+//    generate verification plans, or write source files."
+//
+// findingCandidate on violation rows is preview-only.
+// --------------------------------------------------------
+
+export type CapabilityArchitectureLintRowLike = {
+  id?: unknown;
+  contractId?: unknown;
+  phraseCapabilityId?: unknown;
+  rule?: unknown;
+  status?: "violation" | "pass" | "not-evaluated" | unknown;
+  severity?: "low" | "medium" | "high" | unknown;
+  confidence?: "low" | "medium" | "high" | unknown;
+  message?: unknown;
+  evidenceRefs?: ArtifactRef[];
+  findingCandidate?: {
+    title?: unknown;
+    category?: unknown;
+    severity?: "low" | "medium" | "high" | unknown;
+  };
+};
+
+export type CapabilityArchitectureLintSummaryLike = {
+  total?: unknown;
+  violations?: unknown;
+  passes?: unknown;
+  notEvaluated?: unknown;
+  byRule?: Record<string, unknown>;
+  bySeverity?: Record<string, unknown>;
+};
+
+export type CapabilityArchitectureLintSourceLike = {
+  capabilityContractRef?: ArtifactRef;
+  capabilityMapRef?: ArtifactRef;
+};
+
+export type CapabilityArchitectureLintReportLike = {
+  header?: ArtifactHeader;
+  source?: CapabilityArchitectureLintSourceLike;
+  summary?: CapabilityArchitectureLintSummaryLike;
+  rows?: CapabilityArchitectureLintRowLike[];
+};
+
+export type BuildCapabilityArchitectureLintPublicationSectionInput = {
+  /** Latest CapabilityArchitectureLintReport artifact.
+   *  Optional — callers should still invoke the helper
+   *  when absent; the helper emits no-report guidance in
+   *  that case so operators see what to run. */
+  report?: CapabilityArchitectureLintReportLike;
+  /** ArtifactRef for the lint report. Stamped into the
+   *  rendered "Report:" line and returned as `inputRef`. */
+  reportRef?: ArtifactRef;
+  /** 2 → architecture summary; 3 → agent contract. */
+  headingLevel?: 2 | 3;
+  /** Cap the rendered row table; default 20. */
+  tableLimit?: number;
+};
+
+export type BuildCapabilityArchitectureLintPublicationSectionResult = {
+  lines: string[];
+  /** Lint report ref the section is rendered against,
+   *  when discoverable. The producer is responsible for
+   *  citing this in `header.inputRefs`; the helper does
+   *  not mutate any header. */
+  inputRef?: ArtifactRef;
+};
+
+const DEFAULT_CAPABILITY_LINT_TABLE_LIMIT = 20;
+
+const CAPABILITY_LINT_BOUNDARY_LINE =
+  "CapabilityArchitectureLintReport is evaluation visibility only; this publication does not write findings, mutate lifecycle state, route resolvers, generate verification plans, or write source files.";
+
+const CAPABILITY_LINT_NO_REPORT_GUIDANCE =
+  "No `CapabilityArchitectureLintReport` found. Run `rekon capability lint architecture --json` after generating a `CapabilityContract`.";
+
+const CAPABILITY_LINT_PROOF_DEFERRAL_LINE =
+  "Proof-report surfacing of CapabilityArchitectureLintReport is deferred. CapabilityArchitectureLintReport is policy-evaluation context, not verification proof.";
+
+const CAPABILITY_LINT_EVALUATION_GUIDANCE =
+  "CapabilityArchitectureLintReport is evaluation, not enforcement. `violation` rows are policy-evaluation signals, not governed findings; `findingCandidate` is preview-only and writes no FindingReport. `not-evaluated` rows mean Rekon lacks deterministic context for that rule.";
+
+export function buildCapabilityArchitectureLintPublicationSection(
+  input: BuildCapabilityArchitectureLintPublicationSectionInput,
+): BuildCapabilityArchitectureLintPublicationSectionResult {
+  const { report, reportRef } = input;
+  const headingLevel = input.headingLevel ?? 2;
+  const heading = headingLevel === 2 ? "##" : "###";
+  const tableLimit = input.tableLimit ?? DEFAULT_CAPABILITY_LINT_TABLE_LIMIT;
+  const lines: string[] = [];
+
+  lines.push(`${heading} Capability Architecture Linting`);
+  lines.push("");
+
+  if (!report) {
+    lines.push(CAPABILITY_LINT_NO_REPORT_GUIDANCE);
+    lines.push("");
+    lines.push(CAPABILITY_LINT_EVALUATION_GUIDANCE);
+    lines.push("");
+    lines.push(CAPABILITY_LINT_BOUNDARY_LINE);
+    lines.push("");
+    return { lines };
+  }
+
+  const resolvedReportRef = reportRef
+    ?? pickCapabilityLintRefFromHeader(report.header);
+  const source = report.source ?? {};
+  const summary = report.summary ?? {};
+
+  if (resolvedReportRef) {
+    lines.push(`- Report: ${formatRef(resolvedReportRef)}`);
+  } else if (
+    report.header?.artifactType === "CapabilityArchitectureLintReport"
+    && typeof report.header?.artifactId === "string"
+  ) {
+    lines.push(
+      `- Report: ${report.header.artifactType}:${report.header.artifactId}`,
+    );
+  }
+  const capabilityContractRef = source.capabilityContractRef;
+  if (capabilityContractRef && typeof capabilityContractRef === "object") {
+    lines.push(`- Source CapabilityContract: ${formatRef(capabilityContractRef)}`);
+  }
+  const capabilityMapRef = source.capabilityMapRef;
+  if (capabilityMapRef && typeof capabilityMapRef === "object") {
+    lines.push(`- Source CapabilityMap: ${formatRef(capabilityMapRef)}`);
+  }
+
+  const total = readNonNegativeInteger(summary.total);
+  const violations = readNonNegativeInteger(summary.violations);
+  const passes = readNonNegativeInteger(summary.passes);
+  const notEvaluated = readNonNegativeInteger(summary.notEvaluated);
+
+  lines.push(
+    `- Rows: ${total}`
+    + ` (violations ${violations}, passes ${passes}, not-evaluated ${notEvaluated})`,
+  );
+  const byRule = formatCountRecord(summary.byRule);
+  if (byRule) {
+    lines.push(`- By rule: ${byRule}`);
+  }
+  const bySeverity = formatCountRecord(summary.bySeverity);
+  if (bySeverity) {
+    lines.push(`- By severity: ${bySeverity}`);
+  }
+  lines.push("");
+  lines.push(CAPABILITY_LINT_EVALUATION_GUIDANCE);
+  lines.push("");
+  lines.push(CAPABILITY_LINT_BOUNDARY_LINE);
+  lines.push("");
+
+  const rows = Array.isArray(report.rows) ? report.rows : [];
+  if (rows.length > 0) {
+    lines.push(
+      "| Status | Rule | Contract | Capability | Severity | Confidence | Message |",
+    );
+    lines.push("| --- | --- | --- | --- | --- | --- | --- |");
+    const bounded = rows.slice(0, tableLimit);
+    for (const row of bounded) {
+      const status = typeof row.status === "string" ? row.status : "-";
+      const rule = typeof row.rule === "string" ? row.rule : "-";
+      const contractId = typeof row.contractId === "string" ? row.contractId : "-";
+      const capability = typeof row.phraseCapabilityId === "string"
+        && row.phraseCapabilityId.length > 0
+        ? row.phraseCapabilityId
+        : "—";
+      const severity = typeof row.severity === "string" ? row.severity : "-";
+      const confidence = typeof row.confidence === "string" ? row.confidence : "-";
+      const message = typeof row.message === "string"
+        ? escapeTableCell(row.message)
+        : "—";
+      lines.push(
+        `| ${status} | ${rule} | ${contractId} | ${capability} | ${severity} | ${confidence} | ${message} |`,
+      );
+    }
+    if (rows.length > bounded.length) {
+      lines.push("");
+      lines.push(
+        `(${rows.length - bounded.length} additional lint row(s) omitted; inspect the artifact for full detail.)`,
+      );
+    }
+    lines.push("");
+  }
+
+  return { lines, inputRef: resolvedReportRef };
+}
+
+function pickCapabilityLintRefFromHeader(
+  header: ArtifactHeader | undefined,
+): ArtifactRef | undefined {
+  if (!header) return undefined;
+  if (header.artifactType !== "CapabilityArchitectureLintReport") return undefined;
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) return undefined;
+  const schemaVersion = typeof header.schemaVersion === "string" && header.schemaVersion.length > 0
+    ? header.schemaVersion
+    : "0.1.0";
+  return {
+    type: header.artifactType,
+    id: header.artifactId,
+    schemaVersion,
+  };
+}
+
+function formatCountRecord(record: Record<string, unknown> | undefined): string | undefined {
+  if (!record || typeof record !== "object") return undefined;
+  const parts: string[] = [];
+  for (const key of Object.keys(record).sort()) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+      parts.push(`${key} ${value}`);
+    }
+  }
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+export const CAPABILITY_ARCHITECTURE_LINT_PUBLICATION_BOUNDARY_LINE =
+  CAPABILITY_LINT_BOUNDARY_LINE;
+export const CAPABILITY_ARCHITECTURE_LINT_PUBLICATION_PROOF_DEFERRAL_LINE =
+  CAPABILITY_LINT_PROOF_DEFERRAL_LINE;

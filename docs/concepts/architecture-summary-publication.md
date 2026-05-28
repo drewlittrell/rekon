@@ -274,6 +274,37 @@ capability-aware architecture linting decision as
 the next slice (strategy / decision memo only; no
 implementation).
 
+The architecture summary also renders a **`##
+Capability Architecture Linting`** section sourced
+from the latest `CapabilityArchitectureLintReport`
+(**publication surfacing shipped, fortieth slice**).
+When no lint report exists, the section renders
+no-report guidance pointing operators at `rekon
+capability lint architecture --json`. When a report
+exists, the section surfaces the lint report ref,
+the source `CapabilityContract` + `CapabilityMap`
+refs, summary counts (`total` / `violations` /
+`passes` / `notEvaluated`), optional byRule /
+bySeverity lines, and a bounded lint-row table. The
+publisher **reads the latest
+`CapabilityArchitectureLintReport`** and cites it in
+`header.inputRefs`; it **never runs `rekon
+capability lint architecture`** and **never mutates
+the lint report, `CapabilityContract`,
+`CapabilityMap`, `FindingReport`,
+`FindingFilterReport`, `FindingLifecycleReport`, or
+`CoherencyDelta`**. The rendered surface is
+**evaluation visibility only**: `violation` rows are
+policy-evaluation signals, not governed findings, and
+`findingCandidate` stays **preview-only**.
+Proof-report surfacing of
+`CapabilityArchitectureLintReport` is **deferred** —
+it is policy-evaluation context, not verification
+proof. See
+[`CapabilityArchitectureLintReport` artifact](../artifacts/capability-architecture-lint-report.md)
+and
+[capability-aware architecture linting concept](capability-aware-architecture-linting.md).
+
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from
 the latest `CapabilityMap` when the v2 fields

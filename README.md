@@ -1103,6 +1103,49 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityArchitectureLintReport publication surfacing
+# has shipped. Fortieth slice on the
+# codebase-intel-classic capability-ontology track.
+# Product capability batch. The architecture summary and
+# agent contract publications now surface the latest
+# CapabilityArchitectureLintReport as read-only
+# visibility into capability placement-policy evaluation.
+#
+# Pinned verbatim:
+#   - CapabilityArchitectureLintReport is evaluation
+#     visibility only; this publication does not write
+#     findings, mutate lifecycle state, route resolvers,
+#     generate verification plans, or write source
+#     files.
+#   - findingCandidate is preview-only and writes no
+#     FindingReport.
+#   - Publications read the latest
+#     CapabilityArchitectureLintReport; they never run
+#     `rekon capability lint architecture`.
+#   - Publications never mutate FindingReport,
+#     FindingFilterReport, FindingLifecycleReport,
+#     CoherencyDelta, CapabilityContract, or
+#     CapabilityMap.
+#   - Surfacing does not imply resolver routing,
+#     verification planning, RefactorPreservationContract,
+#     or source writes.
+#   - Proof-report surfacing is deferred.
+#
+# New helper
+# buildCapabilityArchitectureLintPublicationSection in
+# @rekon/capability-docs. Architecture summary +
+# agent contract render a Capability Architecture Linting
+# section and cite the report in header.inputRefs. No new
+# artifact type. No new CLI command. No version bump. No
+# npm publish.
+#
+# Recommended next slice:
+# CapabilityArchitectureLintReport publication safety
+# review.
+#
+# See docs/artifacts/capability-architecture-lint-report.md
+# and docs/concepts/capability-aware-architecture-linting.md.
+#
 # CapabilityArchitectureLintReport safety review has
 # shipped. Thirty-ninth slice on the
 # codebase-intel-classic capability-ontology track.

@@ -40,6 +40,21 @@ writes ship in this slice.
 > bridge stays deferred to its own decision + safety
 > review pair.
 
+> **Status update (fortieth slice — shipped).**
+> `CapabilityArchitectureLintReport` **publication
+> surfacing** has shipped. The architecture summary and
+> agent contract render a read-only `Capability
+> Architecture Linting` section sourced from the latest
+> lint report. Surfacing is read-only visibility only:
+> no `FindingReport` write, no
+> `FindingFilterReport`/`FindingLifecycleReport`/
+> `CoherencyDelta` mutation, no resolver routing, no
+> verification planning, no source writes;
+> `findingCandidate` stays preview-only; proof-report
+> surfacing is deferred. Recommended next slice:
+> `CapabilityArchitectureLintReport` publication safety
+> review.
+
 ## Decision Summary
 
 **Select Option B: emit a separate

@@ -426,3 +426,37 @@ starting point. See
   safe / stable as read-only visibility and selects
   the capability-aware architecture linting decision
   as the next slice.
+- The architecture summary also renders a
+  **`## Capability Architecture Linting`** section
+  sourced from the latest
+  `CapabilityArchitectureLintReport` (**fortieth
+  slice** on the capability-ontology track). When a
+  report exists, the section surfaces the lint report
+  ref, the source `CapabilityContract` +
+  `CapabilityMap` refs, summary counts (`total` /
+  `violations` / `passes` / `notEvaluated`), optional
+  byRule / bySeverity lines, and a bounded lint-row
+  table (`| Status | Rule | Contract | Capability |
+  Severity | Confidence | Message |`, capped at 20
+  rows). When no report exists, the section renders
+  no-report guidance pointing operators at `rekon
+  capability lint architecture --json`. The latest
+  `CapabilityArchitectureLintReport` is cited in
+  `header.inputRefs` when present. The publisher
+  **reads** the latest report; it **never runs
+  `rekon capability lint architecture`** and **never
+  mutates** the lint report, `CapabilityContract`,
+  `CapabilityMap`, `FindingReport`,
+  `FindingFilterReport`, `FindingLifecycleReport`, or
+  `CoherencyDelta`. The rendered surface is
+  **evaluation visibility only**: `violation` rows
+  are policy-evaluation signals, not governed
+  findings; `findingCandidate` stays preview-only.
+  Proof-report surfacing of
+  `CapabilityArchitectureLintReport` is explicitly
+  **deferred**. See the
+  [`CapabilityArchitectureLintReport` artifact reference](capability-architecture-lint-report.md),
+  the
+  [capability-aware architecture linting concept](../concepts/capability-aware-architecture-linting.md),
+  and the
+  [`CapabilityArchitectureLintReport` safety review](../strategy/capability-architecture-lint-report-safety-review.md).

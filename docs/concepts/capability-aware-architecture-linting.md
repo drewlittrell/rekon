@@ -128,6 +128,42 @@ Default v1 policy:
 Operators can refine severity / confidence in a later
 slice; the schema reserves the dimensions.
 
+## Publication Surfacing
+
+The architecture summary and agent contract publications
+surface the latest `CapabilityArchitectureLintReport`
+(fortieth slice) as **read-only visibility**. Both
+publishers read the latest lint report, render a
+`Capability Architecture Linting` section with the
+summary counts and a bounded row table, and cite the
+report in `header.inputRefs`.
+
+The surfacing is strictly read-only and additive:
+
+- Publications **never** run
+  `rekon capability lint architecture`.
+- Publications **never** mutate the lint report,
+  `CapabilityContract`, `CapabilityMap`, `FindingReport`,
+  `FindingFilterReport`, `FindingLifecycleReport`, or
+  `CoherencyDelta`.
+- `violation` rows are surfaced as policy-evaluation
+  signals, not governed findings.
+- `findingCandidate` stays **preview-only**; no
+  `FindingReport` is written.
+- `not-evaluated` rows are surfaced so agents understand
+  Rekon lacks deterministic context for that rule rather
+  than inferring a pass.
+
+Surfacing does **not** imply resolver routing,
+verification planning, `RefactorPreservationContract`, or
+source writes — visibility is not enforcement.
+
+**Proof-report surfacing is deferred.** The proof-report
+publication does not surface
+`CapabilityArchitectureLintReport`, because the lint
+report is policy-evaluation context, not verification
+proof.
+
 ## Finding Bridge (Future)
 
 `violation` rows carry an optional `findingCandidate`

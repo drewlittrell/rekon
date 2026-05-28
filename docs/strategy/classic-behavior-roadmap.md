@@ -6256,6 +6256,43 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityArchitectureLintReport publication
+  surfacing (P1.1
+  capability-architecture-lint-publications slice).**
+  ✅ Shipped. **Fortieth slice on the
+  capability-ontology track.** Product capability batch.
+  The architecture summary and agent contract
+  publications surface the latest
+  `CapabilityArchitectureLintReport` as **read-only
+  visibility**. New
+  `buildCapabilityArchitectureLintPublicationSection`
+  helper in `@rekon/capability-docs` renders a
+  `Capability Architecture Linting` section (summary
+  counts + bounded lint-row table); both publishers cite
+  the report in `header.inputRefs` and render no-report
+  guidance when absent. New agent-contract "Do Not Do"
+  reminder. Manifest `consumes` gains
+  `CapabilityArchitectureLintReport`; new invalidation
+  rule `capability-architecture-lint.changed`. All
+  boundary statements pinned: evaluation visibility
+  only; does not write findings, mutate lifecycle state,
+  route resolvers, generate verification plans, or write
+  source files; `findingCandidate` preview-only;
+  publications never run `rekon capability lint
+  architecture` and never mutate `FindingReport`,
+  `FindingFilterReport`, `FindingLifecycleReport`,
+  `CoherencyDelta`, `CapabilityContract`, or
+  `CapabilityMap`; proof-report surfacing **deferred**.
+  20-assertion contract test
+  `tests/contract/capability-architecture-lint-publications.test.mjs`.
+  10-assertion docs test
+  `tests/docs/capability-architecture-lint-publications.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-publications.md`.
+  **No new artifact type. No new CLI command. No version
+  bump. No npm publish.** **Recommended next slice:**
+  *CapabilityArchitectureLintReport publication safety
+  review*.
 - **CapabilityArchitectureLintReport safety review
   (P1.1 capability-architecture-lint-report-safety-review
   slice).** ✅ Shipped. **Thirty-ninth slice on the

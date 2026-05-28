@@ -224,6 +224,20 @@ artifact.
   Re-evaluate only when a separate decision +
   safety-review pair defines a natural policy
   section for the proof report.
+- **Not a `CapabilityArchitectureLintReport`
+  surface.** Proof-report surfacing of
+  `CapabilityArchitectureLintReport` is **deferred**
+  (fortieth slice). The lint report is
+  policy-evaluation context (violation / pass /
+  not-evaluated rows), not verification proof. The
+  [architecture summary publication](architecture-summary-publication.md)
+  and
+  [agent contract publication](agent-contract-publication.md)
+  carry the read-only Capability Architecture Linting
+  section instead; `findingCandidate` stays
+  preview-only. Re-evaluate only when a separate
+  decision + safety-review pair defines a natural
+  evaluation section for the proof report.
 
 ## Issue Merge Decision Context
 

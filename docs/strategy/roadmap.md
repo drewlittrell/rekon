@@ -2640,6 +2640,37 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityArchitectureLintReport publication
+  surfacing (P1.1
+  capability-architecture-lint-publications slice):
+  **fortieth slice on the capability-ontology track.**
+  Product capability batch. The architecture summary
+  and agent contract publications now surface the
+  latest `CapabilityArchitectureLintReport` as
+  **read-only visibility** via a new
+  `buildCapabilityArchitectureLintPublicationSection`
+  helper in `@rekon/capability-docs`. Both publishers
+  render a `Capability Architecture Linting` section
+  (summary counts + bounded row table) and cite the
+  report in `header.inputRefs`; the agent contract
+  gains a matching "Do Not Do" reminder. Pinned
+  verbatim: evaluation visibility only; does not write
+  findings, mutate lifecycle state, route resolvers,
+  generate verification plans, or write source files;
+  `findingCandidate` preview-only; publications never
+  run `rekon capability lint architecture` and never
+  mutate `FindingReport` / `FindingFilterReport` /
+  `FindingLifecycleReport` / `CoherencyDelta` /
+  `CapabilityContract` / `CapabilityMap`; proof-report
+  surfacing deferred. Manifest `consumes` gains
+  `CapabilityArchitectureLintReport`; new invalidation
+  rule `capability-architecture-lint.changed`. 20-assertion
+  contract test + 10-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-architecture-lint-publications.md`.
+  **No new artifact type. No new CLI command. No version
+  bump. No npm publish.** Recommended next slice:
+  CapabilityArchitectureLintReport publication safety
+  review.
 - CapabilityArchitectureLintReport safety review
   (P1.1 capability-architecture-lint-report-safety-review
   slice): **thirty-ninth slice on the

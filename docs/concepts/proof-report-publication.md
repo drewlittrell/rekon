@@ -206,6 +206,22 @@ Rebuild with `rekon publish proof`.
   Re-evaluate only when a separate decision +
   safety-review pair defines a natural policy
   section for the proof report.
+- **Not a `CapabilityArchitectureLintReport`
+  surface.** Proof-report surfacing of
+  `CapabilityArchitectureLintReport` is **deferred**
+  (fortieth slice on the capability-ontology track).
+  The lint report is policy-evaluation context, not
+  verification proof — surfacing
+  violation / pass / not-evaluated rows in the proof
+  report would conflate policy evaluation with
+  verification proof. The
+  [architecture summary](architecture-summary-publication.md)
+  and [agent operating contract](agent-operating-contract.md)
+  carry the read-only Capability Architecture Linting
+  section instead. `findingCandidate` stays
+  preview-only. Re-evaluate only when a separate
+  decision + safety-review pair defines a natural
+  evaluation section for the proof report.
 
 ## Cross-References
 
