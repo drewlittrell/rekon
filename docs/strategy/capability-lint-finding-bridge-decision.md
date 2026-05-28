@@ -64,6 +64,15 @@ no `FindingReport` mutation, no lifecycle mutation, no
 > governed findings. The recommended next slice is now the
 > **`CapabilityLintFindingBridgeReport` safety review**.
 
+> **Update (forty-fourth slice):** the
+> [`CapabilityLintFindingBridgeReport` safety review](capability-lint-finding-bridge-report-safety-review.md)
+> has **shipped** and declared v1 **safe / stable as a preview
+> bridge artifact** (no blocker). The next slice is
+> **`CapabilityLintFindingBridgeReport` publication surfacing**
+> — read-only visibility in the architecture summary and agent
+> contract; it may surface the report but must not write
+> findings.
+
 ## Why This Decision Exists
 
 `CapabilityArchitectureLintReport` now produces and

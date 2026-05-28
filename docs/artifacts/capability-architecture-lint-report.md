@@ -230,6 +230,9 @@ downstream stages.
   classifies these lint rows as eligible / ineligible /
   needs-review for a future `FindingReport` writer. Preview,
   not `FindingReport`.
+- [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; declares the preview bridge safe /
+  stable and selects publication surfacing next.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting Safety Review (strategy)](../strategy/capability-architecture-lint-report-safety-review.md)
   — thirty-ninth slice; declares v1 safe / stable as a

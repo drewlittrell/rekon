@@ -117,6 +117,10 @@ written."**
 
 ## Cross-References
 
+- [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; declares the preview bridge **safe /
+  stable** and selects publication surfacing next (visibility
+  only, no finding writes).
 - [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

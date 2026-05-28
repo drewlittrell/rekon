@@ -564,5 +564,9 @@ during the filter step.
   bypass this filter chain**. Promotion of any eligible
   candidate requires a separate explicit writer decision and
   still flows through these filters.
+- [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; read-only review confirming the bridge
+  does not bypass this filter chain and declaring it safe /
+  stable.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -247,5 +247,9 @@ work order `stale` when a newer `CoherencyDelta` or
   creates no `WorkOrder` and no `VerificationPlan` and writes no
   `FindingReport`. Remediation work orders stay downstream of governed
   findings.
+- [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; read-only review confirming the bridge creates
+  no `WorkOrder` and no `VerificationPlan`, and declaring it safe /
+  stable.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

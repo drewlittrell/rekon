@@ -1103,6 +1103,49 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityLintFindingBridgeReport safety review has
+# shipped. Forty-fourth slice on the codebase-intel-classic
+# capability-ontology track. Strategy / safety-review batch.
+# Read-only end-to-end review of CapabilityLintFindingBridgeReport
+# v1 (shipped at 166e07a).
+#
+# Recommendation: CapabilityLintFindingBridgeReport v1 is
+# safe / stable as a preview bridge artifact. Reviewed the
+# type shape, factory, validator / schema, builder, CLI,
+# eligibility rules, duplicate handling, and deterministic
+# proposed finding id policy.
+#
+# Pinned verbatim:
+#   - CapabilityLintFindingBridgeReport is preview, not
+#     FindingReport.
+#   - No FindingReport entries are written in v1.
+#   - CapabilityLintFindingBridgeReport does not mutate
+#     FindingFilterReport, FindingLifecycleReport,
+#     IssueAdjudicationReport, or CoherencyDelta.
+#   - CapabilityLintFindingBridgeReport does not create
+#     WorkOrder or VerificationPlan.
+#   - Only a later explicit writer decision may allow
+#     eligible bridge candidates to become governed findings.
+#   - The next slice may surface
+#     CapabilityLintFindingBridgeReport in publications, but
+#     must not write findings.
+#
+# New strategy memo
+# docs/strategy/capability-lint-finding-bridge-report-safety-review.md
+# (13 headings + 4 tables). New 14-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/capability-lint-finding-bridge-report-safety-review.md.
+#
+# No runtime behavior changes. No source files under packages/
+# modified. No new artifact type. No new CLI command. No
+# FindingReport / FindingFilterReport / FindingLifecycleReport /
+# IssueAdjudicationReport / CoherencyDelta mutation. No
+# WorkOrder / VerificationPlan creation. No npm publish. No
+# version bump.
+#
+# Recommended next slice:
+# CapabilityLintFindingBridgeReport publication surfacing.
+#
 # CapabilityLintFindingBridgeReport v1 has shipped.
 # Forty-third slice on the codebase-intel-classic
 # capability-ontology track. Implements Option B of the

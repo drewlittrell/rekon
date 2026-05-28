@@ -190,3 +190,7 @@ model.
   `IssueAdjudicationReport`, `CoherencyDelta`). Only a later explicit
   writer decision may promote eligible candidates into governed findings,
   and they would still flow through this lifecycle downstream.
+- [docs/strategy/capability-lint-finding-bridge-report-safety-review.md](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; read-only review confirming the bridge mutates no
+  lifecycle state and declaring it safe / stable. The lifecycle stays
+  downstream of governed findings.

@@ -304,4 +304,8 @@ These are intentionally deferred. See
   `IssueAdjudicationReport`), and creates no `WorkOrder` /
   `VerificationPlan`. `CoherencyDelta` stays downstream of
   governed findings.
+- [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; read-only review confirming no
+  `CoherencyDelta` mutation and declaring the preview bridge
+  safe / stable.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

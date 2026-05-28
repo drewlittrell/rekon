@@ -106,4 +106,8 @@ slice** (preview-only; see the
 `FindingReport` writer decision may promote eligible bridge candidates
 into governed findings; even then they flow through the graph-aware
 finding filters, the status ledger, and adjudication like any other
-finding.
+finding. The
+[`CapabilityLintFindingBridgeReport` safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+(forty-fourth slice) confirmed this boundary holds and declared the
+preview bridge safe / stable; publication surfacing (visibility only,
+no finding writes) is the next slice.

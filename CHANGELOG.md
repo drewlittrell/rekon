@@ -4,6 +4,38 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityLintFindingBridgeReport safety review** —
+  forty-fourth slice on the codebase-intel-classic
+  capability-ontology track. Strategy / safety-review batch.
+  Read-only end-to-end review of `CapabilityLintFindingBridgeReport`
+  v1 (shipped at `166e07a`). **Recommendation:
+  `CapabilityLintFindingBridgeReport` v1 is safe / stable as a
+  preview bridge artifact.** Reviewed the artifact type shape,
+  factory, validator / assert / schema,
+  `buildCapabilityLintFindingBridgeReport` helper, the
+  `rekon capability lint bridge-findings` CLI, the eligibility
+  rules, duplicate handling, and the deterministic proposed
+  finding id policy. Pinned verbatim:
+  `CapabilityLintFindingBridgeReport` is preview, not
+  `FindingReport`; no `FindingReport` entries are written in v1;
+  it does not mutate `FindingFilterReport`,
+  `FindingLifecycleReport`, `IssueAdjudicationReport`, or
+  `CoherencyDelta`; it does not create `WorkOrder` or
+  `VerificationPlan`; only a later explicit writer decision may
+  allow eligible bridge candidates to become governed findings;
+  the next slice may surface `CapabilityLintFindingBridgeReport`
+  in publications, but must not write findings. New strategy memo
+  `docs/strategy/capability-lint-finding-bridge-report-safety-review.md`
+  (13 headings + 4 tables: surface / eligibility / boundary /
+  option). New 14-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-report-safety-review.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI command.
+  No FindingReport / FindingFilterReport / FindingLifecycleReport
+  / IssueAdjudicationReport / CoherencyDelta mutation. No
+  WorkOrder / VerificationPlan creation. No npm publish. No
+  version bump.** Recommended next slice:
+  CapabilityLintFindingBridgeReport publication surfacing.
 - Shipped **CapabilityLintFindingBridgeReport v1** —
   forty-third slice on the codebase-intel-classic
   capability-ontology track. Implements **Option B** of the

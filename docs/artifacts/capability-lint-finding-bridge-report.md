@@ -203,6 +203,14 @@ creates `WorkOrder` / `VerificationPlan`.
 
 ## Cross-References
 
+- [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; read-only review declaring v1 **safe /
+  stable as a preview bridge artifact**. Confirms the
+  preview-not-FindingReport boundary, strict eligibility,
+  deterministic duplicate handling + finding id, and zero
+  governance / WorkOrder / VerificationPlan mutation; selects
+  publication surfacing as the next slice (visibility only, no
+  finding writes).
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

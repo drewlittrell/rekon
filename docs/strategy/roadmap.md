@@ -2640,6 +2640,31 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityLintFindingBridgeReport safety review (P1.1
+  capability-lint-finding-bridge-report-safety-review slice):
+  **forty-fourth slice on the capability-ontology track.**
+  Strategy / safety-review batch. Read-only end-to-end review
+  of `CapabilityLintFindingBridgeReport` v1 (shipped at
+  `166e07a`). **Recommendation:
+  `CapabilityLintFindingBridgeReport` v1 is safe / stable as a
+  preview bridge artifact.** Reviewed the type shape, factory,
+  validator / schema, builder, CLI, eligibility rules,
+  duplicate handling, and deterministic proposed finding id
+  policy. Pinned verbatim: preview not `FindingReport`; no
+  `FindingReport` writes in v1; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` mutation; no `WorkOrder` / `VerificationPlan`
+  creation; only a later explicit writer decision may promote
+  candidates; the next slice may surface the report in
+  publications but must not write findings. New strategy memo
+  `docs/strategy/capability-lint-finding-bridge-report-safety-review.md`
+  (13 headings + 4 tables). New 14-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-report-safety-review.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No npm publish. No version bump.**
+  Recommended next slice: CapabilityLintFindingBridgeReport
+  publication surfacing.
 - CapabilityLintFindingBridgeReport v1 (P1.1
   capability-lint-finding-bridge-report slice):
   **forty-third slice on the capability-ontology track.**

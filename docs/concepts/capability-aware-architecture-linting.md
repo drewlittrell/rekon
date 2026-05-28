@@ -234,6 +234,9 @@ become governed findings.
 - [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
   — forty-third slice; the preview bridge that classifies
   these lint rows for a future `FindingReport` writer.
+- [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
+  — forty-fourth slice; declares the preview bridge safe /
+  stable and selects publication surfacing next.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [CapabilityContract artifact](../artifacts/capability-contract.md)
 - [CapabilityContracts concept](capability-contracts.md)
