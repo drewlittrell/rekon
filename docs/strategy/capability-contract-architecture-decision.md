@@ -597,7 +597,7 @@ contract.
 | 4 | `CapabilityContract` v1 safety review | ✅ Shipped (thirty-fourth slice). See [`CapabilityContract` v1 safety review](capability-contract-v1-safety-review.md). Declares v1 safe / stable as an artifact-backed policy layer; recommends publication surfacing as the next slice. |
 | 5 | `CapabilityContract` publication surfacing (architecture summary + agent contract; read-only; carries new `Do Not Do` reminders) | ✅ Shipped (thirty-fifth slice). See [publication-surfacing review packet](../../.rekon-dev/review-packets/capability-contract-publications.md). |
 | 6 | `CapabilityContract` publication safety review | ✅ Shipped (thirty-sixth slice). See [`CapabilityContract` publication safety review](capability-contract-publication-safety-review.md). Declares publication surfacing safe / stable as read-only visibility; recommends the capability-aware architecture linting decision as the next slice. |
-| 7 | Downstream consumer decision memos (architecture linting, resolver routing by capability, verification planning by capability, semantic impact analysis) — each its own decision + safety-review pair | gated on step 6 |
+| 7 | Downstream consumer decision memos (architecture linting, resolver routing by capability, verification planning by capability, semantic impact analysis) — each its own decision + safety-review pair | **In progress.** Capability-aware architecture linting decision ✅ Shipped (thirty-seventh slice) — see [Capability-Aware Architecture Linting Decision](capability-aware-architecture-linting-decision.md). Resolver routing, verification planning, and semantic impact analysis decisions remain pending. |
 | 8 | `RefactorPreservationContract` architecture decision | gated on step 7 |
 
 Parallel polish lane (independent of the contract
@@ -632,6 +632,11 @@ track):
   surfacing safe / stable as read-only visibility
   and recommends the capability-aware architecture
   linting decision as the next slice.
+- [Capability-Aware Architecture Linting Decision](capability-aware-architecture-linting-decision.md)
+  — thirty-seventh slice; selects Option B
+  (`CapabilityArchitectureLintReport` artifact) over
+  direct `FindingReport` emission; v1 scope is
+  placement rules (`allowed/forbidden Layers/Systems`).
 - [`CapabilityMap` artifact reference](../artifacts/capability-map.md)
 - [`CapabilityPhraseReport` artifact](../artifacts/capability-phrase-report.md)
 - [Capability Ontology concept](../concepts/capability-ontology.md)

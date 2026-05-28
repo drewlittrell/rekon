@@ -503,3 +503,14 @@ Recommendation: publication surfacing is safe /
 stable as read-only visibility; next slice is the
 capability-aware architecture linting decision
 (strategy / decision memo only; no implementation).
+
+**Update (thirty-seventh slice):** the
+capability-aware architecture linting decision has
+shipped — see
+[Capability-Aware Architecture Linting Decision](capability-aware-architecture-linting-decision.md).
+Recommendation: emit a separate
+`CapabilityArchitectureLintReport` artifact for v1
+placement-rule evaluation. No `FindingReport`
+emission, no resolver routing, no verification
+planning, no source writes ship in the decision
+slice. Implementation lands in the next slice.

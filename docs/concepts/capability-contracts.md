@@ -215,6 +215,15 @@ arriving as a surprise the moment the artifact ships.
   and recommends the capability-aware architecture
   linting decision as the next slice (strategy /
   decision memo only; no implementation).
+- [Capability-Aware Architecture Linting Decision](../strategy/capability-aware-architecture-linting-decision.md)
+  — thirty-seventh slice; the first decision memo
+  that crosses from policy *visibility* into policy
+  *evaluation*. Selects a separate
+  `CapabilityArchitectureLintReport` artifact for
+  v1; placement-rule scope; finding bridge,
+  remediation, routing, planning, and source
+  writes all remain deferred behind their own
+  decision + safety review pairs.
 - [`CapabilityMap` artifact reference](../artifacts/capability-map.md)
 - [`CapabilityPhraseReport` artifact reference](../artifacts/capability-phrase-report.md)
 - [Capability Ontology concept](capability-ontology.md)

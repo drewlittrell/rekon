@@ -4,6 +4,73 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **Capability-Aware Architecture Linting
+  Decision** — thirty-seventh slice on the
+  capability-ontology track. Strategy / architecture
+  decision memo only. **Recommendation: select
+  Option B — emit a separate
+  `CapabilityArchitectureLintReport` artifact from
+  `CapabilityContract` + `CapabilityMap` v2.** v1
+  scope (when the next slice ships): evaluate
+  `allowedLayers` / `forbiddenLayers` /
+  `allowedSystems` / `forbiddenSystems` over the
+  **configured** rows of the latest
+  `CapabilityContract`. `requiredChecks` may
+  optionally surface as `not-evaluated` /
+  `unverified` rows. `requiredNeighbors`,
+  `forbiddenNeighbors`, and `preservationRules`
+  evaluation is deferred. Five options evaluated;
+  Option B selected because it crosses into
+  evaluation without crossing into finding
+  emission, lifecycle mutation, remediation,
+  routing, verification, or source writes — each of
+  which deserves its own decision + safety review
+  pair.
+
+  Pinned verbatim:
+    - Capability-aware architecture linting is
+      evaluation, not source mutation.
+    - `CapabilityArchitectureLintReport` is not
+      `FindingReport` in v1.
+    - `CapabilityArchitectureLintReport` does not
+      mutate `FindingLifecycleReport` or
+      `CoherencyDelta`.
+    - `CapabilityArchitectureLintReport` does not
+      implement resolver routing or verification
+      planning.
+    - Only a later explicit bridge may promote lint
+      rows into governed findings.
+
+  Implementation sequence: (2)
+  `CapabilityArchitectureLintReport` v1 — register
+  artifact + helper + CLI; no `FindingReport`
+  mutation. (3) v1 safety review. (4) publication
+  surfacing. (5) publication safety review. (6)
+  lint row → `FindingReport` bridge decision memo.
+  (7) bridge implementation. (8) downstream
+  consumer decisions (`WorkOrder`,
+  `VerificationPlan`, resolver routing). (9)
+  `RefactorPreservationContract`.
+
+  New strategy memo
+  `docs/strategy/capability-aware-architecture-linting-decision.md`
+  with 12 required headings + 4 required tables
+  (option / scope / boundary / future bridge). New
+  15-assertion docs test
+  `tests/docs/capability-aware-architecture-linting-decision.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-aware-architecture-linting-decision.md`.
+  **No runtime behavior changes. No source files
+  under `packages/` modified. No artifact
+  validator, helper, or CLI command modified. No
+  publication surface modified. No FindingReport,
+  FindingLifecycleReport, or CoherencyDelta
+  mutation. No CapabilityMap mutation. No
+  CapabilityPhraseReport mutation. No
+  CapabilityContract mutation. No
+  `.rekon/capability-contracts.json` mutation. No
+  npm publish. No version bump.**
+
 - Shipped **CapabilityContract publication safety
   review** — thirty-sixth slice on the
   capability-ontology track. Strategy /

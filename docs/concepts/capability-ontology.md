@@ -47,8 +47,13 @@ The macro 5-layer boundary is:
    preservation layer. **v1 shipped (thirty-third
    slice); v1 safety review shipped (thirty-fourth
    slice); publication surfacing shipped
-   (thirty-fifth slice) — read-only visibility in
-   architecture summary + agent operating contract.** Operator config at
+   (thirty-fifth slice); publication safety review
+   shipped (thirty-sixth slice); capability-aware
+   architecture linting decision shipped
+   (thirty-seventh slice) — selects a separate
+   `CapabilityArchitectureLintReport` artifact for
+   future evaluation rather than emitting
+   `FindingReport` directly.** Operator config at
    `.rekon/capability-contracts.json` expresses policy;
    Rekon emits a `CapabilityContract` artifact citing the
    latest `CapabilityMap` v2. See the

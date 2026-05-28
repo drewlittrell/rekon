@@ -2640,6 +2640,56 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Capability-aware architecture linting
+  decision (P1.1
+  capability-aware-architecture-linting-decision
+  slice): **thirty-seventh slice on the
+  capability-ontology track.** Strategy /
+  architecture decision memo. **Recommendation:
+  select Option B — emit a separate
+  `CapabilityArchitectureLintReport` artifact**
+  from `CapabilityContract` + `CapabilityMap` v2,
+  rather than promoting straight to
+  `FindingReport`. v1 scope (next slice):
+  evaluate `allowedLayers` / `forbiddenLayers` /
+  `allowedSystems` / `forbiddenSystems` over
+  configured contract rows. `requiredChecks` may
+  optionally surface as `not-evaluated`.
+  `requiredNeighbors`, `forbiddenNeighbors`, and
+  `preservationRules` evaluation deferred. Pinned
+  verbatim: capability-aware architecture linting
+  is evaluation, not source mutation;
+  `CapabilityArchitectureLintReport` is not
+  `FindingReport` in v1; does not mutate
+  `FindingLifecycleReport` or `CoherencyDelta`;
+  does not implement resolver routing or
+  verification planning; only a later explicit
+  bridge may promote lint rows into governed
+  findings. Five options evaluated; Option B
+  selected. Implementation sequence: (2) lint
+  v1, (3) lint v1 safety review, (4) publication
+  surfacing, (5) publication safety review, (6)
+  finding-bridge decision memo, (7) finding-bridge
+  implementation, (8) downstream consumer
+  decisions, (9) `RefactorPreservationContract`.
+  New strategy memo
+  [`docs/strategy/capability-aware-architecture-linting-decision.md`](capability-aware-architecture-linting-decision.md)
+  with 12 required headings + 4 required tables
+  (option / scope / boundary / future bridge). New
+  15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-aware-architecture-linting-decision.md`.
+  **No implementation. No new artifact type
+  registered. No runtime behavior changes. No
+  FindingReport, FindingLifecycleReport, or
+  CoherencyDelta mutation. No CapabilityMap
+  mutation. No CapabilityContract mutation. No
+  `.rekon/capability-contracts.json` mutation. No
+  resolver routing. No verification planning. No
+  source writes. No npm publish. No version bump.**
+  **Recommended next slice:**
+  *`CapabilityArchitectureLintReport` v1
+  implementation* — register the artifact +
+  evaluation helper + CLI.
 - CapabilityContract publication safety review
   (P1.1 capability-contract-publication-safety-review
   slice): **thirty-sixth slice on the

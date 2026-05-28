@@ -251,3 +251,14 @@ These are intentionally deferred. See
 - [Classic wins](../strategy/classic-wins.md)
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+- [Capability-Aware Architecture Linting Decision](../strategy/capability-aware-architecture-linting-decision.md)
+  — thirty-seventh slice; commits Rekon to a future
+  `CapabilityArchitectureLintReport` artifact for
+  evaluating `CapabilityContract` placement rules.
+  **`CapabilityArchitectureLintReport` does not
+  mutate `CoherencyDelta`** — capability-policy
+  violations stay in their own artifact unless and
+  until an explicit future bridge decision promotes
+  selected rows through the finding lifecycle.
+  Until that bridge ships, `CoherencyDelta` does
+  **not** read `CapabilityArchitectureLintReport`.

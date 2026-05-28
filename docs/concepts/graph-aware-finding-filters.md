@@ -511,3 +511,16 @@ during the filter step.
 - [FindingFilterHealthReport artifact](../artifacts/finding-filter-health-report.md)
 - [Refresh pipeline](refresh.md)
 - [Beta readiness / remaining classic-parity review](../strategy/beta-readiness-classic-parity-review.md)
+- [Capability-Aware Architecture Linting Decision](../strategy/capability-aware-architecture-linting-decision.md)
+  — thirty-seventh slice; commits Rekon to a future
+  `CapabilityArchitectureLintReport` artifact that
+  evaluates `CapabilityContract` placement rules.
+  The decision pins that **the lint artifact is not
+  `FindingReport` in v1** and that **only a later
+  explicit bridge may promote lint rows into governed
+  findings** — when that bridge ships, the resulting
+  findings will flow through the existing finding
+  filter chain documented here (the filter chain is
+  not bypassed). Until the bridge decision lands, no
+  finding consumer reads
+  `CapabilityArchitectureLintReport`.

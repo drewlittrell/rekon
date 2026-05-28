@@ -1103,6 +1103,53 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Capability-aware architecture linting decision
+# has shipped. Thirty-seventh slice on the
+# capability-ontology track. Strategy /
+# architecture decision memo only.
+#
+# Recommendation: select Option B -- emit a
+# separate CapabilityArchitectureLintReport
+# artifact from CapabilityContract +
+# CapabilityMap v2, rather than promoting
+# straight to FindingReport.
+#
+# Pinned verbatim:
+#   - Capability-aware architecture linting is
+#     evaluation, not source mutation.
+#   - CapabilityArchitectureLintReport is not
+#     FindingReport in v1.
+#   - CapabilityArchitectureLintReport does not
+#     mutate FindingLifecycleReport or
+#     CoherencyDelta.
+#   - CapabilityArchitectureLintReport does not
+#     implement resolver routing or verification
+#     planning.
+#   - Only a later explicit bridge may promote
+#     lint rows into governed findings.
+#
+# V1 scope (next slice): allowedLayers /
+# forbiddenLayers / allowedSystems /
+# forbiddenSystems over configured contract rows.
+# requiredChecks may optionally surface as
+# not-evaluated. requiredNeighbors,
+# forbiddenNeighbors, and preservationRules
+# evaluation deferred.
+#
+# Recommended next slice:
+# CapabilityArchitectureLintReport v1 -- register
+# the artifact + evaluation helper + CLI. Still no
+# FindingReport, FindingLifecycleReport, or
+# CoherencyDelta mutation. Still no resolver
+# routing. Still no verification planning. Still
+# no source writes.
+#
+# No runtime behavior changes. No source files
+# under packages/ modified. No npm publish. No
+# version bump.
+#
+# See docs/strategy/capability-aware-architecture-linting-decision.md.
+#
 # CapabilityContract publication safety review has
 # shipped. Thirty-sixth slice on the
 # capability-ontology track. Strategy /

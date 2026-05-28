@@ -239,6 +239,15 @@ rekon capability contract generate \
   Selects the capability-aware architecture linting
   decision as the next slice (strategy / decision
   memo only; still no implementation).
+- [Capability-Aware Architecture Linting Decision](../strategy/capability-aware-architecture-linting-decision.md)
+  — thirty-seventh slice; selects Option B (emit a
+  separate `CapabilityArchitectureLintReport`
+  artifact rather than promoting straight to
+  `FindingReport`). v1 scope is placement rules
+  (`allowed/forbidden Layers/Systems`); neighbor
+  and preservation rules deferred. Lint output is
+  not `FindingReport`, not source mutation, not
+  resolver routing, not verification planning.
 - [`CapabilityMap` artifact](capability-map.md) — the
   projection layer this artifact consumes.
 - [`CapabilityPhraseReport` artifact](capability-phrase-report.md)

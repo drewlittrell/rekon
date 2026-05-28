@@ -423,3 +423,18 @@ visibility. Recommended next slice:
 resolver routing / verification planning / finding
 resolution / `RefactorPreservationContract` / source
 writes remain deferred).
+
+**Update (thirty-seventh slice):** the
+capability-aware architecture linting decision has
+shipped — see
+[Capability-Aware Architecture Linting Decision](capability-aware-architecture-linting-decision.md).
+Recommendation: select Option B — emit a separate
+`CapabilityArchitectureLintReport` artifact rather
+than promoting straight to `FindingReport`. v1 scope:
+placement rules (`allowedLayers` / `forbiddenLayers` /
+`allowedSystems` / `forbiddenSystems`) over
+configured `CapabilityContract` rows. Neighbor and
+preservation rules deferred. Finding bridge,
+remediation, routing, verification planning, source
+writes all remain gated on their own decision +
+safety review pairs.

@@ -308,6 +308,14 @@ for the rendered surfaces.
   read-only in the architecture summary + agent
   operating contract. Publications **never mutate**
   `CapabilityMap` and **never run** model projection.
+- [Capability-Aware Architecture Linting Decision](../strategy/capability-aware-architecture-linting-decision.md)
+  — thirty-seventh slice; commits Rekon to a
+  future `CapabilityArchitectureLintReport`
+  artifact that consumes `CapabilityMap` v2 +
+  `CapabilityContract`. Decision memo only — no
+  implementation. `CapabilityMap` v2 will be a
+  **read-only input** to the lint helper; the lint
+  artifact will **never mutate** `CapabilityMap`.
 - [Architecture summary publication](architecture-summary-publication.md)
   — surfaces the v2 phrase-backed projection as
   operator context.

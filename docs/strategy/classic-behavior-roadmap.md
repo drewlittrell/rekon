@@ -6256,6 +6256,39 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Capability-aware architecture linting
+  decision (P1.1
+  capability-aware-architecture-linting-decision
+  slice).** ✅ Shipped. **Thirty-seventh slice on
+  the capability-ontology track.** Strategy /
+  architecture decision memo. **Recommendation:
+  select Option B — emit a separate
+  `CapabilityArchitectureLintReport` artifact**
+  from `CapabilityContract` + `CapabilityMap` v2.
+  v1 scope (next slice): `allowedLayers` /
+  `forbiddenLayers` / `allowedSystems` /
+  `forbiddenSystems` over configured contract
+  rows. `requiredChecks` may optionally surface
+  as `not-evaluated`. Neighbor + preservation
+  rules deferred. All six required boundary
+  statements asserted (evaluation, not source
+  mutation; not `FindingReport`; does not mutate
+  lifecycle / `CoherencyDelta`; does not
+  implement resolver routing or verification
+  planning; only a later explicit bridge
+  promotes). Five options evaluated; Option B
+  selected. New strategy memo
+  [`docs/strategy/capability-aware-architecture-linting-decision.md`](capability-aware-architecture-linting-decision.md).
+  New 15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-aware-architecture-linting-decision.md`.
+  **No implementation. No runtime behavior
+  changes. No FindingReport,
+  FindingLifecycleReport, or CoherencyDelta
+  mutation. No CapabilityMap mutation. No
+  CapabilityContract mutation. No npm publish.
+  No version bump.** **Recommended next slice:**
+  *`CapabilityArchitectureLintReport` v1
+  implementation*.
 - **CapabilityContract publication safety review
   (P1.1 capability-contract-publication-safety-review
   slice).** ✅ Shipped. **Thirty-sixth slice on
