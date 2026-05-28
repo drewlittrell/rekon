@@ -418,6 +418,62 @@ The publication surfacing passed a
 (next slice: `CapabilityContract` architecture
 decision).
 
+## Capability Contracts
+
+The agent contract also renders a **`###
+Capability Contracts`** subsection sourced from
+the latest `CapabilityContract` (thirty-fifth
+slice on the capability-ontology track). The
+subsection sits inside the operating-state group,
+after `### CapabilityMap v2 Phrase-Backed
+Capabilities`, and surfaces:
+
+- the `CapabilityContract` ref;
+- the source `CapabilityMap` ref;
+- the optional config path
+  (`.rekon/capability-contracts.json`);
+- summary counts (`total` / `configured` /
+  `unmatched` / `suggested` /
+  `withRequiredChecks` / `withPlacementRules` /
+  `withPreservationRules`);
+- the boundary statement (*"CapabilityContract is
+  policy visibility only; this publication does
+  not enforce linting, routing, verification
+  planning, or source writes."*); and
+- a bounded contract table capped at 20 rows
+  (`| Status | Verb | Noun | Domain | Layer |
+  Checks | Rules |`).
+
+The agent contract's `## Do Not Do` list carries
+a verbatim reminder: *"Do not treat
+`CapabilityContract` publication surfacing as
+architecture linting, resolver routing,
+verification planning, finding resolution,
+`RefactorPreservationContract`, or source-write
+permission. The `CapabilityContract` section in
+this contract is policy visibility only;
+configured / unmatched rows are operator-authored
+policy records, not enforced behavior."*
+
+**Publications are read-only over
+`CapabilityContract`:** the agent contract
+publisher reads the latest `CapabilityContract`
+and never mutates `CapabilityContract`, never
+mutates `.rekon/capability-contracts.json`,
+never mutates `CapabilityMap`, never mutates
+`CapabilityPhraseReport`, never mutates
+`EvidenceGraph`, and never re-runs `rekon
+capability contract generate`. When no
+`CapabilityContract` exists, the subsection
+renders no-contract guidance pointing operators
+at `rekon capability contract generate --json`
+and still emits the boundary statement. Proof
+report surfacing of `CapabilityContract` is
+explicitly **deferred**. See the
+[`CapabilityContract` artifact reference](capability-contract.md)
+and the
+[`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md).
+
 ## Cross-References
 
 - [Agent contract concept](../concepts/agent-operating-contract.md)

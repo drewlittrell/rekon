@@ -221,6 +221,18 @@ rekon capability contract generate \
   — thirty-fourth slice; declares v1 safe / stable as
   an artifact-backed policy layer and recommends
   publication surfacing as the next slice.
+- [Architecture summary publication](architecture-summary-publication.md)
+  + [agent contract publication](agent-contract-publication.md)
+  — thirty-fifth slice surfaces `CapabilityContract`
+  as a **read-only Capability Contracts section** in
+  both publications. Visibility only — never runs
+  `rekon capability contract generate`, never mutates
+  the contract or `.rekon/capability-contracts.json`,
+  and does not imply linting, routing, verification
+  planning, source writes, or
+  `RefactorPreservationContract` behavior. Proof
+  report surfacing of `CapabilityContract` remains
+  **deferred**.
 - [`CapabilityMap` artifact](capability-map.md) — the
   projection layer this artifact consumes.
 - [`CapabilityPhraseReport` artifact](capability-phrase-report.md)

@@ -46,8 +46,9 @@ The macro 5-layer boundary is:
 5. `CapabilityContract` — policy / placement / proof /
    preservation layer. **v1 shipped (thirty-third
    slice); v1 safety review shipped (thirty-fourth
-   slice) — declares v1 safe / stable as an
-   artifact-backed policy layer.** Operator config at
+   slice); publication surfacing shipped
+   (thirty-fifth slice) — read-only visibility in
+   architecture summary + agent operating contract.** Operator config at
    `.rekon/capability-contracts.json` expresses policy;
    Rekon emits a `CapabilityContract` artifact citing the
    latest `CapabilityMap` v2. See the

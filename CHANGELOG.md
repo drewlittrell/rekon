@@ -4,6 +4,40 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityContract publication surfacing**
+  — thirty-fifth slice on the capability-ontology
+  track. The architecture-summary and
+  agent-operating-contract publishers now surface
+  the latest `CapabilityContract` as a read-only
+  **Capability Contracts** section. New pure helper
+  `buildCapabilityContractPublicationSection` in
+  `@rekon/capability-docs`. New `consumes:
+  CapabilityContract` declaration and
+  `capability-contract.changed` invalidation rule in
+  the publisher manifest. The agent contract carries
+  a new `Do Not Do` reminder: *"Do not treat
+  CapabilityContract publication surfacing as
+  architecture linting, resolver routing,
+  verification planning, finding resolution,
+  RefactorPreservationContract, or source-write
+  permission."* **Read-only:** publications never
+  run `rekon capability contract generate`, never
+  mutate `CapabilityContract`, never mutate
+  `.rekon/capability-contracts.json`, never mutate
+  `CapabilityMap`, `CapabilityPhraseReport`, or
+  `EvidenceGraph`, and never enforce policy. Proof
+  report surfacing remains explicitly deferred —
+  `CapabilityContract` is policy context, not
+  verification proof. New 19-assertion contract test
+  `tests/contract/capability-contract-publications.test.mjs`
+  + 11-assertion docs test
+  `tests/docs/capability-contract-publications.test.mjs`.
+  Review packet
+  `.rekon-dev/review-packets/capability-contract-publications.md`.
+  **No new permission. No new artifact type. No
+  CapabilityContract mutation. No config mutation.
+  No npm publish. No version bump.**
+
 - Shipped **CapabilityContract v1 safety review** —
   thirty-fourth slice on the capability-ontology
   track. Strategy / safety-review batch. Read-only

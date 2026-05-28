@@ -187,10 +187,23 @@ Rebuild with `rekon publish proof`.
   semantic projection with verification proof.
   The
   [publication safety review](../strategy/capability-map-v2-publication-safety-review.md)
-  re-confirms this deferral and recommends the
-  next slice be `CapabilityContract`
-  architecture decision rather than proof-report
-  surfacing.
+  re-confirms this deferral.
+- **Not a `CapabilityContract` surface.**
+  Proof-report surfacing of `CapabilityContract`
+  is **deferred** (thirty-fifth slice on the
+  capability-ontology track). `CapabilityContract`
+  is operator-authored policy context, not
+  verification proof — surfacing configured /
+  unmatched policy rows in the proof report would
+  conflate policy visibility with verification
+  proof. The
+  [architecture summary](architecture-summary-publication.md)
+  and [agent operating contract](agent-operating-contract.md)
+  carry the read-only Capability Contracts
+  section instead. Re-evaluate this deferral only
+  when a separate decision + safety-review pair
+  defines a natural policy section for the proof
+  report.
 
 ## Cross-References
 

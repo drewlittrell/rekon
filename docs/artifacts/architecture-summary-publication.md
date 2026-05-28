@@ -387,3 +387,36 @@ starting point. See
   [publication safety review](../strategy/capability-map-v2-publication-safety-review.md)
   (next slice: `CapabilityContract` architecture
   decision).
+- The architecture summary also renders a
+  **`## Capability Contracts`** section sourced
+  from the latest `CapabilityContract`
+  (thirty-fifth slice on the capability-ontology
+  track). When a `CapabilityContract` exists, the
+  section surfaces the contract ref, the source
+  `CapabilityMap` ref, the optional config path
+  (`.rekon/capability-contracts.json`), summary
+  counts (`total` / `configured` / `unmatched` /
+  `suggested` / `withRequiredChecks` /
+  `withPlacementRules` / `withPreservationRules`),
+  the boundary statement (*"CapabilityContract is
+  policy visibility only; this publication does
+  not enforce linting, routing, verification
+  planning, or source writes."*), and a bounded
+  contract table (`| Status | Verb | Noun |
+  Domain | Layer | Checks | Rules |`, capped at
+  20 rows). When no contract exists, the section
+  renders no-contract guidance pointing operators
+  at `rekon capability contract generate --json`.
+  The latest `CapabilityContract` is cited in
+  `header.inputRefs` when present. The publisher
+  **reads** the latest contract; it **never runs
+  `rekon capability contract generate`**, **never
+  mutates** `CapabilityContract`,
+  `.rekon/capability-contracts.json`,
+  `CapabilityMap`, `CapabilityPhraseReport`, or
+  `EvidenceGraph`. Proof-report surfacing of
+  `CapabilityContract` is explicitly **deferred**.
+  See the
+  [`CapabilityContract` artifact reference](capability-contract.md)
+  and the
+  [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md).

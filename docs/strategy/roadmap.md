@@ -2640,6 +2640,46 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityContract publication surfacing
+  (P1.1 capability-contract-publications
+  slice): **thirty-fifth slice on the
+  capability-ontology track.** Product
+  capability batch. Architecture summary +
+  agent contract publishers now render a
+  read-only **Capability Contracts** section
+  sourced from the latest `CapabilityContract`.
+  New pure helper
+  `buildCapabilityContractPublicationSection`
+  in `@rekon/capability-docs`. Publisher
+  manifest extended: `consumes:
+  CapabilityContract` + new
+  `capability-contract.changed` invalidation
+  rule. The agent contract carries a new
+  `Do Not Do` reminder: *"Do not treat
+  CapabilityContract publication surfacing as
+  architecture linting, resolver routing,
+  verification planning, finding resolution,
+  RefactorPreservationContract, or
+  source-write permission."* **Read-only:**
+  publications never run
+  `rekon capability contract generate`, never
+  mutate `CapabilityContract`, never mutate
+  `.rekon/capability-contracts.json`, never
+  mutate `CapabilityMap`,
+  `CapabilityPhraseReport`, or
+  `EvidenceGraph`, and never enforce policy.
+  Proof report surfacing remains explicitly
+  **deferred** — `CapabilityContract` is
+  policy context, not verification proof. New
+  19-assertion contract test + 11-assertion
+  docs test. Review packet
+  `.rekon-dev/review-packets/capability-contract-publications.md`.
+  **No new permission. No new artifact type.
+  No CapabilityContract mutation. No config
+  mutation. No npm publish. No version bump.**
+  **Recommended next slice:**
+  *CapabilityContract publication safety
+  review*.
 - CapabilityContract v1 safety review
   (P1.1 capability-contract-v1-safety-review
   slice): **thirty-fourth slice on the

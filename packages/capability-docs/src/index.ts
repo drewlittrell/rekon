@@ -485,6 +485,24 @@ export const architectureSummaryPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityPhraseRef);
     }
+    // CapabilityContract publication surfacing
+    // (capability-contract-publications). Strictly
+    // read-only: never runs `rekon capability contract
+    // generate`; never mutates `CapabilityContract`,
+    // `.rekon/capability-contracts.json`, `CapabilityMap`,
+    // `CapabilityPhraseReport`, or `EvidenceGraph`.
+    const capabilityContractRef = await latestRef(artifacts, "CapabilityContract");
+    const capabilityContract = capabilityContractRef
+      ? (await artifacts.read(capabilityContractRef)) as CapabilityContractLike
+      : undefined;
+    if (
+      capabilityContractRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityContractRef.type
+        && existing.id === capabilityContractRef.id)
+    ) {
+      inputRefs.push(capabilityContractRef);
+    }
     const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
@@ -523,6 +541,8 @@ export const architectureSummaryPublisher: Publisher = {
         ontologySuggestionRef,
         capabilityPhraseReport,
         capabilityPhraseRef,
+        capabilityContract,
+        capabilityContractRef,
         freshness,
         inputRefs,
         generatedAt,
@@ -903,6 +923,24 @@ export const agentContractPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityPhraseRef);
     }
+    // CapabilityContract publication surfacing
+    // (capability-contract-publications). Agent contract
+    // mirrors the architecture-summary publisher and
+    // surfaces configured/unmatched policy counts so
+    // agents see operator-authored policy alongside the
+    // projection layers above. Strictly read-only.
+    const capabilityContractRef = await latestRef(artifacts, "CapabilityContract");
+    const capabilityContract = capabilityContractRef
+      ? (await artifacts.read(capabilityContractRef)) as CapabilityContractLike
+      : undefined;
+    if (
+      capabilityContractRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityContractRef.type
+        && existing.id === capabilityContractRef.id)
+    ) {
+      inputRefs.push(capabilityContractRef);
+    }
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
       "MemorySelection",
@@ -949,6 +987,8 @@ export const agentContractPublisher: Publisher = {
         ontologySuggestionRef,
         capabilityPhraseReport,
         capabilityPhraseRef,
+        capabilityContract,
+        capabilityContractRef,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -989,6 +1029,7 @@ export default defineCapability({
       "PathFreshnessReport",
       "CapabilityOntologySuggestionReport",
       "CapabilityPhraseReport",
+      "CapabilityContract",
       "MemorySelection",
       "MemoryCurationReport",
     ],
@@ -1070,6 +1111,12 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary and agent contract when a new CapabilityPhraseReport is written so operators and agents see semantic purpose projection alongside repo state. Publications never run phrase projection automatically and never mutate CapabilityMap.",
         inputs: ["CapabilityPhraseReport"],
+      },
+      {
+        id: "capability-contract.changed",
+        description:
+          "Regenerate the architecture summary and agent contract when a new CapabilityContract is written so operators and agents see configured/unmatched policy rows alongside repo state. Publications never run `rekon capability contract generate` automatically, never mutate `.rekon/capability-contracts.json`, and never mutate CapabilityMap, CapabilityPhraseReport, or EvidenceGraph.",
+        inputs: ["CapabilityContract"],
       },
     ],
     compatibility: {
@@ -1436,6 +1483,8 @@ type ArchitectureSummaryInputs = {
   ontologySuggestionRef?: ArtifactRef;
   capabilityPhraseReport?: CapabilityPhraseReportLike;
   capabilityPhraseRef?: ArtifactRef;
+  capabilityContract?: CapabilityContractLike;
+  capabilityContractRef?: ArtifactRef;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -1790,6 +1839,22 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     pickCapabilityMapRefFromHeader(input.capabilityMap?.header),
     2,
   );
+  // CapabilityContract publication surfacing
+  // (capability-contract-publications). Read-only:
+  // surfaces the latest CapabilityContract so operators
+  // see configured/unmatched policy rows alongside the
+  // projection layers above. Never runs `rekon
+  // capability contract generate`, never mutates the
+  // contract, never mutates
+  // `.rekon/capability-contracts.json`, never mutates
+  // `CapabilityMap`, `CapabilityPhraseReport`, or
+  // `EvidenceGraph`.
+  renderCapabilityContractSection(
+    sections,
+    input.capabilityContract,
+    input.capabilityContractRef,
+    2,
+  );
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -2056,6 +2121,22 @@ function renderCapabilityMapV2Section(
   const block = buildCapabilityMapV2PublicationSection({
     capabilityMap,
     capabilityMapRef,
+    headingLevel,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
+function renderCapabilityContractSection(
+  sections: string[],
+  contract: CapabilityContractLike | undefined,
+  contractRef: ArtifactRef | undefined,
+  headingLevel: 2 | 3,
+): void {
+  const block = buildCapabilityContractPublicationSection({
+    contract,
+    contractRef,
     headingLevel,
   });
   for (const line of block.lines) {
@@ -2759,6 +2840,8 @@ type AgentContractInputs = {
   ontologySuggestionRef?: ArtifactRef;
   capabilityPhraseReport?: CapabilityPhraseReportLike;
   capabilityPhraseRef?: ArtifactRef;
+  capabilityContract?: CapabilityContractLike;
+  capabilityContractRef?: ArtifactRef;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -2805,6 +2888,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat CapabilityOntologySuggestionReport entries as applied ontology config; the report is preview-only and `.rekon/capability-ontology.json` is not mutated automatically. Operators must apply proposed changes manually.",
   "Do not treat CapabilityPhraseReport entries as CapabilityMap ownership or placement policy; CapabilityPhraseReport is semantic purpose projection and CapabilityNormalizationReport remains translation audit. The high-confidence subset projects into CapabilityMap.phraseBackedCapabilities (v2); CapabilityContract policy remains deferred.",
   "Do not treat CapabilityMap v2 phrase-backed capabilities as CapabilityContract policy, resolver routing authority, architecture lint findings, verification requirements, or source-write permission. CapabilityMap v2 phrase-backed capabilities are stable capability projection; they are not placement policy, ownership policy, or source-write authority.",
+  "Do not treat CapabilityContract publication surfacing as architecture linting, resolver routing, verification planning, finding resolution, RefactorPreservationContract, or source-write permission. The CapabilityContract section in this contract is policy visibility only; configured / unmatched rows are operator-authored policy records, not enforced behavior.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -3263,6 +3347,24 @@ function renderAgentContract(input: AgentContractInputs): string {
     sections,
     input.capabilityMap,
     pickCapabilityMapRefFromHeader(input.capabilityMap?.header),
+    3,
+  );
+
+  // CapabilityContract publication surfacing
+  // (capability-contract-publications). Heading level 3
+  // so the section sits inside the operating-state
+  // group. Always rendered (with no-contract guidance
+  // when empty) so agents see operator-authored policy
+  // alongside repo state. Strictly read-only — never
+  // runs `rekon capability contract generate`, never
+  // mutates the contract, never mutates
+  // `.rekon/capability-contracts.json`, never mutates
+  // CapabilityMap / CapabilityPhraseReport /
+  // EvidenceGraph, never implies enforcement.
+  renderCapabilityContractSection(
+    sections,
+    input.capabilityContract,
+    input.capabilityContractRef,
     3,
   );
 
@@ -7062,3 +7164,257 @@ function pickTopEntries(
   });
   return sorted.slice(0, limit);
 }
+
+// --------------------------------------------------------
+// CapabilityContract publication surfacing
+// (capability-contract-publications).
+//
+// Architecture-summary and agent-contract publishers
+// surface the latest `CapabilityContract` artifact as
+// read-only operator/agent visibility. They never
+// generate the contract, never mutate the artifact,
+// never mutate `.rekon/capability-contracts.json`,
+// never mutate `CapabilityMap`, never mutate
+// `CapabilityPhraseReport`, never mutate
+// `EvidenceGraph`. The helper uses structural typing
+// (`CapabilityContractLike` is a duck type, not an
+// import from `@rekon/kernel-repo-model`).
+//
+// Boundary statement carried verbatim from the v1
+// safety review:
+//   "CapabilityContract is policy visibility only;
+//    this publication does not enforce linting,
+//    routing, verification planning, or source
+//    writes."
+// --------------------------------------------------------
+
+export type CapabilityContractEntryLike = {
+  id?: unknown;
+  capabilityRef?: {
+    capabilityMapRef?: unknown;
+    phraseCapabilityId?: unknown;
+  };
+  match?: {
+    verb?: unknown;
+    noun?: unknown;
+    domain?: unknown;
+    pattern?: unknown;
+    layer?: unknown;
+  };
+  status?: unknown;
+  allowedLayers?: unknown;
+  forbiddenLayers?: unknown;
+  allowedSystems?: unknown;
+  forbiddenSystems?: unknown;
+  requiredChecks?: unknown;
+  requiredNeighbors?: unknown;
+  forbiddenNeighbors?: unknown;
+  preservationRules?: unknown;
+  messages?: unknown;
+};
+
+export type CapabilityContractSummaryLike = {
+  total?: unknown;
+  configured?: unknown;
+  suggested?: unknown;
+  unmatched?: unknown;
+  withRequiredChecks?: unknown;
+  withPlacementRules?: unknown;
+  withPreservationRules?: unknown;
+};
+
+export type CapabilityContractSourceLike = {
+  configPath?: unknown;
+  configHash?: unknown;
+  capabilityMapRef?: ArtifactRef;
+  phraseReportRef?: ArtifactRef;
+};
+
+export type CapabilityContractLike = {
+  header?: ArtifactHeader;
+  source?: CapabilityContractSourceLike;
+  summary?: CapabilityContractSummaryLike;
+  contracts?: CapabilityContractEntryLike[];
+};
+
+export type BuildCapabilityContractPublicationSectionInput = {
+  /** Latest CapabilityContract artifact. Optional —
+   *  callers should still invoke the helper when absent;
+   *  the helper emits no-contract guidance in that case
+   *  so operators see what to run. */
+  contract?: CapabilityContractLike;
+  /** ArtifactRef for the contract. Stamped into the
+   *  rendered "Contract:" line and returned as
+   *  `inputRef`. */
+  contractRef?: ArtifactRef;
+  /** 2 → architecture summary; 3 → agent contract. */
+  headingLevel?: 2 | 3;
+  /** Cap the rendered contract table; default 20. */
+  tableLimit?: number;
+};
+
+export type BuildCapabilityContractPublicationSectionResult = {
+  lines: string[];
+  /** Contract ref the section is rendered against,
+   *  when discoverable. The producer is responsible
+   *  for citing this in `header.inputRefs`; the
+   *  helper does not mutate any header. */
+  inputRef?: ArtifactRef;
+};
+
+const DEFAULT_CAPABILITY_CONTRACT_TABLE_LIMIT = 20;
+
+const CAPABILITY_CONTRACT_BOUNDARY_LINE =
+  "CapabilityContract is policy, not projection. CapabilityContract is policy visibility only; this publication does not enforce linting, routing, verification planning, or source writes.";
+
+const CAPABILITY_CONTRACT_NO_CONTRACT_GUIDANCE =
+  "No `CapabilityContract` found. Run `rekon capability contract generate --json` after `CapabilityMap` v2 is available.";
+
+const CAPABILITY_CONTRACT_PROOF_DEFERRAL_LINE =
+  "Proof-report surfacing of CapabilityContract is deferred. CapabilityContract is policy context, not verification proof.";
+
+export function buildCapabilityContractPublicationSection(
+  input: BuildCapabilityContractPublicationSectionInput,
+): BuildCapabilityContractPublicationSectionResult {
+  const { contract, contractRef } = input;
+  const headingLevel = input.headingLevel ?? 2;
+  const heading = headingLevel === 2 ? "##" : "###";
+  const tableLimit = input.tableLimit ?? DEFAULT_CAPABILITY_CONTRACT_TABLE_LIMIT;
+  const lines: string[] = [];
+
+  lines.push(`${heading} Capability Contracts`);
+  lines.push("");
+
+  if (!contract) {
+    lines.push(CAPABILITY_CONTRACT_NO_CONTRACT_GUIDANCE);
+    lines.push("");
+    lines.push(CAPABILITY_CONTRACT_BOUNDARY_LINE);
+    lines.push("");
+    return { lines };
+  }
+
+  const resolvedContractRef = contractRef ?? pickCapabilityContractRefFromHeader(contract.header);
+  const source = contract.source ?? {};
+  const summary = contract.summary ?? {};
+
+  if (resolvedContractRef) {
+    lines.push(`- Contract: ${formatRef(resolvedContractRef)}`);
+  } else if (
+    contract.header?.artifactType === "CapabilityContract"
+    && typeof contract.header?.artifactId === "string"
+  ) {
+    lines.push(`- Contract: ${contract.header.artifactType}:${contract.header.artifactId}`);
+  }
+  const capabilityMapRef = source.capabilityMapRef;
+  if (capabilityMapRef && typeof capabilityMapRef === "object") {
+    lines.push(`- Source CapabilityMap: ${formatRef(capabilityMapRef)}`);
+  }
+  const phraseReportRef = source.phraseReportRef;
+  if (phraseReportRef && typeof phraseReportRef === "object") {
+    lines.push(`- Source CapabilityPhraseReport: ${formatRef(phraseReportRef)}`);
+  }
+  if (typeof source.configPath === "string" && source.configPath.length > 0) {
+    lines.push(`- Config: \`${source.configPath}\``);
+  } else {
+    lines.push("- Config: (none — missing config is allowed)");
+  }
+
+  const total = readNonNegativeInteger(summary.total);
+  const configured = readNonNegativeInteger(summary.configured);
+  const suggested = readNonNegativeInteger(summary.suggested);
+  const unmatched = readNonNegativeInteger(summary.unmatched);
+  const withRequiredChecks = readNonNegativeInteger(summary.withRequiredChecks);
+  const withPlacementRules = readNonNegativeInteger(summary.withPlacementRules);
+  const withPreservationRules = readNonNegativeInteger(summary.withPreservationRules);
+
+  lines.push(
+    `- Rows: ${total}`
+    + ` (configured ${configured}, unmatched ${unmatched}, suggested ${suggested})`,
+  );
+  lines.push(
+    `- Policy: requiredChecks ${withRequiredChecks},`
+    + ` placement ${withPlacementRules},`
+    + ` preservation ${withPreservationRules}`,
+  );
+  lines.push("");
+  lines.push(CAPABILITY_CONTRACT_BOUNDARY_LINE);
+  lines.push("");
+
+  const contracts = Array.isArray(contract.contracts) ? contract.contracts : [];
+  if (contracts.length > 0) {
+    lines.push("| Status | Verb | Noun | Domain | Layer | Checks | Rules |");
+    lines.push("| --- | --- | --- | --- | --- | ---: | ---: |");
+    const bounded = contracts.slice(0, tableLimit);
+    for (const entry of bounded) {
+      const status = typeof entry.status === "string" ? entry.status : "-";
+      const verb = typeof entry.match?.verb === "string" ? entry.match.verb : "-";
+      const noun = typeof entry.match?.noun === "string" ? entry.match.noun : "-";
+      const domain = typeof entry.match?.domain === "string" ? entry.match.domain : "—";
+      const layer = typeof entry.match?.layer === "string" ? entry.match.layer : "—";
+      const checks = Array.isArray(entry.requiredChecks) ? entry.requiredChecks.length : 0;
+      const ruleCount = countPopulatedPolicyFields(entry);
+      lines.push(
+        `| ${status} | ${verb} | ${noun} | ${domain} | ${layer} | ${checks} | ${ruleCount} |`,
+      );
+    }
+    if (contracts.length > bounded.length) {
+      lines.push("");
+      lines.push(
+        `(${contracts.length - bounded.length} additional contract row(s) omitted; inspect the artifact for full detail.)`,
+      );
+    }
+    lines.push("");
+  }
+
+  return { lines, inputRef: resolvedContractRef };
+}
+
+function pickCapabilityContractRefFromHeader(
+  header: ArtifactHeader | undefined,
+): ArtifactRef | undefined {
+  if (!header) return undefined;
+  if (header.artifactType !== "CapabilityContract") return undefined;
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) return undefined;
+  const schemaVersion = typeof header.schemaVersion === "string" && header.schemaVersion.length > 0
+    ? header.schemaVersion
+    : "0.1.0";
+  return {
+    type: header.artifactType,
+    id: header.artifactId,
+    schemaVersion,
+  };
+}
+
+function readNonNegativeInteger(value: unknown): number {
+  if (typeof value !== "number") return 0;
+  if (!Number.isInteger(value)) return 0;
+  if (value < 0) return 0;
+  return value;
+}
+
+function countPopulatedPolicyFields(entry: CapabilityContractEntryLike): number {
+  let count = 0;
+  const stringArrayFields: Array<keyof CapabilityContractEntryLike> = [
+    "allowedLayers",
+    "forbiddenLayers",
+    "allowedSystems",
+    "forbiddenSystems",
+    "requiredChecks",
+    "preservationRules",
+    "messages",
+  ];
+  for (const field of stringArrayFields) {
+    const value = entry[field];
+    if (Array.isArray(value) && value.length > 0) count++;
+  }
+  for (const field of ["requiredNeighbors", "forbiddenNeighbors"] as const) {
+    const value = entry[field];
+    if (Array.isArray(value) && value.length > 0) count++;
+  }
+  return count;
+}
+
+export const CAPABILITY_CONTRACT_PUBLICATION_BOUNDARY_LINE =
+  CAPABILITY_CONTRACT_BOUNDARY_LINE;
+export const CAPABILITY_CONTRACT_PUBLICATION_PROOF_DEFERRAL_LINE =
+  CAPABILITY_CONTRACT_PROOF_DEFERRAL_LINE;

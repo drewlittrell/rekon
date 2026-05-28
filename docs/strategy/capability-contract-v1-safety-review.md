@@ -486,3 +486,11 @@ safe / stable. Recommended next slice:
 `CapabilityContract` publication surfacing
 (architecture summary + agent contract; read-only;
 boundary statement verbatim).
+
+**Update (thirty-fifth slice):** the recommended
+next slice — `CapabilityContract` publication
+surfacing — has shipped. Architecture summary +
+agent contract publishers now render a read-only
+**Capability Contracts** section. Proof report
+surfacing remains deferred. See the new
+[publication-surfacing review packet](../../.rekon-dev/review-packets/capability-contract-publications.md).

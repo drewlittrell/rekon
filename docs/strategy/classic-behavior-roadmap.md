@@ -6256,6 +6256,43 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityContract publication surfacing
+  (P1.1 capability-contract-publications
+  slice).** ✅ Shipped. **Thirty-fifth slice
+  on the capability-ontology track.** Product
+  capability batch. Architecture summary +
+  agent contract publishers now render a
+  read-only **Capability Contracts** section
+  sourced from the latest `CapabilityContract`.
+  New pure helper
+  `buildCapabilityContractPublicationSection`
+  in `@rekon/capability-docs`. Publisher
+  manifest extended: `consumes:
+  CapabilityContract` + new
+  `capability-contract.changed` invalidation
+  rule. New `Do Not Do` reminder: *"Do not
+  treat CapabilityContract publication
+  surfacing as architecture linting, resolver
+  routing, verification planning, finding
+  resolution, RefactorPreservationContract,
+  or source-write permission."* **Read-only:**
+  publications never run `rekon capability
+  contract generate`, never mutate the
+  contract or
+  `.rekon/capability-contracts.json`, never
+  mutate `CapabilityMap`,
+  `CapabilityPhraseReport`, or
+  `EvidenceGraph`, and never enforce policy.
+  Proof report surfacing remains explicitly
+  **deferred**. New 19-assertion contract
+  test + 11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-contract-publications.md`.
+  **No new permission. No new artifact type.
+  No CapabilityContract mutation. No config
+  mutation. No npm publish. No version bump.**
+  **Recommended next slice:**
+  *CapabilityContract publication safety
+  review.*
 - **CapabilityContract v1 safety review
   (P1.1 capability-contract-v1-safety-review
   slice).** ✅ Shipped. **Thirty-fourth

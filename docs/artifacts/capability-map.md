@@ -303,6 +303,11 @@ for the rendered surfaces.
   — thirty-fourth slice; declares the policy layer
   safe / stable as a read-only artifact and pins
   again that `CapabilityMap` v2 remains projection.
+- [CapabilityContract publication surfacing](../concepts/architecture-summary-publication.md)
+  — thirty-fifth slice; surfaces `CapabilityContract`
+  read-only in the architecture summary + agent
+  operating contract. Publications **never mutate**
+  `CapabilityMap` and **never run** model projection.
 - [Architecture summary publication](architecture-summary-publication.md)
   — surfaces the v2 phrase-backed projection as
   operator context.

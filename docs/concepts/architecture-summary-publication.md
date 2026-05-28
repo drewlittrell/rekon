@@ -222,17 +222,48 @@ has shipped, its v1 implementation has shipped
 [`CapabilityContract` artifact reference](../artifacts/capability-contract.md)
 and the
 [`CapabilityContract` concept doc](capability-contracts.md)),
-and its v1 safety review has shipped
+its v1 safety review has shipped
 (thirty-fourth slice — see
-[`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)).
-The v1 safety review **declares v1 safe / stable
-as an artifact-backed policy layer and selects
-publication surfacing as the next slice**.
-Architecture-summary surfacing of
-`CapabilityContract` is still not yet in scope —
-the publication slice is the immediate next one
-and will land read-only visibility only (no
-enforcement consumer ships alongside it).
+[`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md)),
+and its **publication surfacing has shipped
+(thirty-fifth slice)**.
+
+The architecture summary now renders a **`##
+Capability Contracts`** section sourced from the
+latest `CapabilityContract`. When no contract
+exists, the section renders no-contract guidance
+that points operators at `rekon capability contract
+generate --json`. When a contract exists, the
+section surfaces the contract ref, the source
+`CapabilityMap` ref, the optional config path
+(`.rekon/capability-contracts.json`), summary
+counts (`total` / `configured` / `unmatched` /
+`suggested` / `withRequiredChecks` /
+`withPlacementRules` / `withPreservationRules`),
+the boundary statement (*"CapabilityContract is
+policy visibility only; this publication does not
+enforce linting, routing, verification planning, or
+source writes."*), and a bounded contract table.
+
+The architecture-summary publisher **reads the
+latest `CapabilityContract`** and cites it in
+`header.inputRefs` when present. It **never runs
+`rekon capability contract generate`**, **never
+mutates `CapabilityContract`**, **never mutates
+`.rekon/capability-contracts.json`**, and **never
+mutates `CapabilityMap`,
+`CapabilityPhraseReport`, or `EvidenceGraph`**.
+Surfacing is **visibility only**: it does not
+enforce architecture linting, resolver routing,
+verification planning, source writes, or finding
+resolution.
+
+Proof-report surfacing of `CapabilityContract`
+remains explicitly **deferred**.
+`CapabilityContract` is policy context, not
+verification proof; the proof-report publisher
+continues to render only verification-proof
+context.
 
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from

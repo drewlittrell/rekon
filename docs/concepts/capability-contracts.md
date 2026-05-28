@@ -197,6 +197,18 @@ arriving as a surprise the moment the artifact ships.
   — thirty-fourth slice; declares v1 safe / stable
   and selects publication surfacing as the next
   slice.
+- [Architecture summary publication](architecture-summary-publication.md)
+  + [agent operating contract](agent-operating-contract.md)
+  — thirty-fifth slice surfaces `CapabilityContract`
+  as a **read-only Capability Contracts section** in
+  both publications. Publications **read the latest
+  `CapabilityContract`**; they **never generate** it
+  and **never mutate `.rekon/capability-contracts.json`**.
+  Surfacing is visibility only and does not enforce
+  architecture linting, resolver routing,
+  verification planning, source writes, or finding
+  resolution. Proof report surfacing of
+  `CapabilityContract` remains **deferred**.
 - [`CapabilityMap` artifact reference](../artifacts/capability-map.md)
 - [`CapabilityPhraseReport` artifact reference](../artifacts/capability-phrase-report.md)
 - [Capability Ontology concept](capability-ontology.md)

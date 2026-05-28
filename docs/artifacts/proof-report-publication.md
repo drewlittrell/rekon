@@ -206,6 +206,21 @@ artifact.
   [`CapabilityMap` artifact reference](capability-map.md)
   and reaffirmed by the
   [publication safety review](../strategy/capability-map-v2-publication-safety-review.md).
+- **Not a `CapabilityContract` surface.**
+  Proof-report surfacing of `CapabilityContract`
+  is **deferred** (thirty-fifth slice on the
+  capability-ontology track). `CapabilityContract`
+  is operator-authored policy context (`configured`
+  / `unmatched` rows over the latest
+  `CapabilityMap` v2), not verification proof.
+  The
+  [architecture summary publication](architecture-summary-publication.md)
+  and
+  [agent contract publication](agent-contract-publication.md)
+  carry the read-only Capability Contracts section
+  instead. Re-evaluate this deferral only when a
+  separate decision + safety-review pair defines a
+  natural policy section for the proof report.
 
 ## Issue Merge Decision Context
 

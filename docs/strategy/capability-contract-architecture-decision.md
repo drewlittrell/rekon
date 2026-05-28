@@ -595,7 +595,7 @@ contract.
 | 2 | **`CapabilityContract` Architecture Decision (this memo)** | ✅ Shipped (thirty-second slice) |
 | 3 | `CapabilityContract` v1 implementation — register the artifact type in `@rekon/kernel-repo-model` + SDK + runtime; add producer that reads `.rekon/capability-contracts.json` (when present) and the latest `CapabilityMap` v2 and emits the effective contract artifact. Emits `configured` + `unmatched` rows only. No publication surfacing yet. | ✅ Shipped (thirty-third slice). See [`CapabilityContract` artifact reference](../artifacts/capability-contract.md). |
 | 4 | `CapabilityContract` v1 safety review | ✅ Shipped (thirty-fourth slice). See [`CapabilityContract` v1 safety review](capability-contract-v1-safety-review.md). Declares v1 safe / stable as an artifact-backed policy layer; recommends publication surfacing as the next slice. |
-| 5 | `CapabilityContract` publication surfacing (architecture summary + agent contract; read-only; carries new `Do Not Do` reminders) | gated on step 4 |
+| 5 | `CapabilityContract` publication surfacing (architecture summary + agent contract; read-only; carries new `Do Not Do` reminders) | ✅ Shipped (thirty-fifth slice). See [publication-surfacing review packet](../../.rekon-dev/review-packets/capability-contract-publications.md). |
 | 6 | `CapabilityContract` publication safety review | gated on step 5 |
 | 7 | Downstream consumer decision memos (architecture linting, resolver routing by capability, verification planning by capability, semantic impact analysis) — each its own decision + safety-review pair | gated on step 6 |
 | 8 | `RefactorPreservationContract` architecture decision | gated on step 7 |
