@@ -183,3 +183,10 @@ model.
   `CapabilityLintFindingBridgeReport` preview artifact before any
   `FindingReport` writer. The lifecycle stays **downstream** of governed
   findings; the bridge report mutates no lifecycle state.
+- [docs/artifacts/capability-lint-finding-bridge-report.md](../artifacts/capability-lint-finding-bridge-report.md)
+  — forty-third slice; the `CapabilityLintFindingBridgeReport` preview
+  artifact shipped. It **does not write `FindingReport`** and **does not
+  mutate `FindingLifecycleReport`** (or `FindingFilterReport`,
+  `IssueAdjudicationReport`, `CoherencyDelta`). Only a later explicit
+  writer decision may promote eligible candidates into governed findings,
+  and they would still flow through this lifecycle downstream.

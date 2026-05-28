@@ -34,6 +34,13 @@ export {
   buildCapabilityArchitectureLintReport,
 } from "./capability-architecture-lint.js";
 
+export {
+  type BuildCapabilityLintFindingBridgeReportInput,
+  CAPABILITY_LINT_FINDING_BRIDGE_ARTIFACT_ID_PREFIX,
+  CAPABILITY_LINT_FINDING_BRIDGE_FINDING_ID_PREFIX,
+  buildCapabilityLintFindingBridgeReport,
+} from "./capability-lint-finding-bridge.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

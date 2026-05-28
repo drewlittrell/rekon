@@ -4,6 +4,32 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityLintFindingBridgeReport v1** —
+  forty-third slice on the codebase-intel-classic
+  capability-ontology track. Implements **Option B** of the
+  `CapabilityArchitectureLintReport` → `FindingReport` bridge
+  decision: a **preview** bridge artifact that classifies each
+  `CapabilityArchitectureLintReport` row as `eligible` /
+  `ineligible` / `needs-review` for a future `FindingReport`
+  writer and attaches a deterministic, slug-safe proposed
+  finding id
+  (`capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>`)
+  to eligible rows. New artifact type
+  `CapabilityLintFindingBridgeReport` (schemaVersion 0.1.0,
+  stability experimental), registered in `@rekon/sdk` and the
+  `@rekon/runtime` artifact category map (under `actions`). New
+  helper `buildCapabilityLintFindingBridgeReport` in
+  `@rekon/capability-model`. New CLI command
+  `rekon capability lint bridge-findings [--lint-report <ref>]
+  [--root <path>] [--json]`. **CapabilityLintFindingBridgeReport
+  is preview, not FindingReport.** The bridge **does not write
+  FindingReport**, does not mutate `FindingFilterReport`,
+  `FindingLifecycleReport`, `IssueAdjudicationReport`, or
+  `CoherencyDelta`, and creates no `WorkOrder` and no
+  `VerificationPlan`. **Only a later explicit writer decision
+  may allow eligible bridge candidates to become governed
+  findings.** No source writes, no LLM inference, no version
+  bump.
 - Shipped **CapabilityArchitectureLintReport →
   FindingReport bridge decision** — forty-second slice on
   the codebase-intel-classic capability-ontology track.

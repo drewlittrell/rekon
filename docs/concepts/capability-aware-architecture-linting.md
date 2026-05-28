@@ -174,7 +174,7 @@ surfacing remains deferred. The next slice is the
 `CapabilityArchitectureLintReport` → `FindingReport`
 bridge decision.
 
-## Finding Bridge (Future)
+## Finding Bridge
 
 `violation` rows carry an optional `findingCandidate`
 preview:
@@ -190,13 +190,17 @@ preview:
 This is **preview** payload only. The
 [`CapabilityArchitectureLintReport` → `FindingReport`
 bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
-(forty-second slice) selects **Option B**: a future
-bridge slice introduces an intermediate
-`CapabilityLintFindingBridgeReport` **preview** artifact
-that classifies eligible `violation` rows
+(forty-second slice) selected **Option B**: an
+intermediate
+[`CapabilityLintFindingBridgeReport`](../artifacts/capability-lint-finding-bridge-report.md)
+**preview** artifact classifies eligible `violation` rows
 (status `violation` + `findingCandidate` + confidence
 high/medium + severity high/medium + `evidenceRefs`)
-before any `FindingReport` writer exists. That bridge:
+before any `FindingReport` writer exists. That bridge
+report **shipped in the forty-third slice** (preview-only;
+see the
+[capability lint finding bridge concept](capability-lint-finding-bridge.md)).
+It:
 
 - Decides if/when lint rows promote into governed
   findings — via a separate explicit writer decision,
@@ -211,10 +215,12 @@ before any `FindingReport` writer exists. That bridge:
   evaluation source of truth, not a mutable derivative
   of `FindingReport`.
 
-Until that bridge ships, `CapabilityArchitectureLintReport`
-remains a standalone evaluation artifact, and even the
-bridge report itself writes no `FindingReport` and
-mutates no governance artifact.
+The bridge report **does not write `FindingReport`**, does
+not mutate `FindingFilterReport`, `FindingLifecycleReport`,
+`IssueAdjudicationReport`, or `CoherencyDelta`, and creates
+no `WorkOrder` / `VerificationPlan`. Only a later explicit
+writer decision may allow eligible bridge candidates to
+become governed findings.
 
 ## Cross-References
 
@@ -225,6 +231,10 @@ mutates no governance artifact.
   mutation; selects publication surfacing as the next
   slice.
 - [CapabilityArchitectureLintReport artifact](../artifacts/capability-architecture-lint-report.md)
+- [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
+  — forty-third slice; the preview bridge that classifies
+  these lint rows for a future `FindingReport` writer.
+- [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [CapabilityContract artifact](../artifacts/capability-contract.md)
 - [CapabilityContracts concept](capability-contracts.md)
 - [CapabilityMap artifact](../artifacts/capability-map.md)

@@ -6256,6 +6256,35 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityLintFindingBridgeReport v1 (P1.1
+  capability-lint-finding-bridge-report slice).**
+  ✅ Shipped. **Forty-third slice on the
+  capability-ontology track.** Implements Option B of the
+  bridge decision — a **preview** bridge artifact
+  (`CapabilityLintFindingBridgeReport`, schemaVersion 0.1.0,
+  experimental; runtime category `actions`) that classifies
+  each `CapabilityArchitectureLintReport` row as eligible /
+  ineligible / needs-review for a future `FindingReport`
+  writer, with a deterministic slug-safe proposed finding id
+  (`capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>`)
+  and duplicate-id collisions flipped to needs-review. New
+  helper `buildCapabilityLintFindingBridgeReport`
+  (`@rekon/capability-model`); new CLI command
+  `rekon capability lint bridge-findings [--lint-report <ref>]`;
+  registered in `@rekon/sdk` + `@rekon/runtime`. New artifact
+  doc `docs/artifacts/capability-lint-finding-bridge-report.md`
+  + concept `docs/concepts/capability-lint-finding-bridge.md`,
+  24-assertion contract test + 9-assertion docs test, review
+  packet `capability-lint-finding-bridge-report-v1.md`.
+  **CapabilityLintFindingBridgeReport is preview, not
+  FindingReport: the bridge does not write FindingReport,
+  does not mutate FindingFilterReport / FindingLifecycleReport
+  / IssueAdjudicationReport / CoherencyDelta, and creates no
+  WorkOrder / VerificationPlan. Only a later explicit writer
+  decision may allow eligible bridge candidates to become
+  governed findings. No source writes. No npm publish. No
+  version bump.** **Recommended next slice:**
+  *CapabilityLintFindingBridgeReport safety review*.
 - **CapabilityArchitectureLintReport → FindingReport
   bridge decision (P1.1
   capability-lint-finding-bridge-decision slice).**

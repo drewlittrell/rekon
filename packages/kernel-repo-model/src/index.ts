@@ -369,6 +369,113 @@ export type CapabilityArchitectureLintReport = {
   rows: CapabilityArchitectureLintRow[];
 };
 
+// ---------------------------------------------------------------------------
+// CapabilityLintFindingBridgeReport
+// ---------------------------------------------------------------------------
+//
+// A **preview** bridge artifact between
+// `CapabilityArchitectureLintReport` (policy evaluation) and
+// the governed-findings pipeline. It classifies each lint row
+// as `eligible` / `ineligible` / `needs-review` for a future
+// `FindingReport` writer, and attaches a deterministic
+// `proposedFinding` ref to rows that could become governed
+// findings later.
+//
+// **Boundary.** This artifact is preview, **not**
+// `FindingReport`. Building or writing a
+// `CapabilityLintFindingBridgeReport` does **not** write
+// `FindingReport`, and does **not** mutate
+// `FindingFilterReport`, `FindingLifecycleReport`,
+// `IssueAdjudicationReport`, or `CoherencyDelta`. It creates
+// no `WorkOrder` and no `VerificationPlan`. Only a separate,
+// explicit `FindingReport` writer decision may promote
+// eligible candidates into governed findings — and even then
+// they flow through the finding filter chain, the status
+// ledger, and adjudication like any other finding.
+//
+// See:
+// - docs/strategy/capability-lint-finding-bridge-decision.md
+// - docs/concepts/capability-lint-finding-bridge.md
+// - docs/artifacts/capability-lint-finding-bridge-report.md
+
+export type CapabilityLintFindingBridgeDecision =
+  | "eligible"
+  | "ineligible"
+  | "needs-review";
+
+export type CapabilityLintFindingBridgeReason =
+  | "violation-with-finding-candidate"
+  | "not-a-violation"
+  | "missing-finding-candidate"
+  | "low-confidence"
+  | "low-severity"
+  | "not-evaluated"
+  | "duplicate-candidate"
+  | "missing-evidence"
+  | "manual-review-required";
+
+/** Citation back to the originating lint row plus the report
+ *  that produced it. */
+export type CapabilityLintFindingBridgeSourceLintRowRef = {
+  report: ArtifactRef;
+  rowId: string;
+};
+
+/** Preview-only proposed finding. This is **not** a
+ *  `FindingReport` entry — it describes what a future
+ *  `FindingReport` writer *could* emit for an eligible row. */
+export type CapabilityLintFindingBridgeFindingRef = {
+  /** Deterministic, slug-safe finding id; stable across runs.
+   *  Shape: `capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>`. */
+  id: string;
+  title: string;
+  category: string;
+  severity: CapabilityArchitectureLintSeverity;
+  evidenceRefs: ArtifactRef[];
+  sourceLintRowRef: CapabilityLintFindingBridgeSourceLintRowRef;
+};
+
+export type CapabilityLintFindingBridgeCandidate = {
+  /** Deterministic identifier; equals the source lint row id,
+   *  which is unique within a lint report. */
+  id: string;
+  /** Citation back to the source lint row. */
+  lintRowId: string;
+  contractId: string;
+  phraseCapabilityId: string;
+  decision: CapabilityLintFindingBridgeDecision;
+  reason: CapabilityLintFindingBridgeReason;
+  severity: CapabilityArchitectureLintSeverity;
+  confidence: CapabilityArchitectureLintConfidence;
+  /** Present for `eligible` and `needs-review` candidates so
+   *  reviewers can see what would be promoted. Absent for
+   *  `ineligible` candidates. v1 never writes `FindingReport`. */
+  proposedFinding?: CapabilityLintFindingBridgeFindingRef;
+  messages?: string[];
+};
+
+export type CapabilityLintFindingBridgeSource = {
+  lintReportRef: ArtifactRef;
+  capabilityContractRef?: ArtifactRef;
+  capabilityMapRef?: ArtifactRef;
+};
+
+export type CapabilityLintFindingBridgeSummary = {
+  totalRows: number;
+  eligible: number;
+  ineligible: number;
+  needsReview: number;
+  byReason: Record<string, number>;
+  bySeverity: Record<string, number>;
+};
+
+export type CapabilityLintFindingBridgeReport = {
+  header: ArtifactHeader;
+  source: CapabilityLintFindingBridgeSource;
+  summary: CapabilityLintFindingBridgeSummary;
+  candidates: CapabilityLintFindingBridgeCandidate[];
+};
+
 export function createObservedRepo(input: ObservedRepo): ObservedRepo {
   const systems = normalizeSystems(input.systems);
   // Normalize files to a sorted unique list of repo-relative
@@ -802,6 +909,130 @@ function recountCapabilityArchitectureLintSummary(
   };
 }
 
+/**
+ * Normalize a `CapabilityLintFindingBridgeReport`:
+ * dedupe candidates by `id`, sort deterministically, and
+ * recompute the summary from the candidates so callers cannot
+ * persist a stale summary. The decision/reason on each
+ * candidate are authored upstream (in
+ * `buildCapabilityLintFindingBridgeReport`); the factory does
+ * not re-classify or re-run duplicate detection.
+ *
+ * This factory does not read or write `FindingReport`,
+ * `FindingFilterReport`, `FindingLifecycleReport`,
+ * `IssueAdjudicationReport`, or `CoherencyDelta`.
+ */
+export function createCapabilityLintFindingBridgeReport(
+  input: CapabilityLintFindingBridgeReport,
+): CapabilityLintFindingBridgeReport {
+  const candidates: CapabilityLintFindingBridgeCandidate[] = [];
+  const seenIds = new Set<string>();
+  for (const raw of input.candidates ?? []) {
+    if (!raw) continue;
+    if (seenIds.has(raw.id)) continue;
+    seenIds.add(raw.id);
+    candidates.push(normalizeCapabilityLintFindingBridgeCandidate(raw));
+  }
+  candidates.sort(compareCapabilityLintFindingBridgeCandidate);
+
+  const summary = recountCapabilityLintFindingBridgeSummary(candidates);
+
+  const source: CapabilityLintFindingBridgeSource = {
+    lintReportRef: assertArtifactRef(input.source.lintReportRef),
+  };
+  if (input.source.capabilityContractRef) {
+    source.capabilityContractRef = assertArtifactRef(
+      input.source.capabilityContractRef,
+    );
+  }
+  if (input.source.capabilityMapRef) {
+    source.capabilityMapRef = assertArtifactRef(input.source.capabilityMapRef);
+  }
+
+  return assertCapabilityLintFindingBridgeReport({
+    header: input.header,
+    source,
+    summary,
+    candidates,
+  });
+}
+
+function normalizeCapabilityLintFindingBridgeCandidate(
+  candidate: CapabilityLintFindingBridgeCandidate,
+): CapabilityLintFindingBridgeCandidate {
+  const out: CapabilityLintFindingBridgeCandidate = {
+    id: candidate.id,
+    lintRowId: candidate.lintRowId,
+    contractId: candidate.contractId,
+    phraseCapabilityId: candidate.phraseCapabilityId ?? "",
+    decision: candidate.decision,
+    reason: candidate.reason,
+    severity: candidate.severity,
+    confidence: candidate.confidence,
+  };
+  if (candidate.proposedFinding) {
+    out.proposedFinding = {
+      id: candidate.proposedFinding.id,
+      title: candidate.proposedFinding.title,
+      category: candidate.proposedFinding.category,
+      severity: candidate.proposedFinding.severity,
+      evidenceRefs: normalizeRefs(candidate.proposedFinding.evidenceRefs ?? []),
+      sourceLintRowRef: {
+        report: assertArtifactRef(
+          candidate.proposedFinding.sourceLintRowRef.report,
+        ),
+        rowId: candidate.proposedFinding.sourceLintRowRef.rowId,
+      },
+    };
+  }
+  if (candidate.messages && candidate.messages.length > 0) {
+    out.messages = candidate.messages.filter(
+      (message): message is string =>
+        typeof message === "string" && message.length > 0,
+    );
+    if (out.messages.length === 0) delete out.messages;
+  }
+  return out;
+}
+
+function compareCapabilityLintFindingBridgeCandidate(
+  left: CapabilityLintFindingBridgeCandidate,
+  right: CapabilityLintFindingBridgeCandidate,
+): number {
+  if (left.contractId !== right.contractId) {
+    return left.contractId.localeCompare(right.contractId);
+  }
+  if (left.lintRowId !== right.lintRowId) {
+    return left.lintRowId.localeCompare(right.lintRowId);
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function recountCapabilityLintFindingBridgeSummary(
+  candidates: CapabilityLintFindingBridgeCandidate[],
+): CapabilityLintFindingBridgeSummary {
+  let eligible = 0;
+  let ineligible = 0;
+  let needsReview = 0;
+  const byReason: Record<string, number> = {};
+  const bySeverity: Record<string, number> = {};
+  for (const candidate of candidates) {
+    if (candidate.decision === "eligible") eligible++;
+    else if (candidate.decision === "ineligible") ineligible++;
+    else if (candidate.decision === "needs-review") needsReview++;
+    byReason[candidate.reason] = (byReason[candidate.reason] ?? 0) + 1;
+    bySeverity[candidate.severity] = (bySeverity[candidate.severity] ?? 0) + 1;
+  }
+  return {
+    totalRows: candidates.length,
+    eligible,
+    ineligible,
+    needsReview,
+    byReason: sortRecord(byReason),
+    bySeverity: sortRecord(bySeverity),
+  };
+}
+
 export function validateObservedRepo(value: unknown): ValidationResult<ObservedRepo> {
   const issues: ValidationIssue[] = [];
 
@@ -1171,6 +1402,23 @@ const LINT_RULES = new Set<string>([
 const LINT_SEVERITIES = new Set<string>(["low", "medium", "high"]);
 const LINT_CONFIDENCES = new Set<string>(["low", "medium", "high"]);
 
+const BRIDGE_DECISIONS = new Set<string>([
+  "eligible",
+  "ineligible",
+  "needs-review",
+]);
+const BRIDGE_REASONS = new Set<string>([
+  "violation-with-finding-candidate",
+  "not-a-violation",
+  "missing-finding-candidate",
+  "low-confidence",
+  "low-severity",
+  "not-evaluated",
+  "duplicate-candidate",
+  "missing-evidence",
+  "manual-review-required",
+]);
+
 export function validateCapabilityArchitectureLintReport(
   value: unknown,
 ): ValidationResult<CapabilityArchitectureLintReport> {
@@ -1367,6 +1615,256 @@ function validateCapabilityArchitectureLintRow(
   }
 }
 
+export function validateCapabilityLintFindingBridgeReport(
+  value: unknown,
+): ValidationResult<CapabilityLintFindingBridgeReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(
+    value.header,
+    "CapabilityLintFindingBridgeReport",
+    "$.header",
+    issues,
+  );
+
+  // ---- source ----
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    const lintResult = validateArtifactRef(value.source.lintReportRef);
+    if (!lintResult.ok) {
+      issues.push(...prefixIssues(lintResult.issues, "$.source.lintReportRef"));
+    }
+    if (value.source.capabilityContractRef !== undefined) {
+      const result = validateArtifactRef(value.source.capabilityContractRef);
+      if (!result.ok) {
+        issues.push(
+          ...prefixIssues(result.issues, "$.source.capabilityContractRef"),
+        );
+      }
+    }
+    if (value.source.capabilityMapRef !== undefined) {
+      const result = validateArtifactRef(value.source.capabilityMapRef);
+      if (!result.ok) {
+        issues.push(...prefixIssues(result.issues, "$.source.capabilityMapRef"));
+      }
+    }
+  }
+
+  // ---- candidates ----
+  let candidates: unknown[] = [];
+  if (!Array.isArray(value.candidates)) {
+    issues.push({ path: "$.candidates", message: "Expected an array." });
+  } else {
+    candidates = value.candidates;
+    const seenIds = new Set<string>();
+    candidates.forEach((candidate, index) =>
+      validateCapabilityLintFindingBridgeCandidate(
+        candidate,
+        `$.candidates[${index}]`,
+        issues,
+        seenIds,
+      ),
+    );
+  }
+
+  // ---- summary ----
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    for (const field of [
+      "totalRows",
+      "eligible",
+      "ineligible",
+      "needsReview",
+    ] as const) {
+      const v = (value.summary as Record<string, unknown>)[field];
+      if (typeof v !== "number" || !Number.isInteger(v) || v < 0) {
+        issues.push({
+          path: `$.summary.${field}`,
+          message: "Expected a non-negative integer.",
+        });
+      }
+    }
+    for (const field of ["byReason", "bySeverity"] as const) {
+      const v = (value.summary as Record<string, unknown>)[field];
+      if (!isRecord(v)) {
+        issues.push({
+          path: `$.summary.${field}`,
+          message: "Expected an object of non-negative integers.",
+        });
+        continue;
+      }
+      for (const [key, count] of Object.entries(v as Record<string, unknown>)) {
+        if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+          issues.push({
+            path: `$.summary.${field}.${key}`,
+            message: "Expected a non-negative integer.",
+          });
+        }
+      }
+    }
+    // Re-derive and compare counts so artifacts with stale
+    // summaries are rejected.
+    if (Array.isArray(candidates)) {
+      const computed = recountCapabilityLintFindingBridgeSummary(
+        candidates.filter(
+          isRecord,
+        ) as unknown as CapabilityLintFindingBridgeCandidate[],
+      );
+      for (const field of [
+        "totalRows",
+        "eligible",
+        "ineligible",
+        "needsReview",
+      ] as const) {
+        const supplied = (value.summary as Record<string, unknown>)[field];
+        if (typeof supplied === "number" && supplied !== computed[field]) {
+          issues.push({
+            path: `$.summary.${field}`,
+            message: `Expected ${computed[field]} (recomputed from candidates).`,
+          });
+        }
+      }
+    }
+  }
+
+  return validationResult(value as CapabilityLintFindingBridgeReport, issues);
+}
+
+function validateCapabilityLintFindingBridgeCandidate(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+
+  pushRequiredStringIssue(issues, value.id, `${path}.id`);
+  pushRequiredStringIssue(issues, value.lintRowId, `${path}.lintRowId`);
+  pushRequiredStringIssue(issues, value.contractId, `${path}.contractId`);
+  if (typeof value.id === "string" && value.id.length > 0) {
+    if (seenIds.has(value.id)) {
+      issues.push({
+        path: `${path}.id`,
+        message: "Expected a unique candidate id.",
+      });
+    } else {
+      seenIds.add(value.id);
+    }
+  }
+  if (typeof value.phraseCapabilityId !== "string") {
+    issues.push({
+      path: `${path}.phraseCapabilityId`,
+      message: "Expected a string (may be empty).",
+    });
+  }
+  if (typeof value.decision !== "string" || !BRIDGE_DECISIONS.has(value.decision)) {
+    issues.push({
+      path: `${path}.decision`,
+      message: "Expected one of eligible | ineligible | needs-review.",
+    });
+  }
+  if (typeof value.reason !== "string" || !BRIDGE_REASONS.has(value.reason)) {
+    issues.push({
+      path: `${path}.reason`,
+      message:
+        "Expected a known bridge reason (e.g. violation-with-finding-candidate | not-a-violation | duplicate-candidate).",
+    });
+  }
+  if (typeof value.severity !== "string" || !LINT_SEVERITIES.has(value.severity)) {
+    issues.push({
+      path: `${path}.severity`,
+      message: "Expected one of low | medium | high.",
+    });
+  }
+  if (
+    typeof value.confidence !== "string"
+    || !LINT_CONFIDENCES.has(value.confidence)
+  ) {
+    issues.push({
+      path: `${path}.confidence`,
+      message: "Expected one of low | medium | high.",
+    });
+  }
+  if (value.proposedFinding !== undefined) {
+    validateCapabilityLintFindingBridgeFindingRef(
+      value.proposedFinding,
+      `${path}.proposedFinding`,
+      issues,
+    );
+  }
+  if (value.messages !== undefined && !isStringArray(value.messages)) {
+    issues.push({
+      path: `${path}.messages`,
+      message: "Expected an array of strings when present.",
+    });
+  }
+}
+
+function validateCapabilityLintFindingBridgeFindingRef(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object when present." });
+    return;
+  }
+  pushRequiredStringIssue(issues, value.id, `${path}.id`);
+  pushRequiredStringIssue(issues, value.title, `${path}.title`);
+  pushRequiredStringIssue(issues, value.category, `${path}.category`);
+  if (typeof value.severity !== "string" || !LINT_SEVERITIES.has(value.severity)) {
+    issues.push({
+      path: `${path}.severity`,
+      message: "Expected one of low | medium | high.",
+    });
+  }
+  if (!Array.isArray(value.evidenceRefs)) {
+    issues.push({
+      path: `${path}.evidenceRefs`,
+      message: "Expected an array of artifact refs.",
+    });
+  } else if (value.evidenceRefs.length === 0) {
+    issues.push({
+      path: `${path}.evidenceRefs`,
+      message: "Expected a non-empty array of artifact refs for a proposed finding.",
+    });
+  } else {
+    value.evidenceRefs.forEach((ref, index) => {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) {
+        issues.push(...prefixIssues(result.issues, `${path}.evidenceRefs[${index}]`));
+      }
+    });
+  }
+  if (!isRecord(value.sourceLintRowRef)) {
+    issues.push({
+      path: `${path}.sourceLintRowRef`,
+      message: "Expected an object.",
+    });
+  } else {
+    const reportResult = validateArtifactRef(value.sourceLintRowRef.report);
+    if (!reportResult.ok) {
+      issues.push(
+        ...prefixIssues(reportResult.issues, `${path}.sourceLintRowRef.report`),
+      );
+    }
+    pushRequiredStringIssue(
+      issues,
+      value.sourceLintRowRef.rowId,
+      `${path}.sourceLintRowRef.rowId`,
+    );
+  }
+}
+
 export function assertObservedRepo(value: unknown): ObservedRepo {
   return assertValid(validateObservedRepo(value), "ObservedRepo");
 }
@@ -1389,6 +1887,15 @@ export function assertCapabilityArchitectureLintReport(
   return assertValid(
     validateCapabilityArchitectureLintReport(value),
     "CapabilityArchitectureLintReport",
+  );
+}
+
+export function assertCapabilityLintFindingBridgeReport(
+  value: unknown,
+): CapabilityLintFindingBridgeReport {
+  return assertValid(
+    validateCapabilityLintFindingBridgeReport(value),
+    "CapabilityLintFindingBridgeReport",
   );
 }
 
@@ -1415,6 +1922,11 @@ export const capabilityContractSchema: ArtifactSchema<CapabilityContract> = {
 export const capabilityArchitectureLintReportSchema: ArtifactSchema<CapabilityArchitectureLintReport> = {
   validate: validateCapabilityArchitectureLintReport,
   parse: assertCapabilityArchitectureLintReport,
+};
+
+export const capabilityLintFindingBridgeReportSchema: ArtifactSchema<CapabilityLintFindingBridgeReport> = {
+  validate: validateCapabilityLintFindingBridgeReport,
+  parse: assertCapabilityLintFindingBridgeReport,
 };
 
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {

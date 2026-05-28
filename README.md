@@ -1103,6 +1103,48 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityLintFindingBridgeReport v1 has shipped.
+# Forty-third slice on the codebase-intel-classic
+# capability-ontology track. Implements Option B of the
+# bridge decision: a preview bridge artifact that
+# classifies each CapabilityArchitectureLintReport row as
+# eligible / ineligible / needs-review for a future
+# FindingReport writer, with a deterministic, slug-safe
+# proposed finding id
+# (capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>)
+# on eligible rows.
+#
+# New artifact type CapabilityLintFindingBridgeReport
+# (schemaVersion 0.1.0, experimental), registered in
+# @rekon/sdk and the @rekon/runtime category map (actions).
+# New helper buildCapabilityLintFindingBridgeReport in
+# @rekon/capability-model. New CLI command
+# `rekon capability lint bridge-findings
+# [--lint-report <ref>] [--root <path>] [--json]`.
+#
+# Pinned verbatim:
+#   - CapabilityLintFindingBridgeReport is preview, not
+#     FindingReport.
+#   - The bridge does not write FindingReport.
+#   - The bridge does not mutate FindingFilterReport,
+#     FindingLifecycleReport, IssueAdjudicationReport, or
+#     CoherencyDelta.
+#   - Only a later explicit writer decision may allow
+#     eligible bridge candidates to become governed
+#     findings.
+#   - WorkOrder / VerificationPlan creation is not
+#     included.
+#
+# No FindingReport mutation. No lifecycle / CoherencyDelta
+# mutation. No WorkOrder / VerificationPlan creation. No
+# source writes. No LLM inference. No version bump. No npm
+# publish.
+#
+# See docs/artifacts/capability-lint-finding-bridge-report.md
+# and docs/concepts/capability-lint-finding-bridge.md.
+# Recommended next slice:
+# CapabilityLintFindingBridgeReport safety review.
+#
 # CapabilityArchitectureLintReport -> FindingReport
 # bridge decision has shipped. Forty-second slice on the
 # codebase-intel-classic capability-ontology track.

@@ -55,6 +55,7 @@ import jsTsCapability from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability, {
   buildCapabilityArchitectureLintReport,
+  buildCapabilityLintFindingBridgeReport,
   buildCapabilityContract,
   type CapabilityContractConfig,
 } from "@rekon/capability-model";
@@ -111,6 +112,7 @@ import {
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
   type CapabilityArchitectureLintReport,
   type CapabilityContract,
+  type CapabilityLintFindingBridgeReport,
   type CapabilityMap,
   type ObservedRepo,
   type OwnershipMap,
@@ -1253,6 +1255,105 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("No findings were written.");
       lines.push(
         "Evaluation only. CapabilityContract, CapabilityMap, FindingReport, FindingLifecycleReport, and CoherencyDelta are not mutated.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "lint"
+    && positional === "bridge-findings"
+  ) {
+    // `rekon capability lint bridge-findings
+    // [--root <path>] [--json] [--lint-report <ref>]` —
+    // v1 preview bridge from `CapabilityArchitectureLintReport`
+    // to proposed governed findings.
+    //
+    // Reads the latest (or pinned) `CapabilityArchitectureLintReport`,
+    // classifies each lint row as eligible / ineligible /
+    // needs-review for a future `FindingReport` writer, and
+    // writes a `CapabilityLintFindingBridgeReport` preview
+    // artifact.
+    //
+    // **Preview, not FindingReport.** This command does **not**
+    // write `FindingReport`, mutate `FindingFilterReport`,
+    // `FindingLifecycleReport`, `IssueAdjudicationReport`, or
+    // `CoherencyDelta`. It creates no `WorkOrder` and no
+    // `VerificationPlan`. It reads no source files. See
+    // docs/strategy/capability-lint-finding-bridge-decision.md
+    // and docs/artifacts/capability-lint-finding-bridge-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const lintReportFlag
+      = typeof parsed.flags["lint-report"] === "string"
+        ? parsed.flags["lint-report"].trim()
+        : "";
+
+    let lintEntry: ArtifactIndexEntry | undefined;
+    if (lintReportFlag.length > 0) {
+      lintEntry = await findArtifactEntry(store, lintReportFlag);
+      if (lintEntry.type !== "CapabilityArchitectureLintReport") {
+        throw new Error(
+          `rekon capability lint bridge-findings --lint-report must reference a CapabilityArchitectureLintReport; got ${lintEntry.type}.`,
+        );
+      }
+    } else {
+      const lintEntries = await store.list("CapabilityArchitectureLintReport");
+      lintEntry = lintEntries.at(-1);
+      if (!lintEntry) {
+        throw new Error(
+          "rekon capability lint bridge-findings: no CapabilityArchitectureLintReport found. Run `rekon capability lint architecture` first.",
+        );
+      }
+    }
+
+    const lintReport = (await store.read(lintEntry)) as CapabilityArchitectureLintReport;
+    const lintReportRef: ArtifactRef = {
+      type: lintEntry.type,
+      id: lintEntry.id,
+      path: lintEntry.path,
+      digest: lintEntry.digest,
+      schemaVersion: lintEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const report: CapabilityLintFindingBridgeReport
+      = buildCapabilityLintFindingBridgeReport({
+        lintReport,
+        lintReportRef,
+        generatedAt: new Date().toISOString(),
+      });
+
+    // Preview artifact: written under `actions/`, never under
+    // `findings/`. It is not a governed FindingReport.
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: ref,
+          source: report.source,
+          summary: report.summary,
+          candidates: report.candidates,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Capability lint finding bridge");
+      lines.push("");
+      lines.push(`Lint report: ${lintReportRef.type}:${lintReportRef.id}`);
+      lines.push("");
+      lines.push(`Eligible: ${report.summary.eligible}`);
+      lines.push(`Ineligible: ${report.summary.ineligible}`);
+      lines.push(`Needs review: ${report.summary.needsReview}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push("No FindingReport entries were written.");
+      lines.push(
+        "Preview only. FindingReport, FindingFilterReport, FindingLifecycleReport, IssueAdjudicationReport, and CoherencyDelta are not mutated. No WorkOrder or VerificationPlan is created.",
       );
       writeOutput(lines.join("\n"), false);
     }
@@ -7950,6 +8051,7 @@ function usage(): string {
     "rekon capability phrase project --report <CapabilityNormalizationReport-id|type:id> [--root <path>] [--json]",
     "rekon capability contract generate [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint architecture [--capability-contract <id|type:id>] [--capability-map <id|type:id>] [--root <path>] [--json]",
+    "rekon capability lint bridge-findings [--lint-report <id|type:id>] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

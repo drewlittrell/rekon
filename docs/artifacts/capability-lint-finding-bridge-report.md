@@ -1,0 +1,215 @@
+# CapabilityLintFindingBridgeReport
+
+## Purpose
+
+`CapabilityLintFindingBridgeReport` is a **preview** bridge
+artifact between
+[`CapabilityArchitectureLintReport`](capability-architecture-lint-report.md)
+(policy evaluation) and the governed-findings pipeline. It
+classifies each lint row as `eligible`, `ineligible`, or
+`needs-review` for a future `FindingReport` writer, and attaches
+a deterministic *proposed finding* to eligible rows.
+
+**`CapabilityLintFindingBridgeReport` is preview, not
+`FindingReport`.** It records *which lint rows could become
+governed findings later* and *why*. It does not promote
+anything. It implements **Option B** of the
+[`CapabilityArchitectureLintReport` → `FindingReport` bridge
+decision](../strategy/capability-lint-finding-bridge-decision.md):
+an intermediate preview artifact ships before any direct
+`FindingReport` writer.
+
+## Produced By
+
+- `@rekon/capability-model.buildCapabilityLintFindingBridgeReport`
+- the `rekon capability lint bridge-findings` CLI command
+
+## Consumed By
+
+- Operators and agents inspecting which capability-architecture
+  policy violations are candidates for governed findings.
+- (Future) a separate, explicit `FindingReport` writer — gated
+  behind its own decision and safety review. No such writer
+  exists today.
+
+## What It Does Not Do
+
+This artifact is **preview, not enforcement**:
+
+- The bridge **does not write `FindingReport`**. No bridge
+  writes `FindingReport` today, and this report itself never
+  does.
+- The bridge **does not mutate `FindingFilterReport`,
+  `FindingLifecycleReport`, `IssueAdjudicationReport`, or
+  `CoherencyDelta`.**
+- **`WorkOrder` / `VerificationPlan` creation is not included.**
+  The bridge creates no `WorkOrder` and no `VerificationPlan`.
+- It does **not** add resolver routing by capability.
+- It does **not** add verification planning by capability.
+- It does **not** add a `RefactorPreservationContract`.
+- It does **not** read or write source files, and makes no
+  network calls. Its only input is the
+  `CapabilityArchitectureLintReport`.
+
+**Only a later explicit writer decision may allow eligible
+bridge candidates to become governed findings.** Even after such
+a writer ships, promoted candidates would flow through the
+graph-aware finding filters, the `FindingStatusLedger`, and
+`IssueAdjudicationReport` like any other finding;
+`FindingLifecycleReport` and `CoherencyDelta` remain downstream
+lifecycle stages.
+
+## Required Header Fields
+
+All standard `ArtifactHeader` fields are required. `artifactType`
+is `CapabilityLintFindingBridgeReport`. `header.inputRefs` cites
+the source `CapabilityArchitectureLintReport` (and the
+`CapabilityContract` / `CapabilityMap` it referenced, when
+present).
+
+## Shape
+
+- `source.lintReportRef` — the source
+  `CapabilityArchitectureLintReport`.
+- `source.capabilityContractRef` / `source.capabilityMapRef` —
+  copied from the lint report's `source` when present.
+- `summary.totalRows` / `eligible` / `ineligible` /
+  `needsReview` — counts re-derived from `candidates`.
+- `summary.byReason` / `summary.bySeverity` — deterministic,
+  sorted count maps.
+- `candidates[]` — one entry per lint row:
+  - `id` — equals the source lint row id (unique within a lint
+    report).
+  - `lintRowId` — citation back to the lint row.
+  - `contractId` / `phraseCapabilityId` — copied from the row.
+  - `decision` — `eligible` | `ineligible` | `needs-review`.
+  - `reason` — why the decision was made (see below).
+  - `severity` / `confidence` — copied from the lint row.
+  - `proposedFinding` — present for `eligible` and
+    `needs-review` candidates only; absent for `ineligible`.
+  - `messages` — optional human diagnostics.
+
+## Eligibility Policy
+
+A lint row is **`eligible`** only when *all* of the following
+hold:
+
+- `status === "violation"`;
+- a `findingCandidate` preview exists on the row;
+- `confidence` is `high` or `medium`;
+- `severity` is `high` or `medium`;
+- `evidenceRefs` is non-empty.
+
+Otherwise the row is **`ineligible`** with the first matching
+reason:
+
+| Condition | Reason |
+| --- | --- |
+| `status === "pass"` | `not-a-violation` |
+| `status === "not-evaluated"` | `not-evaluated` |
+| violation, no `findingCandidate` | `missing-finding-candidate` |
+| violation, low confidence | `low-confidence` |
+| violation, low severity | `low-severity` |
+| violation, empty `evidenceRefs` | `missing-evidence` |
+
+A row is **`needs-review`** when its proposed finding id
+collides with an earlier eligible row's
+(`duplicate-candidate`). The `manual-review-required` reason is
+reserved for future use.
+
+## Proposed Finding Id
+
+Eligible (and duplicate `needs-review`) candidates carry a
+deterministic, slug-safe proposed finding id:
+
+```text
+capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>
+```
+
+The id carries **no timestamp** and is stable across runs. If
+two distinct lint rows produce the same id, the deterministic
+first keeps `eligible`; later duplicates flip to `needs-review`
+with reason `duplicate-candidate`.
+
+## CLI Surface
+
+```sh
+rekon capability lint bridge-findings [--root <path>] [--json]
+rekon capability lint bridge-findings --lint-report <CapabilityArchitectureLintReport:id> [--json]
+```
+
+The command reads the latest (or pinned)
+`CapabilityArchitectureLintReport`, writes a
+`CapabilityLintFindingBridgeReport` under
+`.rekon/artifacts/actions/`, and prints a summary. It says
+**"No FindingReport entries were written."** It never writes
+`FindingReport`, mutates lifecycle / `CoherencyDelta`, or
+creates `WorkOrder` / `VerificationPlan`.
+
+## Example
+
+```json
+{
+  "header": {
+    "artifactType": "CapabilityLintFindingBridgeReport",
+    "artifactId": "capability-lint-finding-bridge-1780000000000",
+    "schemaVersion": "0.1.0",
+    "generatedAt": "2026-05-28T01:00:00.000Z",
+    "subject": { "repoId": "simple-js-ts" },
+    "producer": { "id": "@rekon/capability-model", "version": "0.1.0" },
+    "inputRefs": [
+      { "type": "CapabilityArchitectureLintReport", "id": "capability-architecture-lint-1780000000000", "schemaVersion": "0.1.0" }
+    ],
+    "provenance": { "confidence": 0.85 }
+  },
+  "source": {
+    "lintReportRef": { "type": "CapabilityArchitectureLintReport", "id": "capability-architecture-lint-1780000000000", "schemaVersion": "0.1.0" }
+  },
+  "summary": {
+    "totalRows": 1,
+    "eligible": 1,
+    "ineligible": 0,
+    "needsReview": 0,
+    "byReason": { "violation-with-finding-candidate": 1 },
+    "bySeverity": { "high": 1 }
+  },
+  "candidates": [
+    {
+      "id": "fixture.create-user:forbidden-layer",
+      "lintRowId": "fixture.create-user:forbidden-layer",
+      "contractId": "fixture.create-user",
+      "phraseCapabilityId": "capability-phrase:create-user",
+      "decision": "eligible",
+      "reason": "violation-with-finding-candidate",
+      "severity": "high",
+      "confidence": "high",
+      "proposedFinding": {
+        "id": "capability-architecture-policy:forbidden-layer:fixture-create-user:capability-phrase-create-user",
+        "title": "Capability \"create user\" placed on a forbidden layer \"route\".",
+        "category": "capability_architecture_policy",
+        "severity": "high",
+        "evidenceRefs": [
+          { "type": "CapabilityMap", "id": "capability-map-1780000000000", "schemaVersion": "0.1.0" }
+        ],
+        "sourceLintRowRef": {
+          "report": { "type": "CapabilityArchitectureLintReport", "id": "capability-architecture-lint-1780000000000", "schemaVersion": "0.1.0" },
+          "rowId": "fixture.create-user:forbidden-layer"
+        }
+      }
+    }
+  ]
+}
+```
+
+## Cross-References
+
+- [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
+- [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
+- [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)
+- [Capability-Aware Architecture Linting concept](../concepts/capability-aware-architecture-linting.md)
+- [FindingReport artifact](finding-report.md)
+- [Finding lifecycle concept](../concepts/finding-lifecycle.md)
+- [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)
+- [Coherency delta concept](../concepts/coherency-delta.md)
+- [Roadmap](../strategy/roadmap.md)
+- [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

@@ -557,4 +557,12 @@ during the filter step.
   writer ships, any promoted candidate must flow through
   these graph-aware finding filters before reaching the
   status ledger, adjudication, or `CoherencyDelta`.
+- [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
+  — forty-third slice; the preview bridge report shipped. It
+  classifies lint rows as eligible / ineligible /
+  needs-review but writes no `FindingReport` and **does NOT
+  bypass this filter chain**. Promotion of any eligible
+  candidate requires a separate explicit writer decision and
+  still flows through these filters.
+- [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -51,6 +51,19 @@ no `FindingReport` mutation, no lifecycle mutation, no
 `CoherencyDelta` mutation, no `WorkOrder` /
 `VerificationPlan` creation, no source writes.
 
+> **Update (forty-third slice):**
+> `CapabilityLintFindingBridgeReport` v1 has **shipped** as a
+> preview artifact, implementing Option B. See
+> [the artifact doc](../artifacts/capability-lint-finding-bridge-report.md)
+> and [the concept page](../concepts/capability-lint-finding-bridge.md).
+> The bridge report **does not write `FindingReport`**, does not
+> mutate `FindingFilterReport` / `FindingLifecycleReport` /
+> `IssueAdjudicationReport` / `CoherencyDelta`, and creates no
+> `WorkOrder` / `VerificationPlan`. Only a later explicit writer
+> decision may allow eligible bridge candidates to become
+> governed findings. The recommended next slice is now the
+> **`CapabilityLintFindingBridgeReport` safety review**.
+
 ## Why This Decision Exists
 
 `CapabilityArchitectureLintReport` now produces and

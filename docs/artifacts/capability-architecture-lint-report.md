@@ -196,11 +196,15 @@ bridge decision as the next slice.
 The
 [`CapabilityArchitectureLintReport` → `FindingReport`
 bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
-(forty-second slice) selects **Option B**: a future
-explicit bridge slice introduces an intermediate
-`CapabilityLintFindingBridgeReport` **preview** artifact
-that classifies eligible `violation` rows before any
-`FindingReport` writer exists. Until that bridge ships:
+(forty-second slice) selects **Option B**: an
+intermediate
+[`CapabilityLintFindingBridgeReport`](capability-lint-finding-bridge-report.md)
+**preview** artifact classifies eligible `violation` rows
+before any `FindingReport` writer exists. That bridge
+report **shipped in the forty-third slice** (preview-only;
+see also the
+[capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)).
+Whether the bridge has run or not:
 
 - `findingCandidate` stays a preview only.
 - Nothing in the lint report flows into
@@ -209,15 +213,24 @@ that classifies eligible `violation` rows before any
   [../concepts/graph-aware-finding-filters.md](../concepts/graph-aware-finding-filters.md))
   is not bypassed.
 
-Even after the bridge report ships, it writes no
-`FindingReport` and mutates no governance artifact; only
-a separate explicit `FindingReport` writer decision may
-promote bridge candidates to governed findings, and
-`FindingLifecycleReport` / `IssueAdjudicationReport` /
-`CoherencyDelta` remain downstream stages.
+The bridge report writes no `FindingReport` and mutates no
+governance artifact (`FindingFilterReport`,
+`FindingLifecycleReport`, `IssueAdjudicationReport`,
+`CoherencyDelta`); it creates no `WorkOrder` /
+`VerificationPlan`. Only a separate explicit `FindingReport`
+writer decision may promote bridge candidates to governed
+findings, and `FindingLifecycleReport` /
+`IssueAdjudicationReport` / `CoherencyDelta` remain
+downstream stages.
 
 ## Cross-References
 
+- [CapabilityLintFindingBridgeReport artifact](capability-lint-finding-bridge-report.md)
+  — forty-third slice; the preview bridge artifact that
+  classifies these lint rows as eligible / ineligible /
+  needs-review for a future `FindingReport` writer. Preview,
+  not `FindingReport`.
+- [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting Safety Review (strategy)](../strategy/capability-architecture-lint-report-safety-review.md)
   — thirty-ninth slice; declares v1 safe / stable as a
   separate evaluation artifact and selects publication

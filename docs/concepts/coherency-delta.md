@@ -297,4 +297,11 @@ These are intentionally deferred. See
   bridged candidates only reach `CoherencyDelta` through
   the normal finding → filter → lifecycle → adjudication
   pipeline.
+- [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
+  — forty-third slice; the preview bridge report shipped. It
+  **does NOT mutate `CoherencyDelta`** (nor `FindingReport`,
+  `FindingFilterReport`, `FindingLifecycleReport`, or
+  `IssueAdjudicationReport`), and creates no `WorkOrder` /
+  `VerificationPlan`. `CoherencyDelta` stays downstream of
+  governed findings.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)
