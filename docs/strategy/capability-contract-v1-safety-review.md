@@ -494,3 +494,12 @@ agent contract publishers now render a read-only
 **Capability Contracts** section. Proof report
 surfacing remains deferred. See the new
 [publication-surfacing review packet](../../.rekon-dev/review-packets/capability-contract-publications.md).
+
+**Update (thirty-sixth slice):** the
+publication-surfacing safety review has also
+shipped — see
+[`CapabilityContract` publication safety review](capability-contract-publication-safety-review.md).
+Recommendation: publication surfacing is safe /
+stable as read-only visibility; next slice is the
+capability-aware architecture linting decision
+(strategy / decision memo only; no implementation).

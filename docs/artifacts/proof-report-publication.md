@@ -218,9 +218,12 @@ artifact.
   and
   [agent contract publication](agent-contract-publication.md)
   carry the read-only Capability Contracts section
-  instead. Re-evaluate this deferral only when a
-  separate decision + safety-review pair defines a
-  natural policy section for the proof report.
+  instead. The
+  [`CapabilityContract` publication safety review](../strategy/capability-contract-publication-safety-review.md)
+  (thirty-sixth slice) re-confirms this deferral.
+  Re-evaluate only when a separate decision +
+  safety-review pair defines a natural policy
+  section for the proof report.
 
 ## Issue Merge Decision Context
 

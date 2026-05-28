@@ -2640,6 +2640,49 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityContract publication safety review
+  (P1.1 capability-contract-publication-safety-review
+  slice): **thirty-sixth slice on the
+  capability-ontology track.** Strategy /
+  safety-review batch. Read-only end-to-end audit
+  of the publication surfacing shipped at
+  `ebf8b56`. **Recommendation: declare publication
+  surfacing safe / stable as read-only
+  visibility.** All six required boundary
+  statements asserted (read-only visibility;
+  CapabilityContract is policy, not projection or
+  enforcement; surfacing does not imply
+  architecture linting, resolver routing,
+  verification planning, finding resolution,
+  RefactorPreservationContract, or source-write
+  permission; publications read the latest
+  CapabilityContract and never generate it; proof
+  report surfacing remains deferred; architecture
+  linting decision may begin after this safety
+  review). Five options evaluated; capability-aware
+  architecture linting decision selected as next
+  slice (strategy / decision memo only; no
+  implementation). Enforcement consumers
+  (architecture linting, resolver routing,
+  verification planning, finding resolution,
+  RefactorPreservationContract, source writes)
+  remain deferred and gated on their own decision +
+  safety review pairs. New strategy memo
+  [`docs/strategy/capability-contract-publication-safety-review.md`](capability-contract-publication-safety-review.md)
+  with 11 required headings + 3 required tables
+  (surface / boundary / option). New 13-assertion
+  docs test. Review packet
+  `.rekon-dev/review-packets/capability-contract-publication-safety-review.md`.
+  **No runtime behavior changes. No source files
+  under `packages/` modified. No artifact
+  validator, helper, or CLI command modified. No
+  publication surface modified. No CapabilityMap
+  mutation. No CapabilityPhraseReport mutation. No
+  `.rekon/capability-contracts.json` mutation. No
+  npm publish. No version bump.** **Recommended
+  next slice:** *capability-aware architecture
+  linting decision* — strategy / decision memo
+  only; no implementation.
 - CapabilityContract publication surfacing
   (P1.1 capability-contract-publications
   slice): **thirty-fifth slice on the

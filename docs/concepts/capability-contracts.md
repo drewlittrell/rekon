@@ -209,6 +209,12 @@ arriving as a surprise the moment the artifact ships.
   verification planning, source writes, or finding
   resolution. Proof report surfacing of
   `CapabilityContract` remains **deferred**.
+- [`CapabilityContract` publication safety review](../strategy/capability-contract-publication-safety-review.md)
+  — thirty-sixth slice; declares the publication
+  surfacing safe / stable as read-only visibility
+  and recommends the capability-aware architecture
+  linting decision as the next slice (strategy /
+  decision memo only; no implementation).
 - [`CapabilityMap` artifact reference](../artifacts/capability-map.md)
 - [`CapabilityPhraseReport` artifact reference](../artifacts/capability-phrase-report.md)
 - [Capability Ontology concept](capability-ontology.md)

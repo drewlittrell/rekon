@@ -200,10 +200,12 @@ Rebuild with `rekon publish proof`.
   [architecture summary](architecture-summary-publication.md)
   and [agent operating contract](agent-operating-contract.md)
   carry the read-only Capability Contracts
-  section instead. Re-evaluate this deferral only
-  when a separate decision + safety-review pair
-  defines a natural policy section for the proof
-  report.
+  section instead. The
+  [`CapabilityContract` publication safety review](../strategy/capability-contract-publication-safety-review.md)
+  (thirty-sixth slice) re-confirms this deferral.
+  Re-evaluate only when a separate decision +
+  safety-review pair defines a natural policy
+  section for the proof report.
 
 ## Cross-References
 

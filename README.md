@@ -1103,6 +1103,45 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityContract publication safety review has
+# shipped. Thirty-sixth slice on the
+# capability-ontology track. Strategy /
+# safety-review batch. Read-only end-to-end audit
+# of the publication surfacing shipped at ebf8b56.
+#
+# Pinned verbatim:
+#   - CapabilityContract publication surfacing is
+#     read-only visibility.
+#   - CapabilityContract is policy, not projection
+#     or enforcement.
+#   - Surfacing does not imply architecture linting,
+#     resolver routing, verification planning,
+#     finding resolution,
+#     RefactorPreservationContract behavior, or
+#     source-write permission.
+#   - Publications read the latest
+#     CapabilityContract; they never generate it.
+#   - Proof report surfacing remains deferred
+#     because CapabilityContract is policy context,
+#     not verification proof.
+#   - Architecture linting decision work may begin
+#     after this safety review.
+#
+# Recommendation: declare publication surfacing
+# safe / stable as read-only visibility. Begin the
+# capability-aware architecture linting decision as
+# the next slice (strategy / decision memo only;
+# no implementation).
+#
+# No runtime behavior changes. No source files
+# under packages/ modified. No publication surface
+# modified. No CapabilityMap mutation. No
+# CapabilityPhraseReport mutation. No
+# .rekon/capability-contracts.json mutation. No
+# npm publish. No version bump.
+#
+# See docs/strategy/capability-contract-publication-safety-review.md.
+#
 # CapabilityContract publication surfacing has
 # shipped. Thirty-fifth slice on the
 # capability-ontology track. Product capability

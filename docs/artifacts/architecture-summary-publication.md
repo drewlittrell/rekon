@@ -417,6 +417,12 @@ starting point. See
   `EvidenceGraph`. Proof-report surfacing of
   `CapabilityContract` is explicitly **deferred**.
   See the
-  [`CapabilityContract` artifact reference](capability-contract.md)
+  [`CapabilityContract` artifact reference](capability-contract.md),
+  the
+  [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md),
   and the
-  [`CapabilityContract` v1 Safety Review](../strategy/capability-contract-v1-safety-review.md).
+  [`CapabilityContract` publication safety review](../strategy/capability-contract-publication-safety-review.md)
+  — thirty-sixth slice; declares this surfacing
+  safe / stable as read-only visibility and selects
+  the capability-aware architecture linting decision
+  as the next slice.

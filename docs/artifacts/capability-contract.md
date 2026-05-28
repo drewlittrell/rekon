@@ -233,6 +233,12 @@ rekon capability contract generate \
   `RefactorPreservationContract` behavior. Proof
   report surfacing of `CapabilityContract` remains
   **deferred**.
+- [`CapabilityContract` publication safety review](../strategy/capability-contract-publication-safety-review.md)
+  — thirty-sixth slice; declares the publication
+  surfacing safe / stable as read-only visibility.
+  Selects the capability-aware architecture linting
+  decision as the next slice (strategy / decision
+  memo only; still no implementation).
 - [`CapabilityMap` artifact](capability-map.md) — the
   projection layer this artifact consumes.
 - [`CapabilityPhraseReport` artifact](capability-phrase-report.md)

@@ -265,6 +265,15 @@ verification proof; the proof-report publisher
 continues to render only verification-proof
 context.
 
+The
+[`CapabilityContract` publication safety review](../strategy/capability-contract-publication-safety-review.md)
+(thirty-sixth slice) declares the architecture
+summary's Capability Contracts section **safe /
+stable** as read-only visibility and recommends the
+capability-aware architecture linting decision as
+the next slice (strategy / decision memo only; no
+implementation).
+
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from
 the latest `CapabilityMap` when the v2 fields
