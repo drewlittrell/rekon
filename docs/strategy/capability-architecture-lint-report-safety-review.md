@@ -10,6 +10,18 @@ behavior changes. No new artifact type. No new CLI
 command. No source files under `packages/` modified
 beyond docs cross-references.
 
+> **Status update (forty-second slice — shipped).**
+> The
+> [`CapabilityArchitectureLintReport` → `FindingReport`
+> bridge decision](capability-lint-finding-bridge-decision.md)
+> selects **Option B** — an intermediate
+> `CapabilityLintFindingBridgeReport` (preview artifact)
+> before any `FindingReport` writer. The finding bridge
+> this safety review deferred now has a designed shape;
+> implementation (preview-only) is the recommended next
+> slice. No `FindingReport` mutation, lifecycle mutation,
+> or `CoherencyDelta` mutation ships in the decision.
+
 > **Status update (forty-first slice — shipped).**
 > The
 > [`CapabilityArchitectureLintReport` publication safety

@@ -288,4 +288,13 @@ These are intentionally deferred. See
   bridge decision as the next slice (where any
   `CoherencyDelta` integration would have to be designed
   explicitly).
+- [CapabilityArchitectureLintReport → FindingReport bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
+  — forty-second slice; selects an intermediate
+  `CapabilityLintFindingBridgeReport` **preview** artifact.
+  The bridge report **does NOT mutate `CoherencyDelta`**;
+  `CoherencyDelta` remains downstream of governed findings.
+  Even after a future `FindingReport` writer ships,
+  bridged candidates only reach `CoherencyDelta` through
+  the normal finding → filter → lifecycle → adjudication
+  pipeline.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -11,6 +11,20 @@ changes. No publication behavior changes. No source
 files under `packages/` modified beyond docs
 cross-references.
 
+> **Status update (forty-second slice — shipped).**
+> The
+> [`CapabilityArchitectureLintReport` → `FindingReport`
+> bridge decision](capability-lint-finding-bridge-decision.md)
+> has shipped. It selects **Option B** — introduce an
+> intermediate `CapabilityLintFindingBridgeReport`
+> (preview artifact) before any `FindingReport` writer —
+> and rejects a direct `FindingReport` writer for v1. No
+> bridge implementation ships yet; the recommended next
+> slice is `CapabilityLintFindingBridgeReport` v1
+> (preview-only projection). Finding lifecycle,
+> adjudication, and `CoherencyDelta` remain downstream of
+> governed findings.
+
 ## Decision Summary
 
 **`CapabilityArchitectureLintReport` publication

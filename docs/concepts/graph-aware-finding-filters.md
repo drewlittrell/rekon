@@ -548,4 +548,13 @@ during the filter step.
   `FindingReport` bridge decision (next slice) must
   preserve this filter chain if any lint row is ever
   promoted.
+- [CapabilityArchitectureLintReport → FindingReport bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
+  — forty-second slice; selects an intermediate
+  `CapabilityLintFindingBridgeReport` **preview** artifact
+  before any `FindingReport` writer. The bridge report
+  writes no `FindingReport` and **does NOT bypass this
+  filter chain**. Even after a future `FindingReport`
+  writer ships, any promoted candidate must flow through
+  these graph-aware finding filters before reaching the
+  status ledger, adjudication, or `CoherencyDelta`.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

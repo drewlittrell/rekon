@@ -236,5 +236,10 @@ work order `stale` when a newer `CoherencyDelta` or
 - [Finding lifecycle concept](finding-lifecycle.md)
 - [Resolvers](resolvers.md)
 - [Capability model](../strategy/capability-model.md)
+- [Capability lint → finding bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
+  — forty-second slice; the `CapabilityLintFindingBridgeReport` preview
+  artifact creates **no** `WorkOrder` and **no** `VerificationPlan`.
+  Remediation work orders remain downstream of governed findings and
+  `CoherencyDelta`, never of capability lint evaluation.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

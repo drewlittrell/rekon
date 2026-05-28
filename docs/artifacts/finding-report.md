@@ -87,3 +87,16 @@ the separate [FindingStatusLedger](finding-status-ledger.md) artifact,
 and the derived view ships as
 [FindingLifecycleReport](finding-lifecycle-report.md). See
 [../concepts/finding-lifecycle.md](../concepts/finding-lifecycle.md).
+
+## Capability Lint Bridge (Future)
+
+The
+[`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
+(forty-second slice) selects an intermediate
+`CapabilityLintFindingBridgeReport` **preview** artifact between
+capability-policy lint evaluation and governed findings. **No bridge
+writes `FindingReport` today**, and the bridge report itself never
+writes `FindingReport`. Only a separate, explicit `FindingReport` writer
+decision may promote eligible bridge candidates into governed findings;
+even then they flow through the graph-aware finding filters, the status
+ledger, and adjudication like any other finding.

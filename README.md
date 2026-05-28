@@ -1103,6 +1103,52 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityArchitectureLintReport -> FindingReport
+# bridge decision has shipped. Forty-second slice on the
+# codebase-intel-classic capability-ontology track.
+# Strategy / architecture decision memo only. First
+# bridge decision between the capability-policy
+# evaluation layer and the existing finding / governance
+# pipeline.
+#
+# Recommendation: Option B -- introduce an intermediate
+# CapabilityLintFindingBridgeReport first (a preview
+# artifact), rather than writing FindingReport directly.
+#
+# Pinned verbatim:
+#   - CapabilityLintFindingBridgeReport is preview, not
+#     FindingReport.
+#   - No FindingReport entries are written in v1.
+#   - No FindingFilterReport, FindingLifecycleReport,
+#     IssueAdjudicationReport, or CoherencyDelta mutation
+#     occurs in v1.
+#   - Only a later explicit writer decision may allow
+#     bridge candidates to become governed findings.
+#   - Finding lifecycle and CoherencyDelta remain
+#     downstream of governed findings.
+#
+# V1 eligibility (bridge-report slice): status violation
+# + findingCandidate + confidence high/medium + severity
+# high/medium + evidenceRefs. Deterministic finding id
+# sketch:
+# capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>.
+#
+# Implementation sequence: (1) decision memo (this
+# slice); (2) CapabilityLintFindingBridgeReport v1
+# (preview only); (3) bridge safety review; (4)
+# FindingReport writer decision; (5) writer
+# implementation only if explicitly approved.
+#
+# Recommended next slice:
+# CapabilityLintFindingBridgeReport v1 -- register the
+# bridge report artifact + preview-only projection.
+#
+# No implementation. No new artifact type registered. No
+# runtime behavior changes. No FindingReport mutation. No
+# npm publish. No version bump.
+#
+# See docs/strategy/capability-lint-finding-bridge-decision.md.
+#
 # CapabilityArchitectureLintReport publication safety
 # review has shipped. Forty-first slice on the
 # codebase-intel-classic capability-ontology track.

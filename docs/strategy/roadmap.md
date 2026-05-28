@@ -2640,6 +2640,48 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityArchitectureLintReport → FindingReport
+  bridge decision (P1.1
+  capability-lint-finding-bridge-decision slice):
+  **forty-second slice on the capability-ontology
+  track.** Strategy / architecture decision memo. First
+  bridge decision between the capability-policy
+  evaluation layer and the existing finding / governance
+  pipeline. **Recommendation: Option B — introduce an
+  intermediate `CapabilityLintFindingBridgeReport`
+  first** (a preview artifact), rather than writing
+  `FindingReport` directly. v1 eligibility: status
+  `violation` + `findingCandidate` + confidence
+  high/medium + severity high/medium + `evidenceRefs`.
+  Deterministic finding id sketch
+  `capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>`.
+  All five boundary statements asserted
+  (`CapabilityLintFindingBridgeReport` is preview, not
+  `FindingReport`; no `FindingReport` writes in v1; no
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` mutation;
+  only a later explicit writer decision may promote
+  candidates; lifecycle + `CoherencyDelta` remain
+  downstream). Five options evaluated; Option B selected;
+  direct `FindingReport` writer rejected for v1; direct
+  lifecycle + direct `CoherencyDelta` mutation rejected.
+  Implementation sequence: (1) decision memo (this
+  slice); (2) `CapabilityLintFindingBridgeReport` v1
+  (preview only); (3) bridge safety review; (4)
+  `FindingReport` writer decision; (5) writer
+  implementation only if explicitly approved. New
+  strategy memo
+  [`docs/strategy/capability-lint-finding-bridge-decision.md`](capability-lint-finding-bridge-decision.md)
+  with 12 required headings + 4 required tables. New
+  15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-decision.md`.
+  **No implementation. No new artifact type registered.
+  No runtime behavior changes. No FindingReport /
+  FindingFilterReport / FindingLifecycleReport /
+  IssueAdjudicationReport / CoherencyDelta mutation. No
+  WorkOrder / VerificationPlan creation. No npm publish.
+  No version bump.** Recommended next slice:
+  CapabilityLintFindingBridgeReport v1.
 - CapabilityArchitectureLintReport publication safety
   review (P1.1
   capability-architecture-lint-publication-safety-review

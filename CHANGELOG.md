@@ -4,6 +4,70 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityArchitectureLintReport →
+  FindingReport bridge decision** — forty-second slice on
+  the codebase-intel-classic capability-ontology track.
+  Strategy / architecture decision memo only. First
+  bridge decision between the capability-policy
+  evaluation layer and the existing finding / governance
+  pipeline. **Recommendation: Option B — introduce an
+  intermediate `CapabilityLintFindingBridgeReport`
+  first** (a preview artifact), rather than writing
+  `FindingReport` directly.
+
+  The bridge report classifies eligible
+  `CapabilityArchitectureLintReport` violation rows into
+  eligible / ineligible / needs-review and attaches a
+  `proposedFinding` preview payload — without writing
+  `FindingReport` or mutating any governance artifact.
+
+  V1 eligibility policy (for the bridge-report
+  implementation slice): a lint row is eligible only when
+  status is `violation`, it carries a `findingCandidate`,
+  confidence is high/medium, severity is high/medium, and
+  it has `evidenceRefs`. Pass / not-evaluated /
+  missing-candidate / low-confidence / low-severity rows
+  are ineligible. Duplicate id conflicts, missing
+  evidence chains, and uncertain category mappings are
+  needs-review. Deterministic finding id sketch:
+  `capability-architecture-policy:<rule>:<contractId>:<phraseCapabilityId>`
+  (no timestamp; duplicates collapse).
+
+  Pinned verbatim:
+
+  - `CapabilityLintFindingBridgeReport` is preview, not
+    `FindingReport`.
+  - No `FindingReport` entries are written in v1.
+  - No `FindingFilterReport`, `FindingLifecycleReport`,
+    `IssueAdjudicationReport`, or `CoherencyDelta`
+    mutation occurs in v1.
+  - Only a later explicit writer decision may allow
+    bridge candidates to become governed findings.
+  - Finding lifecycle and `CoherencyDelta` remain
+    downstream of governed findings.
+
+  Five options evaluated; Option B selected; direct
+  `FindingReport` writer rejected for v1; direct
+  lifecycle mutation and direct `CoherencyDelta`
+  remediation rejected. Implementation sequence: (1)
+  decision memo (this slice); (2)
+  `CapabilityLintFindingBridgeReport` v1 (preview only);
+  (3) bridge safety review; (4) `FindingReport` writer
+  decision; (5) writer implementation only if explicitly
+  approved. New strategy memo
+  `docs/strategy/capability-lint-finding-bridge-decision.md`
+  with 12 required headings + 4 required tables (option /
+  eligibility / governance boundary / future sequence).
+  New 15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-decision.md`.
+  **No implementation. No new artifact type registered.
+  No runtime behavior changes. No FindingReport /
+  FindingFilterReport / FindingLifecycleReport /
+  IssueAdjudicationReport / CoherencyDelta mutation. No
+  WorkOrder / VerificationPlan creation. No npm publish.
+  No version bump.** Recommended next slice:
+  **CapabilityLintFindingBridgeReport v1**.
+
 - Shipped **CapabilityArchitectureLintReport publication
   safety review** — forty-first slice on the
   codebase-intel-classic capability-ontology track.

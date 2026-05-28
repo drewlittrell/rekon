@@ -193,10 +193,14 @@ bridge decision as the next slice.
 
 ## Future Finding Bridge
 
-A future explicit bridge slice may promote selected
-`violation` rows through the finding lifecycle (likely
-into `FindingReport` via a deliberate write-path). Until
-that slice ships:
+The
+[`CapabilityArchitectureLintReport` → `FindingReport`
+bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
+(forty-second slice) selects **Option B**: a future
+explicit bridge slice introduces an intermediate
+`CapabilityLintFindingBridgeReport` **preview** artifact
+that classifies eligible `violation` rows before any
+`FindingReport` writer exists. Until that bridge ships:
 
 - `findingCandidate` stays a preview only.
 - Nothing in the lint report flows into
@@ -204,6 +208,13 @@ that slice ships:
 - The filter-aware lifecycle (see
   [../concepts/graph-aware-finding-filters.md](../concepts/graph-aware-finding-filters.md))
   is not bypassed.
+
+Even after the bridge report ships, it writes no
+`FindingReport` and mutates no governance artifact; only
+a separate explicit `FindingReport` writer decision may
+promote bridge candidates to governed findings, and
+`FindingLifecycleReport` / `IssueAdjudicationReport` /
+`CoherencyDelta` remain downstream stages.
 
 ## Cross-References
 

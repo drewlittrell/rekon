@@ -187,21 +187,34 @@ preview:
 }
 ```
 
-This is **preview** payload only. A future explicit
-bridge slice would:
+This is **preview** payload only. The
+[`CapabilityArchitectureLintReport` → `FindingReport`
+bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
+(forty-second slice) selects **Option B**: a future
+bridge slice introduces an intermediate
+`CapabilityLintFindingBridgeReport` **preview** artifact
+that classifies eligible `violation` rows
+(status `violation` + `findingCandidate` + confidence
+high/medium + severity high/medium + `evidenceRefs`)
+before any `FindingReport` writer exists. That bridge:
 
-- Decide if/when lint rows promote into governed
-  findings.
-- Decide which severity / confidence threshold a row
-  must clear before it enters the finding lifecycle.
-- Preserve the existing finding filter chain and
-  adjudication review checkpoint.
-- Keep `CapabilityArchitectureLintReport` as the
+- Decides if/when lint rows promote into governed
+  findings — via a separate explicit writer decision,
+  never automatically.
+- Pins the severity / confidence / evidence threshold a
+  row must clear before it is even *eligible*.
+- Preserves the existing finding filter chain and
+  adjudication review checkpoint;
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` remain downstream stages.
+- Keeps `CapabilityArchitectureLintReport` as the
   evaluation source of truth, not a mutable derivative
   of `FindingReport`.
 
-Until that slice ships, `CapabilityArchitectureLintReport`
-remains a standalone evaluation artifact.
+Until that bridge ships, `CapabilityArchitectureLintReport`
+remains a standalone evaluation artifact, and even the
+bridge report itself writes no `FindingReport` and
+mutates no governance artifact.
 
 ## Cross-References
 

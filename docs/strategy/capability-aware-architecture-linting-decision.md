@@ -55,6 +55,21 @@ writes ship in this slice.
 > `CapabilityArchitectureLintReport` publication safety
 > review.
 
+> **Status update (forty-second slice — shipped).**
+> The
+> [`CapabilityArchitectureLintReport` → `FindingReport`
+> bridge decision](capability-lint-finding-bridge-decision.md)
+> has shipped. It selects **Option B** — an intermediate
+> `CapabilityLintFindingBridgeReport` preview artifact —
+> over a direct `FindingReport` writer (rejected for v1).
+> The finding bridge that this decision memo's "Finding
+> Bridge Boundary" left for a future explicit decision is
+> now designed (shape + eligibility + id policy +
+> governance boundary). No bridge implementation, no
+> `FindingReport` write, no governance mutation ships in
+> the decision. Recommended next slice:
+> `CapabilityLintFindingBridgeReport` v1 (preview only).
+
 > **Status update (forty-first slice — shipped).**
 > The
 > [`CapabilityArchitectureLintReport` publication safety

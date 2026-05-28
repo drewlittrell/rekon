@@ -178,3 +178,8 @@ model.
 - [docs/strategy/classic-behavior-distillation.md](../strategy/classic-behavior-distillation.md)
 - [docs/strategy/classic-wins.md](../strategy/classic-wins.md)
 - [docs/strategy/issue-governance-architecture-decision.md](../strategy/issue-governance-architecture-decision.md)
+- [docs/strategy/capability-lint-finding-bridge-decision.md](../strategy/capability-lint-finding-bridge-decision.md)
+  — forty-second slice; selects an intermediate
+  `CapabilityLintFindingBridgeReport` preview artifact before any
+  `FindingReport` writer. The lifecycle stays **downstream** of governed
+  findings; the bridge report mutates no lifecycle state.
