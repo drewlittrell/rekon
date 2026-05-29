@@ -6256,6 +6256,29 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Bridge-derived findings publication surfacing (P1.1
+  bridge-derived-findings-publication slice).** ✅ Shipped.
+  **Fifty-fourth slice on the capability-ontology track.** Product
+  capability batch implementing the slice-53 Option B decision. The
+  architecture summary (`## Bridge-Derived Findings`) and agent
+  operating contract (`### Bridge-Derived Findings` + `Do Not Do`)
+  surface the governed bridge-derived `FindingReport` entries the
+  controlled `--confirm-finding-write` writer wrote, read-only with
+  provenance. New helper
+  `buildBridgeDerivedFindingsPublicationSection` (+
+  `isBridgeDerivedFinding`) identifies them by `type`,
+  `details.source`, or `details.source*` — never title text alone.
+  Manifest gains `FindingReport` consume + a
+  `bridge-derived-findings.changed` invalidation rule.
+  **Publications read the latest FindingReport, never run the bridge
+  writer, never mutate FindingReport / FindingLifecycleReport /
+  IssueAdjudicationReport / CoherencyDelta, never create WorkOrder /
+  VerificationPlan; bridge-derived findings are governed
+  FindingReport entries, not lifecycle status; proof report
+  deferred; lifecycle / CoherencyDelta integration downstream.**
+  23-assertion contract test + 11-assertion docs test + review
+  packet. Recommended next slice: bridge-derived findings
+  publication safety review.
 - **Bridge-derived findings publication decision (P1.1
   bridge-derived-findings-publication-decision slice).** ✅
   Shipped. **Fifty-third slice on the capability-ontology

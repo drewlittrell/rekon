@@ -344,6 +344,40 @@ safety-review pair defines a natural section for it.
 4. **Lifecycle / `CoherencyDelta` integration decision — only after
    surfacing is reviewed.**
 
+## Surfacing Implementation (Fifty-Fourth Slice)
+
+Step 2 of the implementation sequence **has shipped** (fifty-fourth
+slice). The pure helper
+`@rekon/capability-docs.buildBridgeDerivedFindingsPublicationSection`
+reads the latest `FindingReport`, filters to bridge-derived findings
+(identified by `finding.type === "capability_architecture_policy"`, by
+`finding.details.source === "capability-lint-bridge"`, or by any
+`finding.details.source*` trace field — never by title text alone),
+and renders a read-only, provenance-bearing section. Both publishers
+wire it in: the **architecture summary** renders `## Bridge-Derived
+Findings` and the **agent operating contract** renders `###
+Bridge-Derived Findings` plus a `Do Not Do` reminder. The
+`@rekon/capability-docs` manifest now consumes `FindingReport` and a
+`bridge-derived-findings.changed` invalidation rule regenerates both
+publications when a new `FindingReport` lands.
+
+The shipped surfacing is read-only and bounded:
+
+- The architecture summary surfaces bridge-derived findings.
+- The agent operating contract surfaces bridge-derived findings.
+- Proof report surfacing remains deferred.
+- Publications read the latest FindingReport.
+- Publications do not run the bridge writer.
+- Publications do not mutate FindingReport, FindingLifecycleReport, IssueAdjudicationReport, or CoherencyDelta.
+- Publications do not create WorkOrder or VerificationPlan.
+- Bridge-derived findings are governed FindingReport entries, not lifecycle status.
+- Lifecycle and CoherencyDelta integration remain downstream.
+
+The next slice is the **bridge-derived findings publication safety
+review**, after which the `FindingLifecycleReport` /
+`IssueAdjudicationReport` / `CoherencyDelta` integration decision may
+begin.
+
 ## Cross-References
 
 - [FindingReport writer safety review](capability-lint-finding-writer-safety-review.md)

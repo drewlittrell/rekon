@@ -254,6 +254,9 @@ writes).
   bridge-derived `FindingReport` entries in the architecture summary
   and the agent operating contract first); defers the proof report.
   Publication surfacing mutates nothing; lifecycle / `CoherencyDelta`
-  integration remain downstream.
+  integration remain downstream. The surfacing implementation shipped
+  in the fifty-fourth slice (read-only `## Bridge-Derived Findings` in
+  the architecture summary and `### Bridge-Derived Findings` in the
+  agent contract).
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)

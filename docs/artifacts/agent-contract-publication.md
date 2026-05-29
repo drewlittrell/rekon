@@ -575,8 +575,8 @@ Finding Bridge subsection above. It would surface the bridge-derived
 `FindingReport` entries (identified by `finding.type ===
 "capability_architecture_policy"` plus `details.source*` trace
 fields) with provenance, plus a `Do Not Do` reminder so an agent
-never reads the subsection as lifecycle status. **Decision-only; not
-implemented yet.** When built it mutates no `FindingReport`,
+never reads the subsection as lifecycle status. **Shipped in the
+fifty-fourth slice.** It mutates no `FindingReport`,
 `FindingLifecycleReport`, `IssueAdjudicationReport`, or
 `CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;
 bridge-derived findings are governed `FindingReport` entries, not

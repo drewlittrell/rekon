@@ -1103,6 +1103,45 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Bridge-derived findings publication surfacing has shipped.
+# Fifty-fourth slice on the codebase-intel-classic
+# capability-ontology track. Product capability batch implementing
+# the slice-53 Option B decision.
+#
+# The architecture summary and agent operating contract now surface
+# the governed bridge-derived FindingReport entries the controlled
+# `rekon capability lint write-findings --confirm-finding-write`
+# writer wrote, as read-only visibility with provenance.
+#   - New helper
+#     @rekon/capability-docs.buildBridgeDerivedFindingsPublicationSection
+#     (+ isBridgeDerivedFinding) identifies bridge-derived findings
+#     by finding.type === "capability_architecture_policy",
+#     details.source === "capability-lint-bridge", or any
+#     details.source* trace field — never title text alone.
+#   - Architecture summary renders `## Bridge-Derived Findings`
+#     (FindingReport ref, count, severity distribution, bounded
+#     provenance table); agent contract renders `### Bridge-Derived
+#     Findings` + a Do Not Do reminder.
+#   - Manifest gains FindingReport consume + a
+#     bridge-derived-findings.changed invalidation rule.
+#   - Publications read the latest FindingReport, never run the
+#     bridge writer, never mutate FindingReport /
+#     FindingLifecycleReport / IssueAdjudicationReport /
+#     CoherencyDelta, never create WorkOrder / VerificationPlan;
+#     bridge-derived findings are governed FindingReport entries,
+#     not lifecycle status; proof report deferred; lifecycle /
+#     CoherencyDelta integration downstream.
+#
+# New 23-assertion contract test + 11-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/bridge-derived-findings-publications.md.
+#
+# No new artifact type. No new CLI command. No version bump. No npm
+# publish.
+#
+# Recommended next slice: bridge-derived findings publication safety
+# review.
+#
 # Bridge-derived findings publication decision has shipped.
 # Fifty-third slice on the codebase-intel-classic
 # capability-ontology track. Strategy / architecture decision

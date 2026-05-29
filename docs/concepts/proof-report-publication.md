@@ -241,7 +241,8 @@ Rebuild with `rekon publish proof`.
   proof report.
 - **Not a bridge-derived findings surface.** The
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
-  (**fifty-third slice**) selects the architecture summary +
+  (**fifty-third slice**; surfacing shipped in the **fifty-fourth
+  slice**) selects the architecture summary +
   agent operating contract to surface the *governed findings the
   controlled writer wrote* and **defers** proof-report surfacing.
   Bridge-derived findings are governance context (finding

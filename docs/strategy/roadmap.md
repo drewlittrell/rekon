@@ -2640,6 +2640,33 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Bridge-derived findings publication surfacing (P1.1
+  bridge-derived-findings-publication slice):
+  **fifty-fourth slice on the capability-ontology track.**
+  Product capability batch implementing the slice-53 Option B
+  decision. The architecture summary (`## Bridge-Derived Findings`)
+  and agent operating contract (`### Bridge-Derived Findings` +
+  `Do Not Do`) now surface the governed bridge-derived
+  `FindingReport` entries the controlled `--confirm-finding-write`
+  writer wrote, as **read-only visibility with provenance**. New
+  pure helper
+  `@rekon/capability-docs.buildBridgeDerivedFindingsPublicationSection`
+  (+ `isBridgeDerivedFinding`) identifies them by `finding.type ===
+  "capability_architecture_policy"`, `finding.details.source ===
+  "capability-lint-bridge"`, or any `finding.details.source*` trace
+  field — **never title text alone**. Manifest gains `FindingReport`
+  in `consumes` + a `bridge-derived-findings.changed` invalidation
+  rule. **Publications read the latest FindingReport, never run the
+  bridge writer, never mutate FindingReport / FindingFilterReport /
+  FindingLifecycleReport / IssueAdjudicationReport / CoherencyDelta,
+  and never create WorkOrder / VerificationPlan; bridge-derived
+  findings are governed FindingReport entries, not lifecycle status;
+  proof-report surfacing remains deferred; lifecycle and
+  CoherencyDelta integration remain downstream.** New 23-assertion
+  contract test + 11-assertion docs test + review packet.
+  **No new artifact type. No new CLI command. No version bump. No
+  npm publish.** Recommended next slice: bridge-derived findings
+  publication safety review.
 - Bridge-derived findings publication decision (P1.1
   bridge-derived-findings-publication-decision slice):
   **fifty-third slice on the capability-ontology track.**

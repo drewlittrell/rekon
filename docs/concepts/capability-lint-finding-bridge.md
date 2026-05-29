@@ -194,7 +194,7 @@ preview / governance-candidate context, not verification proof.
   — fifty-third slice; decides how the written bridge-derived
   `FindingReport` entries are surfaced (Option B: architecture
   summary + agent operating contract first; proof report deferred).
-  Surfacing is decision-only, mutates nothing, and leaves lifecycle
-  / `CoherencyDelta` integration downstream.
+  Surfacing **shipped in the fifty-fourth slice**, mutates nothing,
+  and leaves lifecycle / `CoherencyDelta` integration downstream.
 - [Roadmap](../strategy/roadmap.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

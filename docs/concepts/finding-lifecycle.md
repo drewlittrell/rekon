@@ -222,4 +222,8 @@ model.
   lifecycle state and bridge-derived findings are governed
   `FindingReport` entries, **not lifecycle status**; lifecycle
   integration remains downstream. See
-  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
+implementation shipped in the fifty-fourth slice (read-only
+`## Bridge-Derived Findings` in the architecture summary and `###
+Bridge-Derived Findings` in the agent contract); it mutates no
+lifecycle state and lifecycle integration remains downstream.

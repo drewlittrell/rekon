@@ -334,5 +334,8 @@ These are intentionally deferred. See
   proof-report surfacing is deferred. That surfacing mutates no
   `CoherencyDelta`, and `CoherencyDelta` integration remains
   downstream. See
-  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
+implementation shipped in the fifty-fourth slice (read-only, in the
+architecture summary + agent contract); it mutates no `CoherencyDelta`
+and `CoherencyDelta` integration remains downstream.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

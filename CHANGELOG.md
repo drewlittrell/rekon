@@ -4,6 +4,39 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **bridge-derived findings publication surfacing** —
+  fifty-fourth slice on the codebase-intel-classic
+  capability-ontology track. Product capability batch. The
+  architecture summary and agent operating contract now surface
+  the governed bridge-derived `FindingReport` entries the
+  controlled `rekon capability lint write-findings
+  --confirm-finding-write` writer wrote, as **read-only
+  visibility with provenance**. New pure helper
+  `@rekon/capability-docs.buildBridgeDerivedFindingsPublicationSection`
+  (plus `isBridgeDerivedFinding`) reads the latest `FindingReport`
+  and filters to bridge-derived findings — identified by
+  `finding.type === "capability_architecture_policy"`, by
+  `finding.details.source === "capability-lint-bridge"`, or by any
+  `finding.details.source*` trace field (never title text alone).
+  The architecture summary renders `## Bridge-Derived Findings`
+  (FindingReport ref, count, severity distribution, bounded
+  provenance table); the agent operating contract renders `###
+  Bridge-Derived Findings` plus a `Do Not Do` reminder. The
+  `@rekon/capability-docs` manifest gains `FindingReport` in
+  `consumes` and a `bridge-derived-findings.changed` invalidation
+  rule. **Publications are read-only: they read the latest
+  FindingReport, do not run the bridge writer, do not mutate
+  FindingReport / FindingFilterReport / FindingLifecycleReport /
+  IssueAdjudicationReport / CoherencyDelta, and do not create
+  WorkOrder / VerificationPlan. Bridge-derived findings are
+  governed FindingReport entries, not lifecycle status; proof
+  report surfacing remains deferred; lifecycle and CoherencyDelta
+  integration remain downstream.** New 23-assertion contract test
+  + 11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-derived-findings-publications.md`.
+  No new artifact type. No new CLI command. No version bump. No npm
+  publish. Recommended next slice: bridge-derived findings
+  publication safety review.
 - Shipped **bridge-derived findings publication decision** —
   fifty-third slice on the codebase-intel-classic
   capability-ontology track. Strategy / architecture

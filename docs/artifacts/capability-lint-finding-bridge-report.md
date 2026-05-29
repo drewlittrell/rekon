@@ -288,8 +288,8 @@ context, not verification proof.
   architecture summary + agent operating contract first (read-only,
   with provenance via `finding.type ===
   "capability_architecture_policy"` plus `details.source*` trace
-  fields); proof-report surfacing remains **deferred**. Surfacing is
-  not implemented in that slice, mutates nothing, creates no
+  fields); proof-report surfacing remains **deferred**. Surfacing
+  **shipped in the fifty-fourth slice**, mutates nothing, creates no
   `WorkOrder` / `VerificationPlan`, and leaves lifecycle /
   `CoherencyDelta` integration downstream.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)

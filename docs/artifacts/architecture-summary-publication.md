@@ -495,8 +495,8 @@ starting point. See
   bridge-derived `FindingReport` entries — identified by
   `finding.type === "capability_architecture_policy"` plus the
   `details.source*` trace fields — with provenance and a boundary
-  statement. **Decision-only; not implemented yet.** When built it
-  mutates no `FindingReport`, `FindingLifecycleReport`,
+  statement. **Shipped in the fifty-fourth slice.** It mutates no
+  `FindingReport`, `FindingLifecycleReport`,
   `IssueAdjudicationReport`, or `CoherencyDelta`, and creates no
   `WorkOrder` / `VerificationPlan`. Proof-report surfacing remains
   **deferred**.

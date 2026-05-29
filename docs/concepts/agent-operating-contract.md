@@ -480,8 +480,8 @@ surface those `FindingReport` entries (identified by `finding.type
 === "capability_architecture_policy"` plus `details.source*` trace
 fields) with provenance, plus a `Do Not Do` reminder pinning that
 bridge-derived findings are governed `FindingReport` entries, **not
-lifecycle status**. The surfacing is **decision-only and not
-implemented yet**; when built it mutates no `FindingReport`,
-`FindingLifecycleReport`, `IssueAdjudicationReport`, or
-`CoherencyDelta`, creates no `WorkOrder` / `VerificationPlan`, and
-proof-report surfacing remains **deferred**.
+lifecycle status**. The surfacing **shipped in the fifty-fourth
+slice**; it mutates no `FindingReport`, `FindingLifecycleReport`,
+`IssueAdjudicationReport`, or `CoherencyDelta`, creates no
+`WorkOrder` / `VerificationPlan`, and proof-report surfacing remains
+**deferred**.

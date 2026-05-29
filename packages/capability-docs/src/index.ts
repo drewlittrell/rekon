@@ -548,6 +548,26 @@ export const architectureSummaryPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityLintFindingBridgeRef);
     }
+    // Bridge-derived findings publication surfacing
+    // (bridge-derived-findings-publication). Read-only: surfaces the
+    // governed FindingReport entries the controlled writer wrote
+    // (identified by type capability_architecture_policy + details
+    // source*). Never runs the bridge writer, never mutates
+    // FindingReport, FindingFilterReport, FindingLifecycleReport,
+    // IssueAdjudicationReport, or CoherencyDelta; never creates
+    // WorkOrder or VerificationPlan.
+    const findingReportRef = await latestRef(artifacts, "FindingReport");
+    const findingReport = findingReportRef
+      ? (await artifacts.read(findingReportRef)) as BridgeDerivedFindingReportLike
+      : undefined;
+    if (
+      findingReportRef
+      && !inputRefs.some((existing) =>
+        existing.type === findingReportRef.type
+        && existing.id === findingReportRef.id)
+    ) {
+      inputRefs.push(findingReportRef);
+    }
     const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
@@ -592,6 +612,8 @@ export const architectureSummaryPublisher: Publisher = {
         capabilityArchitectureLintRef,
         capabilityLintFindingBridgeReport,
         capabilityLintFindingBridgeRef,
+        findingReport,
+        findingReportRef,
         freshness,
         inputRefs,
         generatedAt,
@@ -1032,6 +1054,25 @@ export const agentContractPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityLintFindingBridgeRef);
     }
+    // Bridge-derived findings publication surfacing
+    // (bridge-derived-findings-publication). Read-only: surfaces the
+    // governed FindingReport entries the controlled writer wrote.
+    // Never runs the bridge writer, never mutates FindingReport,
+    // FindingFilterReport, FindingLifecycleReport,
+    // IssueAdjudicationReport, or CoherencyDelta; never creates
+    // WorkOrder or VerificationPlan.
+    const findingReportRef = await latestRef(artifacts, "FindingReport");
+    const findingReport = findingReportRef
+      ? (await artifacts.read(findingReportRef)) as BridgeDerivedFindingReportLike
+      : undefined;
+    if (
+      findingReportRef
+      && !inputRefs.some((existing) =>
+        existing.type === findingReportRef.type
+        && existing.id === findingReportRef.id)
+    ) {
+      inputRefs.push(findingReportRef);
+    }
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
       "MemorySelection",
@@ -1084,6 +1125,8 @@ export const agentContractPublisher: Publisher = {
         capabilityArchitectureLintRef,
         capabilityLintFindingBridgeReport,
         capabilityLintFindingBridgeRef,
+        findingReport,
+        findingReportRef,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -1113,6 +1156,7 @@ export default defineCapability({
       "CoherencyDelta",
       "IssueAdjudicationReport",
       "IssueMergeDecisionLedger",
+      "FindingReport",
       "FindingLifecycleReport",
       "FindingFilterReport",
       "FindingFilterHealthReport",
@@ -1226,6 +1270,12 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary and agent contract when a new CapabilityLintFindingBridgeReport is written so operators and agents see which architecture-lint rows are eligible / ineligible / needs-review to become governed findings later. Publications never run `rekon capability lint bridge-findings` automatically, never write FindingReport, never mutate FindingFilterReport, FindingLifecycleReport, IssueAdjudicationReport, or CoherencyDelta, and never create WorkOrder or VerificationPlan. proposedFinding stays preview-only.",
         inputs: ["CapabilityLintFindingBridgeReport"],
+      },
+      {
+        id: "bridge-derived-findings.changed",
+        description:
+          "Regenerate the architecture summary and agent contract when a new FindingReport is written so operators and agents see the governed bridge-derived findings (type capability_architecture_policy, details source*) the controlled `rekon capability lint write-findings --confirm-finding-write` writer wrote. Publications read the latest FindingReport read-only: they never run the bridge writer, never mutate FindingReport, FindingFilterReport, FindingLifecycleReport, IssueAdjudicationReport, or CoherencyDelta, and never create WorkOrder or VerificationPlan. Bridge-derived findings are governed FindingReport entries, not lifecycle status; lifecycle and CoherencyDelta integration remain downstream. Proof-report surfacing is deferred.",
+        inputs: ["FindingReport"],
       },
     ],
     compatibility: {
@@ -1598,6 +1648,8 @@ type ArchitectureSummaryInputs = {
   capabilityArchitectureLintRef?: ArtifactRef;
   capabilityLintFindingBridgeReport?: CapabilityLintFindingBridgeReportLike;
   capabilityLintFindingBridgeRef?: ArtifactRef;
+  findingReport?: BridgeDerivedFindingReportLike;
+  findingReportRef?: ArtifactRef;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -2002,6 +2054,18 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     input.capabilityLintFindingBridgeRef,
     2,
   );
+  // Bridge-derived findings publication surfacing. Surfaces the
+  // governed FindingReport entries the controlled writer wrote
+  // (distinct from the preview Capability Lint Finding Bridge
+  // section above). Read-only; never mutates FindingReport,
+  // lifecycle, adjudication, or CoherencyDelta; never creates
+  // WorkOrder or VerificationPlan; proof-report surfacing deferred.
+  renderBridgeDerivedFindingsSection(
+    sections,
+    input.findingReport,
+    input.findingReportRef,
+    2,
+  );
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -2314,6 +2378,22 @@ function renderCapabilityLintFindingBridgeSection(
   headingLevel: 2 | 3,
 ): void {
   const block = buildCapabilityLintFindingBridgePublicationSection({
+    report,
+    reportRef,
+    headingLevel,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
+function renderBridgeDerivedFindingsSection(
+  sections: string[],
+  report: BridgeDerivedFindingReportLike | undefined,
+  reportRef: ArtifactRef | undefined,
+  headingLevel: 2 | 3,
+): void {
+  const block = buildBridgeDerivedFindingsPublicationSection({
     report,
     reportRef,
     headingLevel,
@@ -3025,6 +3105,8 @@ type AgentContractInputs = {
   capabilityArchitectureLintRef?: ArtifactRef;
   capabilityLintFindingBridgeReport?: CapabilityLintFindingBridgeReportLike;
   capabilityLintFindingBridgeRef?: ArtifactRef;
+  findingReport?: BridgeDerivedFindingReportLike;
+  findingReportRef?: ArtifactRef;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -3074,6 +3156,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat CapabilityContract publication surfacing as architecture linting, resolver routing, verification planning, finding resolution, RefactorPreservationContract, or source-write permission. The CapabilityContract section in this contract is policy visibility only; configured / unmatched rows are operator-authored policy records, not enforced behavior.",
   "Do not treat CapabilityArchitectureLintReport publication surfacing as FindingReport mutation, lifecycle mutation, CoherencyDelta remediation, resolver routing, verification planning, RefactorPreservationContract, or source-write permission. The Capability Architecture Linting section is evaluation visibility only; violation rows are policy-evaluation signals, not governed findings, and findingCandidate is preview-only.",
   "Do not treat CapabilityLintFindingBridgeReport publication surfacing as FindingReport writing, lifecycle mutation, CoherencyDelta remediation, WorkOrder creation, VerificationPlan generation, resolver routing, verification planning, RefactorPreservationContract, or source-write permission. The Capability Lint Finding Bridge section is preview visibility only; eligible candidates are proposed governed-finding candidates only, needs-review candidates require operator review, and proposedFinding is preview-only — no FindingReport is written.",
+  "Do not treat bridge-derived FindingReport entries as lifecycle status, adjudication, CoherencyDelta remediation, WorkOrder creation, VerificationPlan creation, resolver routing, verification planning, RefactorPreservationContract, or source-write permission. The Bridge-Derived Findings section surfaces governed FindingReport entries written by the controlled `--confirm-finding-write` writer; they are provenance-bearing findings, not lifecycle status, and lifecycle / CoherencyDelta integration remain downstream.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -3585,6 +3668,17 @@ function renderAgentContract(input: AgentContractInputs): string {
     sections,
     input.capabilityLintFindingBridgeReport,
     input.capabilityLintFindingBridgeRef,
+    3,
+  );
+  // Bridge-derived findings publication surfacing (heading level 3,
+  // inside the operating-state group). Surfaces the governed
+  // FindingReport entries the controlled writer wrote. Read-only;
+  // never mutates FindingReport, lifecycle, adjudication, or
+  // CoherencyDelta; never creates WorkOrder or VerificationPlan.
+  renderBridgeDerivedFindingsSection(
+    sections,
+    input.findingReport,
+    input.findingReportRef,
     3,
   );
 
@@ -8115,3 +8209,231 @@ export const CAPABILITY_LINT_FINDING_BRIDGE_PUBLICATION_BOUNDARY_LINE =
   CAPABILITY_LINT_BRIDGE_BOUNDARY_LINE;
 export const CAPABILITY_LINT_FINDING_BRIDGE_PUBLICATION_PROOF_DEFERRAL_LINE =
   CAPABILITY_LINT_BRIDGE_PROOF_DEFERRAL_LINE;
+
+// --- Bridge-derived findings publication surfacing ------------------
+//
+// Read-only surfacing of *governed* FindingReport entries that were
+// written by the controlled `rekon capability lint write-findings
+// --confirm-finding-write` writer (bridge-derived-findings-publication
+// slice). Distinct from the preview Capability Lint Finding Bridge
+// section above: that section surfaces bridge *candidates*; this
+// section surfaces the *governed findings* the writer actually wrote.
+//
+// Bridge-derived findings are identified structurally — by
+// `finding.type === "capability_architecture_policy"`, by
+// `finding.details.source === "capability-lint-bridge"`, or by the
+// presence of any `finding.details.source*` trace field — never by
+// title text alone.
+
+/** The governed Finding type/category bridge-derived findings carry. */
+export const BRIDGE_DERIVED_FINDING_TYPE = "capability_architecture_policy";
+/** The `finding.details.source` marker the writer stamps. */
+export const BRIDGE_DERIVED_FINDING_SOURCE = "capability-lint-bridge";
+
+export type BridgeDerivedFindingLike = {
+  id?: string;
+  title?: string;
+  type?: string;
+  category?: string;
+  severity?: string;
+  evidence?: ArtifactRef[];
+  evidenceRefs?: ArtifactRef[];
+  details?: {
+    source?: string;
+    sourceBridgeCandidateId?: string;
+    sourceLintRowId?: string;
+    sourceContractId?: string;
+    sourcePhraseCapabilityId?: string;
+    [key: string]: unknown;
+  };
+};
+
+export type BridgeDerivedFindingReportLike = {
+  header?: ArtifactHeader;
+  findings?: BridgeDerivedFindingLike[];
+};
+
+export type BuildBridgeDerivedFindingsPublicationSectionInput = {
+  /** Latest FindingReport artifact. Optional — callers still invoke
+   *  the helper when absent; it emits no-bridge-derived guidance. */
+  report?: BridgeDerivedFindingReportLike;
+  /** ArtifactRef for the FindingReport. Stamped into the rendered
+   *  "FindingReport:" line and returned as `inputRef`. */
+  reportRef?: ArtifactRef;
+  /** 2 → architecture summary; 3 → agent contract. */
+  headingLevel?: 2 | 3;
+  /** Cap the rendered findings table; default 20. */
+  tableLimit?: number;
+};
+
+export type BuildBridgeDerivedFindingsPublicationSectionResult = {
+  lines: string[];
+  /** FindingReport ref the section is rendered against, when
+   *  discoverable. The producer cites this in `header.inputRefs`;
+   *  the helper mutates no header. */
+  inputRef?: ArtifactRef;
+  /** Count of bridge-derived findings identified (0 when none). */
+  count: number;
+};
+
+const DEFAULT_BRIDGE_DERIVED_FINDINGS_TABLE_LIMIT = 20;
+
+export const BRIDGE_DERIVED_FINDINGS_BOUNDARY_LINE =
+  "Bridge-derived findings are governed FindingReport entries, not lifecycle status; this publication does not update lifecycle status, adjudication, CoherencyDelta, WorkOrders, VerificationPlans, or source files.";
+
+const BRIDGE_DERIVED_FINDINGS_NO_REPORT_GUIDANCE =
+  "No bridge-derived FindingReport entries found. Run the bridge dry-run / writer flow only if approved.";
+
+export const BRIDGE_DERIVED_FINDINGS_PROOF_DEFERRAL_LINE =
+  "Proof-report surfacing of bridge-derived findings is deferred. Finding provenance is governance context, not verification proof.";
+
+const BRIDGE_DERIVED_FINDINGS_GUIDANCE = [
+  "Bridge-derived findings are governed FindingReport entries.",
+  "They are not FindingLifecycleReport status.",
+  "They do not imply CoherencyDelta remediation.",
+  "They do not create WorkOrders or VerificationPlans.",
+  "They are provenance-bearing findings from the capability lint bridge.",
+];
+
+/** Structural identification — never relies on title text alone. */
+export function isBridgeDerivedFinding(
+  finding: BridgeDerivedFindingLike | undefined,
+): boolean {
+  if (!finding || typeof finding !== "object") return false;
+  if (finding.type === BRIDGE_DERIVED_FINDING_TYPE) return true;
+  if (finding.category === BRIDGE_DERIVED_FINDING_TYPE) return true;
+  const details = finding.details;
+  if (details && typeof details === "object") {
+    if (details.source === BRIDGE_DERIVED_FINDING_SOURCE) return true;
+    for (
+      const field of [
+        details.sourceBridgeCandidateId,
+        details.sourceLintRowId,
+        details.sourceContractId,
+        details.sourcePhraseCapabilityId,
+      ]
+    ) {
+      if (typeof field === "string" && field.length > 0) return true;
+    }
+  }
+  return false;
+}
+
+function pickFindingReportRefFromHeader(
+  header: ArtifactHeader | undefined,
+): ArtifactRef | undefined {
+  if (!header) return undefined;
+  if (header.artifactType !== "FindingReport") return undefined;
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) {
+    return undefined;
+  }
+  const schemaVersion = typeof header.schemaVersion === "string"
+    && header.schemaVersion.length > 0
+    ? header.schemaVersion
+    : "0.1.0";
+  return { type: header.artifactType, id: header.artifactId, schemaVersion };
+}
+
+export function buildBridgeDerivedFindingsPublicationSection(
+  input: BuildBridgeDerivedFindingsPublicationSectionInput,
+): BuildBridgeDerivedFindingsPublicationSectionResult {
+  const { report, reportRef } = input;
+  const headingLevel = input.headingLevel ?? 2;
+  const heading = headingLevel === 2 ? "##" : "###";
+  const tableLimit = input.tableLimit ?? DEFAULT_BRIDGE_DERIVED_FINDINGS_TABLE_LIMIT;
+  const lines: string[] = [];
+
+  lines.push(`${heading} Bridge-Derived Findings`);
+  lines.push("");
+
+  const findings = report && Array.isArray(report.findings) ? report.findings : [];
+  const bridgeDerived = findings.filter((finding) => isBridgeDerivedFinding(finding));
+
+  if (bridgeDerived.length === 0) {
+    lines.push(BRIDGE_DERIVED_FINDINGS_NO_REPORT_GUIDANCE);
+    lines.push("");
+    for (const guidance of BRIDGE_DERIVED_FINDINGS_GUIDANCE) {
+      lines.push(`- ${guidance}`);
+    }
+    lines.push("");
+    lines.push(BRIDGE_DERIVED_FINDINGS_BOUNDARY_LINE);
+    lines.push("");
+    lines.push(BRIDGE_DERIVED_FINDINGS_PROOF_DEFERRAL_LINE);
+    lines.push("");
+    return { lines, count: 0 };
+  }
+
+  const resolvedReportRef = reportRef ?? pickFindingReportRefFromHeader(report?.header);
+  if (resolvedReportRef) {
+    lines.push(`- FindingReport: ${formatRef(resolvedReportRef)}`);
+  } else if (
+    report?.header?.artifactType === "FindingReport"
+    && typeof report.header?.artifactId === "string"
+  ) {
+    lines.push(`- FindingReport: ${report.header.artifactType}:${report.header.artifactId}`);
+  }
+
+  lines.push(`- Bridge-derived findings: ${bridgeDerived.length}`);
+
+  const bySeverity: Record<string, number> = {};
+  for (const finding of bridgeDerived) {
+    const severity = typeof finding.severity === "string" && finding.severity.length > 0
+      ? finding.severity
+      : "unknown";
+    bySeverity[severity] = (bySeverity[severity] ?? 0) + 1;
+  }
+  const severityLine = formatCountRecord(bySeverity);
+  if (severityLine) {
+    lines.push(`- By severity: ${severityLine}`);
+  }
+  lines.push("");
+  for (const guidance of BRIDGE_DERIVED_FINDINGS_GUIDANCE) {
+    lines.push(`- ${guidance}`);
+  }
+  lines.push("");
+  lines.push(BRIDGE_DERIVED_FINDINGS_BOUNDARY_LINE);
+  lines.push("");
+  lines.push(BRIDGE_DERIVED_FINDINGS_PROOF_DEFERRAL_LINE);
+  lines.push("");
+
+  lines.push(
+    "| Severity | Finding | Source Candidate | Source Lint Row | Source Contract | Source Capability |",
+  );
+  lines.push("| --- | --- | --- | --- | --- | --- |");
+  const bounded = bridgeDerived.slice(0, tableLimit);
+  for (const finding of bounded) {
+    const details = finding.details ?? {};
+    const severity = typeof finding.severity === "string" ? finding.severity : "-";
+    const findingId = typeof finding.id === "string" && finding.id.length > 0
+      ? escapeTableCell(finding.id)
+      : "—";
+    const candidate = typeof details.sourceBridgeCandidateId === "string"
+      && details.sourceBridgeCandidateId.length > 0
+      ? escapeTableCell(details.sourceBridgeCandidateId)
+      : "—";
+    const lintRow = typeof details.sourceLintRowId === "string"
+      && details.sourceLintRowId.length > 0
+      ? escapeTableCell(details.sourceLintRowId)
+      : "—";
+    const contract = typeof details.sourceContractId === "string"
+      && details.sourceContractId.length > 0
+      ? escapeTableCell(details.sourceContractId)
+      : "—";
+    const capability = typeof details.sourcePhraseCapabilityId === "string"
+      && details.sourcePhraseCapabilityId.length > 0
+      ? escapeTableCell(details.sourcePhraseCapabilityId)
+      : "—";
+    lines.push(
+      `| ${severity} | ${findingId} | ${candidate} | ${lintRow} | ${contract} | ${capability} |`,
+    );
+  }
+  if (bridgeDerived.length > bounded.length) {
+    lines.push("");
+    lines.push(
+      `(${bridgeDerived.length - bounded.length} additional bridge-derived finding(s) omitted; inspect the FindingReport for full detail.)`,
+    );
+  }
+  lines.push("");
+
+  return { lines, inputRef: resolvedReportRef, count: bridgeDerived.length };
+}

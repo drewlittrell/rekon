@@ -183,7 +183,9 @@ The
 `details.source*` trace fields) will be surfaced in the
 **architecture summary** and **agent operating contract** first as
 read-only visibility with provenance; proof-report surfacing remains
-**deferred**. The surfacing is **not implemented** in that slice.
+**deferred**. The surfacing **shipped in the fifty-fourth slice**
+(read-only `## Bridge-Derived Findings` in the architecture summary
+and `### Bridge-Derived Findings` in the agent contract).
 Publication surfacing mutates no `FindingReport`,
 `FindingLifecycleReport`, `IssueAdjudicationReport`, or
 `CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;

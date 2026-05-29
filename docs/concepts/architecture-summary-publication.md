@@ -341,12 +341,13 @@ Finding Bridge section above. That section would surface the
 bridge-derived `FindingReport` entries (identified by `finding.type
 === "capability_architecture_policy"` plus `details.source*` trace
 fields) with provenance and an explicit boundary statement. **The
-surfacing is decision-only and not implemented yet.** When built, it
-mutates no `FindingReport`, `FindingLifecycleReport`,
-`IssueAdjudicationReport`, or `CoherencyDelta`, and creates no
-`WorkOrder` / `VerificationPlan`; bridge-derived findings are
-governed `FindingReport` entries, not lifecycle status. Proof-report
-surfacing remains **deferred**.
+surfacing shipped in the fifty-fourth slice** as a read-only `##
+Bridge-Derived Findings` section (FindingReport ref, count, severity
+distribution, bounded provenance table). It mutates no
+`FindingReport`, `FindingLifecycleReport`, `IssueAdjudicationReport`,
+or `CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;
+bridge-derived findings are governed `FindingReport` entries, not
+lifecycle status. Proof-report surfacing remains **deferred**.
 
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from

@@ -194,4 +194,7 @@ without a paired `VerificationRun`.
   bridge-derived `FindingReport` entries in the architecture summary
   and agent operating contract first; that surfacing creates no
   `VerificationPlan`, and verification plans remain downstream. See
-  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
+implementation shipped in the fifty-fourth slice (read-only, in the
+architecture summary + agent contract); it creates no
+`VerificationPlan` and verification plans remain downstream.
