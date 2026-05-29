@@ -63,6 +63,7 @@ for the full shape, classification table, and CLI surface.
 
 - [BridgeFindingLifecycleIntegrationReport artifact](../artifacts/bridge-finding-lifecycle-integration-report.md)
 - [Bridge-derived findings lifecycle / CoherencyDelta integration decision](../strategy/bridge-finding-lifecycle-integration-decision.md)
+- [BridgeFindingLifecycleIntegrationReport safety review](../strategy/bridge-finding-lifecycle-integration-report-safety-review.md)
 - [FindingReport artifact](../artifacts/finding-report.md)
 - [Finding lifecycle concept](finding-lifecycle.md)
 - [Graph-aware finding filters concept](graph-aware-finding-filters.md)

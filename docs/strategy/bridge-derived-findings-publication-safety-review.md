@@ -289,3 +289,6 @@ writes.
   — the read-only preview artifact, shipped in the fifty-seventh slice,
   that the integration decision selected (no lifecycle / adjudication /
   `CoherencyDelta` mutation).
+- [BridgeFindingLifecycleIntegrationReport safety review](bridge-finding-lifecycle-integration-report-safety-review.md)
+  — the fifty-eighth slice; declares the preview artifact safe / stable
+  (no lifecycle / `CoherencyDelta` mutation).

@@ -2640,6 +2640,23 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- BridgeFindingLifecycleIntegrationReport safety review (P1.1
+  bridge-finding-lifecycle-integration-report-safety-review slice):
+  **fifty-eighth slice on the capability-ontology track.** Strategy /
+  safety-review batch. Read-only review of the
+  `BridgeFindingLifecycleIntegrationReport` v1 preview artifact at
+  `c908857`. **Recommendation: safe / stable preview artifact (no
+  blocker).** Pinned: BridgeFindingLifecycleIntegrationReport is
+  preview, not FindingLifecycleReport; initialLifecycleStatus is
+  modeled status only and does not mutate FindingLifecycleReport; no
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` mutation; no `WorkOrder`
+  / `VerificationPlan` creation; no source writes; `CoherencyDelta`
+  integration remains downstream of lifecycle and adjudication;
+  `WorkOrder` / `VerificationPlan` remain downstream of
+  `CoherencyDelta`. New memo + 16-assertion docs test + review packet.
+  Recommended next slice: BridgeFindingLifecycleIntegrationReport
+  publication surfacing.
 - BridgeFindingLifecycleIntegrationReport v1 (P1.1
   bridge-finding-lifecycle-integration-report slice): **fifty-seventh
   slice on the capability-ontology track.** Product capability batch.

@@ -195,6 +195,7 @@ mutated, and no `WorkOrder` or `VerificationPlan` is created.
 
 - [Bridge-derived findings lifecycle / CoherencyDelta integration decision](../strategy/bridge-finding-lifecycle-integration-decision.md)
 - [Bridge finding lifecycle integration concept](../concepts/bridge-finding-lifecycle-integration.md)
+- [BridgeFindingLifecycleIntegrationReport safety review](../strategy/bridge-finding-lifecycle-integration-report-safety-review.md)
 - [FindingReport artifact](finding-report.md)
 - [Finding lifecycle concept](../concepts/finding-lifecycle.md)
 - [Graph-aware finding filters concept](../concepts/graph-aware-finding-filters.md)

@@ -176,7 +176,8 @@ Answers to the required decision questions:
     `BridgeFindingLifecycleIntegrationReport` v1 (preview / dry-run
     only). ✅ Shipped in the fifty-seventh slice; see the
     [artifact reference](../artifacts/bridge-finding-lifecycle-integration-report.md)
-    and [concept](../concepts/bridge-finding-lifecycle-integration.md).
+    and [concept](../concepts/bridge-finding-lifecycle-integration.md). It was safety-reviewed safe / stable in the
+    fifty-eighth slice; see the [safety review](bridge-finding-lifecycle-integration-report-safety-review.md).
 
 ## Preview Artifact Model
 

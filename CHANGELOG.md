@@ -4,6 +4,35 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **BridgeFindingLifecycleIntegrationReport safety review** —
+  fifty-eighth slice on the codebase-intel-classic capability-ontology
+  track. Strategy / safety-review batch. Read-only end-to-end review of
+  the `BridgeFindingLifecycleIntegrationReport` v1 preview artifact
+  shipped at `c908857`. **Recommendation: the preview artifact is safe /
+  stable (no blocker).** Grounded by re-reading the shipped type /
+  factory / validator / schema, the
+  `buildBridgeFindingLifecycleIntegrationReport` builder +
+  `isBridgeDerivedFinding` classifier, and the
+  `rekon capability lint lifecycle-preview` CLI branch. Pinned:
+  BridgeFindingLifecycleIntegrationReport is preview, not
+  FindingLifecycleReport; initialLifecycleStatus is modeled status only
+  and does not mutate FindingLifecycleReport; it does not mutate
+  FindingFilterReport / FindingLifecycleReport / IssueAdjudicationReport
+  / CoherencyDelta; it does not create WorkOrder or VerificationPlan; it
+  does not write source files; CoherencyDelta integration remains
+  downstream of lifecycle and adjudication; WorkOrder and
+  VerificationPlan creation remain downstream of CoherencyDelta; the next
+  slice may surface BridgeFindingLifecycleIntegrationReport in
+  publications but must not mutate lifecycle or CoherencyDelta. New
+  strategy memo
+  `docs/strategy/bridge-finding-lifecycle-integration-report-safety-review.md`
+  (12 headings + 4 tables: surface / classification / boundary /
+  option). New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-finding-lifecycle-integration-report-safety-review.md`.
+  No runtime behavior changes. No source under `packages/` modified. No
+  new artifact type. No new CLI command. No npm publish. No version
+  bump. Recommended next slice: BridgeFindingLifecycleIntegrationReport
+  publication surfacing.
 - Shipped **BridgeFindingLifecycleIntegrationReport v1** — fifty-seventh
   slice on the codebase-intel-classic capability-ontology track. Product
   capability batch. Implements the read-only preview artifact chosen by
