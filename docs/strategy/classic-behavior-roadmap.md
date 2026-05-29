@@ -6256,6 +6256,35 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityLintFindingBridgeReport → FindingReport writer
+  decision (P1.1 capability-lint-finding-writer-decision
+  slice).** ✅ Shipped. **Forty-seventh slice on the
+  capability-ontology track.** Strategy / architecture decision
+  batch. Decides whether and how eligible
+  `CapabilityLintFindingBridgeReport` candidates may become
+  governed `FindingReport` entries. **Recommendation: Option B —
+  a future, separate, opt-in `FindingReport` writer with
+  required dry-run preview and explicit confirmation; the writer
+  is not implemented in this slice.** Pinned: no `FindingReport`
+  entries are written in this decision slice; a future writer
+  must support dry-run preview before write mode and require
+  explicit confirmation before writing `FindingReport`; the
+  writer writes a new `FindingReport` artifact, not mutating an
+  existing one in place; `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` remain downstream and are not mutated by the
+  writer; `WorkOrder` / `VerificationPlan` creation remain
+  downstream and are not part of the writer; source writes remain
+  unavailable. New memo
+  `docs/strategy/capability-lint-finding-writer-decision.md` (13
+  headings + 4 tables: option / eligibility / boundary /
+  future-sequence). New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-decision.md`.
+  **No runtime behavior changes. No source under `packages/`
+  modified. No new artifact type. No new CLI command. No version
+  bump. No npm publish.** Recommended next slice:
+  CapabilityLintFindingBridgeReport → FindingReport writer
+  dry-run helper / CLI (preview only).
 - **CapabilityLintFindingBridgeReport publication safety review
   (P1.1
   capability-lint-finding-bridge-publication-safety-review

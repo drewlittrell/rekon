@@ -92,6 +92,21 @@ no `FindingReport` mutation, no lifecycle mutation, no
 > preview candidates may become governed findings. Writer
 > implementation and all governance integration remain deferred.
 
+> **Update (forty-seventh slice):** the
+> [`CapabilityLintFindingBridgeReport` → `FindingReport` writer
+> decision](capability-lint-finding-writer-decision.md) has
+> **shipped**. It selects **Option B** — a future, separate,
+> opt-in `FindingReport` writer with a required dry-run preview
+> and explicit confirmation. **The writer is not implemented and
+> writes no `FindingReport`.** It would consume `eligible` bridge
+> candidates, preserve the deterministic `proposedFinding` id,
+> and write a **new** `FindingReport` artifact (no in-place
+> mutation); the finding filters, lifecycle, adjudication,
+> `CoherencyDelta`, `WorkOrder` / `VerificationPlan`, and source
+> writes all remain downstream and untouched. The next slice is
+> the **`FindingReport` writer dry-run helper / CLI** (preview
+> only).
+
 ## Why This Decision Exists
 
 `CapabilityArchitectureLintReport` now produces and

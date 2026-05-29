@@ -171,3 +171,10 @@ without a paired `VerificationRun`.
 - [Verification runs concept](../concepts/verification-runs.md)
 - [CoherencyDelta](coherency-delta.md)
 - [ResolverPacket](resolver-packet.md)
+- [CapabilityLintFindingBridgeReport → FindingReport writer decision](../strategy/capability-lint-finding-writer-decision.md)
+  — forty-seventh slice; selects Option B (a future, opt-in
+  `FindingReport` writer with dry-run preview + explicit confirmation;
+  not implemented). **The writer creates no `VerificationPlan`** —
+  verification plans remain downstream of governed findings and
+  `CoherencyDelta`, never of capability-lint bridge candidates or their
+  writer.

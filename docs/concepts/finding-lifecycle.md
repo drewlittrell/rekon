@@ -194,3 +194,10 @@ model.
   — forty-fourth slice; read-only review confirming the bridge mutates no
   lifecycle state and declaring it safe / stable. The lifecycle stays
   downstream of governed findings.
+- [docs/strategy/capability-lint-finding-writer-decision.md](../strategy/capability-lint-finding-writer-decision.md)
+  — forty-seventh slice; selects Option B (a future, opt-in
+  `FindingReport` writer with dry-run preview + explicit confirmation;
+  not implemented). The writer would write a new `FindingReport`
+  artifact; **this lifecycle remains downstream and is not mutated by
+  the writer**. Any written finding still flows through the filters,
+  status ledger, and this lifecycle projection like any other finding.

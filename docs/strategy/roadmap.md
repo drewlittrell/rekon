@@ -2640,6 +2640,30 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityLintFindingBridgeReport → FindingReport writer
+  decision (P1.1 capability-lint-finding-writer-decision slice):
+  **forty-seventh slice on the capability-ontology track.**
+  Strategy / architecture decision batch. Decides whether and
+  how eligible `CapabilityLintFindingBridgeReport` candidates may
+  become governed `FindingReport` entries. **Recommendation:
+  Option B — a future, separate, opt-in `FindingReport` writer
+  with required dry-run preview and explicit confirmation; not
+  implemented in this slice.** Pinned: no `FindingReport` entries
+  are written in this decision slice; dry-run preview before
+  write mode; explicit confirmation before writing
+  `FindingReport`; write a new `FindingReport` artifact (no
+  in-place mutation); `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` remain downstream and unmutated; `WorkOrder` /
+  `VerificationPlan` creation remain downstream; source writes
+  remain unavailable. New memo
+  `docs/strategy/capability-lint-finding-writer-decision.md` (13
+  headings + 4 tables). New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-decision.md`.
+  **No runtime behavior changes. No new artifact type. No new CLI
+  command. No version bump. No npm publish.** Recommended next
+  slice: CapabilityLintFindingBridgeReport → FindingReport writer
+  dry-run helper / CLI (preview only).
 - CapabilityLintFindingBridgeReport publication safety review
   (P1.1 capability-lint-finding-bridge-publication-safety-review
   slice): **forty-sixth slice on the capability-ontology

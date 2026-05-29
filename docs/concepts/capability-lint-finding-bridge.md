@@ -152,6 +152,16 @@ preview / governance-candidate context, not verification proof.
   — forty-sixth slice; declares the architecture summary + agent
   contract surfacing **safe / stable as read-only visibility**
   and selects the `FindingReport` writer decision next.
+- [CapabilityLintFindingBridgeReport → FindingReport writer decision](../strategy/capability-lint-finding-writer-decision.md)
+  — forty-seventh slice; selects **Option B** — a future,
+  separate, opt-in `FindingReport` writer with a required dry-run
+  preview and explicit confirmation. The writer is **not
+  implemented** and writes no `FindingReport`; it would write a
+  new `FindingReport` artifact and leave the finding filters,
+  lifecycle, adjudication, `CoherencyDelta`, `WorkOrder` /
+  `VerificationPlan`, and source writes downstream and untouched.
+  Next slice: the `FindingReport` writer dry-run helper / CLI
+  (preview only).
 - [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -4,6 +4,39 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityLintFindingBridgeReport → FindingReport
+  writer decision** — forty-seventh slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides whether and how eligible
+  `CapabilityLintFindingBridgeReport` candidates may become
+  governed `FindingReport` entries. **Recommendation: Option B —
+  a future, separate, opt-in `FindingReport` writer that requires
+  a dry-run preview and an explicit confirmation flag; the writer
+  is not implemented in this slice.** Pinned verbatim: no
+  `FindingReport` entries are written in this decision slice; a
+  future writer must support dry-run preview before write mode; a
+  future writer must require explicit confirmation before writing
+  `FindingReport`; the writer must write a new `FindingReport`
+  artifact, not mutate an existing `FindingReport` in place;
+  `FindingFilterReport`, `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, and `CoherencyDelta` remain
+  downstream and are not mutated by the writer; `WorkOrder` and
+  `VerificationPlan` creation remain downstream and are not part
+  of the writer; source writes remain unavailable. Eligibility
+  (eligible decision + `proposedFinding` + non-empty
+  `evidenceRefs` + `sourceLintRowRef` + high/medium severity +
+  high/medium confidence), the deterministic timestamp-free
+  finding id, and the new-artifact write model are pinned for the
+  implementation slice. New strategy memo
+  `docs/strategy/capability-lint-finding-writer-decision.md` (13
+  headings + 4 tables: option / eligibility / boundary /
+  future-sequence). New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-decision.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI command.
+  No npm publish. No version bump.** Recommended next slice:
+  CapabilityLintFindingBridgeReport → FindingReport writer
+  dry-run helper / CLI (preview only).
 - Shipped **CapabilityLintFindingBridgeReport publication safety
   review** — forty-sixth slice on the codebase-intel-classic
   capability-ontology track. Strategy / safety-review batch.

@@ -44,6 +44,19 @@ write findings.**
 > slice is the **`CapabilityLintFindingBridgeReport` →
 > `FindingReport` writer decision**.
 
+> **Update (forty-seventh slice):** the
+> [`CapabilityLintFindingBridgeReport` → `FindingReport` writer
+> decision](capability-lint-finding-writer-decision.md) has
+> **shipped**. It selects **Option B** — a future, separate,
+> opt-in `FindingReport` writer with required dry-run preview and
+> explicit confirmation; **the writer is not implemented in that
+> slice**. No `FindingReport` is written; the writer would write
+> a new `FindingReport` artifact, and the finding filters,
+> lifecycle, adjudication, `CoherencyDelta`, `WorkOrder`,
+> `VerificationPlan`, and source writes all remain downstream and
+> untouched. The next slice is the **`FindingReport` writer
+> dry-run helper / CLI** (preview only).
+
 ## Why This Review Exists
 
 `CapabilityArchitectureLintReport` rows can carry a

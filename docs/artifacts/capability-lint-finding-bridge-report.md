@@ -252,6 +252,18 @@ context, not verification proof.
   `FindingReport`, mutate no governance artifact, and create no
   `WorkOrder` / `VerificationPlan`; selects the `FindingReport`
   writer decision as the next slice.
+- [CapabilityLintFindingBridgeReport → FindingReport writer decision](../strategy/capability-lint-finding-writer-decision.md)
+  — forty-seventh slice; selects **Option B** — a future,
+  separate, opt-in `FindingReport` writer with a required dry-run
+  preview and explicit confirmation. **The writer is not
+  implemented**; no `FindingReport` is written. The writer would
+  consume `eligible` bridge candidates, preserve the
+  deterministic `proposedFinding` id, write a **new**
+  `FindingReport` artifact (no in-place mutation), and leave the
+  finding filters, lifecycle, adjudication, `CoherencyDelta`,
+  `WorkOrder` / `VerificationPlan`, and source writes downstream
+  and untouched. Next slice: the `FindingReport` writer dry-run
+  helper / CLI (preview only).
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

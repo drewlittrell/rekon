@@ -308,4 +308,11 @@ These are intentionally deferred. See
   — forty-fourth slice; read-only review confirming no
   `CoherencyDelta` mutation and declaring the preview bridge
   safe / stable.
+- [CapabilityLintFindingBridgeReport → FindingReport writer decision](../strategy/capability-lint-finding-writer-decision.md)
+  — forty-seventh slice; selects Option B (a future, opt-in
+  `FindingReport` writer with dry-run preview + explicit
+  confirmation; not implemented). **`CoherencyDelta` remains
+  downstream and is not mutated by the writer** — bridged
+  candidates only reach `CoherencyDelta` through the normal
+  finding → filter → lifecycle → adjudication pipeline.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

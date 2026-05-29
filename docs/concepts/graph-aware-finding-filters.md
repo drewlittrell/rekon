@@ -568,5 +568,13 @@ during the filter step.
   — forty-fourth slice; read-only review confirming the bridge
   does not bypass this filter chain and declaring it safe /
   stable.
+- [CapabilityLintFindingBridgeReport → FindingReport writer decision](../strategy/capability-lint-finding-writer-decision.md)
+  — forty-seventh slice; selects Option B (a future, opt-in
+  `FindingReport` writer with dry-run preview + explicit
+  confirmation; not implemented). **This filter chain is NOT
+  bypassed** — any finding the future writer emits must flow
+  through these graph-aware finding filters before reaching the
+  status ledger, adjudication, or `CoherencyDelta`. The writer
+  does not mutate `FindingFilterReport`.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

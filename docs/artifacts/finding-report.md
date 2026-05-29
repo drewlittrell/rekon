@@ -110,4 +110,21 @@ finding. The
 [`CapabilityLintFindingBridgeReport` safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)
 (forty-fourth slice) confirmed this boundary holds and declared the
 preview bridge safe / stable; publication surfacing (visibility only,
-no finding writes) is the next slice.
+no finding writes) shipped next and was itself safety-reviewed.
+
+The
+[`CapabilityLintFindingBridgeReport` → `FindingReport` writer
+decision](../strategy/capability-lint-finding-writer-decision.md)
+(forty-seventh slice) selects **Option B**: a **future, separate,
+opt-in** `FindingReport` writer with a **required dry-run preview**
+and **explicit confirmation**. **The writer is not implemented and
+no `FindingReport` is written.** When built, it would consume
+`eligible` bridge candidates, preserve the deterministic
+`proposedFinding` id, and write a **new** `FindingReport` artifact —
+never mutating an existing `FindingReport` in place. Every written
+finding would still flow through the graph-aware finding filters,
+the status ledger, lifecycle, and adjudication;
+`FindingFilterReport`, `FindingLifecycleReport`,
+`IssueAdjudicationReport`, `CoherencyDelta`, `WorkOrder`,
+`VerificationPlan`, and source writes all remain downstream and are
+not mutated by the writer.

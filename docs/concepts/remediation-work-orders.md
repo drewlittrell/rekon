@@ -251,5 +251,12 @@ work order `stale` when a newer `CoherencyDelta` or
   — forty-fourth slice; read-only review confirming the bridge creates
   no `WorkOrder` and no `VerificationPlan`, and declaring it safe /
   stable.
+- [CapabilityLintFindingBridgeReport → FindingReport writer decision](../strategy/capability-lint-finding-writer-decision.md)
+  — forty-seventh slice; selects Option B (a future, opt-in
+  `FindingReport` writer with dry-run preview + explicit confirmation;
+  not implemented). **`WorkOrder` and `VerificationPlan` creation remain
+  downstream and are not part of the writer.** Remediation work orders
+  stay downstream of governed findings and `CoherencyDelta`, never of
+  the bridge or its writer.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

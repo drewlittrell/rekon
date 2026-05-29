@@ -30,6 +30,20 @@ begin after this safety review if no blockers are found.**
 Recommended next slice: **CapabilityLintFindingBridgeReport →
 FindingReport writer decision.**
 
+> **Update (forty-seventh slice):** the
+> [`CapabilityLintFindingBridgeReport` → `FindingReport` writer
+> decision](capability-lint-finding-writer-decision.md) has
+> **shipped**. It selects **Option B** — a future, separate,
+> opt-in `FindingReport` writer with a required dry-run preview
+> and explicit confirmation; **the writer is not implemented**.
+> No `FindingReport` entries are written; the writer would write
+> a new `FindingReport` artifact (no in-place mutation), and
+> `FindingFilterReport` / `FindingLifecycleReport` /
+> `IssueAdjudicationReport` / `CoherencyDelta` /
+> `WorkOrder` / `VerificationPlan` / source writes all remain
+> downstream and untouched. The next slice is the
+> **`FindingReport` writer dry-run helper / CLI** (preview only).
+
 ## Why This Review Exists
 
 `CapabilityLintFindingBridgeReport` is now visible in the main
