@@ -353,6 +353,51 @@ Restating the invariants the implementation slice must honor:
 4. **Downstream integration** (lifecycle / filter / adjudication /
    `CoherencyDelta`) — later, separate decision.
 
+## Writer Implementation (Fifty-First Slice)
+
+The **FindingReport writer implementation** has shipped. The
+`rekon capability lint write-findings` command now has two modes
+on the existing surface:
+
+```bash
+rekon capability lint write-findings --bridge-report <id|type:id> --dry-run [--root <path>] [--json]
+rekon capability lint write-findings --bridge-report <id|type:id> --confirm-finding-write [--root <path>] [--json]
+```
+
+Pinned behavior, exactly as decided above:
+
+- **Write mode requires `--confirm-finding-write`.** Running with
+  neither `--dry-run` nor `--confirm-finding-write` is an error.
+- **`--dry-run` and `--confirm-finding-write` are mutually
+  exclusive.** Passing both is an error.
+- **`--write`, `--send`, and `--execute` are rejected** (exit
+  non-zero) as ambiguous aliases.
+- Write mode builds the dry-run preview first
+  (`buildFindingReportWritePreview`) and persists exactly
+  `preview.proposedFindingReport.findings`.
+- **Write mode writes a new `FindingReport` artifact** under
+  `.rekon/artifacts/findings/`, citing the
+  `CapabilityLintFindingBridgeReport` plus the upstream lint /
+  `CapabilityContract` / `CapabilityMap` refs from the preview's
+  `inputRefs`; proposed finding ids, severity, and `evidenceRefs`
+  are preserved, and the bridge trace fields
+  (`sourceBridgeCandidateId` / `sourceLintRowId` /
+  `sourceContractId` / `sourcePhraseCapabilityId`) are kept under
+  the finding `details`.
+- If the preview produces **0 eligible findings**, write mode
+  exits non-zero and writes nothing.
+- **The existing `FindingReport` is not mutated in place.** A new
+  artifact is always created.
+- **`FindingFilterReport`, `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, and `CoherencyDelta` are not
+  mutated.**
+- **`WorkOrder` and `VerificationPlan` are not created.**
+- **Source writes remain unavailable.**
+
+Dry-run remains available and unchanged (preview only, writes
+nothing). The next slice is the **FindingReport writer safety
+review**.
+
 ## Cross-References
 
 - [FindingReport writer dry-run safety review](capability-lint-finding-writer-dry-run-safety-review.md)

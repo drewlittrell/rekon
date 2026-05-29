@@ -184,5 +184,6 @@ without a paired `VerificationRun`.
   it **safe / stable as preview-only writer modeling**; verification
   plans stay downstream and are not created by the dry-run. The
   **writer mode decision** (fiftieth slice) selected an opt-in
-  write mode behind `--confirm-finding-write` (not implemented); it
-  creates no `VerificationPlan`.
+  write mode behind `--confirm-finding-write` (now **shipped** in
+  the fifty-first slice as the writer implementation); it creates
+  no `VerificationPlan`.

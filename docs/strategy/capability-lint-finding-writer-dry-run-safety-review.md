@@ -45,6 +45,13 @@ decision.**
 > remain unavailable. The next slice is the **FindingReport
 > writer implementation**.
 
+> **Update (fifty-first slice):** the **FindingReport writer
+> implementation** has **shipped** (opt-in
+> `--confirm-finding-write`; writes a new `FindingReport` only;
+> no existing-`FindingReport` mutation; no governance mutation; no
+> `WorkOrder` / `VerificationPlan`; no source writes). The next
+> slice is the **FindingReport writer safety review**.
+
 ## Why This Review Exists
 
 The dry-run helper / CLI is the **first concrete model** of the

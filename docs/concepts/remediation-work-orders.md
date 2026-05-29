@@ -265,7 +265,8 @@ work order `stale` when a newer `CoherencyDelta` or
   modeling**; remediation work orders stay downstream and are not
   created by the dry-run. The **writer mode decision** (fiftieth
   slice) selected an opt-in write mode behind
-  `--confirm-finding-write` (not implemented); it creates no
-  `WorkOrder` / `VerificationPlan`.
+  `--confirm-finding-write` (now **shipped** in the fifty-first
+  slice as the writer implementation); it creates no `WorkOrder` /
+  `VerificationPlan`.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

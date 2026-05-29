@@ -1103,6 +1103,33 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityLintFindingBridgeReport → FindingReport writer
+# implementation has shipped. Fifty-first slice on the
+# codebase-intel-classic capability-ontology track. Product
+# capability batch (controlled writer).
+#
+# rekon capability lint write-findings now has two modes:
+#   --dry-run               : preview only, writes nothing.
+#   --confirm-finding-write : writes exactly one new FindingReport.
+#   - Write mode requires --confirm-finding-write; --dry-run and
+#     --confirm-finding-write are mutually exclusive; --write /
+#     --send / --execute are rejected.
+#   - Write mode writes a NEW FindingReport artifact (the proposed
+#     body), citing the bridge + upstream refs; it does not mutate
+#     an existing FindingReport in place.
+#   - Exits non-zero and writes nothing when 0 eligible findings.
+#   - FindingFilterReport / FindingLifecycleReport /
+#     IssueAdjudicationReport / CoherencyDelta are not mutated;
+#     WorkOrder / VerificationPlan are not created; source writes
+#     remain unavailable.
+#
+# New 25-assertion contract test + 11-assertion docs test. Review
+# packet .rekon-dev/review-packets/capability-lint-finding-writer.md.
+#
+# No new artifact type. No version bump. No npm publish.
+#
+# Recommended next slice: FindingReport writer safety review.
+#
 # CapabilityLintFindingBridgeReport → FindingReport writer mode
 # decision has shipped. Fiftieth slice on the
 # codebase-intel-classic capability-ontology track. Strategy /

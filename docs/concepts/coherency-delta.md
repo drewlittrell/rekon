@@ -322,6 +322,7 @@ These are intentionally deferred. See
   / stable as preview-only writer modeling**; `CoherencyDelta`
   stays downstream and unmutated. The **writer mode decision**
   (fiftieth slice) selected an opt-in write mode behind
-  `--confirm-finding-write` (not implemented); the writer does not
-  mutate `CoherencyDelta`.
+  `--confirm-finding-write` (now **shipped** in the fifty-first
+  slice as the writer implementation); the writer does not mutate
+  `CoherencyDelta`.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

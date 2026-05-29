@@ -174,4 +174,5 @@ plan.
   writer modeling**; work orders stay downstream and are not created
   by the dry-run. The **writer mode decision** (fiftieth slice)
   selected an opt-in write mode behind `--confirm-finding-write`
-  (not implemented); it creates no `WorkOrder`.
+  (now **shipped** in the fifty-first slice as the writer
+  implementation); it creates no `WorkOrder`.

@@ -583,8 +583,9 @@ during the filter step.
   declared it **safe / stable as preview-only writer modeling**;
   this filter chain stays in place and is not mutated. The
   **writer mode decision** (fiftieth slice) selected an opt-in
-  write mode behind `--confirm-finding-write` (not implemented); a
-  written `FindingReport` would still flow through this filter
-  chain.
+  write mode behind `--confirm-finding-write` (now **shipped** in
+  the fifty-first slice as the writer implementation); a written
+  `FindingReport` still flows through this filter chain, which the
+  writer does not mutate.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

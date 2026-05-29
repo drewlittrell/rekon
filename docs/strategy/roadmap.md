@@ -2641,6 +2641,27 @@ is the first stop before proposing a new capability batch.
   extraction layer, not vocabulary
   or splitter precision.
 - CapabilityLintFindingBridgeReport → FindingReport writer
+  implementation (P1.1 capability-lint-finding-writer slice):
+  **fifty-first slice on the capability-ontology track.** Product
+  capability batch (controlled writer). `rekon capability lint
+  write-findings` gains an opt-in write mode
+  (`--confirm-finding-write`) alongside `--dry-run`. Write mode
+  reuses the dry-run preview and writes **exactly one new
+  `FindingReport`** artifact (the proposed body), citing the
+  bridge + upstream refs and preserving proposed finding ids /
+  severity / `evidenceRefs`. **Requires `--confirm-finding-write`;
+  `--dry-run` and `--confirm-finding-write` are mutually
+  exclusive; `--write` / `--send` / `--execute` rejected; exits
+  non-zero and writes nothing on 0 eligible findings; no in-place
+  `FindingReport` mutation; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` mutation; no `WorkOrder` / `VerificationPlan`
+  creation; source writes remain unavailable.** New 25-assertion
+  contract test + 11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer.md`.
+  **No new artifact type. No version bump. No npm publish.**
+  Recommended next slice: FindingReport writer safety review.
+- CapabilityLintFindingBridgeReport → FindingReport writer
   mode decision (P1.1 capability-lint-finding-writer-mode-decision
   slice): **fiftieth slice on the capability-ontology track.**
   Strategy / architecture decision batch. Decides whether and how

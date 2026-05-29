@@ -174,7 +174,9 @@ preview / governance-candidate context, not verification proof.
   preview and writes a **new** `FindingReport` only. **Not
   implemented**; `--write` / `--send` / `--execute` stay rejected,
   and no governance artifact, `WorkOrder`, or `VerificationPlan` is
-  mutated or created.
+  mutated or created. The **writer implementation** has since
+  shipped (fifty-first slice): opt-in `--confirm-finding-write`
+  writes a new `FindingReport` only.
 - [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

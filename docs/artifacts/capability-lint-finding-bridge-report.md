@@ -277,8 +277,10 @@ context, not verification proof.
   preview and writes a **new** `FindingReport` only. **Not
   implemented**; `--write` / `--send` / `--execute` stay rejected,
   no existing `FindingReport` is mutated, and no governance
-  artifact / `WorkOrder` / `VerificationPlan` is touched. Next
-  slice: the writer implementation.
+  artifact / `WorkOrder` / `VerificationPlan` is touched. The
+  writer implementation has since **shipped** (fifty-first slice):
+  opt-in `--confirm-finding-write` writes a new `FindingReport`
+  only.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

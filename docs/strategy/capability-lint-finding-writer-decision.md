@@ -81,6 +81,19 @@ proposed `FindingReport` body, writes no `FindingReport`).
 > remain unavailable. The next slice is the **FindingReport writer
 > implementation**.
 
+> **Update (fifty-first slice):** the **FindingReport writer
+> implementation** has **shipped**.
+> `rekon capability lint write-findings --confirm-finding-write`
+> writes exactly one new `FindingReport` artifact (the proposed
+> body), reusing the dry-run preview. Write mode requires
+> `--confirm-finding-write` (mutually exclusive with `--dry-run`;
+> `--write` / `--send` / `--execute` rejected), exits non-zero on
+> 0 eligible findings, never mutates an existing `FindingReport`,
+> mutates no `FindingFilterReport` / `FindingLifecycleReport` /
+> `IssueAdjudicationReport` / `CoherencyDelta`, creates no
+> `WorkOrder` / `VerificationPlan`, and writes no source files.
+> The next slice is the **FindingReport writer safety review**.
+
 ## Why This Decision Exists
 
 Eligible `CapabilityLintFindingBridgeReport` candidates are now

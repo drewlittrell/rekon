@@ -6257,6 +6257,22 @@ scope:
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
 - **CapabilityLintFindingBridgeReport → FindingReport writer
+  implementation (P1.1 capability-lint-finding-writer slice).**
+  ✅ Shipped. **Fifty-first slice on the capability-ontology
+  track.** Product capability batch (controlled writer). `rekon
+  capability lint write-findings` gains an opt-in write mode
+  (`--confirm-finding-write`) that reuses the dry-run preview and
+  writes **exactly one new `FindingReport`** artifact.
+  **Requires `--confirm-finding-write`; mutually exclusive with
+  `--dry-run`; `--write` / `--send` / `--execute` rejected; exits
+  non-zero on 0 eligible findings; no in-place `FindingReport`
+  mutation; no `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` mutation; no
+  `WorkOrder` / `VerificationPlan` creation; source writes remain
+  unavailable.** 25-assertion contract test + 11-assertion docs
+  test + review packet. Recommended next slice: FindingReport
+  writer safety review.
+- **CapabilityLintFindingBridgeReport → FindingReport writer
   mode decision (P1.1 capability-lint-finding-writer-mode-decision
   slice).** ✅ Shipped. **Fiftieth slice on the
   capability-ontology track.** Strategy / architecture decision

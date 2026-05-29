@@ -5,6 +5,33 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **CapabilityLintFindingBridgeReport → FindingReport
+  writer implementation** — fifty-first slice on the
+  codebase-intel-classic capability-ontology track. Product
+  capability batch (controlled writer). The
+  `rekon capability lint write-findings` command gains an opt-in
+  write mode (`--confirm-finding-write`) alongside the existing
+  `--dry-run` preview. Write mode builds the dry-run preview via
+  `buildFindingReportWritePreview`, runs before-write safety
+  checks, and writes **exactly one new `FindingReport`** artifact
+  under `.rekon/artifacts/findings/` (the proposed body), citing
+  the `CapabilityLintFindingBridgeReport` plus the upstream lint /
+  `CapabilityContract` / `CapabilityMap` refs and preserving
+  proposed finding ids, severity, and `evidenceRefs` (bridge trace
+  fields kept under finding `details`). **Write mode requires
+  `--confirm-finding-write`; `--dry-run` and
+  `--confirm-finding-write` are mutually exclusive; `--write` /
+  `--send` / `--execute` are rejected; write mode exits non-zero
+  and writes nothing when the preview produces 0 eligible
+  findings; the existing `FindingReport` is not mutated in place;
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` are not mutated;
+  `WorkOrder` / `VerificationPlan` are not created; source writes
+  remain unavailable.** New 25-assertion contract test + new
+  11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer.md`.
+  **No new artifact type. No version bump. No npm publish.**
+  Recommended next slice: FindingReport writer safety review.
+- Shipped **CapabilityLintFindingBridgeReport → FindingReport
   writer mode decision** — fiftieth slice on the
   codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch. Decides whether and how to add an

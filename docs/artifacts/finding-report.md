@@ -158,3 +158,12 @@ dry-run preview and writes a **new** `FindingReport` artifact only
 mutates no `FindingFilterReport` / `FindingLifecycleReport` /
 `IssueAdjudicationReport` / `CoherencyDelta` and creates no
 `WorkOrder` / `VerificationPlan`.
+
+The **writer implementation** shipped in the **fifty-first slice**:
+`rekon capability lint write-findings --confirm-finding-write`
+writes exactly one new `FindingReport` artifact (the proposed
+body), never mutating an existing `FindingReport` in place. It
+requires `--confirm-finding-write` (mutually exclusive with
+`--dry-run`; `--write` / `--send` / `--execute` rejected), exits
+non-zero on 0 eligible findings, and mutates no downstream
+governance artifact.

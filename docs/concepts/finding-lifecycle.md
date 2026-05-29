@@ -208,6 +208,7 @@ model.
   / stable as preview-only writer modeling**; this lifecycle stays
   downstream and unmutated. The **writer mode decision** (fiftieth
   slice) selected an opt-in write mode behind
-  `--confirm-finding-write` (not implemented); a written
-  `FindingReport` would still flow through this lifecycle
-  downstream.
+  `--confirm-finding-write` (now **shipped** in the fifty-first
+  slice as the writer implementation); a written `FindingReport`
+  still flows through this lifecycle downstream, which the writer
+  does not mutate.

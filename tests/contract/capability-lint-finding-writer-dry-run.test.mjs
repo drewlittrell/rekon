@@ -427,14 +427,16 @@ test("CLI requires --dry-run and rejects write-ish flags; JSON reports dryRun/wo
     assert.equal(missing.status, 1, "missing --dry-run must exit 1");
     assert.match(missing.stderr + missing.stdout, /--dry-run/);
 
-    // 16: write-ish flags rejected.
-    for (const flag of ["--write", "--send", "--execute", "--confirm-finding-write"]) {
+    // 16: ambiguous write-ish aliases rejected (write mode uses
+    // --confirm-finding-write only, shipped in the fifty-first
+    // slice; the generic aliases stay rejected).
+    for (const flag of ["--write", "--send", "--execute"]) {
       const rejected = runCli(
-        ["capability", "lint", "write-findings", "--bridge-report", bridgeRef, "--dry-run", flag],
+        ["capability", "lint", "write-findings", "--bridge-report", bridgeRef, flag],
         work,
       );
       assert.equal(rejected.status, 1, `${flag} must exit 1`);
-      assert.match(rejected.stderr + rejected.stdout, /write mode is deferred/i);
+      assert.match(rejected.stderr + rejected.stdout, /not accepted/i);
     }
 
     // 17: JSON reports dryRun true / wouldWrite false.
