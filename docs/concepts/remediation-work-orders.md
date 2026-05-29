@@ -267,6 +267,8 @@ work order `stale` when a newer `CoherencyDelta` or
   slice) selected an opt-in write mode behind
   `--confirm-finding-write` (now **shipped** in the fifty-first
   slice as the writer implementation); it creates no `WorkOrder` /
-  `VerificationPlan`.
+  `VerificationPlan`. The **writer safety review** (fifty-second
+  slice) confirmed the writer **safe / stable as a controlled,
+  opt-in writer**; remediation work orders remain downstream.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

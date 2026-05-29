@@ -398,6 +398,18 @@ Dry-run remains available and unchanged (preview only, writes
 nothing). The next slice is the **FindingReport writer safety
 review**.
 
+> **Update (fifty-second slice):** the **FindingReport writer
+> safety review** has **shipped** and declared the writer mode
+> **safe / stable as a controlled, opt-in writer** (no blocker).
+> It re-confirmed that write mode is opt-in / `--confirm-finding-write`,
+> dry-run stays preview-only, write mode writes exactly one new
+> `FindingReport` (no in-place mutation), no governance artifact /
+> `WorkOrder` / `VerificationPlan` is mutated or created, and no
+> source files are written. Lifecycle / `CoherencyDelta`
+> integration remain downstream. The next slice is the
+> **FindingReport writer publication / operator-surface
+> decision**.
+
 ## Cross-References
 
 - [FindingReport writer dry-run safety review](capability-lint-finding-writer-dry-run-safety-review.md)

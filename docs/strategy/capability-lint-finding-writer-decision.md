@@ -94,6 +94,12 @@ proposed `FindingReport` body, writes no `FindingReport`).
 > `WorkOrder` / `VerificationPlan`, and writes no source files.
 > The next slice is the **FindingReport writer safety review**.
 
+> **Update (fifty-second slice):** the **FindingReport writer
+> safety review** has **shipped** and declared the write mode
+> **safe / stable as a controlled, opt-in writer** (no blocker).
+> The next slice is the **FindingReport writer publication /
+> operator-surface decision**.
+
 ## Why This Decision Exists
 
 Eligible `CapabilityLintFindingBridgeReport` candidates are now

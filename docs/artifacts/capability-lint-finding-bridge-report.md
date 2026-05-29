@@ -280,7 +280,8 @@ context, not verification proof.
   artifact / `WorkOrder` / `VerificationPlan` is touched. The
   writer implementation has since **shipped** (fifty-first slice):
   opt-in `--confirm-finding-write` writes a new `FindingReport`
-  only.
+  only. The **writer safety review** (fifty-second slice) confirmed
+  it **safe / stable as a controlled, opt-in writer**.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

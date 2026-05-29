@@ -186,4 +186,6 @@ without a paired `VerificationRun`.
   **writer mode decision** (fiftieth slice) selected an opt-in
   write mode behind `--confirm-finding-write` (now **shipped** in
   the fifty-first slice as the writer implementation); it creates
-  no `VerificationPlan`.
+  no `VerificationPlan`. The **writer safety review** (fifty-second
+  slice) confirmed the writer **safe / stable as a controlled,
+  opt-in writer**; verification plans remain downstream.

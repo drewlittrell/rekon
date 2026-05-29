@@ -586,6 +586,8 @@ during the filter step.
   write mode behind `--confirm-finding-write` (now **shipped** in
   the fifty-first slice as the writer implementation); a written
   `FindingReport` still flows through this filter chain, which the
-  writer does not mutate.
+  writer does not mutate. The **writer safety review** (fifty-second
+  slice) confirmed the writer **safe / stable as a controlled,
+  opt-in writer**.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

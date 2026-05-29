@@ -167,3 +167,10 @@ requires `--confirm-finding-write` (mutually exclusive with
 `--dry-run`; `--write` / `--send` / `--execute` rejected), exits
 non-zero on 0 eligible findings, and mutates no downstream
 governance artifact.
+
+The writer was **safety-reviewed** in the **fifty-second slice**
+([writer safety review](../strategy/capability-lint-finding-writer-safety-review.md)),
+which declared it **safe / stable as a controlled, opt-in writer**
+(no blocker) and selected the writer publication / operator-surface
+decision as the next slice. Lifecycle and `CoherencyDelta`
+integration remain downstream.

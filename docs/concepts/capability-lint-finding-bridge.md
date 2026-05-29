@@ -176,7 +176,9 @@ preview / governance-candidate context, not verification proof.
   and no governance artifact, `WorkOrder`, or `VerificationPlan` is
   mutated or created. The **writer implementation** has since
   shipped (fifty-first slice): opt-in `--confirm-finding-write`
-  writes a new `FindingReport` only.
+  writes a new `FindingReport` only. The **writer safety review**
+  (fifty-second slice) confirmed it **safe / stable as a
+  controlled, opt-in writer**.
 - [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -5,6 +5,35 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **CapabilityLintFindingBridgeReport → FindingReport
+  writer safety review** — fifty-second slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  FindingReport writer mode shipped at `8bb6f82`.
+  **Recommendation: the FindingReport writer mode is safe / stable
+  as a controlled, opt-in writer** (no blocker). Reviewed the CLI
+  write-findings branch, dry-run preservation, the
+  `--confirm-finding-write` gate, mutual exclusion, write-ish alias
+  rejection, the zero-findings guard, FindingReport construction /
+  inputRefs, the before-write safety checks, and the contract /
+  docs tests. Pinned verbatim: FindingReport writer mode is opt-in
+  and requires `--confirm-finding-write`; dry-run behavior remains
+  preview-only and writes nothing; writer mode writes exactly one
+  new `FindingReport` artifact on success; writer mode does not
+  mutate existing `FindingReport` artifacts in place; writer mode
+  does not mutate `FindingFilterReport` / `FindingLifecycleReport`
+  / `IssueAdjudicationReport` / `CoherencyDelta`; writer mode does
+  not create `WorkOrder` / `VerificationPlan`; writer mode writes
+  no source files; lifecycle and `CoherencyDelta` integration
+  remain downstream. New strategy memo
+  `docs/strategy/capability-lint-finding-writer-safety-review.md`
+  (12 headings + 3 tables: surface / boundary / option). New
+  15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-safety-review.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI command.
+  No npm publish. No version bump.** Recommended next slice:
+  FindingReport writer publication / operator-surface decision.
+- Shipped **CapabilityLintFindingBridgeReport → FindingReport
   writer implementation** — fifty-first slice on the
   codebase-intel-classic capability-ontology track. Product
   capability batch (controlled writer). The

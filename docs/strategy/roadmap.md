@@ -2641,6 +2641,29 @@ is the first stop before proposing a new capability batch.
   extraction layer, not vocabulary
   or splitter precision.
 - CapabilityLintFindingBridgeReport → FindingReport writer
+  safety review (P1.1 capability-lint-finding-writer-safety-review
+  slice): **fifty-second slice on the capability-ontology track.**
+  Strategy / safety-review batch. Read-only end-to-end review of
+  the FindingReport writer mode shipped at `8bb6f82`.
+  **Recommendation: the writer mode is safe / stable as a
+  controlled, opt-in writer** (no blocker). Pinned: writer mode is
+  opt-in and requires `--confirm-finding-write`; dry-run remains
+  preview-only and writes nothing; writer mode writes exactly one
+  new `FindingReport` on success; no in-place `FindingReport`
+  mutation; no `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` mutation; no
+  `WorkOrder` / `VerificationPlan` creation; no source writes;
+  lifecycle and `CoherencyDelta` integration remain downstream.
+  New memo
+  `docs/strategy/capability-lint-finding-writer-safety-review.md`
+  (12 headings + 3 tables: surface / boundary / option). New
+  15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-safety-review.md`.
+  **No runtime behavior changes. No new artifact type. No new CLI
+  command. No version bump. No npm publish.** Recommended next
+  slice: FindingReport writer publication / operator-surface
+  decision.
+- CapabilityLintFindingBridgeReport → FindingReport writer
   implementation (P1.1 capability-lint-finding-writer slice):
   **fifty-first slice on the capability-ontology track.** Product
   capability batch (controlled writer). `rekon capability lint

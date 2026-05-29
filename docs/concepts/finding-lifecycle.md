@@ -211,4 +211,6 @@ model.
   `--confirm-finding-write` (now **shipped** in the fifty-first
   slice as the writer implementation); a written `FindingReport`
   still flows through this lifecycle downstream, which the writer
-  does not mutate.
+  does not mutate. The **writer safety review** (fifty-second
+  slice) confirmed the writer **safe / stable as a controlled,
+  opt-in writer**; lifecycle integration remains downstream.

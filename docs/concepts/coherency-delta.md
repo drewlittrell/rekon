@@ -324,5 +324,7 @@ These are intentionally deferred. See
   (fiftieth slice) selected an opt-in write mode behind
   `--confirm-finding-write` (now **shipped** in the fifty-first
   slice as the writer implementation); the writer does not mutate
-  `CoherencyDelta`.
+  `CoherencyDelta`. The **writer safety review** (fifty-second
+  slice) confirmed the writer **safe / stable as a controlled,
+  opt-in writer**; `CoherencyDelta` integration remains downstream.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

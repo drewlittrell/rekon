@@ -1103,6 +1103,38 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityLintFindingBridgeReport → FindingReport writer safety
+# review has shipped. Fifty-second slice on the
+# codebase-intel-classic capability-ontology track. Strategy /
+# safety-review batch. Read-only end-to-end review of the
+# FindingReport writer mode (shipped at 8bb6f82).
+#
+# Recommendation: the FindingReport writer mode is safe / stable as
+# a controlled, opt-in writer (no blocker).
+#   - FindingReport writer mode is opt-in and requires
+#     --confirm-finding-write; dry-run remains preview-only and
+#     writes nothing.
+#   - Writer mode writes exactly one new FindingReport artifact on
+#     success and never mutates an existing FindingReport in place.
+#   - Writer mode does not mutate FindingFilterReport /
+#     FindingLifecycleReport / IssueAdjudicationReport /
+#     CoherencyDelta, and creates no WorkOrder / VerificationPlan.
+#   - Writer mode writes no source files; lifecycle and
+#     CoherencyDelta integration remain downstream.
+#
+# New strategy memo
+# docs/strategy/capability-lint-finding-writer-safety-review.md
+# (12 headings + 3 tables). New 15-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/capability-lint-finding-writer-safety-review.md.
+#
+# No runtime behavior changes. No source under packages/ modified.
+# No new artifact type. No new CLI command. No version bump. No npm
+# publish.
+#
+# Recommended next slice: FindingReport writer publication /
+# operator-surface decision.
+#
 # CapabilityLintFindingBridgeReport → FindingReport writer
 # implementation has shipped. Fifty-first slice on the
 # codebase-intel-classic capability-ontology track. Product
