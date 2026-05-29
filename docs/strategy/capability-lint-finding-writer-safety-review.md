@@ -257,6 +257,6 @@ writes).
   integration remain downstream. The surfacing implementation shipped
   in the fifty-fourth slice (read-only `## Bridge-Derived Findings` in
   the architecture summary and `### Bridge-Derived Findings` in the
-  agent contract).
+  agent contract). The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)

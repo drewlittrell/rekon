@@ -597,6 +597,6 @@ during the filter step.
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
 implementation shipped in the fifty-fourth slice (read-only, in the
 architecture summary + agent contract); any written finding still
-flows through this filter chain, which the surfacing does not mutate.
+flows through this filter chain, which the surfacing does not mutate. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

@@ -259,6 +259,7 @@ artifact.
 - **Not a bridge-derived findings surface.** The
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
   (**fifty-third slice**; surfacing shipped in the **fifty-fourth
+  slice**, safety-reviewed safe / stable in the **fifty-fifth
   slice**) selects the architecture summary +
   agent operating contract to surface the *governed findings the
   controlled `--confirm-finding-write` writer wrote* and

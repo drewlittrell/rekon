@@ -4,6 +4,38 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **bridge-derived findings publication safety review** —
+  fifty-fifth slice on the codebase-intel-classic
+  capability-ontology track. Strategy / safety-review batch.
+  Read-only end-to-end review of the bridge-derived findings
+  publication surfacing shipped at `6ad2045`. **Recommendation: the
+  surfacing is safe / stable as read-only visibility (no blocker).**
+  Reviewed `buildBridgeDerivedFindingsPublicationSection`,
+  `isBridgeDerivedFinding`, the architecture summary `##
+  Bridge-Derived Findings` + agent contract `### Bridge-Derived
+  Findings` sections, the agent `Do Not Do` reminder, the manifest
+  (`FindingReport` consume + `bridge-derived-findings.changed`), the
+  proof-report deferral, and the contract / docs tests. Pinned:
+  bridge-derived findings publication surfacing is read-only
+  visibility; bridge-derived findings are governed FindingReport
+  entries, not FindingLifecycleReport status; publication surfacing
+  does not mutate FindingReport / FindingFilterReport /
+  FindingLifecycleReport / IssueAdjudicationReport / CoherencyDelta;
+  publication surfacing does not create WorkOrder or VerificationPlan;
+  publication surfacing does not imply resolver routing, verification
+  planning, RefactorPreservationContract behavior, or source-write
+  permission; proof report surfacing remains deferred because
+  bridge-derived findings are governance context, not verification
+  proof; lifecycle / CoherencyDelta integration decision work may
+  begin after this safety review. New strategy memo
+  `docs/strategy/bridge-derived-findings-publication-safety-review.md`
+  (12 headings + 4 tables: surface / source-identification / boundary
+  / option). New 15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-derived-findings-publication-safety-review.md`.
+  No runtime behavior changes. No source files under `packages/`
+  modified. No new artifact type. No new CLI command. No npm publish.
+  No version bump. Recommended next slice: bridge-derived findings
+  lifecycle / CoherencyDelta integration decision.
 - Shipped **bridge-derived findings publication surfacing** —
   fifty-fourth slice on the codebase-intel-classic
   capability-ontology track. Product capability batch. The

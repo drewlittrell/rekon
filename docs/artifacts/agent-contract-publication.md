@@ -580,7 +580,7 @@ fifty-fourth slice.** It mutates no `FindingReport`,
 `FindingLifecycleReport`, `IssueAdjudicationReport`, or
 `CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;
 bridge-derived findings are governed `FindingReport` entries, not
-lifecycle status. Proof-report surfacing remains **deferred**.
+lifecycle status. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. Proof-report surfacing remains **deferred**.
 
 ## Cross-References
 

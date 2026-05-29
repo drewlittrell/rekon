@@ -337,5 +337,5 @@ These are intentionally deferred. See
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
 implementation shipped in the fifty-fourth slice (read-only, in the
 architecture summary + agent contract); it mutates no `CoherencyDelta`
-and `CoherencyDelta` integration remains downstream.
+and `CoherencyDelta` integration remains downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

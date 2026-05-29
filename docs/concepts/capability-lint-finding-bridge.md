@@ -195,6 +195,6 @@ preview / governance-candidate context, not verification proof.
   `FindingReport` entries are surfaced (Option B: architecture
   summary + agent operating contract first; proof report deferred).
   Surfacing **shipped in the fifty-fourth slice**, mutates nothing,
-  and leaves lifecycle / `CoherencyDelta` integration downstream.
+  and leaves lifecycle / `CoherencyDelta` integration downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
 - [Roadmap](../strategy/roadmap.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

@@ -484,4 +484,4 @@ lifecycle status**. The surfacing **shipped in the fifty-fourth
 slice**; it mutates no `FindingReport`, `FindingLifecycleReport`,
 `IssueAdjudicationReport`, or `CoherencyDelta`, creates no
 `WorkOrder` / `VerificationPlan`, and proof-report surfacing remains
-**deferred**.
+**deferred**. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.

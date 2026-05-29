@@ -2640,6 +2640,32 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Bridge-derived findings publication safety review (P1.1
+  bridge-derived-findings-publication-safety-review slice):
+  **fifty-fifth slice on the capability-ontology track.** Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  bridge-derived findings publication surfacing shipped at `6ad2045`.
+  **Recommendation: the surfacing is safe / stable as read-only
+  visibility (no blocker).** Pinned: bridge-derived findings
+  publication surfacing is read-only visibility; bridge-derived
+  findings are governed `FindingReport` entries, not
+  `FindingLifecycleReport` status; publication surfacing does not
+  mutate `FindingReport` / `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta`; does not create `WorkOrder` / `VerificationPlan`;
+  does not imply resolver routing, verification planning,
+  `RefactorPreservationContract` behavior, or source-write
+  permission; proof report surfacing remains deferred; lifecycle /
+  `CoherencyDelta` integration decision work may begin after this
+  review. New memo
+  `docs/strategy/bridge-derived-findings-publication-safety-review.md`
+  (12 headings + 4 tables: surface / source-identification / boundary
+  / option). New 15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-derived-findings-publication-safety-review.md`.
+  **No runtime behavior changes. No new artifact type. No new CLI
+  command. No version bump. No npm publish.** Recommended next slice:
+  bridge-derived findings lifecycle / `CoherencyDelta` integration
+  decision.
 - Bridge-derived findings publication surfacing (P1.1
   bridge-derived-findings-publication slice):
   **fifty-fourth slice on the capability-ontology track.**

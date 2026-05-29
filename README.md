@@ -1103,6 +1103,43 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Bridge-derived findings publication safety review has shipped.
+# Fifty-fifth slice on the codebase-intel-classic
+# capability-ontology track. Strategy / safety-review batch.
+# Read-only end-to-end review of the bridge-derived findings
+# publication surfacing (shipped at 6ad2045).
+#
+# Recommendation: the surfacing is safe / stable as read-only
+# visibility (no blocker).
+#   - Bridge-derived findings publication surfacing is read-only
+#     visibility.
+#   - Bridge-derived findings are governed FindingReport entries,
+#     not FindingLifecycleReport status.
+#   - Publication surfacing does not mutate FindingReport /
+#     FindingFilterReport / FindingLifecycleReport /
+#     IssueAdjudicationReport / CoherencyDelta, and does not create
+#     WorkOrder / VerificationPlan.
+#   - Publication surfacing does not imply resolver routing,
+#     verification planning, RefactorPreservationContract behavior,
+#     or source-write permission.
+#   - Proof report surfacing remains deferred (governance context,
+#     not verification proof).
+#   - Lifecycle / CoherencyDelta integration decision work may begin
+#     after this safety review.
+#
+# New strategy memo
+# docs/strategy/bridge-derived-findings-publication-safety-review.md
+# (12 headings + 4 tables). New 15-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/bridge-derived-findings-publication-safety-review.md.
+#
+# No runtime behavior changes. No source under packages/ modified.
+# No new artifact type. No new CLI command. No version bump. No npm
+# publish.
+#
+# Recommended next slice: bridge-derived findings lifecycle /
+# CoherencyDelta integration decision.
+#
 # Bridge-derived findings publication surfacing has shipped.
 # Fifty-fourth slice on the codebase-intel-classic
 # capability-ontology track. Product capability batch implementing

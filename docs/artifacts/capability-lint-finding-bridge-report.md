@@ -291,7 +291,7 @@ context, not verification proof.
   fields); proof-report surfacing remains **deferred**. Surfacing
   **shipped in the fifty-fourth slice**, mutates nothing, creates no
   `WorkOrder` / `VerificationPlan`, and leaves lifecycle /
-  `CoherencyDelta` integration downstream.
+  `CoherencyDelta` integration downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

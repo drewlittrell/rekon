@@ -373,8 +373,9 @@ The shipped surfacing is read-only and bounded:
 - Bridge-derived findings are governed FindingReport entries, not lifecycle status.
 - Lifecycle and CoherencyDelta integration remain downstream.
 
-The next slice is the **bridge-derived findings publication safety
-review**, after which the `FindingLifecycleReport` /
+The bridge-derived findings publication safety
+review **shipped in the fifty-fifth slice** (declared the surfacing
+safe / stable), after which the `FindingLifecycleReport` /
 `IssueAdjudicationReport` / `CoherencyDelta` integration decision may
 begin.
 

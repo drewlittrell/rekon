@@ -197,4 +197,4 @@ without a paired `VerificationRun`.
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
 implementation shipped in the fifty-fourth slice (read-only, in the
 architecture summary + agent contract); it creates no
-`VerificationPlan` and verification plans remain downstream.
+`VerificationPlan` and verification plans remain downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.

@@ -6256,6 +6256,23 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Bridge-derived findings publication safety review (P1.1
+  bridge-derived-findings-publication-safety-review slice).** ✅
+  Shipped. **Fifty-fifth slice on the capability-ontology track.**
+  Strategy / safety-review batch. Read-only end-to-end review of the
+  bridge-derived findings publication surfacing.
+  **Recommendation: safe / stable as read-only visibility (no
+  blocker).** Pinned: surfacing is read-only visibility;
+  bridge-derived findings are governed `FindingReport` entries, not
+  `FindingLifecycleReport` status; no mutation of `FindingReport` /
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta`; no `WorkOrder` /
+  `VerificationPlan` creation; no resolver routing, verification
+  planning, `RefactorPreservationContract`, or source-write
+  implication; proof report deferred; lifecycle / `CoherencyDelta`
+  integration decision may begin next. New memo + 15-assertion docs
+  test + review packet. Recommended next slice: bridge-derived
+  findings lifecycle / `CoherencyDelta` integration decision.
 - **Bridge-derived findings publication surfacing (P1.1
   bridge-derived-findings-publication slice).** ✅ Shipped.
   **Fifty-fourth slice on the capability-ontology track.** Product

@@ -279,6 +279,6 @@ work order `stale` when a newer `CoherencyDelta` or
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
 implementation shipped in the fifty-fourth slice (read-only, in the
 architecture summary + agent contract); it creates no `WorkOrder` /
-`VerificationPlan` and remediation work orders remain downstream.
+`VerificationPlan` and remediation work orders remain downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
