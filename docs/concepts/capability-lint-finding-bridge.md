@@ -148,6 +148,10 @@ preview / governance-candidate context, not verification proof.
   — forty-fourth slice; declares the preview bridge **safe /
   stable** and selects publication surfacing next (visibility
   only, no finding writes).
+- [CapabilityLintFindingBridgeReport publication safety review](../strategy/capability-lint-finding-bridge-publication-safety-review.md)
+  — forty-sixth slice; declares the architecture summary + agent
+  contract surfacing **safe / stable as read-only visibility**
+  and selects the `FindingReport` writer decision next.
 - [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

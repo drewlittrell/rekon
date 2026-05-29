@@ -83,6 +83,15 @@ no `FindingReport` mutation, no lifecycle mutation, no
 > `FindingReport` writer decision remains deferred behind its
 > own decision + safety review.
 
+> **Update (forty-sixth slice):** the
+> [`CapabilityLintFindingBridgeReport` publication safety review](capability-lint-finding-bridge-publication-safety-review.md)
+> has **shipped** and declared the surfacing **safe / stable as
+> read-only visibility** (no blocker). The next slice is the
+> **`CapabilityLintFindingBridgeReport` → `FindingReport` writer
+> decision** — the gate that designs whether/how eligible
+> preview candidates may become governed findings. Writer
+> implementation and all governance integration remain deferred.
+
 ## Why This Decision Exists
 
 `CapabilityArchitectureLintReport` now produces and

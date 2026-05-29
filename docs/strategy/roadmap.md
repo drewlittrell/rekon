@@ -2640,6 +2640,32 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityLintFindingBridgeReport publication safety review
+  (P1.1 capability-lint-finding-bridge-publication-safety-review
+  slice): **forty-sixth slice on the capability-ontology
+  track.** Strategy / safety-review batch. Read-only end-to-end
+  review of the `CapabilityLintFindingBridgeReport` publication
+  surfacing shipped at `41e0f32`. **Recommendation: surfacing is
+  safe / stable as read-only visibility.** Pinned: surfacing is
+  read-only visibility; `CapabilityLintFindingBridgeReport` is
+  preview, not `FindingReport`; `proposedFinding` is preview-only
+  and writes no `FindingReport`; surfacing implies no
+  `FindingReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` mutation,
+  `WorkOrder` / `VerificationPlan` creation, resolver routing,
+  verification planning, `RefactorPreservationContract`, or
+  source writes; publications read the latest bridge report and
+  never run `rekon capability lint bridge-findings`; proof-report
+  surfacing remains deferred; FindingReport writer decision work
+  may begin next. New strategy memo
+  `docs/strategy/capability-lint-finding-bridge-publication-safety-review.md`
+  (11 headings + 3 tables). New 14-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-publication-safety-review.md`.
+  **No runtime behavior changes. No source under `packages/`.
+  No npm publish. No version bump.** Recommended next slice:
+  CapabilityLintFindingBridgeReport → FindingReport writer
+  decision.
 - CapabilityLintFindingBridgeReport publication surfacing (P1.1
   capability-lint-finding-bridge-publications slice):
   **forty-fifth slice on the capability-ontology track.**

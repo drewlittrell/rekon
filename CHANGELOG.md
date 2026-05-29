@@ -4,6 +4,40 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityLintFindingBridgeReport publication safety
+  review** — forty-sixth slice on the codebase-intel-classic
+  capability-ontology track. Strategy / safety-review batch.
+  Read-only end-to-end review of the
+  `CapabilityLintFindingBridgeReport` publication surfacing
+  shipped at `41e0f32`. **Recommendation:
+  `CapabilityLintFindingBridgeReport` publication surfacing is
+  safe / stable as read-only visibility.** Reviewed the
+  `buildCapabilityLintFindingBridgePublicationSection` helper,
+  the architecture summary + agent contract `Capability Lint
+  Finding Bridge` sections, the agent-contract Do Not Do
+  reminder, the proof-report deferral, and the contract / docs
+  tests. Pinned verbatim: publication surfacing is read-only
+  visibility; `CapabilityLintFindingBridgeReport` is preview,
+  not `FindingReport`; `proposedFinding` is preview-only and
+  writes no `FindingReport`; surfacing does not imply
+  `FindingReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` mutation,
+  `WorkOrder` / `VerificationPlan` creation, resolver routing,
+  verification planning, `RefactorPreservationContract`, or
+  source-write permission; publications read the latest bridge
+  report and never run `rekon capability lint bridge-findings`;
+  proof-report surfacing remains deferred; FindingReport writer
+  decision work may begin after this safety review. New strategy
+  memo
+  `docs/strategy/capability-lint-finding-bridge-publication-safety-review.md`
+  (11 headings + 3 tables: surface / boundary / option). New
+  14-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-publication-safety-review.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI
+  command. No npm publish. No version bump.** Recommended next
+  slice: CapabilityLintFindingBridgeReport → FindingReport
+  writer decision.
 - Shipped **CapabilityLintFindingBridgeReport publication
   surfacing** — forty-fifth slice on the codebase-intel-classic
   capability-ontology track. Product capability batch. The

@@ -37,6 +37,13 @@ write findings.**
 > slice is the **CapabilityLintFindingBridgeReport publication
 > safety review**.
 
+> **Update (forty-sixth slice):** the
+> [`CapabilityLintFindingBridgeReport` publication safety review](capability-lint-finding-bridge-publication-safety-review.md)
+> has **shipped** and declared the publication surfacing **safe
+> / stable as read-only visibility** (no blocker). The next
+> slice is the **`CapabilityLintFindingBridgeReport` →
+> `FindingReport` writer decision**.
+
 ## Why This Review Exists
 
 `CapabilityArchitectureLintReport` rows can carry a

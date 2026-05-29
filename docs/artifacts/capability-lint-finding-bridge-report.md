@@ -244,6 +244,14 @@ context, not verification proof.
   governance / WorkOrder / VerificationPlan mutation; selects
   publication surfacing as the next slice (visibility only, no
   finding writes).
+- [CapabilityLintFindingBridgeReport publication safety review](../strategy/capability-lint-finding-bridge-publication-safety-review.md)
+  — forty-sixth slice; read-only review declaring the
+  architecture summary + agent contract surfacing **safe /
+  stable as read-only visibility**. Confirms publications read
+  the latest report and never run bridge generation, write no
+  `FindingReport`, mutate no governance artifact, and create no
+  `WorkOrder` / `VerificationPlan`; selects the `FindingReport`
+  writer decision as the next slice.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

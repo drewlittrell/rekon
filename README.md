@@ -1103,6 +1103,53 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityLintFindingBridgeReport publication safety
+# review has shipped. Forty-sixth slice on the
+# codebase-intel-classic capability-ontology track. Strategy /
+# safety-review batch. Read-only end-to-end review of the
+# CapabilityLintFindingBridgeReport publication surfacing
+# (shipped at 41e0f32).
+#
+# Recommendation: CapabilityLintFindingBridgeReport publication
+# surfacing is safe / stable as read-only visibility. Reviewed
+# the helper, the architecture summary + agent contract
+# sections, the Do Not Do reminder, the proof-report deferral,
+# and the contract / docs tests.
+#
+# Pinned verbatim:
+#   - CapabilityLintFindingBridgeReport publication surfacing is
+#     read-only visibility.
+#   - CapabilityLintFindingBridgeReport is preview, not
+#     FindingReport.
+#   - proposedFinding is preview-only and writes no
+#     FindingReport.
+#   - Surfacing does not imply FindingReport mutation,
+#     FindingLifecycleReport mutation, IssueAdjudicationReport
+#     mutation, CoherencyDelta mutation, WorkOrder creation,
+#     VerificationPlan creation, resolver routing, verification
+#     planning, RefactorPreservationContract behavior, or
+#     source-write permission.
+#   - Publications read the latest
+#     CapabilityLintFindingBridgeReport; they never run
+#     `rekon capability lint bridge-findings`.
+#   - Proof report surfacing remains deferred.
+#   - FindingReport writer decision work may begin after this
+#     safety review.
+#
+# New strategy memo
+# docs/strategy/capability-lint-finding-bridge-publication-safety-review.md
+# (11 headings + 3 tables). New 14-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/capability-lint-finding-bridge-publication-safety-review.md.
+#
+# No runtime behavior changes. No source files under packages/
+# modified. No new artifact type. No new CLI command. No npm
+# publish. No version bump.
+#
+# Recommended next slice:
+# CapabilityLintFindingBridgeReport -> FindingReport writer
+# decision.
+#
 # CapabilityLintFindingBridgeReport publication surfacing
 # has shipped. Forty-fifth slice on the codebase-intel-classic
 # capability-ontology track. The architecture summary and
