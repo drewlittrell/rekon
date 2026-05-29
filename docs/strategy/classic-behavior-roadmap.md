@@ -6256,6 +6256,30 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **CapabilityLintFindingBridgeReport publication surfacing
+  (P1.1 capability-lint-finding-bridge-publications slice).**
+  ✅ Shipped. **Forty-fifth slice on the capability-ontology
+  track.** Product capability batch. The architecture summary
+  and agent contract publications surface the latest
+  `CapabilityLintFindingBridgeReport` as read-only visibility
+  (summary counts, bounded candidate table, eligible /
+  ineligible / needs-review guidance), citing it in
+  `header.inputRefs`. New `@rekon/capability-docs` helper
+  `buildCapabilityLintFindingBridgePublicationSection`; manifest
+  `consumes` + `capability-lint-finding-bridge.changed`
+  invalidation rule; new agent-contract Do Not Do reminder.
+  **Read-only:** publications never run bridge generation,
+  never write `FindingReport`, never mutate `FindingFilterReport`
+  / `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta`, never create `WorkOrder` /
+  `VerificationPlan`; `proposedFinding` stays preview-only;
+  surfacing does not imply source writes; proof-report
+  surfacing deferred. New 23-assertion contract test +
+  11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-publications.md`.
+  **No new artifact type. No new CLI command. No npm publish.
+  No version bump.** **Recommended next slice:**
+  *CapabilityLintFindingBridgeReport publication safety review*.
 - **CapabilityLintFindingBridgeReport safety review (P1.1
   capability-lint-finding-bridge-report-safety-review slice).**
   ✅ Shipped. **Forty-fourth slice on the

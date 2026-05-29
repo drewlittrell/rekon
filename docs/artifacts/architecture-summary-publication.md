@@ -460,3 +460,28 @@ starting point. See
   [capability-aware architecture linting concept](../concepts/capability-aware-architecture-linting.md),
   and the
   [`CapabilityArchitectureLintReport` safety review](../strategy/capability-architecture-lint-report-safety-review.md).
+- The architecture summary also renders a
+  **`## Capability Lint Finding Bridge`** section sourced from
+  the latest `CapabilityLintFindingBridgeReport` (**forty-fifth
+  slice**). When a report exists it surfaces the bridge report
+  ref, the source `CapabilityArchitectureLintReport` ref,
+  summary counts (`totalRows` / `eligible` / `ineligible` /
+  `needsReview`), optional byReason / bySeverity lines, the
+  eligible / ineligible / needs-review guidance, and a bounded
+  candidate table (`| Decision | Reason | Contract | Capability
+  | Severity | Confidence | Proposed Finding |`, capped at 20).
+  When absent it renders no-report guidance pointing at `rekon
+  capability lint bridge-findings --json`. The report is cited
+  in `header.inputRefs` when present. The publisher **reads**
+  the latest report; it **never runs `rekon capability lint
+  bridge-findings`**, **never writes `FindingReport`**, never
+  mutates `FindingFilterReport`, `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, or `CoherencyDelta`, and **never
+  creates `WorkOrder` or `VerificationPlan`**. `proposedFinding`
+  stays **preview-only**; surfacing does not imply source
+  writes. Proof-report surfacing of
+  `CapabilityLintFindingBridgeReport` is explicitly **deferred**.
+  See the
+  [`CapabilityLintFindingBridgeReport` artifact reference](capability-lint-finding-bridge-report.md)
+  and the
+  [capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md).

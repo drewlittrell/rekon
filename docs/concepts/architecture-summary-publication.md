@@ -309,6 +309,28 @@ stable as read-only visibility**. See
 and
 [capability-aware architecture linting concept](capability-aware-architecture-linting.md).
 
+The architecture summary also renders a **`## Capability
+Lint Finding Bridge`** section sourced from the latest
+`CapabilityLintFindingBridgeReport` (**publication
+surfacing shipped, forty-fifth slice**) — summary counts
+(`totalRows` / `eligible` / `ineligible` / `needsReview`),
+optional byReason / bySeverity lines, the eligible /
+ineligible / needs-review guidance, and a bounded candidate
+table; no-report guidance points at `rekon capability lint
+bridge-findings --json`. The publisher **reads the latest
+`CapabilityLintFindingBridgeReport`** and cites it in
+`header.inputRefs`; it **never runs `rekon capability lint
+bridge-findings`**, **never writes `FindingReport`**, never
+mutates `FindingFilterReport`, `FindingLifecycleReport`,
+`IssueAdjudicationReport`, or `CoherencyDelta`, and **never
+creates `WorkOrder` or `VerificationPlan`**. `proposedFinding`
+stays **preview-only**; surfacing does not imply source
+writes. Proof-report surfacing of
+`CapabilityLintFindingBridgeReport` is **deferred**. See the
+[`CapabilityLintFindingBridgeReport` artifact](../artifacts/capability-lint-finding-bridge-report.md)
+and
+[capability lint finding bridge concept](capability-lint-finding-bridge.md).
+
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from
 the latest `CapabilityMap` when the v2 fields

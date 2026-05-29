@@ -525,6 +525,46 @@ and the
 — forty-first slice; declares this surfacing safe /
 stable as read-only visibility.
 
+## Capability Lint Finding Bridge
+
+The agent contract also renders a **`### Capability Lint
+Finding Bridge`** subsection sourced from the latest
+`CapabilityLintFindingBridgeReport` (**forty-fifth slice**),
+inside the operating-state group after `### Capability
+Architecture Linting`. It surfaces the bridge report ref, the
+source `CapabilityArchitectureLintReport` ref, summary counts
+(`totalRows` / `eligible` / `ineligible` / `needsReview`),
+optional byReason / bySeverity lines, the eligible / ineligible
+/ needs-review guidance, and a bounded candidate table
+(`| Decision | Reason | Contract | Capability | Severity |
+Confidence | Proposed Finding |`, capped at 20). When absent it
+renders no-report guidance pointing at `rekon capability lint
+bridge-findings --json`.
+
+The agent contract's `## Do Not Do` list carries a verbatim
+reminder: *"Do not treat `CapabilityLintFindingBridgeReport`
+publication surfacing as FindingReport writing, lifecycle
+mutation, CoherencyDelta remediation, WorkOrder creation,
+VerificationPlan generation, resolver routing, verification
+planning, RefactorPreservationContract, or source-write
+permission."*
+
+**Publications are read-only over
+`CapabilityLintFindingBridgeReport`:** the publisher reads the
+latest bridge report and **never runs `rekon capability lint
+bridge-findings`**, **never writes `FindingReport`**, never
+mutates `FindingFilterReport`, `FindingLifecycleReport`,
+`IssueAdjudicationReport`, or `CoherencyDelta`, and **never
+creates `WorkOrder` or `VerificationPlan`**. `proposedFinding`
+stays preview-only; surfacing does not imply source writes.
+Proof-report surfacing of `CapabilityLintFindingBridgeReport`
+is explicitly **deferred**. See the
+[`CapabilityLintFindingBridgeReport` artifact reference](capability-lint-finding-bridge-report.md),
+the
+[capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md),
+and the
+[`CapabilityLintFindingBridgeReport` safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md).
+
 ## Cross-References
 
 - [Agent contract concept](../concepts/agent-operating-contract.md)

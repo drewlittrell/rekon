@@ -1103,6 +1103,42 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityLintFindingBridgeReport publication surfacing
+# has shipped. Forty-fifth slice on the codebase-intel-classic
+# capability-ontology track. The architecture summary and
+# agent contract publications now surface the latest
+# CapabilityLintFindingBridgeReport as read-only visibility
+# (a Capability Lint Finding Bridge section: summary counts +
+# bounded candidate table + eligible / ineligible /
+# needs-review guidance), citing it in header.inputRefs.
+#
+# New @rekon/capability-docs helper
+# buildCapabilityLintFindingBridgePublicationSection. Manifest
+# consumes gains CapabilityLintFindingBridgeReport; new
+# invalidation rule capability-lint-finding-bridge.changed.
+#
+# Pinned verbatim:
+#   - Publications read the latest
+#     CapabilityLintFindingBridgeReport and never run bridge
+#     generation.
+#   - Publications do not write FindingReport, mutate
+#     FindingFilterReport / FindingLifecycleReport /
+#     IssueAdjudicationReport / CoherencyDelta, or create
+#     WorkOrder / VerificationPlan.
+#   - proposedFinding is preview-only; surfacing does not
+#     imply source writes.
+#   - Proof-report surfacing is deferred.
+#
+# New contract test (23 assertions) + docs test (11
+# assertions). Review packet
+# .rekon-dev/review-packets/capability-lint-finding-bridge-publications.md.
+#
+# No new artifact type. No new CLI command. No version bump.
+# No npm publish.
+#
+# Recommended next slice:
+# CapabilityLintFindingBridgeReport publication safety review.
+#
 # CapabilityLintFindingBridgeReport safety review has
 # shipped. Forty-fourth slice on the codebase-intel-classic
 # capability-ontology track. Strategy / safety-review batch.

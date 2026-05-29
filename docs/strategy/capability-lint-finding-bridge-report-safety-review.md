@@ -27,6 +27,16 @@ publication surfacing.** **The next slice may surface
 CapabilityLintFindingBridgeReport in publications, but must not
 write findings.**
 
+> **Update (forty-fifth slice):**
+> `CapabilityLintFindingBridgeReport` publication surfacing has
+> **shipped** — the architecture summary and agent contract now
+> render a read-only `Capability Lint Finding Bridge` section.
+> It writes no findings, mutates no governance artifact, creates
+> no `WorkOrder` / `VerificationPlan`, and runs no bridge
+> generation; proof-report surfacing stays deferred. The next
+> slice is the **CapabilityLintFindingBridgeReport publication
+> safety review**.
+
 ## Why This Review Exists
 
 `CapabilityArchitectureLintReport` rows can carry a

@@ -73,6 +73,16 @@ no `FindingReport` mutation, no lifecycle mutation, no
 > contract; it may surface the report but must not write
 > findings.
 
+> **Update (forty-fifth slice):**
+> `CapabilityLintFindingBridgeReport` publication surfacing has
+> **shipped** (read-only). The architecture summary and agent
+> contract render a `Capability Lint Finding Bridge` section
+> without writing `FindingReport`, mutating governance
+> artifacts, or creating `WorkOrder` / `VerificationPlan`. The
+> next slice is the **publication safety review**; a
+> `FindingReport` writer decision remains deferred behind its
+> own decision + safety review.
+
 ## Why This Decision Exists
 
 `CapabilityArchitectureLintReport` now produces and

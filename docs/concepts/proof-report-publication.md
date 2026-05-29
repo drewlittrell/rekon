@@ -226,6 +226,19 @@ Rebuild with `rekon publish proof`.
   Re-evaluate only when a separate decision +
   safety-review pair defines a natural evaluation
   section for the proof report.
+- **Not a `CapabilityLintFindingBridgeReport` surface.**
+  Proof-report surfacing of
+  `CapabilityLintFindingBridgeReport` is **deferred**
+  (forty-fifth slice). The bridge report is preview /
+  governance-candidate context (eligible / ineligible /
+  needs-review rows), not verification proof. The
+  [architecture summary](architecture-summary-publication.md)
+  and [agent operating contract](agent-operating-contract.md)
+  carry the read-only Capability Lint Finding Bridge
+  section instead; `proposedFinding` stays preview-only.
+  Re-evaluate only when a separate decision +
+  safety-review pair defines a natural section for the
+  proof report.
 
 ## Cross-References
 

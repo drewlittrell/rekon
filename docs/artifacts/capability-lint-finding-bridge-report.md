@@ -201,6 +201,39 @@ creates `WorkOrder` / `VerificationPlan`.
 }
 ```
 
+## Publication Surfacing
+
+The **architecture summary** and **agent contract** publications
+surface the latest `CapabilityLintFindingBridgeReport`
+(forty-fifth slice) as **read-only visibility**. Both publishers
+read the latest bridge report, render a `Capability Lint Finding
+Bridge` section (summary counts + a bounded candidate table +
+the eligible / ineligible / needs-review guidance), and cite the
+report in `header.inputRefs`.
+
+The surfacing is strictly read-only and additive:
+
+- Publications **read the latest
+  `CapabilityLintFindingBridgeReport`**; they **never run
+  `rekon capability lint bridge-findings`** (no bridge
+  generation).
+- Publications **do not write `FindingReport`** and **do not
+  mutate `FindingFilterReport`, `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, or `CoherencyDelta`**.
+- Publications **do not create `WorkOrder` or
+  `VerificationPlan`**.
+- `eligible` candidates are surfaced as proposed governed-finding
+  candidates only; `proposedFinding` stays **preview-only** and
+  no `FindingReport` is written.
+- Surfacing does **not** imply resolver routing, verification
+  planning, `RefactorPreservationContract`, or **source writes**
+  (it does not write source files).
+
+**Proof-report surfacing is deferred.** The proof-report
+publication does not surface `CapabilityLintFindingBridgeReport`,
+because the bridge report is preview / governance-candidate
+context, not verification proof.
+
 ## Cross-References
 
 - [CapabilityLintFindingBridgeReport safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md)

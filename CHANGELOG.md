@@ -4,6 +4,49 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CapabilityLintFindingBridgeReport publication
+  surfacing** — forty-fifth slice on the codebase-intel-classic
+  capability-ontology track. Product capability batch. The
+  architecture summary and agent contract publications now
+  surface the latest `CapabilityLintFindingBridgeReport` as
+  read-only visibility into which capability-architecture lint
+  rows are eligible / ineligible / needs-review to become
+  governed findings later.
+  - New `@rekon/capability-docs` helper
+    `buildCapabilityLintFindingBridgePublicationSection` (pure,
+    structural-typed) renders a `Capability Lint Finding Bridge`
+    section: report ref, source `CapabilityArchitectureLintReport`
+    ref, optional `CapabilityContract` / `CapabilityMap` refs,
+    summary counts (totalRows / eligible / ineligible /
+    needsReview), optional byReason / bySeverity, eligible /
+    ineligible / needs-review guidance, and a bounded candidate
+    table (cap 20).
+  - Architecture summary publisher (heading level 2) and agent
+    contract publisher (heading level 3) read the latest bridge
+    report, render the section, and cite it in
+    `header.inputRefs`. Both render no-report guidance when
+    absent.
+  - New agent-contract "Do Not Do" reminder covering FindingReport
+    writing, lifecycle mutation, CoherencyDelta remediation,
+    WorkOrder creation, VerificationPlan generation, resolver
+    routing, verification planning, RefactorPreservationContract,
+    and source-write permission.
+  - `@rekon/capability-docs` manifest `consumes` gains
+    `CapabilityLintFindingBridgeReport`; new invalidation rule
+    `capability-lint-finding-bridge.changed`.
+  Pinned verbatim: publications read the latest
+  `CapabilityLintFindingBridgeReport` and **never run bridge
+  generation**; they **do not write `FindingReport`**, mutate
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta`, or create
+  `WorkOrder` / `VerificationPlan`; `proposedFinding` stays
+  preview-only; surfacing does not imply source writes;
+  proof-report surfacing is deferred. New contract test (23
+  assertions) + docs test (11 assertions). Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-publications.md`.
+  No new artifact type. No new CLI command. No version bump. No
+  npm publish. Recommended next slice:
+  CapabilityLintFindingBridgeReport publication safety review.
 - Shipped **CapabilityLintFindingBridgeReport safety review** —
   forty-fourth slice on the codebase-intel-classic
   capability-ontology track. Strategy / safety-review batch.

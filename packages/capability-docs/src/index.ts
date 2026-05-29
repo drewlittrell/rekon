@@ -525,6 +525,29 @@ export const architectureSummaryPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityArchitectureLintRef);
     }
+    // CapabilityLintFindingBridgeReport publication surfacing
+    // (capability-lint-finding-bridge-publications). Strictly
+    // read-only: never runs `rekon capability lint
+    // bridge-findings`; never mutates the bridge report,
+    // `CapabilityArchitectureLintReport`, `FindingReport`,
+    // `FindingFilterReport`, `FindingLifecycleReport`,
+    // `IssueAdjudicationReport`, or `CoherencyDelta`; never
+    // creates `WorkOrder` or `VerificationPlan`.
+    const capabilityLintFindingBridgeRef = await latestRef(
+      artifacts,
+      "CapabilityLintFindingBridgeReport",
+    );
+    const capabilityLintFindingBridgeReport = capabilityLintFindingBridgeRef
+      ? (await artifacts.read(capabilityLintFindingBridgeRef)) as CapabilityLintFindingBridgeReportLike
+      : undefined;
+    if (
+      capabilityLintFindingBridgeRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityLintFindingBridgeRef.type
+        && existing.id === capabilityLintFindingBridgeRef.id)
+    ) {
+      inputRefs.push(capabilityLintFindingBridgeRef);
+    }
     const freshness = await detectGovernanceFreshness(artifacts);
 
     const generatedAt = new Date().toISOString();
@@ -567,6 +590,8 @@ export const architectureSummaryPublisher: Publisher = {
         capabilityContractRef,
         capabilityArchitectureLintReport,
         capabilityArchitectureLintRef,
+        capabilityLintFindingBridgeReport,
+        capabilityLintFindingBridgeRef,
         freshness,
         inputRefs,
         generatedAt,
@@ -987,6 +1012,26 @@ export const agentContractPublisher: Publisher = {
     ) {
       inputRefs.push(capabilityArchitectureLintRef);
     }
+    // CapabilityLintFindingBridgeReport publication surfacing
+    // (capability-lint-finding-bridge-publications). Read-only;
+    // never runs bridge generation, never writes FindingReport,
+    // never mutates lifecycle / CoherencyDelta, never creates
+    // WorkOrder / VerificationPlan.
+    const capabilityLintFindingBridgeRef = await latestRef(
+      artifacts,
+      "CapabilityLintFindingBridgeReport",
+    );
+    const capabilityLintFindingBridgeReport = capabilityLintFindingBridgeRef
+      ? (await artifacts.read(capabilityLintFindingBridgeRef)) as CapabilityLintFindingBridgeReportLike
+      : undefined;
+    if (
+      capabilityLintFindingBridgeRef
+      && !inputRefs.some((existing) =>
+        existing.type === capabilityLintFindingBridgeRef.type
+        && existing.id === capabilityLintFindingBridgeRef.id)
+    ) {
+      inputRefs.push(capabilityLintFindingBridgeRef);
+    }
     const memorySelection = await readLatestArtifact<MemorySelectionLike>(
       artifacts,
       "MemorySelection",
@@ -1037,6 +1082,8 @@ export const agentContractPublisher: Publisher = {
         capabilityContractRef,
         capabilityArchitectureLintReport,
         capabilityArchitectureLintRef,
+        capabilityLintFindingBridgeReport,
+        capabilityLintFindingBridgeRef,
         memorySelection,
         memoryCurationReport,
         freshness: await detectGovernanceFreshness(artifacts),
@@ -1079,6 +1126,7 @@ export default defineCapability({
       "CapabilityPhraseReport",
       "CapabilityContract",
       "CapabilityArchitectureLintReport",
+      "CapabilityLintFindingBridgeReport",
       "MemorySelection",
       "MemoryCurationReport",
     ],
@@ -1172,6 +1220,12 @@ export default defineCapability({
         description:
           "Regenerate the architecture summary and agent contract when a new CapabilityArchitectureLintReport is written so operators and agents see capability placement-policy evaluation (violations / passes / not-evaluated) alongside repo state. Publications never run `rekon capability lint architecture` automatically, never mutate the lint report, and never mutate CapabilityContract, CapabilityMap, FindingReport, FindingFilterReport, FindingLifecycleReport, or CoherencyDelta. findingCandidate stays preview-only.",
         inputs: ["CapabilityArchitectureLintReport"],
+      },
+      {
+        id: "capability-lint-finding-bridge.changed",
+        description:
+          "Regenerate the architecture summary and agent contract when a new CapabilityLintFindingBridgeReport is written so operators and agents see which architecture-lint rows are eligible / ineligible / needs-review to become governed findings later. Publications never run `rekon capability lint bridge-findings` automatically, never write FindingReport, never mutate FindingFilterReport, FindingLifecycleReport, IssueAdjudicationReport, or CoherencyDelta, and never create WorkOrder or VerificationPlan. proposedFinding stays preview-only.",
+        inputs: ["CapabilityLintFindingBridgeReport"],
       },
     ],
     compatibility: {
@@ -1542,6 +1596,8 @@ type ArchitectureSummaryInputs = {
   capabilityContractRef?: ArtifactRef;
   capabilityArchitectureLintReport?: CapabilityArchitectureLintReportLike;
   capabilityArchitectureLintRef?: ArtifactRef;
+  capabilityLintFindingBridgeReport?: CapabilityLintFindingBridgeReportLike;
+  capabilityLintFindingBridgeRef?: ArtifactRef;
   freshness?: GovernanceFreshness;
   inputRefs: ArtifactRef[];
   generatedAt: string;
@@ -1929,6 +1985,23 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
     input.capabilityArchitectureLintRef,
     2,
   );
+  // CapabilityLintFindingBridgeReport publication surfacing
+  // (capability-lint-finding-bridge-publications). Read-only:
+  // surfaces the latest CapabilityLintFindingBridgeReport so
+  // operators see which architecture-lint rows are eligible /
+  // ineligible / needs-review to become governed findings
+  // later, before the proof / verification sections. Never
+  // runs `rekon capability lint bridge-findings`, never
+  // mutates the bridge report, CapabilityArchitectureLintReport,
+  // FindingReport, FindingFilterReport, FindingLifecycleReport,
+  // IssueAdjudicationReport, or CoherencyDelta; never creates
+  // WorkOrder or VerificationPlan.
+  renderCapabilityLintFindingBridgeSection(
+    sections,
+    input.capabilityLintFindingBridgeReport,
+    input.capabilityLintFindingBridgeRef,
+    2,
+  );
   renderProofLoopSection(sections, input);
 
   // Agent Guidance
@@ -2225,6 +2298,22 @@ function renderCapabilityArchitectureLintSection(
   headingLevel: 2 | 3,
 ): void {
   const block = buildCapabilityArchitectureLintPublicationSection({
+    report,
+    reportRef,
+    headingLevel,
+  });
+  for (const line of block.lines) {
+    sections.push(line);
+  }
+}
+
+function renderCapabilityLintFindingBridgeSection(
+  sections: string[],
+  report: CapabilityLintFindingBridgeReportLike | undefined,
+  reportRef: ArtifactRef | undefined,
+  headingLevel: 2 | 3,
+): void {
+  const block = buildCapabilityLintFindingBridgePublicationSection({
     report,
     reportRef,
     headingLevel,
@@ -2934,6 +3023,8 @@ type AgentContractInputs = {
   capabilityContractRef?: ArtifactRef;
   capabilityArchitectureLintReport?: CapabilityArchitectureLintReportLike;
   capabilityArchitectureLintRef?: ArtifactRef;
+  capabilityLintFindingBridgeReport?: CapabilityLintFindingBridgeReportLike;
+  capabilityLintFindingBridgeRef?: ArtifactRef;
   memorySelection?: MemorySelectionLike;
   memoryCurationReport?: MemoryCurationReportLike;
   freshness?: GovernanceFreshness;
@@ -2982,6 +3073,7 @@ const AGENT_CONTRACT_DO_NOT_DO = [
   "Do not treat CapabilityMap v2 phrase-backed capabilities as CapabilityContract policy, resolver routing authority, architecture lint findings, verification requirements, or source-write permission. CapabilityMap v2 phrase-backed capabilities are stable capability projection; they are not placement policy, ownership policy, or source-write authority.",
   "Do not treat CapabilityContract publication surfacing as architecture linting, resolver routing, verification planning, finding resolution, RefactorPreservationContract, or source-write permission. The CapabilityContract section in this contract is policy visibility only; configured / unmatched rows are operator-authored policy records, not enforced behavior.",
   "Do not treat CapabilityArchitectureLintReport publication surfacing as FindingReport mutation, lifecycle mutation, CoherencyDelta remediation, resolver routing, verification planning, RefactorPreservationContract, or source-write permission. The Capability Architecture Linting section is evaluation visibility only; violation rows are policy-evaluation signals, not governed findings, and findingCandidate is preview-only.",
+  "Do not treat CapabilityLintFindingBridgeReport publication surfacing as FindingReport writing, lifecycle mutation, CoherencyDelta remediation, WorkOrder creation, VerificationPlan generation, resolver routing, verification planning, RefactorPreservationContract, or source-write permission. The Capability Lint Finding Bridge section is preview visibility only; eligible candidates are proposed governed-finding candidates only, needs-review candidates require operator review, and proposedFinding is preview-only — no FindingReport is written.",
 ];
 
 function renderAgentContract(input: AgentContractInputs): string {
@@ -3476,6 +3568,23 @@ function renderAgentContract(input: AgentContractInputs): string {
     sections,
     input.capabilityArchitectureLintReport,
     input.capabilityArchitectureLintRef,
+    3,
+  );
+
+  // CapabilityLintFindingBridgeReport publication surfacing
+  // (capability-lint-finding-bridge-publications). Heading
+  // level 3 so the section sits inside the operating-state
+  // group. Always rendered (with no-report guidance when
+  // empty) so agents see which lint rows are eligible /
+  // ineligible / needs-review to become governed findings
+  // later. Strictly read-only — never runs `rekon capability
+  // lint bridge-findings`, never writes FindingReport, never
+  // mutates lifecycle / CoherencyDelta, never creates
+  // WorkOrder / VerificationPlan, never implies enforcement.
+  renderCapabilityLintFindingBridgeSection(
+    sections,
+    input.capabilityLintFindingBridgeReport,
+    input.capabilityLintFindingBridgeRef,
     3,
   );
 
@@ -7769,3 +7878,240 @@ export const CAPABILITY_ARCHITECTURE_LINT_PUBLICATION_BOUNDARY_LINE =
   CAPABILITY_LINT_BOUNDARY_LINE;
 export const CAPABILITY_ARCHITECTURE_LINT_PUBLICATION_PROOF_DEFERRAL_LINE =
   CAPABILITY_LINT_PROOF_DEFERRAL_LINE;
+
+// ---------------------------------------------------------------------------
+// CapabilityLintFindingBridgeReport publication surfacing
+// (capability-lint-finding-bridge-publications). Mirrors the
+// CapabilityArchitectureLintReport surfacing above: a pure,
+// structurally-typed helper rendering a read-only
+// "Capability Lint Finding Bridge" section for the
+// architecture summary and agent contract. Preview visibility
+// only — never writes FindingReport, never mutates lifecycle /
+// CoherencyDelta, never creates WorkOrder / VerificationPlan,
+// never writes source files, never runs bridge generation.
+// ---------------------------------------------------------------------------
+
+export type CapabilityLintFindingBridgeProposedFindingLike = {
+  id?: unknown;
+  title?: unknown;
+  category?: unknown;
+  severity?: "low" | "medium" | "high" | unknown;
+  evidenceRefs?: ArtifactRef[];
+  sourceLintRowRef?: {
+    report?: ArtifactRef;
+    rowId?: unknown;
+  };
+};
+
+export type CapabilityLintFindingBridgeCandidateLike = {
+  id?: unknown;
+  lintRowId?: unknown;
+  contractId?: unknown;
+  phraseCapabilityId?: unknown;
+  decision?: "eligible" | "ineligible" | "needs-review" | unknown;
+  reason?: unknown;
+  severity?: "low" | "medium" | "high" | unknown;
+  confidence?: "low" | "medium" | "high" | unknown;
+  proposedFinding?: CapabilityLintFindingBridgeProposedFindingLike;
+  messages?: string[];
+};
+
+export type CapabilityLintFindingBridgeSummaryLike = {
+  totalRows?: unknown;
+  eligible?: unknown;
+  ineligible?: unknown;
+  needsReview?: unknown;
+  byReason?: Record<string, unknown>;
+  bySeverity?: Record<string, unknown>;
+};
+
+export type CapabilityLintFindingBridgeSourceLike = {
+  lintReportRef?: ArtifactRef;
+  capabilityContractRef?: ArtifactRef;
+  capabilityMapRef?: ArtifactRef;
+};
+
+export type CapabilityLintFindingBridgeReportLike = {
+  header?: ArtifactHeader;
+  source?: CapabilityLintFindingBridgeSourceLike;
+  summary?: CapabilityLintFindingBridgeSummaryLike;
+  candidates?: CapabilityLintFindingBridgeCandidateLike[];
+};
+
+export type BuildCapabilityLintFindingBridgePublicationSectionInput = {
+  /** Latest CapabilityLintFindingBridgeReport artifact.
+   *  Optional — callers should still invoke the helper when
+   *  absent; the helper emits no-report guidance so operators
+   *  see what to run. */
+  report?: CapabilityLintFindingBridgeReportLike;
+  /** ArtifactRef for the bridge report. Stamped into the
+   *  rendered "Report:" line and returned as `inputRef`. */
+  reportRef?: ArtifactRef;
+  /** 2 → architecture summary; 3 → agent contract. */
+  headingLevel?: 2 | 3;
+  /** Cap the rendered candidate table; default 20. */
+  tableLimit?: number;
+};
+
+export type BuildCapabilityLintFindingBridgePublicationSectionResult = {
+  lines: string[];
+  /** Bridge report ref the section is rendered against, when
+   *  discoverable. The producer is responsible for citing this
+   *  in `header.inputRefs`; the helper mutates no header. */
+  inputRef?: ArtifactRef;
+};
+
+const DEFAULT_CAPABILITY_LINT_BRIDGE_TABLE_LIMIT = 20;
+
+const CAPABILITY_LINT_BRIDGE_BOUNDARY_LINE =
+  "CapabilityLintFindingBridgeReport is preview visibility only; this publication does not write FindingReport, mutate lifecycle state, mutate CoherencyDelta, create WorkOrders, create VerificationPlans, or write source files.";
+
+const CAPABILITY_LINT_BRIDGE_NO_REPORT_GUIDANCE =
+  "No `CapabilityLintFindingBridgeReport` found. Run `rekon capability lint bridge-findings --json` after generating a `CapabilityArchitectureLintReport`.";
+
+const CAPABILITY_LINT_BRIDGE_PROOF_DEFERRAL_LINE =
+  "Proof-report surfacing of CapabilityLintFindingBridgeReport is deferred. CapabilityLintFindingBridgeReport is preview / governance-candidate context, not verification proof.";
+
+const CAPABILITY_LINT_BRIDGE_GUIDANCE = [
+  "CapabilityLintFindingBridgeReport is preview, not FindingReport.",
+  "`eligible` candidates are proposed governed-finding candidates only — not yet governed findings.",
+  "`ineligible` candidates are not bridge-ready (pass / not-evaluated / missing finding candidate / low confidence / low severity / missing evidence).",
+  "`needs-review` candidates require operator review before any future writer (e.g. duplicate proposed finding id).",
+  "`proposedFinding` is preview-only; no FindingReport is written.",
+];
+
+export function buildCapabilityLintFindingBridgePublicationSection(
+  input: BuildCapabilityLintFindingBridgePublicationSectionInput,
+): BuildCapabilityLintFindingBridgePublicationSectionResult {
+  const { report, reportRef } = input;
+  const headingLevel = input.headingLevel ?? 2;
+  const heading = headingLevel === 2 ? "##" : "###";
+  const tableLimit = input.tableLimit ?? DEFAULT_CAPABILITY_LINT_BRIDGE_TABLE_LIMIT;
+  const lines: string[] = [];
+
+  lines.push(`${heading} Capability Lint Finding Bridge`);
+  lines.push("");
+
+  if (!report) {
+    lines.push(CAPABILITY_LINT_BRIDGE_NO_REPORT_GUIDANCE);
+    lines.push("");
+    for (const guidance of CAPABILITY_LINT_BRIDGE_GUIDANCE) {
+      lines.push(`- ${guidance}`);
+    }
+    lines.push("");
+    lines.push(CAPABILITY_LINT_BRIDGE_BOUNDARY_LINE);
+    lines.push("");
+    return { lines };
+  }
+
+  const resolvedReportRef = reportRef
+    ?? pickCapabilityLintBridgeRefFromHeader(report.header);
+  const source = report.source ?? {};
+  const summary = report.summary ?? {};
+
+  if (resolvedReportRef) {
+    lines.push(`- Report: ${formatRef(resolvedReportRef)}`);
+  } else if (
+    report.header?.artifactType === "CapabilityLintFindingBridgeReport"
+    && typeof report.header?.artifactId === "string"
+  ) {
+    lines.push(
+      `- Report: ${report.header.artifactType}:${report.header.artifactId}`,
+    );
+  }
+  const lintReportRef = source.lintReportRef;
+  if (lintReportRef && typeof lintReportRef === "object") {
+    lines.push(`- Source CapabilityArchitectureLintReport: ${formatRef(lintReportRef)}`);
+  }
+  const capabilityContractRef = source.capabilityContractRef;
+  if (capabilityContractRef && typeof capabilityContractRef === "object") {
+    lines.push(`- Source CapabilityContract: ${formatRef(capabilityContractRef)}`);
+  }
+  const capabilityMapRef = source.capabilityMapRef;
+  if (capabilityMapRef && typeof capabilityMapRef === "object") {
+    lines.push(`- Source CapabilityMap: ${formatRef(capabilityMapRef)}`);
+  }
+
+  const totalRows = readNonNegativeInteger(summary.totalRows);
+  const eligible = readNonNegativeInteger(summary.eligible);
+  const ineligible = readNonNegativeInteger(summary.ineligible);
+  const needsReview = readNonNegativeInteger(summary.needsReview);
+
+  lines.push(
+    `- Candidates: ${totalRows}`
+    + ` (eligible ${eligible}, ineligible ${ineligible}, needs-review ${needsReview})`,
+  );
+  const byReason = formatCountRecord(summary.byReason);
+  if (byReason) {
+    lines.push(`- By reason: ${byReason}`);
+  }
+  const bySeverity = formatCountRecord(summary.bySeverity);
+  if (bySeverity) {
+    lines.push(`- By severity: ${bySeverity}`);
+  }
+  lines.push("");
+  for (const guidance of CAPABILITY_LINT_BRIDGE_GUIDANCE) {
+    lines.push(`- ${guidance}`);
+  }
+  lines.push("");
+  lines.push(CAPABILITY_LINT_BRIDGE_BOUNDARY_LINE);
+  lines.push("");
+
+  const candidates = Array.isArray(report.candidates) ? report.candidates : [];
+  if (candidates.length > 0) {
+    lines.push(
+      "| Decision | Reason | Contract | Capability | Severity | Confidence | Proposed Finding |",
+    );
+    lines.push("| --- | --- | --- | --- | --- | --- | --- |");
+    const bounded = candidates.slice(0, tableLimit);
+    for (const candidate of bounded) {
+      const decision = typeof candidate.decision === "string" ? candidate.decision : "-";
+      const reason = typeof candidate.reason === "string" ? candidate.reason : "-";
+      const contractId = typeof candidate.contractId === "string" ? candidate.contractId : "-";
+      const capability = typeof candidate.phraseCapabilityId === "string"
+        && candidate.phraseCapabilityId.length > 0
+        ? candidate.phraseCapabilityId
+        : "—";
+      const severity = typeof candidate.severity === "string" ? candidate.severity : "-";
+      const confidence = typeof candidate.confidence === "string" ? candidate.confidence : "-";
+      const proposedFindingId = candidate.proposedFinding
+        && typeof candidate.proposedFinding.id === "string"
+        && candidate.proposedFinding.id.length > 0
+        ? escapeTableCell(candidate.proposedFinding.id)
+        : "—";
+      lines.push(
+        `| ${decision} | ${reason} | ${contractId} | ${capability} | ${severity} | ${confidence} | ${proposedFindingId} |`,
+      );
+    }
+    if (candidates.length > bounded.length) {
+      lines.push("");
+      lines.push(
+        `(${candidates.length - bounded.length} additional bridge candidate(s) omitted; inspect the artifact for full detail.)`,
+      );
+    }
+    lines.push("");
+  }
+
+  return { lines, inputRef: resolvedReportRef };
+}
+
+function pickCapabilityLintBridgeRefFromHeader(
+  header: ArtifactHeader | undefined,
+): ArtifactRef | undefined {
+  if (!header) return undefined;
+  if (header.artifactType !== "CapabilityLintFindingBridgeReport") return undefined;
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) return undefined;
+  const schemaVersion = typeof header.schemaVersion === "string" && header.schemaVersion.length > 0
+    ? header.schemaVersion
+    : "0.1.0";
+  return {
+    type: header.artifactType,
+    id: header.artifactId,
+    schemaVersion,
+  };
+}
+
+export const CAPABILITY_LINT_FINDING_BRIDGE_PUBLICATION_BOUNDARY_LINE =
+  CAPABILITY_LINT_BRIDGE_BOUNDARY_LINE;
+export const CAPABILITY_LINT_FINDING_BRIDGE_PUBLICATION_PROOF_DEFERRAL_LINE =
+  CAPABILITY_LINT_BRIDGE_PROOF_DEFERRAL_LINE;

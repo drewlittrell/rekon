@@ -2640,6 +2640,31 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- CapabilityLintFindingBridgeReport publication surfacing (P1.1
+  capability-lint-finding-bridge-publications slice):
+  **forty-fifth slice on the capability-ontology track.**
+  Product capability batch. The architecture summary and agent
+  contract publications now surface the latest
+  `CapabilityLintFindingBridgeReport` as read-only visibility
+  (a `Capability Lint Finding Bridge` section with summary
+  counts, a bounded candidate table, and eligible / ineligible
+  / needs-review guidance), citing it in `header.inputRefs`.
+  New `@rekon/capability-docs` helper
+  `buildCapabilityLintFindingBridgePublicationSection`; manifest
+  `consumes` gains `CapabilityLintFindingBridgeReport`; new
+  invalidation rule `capability-lint-finding-bridge.changed`.
+  Pinned: publications read the latest bridge report and never
+  run bridge generation; never write `FindingReport`, mutate
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta`, or create
+  `WorkOrder` / `VerificationPlan`; `proposedFinding` stays
+  preview-only; surfacing does not imply source writes;
+  proof-report surfacing deferred. New 23-assertion contract
+  test + 11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-bridge-publications.md`.
+  **No new artifact type. No new CLI command. No npm publish.
+  No version bump.** Recommended next slice:
+  CapabilityLintFindingBridgeReport publication safety review.
 - CapabilityLintFindingBridgeReport safety review (P1.1
   capability-lint-finding-bridge-report-safety-review slice):
   **forty-fourth slice on the capability-ontology track.**
