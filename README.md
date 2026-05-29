@@ -1103,6 +1103,36 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# StepCapabilityGraph v1 has shipped. Sixty-second slice on the
+# codebase-intel-classic capability-ontology track. Product capability
+# batch.
+#
+# Implements the first artifact in the staged step/handoff/runtime graph
+# spine. New artifact type StepCapabilityGraph (kernel-repo-model + SDK +
+# runtime graphs category), buildStepCapabilityGraph +
+# parseStepCapabilityGraphConfig in @rekon/capability-model, and a
+# rekon step graph build CLI command. v1 projects an expected workflow
+# topology graph from EvidenceGraph + CapabilityMap v2 +
+# CapabilityPhraseReport, with an optional .rekon/step-capability-map.json
+# for grouping/labeling only.
+#   - StepCapabilityGraph v1 is expected workflow topology.
+#   - It is not CapabilityMap v2.
+#   - It does not model runtime handoff coverage.
+#   - It does not detect runtime graph drift.
+#   - It does not create HandoffContract / WorkOrder / VerificationPlan.
+#   - It does not implement intent.
+#   - Optional config is grouping/labeling only.
+#
+# New artifact reference docs/artifacts/step-capability-graph.md, new
+# concept docs/concepts/step-capability-graph.md. New 28-assertion contract
+# test + 12-assertion docs test. Review packet
+# .rekon-dev/review-packets/step-capability-graph-v1.md.
+#
+# No mutation of EvidenceGraph / CapabilityMap / CapabilityPhraseReport. No
+# npm publish. No version bump.
+#
+# Recommended next slice: StepCapabilityGraph safety review.
+#
 # StepCapabilityGraph v1 decision has shipped. Sixty-first slice on
 # the codebase-intel-classic capability-ontology track. Strategy /
 # architecture decision batch (v1 shape + inputs only).

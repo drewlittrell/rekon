@@ -188,3 +188,5 @@ ship in this decision.**
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [StepCapabilityGraph artifact](../artifacts/step-capability-graph.md) — the first artifact in the staged step/handoff/runtime graph spine: an expected workflow topology graph projected from EvidenceGraph + CapabilityMap v2 + CapabilityPhraseReport (+ optional grouping/labeling config). Not CapabilityMap v2; no runtime coverage / drift.

@@ -2640,6 +2640,21 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- StepCapabilityGraph v1 (P1.1 step-capability-graph slice): **sixty-second
+  slice on the capability-ontology track.** Product capability batch.
+  Implements the first artifact in the staged spine. New artifact type
+  `StepCapabilityGraph` (kernel-repo-model + SDK + runtime `graphs`),
+  `buildStepCapabilityGraph` + `parseStepCapabilityGraphConfig` in
+  `@rekon/capability-model`, and a `rekon step graph build` CLI command.
+  Projects an expected workflow topology graph from `EvidenceGraph` +
+  `CapabilityMap v2` + `CapabilityPhraseReport` with an optional
+  `.rekon/step-capability-map.json` (grouping/labeling only). Pinned:
+  expected workflow topology only; not CapabilityMap v2; no runtime handoff
+  coverage; no runtime graph drift; no HandoffContract / WorkOrder /
+  VerificationPlan; no intent; handoffPlaceholders reserved (empty in v1).
+  New artifact + concept docs + 28-assertion contract test + 12-assertion
+  docs test + review packet. Recommended next slice: StepCapabilityGraph
+  safety review.
 - StepCapabilityGraph v1 decision (P1.1 step-capability-graph-v1-decision
   slice): **sixty-first slice on the capability-ontology track.** Strategy /
   architecture decision batch (v1 shape + inputs only). **Decision:

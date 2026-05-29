@@ -59,8 +59,16 @@ import modelCapability, {
   buildCapabilityLintFindingBridgeReport,
   buildFindingReportWritePreview,
   buildCapabilityContract,
+  buildStepCapabilityGraph,
+  parseStepCapabilityGraphConfig,
+  STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX,
+  STEP_CAPABILITY_GRAPH_CONFIG_PATH,
   type BridgeFindingLifecycleFindingReportLike,
   type CapabilityContractConfig,
+  type StepCapabilityGraphCapabilityMapLike,
+  type StepCapabilityGraphConfig,
+  type StepCapabilityGraphEvidenceGraphLike,
+  type StepCapabilityGraphPhraseReportLike,
 } from "@rekon/capability-model";
 import policyCapability from "@rekon/capability-policy";
 import reconcileCapability, {
@@ -120,6 +128,7 @@ import {
   type CapabilityMap,
   type ObservedRepo,
   type OwnershipMap,
+  type StepCapabilityGraph,
 } from "@rekon/kernel-repo-model";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
@@ -3201,6 +3210,140 @@ export async function main(argv: string[]): Promise<void> {
     const entry = await findArtifactEntry(store, positional);
     const artifact = await store.read(entry);
     writeOutput({ artifact }, json);
+    return;
+  }
+
+  if (command === "step" && subcommand === "graph" && positional === "build") {
+    // `rekon step graph build [--root <path>] [--json]
+    // [--evidence-graph <ref>] [--capability-map <ref>]
+    // [--phrase-report <ref>]` — StepCapabilityGraph v1.
+    //
+    // Projects an EXPECTED WORKFLOW TOPOLOGY graph from the latest (or
+    // pinned) EvidenceGraph + CapabilityMap v2 + CapabilityPhraseReport,
+    // plus an optional `.rekon/step-capability-map.json` (grouping /
+    // labeling only). It models NO runtime truth, NO handoff coverage,
+    // and NO drift; it declares no handoffs; it mutates nothing (inputs
+    // or config). See docs/artifacts/step-capability-graph.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const toRef = (entry: ArtifactIndexEntry): ArtifactRef => ({
+      type: entry.type,
+      id: entry.id,
+      path: entry.path,
+      digest: entry.digest,
+      schemaVersion: entry.schemaVersion ?? "0.1.0",
+    });
+    const resolveInput = async (
+      flag: unknown,
+      type: string,
+      flagName: string,
+    ): Promise<ArtifactRef | undefined> => {
+      if (typeof flag === "string" && flag.trim().length > 0) {
+        const entry = await findArtifactEntry(store, flag.trim());
+        if (entry.type !== type) {
+          throw new Error(
+            `rekon step graph build: --${flagName} must reference a ${type}; got ${entry.type}.`,
+          );
+        }
+        return toRef(entry);
+      }
+      const entries = await store.list(type);
+      const latest = entries.at(-1);
+      return latest ? toRef(latest) : undefined;
+    };
+
+    const evidenceGraphRef = await resolveInput(parsed.flags["evidence-graph"], "EvidenceGraph", "evidence-graph");
+    const capabilityMapRef = await resolveInput(parsed.flags["capability-map"], "CapabilityMap", "capability-map");
+    const phraseReportRef = await resolveInput(parsed.flags["phrase-report"], "CapabilityPhraseReport", "phrase-report");
+
+    const evidenceGraph = evidenceGraphRef
+      ? ((await store.read(evidenceGraphRef)) as StepCapabilityGraphEvidenceGraphLike)
+      : undefined;
+    const capabilityMap = capabilityMapRef
+      ? ((await store.read(capabilityMapRef)) as StepCapabilityGraphCapabilityMapLike)
+      : undefined;
+    const capabilityPhraseReport = phraseReportRef
+      ? ((await store.read(phraseReportRef)) as StepCapabilityGraphPhraseReportLike)
+      : undefined;
+
+    // Optional `.rekon/step-capability-map.json` (grouping/labeling
+    // only). Missing is valid; invalid fails clearly. Never mutated.
+    let config: StepCapabilityGraphConfig | undefined;
+    let configPath: string | undefined;
+    let configHash: string | undefined;
+    let configText: string | undefined;
+    try {
+      configText = await readFile(resolve(root, STEP_CAPABILITY_GRAPH_CONFIG_PATH), "utf8");
+    } catch {
+      configText = undefined;
+    }
+    if (configText !== undefined) {
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(configText);
+      } catch (error) {
+        throw new Error(
+          `rekon step graph build: ${STEP_CAPABILITY_GRAPH_CONFIG_PATH} is not valid JSON: ${(error as Error).message}`,
+        );
+      }
+      config = parseStepCapabilityGraphConfig(parsedJson);
+      configPath = STEP_CAPABILITY_GRAPH_CONFIG_PATH;
+      configHash = createHash("sha256").update(configText).digest("hex");
+    }
+
+    const generatedAt = new Date().toISOString();
+    const header: ArtifactHeader = {
+      artifactType: "StepCapabilityGraph",
+      artifactId: `${STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.step-graph-build", version: "0.1.0-beta.0" },
+      inputRefs: [evidenceGraphRef, capabilityMapRef, phraseReportRef].filter(
+        (ref): ref is ArtifactRef => Boolean(ref),
+      ),
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.85 },
+    };
+
+    const graph: StepCapabilityGraph = buildStepCapabilityGraph({
+      header,
+      evidenceGraph,
+      evidenceGraphRef,
+      capabilityMap,
+      capabilityMapRef,
+      capabilityPhraseReport,
+      capabilityPhraseReportRef: phraseReportRef,
+      config,
+      configPath,
+      configHash,
+    });
+
+    const ref = await store.write(graph, { category: "graphs" });
+
+    if (json) {
+      writeOutput(
+        { artifact: { type: ref.type, id: ref.id }, summary: graph.summary, source: graph.source },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Step capability graph");
+      lines.push("");
+      lines.push(`Steps: ${graph.summary.steps}`);
+      lines.push(`Capability edges: ${graph.summary.capabilityEdges}`);
+      lines.push(`File edges: ${graph.summary.fileEdges}`);
+      lines.push(`System edges: ${graph.summary.systemEdges}`);
+      lines.push(`Unresolved capabilities: ${graph.summary.unresolvedCapabilities}`);
+      lines.push(`Handoff placeholders: ${graph.summary.handoffPlaceholders}`);
+      lines.push("");
+      lines.push(`Graph: ${ref.type}:${ref.id}`);
+      lines.push(
+        "No runtime coverage, drift, WorkOrder, or VerificationPlan artifacts were created.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
     return;
   }
 

@@ -4,6 +4,33 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **StepCapabilityGraph v1** — sixty-second slice on the
+  codebase-intel-classic capability-ontology track. Product capability
+  batch. Implements the first artifact in the staged step/handoff/runtime
+  graph spine. Registers a new artifact type `StepCapabilityGraph`
+  (kernel-repo-model factory / validator / schema, SDK known-types,
+  runtime `graphs` category), adds the
+  `@rekon/capability-model.buildStepCapabilityGraph` projection helper +
+  `parseStepCapabilityGraphConfig`, and a `rekon step graph build` CLI
+  command. v1 projects an expected workflow topology graph from
+  `EvidenceGraph` + `CapabilityMap v2` + `CapabilityPhraseReport`, with
+  an optional `.rekon/step-capability-map.json` for grouping/labeling
+  only (projection works with no config). Steps link to capabilities
+  (step→capability `realizes`), files (step→file `touches`), and systems;
+  assignment is deterministic (capability > path > system > config order
+  > id). Pinned: StepCapabilityGraph v1 is expected workflow topology; it
+  is not CapabilityMap v2; it does not model runtime handoff coverage; it
+  does not detect runtime graph drift; it does not create HandoffContract;
+  it does not create WorkOrder / VerificationPlan; it does not implement
+  intent; optional config is grouping/labeling only. `handoffPlaceholders`
+  is reserved (empty in v1); runtime grounding is reserved. No mutation of
+  EvidenceGraph / CapabilityMap / CapabilityPhraseReport or the config.
+  New artifact reference `docs/artifacts/step-capability-graph.md`, new
+  concept `docs/concepts/step-capability-graph.md`. New 28-assertion
+  contract test + 12-assertion docs test. Review packet
+  `.rekon-dev/review-packets/step-capability-graph-v1.md`. No npm publish.
+  No version bump. Recommended next slice: StepCapabilityGraph safety
+  review.
 - Shipped **StepCapabilityGraph v1 decision** — sixty-first slice on the
   codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch (v1 shape + inputs only; no

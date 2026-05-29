@@ -62,6 +62,19 @@ export {
   isBridgeDerivedFinding,
 } from "./bridge-finding-lifecycle-integration.js";
 
+export {
+  type BuildStepCapabilityGraphInput,
+  type StepCapabilityGraphCapabilityMapLike,
+  type StepCapabilityGraphConfig,
+  type StepCapabilityGraphConfigStep,
+  type StepCapabilityGraphEvidenceGraphLike,
+  type StepCapabilityGraphPhraseReportLike,
+  STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX,
+  STEP_CAPABILITY_GRAPH_CONFIG_PATH,
+  buildStepCapabilityGraph,
+  parseStepCapabilityGraphConfig,
+} from "./step-capability-graph.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

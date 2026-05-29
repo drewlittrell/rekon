@@ -2354,6 +2354,529 @@ export const bridgeFindingLifecycleIntegrationReportSchema: ArtifactSchema<Bridg
   parse: assertBridgeFindingLifecycleIntegrationReport,
 };
 
+// ---- StepCapabilityGraph (v1, expected workflow topology) ----
+//
+// Expected workflow topology graph projected from EvidenceGraph +
+// CapabilityMap v2 + CapabilityPhraseReport (+ optional operator
+// config). It is **workflow topology, not CapabilityMap v2**: it adds
+// step/workflow nodes and step→capability / step→file / step→system
+// edges. It models **no runtime truth, no handoff coverage, and no
+// drift**. `handoffPlaceholders` is reserved (placeholders only); v1
+// declares no handoffs.
+
+export type StepCapabilityGraphNodeSource = "derived" | "configured" | "mixed";
+
+export type StepCapabilityGraphNode = {
+  id: string;
+  label: string;
+  source: StepCapabilityGraphNodeSource;
+  systems?: string[];
+  paths?: string[];
+  evidenceRefs: ArtifactRef[];
+};
+
+export type StepCapabilityGraphCapabilityEdgeSource =
+  | "capability-map"
+  | "phrase-report"
+  | "config"
+  | "mixed";
+
+export type StepCapabilityGraphCapabilityEdge = {
+  id: string;
+  stepId: string;
+  capabilityId?: string;
+  phraseCapabilityId?: string;
+  verb: string;
+  noun: string;
+  domain?: string;
+  confidence: "high" | "medium" | "low";
+  source: StepCapabilityGraphCapabilityEdgeSource;
+  evidenceRefs: ArtifactRef[];
+};
+
+export type StepCapabilityGraphFileEdgeSource = "evidence" | "config" | "mixed";
+
+export type StepCapabilityGraphFileEdge = {
+  id: string;
+  stepId: string;
+  path: string;
+  source: StepCapabilityGraphFileEdgeSource;
+  evidenceRefs: ArtifactRef[];
+};
+
+export type StepCapabilityGraphSystemEdge = {
+  id: string;
+  stepId: string;
+  system: string;
+  source: "capability-map" | "config" | "mixed";
+  evidenceRefs: ArtifactRef[];
+};
+
+export type StepCapabilityGraphHandoffPlaceholder = {
+  id: string;
+  fromStepId?: string;
+  toStepId?: string;
+  status: "placeholder" | "unresolved";
+  message: string;
+};
+
+export type StepCapabilityGraphUnresolvedCapability = {
+  id: string;
+  reason: string;
+  capabilityId?: string;
+  phraseCapabilityId?: string;
+  evidenceRefs: ArtifactRef[];
+};
+
+export type StepCapabilityGraphSource = {
+  evidenceGraphRef?: ArtifactRef;
+  capabilityMapRef?: ArtifactRef;
+  capabilityPhraseReportRef?: ArtifactRef;
+  configPath?: string;
+  configHash?: string;
+};
+
+export type StepCapabilityGraphSummary = {
+  steps: number;
+  capabilityEdges: number;
+  fileEdges: number;
+  systemEdges: number;
+  unresolvedCapabilities: number;
+  handoffPlaceholders: number;
+};
+
+export type StepCapabilityGraph = {
+  header: ArtifactHeader;
+  source: StepCapabilityGraphSource;
+  summary: StepCapabilityGraphSummary;
+  steps: StepCapabilityGraphNode[];
+  capabilityEdges: StepCapabilityGraphCapabilityEdge[];
+  fileEdges: StepCapabilityGraphFileEdge[];
+  systemEdges: StepCapabilityGraphSystemEdge[];
+  handoffPlaceholders: StepCapabilityGraphHandoffPlaceholder[];
+  unresolvedCapabilities: StepCapabilityGraphUnresolvedCapability[];
+};
+
+const STEP_CAPABILITY_GRAPH_NODE_SOURCES = new Set<string>([
+  "derived",
+  "configured",
+  "mixed",
+]);
+const STEP_CAPABILITY_GRAPH_CAPABILITY_EDGE_SOURCES = new Set<string>([
+  "capability-map",
+  "phrase-report",
+  "config",
+  "mixed",
+]);
+const STEP_CAPABILITY_GRAPH_FILE_EDGE_SOURCES = new Set<string>([
+  "evidence",
+  "config",
+  "mixed",
+]);
+const STEP_CAPABILITY_GRAPH_SYSTEM_EDGE_SOURCES = new Set<string>([
+  "capability-map",
+  "config",
+  "mixed",
+]);
+const STEP_CAPABILITY_GRAPH_CONFIDENCES = new Set<string>([
+  "high",
+  "medium",
+  "low",
+]);
+const STEP_CAPABILITY_GRAPH_PLACEHOLDER_STATUSES = new Set<string>([
+  "placeholder",
+  "unresolved",
+]);
+
+function sortStringSet(values: string[] | undefined): string[] | undefined {
+  if (!values) return undefined;
+  const out = [...new Set(values.filter((v) => typeof v === "string" && v.length > 0))];
+  out.sort();
+  return out.length > 0 ? out : undefined;
+}
+
+export function createStepCapabilityGraph(
+  input: StepCapabilityGraph,
+): StepCapabilityGraph {
+  const steps: StepCapabilityGraphNode[] = [];
+  const seenSteps = new Set<string>();
+  for (const raw of input.steps ?? []) {
+    if (!raw || seenSteps.has(raw.id)) continue;
+    seenSteps.add(raw.id);
+    const node: StepCapabilityGraphNode = {
+      id: raw.id,
+      label: raw.label,
+      source: raw.source,
+      evidenceRefs: normalizeRefs(raw.evidenceRefs ?? []),
+    };
+    const systems = sortStringSet(raw.systems);
+    if (systems) node.systems = systems;
+    const paths = sortStringSet(raw.paths);
+    if (paths) node.paths = paths;
+    steps.push(node);
+  }
+  steps.sort((a, b) => a.id.localeCompare(b.id));
+
+  const capabilityEdges = dedupeSortedEntries(
+    input.capabilityEdges ?? [],
+    (edge) => edge.id,
+    (a, b) =>
+      a.stepId !== b.stepId
+        ? a.stepId.localeCompare(b.stepId)
+        : a.id.localeCompare(b.id),
+    (edge) => {
+      const out: StepCapabilityGraphCapabilityEdge = {
+        id: edge.id,
+        stepId: edge.stepId,
+        verb: edge.verb,
+        noun: edge.noun,
+        confidence: edge.confidence,
+        source: edge.source,
+        evidenceRefs: normalizeRefs(edge.evidenceRefs ?? []),
+      };
+      if (edge.capabilityId) out.capabilityId = edge.capabilityId;
+      if (edge.phraseCapabilityId) out.phraseCapabilityId = edge.phraseCapabilityId;
+      if (edge.domain) out.domain = edge.domain;
+      return out;
+    },
+  );
+
+  const fileEdges = dedupeSortedEntries(
+    input.fileEdges ?? [],
+    (edge) => edge.id,
+    (a, b) =>
+      a.stepId !== b.stepId
+        ? a.stepId.localeCompare(b.stepId)
+        : a.path !== b.path
+          ? a.path.localeCompare(b.path)
+          : a.id.localeCompare(b.id),
+    (edge) => ({
+      id: edge.id,
+      stepId: edge.stepId,
+      path: edge.path,
+      source: edge.source,
+      evidenceRefs: normalizeRefs(edge.evidenceRefs ?? []),
+    }),
+  );
+
+  const systemEdges = dedupeSortedEntries(
+    input.systemEdges ?? [],
+    (edge) => edge.id,
+    (a, b) =>
+      a.stepId !== b.stepId
+        ? a.stepId.localeCompare(b.stepId)
+        : a.system !== b.system
+          ? a.system.localeCompare(b.system)
+          : a.id.localeCompare(b.id),
+    (edge) => ({
+      id: edge.id,
+      stepId: edge.stepId,
+      system: edge.system,
+      source: edge.source,
+      evidenceRefs: normalizeRefs(edge.evidenceRefs ?? []),
+    }),
+  );
+
+  const handoffPlaceholders = dedupeSortedEntries(
+    input.handoffPlaceholders ?? [],
+    (entry) => entry.id,
+    (a, b) => a.id.localeCompare(b.id),
+    (entry) => {
+      const out: StepCapabilityGraphHandoffPlaceholder = {
+        id: entry.id,
+        status: entry.status,
+        message: entry.message,
+      };
+      if (entry.fromStepId) out.fromStepId = entry.fromStepId;
+      if (entry.toStepId) out.toStepId = entry.toStepId;
+      return out;
+    },
+  );
+
+  const unresolvedCapabilities = dedupeSortedEntries(
+    input.unresolvedCapabilities ?? [],
+    (entry) => entry.id,
+    (a, b) => a.id.localeCompare(b.id),
+    (entry) => {
+      const out: StepCapabilityGraphUnresolvedCapability = {
+        id: entry.id,
+        reason: entry.reason,
+        evidenceRefs: normalizeRefs(entry.evidenceRefs ?? []),
+      };
+      if (entry.capabilityId) out.capabilityId = entry.capabilityId;
+      if (entry.phraseCapabilityId) out.phraseCapabilityId = entry.phraseCapabilityId;
+      return out;
+    },
+  );
+
+  const source: StepCapabilityGraphSource = {};
+  if (input.source?.evidenceGraphRef) {
+    source.evidenceGraphRef = assertArtifactRef(input.source.evidenceGraphRef);
+  }
+  if (input.source?.capabilityMapRef) {
+    source.capabilityMapRef = assertArtifactRef(input.source.capabilityMapRef);
+  }
+  if (input.source?.capabilityPhraseReportRef) {
+    source.capabilityPhraseReportRef = assertArtifactRef(
+      input.source.capabilityPhraseReportRef,
+    );
+  }
+  if (typeof input.source?.configPath === "string" && input.source.configPath.length > 0) {
+    source.configPath = input.source.configPath;
+  }
+  if (typeof input.source?.configHash === "string" && input.source.configHash.length > 0) {
+    source.configHash = input.source.configHash;
+  }
+
+  const summary: StepCapabilityGraphSummary = {
+    steps: steps.length,
+    capabilityEdges: capabilityEdges.length,
+    fileEdges: fileEdges.length,
+    systemEdges: systemEdges.length,
+    unresolvedCapabilities: unresolvedCapabilities.length,
+    handoffPlaceholders: handoffPlaceholders.length,
+  };
+
+  return assertStepCapabilityGraph({
+    header: input.header,
+    source,
+    summary,
+    steps,
+    capabilityEdges,
+    fileEdges,
+    systemEdges,
+    handoffPlaceholders,
+    unresolvedCapabilities,
+  });
+}
+
+function dedupeSortedEntries<T extends { id: string }>(
+  raw: T[],
+  keyOf: (entry: T) => string,
+  compare: (a: T, b: T) => number,
+  normalize: (entry: T) => T,
+): T[] {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (!entry) continue;
+    const key = keyOf(entry);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalize(entry));
+  }
+  out.sort(compare);
+  return out;
+}
+
+export function validateStepCapabilityGraph(
+  value: unknown,
+): ValidationResult<StepCapabilityGraph> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "StepCapabilityGraph", "$.header", issues);
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    for (
+      const field of [
+        "evidenceGraphRef",
+        "capabilityMapRef",
+        "capabilityPhraseReportRef",
+      ] as const
+    ) {
+      const ref = (value.source as Record<string, unknown>)[field];
+      if (ref !== undefined) {
+        const result = validateArtifactRef(ref);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+      }
+    }
+  }
+
+  const stepIds = new Set<string>();
+  validateStepCapabilityGraphArray(value.steps, "$.steps", issues, (step, path) => {
+    if (typeof step.id !== "string" || step.id.length === 0) {
+      issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+    } else if (stepIds.has(step.id)) {
+      issues.push({ path: `${path}.id`, message: `Duplicate step id ${step.id}.` });
+    } else {
+      stepIds.add(step.id);
+    }
+    if (typeof step.label !== "string" || step.label.length === 0) {
+      issues.push({ path: `${path}.label`, message: "Expected a non-empty string." });
+    }
+    if (typeof step.source !== "string" || !STEP_CAPABILITY_GRAPH_NODE_SOURCES.has(step.source)) {
+      issues.push({ path: `${path}.source`, message: "Expected one of derived, configured, mixed." });
+    }
+    validateStepCapabilityGraphRefArray(step.evidenceRefs, `${path}.evidenceRefs`, issues);
+  });
+
+  const capEdgeIds = new Set<string>();
+  validateStepCapabilityGraphArray(value.capabilityEdges, "$.capabilityEdges", issues, (edge, path) => {
+    validateStepCapabilityGraphEdgeId(edge.id, capEdgeIds, path, issues);
+    if (typeof edge.stepId !== "string" || edge.stepId.length === 0) {
+      issues.push({ path: `${path}.stepId`, message: "Expected a non-empty string." });
+    }
+    for (const field of ["verb", "noun"] as const) {
+      if (typeof edge[field] !== "string" || (edge[field] as string).length === 0) {
+        issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string." });
+      }
+    }
+    if (typeof edge.confidence !== "string" || !STEP_CAPABILITY_GRAPH_CONFIDENCES.has(edge.confidence)) {
+      issues.push({ path: `${path}.confidence`, message: "Expected one of high, medium, low." });
+    }
+    if (typeof edge.source !== "string" || !STEP_CAPABILITY_GRAPH_CAPABILITY_EDGE_SOURCES.has(edge.source)) {
+      issues.push({ path: `${path}.source`, message: "Expected one of capability-map, phrase-report, config, mixed." });
+    }
+    validateStepCapabilityGraphRefArray(edge.evidenceRefs, `${path}.evidenceRefs`, issues);
+  });
+
+  const fileEdgeIds = new Set<string>();
+  validateStepCapabilityGraphArray(value.fileEdges, "$.fileEdges", issues, (edge, path) => {
+    validateStepCapabilityGraphEdgeId(edge.id, fileEdgeIds, path, issues);
+    if (typeof edge.stepId !== "string" || edge.stepId.length === 0) {
+      issues.push({ path: `${path}.stepId`, message: "Expected a non-empty string." });
+    }
+    if (typeof edge.path !== "string" || edge.path.length === 0) {
+      issues.push({ path: `${path}.path`, message: "Expected a non-empty string." });
+    }
+    if (typeof edge.source !== "string" || !STEP_CAPABILITY_GRAPH_FILE_EDGE_SOURCES.has(edge.source)) {
+      issues.push({ path: `${path}.source`, message: "Expected one of evidence, config, mixed." });
+    }
+    validateStepCapabilityGraphRefArray(edge.evidenceRefs, `${path}.evidenceRefs`, issues);
+  });
+
+  const systemEdgeIds = new Set<string>();
+  validateStepCapabilityGraphArray(value.systemEdges, "$.systemEdges", issues, (edge, path) => {
+    validateStepCapabilityGraphEdgeId(edge.id, systemEdgeIds, path, issues);
+    if (typeof edge.stepId !== "string" || edge.stepId.length === 0) {
+      issues.push({ path: `${path}.stepId`, message: "Expected a non-empty string." });
+    }
+    if (typeof edge.system !== "string" || edge.system.length === 0) {
+      issues.push({ path: `${path}.system`, message: "Expected a non-empty string." });
+    }
+    if (typeof edge.source !== "string" || !STEP_CAPABILITY_GRAPH_SYSTEM_EDGE_SOURCES.has(edge.source)) {
+      issues.push({ path: `${path}.source`, message: "Expected one of capability-map, config, mixed." });
+    }
+    validateStepCapabilityGraphRefArray(edge.evidenceRefs, `${path}.evidenceRefs`, issues);
+  });
+
+  const placeholderIds = new Set<string>();
+  validateStepCapabilityGraphArray(value.handoffPlaceholders, "$.handoffPlaceholders", issues, (entry, path) => {
+    validateStepCapabilityGraphEdgeId(entry.id, placeholderIds, path, issues);
+    if (typeof entry.status !== "string" || !STEP_CAPABILITY_GRAPH_PLACEHOLDER_STATUSES.has(entry.status)) {
+      issues.push({ path: `${path}.status`, message: "Expected one of placeholder, unresolved." });
+    }
+    if (typeof entry.message !== "string" || entry.message.length === 0) {
+      issues.push({ path: `${path}.message`, message: "Expected a non-empty string." });
+    }
+  });
+
+  const unresolvedIds = new Set<string>();
+  validateStepCapabilityGraphArray(value.unresolvedCapabilities, "$.unresolvedCapabilities", issues, (entry, path) => {
+    validateStepCapabilityGraphEdgeId(entry.id, unresolvedIds, path, issues);
+    if (typeof entry.reason !== "string" || entry.reason.length === 0) {
+      issues.push({ path: `${path}.reason`, message: "Expected a non-empty string." });
+    }
+    validateStepCapabilityGraphRefArray(entry.evidenceRefs, `${path}.evidenceRefs`, issues);
+  });
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const computed: Record<string, number> = {
+      steps: Array.isArray(value.steps) ? value.steps.length : 0,
+      capabilityEdges: Array.isArray(value.capabilityEdges) ? value.capabilityEdges.length : 0,
+      fileEdges: Array.isArray(value.fileEdges) ? value.fileEdges.length : 0,
+      systemEdges: Array.isArray(value.systemEdges) ? value.systemEdges.length : 0,
+      unresolvedCapabilities: Array.isArray(value.unresolvedCapabilities) ? value.unresolvedCapabilities.length : 0,
+      handoffPlaceholders: Array.isArray(value.handoffPlaceholders) ? value.handoffPlaceholders.length : 0,
+    };
+    for (
+      const field of [
+        "steps",
+        "capabilityEdges",
+        "fileEdges",
+        "systemEdges",
+        "unresolvedCapabilities",
+        "handoffPlaceholders",
+      ] as const
+    ) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      } else if (supplied !== computed[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${computed[field]} (recomputed).` });
+      }
+    }
+  }
+
+  return validationResult(value as StepCapabilityGraph, issues);
+}
+
+function validateStepCapabilityGraphArray(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  each: (entry: Record<string, unknown>, path: string) => void,
+): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((entry, index) => {
+    if (!isRecord(entry)) {
+      issues.push({ path: `${path}[${index}]`, message: "Expected an object." });
+      return;
+    }
+    each(entry as Record<string, unknown>, `${path}[${index}]`);
+  });
+}
+
+function validateStepCapabilityGraphEdgeId(
+  id: unknown,
+  seen: Set<string>,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (typeof id !== "string" || id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seen.has(id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate id ${id}.` });
+  } else {
+    seen.add(id);
+  }
+}
+
+function validateStepCapabilityGraphRefArray(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((ref, index) => {
+    const result = validateArtifactRef(ref);
+    if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}[${index}]`));
+  });
+}
+
+export function assertStepCapabilityGraph(value: unknown): StepCapabilityGraph {
+  return assertValid(validateStepCapabilityGraph(value), "StepCapabilityGraph");
+}
+
+export const stepCapabilityGraphSchema: ArtifactSchema<StepCapabilityGraph> = {
+  validate: validateStepCapabilityGraph,
+  parse: assertStepCapabilityGraph,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

@@ -6256,6 +6256,20 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **StepCapabilityGraph v1 (P1.1 step-capability-graph slice).** ✅ Shipped.
+  **Sixty-second slice on the capability-ontology track.** Product
+  capability batch. First artifact in the staged step/handoff/runtime graph
+  spine. New artifact type `StepCapabilityGraph` + projection helper
+  `buildStepCapabilityGraph` (`@rekon/capability-model`) + optional config
+  loader + `rekon step graph build` CLI. Projects an expected workflow
+  topology graph (step→capability `realizes`, step→file `touches`, system
+  edges) from `EvidenceGraph` + `CapabilityMap v2` + `CapabilityPhraseReport`
+  with optional `.rekon/step-capability-map.json` grouping/labeling. Pinned:
+  expected workflow topology only; not CapabilityMap v2; no runtime handoff
+  coverage / drift; no HandoffContract / WorkOrder / VerificationPlan; no
+  intent; reserved-empty handoffPlaceholders; inputs/config never mutated.
+  28-assertion contract test + 12-assertion docs test + review packet.
+  Recommended next slice: StepCapabilityGraph safety review.
 - **StepCapabilityGraph v1 decision (P1.1
   step-capability-graph-v1-decision slice).** ✅ Shipped. **Sixty-first
   slice on the capability-ontology track.** Strategy / architecture

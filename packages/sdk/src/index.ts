@@ -267,6 +267,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "CapabilityArchitectureLintReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "CapabilityLintFindingBridgeReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "BridgeFindingLifecycleIntegrationReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "StepCapabilityGraph", schemaVersion: "0.1.0", stability: "experimental" },
 ];
 
 export function defineCapability(definition: CapabilityDefinition): CapabilityDefinition {
