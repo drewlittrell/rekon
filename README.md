@@ -1103,6 +1103,45 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Bridge-derived findings lifecycle / CoherencyDelta integration
+# decision has shipped. Fifty-sixth slice on the
+# codebase-intel-classic capability-ontology track. Strategy /
+# architecture decision batch.
+#
+# Decides how bridge-derived FindingReport entries should enter
+# FindingLifecycleReport, IssueAdjudicationReport, and CoherencyDelta.
+#
+# Recommendation: Option B — a preview artifact first
+# (BridgeFindingLifecycleIntegrationReport) that previews filter /
+# lifecycle / adjudication / CoherencyDelta eligibility without
+# mutating any of them.
+#   - BridgeFindingLifecycleIntegrationReport is preview, not
+#     FindingLifecycleReport.
+#   - No FindingFilterReport / FindingLifecycleReport /
+#     IssueAdjudicationReport / CoherencyDelta mutation occurs in this
+#     decision slice.
+#   - CoherencyDelta integration remains downstream of lifecycle and
+#     adjudication.
+#   - WorkOrder and VerificationPlan creation remain downstream of
+#     CoherencyDelta.
+#   - Source writes remain unavailable.
+#
+# No lifecycle / adjudication / CoherencyDelta / WorkOrder /
+# VerificationPlan / source behavior is implemented in this slice.
+#
+# New strategy memo
+# docs/strategy/bridge-finding-lifecycle-integration-decision.md
+# (13 headings + 4 tables). New 14-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/bridge-finding-lifecycle-integration-decision.md.
+#
+# No runtime behavior changes. No source under packages/ modified.
+# No new artifact type. No new CLI command. No version bump. No npm
+# publish.
+#
+# Recommended next slice: BridgeFindingLifecycleIntegrationReport v1
+# (preview only).
+#
 # Bridge-derived findings publication safety review has shipped.
 # Fifty-fifth slice on the codebase-intel-classic
 # capability-ontology track. Strategy / safety-review batch.

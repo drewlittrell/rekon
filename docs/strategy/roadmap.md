@@ -2640,6 +2640,35 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Bridge-derived findings lifecycle / CoherencyDelta integration
+  decision (P1.1 bridge-finding-lifecycle-integration-decision
+  slice): **fifty-sixth slice on the capability-ontology track.**
+  Strategy / architecture decision batch. Decides how bridge-derived
+  `FindingReport` entries should enter `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, and `CoherencyDelta`.
+  **Recommendation: Option B — a preview artifact first
+  (`BridgeFindingLifecycleIntegrationReport`) that previews filter /
+  lifecycle / adjudication / `CoherencyDelta` eligibility without
+  mutating any of them.** No lifecycle / adjudication /
+  `CoherencyDelta` / `WorkOrder` / `VerificationPlan` / source
+  behavior is implemented in this slice. Pinned:
+  `BridgeFindingLifecycleIntegrationReport` is preview, not
+  `FindingLifecycleReport`; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` mutation occurs in this decision slice;
+  `CoherencyDelta` integration remains downstream of lifecycle and
+  adjudication; `WorkOrder` / `VerificationPlan` creation remain
+  downstream of `CoherencyDelta`; source writes remain unavailable.
+  The preview-artifact shape sketch, staged sequence, and duplicate
+  policy are pinned for the implementation slice. New memo
+  `docs/strategy/bridge-finding-lifecycle-integration-decision.md`
+  (13 headings + 4 tables: option / sequence / boundary / lifecycle).
+  New 14-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-finding-lifecycle-integration-decision.md`.
+  **No runtime behavior changes. No new artifact type (preview shape
+  is a memo sketch). No new CLI command. No version bump. No npm
+  publish.** Recommended next slice:
+  `BridgeFindingLifecycleIntegrationReport` v1 (preview only).
 - Bridge-derived findings publication safety review (P1.1
   bridge-derived-findings-publication-safety-review slice):
   **fifty-fifth slice on the capability-ontology track.** Strategy /

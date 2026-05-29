@@ -185,7 +185,7 @@ The
 read-only visibility with provenance; proof-report surfacing remains
 **deferred**. The surfacing **shipped in the fifty-fourth slice**
 (read-only `## Bridge-Derived Findings` in the architecture summary
-and `### Bridge-Derived Findings` in the agent contract). The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
+and `### Bridge-Derived Findings` in the agent contract). The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. The lifecycle / CoherencyDelta integration decision (fifty-sixth slice) then selected a BridgeFindingLifecycleIntegrationReport preview artifact first; lifecycle / adjudication / CoherencyDelta mutation remain deferred to later safety-reviewed slices.
 Publication surfacing mutates no `FindingReport`,
 `FindingLifecycleReport`, `IssueAdjudicationReport`, or
 `CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;

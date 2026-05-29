@@ -226,4 +226,4 @@ model.
 implementation shipped in the fifty-fourth slice (read-only
 `## Bridge-Derived Findings` in the architecture summary and `###
 Bridge-Derived Findings` in the agent contract); it mutates no
-lifecycle state and lifecycle integration remains downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
+lifecycle state and lifecycle integration remains downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. The lifecycle / CoherencyDelta integration decision (fifty-sixth slice) then selected a BridgeFindingLifecycleIntegrationReport preview artifact first; lifecycle / adjudication / CoherencyDelta mutation remain deferred to later safety-reviewed slices.

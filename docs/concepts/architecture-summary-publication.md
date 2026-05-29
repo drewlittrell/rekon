@@ -343,7 +343,7 @@ bridge-derived `FindingReport` entries (identified by `finding.type
 fields) with provenance and an explicit boundary statement. **The
 surfacing shipped in the fifty-fourth slice** as a read-only `##
 Bridge-Derived Findings` section (FindingReport ref, count, severity
-distribution, bounded provenance table). The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. It mutates no
+distribution, bounded provenance table). The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. The lifecycle / CoherencyDelta integration decision (fifty-sixth slice) then selected a BridgeFindingLifecycleIntegrationReport preview artifact first; lifecycle / adjudication / CoherencyDelta mutation remain deferred to later safety-reviewed slices. It mutates no
 `FindingReport`, `FindingLifecycleReport`, `IssueAdjudicationReport`,
 or `CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;
 bridge-derived findings are governed `FindingReport` entries, not

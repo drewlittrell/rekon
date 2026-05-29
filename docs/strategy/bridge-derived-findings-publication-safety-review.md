@@ -280,3 +280,8 @@ writes.
   [artifact](../artifacts/proof-report-publication.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+- [Bridge-derived findings lifecycle / CoherencyDelta integration decision](bridge-finding-lifecycle-integration-decision.md)
+  — fifty-sixth slice; the lifecycle / `CoherencyDelta` integration
+  decision this review recommended. Selects a
+  `BridgeFindingLifecycleIntegrationReport` preview artifact first
+  (no lifecycle / adjudication / `CoherencyDelta` mutation).

@@ -6256,6 +6256,25 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Bridge-derived findings lifecycle / CoherencyDelta integration
+  decision (P1.1 bridge-finding-lifecycle-integration-decision
+  slice).** ✅ Shipped. **Fifty-sixth slice on the
+  capability-ontology track.** Strategy / architecture decision
+  batch. Decides how bridge-derived `FindingReport` entries should
+  enter `FindingLifecycleReport`, `IssueAdjudicationReport`, and
+  `CoherencyDelta`. **Recommendation: Option B — a preview artifact
+  first (`BridgeFindingLifecycleIntegrationReport`), previewing
+  filter / lifecycle / adjudication / `CoherencyDelta` eligibility
+  without mutation.** Pinned:
+  `BridgeFindingLifecycleIntegrationReport` is preview, not
+  `FindingLifecycleReport`; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` mutation in this decision slice; `CoherencyDelta`
+  downstream of lifecycle + adjudication; `WorkOrder` /
+  `VerificationPlan` downstream of `CoherencyDelta`; source writes
+  unavailable. New memo + 14-assertion docs test + review packet.
+  Recommended next slice: `BridgeFindingLifecycleIntegrationReport`
+  v1 (preview only).
 - **Bridge-derived findings publication safety review (P1.1
   bridge-derived-findings-publication-safety-review slice).** ✅
   Shipped. **Fifty-fifth slice on the capability-ontology track.**

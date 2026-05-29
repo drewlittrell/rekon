@@ -197,4 +197,4 @@ without a paired `VerificationRun`.
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
 implementation shipped in the fifty-fourth slice (read-only, in the
 architecture summary + agent contract); it creates no
-`VerificationPlan` and verification plans remain downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice.
+`VerificationPlan` and verification plans remain downstream. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. The lifecycle / CoherencyDelta integration decision (fifty-sixth slice) then selected a BridgeFindingLifecycleIntegrationReport preview artifact first; lifecycle / adjudication / CoherencyDelta mutation remain deferred to later safety-reviewed slices.

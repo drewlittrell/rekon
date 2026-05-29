@@ -377,7 +377,10 @@ The bridge-derived findings publication safety
 review **shipped in the fifty-fifth slice** (declared the surfacing
 safe / stable), after which the `FindingLifecycleReport` /
 `IssueAdjudicationReport` / `CoherencyDelta` integration decision may
-begin.
+begin. That integration decision **shipped in the fifty-sixth slice**
+and selected a `BridgeFindingLifecycleIntegrationReport` preview
+artifact first (no lifecycle / adjudication / `CoherencyDelta`
+mutation).
 
 ## Cross-References
 

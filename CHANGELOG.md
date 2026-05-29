@@ -4,6 +4,38 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **bridge-derived findings lifecycle / CoherencyDelta
+  integration decision** — fifty-sixth slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides how bridge-derived
+  `FindingReport` entries should enter `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, and `CoherencyDelta`. **Recommendation:
+  Option B — a preview artifact first
+  (`BridgeFindingLifecycleIntegrationReport`) that previews filter /
+  lifecycle / adjudication / CoherencyDelta eligibility without
+  mutating any of them.** No lifecycle, adjudication, `CoherencyDelta`,
+  `WorkOrder`, `VerificationPlan`, or source behavior is implemented
+  in this slice. Pinned: BridgeFindingLifecycleIntegrationReport is
+  preview, not FindingLifecycleReport; no FindingFilterReport,
+  FindingLifecycleReport, IssueAdjudicationReport, or CoherencyDelta
+  mutation occurs in this decision slice; CoherencyDelta integration
+  remains downstream of lifecycle and adjudication; WorkOrder and
+  VerificationPlan creation remain downstream of CoherencyDelta;
+  source writes remain unavailable. The preview-artifact shape sketch
+  (decision / modeled initialLifecycleStatus `new` for ready, never
+  `resolved` in v1 / bridge trace fields), the staged sequence
+  (preview → safety review → optional lifecycle writer decision →
+  lifecycle writer → CoherencyDelta integration), and the duplicate
+  policy are pinned for the implementation slice. New strategy memo
+  `docs/strategy/bridge-finding-lifecycle-integration-decision.md`
+  (13 headings + 4 tables: option / sequence / boundary / lifecycle).
+  New 14-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-finding-lifecycle-integration-decision.md`.
+  No runtime behavior changes. No source files under `packages/`
+  modified. No new artifact type (the preview shape is a memo sketch,
+  not registered). No new CLI command. No npm publish. No version
+  bump. Recommended next slice: `BridgeFindingLifecycleIntegrationReport`
+  v1 (preview only).
 - Shipped **bridge-derived findings publication safety review** —
   fifty-fifth slice on the codebase-intel-classic
   capability-ontology track. Strategy / safety-review batch.
