@@ -6256,6 +6256,24 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Classic step-capability / handoff / runtime drift parity audit
+  (P1.1 classic-step-capability-handoff-runtime-drift-parity-audit slice).**
+  ✅ Shipped. **Fifty-ninth slice on the capability-ontology track.**
+  Strategy / architecture audit batch. Deep read-only audit of the legacy
+  codebase-intel step-capability graph (step→capability→file edges), baton /
+  handoff runtime-truth graph, declared-vs-observed handoff coverage,
+  step-handler + derive purity validation, runtime graph drift, and watcher /
+  continuity / memory + intent phases. **Finding: Rekon has adjacent
+  foundations, but the classic step-capability / handoff / runtime drift
+  system is not yet fully accounted for.** Reserves `StepCapabilityGraph`,
+  `HandoffContract`, `HandoffCoverageReport`, `RuntimeGraphObservationReport`,
+  `RuntimeGraphDriftReport`; evaluates `DerivedGraphValidationReport` +
+  `StepHandlerValidationReport`. Premise corrections recorded:
+  `tools/verify-handoff-coverage.mjs` does not exist (logic is in
+  product-capability-contracts); classic drift is base-vs-head EvidenceGraph
+  diff over an observed runtime-truth graph. New memo + 20-assertion docs
+  test + review packet. Recommended next slice: StepCapabilityGraph /
+  HandoffContract architecture decision.
 - **BridgeFindingLifecycleIntegrationReport safety review (P1.1
   bridge-finding-lifecycle-integration-report-safety-review slice).** ✅
   Shipped. **Fifty-eighth slice on the capability-ontology track.**

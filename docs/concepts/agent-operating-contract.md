@@ -485,3 +485,5 @@ slice**; it mutates no `FindingReport`, `FindingLifecycleReport`,
 `IssueAdjudicationReport`, or `CoherencyDelta`, creates no
 `WorkOrder` / `VerificationPlan`, and proof-report surfacing remains
 **deferred**. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. The lifecycle / CoherencyDelta integration decision (fifty-sixth slice) then selected a BridgeFindingLifecycleIntegrationReport preview artifact first; lifecycle / adjudication / CoherencyDelta mutation remain deferred to later safety-reviewed slices.
+
+> See also: [Classic step-capability / handoff / runtime drift parity audit](../strategy/classic-step-capability-handoff-runtime-drift-parity-audit.md) — reserves StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport / RuntimeGraphDriftReport as future surfaces not yet modeled by Rekon.

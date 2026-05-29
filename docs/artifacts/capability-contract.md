@@ -271,3 +271,5 @@ rekon capability contract generate \
   — the layer ladder.
 - [CapabilityContract concept](../concepts/capability-contracts.md)
   — operator-facing summary.
+
+> See also: [Classic step-capability / handoff / runtime drift parity audit](../strategy/classic-step-capability-handoff-runtime-drift-parity-audit.md) — reserves StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport / RuntimeGraphDriftReport as future surfaces not yet modeled by Rekon.

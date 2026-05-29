@@ -627,3 +627,5 @@ Parallel follow-ups (do not block the AST track):
 - [Capability ontology concept](../concepts/capability-ontology.md)
 - [Roadmap](roadmap.md)
 - [Classic-behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [Classic step-capability / handoff / runtime drift parity audit](classic-step-capability-handoff-runtime-drift-parity-audit.md) — reserves StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport / RuntimeGraphDriftReport as future surfaces not yet modeled by Rekon.

@@ -802,3 +802,5 @@ new capability package.
 Schema unchanged. Rollback is
 trivial: revert this memo and
 the supporting doc cross-links.
+
+> See also: [Classic step-capability / handoff / runtime drift parity audit](classic-step-capability-handoff-runtime-drift-parity-audit.md) — reserves StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport / RuntimeGraphDriftReport as future surfaces not yet modeled by Rekon.

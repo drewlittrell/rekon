@@ -4,6 +4,44 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **classic step-capability / handoff / runtime drift parity
+  audit** — fifty-ninth slice on the codebase-intel-classic
+  capability-ontology track. Strategy / architecture audit batch.
+  Paused the lifecycle-integration chain to deeply audit the legacy
+  codebase-intel source (read-only, not imported) for the
+  step-capability graph, baton / handoff system, handoff coverage,
+  step-handler validation, derive validation, runtime graph drift, and
+  watcher / continuity / memory surfaces that feed intent. **Finding:
+  Rekon has adjacent foundations, but the classic step-capability /
+  handoff / runtime drift system is not yet fully accounted for.**
+  Grounded by direct source reads (sdk-baton-node, product-capability-
+  contracts drift/coverage, kernel-runtime-truth, step-capability-graph
+  producer, derive/step-handler/conductor validators, watcher + intent
+  services). Two premise corrections recorded honestly: the referenced
+  `tools/verify-handoff-coverage.mjs` (and `validate-gates` /
+  `build-gates` / `build-flows`) do not exist — real logic lives in
+  `product-capability-contracts`; and classic "drift" is a base-vs-head
+  EvidenceGraph diff layered over an observed runtime-truth graph, not a
+  single-point freshness check. Pinned: runtime graph drift is not the
+  same as PathFreshnessReport or artifact lineage freshness; handoff
+  coverage is not the same as VerificationRun command success;
+  StepCapabilityGraph is not the same as CapabilityMap v2; intent parity
+  depends on step-capability, handoff, and runtime drift surfaces; no
+  runtime behavior changes ship in this audit. Reserves
+  `StepCapabilityGraph`, `HandoffContract`, `HandoffCoverageReport`,
+  `RuntimeGraphObservationReport`, and `RuntimeGraphDriftReport` as
+  future Rekon concepts/artifacts; evaluates
+  `DerivedGraphValidationReport` and `StepHandlerValidationReport`. New
+  strategy memo
+  `docs/strategy/classic-step-capability-handoff-runtime-drift-parity-audit.md`
+  (21 headings + 4 tables: classic source / gap matrix / proposed
+  artifact / intent impact). New 20-assertion docs test. Review packet
+  `.rekon-dev/review-packets/classic-step-capability-handoff-runtime-drift-parity-audit.md`.
+  State note: built on `93d87a4` (slice 58); the operator header's
+  `c908857` was stale. No source under `packages/` modified. No new
+  artifact type. No new CLI command. No npm publish. No version bump.
+  Recommended next slice: StepCapabilityGraph / HandoffContract
+  architecture decision.
 - Shipped **BridgeFindingLifecycleIntegrationReport safety review** —
   fifty-eighth slice on the codebase-intel-classic capability-ontology
   track. Strategy / safety-review batch. Read-only end-to-end review of

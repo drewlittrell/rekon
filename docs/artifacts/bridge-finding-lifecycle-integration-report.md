@@ -205,3 +205,5 @@ mutated, and no `WorkOrder` or `VerificationPlan` is created.
 - [VerificationPlan artifact](verification-plan.md)
 - [Roadmap](../strategy/roadmap.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+
+> See also: [Classic step-capability / handoff / runtime drift parity audit](../strategy/classic-step-capability-handoff-runtime-drift-parity-audit.md) — reserves StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport / RuntimeGraphDriftReport as future surfaces not yet modeled by Rekon.

@@ -361,3 +361,5 @@ candidates, 12 normalized, 2 stable** — unchanged
 from pre-AST baseline, neutral signal. With narrower
 evidence accepted, `CapabilityMap` v2 design is now
 ready to begin.
+
+> See also: [Classic step-capability / handoff / runtime drift parity audit](../strategy/classic-step-capability-handoff-runtime-drift-parity-audit.md) — reserves StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport / RuntimeGraphDriftReport as future surfaces not yet modeled by Rekon.

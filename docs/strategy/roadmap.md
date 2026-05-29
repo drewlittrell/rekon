@@ -2640,6 +2640,23 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Classic step-capability / handoff / runtime drift parity audit
+  (P1.1 classic-step-capability-handoff-runtime-drift-parity-audit slice):
+  **fifty-ninth slice on the capability-ontology track.** Strategy /
+  architecture audit batch. Paused the lifecycle chain to deeply audit the
+  legacy codebase-intel step-capability graph, baton / handoff, handoff
+  coverage, step-handler + derive validation, runtime graph drift, and
+  watcher / continuity surfaces (read-only prior art). **Finding: Rekon has
+  adjacent foundations, but the classic step-capability / handoff / runtime
+  drift system is not yet fully accounted for.** Reserves
+  `StepCapabilityGraph`, `HandoffContract`, `HandoffCoverageReport`,
+  `RuntimeGraphObservationReport`, `RuntimeGraphDriftReport`; evaluates
+  `DerivedGraphValidationReport` + `StepHandlerValidationReport`. Pinned:
+  runtime graph drift is not PathFreshnessReport/lineage freshness; handoff
+  coverage is not VerificationRun command success; StepCapabilityGraph is
+  not CapabilityMap v2; intent parity depends on these surfaces. New memo +
+  20-assertion docs test + review packet. Recommended next slice:
+  StepCapabilityGraph / HandoffContract architecture decision.
 - BridgeFindingLifecycleIntegrationReport safety review (P1.1
   bridge-finding-lifecycle-integration-report-safety-review slice):
   **fifty-eighth slice on the capability-ontology track.** Strategy /
