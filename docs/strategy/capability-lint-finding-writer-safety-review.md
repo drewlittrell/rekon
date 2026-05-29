@@ -248,5 +248,12 @@ writes).
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [WorkOrder artifact](../artifacts/work-order.md)
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
+- [Bridge-derived findings publication decision](bridge-derived-findings-publication-decision.md)
+  — fifty-third slice; the publication / operator-surface decision
+  this review recommended. Selects **Option B** (surface
+  bridge-derived `FindingReport` entries in the architecture summary
+  and the agent operating contract first); defers the proof report.
+  Publication surfacing mutates nothing; lifecycle / `CoherencyDelta`
+  integration remain downstream.
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)

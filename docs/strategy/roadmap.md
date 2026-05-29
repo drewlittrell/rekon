@@ -2640,6 +2640,35 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Bridge-derived findings publication decision (P1.1
+  bridge-derived-findings-publication-decision slice):
+  **fifty-third slice on the capability-ontology track.**
+  Strategy / architecture decision batch. Decides how
+  bridge-derived `FindingReport` entries (written by the
+  controlled, opt-in `--confirm-finding-write` writer) should be
+  surfaced after the writer passed safety review.
+  **Recommendation: Option B — surface bridge-derived
+  `FindingReport` entries in the architecture summary and the
+  agent operating contract first; the proof report is deferred.**
+  No publication behavior is implemented in this slice. Pinned:
+  bridge-derived findings are governed `FindingReport` entries,
+  not lifecycle status; publication surfacing does not mutate
+  `FindingReport`; publication surfacing does not mutate
+  `FindingLifecycleReport`, `IssueAdjudicationReport`, or
+  `CoherencyDelta`; publication surfacing does not create
+  `WorkOrder` or `VerificationPlan`; proof report surfacing
+  remains deferred; lifecycle and `CoherencyDelta` integration
+  remain downstream. Source identification uses `finding.type =
+  capability_architecture_policy` plus the `details.source*`
+  trace fields — never title text alone. New memo
+  `docs/strategy/bridge-derived-findings-publication-decision.md`
+  (12 headings + 4 tables: option / surface / boundary /
+  source-identification). New 15-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/bridge-derived-findings-publication-decision.md`.
+  **No runtime behavior changes. No new artifact type. No new CLI
+  command. No version bump. No npm publish.** Recommended next
+  slice: bridge-derived findings publication surfacing.
 - CapabilityLintFindingBridgeReport → FindingReport writer
   safety review (P1.1 capability-lint-finding-writer-safety-review
   slice): **fifty-second slice on the capability-ontology track.**

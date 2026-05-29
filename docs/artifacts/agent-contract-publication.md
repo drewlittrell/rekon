@@ -565,6 +565,23 @@ the
 and the
 [`CapabilityLintFindingBridgeReport` safety review](../strategy/capability-lint-finding-bridge-report-safety-review.md).
 
+The
+[bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+(**fifty-third slice**) selects the agent operating contract (and
+the architecture summary) to additionally render a read-only **`###
+Bridge-Derived Findings`** subsection for the *governed findings the
+controlled writer wrote* — distinct from the preview Capability Lint
+Finding Bridge subsection above. It would surface the bridge-derived
+`FindingReport` entries (identified by `finding.type ===
+"capability_architecture_policy"` plus `details.source*` trace
+fields) with provenance, plus a `Do Not Do` reminder so an agent
+never reads the subsection as lifecycle status. **Decision-only; not
+implemented yet.** When built it mutates no `FindingReport`,
+`FindingLifecycleReport`, `IssueAdjudicationReport`, or
+`CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;
+bridge-derived findings are governed `FindingReport` entries, not
+lifecycle status. Proof-report surfacing remains **deferred**.
+
 ## Cross-References
 
 - [Agent contract concept](../concepts/agent-operating-contract.md)

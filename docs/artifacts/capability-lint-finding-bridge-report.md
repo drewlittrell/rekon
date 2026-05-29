@@ -282,6 +282,16 @@ context, not verification proof.
   opt-in `--confirm-finding-write` writes a new `FindingReport`
   only. The **writer safety review** (fifty-second slice) confirmed
   it **safe / stable as a controlled, opt-in writer**.
+- [Bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+  — fifty-third slice; decides how the written bridge-derived
+  `FindingReport` entries are surfaced. Selects **Option B**:
+  architecture summary + agent operating contract first (read-only,
+  with provenance via `finding.type ===
+  "capability_architecture_policy"` plus `details.source*` trace
+  fields); proof-report surfacing remains **deferred**. Surfacing is
+  not implemented in that slice, mutates nothing, creates no
+  `WorkOrder` / `VerificationPlan`, and leaves lifecycle /
+  `CoherencyDelta` integration downstream.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

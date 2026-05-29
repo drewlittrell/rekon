@@ -6256,6 +6256,31 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Bridge-derived findings publication decision (P1.1
+  bridge-derived-findings-publication-decision slice).** ✅
+  Shipped. **Fifty-third slice on the capability-ontology
+  track.** Strategy / architecture decision batch. Decides how
+  bridge-derived `FindingReport` entries (written by the
+  controlled, opt-in `--confirm-finding-write` writer) should be
+  surfaced after the writer passed safety review.
+  **Recommendation: Option B — surface bridge-derived
+  `FindingReport` entries in the architecture summary and the
+  agent operating contract first; the proof report is deferred.**
+  No publication behavior is implemented. Pinned: bridge-derived
+  findings are governed `FindingReport` entries, not lifecycle
+  status; publication surfacing does not mutate `FindingReport`;
+  publication surfacing does not mutate `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, or `CoherencyDelta`; publication
+  surfacing does not create `WorkOrder` or `VerificationPlan`;
+  proof report surfacing remains deferred; lifecycle and
+  `CoherencyDelta` integration remain downstream. Source
+  identification uses `finding.type =
+  capability_architecture_policy` plus the `details.source*`
+  trace fields — never title text alone. New memo
+  `docs/strategy/bridge-derived-findings-publication-decision.md`
+  (12 headings + 4 tables) + 15-assertion docs test + review
+  packet. Recommended next slice: bridge-derived findings
+  publication surfacing.
 - **CapabilityLintFindingBridgeReport → FindingReport writer
   safety review (P1.1 capability-lint-finding-writer-safety-review
   slice).** ✅ Shipped. **Fifty-second slice on the

@@ -485,3 +485,18 @@ starting point. See
   [`CapabilityLintFindingBridgeReport` artifact reference](capability-lint-finding-bridge-report.md)
   and the
   [capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md).
+- The
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+  (**fifty-third slice**) selects the architecture summary + agent
+  operating contract to additionally render a read-only **`##
+  Bridge-Derived Findings`** section for the *governed findings the
+  controlled writer wrote* (distinct from the preview Capability
+  Lint Finding Bridge section). The section would surface the
+  bridge-derived `FindingReport` entries — identified by
+  `finding.type === "capability_architecture_policy"` plus the
+  `details.source*` trace fields — with provenance and a boundary
+  statement. **Decision-only; not implemented yet.** When built it
+  mutates no `FindingReport`, `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, or `CoherencyDelta`, and creates no
+  `WorkOrder` / `VerificationPlan`. Proof-report surfacing remains
+  **deferred**.

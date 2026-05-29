@@ -468,3 +468,20 @@ publication is read-only with respect to
 `CapabilityNormalizationReviewLedger`, and `CapabilityMap`.
 Operators apply proposed config changes manually outside
 the publication.
+
+The
+[bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+(fifty-third slice) selects the agent operating contract (and the
+architecture summary) to additionally render a read-only **`###
+Bridge-Derived Findings`** subsection for the *governed findings the
+controlled `--confirm-finding-write` writer wrote* — distinct from
+the preview Capability Lint Finding Bridge subsection. It would
+surface those `FindingReport` entries (identified by `finding.type
+=== "capability_architecture_policy"` plus `details.source*` trace
+fields) with provenance, plus a `Do Not Do` reminder pinning that
+bridge-derived findings are governed `FindingReport` entries, **not
+lifecycle status**. The surfacing is **decision-only and not
+implemented yet**; when built it mutates no `FindingReport`,
+`FindingLifecycleReport`, `IssueAdjudicationReport`, or
+`CoherencyDelta`, creates no `WorkOrder` / `VerificationPlan`, and
+proof-report surfacing remains **deferred**.

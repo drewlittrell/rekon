@@ -269,6 +269,13 @@ work order `stale` when a newer `CoherencyDelta` or
   slice as the writer implementation); it creates no `WorkOrder` /
   `VerificationPlan`. The **writer safety review** (fifty-second
   slice) confirmed the writer **safe / stable as a controlled,
-  opt-in writer**; remediation work orders remain downstream.
+  opt-in writer**; remediation work orders remain downstream. The
+  **bridge-derived findings publication decision** (fifty-third
+  slice) then selected **Option B** — surface the written
+  bridge-derived `FindingReport` entries in the architecture summary
+  and agent operating contract first; that surfacing creates no
+  `WorkOrder` / `VerificationPlan`, and remediation work orders
+  remain downstream. See
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

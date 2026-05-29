@@ -188,4 +188,10 @@ without a paired `VerificationRun`.
   the fifty-first slice as the writer implementation); it creates
   no `VerificationPlan`. The **writer safety review** (fifty-second
   slice) confirmed the writer **safe / stable as a controlled,
-  opt-in writer**; verification plans remain downstream.
+  opt-in writer**; verification plans remain downstream. The
+  **bridge-derived findings publication decision** (fifty-third
+  slice) then selected **Option B** — surface the written
+  bridge-derived `FindingReport` entries in the architecture summary
+  and agent operating contract first; that surfacing creates no
+  `VerificationPlan`, and verification plans remain downstream. See
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).

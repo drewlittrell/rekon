@@ -174,3 +174,19 @@ which declared it **safe / stable as a controlled, opt-in writer**
 (no blocker) and selected the writer publication / operator-surface
 decision as the next slice. Lifecycle and `CoherencyDelta`
 integration remain downstream.
+
+The
+[bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+(fifty-third slice) then selected **Option B**: bridge-derived
+`FindingReport` entries (those the writer wrote, identified by
+`finding.type === "capability_architecture_policy"` plus the
+`details.source*` trace fields) will be surfaced in the
+**architecture summary** and **agent operating contract** first as
+read-only visibility with provenance; proof-report surfacing remains
+**deferred**. The surfacing is **not implemented** in that slice.
+Publication surfacing mutates no `FindingReport`,
+`FindingLifecycleReport`, `IssueAdjudicationReport`, or
+`CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`;
+bridge-derived findings are governed `FindingReport` entries, not
+lifecycle status, and lifecycle / `CoherencyDelta` integration remain
+downstream.

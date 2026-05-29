@@ -4,6 +4,40 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **bridge-derived findings publication decision** —
+  fifty-third slice on the codebase-intel-classic
+  capability-ontology track. Strategy / architecture
+  decision batch. Decides how bridge-derived FindingReport
+  entries (written by the controlled, opt-in
+  `--confirm-finding-write` writer) should be surfaced after
+  the writer passed safety review. **Recommendation: Option B
+  — surface bridge-derived FindingReport entries in the
+  architecture summary and the agent operating contract
+  first; the proof report is deferred.** No publication
+  behavior is implemented in this slice. Pinned verbatim:
+  Bridge-derived findings are governed FindingReport entries,
+  not lifecycle status; Publication surfacing does not mutate
+  FindingReport; Publication surfacing does not mutate
+  FindingLifecycleReport, IssueAdjudicationReport, or
+  CoherencyDelta; Publication surfacing does not create
+  WorkOrder or VerificationPlan; Proof report surfacing
+  remains deferred; Lifecycle and CoherencyDelta integration
+  remain downstream. The publication model sketch
+  (`## Bridge-Derived Findings` / `### Bridge-Derived
+  Findings`), the source-identification policy
+  (`finding.type = capability_architecture_policy` plus the
+  `details.source*` trace fields — never title text alone),
+  and the citation policy are pinned for the implementation
+  slice. New strategy memo
+  `docs/strategy/bridge-derived-findings-publication-decision.md`
+  (12 `##` headings + 4 tables: option / surface / boundary /
+  source-identification). New 15-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/bridge-derived-findings-publication-decision.md`.
+  No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI
+  command. No npm publish. No version bump. Recommended next
+  slice: bridge-derived findings publication surfacing.
 - Shipped **CapabilityLintFindingBridgeReport → FindingReport
   writer safety review** — fifty-second slice on the
   codebase-intel-classic capability-ontology track. Strategy /

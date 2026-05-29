@@ -256,6 +256,17 @@ artifact.
   Re-evaluate only when a separate decision +
   safety-review pair defines a natural section for the
   proof report.
+- **Not a bridge-derived findings surface.** The
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+  (**fifty-third slice**) selects the architecture summary +
+  agent operating contract to surface the *governed findings the
+  controlled `--confirm-finding-write` writer wrote* and
+  **defers** proof-report surfacing. Bridge-derived findings are
+  governance context (finding provenance), not verification
+  proof, so the proof report does not render a Bridge-Derived
+  Findings section. Re-evaluate only when a separate decision +
+  safety-review pair defines a natural section for the proof
+  report.
 
 ## Issue Merge Decision Context
 

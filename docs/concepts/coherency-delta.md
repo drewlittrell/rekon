@@ -327,4 +327,12 @@ These are intentionally deferred. See
   `CoherencyDelta`. The **writer safety review** (fifty-second
   slice) confirmed the writer **safe / stable as a controlled,
   opt-in writer**; `CoherencyDelta` integration remains downstream.
+  The **bridge-derived findings publication decision** (fifty-third
+  slice) then selected **Option B** — surface the written
+  bridge-derived `FindingReport` entries in the architecture summary
+  and agent operating contract first (read-only, with provenance);
+  proof-report surfacing is deferred. That surfacing mutates no
+  `CoherencyDelta`, and `CoherencyDelta` integration remains
+  downstream. See
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

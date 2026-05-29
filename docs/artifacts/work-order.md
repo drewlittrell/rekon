@@ -178,4 +178,9 @@ plan.
   implementation); it creates no `WorkOrder`. The **writer safety
   review** (fifty-second slice) confirmed the writer **safe /
   stable as a controlled, opt-in writer**; work orders remain
-  downstream.
+  downstream. The **bridge-derived findings publication decision**
+  (fifty-third slice) then selected **Option B** — surface the
+  written bridge-derived `FindingReport` entries in the architecture
+  summary and agent operating contract first; that surfacing creates
+  no `WorkOrder`, and work orders remain downstream. See
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).

@@ -588,6 +588,12 @@ during the filter step.
   `FindingReport` still flows through this filter chain, which the
   writer does not mutate. The **writer safety review** (fifty-second
   slice) confirmed the writer **safe / stable as a controlled,
-  opt-in writer**.
+  opt-in writer**. The **bridge-derived findings publication
+  decision** (fifty-third slice) then selected **Option B** —
+  surface the written bridge-derived `FindingReport` entries in the
+  architecture summary and agent operating contract first; the
+  surfacing is read-only and any written finding still flows through
+  this filter chain, which the surfacing does not mutate. See
+  [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md).
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

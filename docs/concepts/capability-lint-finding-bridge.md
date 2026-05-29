@@ -190,5 +190,11 @@ preview / governance-candidate context, not verification proof.
 - [Coherency delta concept](coherency-delta.md)
 - [Remediation work orders concept](remediation-work-orders.md)
 - [Capability ontology concept](capability-ontology.md)
+- [Bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+  — fifty-third slice; decides how the written bridge-derived
+  `FindingReport` entries are surfaced (Option B: architecture
+  summary + agent operating contract first; proof report deferred).
+  Surfacing is decision-only, mutates nothing, and leaves lifecycle
+  / `CoherencyDelta` integration downstream.
 - [Roadmap](../strategy/roadmap.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

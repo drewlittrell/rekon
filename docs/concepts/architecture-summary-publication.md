@@ -331,6 +331,23 @@ writes. Proof-report surfacing of
 and
 [capability lint finding bridge concept](capability-lint-finding-bridge.md).
 
+The
+[bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md)
+(fifty-third slice) selects the **architecture summary** (and the
+agent operating contract) to additionally render a read-only **`##
+Bridge-Derived Findings`** section for the *governed findings the
+controlled writer wrote* — distinct from the preview Capability Lint
+Finding Bridge section above. That section would surface the
+bridge-derived `FindingReport` entries (identified by `finding.type
+=== "capability_architecture_policy"` plus `details.source*` trace
+fields) with provenance and an explicit boundary statement. **The
+surfacing is decision-only and not implemented yet.** When built, it
+mutates no `FindingReport`, `FindingLifecycleReport`,
+`IssueAdjudicationReport`, or `CoherencyDelta`, and creates no
+`WorkOrder` / `VerificationPlan`; bridge-derived findings are
+governed `FindingReport` entries, not lifecycle status. Proof-report
+surfacing remains **deferred**.
+
 The summary renders a **`## CapabilityMap v2
 Phrase-Backed Capabilities`** section sourced from
 the latest `CapabilityMap` when the v2 fields
