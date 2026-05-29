@@ -2641,6 +2641,30 @@ is the first stop before proposing a new capability batch.
   extraction layer, not vocabulary
   or splitter precision.
 - CapabilityLintFindingBridgeReport → FindingReport writer
+  mode decision (P1.1 capability-lint-finding-writer-mode-decision
+  slice): **fiftieth slice on the capability-ontology track.**
+  Strategy / architecture decision batch. Decides whether and how
+  to add an opt-in `FindingReport` write mode after the dry-run
+  safety review. **Recommendation: Option B — a future, opt-in
+  write mode gated behind `--confirm-finding-write`, reusing the
+  dry-run preview and writing a new `FindingReport` artifact only;
+  not implemented in this slice.** Pinned: no `FindingReport`
+  written in this decision slice; future write mode must require
+  `--confirm-finding-write`; `--write` / `--send` / `--execute`
+  remain rejected; new-artifact write (no in-place mutation); no
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta` mutation; no
+  `WorkOrder` / `VerificationPlan` creation; source writes remain
+  unavailable. New memo
+  `docs/strategy/capability-lint-finding-writer-mode-decision.md`
+  (13 headings + 4 tables: option / confirmation / boundary /
+  safety-check). New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-mode-decision.md`.
+  **No runtime behavior changes. No new artifact type. No new CLI
+  command. No version bump. No npm publish.** Recommended next
+  slice: CapabilityLintFindingBridgeReport → FindingReport writer
+  implementation.
+- CapabilityLintFindingBridgeReport → FindingReport writer
   dry-run safety review (P1.1
   capability-lint-finding-writer-dry-run-safety-review slice):
   **forty-ninth slice on the capability-ontology track.** Strategy

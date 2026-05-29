@@ -1103,6 +1103,39 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CapabilityLintFindingBridgeReport → FindingReport writer mode
+# decision has shipped. Fiftieth slice on the
+# codebase-intel-classic capability-ontology track. Strategy /
+# architecture decision batch. Decides whether and how to add an
+# opt-in FindingReport write mode after the dry-run safety review.
+#
+# Recommendation: Option B — a future, opt-in write mode gated
+# behind --confirm-finding-write, reusing the dry-run preview and
+# writing a new FindingReport artifact only. Not implemented in
+# this slice.
+#   - No FindingReport entries are written in this decision slice.
+#   - Future write mode must require --confirm-finding-write;
+#     --write / --send / --execute remain rejected.
+#   - Future write mode writes a NEW FindingReport artifact, never
+#     mutates an existing one in place.
+#   - Future write mode does not mutate FindingFilterReport /
+#     FindingLifecycleReport / IssueAdjudicationReport /
+#     CoherencyDelta, and creates no WorkOrder / VerificationPlan.
+#   - Source writes remain unavailable.
+#
+# New strategy memo
+# docs/strategy/capability-lint-finding-writer-mode-decision.md
+# (13 headings + 4 tables). New 16-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/capability-lint-finding-writer-mode-decision.md.
+#
+# No runtime behavior changes. No source under packages/ modified.
+# No new artifact type. No new CLI command. No version bump. No npm
+# publish.
+#
+# Recommended next slice: CapabilityLintFindingBridgeReport →
+# FindingReport writer implementation.
+#
 # CapabilityLintFindingBridgeReport → FindingReport writer
 # dry-run safety review has shipped. Forty-ninth slice on the
 # codebase-intel-classic capability-ontology track. Strategy /

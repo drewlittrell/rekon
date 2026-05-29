@@ -147,3 +147,14 @@ which declared it **safe / stable as preview-only writer
 modeling** (no blocker) and selected the writer mode decision as
 the next slice. `FindingReport` and the rest of the governance
 chain remain unmutated by the dry-run.
+
+The
+[FindingReport writer mode decision](../strategy/capability-lint-finding-writer-mode-decision.md)
+(fiftieth slice) then selected **Option B**: a future, opt-in
+write mode gated behind `--confirm-finding-write` that reuses the
+dry-run preview and writes a **new** `FindingReport` artifact only
+(never mutating an existing one). It is **not implemented**;
+`--write` / `--send` / `--execute` stay rejected, and the writer
+mutates no `FindingFilterReport` / `FindingLifecycleReport` /
+`IssueAdjudicationReport` / `CoherencyDelta` and creates no
+`WorkOrder` / `VerificationPlan`.

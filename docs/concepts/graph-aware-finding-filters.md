@@ -581,6 +581,10 @@ during the filter step.
   `FindingFilterReport`, and rejects write-ish flags; write mode
   is deferred. The dry-run **safety review** (forty-ninth slice)
   declared it **safe / stable as preview-only writer modeling**;
-  this filter chain stays in place and is not mutated.
+  this filter chain stays in place and is not mutated. The
+  **writer mode decision** (fiftieth slice) selected an opt-in
+  write mode behind `--confirm-finding-write` (not implemented); a
+  written `FindingReport` would still flow through this filter
+  chain.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

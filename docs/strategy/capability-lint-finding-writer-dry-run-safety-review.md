@@ -32,6 +32,19 @@ No blocker was found. Recommended next slice:
 **CapabilityLintFindingBridgeReport → FindingReport writer mode
 decision.**
 
+> **Update (fiftieth slice):** the
+> [`CapabilityLintFindingBridgeReport` → `FindingReport` writer
+> mode decision](capability-lint-finding-writer-mode-decision.md)
+> has **shipped**. It selects **Option B** — a future, opt-in
+> write mode gated behind `--confirm-finding-write` that reuses
+> the dry-run preview and writes a **new** `FindingReport`
+> artifact only. The write mode is **not implemented**;
+> `--write` / `--send` / `--execute` stay rejected, no existing
+> `FindingReport` is mutated, no governance artifact /
+> `WorkOrder` / `VerificationPlan` is touched, and source writes
+> remain unavailable. The next slice is the **FindingReport
+> writer implementation**.
+
 ## Why This Review Exists
 
 The dry-run helper / CLI is the **first concrete model** of the

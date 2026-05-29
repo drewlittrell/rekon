@@ -271,6 +271,14 @@ context, not verification proof.
   review** (forty-ninth slice) declared the helper / CLI **safe /
   stable as preview-only writer modeling** (no blocker) and
   selected the writer mode decision next.
+- [CapabilityLintFindingBridgeReport → FindingReport writer mode decision](../strategy/capability-lint-finding-writer-mode-decision.md)
+  — fiftieth slice; selects **Option B** — a future, opt-in write
+  mode behind `--confirm-finding-write` that reuses the dry-run
+  preview and writes a **new** `FindingReport` only. **Not
+  implemented**; `--write` / `--send` / `--execute` stay rejected,
+  no existing `FindingReport` is mutated, and no governance
+  artifact / `WorkOrder` / `VerificationPlan` is touched. Next
+  slice: the writer implementation.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

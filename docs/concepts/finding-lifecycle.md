@@ -206,4 +206,8 @@ model.
   body and mutates no lifecycle state; write mode is deferred. The
   dry-run **safety review** (forty-ninth slice) declared it **safe
   / stable as preview-only writer modeling**; this lifecycle stays
-  downstream and unmutated.
+  downstream and unmutated. The **writer mode decision** (fiftieth
+  slice) selected an opt-in write mode behind
+  `--confirm-finding-write` (not implemented); a written
+  `FindingReport` would still flow through this lifecycle
+  downstream.

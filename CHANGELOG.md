@@ -5,6 +5,37 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **CapabilityLintFindingBridgeReport → FindingReport
+  writer mode decision** — fiftieth slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides whether and how to add an
+  opt-in `FindingReport` write mode after the dry-run helper / CLI
+  passed safety review. **Recommendation: Option B — a future,
+  opt-in write mode gated behind `--confirm-finding-write`, reusing
+  the dry-run preview and writing a new `FindingReport` artifact
+  only; the write mode is not implemented in this slice.** Pinned
+  verbatim: no `FindingReport` entries are written in this decision
+  slice; future write mode must require `--confirm-finding-write`;
+  `--write` / `--send` / `--execute` remain rejected; future write
+  mode writes a new `FindingReport` artifact, not an existing
+  `FindingReport` in place; future write mode does not mutate
+  `FindingFilterReport` / `FindingLifecycleReport` /
+  `IssueAdjudicationReport` / `CoherencyDelta`; future write mode
+  does not create `WorkOrder` / `VerificationPlan`; source writes
+  remain unavailable. The confirmation policy (sole
+  `--confirm-finding-write` path; rejected aliases), the
+  new-artifact write model, and the six before-write + two
+  after-write safety checks are pinned for the implementation
+  slice. New strategy memo
+  `docs/strategy/capability-lint-finding-writer-mode-decision.md`
+  (13 headings + 4 tables: option / confirmation / boundary /
+  safety-check). New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-mode-decision.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI command.
+  No npm publish. No version bump.** Recommended next slice:
+  CapabilityLintFindingBridgeReport → FindingReport writer
+  implementation.
+- Shipped **CapabilityLintFindingBridgeReport → FindingReport
   writer dry-run safety review** — forty-ninth slice on the
   codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch. Read-only end-to-end review of the

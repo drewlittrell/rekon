@@ -66,6 +66,21 @@ proposed `FindingReport` body, writes no `FindingReport`).
 > **CapabilityLintFindingBridgeReport → FindingReport writer mode
 > decision**.
 
+> **Update (fiftieth slice):** the
+> [`CapabilityLintFindingBridgeReport` → `FindingReport` writer
+> mode decision](capability-lint-finding-writer-mode-decision.md)
+> has **shipped**. It selects **Option B** — a future, opt-in
+> write mode on `rekon capability lint write-findings`, gated
+> behind `--confirm-finding-write`, reusing the dry-run preview
+> and writing a **new** `FindingReport` artifact only. **The write
+> mode is not implemented in that slice.** `--write` / `--send` /
+> `--execute` stay rejected; no existing `FindingReport` is
+> mutated; `FindingFilterReport` / `FindingLifecycleReport` /
+> `IssueAdjudicationReport` / `CoherencyDelta` are not mutated;
+> no `WorkOrder` / `VerificationPlan` is created; source writes
+> remain unavailable. The next slice is the **FindingReport writer
+> implementation**.
+
 ## Why This Decision Exists
 
 Eligible `CapabilityLintFindingBridgeReport` candidates are now
