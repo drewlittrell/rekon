@@ -54,6 +54,18 @@ proposed `FindingReport` body, writes no `FindingReport`).
 > section below. The next slice is the **FindingReport writer
 > dry-run safety review**.
 
+> **Update (forty-ninth slice):** the
+> [FindingReport writer dry-run safety review](capability-lint-finding-writer-dry-run-safety-review.md)
+> has **shipped** and declared the dry-run helper / CLI **safe /
+> stable as preview-only writer modeling** (no blocker). It
+> re-confirmed that `--dry-run` is required, all write-ish flags
+> are rejected, the dry-run writes no `FindingReport` and mutates
+> no governance artifact or the artifact index, and creates no
+> `WorkOrder` / `VerificationPlan`. **Write mode remains deferred
+> to a later explicit decision.** The next slice is the
+> **CapabilityLintFindingBridgeReport → FindingReport writer mode
+> decision**.
+
 ## Why This Decision Exists
 
 Eligible `CapabilityLintFindingBridgeReport` candidates are now

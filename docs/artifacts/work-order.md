@@ -169,4 +169,7 @@ plan.
   capability-lint bridge candidates or their writer. The writer's
   **dry-run helper / CLI** has shipped (forty-eighth slice, preview
   only): it previews the proposed `FindingReport` body and creates no
-  `WorkOrder`; write mode is deferred.
+  `WorkOrder`; write mode is deferred. The dry-run **safety review**
+  (forty-ninth slice) declared it **safe / stable as preview-only
+  writer modeling**; work orders stay downstream and are not created
+  by the dry-run.

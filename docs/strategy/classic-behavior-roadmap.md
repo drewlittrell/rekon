@@ -6257,6 +6257,22 @@ scope:
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
 - **CapabilityLintFindingBridgeReport → FindingReport writer
+  dry-run safety review (P1.1
+  capability-lint-finding-writer-dry-run-safety-review slice).**
+  ✅ Shipped. **Forty-ninth slice on the capability-ontology
+  track.** Strategy / safety-review batch. Read-only end-to-end
+  review of the FindingReport writer dry-run helper / CLI.
+  **Recommendation: safe / stable as preview-only writer
+  modeling** (no blocker). Pinned: dry-run is preview-only;
+  `--dry-run` required; `--confirm-finding-write` / `--write` /
+  `--send` / `--execute` rejected; no `FindingReport`
+  write/mutation; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` mutation; no `WorkOrder` / `VerificationPlan`
+  creation; no artifact-index mutation; write mode remains
+  deferred. 16-assertion docs test + review packet. Recommended
+  next slice: FindingReport writer mode decision.
+- **CapabilityLintFindingBridgeReport → FindingReport writer
   dry-run helper / CLI (P1.1
   capability-lint-finding-writer-dry-run slice).** ✅ Shipped.
   **Forty-eighth slice on the capability-ontology track.**

@@ -317,5 +317,8 @@ These are intentionally deferred. See
   finding → filter → lifecycle → adjudication pipeline. The
   writer's **dry-run helper / CLI** has shipped (forty-eighth
   slice, preview only): it previews the proposed `FindingReport`
-  body and mutates no `CoherencyDelta`; write mode is deferred.
+  body and mutates no `CoherencyDelta`; write mode is deferred. The
+  dry-run **safety review** (forty-ninth slice) declared it **safe
+  / stable as preview-only writer modeling**; `CoherencyDelta`
+  stays downstream and unmutated.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

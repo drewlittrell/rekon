@@ -260,6 +260,9 @@ work order `stale` when a newer `CoherencyDelta` or
   the bridge or its writer. The writer's **dry-run helper / CLI** has
   shipped (forty-eighth slice, preview only): it previews the proposed
   `FindingReport` body and creates no `WorkOrder` / `VerificationPlan`;
-  write mode is deferred.
+  write mode is deferred. The dry-run **safety review** (forty-ninth
+  slice) declared it **safe / stable as preview-only writer
+  modeling**; remediation work orders stay downstream and are not
+  created by the dry-run.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

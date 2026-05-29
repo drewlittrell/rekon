@@ -139,3 +139,11 @@ the artifact index, creates no `WorkOrder` / `VerificationPlan`,
 requires `--dry-run`, and rejects `--confirm-finding-write` /
 `--write` / `--send` / `--execute`.** Write mode is deferred to a
 later, safety-reviewed slice.
+
+The dry-run helper / CLI was itself **safety-reviewed** in the
+**forty-ninth slice**
+([dry-run safety review](../strategy/capability-lint-finding-writer-dry-run-safety-review.md)),
+which declared it **safe / stable as preview-only writer
+modeling** (no blocker) and selected the writer mode decision as
+the next slice. `FindingReport` and the rest of the governance
+chain remain unmutated by the dry-run.

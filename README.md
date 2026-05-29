@@ -1104,6 +1104,38 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # review.
 #
 # CapabilityLintFindingBridgeReport → FindingReport writer
+# dry-run safety review has shipped. Forty-ninth slice on the
+# codebase-intel-classic capability-ontology track. Strategy /
+# safety-review batch. Read-only end-to-end review of the
+# FindingReport writer dry-run helper / CLI (shipped at cf87e59).
+#
+# Recommendation: the FindingReport writer dry-run helper / CLI is
+# safe / stable as preview-only writer modeling (no blocker).
+#   - FindingReport writer dry-run is preview-only.
+#   - --dry-run is required; --confirm-finding-write / --write /
+#     --send / --execute are rejected.
+#   - Dry-run writes no FindingReport and mutates no existing
+#     FindingReport.
+#   - Dry-run mutates no FindingFilterReport / FindingLifecycleReport
+#     / IssueAdjudicationReport / CoherencyDelta, and does not mutate
+#     the artifact index.
+#   - Dry-run creates no WorkOrder / VerificationPlan.
+#   - Write mode remains deferred to a later explicit decision.
+#
+# New strategy memo
+# docs/strategy/capability-lint-finding-writer-dry-run-safety-review.md
+# (12 headings + 4 tables). New 16-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/capability-lint-finding-writer-dry-run-safety-review.md.
+#
+# No runtime behavior changes. No source under packages/ modified.
+# No new artifact type. No new CLI command. No version bump. No npm
+# publish.
+#
+# Recommended next slice: CapabilityLintFindingBridgeReport →
+# FindingReport writer mode decision.
+#
+# CapabilityLintFindingBridgeReport → FindingReport writer
 # dry-run helper / CLI has shipped. Forty-eighth slice on the
 # codebase-intel-classic capability-ontology track. Product
 # capability batch (dry-run preview only).

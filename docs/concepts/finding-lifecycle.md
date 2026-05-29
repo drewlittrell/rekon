@@ -203,4 +203,7 @@ model.
   status ledger, and this lifecycle projection like any other finding.
   The writer's **dry-run helper / CLI** has shipped (forty-eighth
   slice, preview only): it previews the proposed `FindingReport`
-  body and mutates no lifecycle state; write mode is deferred.
+  body and mutates no lifecycle state; write mode is deferred. The
+  dry-run **safety review** (forty-ninth slice) declared it **safe
+  / stable as preview-only writer modeling**; this lifecycle stays
+  downstream and unmutated.

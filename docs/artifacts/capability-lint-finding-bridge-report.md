@@ -267,7 +267,10 @@ context, not verification proof.
   `buildFindingReportWritePreview`) has since **shipped**
   (forty-eighth slice, preview only): it previews the proposed
   `FindingReport` body, writes no `FindingReport`, and rejects
-  write-ish flags; write mode is deferred.
+  write-ish flags; write mode is deferred. The dry-run **safety
+  review** (forty-ninth slice) declared the helper / CLI **safe /
+  stable as preview-only writer modeling** (no blocker) and
+  selected the writer mode decision next.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

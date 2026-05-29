@@ -2641,6 +2641,29 @@ is the first stop before proposing a new capability batch.
   extraction layer, not vocabulary
   or splitter precision.
 - CapabilityLintFindingBridgeReport → FindingReport writer
+  dry-run safety review (P1.1
+  capability-lint-finding-writer-dry-run-safety-review slice):
+  **forty-ninth slice on the capability-ontology track.** Strategy
+  / safety-review batch. Read-only end-to-end review of the
+  FindingReport writer dry-run helper / CLI shipped at `cf87e59`.
+  **Recommendation: the dry-run helper / CLI is safe / stable as
+  preview-only writer modeling** (no blocker). Pinned: dry-run is
+  preview-only; `--dry-run` required; `--confirm-finding-write` /
+  `--write` / `--send` / `--execute` rejected; no `FindingReport`
+  write/mutation; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta` mutation; no `WorkOrder` / `VerificationPlan`
+  creation; no artifact-index mutation; write mode remains
+  deferred. New memo
+  `docs/strategy/capability-lint-finding-writer-dry-run-safety-review.md`
+  (12 headings + 4 tables). New 16-assertion docs test. Review
+  packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-dry-run-safety-review.md`.
+  **No runtime behavior changes. No new artifact type. No new CLI
+  command. No version bump. No npm publish.** Recommended next
+  slice: CapabilityLintFindingBridgeReport → FindingReport writer
+  mode decision.
+- CapabilityLintFindingBridgeReport → FindingReport writer
   dry-run helper / CLI (P1.1 capability-lint-finding-writer-dry-run
   slice): **forty-eighth slice on the capability-ontology track.**
   Product capability batch (**dry-run preview only**). New helper

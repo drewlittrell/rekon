@@ -5,6 +5,36 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **CapabilityLintFindingBridgeReport → FindingReport
+  writer dry-run safety review** — forty-ninth slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  FindingReport writer dry-run helper / CLI shipped at `cf87e59`.
+  **Recommendation: the FindingReport writer dry-run helper / CLI
+  is safe / stable as preview-only writer modeling** (no blocker).
+  Reviewed `buildFindingReportWritePreview`, the
+  `FindingReportWritePreview` shape, eligibility / skip /
+  duplicate-finding-id logic, the proposed `FindingReport` body,
+  the `rekon capability lint write-findings` command, and the
+  write-ish flag rejection. Pinned verbatim: FindingReport writer
+  dry-run is preview-only; `--dry-run` is required;
+  `--confirm-finding-write` / `--write` / `--send` / `--execute`
+  are rejected; dry-run writes no `FindingReport` and mutates no
+  existing `FindingReport`; dry-run mutates no `FindingFilterReport`
+  / `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta`; dry-run creates no `WorkOrder` /
+  `VerificationPlan`; dry-run does not mutate the artifact index;
+  write mode remains deferred to a later explicit decision. New
+  strategy memo
+  `docs/strategy/capability-lint-finding-writer-dry-run-safety-review.md`
+  (12 headings + 4 tables: surface / flag / boundary / option).
+  New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-dry-run-safety-review.md`.
+  **No runtime behavior changes. No source files under
+  `packages/` modified. No new artifact type. No new CLI command.
+  No npm publish. No version bump.** Recommended next slice:
+  CapabilityLintFindingBridgeReport → FindingReport writer mode
+  decision.
+- Shipped **CapabilityLintFindingBridgeReport → FindingReport
   writer dry-run helper / CLI** — forty-eighth slice on the
   codebase-intel-classic capability-ontology track. Product
   capability batch (**dry-run preview only**; implements step 2 of

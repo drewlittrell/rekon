@@ -180,4 +180,6 @@ without a paired `VerificationRun`.
   writer. The writer's **dry-run helper / CLI** has shipped
   (forty-eighth slice, preview only): it previews the proposed
   `FindingReport` body and creates no `VerificationPlan`; write mode is
-  deferred.
+  deferred. The dry-run **safety review** (forty-ninth slice) declared
+  it **safe / stable as preview-only writer modeling**; verification
+  plans stay downstream and are not created by the dry-run.

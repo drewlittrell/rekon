@@ -579,6 +579,8 @@ during the filter step.
   helper / CLI** has shipped (forty-eighth slice, preview only):
   it previews the proposed `FindingReport` body, mutates no
   `FindingFilterReport`, and rejects write-ish flags; write mode
-  is deferred.
+  is deferred. The dry-run **safety review** (forty-ninth slice)
+  declared it **safe / stable as preview-only writer modeling**;
+  this filter chain stays in place and is not mutated.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)
