@@ -629,3 +629,5 @@ Parallel follow-ups (do not block the AST track):
 - [Classic-behavior roadmap](classic-behavior-roadmap.md)
 
 > See also: [Classic step-capability / handoff / runtime drift parity audit](classic-step-capability-handoff-runtime-drift-parity-audit.md) — reserves StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport / RuntimeGraphDriftReport as future surfaces not yet modeled by Rekon.
+
+> See also: [StepCapabilityGraph / HandoffContract architecture decision](step-capability-handoff-architecture-decision.md) — selects a staged step/handoff/runtime graph spine (StepCapabilityGraph → HandoffContract → HandoffCoverageReport → RuntimeGraphObservationReport → RuntimeGraphDriftReport).

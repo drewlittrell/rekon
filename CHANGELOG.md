@@ -4,6 +4,34 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **StepCapabilityGraph / HandoffContract architecture
+  decision** — sixtieth slice on the codebase-intel-classic
+  capability-ontology track. Strategy / architecture decision batch.
+  Decides the Rekon-native architecture for the classic step-capability
+  graph + baton / handoff system surfaced by the fifty-ninth-slice
+  parity audit. **Recommendation: Option B — a staged step/handoff/
+  runtime graph spine**, introducing five reserved artifacts in
+  sequence: (1) `StepCapabilityGraph`, (2) `HandoffContract`,
+  (3) `HandoffCoverageReport`, (4) `RuntimeGraphObservationReport`,
+  (5) `RuntimeGraphDriftReport`. The spine does not start with runtime
+  drift (drift needs an expected graph + observed events first). Pinned:
+  StepCapabilityGraph is workflow topology, not CapabilityMap v2;
+  HandoffContract is declared baton policy, not WorkOrder;
+  HandoffCoverageReport is handoff-event coverage, not VerificationRun
+  command success; RuntimeGraphDriftReport is runtime graph drift, not
+  PathFreshnessReport or artifact lineage freshness; intent parity
+  depends on StepCapabilityGraph, HandoffContract, HandoffCoverageReport,
+  and RuntimeGraphDriftReport; no runtime behavior changes ship in this
+  decision. Rejected: CapabilityMap/Contract-enough (A), start-at-drift
+  (C), fold-into-WorkOrder/VerificationPlan (D), fold-into-CapabilityMap
+  v2 (E). New strategy memo
+  `docs/strategy/step-capability-handoff-architecture-decision.md`
+  (15 headings + 4 tables: option / artifact sequence / boundary /
+  intent impact). New 15-assertion docs test. Review packet
+  `.rekon-dev/review-packets/step-capability-handoff-architecture-decision.md`.
+  No source under `packages/` modified. No new artifact type. No new CLI
+  command. No npm publish. No version bump. Recommended next slice:
+  StepCapabilityGraph v1 decision.
 - Shipped **classic step-capability / handoff / runtime drift parity
   audit** — fifty-ninth slice on the codebase-intel-classic
   capability-ontology track. Strategy / architecture audit batch.

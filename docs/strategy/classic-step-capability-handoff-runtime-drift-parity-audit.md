@@ -387,3 +387,5 @@ this audit.**
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [StepCapabilityGraph / HandoffContract architecture decision](step-capability-handoff-architecture-decision.md) — selects a staged step/handoff/runtime graph spine (StepCapabilityGraph → HandoffContract → HandoffCoverageReport → RuntimeGraphObservationReport → RuntimeGraphDriftReport).

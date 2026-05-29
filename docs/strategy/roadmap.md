@@ -2640,6 +2640,21 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- StepCapabilityGraph / HandoffContract architecture decision (P1.1
+  step-capability-handoff-architecture-decision slice): **sixtieth slice on
+  the capability-ontology track.** Strategy / architecture decision batch.
+  Decides the Rekon-native architecture for the classic step-capability
+  graph + baton / handoff system. **Recommendation: Option B — a staged
+  step/handoff/runtime graph spine** (`StepCapabilityGraph` →
+  `HandoffContract` → `HandoffCoverageReport` →
+  `RuntimeGraphObservationReport` → `RuntimeGraphDriftReport`); does not
+  start with runtime drift. Pinned: StepCapabilityGraph is workflow
+  topology, not CapabilityMap v2; HandoffContract is declared baton policy,
+  not WorkOrder; HandoffCoverageReport is handoff-event coverage, not
+  VerificationRun command success; RuntimeGraphDriftReport is runtime graph
+  drift, not PathFreshnessReport / artifact lineage freshness; intent parity
+  depends on these surfaces. New memo + 15-assertion docs test + review
+  packet. Recommended next slice: StepCapabilityGraph v1 decision.
 - Classic step-capability / handoff / runtime drift parity audit
   (P1.1 classic-step-capability-handoff-runtime-drift-parity-audit slice):
   **fifty-ninth slice on the capability-ontology track.** Strategy /

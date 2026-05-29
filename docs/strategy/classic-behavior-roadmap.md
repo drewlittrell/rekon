@@ -6256,6 +6256,22 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **StepCapabilityGraph / HandoffContract architecture decision (P1.1
+  step-capability-handoff-architecture-decision slice).** ✅ Shipped.
+  **Sixtieth slice on the capability-ontology track.** Strategy /
+  architecture decision batch. **Recommendation: Option B — a staged
+  step/handoff/runtime graph spine** (`StepCapabilityGraph` →
+  `HandoffContract` → `HandoffCoverageReport` →
+  `RuntimeGraphObservationReport` → `RuntimeGraphDriftReport`); does not
+  start with runtime drift. Rejected: CapabilityMap/Contract-enough,
+  start-at-drift, fold-into-WorkOrder/VerificationPlan, fold-into-
+  CapabilityMap v2. Pinned: StepCapabilityGraph is workflow topology, not
+  CapabilityMap v2; HandoffContract is declared baton policy, not WorkOrder;
+  HandoffCoverageReport is handoff-event coverage, not VerificationRun
+  command success; RuntimeGraphDriftReport is runtime graph drift, not
+  PathFreshnessReport / artifact lineage freshness. New memo + 15-assertion
+  docs test + review packet. Recommended next slice: StepCapabilityGraph v1
+  decision.
 - **Classic step-capability / handoff / runtime drift parity audit
   (P1.1 classic-step-capability-handoff-runtime-drift-parity-audit slice).**
   ✅ Shipped. **Fifty-ninth slice on the capability-ontology track.**

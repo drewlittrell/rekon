@@ -1103,6 +1103,35 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# StepCapabilityGraph / HandoffContract architecture decision has
+# shipped. Sixtieth slice on the codebase-intel-classic
+# capability-ontology track. Strategy / architecture decision batch.
+#
+# Decides the Rekon-native architecture for the classic step-capability
+# graph + baton / handoff system. Recommendation: Option B — a staged
+# step/handoff/runtime graph spine, introducing five reserved artifacts
+# in sequence: StepCapabilityGraph, HandoffContract,
+# HandoffCoverageReport, RuntimeGraphObservationReport,
+# RuntimeGraphDriftReport. Does not start with runtime drift.
+#   - StepCapabilityGraph is workflow topology, not CapabilityMap v2.
+#   - HandoffContract is declared baton policy, not WorkOrder.
+#   - HandoffCoverageReport is handoff-event coverage, not
+#     VerificationRun command success.
+#   - RuntimeGraphDriftReport is runtime graph drift, not
+#     PathFreshnessReport or artifact lineage freshness.
+#   - Intent parity depends on StepCapabilityGraph, HandoffContract,
+#     HandoffCoverageReport, and RuntimeGraphDriftReport.
+#
+# New strategy memo
+# docs/strategy/step-capability-handoff-architecture-decision.md
+# (15 headings + 4 tables). New 15-assertion docs test. Review packet
+# .rekon-dev/review-packets/step-capability-handoff-architecture-decision.md.
+#
+# No runtime behavior changes. No source under packages/ modified. No new
+# artifact type. No new CLI command. No version bump. No npm publish.
+#
+# Recommended next slice: StepCapabilityGraph v1 decision.
+#
 # Classic step-capability / handoff / runtime drift parity audit has
 # shipped. Fifty-ninth slice on the codebase-intel-classic
 # capability-ontology track. Strategy / architecture audit batch.
