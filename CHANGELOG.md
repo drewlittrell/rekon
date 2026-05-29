@@ -4,6 +4,33 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **StepCapabilityGraph v1 decision** — sixty-first slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch (v1 shape + inputs only; no
+  implementation). Fixes the v1 artifact shape and inputs for
+  `StepCapabilityGraph`, the first artifact in the staged spine.
+  **Decision: projection + optional config** — v1 is derived by
+  projection from `EvidenceGraph` + `CapabilityMap v2` +
+  `CapabilityPhraseReport`, with an optional `.rekon/step-capability-map.json`
+  used only for grouping/labeling (projection works with no config).
+  Pinned: StepCapabilityGraph v1 is an expected workflow topology graph;
+  it does not model runtime truth, handoff coverage, or execution
+  readiness; StepCapabilityGraph is workflow topology, not CapabilityMap
+  v2; the optional config is optional grouping and labeling, not a
+  manual-admin-heavy system; no runtime behavior changes ship in this
+  decision. v1 nodes: step / capability / file / system; edges:
+  step→capability (`realizes`), step→file/system (`touches`);
+  expected-handoff edges and runtime grounding are reserved (not
+  populated in v1). Rejected: projection-only, config-only
+  (manual-admin-heavy), runtime-grounded v1 (implies runtime truth). New
+  strategy memo `docs/strategy/step-capability-graph-v1-decision.md`
+  (14 headings + 4 tables: options / inputs / node-edge shape /
+  boundary). New 16-assertion docs test. Review packet
+  `.rekon-dev/review-packets/step-capability-graph-v1-decision.md`. No
+  source under `packages/` modified. No new artifact type. No new CLI
+  command. No mutation of EvidenceGraph / CapabilityMap /
+  CapabilityPhraseReport. No npm publish. No version bump. Recommended
+  next slice: StepCapabilityGraph v1 implementation.
 - Shipped **StepCapabilityGraph / HandoffContract architecture
   decision** — sixtieth slice on the codebase-intel-classic
   capability-ontology track. Strategy / architecture decision batch.

@@ -389,3 +389,5 @@ this audit.**
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
 
 > See also: [StepCapabilityGraph / HandoffContract architecture decision](step-capability-handoff-architecture-decision.md) — selects a staged step/handoff/runtime graph spine (StepCapabilityGraph → HandoffContract → HandoffCoverageReport → RuntimeGraphObservationReport → RuntimeGraphDriftReport).
+
+> See also: [StepCapabilityGraph v1 decision](step-capability-graph-v1-decision.md) — v1 is projection from EvidenceGraph + CapabilityMap v2 + CapabilityPhraseReport with an optional grouping/labeling config; expected workflow topology only (no runtime truth / handoff coverage / drift).

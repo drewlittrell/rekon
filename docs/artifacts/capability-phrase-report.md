@@ -479,3 +479,5 @@ review.
 - [Capability Ontology Canon + Override Model Decision](../strategy/capability-ontology-canon-override-model-decision.md)
   — canon packs + overrides supply the canonical
   vocabulary phrases anchor on.
+
+> See also: [StepCapabilityGraph v1 decision](../strategy/step-capability-graph-v1-decision.md) — v1 is projection from EvidenceGraph + CapabilityMap v2 + CapabilityPhraseReport with an optional grouping/labeling config; expected workflow topology only (no runtime truth / handoff coverage / drift).

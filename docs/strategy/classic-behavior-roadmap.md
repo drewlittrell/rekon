@@ -6256,6 +6256,19 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **StepCapabilityGraph v1 decision (P1.1
+  step-capability-graph-v1-decision slice).** ✅ Shipped. **Sixty-first
+  slice on the capability-ontology track.** Strategy / architecture
+  decision batch (v1 shape + inputs only). **Decision: projection +
+  optional config** — projection from `EvidenceGraph` + `CapabilityMap v2`
+  + `CapabilityPhraseReport`; optional `.rekon/step-capability-map.json`
+  for grouping/labeling. Pinned: expected workflow topology only (no
+  runtime truth / handoff coverage / execution readiness); not
+  CapabilityMap v2; optional config not manual-admin-heavy;
+  expected-handoff + runtime-grounding reserved (empty in v1). Rejected:
+  projection-only, config-only, runtime-grounded v1. New memo +
+  16-assertion docs test + review packet. Recommended next slice:
+  StepCapabilityGraph v1 implementation.
 - **StepCapabilityGraph / HandoffContract architecture decision (P1.1
   step-capability-handoff-architecture-decision slice).** ✅ Shipped.
   **Sixtieth slice on the capability-ontology track.** Strategy /

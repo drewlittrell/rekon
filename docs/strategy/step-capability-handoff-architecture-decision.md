@@ -270,3 +270,5 @@ ship in this decision.**
 - [Remediation work orders concept](../concepts/remediation-work-orders.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [StepCapabilityGraph v1 decision](step-capability-graph-v1-decision.md) — v1 is projection from EvidenceGraph + CapabilityMap v2 + CapabilityPhraseReport with an optional grouping/labeling config; expected workflow topology only (no runtime truth / handoff coverage / drift).

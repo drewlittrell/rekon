@@ -2640,6 +2640,18 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- StepCapabilityGraph v1 decision (P1.1 step-capability-graph-v1-decision
+  slice): **sixty-first slice on the capability-ontology track.** Strategy /
+  architecture decision batch (v1 shape + inputs only). **Decision:
+  projection + optional config** — v1 is derived by projection from
+  `EvidenceGraph` + `CapabilityMap v2` + `CapabilityPhraseReport`, with an
+  optional `.rekon/step-capability-map.json` for grouping/labeling only.
+  Pinned: StepCapabilityGraph v1 is an expected workflow topology graph; it
+  does not model runtime truth, handoff coverage, or execution readiness;
+  the optional config is not a manual-admin-heavy system;
+  expected-handoff + runtime-grounding fields are reserved (empty in v1).
+  New memo + 16-assertion docs test + review packet. Recommended next
+  slice: StepCapabilityGraph v1 implementation.
 - StepCapabilityGraph / HandoffContract architecture decision (P1.1
   step-capability-handoff-architecture-decision slice): **sixtieth slice on
   the capability-ontology track.** Strategy / architecture decision batch.
