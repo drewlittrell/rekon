@@ -177,4 +177,7 @@ without a paired `VerificationRun`.
   not implemented). **The writer creates no `VerificationPlan`** —
   verification plans remain downstream of governed findings and
   `CoherencyDelta`, never of capability-lint bridge candidates or their
-  writer.
+  writer. The writer's **dry-run helper / CLI** has shipped
+  (forty-eighth slice, preview only): it previews the proposed
+  `FindingReport` body and creates no `VerificationPlan`; write mode is
+  deferred.

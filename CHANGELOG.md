@@ -5,6 +5,40 @@ All notable changes to Rekon will be documented in this file.
 ## 0.1.0-beta.0
 
 - Shipped **CapabilityLintFindingBridgeReport → FindingReport
+  writer dry-run helper / CLI** — forty-eighth slice on the
+  codebase-intel-classic capability-ontology track. Product
+  capability batch (**dry-run preview only**; implements step 2 of
+  the writer decision). New pure helper
+  `@rekon/capability-model.buildFindingReportWritePreview` reads a
+  `CapabilityLintFindingBridgeReport`, selects eligible candidates,
+  and returns a `FindingReportWritePreview` (`dryRun: true`,
+  `wouldWrite: false`) modeling the `FindingReport` body a future
+  writer would emit (`source: "capability-lint-bridge"`, category
+  `capability_architecture_policy`, `inputRefs` citing bridge /
+  lint / contract / map, and per-finding trace fields
+  `sourceBridgeCandidateId` / `sourceLintRowId` / `sourceContractId`
+  / `sourcePhraseCapabilityId`). New CLI command `rekon capability
+  lint write-findings --bridge-report <id|type:id> --dry-run
+  [--root <path>] [--json]`. **The FindingReport writer dry-run
+  writes no `FindingReport`. Write mode is deferred. `--dry-run`
+  is required, and `--confirm-finding-write` / `--write` /
+  `--send` / `--execute` are rejected with a non-zero exit.** The
+  command reads only the `CapabilityLintFindingBridgeReport`,
+  writes no artifact, does not mutate the artifact index, does not
+  mutate `FindingReport` / `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta`, and creates no `WorkOrder` / `VerificationPlan`.
+  Eligibility re-validates every structural prerequisite
+  (eligible decision + `proposedFinding` + non-empty
+  `evidenceRefs` + `sourceLintRowRef` + high/medium severity +
+  high/medium confidence) and deterministically skips later
+  duplicate finding ids. New 27-assertion contract test + new
+  9-assertion docs test. Review packet
+  `.rekon-dev/review-packets/capability-lint-finding-writer-dry-run.md`.
+  **No new artifact type. No write mode. No version bump. No npm
+  publish.** Recommended next slice: FindingReport writer dry-run
+  safety review.
+- Shipped **CapabilityLintFindingBridgeReport → FindingReport
   writer decision** — forty-seventh slice on the
   codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch. Decides whether and how eligible

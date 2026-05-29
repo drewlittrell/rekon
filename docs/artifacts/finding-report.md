@@ -128,3 +128,14 @@ the status ledger, lifecycle, and adjudication;
 `IssueAdjudicationReport`, `CoherencyDelta`, `WorkOrder`,
 `VerificationPlan`, and source writes all remain downstream and are
 not mutated by the writer.
+
+The writer's **dry-run helper / CLI** shipped in the **forty-eighth
+slice** (preview only): `rekon capability lint write-findings
+--bridge-report <id|type:id> --dry-run` and
+`@rekon/capability-model.buildFindingReportWritePreview` read the
+bridge report and return the proposed `FindingReport` body. **The
+dry-run writes no `FindingReport`, mutates no governance artifact or
+the artifact index, creates no `WorkOrder` / `VerificationPlan`,
+requires `--dry-run`, and rejects `--confirm-finding-write` /
+`--write` / `--send` / `--execute`.** Write mode is deferred to a
+later, safety-reviewed slice.

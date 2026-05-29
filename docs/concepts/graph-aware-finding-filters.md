@@ -575,6 +575,10 @@ during the filter step.
   bypassed** — any finding the future writer emits must flow
   through these graph-aware finding filters before reaching the
   status ledger, adjudication, or `CoherencyDelta`. The writer
-  does not mutate `FindingFilterReport`.
+  does not mutate `FindingFilterReport`. The writer's **dry-run
+  helper / CLI** has shipped (forty-eighth slice, preview only):
+  it previews the proposed `FindingReport` body, mutates no
+  `FindingFilterReport`, and rejects write-ish flags; write mode
+  is deferred.
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

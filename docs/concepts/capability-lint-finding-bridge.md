@@ -160,8 +160,11 @@ preview / governance-candidate context, not verification proof.
   new `FindingReport` artifact and leave the finding filters,
   lifecycle, adjudication, `CoherencyDelta`, `WorkOrder` /
   `VerificationPlan`, and source writes downstream and untouched.
-  Next slice: the `FindingReport` writer dry-run helper / CLI
-  (preview only).
+  The **dry-run helper / CLI** (`rekon capability lint
+  write-findings --dry-run`) has since **shipped** (forty-eighth
+  slice, preview only): it previews the proposed `FindingReport`
+  body, writes no `FindingReport`, and rejects write-ish flags;
+  write mode is deferred.
 - [CapabilityLintFindingBridgeReport artifact](../artifacts/capability-lint-finding-bridge-report.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

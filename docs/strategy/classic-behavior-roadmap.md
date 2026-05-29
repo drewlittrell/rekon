@@ -6257,6 +6257,23 @@ scope:
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
 - **CapabilityLintFindingBridgeReport → FindingReport writer
+  dry-run helper / CLI (P1.1
+  capability-lint-finding-writer-dry-run slice).** ✅ Shipped.
+  **Forty-eighth slice on the capability-ontology track.**
+  Product capability batch (**dry-run preview only**). New helper
+  `@rekon/capability-model.buildFindingReportWritePreview` + CLI
+  `rekon capability lint write-findings --bridge-report
+  <id|type:id> --dry-run` preview the `FindingReport` body a future
+  writer would emit. **The dry-run writes no `FindingReport`. Write
+  mode is deferred. `--dry-run` is required; `--confirm-finding-write`
+  / `--write` / `--send` / `--execute` are rejected.** No governance
+  mutation (`FindingReport` / `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` /
+  `CoherencyDelta`), no `WorkOrder` / `VerificationPlan` creation, no
+  artifact-index mutation, no source writes. 27-assertion contract
+  test + 9-assertion docs test + review packet. Recommended next
+  slice: FindingReport writer dry-run safety review.
+- **CapabilityLintFindingBridgeReport → FindingReport writer
   decision (P1.1 capability-lint-finding-writer-decision
   slice).** ✅ Shipped. **Forty-seventh slice on the
   capability-ontology track.** Strategy / architecture decision

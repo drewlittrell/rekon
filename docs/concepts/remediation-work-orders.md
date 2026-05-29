@@ -257,6 +257,9 @@ work order `stale` when a newer `CoherencyDelta` or
   not implemented). **`WorkOrder` and `VerificationPlan` creation remain
   downstream and are not part of the writer.** Remediation work orders
   stay downstream of governed findings and `CoherencyDelta`, never of
-  the bridge or its writer.
+  the bridge or its writer. The writer's **dry-run helper / CLI** has
+  shipped (forty-eighth slice, preview only): it previews the proposed
+  `FindingReport` body and creates no `WorkOrder` / `VerificationPlan`;
+  write mode is deferred.
 - [Classic behavior distillation](../strategy/classic-behavior-distillation.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

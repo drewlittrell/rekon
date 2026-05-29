@@ -262,8 +262,12 @@ context, not verification proof.
   `FindingReport` artifact (no in-place mutation), and leave the
   finding filters, lifecycle, adjudication, `CoherencyDelta`,
   `WorkOrder` / `VerificationPlan`, and source writes downstream
-  and untouched. Next slice: the `FindingReport` writer dry-run
-  helper / CLI (preview only).
+  and untouched. The **dry-run helper / CLI** (`rekon capability
+  lint write-findings --dry-run`,
+  `buildFindingReportWritePreview`) has since **shipped**
+  (forty-eighth slice, preview only): it previews the proposed
+  `FindingReport` body, writes no `FindingReport`, and rejects
+  write-ish flags; write mode is deferred.
 - [Capability lint finding bridge concept](../concepts/capability-lint-finding-bridge.md)
 - [`CapabilityArchitectureLintReport` → `FindingReport` bridge decision](../strategy/capability-lint-finding-bridge-decision.md)
 - [CapabilityArchitectureLintReport artifact](capability-architecture-lint-report.md)

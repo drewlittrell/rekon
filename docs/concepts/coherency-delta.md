@@ -314,5 +314,8 @@ These are intentionally deferred. See
   confirmation; not implemented). **`CoherencyDelta` remains
   downstream and is not mutated by the writer** — bridged
   candidates only reach `CoherencyDelta` through the normal
-  finding → filter → lifecycle → adjudication pipeline.
+  finding → filter → lifecycle → adjudication pipeline. The
+  writer's **dry-run helper / CLI** has shipped (forty-eighth
+  slice, preview only): it previews the proposed `FindingReport`
+  body and mutates no `CoherencyDelta`; write mode is deferred.
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

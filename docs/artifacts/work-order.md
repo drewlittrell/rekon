@@ -166,4 +166,7 @@ plan.
   `FindingReport` writer with dry-run preview + explicit confirmation;
   not implemented). **The writer creates no `WorkOrder`** — work orders
   remain downstream of governed findings and `CoherencyDelta`, never of
-  capability-lint bridge candidates or their writer.
+  capability-lint bridge candidates or their writer. The writer's
+  **dry-run helper / CLI** has shipped (forty-eighth slice, preview
+  only): it previews the proposed `FindingReport` body and creates no
+  `WorkOrder`; write mode is deferred.

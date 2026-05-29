@@ -201,3 +201,6 @@ model.
   artifact; **this lifecycle remains downstream and is not mutated by
   the writer**. Any written finding still flows through the filters,
   status ledger, and this lifecycle projection like any other finding.
+  The writer's **dry-run helper / CLI** has shipped (forty-eighth
+  slice, preview only): it previews the proposed `FindingReport`
+  body and mutates no lifecycle state; write mode is deferred.

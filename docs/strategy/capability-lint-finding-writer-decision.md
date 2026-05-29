@@ -37,6 +37,23 @@ FindingReport writer dry-run helper / CLI** (dry-run preview only;
 reads the bridge report, selects eligible candidates, builds the
 proposed `FindingReport` body, writes no `FindingReport`).
 
+> **Update (forty-eighth slice):** the **FindingReport writer
+> dry-run helper / CLI** has **shipped** (preview only). The
+> `@rekon/capability-model.buildFindingReportWritePreview` helper
+> and the `rekon capability lint write-findings --bridge-report
+> <id|type:id> --dry-run` command read a
+> `CapabilityLintFindingBridgeReport`, select eligible candidates,
+> and return the proposed `FindingReport` body. **The dry-run
+> writes no FindingReport. Write mode is deferred. `--dry-run` is
+> required, and `--confirm-finding-write` / `--write` / `--send` /
+> `--execute` are rejected.** `FindingFilterReport`,
+> `FindingLifecycleReport`, `IssueAdjudicationReport`, and
+> `CoherencyDelta` are not mutated; `WorkOrder` / `VerificationPlan`
+> are not created. See the
+> [Dry-Run Helper / CLI](#dry-run-helper--cli-forty-eighth-slice)
+> section below. The next slice is the **FindingReport writer
+> dry-run safety review**.
+
 ## Why This Decision Exists
 
 Eligible `CapabilityLintFindingBridgeReport` candidates are now
@@ -456,6 +473,64 @@ Recommended order, each gated behind its own batch:
 6. **Finding lifecycle / filter / adjudication / CoherencyDelta
    integration** — remains downstream and separate, gated behind
    its own decision.
+
+## Dry-Run Helper / CLI (Forty-Eighth Slice)
+
+The **FindingReport writer dry-run helper / CLI** has shipped — a
+**preview-only** implementation of step 2 in the sequence above.
+It is the *only* part of the writer that exists; write mode is
+not implemented.
+
+**Helper.**
+`@rekon/capability-model.buildFindingReportWritePreview({ bridgeReport,
+bridgeReportRef })` is a pure function. It reads a
+`CapabilityLintFindingBridgeReport`, selects eligible candidates,
+and returns a `FindingReportWritePreview` value with `dryRun: true`
+and `wouldWrite: false`. The preview's `proposedFindingReport`
+models the `FindingReport` body a future writer *would* emit
+(`source: "capability-lint-bridge"`, category
+`capability_architecture_policy`, `inputRefs` citing the bridge /
+lint / contract / map refs, and per-finding trace fields
+`sourceBridgeCandidateId` / `sourceLintRowId` / `sourceContractId`
+/ `sourcePhraseCapabilityId`). It builds **no** artifact and
+writes nothing.
+
+**CLI.**
+
+```bash
+rekon capability lint write-findings \
+  --bridge-report <CapabilityLintFindingBridgeReport:id|type:id> \
+  --dry-run \
+  [--root <path>] [--json]
+```
+
+Pinned behavior:
+
+- **The FindingReport writer dry-run helper / CLI exists** as a
+  preview-only surface.
+- **The dry-run writes no FindingReport.** No FindingReport
+  entries are written.
+- **Write mode is deferred** to a later, safety-reviewed slice; no
+  `FindingReport` writer exists yet.
+- **`--dry-run` is required.** Running without it exits non-zero.
+- **`--confirm-finding-write`, `--write`, `--send`, and
+  `--execute` are rejected** with a non-zero exit; only `--dry-run`
+  is supported in this slice.
+- **`FindingFilterReport`, `FindingLifecycleReport`,
+  `IssueAdjudicationReport`, and `CoherencyDelta` are not
+  mutated.** The command reads only the
+  `CapabilityLintFindingBridgeReport`, writes no artifact, and does
+  not mutate the artifact index.
+- **`WorkOrder` and `VerificationPlan` are not created.**
+- It writes no source files.
+
+Eligibility re-validates every structural prerequisite (eligible
+decision + `proposedFinding` + non-empty `evidenceRefs` +
+`sourceLintRowRef` + high/medium severity + high/medium
+confidence) rather than trusting the bridge `decision` field
+alone, and deterministically skips later duplicate finding ids.
+Every skipped candidate carries a single reason in
+`skippedCandidates`.
 
 ## Cross-References
 

@@ -1104,6 +1104,36 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # review.
 #
 # CapabilityLintFindingBridgeReport → FindingReport writer
+# dry-run helper / CLI has shipped. Forty-eighth slice on the
+# codebase-intel-classic capability-ontology track. Product
+# capability batch (dry-run preview only).
+#
+# New helper @rekon/capability-model.buildFindingReportWritePreview
+# and CLI command:
+#   rekon capability lint write-findings
+#     --bridge-report <id|type:id> --dry-run [--root <path>] [--json]
+# read a CapabilityLintFindingBridgeReport, select eligible
+# candidates, and return the proposed FindingReport body a future
+# writer would emit.
+#   - The dry-run writes no FindingReport. Write mode is deferred.
+#   - --dry-run is required; --confirm-finding-write / --write /
+#     --send / --execute are rejected.
+#   - FindingReport / FindingFilterReport / FindingLifecycleReport /
+#     IssueAdjudicationReport / CoherencyDelta are not mutated; the
+#     artifact index is not mutated.
+#   - WorkOrder / VerificationPlan are not created. No source writes.
+#
+# New 27-assertion contract test + 9-assertion docs test. Review
+# packet
+# .rekon-dev/review-packets/capability-lint-finding-writer-dry-run.md.
+#
+# No new artifact type. No write mode. No version bump. No npm
+# publish.
+#
+# Recommended next slice: FindingReport writer dry-run safety
+# review.
+#
+# CapabilityLintFindingBridgeReport → FindingReport writer
 # decision has shipped. Forty-seventh slice on the
 # codebase-intel-classic capability-ontology track. Strategy /
 # architecture decision batch. Decides whether and how eligible

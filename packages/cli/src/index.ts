@@ -56,6 +56,7 @@ import memoryCapability from "@rekon/capability-memory";
 import modelCapability, {
   buildCapabilityArchitectureLintReport,
   buildCapabilityLintFindingBridgeReport,
+  buildFindingReportWritePreview,
   buildCapabilityContract,
   type CapabilityContractConfig,
 } from "@rekon/capability-model";
@@ -1354,6 +1355,105 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("No FindingReport entries were written.");
       lines.push(
         "Preview only. FindingReport, FindingFilterReport, FindingLifecycleReport, IssueAdjudicationReport, and CoherencyDelta are not mutated. No WorkOrder or VerificationPlan is created.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "lint"
+    && positional === "write-findings"
+  ) {
+    // `rekon capability lint write-findings
+    // --bridge-report <id|type:id> --dry-run [--root <path>] [--json]`
+    // — **dry-run preview only** of the future FindingReport
+    // writer. Reads a `CapabilityLintFindingBridgeReport`, selects
+    // eligible candidates, and prints / returns the proposed
+    // `FindingReport` body a future writer *would* emit.
+    //
+    // **Dry-run only; write mode is deferred.** This command does
+    // **not** write `FindingReport`, mutate `FindingReport`,
+    // `FindingFilterReport`, `FindingLifecycleReport`,
+    // `IssueAdjudicationReport`, or `CoherencyDelta`. It creates no
+    // `WorkOrder` and no `VerificationPlan`. It writes no artifact
+    // and does not mutate the artifact index. See
+    // docs/strategy/capability-lint-finding-writer-decision.md.
+    const dryRun = parsed.flags["dry-run"] === true;
+    const writeIshFlags = [
+      "confirm-finding-write",
+      "write",
+      "send",
+      "execute",
+    ].filter((flag) => parsed.flags[flag] === true);
+    if (writeIshFlags.length > 0) {
+      throw new Error(
+        `rekon capability lint write-findings: write mode is deferred; ${writeIshFlags
+          .map((flag) => `--${flag}`)
+          .join(", ")} ${writeIshFlags.length > 1 ? "are" : "is"} not accepted. `
+          + "Only --dry-run is supported in this slice. No FindingReport is written.",
+      );
+    }
+    if (!dryRun) {
+      throw new Error(
+        "rekon capability lint write-findings requires --dry-run. "
+          + "Write mode is deferred to a later, safety-reviewed slice; "
+          + "no FindingReport writer exists yet.",
+      );
+    }
+
+    const bridgeReportFlag
+      = typeof parsed.flags["bridge-report"] === "string"
+        ? parsed.flags["bridge-report"].trim()
+        : "";
+    if (bridgeReportFlag.length === 0) {
+      throw new Error(
+        "rekon capability lint write-findings requires --bridge-report <CapabilityLintFindingBridgeReport id|type:id>.",
+      );
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const bridgeEntry = await findArtifactEntry(store, bridgeReportFlag);
+    if (bridgeEntry.type !== "CapabilityLintFindingBridgeReport") {
+      throw new Error(
+        `rekon capability lint write-findings --bridge-report must reference a CapabilityLintFindingBridgeReport; got ${bridgeEntry.type}.`,
+      );
+    }
+
+    const bridgeReport
+      = (await store.read(bridgeEntry)) as CapabilityLintFindingBridgeReport;
+    const bridgeReportRef: ArtifactRef = {
+      type: bridgeEntry.type,
+      id: bridgeEntry.id,
+      path: bridgeEntry.path,
+      digest: bridgeEntry.digest,
+      schemaVersion: bridgeEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const preview = buildFindingReportWritePreview({
+      bridgeReport,
+      bridgeReportRef,
+      generatedAt: new Date().toISOString(),
+    });
+
+    if (json) {
+      writeOutput(preview, true);
+    } else {
+      const lines: string[] = [];
+      lines.push("Capability lint FindingReport writer dry-run");
+      lines.push("");
+      lines.push(`Bridge report: ${bridgeReportRef.type}:${bridgeReportRef.id}`);
+      lines.push(`Would write FindingReport: no`);
+      lines.push(`Proposed findings: ${preview.summary.proposedFindings}`);
+      lines.push(`Skipped candidates: ${preview.summary.skipped}`);
+      lines.push("");
+      lines.push("No FindingReport entries were written.");
+      lines.push("Write mode is deferred.");
+      lines.push(
+        "Dry-run only. FindingReport, FindingFilterReport, FindingLifecycleReport, IssueAdjudicationReport, and CoherencyDelta are not mutated. No WorkOrder or VerificationPlan is created.",
       );
       writeOutput(lines.join("\n"), false);
     }
@@ -8052,6 +8152,7 @@ function usage(): string {
     "rekon capability contract generate [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint architecture [--capability-contract <id|type:id>] [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint bridge-findings [--lint-report <id|type:id>] [--root <path>] [--json]",
+    "rekon capability lint write-findings --bridge-report <id|type:id> --dry-run [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

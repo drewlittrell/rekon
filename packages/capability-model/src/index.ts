@@ -41,6 +41,16 @@ export {
   buildCapabilityLintFindingBridgeReport,
 } from "./capability-lint-finding-bridge.js";
 
+export {
+  type BuildFindingReportWritePreviewInput,
+  type FindingReportWritePreview,
+  type FindingReportWritePreviewFinding,
+  type FindingReportWritePreviewSkipped,
+  FINDING_REPORT_WRITE_PREVIEW_CATEGORY,
+  FINDING_REPORT_WRITE_PREVIEW_SOURCE,
+  buildFindingReportWritePreview,
+} from "./finding-report-write-preview.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{
