@@ -54,10 +54,12 @@ import verifyCapability, {
 import jsTsCapability from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability, {
+  buildBridgeFindingLifecycleIntegrationReport,
   buildCapabilityArchitectureLintReport,
   buildCapabilityLintFindingBridgeReport,
   buildFindingReportWritePreview,
   buildCapabilityContract,
+  type BridgeFindingLifecycleFindingReportLike,
   type CapabilityContractConfig,
 } from "@rekon/capability-model";
 import policyCapability from "@rekon/capability-policy";
@@ -111,6 +113,7 @@ import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   buildSourceStateFingerprint,
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
+  type BridgeFindingLifecycleIntegrationReport,
   type CapabilityArchitectureLintReport,
   type CapabilityContract,
   type CapabilityLintFindingBridgeReport,
@@ -1356,6 +1359,108 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("No FindingReport entries were written.");
       lines.push(
         "Preview only. FindingReport, FindingFilterReport, FindingLifecycleReport, IssueAdjudicationReport, and CoherencyDelta are not mutated. No WorkOrder or VerificationPlan is created.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (
+    command === "capability"
+    && subcommand === "lint"
+    && positional === "lifecycle-preview"
+  ) {
+    // `rekon capability lint lifecycle-preview [--root <path>]
+    // [--json] [--finding-report <ref>]` — v1 preview modeling how
+    // bridge-derived `FindingReport` entries WOULD enter the finding
+    // filter / lifecycle / adjudication / CoherencyDelta chain. It
+    // writes a `BridgeFindingLifecycleIntegrationReport` preview
+    // artifact.
+    //
+    // **Preview, not FindingLifecycleReport.** This command does
+    // **not** mutate `FindingFilterReport`, `FindingLifecycleReport`,
+    // `IssueAdjudicationReport`, or `CoherencyDelta`. It creates no
+    // `WorkOrder` and no `VerificationPlan`. It reads no source
+    // files. See
+    // docs/strategy/bridge-finding-lifecycle-integration-decision.md
+    // and docs/artifacts/bridge-finding-lifecycle-integration-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const findingReportFlag
+      = typeof parsed.flags["finding-report"] === "string"
+        ? parsed.flags["finding-report"].trim()
+        : "";
+
+    let findingEntry: ArtifactIndexEntry | undefined;
+    if (findingReportFlag.length > 0) {
+      findingEntry = await findArtifactEntry(store, findingReportFlag);
+      if (findingEntry.type !== "FindingReport") {
+        throw new Error(
+          `rekon capability lint lifecycle-preview --finding-report must reference a FindingReport; got ${findingEntry.type}.`,
+        );
+      }
+    } else {
+      const findingEntries = await store.list("FindingReport");
+      findingEntry = findingEntries.at(-1);
+      if (!findingEntry) {
+        throw new Error(
+          "rekon capability lint lifecycle-preview: no FindingReport found. Write bridge-derived findings with `rekon capability lint write-findings --confirm-finding-write` (or run `rekon refresh`) first.",
+        );
+      }
+    }
+
+    const findingReport = (await store.read(
+      findingEntry,
+    )) as BridgeFindingLifecycleFindingReportLike;
+    const findingReportRef: ArtifactRef = {
+      type: findingEntry.type,
+      id: findingEntry.id,
+      path: findingEntry.path,
+      digest: findingEntry.digest,
+      schemaVersion: findingEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const report: BridgeFindingLifecycleIntegrationReport
+      = buildBridgeFindingLifecycleIntegrationReport({
+        findingReport,
+        findingReportRef,
+        generatedAt: new Date().toISOString(),
+      });
+
+    // Preview artifact: written under `actions/`, never under
+    // `findings/`. It is not a FindingLifecycleReport.
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: { type: ref.type, id: ref.id },
+          source: report.source,
+          summary: report.summary,
+          entries: report.entries,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Bridge finding lifecycle integration preview");
+      lines.push("");
+      lines.push(
+        `FindingReport: ${findingReportRef.type}:${findingReportRef.id}`,
+      );
+      lines.push("");
+      lines.push(
+        `Bridge-derived findings: ${report.summary.totalBridgeFindings}`,
+      );
+      lines.push(`Ready for lifecycle: ${report.summary.readyForLifecycle}`);
+      lines.push(`Needs review: ${report.summary.needsReview}`);
+      lines.push(`Duplicate: ${report.summary.duplicate}`);
+      lines.push(`Ineligible: ${report.summary.ineligible}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push(
+        "Preview only. No FindingLifecycleReport, IssueAdjudicationReport, or CoherencyDelta artifacts were changed. FindingFilterReport is not mutated. No WorkOrder or VerificationPlan is created.",
       );
       writeOutput(lines.join("\n"), false);
     }

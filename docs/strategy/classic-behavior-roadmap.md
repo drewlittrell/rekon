@@ -6256,6 +6256,28 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **BridgeFindingLifecycleIntegrationReport v1 (P1.1
+  bridge-finding-lifecycle-integration-report slice).** ✅ Shipped.
+  **Fifty-seventh slice on the capability-ontology track.** Product
+  capability batch. Implements the read-only preview artifact chosen by
+  the fifty-sixth slice (Option B). New artifact type
+  `BridgeFindingLifecycleIntegrationReport` (kernel-repo-model + SDK +
+  runtime `actions`), `buildBridgeFindingLifecycleIntegrationReport` +
+  `isBridgeDerivedFinding` in `@rekon/capability-model`, and a
+  `rekon capability lint lifecycle-preview` CLI command. The preview
+  identifies bridge-derived findings structurally from `FindingReport`
+  trace fields and classifies readiness (ready-for-lifecycle with modeled
+  initial status `new`, needs-review, duplicate, ineligible; filtered
+  reserved); non-bridge findings omitted. Pinned:
+  BridgeFindingLifecycleIntegrationReport is preview, not
+  FindingLifecycleReport; ready-for-lifecycle rows receive a proposed
+  initial status `new`; duplicates / missing evidence / missing trace are
+  not automatically promoted; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` / `CoherencyDelta`
+  mutation; no `WorkOrder` / `VerificationPlan` creation; source writes
+  unavailable. New artifact + concept docs + 23-assertion contract test +
+  11-assertion docs test + review packet. Recommended next slice:
+  `BridgeFindingLifecycleIntegrationReport` safety review.
 - **Bridge-derived findings lifecycle / CoherencyDelta integration
   decision (P1.1 bridge-finding-lifecycle-integration-decision
   slice).** ✅ Shipped. **Fifty-sixth slice on the

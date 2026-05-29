@@ -285,3 +285,7 @@ writes.
   decision this review recommended. Selects a
   `BridgeFindingLifecycleIntegrationReport` preview artifact first
   (no lifecycle / adjudication / `CoherencyDelta` mutation).
+- [BridgeFindingLifecycleIntegrationReport artifact](../artifacts/bridge-finding-lifecycle-integration-report.md)
+  — the read-only preview artifact, shipped in the fifty-seventh slice,
+  that the integration decision selected (no lifecycle / adjudication /
+  `CoherencyDelta` mutation).

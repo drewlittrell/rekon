@@ -1929,6 +1929,431 @@ export const capabilityLintFindingBridgeReportSchema: ArtifactSchema<CapabilityL
   parse: assertCapabilityLintFindingBridgeReport,
 };
 
+// ---- BridgeFindingLifecycleIntegrationReport (preview) ----
+//
+// Preview artifact modeling how bridge-derived `FindingReport`
+// entries WOULD enter the finding filter / lifecycle / adjudication
+// / CoherencyDelta chain. It is **preview, not
+// `FindingLifecycleReport`**: it assigns no real lifecycle status and
+// mutates no governance artifact. `initialLifecycleStatus` is a
+// *modeled* status (`new` for ready entries), never written.
+
+export type BridgeFindingLifecycleIntegrationDecision =
+  | "ready-for-lifecycle"
+  | "filtered"
+  | "needs-review"
+  | "duplicate"
+  | "ineligible";
+
+export type BridgeFindingLifecycleIntegrationStatus =
+  | "new"
+  | "active"
+  | "suppressed"
+  | "resolved";
+
+export type BridgeFindingLifecycleIntegrationEntry = {
+  id: string;
+  findingId: string;
+  decision: BridgeFindingLifecycleIntegrationDecision;
+  initialLifecycleStatus?: BridgeFindingLifecycleIntegrationStatus;
+  severity: "low" | "medium" | "high";
+  sourceBridgeCandidateId?: string;
+  sourceLintRowId?: string;
+  sourceContractId?: string;
+  sourcePhraseCapabilityId?: string;
+  evidenceRefs: ArtifactRef[];
+  messages?: string[];
+};
+
+export type BridgeFindingLifecycleIntegrationSource = {
+  findingReportRef: ArtifactRef;
+  filterReportRef?: ArtifactRef;
+  lifecycleReportRef?: ArtifactRef;
+  issueAdjudicationReportRef?: ArtifactRef;
+};
+
+export type BridgeFindingLifecycleIntegrationSummary = {
+  totalBridgeFindings: number;
+  readyForLifecycle: number;
+  filtered: number;
+  needsReview: number;
+  duplicate: number;
+  ineligible: number;
+  bySeverity: Record<string, number>;
+};
+
+export type BridgeFindingLifecycleIntegrationReport = {
+  header: ArtifactHeader;
+  source: BridgeFindingLifecycleIntegrationSource;
+  summary: BridgeFindingLifecycleIntegrationSummary;
+  entries: BridgeFindingLifecycleIntegrationEntry[];
+};
+
+const BRIDGE_LIFECYCLE_INTEGRATION_DECISIONS = new Set<string>([
+  "ready-for-lifecycle",
+  "filtered",
+  "needs-review",
+  "duplicate",
+  "ineligible",
+]);
+
+const BRIDGE_LIFECYCLE_INTEGRATION_STATUSES = new Set<string>([
+  "new",
+  "active",
+  "suppressed",
+  "resolved",
+]);
+
+const BRIDGE_LIFECYCLE_INTEGRATION_SEVERITIES = new Set<string>([
+  "low",
+  "medium",
+  "high",
+]);
+
+export function createBridgeFindingLifecycleIntegrationReport(
+  input: BridgeFindingLifecycleIntegrationReport,
+): BridgeFindingLifecycleIntegrationReport {
+  const entries: BridgeFindingLifecycleIntegrationEntry[] = [];
+  const seenIds = new Set<string>();
+  for (const raw of input.entries ?? []) {
+    if (!raw) continue;
+    if (seenIds.has(raw.id)) continue;
+    seenIds.add(raw.id);
+    entries.push(normalizeBridgeFindingLifecycleIntegrationEntry(raw));
+  }
+  entries.sort(compareBridgeFindingLifecycleIntegrationEntry);
+
+  const summary = recountBridgeFindingLifecycleIntegrationSummary(entries);
+
+  const source: BridgeFindingLifecycleIntegrationSource = {
+    findingReportRef: assertArtifactRef(input.source.findingReportRef),
+  };
+  if (input.source.filterReportRef) {
+    source.filterReportRef = assertArtifactRef(input.source.filterReportRef);
+  }
+  if (input.source.lifecycleReportRef) {
+    source.lifecycleReportRef = assertArtifactRef(
+      input.source.lifecycleReportRef,
+    );
+  }
+  if (input.source.issueAdjudicationReportRef) {
+    source.issueAdjudicationReportRef = assertArtifactRef(
+      input.source.issueAdjudicationReportRef,
+    );
+  }
+
+  return assertBridgeFindingLifecycleIntegrationReport({
+    header: input.header,
+    source,
+    summary,
+    entries,
+  });
+}
+
+function normalizeBridgeFindingLifecycleIntegrationEntry(
+  entry: BridgeFindingLifecycleIntegrationEntry,
+): BridgeFindingLifecycleIntegrationEntry {
+  const out: BridgeFindingLifecycleIntegrationEntry = {
+    id: entry.id,
+    findingId: entry.findingId,
+    decision: entry.decision,
+    severity: entry.severity,
+    evidenceRefs: normalizeRefs(entry.evidenceRefs ?? []),
+  };
+  if (
+    entry.initialLifecycleStatus !== undefined
+    && entry.initialLifecycleStatus !== null
+  ) {
+    out.initialLifecycleStatus = entry.initialLifecycleStatus;
+  }
+  for (
+    const field of [
+      "sourceBridgeCandidateId",
+      "sourceLintRowId",
+      "sourceContractId",
+      "sourcePhraseCapabilityId",
+    ] as const
+  ) {
+    const value = entry[field];
+    if (typeof value === "string" && value.length > 0) {
+      out[field] = value;
+    }
+  }
+  if (entry.messages && entry.messages.length > 0) {
+    const messages = entry.messages.filter(
+      (message): message is string =>
+        typeof message === "string" && message.length > 0,
+    );
+    if (messages.length > 0) out.messages = messages;
+  }
+  return out;
+}
+
+function compareBridgeFindingLifecycleIntegrationEntry(
+  left: BridgeFindingLifecycleIntegrationEntry,
+  right: BridgeFindingLifecycleIntegrationEntry,
+): number {
+  if (left.findingId !== right.findingId) {
+    return left.findingId.localeCompare(right.findingId);
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function recountBridgeFindingLifecycleIntegrationSummary(
+  entries: BridgeFindingLifecycleIntegrationEntry[],
+): BridgeFindingLifecycleIntegrationSummary {
+  let readyForLifecycle = 0;
+  let filtered = 0;
+  let needsReview = 0;
+  let duplicate = 0;
+  let ineligible = 0;
+  const bySeverity: Record<string, number> = {};
+  for (const entry of entries) {
+    switch (entry.decision) {
+      case "ready-for-lifecycle":
+        readyForLifecycle++;
+        break;
+      case "filtered":
+        filtered++;
+        break;
+      case "needs-review":
+        needsReview++;
+        break;
+      case "duplicate":
+        duplicate++;
+        break;
+      case "ineligible":
+        ineligible++;
+        break;
+      default:
+        break;
+    }
+    bySeverity[entry.severity] = (bySeverity[entry.severity] ?? 0) + 1;
+  }
+  return {
+    totalBridgeFindings: entries.length,
+    readyForLifecycle,
+    filtered,
+    needsReview,
+    duplicate,
+    ineligible,
+    bySeverity: sortRecord(bySeverity),
+  };
+}
+
+export function validateBridgeFindingLifecycleIntegrationReport(
+  value: unknown,
+): ValidationResult<BridgeFindingLifecycleIntegrationReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(
+    value.header,
+    "BridgeFindingLifecycleIntegrationReport",
+    "$.header",
+    issues,
+  );
+
+  // ---- source ----
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    const findingResult = validateArtifactRef(value.source.findingReportRef);
+    if (!findingResult.ok) {
+      issues.push(
+        ...prefixIssues(findingResult.issues, "$.source.findingReportRef"),
+      );
+    }
+    for (
+      const field of [
+        "filterReportRef",
+        "lifecycleReportRef",
+        "issueAdjudicationReportRef",
+      ] as const
+    ) {
+      const ref = (value.source as Record<string, unknown>)[field];
+      if (ref !== undefined) {
+        const result = validateArtifactRef(ref);
+        if (!result.ok) {
+          issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+        }
+      }
+    }
+  }
+
+  // ---- entries ----
+  let entries: unknown[] = [];
+  if (!Array.isArray(value.entries)) {
+    issues.push({ path: "$.entries", message: "Expected an array." });
+  } else {
+    entries = value.entries;
+    const seenIds = new Set<string>();
+    entries.forEach((entry, index) =>
+      validateBridgeFindingLifecycleIntegrationEntry(
+        entry,
+        `$.entries[${index}]`,
+        issues,
+        seenIds,
+      ),
+    );
+  }
+
+  // ---- summary ----
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    for (
+      const field of [
+        "totalBridgeFindings",
+        "readyForLifecycle",
+        "filtered",
+        "needsReview",
+        "duplicate",
+        "ineligible",
+      ] as const
+    ) {
+      const v = (value.summary as Record<string, unknown>)[field];
+      if (typeof v !== "number" || !Number.isInteger(v) || v < 0) {
+        issues.push({
+          path: `$.summary.${field}`,
+          message: "Expected a non-negative integer.",
+        });
+      }
+    }
+    const bySeverity = (value.summary as Record<string, unknown>).bySeverity;
+    if (!isRecord(bySeverity)) {
+      issues.push({
+        path: "$.summary.bySeverity",
+        message: "Expected an object of non-negative integers.",
+      });
+    } else {
+      for (const [key, count] of Object.entries(bySeverity)) {
+        if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+          issues.push({
+            path: `$.summary.bySeverity.${key}`,
+            message: "Expected a non-negative integer.",
+          });
+        }
+      }
+    }
+    // Re-derive and compare counts so artifacts with stale summaries
+    // are rejected.
+    if (Array.isArray(entries)) {
+      const computed = recountBridgeFindingLifecycleIntegrationSummary(
+        entries.filter(
+          isRecord,
+        ) as unknown as BridgeFindingLifecycleIntegrationEntry[],
+      );
+      for (
+        const field of [
+          "totalBridgeFindings",
+          "readyForLifecycle",
+          "filtered",
+          "needsReview",
+          "duplicate",
+          "ineligible",
+        ] as const
+      ) {
+        const supplied = (value.summary as Record<string, unknown>)[field];
+        if (typeof supplied === "number" && supplied !== computed[field]) {
+          issues.push({
+            path: `$.summary.${field}`,
+            message: `Expected ${computed[field]} (recomputed from entries).`,
+          });
+        }
+      }
+    }
+  }
+
+  return validationResult(
+    value as BridgeFindingLifecycleIntegrationReport,
+    issues,
+  );
+}
+
+function validateBridgeFindingLifecycleIntegrationEntry(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate entry id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.findingId !== "string" || value.findingId.length === 0) {
+    issues.push({
+      path: `${path}.findingId`,
+      message: "Expected a non-empty string.",
+    });
+  }
+  if (
+    typeof value.decision !== "string"
+    || !BRIDGE_LIFECYCLE_INTEGRATION_DECISIONS.has(value.decision)
+  ) {
+    issues.push({
+      path: `${path}.decision`,
+      message:
+        "Expected one of ready-for-lifecycle, filtered, needs-review, duplicate, ineligible.",
+    });
+  }
+  if (
+    typeof value.severity !== "string"
+    || !BRIDGE_LIFECYCLE_INTEGRATION_SEVERITIES.has(value.severity)
+  ) {
+    issues.push({
+      path: `${path}.severity`,
+      message: "Expected one of low, medium, high.",
+    });
+  }
+  if (
+    value.initialLifecycleStatus !== undefined
+    && (typeof value.initialLifecycleStatus !== "string"
+      || !BRIDGE_LIFECYCLE_INTEGRATION_STATUSES.has(value.initialLifecycleStatus))
+  ) {
+    issues.push({
+      path: `${path}.initialLifecycleStatus`,
+      message: "Expected one of new, active, suppressed, resolved.",
+    });
+  }
+  if (!Array.isArray(value.evidenceRefs)) {
+    issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array." });
+  } else {
+    value.evidenceRefs.forEach((ref, index) => {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) {
+        issues.push(
+          ...prefixIssues(result.issues, `${path}.evidenceRefs[${index}]`),
+        );
+      }
+    });
+  }
+}
+
+export function assertBridgeFindingLifecycleIntegrationReport(
+  value: unknown,
+): BridgeFindingLifecycleIntegrationReport {
+  return assertValid(
+    validateBridgeFindingLifecycleIntegrationReport(value),
+    "BridgeFindingLifecycleIntegrationReport",
+  );
+}
+
+export const bridgeFindingLifecycleIntegrationReportSchema: ArtifactSchema<BridgeFindingLifecycleIntegrationReport> = {
+  validate: validateBridgeFindingLifecycleIntegrationReport,
+  parse: assertBridgeFindingLifecycleIntegrationReport,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

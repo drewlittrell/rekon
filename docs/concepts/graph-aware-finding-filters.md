@@ -597,6 +597,6 @@ during the filter step.
   [bridge-derived findings publication decision](../strategy/bridge-derived-findings-publication-decision.md). The surfacing
 implementation shipped in the fifty-fourth slice (read-only, in the
 architecture summary + agent contract); any written finding still
-flows through this filter chain, which the surfacing does not mutate. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. The lifecycle / CoherencyDelta integration decision (fifty-sixth slice) then selected a BridgeFindingLifecycleIntegrationReport preview artifact first; lifecycle / adjudication / CoherencyDelta mutation remain deferred to later safety-reviewed slices.
+flows through this filter chain, which the surfacing does not mutate. The surfacing was safety-reviewed safe / stable as read-only visibility in the fifty-fifth slice. The lifecycle / CoherencyDelta integration decision (fifty-sixth slice) then selected a BridgeFindingLifecycleIntegrationReport preview artifact first; lifecycle / adjudication / CoherencyDelta mutation remain deferred to later safety-reviewed slices. The preview artifact `BridgeFindingLifecycleIntegrationReport` then shipped in the fifty-seventh slice (read-only; `rekon capability lint lifecycle-preview`); see [its artifact reference](../artifacts/bridge-finding-lifecycle-integration-report.md).
 - [Capability lint finding bridge concept](capability-lint-finding-bridge.md)
 - [Capability-Aware Architecture Linting concept](capability-aware-architecture-linting.md)

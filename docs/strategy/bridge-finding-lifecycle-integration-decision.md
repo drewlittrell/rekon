@@ -174,7 +174,9 @@ Answers to the required decision questions:
    automatically.
 10. **What implementation slice follows?**
     `BridgeFindingLifecycleIntegrationReport` v1 (preview / dry-run
-    only).
+    only). ✅ Shipped in the fifty-seventh slice; see the
+    [artifact reference](../artifacts/bridge-finding-lifecycle-integration-report.md)
+    and [concept](../concepts/bridge-finding-lifecycle-integration.md).
 
 ## Preview Artifact Model
 

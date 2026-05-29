@@ -4,6 +4,35 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **BridgeFindingLifecycleIntegrationReport v1** — fifty-seventh
+  slice on the codebase-intel-classic capability-ontology track. Product
+  capability batch. Implements the read-only preview artifact chosen by
+  the fifty-sixth slice (Option B). Registers a new artifact type
+  `BridgeFindingLifecycleIntegrationReport` (kernel-repo-model
+  factory / validator / schema, SDK known-types, runtime `actions`
+  category), adds the
+  `@rekon/capability-model.buildBridgeFindingLifecycleIntegrationReport`
+  builder + `isBridgeDerivedFinding`, and adds a
+  `rekon capability lint lifecycle-preview` CLI command. The preview
+  reads a `FindingReport`, identifies bridge-derived findings
+  structurally from their trace fields (never by title text), and
+  classifies readiness: ready-for-lifecycle (modeled initial status
+  `new`), needs-review, duplicate, ineligible (filtered reserved).
+  Non-bridge findings are omitted. Pinned:
+  BridgeFindingLifecycleIntegrationReport is preview, not
+  FindingLifecycleReport; ready-for-lifecycle rows receive a proposed
+  initial status `new`; duplicates / missing evidence / missing trace
+  are not automatically promoted; no FindingFilterReport /
+  FindingLifecycleReport / IssueAdjudicationReport / CoherencyDelta
+  mutation; no WorkOrder / VerificationPlan creation; source writes
+  remain unavailable. New artifact reference
+  `docs/artifacts/bridge-finding-lifecycle-integration-report.md`, new
+  concept `docs/concepts/bridge-finding-lifecycle-integration.md`. New
+  23-assertion contract test + 11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-finding-lifecycle-integration-report-v1.md`.
+  No FindingReport writer behavior change. No npm publish. No version
+  bump. Recommended next slice: BridgeFindingLifecycleIntegrationReport
+  safety review.
 - Shipped **bridge-derived findings lifecycle / CoherencyDelta
   integration decision** — fifty-sixth slice on the
   codebase-intel-classic capability-ontology track. Strategy /

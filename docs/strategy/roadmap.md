@@ -2640,6 +2640,34 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- BridgeFindingLifecycleIntegrationReport v1 (P1.1
+  bridge-finding-lifecycle-integration-report slice): **fifty-seventh
+  slice on the capability-ontology track.** Product capability batch.
+  Implements the read-only preview artifact chosen by the fifty-sixth
+  slice (Option B). Registers a new artifact type
+  `BridgeFindingLifecycleIntegrationReport` (kernel-repo-model factory /
+  validator / schema, SDK known-types, runtime `actions` category), adds
+  `buildBridgeFindingLifecycleIntegrationReport` + `isBridgeDerivedFinding`
+  in `@rekon/capability-model`, and adds a
+  `rekon capability lint lifecycle-preview` CLI command. The preview reads
+  a `FindingReport`, identifies bridge-derived findings structurally from
+  their trace fields (never by title text), and classifies readiness:
+  ready-for-lifecycle (modeled initial status `new`), needs-review,
+  duplicate, ineligible (filtered reserved); non-bridge findings are
+  omitted. Pinned: BridgeFindingLifecycleIntegrationReport is preview, not
+  FindingLifecycleReport; ready-for-lifecycle rows receive a proposed
+  initial status `new`; duplicates / missing evidence / missing trace are
+  not automatically promoted; no `FindingFilterReport` /
+  `FindingLifecycleReport` / `IssueAdjudicationReport` / `CoherencyDelta`
+  mutation; no `WorkOrder` / `VerificationPlan` creation; source writes
+  remain unavailable. New artifact reference
+  `docs/artifacts/bridge-finding-lifecycle-integration-report.md`, new
+  concept `docs/concepts/bridge-finding-lifecycle-integration.md`. New
+  23-assertion contract test + 11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/bridge-finding-lifecycle-integration-report-v1.md`.
+  No FindingReport writer behavior change. No version bump. No npm
+  publish. Recommended next slice:
+  `BridgeFindingLifecycleIntegrationReport` safety review.
 - Bridge-derived findings lifecycle / CoherencyDelta integration
   decision (P1.1 bridge-finding-lifecycle-integration-decision
   slice): **fifty-sixth slice on the capability-ontology track.**

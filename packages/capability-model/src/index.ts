@@ -51,6 +51,17 @@ export {
   buildFindingReportWritePreview,
 } from "./finding-report-write-preview.js";
 
+export {
+  type BridgeFindingLifecycleFindingLike,
+  type BridgeFindingLifecycleFindingReportLike,
+  type BuildBridgeFindingLifecycleIntegrationReportInput,
+  BRIDGE_DERIVED_FINDING_SOURCE,
+  BRIDGE_DERIVED_FINDING_TYPE,
+  BRIDGE_FINDING_LIFECYCLE_INTEGRATION_ARTIFACT_ID_PREFIX,
+  buildBridgeFindingLifecycleIntegrationReport,
+  isBridgeDerivedFinding,
+} from "./bridge-finding-lifecycle-integration.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{
