@@ -6256,6 +6256,17 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **Intent Capability Spine Integration Review (P1.1
+  intent-capability-spine-integration-review slice).** ✅ Shipped.
+  Seventy-sixth slice. Read-only mapping of classic `intent:assess` /
+  `intent:prepare` / `intent:go` / `intent:status` onto Rekon artifacts:
+  assess → `IntentAssessmentReport`, prepare → `PreparedIntentPlan`,
+  status → `IntentStatusReport`, go deferred. **Recommendation: Option B
+  (staged intent artifact spine); first target IntentAssessmentReport v1
+  decision.** Honest finding: classic intent did not reference
+  step/handoff/runtime-graph/drift; Rekon intent adds that spine dependency to
+  readiness. No intent implemented; no artifact registered; no CLI; no source
+  writes. Next: IntentAssessmentReport v1 decision.
 - **RuntimeGraphDriftReport safety review (P1.1
   runtime-graph-drift-report-safety-review slice).** ✅ Shipped. Seventy-fifth
   slice. Read-only review of `RuntimeGraphDriftReport` v1. **Recommendation:

@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Capability Spine Integration Review** — seventy-sixth
+  slice on the codebase-intel-classic capability-ontology track. Strategy /
+  architecture-review batch. Read-only mapping of the classic intent surfaces
+  (`intent:assess` / `intent:prepare` / `intent:go` / `intent:status`)
+  onto the Rekon artifact spine: assess → `IntentAssessmentReport`, prepare →
+  `PreparedIntentPlan`, status → `IntentStatusReport`; `intent:go`
+  remains deferred. **Recommendation: Option B (staged intent artifact spine);
+  first target IntentAssessmentReport v1 decision.** Honest finding: classic
+  intent did not consume the step/handoff/runtime-graph/drift spine — Rekon
+  intent extends parity by wiring StepCapabilityGraph, HandoffContract,
+  HandoffCoverageReport, RuntimeGraphObservationReport, and
+  RuntimeGraphDriftReport into intent readiness. No intent implemented; no
+  artifact type registered; no CLI command added; no source writes; no version
+  bump; no npm publish. New
+  `docs/strategy/intent-capability-spine-integration-review.md` (17 headings
+  + 4 tables) + 18-assertion docs test + review packet. Recommended next
+  slice: IntentAssessmentReport v1 decision.
 - Shipped **RuntimeGraphDriftReport safety review** — seventy-fifth slice
   on the codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch. Read-only end-to-end review of the

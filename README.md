@@ -1103,6 +1103,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Capability Spine Integration Review has shipped. Seventy-sixth
+# slice on the codebase-intel-classic capability-ontology track. Strategy /
+# architecture-review batch. Read-only mapping of the classic intent surfaces
+# onto the Rekon artifact spine.
+#   - intent:assess maps to IntentAssessmentReport.
+#   - intent:prepare maps to PreparedIntentPlan.
+#   - intent:status maps to IntentStatusReport.
+#   - intent:go remains deferred.
+#   - Intent parity depends on StepCapabilityGraph, HandoffContract,
+#     HandoffCoverageReport, RuntimeGraphObservationReport, and
+#     RuntimeGraphDriftReport.
+#   - No intent implemented, no artifact registered, no CLI command, no
+#     source writes.
+#
+# Recommendation: Option B (staged intent artifact spine). Recommended next
+# slice: IntentAssessmentReport v1 decision.
+#
 # RuntimeGraphDriftReport safety review has shipped. Seventy-fifth slice on
 # the codebase-intel-classic capability-ontology track. Strategy /
 # safety-review batch. Read-only end-to-end review of the

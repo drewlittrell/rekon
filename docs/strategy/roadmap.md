@@ -2640,6 +2640,22 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- Intent Capability Spine Integration Review (P1.1
+  intent-capability-spine-integration-review slice): **seventy-sixth slice on
+  the codebase-intel-classic capability-ontology track. Strategy /
+  architecture-review batch.** Read-only mapping of the classic intent
+  surfaces (`intent:assess` / `intent:prepare` / `intent:go` /
+  `intent:status`) onto the Rekon artifact spine: assess →
+  `IntentAssessmentReport`, prepare → `PreparedIntentPlan`, status →
+  `IntentStatusReport`, go deferred. **Recommendation: Option B (staged
+  intent artifact spine); first target IntentAssessmentReport v1 decision.**
+  Honest finding: classic intent did not consume the
+  step/handoff/runtime-graph/drift spine; Rekon intent extends parity by
+  wiring StepCapabilityGraph / HandoffContract / HandoffCoverageReport /
+  RuntimeGraphObservationReport / RuntimeGraphDriftReport into readiness. No
+  intent implemented; no artifact registered; no CLI command; no source
+  writes. 17-heading memo + 4 tables + 18-assertion docs test + review packet.
+  Recommended next slice: IntentAssessmentReport v1 decision.
 - RuntimeGraphDriftReport safety review (P1.1
   runtime-graph-drift-report-safety-review slice): **seventy-fifth slice on
   the codebase-intel-classic capability-ontology track. Strategy /
