@@ -2640,6 +2640,17 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- StepCapabilityGraph safety review (P1.1
+  step-capability-graph-safety-review slice): **sixty-third slice on the
+  capability-ontology track.** Strategy / safety-review batch. Read-only
+  review of `StepCapabilityGraph` v1 at `783b7df`. **Recommendation: safe /
+  stable as expected workflow topology (no blocker).** Pinned:
+  StepCapabilityGraph is expected workflow topology, not runtime truth; not
+  CapabilityMap v2; optional config grouping/labeling only; no
+  HandoffContract; no handoff coverage; no runtime graph drift; no WorkOrder
+  / VerificationPlan; intent deferred. New memo + 16-assertion docs test +
+  review packet. Recommended next slice: HandoffContract architecture / v1
+  decision.
 - StepCapabilityGraph v1 (P1.1 step-capability-graph slice): **sixty-second
   slice on the capability-ontology track.** Product capability batch.
   Implements the first artifact in the staged spine. New artifact type

@@ -64,3 +64,5 @@ recorded as an `unresolvedCapability` rather than force-fit.
 - [Classic step-capability / handoff / runtime drift parity audit](../strategy/classic-step-capability-handoff-runtime-drift-parity-audit.md)
 - [CapabilityMap artifact](../artifacts/capability-map.md)
 - [CapabilityPhraseReport artifact](../artifacts/capability-phrase-report.md)
+
+> See also: [StepCapabilityGraph safety review](../strategy/step-capability-graph-safety-review.md) — declares StepCapabilityGraph v1 safe / stable as expected workflow topology (not CapabilityMap v2, not runtime truth; no handoff coverage / drift / HandoffContract / WorkOrder / VerificationPlan / intent).

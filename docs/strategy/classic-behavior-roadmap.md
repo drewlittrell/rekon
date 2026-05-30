@@ -6256,6 +6256,16 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **StepCapabilityGraph safety review (P1.1
+  step-capability-graph-safety-review slice).** ✅ Shipped. **Sixty-third
+  slice on the capability-ontology track.** Strategy / safety-review batch.
+  Read-only review of `StepCapabilityGraph` v1. **Recommendation: safe /
+  stable as expected workflow topology (no blocker).** Pinned: expected
+  workflow topology, not runtime truth; not CapabilityMap v2; optional
+  config grouping/labeling only; no HandoffContract / handoff coverage /
+  runtime graph drift / WorkOrder / VerificationPlan; intent deferred. New
+  memo + 16-assertion docs test + review packet. Recommended next slice:
+  HandoffContract architecture / v1 decision.
 - **StepCapabilityGraph v1 (P1.1 step-capability-graph slice).** ✅ Shipped.
   **Sixty-second slice on the capability-ontology track.** Product
   capability batch. First artifact in the staged step/handoff/runtime graph

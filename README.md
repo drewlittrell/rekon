@@ -1103,6 +1103,34 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# StepCapabilityGraph safety review has shipped. Sixty-third slice on
+# the codebase-intel-classic capability-ontology track. Strategy /
+# safety-review batch.
+#
+# Read-only end-to-end review of the StepCapabilityGraph v1
+# implementation shipped at 783b7df. Recommendation: safe / stable as
+# expected workflow topology (no blocker).
+#   - StepCapabilityGraph is expected workflow topology, not runtime
+#     truth.
+#   - StepCapabilityGraph is workflow topology, not CapabilityMap v2.
+#   - Optional .rekon/step-capability-map.json config is
+#     grouping/labeling only.
+#   - It does not create HandoffContract.
+#   - It does not model handoff coverage.
+#   - It does not detect runtime graph drift.
+#   - It does not create WorkOrder or VerificationPlan.
+#   - Intent implementation remains deferred.
+#
+# New strategy memo
+# docs/strategy/step-capability-graph-safety-review.md (12 headings + 4
+# tables). New 16-assertion docs test. Review packet
+# .rekon-dev/review-packets/step-capability-graph-safety-review.md.
+#
+# No runtime behavior changes. No source under packages/ modified. No new
+# artifact type. No new CLI command. No version bump. No npm publish.
+#
+# Recommended next slice: HandoffContract architecture / v1 decision.
+#
 # StepCapabilityGraph v1 has shipped. Sixty-second slice on the
 # codebase-intel-classic capability-ontology track. Product capability
 # batch.

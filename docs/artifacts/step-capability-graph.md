@@ -147,3 +147,5 @@ summary stating that no runtime coverage, drift, `WorkOrder`, or
 - [CapabilityPhraseReport artifact](capability-phrase-report.md)
 - [Roadmap](../strategy/roadmap.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+
+> See also: [StepCapabilityGraph safety review](../strategy/step-capability-graph-safety-review.md) — declares StepCapabilityGraph v1 safe / stable as expected workflow topology (not CapabilityMap v2, not runtime truth; no handoff coverage / drift / HandoffContract / WorkOrder / VerificationPlan / intent).

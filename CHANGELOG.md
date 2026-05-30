@@ -4,6 +4,28 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **StepCapabilityGraph safety review** — sixty-third slice on
+  the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  `StepCapabilityGraph` v1 implementation shipped at `783b7df`.
+  **Recommendation: safe / stable as expected workflow topology (no
+  blocker).** Grounded by re-reading the kernel-repo-model type /
+  factory / validator / schema, the `buildStepCapabilityGraph` +
+  `parseStepCapabilityGraphConfig` helper, and the `rekon step graph
+  build` CLI branch. Pinned: StepCapabilityGraph is expected workflow
+  topology, not runtime truth; StepCapabilityGraph is workflow topology,
+  not CapabilityMap v2; optional .rekon/step-capability-map.json config
+  is grouping/labeling only; StepCapabilityGraph v1 does not create
+  HandoffContract; does not model handoff coverage; does not detect
+  runtime graph drift; does not create WorkOrder or VerificationPlan;
+  intent implementation remains deferred. New strategy memo
+  `docs/strategy/step-capability-graph-safety-review.md` (12 headings +
+  4 tables: surface / matching / boundary / option). New 16-assertion
+  docs test. Review packet
+  `.rekon-dev/review-packets/step-capability-graph-safety-review.md`. No
+  runtime behavior changes. No source under `packages/` modified. No new
+  artifact type. No new CLI command. No npm publish. No version bump.
+  Recommended next slice: HandoffContract architecture / v1 decision.
 - Shipped **StepCapabilityGraph v1** — sixty-second slice on the
   codebase-intel-classic capability-ontology track. Product capability
   batch. Implements the first artifact in the staged step/handoff/runtime
