@@ -2640,6 +2640,21 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- RuntimeGraphDriftReport v1 (P1.1 runtime-graph-drift-report slice):
+  **seventy-fourth slice on the codebase-intel-classic capability-ontology
+  track. Product-capability batch.** Registers the `RuntimeGraphDriftReport`
+  artifact (category `actions`) and a read-only generator comparing
+  `StepCapabilityGraph` / `HandoffContract` / `HandoffCoverageReport` /
+  `RuntimeGraphObservationReport` for expected-vs-observed runtime graph
+  drift. New `@rekon/capability-model.buildRuntimeGraphDriftReport` + the
+  `rekon runtime graph drift` CLI. Drift rows: in-sync / missing-expected /
+  added-observed / uncovered-handoff / unresolved-contract /
+  observation-missing / not-evaluated (severity-bucketed; observation absent
+  → observation-missing). Not runtime observation; not HandoffCoverageReport;
+  not PathFreshnessReport / lineage freshness; does not read raw event logs
+  directly; no WorkOrder / VerificationPlan / intent. 21-assertion contract
+  test + 10-assertion docs test + review packet. The final classic-parity
+  drift layer. Recommended next slice: RuntimeGraphDriftReport safety review.
 - RuntimeGraphDriftReport v1 decision (P1.1
   runtime-graph-drift-report-v1-decision slice): **seventy-third slice on
   the codebase-intel-classic capability-ontology track. Strategy /

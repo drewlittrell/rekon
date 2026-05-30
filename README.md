@@ -1103,6 +1103,28 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# RuntimeGraphDriftReport v1 implementation has shipped. Seventy-fourth
+# slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch. Registers the RuntimeGraphDriftReport artifact
+# (category actions) and a read-only generator comparing StepCapabilityGraph
+# / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport
+# for expected-vs-observed runtime graph drift via rekon runtime graph
+# drift. Drift rows: in-sync / missing-expected / added-observed /
+# uncovered-handoff / unresolved-contract / observation-missing /
+# not-evaluated (severity-bucketed).
+#   - RuntimeGraphDriftReport is expected-vs-observed runtime graph drift,
+#     not runtime observation.
+#   - RuntimeGraphDriftReport is not HandoffCoverageReport.
+#   - RuntimeGraphDriftReport is not PathFreshnessReport or artifact lineage
+#     freshness.
+#   - RuntimeGraphDriftReport v1 does not read raw handoff event logs
+#     directly.
+#   - RuntimeGraphDriftReport v1 does not create WorkOrder / VerificationPlan.
+#   - Intent implementation remains deferred.
+#
+# The final classic-parity drift layer. Recommended next slice:
+# RuntimeGraphDriftReport safety review.
+#
 # RuntimeGraphDriftReport v1 decision has shipped. Seventy-third slice on
 # the codebase-intel-classic capability-ontology track. Strategy /
 # architecture decision batch. Decides the v1 model for

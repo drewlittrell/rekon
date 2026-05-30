@@ -6256,6 +6256,18 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **RuntimeGraphDriftReport v1 (P1.1 runtime-graph-drift-report slice).**
+  ✅ Shipped. Seventy-fourth slice. Registers `RuntimeGraphDriftReport`
+  (category `actions`) + `buildRuntimeGraphDriftReport`
+  (`@rekon/capability-model`) + `rekon runtime graph drift` CLI. Compares
+  `StepCapabilityGraph` / `HandoffContract` / `HandoffCoverageReport` /
+  `RuntimeGraphObservationReport` for expected-vs-observed runtime graph
+  drift; in-sync / missing-expected / added-observed / uncovered-handoff /
+  unresolved-contract / observation-missing / not-evaluated. Not runtime
+  observation; not HandoffCoverageReport; not PathFreshnessReport / lineage
+  freshness; does not read raw event logs directly; no WorkOrder /
+  VerificationPlan / intent. The final classic-parity drift layer. Next:
+  RuntimeGraphDriftReport safety review.
 - **RuntimeGraphDriftReport v1 decision (P1.1
   runtime-graph-drift-report-v1-decision slice).** ✅ Shipped. Seventy-third
   slice. Decides the v1 model for `RuntimeGraphDriftReport`

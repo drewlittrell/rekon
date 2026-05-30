@@ -69,9 +69,15 @@ import modelCapability, {
   HANDOFF_COVERAGE_REPORT_ARTIFACT_ID_PREFIX,
   HANDOFF_EVENT_LOG_PATH,
   buildRuntimeGraphObservationReport,
+  buildRuntimeGraphDriftReport,
   RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX,
   RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH,
+  RUNTIME_GRAPH_DRIFT_REPORT_ARTIFACT_ID_PREFIX,
   type HandoffCoverageContractLike,
+  type RuntimeGraphDriftStepGraphLike,
+  type RuntimeGraphDriftHandoffContractLike,
+  type RuntimeGraphDriftCoverageReportLike,
+  type RuntimeGraphDriftObservationReportLike,
   STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX,
   STEP_CAPABILITY_GRAPH_CONFIG_PATH,
   type BridgeFindingLifecycleFindingReportLike,
@@ -142,6 +148,7 @@ import {
   type HandoffContract,
   type HandoffCoverageReport,
   type RuntimeGraphObservationReport,
+  type RuntimeGraphDriftReport,
   type ObservedRepo,
   type OwnershipMap,
   type StepCapabilityGraph,
@@ -3568,6 +3575,105 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(
         "No RuntimeGraphDriftReport, WorkOrder, or VerificationPlan artifacts were created.",
       );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "runtime" && subcommand === "graph" && positional === "drift") {
+    // `rekon runtime graph drift [--root <path>] [--json] [--step-graph <ref>]
+    // [--handoff-contract <ref>] [--handoff-coverage-report <ref>]
+    // [--runtime-observation-report <ref>]` — RuntimeGraphDriftReport v1.
+    //
+    // Compares the four already-materialized graph artifacts
+    // (StepCapabilityGraph, HandoffContract, HandoffCoverageReport,
+    // RuntimeGraphObservationReport) into expected-vs-observed runtime graph
+    // drift rows. This is drift, NOT runtime observation, NOT
+    // HandoffCoverageReport, and NOT PathFreshnessReport / artifact lineage
+    // freshness. It reads NO raw handoff event logs, re-evaluates NO
+    // coverage, mutates nothing, and creates no WorkOrder / VerificationPlan.
+    // See docs/artifacts/runtime-graph-drift-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const resolveAndRead = async <T>(flagName: string, type: string): Promise<{ value: T | undefined; ref: ArtifactRef | undefined }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon runtime graph drift --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        const entries = await store.list(type);
+        entry = entries.at(-1);
+      }
+      if (!entry) return { value: undefined, ref: undefined };
+      const value = (await store.read(entry)) as T;
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      return { value, ref };
+    };
+
+    const stepGraph = await resolveAndRead<RuntimeGraphDriftStepGraphLike>("step-graph", "StepCapabilityGraph");
+    const contract = await resolveAndRead<RuntimeGraphDriftHandoffContractLike>("handoff-contract", "HandoffContract");
+    const coverage = await resolveAndRead<RuntimeGraphDriftCoverageReportLike>("handoff-coverage-report", "HandoffCoverageReport");
+    const observation = await resolveAndRead<RuntimeGraphDriftObservationReportLike>("runtime-observation-report", "RuntimeGraphObservationReport");
+
+    const inputRefs = [stepGraph.ref, contract.ref, coverage.ref, observation.ref].filter((ref): ref is ArtifactRef => !!ref);
+
+    const generatedAt = new Date().toISOString();
+    const header: ArtifactHeader = {
+      artifactType: "RuntimeGraphDriftReport",
+      artifactId: `${RUNTIME_GRAPH_DRIFT_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.runtime-graph-drift", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.85 },
+    };
+
+    const report: RuntimeGraphDriftReport = buildRuntimeGraphDriftReport({
+      header,
+      stepCapabilityGraph: stepGraph.value,
+      stepCapabilityGraphRef: stepGraph.ref,
+      handoffContract: contract.value,
+      handoffContractRef: contract.ref,
+      handoffCoverageReport: coverage.value,
+      handoffCoverageReportRef: coverage.ref,
+      runtimeGraphObservationReport: observation.value,
+      runtimeGraphObservationReportRef: observation.ref,
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        { artifact: { type: ref.type, id: ref.id }, summary: report.summary, source: report.source },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Runtime graph drift report");
+      lines.push("");
+      lines.push(`Total rows: ${report.summary.total}`);
+      lines.push(`In sync: ${report.summary.inSync}`);
+      lines.push(`Missing expected: ${report.summary.missingExpected}`);
+      lines.push(`Added observed: ${report.summary.addedObserved}`);
+      lines.push(`Uncovered handoff: ${report.summary.uncoveredHandoff}`);
+      lines.push(`Unresolved contract: ${report.summary.unresolvedContract}`);
+      lines.push(`Observation missing: ${report.summary.observationMissing}`);
+      lines.push(`Not evaluated: ${report.summary.notEvaluated}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push("No WorkOrder or VerificationPlan artifacts were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;

@@ -4,6 +4,28 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **RuntimeGraphDriftReport v1** — seventy-fourth slice on the
+  codebase-intel-classic capability-ontology track. Product-capability
+  batch. Registers the `RuntimeGraphDriftReport` artifact type (category
+  `actions`) and a read-only generator comparing the four materialized
+  graph artifacts (`StepCapabilityGraph`, `HandoffContract`,
+  `HandoffCoverageReport`, `RuntimeGraphObservationReport`) for
+  expected-vs-observed runtime graph drift. New `@rekon/capability-model`
+  `buildRuntimeGraphDriftReport`, the `rekon runtime graph drift [--root]
+  [--json] [--step-graph] [--handoff-contract] [--handoff-coverage-report]
+  [--runtime-observation-report]` CLI, and `RuntimeGraphDriftReport` types
+  + factory + validator + schema in `@rekon/kernel-repo-model`. Drift rows:
+  `in-sync` / `missing-expected` / `added-observed` /
+  `uncovered-handoff` / `unresolved-contract` / `observation-missing` /
+  `not-evaluated` (severity-bucketed; observation absent or empty →
+  observation-missing, never false drift). **Expected-vs-observed runtime
+  graph drift, not runtime observation**; not HandoffCoverageReport; not
+  PathFreshnessReport or artifact lineage freshness; reads no raw handoff
+  event logs directly; re-evaluates no coverage; creates no `WorkOrder` /
+  `VerificationPlan`; intent deferred; mutates nothing. The **final
+  classic-parity drift layer** of the step/handoff/runtime-graph spine.
+  21-assertion contract test + 10-assertion docs test + review packet. No
+  version bump; no npm publish.
 - Shipped **RuntimeGraphDriftReport v1 decision** — seventy-third slice on
   the codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch. Decides the v1 model for

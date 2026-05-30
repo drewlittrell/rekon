@@ -269,6 +269,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   HandoffContract: "actions",
   HandoffCoverageReport: "actions",
   RuntimeGraphObservationReport: "graphs",
+  RuntimeGraphDriftReport: "actions",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [

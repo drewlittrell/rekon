@@ -110,6 +110,16 @@ export {
   parseRuntimeGraphObservationEventLog,
 } from "./runtime-graph-observation-report.js";
 
+export {
+  type BuildRuntimeGraphDriftReportInput,
+  type RuntimeGraphDriftCoverageReportLike,
+  type RuntimeGraphDriftHandoffContractLike,
+  type RuntimeGraphDriftObservationReportLike,
+  type RuntimeGraphDriftStepGraphLike,
+  RUNTIME_GRAPH_DRIFT_REPORT_ARTIFACT_ID_PREFIX,
+  buildRuntimeGraphDriftReport,
+} from "./runtime-graph-drift-report.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

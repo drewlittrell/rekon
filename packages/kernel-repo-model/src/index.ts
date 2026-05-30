@@ -3830,6 +3830,301 @@ export const runtimeGraphObservationReportSchema: ArtifactSchema<RuntimeGraphObs
   parse: assertRuntimeGraphObservationReport,
 };
 
+// ---- RuntimeGraphDriftReport (v1, expected-vs-observed drift) ----
+//
+// Expected-vs-observed runtime graph drift over the four already-materialized
+// graph artifacts (`StepCapabilityGraph`, `HandoffContract`,
+// `HandoffCoverageReport`, `RuntimeGraphObservationReport`). It is
+// **expected-vs-observed runtime graph drift, not runtime observation**, and
+// **not HandoffCoverageReport**, and **not PathFreshnessReport or artifact
+// lineage freshness**. v1 reads **no** raw handoff event logs directly,
+// re-evaluates **no** coverage, and creates no `WorkOrder` /
+// `VerificationPlan`.
+
+export type RuntimeGraphDriftStatus =
+  | "in-sync"
+  | "missing-expected"
+  | "added-observed"
+  | "uncovered-handoff"
+  | "unresolved-contract"
+  | "observation-missing"
+  | "not-evaluated";
+
+export type RuntimeGraphDriftKind =
+  | "step-edge"
+  | "handoff"
+  | "coverage"
+  | "observation"
+  | "contract";
+
+export type RuntimeGraphDriftSeverity = "low" | "medium" | "high";
+
+export type RuntimeGraphDriftRow = {
+  id: string;
+  kind: RuntimeGraphDriftKind;
+  status: RuntimeGraphDriftStatus;
+  severity: RuntimeGraphDriftSeverity;
+  message: string;
+  stepId?: string;
+  fromStepId?: string;
+  toStepId?: string;
+  handoffId?: string;
+  coverageRowId?: string;
+  observedEdgeId?: string;
+  expectedRef?: ArtifactRef;
+  observedRef?: ArtifactRef;
+  evidenceRefs: ArtifactRef[];
+};
+
+export type RuntimeGraphDriftReportSource = {
+  stepCapabilityGraphRef?: ArtifactRef;
+  handoffContractRef?: ArtifactRef;
+  handoffCoverageReportRef?: ArtifactRef;
+  runtimeGraphObservationReportRef?: ArtifactRef;
+};
+
+export type RuntimeGraphDriftReportSummary = {
+  total: number;
+  inSync: number;
+  missingExpected: number;
+  addedObserved: number;
+  uncoveredHandoff: number;
+  unresolvedContract: number;
+  observationMissing: number;
+  notEvaluated: number;
+  bySeverity: Record<string, number>;
+};
+
+export type RuntimeGraphDriftReport = {
+  header: ArtifactHeader;
+  source: RuntimeGraphDriftReportSource;
+  summary: RuntimeGraphDriftReportSummary;
+  rows: RuntimeGraphDriftRow[];
+};
+
+const RUNTIME_GRAPH_DRIFT_STATUSES = new Set<string>([
+  "in-sync",
+  "missing-expected",
+  "added-observed",
+  "uncovered-handoff",
+  "unresolved-contract",
+  "observation-missing",
+  "not-evaluated",
+]);
+
+const RUNTIME_GRAPH_DRIFT_KINDS = new Set<string>([
+  "step-edge",
+  "handoff",
+  "coverage",
+  "observation",
+  "contract",
+]);
+
+const RUNTIME_GRAPH_DRIFT_SEVERITIES = new Set<string>(["low", "medium", "high"]);
+
+// Map each drift status to its summary count field.
+const RUNTIME_GRAPH_DRIFT_STATUS_FIELD: Record<string, keyof RuntimeGraphDriftReportSummary> = {
+  "in-sync": "inSync",
+  "missing-expected": "missingExpected",
+  "added-observed": "addedObserved",
+  "uncovered-handoff": "uncoveredHandoff",
+  "unresolved-contract": "unresolvedContract",
+  "observation-missing": "observationMissing",
+  "not-evaluated": "notEvaluated",
+};
+
+export function createRuntimeGraphDriftReport(input: RuntimeGraphDriftReport): RuntimeGraphDriftReport {
+  const rows: RuntimeGraphDriftRow[] = [];
+  const seen = new Set<string>();
+  for (const raw of input.rows ?? []) {
+    if (!raw || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const row: RuntimeGraphDriftRow = {
+      id: raw.id,
+      kind: raw.kind,
+      status: raw.status,
+      severity: raw.severity,
+      message: raw.message,
+      evidenceRefs: normalizeRefs(raw.evidenceRefs ?? []),
+    };
+    for (const field of ["stepId", "fromStepId", "toStepId", "handoffId", "coverageRowId", "observedEdgeId"] as const) {
+      const value = raw[field];
+      if (typeof value === "string" && value.length > 0) row[field] = value;
+    }
+    if (raw.expectedRef) row.expectedRef = assertArtifactRef(raw.expectedRef);
+    if (raw.observedRef) row.observedRef = assertArtifactRef(raw.observedRef);
+    rows.push(row);
+  }
+  // Deterministic ordering: by kind, then status, then id.
+  rows.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
+    if (a.status !== b.status) return a.status.localeCompare(b.status);
+    return a.id.localeCompare(b.id);
+  });
+
+  const summary: RuntimeGraphDriftReportSummary = {
+    total: rows.length,
+    inSync: 0,
+    missingExpected: 0,
+    addedObserved: 0,
+    uncoveredHandoff: 0,
+    unresolvedContract: 0,
+    observationMissing: 0,
+    notEvaluated: 0,
+    bySeverity: { low: 0, medium: 0, high: 0 },
+  };
+  for (const row of rows) {
+    const field = RUNTIME_GRAPH_DRIFT_STATUS_FIELD[row.status];
+    if (field && field !== "bySeverity" && field !== "total") {
+      (summary[field] as number) += 1;
+    }
+    if (RUNTIME_GRAPH_DRIFT_SEVERITIES.has(row.severity)) {
+      summary.bySeverity[row.severity] = (summary.bySeverity[row.severity] ?? 0) + 1;
+    }
+  }
+
+  const source: RuntimeGraphDriftReportSource = {};
+  for (const field of ["stepCapabilityGraphRef", "handoffContractRef", "handoffCoverageReportRef", "runtimeGraphObservationReportRef"] as const) {
+    const ref = input.source?.[field];
+    if (ref) source[field] = assertArtifactRef(ref);
+  }
+
+  return assertRuntimeGraphDriftReport({ header: input.header, source, summary, rows });
+}
+
+export function validateRuntimeGraphDriftReport(value: unknown): ValidationResult<RuntimeGraphDriftReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "RuntimeGraphDriftReport", "$.header", issues);
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    for (const field of ["stepCapabilityGraphRef", "handoffContractRef", "handoffCoverageReportRef", "runtimeGraphObservationReportRef"] as const) {
+      const ref = (value.source as Record<string, unknown>)[field];
+      if (ref !== undefined) {
+        const result = validateArtifactRef(ref);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+      }
+    }
+  }
+
+  let rows: unknown[] = [];
+  if (!Array.isArray(value.rows)) {
+    issues.push({ path: "$.rows", message: "Expected an array." });
+  } else {
+    rows = value.rows;
+    const seenIds = new Set<string>();
+    rows.forEach((row, index) => validateRuntimeGraphDriftRow(row, `$.rows[${index}]`, issues, seenIds));
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const list = Array.isArray(rows) ? rows.filter(isRecord) as Array<Record<string, unknown>> : [];
+    const byStatus = (status: string): number => list.filter((row) => row.status === status).length;
+    const computed: Record<string, number> = {
+      total: list.length,
+      inSync: byStatus("in-sync"),
+      missingExpected: byStatus("missing-expected"),
+      addedObserved: byStatus("added-observed"),
+      uncoveredHandoff: byStatus("uncovered-handoff"),
+      unresolvedContract: byStatus("unresolved-contract"),
+      observationMissing: byStatus("observation-missing"),
+      notEvaluated: byStatus("not-evaluated"),
+    };
+    for (const field of Object.keys(computed)) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      } else if (supplied !== computed[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${computed[field]} (recomputed).` });
+      }
+    }
+    const bySeverity = (value.summary as Record<string, unknown>).bySeverity;
+    if (!isRecord(bySeverity)) {
+      issues.push({ path: "$.summary.bySeverity", message: "Expected an object." });
+    } else {
+      for (const severity of ["low", "medium", "high"] as const) {
+        const computedCount = list.filter((row) => row.severity === severity).length;
+        const supplied = bySeverity[severity];
+        if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+          issues.push({ path: `$.summary.bySeverity.${severity}`, message: "Expected a non-negative integer." });
+        } else if (supplied !== computedCount) {
+          issues.push({ path: `$.summary.bySeverity.${severity}`, message: `Expected ${computedCount} (recomputed).` });
+        }
+      }
+    }
+  }
+
+  return validationResult(value as RuntimeGraphDriftReport, issues);
+}
+
+function validateRuntimeGraphDriftRow(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate drift row id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.kind !== "string" || !RUNTIME_GRAPH_DRIFT_KINDS.has(value.kind)) {
+    issues.push({ path: `${path}.kind`, message: "Expected one of step-edge, handoff, coverage, observation, contract." });
+  }
+  if (typeof value.status !== "string" || !RUNTIME_GRAPH_DRIFT_STATUSES.has(value.status)) {
+    issues.push({ path: `${path}.status`, message: "Expected a valid drift status." });
+  }
+  if (typeof value.severity !== "string" || !RUNTIME_GRAPH_DRIFT_SEVERITIES.has(value.severity)) {
+    issues.push({ path: `${path}.severity`, message: "Expected one of low, medium, high." });
+  }
+  if (typeof value.message !== "string" || value.message.length === 0) {
+    issues.push({ path: `${path}.message`, message: "Expected a non-empty string." });
+  }
+  for (const field of ["stepId", "fromStepId", "toStepId", "handoffId", "coverageRowId", "observedEdgeId"] as const) {
+    const supplied = value[field];
+    if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string." });
+    }
+  }
+  for (const field of ["expectedRef", "observedRef"] as const) {
+    const ref = value[field];
+    if (ref !== undefined) {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.${field}`));
+    }
+  }
+  if (!Array.isArray(value.evidenceRefs)) {
+    issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array." });
+  } else {
+    value.evidenceRefs.forEach((ref, index) => {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.evidenceRefs[${index}]`));
+    });
+  }
+}
+
+export function assertRuntimeGraphDriftReport(value: unknown): RuntimeGraphDriftReport {
+  return assertValid(validateRuntimeGraphDriftReport(value), "RuntimeGraphDriftReport");
+}
+
+export const runtimeGraphDriftReportSchema: ArtifactSchema<RuntimeGraphDriftReport> = {
+  validate: validateRuntimeGraphDriftReport,
+  parse: assertRuntimeGraphDriftReport,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 
