@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **RuntimeGraphDriftReport v1 decision** — seventy-third slice on
+  the codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides the v1 model for
+  `RuntimeGraphDriftReport`, the fifth and final spine artifact: compares
+  `StepCapabilityGraph` / `HandoffContract` / `HandoffCoverageReport` /
+  `RuntimeGraphObservationReport` for expected-vs-observed runtime graph
+  drift. **Recommendation: Option B — compare existing graph artifacts**
+  (drift rows: `missing-expected` / `added-observed` /
+  `uncovered-handoff` / `unresolved-contract` / `observation-missing` /
+  `not-evaluated`, severity-bucketed; observation absent →
+  observation-missing / not-evaluated, never false drift). Rejected: defer
+  (A), read-raw-events-directly (C), coverage-alone (D), freshness-as-drift
+  (E). Pinned: expected-vs-observed runtime graph drift, not runtime
+  observation; not HandoffCoverageReport; not PathFreshnessReport or artifact
+  lineage freshness; does not read raw handoff event logs directly; no
+  `WorkOrder` / `VerificationPlan`; intent deferred. New
+  `docs/strategy/runtime-graph-drift-report-v1-decision.md` (14 headings +
+  4 tables) + 15-assertion docs test + review packet. No source changes; no
+  artifact registration; no CLI; no version bump; no npm publish. Recommended
+  next slice: RuntimeGraphDriftReport v1 implementation.
 - Shipped **RuntimeGraphObservationReport safety review** — seventy-second
   slice on the codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch. Read-only end-to-end review of the

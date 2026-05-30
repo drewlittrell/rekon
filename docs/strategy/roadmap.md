@@ -2640,6 +2640,23 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- RuntimeGraphDriftReport v1 decision (P1.1
+  runtime-graph-drift-report-v1-decision slice): **seventy-third slice on
+  the codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch.** Fixes the v1 model for
+  `RuntimeGraphDriftReport`, the fifth and final spine artifact: compares
+  `StepCapabilityGraph` / `HandoffContract` / `HandoffCoverageReport` /
+  `RuntimeGraphObservationReport` for expected-vs-observed runtime graph
+  drift. **Recommendation: Option B — compare existing graph artifacts**
+  (drift rows: missing-expected / added-observed / uncovered-handoff /
+  unresolved-contract / observation-missing / not-evaluated,
+  severity-bucketed). Rejected: defer (A), read-raw-events (C),
+  coverage-alone (D), freshness-as-drift (E). Pinned: expected-vs-observed
+  runtime graph drift, not observation; not HandoffCoverageReport; not
+  PathFreshnessReport / lineage freshness; does not read raw event logs
+  directly; no WorkOrder / VerificationPlan; intent deferred. 14-heading memo
+  + 4 tables + 15-assertion docs test + review packet. Recommended next
+  slice: RuntimeGraphDriftReport v1 implementation.
 - RuntimeGraphObservationReport safety review (P1.1
   runtime-graph-observation-report-safety-review slice): **seventy-second
   slice on the codebase-intel-classic capability-ontology track. Strategy /

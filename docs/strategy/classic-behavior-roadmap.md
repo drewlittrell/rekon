@@ -6256,6 +6256,16 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **RuntimeGraphDriftReport v1 decision (P1.1
+  runtime-graph-drift-report-v1-decision slice).** ✅ Shipped. Seventy-third
+  slice. Decides the v1 model for `RuntimeGraphDriftReport`
+  (expected-vs-observed runtime graph drift over the four spine artifacts).
+  **Recommendation: Option B — compare existing graph artifacts.** Pinned:
+  expected-vs-observed runtime graph drift, not observation; not
+  HandoffCoverageReport; not PathFreshnessReport / lineage freshness; does
+  not read raw event logs directly; no WorkOrder / VerificationPlan; intent
+  deferred. Recommended next slice: RuntimeGraphDriftReport v1
+  implementation.
 - **RuntimeGraphObservationReport safety review (P1.1
   runtime-graph-observation-report-safety-review slice).** ✅ Shipped.
   Seventy-second slice. Read-only review of `RuntimeGraphObservationReport`

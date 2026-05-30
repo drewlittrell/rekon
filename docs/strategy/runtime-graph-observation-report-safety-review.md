@@ -236,3 +236,5 @@ writes no source files, publishes nothing to npm, and bumps no version.
 - [Classic step-capability / handoff / runtime drift parity audit](classic-step-capability-handoff-runtime-drift-parity-audit.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [RuntimeGraphDriftReport v1 decision](runtime-graph-drift-report-v1-decision.md) — the next spine layer (final classic-parity drift): compares StepCapabilityGraph / HandoffContract / HandoffCoverageReport / RuntimeGraphObservationReport for expected-vs-observed runtime graph drift. Expected-vs-observed runtime graph drift, not runtime observation; not HandoffCoverageReport; not PathFreshnessReport or artifact lineage freshness; does not read raw handoff event logs directly; no WorkOrder / VerificationPlan; intent deferred.
