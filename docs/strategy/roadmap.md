@@ -2640,6 +2640,16 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- HandoffContract safety review (P1.1 handoff-contract-safety-review
+  slice): **sixty-sixth slice on the capability-ontology track.** Strategy /
+  safety-review batch. Read-only review of `HandoffContract` v1 at
+  `0c2be5d`. **Recommendation: safe / stable as declared baton policy (no
+  blocker).** Pinned: declared baton policy, not StepCapabilityGraph
+  topology; no handoff coverage; no runtime events; no runtime graph drift;
+  no WorkOrder / VerificationPlan; no intent; HandoffCoverageReport is the
+  next layer; observation / drift deferred. New memo + 16-assertion docs
+  test + review packet. Recommended next slice: HandoffCoverageReport
+  architecture / v1 decision.
 - HandoffContract v1 (P1.1 handoff-contract slice): **sixty-fifth slice on
   the capability-ontology track.** Product capability batch. Implements the
   second spine artifact. New artifact type `HandoffContract`

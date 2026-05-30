@@ -4,6 +4,29 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **HandoffContract safety review** — sixty-sixth slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  `HandoffContract` v1 implementation shipped at `0c2be5d`.
+  **Recommendation: safe / stable as declared baton policy (no
+  blocker).** Grounded by re-reading the kernel-repo-model type /
+  factory / validator / schema, the `buildHandoffContract` +
+  `parseHandoffContractConfig` helper, and the `rekon handoff contract
+  build` CLI branch. Pinned: HandoffContract is declared baton policy,
+  not StepCapabilityGraph topology; HandoffContract v1 does not evaluate
+  handoff coverage; does not read runtime events; does not detect runtime
+  graph drift; does not create WorkOrder or VerificationPlan; does not
+  implement intent; HandoffCoverageReport remains the next layer after
+  HandoffContract; RuntimeGraphObservationReport and
+  RuntimeGraphDriftReport remain deferred. New strategy memo
+  `docs/strategy/handoff-contract-safety-review.md` (12 headings + 4
+  tables: surface / resolution / boundary / option). New 16-assertion
+  docs test. Review packet
+  `.rekon-dev/review-packets/handoff-contract-safety-review.md`. No
+  runtime behavior changes. No source under `packages/` modified. No new
+  artifact type. No new CLI command. No npm publish. No version bump.
+  Recommended next slice: HandoffCoverageReport architecture / v1
+  decision.
 - Shipped **HandoffContract v1** — sixty-fifth slice on the
   codebase-intel-classic capability-ontology track. Product capability
   batch. Implements the second artifact in the staged step/handoff/runtime

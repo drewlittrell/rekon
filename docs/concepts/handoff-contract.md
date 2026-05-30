@@ -57,3 +57,5 @@ observed. All remain deferred.
 - [StepCapabilityGraph artifact](../artifacts/step-capability-graph.md)
 - [Step capability graph concept](step-capability-graph.md)
 - [Classic step-capability / handoff / runtime drift parity audit](../strategy/classic-step-capability-handoff-runtime-drift-parity-audit.md)
+
+> See also: [HandoffContract safety review](../strategy/handoff-contract-safety-review.md) — declares HandoffContract v1 safe / stable as declared baton policy (not StepCapabilityGraph topology; no handoff coverage / runtime events / drift / WorkOrder / VerificationPlan / intent).

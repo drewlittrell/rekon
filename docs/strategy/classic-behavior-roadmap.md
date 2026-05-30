@@ -6256,6 +6256,15 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **HandoffContract safety review (P1.1 handoff-contract-safety-review
+  slice).** ✅ Shipped. **Sixty-sixth slice on the capability-ontology
+  track.** Strategy / safety-review batch. Read-only review of
+  `HandoffContract` v1. **Recommendation: safe / stable as declared baton
+  policy (no blocker).** Pinned: declared baton policy, not topology; no
+  handoff coverage / runtime events / drift; no WorkOrder / VerificationPlan;
+  no intent; HandoffCoverageReport is the next layer; observation / drift
+  deferred. New memo + 16-assertion docs test + review packet. Recommended
+  next slice: HandoffCoverageReport architecture / v1 decision.
 - **HandoffContract v1 (P1.1 handoff-contract slice).** ✅ Shipped.
   **Sixty-fifth slice on the capability-ontology track.** Product
   capability batch. Second artifact in the staged spine: declared baton
