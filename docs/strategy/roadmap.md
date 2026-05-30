@@ -2640,6 +2640,18 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- RuntimeGraphDriftReport safety review (P1.1
+  runtime-graph-drift-report-safety-review slice): **seventy-fifth slice on
+  the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch.** Read-only review of `RuntimeGraphDriftReport` v1 at
+  `41be345`. **Recommendation: safe / stable as expected-vs-observed
+  runtime graph drift (no blocker); the classic step/handoff/runtime-drift
+  spine is now complete enough to unblock intent architecture work.** Pinned:
+  drift, not observation; not HandoffCoverageReport; not PathFreshnessReport
+  / lineage freshness; reads no raw event logs; re-evaluates no coverage; no
+  WorkOrder / VerificationPlan; no intent. 15-heading memo + 4 tables +
+  16-assertion docs test + review packet. Recommended next slice: Intent
+  Capability Spine Integration Review.
 - RuntimeGraphDriftReport v1 (P1.1 runtime-graph-drift-report slice):
   **seventy-fourth slice on the codebase-intel-classic capability-ontology
   track. Product-capability batch.** Registers the `RuntimeGraphDriftReport`

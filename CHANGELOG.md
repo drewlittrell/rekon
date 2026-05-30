@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **RuntimeGraphDriftReport safety review** — seventy-fifth slice
+  on the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  `RuntimeGraphDriftReport` v1 implementation at `41be345`.
+  **Recommendation: safe / stable as expected-vs-observed runtime graph drift
+  (no blocker); the classic step/handoff/runtime-drift spine is now complete
+  enough to unblock intent architecture work.** Pinned: RuntimeGraphDriftReport
+  is expected-vs-observed runtime graph drift, not runtime observation; not
+  HandoffCoverageReport; not PathFreshnessReport or artifact lineage
+  freshness; reads no raw handoff event logs directly; re-evaluates no handoff
+  coverage from events; creates no `WorkOrder` / `VerificationPlan`;
+  implements no intent. New
+  `docs/strategy/runtime-graph-drift-report-safety-review.md` (15 headings +
+  4 tables) + 16-assertion docs test + review packet; no source changes; no
+  version bump; no npm publish. Recommended next slice: Intent Capability
+  Spine Integration Review.
 - Shipped **RuntimeGraphDriftReport v1** — seventy-fourth slice on the
   codebase-intel-classic capability-ontology track. Product-capability
   batch. Registers the `RuntimeGraphDriftReport` artifact type (category

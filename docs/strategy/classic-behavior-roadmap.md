@@ -6256,6 +6256,15 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **RuntimeGraphDriftReport safety review (P1.1
+  runtime-graph-drift-report-safety-review slice).** ✅ Shipped. Seventy-fifth
+  slice. Read-only review of `RuntimeGraphDriftReport` v1. **Recommendation:
+  safe / stable as expected-vs-observed runtime graph drift (no blocker); the
+  classic step/handoff/runtime-drift spine is complete enough to unblock
+  intent architecture work.** Pinned: drift, not observation; not
+  HandoffCoverageReport; not PathFreshnessReport / lineage freshness; reads no
+  raw event logs; re-evaluates no coverage; no WorkOrder / VerificationPlan /
+  intent. Next: Intent Capability Spine Integration Review.
 - **RuntimeGraphDriftReport v1 (P1.1 runtime-graph-drift-report slice).**
   ✅ Shipped. Seventy-fourth slice. Registers `RuntimeGraphDriftReport`
   (category `actions`) + `buildRuntimeGraphDriftReport`
