@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **RuntimeGraphObservationReport safety review** — seventy-second
+  slice on the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  `RuntimeGraphObservationReport` v1 implementation at `2c4ee04`.
+  **Recommendation: safe / stable as observed runtime graph (no blocker).**
+  Pinned: RuntimeGraphObservationReport is observed runtime graph, not
+  declared topology; not HandoffCoverageReport; evaluates no declared
+  handoff coverage; detects no runtime graph drift; creates no `WorkOrder`
+  / `VerificationPlan`; intent deferred; `RuntimeGraphDriftReport`
+  remains the next layer. New
+  `docs/strategy/runtime-graph-observation-report-safety-review.md` (15
+  headings + 4 tables) + 15-assertion docs test + review packet; no source
+  changes; no version bump; no npm publish. Recommended next slice:
+  RuntimeGraphDriftReport architecture / v1 decision.
 - Shipped **RuntimeGraphObservationReport v1** — seventy-first slice on
   the codebase-intel-classic capability-ontology track. Product-capability
   batch. Registers the `RuntimeGraphObservationReport` artifact type

@@ -2640,6 +2640,16 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- RuntimeGraphObservationReport safety review (P1.1
+  runtime-graph-observation-report-safety-review slice): **seventy-second
+  slice on the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch.** Read-only review of `RuntimeGraphObservationReport`
+  v1 at `2c4ee04`. **Recommendation: safe / stable as observed runtime
+  graph (no blocker).** Pinned: observed runtime graph, not declared
+  topology; not HandoffCoverageReport; no coverage evaluation / drift /
+  WorkOrder / VerificationPlan / intent; RuntimeGraphDriftReport is the next
+  layer. 15-heading memo + 4 tables + 15-assertion docs test + review packet.
+  Recommended next slice: RuntimeGraphDriftReport architecture / v1 decision.
 - RuntimeGraphObservationReport v1 (P1.1
   runtime-graph-observation-report slice): **seventy-first slice on the
   codebase-intel-classic capability-ontology track. Product-capability

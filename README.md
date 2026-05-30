@@ -1103,6 +1103,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# RuntimeGraphObservationReport safety review has shipped. Seventy-second
+# slice on the codebase-intel-classic capability-ontology track. Strategy /
+# safety-review batch. Read-only end-to-end review of the
+# RuntimeGraphObservationReport v1 implementation at 2c4ee04.
+#   - RuntimeGraphObservationReport is observed runtime graph, not declared
+#     topology.
+#   - RuntimeGraphObservationReport is not HandoffCoverageReport.
+#   - RuntimeGraphObservationReport v1 does not evaluate declared handoff
+#     coverage.
+#   - RuntimeGraphObservationReport v1 does not detect runtime graph drift.
+#   - RuntimeGraphObservationReport v1 does not create WorkOrder or
+#     VerificationPlan.
+#   - Intent implementation remains deferred.
+#
+# Recommendation: safe / stable as observed runtime graph (no blocker).
+# RuntimeGraphDriftReport remains the next layer. Recommended next slice:
+# RuntimeGraphDriftReport architecture / v1 decision.
+#
 # RuntimeGraphObservationReport v1 implementation has shipped.
 # Seventy-first slice on the codebase-intel-classic capability-ontology
 # track. Product-capability batch. Registers the
