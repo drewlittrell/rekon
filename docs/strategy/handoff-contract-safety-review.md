@@ -197,3 +197,5 @@ bumps no version.
 - [StepCapabilityGraph artifact](../artifacts/step-capability-graph.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [HandoffCoverageReport v1 decision](handoff-coverage-report-v1-decision.md) — the next spine layer: compares declared HandoffContract handoffs against an optional raw handoff event log (.rekon/handoff-events.jsonl); handoff-event coverage, not VerificationRun command success; no runtime graph observation / drift in v1.

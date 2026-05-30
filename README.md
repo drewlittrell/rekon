@@ -1103,6 +1103,35 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# HandoffCoverageReport v1 decision has shipped. Sixty-seventh slice on
+# the codebase-intel-classic capability-ontology track. Strategy /
+# architecture decision batch.
+#
+# Decides the v1 model for HandoffCoverageReport, the third spine
+# artifact, comparing declared HandoffContract handoffs against observed
+# handoff events. Recommendation: Option B — HandoffContract + an
+# optional raw handoff event log (.rekon/handoff-events.jsonl); statuses
+# covered / uncovered / unresolved-contract / added-observed /
+# not-evaluated.
+#   - HandoffCoverageReport is handoff-event coverage, not VerificationRun
+#     command success.
+#   - HandoffCoverageReport v1 does not create RuntimeGraphObservationReport.
+#   - HandoffCoverageReport v1 does not detect runtime graph drift.
+#   - HandoffCoverageReport v1 does not create WorkOrder or VerificationPlan.
+#   - RuntimeGraphObservationReport remains the next runtime layer after
+#     coverage.
+#   - RuntimeGraphDriftReport remains deferred.
+#   - Intent implementation remains deferred.
+#
+# New strategy memo docs/strategy/handoff-coverage-report-v1-decision.md
+# (13 headings + 4 tables). New 17-assertion docs test. Review packet
+# .rekon-dev/review-packets/handoff-coverage-report-v1-decision.md.
+#
+# No runtime behavior changes. No source under packages/ modified. No new
+# artifact type. No new CLI command. No version bump. No npm publish.
+#
+# Recommended next slice: HandoffCoverageReport v1 implementation.
+#
 # HandoffContract safety review has shipped. Sixty-sixth slice on the
 # codebase-intel-classic capability-ontology track. Strategy /
 # safety-review batch.

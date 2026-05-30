@@ -4,6 +4,33 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **HandoffCoverageReport v1 decision** — sixty-seventh slice on
+  the codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides the v1 model for
+  `HandoffCoverageReport`, the third spine artifact, which compares
+  declared `HandoffContract` handoffs against observed handoff events.
+  **Recommendation: Option B — an artifact comparing HandoffContract
+  against an optional raw handoff event log** at
+  `.rekon/handoff-events.jsonl` (matching by event name → feature → step
+  pair; never by title/prose). v1 statuses: `covered` / `uncovered` /
+  `unresolved-contract` / `added-observed` / `not-evaluated` (missing log
+  → not-evaluated; present log without a match → uncovered; invalid lines
+  → parseErrors, non-fatal). Rejected: defer-until-RuntimeGraphObservation
+  (A), HandoffContract-only (C; coverage needs observation), VerificationRun-as-coverage
+  (D; command proof is not event coverage), start-with-drift (E). Pinned:
+  HandoffCoverageReport is handoff-event coverage, not VerificationRun
+  command success; HandoffCoverageReport v1 does not create
+  RuntimeGraphObservationReport; does not detect runtime graph drift; does
+  not create WorkOrder or VerificationPlan; RuntimeGraphObservationReport
+  remains the next runtime layer after coverage; RuntimeGraphDriftReport
+  remains deferred; intent implementation remains deferred. New strategy
+  memo `docs/strategy/handoff-coverage-report-v1-decision.md` (13 headings
+  + 4 tables: option / input / status / boundary; event + artifact
+  sketches; v1 coverage policy). New 17-assertion docs test. Review packet
+  `.rekon-dev/review-packets/handoff-coverage-report-v1-decision.md`. No
+  source under `packages/` modified. No new artifact type. No new CLI
+  command. No runtime event files read. No npm publish. No version bump.
+  Recommended next slice: HandoffCoverageReport v1 implementation.
 - Shipped **HandoffContract safety review** — sixty-sixth slice on the
   codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch. Read-only end-to-end review of the

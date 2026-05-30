@@ -2640,6 +2640,19 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- HandoffCoverageReport v1 decision (P1.1
+  handoff-coverage-report-v1-decision slice): **sixty-seventh slice on the
+  capability-ontology track.** Strategy / architecture decision batch.
+  Decides the v1 model for `HandoffCoverageReport`, the third spine
+  artifact, comparing declared `HandoffContract` handoffs against observed
+  handoff events. **Recommendation: Option B — HandoffContract + an optional
+  raw handoff event log** (`.rekon/handoff-events.jsonl`); statuses covered /
+  uncovered / unresolved-contract / added-observed / not-evaluated. Pinned:
+  handoff-event coverage, not VerificationRun command success; no
+  RuntimeGraphObservationReport; no runtime graph drift; no WorkOrder /
+  VerificationPlan; RuntimeGraphObservationReport is the next runtime layer;
+  drift + intent deferred. New memo + 17-assertion docs test + review packet.
+  Recommended next slice: HandoffCoverageReport v1 implementation.
 - HandoffContract safety review (P1.1 handoff-contract-safety-review
   slice): **sixty-sixth slice on the capability-ontology track.** Strategy /
   safety-review batch. Read-only review of `HandoffContract` v1 at

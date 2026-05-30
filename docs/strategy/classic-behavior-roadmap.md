@@ -6256,6 +6256,20 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **HandoffCoverageReport v1 decision (P1.1
+  handoff-coverage-report-v1-decision slice).** ✅ Shipped. **Sixty-seventh
+  slice on the capability-ontology track.** Strategy / architecture
+  decision batch. Decides the v1 model for `HandoffCoverageReport`
+  (declared HandoffContract vs observed handoff events). **Recommendation:
+  Option B — HandoffContract + an optional raw handoff event log**
+  (`.rekon/handoff-events.jsonl`; covered / uncovered / unresolved-contract
+  / added-observed / not-evaluated). Rejected: defer-for-observation,
+  contract-only, VerificationRun-as-coverage, start-with-drift. Pinned:
+  handoff-event coverage, not VerificationRun command success; no runtime
+  graph observation / drift; no WorkOrder / VerificationPlan; observation is
+  the next runtime layer; drift + intent deferred. New memo + 17-assertion
+  docs test + review packet. Recommended next slice: HandoffCoverageReport
+  v1 implementation.
 - **HandoffContract safety review (P1.1 handoff-contract-safety-review
   slice).** ✅ Shipped. **Sixty-sixth slice on the capability-ontology
   track.** Strategy / safety-review batch. Read-only review of
