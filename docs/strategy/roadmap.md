@@ -2640,6 +2640,19 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- HandoffCoverageReport safety review (P1.1
+  handoff-coverage-report-safety-review slice): **sixty-ninth slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch.** Read-only review of `HandoffCoverageReport` v1 at
+  `8e0a617`. **Recommendation: safe / stable as narrow handoff-event
+  coverage (no blocker).** Pinned: handoff-event coverage, not
+  VerificationRun command success; missing log → not-evaluated,
+  present-no-match → uncovered, unmatched observed → added-observed, invalid
+  lines → parseErrors (non-fatal); no RuntimeGraphObservationReport /
+  RuntimeGraphDriftReport / WorkOrder / VerificationPlan / intent.
+  16-heading memo + 4 tables + 17-assertion docs test + review packet.
+  Recommended next slice: RuntimeGraphObservationReport architecture / v1
+  decision.
 - HandoffCoverageReport v1 (P1.1 handoff-coverage-report slice):
   **sixty-eighth slice on the codebase-intel-classic capability-ontology
   track. Product-capability batch.** Registers the `HandoffCoverageReport`

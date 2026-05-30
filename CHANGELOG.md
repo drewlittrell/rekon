@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **HandoffCoverageReport safety review** — sixty-ninth slice on
+  the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  `HandoffCoverageReport` v1 implementation at `8e0a617`.
+  **Recommendation: safe / stable as narrow handoff-event coverage (no
+  blocker).** Pinned: HandoffCoverageReport is handoff-event coverage, not
+  VerificationRun command success; missing event log → not-evaluated (not
+  uncovered); present log without a match → uncovered; unmatched observed
+  `handoff_event` → added-observed; invalid event-log lines → parseErrors
+  (non-fatal). Confirms HandoffCoverageReport v1 creates no
+  `RuntimeGraphObservationReport` / `RuntimeGraphDriftReport` /
+  `WorkOrder` / `VerificationPlan`, detects no drift, and implements no
+  intent. New `docs/strategy/handoff-coverage-report-safety-review.md` (16
+  headings + 4 tables) + 17-assertion docs test + review packet; no source
+  changes; no version bump; no npm publish. Recommended next slice:
+  RuntimeGraphObservationReport architecture / v1 decision.
 - Shipped **HandoffCoverageReport v1** — sixty-eighth slice on the
   codebase-intel-classic capability-ontology track. Product-capability
   batch. Registers the `HandoffCoverageReport` artifact type (category
