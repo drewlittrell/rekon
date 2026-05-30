@@ -269,6 +269,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "BridgeFindingLifecycleIntegrationReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "StepCapabilityGraph", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "HandoffContract", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "HandoffCoverageReport", schemaVersion: "0.1.0", stability: "experimental" },
 ];
 
 export function defineCapability(definition: CapabilityDefinition): CapabilityDefinition {

@@ -1103,6 +1103,25 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# HandoffCoverageReport v1 implementation has shipped. Sixty-eighth slice
+# on the codebase-intel-classic capability-ontology track.
+# Product-capability batch. Registers the HandoffCoverageReport artifact
+# (category actions) and a read-only generator from HandoffContract +
+# optional .rekon/handoff-events.jsonl via rekon handoff coverage report.
+# Statuses: covered / uncovered / unresolved-contract / added-observed /
+# not-evaluated (missing log -> not-evaluated; present-no-match ->
+# uncovered; unmatched observed -> added-observed; invalid lines ->
+# parseErrors, non-fatal).
+#   - HandoffCoverageReport is handoff-event coverage, not VerificationRun
+#     command success.
+#   - HandoffCoverageReport v1 creates no RuntimeGraphObservationReport /
+#     RuntimeGraphDriftReport.
+#   - HandoffCoverageReport v1 creates no WorkOrder / VerificationPlan.
+#   - HandoffCoverageReport v1 includes no intent implementation.
+#
+# See docs/artifacts/handoff-coverage-report.md.
+# Recommended next slice: HandoffCoverageReport safety review.
+#
 # HandoffCoverageReport v1 decision has shipped. Sixty-seventh slice on
 # the codebase-intel-classic capability-ontology track. Strategy /
 # architecture decision batch.

@@ -3125,6 +3125,343 @@ export const handoffContractSchema: ArtifactSchema<HandoffContract> = {
   parse: assertHandoffContract,
 };
 
+// ---- HandoffCoverageReport (v1, handoff-event coverage) ----
+//
+// Declared-vs-observed handoff-event coverage over a `HandoffContract` and an
+// optional raw handoff event log (`.rekon/handoff-events.jsonl`). It is
+// **handoff-event coverage, not VerificationRun command success**: each
+// declared handoff is matched to observed `handoff_event` lines (by event
+// name, then feature, then step pair) and resolved to `covered` /
+// `uncovered` / `unresolved-contract` / `added-observed` / `not-evaluated`.
+// A **missing** event log yields `not-evaluated` rows (not `uncovered`); a
+// **present** log with no match yields `uncovered`. v1 creates **no**
+// `RuntimeGraphObservationReport`, detects **no** drift, and creates **no**
+// `WorkOrder` / `VerificationPlan`.
+
+export type HandoffCoverageStatus =
+  | "covered"
+  | "uncovered"
+  | "unresolved-contract"
+  | "added-observed"
+  | "not-evaluated";
+
+export type HandoffCoverageMatchMethod =
+  | "event-name"
+  | "feature"
+  | "step-pair"
+  | "none";
+
+export type HandoffCoverageObservedEventRef = {
+  line: number;
+  timestamp?: string;
+  source?: string;
+};
+
+export type HandoffCoverageRow = {
+  id: string;
+  handoffId?: string;
+  status: HandoffCoverageStatus;
+  matchMethod: HandoffCoverageMatchMethod;
+  feature?: string;
+  eventName?: string;
+  fromStepId?: string;
+  toStepId?: string;
+  observedCount: number;
+  observedEventRefs?: HandoffCoverageObservedEventRef[];
+  messages?: string[];
+};
+
+export type HandoffCoverageReportSource = {
+  handoffContractRef: ArtifactRef;
+  eventLogPath?: string;
+  eventLogHash?: string;
+};
+
+export type HandoffCoverageReportSummary = {
+  totalDeclared: number;
+  covered: number;
+  uncovered: number;
+  unresolvedContract: number;
+  addedObserved: number;
+  notEvaluated: number;
+  parseErrors: number;
+};
+
+export type HandoffCoverageReport = {
+  header: ArtifactHeader;
+  source: HandoffCoverageReportSource;
+  summary: HandoffCoverageReportSummary;
+  rows: HandoffCoverageRow[];
+};
+
+const HANDOFF_COVERAGE_STATUSES = new Set<string>([
+  "covered",
+  "uncovered",
+  "unresolved-contract",
+  "added-observed",
+  "not-evaluated",
+]);
+
+const HANDOFF_COVERAGE_MATCH_METHODS = new Set<string>([
+  "event-name",
+  "feature",
+  "step-pair",
+  "none",
+]);
+
+// Statuses that must carry no observed events.
+const HANDOFF_COVERAGE_ZERO_OBSERVED = new Set<string>([
+  "uncovered",
+  "unresolved-contract",
+  "not-evaluated",
+]);
+
+export function createHandoffCoverageReport(input: HandoffCoverageReport): HandoffCoverageReport {
+  const rows: HandoffCoverageRow[] = [];
+  const seen = new Set<string>();
+  for (const raw of input.rows ?? []) {
+    if (!raw || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const row: HandoffCoverageRow = {
+      id: raw.id,
+      status: raw.status,
+      matchMethod: raw.matchMethod,
+      observedCount: typeof raw.observedCount === "number" ? raw.observedCount : 0,
+    };
+    if (typeof raw.handoffId === "string" && raw.handoffId.length > 0) row.handoffId = raw.handoffId;
+    if (typeof raw.feature === "string" && raw.feature.length > 0) row.feature = raw.feature;
+    if (typeof raw.eventName === "string" && raw.eventName.length > 0) row.eventName = raw.eventName;
+    if (typeof raw.fromStepId === "string" && raw.fromStepId.length > 0) row.fromStepId = raw.fromStepId;
+    if (typeof raw.toStepId === "string" && raw.toStepId.length > 0) row.toStepId = raw.toStepId;
+    if (Array.isArray(raw.observedEventRefs) && raw.observedEventRefs.length > 0) {
+      const refs: HandoffCoverageObservedEventRef[] = [];
+      for (const r of raw.observedEventRefs) {
+        if (!r || typeof r.line !== "number") continue;
+        const ref: HandoffCoverageObservedEventRef = { line: r.line };
+        if (typeof r.timestamp === "string" && r.timestamp.length > 0) ref.timestamp = r.timestamp;
+        if (typeof r.source === "string" && r.source.length > 0) ref.source = r.source;
+        refs.push(ref);
+      }
+      if (refs.length > 0) row.observedEventRefs = refs;
+    }
+    if (raw.messages && raw.messages.length > 0) {
+      const messages = raw.messages.filter((m): m is string => typeof m === "string" && m.length > 0);
+      if (messages.length > 0) row.messages = messages;
+    }
+    rows.push(row);
+  }
+  // Deterministic ordering: declared contract rows first (by id), then
+  // added-observed rows (by first observed line, then id).
+  rows.sort((a, b) => {
+    const ga = a.status === "added-observed" ? 1 : 0;
+    const gb = b.status === "added-observed" ? 1 : 0;
+    if (ga !== gb) return ga - gb;
+    if (ga === 1) {
+      const la = a.observedEventRefs?.[0]?.line ?? 0;
+      const lb = b.observedEventRefs?.[0]?.line ?? 0;
+      if (la !== lb) return la - lb;
+    }
+    return a.id.localeCompare(b.id);
+  });
+
+  const count = (status: HandoffCoverageStatus): number =>
+    rows.filter((row) => row.status === status).length;
+  const covered = count("covered");
+  const uncovered = count("uncovered");
+  const unresolvedContract = count("unresolved-contract");
+  const addedObserved = count("added-observed");
+  const notEvaluated = count("not-evaluated");
+  const suppliedParseErrors = input.summary?.parseErrors;
+  const parseErrors =
+    typeof suppliedParseErrors === "number" && Number.isInteger(suppliedParseErrors) && suppliedParseErrors >= 0
+      ? suppliedParseErrors
+      : 0;
+
+  const source: HandoffCoverageReportSource = {
+    handoffContractRef: assertArtifactRef(input.source.handoffContractRef),
+  };
+  if (typeof input.source.eventLogPath === "string" && input.source.eventLogPath.length > 0) {
+    source.eventLogPath = input.source.eventLogPath;
+  }
+  if (typeof input.source.eventLogHash === "string" && input.source.eventLogHash.length > 0) {
+    source.eventLogHash = input.source.eventLogHash;
+  }
+
+  return assertHandoffCoverageReport({
+    header: input.header,
+    source,
+    summary: {
+      totalDeclared: covered + uncovered + unresolvedContract + notEvaluated,
+      covered,
+      uncovered,
+      unresolvedContract,
+      addedObserved,
+      notEvaluated,
+      parseErrors,
+    },
+    rows,
+  });
+}
+
+export function validateHandoffCoverageReport(value: unknown): ValidationResult<HandoffCoverageReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "HandoffCoverageReport", "$.header", issues);
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    const result = validateArtifactRef(value.source.handoffContractRef);
+    if (!result.ok) issues.push(...prefixIssues(result.issues, "$.source.handoffContractRef"));
+    for (const field of ["eventLogPath", "eventLogHash"] as const) {
+      const supplied = (value.source as Record<string, unknown>)[field];
+      if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+        issues.push({ path: `$.source.${field}`, message: "Expected a non-empty string." });
+      }
+    }
+  }
+
+  let rows: unknown[] = [];
+  if (!Array.isArray(value.rows)) {
+    issues.push({ path: "$.rows", message: "Expected an array." });
+  } else {
+    rows = value.rows;
+    const seenIds = new Set<string>();
+    rows.forEach((row, index) => validateHandoffCoverageRow(row, `$.rows[${index}]`, issues, seenIds));
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const list = Array.isArray(rows) ? rows.filter(isRecord) as Array<Record<string, unknown>> : [];
+    const byStatus = (status: string): number => list.filter((row) => row.status === status).length;
+    const covered = byStatus("covered");
+    const uncovered = byStatus("uncovered");
+    const unresolvedContract = byStatus("unresolved-contract");
+    const addedObserved = byStatus("added-observed");
+    const notEvaluated = byStatus("not-evaluated");
+    const computed: Record<string, number> = {
+      totalDeclared: covered + uncovered + unresolvedContract + notEvaluated,
+      covered,
+      uncovered,
+      unresolvedContract,
+      addedObserved,
+      notEvaluated,
+    };
+    for (const field of [
+      "totalDeclared",
+      "covered",
+      "uncovered",
+      "unresolvedContract",
+      "addedObserved",
+      "notEvaluated",
+    ] as const) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      } else if (supplied !== computed[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${computed[field]} (recomputed).` });
+      }
+    }
+    // parseErrors is observed during parsing and not recomputable from rows;
+    // it is type-checked but trusted.
+    const parseErrors = (value.summary as Record<string, unknown>).parseErrors;
+    if (typeof parseErrors !== "number" || !Number.isInteger(parseErrors) || parseErrors < 0) {
+      issues.push({ path: "$.summary.parseErrors", message: "Expected a non-negative integer." });
+    }
+  }
+
+  return validationResult(value as HandoffCoverageReport, issues);
+}
+
+function validateHandoffCoverageRow(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate coverage row id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  const status = value.status;
+  if (typeof status !== "string" || !HANDOFF_COVERAGE_STATUSES.has(status)) {
+    issues.push({ path: `${path}.status`, message: "Expected one of covered, uncovered, unresolved-contract, added-observed, not-evaluated." });
+  }
+  if (typeof value.matchMethod !== "string" || !HANDOFF_COVERAGE_MATCH_METHODS.has(value.matchMethod)) {
+    issues.push({ path: `${path}.matchMethod`, message: "Expected one of event-name, feature, step-pair, none." });
+  }
+  const observedCount = value.observedCount;
+  if (typeof observedCount !== "number" || !Number.isInteger(observedCount) || observedCount < 0) {
+    issues.push({ path: `${path}.observedCount`, message: "Expected a non-negative integer." });
+  } else if (typeof status === "string") {
+    if ((status === "covered" || status === "added-observed") && observedCount === 0) {
+      issues.push({ path: `${path}.observedCount`, message: `${status} rows must have observedCount > 0.` });
+    } else if (HANDOFF_COVERAGE_ZERO_OBSERVED.has(status) && observedCount !== 0) {
+      issues.push({ path: `${path}.observedCount`, message: `${status} rows must have observedCount === 0.` });
+    }
+  }
+  for (const field of ["handoffId", "feature", "eventName", "fromStepId", "toStepId"] as const) {
+    const supplied = value[field];
+    if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string." });
+    }
+  }
+  if (value.observedEventRefs !== undefined) {
+    if (!Array.isArray(value.observedEventRefs)) {
+      issues.push({ path: `${path}.observedEventRefs`, message: "Expected an array." });
+    } else {
+      value.observedEventRefs.forEach((ref, index) => {
+        const refPath = `${path}.observedEventRefs[${index}]`;
+        if (!isRecord(ref)) {
+          issues.push({ path: refPath, message: "Expected an object." });
+          return;
+        }
+        if (typeof ref.line !== "number" || !Number.isInteger(ref.line) || ref.line < 0) {
+          issues.push({ path: `${refPath}.line`, message: "Expected a non-negative integer." });
+        }
+        for (const f of ["timestamp", "source"] as const) {
+          const fv = ref[f];
+          if (fv !== undefined && (typeof fv !== "string" || fv.length === 0)) {
+            issues.push({ path: `${refPath}.${f}`, message: "Expected a non-empty string." });
+          }
+        }
+      });
+    }
+  }
+  if (value.messages !== undefined) {
+    if (!Array.isArray(value.messages)) {
+      issues.push({ path: `${path}.messages`, message: "Expected an array." });
+    } else {
+      value.messages.forEach((message, index) => {
+        if (typeof message !== "string" || message.length === 0) {
+          issues.push({ path: `${path}.messages[${index}]`, message: "Expected a non-empty string." });
+        }
+      });
+    }
+  }
+}
+
+export function assertHandoffCoverageReport(value: unknown): HandoffCoverageReport {
+  return assertValid(validateHandoffCoverageReport(value), "HandoffCoverageReport");
+}
+
+export const handoffCoverageReportSchema: ArtifactSchema<HandoffCoverageReport> = {
+  validate: validateHandoffCoverageReport,
+  parse: assertHandoffCoverageReport,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

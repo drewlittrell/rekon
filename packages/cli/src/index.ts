@@ -63,8 +63,12 @@ import modelCapability, {
   parseStepCapabilityGraphConfig,
   buildHandoffContract,
   parseHandoffContractConfig,
+  buildHandoffCoverageReport,
   HANDOFF_CONTRACT_ARTIFACT_ID_PREFIX,
   HANDOFF_CONTRACT_CONFIG_PATH,
+  HANDOFF_COVERAGE_REPORT_ARTIFACT_ID_PREFIX,
+  HANDOFF_EVENT_LOG_PATH,
+  type HandoffCoverageContractLike,
   STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX,
   STEP_CAPABILITY_GRAPH_CONFIG_PATH,
   type BridgeFindingLifecycleFindingReportLike,
@@ -133,6 +137,7 @@ import {
   type CapabilityLintFindingBridgeReport,
   type CapabilityMap,
   type HandoffContract,
+  type HandoffCoverageReport,
   type ObservedRepo,
   type OwnershipMap,
   type StepCapabilityGraph,
@@ -3330,6 +3335,122 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Contract: ${ref.type}:${ref.id}`);
       lines.push(
         "No handoff coverage, runtime events, drift, WorkOrder, or VerificationPlan artifacts were created.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "handoff" && subcommand === "coverage" && positional === "report") {
+    // `rekon handoff coverage report [--root <path>] [--json]
+    // [--handoff-contract <ref>] [--event-log <path>]` —
+    // HandoffCoverageReport v1.
+    //
+    // Compares declared HandoffContract handoffs against an optional raw
+    // handoff event log (`.rekon/handoff-events.jsonl`). A MISSING log
+    // yields `not-evaluated` rows (not `uncovered`); a PRESENT log with no
+    // match yields `uncovered`. This is handoff-event coverage, NOT
+    // VerificationRun command success. It creates no
+    // RuntimeGraphObservationReport / RuntimeGraphDriftReport / WorkOrder /
+    // VerificationPlan, detects no drift, and mutates nothing (the contract
+    // or the event log). See docs/artifacts/handoff-coverage-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const handoffFlag = typeof parsed.flags["handoff-contract"] === "string"
+      ? parsed.flags["handoff-contract"].trim()
+      : "";
+    let contractEntry: ArtifactIndexEntry | undefined;
+    if (handoffFlag.length > 0) {
+      contractEntry = await findArtifactEntry(store, handoffFlag);
+      if (contractEntry.type !== "HandoffContract") {
+        throw new Error(
+          `rekon handoff coverage report --handoff-contract must reference a HandoffContract; got ${contractEntry.type}.`,
+        );
+      }
+    } else {
+      const contractEntries = await store.list("HandoffContract");
+      contractEntry = contractEntries.at(-1);
+      if (!contractEntry) {
+        throw new Error(
+          "rekon handoff coverage report: no HandoffContract found. Run `rekon handoff contract build` first.",
+        );
+      }
+    }
+
+    const handoffContract = (await store.read(contractEntry)) as HandoffCoverageContractLike;
+    const handoffContractRef: ArtifactRef = {
+      type: contractEntry.type,
+      id: contractEntry.id,
+      path: contractEntry.path,
+      digest: contractEntry.digest,
+      schemaVersion: contractEntry.schemaVersion ?? "0.1.0",
+    };
+
+    // Optional raw handoff event log. Default `.rekon/handoff-events.jsonl`
+    // under root, or an explicit `--event-log` path. A MISSING log is valid
+    // (declared handoffs become `not-evaluated`); the log is never mutated.
+    const eventLogFlag = typeof parsed.flags["event-log"] === "string"
+      ? parsed.flags["event-log"].trim()
+      : "";
+    const eventLogRelPath = eventLogFlag.length > 0 ? eventLogFlag : HANDOFF_EVENT_LOG_PATH;
+    let eventLog: string | undefined;
+    let eventLogPath: string | undefined;
+    let eventLogHash: string | undefined;
+    try {
+      eventLog = await readFile(resolve(root, eventLogRelPath), "utf8");
+    } catch {
+      eventLog = undefined;
+    }
+    if (eventLog !== undefined) {
+      eventLogPath = eventLogRelPath;
+      eventLogHash = createHash("sha256").update(eventLog).digest("hex");
+    }
+
+    const generatedAt = new Date().toISOString();
+    const header: ArtifactHeader = {
+      artifactType: "HandoffCoverageReport",
+      artifactId: `${HANDOFF_COVERAGE_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.handoff-coverage-report", version: "0.1.0-beta.0" },
+      inputRefs: [handoffContractRef],
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.85 },
+    };
+
+    const report: HandoffCoverageReport = buildHandoffCoverageReport({
+      header,
+      handoffContract,
+      handoffContractRef,
+      eventLog,
+      eventLogPath,
+      eventLogHash,
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        { artifact: { type: ref.type, id: ref.id }, summary: report.summary, source: report.source },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Handoff coverage report");
+      lines.push("");
+      lines.push(`Declared: ${report.summary.totalDeclared}`);
+      lines.push(`Covered: ${report.summary.covered}`);
+      lines.push(`Uncovered: ${report.summary.uncovered}`);
+      lines.push(`Unresolved contract: ${report.summary.unresolvedContract}`);
+      lines.push(`Added observed: ${report.summary.addedObserved}`);
+      lines.push(`Not evaluated: ${report.summary.notEvaluated}`);
+      lines.push(`Parse errors: ${report.summary.parseErrors}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push(
+        "No RuntimeGraphObservationReport, RuntimeGraphDriftReport, WorkOrder, or VerificationPlan artifacts were created.",
       );
       writeOutput(lines.join("\n"), false);
     }

@@ -87,6 +87,18 @@ export {
   parseHandoffContractConfig,
 } from "./handoff-contract.js";
 
+export {
+  type BuildHandoffCoverageReportInput,
+  type HandoffCoverageContractLike,
+  type ParseHandoffEventLogResult,
+  type ParsedHandoffEvent,
+  HANDOFF_COVERAGE_REPORT_ARTIFACT_ID_PREFIX,
+  HANDOFF_EVENT_KIND,
+  HANDOFF_EVENT_LOG_PATH,
+  buildHandoffCoverageReport,
+  parseHandoffEventLog,
+} from "./handoff-coverage-report.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

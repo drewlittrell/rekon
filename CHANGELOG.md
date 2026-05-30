@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **HandoffCoverageReport v1** — sixty-eighth slice on the
+  codebase-intel-classic capability-ontology track. Product-capability
+  batch. Registers the `HandoffCoverageReport` artifact type (category
+  `actions`) and a read-only generator comparing declared
+  `HandoffContract` handoffs against an optional raw handoff event log at
+  `.rekon/handoff-events.jsonl`. New `@rekon/capability-model`
+  `buildHandoffCoverageReport` + `parseHandoffEventLog`, the
+  `rekon handoff coverage report [--root] [--json] [--handoff-contract]
+  [--event-log]` CLI, and `HandoffCoverageReport` types + factory +
+  validator + schema in `@rekon/kernel-repo-model`. Statuses: `covered` /
+  `uncovered` / `unresolved-contract` / `added-observed` /
+  `not-evaluated` (matching by event name → feature → step pair, never
+  title/prose; missing log → not-evaluated; present log without a match →
+  uncovered; unmatched observed `handoff_event` → added-observed; invalid
+  JSONL lines → parseErrors, non-fatal). **Handoff-event coverage, not
+  VerificationRun command success**; creates no
+  `RuntimeGraphObservationReport` / `RuntimeGraphDriftReport` /
+  `WorkOrder` / `VerificationPlan`; detects no drift; implements no
+  intent; mutates neither the contract nor the event log. 25-assertion
+  contract test + 13-assertion docs test + review packet. No version bump;
+  no npm publish.
 - Shipped **HandoffCoverageReport v1 decision** — sixty-seventh slice on
   the codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch. Decides the v1 model for

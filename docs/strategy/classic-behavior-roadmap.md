@@ -6256,6 +6256,17 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **HandoffCoverageReport v1 (P1.1 handoff-coverage-report slice).** ✅
+  Shipped. Sixty-eighth slice. Registers `HandoffCoverageReport` (category
+  `actions`) + `buildHandoffCoverageReport` / `parseHandoffEventLog`
+  (`@rekon/capability-model`) + `rekon handoff coverage report` CLI.
+  Compares declared `HandoffContract` handoffs vs an optional raw handoff
+  event log (`.rekon/handoff-events.jsonl`); `covered` / `uncovered` /
+  `unresolved-contract` / `added-observed` / `not-evaluated` (missing
+  log → not-evaluated; present-no-match → uncovered; invalid lines →
+  parseErrors). Handoff-event coverage, not VerificationRun command success;
+  no runtime graph observation / drift / WorkOrder / VerificationPlan /
+  intent. Next: HandoffCoverageReport safety review.
 - **HandoffCoverageReport v1 decision (P1.1
   handoff-coverage-report-v1-decision slice).** ✅ Shipped. **Sixty-seventh
   slice on the capability-ontology track.** Strategy / architecture

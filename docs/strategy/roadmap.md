@@ -2640,6 +2640,21 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- HandoffCoverageReport v1 (P1.1 handoff-coverage-report slice):
+  **sixty-eighth slice on the codebase-intel-classic capability-ontology
+  track. Product-capability batch.** Registers the `HandoffCoverageReport`
+  artifact (category `actions`) and a read-only generator from
+  `HandoffContract` + optional `.rekon/handoff-events.jsonl`. New
+  `@rekon/capability-model.buildHandoffCoverageReport` +
+  `parseHandoffEventLog` + the `rekon handoff coverage report` CLI.
+  Statuses: `covered` / `uncovered` / `unresolved-contract` /
+  `added-observed` / `not-evaluated` (missing log → not-evaluated;
+  present-no-match → uncovered; unmatched observed → added-observed; invalid
+  lines → parseErrors, non-fatal). Handoff-event coverage, not
+  VerificationRun command success; no RuntimeGraphObservationReport /
+  RuntimeGraphDriftReport / WorkOrder / VerificationPlan / intent.
+  25-assertion contract test + 13-assertion docs test + review packet.
+  Recommended next slice: HandoffCoverageReport safety review.
 - HandoffCoverageReport v1 decision (P1.1
   handoff-coverage-report-v1-decision slice): **sixty-seventh slice on the
   capability-ontology track.** Strategy / architecture decision batch.
