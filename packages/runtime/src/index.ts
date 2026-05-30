@@ -266,6 +266,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   CapabilityLintFindingBridgeReport: "actions",
   BridgeFindingLifecycleIntegrationReport: "actions",
   StepCapabilityGraph: "graphs",
+  HandoffContract: "actions",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [

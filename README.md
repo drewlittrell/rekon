@@ -1103,6 +1103,35 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# HandoffContract v1 has shipped. Sixty-fifth slice on the
+# codebase-intel-classic capability-ontology track. Product capability
+# batch.
+#
+# Implements the second artifact in the staged step/handoff/runtime graph
+# spine. New artifact type HandoffContract (kernel-repo-model + SDK +
+# runtime actions category), buildHandoffContract +
+# parseHandoffContractConfig in @rekon/capability-model, and a
+# rekon handoff contract build CLI command. v1 materializes declared
+# baton policy from an optional .rekon/handoff-contracts.json over the
+# current StepCapabilityGraph (declared / unresolved-step).
+#   - HandoffContract is declared baton policy.
+#   - HandoffContract is not StepCapabilityGraph topology.
+#   - HandoffContract v1 does not evaluate coverage.
+#   - HandoffContract v1 does not read runtime events.
+#   - HandoffContract v1 does not detect runtime graph drift.
+#   - HandoffContract v1 does not create WorkOrder / VerificationPlan.
+#   - Config is optional and never mutated.
+#
+# New artifact reference docs/artifacts/handoff-contract.md, new concept
+# docs/concepts/handoff-contract.md. New 27-assertion contract test +
+# 11-assertion docs test. Review packet
+# .rekon-dev/review-packets/handoff-contract-v1.md.
+#
+# No mutation of StepCapabilityGraph or the config. No npm publish. No
+# version bump.
+#
+# Recommended next slice: HandoffContract safety review.
+#
 # HandoffContract v1 decision has shipped. Sixty-fourth slice on the
 # codebase-intel-classic capability-ontology track. Strategy /
 # architecture decision batch.

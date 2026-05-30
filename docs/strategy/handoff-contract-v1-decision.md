@@ -279,3 +279,5 @@ codebase-intel, bumps no version, and publishes nothing.
 - [VerificationPlan artifact](../artifacts/verification-plan.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [HandoffContract artifact](../artifacts/handoff-contract.md) — the declared baton policy layer over StepCapabilityGraph step ids (config + artifact effective contract; declared / unresolved-step only; no handoff coverage / runtime events / drift in v1).

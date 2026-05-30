@@ -2640,6 +2640,19 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- HandoffContract v1 (P1.1 handoff-contract slice): **sixty-fifth slice on
+  the capability-ontology track.** Product capability batch. Implements the
+  second spine artifact. New artifact type `HandoffContract`
+  (kernel-repo-model + SDK + runtime `actions`), `buildHandoffContract` +
+  `parseHandoffContractConfig` in `@rekon/capability-model`, and a
+  `rekon handoff contract build` CLI command. Materializes declared baton
+  policy from an optional `.rekon/handoff-contracts.json` over the current
+  `StepCapabilityGraph`: handoffs resolve to `declared` or `unresolved-step`.
+  Pinned: declared baton policy, not StepCapabilityGraph topology; no
+  handoff coverage; no runtime events; no runtime graph drift; no WorkOrder
+  / VerificationPlan; config optional + never mutated. New artifact +
+  concept docs + 27-assertion contract test + 11-assertion docs test +
+  review packet. Recommended next slice: HandoffContract safety review.
 - HandoffContract v1 decision (P1.1 handoff-contract-v1-decision slice):
   **sixty-fourth slice on the capability-ontology track.** Strategy /
   architecture decision batch. Decides the v1 model for `HandoffContract`,

@@ -4,6 +4,30 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **HandoffContract v1** — sixty-fifth slice on the
+  codebase-intel-classic capability-ontology track. Product capability
+  batch. Implements the second artifact in the staged step/handoff/runtime
+  graph spine. Registers a new artifact type `HandoffContract`
+  (kernel-repo-model factory / validator / schema, SDK known-types,
+  runtime `actions` category), adds the
+  `@rekon/capability-model.buildHandoffContract` resolution helper +
+  `parseHandoffContractConfig`, and a `rekon handoff contract build` CLI
+  command. v1 materializes declared baton policy from an optional
+  `.rekon/handoff-contracts.json` over the current `StepCapabilityGraph`:
+  each configured handoff resolves to `declared` (both `fromStepId` /
+  `toStepId` exist in the graph) or `unresolved-step` (a step id missing,
+  with a message); missing config emits zero handoffs; omitted ids derive
+  a deterministic slug-safe id. Pinned: HandoffContract is declared baton
+  policy; it is not StepCapabilityGraph topology; HandoffContract v1 does
+  not evaluate coverage; does not read runtime events; does not detect
+  runtime graph drift; does not create WorkOrder / VerificationPlan;
+  config is optional and never mutated. No coverage / runtime / drift /
+  intent. No mutation of StepCapabilityGraph or the config. New artifact
+  reference `docs/artifacts/handoff-contract.md`, new concept
+  `docs/concepts/handoff-contract.md`. New 27-assertion contract test +
+  11-assertion docs test. Review packet
+  `.rekon-dev/review-packets/handoff-contract-v1.md`. No npm publish. No
+  version bump. Recommended next slice: HandoffContract safety review.
 - Shipped **HandoffContract v1 decision** — sixty-fourth slice on the
   codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch. Decides the v1 model for `HandoffContract`,

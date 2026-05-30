@@ -75,6 +75,18 @@ export {
   parseStepCapabilityGraphConfig,
 } from "./step-capability-graph.js";
 
+export {
+  type BuildHandoffContractInput,
+  type HandoffContractConfig,
+  type HandoffContractConfigCapability,
+  type HandoffContractConfigHandoff,
+  type HandoffContractStepGraphLike,
+  HANDOFF_CONTRACT_ARTIFACT_ID_PREFIX,
+  HANDOFF_CONTRACT_CONFIG_PATH,
+  buildHandoffContract,
+  parseHandoffContractConfig,
+} from "./handoff-contract.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

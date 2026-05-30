@@ -2877,6 +2877,254 @@ export const stepCapabilityGraphSchema: ArtifactSchema<StepCapabilityGraph> = {
   parse: assertStepCapabilityGraph,
 };
 
+// ---- HandoffContract (v1, declared baton policy) ----
+//
+// Effective contract that materializes **declared baton policy** from an
+// optional `.rekon/handoff-contracts.json` over the current
+// `StepCapabilityGraph`. It is **declared baton policy, not
+// StepCapabilityGraph topology**: each handoff references step ids and is
+// resolved to `declared` (both steps exist) or `unresolved-step` (a step
+// id is missing). v1 evaluates **no coverage**, reads **no runtime
+// events**, and detects **no drift**.
+
+export type HandoffContractStatus = "declared" | "unresolved-step" | "needs-review";
+
+export type HandoffContractCapabilityRef = {
+  verb: string;
+  noun: string;
+  domain?: string;
+};
+
+export type HandoffContractEventRef = {
+  name?: string;
+  kind?: string;
+};
+
+export type HandoffContractPayloadRef = {
+  schemaHint?: string;
+};
+
+export type HandoffContractEntry = {
+  id: string;
+  status: HandoffContractStatus;
+  fromStepId: string;
+  toStepId: string;
+  feature?: string;
+  capability?: HandoffContractCapabilityRef;
+  event?: HandoffContractEventRef;
+  payload?: HandoffContractPayloadRef;
+  evidenceRefs: ArtifactRef[];
+  messages?: string[];
+};
+
+export type HandoffContractSource = {
+  stepCapabilityGraphRef: ArtifactRef;
+  configPath?: string;
+  configHash?: string;
+};
+
+export type HandoffContractSummary = {
+  total: number;
+  declared: number;
+  unresolvedStep: number;
+  needsReview: number;
+};
+
+export type HandoffContract = {
+  header: ArtifactHeader;
+  source: HandoffContractSource;
+  summary: HandoffContractSummary;
+  handoffs: HandoffContractEntry[];
+};
+
+const HANDOFF_CONTRACT_STATUSES = new Set<string>([
+  "declared",
+  "unresolved-step",
+  "needs-review",
+]);
+
+const HANDOFF_CONTRACT_STATUS_RANK: Record<string, number> = {
+  declared: 0,
+  "needs-review": 1,
+  "unresolved-step": 2,
+};
+
+export function createHandoffContract(input: HandoffContract): HandoffContract {
+  const handoffs: HandoffContractEntry[] = [];
+  const seen = new Set<string>();
+  for (const raw of input.handoffs ?? []) {
+    if (!raw || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const entry: HandoffContractEntry = {
+      id: raw.id,
+      status: raw.status,
+      fromStepId: raw.fromStepId,
+      toStepId: raw.toStepId,
+      evidenceRefs: normalizeRefs(raw.evidenceRefs ?? []),
+    };
+    if (typeof raw.feature === "string" && raw.feature.length > 0) entry.feature = raw.feature;
+    if (raw.capability && typeof raw.capability === "object") {
+      const cap: HandoffContractCapabilityRef = { verb: raw.capability.verb, noun: raw.capability.noun };
+      if (typeof raw.capability.domain === "string" && raw.capability.domain.length > 0) cap.domain = raw.capability.domain;
+      entry.capability = cap;
+    }
+    if (raw.event && typeof raw.event === "object") {
+      const event: HandoffContractEventRef = {};
+      if (typeof raw.event.name === "string" && raw.event.name.length > 0) event.name = raw.event.name;
+      if (typeof raw.event.kind === "string" && raw.event.kind.length > 0) event.kind = raw.event.kind;
+      if (event.name || event.kind) entry.event = event;
+    }
+    if (raw.payload && typeof raw.payload === "object") {
+      if (typeof raw.payload.schemaHint === "string" && raw.payload.schemaHint.length > 0) {
+        entry.payload = { schemaHint: raw.payload.schemaHint };
+      }
+    }
+    if (raw.messages && raw.messages.length > 0) {
+      const messages = raw.messages.filter((m): m is string => typeof m === "string" && m.length > 0);
+      if (messages.length > 0) entry.messages = messages;
+    }
+    handoffs.push(entry);
+  }
+  handoffs.sort((a, b) => {
+    const ra = HANDOFF_CONTRACT_STATUS_RANK[a.status] ?? 99;
+    const rb = HANDOFF_CONTRACT_STATUS_RANK[b.status] ?? 99;
+    return ra !== rb ? ra - rb : a.id.localeCompare(b.id);
+  });
+
+  let declared = 0;
+  let unresolvedStep = 0;
+  let needsReview = 0;
+  for (const entry of handoffs) {
+    if (entry.status === "declared") declared += 1;
+    else if (entry.status === "unresolved-step") unresolvedStep += 1;
+    else if (entry.status === "needs-review") needsReview += 1;
+  }
+
+  const source: HandoffContractSource = {
+    stepCapabilityGraphRef: assertArtifactRef(input.source.stepCapabilityGraphRef),
+  };
+  if (typeof input.source.configPath === "string" && input.source.configPath.length > 0) {
+    source.configPath = input.source.configPath;
+  }
+  if (typeof input.source.configHash === "string" && input.source.configHash.length > 0) {
+    source.configHash = input.source.configHash;
+  }
+
+  return assertHandoffContract({
+    header: input.header,
+    source,
+    summary: { total: handoffs.length, declared, unresolvedStep, needsReview },
+    handoffs,
+  });
+}
+
+export function validateHandoffContract(value: unknown): ValidationResult<HandoffContract> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "HandoffContract", "$.header", issues);
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    const result = validateArtifactRef(value.source.stepCapabilityGraphRef);
+    if (!result.ok) issues.push(...prefixIssues(result.issues, "$.source.stepCapabilityGraphRef"));
+  }
+
+  let handoffs: unknown[] = [];
+  if (!Array.isArray(value.handoffs)) {
+    issues.push({ path: "$.handoffs", message: "Expected an array." });
+  } else {
+    handoffs = value.handoffs;
+    const seenIds = new Set<string>();
+    handoffs.forEach((entry, index) => validateHandoffContractEntry(entry, `$.handoffs[${index}]`, issues, seenIds));
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const list = Array.isArray(handoffs) ? handoffs.filter(isRecord) as Array<Record<string, unknown>> : [];
+    const computed: Record<string, number> = {
+      total: list.length,
+      declared: list.filter((h) => h.status === "declared").length,
+      unresolvedStep: list.filter((h) => h.status === "unresolved-step").length,
+      needsReview: list.filter((h) => h.status === "needs-review").length,
+    };
+    for (const field of ["total", "declared", "unresolvedStep", "needsReview"] as const) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      } else if (supplied !== computed[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${computed[field]} (recomputed).` });
+      }
+    }
+  }
+
+  return validationResult(value as HandoffContract, issues);
+}
+
+function validateHandoffContractEntry(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate handoff id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.status !== "string" || !HANDOFF_CONTRACT_STATUSES.has(value.status)) {
+    issues.push({ path: `${path}.status`, message: "Expected one of declared, unresolved-step, needs-review." });
+  }
+  for (const field of ["fromStepId", "toStepId"] as const) {
+    if (typeof value[field] !== "string" || (value[field] as string).length === 0) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string." });
+    }
+  }
+  if (value.feature !== undefined && (typeof value.feature !== "string" || value.feature.length === 0)) {
+    issues.push({ path: `${path}.feature`, message: "Expected a non-empty string." });
+  }
+  if (value.capability !== undefined) {
+    if (!isRecord(value.capability) || typeof value.capability.verb !== "string" || value.capability.verb.length === 0 || typeof value.capability.noun !== "string" || value.capability.noun.length === 0) {
+      issues.push({ path: `${path}.capability`, message: "Expected an object with non-empty verb and noun." });
+    }
+  }
+  if (!Array.isArray(value.evidenceRefs)) {
+    issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array." });
+  } else {
+    value.evidenceRefs.forEach((ref, index) => {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.evidenceRefs[${index}]`));
+    });
+  }
+  // unresolved-step rows must carry a diagnostic message.
+  if (value.status === "unresolved-step") {
+    const messages = Array.isArray(value.messages) ? value.messages.filter((m) => typeof m === "string" && m.length > 0) : [];
+    if (messages.length === 0) {
+      issues.push({ path: `${path}.messages`, message: "unresolved-step handoffs must include a non-empty message." });
+    }
+  }
+}
+
+export function assertHandoffContract(value: unknown): HandoffContract {
+  return assertValid(validateHandoffContract(value), "HandoffContract");
+}
+
+export const handoffContractSchema: ArtifactSchema<HandoffContract> = {
+  validate: validateHandoffContract,
+  parse: assertHandoffContract,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

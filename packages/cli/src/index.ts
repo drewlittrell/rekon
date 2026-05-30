@@ -61,10 +61,16 @@ import modelCapability, {
   buildCapabilityContract,
   buildStepCapabilityGraph,
   parseStepCapabilityGraphConfig,
+  buildHandoffContract,
+  parseHandoffContractConfig,
+  HANDOFF_CONTRACT_ARTIFACT_ID_PREFIX,
+  HANDOFF_CONTRACT_CONFIG_PATH,
   STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX,
   STEP_CAPABILITY_GRAPH_CONFIG_PATH,
   type BridgeFindingLifecycleFindingReportLike,
   type CapabilityContractConfig,
+  type HandoffContractConfig,
+  type HandoffContractStepGraphLike,
   type StepCapabilityGraphCapabilityMapLike,
   type StepCapabilityGraphConfig,
   type StepCapabilityGraphEvidenceGraphLike,
@@ -126,6 +132,7 @@ import {
   type CapabilityContract,
   type CapabilityLintFindingBridgeReport,
   type CapabilityMap,
+  type HandoffContract,
   type ObservedRepo,
   type OwnershipMap,
   type StepCapabilityGraph,
@@ -3210,6 +3217,122 @@ export async function main(argv: string[]): Promise<void> {
     const entry = await findArtifactEntry(store, positional);
     const artifact = await store.read(entry);
     writeOutput({ artifact }, json);
+    return;
+  }
+
+  if (command === "handoff" && subcommand === "contract" && positional === "build") {
+    // `rekon handoff contract build [--root <path>] [--json]
+    // [--step-graph <ref>]` — HandoffContract v1.
+    //
+    // Materializes declared baton policy from an optional
+    // `.rekon/handoff-contracts.json` over the latest (or pinned)
+    // StepCapabilityGraph. Each configured handoff resolves to `declared`
+    // (both step ids exist) or `unresolved-step`. It evaluates NO handoff
+    // coverage, reads NO runtime events, detects NO drift, creates no
+    // WorkOrder / VerificationPlan, and mutates nothing. See
+    // docs/artifacts/handoff-contract.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const stepGraphFlag = typeof parsed.flags["step-graph"] === "string"
+      ? parsed.flags["step-graph"].trim()
+      : "";
+    let stepGraphEntry: ArtifactIndexEntry | undefined;
+    if (stepGraphFlag.length > 0) {
+      stepGraphEntry = await findArtifactEntry(store, stepGraphFlag);
+      if (stepGraphEntry.type !== "StepCapabilityGraph") {
+        throw new Error(
+          `rekon handoff contract build --step-graph must reference a StepCapabilityGraph; got ${stepGraphEntry.type}.`,
+        );
+      }
+    } else {
+      const stepGraphEntries = await store.list("StepCapabilityGraph");
+      stepGraphEntry = stepGraphEntries.at(-1);
+      if (!stepGraphEntry) {
+        throw new Error(
+          "rekon handoff contract build: no StepCapabilityGraph found. Run `rekon step graph build` first.",
+        );
+      }
+    }
+
+    const stepCapabilityGraph = (await store.read(stepGraphEntry)) as HandoffContractStepGraphLike;
+    const stepCapabilityGraphRef: ArtifactRef = {
+      type: stepGraphEntry.type,
+      id: stepGraphEntry.id,
+      path: stepGraphEntry.path,
+      digest: stepGraphEntry.digest,
+      schemaVersion: stepGraphEntry.schemaVersion ?? "0.1.0",
+    };
+
+    // Optional `.rekon/handoff-contracts.json`. Missing is valid (zero
+    // handoffs); invalid fails clearly; never mutated.
+    let config: HandoffContractConfig | undefined;
+    let configPath: string | undefined;
+    let configHash: string | undefined;
+    let configText: string | undefined;
+    try {
+      configText = await readFile(resolve(root, HANDOFF_CONTRACT_CONFIG_PATH), "utf8");
+    } catch {
+      configText = undefined;
+    }
+    if (configText !== undefined) {
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(configText);
+      } catch (error) {
+        throw new Error(
+          `rekon handoff contract build: ${HANDOFF_CONTRACT_CONFIG_PATH} is not valid JSON: ${(error as Error).message}`,
+        );
+      }
+      config = parseHandoffContractConfig(parsedJson);
+      configPath = HANDOFF_CONTRACT_CONFIG_PATH;
+      configHash = createHash("sha256").update(configText).digest("hex");
+    }
+
+    const generatedAt = new Date().toISOString();
+    const header: ArtifactHeader = {
+      artifactType: "HandoffContract",
+      artifactId: `${HANDOFF_CONTRACT_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.handoff-contract-build", version: "0.1.0-beta.0" },
+      inputRefs: [stepCapabilityGraphRef],
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.85 },
+    };
+
+    const contract: HandoffContract = buildHandoffContract({
+      header,
+      stepCapabilityGraph,
+      stepCapabilityGraphRef,
+      config,
+      configPath,
+      configHash,
+    });
+
+    const ref = await store.write(contract, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        { artifact: { type: ref.type, id: ref.id }, summary: contract.summary, source: contract.source },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Handoff contract");
+      lines.push("");
+      lines.push(`Handoffs: ${contract.summary.total}`);
+      lines.push(`Declared: ${contract.summary.declared}`);
+      lines.push(`Unresolved step: ${contract.summary.unresolvedStep}`);
+      lines.push(`Needs review: ${contract.summary.needsReview}`);
+      lines.push("");
+      lines.push(`Contract: ${ref.type}:${ref.id}`);
+      lines.push(
+        "No handoff coverage, runtime events, drift, WorkOrder, or VerificationPlan artifacts were created.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
     return;
   }
 

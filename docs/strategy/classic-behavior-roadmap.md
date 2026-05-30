@@ -6256,6 +6256,18 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **HandoffContract v1 (P1.1 handoff-contract slice).** ✅ Shipped.
+  **Sixty-fifth slice on the capability-ontology track.** Product
+  capability batch. Second artifact in the staged spine: declared baton
+  policy over `StepCapabilityGraph` step ids. New artifact type
+  `HandoffContract` + `buildHandoffContract` (`@rekon/capability-model`) +
+  optional config loader + `rekon handoff contract build` CLI. Materializes
+  declared baton policy from `.rekon/handoff-contracts.json` over the
+  current StepCapabilityGraph (`declared` / `unresolved-step`). Pinned:
+  declared baton policy, not topology; no handoff coverage / runtime events
+  / drift; no WorkOrder / VerificationPlan; config optional + never
+  mutated. 27-assertion contract test + 11-assertion docs test + review
+  packet. Recommended next slice: HandoffContract safety review.
 - **HandoffContract v1 decision (P1.1 handoff-contract-v1-decision
   slice).** ✅ Shipped. **Sixty-fourth slice on the capability-ontology
   track.** Strategy / architecture decision batch. Decides the v1 model for
