@@ -6256,6 +6256,20 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **IntentAssessmentReport v1 decision (P1.1
+  intent-assessment-report-v1-decision slice).** ✅ Shipped. Seventy-seventh
+  slice. Decides the v1 shape of `IntentAssessmentReport`, the first artifact
+  of the staged Rekon intent spine. **Recommendation: Option B —
+  artifact-backed readiness assessment** from a user request plus existing
+  Rekon artifacts (StepCapabilityGraph / HandoffCoverageReport /
+  RuntimeGraphDriftReport / PathFreshnessReport / VerificationResult).
+  Readiness: ready-for-prepare / blocked / needs-review / insufficient-context
+  / stale-context. Pinned: assessment, not WorkOrder; no WorkOrder /
+  VerificationPlan creation; no execution; no source writes; PreparedIntentPlan
+  next; IntentStatusReport / intent:go deferred. Classic intent readiness was
+  gate/staleness-based and did not consume the graph spine; Rekon wires it into
+  readiness (recorded as a Rekon-native extension). Next: IntentAssessmentReport
+  v1 implementation.
 - **Intent Capability Spine Integration Review (P1.1
   intent-capability-spine-integration-review slice).** ✅ Shipped.
   Seventy-sixth slice. Read-only mapping of classic `intent:assess` /

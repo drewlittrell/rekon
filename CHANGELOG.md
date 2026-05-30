@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **IntentAssessmentReport v1 decision** — seventy-seventh slice
+  on the codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides the v1 shape, inputs, readiness model,
+  and blocker model for `IntentAssessmentReport`, the first artifact of the
+  staged Rekon intent spine. **Recommendation: Option B — an artifact-backed
+  readiness assessment** generated from a user request plus existing Rekon
+  context artifacts (CapabilityMap v2, StepCapabilityGraph,
+  HandoffCoverageReport, RuntimeGraphDriftReport, PathFreshnessReport,
+  VerificationResult when available). Readiness statuses ready-for-prepare /
+  blocked / needs-review / insufficient-context / stale-context; blocker
+  categories missing-artifact / stale-context / runtime-drift / handoff-coverage
+  / finding-governance / proof-missing / scope-ambiguous /
+  source-write-unavailable. Pinned: IntentAssessmentReport is assessment, not
+  WorkOrder; it does not create WorkOrder / VerificationPlan, execute commands,
+  or write source; PreparedIntentPlan remains the next layer; IntentStatusReport
+  and intent:go remain deferred; RuntimeGraphDriftReport is an input to
+  readiness, not the intent system itself. New
+  `docs/strategy/intent-assessment-report-v1-decision.md` (15 headings + 4
+  tables) + 17-assertion docs test + review packet. No source changes; no
+  artifact registration; no CLI; no version bump; no npm publish. Recommended
+  next slice: IntentAssessmentReport v1 implementation.
 - Shipped the **Intent Capability Spine Integration Review** — seventy-sixth
   slice on the codebase-intel-classic capability-ontology track. Strategy /
   architecture-review batch. Read-only mapping of the classic intent surfaces

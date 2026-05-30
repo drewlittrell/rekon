@@ -1103,6 +1103,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# IntentAssessmentReport v1 decision has shipped. Seventy-seventh slice on
+# the codebase-intel-classic capability-ontology track. Strategy /
+# architecture decision batch. Decides the v1 shape of IntentAssessmentReport,
+# the first artifact of the staged Rekon intent spine.
+#   - Recommendation: Option B, an artifact-backed readiness assessment.
+#   - IntentAssessmentReport is assessment, not WorkOrder.
+#   - It does not create WorkOrder or VerificationPlan.
+#   - It does not execute commands.
+#   - It does not write source files.
+#   - PreparedIntentPlan remains the next layer after assessment.
+#   - IntentStatusReport remains deferred.
+#   - intent:go remains deferred.
+#   - RuntimeGraphDriftReport is an input to readiness, not the intent system
+#     itself.
+#
+# Recommended next slice: IntentAssessmentReport v1 implementation.
+#
 # Intent Capability Spine Integration Review has shipped. Seventy-sixth
 # slice on the codebase-intel-classic capability-ontology track. Strategy /
 # architecture-review batch. Read-only mapping of the classic intent surfaces

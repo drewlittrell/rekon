@@ -2640,6 +2640,25 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- IntentAssessmentReport v1 decision (P1.1
+  intent-assessment-report-v1-decision slice): **seventy-seventh slice on the
+  codebase-intel-classic capability-ontology track. Strategy / architecture
+  decision batch.** Decides the v1 shape of IntentAssessmentReport, the first
+  artifact of the staged Rekon intent spine. **Recommendation: Option B —
+  artifact-backed readiness assessment** generated from a user request plus
+  existing Rekon context artifacts (CapabilityMap v2 / StepCapabilityGraph /
+  HandoffCoverageReport / RuntimeGraphDriftReport / PathFreshnessReport /
+  VerificationResult when available). Readiness: ready-for-prepare / blocked /
+  needs-review / insufficient-context / stale-context. Rejected:
+  WorkOrder-as-assessment (A), PreparedIntentPlan-first (C),
+  IntentStatusReport-first (D), IntentGoDecision-first (E). Pinned: assessment,
+  not WorkOrder; creates no WorkOrder / VerificationPlan; executes nothing;
+  writes no source; PreparedIntentPlan is the next layer; IntentStatusReport /
+  intent:go deferred; RuntimeGraphDriftReport is an input to readiness, not the
+  intent system itself. 15-heading memo + 4 tables + 17-assertion docs test +
+  review packet. No source changes; no artifact registration; no CLI; no
+  version bump; no npm publish. Recommended next slice: IntentAssessmentReport
+  v1 implementation.
 - Intent Capability Spine Integration Review (P1.1
   intent-capability-spine-integration-review slice): **seventy-sixth slice on
   the codebase-intel-classic capability-ontology track. Strategy /
