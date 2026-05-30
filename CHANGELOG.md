@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **RuntimeGraphObservationReport v1 decision** — seventieth
+  slice on the codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides the v1 model for
+  `RuntimeGraphObservationReport`, the fourth spine artifact: an observed
+  runtime graph generated from raw `handoff_event` logs at
+  `.rekon/handoff-events.jsonl`. **Recommendation: Option B — raw
+  handoff_event log → observed graph** (observed `step` / `feature` /
+  `event` / `source` nodes + `handoff` edges with observedCount +
+  first/last timestamps + line evidence; non-handoff rows → ignoredRows;
+  invalid lines → parseErrors, non-fatal; missing log → zero nodes/edges).
+  Rejected: defer-until-drift (A), derive-from-HandoffCoverageReport (C;
+  coverage is interpreted data), expected-graph→observation (D),
+  full-runtime-tracing-now (E). Pinned: observed runtime graph, not declared
+  topology; not HandoffCoverageReport; no declared-coverage evaluation, no
+  drift detection, no `WorkOrder` / `VerificationPlan`; intent deferred;
+  `RuntimeGraphDriftReport` remains the next layer. New
+  `docs/strategy/runtime-graph-observation-report-v1-decision.md` (14
+  headings + 4 tables) + 17-assertion docs test + review packet. No source
+  changes; no artifact registration; no CLI; no version bump; no npm
+  publish. Recommended next slice: RuntimeGraphObservationReport v1
+  implementation.
 - Shipped **HandoffCoverageReport safety review** — sixty-ninth slice on
   the codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch. Read-only end-to-end review of the

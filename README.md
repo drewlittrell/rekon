@@ -1103,6 +1103,28 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# RuntimeGraphObservationReport v1 decision has shipped. Seventieth slice
+# on the codebase-intel-classic capability-ontology track. Strategy /
+# architecture decision batch. Decides the v1 model for
+# RuntimeGraphObservationReport, the fourth spine artifact: an observed
+# runtime graph generated from raw handoff_event logs
+# (.rekon/handoff-events.jsonl). Recommendation: Option B — raw
+# handoff_event log -> observed graph (observed step/feature/event/source
+# nodes + handoff edges; ignoredRows + parseErrors; missing log -> zero
+# nodes/edges).
+#   - RuntimeGraphObservationReport is observed runtime graph, not declared
+#     topology.
+#   - RuntimeGraphObservationReport is not HandoffCoverageReport.
+#   - RuntimeGraphObservationReport v1 does not evaluate declared handoff
+#     coverage.
+#   - RuntimeGraphObservationReport v1 does not detect runtime graph drift.
+#   - RuntimeGraphObservationReport v1 does not create WorkOrder or
+#     VerificationPlan.
+#   - Intent implementation remains deferred.
+#
+# RuntimeGraphDriftReport remains the next layer after runtime observation.
+# Recommended next slice: RuntimeGraphObservationReport v1 implementation.
+#
 # HandoffCoverageReport safety review has shipped. Sixty-ninth slice on
 # the codebase-intel-classic capability-ontology track. Strategy /
 # safety-review batch. Read-only end-to-end review of the

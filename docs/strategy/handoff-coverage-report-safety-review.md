@@ -255,3 +255,5 @@ files, publishes nothing to npm, and bumps no version.
 - [Classic step-capability / handoff / runtime drift parity audit](classic-step-capability-handoff-runtime-drift-parity-audit.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [RuntimeGraphObservationReport v1 decision](runtime-graph-observation-report-v1-decision.md) — the next spine layer: an observed runtime graph generated from raw handoff_event logs (.rekon/handoff-events.jsonl). Observed runtime graph, not declared topology; not HandoffCoverageReport; does not evaluate declared coverage, detect drift, or create WorkOrder / VerificationPlan; intent deferred. RuntimeGraphDriftReport remains the next layer after observation.

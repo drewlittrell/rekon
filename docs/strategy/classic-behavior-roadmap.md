@@ -6256,6 +6256,16 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **RuntimeGraphObservationReport v1 decision (P1.1
+  runtime-graph-observation-report-v1-decision slice).** ✅ Shipped.
+  Seventieth slice. Decides the v1 model for
+  `RuntimeGraphObservationReport` (observed runtime graph from raw
+  handoff_event logs). **Recommendation: Option B — raw handoff_event log →
+  observed graph.** Pinned: observed runtime graph, not declared topology;
+  not HandoffCoverageReport; no coverage evaluation / drift / WorkOrder /
+  VerificationPlan / intent. RuntimeGraphDriftReport remains the next layer
+  after observation. Recommended next slice: RuntimeGraphObservationReport
+  v1 implementation.
 - **HandoffCoverageReport safety review (P1.1
   handoff-coverage-report-safety-review slice).** ✅ Shipped. Sixty-ninth
   slice. Read-only review of `HandoffCoverageReport` v1. **Recommendation:

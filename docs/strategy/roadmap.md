@@ -2640,6 +2640,21 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- RuntimeGraphObservationReport v1 decision (P1.1
+  runtime-graph-observation-report-v1-decision slice): **seventieth slice
+  on the codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch.** Fixes the v1 model for
+  `RuntimeGraphObservationReport`, the fourth spine artifact: an observed
+  runtime graph generated from raw `handoff_event` logs
+  (`.rekon/handoff-events.jsonl`). **Recommendation: Option B — raw
+  handoff_event log → observed graph** (observed step/feature/event/source
+  nodes + handoff edges; ignoredRows + parseErrors; missing log → zero
+  nodes/edges). Rejected: defer-until-drift (A), derive-from-coverage (C),
+  expected-graph→observation (D), full-tracing-now (E). Pinned: observed
+  runtime graph, not declared topology; not HandoffCoverageReport; no
+  coverage evaluation / drift / WorkOrder / VerificationPlan / intent.
+  14-heading memo + 4 tables + 17-assertion docs test + review packet.
+  Recommended next slice: RuntimeGraphObservationReport v1 implementation.
 - HandoffCoverageReport safety review (P1.1
   handoff-coverage-report-safety-review slice): **sixty-ninth slice on the
   codebase-intel-classic capability-ontology track. Strategy /
