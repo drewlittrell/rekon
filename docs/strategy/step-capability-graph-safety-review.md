@@ -199,3 +199,5 @@ npm, and bumps no version.
 - [CapabilityPhraseReport artifact](../artifacts/capability-phrase-report.md)
 - [Roadmap](roadmap.md)
 - [Classic behavior roadmap](classic-behavior-roadmap.md)
+
+> See also: [HandoffContract v1 decision](handoff-contract-v1-decision.md) — the next spine layer: declares expected baton passes over StepCapabilityGraph step ids as a config + artifact effective contract (no handoff coverage / runtime events / drift in v1).

@@ -4,6 +4,35 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **HandoffContract v1 decision** — sixty-fourth slice on the
+  codebase-intel-classic capability-ontology track. Strategy /
+  architecture decision batch. Decides the v1 model for `HandoffContract`,
+  the second artifact in the staged spine, which declares expected baton
+  passes over `StepCapabilityGraph` step ids. **Recommendation: Option B —
+  HandoffContract v1 as a config + artifact effective contract**: an
+  operator declares handoffs in an optional `.rekon/handoff-contracts.json`
+  and Rekon materializes an effective `HandoffContract` artifact over the
+  current `StepCapabilityGraph` (so downstream coverage/drift reports can
+  cite a stable ref). Each handoff references `fromStepId` / `toStepId`;
+  a handoff with a missing step ref is emitted as `unresolved-step`, not
+  inferred. Rejected: config-only (A; downstream needs artifact refs),
+  auto-derive handoffs (C; baton policy must be declared), fold into
+  StepCapabilityGraph (D; topology is not policy), start with
+  HandoffCoverageReport (E; coverage needs declared handoffs). Pinned:
+  HandoffContract is declared baton policy, not StepCapabilityGraph
+  topology; HandoffContract v1 does not evaluate handoff coverage; does
+  not read runtime events; does not detect runtime graph drift;
+  HandoffCoverageReport remains the next layer after HandoffContract;
+  RuntimeGraphObservationReport and RuntimeGraphDriftReport remain
+  deferred; HandoffContract does not create WorkOrder or VerificationPlan;
+  intent implementation remains deferred. New strategy memo
+  `docs/strategy/handoff-contract-v1-decision.md` (13 headings + 4 tables:
+  option / input / boundary / follow-on; config + artifact sketches; v1
+  resolution policy). New 18-assertion docs test. Review packet
+  `.rekon-dev/review-packets/handoff-contract-v1-decision.md`. No source
+  under `packages/` modified. No new artifact type. No new CLI command.
+  No npm publish. No version bump. Recommended next slice: HandoffContract
+  v1 implementation.
 - Shipped **StepCapabilityGraph safety review** — sixty-third slice on
   the codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch. Read-only end-to-end review of the

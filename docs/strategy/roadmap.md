@@ -2640,6 +2640,20 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- HandoffContract v1 decision (P1.1 handoff-contract-v1-decision slice):
+  **sixty-fourth slice on the capability-ontology track.** Strategy /
+  architecture decision batch. Decides the v1 model for `HandoffContract`,
+  the second spine artifact, declaring expected baton passes over
+  `StepCapabilityGraph` step ids. **Recommendation: Option B — a config +
+  artifact effective contract** (optional `.rekon/handoff-contracts.json` +
+  an effective `HandoffContract` artifact over the current graph; missing
+  step refs → `unresolved-step`). Pinned: HandoffContract is declared baton
+  policy, not StepCapabilityGraph topology; no handoff coverage; no runtime
+  events; no runtime graph drift; HandoffCoverageReport is the next layer;
+  RuntimeGraphObservationReport / RuntimeGraphDriftReport deferred; no
+  WorkOrder / VerificationPlan; intent deferred. New memo + 18-assertion
+  docs test + review packet. Recommended next slice: HandoffContract v1
+  implementation.
 - StepCapabilityGraph safety review (P1.1
   step-capability-graph-safety-review slice): **sixty-third slice on the
   capability-ontology track.** Strategy / safety-review batch. Read-only

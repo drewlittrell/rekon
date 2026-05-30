@@ -6256,6 +6256,18 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **HandoffContract v1 decision (P1.1 handoff-contract-v1-decision
+  slice).** ✅ Shipped. **Sixty-fourth slice on the capability-ontology
+  track.** Strategy / architecture decision batch. Decides the v1 model for
+  `HandoffContract` (declared baton passes over `StepCapabilityGraph` step
+  ids). **Recommendation: Option B — config + artifact effective contract**
+  (optional `.rekon/handoff-contracts.json`; missing step refs →
+  `unresolved-step`). Rejected: config-only, auto-derive, fold into
+  StepCapabilityGraph, start with HandoffCoverageReport. Pinned: declared
+  baton policy, not topology; no handoff coverage / runtime events / drift;
+  HandoffCoverageReport is next; observation/drift deferred; no WorkOrder /
+  VerificationPlan; intent deferred. New memo + 18-assertion docs test +
+  review packet. Recommended next slice: HandoffContract v1 implementation.
 - **StepCapabilityGraph safety review (P1.1
   step-capability-graph-safety-review slice).** ✅ Shipped. **Sixty-third
   slice on the capability-ontology track.** Strategy / safety-review batch.
