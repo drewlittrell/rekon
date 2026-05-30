@@ -2640,6 +2640,21 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- RuntimeGraphObservationReport v1 (P1.1
+  runtime-graph-observation-report slice): **seventy-first slice on the
+  codebase-intel-classic capability-ontology track. Product-capability
+  batch.** Registers the `RuntimeGraphObservationReport` artifact (category
+  `graphs`) and a read-only generator from optional
+  `.rekon/handoff-events.jsonl`. New
+  `@rekon/capability-model.buildRuntimeGraphObservationReport` +
+  `parseRuntimeGraphObservationEventLog` + the `rekon runtime graph
+  observe` CLI. Observed step/feature/event/source nodes + handoff/emitted-by
+  edges with observedCount + first/last + line evidence; ignoredRows +
+  parseErrors; missing log → zero. Observed runtime graph, not declared
+  topology; not HandoffCoverageReport; no coverage / drift / WorkOrder /
+  VerificationPlan / intent. 25-assertion contract test + 11-assertion docs
+  test + review packet. Recommended next slice: RuntimeGraphObservationReport
+  safety review.
 - RuntimeGraphObservationReport v1 decision (P1.1
   runtime-graph-observation-report-v1-decision slice): **seventieth slice
   on the codebase-intel-classic capability-ontology track. Strategy /

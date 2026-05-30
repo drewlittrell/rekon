@@ -99,6 +99,17 @@ export {
   parseHandoffEventLog,
 } from "./handoff-coverage-report.js";
 
+export {
+  type BuildRuntimeGraphObservationReportInput,
+  type ParseRuntimeGraphObservationEventLogResult,
+  type ParsedRuntimeGraphObservationEvent,
+  RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX,
+  RUNTIME_GRAPH_OBSERVATION_EVENT_KIND,
+  RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH,
+  buildRuntimeGraphObservationReport,
+  parseRuntimeGraphObservationEventLog,
+} from "./runtime-graph-observation-report.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

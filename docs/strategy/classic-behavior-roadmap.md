@@ -6256,6 +6256,17 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **RuntimeGraphObservationReport v1 (P1.1
+  runtime-graph-observation-report slice).** ✅ Shipped. Seventy-first slice.
+  Registers `RuntimeGraphObservationReport` (category `graphs`) +
+  `buildRuntimeGraphObservationReport` / `parseRuntimeGraphObservationEventLog`
+  (`@rekon/capability-model`) + `rekon runtime graph observe` CLI.
+  Observed runtime graph from raw handoff_event logs
+  (`.rekon/handoff-events.jsonl`): step/feature/event/source nodes +
+  handoff/emitted-by edges; ignoredRows + parseErrors; missing log → zero.
+  Observed runtime graph, not declared topology; not HandoffCoverageReport;
+  no coverage / drift / WorkOrder / VerificationPlan / intent. Next:
+  RuntimeGraphObservationReport safety review.
 - **RuntimeGraphObservationReport v1 decision (P1.1
   runtime-graph-observation-report-v1-decision slice).** ✅ Shipped.
   Seventieth slice. Decides the v1 model for

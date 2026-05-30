@@ -3462,6 +3462,374 @@ export const handoffCoverageReportSchema: ArtifactSchema<HandoffCoverageReport> 
   parse: assertHandoffCoverageReport,
 };
 
+// ---- RuntimeGraphObservationReport (v1, observed runtime graph) ----
+//
+// Observed runtime graph generated from a raw handoff event log
+// (`.rekon/handoff-events.jsonl`). It folds observed `handoff_event` rows
+// into observed **nodes** (step / feature / event / source) and **edges**
+// (handoff / emitted-by), recording observedCount + first/last timestamps
+// + line evidence. It is **observed runtime graph, not declared
+// topology**, and **not HandoffCoverageReport**: it preserves raw observed
+// graph facts. v1 evaluates **no coverage**, compares against **no**
+// declared artifact, detects **no drift**, and creates no `WorkOrder` /
+// `VerificationPlan`.
+
+export type RuntimeGraphObservationNodeKind =
+  | "step"
+  | "feature"
+  | "event"
+  | "source";
+
+export type RuntimeGraphObservationEdgeKind =
+  | "handoff"
+  | "emitted-by"
+  | "observed-from";
+
+export type RuntimeGraphObservationEvidenceRef = {
+  line: number;
+  timestamp?: string;
+  source?: string;
+};
+
+export type RuntimeGraphObservationNode = {
+  id: string;
+  kind: RuntimeGraphObservationNodeKind;
+  label: string;
+  source: "handoff-event-log";
+  firstObservedAt?: string;
+  lastObservedAt?: string;
+  observedCount: number;
+  evidenceRefs: RuntimeGraphObservationEvidenceRef[];
+};
+
+export type RuntimeGraphObservationEdge = {
+  id: string;
+  kind: RuntimeGraphObservationEdgeKind;
+  fromNodeId: string;
+  toNodeId: string;
+  feature?: string;
+  eventName?: string;
+  payloadType?: string;
+  firstObservedAt?: string;
+  lastObservedAt?: string;
+  observedCount: number;
+  evidenceRefs: RuntimeGraphObservationEvidenceRef[];
+};
+
+export type RuntimeGraphObservationReportSource = {
+  eventLogPath?: string;
+  eventLogHash?: string;
+  handoffCoverageReportRef?: ArtifactRef;
+  handoffContractRef?: ArtifactRef;
+  stepCapabilityGraphRef?: ArtifactRef;
+};
+
+export type RuntimeGraphObservationReportSummary = {
+  observedNodes: number;
+  observedEdges: number;
+  handoffEvents: number;
+  ignoredRows: number;
+  parseErrors: number;
+};
+
+export type RuntimeGraphObservationReport = {
+  header: ArtifactHeader;
+  source: RuntimeGraphObservationReportSource;
+  summary: RuntimeGraphObservationReportSummary;
+  nodes: RuntimeGraphObservationNode[];
+  edges: RuntimeGraphObservationEdge[];
+};
+
+const RUNTIME_GRAPH_OBSERVATION_NODE_KINDS = new Set<string>([
+  "step",
+  "feature",
+  "event",
+  "source",
+]);
+
+const RUNTIME_GRAPH_OBSERVATION_EDGE_KINDS = new Set<string>([
+  "handoff",
+  "emitted-by",
+  "observed-from",
+]);
+
+function normalizeRuntimeGraphEvidenceRefs(
+  refs: RuntimeGraphObservationEvidenceRef[] | undefined,
+): RuntimeGraphObservationEvidenceRef[] {
+  const out: RuntimeGraphObservationEvidenceRef[] = [];
+  for (const raw of refs ?? []) {
+    if (!raw || typeof raw.line !== "number") continue;
+    const ref: RuntimeGraphObservationEvidenceRef = { line: raw.line };
+    if (typeof raw.timestamp === "string" && raw.timestamp.length > 0) ref.timestamp = raw.timestamp;
+    if (typeof raw.source === "string" && raw.source.length > 0) ref.source = raw.source;
+    out.push(ref);
+  }
+  return out;
+}
+
+export function createRuntimeGraphObservationReport(
+  input: RuntimeGraphObservationReport,
+): RuntimeGraphObservationReport {
+  const nodes: RuntimeGraphObservationNode[] = [];
+  const seenNodes = new Set<string>();
+  for (const raw of input.nodes ?? []) {
+    if (!raw || seenNodes.has(raw.id)) continue;
+    seenNodes.add(raw.id);
+    const node: RuntimeGraphObservationNode = {
+      id: raw.id,
+      kind: raw.kind,
+      label: raw.label,
+      source: "handoff-event-log",
+      observedCount: typeof raw.observedCount === "number" ? raw.observedCount : 0,
+      evidenceRefs: normalizeRuntimeGraphEvidenceRefs(raw.evidenceRefs),
+    };
+    if (typeof raw.firstObservedAt === "string" && raw.firstObservedAt.length > 0) node.firstObservedAt = raw.firstObservedAt;
+    if (typeof raw.lastObservedAt === "string" && raw.lastObservedAt.length > 0) node.lastObservedAt = raw.lastObservedAt;
+    nodes.push(node);
+  }
+  nodes.sort((a, b) => (a.kind !== b.kind ? a.kind.localeCompare(b.kind) : a.id.localeCompare(b.id)));
+
+  const edges: RuntimeGraphObservationEdge[] = [];
+  const seenEdges = new Set<string>();
+  for (const raw of input.edges ?? []) {
+    if (!raw || seenEdges.has(raw.id)) continue;
+    seenEdges.add(raw.id);
+    const edge: RuntimeGraphObservationEdge = {
+      id: raw.id,
+      kind: raw.kind,
+      fromNodeId: raw.fromNodeId,
+      toNodeId: raw.toNodeId,
+      observedCount: typeof raw.observedCount === "number" ? raw.observedCount : 0,
+      evidenceRefs: normalizeRuntimeGraphEvidenceRefs(raw.evidenceRefs),
+    };
+    if (typeof raw.feature === "string" && raw.feature.length > 0) edge.feature = raw.feature;
+    if (typeof raw.eventName === "string" && raw.eventName.length > 0) edge.eventName = raw.eventName;
+    if (typeof raw.payloadType === "string" && raw.payloadType.length > 0) edge.payloadType = raw.payloadType;
+    if (typeof raw.firstObservedAt === "string" && raw.firstObservedAt.length > 0) edge.firstObservedAt = raw.firstObservedAt;
+    if (typeof raw.lastObservedAt === "string" && raw.lastObservedAt.length > 0) edge.lastObservedAt = raw.lastObservedAt;
+    edges.push(edge);
+  }
+  edges.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
+    if (a.fromNodeId !== b.fromNodeId) return a.fromNodeId.localeCompare(b.fromNodeId);
+    if (a.toNodeId !== b.toNodeId) return a.toNodeId.localeCompare(b.toNodeId);
+    return a.id.localeCompare(b.id);
+  });
+
+  const nonNegInt = (value: unknown): number =>
+    typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+
+  const source: RuntimeGraphObservationReportSource = {};
+  if (typeof input.source?.eventLogPath === "string" && input.source.eventLogPath.length > 0) {
+    source.eventLogPath = input.source.eventLogPath;
+  }
+  if (typeof input.source?.eventLogHash === "string" && input.source.eventLogHash.length > 0) {
+    source.eventLogHash = input.source.eventLogHash;
+  }
+  if (input.source?.handoffCoverageReportRef) source.handoffCoverageReportRef = assertArtifactRef(input.source.handoffCoverageReportRef);
+  if (input.source?.handoffContractRef) source.handoffContractRef = assertArtifactRef(input.source.handoffContractRef);
+  if (input.source?.stepCapabilityGraphRef) source.stepCapabilityGraphRef = assertArtifactRef(input.source.stepCapabilityGraphRef);
+
+  return assertRuntimeGraphObservationReport({
+    header: input.header,
+    source,
+    summary: {
+      observedNodes: nodes.length,
+      observedEdges: edges.length,
+      handoffEvents: nonNegInt(input.summary?.handoffEvents),
+      ignoredRows: nonNegInt(input.summary?.ignoredRows),
+      parseErrors: nonNegInt(input.summary?.parseErrors),
+    },
+    nodes,
+    edges,
+  });
+}
+
+export function validateRuntimeGraphObservationReport(value: unknown): ValidationResult<RuntimeGraphObservationReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "RuntimeGraphObservationReport", "$.header", issues);
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    for (const field of ["eventLogPath", "eventLogHash"] as const) {
+      const supplied = (value.source as Record<string, unknown>)[field];
+      if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+        issues.push({ path: `$.source.${field}`, message: "Expected a non-empty string." });
+      }
+    }
+    for (const field of ["handoffCoverageReportRef", "handoffContractRef", "stepCapabilityGraphRef"] as const) {
+      const supplied = (value.source as Record<string, unknown>)[field];
+      if (supplied !== undefined) {
+        const result = validateArtifactRef(supplied);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+      }
+    }
+  }
+
+  let nodes: unknown[] = [];
+  if (!Array.isArray(value.nodes)) {
+    issues.push({ path: "$.nodes", message: "Expected an array." });
+  } else {
+    nodes = value.nodes;
+    const seenIds = new Set<string>();
+    nodes.forEach((node, index) => validateRuntimeGraphObservationNode(node, `$.nodes[${index}]`, issues, seenIds));
+  }
+
+  let edges: unknown[] = [];
+  if (!Array.isArray(value.edges)) {
+    issues.push({ path: "$.edges", message: "Expected an array." });
+  } else {
+    edges = value.edges;
+    const seenIds = new Set<string>();
+    edges.forEach((edge, index) => validateRuntimeGraphObservationEdge(edge, `$.edges[${index}]`, issues, seenIds));
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const computed: Record<string, number> = {
+      observedNodes: Array.isArray(nodes) ? nodes.length : 0,
+      observedEdges: Array.isArray(edges) ? edges.length : 0,
+    };
+    for (const field of ["observedNodes", "observedEdges"] as const) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      } else if (supplied !== computed[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${computed[field]} (recomputed).` });
+      }
+    }
+    // handoffEvents / ignoredRows / parseErrors are observed during parsing
+    // and not recomputable from nodes/edges; they are type-checked but trusted.
+    for (const field of ["handoffEvents", "ignoredRows", "parseErrors"] as const) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      }
+    }
+  }
+
+  return validationResult(value as RuntimeGraphObservationReport, issues);
+}
+
+function validateRuntimeGraphObservationEvidenceRefs(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((ref, index) => {
+    const refPath = `${path}[${index}]`;
+    if (!isRecord(ref)) {
+      issues.push({ path: refPath, message: "Expected an object." });
+      return;
+    }
+    if (typeof ref.line !== "number" || !Number.isInteger(ref.line) || ref.line < 0) {
+      issues.push({ path: `${refPath}.line`, message: "Expected a non-negative integer." });
+    }
+    for (const f of ["timestamp", "source"] as const) {
+      const fv = ref[f];
+      if (fv !== undefined && (typeof fv !== "string" || fv.length === 0)) {
+        issues.push({ path: `${refPath}.${f}`, message: "Expected a non-empty string." });
+      }
+    }
+  });
+}
+
+function validateRuntimeGraphObservationNode(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate node id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.kind !== "string" || !RUNTIME_GRAPH_OBSERVATION_NODE_KINDS.has(value.kind)) {
+    issues.push({ path: `${path}.kind`, message: "Expected one of step, feature, event, source." });
+  }
+  if (typeof value.label !== "string" || value.label.length === 0) {
+    issues.push({ path: `${path}.label`, message: "Expected a non-empty string." });
+  }
+  if (value.source !== "handoff-event-log") {
+    issues.push({ path: `${path}.source`, message: 'Expected "handoff-event-log".' });
+  }
+  for (const field of ["firstObservedAt", "lastObservedAt"] as const) {
+    const supplied = value[field];
+    if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string." });
+    }
+  }
+  if (typeof value.observedCount !== "number" || !Number.isInteger(value.observedCount) || value.observedCount <= 0) {
+    issues.push({ path: `${path}.observedCount`, message: "Expected a positive integer." });
+  }
+  validateRuntimeGraphObservationEvidenceRefs(value.evidenceRefs, `${path}.evidenceRefs`, issues);
+}
+
+function validateRuntimeGraphObservationEdge(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate edge id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.kind !== "string" || !RUNTIME_GRAPH_OBSERVATION_EDGE_KINDS.has(value.kind)) {
+    issues.push({ path: `${path}.kind`, message: "Expected one of handoff, emitted-by, observed-from." });
+  }
+  for (const field of ["fromNodeId", "toNodeId"] as const) {
+    if (typeof value[field] !== "string" || (value[field] as string).length === 0) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string." });
+    }
+  }
+  for (const field of ["feature", "eventName", "payloadType", "firstObservedAt", "lastObservedAt"] as const) {
+    const supplied = value[field];
+    if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string." });
+    }
+  }
+  if (typeof value.observedCount !== "number" || !Number.isInteger(value.observedCount) || value.observedCount <= 0) {
+    issues.push({ path: `${path}.observedCount`, message: "Expected a positive integer." });
+  }
+  validateRuntimeGraphObservationEvidenceRefs(value.evidenceRefs, `${path}.evidenceRefs`, issues);
+}
+
+export function assertRuntimeGraphObservationReport(value: unknown): RuntimeGraphObservationReport {
+  return assertValid(validateRuntimeGraphObservationReport(value), "RuntimeGraphObservationReport");
+}
+
+export const runtimeGraphObservationReportSchema: ArtifactSchema<RuntimeGraphObservationReport> = {
+  validate: validateRuntimeGraphObservationReport,
+  parse: assertRuntimeGraphObservationReport,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

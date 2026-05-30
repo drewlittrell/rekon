@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **RuntimeGraphObservationReport v1** — seventy-first slice on
+  the codebase-intel-classic capability-ontology track. Product-capability
+  batch. Registers the `RuntimeGraphObservationReport` artifact type
+  (category `graphs`) and a read-only generator producing an observed
+  runtime graph from optional `.rekon/handoff-events.jsonl`. New
+  `@rekon/capability-model` `buildRuntimeGraphObservationReport` +
+  `parseRuntimeGraphObservationEventLog`, the `rekon runtime graph observe
+  [--root] [--json] [--event-log] [--handoff-coverage-report]
+  [--handoff-contract] [--step-graph]` CLI, and
+  `RuntimeGraphObservationReport` types + factory + validator + schema in
+  `@rekon/kernel-repo-model`. Observed `step` / `feature` / `event` /
+  `source` nodes + `handoff` / `emitted-by` edges with observedCount +
+  first/last timestamps + line evidence; non-handoff rows → ignoredRows;
+  invalid JSONL lines → parseErrors (non-fatal); missing log → zero
+  nodes/edges. **Observed runtime graph, not declared topology**; not
+  HandoffCoverageReport; evaluates no declared coverage, compares against no
+  declared artifact, detects no drift, creates no `RuntimeGraphDriftReport`
+  / `WorkOrder` / `VerificationPlan`; intent deferred; optional upstream
+  refs are citation/context only; mutates nothing. 25-assertion contract
+  test + 11-assertion docs test + review packet. No version bump; no npm
+  publish.
 - Shipped **RuntimeGraphObservationReport v1 decision** — seventieth
   slice on the codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch. Decides the v1 model for

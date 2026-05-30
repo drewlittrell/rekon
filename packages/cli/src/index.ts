@@ -68,6 +68,9 @@ import modelCapability, {
   HANDOFF_CONTRACT_CONFIG_PATH,
   HANDOFF_COVERAGE_REPORT_ARTIFACT_ID_PREFIX,
   HANDOFF_EVENT_LOG_PATH,
+  buildRuntimeGraphObservationReport,
+  RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX,
+  RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH,
   type HandoffCoverageContractLike,
   STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX,
   STEP_CAPABILITY_GRAPH_CONFIG_PATH,
@@ -138,6 +141,7 @@ import {
   type CapabilityMap,
   type HandoffContract,
   type HandoffCoverageReport,
+  type RuntimeGraphObservationReport,
   type ObservedRepo,
   type OwnershipMap,
   type StepCapabilityGraph,
@@ -3451,6 +3455,118 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push(
         "No RuntimeGraphObservationReport, RuntimeGraphDriftReport, WorkOrder, or VerificationPlan artifacts were created.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "runtime" && subcommand === "graph" && positional === "observe") {
+    // `rekon runtime graph observe [--root <path>] [--json]
+    // [--event-log <path>] [--handoff-coverage-report <ref>]
+    // [--handoff-contract <ref>] [--step-graph <ref>]` —
+    // RuntimeGraphObservationReport v1.
+    //
+    // Generates an OBSERVED runtime graph from an optional raw handoff event
+    // log (`.rekon/handoff-events.jsonl`): observed step/feature/event/source
+    // nodes + handoff/emitted-by edges. This is observed runtime graph, NOT
+    // declared topology, and NOT HandoffCoverageReport. It evaluates NO
+    // coverage, compares against NO declared artifact, detects NO drift, and
+    // creates no RuntimeGraphDriftReport / WorkOrder / VerificationPlan. It
+    // mutates nothing (the event log or upstream artifacts); optional upstream
+    // refs are citation/context only. See
+    // docs/artifacts/runtime-graph-observation-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    // Optional raw handoff event log. Default `.rekon/handoff-events.jsonl`
+    // under root, or an explicit `--event-log` path. A MISSING log is valid
+    // (zero nodes / zero edges); the log is never mutated.
+    const eventLogFlag = typeof parsed.flags["event-log"] === "string"
+      ? parsed.flags["event-log"].trim()
+      : "";
+    const eventLogRelPath = eventLogFlag.length > 0 ? eventLogFlag : RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH;
+    let eventLog: string | undefined;
+    let eventLogPath: string | undefined;
+    let eventLogHash: string | undefined;
+    try {
+      eventLog = await readFile(resolve(root, eventLogRelPath), "utf8");
+    } catch {
+      eventLog = undefined;
+    }
+    if (eventLog !== undefined) {
+      eventLogPath = eventLogRelPath;
+      eventLogHash = createHash("sha256").update(eventLog).digest("hex");
+    }
+
+    // Optional upstream citation refs (context only; never read or compared).
+    const resolveCitationRef = async (flagName: string, type: string): Promise<ArtifactRef | undefined> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      if (flag.length === 0) return undefined;
+      const entry = await findArtifactEntry(store, flag);
+      if (entry.type !== type) {
+        throw new Error(`rekon runtime graph observe --${flagName} must reference a ${type}; got ${entry.type}.`);
+      }
+      return {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+    };
+    const handoffCoverageReportRef = await resolveCitationRef("handoff-coverage-report", "HandoffCoverageReport");
+    const handoffContractRef = await resolveCitationRef("handoff-contract", "HandoffContract");
+    const stepCapabilityGraphRef = await resolveCitationRef("step-graph", "StepCapabilityGraph");
+
+    const inputRefs: ArtifactRef[] = [];
+    if (handoffCoverageReportRef) inputRefs.push(handoffCoverageReportRef);
+    if (handoffContractRef) inputRefs.push(handoffContractRef);
+    if (stepCapabilityGraphRef) inputRefs.push(stepCapabilityGraphRef);
+
+    const generatedAt = new Date().toISOString();
+    const header: ArtifactHeader = {
+      artifactType: "RuntimeGraphObservationReport",
+      artifactId: `${RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.runtime-graph-observe", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.85 },
+    };
+
+    const report: RuntimeGraphObservationReport = buildRuntimeGraphObservationReport({
+      header,
+      eventLog,
+      eventLogPath,
+      eventLogHash,
+      handoffCoverageReportRef,
+      handoffContractRef,
+      stepCapabilityGraphRef,
+    });
+
+    const ref = await store.write(report, { category: "graphs" });
+
+    if (json) {
+      writeOutput(
+        { artifact: { type: ref.type, id: ref.id }, summary: report.summary, source: report.source },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Runtime graph observation report");
+      lines.push("");
+      lines.push(`Observed nodes: ${report.summary.observedNodes}`);
+      lines.push(`Observed edges: ${report.summary.observedEdges}`);
+      lines.push(`Handoff events: ${report.summary.handoffEvents}`);
+      lines.push(`Ignored rows: ${report.summary.ignoredRows}`);
+      lines.push(`Parse errors: ${report.summary.parseErrors}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push(
+        "No RuntimeGraphDriftReport, WorkOrder, or VerificationPlan artifacts were created.",
       );
       writeOutput(lines.join("\n"), false);
     }

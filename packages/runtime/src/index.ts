@@ -268,6 +268,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   StepCapabilityGraph: "graphs",
   HandoffContract: "actions",
   HandoffCoverageReport: "actions",
+  RuntimeGraphObservationReport: "graphs",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [
