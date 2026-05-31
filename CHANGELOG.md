@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **IntentStatusReport safety review** — eighty-seventh slice on the
+  codebase-intel-classic capability-ontology track. Strategy / safety-review
+  batch reviewing the shipped IntentStatusReport v1 (`6b1a806`) end-to-end.
+  **Recommendation: IntentStatusReport v1 is safe/stable as read-only status
+  reporting.** The review confirms the read-only boundary holds across the helper,
+  CLI, and kernel validator (the one consequential status, `complete`, is gated
+  behind passed verification + no high-severity blockers): **IntentStatusReport is
+  status reporting, not VerificationResult**; **IntentStatusReport is not
+  WorkOrder**; it does not create WorkOrder / VerificationPlan / VerificationRun /
+  VerificationResult, execute commands, write source, or implement intent:go; it
+  **reports PreparedIntentPlan approval state but does not approve plans**;
+  **VerificationResult is an input to status, not the status artifact itself**;
+  **WorkOrder / VerificationPlan generation remains deferred to a separate
+  decision**. New `docs/strategy/intent-status-report-safety-review.md` (14
+  sections + 4 tables) + 18-assertion docs test + review packet. No runtime
+  behavior change; no version bump; no npm publish. Recommended next slice: Intent
+  Work / Proof Handoff Decision.
 - Shipped **IntentStatusReport v1** — eighty-sixth slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch.
   Registers the `IntentStatusReport` artifact type (category `actions`) and a
