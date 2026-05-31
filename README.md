@@ -1103,6 +1103,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Work / Proof Handoff Decision has shipped. Eighty-eighth slice on the
+# codebase-intel-classic capability-ontology track. Strategy / architecture
+# decision batch. Decides how a proof-approved PreparedIntentPlan may lead to
+# downstream WorkOrder and VerificationPlan artifacts.
+#   - Recommendation: Option B, separate explicit gated generators
+#     (PreparedIntentPlan -> WorkOrder and PreparedIntentPlan -> VerificationPlan).
+#   - Intent work/proof handoff is artifact generation, not intent:go.
+#   - WorkOrder generation must require a proof-approved PreparedIntentPlan.
+#   - VerificationPlan generation must require PreparedIntentPlan verification
+#     requirements.
+#   - IntentStatusReport gates handoff but does not generate downstream artifacts.
+#   - WorkOrder and VerificationPlan generation must be separate explicit steps.
+#   - Generated WorkOrder and VerificationPlan must trace back to PreparedIntentPlan.
+#   - Handoff generation does not execute commands or write source files.
+#   - intent:go remains deferred.
+#
+# Recommended next slice: Intent WorkOrder Handoff Decision.
+#
 # IntentStatusReport safety review has shipped. Eighty-seventh slice on the
 # codebase-intel-classic capability-ontology track. Strategy / safety-review
 # batch. Reviews the shipped IntentStatusReport v1 end-to-end.

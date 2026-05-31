@@ -4,6 +4,30 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Work / Proof Handoff Decision** — eighty-eighth slice on
+  the codebase-intel-classic capability-ontology track. Strategy / architecture
+  decision batch deciding whether and how a proof-approved `PreparedIntentPlan`
+  may lead to downstream `WorkOrder` and `VerificationPlan` artifacts.
+  **Recommendation: Option B — separate, explicit, gated generators**
+  (`PreparedIntentPlan → WorkOrder` and `PreparedIntentPlan → VerificationPlan`),
+  each decided / implemented / safety-reviewed on its own. Pinned gates: WorkOrder
+  generation requires `approval.status === "approved"` + `status.value ===
+  "prepared"` + `recommendedNextAction === "create-work-order"` +
+  `IntentStatusReport` work-ready with no high-severity blockers + a freshness /
+  drift recheck; VerificationPlan generation requires approval + present
+  verification requirements. Generated artifacts must trace back to
+  `PreparedIntentPlan` (refs + phase/obligation/requirement ids + approval proof
+  refs). **Intent work/proof handoff is artifact generation, not intent:go**;
+  **WorkOrder generation must require a proof-approved PreparedIntentPlan**;
+  **VerificationPlan generation must require PreparedIntentPlan verification
+  requirements**; **IntentStatusReport gates handoff but does not generate
+  downstream artifacts**; **WorkOrder and VerificationPlan generation must be
+  separate explicit steps**; **handoff generation does not execute commands** or
+  **write source files**; **intent:go remains deferred**. New
+  `docs/strategy/intent-work-proof-handoff-decision.md` (14 sections + 4 tables) +
+  18-assertion docs test + review packet. No source changes; no artifact
+  registration; no version bump; no npm publish. Recommended next slice: Intent
+  WorkOrder Handoff Decision.
 - Shipped the **IntentStatusReport safety review** — eighty-seventh slice on the
   codebase-intel-classic capability-ontology track. Strategy / safety-review
   batch reviewing the shipped IntentStatusReport v1 (`6b1a806`) end-to-end.
