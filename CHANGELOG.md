@@ -4,6 +4,34 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent VerificationPlan Handoff Implementation** — ninety-third
+  slice on the codebase-intel-classic capability-ontology track. The explicit
+  gated generator `rekon intent verification-plan generate` reads a proof-approved
+  `PreparedIntentPlan` (gated by `IntentStatusReport` work-ready /
+  work-in-progress / verification-ready + a handoff-time freshness / drift
+  recheck), classifies each verification requirement command for safety, and
+  **writes exactly one VerificationPlan** (`source: "intent-handoff"`) that traces
+  back to the plan / status / assessment / optional WorkOrder refs and the
+  requirement / phase / obligation ids; when the gate fails it prints
+  deterministic blockers, exits non-zero, and **writes no VerificationPlan**. The
+  new `buildIntentVerificationPlanHandoff` helper (`@rekon/capability-model`) runs
+  the proof-planning gate and a conservative `classifyVerificationCommand`
+  sanitizer (safe allowlist → `commands`; commandless / needs-review → success
+  criteria; rejected shell-control / destructive tokens → blocked). The canonical
+  `VerificationPlan` gains additive, backwards-compatible `source: "intent-handoff"`
+  and `intentHandoff` fields (no new artifact type registered; the existing
+  `VerificationPlan` type is reused). **Intent VerificationPlan handoff generates
+  VerificationPlan only from a proof-approved PreparedIntentPlan**; **VerificationPlan
+  generation must require PreparedIntentPlan verification requirements**;
+  **IntentStatusReport gates generation but does not generate VerificationPlan**;
+  **WorkOrder is optional in v1 and cited when available**; **VerificationPlan
+  generation does not create WorkOrder**, **does not create VerificationRun or
+  VerificationResult**, **does not execute commands**, and **does not write source
+  files**; **intent:go remains deferred**. New
+  `docs/concepts/intent-verification-plan-handoff.md` + 32-assertion contract test
+  + 14-assertion docs test + review packet. No new artifact type; `rekon artifacts
+  validate` stays clean. Recommended next slice: **Intent VerificationPlan Handoff
+  Safety Review**.
 - Shipped the **Intent VerificationPlan Handoff Decision** — ninety-second slice
   on the codebase-intel-classic capability-ontology track. Strategy / architecture
   decision batch pinning the second half of the separate-generator handoff model:

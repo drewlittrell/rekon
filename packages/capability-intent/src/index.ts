@@ -107,12 +107,46 @@ export type VerificationResult = {
   recordedAt: string;
 };
 
+// Additive: an Intent VerificationPlan handoff records the source PreparedIntentPlan
+// (and its gating context) plus the requirement→command mapping and a literal
+// boundary marker. Present only when `source === "intent-handoff"`. The generator
+// lives in @rekon/capability-model; this type mirrors its written shape so
+// consumers can read it type-safely without a cross-package dependency.
+export type VerificationPlanIntentHandoff = {
+  preparedIntentPlanRef: ArtifactRef;
+  intentAssessmentReportRef?: ArtifactRef;
+  intentStatusReportRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  pathFreshnessReportRef?: ArtifactRef;
+  runtimeGraphDriftReportRef?: ArtifactRef;
+  verificationRequirementIds: string[];
+  phaseIds: string[];
+  obligationIds: string[];
+  requirementMappings: Array<{
+    requirementId: string;
+    command?: string;
+    check?: string;
+    reason: string;
+    safety: "safe" | "needs-review" | "rejected";
+    sourceRefs?: ArtifactRef[];
+  }>;
+  boundary: {
+    createsWorkOrder: false;
+    createsVerificationRun: false;
+    createsVerificationResult: false;
+    executesCommands: false;
+    writesSourceFiles: false;
+  };
+};
+
 export type VerificationPlanLike = {
   header: ArtifactHeader;
   workOrderRef?: ArtifactRef;
   commands?: string[];
   successCriteria?: string[];
+  // `"resolver"` | `"coherency-delta"` | `"intent-handoff"` (open string).
   source?: string;
+  intentHandoff?: VerificationPlanIntentHandoff;
 };
 
 export type CreateVerificationResultInput = {

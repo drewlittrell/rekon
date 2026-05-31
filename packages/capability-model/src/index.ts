@@ -173,6 +173,25 @@ export {
   buildIntentWorkOrderHandoff,
 } from "./intent-work-order-handoff.js";
 
+export {
+  type BuildIntentVerificationPlanHandoffInput,
+  type IntentVerificationPlanHandoffResult,
+  type IntentVerificationPlanHandoffBlocker,
+  type IntentVerificationPlanHandoffBoundary,
+  type IntentVerificationPlanRequirementMapping,
+  type IntentVerificationPlanCommandSafety,
+  type IntentGeneratedVerificationPlan,
+  type IntentVerificationPlanPreparedPlanLike,
+  type IntentVerificationPlanStatusReportLike,
+  type IntentVerificationPlanWorkOrderLike,
+  type IntentVerificationPlanPathFreshnessLike,
+  type IntentVerificationPlanRuntimeDriftLike,
+  INTENT_VERIFICATION_PLAN_ARTIFACT_ID_PREFIX,
+  INTENT_VERIFICATION_PLAN_ALLOWED_STATUSES,
+  buildIntentVerificationPlanHandoff,
+  classifyVerificationCommand,
+} from "./intent-verification-plan-handoff.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

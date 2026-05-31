@@ -98,6 +98,13 @@ import modelCapability, {
   type IntentWorkOrderStatusReportLike,
   type IntentWorkOrderPathFreshnessLike,
   type IntentWorkOrderRuntimeDriftLike,
+  INTENT_VERIFICATION_PLAN_ARTIFACT_ID_PREFIX,
+  buildIntentVerificationPlanHandoff,
+  type IntentVerificationPlanPreparedPlanLike,
+  type IntentVerificationPlanStatusReportLike,
+  type IntentVerificationPlanWorkOrderLike,
+  type IntentVerificationPlanPathFreshnessLike,
+  type IntentVerificationPlanRuntimeDriftLike,
   type HandoffCoverageContractLike,
   type RuntimeGraphDriftStepGraphLike,
   type RuntimeGraphDriftHandoffContractLike,
@@ -4318,6 +4325,152 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Verification guidance items: ${handoff.verificationRequirementIds.length}`);
       lines.push("");
       lines.push("No VerificationPlan, commands, or source writes were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "verification-plan" && positional === "generate") {
+    // `rekon intent verification-plan generate --prepared-plan <ref>
+    // [--intent-status <ref>] [--work-order <ref>] [--path-freshness <ref>]
+    // [--runtime-drift <ref>] [--root <path>] [--json]` — Intent VerificationPlan
+    // handoff.
+    //
+    // Reads a proof-approved PreparedIntentPlan (plus IntentStatusReport, an
+    // optional WorkOrder, and the optional freshness/drift artifacts for the
+    // handoff-time recheck), verifies the proof-planning gate, classifies each
+    // verification requirement command for safety, and either reports blockers
+    // (non-zero exit, no VerificationPlan) or writes exactly one VerificationPlan.
+    // It creates no WorkOrder, no VerificationRun, and no VerificationResult,
+    // executes no commands, and writes no source files; intent:go remains
+    // deferred. See docs/concepts/intent-verification-plan-handoff.md.
+    const planFlag = typeof parsed.flags["prepared-plan"] === "string" ? parsed.flags["prepared-plan"].trim() : "";
+    if (planFlag.length === 0) {
+      throw new Error("rekon intent verification-plan generate requires --prepared-plan <PreparedIntentPlan:id|type:id>.");
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const planEntry = await findArtifactEntry(store, planFlag);
+    if (planEntry.type !== "PreparedIntentPlan") {
+      throw new Error(`rekon intent verification-plan generate --prepared-plan must reference a PreparedIntentPlan; got ${planEntry.type}.`);
+    }
+    const planValue = (await store.read(planEntry)) as IntentVerificationPlanPreparedPlanLike;
+    const planRef: ArtifactRef = {
+      type: planEntry.type,
+      id: planEntry.id,
+      path: planEntry.path,
+      digest: planEntry.digest,
+      schemaVersion: planEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const resolveRefWithValue = async <T>(flagName: string, type: string): Promise<{ ref?: ArtifactRef; value?: T }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon intent verification-plan generate --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        const entries = await store.list(type);
+        entry = entries.at(-1);
+      }
+      if (!entry) return {};
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      const value = (await store.read(entry)) as T;
+      return { ref, value };
+    };
+
+    const { ref: statusRef, value: statusValue } = await resolveRefWithValue<IntentVerificationPlanStatusReportLike>("intent-status", "IntentStatusReport");
+    const { ref: workOrderRef, value: workOrderValue } = await resolveRefWithValue<IntentVerificationPlanWorkOrderLike>("work-order", "WorkOrder");
+    const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<IntentVerificationPlanPathFreshnessLike>("path-freshness", "PathFreshnessReport");
+    const { ref: driftRef, value: driftValue } = await resolveRefWithValue<IntentVerificationPlanRuntimeDriftLike>("runtime-drift", "RuntimeGraphDriftReport");
+
+    const inputRefs = [planRef, statusRef, workOrderRef, freshnessRef, driftRef].filter((ref): ref is ArtifactRef => !!ref);
+
+    const header: ArtifactHeader = {
+      artifactType: "VerificationPlan",
+      artifactId: `${INTENT_VERIFICATION_PLAN_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.intent-verification-plan-generate", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.7 },
+    };
+
+    const result = buildIntentVerificationPlanHandoff({
+      header,
+      preparedIntentPlan: planValue,
+      preparedIntentPlanRef: planRef,
+      intentStatusReport: statusValue,
+      intentStatusReportRef: statusRef,
+      workOrder: workOrderValue,
+      workOrderRef,
+      pathFreshnessReport: freshnessValue,
+      pathFreshnessReportRef: freshnessRef,
+      runtimeGraphDriftReport: driftValue,
+      runtimeGraphDriftReportRef: driftRef,
+    });
+
+    if (result.status === "blocked") {
+      process.exitCode = 1;
+      if (json) {
+        writeOutput({ status: "blocked", blockers: result.blockers }, true);
+      } else {
+        const lines: string[] = [];
+        lines.push("Intent VerificationPlan handoff", "");
+        lines.push("Status: blocked");
+        lines.push(`Blockers: ${result.blockers.length}`);
+        for (const blocker of result.blockers) lines.push(`  - [${blocker.category}] ${blocker.message}`);
+        lines.push("");
+        lines.push("No VerificationPlan, WorkOrder, VerificationRun, VerificationResult, commands, or source writes were created.");
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
+    const ref = await store.write(result.verificationPlan, { category: "actions" });
+    const handoff = result.verificationPlan.intentHandoff;
+
+    if (json) {
+      writeOutput(
+        {
+          status: "generated",
+          artifact: { type: ref.type, id: ref.id },
+          source: {
+            preparedIntentPlanRef: planRef,
+            ...(statusRef ? { intentStatusReportRef: statusRef } : {}),
+            ...(workOrderRef ? { workOrderRef } : {}),
+          },
+          commands: result.verificationPlan.commands.length,
+          successCriteria: result.verificationPlan.successCriteria.length,
+          blockers: [],
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent VerificationPlan handoff", "");
+      lines.push("Status: generated");
+      lines.push(`VerificationPlan: ${ref.type}:${ref.id}`);
+      lines.push(`Source PreparedIntentPlan: ${planRef.type}:${planRef.id}`);
+      if (statusRef) lines.push(`IntentStatusReport: ${statusRef.type}:${statusRef.id}`);
+      lines.push(`WorkOrder: ${workOrderRef ? `${workOrderRef.type}:${workOrderRef.id}` : "absent"}`);
+      lines.push(`Commands: ${result.verificationPlan.commands.length}`);
+      lines.push(`Success criteria: ${result.verificationPlan.successCriteria.length}`);
+      lines.push(`Requirement mappings: ${handoff.requirementMappings.length}`);
+      lines.push("");
+      lines.push("No WorkOrder, VerificationRun, VerificationResult, commands, or source writes were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;
