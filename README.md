@@ -1103,6 +1103,37 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent WorkOrder Handoff Safety Review has shipped. Ninety-first slice on the
+# codebase-intel-classic capability-ontology track. Strategy / safety-review
+# batch. Reviews the shipped Intent WorkOrder handoff generator end-to-end.
+#   - Recommendation: Intent WorkOrder handoff is safe/stable as an explicit
+#     gated WorkOrder generator.
+#   - Intent WorkOrder handoff is WorkOrder artifact generation, not intent:go.
+#   - WorkOrder generation requires a proof-approved PreparedIntentPlan.
+#   - IntentStatusReport gates WorkOrder generation but does not generate WorkOrder.
+#   - Blocked handoff writes no WorkOrder; generated handoff writes exactly one
+#     WorkOrder that traces back to PreparedIntentPlan.
+#   - WorkOrder generation creates no VerificationPlan / VerificationRun /
+#     VerificationResult, executes no commands, and writes no source files.
+#   - intent:go remains deferred.
+#
+# See docs/strategy/intent-work-order-handoff-safety-review.md.
+# Recommended next slice: Intent VerificationPlan Handoff Decision.
+#
+# Intent WorkOrder Handoff Implementation has shipped. Ninetieth slice on the
+# codebase-intel-classic capability-ontology track. Product-capability batch.
+# Adds `rekon intent work-order generate`: reads a proof-approved
+# PreparedIntentPlan (gated by IntentStatusReport work-ready + a handoff-time
+# freshness/drift recheck) and writes exactly one WorkOrder (source
+# intent-handoff) that traces back to the plan; the blocked gate writes none.
+#   - buildIntentWorkOrderHandoff helper + additive WorkOrder.intentHandoff field
+#     (no new artifact type registered; existing WorkOrder reused).
+#   - WorkOrder generation creates no VerificationPlan, executes no commands, and
+#     writes no source files. intent:go remains deferred.
+#
+# See docs/concepts/intent-work-order-handoff.md.
+# Recommended next slice: Intent WorkOrder Handoff Safety Review.
+#
 # Intent WorkOrder Handoff Decision has shipped. Eighty-ninth slice on the
 # codebase-intel-classic capability-ontology track. Strategy / architecture
 # decision batch. Pins the WorkOrder generator shape, gate, freshness/drift

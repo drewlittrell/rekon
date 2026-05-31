@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent WorkOrder Handoff Safety Review** — ninety-first slice on
+  the codebase-intel-classic capability-ontology track. Strategy / safety-review
+  batch grounding the slice-90 generator (`24f7389`) in its shipped code:
+  `buildIntentWorkOrderHandoff` is a pure function that reads no files, writes no
+  artifacts itself, runs no commands, and mutates no input; the CLI's only side
+  effect is one `store.write` of a single `WorkOrder` on a passing gate. **Finding:
+  the Intent WorkOrder handoff is safe/stable as an explicit gated WorkOrder
+  generator** (no blocker). **Intent WorkOrder handoff is WorkOrder artifact
+  generation, not intent:go**; **WorkOrder generation requires a proof-approved
+  PreparedIntentPlan**; **IntentStatusReport gates WorkOrder generation but does
+  not generate WorkOrder**; **blocked handoff writes no WorkOrder**; **generated
+  WorkOrder must trace back to PreparedIntentPlan**; **WorkOrder generation does
+  not create VerificationPlan**, **does not create VerificationRun or
+  VerificationResult**, **does not execute commands**, and **does not write source
+  files**; **intent:go remains deferred**. New
+  `docs/strategy/intent-work-order-handoff-safety-review.md` (15 sections + surface
+  / gate / boundary / option tables) + 18-assertion docs test + review packet.
+  Recommended next slice: **Intent VerificationPlan Handoff Decision**. No source
+  changes; no runtime behavior change.
 - Shipped the **Intent WorkOrder Handoff Implementation** — ninetieth slice on
   the codebase-intel-classic capability-ontology track. The explicit gated
   generator `rekon intent work-order generate` reads a proof-approved
