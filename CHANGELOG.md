@@ -4,6 +4,34 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **IntentStatusReport v1** — eighty-sixth slice on the
+  codebase-intel-classic capability-ontology track. Product-capability batch.
+  Registers the `IntentStatusReport` artifact type (category `actions`) and a
+  read-only rollup status report generated from the existing intent / work /
+  proof / freshness / drift artifacts (`IntentAssessmentReport`,
+  `PreparedIntentPlan`, `WorkOrder`, `VerificationPlan`, `VerificationRun`,
+  `VerificationResult`, `PathFreshnessReport`, `RuntimeGraphDriftReport`,
+  `HandoffCoverageReport`). New `@rekon/capability-model.buildIntentStatusReport`,
+  the `rekon intent status [--root] [--json] [...pinned-ref flags]` CLI, and
+  `IntentStatusReport` types + factory + validator + schema in
+  `@rekon/kernel-repo-model`. Status enum `not-assessed` / `assessed` /
+  `assessment-blocked` / `prepared` / `preparation-blocked` / `needs-review` /
+  `stale` / `work-ready` / `work-in-progress` / `verification-ready` /
+  `verification-running` / `verification-passed` / `verification-failed` /
+  `complete` / `unknown`; a stale `PathFreshnessReport` overrides to `stale` and
+  high-severity runtime drift downgrades an advancing status to `needs-review`;
+  `complete` requires passed verification with no stale context and no
+  high-severity blockers. A `proof` rollup mirrors each input's recorded state;
+  deterministic `blockers` / `warnings` / `staleInputs` / `missingInputs`.
+  **IntentStatusReport is status reporting, not VerificationResult**;
+  **IntentStatusReport is not WorkOrder**; it reports `PreparedIntentPlan`
+  approval state but does not approve plans; `VerificationResult` is an input to
+  status, not the status artifact itself; it creates no `WorkOrder` /
+  `VerificationPlan` / `VerificationRun` / `VerificationResult`, executes no
+  commands, writes no source, and does not implement `intent:go`. New
+  `docs/artifacts/intent-status-report.md` + `docs/concepts/intent-status.md` +
+  25-case contract test + 12-assertion docs test + review packet. No version
+  bump; no npm publish. Recommended next slice: IntentStatusReport safety review.
 - Shipped the **IntentStatusReport v1 Decision** — eighty-fifth slice on the
   codebase-intel-classic capability-ontology track. Strategy / architecture
   decision batch pinning the IntentStatusReport v1 artifact shape, inputs,

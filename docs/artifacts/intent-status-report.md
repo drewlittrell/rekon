@@ -1,0 +1,153 @@
+# IntentStatusReport
+
+## Purpose
+
+`IntentStatusReport` is the third artifact of the staged Rekon intent spine, the
+layer after `IntentAssessmentReport` and `PreparedIntentPlan`. It is a
+**read-only rollup status report** generated from the existing Rekon intent,
+work, proof, freshness, and runtime-drift artifacts. It reports where the intent
+currently stands — assessed / prepared / blocked / stale / verified / failed /
+complete — without performing any of those steps.
+
+**IntentStatusReport is status reporting, not VerificationResult.**
+**IntentStatusReport is not WorkOrder.** It consumes already-materialized Rekon
+artifacts read-only and mutates none of them. **IntentStatusReport reports
+PreparedIntentPlan approval state but does not approve plans.**
+**VerificationResult is an input to status, not the status artifact itself.**
+
+## What It Does Not Do
+
+v1 reports current state only:
+
+- **IntentStatusReport does not create WorkOrder or VerificationPlan.**
+- **IntentStatusReport does not execute commands.**
+- **IntentStatusReport does not write source files.**
+- **IntentStatusReport does not implement intent:go.**
+- It creates no `VerificationRun` / `VerificationResult`, approves no prepared
+  plan, and creates no missing artifacts.
+
+`intent:go` remains deferred; source-write behavior remains unavailable.
+
+## Produced By
+
+- `@rekon/capability-model.buildIntentStatusReport`
+- the `rekon intent status` CLI command
+
+## Inputs
+
+All inputs are read as already-materialized Rekon artifacts (latest or pinned)
+cited by `ArtifactRef`; the generator reads values, never raw source or event
+files, and mutates nothing. No input is required — the absence of an input is
+itself a status signal.
+
+| Input | V1 Decision |
+| --- | --- |
+| IntentAssessmentReport | consumed when available |
+| PreparedIntentPlan | consumed when available |
+| WorkOrder | consumed when available |
+| VerificationPlan | consumed when available |
+| VerificationRun | consumed when available |
+| VerificationResult | consumed when available |
+| PathFreshnessReport | consumed when available |
+| RuntimeGraphDriftReport | consumed when available |
+| HandoffCoverageReport | consumed when available |
+
+## Status Model
+
+| Status | Meaning |
+| --- | --- |
+| not-assessed | no assessment exists |
+| assessed | assessment exists; no prepared plan yet |
+| assessment-blocked | assessment cannot proceed |
+| prepared | approved prepared plan exists |
+| preparation-blocked | prepared plan not approved / blocked |
+| needs-review | human review needed |
+| stale | context freshness invalidates status |
+| work-ready | ready for downstream WorkOrder handoff |
+| work-in-progress | WorkOrder exists; verification not complete |
+| verification-ready | VerificationPlan exists; no run/result yet |
+| verification-running | VerificationRun exists; result pending |
+| verification-passed | proof passed |
+| verification-failed | proof failed / partial / not-run |
+| complete | proof passed and no blocking drift/freshness |
+| unknown | inconsistent or insufficient inputs |
+
+`status` carries a `recommendedNextAction` (`run-assessment` / `prepare-intent` /
+`review-prepared-plan` / `create-work-order` / `create-verification-plan` /
+`run-verification` / `resolve-blockers` / `refresh-context` / `human-review` /
+`none`). The status is derived from input presence plus each input's recorded
+state: a stale `PathFreshnessReport` overrides work/proof status to `stale`, and
+high-severity unresolved `RuntimeGraphDriftReport` rows downgrade an advancing
+status to `needs-review`. `complete` requires passed verification with no stale
+context and no high-severity blockers.
+
+## Proof Rollup Model
+
+`proof` mirrors each input's recorded state — it copies values, it does not
+re-derive proof. `assessment` (present / readiness / blocker + warning counts),
+`preparation` (present / status / `approvalStatus` / phase / obligation /
+verification-requirement counts), `work` (present / status), `verification`
+(plan / run / result presence + `resultStatus`), `freshness` (present / stale),
+and `runtimeDrift` (present / high-severity-open / added-observed /
+uncovered-handoff / unresolved-contract counts). **VerificationResult is an
+input to status, not the status artifact itself.**
+
+## Blocker / Warning Model
+
+`blockers`, `warnings`, `staleInputs`, and `missingInputs` reuse a shared
+`IntentStatusIssue` shape (`id`, `category`, `severity`, `message`, optional
+`sourceRefs`). Categories: `assessment-blocked`, `preparation-not-approved`,
+`stale-context`, `runtime-drift`, `handoff-coverage`, `work-missing`,
+`verification-plan-missing`, `verification-not-run`, `verification-failed`,
+`missing-artifact`, `unknown-state`. Each list is deterministically ordered by
+severity (high first), category, then id.
+
+## Shape
+
+- `source` — optional refs to each consumed artifact.
+- `request` — optional `goal`, `kind`, `scope` (from the prepared plan or
+  assessment).
+- `status` — `value`, `recommendedNextAction`.
+- `phases[]` — summarized prepared-plan phases (`id`, `title`, `status`).
+- `proof` — the per-area rollup.
+- `blockers[]` / `warnings[]` / `staleInputs[]` / `missingInputs[]`.
+
+## CLI Surface
+
+```sh
+rekon intent status [--root <path>] [--json]
+rekon intent status [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]
+```
+
+Reads the latest available intent / work / proof / freshness / drift artifacts
+(or the pinned refs), writes an `IntentStatusReport` under
+`.rekon/artifacts/actions/`, and prints a status summary. It creates no
+`WorkOrder` / `VerificationPlan` / `VerificationRun`, executes no commands, and
+writes no source files.
+
+## Boundary Summary
+
+- **IntentStatusReport is status reporting, not VerificationResult.**
+- **IntentStatusReport is not WorkOrder.**
+- **IntentStatusReport does not create WorkOrder or VerificationPlan.**
+- **IntentStatusReport does not execute commands.**
+- **IntentStatusReport does not write source files.**
+- **IntentStatusReport does not implement intent:go.**
+- **IntentStatusReport reports PreparedIntentPlan approval state but does not approve plans.**
+- **VerificationResult is an input to status, not the status artifact itself.**
+- intent:go remains deferred; source-write behavior remains unavailable.
+
+## Cross-References
+
+- [Intent status concept](../concepts/intent-status.md)
+- [IntentStatusReport v1 decision](../strategy/intent-status-report-v1-decision.md)
+- [PreparedIntentPlan artifact](prepared-intent-plan.md)
+- [PreparedIntentPlan safety review](../strategy/prepared-intent-plan-safety-review.md)
+- [IntentAssessmentReport artifact](intent-assessment-report.md)
+- [WorkOrder artifact](work-order.md)
+- [VerificationPlan artifact](verification-plan.md)
+- [VerificationResult artifact](verification-result.md)
+- [Path freshness report artifact](path-freshness-report.md)
+- [RuntimeGraphDriftReport artifact](runtime-graph-drift-report.md)
+- [Roadmap](../strategy/roadmap.md)
+- [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

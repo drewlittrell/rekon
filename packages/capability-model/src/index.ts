@@ -145,6 +145,21 @@ export {
   buildPreparedIntentPlan,
 } from "./prepared-intent-plan.js";
 
+export {
+  type BuildIntentStatusReportInput,
+  type IntentStatusAssessmentLike,
+  type IntentStatusPreparedPlanLike,
+  type IntentStatusWorkOrderLike,
+  type IntentStatusVerificationPlanLike,
+  type IntentStatusVerificationRunLike,
+  type IntentStatusVerificationResultLike,
+  type IntentStatusPathFreshnessLike,
+  type IntentStatusRuntimeDriftLike,
+  type IntentStatusHandoffCoverageLike,
+  INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX,
+  buildIntentStatusReport,
+} from "./intent-status-report.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

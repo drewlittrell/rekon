@@ -82,6 +82,16 @@ import modelCapability, {
   type PreparedIntentRuntimeDriftReportLike,
   type PreparedIntentPathFreshnessReportLike,
   type PreparedIntentVerificationResultLike,
+  INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX,
+  buildIntentStatusReport,
+  type IntentStatusAssessmentLike,
+  type IntentStatusPreparedPlanLike,
+  type IntentStatusWorkOrderLike,
+  type IntentStatusVerificationRunLike,
+  type IntentStatusVerificationResultLike,
+  type IntentStatusPathFreshnessLike,
+  type IntentStatusRuntimeDriftLike,
+  type IntentStatusHandoffCoverageLike,
   type HandoffCoverageContractLike,
   type RuntimeGraphDriftStepGraphLike,
   type RuntimeGraphDriftHandoffContractLike,
@@ -4032,6 +4042,136 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Verification requirements: ${plan.verificationRequirements.length}`);
       lines.push("");
       lines.push(`Plan: ${ref.type}:${ref.id}`);
+      lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "status") {
+    // `rekon intent status [--root <path>] [--json]` plus optional pinned refs
+    // (`--assessment`, `--prepared-plan`, `--work-order`, `--verification-plan`,
+    // `--verification-run`, `--verification-result`, `--path-freshness`,
+    // `--runtime-drift`, `--handoff-coverage`) — IntentStatusReport v1.
+    //
+    // A read-only rollup status report over the intent spine. It reports
+    // PreparedIntentPlan approval state but does NOT approve plans, creates no
+    // WorkOrder / VerificationPlan / VerificationRun / VerificationResult,
+    // executes no commands, and writes no source. VerificationResult is an input
+    // to status, not the status artifact itself; intent:go remains deferred.
+    // See docs/artifacts/intent-status-report.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const resolveRefWithValue = async <T>(flagName: string, type: string): Promise<{ ref?: ArtifactRef; value?: T }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon intent status --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        const entries = await store.list(type);
+        entry = entries.at(-1);
+      }
+      if (!entry) return {};
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      const value = (await store.read(entry)) as T;
+      return { ref, value };
+    };
+
+    const { ref: assessmentRef, value: assessmentValue } = await resolveRefWithValue<IntentStatusAssessmentLike>("assessment", "IntentAssessmentReport");
+    const { ref: preparedRef, value: preparedValue } = await resolveRefWithValue<IntentStatusPreparedPlanLike>("prepared-plan", "PreparedIntentPlan");
+    const { ref: workOrderRef, value: workOrderValue } = await resolveRefWithValue<IntentStatusWorkOrderLike>("work-order", "WorkOrder");
+    const { ref: planRef } = await resolveRefWithValue<unknown>("verification-plan", "VerificationPlan");
+    const { ref: runRef, value: runValue } = await resolveRefWithValue<IntentStatusVerificationRunLike>("verification-run", "VerificationRun");
+    const { ref: resultRef, value: resultValue } = await resolveRefWithValue<IntentStatusVerificationResultLike>("verification-result", "VerificationResult");
+    const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<IntentStatusPathFreshnessLike>("path-freshness", "PathFreshnessReport");
+    const { ref: driftRef, value: driftValue } = await resolveRefWithValue<IntentStatusRuntimeDriftLike>("runtime-drift", "RuntimeGraphDriftReport");
+    const { ref: coverageRef, value: coverageValue } = await resolveRefWithValue<IntentStatusHandoffCoverageLike>("handoff-coverage", "HandoffCoverageReport");
+
+    const inputRefs = [
+      assessmentRef,
+      preparedRef,
+      workOrderRef,
+      planRef,
+      runRef,
+      resultRef,
+      freshnessRef,
+      driftRef,
+      coverageRef,
+    ].filter((ref): ref is ArtifactRef => !!ref);
+
+    const header: ArtifactHeader = {
+      artifactType: "IntentStatusReport",
+      artifactId: `${INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.intent-status", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.7 },
+    };
+
+    const report = buildIntentStatusReport({
+      header,
+      intentAssessmentReport: assessmentValue,
+      intentAssessmentReportRef: assessmentRef,
+      preparedIntentPlan: preparedValue,
+      preparedIntentPlanRef: preparedRef,
+      workOrder: workOrderValue,
+      workOrderRef,
+      verificationPlanRef: planRef,
+      verificationRun: runValue,
+      verificationRunRef: runRef,
+      verificationResult: resultValue,
+      verificationResultRef: resultRef,
+      pathFreshnessReport: freshnessValue,
+      pathFreshnessReportRef: freshnessRef,
+      runtimeGraphDriftReport: driftValue,
+      runtimeGraphDriftReportRef: driftRef,
+      handoffCoverageReport: coverageValue,
+      handoffCoverageReportRef: coverageRef,
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: { type: ref.type, id: ref.id },
+          status: { value: report.status.value, recommendedNextAction: report.status.recommendedNextAction },
+          proof: report.proof,
+          blockers: report.blockers.length,
+          warnings: report.warnings.length,
+          staleInputs: report.staleInputs.length,
+          missingInputs: report.missingInputs.length,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent status");
+      lines.push("");
+      lines.push(`Status: ${report.status.value}`);
+      lines.push(`Recommended next action: ${report.status.recommendedNextAction}`);
+      lines.push(`Assessment: ${report.proof.assessment?.present ? report.proof.assessment.readiness ?? "present" : "absent"}`);
+      lines.push(`Prepared plan: ${report.proof.preparation?.present ? `${report.proof.preparation.status ?? "present"} / ${report.proof.preparation.approvalStatus ?? "unknown"}` : "absent"}`);
+      lines.push(`WorkOrder: ${report.proof.work?.present ? "present" : "absent"}`);
+      lines.push(`Verification: ${report.proof.verification ? `plan=${report.proof.verification.planPresent} run=${report.proof.verification.runPresent} result=${report.proof.verification.resultStatus ?? (report.proof.verification.resultPresent ? "present" : "absent")}` : "absent"}`);
+      lines.push(`Freshness: ${report.proof.freshness?.present ? (report.proof.freshness.stale ? "stale" : "fresh") : "absent"}`);
+      lines.push(`Runtime drift: ${report.proof.runtimeDrift?.present ? `${report.proof.runtimeDrift.highSeverityOpen} high severity open` : "absent"}`);
+      lines.push(`Blockers: ${report.blockers.length} | Warnings: ${report.warnings.length} | Stale: ${report.staleInputs.length} | Missing: ${report.missingInputs.length}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
       writeOutput(lines.join("\n"), false);
     }

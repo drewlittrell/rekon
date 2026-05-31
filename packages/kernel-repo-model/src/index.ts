@@ -5456,6 +5456,543 @@ export const preparedIntentPlanSchema: ArtifactSchema<PreparedIntentPlan> = {
   parse: assertPreparedIntentPlan,
 };
 
+// ---------------------------------------------------------------------------
+// IntentStatusReport — read-only rollup status report over the intent spine.
+// Status reporting, NOT VerificationResult; NOT WorkOrder. It consumes existing
+// artifacts read-only, reports PreparedIntentPlan approval state without
+// approving plans, and creates nothing. See
+// docs/strategy/intent-status-report-v1-decision.md.
+// ---------------------------------------------------------------------------
+
+export type IntentStatusValue =
+  | "not-assessed"
+  | "assessed"
+  | "assessment-blocked"
+  | "prepared"
+  | "preparation-blocked"
+  | "needs-review"
+  | "stale"
+  | "work-ready"
+  | "work-in-progress"
+  | "verification-ready"
+  | "verification-running"
+  | "verification-passed"
+  | "verification-failed"
+  | "complete"
+  | "unknown";
+
+export type IntentStatusRecommendedNextAction =
+  | "run-assessment"
+  | "prepare-intent"
+  | "review-prepared-plan"
+  | "create-work-order"
+  | "create-verification-plan"
+  | "run-verification"
+  | "resolve-blockers"
+  | "refresh-context"
+  | "human-review"
+  | "none";
+
+export type IntentStatusIssueCategory =
+  | "assessment-blocked"
+  | "preparation-not-approved"
+  | "stale-context"
+  | "runtime-drift"
+  | "handoff-coverage"
+  | "work-missing"
+  | "verification-plan-missing"
+  | "verification-not-run"
+  | "verification-failed"
+  | "missing-artifact"
+  | "unknown-state";
+
+export type IntentStatusSeverity = "low" | "medium" | "high";
+
+export type IntentStatusIssue = {
+  id: string;
+  category: IntentStatusIssueCategory;
+  severity: IntentStatusSeverity;
+  message: string;
+  sourceRefs?: ArtifactRef[];
+};
+
+export type IntentStatusPhaseSummary = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+export type IntentStatusReportRequest = {
+  goal?: string;
+  kind?: string;
+  scope?: {
+    paths?: string[];
+    systems?: string[];
+    capabilities?: string[];
+    steps?: string[];
+  };
+};
+
+export type IntentStatusReportSource = {
+  intentAssessmentReportRef?: ArtifactRef;
+  preparedIntentPlanRef?: ArtifactRef;
+  workOrderRef?: ArtifactRef;
+  verificationPlanRef?: ArtifactRef;
+  verificationRunRef?: ArtifactRef;
+  verificationResultRef?: ArtifactRef;
+  pathFreshnessReportRef?: ArtifactRef;
+  runtimeGraphDriftReportRef?: ArtifactRef;
+  handoffCoverageReportRef?: ArtifactRef;
+  findingReportRef?: ArtifactRef;
+};
+
+export type IntentStatusProof = {
+  assessment?: { present: boolean; readiness?: string; blockers: number; warnings: number };
+  preparation?: {
+    present: boolean;
+    status?: string;
+    approvalStatus?: string;
+    phases: number;
+    obligations: number;
+    verificationRequirements: number;
+  };
+  work?: { present: boolean; status?: string };
+  verification?: { planPresent: boolean; runPresent: boolean; resultPresent: boolean; resultStatus?: string };
+  freshness?: { present: boolean; stale: boolean };
+  runtimeDrift?: {
+    present: boolean;
+    highSeverityOpen: number;
+    addedObserved: number;
+    uncoveredHandoff: number;
+    unresolvedContract: number;
+  };
+};
+
+export type IntentStatusReport = {
+  header: ArtifactHeader;
+  source: IntentStatusReportSource;
+  request?: IntentStatusReportRequest;
+  status: {
+    value: IntentStatusValue;
+    recommendedNextAction: IntentStatusRecommendedNextAction;
+  };
+  phases: IntentStatusPhaseSummary[];
+  proof: IntentStatusProof;
+  blockers: IntentStatusIssue[];
+  warnings: IntentStatusIssue[];
+  staleInputs: IntentStatusIssue[];
+  missingInputs: IntentStatusIssue[];
+};
+
+const INTENT_STATUS_VALUES = new Set<string>([
+  "not-assessed",
+  "assessed",
+  "assessment-blocked",
+  "prepared",
+  "preparation-blocked",
+  "needs-review",
+  "stale",
+  "work-ready",
+  "work-in-progress",
+  "verification-ready",
+  "verification-running",
+  "verification-passed",
+  "verification-failed",
+  "complete",
+  "unknown",
+]);
+
+const INTENT_STATUS_NEXT_ACTIONS = new Set<string>([
+  "run-assessment",
+  "prepare-intent",
+  "review-prepared-plan",
+  "create-work-order",
+  "create-verification-plan",
+  "run-verification",
+  "resolve-blockers",
+  "refresh-context",
+  "human-review",
+  "none",
+]);
+
+const INTENT_STATUS_ISSUE_CATEGORIES = new Set<string>([
+  "assessment-blocked",
+  "preparation-not-approved",
+  "stale-context",
+  "runtime-drift",
+  "handoff-coverage",
+  "work-missing",
+  "verification-plan-missing",
+  "verification-not-run",
+  "verification-failed",
+  "missing-artifact",
+  "unknown-state",
+]);
+
+const INTENT_STATUS_SEVERITIES = new Set<string>(["low", "medium", "high"]);
+const INTENT_STATUS_SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
+const INTENT_STATUS_SOURCE_FIELDS = [
+  "intentAssessmentReportRef",
+  "preparedIntentPlanRef",
+  "workOrderRef",
+  "verificationPlanRef",
+  "verificationRunRef",
+  "verificationResultRef",
+  "pathFreshnessReportRef",
+  "runtimeGraphDriftReportRef",
+  "handoffCoverageReportRef",
+  "findingReportRef",
+] as const;
+
+const INTENT_STATUS_SCOPE_FIELDS = ["paths", "systems", "capabilities", "steps"] as const;
+
+function intentStatusBool(value: unknown): boolean {
+  return value === true;
+}
+
+function intentStatusCount(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function intentStatusSortedStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item === "string" && item.length > 0) seen.add(item);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeIntentStatusPhases(value: unknown): IntentStatusPhaseSummary[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: IntentStatusPhaseSummary[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0 || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    out.push({
+      id: raw.id,
+      title: typeof raw.title === "string" ? raw.title : "",
+      status: typeof raw.status === "string" ? raw.status : "",
+    });
+  }
+  out.sort((a, b) => a.id.localeCompare(b.id));
+  return out;
+}
+
+function normalizeIntentStatusIssues(value: unknown): IntentStatusIssue[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: IntentStatusIssue[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0 || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const issue: IntentStatusIssue = {
+      id: raw.id,
+      category: raw.category as IntentStatusIssueCategory,
+      severity: raw.severity as IntentStatusSeverity,
+      message: typeof raw.message === "string" ? raw.message : "",
+    };
+    if (Array.isArray(raw.sourceRefs)) issue.sourceRefs = normalizeRefs(raw.sourceRefs as ArtifactRef[]);
+    out.push(issue);
+  }
+  out.sort((a, b) => {
+    const ra = INTENT_STATUS_SEVERITY_RANK[a.severity] ?? 9;
+    const rb = INTENT_STATUS_SEVERITY_RANK[b.severity] ?? 9;
+    if (ra !== rb) return ra - rb;
+    if (a.category !== b.category) return String(a.category).localeCompare(String(b.category));
+    return a.id.localeCompare(b.id);
+  });
+  return out;
+}
+
+function normalizeIntentStatusProof(value: unknown): IntentStatusProof {
+  const raw = isRecord(value) ? value : {};
+  const proof: IntentStatusProof = {};
+  if (isRecord(raw.assessment)) {
+    const a = raw.assessment;
+    proof.assessment = { present: intentStatusBool(a.present), blockers: intentStatusCount(a.blockers), warnings: intentStatusCount(a.warnings) };
+    if (typeof a.readiness === "string") proof.assessment.readiness = a.readiness;
+  }
+  if (isRecord(raw.preparation)) {
+    const p = raw.preparation;
+    proof.preparation = {
+      present: intentStatusBool(p.present),
+      phases: intentStatusCount(p.phases),
+      obligations: intentStatusCount(p.obligations),
+      verificationRequirements: intentStatusCount(p.verificationRequirements),
+    };
+    if (typeof p.status === "string") proof.preparation.status = p.status;
+    if (typeof p.approvalStatus === "string") proof.preparation.approvalStatus = p.approvalStatus;
+  }
+  if (isRecord(raw.work)) {
+    const w = raw.work;
+    proof.work = { present: intentStatusBool(w.present) };
+    if (typeof w.status === "string") proof.work.status = w.status;
+  }
+  if (isRecord(raw.verification)) {
+    const v = raw.verification;
+    proof.verification = {
+      planPresent: intentStatusBool(v.planPresent),
+      runPresent: intentStatusBool(v.runPresent),
+      resultPresent: intentStatusBool(v.resultPresent),
+    };
+    if (typeof v.resultStatus === "string") proof.verification.resultStatus = v.resultStatus;
+  }
+  if (isRecord(raw.freshness)) {
+    const f = raw.freshness;
+    proof.freshness = { present: intentStatusBool(f.present), stale: intentStatusBool(f.stale) };
+  }
+  if (isRecord(raw.runtimeDrift)) {
+    const d = raw.runtimeDrift;
+    proof.runtimeDrift = {
+      present: intentStatusBool(d.present),
+      highSeverityOpen: intentStatusCount(d.highSeverityOpen),
+      addedObserved: intentStatusCount(d.addedObserved),
+      uncoveredHandoff: intentStatusCount(d.uncoveredHandoff),
+      unresolvedContract: intentStatusCount(d.unresolvedContract),
+    };
+  }
+  return proof;
+}
+
+export function createIntentStatusReport(input: IntentStatusReport): IntentStatusReport {
+  const source: IntentStatusReportSource = {};
+  for (const field of INTENT_STATUS_SOURCE_FIELDS) {
+    const ref = input.source?.[field];
+    if (ref) source[field] = assertArtifactRef(ref);
+  }
+
+  const rawStatus = isRecord(input.status) ? (input.status as IntentStatusReport["status"]) : ({} as IntentStatusReport["status"]);
+  const report: IntentStatusReport = {
+    header: input.header,
+    source,
+    status: { value: rawStatus.value, recommendedNextAction: rawStatus.recommendedNextAction },
+    phases: normalizeIntentStatusPhases(input.phases),
+    proof: normalizeIntentStatusProof(input.proof),
+    blockers: normalizeIntentStatusIssues(input.blockers),
+    warnings: normalizeIntentStatusIssues(input.warnings),
+    staleInputs: normalizeIntentStatusIssues(input.staleInputs),
+    missingInputs: normalizeIntentStatusIssues(input.missingInputs),
+  };
+
+  if (isRecord(input.request)) {
+    const rawRequest = input.request as IntentStatusReportRequest;
+    const request: IntentStatusReportRequest = {};
+    if (typeof rawRequest.goal === "string" && rawRequest.goal.length > 0) request.goal = rawRequest.goal;
+    if (typeof rawRequest.kind === "string" && rawRequest.kind.length > 0) request.kind = rawRequest.kind;
+    if (isRecord(rawRequest.scope)) {
+      const scope: NonNullable<IntentStatusReportRequest["scope"]> = {};
+      for (const field of INTENT_STATUS_SCOPE_FIELDS) {
+        const list = intentStatusSortedStrings((rawRequest.scope as Record<string, unknown>)[field]);
+        if (list.length > 0) scope[field] = list;
+      }
+      if (Object.keys(scope).length > 0) request.scope = scope;
+    }
+    if (Object.keys(request).length > 0) report.request = request;
+  }
+
+  return assertIntentStatusReport(report);
+}
+
+function validateIntentStatusIssueList(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  const seen = new Set<string>();
+  value.forEach((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    if (!isRecord(entry)) {
+      issues.push({ path: entryPath, message: "Expected an object." });
+      return;
+    }
+    if (typeof entry.id !== "string" || entry.id.length === 0) {
+      issues.push({ path: `${entryPath}.id`, message: "Expected a non-empty string." });
+    } else if (seen.has(entry.id)) {
+      issues.push({ path: `${entryPath}.id`, message: `Duplicate issue id ${entry.id}.` });
+    } else {
+      seen.add(entry.id);
+    }
+    if (typeof entry.category !== "string" || !INTENT_STATUS_ISSUE_CATEGORIES.has(entry.category)) {
+      issues.push({ path: `${entryPath}.category`, message: "Expected a valid issue category." });
+    }
+    if (typeof entry.severity !== "string" || !INTENT_STATUS_SEVERITIES.has(entry.severity)) {
+      issues.push({ path: `${entryPath}.severity`, message: "Expected one of low, medium, high." });
+    }
+    if (typeof entry.message !== "string" || entry.message.length === 0) {
+      issues.push({ path: `${entryPath}.message`, message: "Expected a non-empty string." });
+    }
+    if (entry.sourceRefs !== undefined) {
+      if (!Array.isArray(entry.sourceRefs)) {
+        issues.push({ path: `${entryPath}.sourceRefs`, message: "Expected an array." });
+      } else {
+        entry.sourceRefs.forEach((ref, refIndex) => {
+          const result = validateArtifactRef(ref);
+          if (!result.ok) issues.push(...prefixIssues(result.issues, `${entryPath}.sourceRefs[${refIndex}]`));
+        });
+      }
+    }
+  });
+}
+
+function validateIntentStatusProofBlock(
+  value: unknown,
+  path: string,
+  bools: string[],
+  counts: string[],
+  optStrings: string[],
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  for (const key of bools) {
+    if (typeof value[key] !== "boolean") issues.push({ path: `${path}.${key}`, message: "Expected a boolean." });
+  }
+  for (const key of counts) {
+    const x = value[key];
+    if (typeof x !== "number" || !Number.isInteger(x) || x < 0) issues.push({ path: `${path}.${key}`, message: "Expected a non-negative integer." });
+  }
+  for (const key of optStrings) {
+    if (value[key] !== undefined && typeof value[key] !== "string") issues.push({ path: `${path}.${key}`, message: "Expected a string." });
+  }
+}
+
+export function validateIntentStatusReport(value: unknown): ValidationResult<IntentStatusReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "IntentStatusReport", "$.header", issues);
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    for (const field of INTENT_STATUS_SOURCE_FIELDS) {
+      const ref = (value.source as Record<string, unknown>)[field];
+      if (ref !== undefined) {
+        const result = validateArtifactRef(ref);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+      }
+    }
+  }
+
+  if (value.request !== undefined) {
+    if (!isRecord(value.request)) {
+      issues.push({ path: "$.request", message: "Expected an object." });
+    } else {
+      const request = value.request as Record<string, unknown>;
+      if (request.goal !== undefined && (typeof request.goal !== "string" || request.goal.length === 0)) {
+        issues.push({ path: "$.request.goal", message: "Expected a non-empty string." });
+      }
+      if (request.kind !== undefined && (typeof request.kind !== "string" || request.kind.length === 0)) {
+        issues.push({ path: "$.request.kind", message: "Expected a non-empty string." });
+      }
+      if (request.scope !== undefined) {
+        if (!isRecord(request.scope)) {
+          issues.push({ path: "$.request.scope", message: "Expected an object." });
+        } else {
+          for (const field of INTENT_STATUS_SCOPE_FIELDS) {
+            const list = (request.scope as Record<string, unknown>)[field];
+            if (list !== undefined) {
+              if (!Array.isArray(list)) {
+                issues.push({ path: `$.request.scope.${field}`, message: "Expected an array." });
+              } else {
+                list.forEach((item, index) => {
+                  if (typeof item !== "string" || item.length === 0) {
+                    issues.push({ path: `$.request.scope.${field}[${index}]`, message: "Expected a non-empty string." });
+                  }
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (!isRecord(value.status)) {
+    issues.push({ path: "$.status", message: "Expected an object." });
+  } else {
+    const status = value.status as Record<string, unknown>;
+    if (typeof status.value !== "string" || !INTENT_STATUS_VALUES.has(status.value)) {
+      issues.push({ path: "$.status.value", message: "Expected a valid intent status value." });
+    }
+    if (typeof status.recommendedNextAction !== "string" || !INTENT_STATUS_NEXT_ACTIONS.has(status.recommendedNextAction)) {
+      issues.push({ path: "$.status.recommendedNextAction", message: "Expected a valid recommended next action." });
+    }
+  }
+
+  if (!Array.isArray(value.phases)) {
+    issues.push({ path: "$.phases", message: "Expected an array." });
+  } else {
+    const seen = new Set<string>();
+    value.phases.forEach((phase, index) => {
+      const path = `$.phases[${index}]`;
+      if (!isRecord(phase)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (typeof phase.id !== "string" || phase.id.length === 0) {
+        issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+      } else if (seen.has(phase.id)) {
+        issues.push({ path: `${path}.id`, message: `Duplicate phase id ${phase.id}.` });
+      } else {
+        seen.add(phase.id);
+      }
+      if (typeof phase.title !== "string") issues.push({ path: `${path}.title`, message: "Expected a string." });
+      if (typeof phase.status !== "string") issues.push({ path: `${path}.status`, message: "Expected a string." });
+    });
+  }
+
+  if (!isRecord(value.proof)) {
+    issues.push({ path: "$.proof", message: "Expected an object." });
+  } else {
+    const proof = value.proof as Record<string, unknown>;
+    if (proof.assessment !== undefined) validateIntentStatusProofBlock(proof.assessment, "$.proof.assessment", ["present"], ["blockers", "warnings"], ["readiness"], issues);
+    if (proof.preparation !== undefined) validateIntentStatusProofBlock(proof.preparation, "$.proof.preparation", ["present"], ["phases", "obligations", "verificationRequirements"], ["status", "approvalStatus"], issues);
+    if (proof.work !== undefined) validateIntentStatusProofBlock(proof.work, "$.proof.work", ["present"], [], ["status"], issues);
+    if (proof.verification !== undefined) validateIntentStatusProofBlock(proof.verification, "$.proof.verification", ["planPresent", "runPresent", "resultPresent"], [], ["resultStatus"], issues);
+    if (proof.freshness !== undefined) validateIntentStatusProofBlock(proof.freshness, "$.proof.freshness", ["present", "stale"], [], [], issues);
+    if (proof.runtimeDrift !== undefined) validateIntentStatusProofBlock(proof.runtimeDrift, "$.proof.runtimeDrift", ["present"], ["highSeverityOpen", "addedObserved", "uncoveredHandoff", "unresolvedContract"], [], issues);
+  }
+
+  validateIntentStatusIssueList(value.blockers, "$.blockers", issues);
+  validateIntentStatusIssueList(value.warnings, "$.warnings", issues);
+  validateIntentStatusIssueList(value.staleInputs, "$.staleInputs", issues);
+  validateIntentStatusIssueList(value.missingInputs, "$.missingInputs", issues);
+
+  // Completion rule: `complete` requires passed verification proof and no
+  // high-severity blockers.
+  const statusValue = isRecord(value.status) ? (value.status as Record<string, unknown>).value : undefined;
+  if (statusValue === "complete") {
+    const verification = isRecord(value.proof) ? (value.proof as Record<string, unknown>).verification : undefined;
+    const resultStatus = isRecord(verification) ? (verification as Record<string, unknown>).resultStatus : undefined;
+    if (resultStatus !== "passed") {
+      issues.push({ path: "$.status.value", message: "A complete status requires verification proof resultStatus passed." });
+    }
+    if (Array.isArray(value.blockers) && value.blockers.some((b) => isRecord(b) && (b as Record<string, unknown>).severity === "high")) {
+      issues.push({ path: "$.status.value", message: "A complete status must not have high-severity blockers." });
+    }
+  }
+
+  return validationResult(value as IntentStatusReport, issues);
+}
+
+export function assertIntentStatusReport(value: unknown): IntentStatusReport {
+  return assertValid(validateIntentStatusReport(value), "IntentStatusReport");
+}
+
+export const intentStatusReportSchema: ArtifactSchema<IntentStatusReport> = {
+  validate: validateIntentStatusReport,
+  parse: assertIntentStatusReport,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

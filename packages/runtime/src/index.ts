@@ -272,6 +272,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   RuntimeGraphDriftReport: "actions",
   IntentAssessmentReport: "actions",
   PreparedIntentPlan: "actions",
+  IntentStatusReport: "actions",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [
