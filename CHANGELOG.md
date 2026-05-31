@@ -4,6 +4,35 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle → Circe Handoff Projection Decision** —
+  ninety-eighth slice on the codebase-intel-classic capability-ontology track.
+  Strategy / architecture decision batch that pins how Rekon's prepared intent plan
+  bundle projects into Circe's `rekon-circe-handoff` import format, grounded in the
+  **actual Circe source** (read `src/adapters/rekon-handoff.ts`, the
+  `rekon-to-circe-handoff-contract.md` strategy doc, and the `valid-handoff`
+  fixtures — the schema was not inferred from filenames). Recommendation: Option B —
+  emit a Circe projection under each Rekon intent plan bundle at
+  `.rekon/intent/plans/<intent-id>/circe/` (`handoff.json`, `phase-plan.json`,
+  `work-orders/<phase-id>.work-order.json`,
+  `verification-plans/<phase-id>.verification-plan.json`), derived from the bundle's
+  canonical artifacts and matching Circe's `RekonHandoffManifest` exactly
+  (`schemaVersion: 1`, `kind: "rekon-circe-handoff"`, `producer.system: "rekon"`,
+  `status: "ready"`). Circe requires one WorkOrder per phase, so the projection
+  derives one per PreparedIntentPlan phase (canonical Rekon WorkOrder /
+  VerificationPlan shapes, projection files not registered artifacts);
+  `implementerProfile` is omitted by default because Rekon does not know the
+  operator's Circe workflow profiles. Compatibility is proven by the operator's own
+  `circe rekon-handoff validate` / `routes` / `circe import rekon-handoff`, never by
+  Rekon during bundle generation. Circe handoff projection is an import adapter, not
+  a new planning system; canonical Rekon truth remains `.rekon/artifacts/`; the Circe
+  projection is derived from the intent plan bundle; Rekon does not execute the Circe
+  handoff; Rekon does not run Circe commands during bundle generation; Rekon does not
+  write source files; Circe owns orchestration after import; intent:go remains
+  deferred. New `docs/strategy/intent-plan-bundle-circe-handoff-projection-decision.md`
+  (16 sections + option / mapping / boundary / validation tables) + 16-assertion docs
+  test + review packet. Recommended next slice: Intent Plan Bundle → Circe Handoff
+  Projection Implementation. No source changes; no projection implemented; no Circe
+  commands run.
 - Shipped the **Intent Plan Bundle / Agent Handoff Safety Review** — ninety-seventh
   slice on the codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch grounding the slice-96 bundle generator (`a1723d7`) in its

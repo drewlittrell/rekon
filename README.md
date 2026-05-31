@@ -1103,6 +1103,28 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Plan Bundle → Circe Handoff Projection Decision has shipped. Ninety-eighth
+# slice on the codebase-intel-classic capability-ontology track. Strategy /
+# architecture decision batch. Pins how the Intent plan bundle projects into Circe's
+# rekon-circe-handoff import format, grounded in the real Circe source (not inferred
+# from filenames).
+#   - Recommendation: Option B — a Circe projection under each bundle at
+#     .rekon/intent/plans/<intent-id>/circe/ (handoff.json, phase-plan.json,
+#     work-orders/<phase-id>.work-order.json,
+#     verification-plans/<phase-id>.verification-plan.json).
+#   - Circe handoff projection is an import adapter, not a new planning system.
+#   - Canonical Rekon truth remains .rekon/artifacts/.
+#   - Rekon does not execute the Circe handoff, does not run Circe commands during
+#     bundle generation, and does not write source files. Circe owns orchestration
+#     after import.
+#   - implementerProfile is omitted by default (Rekon does not know the operator's
+#     Circe workflow profiles).
+#   - intent:go remains deferred.
+#
+# See docs/strategy/intent-plan-bundle-circe-handoff-projection-decision.md.
+# Recommended next slice: Intent Plan Bundle → Circe Handoff Projection
+# Implementation.
+#
 # Intent Plan Bundle / Agent Handoff Safety Review has shipped. Ninety-seventh
 # slice on the codebase-intel-classic capability-ontology track. Strategy /
 # safety-review batch. Reviews the shipped Intent plan bundle generator end-to-end.
