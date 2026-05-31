@@ -4,6 +4,31 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle → Circe Proof/Gate Projection Safety Review** —
+  one-hundred-second slice on the codebase-intel-classic capability-ontology track.
+  Strategy / safety-review batch grounding the slice-101 enrichment (`1159d7a`) in its
+  shipped code (`renderCirceProjection` in `@rekon/capability-docs` + `rekon intent
+  bundle write`). Finding: the Circe proof/gate projection is **safe/stable — no
+  blocker**. `circe/rekon-proof.json` carries the PreparedIntentPlan approval/proof
+  envelope, the IntentStatusReport gate state, the freshness/runtime-drift refs, and
+  per-phase gate metadata (`phaseGates`); the sidecar is honest by construction
+  (`approvalStatus` defaults to `"unknown"` without a plan, and gates are only `true`
+  when the source approval is `"approved"` — proven on a needs-review plan in the
+  slice-101 CLI smoke), so **the Circe projection must not claim approval/readiness the
+  source artifacts do not support**; `sourceWriteAllowed` remains false,
+  `commandsExecuted` remains false, `intentGoDeferred` remains true; **the enriched
+  projection remains compatible with Circe's real normalizers**
+  (`readRekonHandoffManifestFile` / `readRekonPhasePlanFile` / `normalizeRekonWorkOrder`
+  / `normalizeRekonVerificationPlan` accepted both hand-crafted and real-pipeline
+  projections). Canonical Rekon truth remains `.rekon/artifacts/`; Rekon does not run
+  Circe commands during bundle generation, does not execute commands, and does not write
+  source files; Circe owns orchestration after import; intent:go remains deferred. The
+  non-executing handoff pipeline (assess → prepare → status → WorkOrder /
+  VerificationPlan handoff → bundle → Circe projection with proof/gate sidecar) is now
+  complete, so the review recommends the **Intent Go / Execution Boundary Decision**
+  next. New `docs/strategy/intent-plan-bundle-circe-proof-gate-projection-safety-review.md`
+  (15 sections + surface / proof-gate / compatibility / boundary / option tables) +
+  22-assertion docs test + review packet. No source changes; no runtime behavior change.
 - Shipped the **Intent Plan Bundle → Circe Proof/Gate Projection Enrichment** —
   one-hundred-first slice on the codebase-intel-classic capability-ontology track.
   Product-capability batch implementing the slice-100 follow-up: the Circe handoff
