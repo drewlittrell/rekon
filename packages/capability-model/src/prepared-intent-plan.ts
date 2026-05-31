@@ -1,22 +1,26 @@
-// PreparedIntentPlan v1 builder.
+// PreparedIntentPlan v1 builder (amended with the approval/proof envelope).
 //
 // A read-only phase/gate preparation artifact generated from an
 // `IntentAssessmentReport` plus the existing Rekon context spine. It turns a
 // safe assessment into planned phases, touched paths, capability / step /
-// handoff / drift obligations, preservation constraints, and proposed
-// verification requirements.
+// handoff / drift obligations, preservation constraints, proposed verification
+// requirements, and a required **approval/proof envelope**. A plan reaches
+// `status.value === "prepared"` only when `approval.status === "approved"`.
 //
 // **Boundary.** This is phase/gate preparation, **not** WorkOrder. It creates
 // no `WorkOrder` / `VerificationPlan`, executes no commands, writes no source,
-// and mutates no input. **Verification requirements are not VerificationPlan.**
-// `IntentStatusReport` remains the next layer; `intent:go` remains deferred;
-// source-write behavior remains unavailable.
+// and mutates no input. **Verification requirements are proof obligations, not
+// VerificationPlan.** `IntentStatusReport` remains the next layer; `intent:go`
+// remains deferred; source-write behavior remains unavailable
+// (`approval.proof.downstreamHandoff.sourceWriteAllowed` is the literal
+// `false`).
 //
 // The builder consumes only materialized artifacts passed as values; it reads
 // no files. The CLI resolves the inputs and passes them (and their refs) in.
 //
 // See:
 // - docs/strategy/prepared-intent-plan-v1-decision.md
+// - docs/strategy/prepared-intent-plan-approval-proof-decision.md
 // - docs/artifacts/prepared-intent-plan.md
 // - docs/concepts/prepared-intent-plan.md
 
@@ -26,6 +30,10 @@ import {
   type PreparedIntentObligationCategory,
   type PreparedIntentPhase,
   type PreparedIntentPlan,
+  type PreparedIntentPlanApproval,
+  type PreparedIntentPlanApprovalProof,
+  type PreparedIntentPlanApprovalReason,
+  type PreparedIntentPlanApprovalStatus,
   type PreparedIntentPlanRecommendedNextAction,
   type PreparedIntentPlanRequest,
   type PreparedIntentPlanSource,
@@ -54,10 +62,23 @@ export type PreparedIntentAssessmentReportLike = {
 
 export type PreparedIntentCapabilityMapLike = { header?: ArtifactHeader };
 export type PreparedIntentStepGraphLike = { header?: ArtifactHeader };
-export type PreparedIntentHandoffCoverageReportLike = { header?: ArtifactHeader };
-export type PreparedIntentRuntimeDriftReportLike = { header?: ArtifactHeader };
-export type PreparedIntentPathFreshnessReportLike = { header?: ArtifactHeader };
-export type PreparedIntentVerificationResultLike = { header?: ArtifactHeader };
+export type PreparedIntentHandoffCoverageReportLike = {
+  header?: ArtifactHeader;
+  summary?: { uncovered?: number; unresolvedContract?: number; notEvaluated?: number };
+};
+export type PreparedIntentRuntimeDriftReportLike = {
+  header?: ArtifactHeader;
+  rows?: Array<{ status?: string; severity?: string }>;
+};
+export type PreparedIntentPathFreshnessReportLike = {
+  header?: ArtifactHeader;
+  status?: string;
+  entries?: Array<{ status?: string }>;
+};
+export type PreparedIntentVerificationResultLike = {
+  header?: ArtifactHeader;
+  status?: string;
+};
 
 export type BuildPreparedIntentPlanInput = {
   header: ArtifactHeader;
@@ -127,6 +148,39 @@ const OBLIGATION_MESSAGE: Record<PreparedIntentObligationCategory, string> = {
 const SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 const MODIFY_KINDS = new Set<string>(["bug", "feature", "migration"]);
 const VERIFY_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
+const IMPLEMENTATION_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
+
+// Assessment warning category → blocking approval reason, used when the
+// assessment is `needs-review`.
+const WARNING_CATEGORY_TO_APPROVAL_REASON: Record<string, PreparedIntentPlanApprovalReason> = {
+  "handoff-coverage": "handoff-coverage-unresolved",
+  "runtime-drift": "runtime-drift-unresolved",
+  "proof-missing": "verification-proof-missing",
+  "stale-context": "stale-assessment",
+};
+
+// Reasons that block approval (vs the authorizing reasons such as
+// `assessment-ready-for-prepare`). Blocking reasons become `approval.blockers`.
+const BLOCKING_APPROVAL_REASONS = new Set<PreparedIntentPlanApprovalReason>([
+  "blocked-assessment",
+  "stale-assessment",
+  "insufficient-context",
+  "runtime-drift-unresolved",
+  "handoff-coverage-unresolved",
+  "verification-proof-missing",
+]);
+
+const APPROVAL_REASON_OBLIGATION: Record<
+  string,
+  { category: PreparedIntentObligationCategory; severity: PreparedIntentSeverity; message: string }
+> = {
+  "blocked-assessment": { category: "verification", severity: "high", message: "The intent assessment is blocked; resolve blockers before preparing." },
+  "stale-assessment": { category: "freshness", severity: "high", message: "Context is stale; refresh before preparing." },
+  "insufficient-context": { category: "verification", severity: "high", message: "The assessment could not map the request to repo context; run a more specific assessment." },
+  "runtime-drift-unresolved": { category: "runtime-drift", severity: "high", message: "Unresolved high-severity runtime graph drift blocks approval." },
+  "handoff-coverage-unresolved": { category: "handoff-preservation", severity: "high", message: "Uncovered or unresolved handoff coverage blocks approval." },
+  "verification-proof-missing": { category: "verification", severity: "high", message: "Verification requirements or proof are missing for implementation-bearing work." },
+};
 
 function strings(values: unknown): string[] {
   if (!Array.isArray(values)) return [];
@@ -141,6 +195,63 @@ function severityOf(value: unknown): PreparedIntentSeverity {
   return value === "high" || value === "medium" || value === "low" ? value : "low";
 }
 
+function countHighUnresolvedDrift(report: PreparedIntentRuntimeDriftReportLike | undefined): number {
+  if (!report || !Array.isArray(report.rows)) return 0;
+  let count = 0;
+  for (const row of report.rows) {
+    if (!row) continue;
+    if (row.severity === "high" && row.status !== "in-sync" && row.status !== "not-evaluated") count += 1;
+  }
+  return count;
+}
+
+function nonNegInt(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function freshnessIsStale(report: PreparedIntentPathFreshnessReportLike | undefined): boolean {
+  if (!report) return false;
+  if (report.status === "stale") return true;
+  if (Array.isArray(report.entries)) {
+    for (const entry of report.entries) {
+      if (entry && (entry.status === "changed" || entry.status === "missing")) return true;
+    }
+  }
+  return false;
+}
+
+function approvalReasonsFromWarnings(
+  warnings: PreparedIntentAssessmentReportLike["warnings"],
+): PreparedIntentPlanApprovalReason[] {
+  const out: PreparedIntentPlanApprovalReason[] = [];
+  const seen = new Set<string>();
+  for (const warning of warnings ?? []) {
+    if (!warning || typeof warning.category !== "string") continue;
+    const reason = WARNING_CATEGORY_TO_APPROVAL_REASON[warning.category];
+    if (reason && !seen.has(reason)) {
+      seen.add(reason);
+      out.push(reason);
+    }
+  }
+  return out;
+}
+
+function blockersFromReasons(
+  reasons: PreparedIntentPlanApprovalReason[],
+  refList: ArtifactRef[],
+): PreparedIntentObligation[] {
+  const out: PreparedIntentObligation[] = [];
+  const seen = new Set<string>();
+  for (const reason of reasons) {
+    if (!BLOCKING_APPROVAL_REASONS.has(reason) || seen.has(reason)) continue;
+    seen.add(reason);
+    const spec = APPROVAL_REASON_OBLIGATION[reason];
+    if (!spec) continue;
+    out.push({ id: `approval-blocker:${reason}`, category: spec.category, severity: spec.severity, message: spec.message, sourceRefs: refList });
+  }
+  return out;
+}
+
 export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): PreparedIntentPlan {
   const assessmentRef = input.intentAssessmentReportRef;
   if (!assessmentRef) {
@@ -150,8 +261,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
   const refList: ArtifactRef[] = [assessmentRef];
 
   const readiness = typeof assessment.readiness?.status === "string" ? assessment.readiness.status : "insufficient-context";
-  const statusValue: PreparedIntentPlanStatus = ASSESSMENT_READINESS_TO_STATUS[readiness] ?? "needs-review";
-  const recommendedNextAction = STATUS_TO_NEXT_ACTION[statusValue];
+  const baseStatus: PreparedIntentPlanStatus = ASSESSMENT_READINESS_TO_STATUS[readiness] ?? "needs-review";
 
   // ---- Request (copied from the assessment) ----
   const goal = typeof assessment.request?.goal === "string" && assessment.request.goal.length > 0
@@ -175,12 +285,70 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     if (Object.keys(scope).length > 0) request.scope = scope;
   }
 
-  // ---- Matched context (drives phase context) ----
+  // ---- Matched context (drives phase context + required-context proof) ----
   const matched = assessment.matchedContext ?? {};
   const paths = strings(matched.paths);
   const systems = strings(matched.systems);
   const capabilities = strings(matched.capabilities);
   const steps = strings(matched.steps);
+  const requiredContextPresent = systems.length > 0 || capabilities.length > 0 || steps.length > 0 || paths.length > 0;
+  const missingContext = requiredContextPresent ? [] : ["matched-context"];
+
+  // ---- Proof signals read from the context spine values ----
+  const driftUnresolvedHigh = countHighUnresolvedDrift(input.runtimeGraphDriftReport);
+  const coverageUncovered = nonNegInt(input.handoffCoverageReport?.summary?.uncovered);
+  const coverageUnresolved = nonNegInt(input.handoffCoverageReport?.summary?.unresolvedContract);
+  const coverageNotEvaluated = nonNegInt(input.handoffCoverageReport?.summary?.notEvaluated);
+  const freshnessStale = freshnessIsStale(input.pathFreshnessReport);
+  const verificationProofPresent = Boolean(input.verificationResultRef);
+  const implementationBearing = IMPLEMENTATION_KINDS.has(kind);
+
+  // ---- Approval status + reasons ----
+  const reasons: PreparedIntentPlanApprovalReason[] = [];
+  let approvalStatus: PreparedIntentPlanApprovalStatus;
+  if (readiness === "ready-for-prepare") {
+    const gateReasons: PreparedIntentPlanApprovalReason[] = [];
+    if (driftUnresolvedHigh > 0) gateReasons.push("runtime-drift-unresolved");
+    if (coverageUncovered > 0 || coverageUnresolved > 0) gateReasons.push("handoff-coverage-unresolved");
+    if (freshnessStale) gateReasons.push("stale-assessment");
+    if (kind === "unknown") {
+      // An unknown-kind request cannot be auto-approved without an explicit
+      // operator approval reason (reserved in v1); it requires human review.
+      approvalStatus = "needs-review";
+      reasons.push("assessment-ready-for-prepare");
+    } else if (gateReasons.length > 0) {
+      approvalStatus = "not-approved";
+      reasons.push(...gateReasons);
+    } else {
+      approvalStatus = "approved";
+      reasons.push("assessment-ready-for-prepare");
+    }
+  } else if (readiness === "blocked") {
+    approvalStatus = "not-approved";
+    reasons.push("blocked-assessment");
+  } else if (readiness === "stale-context") {
+    approvalStatus = "not-approved";
+    reasons.push("stale-assessment");
+  } else if (readiness === "insufficient-context") {
+    approvalStatus = "not-approved";
+    reasons.push("insufficient-context");
+  } else if (readiness === "needs-review") {
+    approvalStatus = "needs-review";
+    reasons.push(...approvalReasonsFromWarnings(assessment.warnings));
+    if (reasons.length === 0) reasons.push("verification-proof-missing");
+  } else {
+    approvalStatus = "needs-review";
+    reasons.push("verification-proof-missing");
+  }
+
+  // ---- Final prepared status (prepared only when approved) ----
+  let statusValue: PreparedIntentPlanStatus;
+  if (readiness === "ready-for-prepare") {
+    statusValue = approvalStatus === "approved" ? "prepared" : approvalStatus === "needs-review" ? "needs-review" : "blocked";
+  } else {
+    statusValue = baseStatus;
+  }
+  const recommendedNextAction = STATUS_TO_NEXT_ACTION[statusValue];
 
   // ---- Obligations ----
   const obligations: PreparedIntentObligation[] = [];
@@ -218,7 +386,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
   }
   if (steps.length > 0) pushObligation("step-preservation", "low");
 
-  // ---- Verification requirements (requirements only; prepared status only) ----
+  // ---- Verification requirements (proof obligations; prepared status only) ----
   const verificationRequirements: PreparedIntentVerificationRequirement[] = [];
   if (statusValue === "prepared") {
     if (VERIFY_KINDS.has(kind)) {
@@ -257,7 +425,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     sourceRefs: refList,
   });
 
-  // ---- Phases ----
+  // ---- Phases (regenerated from the FINAL status) ----
   const phases: PreparedIntentPhase[] = [];
   if (statusValue === "prepared") {
     phases.push(phase("phase:investigate", "Investigate", "investigate", "planned", [], []));
@@ -274,30 +442,72 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     phases.push(phase("phase:review", "Review", "review", "needs-review", obligationIds, []));
   }
 
-  // ---- Blocked reasons (for non-prepared, non-needs-review statuses) ----
-  const blockedReasons: PreparedIntentObligation[] = [];
-  if (statusValue === "blocked") {
-    for (const blocker of assessment.blockers ?? []) {
-      if (!blocker || typeof blocker.id !== "string" || blocker.id.length === 0) continue;
-      const category = typeof blocker.category === "string"
-        ? (ASSESSMENT_CATEGORY_TO_OBLIGATION[blocker.category] ?? "verification")
-        : "verification";
-      blockedReasons.push({
-        id: `blocked:${blocker.id}`,
-        category,
-        severity: severityOf(blocker.severity),
-        message: typeof blocker.message === "string" && blocker.message.length > 0 ? blocker.message : "The intent assessment is blocked.",
-        sourceRefs: refList,
-      });
-    }
-    if (blockedReasons.length === 0) {
-      blockedReasons.push({ id: "blocked:assessment", category: "verification", severity: "high", message: "The intent assessment is blocked.", sourceRefs: refList });
-    }
-  } else if (statusValue === "stale-assessment") {
-    blockedReasons.push({ id: "blocked:stale-context", category: "freshness", severity: "high", message: "The intent assessment reported stale context; refresh before preparing.", sourceRefs: refList });
-  } else if (statusValue === "insufficient-assessment") {
-    blockedReasons.push({ id: "blocked:insufficient-context", category: "verification", severity: "high", message: "The intent assessment could not map the request to repo context; run a more specific assessment.", sourceRefs: refList });
+  const phaseKinds = new Set(phases.map((entry) => entry.kind));
+
+  // ---- Approval blockers (from blocking reasons) ----
+  const approvalBlockers = blockersFromReasons(reasons, refList);
+
+  // ---- Approval proof record ----
+  const proof: PreparedIntentPlanApprovalProof = {
+    intentAssessmentReportRef: assessmentRef,
+    assessmentReadiness: readiness,
+    assessmentApprovedForPrepare: readiness === "ready-for-prepare",
+    requiredContextPresent,
+    missingContext,
+    runtimeDrift: {
+      accepted: false,
+      unresolvedHighSeverity: driftUnresolvedHigh,
+    },
+    handoffCoverage: {
+      accepted: false,
+      uncovered: coverageUncovered,
+      unresolvedContract: coverageUnresolved,
+      notEvaluated: coverageNotEvaluated,
+    },
+    freshness: {
+      accepted: false,
+      staleContext: freshnessStale,
+    },
+    verification: {
+      requirementsPresent: verificationRequirements.length > 0,
+      proofResultsPresent: verificationProofPresent,
+      verificationRefs: input.verificationResultRef ? [input.verificationResultRef] : [],
+    },
+    planStructure: {
+      phasesPresent: phases.length > 0,
+      minimumPhaseCountMet: statusValue === "prepared" ? phases.length >= 2 : phases.length >= 1,
+      hasInvestigation: phaseKinds.has("investigate"),
+      hasImplementationOrRefactor: phaseKinds.has("modify") || phaseKinds.has("refactor"),
+      hasVerification: phaseKinds.has("verify"),
+      hasReview: phaseKinds.has("review"),
+    },
+    downstreamHandoff: {
+      workOrderAllowed: approvalStatus === "approved",
+      verificationPlanAllowed: approvalStatus === "approved",
+      sourceWriteAllowed: false,
+    },
+  };
+  if (input.runtimeGraphDriftReportRef) proof.runtimeDrift.runtimeGraphDriftReportRef = input.runtimeGraphDriftReportRef;
+  if (input.handoffCoverageReportRef) proof.handoffCoverage.handoffCoverageReportRef = input.handoffCoverageReportRef;
+  if (input.pathFreshnessReportRef) proof.freshness.pathFreshnessReportRef = input.pathFreshnessReportRef;
+  if (implementationBearing) {
+    proof.intakeSufficiency = {
+      present: requiredContextPresent,
+      satisfied: requiredContextPresent ? ["matched-context"] : [],
+      missing: missingContext,
+      sourceRefs: refList,
+    };
   }
+
+  const approval: PreparedIntentPlanApproval = {
+    status: approvalStatus,
+    reasons,
+    proof,
+    blockers: approvalBlockers,
+  };
+
+  // ---- Blocked reasons (only when not prepared; reuse approval blockers) ----
+  const blockedReasons: PreparedIntentObligation[] = statusValue === "prepared" ? [] : approvalBlockers;
 
   // ---- Source ----
   const source: PreparedIntentPlanSource = { intentAssessmentReportRef: assessmentRef };
@@ -314,13 +524,14 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
 
   // The factory normalizes the request, dedupes + sorts phases (by id),
   // obligations + blocked reasons (severity, category, id), and verification
-  // requirements (by id), and asserts. No WorkOrder / VerificationPlan; no
-  // execution; no source writes.
+  // requirements (by id), normalizes the approval/proof envelope, and asserts.
+  // No WorkOrder / VerificationPlan; no execution; no source writes.
   return createPreparedIntentPlan({
     header: input.header,
     source,
     request,
     status: { value: statusValue, recommendedNextAction },
+    approval,
     phases,
     obligations,
     verificationRequirements,

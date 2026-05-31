@@ -14,6 +14,13 @@ already-materialized Rekon artifacts and mutates none of them. **Verification
 requirements are not VerificationPlan** — they describe what would need to be
 proven, not a proof command artifact.
 
+**PreparedIntentPlan must be proof-approved, not merely generated.** v1 carries a
+required `approval` envelope with an `approval.status`, authorizing/blocking
+`approval.reasons`, an `approval.proof` record, and `approval.blockers`.
+**PreparedIntentPlan.status.value can be prepared only when approval.status is
+approved.** **A plan with phases but without approval is not prepared.**
+**Verification requirements are proof obligations, not VerificationPlan.**
+
 ## What It Does Not Do
 
 v1 prepares phases and obligations only:
@@ -67,6 +74,39 @@ values, never raw source or event files, and mutates nothing.
 `stale-context` → `stale-assessment`. `create-work-order` is recommended only
 when status is `prepared` — and it is a recommendation, not a `WorkOrder`.
 
+## Approval / Proof Envelope
+
+`approval` is required. It records whether preparation is authorized and the
+proof behind that decision:
+
+- `approval.status` — `approved` / `not-approved` / `needs-review`.
+- `approval.reasons` — authorizing reasons (`assessment-ready-for-prepare`,
+  `explicit-operator-approval`, `intake-sufficient`, `manual-risk-acceptance`)
+  and blocking reasons (`blocked-assessment`, `stale-assessment`,
+  `insufficient-context`, `runtime-drift-unresolved`,
+  `handoff-coverage-unresolved`, `verification-proof-missing`).
+- `approval.proof` — an evidence record that re-checks assessment readiness,
+  required context, runtime drift, handoff coverage, freshness, verification
+  requirements/results, plan structure, and the downstream handoff. Its
+  `intentAssessmentReportRef` cites the source assessment, and
+  `downstreamHandoff.sourceWriteAllowed` is the literal `false`.
+- `approval.blockers` — `PreparedIntentObligation` entries derived from blocking
+  reasons; reused as `blockedReasons` when the plan is not prepared.
+
+The helper downgrades the prepared status from the FINAL approval decision:
+`ready-for-prepare` + `approved` → `prepared`; `ready-for-prepare` +
+`needs-review` → `needs-review`; `ready-for-prepare` + `not-approved` →
+`blocked`. High-severity unresolved runtime drift, uncovered / unresolved
+handoff coverage, and stale freshness each block approval; an unknown-kind
+request requires review unless an explicit operator approval reason is present
+(`explicit-operator-approval` / `intake-sufficient` / `manual-risk-acceptance`
+are reserved in v1). `explicit-operator-approval` and `manual-risk-acceptance`
+are reserved reasons; the CLI invents no override behavior.
+
+**PreparedIntentPlan must be proof-approved, not merely generated.**
+**PreparedIntentPlan.status.value can be prepared only when approval.status is
+approved.** **A plan with phases but without approval is not prepared.**
+
 ## Phase Model
 
 Phases structure planned work without performing it: `id`, `title`, `kind`
@@ -94,15 +134,19 @@ list is deterministically ordered by severity (high first), category, then id.
 `verificationRequirements` express what would need to be proven if the work were
 carried out — requirements, not a proof artifact. Each carries `id`, an optional
 suggested `command`, a `reason`, and optional `sourceRefs`. **Verification
-requirements are not VerificationPlan**: the generator materializes no
-`VerificationPlan`, executes no command, and creates no `VerificationRun` /
-`VerificationResult`.
+requirements are proof obligations, not VerificationPlan**: the generator
+materializes no `VerificationPlan`, executes no command, and creates no
+`VerificationRun` / `VerificationResult`. **Verification requirements are not
+VerificationPlan.** Implementation-bearing prepared plans must carry verification
+requirements and a `verify` phase, recorded in `approval.proof.verification` and
+`approval.proof.planStructure`.
 
 ## Shape
 
 - `source` — `intentAssessmentReportRef` (required) + optional context refs.
 - `request` — `goal`, `kind`, optional `scope`.
 - `status` — `value`, `recommendedNextAction`.
+- `approval` — `status`, `reasons[]`, `proof`, `blockers[]` (required).
 - `phases[]` / `obligations[]` / `verificationRequirements[]` /
   `blockedReasons[]`.
 
@@ -113,18 +157,25 @@ rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--root <p
 rekon intent prepare --assessment <ref> [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]
 ```
 
-Reads the required `IntentAssessmentReport` and the latest available context,
-writes a `PreparedIntentPlan` under `.rekon/artifacts/actions/`, and prints a
-status summary. It creates no `WorkOrder` / `VerificationPlan`, executes no
+Reads the required `IntentAssessmentReport` and the latest available context —
+including runtime drift, handoff coverage, freshness, and verification-result
+VALUES so approval proof can re-check them — writes a `PreparedIntentPlan` under
+`.rekon/artifacts/actions/`, and prints a status summary that includes
+`Approval:` and `Approval reasons:` (and `approval.status` / `approval.reasons`
+in `--json`). It creates no `WorkOrder` / `VerificationPlan`, executes no
 commands, and writes no source files.
 
 ## Boundary Summary
 
+- **PreparedIntentPlan must be proof-approved, not merely generated.**
+- **PreparedIntentPlan.status.value can be prepared only when approval.status is approved.**
+- **A plan with phases but without approval is not prepared.**
 - **PreparedIntentPlan is phase/gate preparation, not WorkOrder.**
 - **PreparedIntentPlan does not create WorkOrder or VerificationPlan.**
 - **PreparedIntentPlan does not execute commands.**
 - **PreparedIntentPlan does not write source files.**
 - **Verification requirements are not VerificationPlan.**
+- **Verification requirements are proof obligations, not VerificationPlan.**
 - IntentStatusReport remains the next layer after preparation.
 - intent:go remains deferred.
 - Source-write behavior remains unavailable.

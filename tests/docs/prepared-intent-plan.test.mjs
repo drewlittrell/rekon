@@ -21,6 +21,7 @@ function normalize(text) {
 const artifactDoc = "docs/artifacts/prepared-intent-plan.md";
 const conceptDoc = "docs/concepts/prepared-intent-plan.md";
 const reviewPacket = ".rekon-dev/review-packets/prepared-intent-plan-v1.md";
+const approvalReviewPacket = ".rekon-dev/review-packets/prepared-intent-plan-v1-approval-envelope.md";
 
 const docs = () => `${normalize(read(artifactDoc))}\n${normalize(read(conceptDoc))}`;
 
@@ -77,13 +78,40 @@ test("docs say source-write behavior remains unavailable", () => {
 });
 
 // ---------- 11 ----------
-test("CHANGELOG mentions PreparedIntentPlan v1", () => {
-  // Tightened past the slice-80 "PreparedIntentPlan v1 decision" entry.
-  assert.match(normalize(read("CHANGELOG.md")), /Shipped PreparedIntentPlan v1/);
+test("CHANGELOG ships the PreparedIntentPlan approval/proof envelope", () => {
+  // Tightened past the slice-81 "Shipped PreparedIntentPlan v1" entry to gate
+  // the slice-83 approval/proof amendment.
+  assert.match(normalize(read("CHANGELOG.md")), /Amended PreparedIntentPlan v1 with the required approval\/proof envelope/);
 });
 
 // ---------- 12 ----------
 test("review packet exists and contains PURPOSE PRESERVATION CHECK", () => {
   assert.ok(existsSync(resolve(repoRoot, reviewPacket)));
   assert.match(read(reviewPacket), /PURPOSE PRESERVATION CHECK/);
+});
+
+// ---------- 13 ----------
+test("docs say PreparedIntentPlan must be proof-approved, not merely generated", () => {
+  assert.match(docs(), /PreparedIntentPlan must be proof-approved, not merely generated\./);
+});
+
+// ---------- 14 ----------
+test("docs say status.value can be prepared only when approval.status is approved", () => {
+  assert.match(docs(), /PreparedIntentPlan\.status\.value can be prepared only when approval\.status is approved\./);
+});
+
+// ---------- 15 ----------
+test("docs say a plan with phases but without approval is not prepared", () => {
+  assert.match(docs(), /A plan with phases but without approval is not prepared\./);
+});
+
+// ---------- 16 ----------
+test("docs say verification requirements are proof obligations, not VerificationPlan", () => {
+  assert.match(docs(), /Verification requirements are proof obligations, not VerificationPlan\./);
+});
+
+// ---------- 17 ----------
+test("approval-envelope review packet exists and contains PURPOSE PRESERVATION CHECK", () => {
+  assert.ok(existsSync(resolve(repoRoot, approvalReviewPacket)));
+  assert.match(read(approvalReviewPacket), /PURPOSE PRESERVATION CHECK/);
 });

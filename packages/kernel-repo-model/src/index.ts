@@ -4653,11 +4653,85 @@ export type PreparedIntentPlanStatusBlock = {
   recommendedNextAction: PreparedIntentPlanRecommendedNextAction;
 };
 
+export type PreparedIntentPlanApprovalStatus =
+  | "approved"
+  | "not-approved"
+  | "needs-review";
+
+export type PreparedIntentPlanApprovalReason =
+  | "assessment-ready-for-prepare"
+  | "explicit-operator-approval"
+  | "intake-sufficient"
+  | "manual-risk-acceptance"
+  | "blocked-assessment"
+  | "stale-assessment"
+  | "insufficient-context"
+  | "runtime-drift-unresolved"
+  | "handoff-coverage-unresolved"
+  | "verification-proof-missing";
+
+export type PreparedIntentPlanApprovalProof = {
+  intentAssessmentReportRef: ArtifactRef;
+  assessmentReadiness: string;
+  assessmentApprovedForPrepare: boolean;
+  requiredContextPresent: boolean;
+  missingContext: string[];
+  intakeSufficiency?: {
+    present: boolean;
+    satisfied: string[];
+    missing: string[];
+    sourceRefs: ArtifactRef[];
+  };
+  runtimeDrift: {
+    accepted: boolean;
+    unresolvedHighSeverity: number;
+    runtimeGraphDriftReportRef?: ArtifactRef;
+  };
+  handoffCoverage: {
+    accepted: boolean;
+    uncovered: number;
+    unresolvedContract: number;
+    notEvaluated: number;
+    handoffCoverageReportRef?: ArtifactRef;
+  };
+  freshness: {
+    accepted: boolean;
+    staleContext: boolean;
+    pathFreshnessReportRef?: ArtifactRef;
+  };
+  verification: {
+    requirementsPresent: boolean;
+    proofResultsPresent: boolean;
+    verificationRefs: ArtifactRef[];
+  };
+  planStructure: {
+    phasesPresent: boolean;
+    minimumPhaseCountMet: boolean;
+    hasInvestigation: boolean;
+    hasImplementationOrRefactor: boolean;
+    hasVerification: boolean;
+    hasReview: boolean;
+  };
+  downstreamHandoff: {
+    workOrderAllowed: boolean;
+    verificationPlanAllowed: boolean;
+    sourceWriteAllowed: false;
+  };
+};
+
+export type PreparedIntentPlanApproval = {
+  status: PreparedIntentPlanApprovalStatus;
+  reasons: PreparedIntentPlanApprovalReason[];
+  proof: PreparedIntentPlanApprovalProof;
+  blockers: PreparedIntentObligation[];
+};
+
 export type PreparedIntentPlan = {
   header: ArtifactHeader;
   source: PreparedIntentPlanSource;
   request: PreparedIntentPlanRequest;
   status: PreparedIntentPlanStatusBlock;
+  approval: PreparedIntentPlanApproval;
   phases: PreparedIntentPhase[];
   obligations: PreparedIntentObligation[];
   verificationRequirements: PreparedIntentVerificationRequirement[];
@@ -4679,6 +4753,33 @@ const PREPARED_INTENT_NEXT_ACTIONS = new Set<string>([
   "human-review",
   "run-assessment",
   "defer",
+]);
+
+const PREPARED_INTENT_APPROVAL_STATUSES = new Set<string>([
+  "approved",
+  "not-approved",
+  "needs-review",
+]);
+
+const PREPARED_INTENT_APPROVAL_REASONS = new Set<string>([
+  "assessment-ready-for-prepare",
+  "explicit-operator-approval",
+  "intake-sufficient",
+  "manual-risk-acceptance",
+  "blocked-assessment",
+  "stale-assessment",
+  "insufficient-context",
+  "runtime-drift-unresolved",
+  "handoff-coverage-unresolved",
+  "verification-proof-missing",
+]);
+
+const PREPARED_INTENT_IMPLEMENTATION_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
+
+const PREPARED_INTENT_EXPLICIT_APPROVAL_REASONS = new Set<string>([
+  "explicit-operator-approval",
+  "intake-sufficient",
+  "manual-risk-acceptance",
 ]);
 
 const PREPARED_INTENT_PHASE_KINDS = new Set<string>([
@@ -4833,6 +4934,100 @@ function preparedIntentNormalizeVerificationRequirements(values: unknown): Prepa
   return out;
 }
 
+function preparedIntentApprovalReasons(values: unknown): PreparedIntentPlanApprovalReason[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const out: PreparedIntentPlanApprovalReason[] = [];
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0 && !seen.has(value)) {
+      seen.add(value);
+      out.push(value as PreparedIntentPlanApprovalReason);
+    }
+  }
+  return out;
+}
+
+function preparedIntentBool(value: unknown): boolean {
+  return value === true;
+}
+
+function preparedIntentCount(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function preparedIntentNormalizeProof(value: unknown): PreparedIntentPlanApprovalProof {
+  const raw = isRecord(value) ? value : {};
+  const drift = isRecord(raw.runtimeDrift) ? raw.runtimeDrift : {};
+  const coverage = isRecord(raw.handoffCoverage) ? raw.handoffCoverage : {};
+  const freshness = isRecord(raw.freshness) ? raw.freshness : {};
+  const verification = isRecord(raw.verification) ? raw.verification : {};
+  const structure = isRecord(raw.planStructure) ? raw.planStructure : {};
+  const handoff = isRecord(raw.downstreamHandoff) ? raw.downstreamHandoff : {};
+
+  const proof: PreparedIntentPlanApprovalProof = {
+    intentAssessmentReportRef: assertArtifactRef(raw.intentAssessmentReportRef),
+    assessmentReadiness: typeof raw.assessmentReadiness === "string" ? raw.assessmentReadiness : "",
+    assessmentApprovedForPrepare: preparedIntentBool(raw.assessmentApprovedForPrepare),
+    requiredContextPresent: preparedIntentBool(raw.requiredContextPresent),
+    missingContext: preparedIntentCompactStrings(raw.missingContext),
+    runtimeDrift: {
+      accepted: preparedIntentBool(drift.accepted),
+      unresolvedHighSeverity: preparedIntentCount(drift.unresolvedHighSeverity),
+    },
+    handoffCoverage: {
+      accepted: preparedIntentBool(coverage.accepted),
+      uncovered: preparedIntentCount(coverage.uncovered),
+      unresolvedContract: preparedIntentCount(coverage.unresolvedContract),
+      notEvaluated: preparedIntentCount(coverage.notEvaluated),
+    },
+    freshness: {
+      accepted: preparedIntentBool(freshness.accepted),
+      staleContext: preparedIntentBool(freshness.staleContext),
+    },
+    verification: {
+      requirementsPresent: preparedIntentBool(verification.requirementsPresent),
+      proofResultsPresent: preparedIntentBool(verification.proofResultsPresent),
+      verificationRefs: normalizeRefs(Array.isArray(verification.verificationRefs) ? (verification.verificationRefs as ArtifactRef[]) : []),
+    },
+    planStructure: {
+      phasesPresent: preparedIntentBool(structure.phasesPresent),
+      minimumPhaseCountMet: preparedIntentBool(structure.minimumPhaseCountMet),
+      hasInvestigation: preparedIntentBool(structure.hasInvestigation),
+      hasImplementationOrRefactor: preparedIntentBool(structure.hasImplementationOrRefactor),
+      hasVerification: preparedIntentBool(structure.hasVerification),
+      hasReview: preparedIntentBool(structure.hasReview),
+    },
+    downstreamHandoff: {
+      workOrderAllowed: preparedIntentBool(handoff.workOrderAllowed),
+      verificationPlanAllowed: preparedIntentBool(handoff.verificationPlanAllowed),
+      sourceWriteAllowed: false,
+    },
+  };
+  if (drift.runtimeGraphDriftReportRef) proof.runtimeDrift.runtimeGraphDriftReportRef = assertArtifactRef(drift.runtimeGraphDriftReportRef);
+  if (coverage.handoffCoverageReportRef) proof.handoffCoverage.handoffCoverageReportRef = assertArtifactRef(coverage.handoffCoverageReportRef);
+  if (freshness.pathFreshnessReportRef) proof.freshness.pathFreshnessReportRef = assertArtifactRef(freshness.pathFreshnessReportRef);
+  if (isRecord(raw.intakeSufficiency)) {
+    const intake = raw.intakeSufficiency;
+    proof.intakeSufficiency = {
+      present: preparedIntentBool(intake.present),
+      satisfied: preparedIntentCompactStrings(intake.satisfied),
+      missing: preparedIntentCompactStrings(intake.missing),
+      sourceRefs: normalizeRefs(Array.isArray(intake.sourceRefs) ? (intake.sourceRefs as ArtifactRef[]) : []),
+    };
+  }
+  return proof;
+}
+
+function preparedIntentNormalizeApproval(value: unknown): PreparedIntentPlanApproval {
+  const raw = isRecord(value) ? value : {};
+  return {
+    status: raw.status as PreparedIntentPlanApprovalStatus,
+    reasons: preparedIntentApprovalReasons(raw.reasons),
+    proof: preparedIntentNormalizeProof(raw.proof),
+    blockers: preparedIntentNormalizeObligations(raw.blockers),
+  };
+}
+
 export function createPreparedIntentPlan(input: PreparedIntentPlan): PreparedIntentPlan {
   const source: PreparedIntentPlanSource = {
     intentAssessmentReportRef: assertArtifactRef(input.source?.intentAssessmentReportRef),
@@ -4867,6 +5062,7 @@ export function createPreparedIntentPlan(input: PreparedIntentPlan): PreparedInt
     source,
     request,
     status,
+    approval: preparedIntentNormalizeApproval(input.approval),
     phases: preparedIntentNormalizePhases(input.phases),
     obligations: preparedIntentNormalizeObligations(input.obligations),
     verificationRequirements: preparedIntentNormalizeVerificationRequirements(input.verificationRequirements),
@@ -4964,6 +5160,125 @@ function validatePreparedIntentPhase(
       if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.sourceRefs[${index}]`));
     });
   }
+}
+
+function validatePreparedIntentProofBool(rec: Record<string, unknown>, key: string, path: string, issues: ValidationIssue[]): void {
+  if (typeof rec[key] !== "boolean") issues.push({ path: `${path}.${key}`, message: "Expected a boolean." });
+}
+
+function validatePreparedIntentProofCount(rec: Record<string, unknown>, key: string, path: string, issues: ValidationIssue[]): void {
+  const x = rec[key];
+  if (typeof x !== "number" || !Number.isInteger(x) || x < 0) issues.push({ path: `${path}.${key}`, message: "Expected a non-negative integer." });
+}
+
+function validatePreparedIntentProofOptRef(rec: Record<string, unknown>, key: string, path: string, issues: ValidationIssue[]): void {
+  if (rec[key] !== undefined) {
+    const result = validateArtifactRef(rec[key]);
+    if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.${key}`));
+  }
+}
+
+function validatePreparedIntentProofRefList(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((ref, index) => {
+    const result = validateArtifactRef(ref);
+    if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}[${index}]`));
+  });
+}
+
+function validatePreparedIntentProofBlock(value: unknown, path: string, bools: string[], counts: string[], optRefs: string[], issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  for (const key of bools) validatePreparedIntentProofBool(value, key, path, issues);
+  for (const key of counts) validatePreparedIntentProofCount(value, key, path, issues);
+  for (const key of optRefs) validatePreparedIntentProofOptRef(value, key, path, issues);
+}
+
+function validatePreparedIntentProof(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (value.intentAssessmentReportRef === undefined) {
+    issues.push({ path: `${path}.intentAssessmentReportRef`, message: "Expected an ArtifactRef." });
+  } else {
+    const result = validateArtifactRef(value.intentAssessmentReportRef);
+    if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.intentAssessmentReportRef`));
+  }
+  if (typeof value.assessmentReadiness !== "string" || value.assessmentReadiness.length === 0) {
+    issues.push({ path: `${path}.assessmentReadiness`, message: "Expected a non-empty string." });
+  }
+  validatePreparedIntentProofBool(value, "assessmentApprovedForPrepare", path, issues);
+  validatePreparedIntentProofBool(value, "requiredContextPresent", path, issues);
+  validatePreparedIntentStringArray(value.missingContext, `${path}.missingContext`, issues);
+  validatePreparedIntentProofBlock(value.runtimeDrift, `${path}.runtimeDrift`, ["accepted"], ["unresolvedHighSeverity"], ["runtimeGraphDriftReportRef"], issues);
+  validatePreparedIntentProofBlock(value.handoffCoverage, `${path}.handoffCoverage`, ["accepted"], ["uncovered", "unresolvedContract", "notEvaluated"], ["handoffCoverageReportRef"], issues);
+  validatePreparedIntentProofBlock(value.freshness, `${path}.freshness`, ["accepted", "staleContext"], [], ["pathFreshnessReportRef"], issues);
+  if (!isRecord(value.verification)) {
+    issues.push({ path: `${path}.verification`, message: "Expected an object." });
+  } else {
+    validatePreparedIntentProofBool(value.verification, "requirementsPresent", `${path}.verification`, issues);
+    validatePreparedIntentProofBool(value.verification, "proofResultsPresent", `${path}.verification`, issues);
+    validatePreparedIntentProofRefList(value.verification.verificationRefs, `${path}.verification.verificationRefs`, issues);
+  }
+  validatePreparedIntentProofBlock(
+    value.planStructure,
+    `${path}.planStructure`,
+    ["phasesPresent", "minimumPhaseCountMet", "hasInvestigation", "hasImplementationOrRefactor", "hasVerification", "hasReview"],
+    [],
+    [],
+    issues,
+  );
+  if (!isRecord(value.downstreamHandoff)) {
+    issues.push({ path: `${path}.downstreamHandoff`, message: "Expected an object." });
+  } else {
+    validatePreparedIntentProofBool(value.downstreamHandoff, "workOrderAllowed", `${path}.downstreamHandoff`, issues);
+    validatePreparedIntentProofBool(value.downstreamHandoff, "verificationPlanAllowed", `${path}.downstreamHandoff`, issues);
+    if (value.downstreamHandoff.sourceWriteAllowed !== false) {
+      issues.push({ path: `${path}.downstreamHandoff.sourceWriteAllowed`, message: "Expected the literal false." });
+    }
+  }
+  if (value.intakeSufficiency !== undefined) {
+    if (!isRecord(value.intakeSufficiency)) {
+      issues.push({ path: `${path}.intakeSufficiency`, message: "Expected an object." });
+    } else {
+      validatePreparedIntentProofBool(value.intakeSufficiency, "present", `${path}.intakeSufficiency`, issues);
+      validatePreparedIntentStringArray(value.intakeSufficiency.satisfied, `${path}.intakeSufficiency.satisfied`, issues);
+      validatePreparedIntentStringArray(value.intakeSufficiency.missing, `${path}.intakeSufficiency.missing`, issues);
+      validatePreparedIntentProofRefList(value.intakeSufficiency.sourceRefs, `${path}.intakeSufficiency.sourceRefs`, issues);
+    }
+  }
+}
+
+function validatePreparedIntentApproval(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.status !== "string" || !PREPARED_INTENT_APPROVAL_STATUSES.has(value.status)) {
+    issues.push({ path: `${path}.status`, message: "Expected approved, not-approved, or needs-review." });
+  }
+  if (!Array.isArray(value.reasons) || value.reasons.length === 0) {
+    issues.push({ path: `${path}.reasons`, message: "Expected a non-empty array." });
+  } else {
+    value.reasons.forEach((reason, index) => {
+      if (typeof reason !== "string" || !PREPARED_INTENT_APPROVAL_REASONS.has(reason)) {
+        issues.push({ path: `${path}.reasons[${index}]`, message: "Expected a valid approval reason." });
+      }
+    });
+  }
+  if (!Array.isArray(value.blockers)) {
+    issues.push({ path: `${path}.blockers`, message: "Expected an array." });
+  } else {
+    const seen = new Set<string>();
+    value.blockers.forEach((blocker, index) => validatePreparedIntentObligation(blocker, `${path}.blockers[${index}]`, issues, seen));
+  }
+  validatePreparedIntentProof(value.proof, `${path}.proof`, issues);
 }
 
 export function validatePreparedIntentPlan(value: unknown): ValidationResult<PreparedIntentPlan> {
@@ -5079,6 +5394,54 @@ export function validatePreparedIntentPlan(value: unknown): ValidationResult<Pre
         }
       }
     });
+  }
+
+  // Required approval/proof envelope (PreparedIntentPlan Approval / Proof
+  // Model Decision). `approval` is required; `prepared` requires `approved`.
+  if (value.approval === undefined) {
+    issues.push({ path: "$.approval", message: "Expected an approval envelope." });
+  } else {
+    validatePreparedIntentApproval(value.approval, "$.approval", issues);
+  }
+
+  // Cross-field hard rules.
+  const statusValue = isRecord(value.status) ? (value.status as Record<string, unknown>).value : undefined;
+  const approvalStatus = isRecord(value.approval) ? (value.approval as Record<string, unknown>).status : undefined;
+  const requestKind = isRecord(value.request) ? (value.request as Record<string, unknown>).kind : undefined;
+  const phaseList = Array.isArray(value.phases) ? value.phases.filter(isRecord) as Array<Record<string, unknown>> : [];
+  const phaseKinds = new Set(phaseList.map((phase) => phase.kind));
+  const requirementCount = Array.isArray(value.verificationRequirements) ? value.verificationRequirements.length : 0;
+  const approvalReasons = isRecord(value.approval) && Array.isArray((value.approval as Record<string, unknown>).reasons)
+    ? ((value.approval as Record<string, unknown>).reasons as unknown[])
+    : [];
+
+  if (statusValue === "prepared") {
+    if (approvalStatus !== "approved") {
+      issues.push({ path: "$.status.value", message: "A prepared plan requires approval.status === \"approved\"." });
+    }
+    if (phaseList.length === 0) {
+      issues.push({ path: "$.phases", message: "A prepared plan must have at least one phase." });
+    }
+    if (typeof requestKind === "string" && PREPARED_INTENT_IMPLEMENTATION_KINDS.has(requestKind)) {
+      if (requirementCount === 0) {
+        issues.push({ path: "$.verificationRequirements", message: "A prepared implementation-bearing plan must have verification requirements." });
+      }
+      if (!phaseKinds.has("verify")) {
+        issues.push({ path: "$.phases", message: "A prepared implementation-bearing plan must include a verify phase." });
+      }
+    }
+    if (requestKind === "refactor" && !phaseKinds.has("refactor")) {
+      issues.push({ path: "$.phases", message: "A prepared refactor plan must include a refactor phase." });
+    }
+    if ((requestKind === "bug" || requestKind === "feature" || requestKind === "migration") && !phaseKinds.has("modify")) {
+      issues.push({ path: "$.phases", message: "A prepared bug/feature/migration plan must include a modify phase." });
+    }
+    if (requestKind === "unknown" && !approvalReasons.some((reason) => typeof reason === "string" && PREPARED_INTENT_EXPLICIT_APPROVAL_REASONS.has(reason))) {
+      issues.push({ path: "$.status.value", message: "A prepared unknown-kind plan requires an explicit approval reason." });
+    }
+  }
+  if ((statusValue === "blocked" || statusValue === "stale-assessment" || statusValue === "insufficient-assessment") && approvalStatus === "approved") {
+    issues.push({ path: "$.approval.status", message: "A blocked/stale/insufficient plan must not have approval.status approved." });
   }
 
   return validationResult(value as PreparedIntentPlan, issues);

@@ -1103,6 +1103,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# PreparedIntentPlan v1 amended with the required approval/proof envelope.
+# Eighty-third slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch. Implements the PreparedIntentPlan Approval / Proof
+# Model Decision on top of the shipped v1 without rewriting git history.
+#   - PreparedIntentPlan must be proof-approved, not merely generated.
+#   - PreparedIntentPlan.status.value can be prepared only when approval.status
+#     is approved.
+#   - A plan with phases but without approval is not prepared.
+#   - approval = { status, reasons[], proof, blockers[] }; the proof re-checks
+#     drift / coverage / freshness / verification from artifact VALUES.
+#   - High drift / uncovered handoff / stale freshness each block approval;
+#     explicit-operator-approval and manual-risk-acceptance are reserved reasons.
+#   - downstreamHandoff.sourceWriteAllowed is the literal false.
+#   - Verification requirements are proof obligations, not VerificationPlan.
+#   - It creates no WorkOrder / VerificationPlan, executes no commands, writes
+#     no source; intent:go remains deferred.
+#
+# `rekon intent prepare` now reads drift / coverage / freshness / verification
+# VALUES and prints Approval: / Approval reasons: (and approval in --json).
+# Recommended next slice: PreparedIntentPlan safety review.
+#
 # PreparedIntentPlan Approval / Proof Model Decision has shipped.
 # Eighty-second slice on the codebase-intel-classic capability-ontology track.
 # Strategy / architecture decision batch. Amends the PreparedIntentPlan

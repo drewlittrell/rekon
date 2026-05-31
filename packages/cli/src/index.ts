@@ -78,6 +78,10 @@ import modelCapability, {
   PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX,
   buildPreparedIntentPlan,
   type PreparedIntentAssessmentReportLike,
+  type PreparedIntentHandoffCoverageReportLike,
+  type PreparedIntentRuntimeDriftReportLike,
+  type PreparedIntentPathFreshnessReportLike,
+  type PreparedIntentVerificationResultLike,
   type HandoffCoverageContractLike,
   type RuntimeGraphDriftStepGraphLike,
   type RuntimeGraphDriftHandoffContractLike,
@@ -3922,14 +3926,41 @@ export async function main(argv: string[]): Promise<void> {
       };
     };
 
+    // Proof-bearing inputs are read as VALUES (not just refs) so the approval
+    // envelope can re-check runtime drift, handoff coverage, freshness, and
+    // verification proof rather than trusting assessment readiness alone.
+    const resolveRefWithValue = async <T>(flagName: string, type: string): Promise<{ ref?: ArtifactRef; value?: T }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon intent prepare --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        const entries = await store.list(type);
+        entry = entries.at(-1);
+      }
+      if (!entry) return {};
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      const value = (await store.read(entry)) as T;
+      return { ref, value };
+    };
+
     const capabilityMapRef = await resolveRef("capability-map", "CapabilityMap");
     const capabilityContractRef = await resolveRef("capability-contract", "CapabilityContract");
     const stepGraphRef = await resolveRef("step-graph", "StepCapabilityGraph");
-    const handoffCoverageRef = await resolveRef("handoff-coverage-report", "HandoffCoverageReport");
     const observationRef = await resolveRef("runtime-observation-report", "RuntimeGraphObservationReport");
-    const driftRef = await resolveRef("runtime-drift-report", "RuntimeGraphDriftReport");
-    const freshnessRef = await resolveRef("path-freshness-report", "PathFreshnessReport");
-    const proofRef = await resolveRef("verification-result", "VerificationResult");
+    const { ref: handoffCoverageRef, value: handoffCoverageValue } = await resolveRefWithValue<PreparedIntentHandoffCoverageReportLike>("handoff-coverage-report", "HandoffCoverageReport");
+    const { ref: driftRef, value: driftValue } = await resolveRefWithValue<PreparedIntentRuntimeDriftReportLike>("runtime-drift-report", "RuntimeGraphDriftReport");
+    const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<PreparedIntentPathFreshnessReportLike>("path-freshness-report", "PathFreshnessReport");
+    const { ref: proofRef, value: proofValue } = await resolveRefWithValue<PreparedIntentVerificationResultLike>("verification-result", "VerificationResult");
 
     const inputRefs = [
       assessmentRef,
@@ -3962,10 +3993,14 @@ export async function main(argv: string[]): Promise<void> {
       capabilityMapRef,
       capabilityContractRef,
       stepCapabilityGraphRef: stepGraphRef,
+      handoffCoverageReport: handoffCoverageValue,
       handoffCoverageReportRef: handoffCoverageRef,
       runtimeGraphObservationReportRef: observationRef,
+      runtimeGraphDriftReport: driftValue,
       runtimeGraphDriftReportRef: driftRef,
+      pathFreshnessReport: freshnessValue,
       pathFreshnessReportRef: freshnessRef,
+      verificationResult: proofValue,
       verificationResultRef: proofRef,
     });
 
@@ -3976,6 +4011,7 @@ export async function main(argv: string[]): Promise<void> {
         {
           artifact: { type: ref.type, id: ref.id },
           status: { value: plan.status.value, recommendedNextAction: plan.status.recommendedNextAction },
+          approval: { status: plan.approval.status, reasons: plan.approval.reasons },
           phases: plan.phases.length,
           obligations: plan.obligations.length,
           verificationRequirements: plan.verificationRequirements.length,
@@ -3988,6 +4024,8 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("");
       lines.push(`Goal: ${plan.request.goal}`);
       lines.push(`Status: ${plan.status.value}`);
+      lines.push(`Approval: ${plan.approval.status}`);
+      lines.push(`Approval reasons: ${plan.approval.reasons.join(", ") || "none"}`);
       lines.push(`Recommended next action: ${plan.status.recommendedNextAction}`);
       lines.push(`Phases: ${plan.phases.length}`);
       lines.push(`Obligations: ${plan.obligations.length}`);

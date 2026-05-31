@@ -4,6 +4,30 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Amended **PreparedIntentPlan v1 with the required approval/proof envelope** —
+  eighty-third slice on the codebase-intel-classic capability-ontology track.
+  Product-capability batch. Implements the PreparedIntentPlan Approval / Proof
+  Model Decision on top of the shipped v1 (`decc93c`) without rewriting git
+  history. `PreparedIntentPlan` gains a required `approval` envelope
+  (`status`, authorizing/blocking `reasons[]`, a `proof` record, and
+  `blockers[]`). **PreparedIntentPlan must be proof-approved, not merely
+  generated.** **PreparedIntentPlan.status.value can be prepared only when
+  approval.status is approved.** **A plan with phases but without approval is
+  not prepared.** The kernel adds approval/proof types + normalizers +
+  validators + cross-field hard rules; `@rekon/capability-model.buildPreparedIntentPlan`
+  reads runtime-drift / handoff-coverage / freshness / verification VALUES to
+  compute approval, downgrades the prepared status from the final approval
+  decision, and records the proof; `rekon intent prepare` reads those values and
+  prints `Approval:` / `Approval reasons:` (and `approval` in `--json`).
+  High-severity unresolved runtime drift, uncovered/unresolved handoff coverage,
+  and stale freshness each block approval; `explicit-operator-approval` /
+  `manual-risk-acceptance` are reserved reasons (no CLI override behavior).
+  `downstreamHandoff.sourceWriteAllowed` is the literal `false`. **Verification
+  requirements are proof obligations, not VerificationPlan.** It creates no
+  `WorkOrder` / `VerificationPlan`, executes no commands, and writes no source;
+  intent:go remains deferred. 33-case contract test + 17-assertion docs test +
+  review packet. No new artifact registration; no version bump; no npm publish.
+  Recommended next slice: PreparedIntentPlan safety review.
 - Shipped the **PreparedIntentPlan Approval / Proof Model Decision** —
   eighty-second slice on the codebase-intel-classic capability-ontology track.
   Strategy / architecture decision batch. Amends the `PreparedIntentPlan`

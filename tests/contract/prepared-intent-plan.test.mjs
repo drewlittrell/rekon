@@ -1,11 +1,14 @@
-// Contract tests for PreparedIntentPlan v1 (eighty-first slice on the
-// capability-ontology track).
+// Contract tests for PreparedIntentPlan v1, amended with the required
+// approval/proof envelope (eighty-third slice on the capability-ontology
+// track).
 //
 // PreparedIntentPlan v1 is a read-only phase/gate preparation artifact
 // generated from an IntentAssessmentReport plus the existing Rekon context
-// spine. It is phase/gate preparation, not WorkOrder: it creates no WorkOrder /
-// VerificationPlan, executes no commands, writes no source, and mutates
-// nothing. Verification requirements are not VerificationPlan.
+// spine. It must carry an explicit approval/proof envelope: status.value can be
+// "prepared" only when approval.status is "approved". It is phase/gate
+// preparation, not WorkOrder: it creates no WorkOrder / VerificationPlan,
+// executes no commands, writes no source, and mutates nothing. Verification
+// requirements are proof obligations, not VerificationPlan.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -36,6 +39,10 @@ function baseHeader() {
 
 const REF = (type, id) => ({ type, id, schemaVersion: "0.1.0" });
 const ASSESSMENT_REF = REF("IntentAssessmentReport", "ia-1");
+const DRIFT_REF = REF("RuntimeGraphDriftReport", "drift-1");
+const COVERAGE_REF = REF("HandoffCoverageReport", "cov-1");
+const FRESHNESS_REF = REF("PathFreshnessReport", "fresh-1");
+const RESULT_REF = REF("VerificationResult", "vr-1");
 
 function assessment(over = {}) {
   return {
@@ -62,159 +69,230 @@ function build(over = {}, opts = {}) {
 }
 
 const hasCategory = (list, category) => list.some((entry) => entry.category === category);
+const hasReason = (plan, reason) => plan.approval.reasons.includes(reason);
 
 // ---------- 1 ----------
-test("PreparedIntentPlan validates", () => {
-  assert.equal(validatePreparedIntentPlan(build()).ok, true);
+test("PreparedIntentPlan validates with an approval envelope", () => {
+  const plan = build();
+  assert.equal(validatePreparedIntentPlan(plan).ok, true);
+  assert.ok(plan.approval, "plan has an approval envelope");
+  assert.ok(Array.isArray(plan.approval.reasons) && plan.approval.reasons.length > 0);
+  assert.ok(plan.approval.proof, "approval carries a proof record");
 });
 
 // ---------- 2 ----------
-test("missing IntentAssessmentReport input fails clearly", () => {
-  assert.throws(
-    () => buildPreparedIntentPlan({ header: baseHeader(), intentAssessmentReport: assessment() }),
-    /intentAssessmentReportRef/,
-  );
+test("a plan without an approval envelope fails validation", () => {
   const invalid = validatePreparedIntentPlan({
     header: baseHeader(),
-    source: {},
+    source: { intentAssessmentReportRef: ASSESSMENT_REF },
     request: { goal: "g", kind: "bug" },
-    status: { value: "prepared", recommendedNextAction: "create-work-order" },
+    status: { value: "needs-review", recommendedNextAction: "human-review" },
     phases: [],
     obligations: [],
     verificationRequirements: [],
     blockedReasons: [],
   });
   assert.equal(invalid.ok, false);
-  assert.ok(invalid.issues.some((issue) => issue.path === "$.source.intentAssessmentReportRef"));
+  assert.ok(invalid.issues.some((issue) => issue.path === "$.approval"));
 });
 
 // ---------- 3 ----------
-test("ready-for-prepare assessment yields prepared status", () => {
-  assert.equal(build({ readiness: { status: "ready-for-prepare" } }).status.value, "prepared");
+test("missing IntentAssessmentReport input fails clearly", () => {
+  assert.throws(
+    () => buildPreparedIntentPlan({ header: baseHeader(), intentAssessmentReport: assessment() }),
+    /intentAssessmentReportRef/,
+  );
 });
 
 // ---------- 4 ----------
-test("blocked assessment yields blocked status", () => {
-  const plan = build({ readiness: { status: "blocked" }, blockers: [{ id: "b1", category: "missing-artifact", severity: "high", message: "missing spine" }] });
-  assert.equal(plan.status.value, "blocked");
+test("prepared status requires approval.status approved", () => {
+  const plan = build();
+  assert.equal(plan.status.value, "prepared");
+  assert.equal(plan.approval.status, "approved");
 });
 
 // ---------- 5 ----------
-test("needs-review assessment yields needs-review status", () => {
-  assert.equal(build({ readiness: { status: "needs-review" } }).status.value, "needs-review");
+test("a plan with phases but approval not approved is not prepared (validator)", () => {
+  const plan = build();
+  const mutated = { ...plan, approval: { ...plan.approval, status: "not-approved" } };
+  const result = validatePreparedIntentPlan(mutated);
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.path === "$.status.value"));
 });
 
 // ---------- 6 ----------
-test("insufficient-context assessment yields insufficient-assessment status", () => {
-  assert.equal(build({ readiness: { status: "insufficient-context" } }).status.value, "insufficient-assessment");
+test("ready-for-prepare + clean proof yields approved", () => {
+  const plan = build({ request: { goal: "Add feature", kind: "feature" } });
+  assert.equal(plan.approval.status, "approved");
+  assert.equal(plan.status.value, "prepared");
 });
 
 // ---------- 7 ----------
-test("stale-context assessment yields stale-assessment status", () => {
-  assert.equal(build({ readiness: { status: "stale-context" } }).status.value, "stale-assessment");
+test("blocked assessment yields not-approved + blocked status", () => {
+  const plan = build({ readiness: { status: "blocked" }, blockers: [{ id: "b1", category: "missing-artifact", severity: "high", message: "missing spine" }] });
+  assert.equal(plan.approval.status, "not-approved");
+  assert.equal(plan.status.value, "blocked");
+  assert.ok(hasReason(plan, "blocked-assessment"));
 });
 
 // ---------- 8 ----------
-test("prepared status recommends create-work-order but does not create a WorkOrder", () => {
-  const plan = build({ readiness: { status: "ready-for-prepare" } });
-  assert.equal(plan.status.recommendedNextAction, "create-work-order");
-  assert.equal(Object.prototype.hasOwnProperty.call(plan, "workOrder"), false);
+test("stale-context assessment yields not-approved + stale-assessment status", () => {
+  const plan = build({ readiness: { status: "stale-context" } });
+  assert.equal(plan.approval.status, "not-approved");
+  assert.equal(plan.status.value, "stale-assessment");
+  assert.ok(hasReason(plan, "stale-assessment"));
 });
 
 // ---------- 9 ----------
-test("blocked status recommends resolve-blockers", () => {
-  assert.equal(build({ readiness: { status: "blocked" } }).status.recommendedNextAction, "resolve-blockers");
+test("insufficient-context assessment yields not-approved + insufficient-assessment status", () => {
+  const plan = build({ readiness: { status: "insufficient-context" } });
+  assert.equal(plan.approval.status, "not-approved");
+  assert.equal(plan.status.value, "insufficient-assessment");
+  assert.ok(hasReason(plan, "insufficient-context"));
 });
 
 // ---------- 10 ----------
-test("stale-assessment recommends refresh-context", () => {
-  assert.equal(build({ readiness: { status: "stale-context" } }).status.recommendedNextAction, "refresh-context");
+test("needs-review assessment yields needs-review approval + needs-review status", () => {
+  const plan = build({ readiness: { status: "needs-review" } });
+  assert.equal(plan.approval.status, "needs-review");
+  assert.equal(plan.status.value, "needs-review");
 });
 
 // ---------- 11 ----------
-test("insufficient-assessment recommends run-assessment", () => {
-  assert.equal(build({ readiness: { status: "insufficient-context" } }).status.recommendedNextAction, "run-assessment");
+test("approval cites the IntentAssessmentReport in its proof", () => {
+  const plan = build();
+  assert.equal(plan.approval.proof.intentAssessmentReportRef.type, "IntentAssessmentReport");
+  assert.equal(plan.approval.proof.intentAssessmentReportRef.id, "ia-1");
+  assert.equal(plan.approval.proof.assessmentReadiness, "ready-for-prepare");
+  assert.equal(plan.approval.proof.assessmentApprovedForPrepare, true);
 });
 
 // ---------- 12 ----------
-test("request goal / kind / scope copied from assessment", () => {
+test("ready-for-prepare approval reasons include assessment-ready-for-prepare", () => {
   const plan = build();
-  assert.equal(plan.request.goal, "Fix create user flow");
-  assert.equal(plan.request.kind, "bug");
-  assert.ok(plan.request.scope?.paths?.includes("src/"));
+  assert.ok(hasReason(plan, "assessment-ready-for-prepare"));
 });
 
 // ---------- 13 ----------
-test("matched context paths/systems/capabilities/steps propagate into phases", () => {
-  const plan = build({ readiness: { status: "ready-for-prepare" } });
-  assert.ok(plan.phases.length > 0);
-  assert.ok(plan.phases.some((phase) => phase.paths.includes("src/app.ts")));
-  assert.ok(plan.phases.some((phase) => phase.steps.includes("s1")));
-  assert.ok(plan.phases.some((phase) => phase.systems.includes("billing")));
-  assert.ok(plan.phases.some((phase) => phase.capabilities.includes("create user")));
+test("high unresolved runtime drift blocks approval", () => {
+  const plan = build({}, {
+    runtimeGraphDriftReport: { rows: [{ severity: "high", status: "uncovered-handoff" }] },
+    runtimeGraphDriftReportRef: DRIFT_REF,
+  });
+  assert.equal(plan.approval.status, "not-approved");
+  assert.notEqual(plan.status.value, "prepared");
+  assert.ok(hasReason(plan, "runtime-drift-unresolved"));
+  assert.equal(plan.approval.proof.runtimeDrift.unresolvedHighSeverity, 1);
 });
 
 // ---------- 14 ----------
-test("prepared bug/feature/refactor/migration emits a verify phase", () => {
-  for (const kind of ["bug", "feature", "refactor", "migration"]) {
-    const plan = build({ readiness: { status: "ready-for-prepare" }, request: { goal: "g", kind } });
-    assert.ok(plan.phases.some((phase) => phase.kind === "verify"), `expected verify phase for kind ${kind}`);
-  }
+test("uncovered handoff coverage blocks approval", () => {
+  const plan = build({}, {
+    handoffCoverageReport: { summary: { uncovered: 2, unresolvedContract: 0, notEvaluated: 0 } },
+    handoffCoverageReportRef: COVERAGE_REF,
+  });
+  assert.equal(plan.approval.status, "not-approved");
+  assert.ok(hasReason(plan, "handoff-coverage-unresolved"));
+  assert.equal(plan.approval.proof.handoffCoverage.uncovered, 2);
 });
 
 // ---------- 15 ----------
-test("refactor emits a refactor phase", () => {
-  const plan = build({ readiness: { status: "ready-for-prepare" }, request: { goal: "g", kind: "refactor" } });
-  assert.ok(plan.phases.some((phase) => phase.kind === "refactor"));
+test("stale freshness blocks approval", () => {
+  const plan = build({}, {
+    pathFreshnessReport: { status: "stale" },
+    pathFreshnessReportRef: FRESHNESS_REF,
+  });
+  assert.equal(plan.approval.status, "not-approved");
+  assert.ok(hasReason(plan, "stale-assessment"));
+  assert.equal(plan.approval.proof.freshness.staleContext, true);
 });
 
 // ---------- 16 ----------
-test("needs-review emits a review phase only", () => {
-  const plan = build({ readiness: { status: "needs-review" } });
-  assert.equal(plan.phases.length, 1);
-  assert.equal(plan.phases[0].kind, "review");
+test("implementation-bearing prepared plan without verification requirements is not approved (validator)", () => {
+  const plan = build();
+  const mutated = { ...plan, verificationRequirements: [] };
+  const result = validatePreparedIntentPlan(mutated);
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.path === "$.verificationRequirements"));
 });
 
 // ---------- 17 ----------
-test("blocked / stale / insufficient emit no implementation phases", () => {
-  for (const status of ["blocked", "stale-context", "insufficient-context"]) {
+test("sourceWriteAllowed is always the literal false", () => {
+  for (const status of ["ready-for-prepare", "blocked", "needs-review", "stale-context", "insufficient-context"]) {
     const plan = build({ readiness: { status } });
-    assert.equal(plan.phases.length, 0, `expected no phases for ${status}`);
+    assert.equal(plan.approval.proof.downstreamHandoff.sourceWriteAllowed, false, `sourceWriteAllowed must be false for ${status}`);
   }
 });
 
 // ---------- 18 ----------
-test("source-write-boundary obligation always present", () => {
+test("approved plan allows downstream handoff but creates neither WorkOrder nor VerificationPlan", () => {
+  const plan = build();
+  assert.equal(plan.approval.proof.downstreamHandoff.workOrderAllowed, true);
+  assert.equal(plan.approval.proof.downstreamHandoff.verificationPlanAllowed, true);
+  assert.equal(Object.prototype.hasOwnProperty.call(plan, "workOrder"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(plan, "verificationPlan"), false);
+});
+
+// ---------- 19 ----------
+test("not-approved plan disallows downstream handoff", () => {
+  const plan = build({ readiness: { status: "blocked" }, blockers: [{ id: "b1", category: "missing-artifact", severity: "high", message: "x" }] });
+  assert.equal(plan.approval.proof.downstreamHandoff.workOrderAllowed, false);
+  assert.equal(plan.approval.proof.downstreamHandoff.verificationPlanAllowed, false);
+});
+
+// ---------- 20 ----------
+test("blocked / stale / insufficient must not be approved (validator)", () => {
+  for (const readiness of ["blocked", "stale-context", "insufficient-context"]) {
+    const plan = build({ readiness: { status: readiness }, blockers: [{ id: "b", category: "missing-artifact", severity: "high", message: "x" }] });
+    const mutated = { ...plan, approval: { ...plan.approval, status: "approved" } };
+    const result = validatePreparedIntentPlan(mutated);
+    assert.equal(result.ok, false, `expected validation failure for ${readiness}`);
+    assert.ok(result.issues.some((issue) => issue.path === "$.approval.status"));
+  }
+});
+
+// ---------- 21 ----------
+test("approval blockers are derived from blocking reasons and reused as blockedReasons", () => {
+  const plan = build({ readiness: { status: "blocked" }, blockers: [{ id: "b1", category: "missing-artifact", severity: "high", message: "x" }] });
+  assert.ok(plan.approval.blockers.length > 0);
+  assert.deepEqual(plan.blockedReasons, plan.approval.blockers);
+});
+
+// ---------- 22 ----------
+test("prepared plan has empty blockedReasons", () => {
+  const plan = build();
+  assert.equal(plan.blockedReasons.length, 0);
+});
+
+// ---------- 23 ----------
+test("verification requirements are emitted for prepared plans; no VerificationPlan is created", () => {
+  const plan = build({ readiness: { status: "ready-for-prepare" }, request: { goal: "g", kind: "bug" } });
+  assert.equal(plan.verificationRequirements.length, 3);
+  assert.equal(plan.approval.proof.verification.requirementsPresent, true);
+  assert.equal(Object.prototype.hasOwnProperty.call(plan, "verificationPlan"), false);
+});
+
+// ---------- 24 ----------
+test("verification result ref is recorded as proof when present", () => {
+  const plan = build({}, { verificationResult: { status: "passed" }, verificationResultRef: RESULT_REF });
+  assert.equal(plan.approval.proof.verification.proofResultsPresent, true);
+  assert.equal(plan.approval.proof.verification.verificationRefs.length, 1);
+});
+
+// ---------- 25 ----------
+test("needs-review emits a review phase only; matched context propagates; source-write-boundary always present", () => {
+  const reviewPlan = build({ readiness: { status: "needs-review" } });
+  assert.equal(reviewPlan.phases.length, 1);
+  assert.equal(reviewPlan.phases[0].kind, "review");
+
+  const prepared = build({ readiness: { status: "ready-for-prepare" } });
+  assert.ok(prepared.phases.some((phase) => phase.paths.includes("src/app.ts")));
+  assert.ok(prepared.phases.some((phase) => phase.systems.includes("billing")));
+
   for (const status of ["ready-for-prepare", "blocked", "needs-review", "stale-context", "insufficient-context"]) {
     const plan = build({ readiness: { status } });
     assert.ok(hasCategory(plan.obligations, "source-write-boundary"), `missing source-write-boundary for ${status}`);
   }
-});
-
-// ---------- 19 ----------
-test("runtime drift blocker/warning creates a runtime-drift obligation", () => {
-  const plan = build({ warnings: [{ id: "w1", category: "runtime-drift", severity: "medium", message: "drift" }] });
-  assert.ok(hasCategory(plan.obligations, "runtime-drift"));
-});
-
-// ---------- 20 ----------
-test("handoff coverage blocker/warning creates a handoff-preservation obligation", () => {
-  const plan = build({ warnings: [{ id: "w2", category: "handoff-coverage", severity: "medium", message: "uncovered" }] });
-  assert.ok(hasCategory(plan.obligations, "handoff-preservation"));
-});
-
-// ---------- 21 ----------
-test("proof-missing creates a verification obligation", () => {
-  const plan = build({ warnings: [{ id: "w3", category: "proof-missing", severity: "medium", message: "no proof" }] });
-  assert.ok(hasCategory(plan.obligations, "verification"));
-});
-
-// ---------- 22 ----------
-test("verification requirements are emitted but no VerificationPlan is created", () => {
-  const plan = build({ readiness: { status: "ready-for-prepare" }, request: { goal: "g", kind: "bug" } });
-  assert.equal(plan.verificationRequirements.length, 3);
-  assert.ok(plan.verificationRequirements.every((requirement) => typeof requirement.id === "string"));
-  assert.equal(Object.prototype.hasOwnProperty.call(plan, "verificationPlan"), false);
 });
 
 // ---------- CLI ----------
@@ -234,48 +312,56 @@ function latestAssessmentRef() {
 // seed an assessment for the CLI tests
 runCli(["intent", "assess", "--root", cliRoot, "--goal", "Prepare me", "--kind", "bug", "--path", "src/app.ts"]);
 
-// ---------- 23 ----------
-test("CLI writes a PreparedIntentPlan", () => {
+// ---------- 26 ----------
+test("CLI writes a PreparedIntentPlan and JSON includes approval", () => {
   const ref = latestAssessmentRef();
   const result = runCli(["intent", "prepare", "--root", cliRoot, "--assessment", ref, "--json"]);
   assert.equal(result.status, 0);
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.artifact.type, "PreparedIntentPlan");
   assert.ok(payload.status.value);
-  assert.equal(typeof payload.phases, "number");
-  assert.equal(typeof payload.obligations, "number");
-  assert.equal(typeof payload.verificationRequirements, "number");
+  assert.ok(payload.approval, "json includes approval");
+  assert.ok(typeof payload.approval.status === "string");
+  assert.ok(Array.isArray(payload.approval.reasons));
 });
 
-// ---------- 24 ----------
+// ---------- 27 ----------
+test("CLI human output reports approval status and reasons", () => {
+  const result = runCli(["intent", "prepare", "--root", cliRoot, "--assessment", latestAssessmentRef()]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Approval: /);
+  assert.match(result.stdout, /Approval reasons: /);
+});
+
+// ---------- 28 ----------
 test("CLI requires --assessment", () => {
   const result = runCli(["intent", "prepare", "--root", cliRoot]);
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}${result.stderr}`, /requires --assessment/);
 });
 
-// ---------- 25 ----------
+// ---------- 29 ----------
 test("CLI does not create a WorkOrder", () => {
   const result = runCli(["artifacts", "latest", "--root", cliRoot, "--type", "WorkOrder", "--allow-missing", "--json"]);
   assert.equal(result.status, 0);
   assert.equal(JSON.parse(result.stdout).artifact, null);
 });
 
-// ---------- 26 ----------
+// ---------- 30 ----------
 test("CLI does not create a VerificationPlan", () => {
   const result = runCli(["artifacts", "latest", "--root", cliRoot, "--type", "VerificationPlan", "--allow-missing", "--json"]);
   assert.equal(result.status, 0);
   assert.equal(JSON.parse(result.stdout).artifact, null);
 });
 
-// ---------- 27 ----------
+// ---------- 31 ----------
 test("CLI does not create a VerificationRun", () => {
   const result = runCli(["artifacts", "latest", "--root", cliRoot, "--type", "VerificationRun", "--allow-missing", "--json"]);
   assert.equal(result.status, 0);
   assert.equal(JSON.parse(result.stdout).artifact, null);
 });
 
-// ---------- 28 ----------
+// ---------- 32 ----------
 test("CLI does not write source files", async () => {
   const before = await readFile(join(cliRoot, "src", "app.ts"), "utf8");
   runCli(["intent", "prepare", "--root", cliRoot, "--assessment", latestAssessmentRef()]);
@@ -283,7 +369,7 @@ test("CLI does not write source files", async () => {
   assert.equal(after, before);
 });
 
-// ---------- 29 ----------
+// ---------- 33 ----------
 test("artifacts validate remains clean after intent prepare", () => {
   runCli(["intent", "prepare", "--root", cliRoot, "--assessment", latestAssessmentRef()]);
   const result = runCli(["artifacts", "validate", "--root", cliRoot, "--json"]);

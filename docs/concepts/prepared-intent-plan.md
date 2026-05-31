@@ -20,7 +20,24 @@ plans, command runs, or source writes.
 what would need to be proven if the work were carried out — typecheck, test,
 build, or "document findings" — as requirements with optional suggested
 commands. It never materializes a `VerificationPlan`, never runs a command, and
-never creates a `VerificationRun` or `VerificationResult`.
+never creates a `VerificationRun` or `VerificationResult`. **Verification
+requirements are proof obligations, not VerificationPlan.**
+
+## Approval, Not Just Generation
+
+**PreparedIntentPlan must be proof-approved, not merely generated.** A generated
+plan is not authorized just because the assessment was `ready-for-prepare`: the
+plan carries a required `approval` envelope — `approval.status`,
+authorizing/blocking `approval.reasons`, an `approval.proof` record, and
+`approval.blockers` — and **PreparedIntentPlan.status.value can be prepared only
+when approval.status is approved.** **A plan with phases but without approval is
+not prepared.** The proof re-checks assessment readiness, required context,
+runtime drift, handoff coverage, freshness, verification requirements/results,
+plan structure, and the downstream handoff (with `sourceWriteAllowed` fixed at
+`false`); high-severity unresolved drift, uncovered/unresolved handoff coverage,
+and stale freshness each block approval. `explicit-operator-approval` and
+`manual-risk-acceptance` are reserved reasons — preparation invents no override
+behavior in v1.
 
 ## What It Reads, What It Emits
 
