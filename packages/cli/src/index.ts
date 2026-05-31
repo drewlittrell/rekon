@@ -4561,6 +4561,11 @@ export async function main(argv: string[]): Promise<void> {
       generatedAt: new Date().toISOString(),
       source,
       sourceDigests,
+      // Circe handoff projection: record the repo root operators pass to
+      // `circe rekon-handoff validate --repo <repoRoot>`, and Rekon's producer
+      // version. Rekon emits the projection; it never runs Circe.
+      repoRoot: root,
+      producerVersion: "0.1.0-beta.0",
     });
 
     // Write files only under <root>/.rekon/intent/plans/, with path-traversal
@@ -4587,6 +4592,15 @@ export async function main(argv: string[]): Promise<void> {
     const staleness = (result.manifest.staleness ?? {}) as { state?: string };
     const stalenessState = typeof staleness.state === "string" ? staleness.state : "fresh";
     const bundlePath = `.rekon/intent/plans/${result.intentId}/`;
+    const circeManifest = (result.manifest.circe ?? {}) as {
+      handoff?: string;
+      phasePlan?: string;
+      workOrdersDir?: string;
+      verificationPlansDir?: string;
+      workOrders?: number;
+      verificationPlans?: number;
+      warnings?: number;
+    };
 
     if (json) {
       writeOutput(
@@ -4597,8 +4611,20 @@ export async function main(argv: string[]): Promise<void> {
             status: stalenessState,
             files: result.files.length,
           },
+          circe: {
+            handoff: `${bundlePath}${circeManifest.handoff ?? "circe/handoff.json"}`,
+            phasePlan: `${bundlePath}${circeManifest.phasePlan ?? "circe/phase-plan.json"}`,
+            workOrders: typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0,
+            verificationPlans: typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0,
+            warnings: typeof circeManifest.warnings === "number" ? circeManifest.warnings : 0,
+          },
           canonicalTruth: ".rekon/artifacts",
-          boundaries: { executesCommands: false, writesSourceFiles: false, implementsIntentGo: false },
+          boundaries: {
+            executesCommands: false,
+            writesSourceFiles: false,
+            implementsIntentGo: false,
+            runsCirce: false,
+          },
         },
         true,
       );
@@ -4608,9 +4634,16 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Bundle: ${bundlePath}`);
       lines.push(`Status: ${stalenessState}`);
       lines.push(`Files: ${result.files.length}`);
+      lines.push(`Circe handoff: ${circeManifest.handoff ?? "circe/handoff.json"}`);
+      lines.push(
+        `Circe artifacts: ${typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0} work order(s), ` +
+          `${typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0} verification plan(s)`,
+      );
       lines.push("Canonical truth: .rekon/artifacts/");
       lines.push("");
-      lines.push("No commands, source writes, WorkOrder, VerificationPlan, VerificationRun, or intent:go were created.");
+      lines.push(
+        "No Circe commands, source writes, WorkOrder, VerificationPlan, VerificationRun, or intent:go were created or run.",
+      );
       writeOutput(lines.join("\n"), false);
     }
     return;

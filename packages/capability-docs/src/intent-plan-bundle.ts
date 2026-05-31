@@ -59,6 +59,14 @@ export type BuildIntentPlanBundleInput = {
   generatedAt?: string;
   source: IntentPlanBundleSource;
   sourceDigests?: Record<string, string>;
+  /**
+   * Repo root recorded in the Circe handoff projection (`circe/handoff.json`
+   * and `circe/phase-plan.json` `repoRoot`). Operators import with
+   * `circe rekon-handoff validate --repo <repoRoot>`. Defaults to `"."`.
+   */
+  repoRoot?: string;
+  /** Producer version recorded in the Circe handoff (`producer.version`). */
+  producerVersion?: string;
 };
 
 const DEFAULT_BUNDLE_ROOT = ".rekon/intent/plans";
@@ -116,6 +124,252 @@ function bullets(items: string[]): string {
 const BOUNDARY_NOTE =
   "This bundle is a projection of canonical artifacts under `.rekon/artifacts/`. " +
   "Bundle generation executes no commands, writes no source files, and does not implement intent:go.";
+
+// ---------------------------------------------------------------------------
+// Circe handoff projection (slice 99)
+//
+// Projects the prepared intent plan bundle into Circe's `rekon-circe-handoff`
+// import package under `circe/`. Grounded in the real Circe source
+// (`src/adapters/rekon-handoff.ts`, `rekon-phase-plan-import.ts`,
+// `rekon-phase-plan-validate.ts`, `src/rekon/RekonTypes.ts`) — the schema is not
+// inferred from filenames. Circe requires one WorkOrder per phase (VerificationPlan
+// optional), so the projection derives one per PreparedIntentPlan phase using the
+// canonical Rekon WorkOrder / VerificationPlan shapes. These are projection files,
+// not registered artifacts. Rekon emits the projection; it does not run Circe, does
+// not execute commands, and writes no source files.
+//
+// See docs/strategy/intent-plan-bundle-circe-handoff-projection-decision.md.
+
+type CirceHandoffArtifactRef = { phaseId: string; path: string; artifactId: string };
+
+type CirceProjectionResult = {
+  files: IntentPlanBundleFile[];
+  manifestCirce: Record<string, unknown>;
+  warnings: string[];
+  phaseCount: number;
+  workOrderCount: number;
+  verificationPlanCount: number;
+};
+
+type RenderCirceProjectionInput = {
+  intentId: string;
+  generatedAt: string;
+  repoRoot: string;
+  goal: string;
+  planRef?: ArtifactRef;
+  producerVersion: string | null;
+  phases: Record<string, unknown>[];
+  requirements: Record<string, unknown>[];
+  obligations: Record<string, unknown>[];
+  workOrderSchemaVersion: string;
+  verificationPlanSchemaVersion: string;
+};
+
+/** Slug-safe, de-duplicated phase id (Circe rejects duplicate phaseIds). */
+function uniquePhaseId(raw: string, index: number, seen: Set<string>): string {
+  let base = slugifyIntentId(raw);
+  if (base.length === 0) base = `phase-${index + 1}`;
+  let candidate = base;
+  let n = 2;
+  while (seen.has(candidate)) {
+    candidate = `${base}-${n}`;
+    n += 1;
+  }
+  seen.add(candidate);
+  return candidate;
+}
+
+/**
+ * Render the `circe/` projection. Pure: derives per-phase WorkOrder /
+ * VerificationPlan JSON in the canonical Rekon shapes that Circe's
+ * `normalizeRekonWorkOrder` / `normalizeRekonVerificationPlan` accept, plus the
+ * `handoff.json` manifest and `phase-plan.json`. A phase with no verification
+ * requirement omits its VerificationPlan and records a manifest warning.
+ */
+function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjectionResult {
+  const warnings: string[] = [];
+
+  const requirementById = new Map<string, { command: string; reason: string }>();
+  for (const r of input.requirements) {
+    const id = asString(r.id);
+    if (id.length === 0) continue;
+    requirementById.set(id, { command: asString(r.command), reason: asString(r.reason, "Verify the change.") });
+  }
+  const obligationMessageById = new Map<string, string>();
+  for (const o of input.obligations) {
+    const id = asString(o.id);
+    if (id.length === 0) continue;
+    obligationMessageById.set(id, asString(o.message) || id);
+  }
+
+  let phases = input.phases;
+  if (phases.length === 0) {
+    phases = [
+      {
+        id: "phase-1",
+        title: input.goal,
+        goal: input.goal,
+        paths: [],
+        systems: [],
+        constraints: [],
+        obligations: [],
+        verificationRequirements: input.requirements.map((r) => asString(r.id)).filter((id) => id.length > 0),
+      },
+    ];
+    warnings.push("Circe projection used a synthesized fallback phase because the prepared plan declared no phases.");
+  }
+  const singlePhase = phases.length === 1;
+
+  const inputRefs = input.planRef
+    ? [{ type: input.planRef.type, id: input.planRef.id, schemaVersion: input.planRef.schemaVersion ?? null }]
+    : [];
+
+  const seen = new Set<string>();
+  const phaseEntries: Array<Record<string, unknown>> = [];
+  const workOrderFiles: IntentPlanBundleFile[] = [];
+  const verificationPlanFiles: IntentPlanBundleFile[] = [];
+  const handoffWorkOrders: CirceHandoffArtifactRef[] = [];
+  const handoffVerificationPlans: CirceHandoffArtifactRef[] = [];
+
+  phases.forEach((p, index) => {
+    const phaseId = uniquePhaseId(asString(p.id) || asString(p.title), index, seen);
+    const title = asString(p.title) || asString(p.id, `Phase ${index + 1}`);
+    const goal = asString(p.goal) || asString(p.title) || input.goal || "(unknown goal)";
+    const paths = asArray(p.paths).map((x) => asString(x)).filter(Boolean);
+    const systems = asArray(p.systems).map((x) => asString(x)).filter(Boolean);
+    const constraints = asArray(p.constraints).map((x) => asString(x)).filter(Boolean);
+    const obligationMessages = asArray(p.obligations)
+      .map((x) => obligationMessageById.get(asString(x)))
+      .filter((m): m is string => typeof m === "string" && m.length > 0);
+    const riskNotes = [...constraints, ...obligationMessages];
+
+    let requirementIds = asArray(p.verificationRequirements).map((x) => asString(x)).filter(Boolean);
+    if (requirementIds.length === 0 && singlePhase) {
+      requirementIds = [...requirementById.keys()];
+    }
+    const phaseRequirements = requirementIds
+      .map((id) => requirementById.get(id))
+      .filter((r): r is { command: string; reason: string } => Boolean(r));
+    const commands = phaseRequirements.map((r) => r.command).filter((c) => c.length > 0);
+    const reasons = phaseRequirements.map((r) => r.reason).filter((c) => c.length > 0);
+
+    const workOrderArtifactId = `${input.intentId}-${phaseId}.work-order`;
+    const verificationPlanArtifactId = `${input.intentId}-${phaseId}.verification-plan`;
+    const workOrderRelPath = `work-orders/${phaseId}.work-order.json`;
+    const verificationPlanRelPath = `verification-plans/${phaseId}.verification-plan.json`;
+
+    // Canonical Rekon WorkOrder shape (Circe normalizeRekonWorkOrder).
+    const workOrder = {
+      header: {
+        artifactType: "WorkOrder",
+        artifactId: workOrderArtifactId,
+        schemaVersion: input.workOrderSchemaVersion,
+        generatedAt: input.generatedAt,
+        inputRefs,
+      },
+      goal,
+      paths,
+      ownerSystems: systems,
+      riskNotes,
+      requiredChecks: commands,
+      successCriteria: reasons.length > 0 ? reasons : [`Complete phase: ${title}.`],
+      relevantFindings: [],
+      relevantMemory: [],
+      antiGamingInstruction: null,
+      markdown: null,
+      source: "intent-handoff",
+      remediationItems: [],
+    };
+    workOrderFiles.push({ path: `circe/${workOrderRelPath}`, content: `${JSON.stringify(workOrder, null, 2)}\n` });
+    handoffWorkOrders.push({ phaseId, path: workOrderRelPath, artifactId: workOrderArtifactId });
+
+    let verificationPlanPath: string | undefined;
+    if (phaseRequirements.length > 0) {
+      // Canonical Rekon VerificationPlan shape (Circe normalizeRekonVerificationPlan).
+      const verificationPlan = {
+        header: {
+          artifactType: "VerificationPlan",
+          artifactId: verificationPlanArtifactId,
+          schemaVersion: input.verificationPlanSchemaVersion,
+          generatedAt: input.generatedAt,
+          inputRefs: [{ type: "WorkOrder", id: workOrderArtifactId, schemaVersion: input.workOrderSchemaVersion }],
+        },
+        workOrderRef: { type: "WorkOrder", id: workOrderArtifactId, schemaVersion: input.workOrderSchemaVersion },
+        commands,
+        successCriteria: reasons.length > 0 ? reasons : [`Verify phase: ${title}.`],
+        source: "intent-handoff",
+      };
+      verificationPlanFiles.push({
+        path: `circe/${verificationPlanRelPath}`,
+        content: `${JSON.stringify(verificationPlan, null, 2)}\n`,
+      });
+      handoffVerificationPlans.push({ phaseId, path: verificationPlanRelPath, artifactId: verificationPlanArtifactId });
+      verificationPlanPath = verificationPlanRelPath;
+    } else {
+      warnings.push(`Phase ${phaseId} has no verification requirement; Circe projection omits its VerificationPlan.`);
+    }
+
+    phaseEntries.push({
+      phaseId,
+      title,
+      workOrderPath: workOrderRelPath,
+      ...(verificationPlanPath ? { verificationPlanPath } : {}),
+      // implementerProfile omitted by default: Rekon does not know the operator's
+      // Circe workflow profiles. Circe applies its default routing.
+    });
+  });
+
+  // phase-plan.json (Circe normalizePhasePlan / validatePhasePlanShape).
+  const phasePlan = {
+    schemaVersion: 1,
+    planId: input.intentId,
+    repoRoot: input.repoRoot,
+    phases: phaseEntries,
+  };
+
+  // handoff.json (Circe RekonHandoffManifest / validateHandoffShape). Paths are
+  // relative to the `circe/` directory.
+  const handoff = {
+    schemaVersion: 1,
+    kind: "rekon-circe-handoff",
+    handoffId: input.intentId,
+    repoRoot: input.repoRoot,
+    sourcePlanPath: "../prepared-plan.md",
+    phasePlanPath: "phase-plan.json",
+    producer: { system: "rekon", version: input.producerVersion },
+    status: "ready",
+    warnings,
+    artifacts: { workOrders: handoffWorkOrders, verificationPlans: handoffVerificationPlans },
+  };
+
+  const files: IntentPlanBundleFile[] = [
+    { path: "circe/handoff.json", content: `${JSON.stringify(handoff, null, 2)}\n` },
+    { path: "circe/phase-plan.json", content: `${JSON.stringify(phasePlan, null, 2)}\n` },
+    ...workOrderFiles,
+    ...verificationPlanFiles,
+  ];
+
+  const manifestCirce = {
+    handoff: "circe/handoff.json",
+    phasePlan: "circe/phase-plan.json",
+    workOrdersDir: "circe/work-orders",
+    verificationPlansDir: "circe/verification-plans",
+    schemaVersion: 1,
+    kind: "rekon-circe-handoff",
+    workOrders: handoffWorkOrders.length,
+    verificationPlans: handoffVerificationPlans.length,
+    warnings: warnings.length,
+  };
+
+  return {
+    files,
+    manifestCirce,
+    warnings,
+    phaseCount: phaseEntries.length,
+    workOrderCount: handoffWorkOrders.length,
+    verificationPlanCount: handoffVerificationPlans.length,
+  };
+}
 
 export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): IntentPlanBundleRenderResult {
   const source = input.source ?? {};
@@ -480,6 +734,30 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     2,
   );
 
+  // ---- Circe handoff projection (circe/) ----
+  // Projects the bundle into Circe's `rekon-circe-handoff` import package, one
+  // WorkOrder (and optional VerificationPlan) per PreparedIntentPlan phase.
+  const circeRepoRoot = typeof input.repoRoot === "string" && input.repoRoot.length > 0 ? input.repoRoot : ".";
+  const producerVersion =
+    typeof input.producerVersion === "string" && input.producerVersion.length > 0 ? input.producerVersion : null;
+  const circe = renderCirceProjection({
+    intentId,
+    generatedAt,
+    repoRoot: circeRepoRoot,
+    goal,
+    planRef: source.preparedIntentPlanRef,
+    producerVersion,
+    phases,
+    requirements: asArray(plan.verificationRequirements).map((r) => asRecord(r)),
+    obligations: asArray(plan.obligations).map((o) => asRecord(o)),
+    workOrderSchemaVersion: asString(asRecord(workOrder.header).schemaVersion, "0.1.0"),
+    verificationPlanSchemaVersion: asString(asRecord(verificationPlan.header).schemaVersion, "0.1.0"),
+  });
+  // Surface the Circe projection in the manifest (additive; all relative paths).
+  files.circeHandoff = "circe/handoff.json";
+  files.circePhasePlan = "circe/phase-plan.json";
+  manifest.circe = circe.manifestCirce;
+
   const bundleFiles: IntentPlanBundleFile[] = [
     { path: "manifest.json", content: `${JSON.stringify(manifest, null, 2)}\n` },
     { path: "README.md", content: readme },
@@ -493,6 +771,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     { path: "agent/constraints.md", content: agentConstraints },
     { path: "agent/verification.json", content: `${agentVerification}\n` },
     { path: "agent/source-refs.json", content: `${agentSourceRefs}\n` },
+    ...circe.files,
   ];
 
   // Defensive: every emitted path must be bundle-safe.

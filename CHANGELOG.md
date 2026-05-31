@@ -4,6 +4,37 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle → Circe Handoff Projection Implementation** —
+  ninety-ninth slice on the codebase-intel-classic capability-ontology track.
+  Product-capability batch implementing the slice-98 decision: every generated intent
+  plan bundle now also includes a Circe `rekon-circe-handoff` projection under
+  `.rekon/intent/plans/<intent-id>/circe/` — `handoff.json`, `phase-plan.json`,
+  `work-orders/<phase-id>.work-order.json`, and (when verification requirements exist)
+  `verification-plans/<phase-id>.verification-plan.json`. `buildIntentPlanBundle`
+  (`@rekon/capability-docs`) derives one WorkOrder per PreparedIntentPlan phase in the
+  canonical Rekon WorkOrder / VerificationPlan shapes; the manifest matches Circe's
+  schema exactly (`schemaVersion: 1`, `kind: "rekon-circe-handoff"`, `producer.system:
+  "rekon"`, `status: "ready"`), with manifest-relative paths inside `circe/`. A phase
+  with no verification requirement omits its VerificationPlan and records a handoff
+  warning; `implementerProfile` is omitted by default (Rekon does not know the
+  operator's Circe workflow profiles); the projection files are derived files, not
+  registered canonical artifacts. The schema was grounded in — and the generated
+  projection validated against — the **real Circe source** (`src/adapters/
+  rekon-handoff.ts`, `rekon-phase-plan-import.ts`, `rekon-phase-plan-validate.ts`,
+  `src/rekon/RekonTypes.ts`); Circe's own `readRekonHandoffManifestFile`,
+  `readRekonPhasePlanFile`, `normalizeRekonWorkOrder`, and
+  `normalizeRekonVerificationPlan` all accepted the projection. `rekon intent bundle
+  write` writes the `circe/` files under the bundle directory (path-traversal safe on
+  the slug-safe phase ids and every file path) and surfaces the Circe handoff path /
+  per-kind counts in its output. The bundle includes a Circe projection under `circe/`;
+  Circe handoff projection is an import adapter, not a new planning system; canonical
+  Rekon truth remains `.rekon/artifacts/`; Rekon does not run Circe commands during
+  bundle generation, does not execute the Circe handoff, and does not write source
+  files; Circe owns orchestration after import; intent:go remains deferred. Extended
+  `tests/contract/intent-plan-bundle.test.mjs` to 53 assertions (24 Circe) + new
+  `tests/docs/intent-plan-bundle-circe-projection.test.mjs` (10 assertions) + review
+  packet. No new artifact type; `rekon artifacts validate` stays clean. Recommended
+  next slice: Intent Plan Bundle → Circe Handoff Projection Safety Review.
 - Shipped the **Intent Plan Bundle → Circe Handoff Projection Decision** —
   ninety-eighth slice on the codebase-intel-classic capability-ontology track.
   Strategy / architecture decision batch that pins how Rekon's prepared intent plan

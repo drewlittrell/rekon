@@ -35,8 +35,28 @@ function baseSource() {
       status: { value: "prepared" },
       approval: { status: "approved" },
       phases: [
-        { id: "phase:investigate", title: "Investigate", kind: "investigate", paths: ["src/app.ts"] },
-        { id: "phase:modify", title: "Modify", kind: "modify", paths: ["src/app.ts"] },
+        {
+          id: "phase:investigate",
+          title: "Investigate",
+          kind: "investigate",
+          goal: "Investigate the create-user flow",
+          paths: ["src/app.ts"],
+          systems: ["billing"],
+          constraints: ["Preserve the create-user contract."],
+          obligations: ["obligation:x"],
+          verificationRequirements: ["verify:typecheck"],
+        },
+        {
+          id: "phase:modify",
+          title: "Modify",
+          kind: "modify",
+          goal: "Modify the create-user flow",
+          paths: ["src/app.ts"],
+          systems: ["billing"],
+          constraints: [],
+          obligations: [],
+          verificationRequirements: [],
+        },
       ],
       obligations: [{ id: "obligation:x", message: "Preserve the create-user capability." }],
       verificationRequirements: [{ id: "verify:typecheck", command: "npm run typecheck", reason: "Type safety must hold." }],
@@ -304,4 +324,201 @@ test("artifacts validate remains clean after bundle write", () => {
   const result = runCli(["artifacts", "validate", "--root", cliRoot, "--json"]);
   assert.equal(result.status, 0);
   assert.equal(JSON.parse(result.stdout).valid, true);
+});
+
+// ===========================================================================
+// Circe handoff projection (slice 99). The projection is grounded in the real
+// Circe `rekon-circe-handoff` schema; per-phase WorkOrders / VerificationPlans
+// use the canonical Rekon shapes Circe's normalizers accept.
+// ===========================================================================
+
+const circeJson = (result, rel) => JSON.parse(fileByPath(result, `circe/${rel}`));
+
+// ---------- C1: helper renders circe/handoff.json ----------
+test("circe: helper renders circe/handoff.json", () => {
+  assert.ok(fileByPath(build(), "circe/handoff.json") !== undefined);
+});
+
+// ---------- C2: helper renders circe/phase-plan.json ----------
+test("circe: helper renders circe/phase-plan.json", () => {
+  assert.ok(fileByPath(build(), "circe/phase-plan.json") !== undefined);
+});
+
+// ---------- C3: per-phase WorkOrder JSON files ----------
+test("circe: helper renders one WorkOrder JSON per phase", () => {
+  const result = build();
+  assert.ok(fileByPath(result, "circe/work-orders/phase-investigate.work-order.json") !== undefined);
+  assert.ok(fileByPath(result, "circe/work-orders/phase-modify.work-order.json") !== undefined);
+});
+
+// ---------- C4: per-phase VerificationPlan JSON files when requirements exist ----------
+test("circe: helper renders a VerificationPlan only for phases with requirements", () => {
+  const result = build();
+  assert.ok(fileByPath(result, "circe/verification-plans/phase-investigate.verification-plan.json") !== undefined);
+  // phase:modify has no verification requirements -> no VerificationPlan file.
+  assert.equal(fileByPath(result, "circe/verification-plans/phase-modify.verification-plan.json"), undefined);
+});
+
+// ---------- C5: handoff schemaVersion 1 ----------
+test("circe: handoff.json has schemaVersion 1 (number)", () => {
+  assert.strictEqual(circeJson(build(), "handoff.json").schemaVersion, 1);
+});
+
+// ---------- C6: handoff kind rekon-circe-handoff ----------
+test("circe: handoff.json has kind rekon-circe-handoff", () => {
+  assert.equal(circeJson(build(), "handoff.json").kind, "rekon-circe-handoff");
+});
+
+// ---------- C7: handoff producer.system rekon ----------
+test("circe: handoff.json has producer.system rekon", () => {
+  assert.equal(circeJson(build(), "handoff.json").producer.system, "rekon");
+});
+
+// ---------- C8: handoff status ready ----------
+test("circe: handoff.json has status ready", () => {
+  assert.equal(circeJson(build(), "handoff.json").status, "ready");
+});
+
+// ---------- C9: handoff references phase-plan.json ----------
+test("circe: handoff.json references phase-plan.json", () => {
+  assert.equal(circeJson(build(), "handoff.json").phasePlanPath, "phase-plan.json");
+});
+
+// ---------- C10: handoff artifact paths are relative to circe/ ----------
+test("circe: handoff.json artifact paths are relative to circe/ (no leading circe/, no traversal)", () => {
+  const handoff = circeJson(build(), "handoff.json");
+  for (const ref of [...handoff.artifacts.workOrders, ...handoff.artifacts.verificationPlans]) {
+    assert.ok(!ref.path.startsWith("/") && !ref.path.startsWith("circe/") && !ref.path.includes(".."), ref.path);
+  }
+  assert.equal(handoff.sourcePlanPath, "../prepared-plan.md");
+});
+
+// ---------- C11: phase-plan has one entry per PreparedIntentPlan phase ----------
+test("circe: phase-plan.json has one entry per phase", () => {
+  const pp = circeJson(build(), "phase-plan.json");
+  assert.equal(pp.schemaVersion, 1);
+  assert.equal(pp.phases.length, 2);
+  assert.deepEqual(pp.phases.map((p) => p.phaseId), ["phase-investigate", "phase-modify"]);
+});
+
+// ---------- C12: phase ids are slug-safe ----------
+test("circe: phase ids are slug-safe", () => {
+  for (const phase of circeJson(build(), "phase-plan.json").phases) {
+    assert.match(phase.phaseId, /^[a-z0-9-]+$/);
+    assert.ok(!phase.phaseId.includes(".."));
+  }
+});
+
+// ---------- C13: phase plan omits implementerProfile by default ----------
+test("circe: phase plan omits implementerProfile by default", () => {
+  for (const phase of circeJson(build(), "phase-plan.json").phases) {
+    assert.ok(!("implementerProfile" in phase), "implementerProfile must be omitted by default");
+  }
+});
+
+// ---------- C14: per-phase WorkOrder projection traces source phase id ----------
+test("circe: per-phase WorkOrder traces its phase id and is the canonical Rekon WorkOrder shape", () => {
+  const wo = circeJson(build(), "work-orders/phase-investigate.work-order.json");
+  assert.equal(wo.header.artifactType, "WorkOrder");
+  assert.match(wo.header.artifactId, /phase-investigate/);
+  assert.ok(wo.goal.length > 0); // Circe requires a non-empty goal.
+  assert.ok(Array.isArray(wo.remediationItems));
+  assert.equal(wo.source, "intent-handoff");
+  // handoff artifact ref ties back to the WorkOrder header artifactId by phase.
+  const ref = circeJson(build(), "handoff.json").artifacts.workOrders.find((w) => w.phaseId === "phase-investigate");
+  assert.equal(ref.artifactId, wo.header.artifactId);
+});
+
+// ---------- C15: per-phase VerificationPlan projection traces requirement ids ----------
+test("circe: per-phase VerificationPlan traces the phase's verification requirements", () => {
+  const vp = circeJson(build(), "verification-plans/phase-investigate.verification-plan.json");
+  assert.equal(vp.header.artifactType, "VerificationPlan");
+  assert.equal(vp.workOrderRef.id, "pip-1-phase-investigate.work-order");
+  assert.ok(vp.commands.includes("npm run typecheck"));
+  assert.ok(vp.successCriteria.includes("Type safety must hold."));
+});
+
+// ---------- C16: missing verification plan for a phase emits warning ----------
+test("circe: a phase with no verification requirement emits a handoff warning", () => {
+  const handoff = circeJson(build(), "handoff.json");
+  assert.ok(handoff.warnings.some((w) => w.includes("phase-modify")));
+});
+
+// ---------- C17: manifest includes circe section ----------
+test("circe: manifest includes a circe section", () => {
+  const circe = build().manifest.circe;
+  assert.equal(circe.handoff, "circe/handoff.json");
+  assert.equal(circe.phasePlan, "circe/phase-plan.json");
+  assert.equal(circe.schemaVersion, 1);
+  assert.equal(circe.kind, "rekon-circe-handoff");
+  assert.equal(circe.workOrders, 2);
+  assert.equal(circe.verificationPlans, 1);
+});
+
+// ---------- C18: bundle generation runs no Circe / executes no commands ----------
+test("circe: WorkOrder requiredChecks are plain command text, never executed", () => {
+  const wo = circeJson(build(), "work-orders/phase-investigate.work-order.json");
+  assert.ok(wo.requiredChecks.every((c) => typeof c === "string"));
+  assert.equal(build().manifest.boundaries.executesCommands, false);
+});
+
+// ---------- C19: every circe file path is bundle-safe (no source write escape) ----------
+test("circe: every circe projection path is bundle-safe", () => {
+  const circeFiles = build().files.filter((f) => f.path.startsWith("circe/"));
+  assert.ok(circeFiles.length >= 4);
+  for (const f of circeFiles) assert.equal(isSafeBundleRelativePath(f.path), true);
+});
+
+// ---------- C20: unsafe phase id cannot escape via circe paths ----------
+test("circe: an unsafe phase id is slugified so projection paths stay safe", () => {
+  const src = baseSource();
+  src.preparedIntentPlan.phases = [
+    { id: "../../etc/passwd", title: "Escape", kind: "investigate", goal: "x", paths: [], verificationRequirements: [] },
+  ];
+  const result = build({ source: src });
+  for (const f of result.files.filter((f) => f.path.startsWith("circe/"))) {
+    assert.ok(!f.path.includes(".."), f.path);
+    assert.equal(isSafeBundleRelativePath(f.path), true);
+  }
+});
+
+// ---------- C21: fallback phase when the plan declares none ----------
+test("circe: a plan with no phases yields a fallback phase and a warning", () => {
+  const src = baseSource();
+  src.preparedIntentPlan.phases = [];
+  const handoff = circeJson(build({ source: src }), "handoff.json");
+  assert.equal(handoff.artifacts.workOrders.length, 1);
+  assert.ok(handoff.warnings.some((w) => /fallback phase/i.test(w)));
+});
+
+// ---------- C22: CLI writes circe projection files ----------
+test("circe: CLI writes circe projection files inside the bundle", async () => {
+  runCli(["intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed", "--json"]);
+  for (const rel of ["circe/handoff.json", "circe/phase-plan.json", "circe/work-orders/phase-investigate.work-order.json"]) {
+    const s = await stat(join(bundleDir, ...rel.split("/")));
+    assert.ok(s.isFile(), `missing ${rel}`);
+  }
+});
+
+// ---------- C23: CLI JSON includes circe paths / counts ----------
+test("circe: CLI --json includes circe paths and counts", () => {
+  const result = runCli([
+    "intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed", "--json",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.match(payload.circe.handoff, /circe\/handoff\.json$/);
+  assert.match(payload.circe.phasePlan, /circe\/phase-plan\.json$/);
+  assert.ok(payload.circe.workOrders >= 1);
+  assert.equal(payload.boundaries.runsCirce, false);
+});
+
+// ---------- C24: CLI does not register the circe projection as an artifact ----------
+test("circe: CLI does not register the projection as a canonical artifact", () => {
+  runCli(["intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed"]);
+  // The projection lives under the bundle, never as a registered WorkOrder / VerificationPlan artifact.
+  const wo = runCli(["artifacts", "latest", "--root", cliRoot, "--type", "WorkOrder", "--allow-missing", "--json"]);
+  assert.equal(JSON.parse(wo.stdout).artifact, null);
+  const validate = runCli(["artifacts", "validate", "--root", cliRoot, "--json"]);
+  assert.equal(JSON.parse(validate.stdout).valid, true);
 });
