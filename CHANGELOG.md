@@ -4,6 +4,32 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent WorkOrder Handoff Decision** — eighty-ninth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / architecture
+  decision batch pinning the exact `WorkOrder` generator shape, gate, freshness/
+  drift recheck, traceability, and content mapping for generating a `WorkOrder`
+  from a proof-approved `PreparedIntentPlan`. **Recommendation: Option B — an
+  explicit gated WorkOrder generator** (`rekon intent work-order generate
+  --prepared-plan <ref> [--intent-status] [--path-freshness] [--runtime-drift]`).
+  Pinned gate: WorkOrder generation is allowed only when
+  `approval.status === "approved"` + `status.value === "prepared"` +
+  `recommendedNextAction === "create-work-order"` + `IntentStatusReport`
+  work-ready with no high-severity blockers +
+  `downstreamHandoff.workOrderAllowed === true` +
+  `sourceWriteAllowed === false` + a handoff-time freshness / drift recheck
+  against the approved proof refs. Generated `WorkOrder` maps the prepared plan's
+  goal / phases / paths / obligations / blockedReasons / verification-requirement
+  guidance and must trace back to `PreparedIntentPlan` (refs + phase / obligation
+  / requirement ids). **Intent WorkOrder handoff is WorkOrder artifact
+  generation, not intent:go**; **WorkOrder generation must require a
+  proof-approved PreparedIntentPlan**; **IntentStatusReport gates WorkOrder
+  generation but does not generate WorkOrder**; **WorkOrder generation does not
+  create VerificationPlan**, **execute commands**, or **write source files**;
+  **intent:go remains deferred**. New
+  `docs/strategy/intent-work-order-handoff-decision.md` (14 sections + 4 tables) +
+  18-assertion docs test + review packet. No source changes; no artifact
+  registration; no version bump; no npm publish. Recommended next slice: Intent
+  WorkOrder Handoff Implementation.
 - Shipped the **Intent Work / Proof Handoff Decision** — eighty-eighth slice on
   the codebase-intel-classic capability-ontology track. Strategy / architecture
   decision batch deciding whether and how a proof-approved `PreparedIntentPlan`
