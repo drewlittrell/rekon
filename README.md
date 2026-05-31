@@ -1103,6 +1103,22 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# PreparedIntentPlan safety review has shipped. Eighty-fourth slice on the
+# codebase-intel-classic capability-ontology track. Strategy / safety-review
+# batch. Reviews the amended PreparedIntentPlan v1 implementation end-to-end.
+#   - Recommendation: PreparedIntentPlan v1 is safe/stable as proof-approved
+#     phase/gate preparation.
+#   - PreparedIntentPlan must be proof-approved, not merely generated.
+#   - PreparedIntentPlan.status.value can be prepared only when approval.status
+#     is approved.
+#   - A plan with phases but without approval is not prepared.
+#   - Verification requirements are proof obligations, not VerificationPlan.
+#   - PreparedIntentPlan does not create WorkOrder / VerificationPlan /
+#     VerificationRun / VerificationResult, execute commands, or write source.
+#   - IntentStatusReport remains the next layer; intent:go remains deferred.
+#
+# Recommended next slice: IntentStatusReport v1 decision.
+#
 # PreparedIntentPlan v1 amended with the required approval/proof envelope.
 # Eighty-third slice on the codebase-intel-classic capability-ontology track.
 # Product-capability batch. Implements the PreparedIntentPlan Approval / Proof

@@ -4,6 +4,28 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **PreparedIntentPlan safety review** — eighty-fourth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / safety-review
+  batch reviewing the amended PreparedIntentPlan v1 implementation (`0d3957e`)
+  end-to-end. **Recommendation: PreparedIntentPlan v1 is safe/stable as
+  proof-approved phase/gate preparation.** The review confirms the approval/proof
+  envelope is enforced by the kernel validator (not just produced by the helper):
+  **PreparedIntentPlan must be proof-approved, not merely generated**;
+  **PreparedIntentPlan.status.value can be prepared only when approval.status is
+  approved**; **a plan with phases but without approval is not prepared**. It
+  confirms the boundaries hold: **Verification requirements are proof
+  obligations, not VerificationPlan**; **PreparedIntentPlan does not create
+  WorkOrder or VerificationPlan**; **PreparedIntentPlan does not create
+  VerificationRun or VerificationResult**; **PreparedIntentPlan does not execute
+  commands**; **PreparedIntentPlan does not write source files**;
+  **IntentStatusReport remains the next layer after preparation**; **intent:go
+  remains deferred**. Approval correctly reflects ready-for-prepare→approved,
+  blocked/stale/insufficient→not-approved, needs-review→needs-review, and the
+  runtime-drift / handoff-coverage / freshness / verification-requirement
+  blockers. New `docs/strategy/prepared-intent-plan-safety-review.md` (14
+  sections + 4 tables) + 18-assertion docs test + review packet. No runtime
+  behavior change; no version bump; no npm publish. Recommended next slice:
+  IntentStatusReport v1 decision.
 - Amended **PreparedIntentPlan v1 with the required approval/proof envelope** —
   eighty-third slice on the codebase-intel-classic capability-ontology track.
   Product-capability batch. Implements the PreparedIntentPlan Approval / Proof
