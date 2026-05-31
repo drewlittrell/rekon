@@ -1103,6 +1103,25 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Plan Bundle / Agent Handoff Implementation has shipped. Ninety-sixth
+# slice on the codebase-intel-classic capability-ontology track. Product-capability
+# batch. Adds `rekon intent bundle write`: reads canonical intent artifacts and
+# projects them into a regenerable human + LLM-agent handoff bundle under
+# .rekon/intent/plans/<intent-id>/ (manifest.json + human files + agent/ files).
+#   - buildIntentPlanBundle renderer in @rekon/capability-docs; pure, path-safe.
+#   - manifest records source artifact refs / digests / staleness / boundaries.
+#   - CLI writes only under the bundle directory with path-traversal safety.
+#   - Intent plan bundle is a projection, not canonical artifact truth.
+#   - Canonical source of truth remains .rekon/artifacts/.
+#   - Agent handoff files live under agent/ inside the bundle.
+#   - Bundle generation executes no commands, writes no source files outside the
+#     bundle directory, creates no canonical artifacts, and does not implement
+#     intent:go. Stale bundles must not be treated as current handoff.
+#   - No new artifact type; rekon artifacts validate stays clean.
+#
+# See docs/concepts/intent-plan-bundle.md.
+# Recommended next slice: Intent Plan Bundle / Agent Handoff Safety Review.
+#
 # Intent Plan Bundle / Agent Handoff Directory Decision has shipped. Ninety-fifth
 # slice on the codebase-intel-classic capability-ontology track. Strategy /
 # architecture decision batch. Pins where the completed intent preparation

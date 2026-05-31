@@ -4,6 +4,31 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle / Agent Handoff Implementation** — ninety-sixth
+  slice on the codebase-intel-classic capability-ontology track. The new
+  `rekon intent bundle write` command reads the latest-or-pinned canonical intent
+  artifacts (IntentAssessmentReport, PreparedIntentPlan, IntentStatusReport,
+  WorkOrder, VerificationPlan, plus optional PathFreshnessReport /
+  RuntimeGraphDriftReport) and **projects them into a regenerable human +
+  LLM-agent handoff bundle** under `.rekon/intent/plans/<intent-id>/`:
+  `manifest.json`, `README.md`, `prepared-plan.md`, `work-order.md`,
+  `verification-plan.md`, `status.md`, and `agent/` files (`handoff.md`,
+  `context.json`, `instructions.md`, `constraints.md`, `verification.json`,
+  `source-refs.json`). The new pure `buildIntentPlanBundle` renderer
+  (`@rekon/capability-docs`) records source artifact refs / digests / staleness in
+  the manifest and emits only safe relative file paths; the CLI writes files only
+  under the bundle directory with path-traversal safety on both the intent id and
+  every file path. **Intent plan bundle is a projection, not canonical artifact
+  truth**; **canonical source of truth remains `.rekon/artifacts/`**; **intent plan
+  bundles live under `.rekon/intent/plans/<intent-id>/` by default**; **agent
+  handoff files live under `agent/`**; **bundle generation must not execute
+  commands**, **must not write source files** (outside the bundle directory), and
+  **must not implement intent:go**; **stale bundles must not be treated as current
+  handoff**. No new artifact type is registered (the bundle is filesystem
+  projection, not a canonical artifact), so `rekon artifacts validate` stays clean.
+  New `docs/concepts/intent-plan-bundle.md` + 29-assertion contract test +
+  11-assertion docs test + review packet. Recommended next slice: **Intent Plan
+  Bundle / Agent Handoff Safety Review**.
 - Shipped the **Intent Plan Bundle / Agent Handoff Directory Decision** —
   ninety-fifth slice on the codebase-intel-classic capability-ontology track.
   Strategy / architecture decision batch pinning where the completed intent

@@ -8437,3 +8437,13 @@ export function buildBridgeDerivedFindingsPublicationSection(
 
   return { lines, inputRef: resolvedReportRef, count: bridgeDerived.length };
 }
+
+export {
+  type IntentPlanBundleSource,
+  type IntentPlanBundleFile,
+  type IntentPlanBundleRenderResult,
+  type BuildIntentPlanBundleInput,
+  slugifyIntentId,
+  isSafeBundleRelativePath,
+  buildIntentPlanBundle,
+} from "./intent-plan-bundle.js";

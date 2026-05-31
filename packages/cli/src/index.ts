@@ -14,13 +14,16 @@ import docsCapability, {
   assessGitHubCheckPublisherReadiness,
   assessPrCommentPublisherReadiness,
   buildGitHubCheckPayload,
+  buildIntentPlanBundle,
   buildPrCommentBody,
+  isSafeBundleRelativePath,
   publishGitHubCheckRun,
   publishPrCommentRun,
   type GitHubCheckPublishResult,
   type GitHubCheckPublisherReadiness,
   type GitHubCheckPublisherReadinessEvent,
   type GitHubCheckPublisherRunStatus,
+  type IntentPlanBundleSource,
   type PrCommentBody,
   type PrCommentPublishResult,
   type PrCommentPublisherReadiness,
@@ -4471,6 +4474,143 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Requirement mappings: ${handoff.requirementMappings.length}`);
       lines.push("");
       lines.push("No WorkOrder, VerificationRun, VerificationResult, commands, or source writes were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "bundle" && positional === "write") {
+    // `rekon intent bundle write [--intent-id <id>] [--assessment <ref>]
+    // [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>]
+    // [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>]
+    // [--root <path>] [--json]` — Intent plan bundle.
+    //
+    // Reads the latest-or-pinned canonical intent artifacts and projects them
+    // into a regenerable human + LLM-agent handoff bundle under
+    // `.rekon/intent/plans/<intent-id>/`. The bundle is a projection; canonical
+    // truth remains `.rekon/artifacts/`. This command executes no commands, writes
+    // no source files outside the bundle directory, creates no canonical
+    // artifacts, and does not implement intent:go. See
+    // docs/concepts/intent-plan-bundle.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const resolveSource = async (
+      flagName: string,
+      type: string,
+    ): Promise<{ ref?: ArtifactRef; value?: unknown; digest?: string }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon intent bundle write --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        entry = (await store.list(type)).at(-1);
+      }
+      if (!entry) return {};
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      const value = await store.read(entry);
+      return { ref, value, digest: typeof entry.digest === "string" ? entry.digest : undefined };
+    };
+
+    const assessment = await resolveSource("assessment", "IntentAssessmentReport");
+    const plan = await resolveSource("prepared-plan", "PreparedIntentPlan");
+    const status = await resolveSource("intent-status", "IntentStatusReport");
+    const workOrder = await resolveSource("work-order", "WorkOrder");
+    const verificationPlan = await resolveSource("verification-plan", "VerificationPlan");
+    const freshness = await resolveSource("path-freshness", "PathFreshnessReport");
+    const drift = await resolveSource("runtime-drift", "RuntimeGraphDriftReport");
+
+    const source: IntentPlanBundleSource = {
+      intentAssessmentReport: assessment.value,
+      intentAssessmentReportRef: assessment.ref,
+      preparedIntentPlan: plan.value,
+      preparedIntentPlanRef: plan.ref,
+      intentStatusReport: status.value,
+      intentStatusReportRef: status.ref,
+      workOrder: workOrder.value,
+      workOrderRef: workOrder.ref,
+      verificationPlan: verificationPlan.value,
+      verificationPlanRef: verificationPlan.ref,
+      pathFreshnessReport: freshness.value,
+      pathFreshnessReportRef: freshness.ref,
+      runtimeGraphDriftReport: drift.value,
+      runtimeGraphDriftReportRef: drift.ref,
+    };
+
+    const sourceDigests: Record<string, string> = {};
+    if (assessment.digest) sourceDigests.intentAssessmentReport = assessment.digest;
+    if (plan.digest) sourceDigests.preparedIntentPlan = plan.digest;
+    if (status.digest) sourceDigests.intentStatusReport = status.digest;
+    if (workOrder.digest) sourceDigests.workOrder = workOrder.digest;
+    if (verificationPlan.digest) sourceDigests.verificationPlan = verificationPlan.digest;
+    if (freshness.digest) sourceDigests.pathFreshnessReport = freshness.digest;
+    if (drift.digest) sourceDigests.runtimeGraphDriftReport = drift.digest;
+
+    const intentIdFlag = typeof parsed.flags["intent-id"] === "string" ? parsed.flags["intent-id"].trim() : "";
+    const result = buildIntentPlanBundle({
+      ...(intentIdFlag.length > 0 ? { intentId: intentIdFlag } : {}),
+      generatedAt: new Date().toISOString(),
+      source,
+      sourceDigests,
+    });
+
+    // Write files only under <root>/.rekon/intent/plans/, with path-traversal
+    // safety on both the intent id and every emitted file path.
+    const bundleBase = resolve(root, ".rekon", "intent", "plans");
+    const bundleDir = resolve(bundleBase, result.intentId);
+    const relToBase = relative(bundleBase, bundleDir);
+    if (relToBase.length === 0 || relToBase.startsWith("..") || isAbsolute(relToBase)) {
+      throw new Error(`rekon intent bundle write: unsafe intent id resolves outside the bundle directory: ${result.intentId}`);
+    }
+    for (const file of result.files) {
+      if (!isSafeBundleRelativePath(file.path)) {
+        throw new Error(`rekon intent bundle write: unsafe bundle file path: ${file.path}`);
+      }
+      const absolute = resolve(bundleDir, file.path);
+      const relToDir = relative(bundleDir, absolute);
+      if (relToDir.startsWith("..") || isAbsolute(relToDir)) {
+        throw new Error(`rekon intent bundle write: unsafe bundle file path: ${file.path}`);
+      }
+      await mkdir(dirname(absolute), { recursive: true });
+      await writeFile(absolute, file.content, "utf8");
+    }
+
+    const staleness = (result.manifest.staleness ?? {}) as { state?: string };
+    const stalenessState = typeof staleness.state === "string" ? staleness.state : "fresh";
+    const bundlePath = `.rekon/intent/plans/${result.intentId}/`;
+
+    if (json) {
+      writeOutput(
+        {
+          bundle: {
+            path: bundlePath,
+            intentId: result.intentId,
+            status: stalenessState,
+            files: result.files.length,
+          },
+          canonicalTruth: ".rekon/artifacts",
+          boundaries: { executesCommands: false, writesSourceFiles: false, implementsIntentGo: false },
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent plan bundle", "");
+      lines.push(`Bundle: ${bundlePath}`);
+      lines.push(`Status: ${stalenessState}`);
+      lines.push(`Files: ${result.files.length}`);
+      lines.push("Canonical truth: .rekon/artifacts/");
+      lines.push("");
+      lines.push("No commands, source writes, WorkOrder, VerificationPlan, VerificationRun, or intent:go were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;
