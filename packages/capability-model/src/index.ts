@@ -160,6 +160,19 @@ export {
   buildIntentStatusReport,
 } from "./intent-status-report.js";
 
+export {
+  type BuildIntentWorkOrderHandoffInput,
+  type IntentWorkOrderGenerationResult,
+  type IntentWorkOrderGenerationBlocker,
+  type IntentGeneratedWorkOrder,
+  type IntentWorkOrderPreparedPlanLike,
+  type IntentWorkOrderStatusReportLike,
+  type IntentWorkOrderPathFreshnessLike,
+  type IntentWorkOrderRuntimeDriftLike,
+  INTENT_WORK_ORDER_ARTIFACT_ID_PREFIX,
+  buildIntentWorkOrderHandoff,
+} from "./intent-work-order-handoff.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

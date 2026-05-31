@@ -4,6 +4,33 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent WorkOrder Handoff Implementation** — ninetieth slice on
+  the codebase-intel-classic capability-ontology track. The explicit gated
+  generator `rekon intent work-order generate` reads a proof-approved
+  `PreparedIntentPlan` (gated by `IntentStatusReport` work-ready + a handoff-time
+  freshness / drift recheck) and **writes exactly one WorkOrder**
+  (`source: "intent-handoff"`) that traces back to the plan / status / assessment
+  refs and the phase / obligation / verification-requirement ids; when the gate
+  fails it prints deterministic blockers, exits non-zero, and **writes no
+  WorkOrder**. The new `buildIntentWorkOrderHandoff` helper
+  (`@rekon/capability-model`) runs the generation gate
+  (`approval.status === "approved"` + `status.value === "prepared"` +
+  `recommendedNextAction === "create-work-order"` + `IntentStatusReport`
+  work-ready with no high-severity blockers +
+  `downstreamHandoff.workOrderAllowed === true` + `sourceWriteAllowed === false`
+  + non-empty phases + freshness / drift recheck) and maps the prepared plan's
+  goal / phases / paths / obligations / blockedReasons / verification-requirement
+  guidance into the WorkOrder. The canonical `WorkOrder` type gains additive,
+  backwards-compatible `source: "intent-handoff"` and `intentHandoff` fields (no
+  new artifact type registered; the existing `WorkOrder` type is reused).
+  **Intent WorkOrder handoff is WorkOrder artifact generation, not intent:go**;
+  **WorkOrder generation requires a proof-approved PreparedIntentPlan**;
+  **IntentStatusReport gates WorkOrder generation but does not generate
+  WorkOrder**; **WorkOrder generation does not create VerificationPlan**,
+  **execute commands**, or **write source files**; **intent:go remains
+  deferred**. New `docs/concepts/intent-work-order-handoff.md` + 27-assertion
+  contract test + 11-assertion docs test + review packet. No new artifact type;
+  `rekon artifacts validate` stays clean.
 - Shipped the **Intent WorkOrder Handoff Decision** — eighty-ninth slice on the
   codebase-intel-classic capability-ontology track. Strategy / architecture
   decision batch pinning the exact `WorkOrder` generator shape, gate, freshness/

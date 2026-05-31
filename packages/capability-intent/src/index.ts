@@ -31,6 +31,29 @@ export type RemediationWorkOrderItem = {
   severity: string;
 };
 
+// Additive, backwards-compatible traceability for a WorkOrder generated from a
+// proof-approved PreparedIntentPlan (Intent WorkOrder Handoff). It records the
+// source refs and the selected phase / obligation / verification-requirement ids
+// the guidance was built from, plus an explicit boundary marker. The handoff
+// generator creates no VerificationPlan, executes no commands, and writes no
+// source files. See docs/concepts/intent-work-order-handoff.md.
+export type WorkOrderIntentHandoff = {
+  preparedIntentPlanRef: ArtifactRef;
+  intentAssessmentReportRef?: ArtifactRef;
+  intentStatusReportRef?: ArtifactRef;
+  pathFreshnessReportRef?: ArtifactRef;
+  runtimeGraphDriftReportRef?: ArtifactRef;
+  sourceRefs: ArtifactRef[];
+  phaseIds: string[];
+  obligationIds: string[];
+  verificationRequirementIds: string[];
+  boundary: {
+    createsVerificationPlan: false;
+    executesCommands: false;
+    writesSourceFiles: false;
+  };
+};
+
 export type WorkOrder = {
   header: ArtifactHeader;
   goal: string;
@@ -43,8 +66,9 @@ export type WorkOrder = {
   relevantMemory: unknown[];
   antiGamingInstruction: string;
   markdown: string;
-  source?: "resolver" | "coherency-delta";
+  source?: "resolver" | "coherency-delta" | "intent-handoff";
   remediationItems?: RemediationWorkOrderItem[];
+  intentHandoff?: WorkOrderIntentHandoff;
 };
 
 export type VerificationCommandStatus = "passed" | "failed" | "skipped" | "not-run";
