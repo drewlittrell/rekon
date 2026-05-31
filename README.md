@@ -1103,6 +1103,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# IntentStatusReport v1 Decision has shipped. Eighty-fifth slice on the
+# codebase-intel-classic capability-ontology track. Strategy / architecture
+# decision batch. Pins the IntentStatusReport v1 artifact shape, inputs, status
+# model, proof rollup, and boundaries.
+#   - Recommendation: Option B, an artifact-backed status rollup.
+#   - Inputs: IntentAssessmentReport, PreparedIntentPlan, WorkOrder,
+#     VerificationPlan, VerificationRun, VerificationResult, PathFreshnessReport,
+#     RuntimeGraphDriftReport (all read-only, consumed when available).
+#   - IntentStatusReport is status reporting, not VerificationResult.
+#   - IntentStatusReport is not WorkOrder.
+#   - IntentStatusReport reports PreparedIntentPlan approval state but does not
+#     approve plans.
+#   - VerificationResult is an input to status, not the status artifact itself.
+#   - It does not create WorkOrder / VerificationPlan, execute commands, write
+#     source, or implement intent:go.
+#
+# Recommended next slice: IntentStatusReport v1 implementation.
+#
 # PreparedIntentPlan safety review has shipped. Eighty-fourth slice on the
 # codebase-intel-classic capability-ontology track. Strategy / safety-review
 # batch. Reviews the amended PreparedIntentPlan v1 implementation end-to-end.

@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **IntentStatusReport v1 Decision** — eighty-fifth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / architecture
+  decision batch pinning the IntentStatusReport v1 artifact shape, inputs,
+  status model, proof rollup, staleness model, and implementation sequence.
+  **Recommendation: Option B — an artifact-backed status rollup** generated
+  read-only from `IntentAssessmentReport`, `PreparedIntentPlan`, `WorkOrder`,
+  `VerificationPlan`, `VerificationRun`, `VerificationResult`,
+  `PathFreshnessReport`, and `RuntimeGraphDriftReport`. Overall status enum
+  (`not-assessed` … `complete` / `unknown`) + a 14-step status policy where
+  freshness-stale overrides work/proof status and high-severity runtime drift
+  forces needs-review / preparation-blocked; a proof rollup that mirrors each
+  input's recorded state; and an `IntentStatusIssue` blocker/warning model.
+  Pinned: **IntentStatusReport is status reporting, not VerificationResult**;
+  **IntentStatusReport is not WorkOrder**; it does not create WorkOrder or
+  VerificationPlan, execute commands, write source, or implement intent:go;
+  **IntentStatusReport reports PreparedIntentPlan approval state but does not
+  approve plans**; **VerificationResult is an input to status, not the status
+  artifact itself**. New `docs/strategy/intent-status-report-v1-decision.md`
+  (14 sections + 4 tables) + 17-assertion docs test + review packet. No source
+  changes; no schema changes; no artifact registration; no version bump; no npm
+  publish. Recommended next slice: IntentStatusReport v1 implementation.
 - Shipped the **PreparedIntentPlan safety review** — eighty-fourth slice on the
   codebase-intel-classic capability-ontology track. Strategy / safety-review
   batch reviewing the amended PreparedIntentPlan v1 implementation (`0d3957e`)
