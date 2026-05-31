@@ -4,6 +4,32 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle → Circe Handoff Projection Safety Review** —
+  one-hundredth slice on the codebase-intel-classic capability-ontology track. Strategy
+  / safety-review batch grounding the slice-99 Circe projection (`5736d34`) in its
+  shipped code (`renderCirceProjection` in `@rekon/capability-docs` + `rekon intent
+  bundle write`). Finding: the Circe handoff projection is **safe/stable as a Circe
+  import adapter** — schema-valid against Circe's real normalizers
+  (`readRekonHandoffManifestFile` / `readRekonPhasePlanFile` / `normalizeRekonWorkOrder`
+  / `normalizeRekonVerificationPlan`), boundary preserved, runs no Circe, executes no
+  commands, writes no source, registers no canonical artifact — **no blocker**. Gap
+  (recorded, not a blocker): **proof/gate traceability is incomplete** — the projection
+  carries phase ids, obligations, constraints, and verification-requirement content, but
+  the PreparedIntentPlan `approval` / `proof` envelope (including `sourceWriteAllowed ===
+  false`), the `IntentStatusReport` gate status (`circe/handoff.json` `status` is the
+  Circe literal `"ready"`), the verification-requirement literal ids, and the
+  freshness / drift refs do not survive into the `circe/` files. Circe handoff projection
+  is an import adapter, not a new planning system; canonical Rekon truth remains
+  `.rekon/artifacts/`; the projection lives under `.rekon/intent/plans/<intent-id>/circe/`;
+  Rekon does not run Circe commands during bundle generation, does not execute the Circe
+  handoff, and does not write source files; Circe owns orchestration after import; Circe
+  projection must preserve Rekon's proof/gate traceability, and if it is incomplete,
+  intent:go must remain blocked; intent:go remains deferred. Per the stricter posture,
+  the review recommends **Intent Plan Bundle → Circe Proof/Gate Projection Enrichment**
+  next — not the Intent Go / Execution Boundary Decision — until proof/gate state survives
+  the projection. New `docs/strategy/intent-plan-bundle-circe-handoff-projection-safety-review.md`
+  (14 sections + surface / schema-validation / proof-gate / boundary / option tables) +
+  19-assertion docs test + review packet. No source changes; no runtime behavior change.
 - Shipped the **Intent Plan Bundle → Circe Handoff Projection Implementation** —
   ninety-ninth slice on the codebase-intel-classic capability-ontology track.
   Product-capability batch implementing the slice-98 decision: every generated intent

@@ -1103,6 +1103,28 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Plan Bundle → Circe Handoff Projection Safety Review has shipped.
+# One-hundredth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch. Reviews the shipped Circe handoff projection
+# end-to-end.
+#   - Finding: the Circe handoff projection is safe/stable as a Circe import adapter
+#     (schema-valid against Circe's real normalizers, boundary preserved, no Circe
+#     execution) — no blocker.
+#   - Gap (not a blocker): proof/gate traceability is incomplete. The
+#     PreparedIntentPlan approval/proof envelope, the IntentStatusReport gate status,
+#     and freshness/drift refs do not survive into circe/.
+#   - Circe handoff projection is an import adapter, not a new planning system.
+#   - Canonical Rekon truth remains .rekon/artifacts/.
+#   - Rekon does not run Circe commands during bundle generation, does not execute the
+#     Circe handoff, and does not write source files. Circe owns orchestration after
+#     import.
+#   - Circe projection must preserve Rekon's proof/gate traceability; if it is
+#     incomplete, intent:go must remain blocked. intent:go remains deferred.
+#
+# See docs/strategy/intent-plan-bundle-circe-handoff-projection-safety-review.md.
+# Recommended next slice: Intent Plan Bundle → Circe Proof/Gate Projection Enrichment
+# (before any Intent Go / Execution Boundary Decision).
+#
 # Intent Plan Bundle → Circe Handoff Projection Implementation has shipped.
 # Ninety-ninth slice on the codebase-intel-classic capability-ontology track.
 # Product-capability batch. Every intent plan bundle now also emits a Circe
