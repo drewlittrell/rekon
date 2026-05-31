@@ -2640,6 +2640,19 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- IntentAssessmentReport safety review (P1.1
+  intent-assessment-report-safety-review slice): **seventy-ninth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / safety-review
+  batch.** Read-only review of `IntentAssessmentReport` v1 at `f385b4e`.
+  **Recommendation: safe / stable as read-only readiness assessment (no
+  blocker); proceed to PreparedIntentPlan v1 decision.** Pinned: assessment,
+  not WorkOrder; creates no WorkOrder / VerificationPlan / VerificationRun /
+  VerificationResult; executes no commands; writes no source;
+  RuntimeGraphDriftReport is an input to readiness, not the intent system
+  itself; PreparedIntentPlan next; IntentStatusReport / intent:go deferred.
+  16-heading memo + 4 tables + 17-assertion docs test + review packet. No
+  source changes; no version bump; no npm publish. Recommended next slice:
+  PreparedIntentPlan v1 decision.
 - IntentAssessmentReport v1 (P1.1 intent-assessment-report slice):
   **seventy-eighth slice on the codebase-intel-classic capability-ontology
   track. Product-capability batch.** Registers the IntentAssessmentReport

@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **IntentAssessmentReport safety review** — seventy-ninth slice
+  on the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch. Read-only end-to-end review of the
+  `IntentAssessmentReport` v1 implementation at `f385b4e`.
+  **Recommendation: safe / stable as read-only readiness assessment (no
+  blocker); proceed to the PreparedIntentPlan v1 decision.** Pinned:
+  IntentAssessmentReport is assessment, not WorkOrder; it does not create
+  WorkOrder / VerificationPlan / VerificationRun / VerificationResult, execute
+  commands, or write source; RuntimeGraphDriftReport is an input to readiness,
+  not the intent system itself; PreparedIntentPlan remains the next layer;
+  IntentStatusReport and intent:go remain deferred. Classic intent readiness
+  was gate-based plus hash/staleness-based; Rekon extends parity by wiring
+  graph-spine readiness into IntentAssessmentReport. New
+  `docs/strategy/intent-assessment-report-safety-review.md` (16 headings + 4
+  tables) + 17-assertion docs test + review packet; no source changes; no
+  version bump; no npm publish. Recommended next slice: PreparedIntentPlan v1
+  decision.
 - Shipped **IntentAssessmentReport v1** — seventy-eighth slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch.
   Registers the `IntentAssessmentReport` artifact type (category `actions`)

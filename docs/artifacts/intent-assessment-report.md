@@ -156,3 +156,5 @@ commands, and writes no source files.
 - [Path freshness report artifact](path-freshness-report.md)
 - [Roadmap](../strategy/roadmap.md)
 - [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)
+
+> See also: [IntentAssessmentReport safety review](../strategy/intent-assessment-report-safety-review.md) — declares IntentAssessmentReport v1 safe / stable as read-only readiness assessment (no blocker): assessment, not WorkOrder; creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult; executes no commands; writes no source; RuntimeGraphDriftReport is an input to readiness, not the intent system itself; PreparedIntentPlan remains the next layer; IntentStatusReport and intent:go remain deferred. Recommended next slice: PreparedIntentPlan v1 decision.

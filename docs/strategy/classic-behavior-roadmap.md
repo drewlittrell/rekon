@@ -6256,6 +6256,17 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **IntentAssessmentReport safety review (P1.1
+  intent-assessment-report-safety-review slice).** ✅ Shipped. Seventy-ninth
+  slice. Read-only review of `IntentAssessmentReport` v1. **Recommendation:
+  safe / stable as read-only readiness assessment (no blocker); proceed to
+  PreparedIntentPlan v1 decision.** Pinned: assessment, not WorkOrder; no
+  WorkOrder / VerificationPlan / VerificationRun / VerificationResult creation;
+  no command execution; no source writes; RuntimeGraphDriftReport is an input
+  to readiness, not the intent system itself; PreparedIntentPlan next;
+  IntentStatusReport / intent:go deferred. Classic intent readiness was
+  gate/staleness-based; Rekon extends parity by wiring graph-spine readiness
+  in. Next: PreparedIntentPlan v1 decision.
 - **IntentAssessmentReport v1 (P1.1 intent-assessment-report slice).**
   ✅ Shipped. Seventy-eighth slice. Registers `IntentAssessmentReport`
   (category `actions`) + `buildIntentAssessmentReport`
