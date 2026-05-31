@@ -4,6 +4,31 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle / Agent Handoff Directory Decision** —
+  ninety-fifth slice on the codebase-intel-classic capability-ontology track.
+  Strategy / architecture decision batch pinning where the completed intent
+  preparation artifacts project into a stable repo-local plan bundle, the manifest
+  model, the human-readable files, the agent-handoff files, the staleness /
+  provenance model, the source-control posture, and the implementation sequence.
+  **Recommendation: Option B — a repo-local plan bundle at
+  `.rekon/intent/plans/<intent-id>/`** with human-readable root files
+  (`manifest.json`, `README.md`, `prepared-plan.md`, `work-order.md`,
+  `verification-plan.md`, `status.md`) and agent-facing files under `agent/`
+  (`handoff.md`, `context.json`, `instructions.md`, `constraints.md`,
+  `verification.json`, `source-refs.json`), generated as a regenerable projection
+  with a `manifest.json` recording source artifact refs / digests / staleness.
+  **Intent plan bundle is a projection, not canonical artifact truth**; **canonical
+  source of truth remains `.rekon/artifacts/`**; **intent plan bundles live under
+  `.rekon/intent/plans/<intent-id>/` by default**; **agent handoff files live under
+  `agent/`**; **bundle generation must not execute commands**, **must not write
+  source files**, and **must not implement intent:go**; **stale bundles must not be
+  treated as current handoff** (digest / IntentStatusReport / PathFreshnessReport /
+  RuntimeGraphDriftReport signals). Default posture: regenerable projection,
+  repo-local under `.rekon`, not assumed committed. New
+  `docs/strategy/intent-plan-bundle-agent-handoff-directory-decision.md` (14
+  sections + option / file / boundary / staleness tables) + 17-assertion docs test
+  + review packet. Recommended next slice: **Intent Plan Bundle / Agent Handoff
+  Implementation**. No source changes; no bundle implemented.
 - Shipped the **Intent VerificationPlan Handoff Safety Review** — ninety-fourth
   slice on the codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch grounding the slice-93 generator (`7a8aaaa`) in its shipped

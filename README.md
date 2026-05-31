@@ -1103,6 +1103,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Plan Bundle / Agent Handoff Directory Decision has shipped. Ninety-fifth
+# slice on the codebase-intel-classic capability-ontology track. Strategy /
+# architecture decision batch. Pins where the completed intent preparation
+# artifacts project into a stable repo-local plan bundle, plus the manifest, file,
+# staleness, and source-control models.
+#   - Recommendation: Option B, a repo-local plan bundle at
+#     .rekon/intent/plans/<intent-id>/ with human-readable root files and
+#     agent-facing files under agent/.
+#   - Intent plan bundle is a projection, not canonical artifact truth.
+#   - Canonical source of truth remains .rekon/artifacts/.
+#   - Agent handoff files live under agent/ inside the bundle.
+#   - Bundle is a regenerable projection with a manifest.json recording source
+#     artifact refs / digests / staleness.
+#   - Bundle generation must not execute commands, write source files, or
+#     implement intent:go.
+#   - Stale bundles must not be treated as current handoff.
+#   - Default posture: repo-local under .rekon, not assumed committed.
+#
+# See docs/strategy/intent-plan-bundle-agent-handoff-directory-decision.md.
+# Recommended next slice: Intent Plan Bundle / Agent Handoff Implementation.
+#
 # Intent VerificationPlan Handoff Safety Review has shipped. Ninety-fourth slice
 # on the codebase-intel-classic capability-ontology track. Strategy / safety-review
 # batch. Reviews the shipped Intent VerificationPlan handoff generator end-to-end.
