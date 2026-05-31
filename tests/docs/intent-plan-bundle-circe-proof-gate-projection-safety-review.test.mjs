@@ -1,5 +1,5 @@
 // Docs tests for the Intent Plan Bundle → Circe Proof/Gate Projection Safety Review
-// (slice 102).
+// (expanded with the external Circe serve-loop execution proof + the stale-help gap).
 //
 // Gate the safety-review memo's headings, required statements, and tables, plus the
 // CHANGELOG entry and review packet.
@@ -34,6 +34,8 @@ test("doc contains all required headings", () => {
     "## Phase Gate Review",
     "## WorkOrder / VerificationPlan Traceability Review",
     "## Circe Compatibility Review",
+    "## External Rekon / Circe Execution Proof",
+    "## CLI Help Discoverability Gap",
     "## Rekon / Circe Boundary Review",
     "## Command / Source-Write Boundary Review",
     "## Intent Go Boundary Review",
@@ -86,61 +88,71 @@ test("doc says the projection must not claim approval/readiness the source does 
 });
 
 // ---------- 11 ----------
-test("doc says the enriched projection remains compatible with Circe's real normalizers", () => {
-  assert.match(memo, /The enriched projection remains compatible with Circe's real normalizers/);
+test("doc says the enriched projection remains compatible with Circe", () => {
+  assert.match(memo, /The enriched projection remains compatible with Circe/);
 });
 
 // ---------- 12 ----------
+test("doc says the current built Rekon CLI passed the Circe validate/routes/import/serve-loop proof", () => {
+  assert.match(memo, /The current built Rekon CLI passed the Circe validate\/routes\/import\/serve-loop proof/);
+});
+
+// ---------- 13 ----------
 test("doc says Rekon does not run Circe commands during bundle generation", () => {
   assert.match(memo, /Rekon does not run Circe commands during bundle generation/);
 });
 
-// ---------- 13 ----------
+// ---------- 14 ----------
 test("doc says Rekon does not execute commands", () => {
   assert.match(memo, /Rekon does not execute commands/);
 });
 
-// ---------- 14 ----------
+// ---------- 15 ----------
 test("doc says Rekon does not write source files", () => {
   assert.match(memo, /Rekon does not write source files/);
 });
 
-// ---------- 15 ----------
+// ---------- 16 ----------
 test("doc says intent:go remains deferred", () => {
   assert.match(memo, /intent:go remains deferred/);
 });
 
-// ---------- 16 ----------
+// ---------- 17 ----------
+test("doc says top-level Rekon help is stale and must be aligned before V1/operator-ready release", () => {
+  assert.match(memo, /Top-level Rekon help is stale and must be aligned before V1\/operator-ready release/);
+});
+
+// ---------- 18 ----------
 test("doc includes the surface table", () => {
   assert.match(memoRaw, /\| Surface \| Status \| Boundary \|/);
 });
 
-// ---------- 17 ----------
+// ---------- 19 ----------
 test("doc includes the proof/gate table", () => {
   assert.match(memoRaw, /\| Proof \/ Gate Surface \| Review Finding \|/);
 });
 
-// ---------- 18 ----------
-test("doc includes the compatibility table", () => {
-  assert.match(memoRaw, /\| Circe Normalizer \| Result \|/);
+// ---------- 20 ----------
+test("doc includes the Circe proof table", () => {
+  assert.match(memoRaw, /\| Circe Step \| Result \|/);
 });
 
-// ---------- 19 ----------
+// ---------- 21 ----------
 test("doc includes the boundary table", () => {
   assert.match(memoRaw, /\| Boundary \| Decision \|/);
 });
 
-// ---------- 20 ----------
+// ---------- 22 ----------
 test("doc includes the option table", () => {
   assert.match(memoRaw, /\| Option \| Decision \| Reason \|/);
 });
 
-// ---------- 21 ----------
+// ---------- 23 ----------
 test("CHANGELOG mentions the Circe Proof/Gate Projection Safety Review", () => {
   assert.match(changelog, /Circe Proof\/Gate Projection Safety Review/);
 });
 
-// ---------- 22 ----------
+// ---------- 24 ----------
 test("review packet exists and contains PURPOSE PRESERVATION CHECK", () => {
   assert.match(packet, /PURPOSE PRESERVATION CHECK/);
 });

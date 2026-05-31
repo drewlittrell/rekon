@@ -4,6 +4,39 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Re-reviewed the **Intent Plan Bundle → Circe Proof/Gate Projection Safety Review** —
+  one-hundred-third slice on the codebase-intel-classic capability-ontology track.
+  Strategy / safety-review batch expanding the slice-102 review (`261b756`) with two
+  operational findings, no source or runtime change. **External Rekon → Circe execution
+  proof:** the current built Rekon CLI drove a full Circe handoff to a passing result —
+  Circe's `tests/integration/rekon-intent-handoff-serve-loop.test.ts` (run with
+  `CIRCE_REKON_INTENT_CLI_PATH` pointed at `packages/cli/dist/index.js`) covers `intent
+  assess` / `prepare` / `status` / `work-order generate` / `verification-plan generate`
+  / `bundle write`, then `circe rekon-handoff validate` / `routes`, `circe import
+  rekon-handoff`, and `circe serve --mode worker` dispatching every phase, **pass 1 /
+  fail 0** — so **the current built Rekon CLI passed the Circe
+  validate/routes/import/serve-loop proof** and **the enriched projection remains
+  compatible with Circe**. Recorded as supplied (the heavy worker serve-loop stays in
+  Circe CI; Rekon's projection shape is independently proven by the normalizer checks);
+  the serve-loop test file was confirmed present and the recovered/rebuilt main CLI was
+  re-confirmed working (`intent assess --goal x` → "Intent assessment"). **Stale-help
+  discoverability gap:** top-level `rekon help` lists only the legacy `intent work-order`
+  and `intent remediation` and **none** of the six richer intent commands (0 of 6),
+  though they execute correctly when invoked directly — a discoverability gap, not a
+  pipeline-correctness blocker, so **top-level Rekon help is stale and must be aligned
+  before V1/operator-ready release**. Boundaries are unchanged and re-affirmed: Rekon
+  does not run Circe commands during bundle generation, does not execute commands, and
+  does not write source files; `sourceWriteAllowed` remains false, `commandsExecuted`
+  remains false, `intentGoDeferred` remains true; **intent:go remains deferred** (the
+  proof shows execution can be owned entirely by Circe). The recommendation is revised:
+  the projection is **safe/stable — no blocker**, so the next slice is **CLI Intent Help
+  Surface Alignment**, then **V1 Readiness / Release Review**; `intent:go` implementation
+  is not recommended. Expanded
+  `docs/strategy/intent-plan-bundle-circe-proof-gate-projection-safety-review.md` to 17
+  sections + 5 tables (surface / proof-gate / Circe-proof / boundary / option) and the
+  docs test to 24 assertions; updated the review packet (with a PURPOSE PRESERVATION
+  CHECK). No source changes; no runtime behavior change; `rekon artifacts validate` stays
+  clean.
 - Shipped the **Intent Plan Bundle → Circe Proof/Gate Projection Safety Review** —
   one-hundred-second slice on the codebase-intel-classic capability-ontology track.
   Strategy / safety-review batch grounding the slice-101 enrichment (`1159d7a`) in its

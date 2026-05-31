@@ -1103,6 +1103,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Plan Bundle → Circe Proof/Gate Projection Safety Review re-reviewed.
+# One-hundred-third slice on the codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch expanding the slice-102 review with two operational
+# findings. No source or runtime change.
+#   - External execution proof: the current built Rekon CLI passed the Circe
+#     validate/routes/import/serve-loop proof (Circe's
+#     rekon-intent-handoff-serve-loop.test.ts, pass 1 / fail 0), so the enriched
+#     projection remains compatible with Circe. Recorded as supplied; not re-run here.
+#   - Stale-help discoverability gap: top-level `rekon help` lists 0 of the 6 richer
+#     intent commands (only legacy intent work-order + intent remediation), though they
+#     execute correctly when invoked directly — a discoverability gap, not a pipeline
+#     blocker. Top-level Rekon help must be aligned before V1/operator-ready release.
+#   - Boundaries unchanged: Rekon does not run Circe commands during bundle generation,
+#     does not execute commands, does not write source files; intent:go remains
+#     deferred (execution can be owned entirely by Circe).
+#
+# See docs/strategy/intent-plan-bundle-circe-proof-gate-projection-safety-review.md.
+# Recommended next slice: CLI Intent Help Surface Alignment, then V1 Readiness /
+# Release Review. intent:go implementation is not recommended.
+#
 # Intent Plan Bundle → Circe Proof/Gate Projection Safety Review has shipped.
 # One-hundred-second slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch. Reviews the shipped proof/gate enrichment
