@@ -1103,6 +1103,35 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent VerificationPlan Handoff Decision has shipped. Ninety-second slice on the
+# codebase-intel-classic capability-ontology track. Strategy / architecture
+# decision batch. Pins the second half of the separate-generator handoff model:
+# the VerificationPlan generator shape, gate, freshness/drift recheck,
+# verification-requirement mapping, traceability, and command-safety posture from
+# PreparedIntentPlan.verificationRequirements.
+#   - Recommendation: Option B, an explicit gated VerificationPlan generator
+#     (rekon intent verification-plan generate --prepared-plan <ref> ...).
+#   - Gate: approved prepared plan + status prepared + non-empty verification
+#     requirements + IntentStatusReport work-ready/work-in-progress/verification-ready
+#     (no high-severity blockers) + verificationPlanAllowed true / sourceWriteAllowed
+#     false + freshness/drift recheck.
+#   - Verification requirements map to VerificationPlan commands/checks via a
+#     conservative sanitizer; commandless requirements become guidance checks.
+#   - WorkOrder is optional in v1 (workOrderRef?), cited when available.
+#   - Intent VerificationPlan handoff is VerificationPlan artifact generation, not
+#     intent:go.
+#   - VerificationPlan generation must require a proof-approved PreparedIntentPlan
+#     and non-empty verification requirements.
+#   - IntentStatusReport gates VerificationPlan generation but does not generate
+#     VerificationPlan.
+#   - Generated VerificationPlan must trace back to PreparedIntentPlan.
+#   - VerificationPlan generation does not create WorkOrder, VerificationRun, or
+#     VerificationResult, execute commands, or write source files. intent:go
+#     remains deferred.
+#
+# See docs/strategy/intent-verification-plan-handoff-decision.md.
+# Recommended next slice: Intent VerificationPlan Handoff Implementation.
+#
 # Intent WorkOrder Handoff Safety Review has shipped. Ninety-first slice on the
 # codebase-intel-classic capability-ontology track. Strategy / safety-review
 # batch. Reviews the shipped Intent WorkOrder handoff generator end-to-end.

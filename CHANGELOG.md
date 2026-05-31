@@ -4,6 +4,35 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent VerificationPlan Handoff Decision** — ninety-second slice
+  on the codebase-intel-classic capability-ontology track. Strategy / architecture
+  decision batch pinning the second half of the separate-generator handoff model:
+  the exact `VerificationPlan` generator shape, gate, freshness / drift recheck,
+  verification-requirement mapping, traceability, and command-safety posture for
+  generating a `VerificationPlan` from `PreparedIntentPlan.verificationRequirements`.
+  **Recommendation: Option B — an explicit gated VerificationPlan generator**
+  (`rekon intent verification-plan generate --prepared-plan <ref> [--intent-status]
+  [--work-order] [--path-freshness] [--runtime-drift]`). Pinned gate:
+  generation is allowed only when `approval.status === "approved"` +
+  `status.value === "prepared"` + non-empty `verificationRequirements` +
+  `IntentStatusReport` work-ready / work-in-progress / verification-ready with no
+  high-severity blockers + `downstreamHandoff.verificationPlanAllowed === true` +
+  `sourceWriteAllowed === false` + a handoff-time freshness / drift recheck.
+  Verification requirements map to `VerificationPlan` commands / checks (commandless
+  requirements → guidance checks only) via a conservative command sanitizer that
+  never executes commands. WorkOrder is optional in v1 (`workOrderRef?`), cited when
+  available. **Intent VerificationPlan handoff is VerificationPlan artifact
+  generation, not intent:go**; **VerificationPlan generation must require a
+  proof-approved PreparedIntentPlan** and **non-empty verification requirements**;
+  **IntentStatusReport gates VerificationPlan generation but does not generate
+  VerificationPlan**; **generated VerificationPlan must trace back to
+  PreparedIntentPlan**; **VerificationPlan generation does not create WorkOrder**,
+  **does not create VerificationRun or VerificationResult**, **does not execute
+  commands**, and **does not write source files**; **intent:go remains deferred**.
+  New `docs/strategy/intent-verification-plan-handoff-decision.md` (14 sections +
+  option / gate / mapping / boundary tables) + 19-assertion docs test + review
+  packet. Recommended next slice: **Intent VerificationPlan Handoff
+  Implementation**. No source changes; no generator implemented.
 - Shipped the **Intent WorkOrder Handoff Safety Review** — ninety-first slice on
   the codebase-intel-classic capability-ontology track. Strategy / safety-review
   batch grounding the slice-90 generator (`24f7389`) in its shipped code:
