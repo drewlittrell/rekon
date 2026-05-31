@@ -272,6 +272,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "HandoffCoverageReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "RuntimeGraphObservationReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "RuntimeGraphDriftReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "IntentAssessmentReport", schemaVersion: "0.1.0", stability: "experimental" },
 ];
 
 export function defineCapability(definition: CapabilityDefinition): CapabilityDefinition {

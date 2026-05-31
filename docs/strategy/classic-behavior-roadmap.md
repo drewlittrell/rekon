@@ -6256,6 +6256,19 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **IntentAssessmentReport v1 (P1.1 intent-assessment-report slice).**
+  ✅ Shipped. Seventy-eighth slice. Registers `IntentAssessmentReport`
+  (category `actions`) + `buildIntentAssessmentReport`
+  (`@rekon/capability-model`) + `rekon intent assess` CLI. A read-only
+  readiness assessment of a user request against the Rekon context spine
+  (CapabilityMap / StepCapabilityGraph / HandoffCoverageReport /
+  RuntimeGraphDriftReport / PathFreshnessReport / VerificationResult).
+  Readiness: ready-for-prepare / blocked / needs-review / insufficient-context
+  / stale-context. Assessment, not WorkOrder; no WorkOrder / VerificationPlan
+  creation; no execution; no source writes. RuntimeGraphDriftReport is an input
+  to readiness, not the intent system itself. Classic intent readiness was
+  gate/staleness-based and did not consume the graph spine; Rekon wires it in.
+  Next: IntentAssessmentReport safety review.
 - **IntentAssessmentReport v1 decision (P1.1
   intent-assessment-report-v1-decision slice).** ✅ Shipped. Seventy-seventh
   slice. Decides the v1 shape of `IntentAssessmentReport`, the first artifact

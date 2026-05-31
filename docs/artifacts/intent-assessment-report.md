@@ -1,0 +1,158 @@
+# IntentAssessmentReport
+
+## Purpose
+
+`IntentAssessmentReport` is the first artifact of the staged Rekon intent
+spine. It is a **read-only readiness assessment** of a requested user intent
+against the existing Rekon context spine. **IntentAssessmentReport is
+assessment, not WorkOrder.** It decides whether the repo context is ready to
+*prepare* work safely — or whether the request is blocked, stale, ambiguous,
+or missing critical context — and recommends a next action.
+
+It consumes already-materialized Rekon artifacts and mutates none of them.
+**RuntimeGraphDriftReport is an input to readiness, not the intent system
+itself**: drift, handoff coverage, and source freshness feed the readiness
+verdict but are not re-evaluated or owned here.
+
+## What It Does Not Do
+
+v1 assesses readiness only:
+
+- **IntentAssessmentReport does not create WorkOrder or VerificationPlan.**
+- **IntentAssessmentReport does not execute commands.**
+- **IntentAssessmentReport does not write source files.**
+- It prepares no phases, gates nothing, and triggers no generation of its
+  input artifacts.
+
+`PreparedIntentPlan` remains the next layer after assessment;
+`IntentStatusReport` and `intent:go` remain deferred.
+
+## Produced By
+
+- `@rekon/capability-model.buildIntentAssessmentReport`
+- the `rekon intent assess` CLI command
+
+## Request Model
+
+The request is the only required input:
+
+- `goal` (required) — what the user wants to accomplish.
+- `kind` — `bug` / `feature` / `refactor` / `investigation` / `migration` /
+  `unknown` (defaults to `unknown`).
+- `scope?` — optional `paths` / `systems` / `capabilities` / `steps` hints.
+- `constraints?` / `nonGoals?` — optional declared constraints and explicit
+  out-of-scope statements.
+
+## Inputs
+
+All artifact inputs are read as already-materialized Rekon artifacts (latest
+available) and cited by `ArtifactRef`; the generator reads values, never raw
+source or event files, and mutates nothing.
+
+| Input | V1 Decision |
+| --- | --- |
+| user request / goal | required |
+| CapabilityMap v2 | consumed when available |
+| StepCapabilityGraph | expected |
+| HandoffCoverageReport | consumed when available |
+| RuntimeGraphDriftReport | expected |
+| PathFreshnessReport | consumed when available |
+| VerificationResult | consumed when available |
+| WorkOrder | reference only, not produced |
+
+`StepCapabilityGraph` and `RuntimeGraphDriftReport` are *expected*: when both
+are absent, v1 emits high-severity `missing-artifact` blockers.
+`CapabilityContract`, `HandoffContract`, `RuntimeGraphObservationReport`,
+`FindingReport`, `BridgeFindingLifecycleIntegrationReport`,
+`IntelligenceSnapshot`, and `VerificationRun` / `VerificationPlan` are consumed
+as citation/context when available.
+
+## Readiness Model
+
+| Readiness | Meaning |
+| --- | --- |
+| ready-for-prepare | enough context to prepare safely |
+| blocked | critical blocker present |
+| needs-review | ambiguity / medium-risk blocker |
+| insufficient-context | cannot map request to repo context |
+| stale-context | freshness says context is stale |
+
+Readiness carries an optional `score` and a required `recommendedNextAction`
+(`prepare-intent` / `refresh-context` / `resolve-blockers` /
+`ask-clarifying-question` / `run-verification` / `human-review`). Precedence:
+`stale-context` > `blocked` > `insufficient-context` > `needs-review` >
+`ready-for-prepare`.
+
+## Blocker Model
+
+`blockers`, `warnings`, and `missingContext` share one shape (`id`, `category`,
+`severity`, `message`, optional `sourceRefs`). Categories: `missing-artifact`
+/ `stale-context` / `runtime-drift` / `handoff-coverage` / `finding-governance`
+/ `proof-missing` / `scope-ambiguous` / `source-write-unavailable`. `blockers`
+gate readiness (any high-severity blocker → `blocked`); `warnings` inform;
+`missingContext` records absent inputs. Each list is deterministically sorted
+by severity (high first), then category, then id.
+
+## V1 Assessment Policy
+
+1. A non-empty `goal` is required.
+2. Missing `StepCapabilityGraph` / `RuntimeGraphDriftReport` → high
+   `missing-artifact` blockers (unless explicitly allowed).
+3. High-severity `RuntimeGraphDriftReport` rows
+   (`missing-expected` / `uncovered-handoff` / `unresolved-contract`) →
+   `runtime-drift` blockers; `added-observed` → warning;
+   `observation-missing` → warning.
+4. `HandoffCoverageReport` `unresolvedContract` → blocker; `uncovered` →
+   warning; `parseErrors` / `notEvaluated` → warnings.
+5. `PathFreshnessReport` stale paths relevant to the request scope →
+   `stale-context` readiness; stale paths outside scope → warning.
+6. Missing `VerificationResult` → `proof-missing` warning; a failed result →
+   `proof-missing` blocker; a passed result → no blocker.
+7. An unmappable scope → `insufficient-context` readiness with a
+   `scope-ambiguous` entry.
+
+## Shape
+
+- `request` — `goal`, `kind`, optional `scope` / `constraints` / `nonGoals`.
+- `source` — optional refs for every consumed artifact (no raw payloads).
+- `readiness` — `status`, optional `score`, `recommendedNextAction`.
+- `matchedContext` — `systems` / `capabilities` / `steps` / `paths`.
+- `blockers[]` / `warnings[]` / `missingContext[]` — assessment entries.
+
+## CLI Surface
+
+```sh
+rekon intent assess --goal <text> [--root <path>] [--json]
+rekon intent assess --goal <text> [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]
+```
+
+Reads the latest available context artifacts, writes an
+`IntentAssessmentReport` under `.rekon/artifacts/actions/`, and prints a
+readiness summary. It creates no `WorkOrder` / `VerificationPlan`, executes no
+commands, and writes no source files.
+
+## Boundary Summary
+
+- **IntentAssessmentReport is assessment, not WorkOrder.**
+- **IntentAssessmentReport does not create WorkOrder or VerificationPlan.**
+- **IntentAssessmentReport does not execute commands.**
+- **IntentAssessmentReport does not write source files.**
+- **RuntimeGraphDriftReport is an input to readiness, not the intent system
+  itself.**
+- PreparedIntentPlan remains the next layer after assessment.
+- IntentStatusReport remains deferred.
+- intent:go remains deferred.
+
+## Cross-References
+
+- [Intent assessment concept](../concepts/intent-assessment.md)
+- [IntentAssessmentReport v1 decision](../strategy/intent-assessment-report-v1-decision.md)
+- [Intent Capability Spine Integration Review](../strategy/intent-capability-spine-integration-review.md)
+- [RuntimeGraphDriftReport artifact](runtime-graph-drift-report.md)
+- [HandoffCoverageReport artifact](handoff-coverage-report.md)
+- [StepCapabilityGraph artifact](step-capability-graph.md)
+- [WorkOrder artifact](work-order.md)
+- [VerificationResult artifact](verification-result.md)
+- [Path freshness report artifact](path-freshness-report.md)
+- [Roadmap](../strategy/roadmap.md)
+- [Classic behavior roadmap](../strategy/classic-behavior-roadmap.md)

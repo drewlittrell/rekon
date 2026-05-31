@@ -4125,6 +4125,425 @@ export const runtimeGraphDriftReportSchema: ArtifactSchema<RuntimeGraphDriftRepo
   parse: assertRuntimeGraphDriftReport,
 };
 
+// ---- IntentAssessmentReport (v1, artifact-backed readiness assessment) ----
+//
+// A read-only readiness assessment of a user request against existing Rekon
+// context artifacts (capability map / contract, the step / handoff / coverage
+// / observation / drift spine, finding governance, path freshness, and
+// verification proof). It is **assessment, not WorkOrder**: it never creates
+// `WorkOrder` / `VerificationPlan`, never executes commands, and never writes
+// source. `RuntimeGraphDriftReport` is an input to readiness, not the intent
+// system itself. `PreparedIntentPlan` remains the next layer after assessment;
+// `IntentStatusReport` and `intent:go` remain deferred.
+
+export type IntentAssessmentReadiness =
+  | "ready-for-prepare"
+  | "blocked"
+  | "needs-review"
+  | "insufficient-context"
+  | "stale-context";
+
+export type IntentAssessmentIntentKind =
+  | "bug"
+  | "feature"
+  | "refactor"
+  | "investigation"
+  | "migration"
+  | "unknown";
+
+export type IntentAssessmentRecommendedNextAction =
+  | "prepare-intent"
+  | "refresh-context"
+  | "resolve-blockers"
+  | "ask-clarifying-question"
+  | "run-verification"
+  | "human-review";
+
+export type IntentAssessmentBlockerCategory =
+  | "missing-artifact"
+  | "stale-context"
+  | "runtime-drift"
+  | "handoff-coverage"
+  | "finding-governance"
+  | "proof-missing"
+  | "scope-ambiguous"
+  | "source-write-unavailable";
+
+export type IntentAssessmentSeverity = "low" | "medium" | "high";
+
+export type IntentAssessmentScope = {
+  paths?: string[];
+  systems?: string[];
+  capabilities?: string[];
+  steps?: string[];
+};
+
+export type IntentAssessmentRequest = {
+  goal: string;
+  kind: IntentAssessmentIntentKind;
+  scope?: IntentAssessmentScope;
+  constraints?: string[];
+  nonGoals?: string[];
+};
+
+export type IntentAssessmentBlocker = {
+  id: string;
+  category: IntentAssessmentBlockerCategory;
+  severity: IntentAssessmentSeverity;
+  message: string;
+  sourceRefs?: ArtifactRef[];
+};
+
+export type IntentAssessmentReportSource = {
+  intelligenceSnapshotRef?: ArtifactRef;
+  capabilityMapRef?: ArtifactRef;
+  capabilityContractRef?: ArtifactRef;
+  stepCapabilityGraphRef?: ArtifactRef;
+  handoffContractRef?: ArtifactRef;
+  handoffCoverageReportRef?: ArtifactRef;
+  runtimeGraphObservationReportRef?: ArtifactRef;
+  runtimeGraphDriftReportRef?: ArtifactRef;
+  findingReportRef?: ArtifactRef;
+  bridgeFindingLifecycleIntegrationReportRef?: ArtifactRef;
+  pathFreshnessReportRef?: ArtifactRef;
+  verificationResultRef?: ArtifactRef;
+  verificationRunRef?: ArtifactRef;
+  verificationPlanRef?: ArtifactRef;
+};
+
+export type IntentAssessmentReadinessBlock = {
+  status: IntentAssessmentReadiness;
+  score?: number;
+  recommendedNextAction: IntentAssessmentRecommendedNextAction;
+};
+
+export type IntentAssessmentMatchedContext = {
+  systems: string[];
+  capabilities: string[];
+  steps: string[];
+  paths: string[];
+};
+
+export type IntentAssessmentReport = {
+  header: ArtifactHeader;
+  request: IntentAssessmentRequest;
+  source: IntentAssessmentReportSource;
+  readiness: IntentAssessmentReadinessBlock;
+  matchedContext: IntentAssessmentMatchedContext;
+  blockers: IntentAssessmentBlocker[];
+  warnings: IntentAssessmentBlocker[];
+  missingContext: IntentAssessmentBlocker[];
+};
+
+const INTENT_ASSESSMENT_READINESS_STATUSES = new Set<string>([
+  "ready-for-prepare",
+  "blocked",
+  "needs-review",
+  "insufficient-context",
+  "stale-context",
+]);
+
+const INTENT_ASSESSMENT_INTENT_KINDS = new Set<string>([
+  "bug",
+  "feature",
+  "refactor",
+  "investigation",
+  "migration",
+  "unknown",
+]);
+
+const INTENT_ASSESSMENT_NEXT_ACTIONS = new Set<string>([
+  "prepare-intent",
+  "refresh-context",
+  "resolve-blockers",
+  "ask-clarifying-question",
+  "run-verification",
+  "human-review",
+]);
+
+const INTENT_ASSESSMENT_BLOCKER_CATEGORIES = new Set<string>([
+  "missing-artifact",
+  "stale-context",
+  "runtime-drift",
+  "handoff-coverage",
+  "finding-governance",
+  "proof-missing",
+  "scope-ambiguous",
+  "source-write-unavailable",
+]);
+
+const INTENT_ASSESSMENT_SEVERITIES = new Set<string>(["low", "medium", "high"]);
+
+const INTENT_ASSESSMENT_SEVERITY_RANK: Record<string, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+const INTENT_ASSESSMENT_SOURCE_FIELDS = [
+  "intelligenceSnapshotRef",
+  "capabilityMapRef",
+  "capabilityContractRef",
+  "stepCapabilityGraphRef",
+  "handoffContractRef",
+  "handoffCoverageReportRef",
+  "runtimeGraphObservationReportRef",
+  "runtimeGraphDriftReportRef",
+  "findingReportRef",
+  "bridgeFindingLifecycleIntegrationReportRef",
+  "pathFreshnessReportRef",
+  "verificationResultRef",
+  "verificationRunRef",
+  "verificationPlanRef",
+] as const;
+
+const INTENT_ASSESSMENT_SCOPE_FIELDS = ["paths", "systems", "capabilities", "steps"] as const;
+
+function intentAssessmentSortedStrings(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const set = new Set<string>();
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0) set.add(value);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function intentAssessmentTextList(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const out: string[] = [];
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0) out.push(value);
+  }
+  return out;
+}
+
+function intentAssessmentNormalizeBlockers(values: unknown): IntentAssessmentBlocker[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const out: IntentAssessmentBlocker[] = [];
+  for (const raw of values) {
+    if (!isRecord(raw)) continue;
+    const id = raw.id;
+    if (typeof id !== "string" || id.length === 0 || seen.has(id)) continue;
+    seen.add(id);
+    const blocker: IntentAssessmentBlocker = {
+      id,
+      category: raw.category as IntentAssessmentBlockerCategory,
+      severity: raw.severity as IntentAssessmentSeverity,
+      message: typeof raw.message === "string" ? raw.message : "",
+    };
+    if (Array.isArray(raw.sourceRefs) && raw.sourceRefs.length > 0) {
+      blocker.sourceRefs = normalizeRefs(raw.sourceRefs as ArtifactRef[]);
+    }
+    out.push(blocker);
+  }
+  // Deterministic ordering: by severity rank (high first), then category, id.
+  out.sort((a, b) => {
+    const ra = INTENT_ASSESSMENT_SEVERITY_RANK[a.severity] ?? 9;
+    const rb = INTENT_ASSESSMENT_SEVERITY_RANK[b.severity] ?? 9;
+    if (ra !== rb) return ra - rb;
+    if (a.category !== b.category) return a.category.localeCompare(b.category);
+    return a.id.localeCompare(b.id);
+  });
+  return out;
+}
+
+export function createIntentAssessmentReport(input: IntentAssessmentReport): IntentAssessmentReport {
+  const rawRequest = isRecord(input.request) ? (input.request as IntentAssessmentRequest) : ({} as IntentAssessmentRequest);
+  const request: IntentAssessmentRequest = {
+    goal: typeof rawRequest.goal === "string" ? rawRequest.goal : "",
+    kind: rawRequest.kind,
+  };
+  if (isRecord(rawRequest.scope)) {
+    const scope: IntentAssessmentScope = {};
+    for (const field of INTENT_ASSESSMENT_SCOPE_FIELDS) {
+      const list = intentAssessmentSortedStrings((rawRequest.scope as Record<string, unknown>)[field]);
+      if (list.length > 0) scope[field] = list;
+    }
+    if (Object.keys(scope).length > 0) request.scope = scope;
+  }
+  const constraints = intentAssessmentTextList(rawRequest.constraints);
+  if (constraints.length > 0) request.constraints = constraints;
+  const nonGoals = intentAssessmentTextList(rawRequest.nonGoals);
+  if (nonGoals.length > 0) request.nonGoals = nonGoals;
+
+  const source: IntentAssessmentReportSource = {};
+  for (const field of INTENT_ASSESSMENT_SOURCE_FIELDS) {
+    const ref = input.source?.[field];
+    if (ref) source[field] = assertArtifactRef(ref);
+  }
+
+  const rawReadiness = isRecord(input.readiness)
+    ? (input.readiness as IntentAssessmentReadinessBlock)
+    : ({} as IntentAssessmentReadinessBlock);
+  const readiness: IntentAssessmentReadinessBlock = {
+    status: rawReadiness.status,
+    recommendedNextAction: rawReadiness.recommendedNextAction,
+  };
+  if (typeof rawReadiness.score === "number" && Number.isFinite(rawReadiness.score)) {
+    readiness.score = rawReadiness.score;
+  }
+
+  const matchedContext: IntentAssessmentMatchedContext = {
+    systems: intentAssessmentSortedStrings(input.matchedContext?.systems),
+    capabilities: intentAssessmentSortedStrings(input.matchedContext?.capabilities),
+    steps: intentAssessmentSortedStrings(input.matchedContext?.steps),
+    paths: intentAssessmentSortedStrings(input.matchedContext?.paths),
+  };
+
+  return assertIntentAssessmentReport({
+    header: input.header,
+    request,
+    source,
+    readiness,
+    matchedContext,
+    blockers: intentAssessmentNormalizeBlockers(input.blockers),
+    warnings: intentAssessmentNormalizeBlockers(input.warnings),
+    missingContext: intentAssessmentNormalizeBlockers(input.missingContext),
+  });
+}
+
+function validateIntentAssessmentStringArray(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || item.length === 0) {
+      issues.push({ path: `${path}[${index}]`, message: "Expected a non-empty string." });
+    }
+  });
+}
+
+function validateIntentAssessmentBlocker(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate entry id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.category !== "string" || !INTENT_ASSESSMENT_BLOCKER_CATEGORIES.has(value.category)) {
+    issues.push({ path: `${path}.category`, message: "Expected a valid blocker category." });
+  }
+  if (typeof value.severity !== "string" || !INTENT_ASSESSMENT_SEVERITIES.has(value.severity)) {
+    issues.push({ path: `${path}.severity`, message: "Expected one of low, medium, high." });
+  }
+  if (typeof value.message !== "string" || value.message.length === 0) {
+    issues.push({ path: `${path}.message`, message: "Expected a non-empty string." });
+  }
+  if (value.sourceRefs !== undefined) {
+    if (!Array.isArray(value.sourceRefs)) {
+      issues.push({ path: `${path}.sourceRefs`, message: "Expected an array." });
+    } else {
+      value.sourceRefs.forEach((ref, index) => {
+        const result = validateArtifactRef(ref);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.sourceRefs[${index}]`));
+      });
+    }
+  }
+}
+
+export function validateIntentAssessmentReport(value: unknown): ValidationResult<IntentAssessmentReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "IntentAssessmentReport", "$.header", issues);
+
+  if (!isRecord(value.request)) {
+    issues.push({ path: "$.request", message: "Expected an object." });
+  } else {
+    const request = value.request as Record<string, unknown>;
+    if (typeof request.goal !== "string" || request.goal.length === 0) {
+      issues.push({ path: "$.request.goal", message: "Expected a non-empty string." });
+    }
+    if (typeof request.kind !== "string" || !INTENT_ASSESSMENT_INTENT_KINDS.has(request.kind)) {
+      issues.push({ path: "$.request.kind", message: "Expected one of bug, feature, refactor, investigation, migration, unknown." });
+    }
+    if (request.scope !== undefined) {
+      if (!isRecord(request.scope)) {
+        issues.push({ path: "$.request.scope", message: "Expected an object." });
+      } else {
+        for (const field of INTENT_ASSESSMENT_SCOPE_FIELDS) {
+          const list = (request.scope as Record<string, unknown>)[field];
+          if (list !== undefined) validateIntentAssessmentStringArray(list, `$.request.scope.${field}`, issues);
+        }
+      }
+    }
+    for (const field of ["constraints", "nonGoals"] as const) {
+      if (request[field] !== undefined) validateIntentAssessmentStringArray(request[field], `$.request.${field}`, issues);
+    }
+  }
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    for (const field of INTENT_ASSESSMENT_SOURCE_FIELDS) {
+      const ref = (value.source as Record<string, unknown>)[field];
+      if (ref !== undefined) {
+        const result = validateArtifactRef(ref);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+      }
+    }
+  }
+
+  if (!isRecord(value.readiness)) {
+    issues.push({ path: "$.readiness", message: "Expected an object." });
+  } else {
+    const readiness = value.readiness as Record<string, unknown>;
+    if (typeof readiness.status !== "string" || !INTENT_ASSESSMENT_READINESS_STATUSES.has(readiness.status)) {
+      issues.push({ path: "$.readiness.status", message: "Expected a valid readiness status." });
+    }
+    if (typeof readiness.recommendedNextAction !== "string" || !INTENT_ASSESSMENT_NEXT_ACTIONS.has(readiness.recommendedNextAction)) {
+      issues.push({ path: "$.readiness.recommendedNextAction", message: "Expected a valid recommended next action." });
+    }
+    if (readiness.score !== undefined && (typeof readiness.score !== "number" || !Number.isFinite(readiness.score))) {
+      issues.push({ path: "$.readiness.score", message: "Expected a finite number." });
+    }
+  }
+
+  if (!isRecord(value.matchedContext)) {
+    issues.push({ path: "$.matchedContext", message: "Expected an object." });
+  } else {
+    for (const field of ["systems", "capabilities", "steps", "paths"] as const) {
+      validateIntentAssessmentStringArray((value.matchedContext as Record<string, unknown>)[field], `$.matchedContext.${field}`, issues);
+    }
+  }
+
+  for (const field of ["blockers", "warnings", "missingContext"] as const) {
+    const list = (value as Record<string, unknown>)[field];
+    if (!Array.isArray(list)) {
+      issues.push({ path: `$.${field}`, message: "Expected an array." });
+    } else {
+      const seenIds = new Set<string>();
+      list.forEach((entry, index) => validateIntentAssessmentBlocker(entry, `$.${field}[${index}]`, issues, seenIds));
+    }
+  }
+
+  return validationResult(value as IntentAssessmentReport, issues);
+}
+
+export function assertIntentAssessmentReport(value: unknown): IntentAssessmentReport {
+  return assertValid(validateIntentAssessmentReport(value), "IntentAssessmentReport");
+}
+
+export const intentAssessmentReportSchema: ArtifactSchema<IntentAssessmentReport> = {
+  validate: validateIntentAssessmentReport,
+  parse: assertIntentAssessmentReport,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

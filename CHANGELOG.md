@@ -4,6 +4,28 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **IntentAssessmentReport v1** — seventy-eighth slice on the
+  codebase-intel-classic capability-ontology track. Product-capability batch.
+  Registers the `IntentAssessmentReport` artifact type (category `actions`)
+  and a read-only readiness assessment generated from a user request plus the
+  latest context artifacts (CapabilityMap, StepCapabilityGraph,
+  HandoffCoverageReport, RuntimeGraphDriftReport, PathFreshnessReport,
+  VerificationResult). New `@rekon/capability-model.buildIntentAssessmentReport`,
+  the `rekon intent assess [--root] [--json] [--goal] [--kind] [--path]
+  [--system] [--capability] [--step] [--constraint] [--non-goal]` CLI, and
+  `IntentAssessmentReport` types + factory + validator + schema in
+  `@rekon/kernel-repo-model`. Readiness ready-for-prepare / blocked /
+  needs-review / insufficient-context / stale-context (precedence stale >
+  blocked > insufficient > needs-review > ready); blocker categories
+  missing-artifact / stale-context / runtime-drift / handoff-coverage /
+  finding-governance / proof-missing / scope-ambiguous /
+  source-write-unavailable. Assessment, not WorkOrder; creates no WorkOrder /
+  VerificationPlan; executes no commands; writes no source; mutates nothing.
+  RuntimeGraphDriftReport is an input to readiness, not the intent system
+  itself; PreparedIntentPlan remains the next layer; IntentStatusReport and
+  intent:go remain deferred. 28-assertion contract test + 12-assertion docs
+  test + 2 new docs + review packet. No version bump; no npm publish.
+  Recommended next slice: IntentAssessmentReport safety review.
 - Shipped the **IntentAssessmentReport v1 decision** — seventy-seventh slice
   on the codebase-intel-classic capability-ontology track. Strategy /
   architecture decision batch. Decides the v1 shape, inputs, readiness model,

@@ -1103,6 +1103,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# IntentAssessmentReport v1 has shipped. Seventy-eighth slice on the
+# codebase-intel-classic capability-ontology track. Product-capability batch.
+# Registers the IntentAssessmentReport artifact (category actions) and a
+# read-only readiness assessment via `rekon intent assess`.
+#   - Reads the request plus CapabilityMap, StepCapabilityGraph,
+#     HandoffCoverageReport, RuntimeGraphDriftReport, PathFreshnessReport, and
+#     VerificationResult when available.
+#   - Readiness: ready-for-prepare / blocked / needs-review /
+#     insufficient-context / stale-context.
+#   - IntentAssessmentReport is assessment, not WorkOrder.
+#   - It does not create WorkOrder or VerificationPlan.
+#   - It does not execute commands.
+#   - It does not write source files.
+#   - RuntimeGraphDriftReport is an input to readiness, not the intent system
+#     itself.
+#   - PreparedIntentPlan remains the next layer; IntentStatusReport and
+#     intent:go remain deferred.
+#
+# Recommended next slice: IntentAssessmentReport safety review.
+#
 # IntentAssessmentReport v1 decision has shipped. Seventy-seventh slice on
 # the codebase-intel-classic capability-ontology track. Strategy /
 # architecture decision batch. Decides the v1 shape of IntentAssessmentReport,

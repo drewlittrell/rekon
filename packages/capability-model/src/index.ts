@@ -120,6 +120,18 @@ export {
   buildRuntimeGraphDriftReport,
 } from "./runtime-graph-drift-report.js";
 
+export {
+  type BuildIntentAssessmentReportInput,
+  type IntentAssessmentCapabilityMapLike,
+  type IntentAssessmentHandoffCoverageReportLike,
+  type IntentAssessmentPathFreshnessReportLike,
+  type IntentAssessmentRuntimeDriftReportLike,
+  type IntentAssessmentStepGraphLike,
+  type IntentAssessmentVerificationResultLike,
+  INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX,
+  buildIntentAssessmentReport,
+} from "./intent-assessment-report.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

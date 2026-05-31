@@ -70,14 +70,22 @@ import modelCapability, {
   HANDOFF_EVENT_LOG_PATH,
   buildRuntimeGraphObservationReport,
   buildRuntimeGraphDriftReport,
+  buildIntentAssessmentReport,
   RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX,
   RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH,
   RUNTIME_GRAPH_DRIFT_REPORT_ARTIFACT_ID_PREFIX,
+  INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX,
   type HandoffCoverageContractLike,
   type RuntimeGraphDriftStepGraphLike,
   type RuntimeGraphDriftHandoffContractLike,
   type RuntimeGraphDriftCoverageReportLike,
   type RuntimeGraphDriftObservationReportLike,
+  type IntentAssessmentCapabilityMapLike,
+  type IntentAssessmentStepGraphLike,
+  type IntentAssessmentHandoffCoverageReportLike,
+  type IntentAssessmentRuntimeDriftReportLike,
+  type IntentAssessmentPathFreshnessReportLike,
+  type IntentAssessmentVerificationResultLike,
   STEP_CAPABILITY_GRAPH_ARTIFACT_ID_PREFIX,
   STEP_CAPABILITY_GRAPH_CONFIG_PATH,
   type BridgeFindingLifecycleFindingReportLike,
@@ -149,6 +157,10 @@ import {
   type HandoffCoverageReport,
   type RuntimeGraphObservationReport,
   type RuntimeGraphDriftReport,
+  type IntentAssessmentReport,
+  type IntentAssessmentRequest,
+  type IntentAssessmentIntentKind,
+  type IntentAssessmentScope,
   type ObservedRepo,
   type OwnershipMap,
   type StepCapabilityGraph,
@@ -3674,6 +3686,176 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("");
       lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder or VerificationPlan artifacts were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "assess") {
+    // `rekon intent assess --goal <text> [--root <path>] [--json]
+    // [--kind <bug|feature|refactor|investigation|migration|unknown>]
+    // [--path <p>] [--system <s>] [--capability <c>] [--step <s>]
+    // [--constraint <c>] [--non-goal <n>]` — IntentAssessmentReport v1.
+    //
+    // A read-only readiness assessment of the requested intent against the
+    // latest available context artifacts (CapabilityMap, StepCapabilityGraph,
+    // HandoffCoverageReport, RuntimeGraphDriftReport, PathFreshnessReport,
+    // VerificationResult). This is ASSESSMENT, not WorkOrder. It creates no
+    // WorkOrder / VerificationPlan, executes no commands, writes no source,
+    // and mutates nothing. `RuntimeGraphDriftReport` is an input to readiness,
+    // not the intent system itself. PreparedIntentPlan, IntentStatusReport,
+    // and intent:go remain deferred. See docs/artifacts/intent-assessment-report.md.
+    const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal.trim() : "";
+    if (goal.length === 0) {
+      throw new Error("rekon intent assess requires --goal <text>.");
+    }
+
+    const VALID_INTENT_KINDS = new Set([
+      "bug",
+      "feature",
+      "refactor",
+      "investigation",
+      "migration",
+      "unknown",
+    ]);
+    const kindFlag = typeof parsed.flags.kind === "string" ? parsed.flags.kind.trim() : "unknown";
+    const kind = (VALID_INTENT_KINDS.has(kindFlag) ? kindFlag : "unknown") as IntentAssessmentIntentKind;
+
+    const listFlag = (name: string): string[] =>
+      parseRepeatableFlag(parsed.flags[name])
+        .flatMap((value) => value.split(","))
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+    const scope: IntentAssessmentScope = {};
+    const scopePaths = listFlag("path");
+    if (scopePaths.length > 0) scope.paths = scopePaths;
+    const scopeSystems = listFlag("system");
+    if (scopeSystems.length > 0) scope.systems = scopeSystems;
+    const scopeCapabilities = listFlag("capability");
+    if (scopeCapabilities.length > 0) scope.capabilities = scopeCapabilities;
+    const scopeSteps = listFlag("step");
+    if (scopeSteps.length > 0) scope.steps = scopeSteps;
+    const constraints = listFlag("constraint");
+    const nonGoals = listFlag("non-goal");
+
+    const request: IntentAssessmentRequest = { goal, kind };
+    if (Object.keys(scope).length > 0) request.scope = scope;
+    if (constraints.length > 0) request.constraints = constraints;
+    if (nonGoals.length > 0) request.nonGoals = nonGoals;
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const latestArtifact = async <T>(type: string): Promise<{ value: T | undefined; ref: ArtifactRef | undefined }> => {
+      const entries = await store.list(type);
+      const entry = entries.at(-1);
+      if (!entry) return { value: undefined, ref: undefined };
+      const value = (await store.read(entry)) as T;
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      return { value, ref };
+    };
+
+    const capabilityMap = await latestArtifact<IntentAssessmentCapabilityMapLike>("CapabilityMap");
+    const capabilityContract = await latestArtifact<unknown>("CapabilityContract");
+    const stepGraph = await latestArtifact<IntentAssessmentStepGraphLike>("StepCapabilityGraph");
+    const handoffContract = await latestArtifact<unknown>("HandoffContract");
+    const coverage = await latestArtifact<IntentAssessmentHandoffCoverageReportLike>("HandoffCoverageReport");
+    const observation = await latestArtifact<unknown>("RuntimeGraphObservationReport");
+    const drift = await latestArtifact<IntentAssessmentRuntimeDriftReportLike>("RuntimeGraphDriftReport");
+    const findingReport = await latestArtifact<unknown>("FindingReport");
+    const freshness = await latestArtifact<IntentAssessmentPathFreshnessReportLike>("PathFreshnessReport");
+    const proof = await latestArtifact<IntentAssessmentVerificationResultLike>("VerificationResult");
+    const verificationRun = await latestArtifact<unknown>("VerificationRun");
+    const verificationPlan = await latestArtifact<unknown>("VerificationPlan");
+
+    const inputRefs = [
+      capabilityMap.ref,
+      capabilityContract.ref,
+      stepGraph.ref,
+      handoffContract.ref,
+      coverage.ref,
+      observation.ref,
+      drift.ref,
+      findingReport.ref,
+      freshness.ref,
+      proof.ref,
+      verificationRun.ref,
+      verificationPlan.ref,
+    ].filter((ref): ref is ArtifactRef => !!ref);
+
+    const header: ArtifactHeader = {
+      artifactType: "IntentAssessmentReport",
+      artifactId: `${INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.intent-assess", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.7 },
+    };
+
+    const report: IntentAssessmentReport = buildIntentAssessmentReport({
+      header,
+      request,
+      capabilityMap: capabilityMap.value,
+      capabilityMapRef: capabilityMap.ref,
+      capabilityContractRef: capabilityContract.ref,
+      stepCapabilityGraph: stepGraph.value,
+      stepCapabilityGraphRef: stepGraph.ref,
+      handoffContractRef: handoffContract.ref,
+      handoffCoverageReport: coverage.value,
+      handoffCoverageReportRef: coverage.ref,
+      runtimeGraphObservationReportRef: observation.ref,
+      runtimeGraphDriftReport: drift.value,
+      runtimeGraphDriftReportRef: drift.ref,
+      findingReportRef: findingReport.ref,
+      pathFreshnessReport: freshness.value,
+      pathFreshnessReportRef: freshness.ref,
+      verificationResult: proof.value,
+      verificationResultRef: proof.ref,
+      verificationRunRef: verificationRun.ref,
+      verificationPlanRef: verificationPlan.ref,
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: { type: ref.type, id: ref.id },
+          readiness: {
+            status: report.readiness.status,
+            recommendedNextAction: report.readiness.recommendedNextAction,
+          },
+          blockers: report.blockers.length,
+          warnings: report.warnings.length,
+          missingContext: report.missingContext.length,
+          matchedContext: report.matchedContext,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent assessment");
+      lines.push("");
+      lines.push(`Goal: ${report.request.goal}`);
+      lines.push(`Kind: ${report.request.kind}`);
+      lines.push(`Readiness: ${report.readiness.status}`);
+      lines.push(`Recommended next action: ${report.readiness.recommendedNextAction}`);
+      lines.push(`Blockers: ${report.blockers.length}`);
+      lines.push(`Warnings: ${report.warnings.length}`);
+      lines.push(`Missing context: ${report.missingContext.length}`);
+      lines.push("");
+      lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;
