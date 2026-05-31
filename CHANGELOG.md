@@ -4,6 +4,29 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle / Agent Handoff Safety Review** — ninety-seventh
+  slice on the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch grounding the slice-96 bundle generator (`a1723d7`) in its
+  shipped code: `buildIntentPlanBundle` is a pure renderer that reads no files,
+  writes none, runs no commands, and mutates no input; it derives a slug-safe intent
+  id and asserts every emitted path is bundle-safe; and the CLI's only filesystem
+  effect is `mkdir` / `writeFile` inside the bundle directory, with path-traversal
+  safety enforced at the intent-id, renderer, and CLI layers. **Finding: the Intent
+  plan bundle generator is safe/stable as a human + LLM-agent filesystem
+  projection** (no blocker). **Intent plan bundle is a projection, not canonical
+  artifact truth**; **canonical source of truth remains `.rekon/artifacts/`**;
+  **intent plan bundles live under `.rekon/intent/plans/<intent-id>/` by default**;
+  **agent handoff files live under `agent/`**; **bundle generation writes only under
+  `.rekon/intent/plans/<intent-id>/`**, **does not create canonical artifacts**,
+  **does not execute commands**, and **does not write source files**; **stale
+  bundles must not be treated as current handoff**; **VerificationRun and
+  VerificationResult are optional proof context, not prerequisites for bundle
+  generation**; **intent:go remains deferred**. New
+  `docs/strategy/intent-plan-bundle-agent-handoff-safety-review.md` (16 sections +
+  surface / file / boundary / path-safety / option tables) + 20-assertion docs test
+  + review packet. Recommended next slice: **Intent Go / Execution Boundary
+  Decision** — the bundle is now the final non-executing handoff surface. No source
+  changes; no runtime behavior change.
 - Shipped the **Intent Plan Bundle / Agent Handoff Implementation** — ninety-sixth
   slice on the codebase-intel-classic capability-ontology track. The new
   `rekon intent bundle write` command reads the latest-or-pinned canonical intent

@@ -91,3 +91,5 @@ The command reads the latest-or-pinned canonical artifacts, renders the bundle, 
 writes it under `.rekon/intent/plans/<intent-id>/`, regenerating the bundle for the
 same intent id. It creates no canonical artifacts, executes no commands, writes no
 source files outside the bundle directory, and does not implement `intent:go`.
+
+> Reviewed (slice 97): the Intent plan bundle generator is safe/stable as a human + LLM-agent filesystem projection — `rekon intent bundle write` writes the bundle only under `.rekon/intent/plans/<intent-id>/` with path-traversal safety on the intent id and every file path. **Intent plan bundle is a projection, not canonical artifact truth**; canonical source of truth remains `.rekon/artifacts/`; bundle generation creates no canonical artifacts, executes no commands, and writes no source files; stale bundles must not be treated as current handoff; intent:go remains deferred. Next: Intent Go / Execution Boundary Decision. See [Intent Plan Bundle / Agent Handoff Safety Review](../strategy/intent-plan-bundle-agent-handoff-safety-review.md).
