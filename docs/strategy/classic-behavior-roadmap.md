@@ -6256,6 +6256,19 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **PreparedIntentPlan v1 decision (P1.1
+  prepared-intent-plan-v1-decision slice).** ✅ Shipped. Eightieth slice.
+  Decides the v1 shape of `PreparedIntentPlan`, the layer after
+  `IntentAssessmentReport`. **Recommendation: Option B — artifact-backed
+  phase/gate preparation** from IntentAssessmentReport plus existing Rekon
+  context. Prepared status prepared / blocked / needs-review / stale-assessment
+  / insufficient-assessment; phases investigate / modify / refactor / verify /
+  review. Pinned: phase/gate preparation, not WorkOrder; no WorkOrder /
+  VerificationPlan creation; no execution; no source writes; verification
+  requirements are not VerificationPlan; IntentStatusReport next; intent:go
+  deferred. Classic intent:prepare produced PreparedPhaseArtifacts but executed
+  nothing; Rekon re-homes preparation into the artifact-first spine and adds
+  graph-spine obligations. Next: PreparedIntentPlan v1 implementation.
 - **IntentAssessmentReport safety review (P1.1
   intent-assessment-report-safety-review slice).** ✅ Shipped. Seventy-ninth
   slice. Read-only review of `IntentAssessmentReport` v1. **Recommendation:

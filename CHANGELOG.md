@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **PreparedIntentPlan v1 decision** — eightieth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / architecture
+  decision batch. Decides the v1 shape, inputs, prepared-status model, phase
+  model, obligation model, and verification-requirement model for
+  `PreparedIntentPlan`, the layer after `IntentAssessmentReport`.
+  **Recommendation: Option B — an artifact-backed phase/gate preparation
+  artifact** generated from `IntentAssessmentReport` plus existing Rekon
+  context. Prepared status prepared / blocked / needs-review / stale-assessment
+  / insufficient-assessment; phases investigate / modify / refactor / verify /
+  review; obligation categories capability-preservation / step-preservation /
+  handoff-preservation / runtime-drift / finding-governance / freshness /
+  verification / source-write-boundary. Pinned: PreparedIntentPlan is phase/gate
+  preparation, not WorkOrder; it does not create WorkOrder / VerificationPlan,
+  execute commands, or write source; verification requirements are not
+  VerificationPlan; IntentStatusReport remains the next layer; intent:go remains
+  deferred; source-write behavior remains unavailable. New
+  `docs/strategy/prepared-intent-plan-v1-decision.md` (15 headings + 4 tables)
+  + 17-assertion docs test + review packet. No source changes; no artifact
+  registration; no CLI; no version bump; no npm publish. Recommended next slice:
+  PreparedIntentPlan v1 implementation.
 - Shipped the **IntentAssessmentReport safety review** — seventy-ninth slice
   on the codebase-intel-classic capability-ontology track. Strategy /
   safety-review batch. Read-only end-to-end review of the

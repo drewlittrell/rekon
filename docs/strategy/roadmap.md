@@ -2640,6 +2640,24 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- PreparedIntentPlan v1 decision (P1.1 prepared-intent-plan-v1-decision
+  slice): **eightieth slice on the codebase-intel-classic capability-ontology
+  track. Strategy / architecture decision batch.** Decides the v1 shape of
+  PreparedIntentPlan, the layer after IntentAssessmentReport. **Recommendation:
+  Option B — artifact-backed phase/gate preparation** generated from
+  IntentAssessmentReport plus existing Rekon context. Prepared status: prepared
+  / blocked / needs-review / stale-assessment / insufficient-assessment; phases
+  investigate / modify / refactor / verify / review; obligation categories
+  capability-preservation / step-preservation / handoff-preservation /
+  runtime-drift / finding-governance / freshness / verification /
+  source-write-boundary. Rejected: assessment-as-plan (A), WorkOrder-as-plan
+  (C), VerificationPlan-as-plan (D), intent:go-first (E). Pinned: phase/gate
+  preparation, not WorkOrder; creates no WorkOrder / VerificationPlan; executes
+  nothing; writes no source; verification requirements are not VerificationPlan;
+  IntentStatusReport next; intent:go deferred; source-write behavior remains
+  unavailable. 15-heading memo + 4 tables + 17-assertion docs test + review
+  packet. No source changes; no artifact registration; no CLI; no version bump;
+  no npm publish. Recommended next slice: PreparedIntentPlan v1 implementation.
 - IntentAssessmentReport safety review (P1.1
   intent-assessment-report-safety-review slice): **seventy-ninth slice on the
   codebase-intel-classic capability-ontology track. Strategy / safety-review
