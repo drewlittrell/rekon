@@ -4,6 +4,35 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent Plan Bundle → Circe Proof/Gate Projection Enrichment** —
+  one-hundred-first slice on the codebase-intel-classic capability-ontology track.
+  Product-capability batch implementing the slice-100 follow-up: the Circe handoff
+  projection now also emits `circe/rekon-proof.json` (`kind: "rekon-circe-proof"`), a
+  Rekon-owned proof/gate sidecar for Circe import review. It carries the
+  PreparedIntentPlan `approval`/`proof` envelope (approval status / reasons, plus the
+  `runtimeDrift` / `handoffCoverage` / `freshness` / `verification` / `planStructure`
+  proof with their source refs), the IntentStatusReport gate state, the freshness/drift
+  refs, and per-phase gate metadata (`phaseGates` with phase id, obligation ids,
+  verification-requirement ids, approval status, readiness). The bundle manifest's
+  `circe` section gains `rekonProof` (+ `manifest.files.circeProof`), `circe/handoff.json`
+  gains a minimal `rekonProofPath` pointer, and the per-phase WorkOrder /
+  VerificationPlan projections gain additive `intentHandoff` traceability. The sidecar
+  never claims approval or readiness the source artifacts do not support (no
+  `PreparedIntentPlan.approval` ⇒ `gates.preparedPlanApproved: false` and
+  `phaseGates[].readyForCirce: false`) and always pins the boundaries —
+  `sourceWriteAllowed` remains false, `commandsExecuted` remains false, `intentGoDeferred`
+  remains true. The enrichment is additive: the proof rides in the Rekon-owned sidecar
+  plus fields Circe's normalizers ignore, so **Circe schema validation remains intact** —
+  re-validated against Circe's real `readRekonHandoffManifestFile` /
+  `readRekonPhasePlanFile` / `normalizeRekonWorkOrder` / `normalizeRekonVerificationPlan`
+  (hand-crafted + real-pipeline projections both accepted). Canonical Rekon truth remains
+  `.rekon/artifacts/`; Rekon does not run Circe commands during bundle generation, does
+  not execute the Circe handoff, and does not write source files; Circe owns
+  orchestration after import; intent:go remains deferred. Extended
+  `tests/contract/intent-plan-bundle.test.mjs` to 85 assertions (32 proof) + new
+  `tests/docs/intent-plan-bundle-circe-proof-projection.test.mjs` (11 assertions) + review
+  packet. No new artifact type; `rekon artifacts validate` stays clean. Recommended next
+  slice: Intent Plan Bundle → Circe Proof/Gate Projection Safety Review.
 - Shipped the **Intent Plan Bundle → Circe Handoff Projection Safety Review** —
   one-hundredth slice on the codebase-intel-classic capability-ontology track. Strategy
   / safety-review batch grounding the slice-99 Circe projection (`5736d34`) in its

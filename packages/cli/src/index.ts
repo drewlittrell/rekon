@@ -4595,6 +4595,7 @@ export async function main(argv: string[]): Promise<void> {
     const circeManifest = (result.manifest.circe ?? {}) as {
       handoff?: string;
       phasePlan?: string;
+      rekonProof?: string;
       workOrdersDir?: string;
       verificationPlansDir?: string;
       workOrders?: number;
@@ -4614,6 +4615,7 @@ export async function main(argv: string[]): Promise<void> {
           circe: {
             handoff: `${bundlePath}${circeManifest.handoff ?? "circe/handoff.json"}`,
             phasePlan: `${bundlePath}${circeManifest.phasePlan ?? "circe/phase-plan.json"}`,
+            rekonProof: `${bundlePath}${circeManifest.rekonProof ?? "circe/rekon-proof.json"}`,
             workOrders: typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0,
             verificationPlans: typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0,
             warnings: typeof circeManifest.warnings === "number" ? circeManifest.warnings : 0,

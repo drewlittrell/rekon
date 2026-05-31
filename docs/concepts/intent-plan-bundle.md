@@ -110,6 +110,38 @@ import.** Compatibility is proven by the operator's own `circe rekon-handoff val
 / `routes` / `circe import rekon-handoff`, never by Rekon. **intent:go remains
 deferred.**
 
+### Proof / Gate Sidecar (`circe/rekon-proof.json`)
+
+So the projection does not flatten away Rekon's proof-approved preparation model, the
+bundle also emits a Rekon-specific proof/gate sidecar, `circe/rekon-proof.json`, for
+Circe import review:
+
+```text
+.rekon/intent/plans/<intent-id>/circe/rekon-proof.json   # kind: rekon-circe-proof
+```
+
+The sidecar **carries the PreparedIntentPlan approval/proof** envelope (approval
+status / reasons, and the `runtimeDrift` / `handoffCoverage` / `freshness` /
+`verification` / `planStructure` proof with their source refs), the **IntentStatusReport
+gate state** (status + recommended next action), the **freshness/drift refs**, and
+**phase-level gate metadata** (per-phase `phaseGates` with phase id, obligation ids,
+verification-requirement ids, approval status, and readiness). The bundle manifest's
+`circe` section points at it (`circe.rekonProof`), `circe/handoff.json` carries a
+minimal `rekonProofPath` pointer, and the per-phase WorkOrder / VerificationPlan
+projections carry the same traceability via their `intentHandoff` block.
+
+The sidecar never claims approval or readiness the source artifacts do not support
+(no `PreparedIntentPlan.approval` ⇒ `gates.preparedPlanApproved: false` and
+`phaseGates[].readyForCirce: false`), and it always pins the boundaries:
+**sourceWriteAllowed remains false**, **commandsExecuted remains false**, and
+**intentGoDeferred remains true**.
+
+The enrichment is additive: the proof data rides in the Rekon-owned sidecar plus
+fields Circe's normalizers ignore, so **Circe schema validation remains intact**
+(`handoff.json`, `phase-plan.json`, and the per-phase WorkOrder / VerificationPlan
+projections are still accepted by Circe's `readRekonHandoffManifestFile` /
+`readRekonPhasePlanFile` / `normalizeRekonWorkOrder` / `normalizeRekonVerificationPlan`).
+
 ## CLI
 
 ```sh
@@ -137,3 +169,5 @@ source files outside the bundle directory, and does not implement `intent:go`.
 > Implemented (slice 99): the Intent plan bundle → Circe handoff projection now ships under `.rekon/intent/plans/<intent-id>/circe/` (handoff.json, phase-plan.json, work-orders/, verification-plans/), matching Circe's `rekon-circe-handoff` schema (validated against Circe's real normalizers). The bundle includes a Circe projection under `circe/`; **Circe handoff projection is an import adapter, not a new planning system**; **Canonical Rekon truth remains `.rekon/artifacts/`**; Rekon does not run Circe commands during bundle generation, does not execute the Circe handoff, and does not write source files; Circe owns orchestration after import; intent:go remains deferred. Next: Intent Plan Bundle → Circe Handoff Projection Safety Review. See [Intent Plan Bundle → Circe Handoff Projection Decision](../strategy/intent-plan-bundle-circe-handoff-projection-decision.md).
 
 > Reviewed (slice 100): the Intent plan bundle → Circe handoff projection is safe/stable as a Circe import adapter (schema-valid against Circe's real normalizers, boundary preserved, no Circe execution) — no blocker. But proof/gate traceability is incomplete: the PreparedIntentPlan approval/proof envelope, the IntentStatusReport gate status, and freshness/drift refs do not survive into `circe/`. **Circe handoff projection is an import adapter, not a new planning system**; **Canonical Rekon truth remains `.rekon/artifacts/`**; Rekon does not run Circe commands during bundle generation, does not execute the Circe handoff, and does not write source files; Circe owns orchestration after import; Circe projection must preserve Rekon's proof/gate traceability, and if it is incomplete, intent:go must remain blocked; intent:go remains deferred. Next: Intent Plan Bundle → Circe Proof/Gate Projection Enrichment. See [Intent Plan Bundle → Circe Handoff Projection Safety Review](../strategy/intent-plan-bundle-circe-handoff-projection-safety-review.md).
+
+> Enriched (slice 101): the Intent plan bundle → Circe proof/gate projection now also emits `circe/rekon-proof.json` (kind rekon-circe-proof), carrying the PreparedIntentPlan approval/proof envelope, the IntentStatusReport gate state, the freshness/drift refs, and per-phase gate metadata; the per-phase WorkOrder / VerificationPlan projections gain additive `intentHandoff` traceability and `handoff.json` a `rekonProofPath` pointer. The sidecar never claims approval/readiness the source does not support; **sourceWriteAllowed remains false**, **commandsExecuted remains false**, **intentGoDeferred remains true**; **Canonical Rekon truth remains `.rekon/artifacts/`**; Rekon does not run Circe commands during bundle generation, does not execute the Circe handoff, and does not write source files; Circe schema validation remains intact (re-validated against Circe's real normalizers); intent:go remains deferred. Next: Intent Plan Bundle → Circe Proof/Gate Projection Safety Review. See [Intent Plan Bundle → Circe Handoff Projection Safety Review](../strategy/intent-plan-bundle-circe-handoff-projection-safety-review.md).

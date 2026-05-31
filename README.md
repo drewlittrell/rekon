@@ -1103,6 +1103,28 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Plan Bundle → Circe Proof/Gate Projection Enrichment has shipped.
+# One-hundred-first slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch. The Circe projection now also emits
+# circe/rekon-proof.json (kind rekon-circe-proof), a Rekon-owned proof/gate sidecar.
+#   - Carries the PreparedIntentPlan approval/proof envelope, the IntentStatusReport
+#     gate state, the freshness/drift refs, and per-phase gate metadata (phaseGates).
+#   - manifest.circe.rekonProof + handoff.json rekonProofPath pointer + per-phase
+#     WorkOrder/VerificationPlan intentHandoff traceability.
+#   - The sidecar never claims approval/readiness the source does not support.
+#   - sourceWriteAllowed remains false, commandsExecuted remains false,
+#     intentGoDeferred remains true.
+#   - Circe schema validation remains intact (re-validated against Circe's real
+#     normalizers; hand-crafted + real-pipeline projections accepted).
+#   - Canonical Rekon truth remains .rekon/artifacts/. Rekon does not run Circe
+#     commands during bundle generation, does not execute the Circe handoff, and does
+#     not write source files. Circe owns orchestration after import. intent:go
+#     remains deferred.
+#
+# See docs/concepts/intent-plan-bundle.md.
+# Recommended next slice: Intent Plan Bundle → Circe Proof/Gate Projection Safety
+# Review.
+#
 # Intent Plan Bundle → Circe Handoff Projection Safety Review has shipped.
 # One-hundredth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch. Reviews the shipped Circe handoff projection

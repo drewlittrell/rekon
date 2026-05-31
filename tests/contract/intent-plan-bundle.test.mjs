@@ -32,8 +32,19 @@ function baseSource() {
     intentAssessmentReportRef: IA_REF,
     preparedIntentPlan: {
       request: { goal: "Fix create user flow", scope: { capabilities: ["create-user"], steps: ["fixture.create-user"] } },
-      status: { value: "prepared" },
-      approval: { status: "approved" },
+      status: { value: "prepared", recommendedNextAction: "create-work-order" },
+      approval: {
+        status: "approved",
+        reasons: ["assessment-ready-for-prepare"],
+        proof: {
+          runtimeDrift: { accepted: true, unresolvedHighSeverity: 0, runtimeGraphDriftReportRef: { type: "RuntimeGraphDriftReport", id: "drift-1", schemaVersion: "0.1.0" } },
+          handoffCoverage: { accepted: true, uncovered: 0, unresolvedContract: 0, notEvaluated: 0, handoffCoverageReportRef: { type: "HandoffCoverageReport", id: "hc-1", schemaVersion: "0.1.0" } },
+          freshness: { accepted: true, staleContext: false, pathFreshnessReportRef: { type: "PathFreshnessReport", id: "pf-1", schemaVersion: "0.1.0" } },
+          verification: { requirementsPresent: true, proofResultsPresent: false, verificationRefs: [] },
+          planStructure: { phasesPresent: true, minimumPhaseCountMet: true, hasInvestigation: true, hasImplementationOrRefactor: true, hasVerification: false, hasReview: false },
+          downstreamHandoff: { workOrderAllowed: true, verificationPlanAllowed: true, sourceWriteAllowed: false },
+        },
+      },
       phases: [
         {
           id: "phase:investigate",
@@ -519,6 +530,221 @@ test("circe: CLI does not register the projection as a canonical artifact", () =
   // The projection lives under the bundle, never as a registered WorkOrder / VerificationPlan artifact.
   const wo = runCli(["artifacts", "latest", "--root", cliRoot, "--type", "WorkOrder", "--allow-missing", "--json"]);
   assert.equal(JSON.parse(wo.stdout).artifact, null);
+  const validate = runCli(["artifacts", "validate", "--root", cliRoot, "--json"]);
+  assert.equal(JSON.parse(validate.stdout).valid, true);
+});
+
+// ===========================================================================
+// Circe proof/gate projection enrichment (slice 101). The circe/rekon-proof.json
+// sidecar carries the PreparedIntentPlan approval/proof envelope, the
+// IntentStatusReport gate state, freshness/drift refs, and per-phase gate metadata.
+// ===========================================================================
+
+const proofJson = (result) => circeJson(result, "rekon-proof.json");
+
+// ---------- P1: helper renders circe/rekon-proof.json ----------
+test("proof: helper renders circe/rekon-proof.json", () => {
+  assert.ok(fileByPath(build(), "circe/rekon-proof.json") !== undefined);
+});
+
+// ---------- P2: manifest.circe.rekonProof ----------
+test("proof: manifest.circe.rekonProof points to circe/rekon-proof.json", () => {
+  assert.equal(build().manifest.circe.rekonProof, "circe/rekon-proof.json");
+});
+
+// ---------- P3: files map includes circeProof ----------
+test("proof: manifest.files includes circeProof", () => {
+  assert.equal(build().manifest.files.circeProof, "circe/rekon-proof.json");
+});
+
+// ---------- P4: rekon-proof.json kind ----------
+test("proof: rekon-proof.json has kind rekon-circe-proof", () => {
+  assert.equal(proofJson(build()).kind, "rekon-circe-proof");
+});
+
+// ---------- P5: sourceArtifacts ----------
+test("proof: rekon-proof.json includes sourceArtifacts with refs", () => {
+  const sa = proofJson(build()).sourceArtifacts;
+  assert.equal(sa.preparedIntentPlan.ref, "PreparedIntentPlan:pip-1");
+});
+
+// ---------- P6: approval status/reasons from PreparedIntentPlan ----------
+test("proof: rekon-proof.json carries approval status and reasons", () => {
+  const approval = proofJson(build()).approval;
+  assert.equal(approval.status, "approved");
+  assert.ok(approval.reasons.includes("assessment-ready-for-prepare"));
+});
+
+// ---------- P7: IntentStatusReport status ----------
+test("proof: rekon-proof.json carries IntentStatusReport status", () => {
+  assert.equal(proofJson(build()).intentStatus.value, "work-ready");
+});
+
+// ---------- P8: gates.preparedPlanApproved ----------
+test("proof: gates.preparedPlanApproved reflects approval", () => {
+  assert.equal(proofJson(build()).gates.preparedPlanApproved, true);
+});
+
+// ---------- P9: gates.workOrderAllowed ----------
+test("proof: gates.workOrderAllowed", () => {
+  assert.equal(proofJson(build()).gates.workOrderAllowed, true);
+});
+
+// ---------- P10: gates.verificationPlanAllowed ----------
+test("proof: gates.verificationPlanAllowed", () => {
+  assert.equal(proofJson(build()).gates.verificationPlanAllowed, true);
+});
+
+// ---------- P11: gates.sourceWriteAllowed false ----------
+test("proof: gates.sourceWriteAllowed is false", () => {
+  assert.equal(proofJson(build()).gates.sourceWriteAllowed, false);
+});
+
+// ---------- P12: gates.commandsExecuted false ----------
+test("proof: gates.commandsExecuted is false", () => {
+  assert.equal(proofJson(build()).gates.commandsExecuted, false);
+});
+
+// ---------- P13: gates.intentGoDeferred true ----------
+test("proof: gates.intentGoDeferred is true", () => {
+  assert.equal(proofJson(build()).gates.intentGoDeferred, true);
+});
+
+// ---------- P14: runtimeDrift proof ----------
+test("proof: proof.runtimeDrift carries accepted + ref", () => {
+  const rd = proofJson(build()).proof.runtimeDrift;
+  assert.equal(rd.accepted, true);
+  assert.equal(rd.ref, "RuntimeGraphDriftReport:drift-1");
+});
+
+// ---------- P15: handoffCoverage proof ----------
+test("proof: proof.handoffCoverage carries counts + ref", () => {
+  const hc = proofJson(build()).proof.handoffCoverage;
+  assert.equal(hc.uncovered, 0);
+  assert.equal(hc.ref, "HandoffCoverageReport:hc-1");
+});
+
+// ---------- P16: freshness proof ----------
+test("proof: proof.freshness carries staleContext + ref", () => {
+  const fr = proofJson(build()).proof.freshness;
+  assert.equal(fr.staleContext, false);
+  assert.equal(fr.ref, "PathFreshnessReport:pf-1");
+});
+
+// ---------- P17: verification proof ----------
+test("proof: proof.verification carries requirements/proof-results presence", () => {
+  const v = proofJson(build()).proof.verification;
+  assert.equal(v.requirementsPresent, true);
+  assert.equal(v.proofResultsPresent, false);
+});
+
+// ---------- P18: planStructure proof ----------
+test("proof: proof.planStructure carries the structure booleans", () => {
+  const ps = proofJson(build()).proof.planStructure;
+  assert.equal(ps.phasesPresent, true);
+  assert.equal(ps.hasInvestigation, true);
+});
+
+// ---------- P19: phaseGates ----------
+test("proof: rekon-proof.json includes phaseGates", () => {
+  assert.equal(proofJson(build()).phaseGates.length, 2);
+});
+
+// ---------- P20: each phaseGate includes phaseId ----------
+test("proof: each phaseGate includes phaseId matching the projection", () => {
+  assert.deepEqual(proofJson(build()).phaseGates.map((g) => g.phaseId), ["phase-investigate", "phase-modify"]);
+});
+
+// ---------- P21: each phaseGate includes obligationIds ----------
+test("proof: phaseGate carries obligation ids", () => {
+  assert.deepEqual(proofJson(build()).phaseGates[0].obligationIds, ["obligation:x"]);
+});
+
+// ---------- P22: each phaseGate includes verificationRequirementIds ----------
+test("proof: phaseGate carries verification requirement ids", () => {
+  assert.deepEqual(proofJson(build()).phaseGates[0].verificationRequirementIds, ["verify:typecheck"]);
+});
+
+// ---------- P23: each phaseGate sourceWriteAllowed false ----------
+test("proof: phaseGate boundaries.sourceWriteAllowed false", () => {
+  for (const g of proofJson(build()).phaseGates) assert.equal(g.boundaries.sourceWriteAllowed, false);
+});
+
+// ---------- P24: each phaseGate commandsExecuted false ----------
+test("proof: phaseGate boundaries.commandsExecuted false", () => {
+  for (const g of proofJson(build()).phaseGates) assert.equal(g.boundaries.commandsExecuted, false);
+});
+
+// ---------- P25: each phaseGate intentGoDeferred true ----------
+test("proof: phaseGate boundaries.intentGoDeferred true", () => {
+  for (const g of proofJson(build()).phaseGates) assert.equal(g.boundaries.intentGoDeferred, true);
+});
+
+// ---------- P26: handoff remains schema-compatible (rekonProofPath tolerated) ----------
+test("proof: handoff.json keeps Circe-required fields + adds rekonProofPath", () => {
+  const h = circeJson(build(), "handoff.json");
+  assert.strictEqual(h.schemaVersion, 1);
+  assert.equal(h.kind, "rekon-circe-handoff");
+  assert.equal(h.producer.system, "rekon");
+  assert.equal(h.status, "ready");
+  assert.equal(h.rekonProofPath, "rekon-proof.json");
+});
+
+// ---------- P27: phase-plan remains schema-compatible (per-phase rekon tolerated) ----------
+test("proof: phase-plan keeps Circe-required phase fields + adds rekon metadata", () => {
+  const pp = circeJson(build(), "phase-plan.json");
+  assert.strictEqual(pp.schemaVersion, 1);
+  for (const phase of pp.phases) {
+    assert.ok(typeof phase.phaseId === "string" && phase.phaseId.length > 0);
+    assert.ok(typeof phase.workOrderPath === "string");
+    assert.equal(phase.rekon.approvalStatus, "approved");
+  }
+});
+
+// ---------- P28: WorkOrder remains schema-compatible (intentHandoff tolerated) ----------
+test("proof: WorkOrder keeps canonical shape + adds intentHandoff traceability", () => {
+  const wo = circeJson(build(), "work-orders/phase-investigate.work-order.json");
+  assert.equal(wo.header.artifactType, "WorkOrder");
+  assert.ok(wo.goal.length > 0);
+  assert.equal(wo.intentHandoff.phaseId, "phase-investigate");
+  assert.equal(wo.intentHandoff.boundaries.sourceWriteAllowed, false);
+});
+
+// ---------- C29: VerificationPlan remains schema-compatible (intentHandoff tolerated) ----------
+test("proof: VerificationPlan keeps canonical shape + adds intentHandoff traceability", () => {
+  const vp = circeJson(build(), "verification-plans/phase-investigate.verification-plan.json");
+  assert.equal(vp.header.artifactType, "VerificationPlan");
+  assert.equal(vp.workOrderRef.id, "pip-1-phase-investigate.work-order");
+  assert.equal(vp.intentHandoff.boundaries.createsVerificationRun, false);
+});
+
+// ---------- P30: missing approval does not claim readiness ----------
+test("proof: a plan without approval does not claim approval or readiness", () => {
+  const src = baseSource();
+  delete src.preparedIntentPlan.approval;
+  src.preparedIntentPlan.status = { value: "needs-review" };
+  const proof = proofJson(build({ source: src }));
+  assert.notEqual(proof.approval.status, "approved");
+  assert.equal(proof.gates.preparedPlanApproved, false);
+  assert.equal(proof.gates.sourceWriteAllowed, false);
+  for (const g of proof.phaseGates) assert.equal(g.readyForCirce, false);
+});
+
+// ---------- P31: bundle generation still does not run Circe / write source ----------
+test("proof: enrichment keeps runsCirce false and source unchanged (CLI)", async () => {
+  const before = await readFile(join(cliRoot, "src", "app.ts"), "utf8");
+  const result = runCli(["intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed", "--json"]);
+  assert.equal(JSON.parse(result.stdout).boundaries.runsCirce, false);
+  assert.match(JSON.parse(result.stdout).circe.rekonProof, /circe\/rekon-proof\.json$/);
+  const after = await readFile(join(cliRoot, "src", "app.ts"), "utf8");
+  assert.equal(after, before);
+});
+
+// ---------- P32: artifacts validate remains clean ----------
+test("proof: CLI writes rekon-proof.json + artifacts validate stays clean", async () => {
+  runCli(["intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed"]);
+  const s = await stat(join(bundleDir, "circe", "rekon-proof.json"));
+  assert.ok(s.isFile());
   const validate = runCli(["artifacts", "validate", "--root", cliRoot, "--json"]);
   assert.equal(JSON.parse(validate.stdout).valid, true);
 });

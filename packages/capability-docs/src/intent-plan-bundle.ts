@@ -105,6 +105,22 @@ function refString(ref: ArtifactRef | undefined): string | undefined {
   return `${ref.type}:${ref.id}`;
 }
 
+/** `Type:id` string for an ArtifactRef-shaped record value, or null. */
+function refRecordString(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const rec = value as Record<string, unknown>;
+  if (typeof rec.type !== "string" || typeof rec.id !== "string") return null;
+  return `${rec.type}:${rec.id}`;
+}
+
+function asBool(value: unknown): boolean {
+  return value === true;
+}
+
+function asNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
@@ -163,6 +179,25 @@ type RenderCirceProjectionInput = {
   obligations: Record<string, unknown>[];
   workOrderSchemaVersion: string;
   verificationPlanSchemaVersion: string;
+  // Proof/gate enrichment (slice 101).
+  hasPreparedPlan: boolean;
+  sourceArtifacts: Record<string, { ref: string; digest: string }>;
+  approval: Record<string, unknown>;
+  planStatusValue: string;
+  planNextAction: string;
+  intentStatusValue: string;
+  intentStatusNextAction: string;
+};
+
+type CircePhaseGate = {
+  phaseId: string;
+  approvalStatus: string;
+  readyForCirce: boolean;
+  obligationIds: string[];
+  verificationRequirementIds: string[];
+  blockers: string[];
+  warnings: string[];
+  boundaries: { sourceWriteAllowed: false; commandsExecuted: false; intentGoDeferred: true };
 };
 
 /** Slug-safe, de-duplicated phase id (Circe rejects duplicate phaseIds). */
@@ -224,8 +259,19 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     ? [{ type: input.planRef.type, id: input.planRef.id, schemaVersion: input.planRef.schemaVersion ?? null }]
     : [];
 
+  // Proof/gate facts shared by every phase. A plan only carries an approved gate
+  // when it exists and was approved; otherwise readyForCirce stays false.
+  const planRefStr = refString(input.planRef) ?? null;
+  const approvalStatus = input.hasPreparedPlan ? asString(input.approval.status, "unknown") : "unknown";
+  const planApproved = approvalStatus === "approved" && input.planStatusValue === "prepared";
+  const proofRec = asRecord(input.approval.proof);
+  const downstream = asRecord(proofRec.downstreamHandoff);
+  const sourceRefList = Object.values(input.sourceArtifacts).map((entry) => entry.ref);
+  const phaseBoundaries = { sourceWriteAllowed: false, commandsExecuted: false, intentGoDeferred: true } as const;
+
   const seen = new Set<string>();
   const phaseEntries: Array<Record<string, unknown>> = [];
+  const phaseGates: CircePhaseGate[] = [];
   const workOrderFiles: IntentPlanBundleFile[] = [];
   const verificationPlanFiles: IntentPlanBundleFile[] = [];
   const handoffWorkOrders: CirceHandoffArtifactRef[] = [];
@@ -238,8 +284,9 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     const paths = asArray(p.paths).map((x) => asString(x)).filter(Boolean);
     const systems = asArray(p.systems).map((x) => asString(x)).filter(Boolean);
     const constraints = asArray(p.constraints).map((x) => asString(x)).filter(Boolean);
-    const obligationMessages = asArray(p.obligations)
-      .map((x) => obligationMessageById.get(asString(x)))
+    const obligationIds = asArray(p.obligations).map((x) => asString(x)).filter(Boolean);
+    const obligationMessages = obligationIds
+      .map((id) => obligationMessageById.get(id))
       .filter((m): m is string => typeof m === "string" && m.length > 0);
     const riskNotes = [...constraints, ...obligationMessages];
 
@@ -247,6 +294,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     if (requirementIds.length === 0 && singlePhase) {
       requirementIds = [...requirementById.keys()];
     }
+    const phaseReady = planApproved && asString(p.status) !== "blocked";
     const phaseRequirements = requirementIds
       .map((id) => requirementById.get(id))
       .filter((r): r is { command: string; reason: string } => Boolean(r));
@@ -279,6 +327,17 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       markdown: null,
       source: "intent-handoff",
       remediationItems: [],
+      // Proof/gate traceability (slice 101). Additive; Circe's normalizeRekonWorkOrder
+      // ignores unknown fields, so this stays schema-valid.
+      intentHandoff: {
+        preparedIntentPlanRef: planRefStr,
+        phaseId,
+        approvalStatus,
+        obligationIds,
+        verificationRequirementIds: requirementIds,
+        sourceRefs: sourceRefList,
+        boundaries: phaseBoundaries,
+      },
     };
     workOrderFiles.push({ path: `circe/${workOrderRelPath}`, content: `${JSON.stringify(workOrder, null, 2)}\n` });
     handoffWorkOrders.push({ phaseId, path: workOrderRelPath, artifactId: workOrderArtifactId });
@@ -298,6 +357,20 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
         commands,
         successCriteria: reasons.length > 0 ? reasons : [`Verify phase: ${title}.`],
         source: "intent-handoff",
+        // Proof/gate traceability (slice 101). Additive; Circe's
+        // normalizeRekonVerificationPlan ignores unknown fields.
+        intentHandoff: {
+          preparedIntentPlanRef: planRefStr,
+          phaseId,
+          verificationRequirementIds: requirementIds,
+          sourceRefs: sourceRefList,
+          boundaries: {
+            createsVerificationRun: false,
+            executesCommands: false,
+            writesSourceFiles: false,
+            intentGoDeferred: true,
+          },
+        },
       };
       verificationPlanFiles.push({
         path: `circe/${verificationPlanRelPath}`,
@@ -309,6 +382,18 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       warnings.push(`Phase ${phaseId} has no verification requirement; Circe projection omits its VerificationPlan.`);
     }
 
+    const phaseWarnings = phaseRequirements.length > 0 ? [] : ["No verification requirement; VerificationPlan omitted."];
+    phaseGates.push({
+      phaseId,
+      approvalStatus,
+      readyForCirce: phaseReady,
+      obligationIds,
+      verificationRequirementIds: requirementIds,
+      blockers: [],
+      warnings: phaseWarnings,
+      boundaries: phaseBoundaries,
+    });
+
     phaseEntries.push({
       phaseId,
       title,
@@ -316,6 +401,14 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       ...(verificationPlanPath ? { verificationPlanPath } : {}),
       // implementerProfile omitted by default: Rekon does not know the operator's
       // Circe workflow profiles. Circe applies its default routing.
+      // Proof/gate metadata (slice 101). Additive; Circe's normalizePhasePlan ignores
+      // unknown phase fields, so this stays schema-valid.
+      rekon: {
+        approvalStatus,
+        readyForCirce: phaseReady,
+        obligationIds,
+        verificationRequirementIds: requirementIds,
+      },
     });
   });
 
@@ -328,7 +421,8 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
   };
 
   // handoff.json (Circe RekonHandoffManifest / validateHandoffShape). Paths are
-  // relative to the `circe/` directory.
+  // relative to the `circe/` directory. `rekonProofPath` is an additive pointer;
+  // Circe's normalizeHandoffManifest ignores unknown fields, so it stays schema-valid.
   const handoff = {
     schemaVersion: 1,
     kind: "rekon-circe-handoff",
@@ -336,15 +430,81 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     repoRoot: input.repoRoot,
     sourcePlanPath: "../prepared-plan.md",
     phasePlanPath: "phase-plan.json",
+    rekonProofPath: "rekon-proof.json",
     producer: { system: "rekon", version: input.producerVersion },
     status: "ready",
     warnings,
     artifacts: { workOrders: handoffWorkOrders, verificationPlans: handoffVerificationPlans },
   };
 
+  // rekon-proof.json (slice 101): the Rekon-specific proof/gate sidecar for Circe
+  // import review. Fully Rekon-owned (not a Circe-validated file). Carries the
+  // PreparedIntentPlan approval/proof envelope, the IntentStatusReport gate state, the
+  // freshness/drift proof refs, and per-phase gate metadata. Never claims approval or
+  // readiness the source artifacts do not support; always pins the source-write /
+  // command-execution / intent:go boundaries.
+  const proofBlock = (value: unknown, refKey: string): Record<string, unknown> => {
+    const rec = asRecord(value);
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rec)) {
+      if (k === refKey) continue;
+      out[k] = v;
+    }
+    out.ref = refRecordString(rec[refKey]);
+    return out;
+  };
+  const planStructure = asRecord(proofRec.planStructure);
+  const verificationProof = asRecord(proofRec.verification);
+  const rekonProof = {
+    schemaVersion: "0.1.0",
+    kind: "rekon-circe-proof",
+    intentId: input.intentId,
+    generatedAt: input.generatedAt,
+    sourceArtifacts: input.sourceArtifacts,
+    approval: {
+      status: approvalStatus,
+      reasons: asArray(input.approval.reasons).map((r) => asString(r)).filter(Boolean),
+    },
+    intentStatus: {
+      value: input.intentStatusValue || input.planStatusValue || "unknown",
+      recommendedNextAction: input.intentStatusNextAction || input.planNextAction || "(none)",
+    },
+    gates: {
+      preparedPlanApproved: approvalStatus === "approved",
+      workOrderAllowed: approvalStatus === "approved" && asBool(downstream.workOrderAllowed),
+      verificationPlanAllowed: approvalStatus === "approved" && asBool(downstream.verificationPlanAllowed),
+      sourceWriteAllowed: false,
+      commandsExecuted: false,
+      intentGoDeferred: true,
+    },
+    proof: {
+      runtimeDrift: proofBlock(proofRec.runtimeDrift, "runtimeGraphDriftReportRef"),
+      handoffCoverage: proofBlock(proofRec.handoffCoverage, "handoffCoverageReportRef"),
+      freshness: proofBlock(proofRec.freshness, "pathFreshnessReportRef"),
+      verification: {
+        requirementsPresent: asBool(verificationProof.requirementsPresent) || input.requirements.length > 0,
+        proofResultsPresent: asBool(verificationProof.proofResultsPresent),
+        verificationRefs: asArray(verificationProof.verificationRefs)
+          .map((r) => refRecordString(r))
+          .filter((r): r is string => typeof r === "string"),
+      },
+      planStructure: {
+        phasesPresent: asBool(planStructure.phasesPresent) || phaseEntries.length > 0,
+        minimumPhaseCountMet: asBool(planStructure.minimumPhaseCountMet),
+        hasInvestigation: asBool(planStructure.hasInvestigation),
+        hasImplementationOrRefactor: asBool(planStructure.hasImplementationOrRefactor),
+        hasVerification: asBool(planStructure.hasVerification),
+        hasReview: asBool(planStructure.hasReview),
+      },
+    },
+    phaseGates,
+    warnings,
+  };
+
   const files: IntentPlanBundleFile[] = [
     { path: "circe/handoff.json", content: `${JSON.stringify(handoff, null, 2)}\n` },
     { path: "circe/phase-plan.json", content: `${JSON.stringify(phasePlan, null, 2)}\n` },
+    { path: "circe/rekon-proof.json", content: `${JSON.stringify(rekonProof, null, 2)}\n` },
     ...workOrderFiles,
     ...verificationPlanFiles,
   ];
@@ -352,6 +512,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
   const manifestCirce = {
     handoff: "circe/handoff.json",
     phasePlan: "circe/phase-plan.json",
+    rekonProof: "circe/rekon-proof.json",
     workOrdersDir: "circe/work-orders",
     verificationPlansDir: "circe/verification-plans",
     schemaVersion: 1,
@@ -752,10 +913,19 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     obligations: asArray(plan.obligations).map((o) => asRecord(o)),
     workOrderSchemaVersion: asString(asRecord(workOrder.header).schemaVersion, "0.1.0"),
     verificationPlanSchemaVersion: asString(asRecord(verificationPlan.header).schemaVersion, "0.1.0"),
+    // Proof/gate enrichment (slice 101).
+    hasPreparedPlan: Boolean(source.preparedIntentPlan),
+    sourceArtifacts,
+    approval,
+    planStatusValue: asString(planStatus.value, "unknown"),
+    planNextAction: asString(planStatus.recommendedNextAction, "(none)"),
+    intentStatusValue: asString(asRecord(status.status).value),
+    intentStatusNextAction: asString(asRecord(status).recommendedNextAction),
   });
   // Surface the Circe projection in the manifest (additive; all relative paths).
   files.circeHandoff = "circe/handoff.json";
   files.circePhasePlan = "circe/phase-plan.json";
+  files.circeProof = "circe/rekon-proof.json";
   manifest.circe = circe.manifestCirce;
 
   const bundleFiles: IntentPlanBundleFile[] = [
