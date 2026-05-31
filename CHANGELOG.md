@@ -4,6 +4,33 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **Intent VerificationPlan Handoff Safety Review** — ninety-fourth
+  slice on the codebase-intel-classic capability-ontology track. Strategy /
+  safety-review batch grounding the slice-93 generator (`7a8aaaa`) in its shipped
+  code: `buildIntentVerificationPlanHandoff` is a pure function that reads no
+  files, writes no artifacts itself, runs no commands, and mutates no input; the
+  CLI's only side effect is one `store.write` of a single `VerificationPlan` on a
+  passing gate; and `classifyVerificationCommand` classifies command text only
+  (safe allowlist → commands; needs-review → checks; shell-control / destructive
+  tokens or ambiguous requirements → blocked). **Finding: the Intent
+  VerificationPlan handoff is safe/stable as an explicit gated VerificationPlan
+  generator** (no blocker). **Intent VerificationPlan handoff is VerificationPlan
+  artifact generation, not intent:go**; **VerificationPlan generation requires a
+  proof-approved PreparedIntentPlan** and **PreparedIntentPlan verification
+  requirements**; **IntentStatusReport gates VerificationPlan generation but does
+  not generate VerificationPlan**; **WorkOrder is optional in v1 and cited when
+  available**; **blocked handoff writes no VerificationPlan**; **generated
+  VerificationPlan must trace back to PreparedIntentPlan**; **VerificationPlan
+  generation does not create WorkOrder**, **does not create VerificationRun or
+  VerificationResult**, **does not execute commands**, and **does not write source
+  files**; **intent:go remains deferred**. The review pins the next phase: (1)
+  Intent Plan Bundle / Agent Handoff Directory Decision, (2) Implementation, (3)
+  Safety Review, (4) Intent Go / Execution Boundary Decision — with the
+  `.rekon/intent/plans/<intent-id>/` bundle directory deferred to that phase. New
+  `docs/strategy/intent-verification-plan-handoff-safety-review.md` (18 sections +
+  surface / gate / command-safety / boundary / option tables) + 22-assertion docs
+  test + review packet. Recommended next slice: **Intent Plan Bundle / Agent
+  Handoff Directory Decision**. No source changes; no runtime behavior change.
 - Shipped the **Intent VerificationPlan Handoff Implementation** — ninety-third
   slice on the codebase-intel-classic capability-ontology track. The explicit
   gated generator `rekon intent verification-plan generate` reads a proof-approved

@@ -1103,6 +1103,32 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent VerificationPlan Handoff Safety Review has shipped. Ninety-fourth slice
+# on the codebase-intel-classic capability-ontology track. Strategy / safety-review
+# batch. Reviews the shipped Intent VerificationPlan handoff generator end-to-end.
+#   - Recommendation: Intent VerificationPlan handoff is safe/stable as an explicit
+#     gated VerificationPlan generator.
+#   - Intent VerificationPlan handoff is VerificationPlan artifact generation, not
+#     intent:go.
+#   - VerificationPlan generation requires a proof-approved PreparedIntentPlan and
+#     non-empty verification requirements.
+#   - IntentStatusReport gates generation but does not generate VerificationPlan.
+#   - WorkOrder is optional in v1 and cited when available.
+#   - classifyVerificationCommand classifies command text only; unsafe / ambiguous
+#     commands block. No commands are executed.
+#   - Blocked handoff writes no VerificationPlan; generated handoff writes exactly
+#     one that traces back to PreparedIntentPlan.
+#   - VerificationPlan generation creates no WorkOrder / VerificationRun /
+#     VerificationResult, executes no commands, and writes no source files.
+#     intent:go remains deferred.
+#   - Next phase: (1) Intent Plan Bundle / Agent Handoff Directory Decision, (2)
+#     Implementation, (3) Safety Review, (4) Intent Go / Execution Boundary
+#     Decision. Plan bundle (.rekon/intent/plans/<intent-id>/) is deferred to that
+#     phase.
+#
+# See docs/strategy/intent-verification-plan-handoff-safety-review.md.
+# Recommended next slice: Intent Plan Bundle / Agent Handoff Directory Decision.
+#
 # Intent VerificationPlan Handoff Implementation has shipped. Ninety-third slice
 # on the codebase-intel-classic capability-ontology track. Product-capability
 # batch. Adds `rekon intent verification-plan generate`: reads a proof-approved
