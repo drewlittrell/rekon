@@ -4544,6 +4544,555 @@ export const intentAssessmentReportSchema: ArtifactSchema<IntentAssessmentReport
   parse: assertIntentAssessmentReport,
 };
 
+// ---- PreparedIntentPlan (v1, phase/gate preparation) ----
+//
+// A read-only phase/gate preparation artifact generated from an
+// `IntentAssessmentReport` plus the existing Rekon context spine. It turns a
+// safe assessment into planned phases, touched paths, capability / step /
+// handoff / drift obligations, preservation constraints, and proposed
+// verification requirements. It is **phase/gate preparation, not WorkOrder**:
+// it creates no `WorkOrder` / `VerificationPlan`, executes no commands, and
+// writes no source. **Verification requirements are not VerificationPlan.**
+// `IntentStatusReport` remains the next layer; `intent:go` remains deferred;
+// source-write behavior remains unavailable.
+
+export type PreparedIntentPlanStatus =
+  | "prepared"
+  | "blocked"
+  | "needs-review"
+  | "stale-assessment"
+  | "insufficient-assessment";
+
+export type PreparedIntentPlanRecommendedNextAction =
+  | "create-work-order"
+  | "resolve-blockers"
+  | "refresh-context"
+  | "human-review"
+  | "run-assessment"
+  | "defer";
+
+export type PreparedIntentPhaseKind =
+  | "investigate"
+  | "modify"
+  | "refactor"
+  | "verify"
+  | "review";
+
+export type PreparedIntentPhaseStatus = "planned" | "blocked" | "needs-review";
+
+export type PreparedIntentObligationCategory =
+  | "capability-preservation"
+  | "step-preservation"
+  | "handoff-preservation"
+  | "runtime-drift"
+  | "finding-governance"
+  | "freshness"
+  | "verification"
+  | "source-write-boundary";
+
+export type PreparedIntentSeverity = "low" | "medium" | "high";
+
+export type PreparedIntentPhase = {
+  id: string;
+  title: string;
+  kind: PreparedIntentPhaseKind;
+  status: PreparedIntentPhaseStatus;
+  goal: string;
+  paths: string[];
+  systems: string[];
+  capabilities: string[];
+  steps: string[];
+  constraints: string[];
+  obligations: string[];
+  verificationRequirements: string[];
+  sourceRefs: ArtifactRef[];
+};
+
+export type PreparedIntentObligation = {
+  id: string;
+  category: PreparedIntentObligationCategory;
+  severity: PreparedIntentSeverity;
+  message: string;
+  sourceRefs?: ArtifactRef[];
+};
+
+export type PreparedIntentVerificationRequirement = {
+  id: string;
+  command?: string;
+  reason: string;
+  sourceRefs?: ArtifactRef[];
+};
+
+export type PreparedIntentPlanSource = {
+  intentAssessmentReportRef: ArtifactRef;
+  capabilityMapRef?: ArtifactRef;
+  capabilityContractRef?: ArtifactRef;
+  stepCapabilityGraphRef?: ArtifactRef;
+  handoffContractRef?: ArtifactRef;
+  handoffCoverageReportRef?: ArtifactRef;
+  runtimeGraphObservationReportRef?: ArtifactRef;
+  runtimeGraphDriftReportRef?: ArtifactRef;
+  findingReportRef?: ArtifactRef;
+  pathFreshnessReportRef?: ArtifactRef;
+  verificationResultRef?: ArtifactRef;
+};
+
+export type PreparedIntentPlanRequest = {
+  goal: string;
+  kind: string;
+  scope?: {
+    paths?: string[];
+    systems?: string[];
+    capabilities?: string[];
+    steps?: string[];
+  };
+};
+
+export type PreparedIntentPlanStatusBlock = {
+  value: PreparedIntentPlanStatus;
+  recommendedNextAction: PreparedIntentPlanRecommendedNextAction;
+};
+
+export type PreparedIntentPlan = {
+  header: ArtifactHeader;
+  source: PreparedIntentPlanSource;
+  request: PreparedIntentPlanRequest;
+  status: PreparedIntentPlanStatusBlock;
+  phases: PreparedIntentPhase[];
+  obligations: PreparedIntentObligation[];
+  verificationRequirements: PreparedIntentVerificationRequirement[];
+  blockedReasons: PreparedIntentObligation[];
+};
+
+const PREPARED_INTENT_PLAN_STATUSES = new Set<string>([
+  "prepared",
+  "blocked",
+  "needs-review",
+  "stale-assessment",
+  "insufficient-assessment",
+]);
+
+const PREPARED_INTENT_NEXT_ACTIONS = new Set<string>([
+  "create-work-order",
+  "resolve-blockers",
+  "refresh-context",
+  "human-review",
+  "run-assessment",
+  "defer",
+]);
+
+const PREPARED_INTENT_PHASE_KINDS = new Set<string>([
+  "investigate",
+  "modify",
+  "refactor",
+  "verify",
+  "review",
+]);
+
+const PREPARED_INTENT_PHASE_STATUSES = new Set<string>([
+  "planned",
+  "blocked",
+  "needs-review",
+]);
+
+const PREPARED_INTENT_OBLIGATION_CATEGORIES = new Set<string>([
+  "capability-preservation",
+  "step-preservation",
+  "handoff-preservation",
+  "runtime-drift",
+  "finding-governance",
+  "freshness",
+  "verification",
+  "source-write-boundary",
+]);
+
+const PREPARED_INTENT_SEVERITIES = new Set<string>(["low", "medium", "high"]);
+
+const PREPARED_INTENT_SEVERITY_RANK: Record<string, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+const PREPARED_INTENT_SOURCE_OPTIONAL_FIELDS = [
+  "capabilityMapRef",
+  "capabilityContractRef",
+  "stepCapabilityGraphRef",
+  "handoffContractRef",
+  "handoffCoverageReportRef",
+  "runtimeGraphObservationReportRef",
+  "runtimeGraphDriftReportRef",
+  "findingReportRef",
+  "pathFreshnessReportRef",
+  "verificationResultRef",
+] as const;
+
+const PREPARED_INTENT_SCOPE_FIELDS = ["paths", "systems", "capabilities", "steps"] as const;
+
+function preparedIntentSortedStrings(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const set = new Set<string>();
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0) set.add(value);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function preparedIntentCompactStrings(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0 && !seen.has(value)) {
+      seen.add(value);
+      out.push(value);
+    }
+  }
+  return out;
+}
+
+function preparedIntentNormalizeObligations(values: unknown): PreparedIntentObligation[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const out: PreparedIntentObligation[] = [];
+  for (const raw of values) {
+    if (!isRecord(raw)) continue;
+    const id = raw.id;
+    if (typeof id !== "string" || id.length === 0 || seen.has(id)) continue;
+    seen.add(id);
+    const obligation: PreparedIntentObligation = {
+      id,
+      category: raw.category as PreparedIntentObligationCategory,
+      severity: raw.severity as PreparedIntentSeverity,
+      message: typeof raw.message === "string" ? raw.message : "",
+    };
+    if (Array.isArray(raw.sourceRefs) && raw.sourceRefs.length > 0) {
+      obligation.sourceRefs = normalizeRefs(raw.sourceRefs as ArtifactRef[]);
+    }
+    out.push(obligation);
+  }
+  out.sort((a, b) => {
+    const ra = PREPARED_INTENT_SEVERITY_RANK[a.severity] ?? 9;
+    const rb = PREPARED_INTENT_SEVERITY_RANK[b.severity] ?? 9;
+    if (ra !== rb) return ra - rb;
+    if (a.category !== b.category) return a.category.localeCompare(b.category);
+    return a.id.localeCompare(b.id);
+  });
+  return out;
+}
+
+function preparedIntentNormalizePhases(values: unknown): PreparedIntentPhase[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const out: PreparedIntentPhase[] = [];
+  for (const raw of values) {
+    if (!isRecord(raw)) continue;
+    const id = raw.id;
+    if (typeof id !== "string" || id.length === 0 || seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      title: typeof raw.title === "string" ? raw.title : "",
+      kind: raw.kind as PreparedIntentPhaseKind,
+      status: raw.status as PreparedIntentPhaseStatus,
+      goal: typeof raw.goal === "string" ? raw.goal : "",
+      paths: preparedIntentSortedStrings(raw.paths),
+      systems: preparedIntentSortedStrings(raw.systems),
+      capabilities: preparedIntentSortedStrings(raw.capabilities),
+      steps: preparedIntentSortedStrings(raw.steps),
+      constraints: preparedIntentCompactStrings(raw.constraints),
+      obligations: preparedIntentCompactStrings(raw.obligations),
+      verificationRequirements: preparedIntentCompactStrings(raw.verificationRequirements),
+      sourceRefs: normalizeRefs(Array.isArray(raw.sourceRefs) ? (raw.sourceRefs as ArtifactRef[]) : []),
+    });
+  }
+  out.sort((a, b) => a.id.localeCompare(b.id));
+  return out;
+}
+
+function preparedIntentNormalizeVerificationRequirements(values: unknown): PreparedIntentVerificationRequirement[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const out: PreparedIntentVerificationRequirement[] = [];
+  for (const raw of values) {
+    if (!isRecord(raw)) continue;
+    const id = raw.id;
+    if (typeof id !== "string" || id.length === 0 || seen.has(id)) continue;
+    seen.add(id);
+    const requirement: PreparedIntentVerificationRequirement = {
+      id,
+      reason: typeof raw.reason === "string" ? raw.reason : "",
+    };
+    if (typeof raw.command === "string" && raw.command.length > 0) requirement.command = raw.command;
+    if (Array.isArray(raw.sourceRefs) && raw.sourceRefs.length > 0) {
+      requirement.sourceRefs = normalizeRefs(raw.sourceRefs as ArtifactRef[]);
+    }
+    out.push(requirement);
+  }
+  out.sort((a, b) => a.id.localeCompare(b.id));
+  return out;
+}
+
+export function createPreparedIntentPlan(input: PreparedIntentPlan): PreparedIntentPlan {
+  const source: PreparedIntentPlanSource = {
+    intentAssessmentReportRef: assertArtifactRef(input.source?.intentAssessmentReportRef),
+  };
+  for (const field of PREPARED_INTENT_SOURCE_OPTIONAL_FIELDS) {
+    const ref = input.source?.[field];
+    if (ref) source[field] = assertArtifactRef(ref);
+  }
+
+  const rawRequest = isRecord(input.request) ? (input.request as PreparedIntentPlanRequest) : ({} as PreparedIntentPlanRequest);
+  const request: PreparedIntentPlanRequest = {
+    goal: typeof rawRequest.goal === "string" ? rawRequest.goal : "",
+    kind: typeof rawRequest.kind === "string" ? rawRequest.kind : "",
+  };
+  if (isRecord(rawRequest.scope)) {
+    const scope: NonNullable<PreparedIntentPlanRequest["scope"]> = {};
+    for (const field of PREPARED_INTENT_SCOPE_FIELDS) {
+      const list = preparedIntentSortedStrings((rawRequest.scope as Record<string, unknown>)[field]);
+      if (list.length > 0) scope[field] = list;
+    }
+    if (Object.keys(scope).length > 0) request.scope = scope;
+  }
+
+  const rawStatus = isRecord(input.status) ? (input.status as PreparedIntentPlanStatusBlock) : ({} as PreparedIntentPlanStatusBlock);
+  const status: PreparedIntentPlanStatusBlock = {
+    value: rawStatus.value,
+    recommendedNextAction: rawStatus.recommendedNextAction,
+  };
+
+  return assertPreparedIntentPlan({
+    header: input.header,
+    source,
+    request,
+    status,
+    phases: preparedIntentNormalizePhases(input.phases),
+    obligations: preparedIntentNormalizeObligations(input.obligations),
+    verificationRequirements: preparedIntentNormalizeVerificationRequirements(input.verificationRequirements),
+    blockedReasons: preparedIntentNormalizeObligations(input.blockedReasons),
+  });
+}
+
+function validatePreparedIntentObligation(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate entry id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.category !== "string" || !PREPARED_INTENT_OBLIGATION_CATEGORIES.has(value.category)) {
+    issues.push({ path: `${path}.category`, message: "Expected a valid obligation category." });
+  }
+  if (typeof value.severity !== "string" || !PREPARED_INTENT_SEVERITIES.has(value.severity)) {
+    issues.push({ path: `${path}.severity`, message: "Expected one of low, medium, high." });
+  }
+  if (typeof value.message !== "string" || value.message.length === 0) {
+    issues.push({ path: `${path}.message`, message: "Expected a non-empty string." });
+  }
+  if (value.sourceRefs !== undefined) {
+    if (!Array.isArray(value.sourceRefs)) {
+      issues.push({ path: `${path}.sourceRefs`, message: "Expected an array." });
+    } else {
+      value.sourceRefs.forEach((ref, index) => {
+        const result = validateArtifactRef(ref);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.sourceRefs[${index}]`));
+      });
+    }
+  }
+}
+
+function validatePreparedIntentStringArray(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || item.length === 0) {
+      issues.push({ path: `${path}[${index}]`, message: "Expected a non-empty string." });
+    }
+  });
+}
+
+function validatePreparedIntentPhase(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate phase id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.title !== "string" || value.title.length === 0) {
+    issues.push({ path: `${path}.title`, message: "Expected a non-empty string." });
+  }
+  if (typeof value.kind !== "string" || !PREPARED_INTENT_PHASE_KINDS.has(value.kind)) {
+    issues.push({ path: `${path}.kind`, message: "Expected one of investigate, modify, refactor, verify, review." });
+  }
+  if (typeof value.status !== "string" || !PREPARED_INTENT_PHASE_STATUSES.has(value.status)) {
+    issues.push({ path: `${path}.status`, message: "Expected one of planned, blocked, needs-review." });
+  }
+  if (typeof value.goal !== "string" || value.goal.length === 0) {
+    issues.push({ path: `${path}.goal`, message: "Expected a non-empty string." });
+  }
+  for (const field of ["paths", "systems", "capabilities", "steps", "constraints", "obligations", "verificationRequirements"] as const) {
+    validatePreparedIntentStringArray(value[field], `${path}.${field}`, issues);
+  }
+  if (!Array.isArray(value.sourceRefs)) {
+    issues.push({ path: `${path}.sourceRefs`, message: "Expected an array." });
+  } else {
+    value.sourceRefs.forEach((ref, index) => {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.sourceRefs[${index}]`));
+    });
+  }
+}
+
+export function validatePreparedIntentPlan(value: unknown): ValidationResult<PreparedIntentPlan> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "PreparedIntentPlan", "$.header", issues);
+
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    const ref = (value.source as Record<string, unknown>).intentAssessmentReportRef;
+    if (ref === undefined) {
+      issues.push({ path: "$.source.intentAssessmentReportRef", message: "Expected an ArtifactRef." });
+    } else {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) issues.push(...prefixIssues(result.issues, "$.source.intentAssessmentReportRef"));
+    }
+    for (const field of PREPARED_INTENT_SOURCE_OPTIONAL_FIELDS) {
+      const optional = (value.source as Record<string, unknown>)[field];
+      if (optional !== undefined) {
+        const result = validateArtifactRef(optional);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+      }
+    }
+  }
+
+  if (!isRecord(value.request)) {
+    issues.push({ path: "$.request", message: "Expected an object." });
+  } else {
+    const request = value.request as Record<string, unknown>;
+    if (typeof request.goal !== "string" || request.goal.length === 0) {
+      issues.push({ path: "$.request.goal", message: "Expected a non-empty string." });
+    }
+    if (typeof request.kind !== "string" || request.kind.length === 0) {
+      issues.push({ path: "$.request.kind", message: "Expected a non-empty string." });
+    }
+    if (request.scope !== undefined) {
+      if (!isRecord(request.scope)) {
+        issues.push({ path: "$.request.scope", message: "Expected an object." });
+      } else {
+        for (const field of PREPARED_INTENT_SCOPE_FIELDS) {
+          const list = (request.scope as Record<string, unknown>)[field];
+          if (list !== undefined) validatePreparedIntentStringArray(list, `$.request.scope.${field}`, issues);
+        }
+      }
+    }
+  }
+
+  if (!isRecord(value.status)) {
+    issues.push({ path: "$.status", message: "Expected an object." });
+  } else {
+    const status = value.status as Record<string, unknown>;
+    if (typeof status.value !== "string" || !PREPARED_INTENT_PLAN_STATUSES.has(status.value)) {
+      issues.push({ path: "$.status.value", message: "Expected a valid prepared status." });
+    }
+    if (typeof status.recommendedNextAction !== "string" || !PREPARED_INTENT_NEXT_ACTIONS.has(status.recommendedNextAction)) {
+      issues.push({ path: "$.status.recommendedNextAction", message: "Expected a valid recommended next action." });
+    }
+  }
+
+  if (!Array.isArray(value.phases)) {
+    issues.push({ path: "$.phases", message: "Expected an array." });
+  } else {
+    const seenIds = new Set<string>();
+    value.phases.forEach((phase, index) => validatePreparedIntentPhase(phase, `$.phases[${index}]`, issues, seenIds));
+  }
+
+  for (const field of ["obligations", "blockedReasons"] as const) {
+    const list = (value as Record<string, unknown>)[field];
+    if (!Array.isArray(list)) {
+      issues.push({ path: `$.${field}`, message: "Expected an array." });
+    } else {
+      const seenIds = new Set<string>();
+      list.forEach((entry, index) => validatePreparedIntentObligation(entry, `$.${field}[${index}]`, issues, seenIds));
+    }
+  }
+
+  if (!Array.isArray(value.verificationRequirements)) {
+    issues.push({ path: "$.verificationRequirements", message: "Expected an array." });
+  } else {
+    const seenIds = new Set<string>();
+    value.verificationRequirements.forEach((requirement, index) => {
+      const path = `$.verificationRequirements[${index}]`;
+      if (!isRecord(requirement)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (typeof requirement.id !== "string" || requirement.id.length === 0) {
+        issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+      } else if (seenIds.has(requirement.id)) {
+        issues.push({ path: `${path}.id`, message: `Duplicate verification requirement id ${requirement.id}.` });
+      } else {
+        seenIds.add(requirement.id);
+      }
+      if (typeof requirement.reason !== "string" || requirement.reason.length === 0) {
+        issues.push({ path: `${path}.reason`, message: "Expected a non-empty string." });
+      }
+      if (requirement.command !== undefined && (typeof requirement.command !== "string" || requirement.command.length === 0)) {
+        issues.push({ path: `${path}.command`, message: "Expected a non-empty string." });
+      }
+      if (requirement.sourceRefs !== undefined) {
+        if (!Array.isArray(requirement.sourceRefs)) {
+          issues.push({ path: `${path}.sourceRefs`, message: "Expected an array." });
+        } else {
+          requirement.sourceRefs.forEach((ref, refIndex) => {
+            const result = validateArtifactRef(ref);
+            if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.sourceRefs[${refIndex}]`));
+          });
+        }
+      }
+    });
+  }
+
+  return validationResult(value as PreparedIntentPlan, issues);
+}
+
+export function assertPreparedIntentPlan(value: unknown): PreparedIntentPlan {
+  return assertValid(validatePreparedIntentPlan(value), "PreparedIntentPlan");
+}
+
+export const preparedIntentPlanSchema: ArtifactSchema<PreparedIntentPlan> = {
+  validate: validatePreparedIntentPlan,
+  parse: assertPreparedIntentPlan,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

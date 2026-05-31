@@ -2640,6 +2640,24 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- PreparedIntentPlan v1 (P1.1 prepared-intent-plan slice): **eighty-first
+  slice on the codebase-intel-classic capability-ontology track.
+  Product-capability batch.** Registers the PreparedIntentPlan artifact
+  (category `actions`) and a read-only phase/gate preparation generated from an
+  IntentAssessmentReport plus the latest context. New
+  `@rekon/capability-model.buildPreparedIntentPlan` + the `rekon intent
+  prepare` CLI + PreparedIntentPlan types/factory/validator/schema in
+  `@rekon/kernel-repo-model`. Prepared status prepared / blocked / needs-review
+  / stale-assessment / insufficient-assessment; phases investigate / modify /
+  refactor / verify / review; obligation categories capability-preservation /
+  step-preservation / handoff-preservation / runtime-drift / finding-governance
+  / freshness / verification / source-write-boundary. Phase/gate preparation,
+  not WorkOrder; creates no WorkOrder / VerificationPlan; executes nothing;
+  writes no source; verification requirements are not VerificationPlan;
+  IntentStatusReport next; intent:go deferred; source-write behavior remains
+  unavailable. 29-assertion contract test + 12-assertion docs test + review
+  packet. No version bump; no npm publish. Recommended next slice:
+  PreparedIntentPlan safety review.
 - PreparedIntentPlan v1 decision (P1.1 prepared-intent-plan-v1-decision
   slice): **eightieth slice on the codebase-intel-classic capability-ontology
   track. Strategy / architecture decision batch.** Decides the v1 shape of

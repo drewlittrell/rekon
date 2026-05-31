@@ -75,6 +75,9 @@ import modelCapability, {
   RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH,
   RUNTIME_GRAPH_DRIFT_REPORT_ARTIFACT_ID_PREFIX,
   INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX,
+  PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX,
+  buildPreparedIntentPlan,
+  type PreparedIntentAssessmentReportLike,
   type HandoffCoverageContractLike,
   type RuntimeGraphDriftStepGraphLike,
   type RuntimeGraphDriftHandoffContractLike,
@@ -161,6 +164,7 @@ import {
   type IntentAssessmentRequest,
   type IntentAssessmentIntentKind,
   type IntentAssessmentScope,
+  type PreparedIntentPlan,
   type ObservedRepo,
   type OwnershipMap,
   type StepCapabilityGraph,
@@ -3855,6 +3859,141 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Missing context: ${report.missingContext.length}`);
       lines.push("");
       lines.push(`Report: ${ref.type}:${ref.id}`);
+      lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "prepare") {
+    // `rekon intent prepare --assessment <IntentAssessmentReport:id|type:id>
+    // [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>]
+    // [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>]
+    // [--runtime-drift-report <ref>] [--path-freshness-report <ref>]
+    // [--verification-result <ref>]` — PreparedIntentPlan v1.
+    //
+    // A read-only phase/gate preparation generated from an IntentAssessmentReport
+    // plus the latest available context. This is phase/gate preparation, NOT
+    // WorkOrder. It creates no WorkOrder / VerificationPlan, executes no
+    // commands, writes no source, and mutates nothing. Verification requirements
+    // are not VerificationPlan. IntentStatusReport remains the next layer;
+    // intent:go remains deferred; source-write behavior remains unavailable.
+    // See docs/artifacts/prepared-intent-plan.md.
+    const assessmentFlag = typeof parsed.flags.assessment === "string" ? parsed.flags.assessment.trim() : "";
+    if (assessmentFlag.length === 0) {
+      throw new Error("rekon intent prepare requires --assessment <IntentAssessmentReport:id|type:id>.");
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const assessmentEntry = await findArtifactEntry(store, assessmentFlag);
+    if (assessmentEntry.type !== "IntentAssessmentReport") {
+      throw new Error(`rekon intent prepare --assessment must reference an IntentAssessmentReport; got ${assessmentEntry.type}.`);
+    }
+    const assessmentValue = (await store.read(assessmentEntry)) as PreparedIntentAssessmentReportLike;
+    const assessmentRef: ArtifactRef = {
+      type: assessmentEntry.type,
+      id: assessmentEntry.id,
+      path: assessmentEntry.path,
+      digest: assessmentEntry.digest,
+      schemaVersion: assessmentEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const resolveRef = async (flagName: string, type: string): Promise<ArtifactRef | undefined> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon intent prepare --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        const entries = await store.list(type);
+        entry = entries.at(-1);
+      }
+      if (!entry) return undefined;
+      return {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+    };
+
+    const capabilityMapRef = await resolveRef("capability-map", "CapabilityMap");
+    const capabilityContractRef = await resolveRef("capability-contract", "CapabilityContract");
+    const stepGraphRef = await resolveRef("step-graph", "StepCapabilityGraph");
+    const handoffCoverageRef = await resolveRef("handoff-coverage-report", "HandoffCoverageReport");
+    const observationRef = await resolveRef("runtime-observation-report", "RuntimeGraphObservationReport");
+    const driftRef = await resolveRef("runtime-drift-report", "RuntimeGraphDriftReport");
+    const freshnessRef = await resolveRef("path-freshness-report", "PathFreshnessReport");
+    const proofRef = await resolveRef("verification-result", "VerificationResult");
+
+    const inputRefs = [
+      assessmentRef,
+      capabilityMapRef,
+      capabilityContractRef,
+      stepGraphRef,
+      handoffCoverageRef,
+      observationRef,
+      driftRef,
+      freshnessRef,
+      proofRef,
+    ].filter((ref): ref is ArtifactRef => !!ref);
+
+    const header: ArtifactHeader = {
+      artifactType: "PreparedIntentPlan",
+      artifactId: `${PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.intent-prepare", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.7 },
+    };
+
+    const plan: PreparedIntentPlan = buildPreparedIntentPlan({
+      header,
+      intentAssessmentReport: assessmentValue,
+      intentAssessmentReportRef: assessmentRef,
+      capabilityMapRef,
+      capabilityContractRef,
+      stepCapabilityGraphRef: stepGraphRef,
+      handoffCoverageReportRef: handoffCoverageRef,
+      runtimeGraphObservationReportRef: observationRef,
+      runtimeGraphDriftReportRef: driftRef,
+      pathFreshnessReportRef: freshnessRef,
+      verificationResultRef: proofRef,
+    });
+
+    const ref = await store.write(plan, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          artifact: { type: ref.type, id: ref.id },
+          status: { value: plan.status.value, recommendedNextAction: plan.status.recommendedNextAction },
+          phases: plan.phases.length,
+          obligations: plan.obligations.length,
+          verificationRequirements: plan.verificationRequirements.length,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Prepared intent plan");
+      lines.push("");
+      lines.push(`Goal: ${plan.request.goal}`);
+      lines.push(`Status: ${plan.status.value}`);
+      lines.push(`Recommended next action: ${plan.status.recommendedNextAction}`);
+      lines.push(`Phases: ${plan.phases.length}`);
+      lines.push(`Obligations: ${plan.obligations.length}`);
+      lines.push(`Verification requirements: ${plan.verificationRequirements.length}`);
+      lines.push("");
+      lines.push(`Plan: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
       writeOutput(lines.join("\n"), false);
     }

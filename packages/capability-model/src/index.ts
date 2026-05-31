@@ -132,6 +132,19 @@ export {
   buildIntentAssessmentReport,
 } from "./intent-assessment-report.js";
 
+export {
+  type BuildPreparedIntentPlanInput,
+  type PreparedIntentAssessmentReportLike,
+  type PreparedIntentCapabilityMapLike,
+  type PreparedIntentHandoffCoverageReportLike,
+  type PreparedIntentPathFreshnessReportLike,
+  type PreparedIntentRuntimeDriftReportLike,
+  type PreparedIntentStepGraphLike,
+  type PreparedIntentVerificationResultLike,
+  PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX,
+  buildPreparedIntentPlan,
+} from "./prepared-intent-plan.js";
+
 type EvidenceGraphLike = {
   header: ArtifactHeader;
   facts: Array<{

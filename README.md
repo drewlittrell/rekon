@@ -1103,6 +1103,25 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# PreparedIntentPlan v1 has shipped. Eighty-first slice on the
+# codebase-intel-classic capability-ontology track. Product-capability batch.
+# Registers the PreparedIntentPlan artifact (category actions) and a read-only
+# phase/gate preparation via `rekon intent prepare`.
+#   - Generated from an IntentAssessmentReport plus the latest context
+#     (CapabilityMap, StepCapabilityGraph, HandoffCoverageReport,
+#     RuntimeGraphDriftReport, PathFreshnessReport, VerificationResult).
+#   - Prepared status: prepared / blocked / needs-review / stale-assessment /
+#     insufficient-assessment.
+#   - PreparedIntentPlan is phase/gate preparation, not WorkOrder.
+#   - It does not create WorkOrder or VerificationPlan.
+#   - It does not execute commands.
+#   - It does not write source files.
+#   - Verification requirements are not VerificationPlan.
+#   - IntentStatusReport remains the next layer; intent:go remains deferred;
+#     source-write behavior remains unavailable.
+#
+# Recommended next slice: PreparedIntentPlan safety review.
+#
 # PreparedIntentPlan v1 decision has shipped. Eightieth slice on the
 # codebase-intel-classic capability-ontology track. Strategy / architecture
 # decision batch. Decides the v1 shape of PreparedIntentPlan, the layer after
