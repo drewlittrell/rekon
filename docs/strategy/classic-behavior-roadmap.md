@@ -6256,6 +6256,22 @@ scope:
   (parity audit) selects the
   **JS/TS AST Evidence Adapter
   Decision** as the next slice.
+- **PreparedIntentPlan Approval / Proof Model Decision (P1.1
+  prepared-intent-plan-approval-proof-decision slice).** ✅ Shipped.
+  Eighty-second slice. Amends the PreparedIntentPlan architecture to require an
+  approval/proof envelope before a plan is prepared. **Recommendation: Option
+  B.** PreparedIntentPlan.status.value can be prepared only when approval.status
+  is approved; a plan with phases but without approval is not prepared. Approval
+  cites the IntentAssessmentReport + records readiness / runtime-drift /
+  handoff-coverage / freshness / verification / plan-structure proof. Pinned:
+  proof-approved, not merely generated; verification requirements are proof
+  obligations, not VerificationPlan; no WorkOrder / VerificationPlan creation;
+  no execution; no source writes; intent:go deferred. Classic required
+  proof/authorization before plan approval (PlanIntakeSufficiency, itoReadiness,
+  judge-run, ito.criteria); Rekon preserves that proof-before-plan discipline
+  and improves it with the graph spine. The shipped v1 implementation (decc93c)
+  must be amended. Next: PreparedIntentPlan v1 implementation, amended with the
+  approval/proof envelope.
 - **PreparedIntentPlan v1 (P1.1 prepared-intent-plan slice).** ✅ Shipped.
   Eighty-first slice. Registers `PreparedIntentPlan` (category `actions`) +
   `buildPreparedIntentPlan` (`@rekon/capability-model`) + `rekon intent

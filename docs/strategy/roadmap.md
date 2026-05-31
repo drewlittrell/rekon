@@ -2640,6 +2640,25 @@ is the first stop before proposing a new capability batch.
   it is the regex-only JS/TS
   extraction layer, not vocabulary
   or splitter precision.
+- PreparedIntentPlan Approval / Proof Model Decision (P1.1
+  prepared-intent-plan-approval-proof-decision slice): **eighty-second slice on
+  the codebase-intel-classic capability-ontology track. Strategy / architecture
+  decision batch.** Amends the PreparedIntentPlan architecture so a plan cannot
+  be prepared without an explicit approval/proof envelope. **Recommendation:
+  Option B — required approval/proof envelope.** PreparedIntentPlan.status.value
+  can be prepared only when approval.status is approved; a plan with phases but
+  without approval is not prepared. Approval cites the IntentAssessmentReport
+  and records readiness / runtime-drift / handoff-coverage / freshness /
+  verification / plan-structure / source-write-boundary proof. Rejected:
+  keep-prior-shape (A), approval-only-in-assessment (C), defer-to-WorkOrder (D),
+  defer-to-VerificationPlan (E). Pinned: proof-approved, not merely generated;
+  verification requirements are proof obligations, not VerificationPlan; creates
+  no WorkOrder / VerificationPlan; executes nothing; writes no source; intent:go
+  deferred. The shipped PreparedIntentPlan v1 (decc93c) must be amended to add
+  the envelope. 16-heading memo + 4 tables + 17-assertion docs test + review
+  packet. No source changes; no schema changes; no version bump; no npm publish.
+  Recommended next slice: PreparedIntentPlan v1 implementation, amended with the
+  approval/proof envelope.
 - PreparedIntentPlan v1 (P1.1 prepared-intent-plan slice): **eighty-first
   slice on the codebase-intel-classic capability-ontology track.
   Product-capability batch.** Registers the PreparedIntentPlan artifact

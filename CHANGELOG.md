@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped the **PreparedIntentPlan Approval / Proof Model Decision** —
+  eighty-second slice on the codebase-intel-classic capability-ontology track.
+  Strategy / architecture decision batch. Amends the `PreparedIntentPlan`
+  architecture so a plan cannot be prepared without an explicit approval/proof
+  envelope. **Recommendation: Option B — a required approval/proof envelope.**
+  `PreparedIntentPlan.status.value` can be prepared only when
+  `approval.status` is approved; a plan with phases but without approval is not
+  prepared. Approval cites the `IntentAssessmentReport` and records readiness,
+  runtime-drift, handoff-coverage, freshness, verification, plan-structure, and
+  source-write-boundary proof. Pinned: PreparedIntentPlan must be proof-approved,
+  not merely generated; verification requirements are proof obligations, not
+  `VerificationPlan`; it does not create `WorkOrder` / `VerificationPlan`,
+  execute commands, or write source; intent:go remains deferred. Classic
+  required proof/authorization before plan approval; Rekon preserves that
+  proof-before-plan discipline and improves it with the graph spine. The shipped
+  PreparedIntentPlan v1 implementation (`decc93c`) must be amended to add this
+  envelope before it is treated as a proof-bearing preparation layer. New
+  `docs/strategy/prepared-intent-plan-approval-proof-decision.md` (16 headings
+  + 4 tables) + 17-assertion docs test + review packet. No source changes; no
+  schema changes; no version bump; no npm publish. Recommended next slice:
+  PreparedIntentPlan v1 implementation, amended with the approval/proof envelope.
 - Shipped **PreparedIntentPlan v1** — eighty-first slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch.
   Registers the `PreparedIntentPlan` artifact type (category `actions`) and a

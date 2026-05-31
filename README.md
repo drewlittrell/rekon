@@ -1103,6 +1103,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# PreparedIntentPlan Approval / Proof Model Decision has shipped.
+# Eighty-second slice on the codebase-intel-classic capability-ontology track.
+# Strategy / architecture decision batch. Amends the PreparedIntentPlan
+# architecture so a plan cannot be prepared without an explicit approval/proof
+# envelope.
+#   - Recommendation: Option B, a required approval/proof envelope.
+#   - PreparedIntentPlan must be proof-approved, not merely generated.
+#   - PreparedIntentPlan.status.value can be prepared only when approval.status
+#     is approved.
+#   - A plan with phases but without approval is not prepared.
+#   - Verification requirements are proof obligations, not VerificationPlan.
+#   - PreparedIntentPlan does not create WorkOrder or VerificationPlan.
+#   - PreparedIntentPlan does not execute commands.
+#   - PreparedIntentPlan does not write source files.
+#   - intent:go remains deferred. The shipped v1 implementation must be amended
+#     to add the envelope.
+#
+# Recommended next slice: PreparedIntentPlan v1 implementation, amended with the
+# approval/proof envelope.
+#
 # PreparedIntentPlan v1 has shipped. Eighty-first slice on the
 # codebase-intel-classic capability-ontology track. Product-capability batch.
 # Registers the PreparedIntentPlan artifact (category actions) and a read-only
