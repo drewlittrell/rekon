@@ -235,6 +235,9 @@ cross-reference / pointer updates to existing docs.
   [V1 Migration Notes](../releases/v1-migration-notes.md),
   [V1 Release Checklist](../releases/v1-release-checklist.md) — were drafted under
   `docs/releases/`; packages remain at `0.1.0-beta.0` (no version bump / tag / publish).**
+  **Then shipped (slice 108): the lockstep version bump was executed — all 21 public
+  packages and the private root are now at `1.0.0` (no tag / publish). See
+  [V1 Versioning Implementation](./v1-versioning-implementation.md).**
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.

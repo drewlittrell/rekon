@@ -81,3 +81,12 @@ Do not proceed to a version bump, tag, or publish if any of the following hold:
 - npm publish: requires explicit publish approval and a separate publish slice after the
   before-publish gates pass. **No npm publish occurs in this prep slice. No version bump
   occurs in this prep slice.**
+
+## Update — V1 Versioning (slice 108)
+
+The version bump has since been executed by **V1 Versioning Implementation** (slice 108):
+all 21 public packages and the private root are now at **`1.0.0`** (lockstep; internal
+`@rekon/*` pins and `package-lock.json` updated to match). **No git tag occurred and no npm
+publish occurred** in that slice — those remain separate, explicitly-approved slices. The
+"prep slice" statements above are retained as the historical record of the prep step. See
+[V1 Versioning Implementation](../strategy/v1-versioning-implementation.md).

@@ -7,9 +7,9 @@ import test from "node:test";
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const packagesDir = join(repoRoot, "packages");
 
-const EXPECTED_VERSION = "0.1.0-beta.0";
+const EXPECTED_VERSION = "1.0.0";
 
-test("workspace and every package declare version 0.1.0-beta.0", async () => {
+test("workspace and every package declare version 1.0.0", async () => {
   const rootPkg = JSON.parse(
     await readFile(join(repoRoot, "package.json"), "utf8"),
   );

@@ -253,7 +253,9 @@ existing docs.
    `0.1.0-beta.0` — no version bump, tag, or publish occurred.**
 2. **V1 Versioning** (explicit, later): bump all 21 public packages lockstep to the approved
    target (`1.0.0`) once the before-version-bump gates pass — the only slice that edits
-   package versions.
+   package versions. **Shipped (slice 108): all 21 public packages + the private root are now
+   at `1.0.0` (internal `@rekon/*` pins + `package-lock.json` updated); no tag, no publish.
+   See [V1 Versioning Implementation](./v1-versioning-implementation.md).**
 3. **V1 Tag** (explicit, later): cut the V1 tag from the version-bump commit once the
    before-tag gates pass.
 4. **V1 Publish** (explicit, approval-gated, later): npm publish from the tagged commit once

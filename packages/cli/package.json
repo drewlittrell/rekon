@@ -1,6 +1,6 @@
 {
   "name": "@rekon/cli",
-  "version": "0.1.0-beta.0",
+  "version": "1.0.0",
   "description": "Rekon command line interface.",
   "license": "Apache-2.0",
   "type": "module",
@@ -21,21 +21,21 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/capability-docs": "0.1.0-beta.0",
-    "@rekon/capability-graph": "0.1.0-beta.0",
-    "@rekon/capability-intent": "0.1.0-beta.0",
-    "@rekon/capability-js-ts": "0.1.0-beta.0",
-    "@rekon/capability-memory": "0.1.0-beta.0",
-    "@rekon/capability-ontology": "0.1.0-beta.0",
-    "@rekon/capability-model": "0.1.0-beta.0",
-    "@rekon/capability-policy": "0.1.0-beta.0",
-    "@rekon/capability-reconcile": "0.1.0-beta.0",
-    "@rekon/capability-resolver": "0.1.0-beta.0",
-    "@rekon/capability-verify": "0.1.0-beta.0",
-    "@rekon/kernel-artifacts": "0.1.0-beta.0",
-    "@rekon/kernel-findings": "0.1.0-beta.0",
-    "@rekon/kernel-repo-model": "0.1.0-beta.0",
-    "@rekon/runtime": "0.1.0-beta.0",
-    "@rekon/sdk": "0.1.0-beta.0"
+    "@rekon/capability-docs": "1.0.0",
+    "@rekon/capability-graph": "1.0.0",
+    "@rekon/capability-intent": "1.0.0",
+    "@rekon/capability-js-ts": "1.0.0",
+    "@rekon/capability-memory": "1.0.0",
+    "@rekon/capability-ontology": "1.0.0",
+    "@rekon/capability-model": "1.0.0",
+    "@rekon/capability-policy": "1.0.0",
+    "@rekon/capability-reconcile": "1.0.0",
+    "@rekon/capability-resolver": "1.0.0",
+    "@rekon/capability-verify": "1.0.0",
+    "@rekon/kernel-artifacts": "1.0.0",
+    "@rekon/kernel-findings": "1.0.0",
+    "@rekon/kernel-repo-model": "1.0.0",
+    "@rekon/runtime": "1.0.0",
+    "@rekon/sdk": "1.0.0"
   }
 }

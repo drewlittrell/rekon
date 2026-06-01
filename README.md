@@ -1103,6 +1103,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# V1 Versioning has shipped.
+# One-hundred-eighth slice on the codebase-intel-classic capability-ontology track.
+# Release-mechanics product batch. The lockstep version bump for V1.
+#   - All 21 public workspace packages and the private root rekon move from
+#     0.1.0-beta.0 to 1.0.0 (lockstep).
+#   - Every internal @rekon/* exact-version dependency pin updated to 1.0.0;
+#     package-lock.json regenerated (no dependencies added or removed).
+#   - Root aligned (still private: true) per the release-readiness coherence
+#     convention; no package excluded.
+#   - Lockstep enforced by tests/docs/release-readiness.test.mjs
+#     (EXPECTED_VERSION = "1.0.0") + new tests/docs/v1-versioning.test.mjs.
+#   - No git tag and no npm publish occurred — those remain separate, explicitly
+#     approved slices. V1 remains prepare/prove/package/export; intent:go deferred.
+#
+# See docs/strategy/v1-versioning-implementation.md.
+# Recommended next slice: V1 Tagging Decision / Implementation.
+#
 # V1 Release Prep has shipped.
 # One-hundred-seventh slice on the codebase-intel-classic capability-ontology track.
 # Release-prep documentation batch. No runtime or package-metadata change.

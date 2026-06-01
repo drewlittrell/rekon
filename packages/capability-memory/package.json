@@ -1,6 +1,6 @@
 {
   "name": "@rekon/capability-memory",
-  "version": "0.1.0-beta.0",
+  "version": "1.0.0",
   "description": "Built-in Rekon memory learner and resolver-enrichment capability.",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,10 +18,10 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/kernel-artifacts": "0.1.0-beta.0",
-    "@rekon/sdk": "0.1.0-beta.0"
+    "@rekon/kernel-artifacts": "1.0.0",
+    "@rekon/sdk": "1.0.0"
   },
   "devDependencies": {
-    "@rekon/runtime": "0.1.0-beta.0"
+    "@rekon/runtime": "1.0.0"
   }
 }

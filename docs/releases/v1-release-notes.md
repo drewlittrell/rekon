@@ -90,6 +90,12 @@ slice every package is at `0.1.0-beta.0`; the private workspace root `rekon` is 
 container and is not published. The intended release target is `1.0.0` applied lockstep,
 deferred to an explicit versioning slice.
 
+> Updated (slice 108): the lockstep version bump has been executed — all 21 public packages
+> and the private root are now at **`1.0.0`** (internal `@rekon/*` pins and
+> `package-lock.json` updated to match). No git tag and no npm publish occurred; those remain
+> separate, explicitly-approved slices. See
+> [V1 Versioning Implementation](../strategy/v1-versioning-implementation.md).
+
 ## Verification Gates
 
 The standard nine-command gate must pass before any release action:

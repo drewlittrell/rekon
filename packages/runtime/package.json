@@ -1,6 +1,6 @@
 {
   "name": "@rekon/runtime",
-  "version": "0.1.0-beta.0",
+  "version": "1.0.0",
   "description": "Local Rekon runtime for loading capabilities and writing typed artifacts.",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,11 +18,11 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/kernel-artifacts": "0.1.0-beta.0",
-    "@rekon/kernel-evidence": "0.1.0-beta.0",
-    "@rekon/kernel-findings": "0.1.0-beta.0",
-    "@rekon/kernel-repo-model": "0.1.0-beta.0",
-    "@rekon/kernel-snapshot": "0.1.0-beta.0",
-    "@rekon/sdk": "0.1.0-beta.0"
+    "@rekon/kernel-artifacts": "1.0.0",
+    "@rekon/kernel-evidence": "1.0.0",
+    "@rekon/kernel-findings": "1.0.0",
+    "@rekon/kernel-repo-model": "1.0.0",
+    "@rekon/kernel-snapshot": "1.0.0",
+    "@rekon/sdk": "1.0.0"
   }
 }

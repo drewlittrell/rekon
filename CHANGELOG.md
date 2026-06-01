@@ -2,6 +2,28 @@
 
 All notable changes to Rekon will be documented in this file.
 
+## 1.0.0
+
+- Shipped **V1 Versioning** (V1 Versioning Implementation) — one-hundred-eighth slice on the
+  codebase-intel-classic capability-ontology track. Release-mechanics product batch
+  executing the staged lockstep version bump decided by V1 Release Mechanics / Versioning
+  Decision: all 21 public workspace packages — and the private workspace root `rekon` — move
+  from `0.1.0-beta.0` to **`1.0.0`**, with every internal `@rekon/*` exact-version dependency
+  pin updated `0.1.0-beta.0` → `1.0.0` and `package-lock.json` regenerated to match (`npm
+  install` reported "up to date" — no dependencies added or removed). Versioning is
+  **lockstep**; no package is excluded; root is aligned (still `private: true`, not
+  published) because the release-readiness coherence test asserts the root tracks the
+  workspace version. Internal dependencies were reviewed and confirmed pinned to exact
+  versions (not `workspace:*`), so the pins moved with the bump; no external dependency range
+  changed. Lockstep is enforced by `tests/docs/release-readiness.test.mjs`
+  (`EXPECTED_VERSION = "1.0.0"`) plus a new `tests/docs/v1-versioning.test.mjs` (10
+  assertions). **No git tag occurs in this slice. No npm publish occurs in this slice.** V1
+  remains prepare/prove/package/export, not Rekon-side execution; Circe owns orchestration;
+  `intent:go` remains deferred; Rekon does not execute commands or write source files;
+  VerificationRun / VerificationResult generation remain deferred. New
+  `docs/strategy/v1-versioning-implementation.md` (9 sections) + review packet; supporting
+  doc updates. No runtime behavior change; no tag; no publish.
+
 ## 0.1.0-beta.0
 
 - Prepared **V1 Release Prep** (V1 Release Prep Implementation) — one-hundred-seventh slice
