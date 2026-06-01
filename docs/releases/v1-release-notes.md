@@ -128,3 +128,12 @@ if needed and creates the first repository intelligence substrate; docs / agent-
 verification / CI options are offered only after the first scan. `refresh` is retained as an
 expert / compatibility alias. This is a vocabulary / UX decision only — **no `rekon scan`
 implementation, no CLI behavior change, no version bump, no npm publish.**
+
+## Update — First-Run Scan Implemented (slice 111)
+
+`rekon scan` is now **implemented** (Rekon First-Run Scan Implementation): the canonical
+first-run command `rekon scan [--root <path>] [--json]` initializes `.rekon/` if needed and
+creates the first repository intelligence substrate (sharing the existing `refresh` pipeline),
+then reports the workspace state and post-scan next actions. `scan --json` carries boundary
+booleans and emits no ASCII art. `refresh` is unchanged and retained as the expert /
+compatibility update command. **No version bump and no npm publish occurred.**

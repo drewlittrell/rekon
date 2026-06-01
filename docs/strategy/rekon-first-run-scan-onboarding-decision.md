@@ -302,8 +302,8 @@ intelligence; canonical truth remains `.rekon/artifacts/`.
 1. Write this decision memo, its docs test, the review packet, and additive doc pointers.
 2. Run the full nine-command verification gate (no CLI smoke — decision-only batch).
 3. Commit the docs/test/review-packet changes, fast-forward `main`, and push.
-4. **Rekon First-Run Scan Implementation** (recommended next): implement `rekon scan` as the
-   canonical first-run command — initialize `.rekon/` if needed, run the first repository
+4. **Rekon First-Run Scan Implementation** (**shipped, slice 111**): implement `rekon scan` as
+   the canonical first-run command — initialize `.rekon/` if needed, run the first repository
    scan, create the first intelligence substrate, and show post-scan next actions. Still no
    docs / agent / CI prompts before scan; still no source writes beyond `.rekon/` operational
    state; still no `intent:go`.

@@ -317,6 +317,116 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "scan") {
+    // `rekon scan [--root <path>] [--json]` — the canonical first-run command
+    // (Rekon First-Run Scan / Install Onboarding Decision, 2524df6). scan
+    // initializes `.rekon/` if needed and runs the shared refresh/scan substrate
+    // pipeline (`runRefresh` performs init + default config in its first step),
+    // then reports the workspace state and post-scan next actions. scan does NOT
+    // prompt, does NOT offer docs/agent/CI/verification generation before the
+    // first scan, does NOT execute commands, and writes nothing outside
+    // `.rekon/`. `refresh` remains the expert / compatibility verb that shares
+    // this same pipeline; scan changes no refresh semantics.
+    type RekonWorkspaceState =
+      | "not_initialized"
+      | "initialized_without_snapshot"
+      | "snapshot_ready";
+
+    const dotRekon = resolve(root, ".rekon");
+    let initializedBefore = true;
+    try {
+      await access(dotRekon);
+    } catch {
+      initializedBefore = false;
+    }
+
+    const detectSnapshotReady = async (): Promise<boolean> => {
+      try {
+        const store = createLocalArtifactStore(root);
+        await store.init();
+        const snapshots = await store.list("IntelligenceSnapshot");
+        return snapshots.length > 0;
+      } catch {
+        return false;
+      }
+    };
+
+    const stateBefore: RekonWorkspaceState = !initializedBefore
+      ? "not_initialized"
+      : (await detectSnapshotReady())
+        ? "snapshot_ready"
+        : "initialized_without_snapshot";
+
+    // Run the shared substrate pipeline — identical to `rekon refresh` with no
+    // skips, so scan produces the same substrate refresh produces.
+    const refresh = await runRefresh(root, {});
+
+    const snapshotReady = await detectSnapshotReady();
+    const stateAfter: RekonWorkspaceState = snapshotReady
+      ? "snapshot_ready"
+      : "initialized_without_snapshot";
+
+    const firstScan = stateBefore !== "snapshot_ready";
+    const nextActions = [
+      'rekon intent assess --goal "..."',
+      "rekon publish agents",
+      'rekon resolve preflight --path <path> --goal "..."',
+    ];
+    // Boundary booleans: scan builds the intelligence substrate only. It does not
+    // perform the post-scan "act" surfaces (docs/agent/CI/verification), does not
+    // execute user/verification commands, writes no source files (only `.rekon/`
+    // operational state + `.rekon/artifacts/`), and does not implement intent:go.
+    const boundaries = {
+      createdDocs: false,
+      createdAgentHandoff: false,
+      createdCi: false,
+      createdVerificationPlan: false,
+      executedCommands: false,
+      wroteSourceFiles: false,
+      implementedIntentGo: false,
+    };
+
+    const scanOutput = {
+      command: "scan" as const,
+      status: refresh.status,
+      workspace: {
+        stateBefore,
+        stateAfter,
+        initialized: !initializedBefore,
+      },
+      snapshot: { ready: snapshotReady },
+      summary: { artifacts: refresh.artifacts.length },
+      nextActions,
+      boundaries,
+      refresh,
+    };
+
+    if (json) {
+      writeOutput(scanOutput, true);
+    } else {
+      const scanLines = [
+        "Rekon scan",
+        "",
+        `Workspace: ${initializedBefore ? "existing" : "initialized"}`,
+        `Snapshot: ${snapshotReady ? "ready" : "not ready"}`,
+        `Artifacts: ${refresh.artifacts.length}`,
+        firstScan ? "First scan complete." : "Scan complete.",
+        "",
+        "Next:",
+        ...nextActions.map((action) => `  ${action}`),
+        "",
+        "No commands, source writes, docs, agent handoffs, CI changes, or intent:go were created by scan.",
+      ];
+      writeOutput(scanLines.join("\n"), false);
+    }
+
+    if (refresh.status === "failed") {
+      process.exitCode = 1;
+    }
+
+    return;
+  }
+
   if (command === "paths" && subcommand === "freshness") {
     // `rekon paths freshness [--path <path>] [--path <path>]
     // [--root <path>] [--json]` — first watcher / path
@@ -9914,6 +10024,7 @@ function writeOutput(value: unknown, json: boolean): void {
 
 function usage(): string {
   return [
+    "rekon scan [--root <path>] [--json]",
     "rekon init [--root <path>]",
     "rekon refresh [--root <path>] [--skip-publish] [--skip-freshness] [--changed-file <path>] [--json]",
     "rekon paths freshness [--path <path>] [--root <path>] [--json]",
@@ -9997,6 +10108,11 @@ function usage(): string {
     "rekon verify run --plan <id|type:id> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--json]",
     "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--json]",
     "rekon verify github-workflow validate --path <workflow.yml> [--profile read-only|github-check-send|github-pr-comment-send] [--root <path>] [--json]",
+    "",
+    "First run:",
+    "  rekon scan — initialize if needed and run the first (or a repeat) repository scan; the canonical first-run command.",
+    "  rekon refresh — expert / compatibility update command (the same lifecycle pipeline scan shares); not the first-run UX.",
+    "  rekon init — create the .rekon/ workspace and config only (no scan).",
     "",
     "Intent flow:",
     "  intent assess → intent prepare → intent status → intent work-order generate → intent verification-plan generate → intent bundle write",

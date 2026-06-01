@@ -68,23 +68,25 @@ The implemented alpha lifecycle is:
 npm install
 npm run build
 
-node packages/cli/dist/index.js init --root examples/simple-js-ts
-node packages/cli/dist/index.js refresh --root examples/simple-js-ts --json
+node packages/cli/dist/index.js scan --root examples/simple-js-ts --json
 node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json
 node packages/cli/dist/index.js publish agents --root examples/simple-js-ts
 ```
 
-`rekon refresh` runs the full lifecycle (observe → project → snapshot →
+`rekon scan` is the canonical first-run command: it initializes `.rekon/` if needed
+and runs the full lifecycle (observe → project → snapshot →
 evaluate → findings filter → findings filter-health → findings lifecycle → issues adjudicate → coherency delta →
 publish architecture → artifacts validate → artifacts freshness) in one
-step. Use the
+step, then reports the post-scan next actions. `rekon refresh` is the expert /
+compatibility update command that shares the same pipeline. Use the
 individual verbs (`rekon observe`, `rekon project`, ...) when you need
 to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md).
 
-> **First-run direction (decided, not yet implemented):** the canonical first-run verb is
-> moving to `rekon scan` (initialize `.rekon/` if needed + first scan + snapshot); `refresh`
-> is retained as an expert / compatibility alias, and docs / agent-context / verification
-> options are offered only after the first scan. See
+> **First run:** `rekon scan` is the canonical first-run command (implemented in Rekon
+> First-Run Scan Implementation) — it initializes `.rekon/` if needed, runs the first (or a
+> repeat) repository scan, and creates the first intelligence substrate; `refresh` is retained
+> as an expert / compatibility update command, and docs / agent-context / verification options
+> are offered only after the first scan. See
 > [Rekon First-Run Scan / Install Onboarding Decision](docs/strategy/rekon-first-run-scan-onboarding-decision.md).
 
 Then inspect the workspace:
@@ -1108,6 +1110,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # See docs/artifacts/capability-phrase-report.md.
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
+#
+# First-Run Scan has shipped.
+# One-hundred-eleventh slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch. Implements rekon scan as the canonical first-run command.
+#   - rekon scan [--root <path>] [--json] shares the existing refresh substrate
+#     pipeline: it initializes .rekon/ if needed and creates the first repository
+#     intelligence substrate, then reports workspace state + post-scan next actions.
+#   - JSON output carries command, workspace.stateBefore/stateAfter/initialized,
+#     snapshot.ready, summary.artifacts, nextActions, and seven boundary booleans
+#     (all false); no ASCII art in --json.
+#   - refresh is unchanged and retained as the expert / compatibility update command;
+#     scan changes no refresh semantics.
+#   - No prompts, no ASCII art, no create-rekon, no version bump, no npm publish, no
+#     intent:go, no source writes outside .rekon/.
+#
+# See docs/strategy/rekon-first-run-scan-onboarding-decision.md.
+# Recommended next slice: Rekon First-Run Scan Safety Review.
 #
 # First-Run Scan Onboarding Decision has shipped.
 # One-hundred-tenth slice on the codebase-intel-classic capability-ontology track.

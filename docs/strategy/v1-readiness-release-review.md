@@ -245,6 +245,10 @@ cross-reference / pointer updates to existing docs.
   `rekon scan` (not `refresh`), and docs / agent / verification / CI options are offered only
   after the first scan. No `rekon scan` implementation, no CLI change. See
   [Rekon First-Run Scan / Install Onboarding Decision](./rekon-first-run-scan-onboarding-decision.md).**
+  **Then shipped (slice 111): `rekon scan` is implemented — the canonical first-run command
+  that initializes `.rekon/` if needed and creates the first repository intelligence substrate,
+  sharing the existing refresh pipeline. `refresh` retained as the expert / compatibility verb;
+  no version bump, no npm publish, no `intent:go`.**
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.

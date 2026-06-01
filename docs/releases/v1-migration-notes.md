@@ -101,3 +101,8 @@ substrate, replacing `rekon refresh` as the documented first-run command. `refre
 expert / compatibility alias, so existing scripts that call `rekon refresh` continue to work.
 This decision changes onboarding vocabulary only — no `rekon scan` implementation and no CLI
 behavior change yet.
+
+**Update (slice 111): `rekon scan` is now implemented.** The documented first-run command is
+`rekon scan` (equivalent to `rekon init` + `rekon refresh` in one step); `rekon refresh`
+remains available unchanged as the expert / compatibility update command, so existing
+`rekon refresh` scripts continue to work. No package version change and no npm publish.

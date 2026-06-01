@@ -4,6 +4,19 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Implemented **Rekon First-Run Scan Implementation** — one-hundred-eleventh slice on the
+  codebase-intel-classic capability-ontology track. Product-capability batch adding the
+  canonical first-run command **`rekon scan [--root <path>] [--json]`**, a thin wrapper over
+  the existing `runRefresh` substrate pipeline: it initializes `.rekon/` if needed and creates
+  the first repository intelligence substrate, then reports the workspace state
+  (`not_initialized` / `initialized_without_snapshot` / `snapshot_ready`), artifact count, the
+  post-scan next actions, and seven boundary booleans (all false). `scan --json` emits no ASCII
+  art. `refresh` is unchanged and retained as the expert / compatibility update command (scan
+  changes no refresh semantics); top-level help lists `scan` first plus a "First run:" note.
+  Contract test (25 assertions) + docs test (9). **No prompts, no ASCII art, no create-rekon,
+  no version bump, no npm publish, no `intent:go`, no source writes outside `.rekon/`.** Next:
+  Rekon First-Run Scan Safety Review. See
+  [Rekon First-Run Scan / Install Onboarding Decision](docs/strategy/rekon-first-run-scan-onboarding-decision.md).
 - Decided **Rekon First-Run Scan / Install Onboarding Decision** — one-hundred-tenth slice on
   the codebase-intel-classic capability-ontology track. Strategy / product-UX decision batch
   correcting the V1 onboarding model: the public first-run verb is **`rekon scan`** (Option B),
