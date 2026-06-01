@@ -1103,6 +1103,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# V1 Readiness / Release Review has shipped.
+# One-hundred-fifth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / release-readiness review batch. No runtime change.
+#   - Decision: V1 readiness is conditionally approved for the non-executing
+#     Rekon → Circe prepared-plan handoff (Option B).
+#   - V1 means prepare/prove/package/export, not Rekon-side execution; Circe owns
+#     orchestration for V1.
+#   - Included: IntentAssessmentReport, PreparedIntentPlan (approval/proof),
+#     IntentStatusReport, WorkOrder + VerificationPlan handoffs, plan bundle, Circe
+#     proof/gate projection, and the six help-listed intent commands.
+#   - Proven: full Rekon suite (4281 / 0 fail) + package gates, Circe schema
+#     validation, and the serve-loop proof (pass 1 / fail 0); help aligned.
+#   - Excluded/deferred beyond V1: intent:go, Rekon-side command execution,
+#     Rekon-side source writes, and VerificationRun / VerificationResult generation.
+#   - Conditional approval: release mechanics (version / tag / publish) are deferred
+#     to a separate slice; this batch bumps nothing, tags nothing, publishes nothing.
+#
+# See docs/strategy/v1-readiness-release-review.md.
+# Recommended next slice: V1 Release Mechanics / Versioning Decision.
+#
 # CLI Intent Help Surface Alignment has shipped.
 # One-hundred-fourth slice on the codebase-intel-classic capability-ontology track.
 # Product-polish batch. Resolves the stale-help discoverability gap recorded by the

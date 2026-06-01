@@ -205,3 +205,7 @@ artifacts, registers no artifact type, bumps no versions, and publishes nothing.
 ---
 
 _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection is safe/stable — no blocker. The current built Rekon CLI passed the Circe validate/routes/import/serve-loop proof (Circe's `rekon-intent-handoff-serve-loop.test.ts`, pass 1 / fail 0), so the enriched projection remains compatible with Circe. Top-level Rekon help is stale (0 of 6 richer intent commands listed) and must be aligned before V1/operator-ready release. `sourceWriteAllowed` / `commandsExecuted` stay false; `intent:go` remains deferred. See [Circe Proof/Gate Projection Safety Review](./intent-plan-bundle-circe-proof-gate-projection-safety-review.md)._
+
+---
+
+_V1 readiness (slice 105): this surface is part of the non-executing Rekon → Circe prepared-plan handoff that the V1 Readiness / Release Review conditionally approved as V1 — Rekon prepares, proves, packages, and exports; Circe imports and orchestrates. `intent:go`, Rekon-side command execution, Rekon-side source writes, and VerificationRun / VerificationResult generation remain excluded/deferred beyond V1; release mechanics (version / tag / publish) are a separate slice. See [V1 Readiness / Release Review](./v1-readiness-release-review.md)._

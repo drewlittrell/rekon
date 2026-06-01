@@ -259,3 +259,7 @@ nothing.
 - **Deferred:** Intent Go / Execution Boundary Decision (weigh delegating execution to
   Circe vs keeping it out of V1); `intent:go`; Circe execution by Rekon; VerificationRun
   generation; command execution; source writes.
+
+---
+
+_V1 readiness (slice 105): this surface is part of the non-executing Rekon → Circe prepared-plan handoff that the V1 Readiness / Release Review conditionally approved as V1 — Rekon prepares, proves, packages, and exports; Circe imports and orchestrates. `intent:go`, Rekon-side command execution, Rekon-side source writes, and VerificationRun / VerificationResult generation remain excluded/deferred beyond V1; release mechanics (version / tag / publish) are a separate slice. See [V1 Readiness / Release Review](./v1-readiness-release-review.md)._

@@ -4,6 +4,30 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Reviewed **V1 Readiness / Release Review** — one-hundred-fifth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / release-readiness review
+  batch, no runtime change. Decision: **V1 readiness is conditionally approved for the
+  non-executing Rekon → Circe prepared-plan handoff** (Option B). V1 is scoped to
+  **prepare/prove/package/export, not Rekon-side execution** — Rekon assesses intent,
+  prepares a proof-approved plan, reports status, generates a WorkOrder and a
+  VerificationPlan, writes the human/agent plan bundle, writes the Circe-compatible
+  proof/gate projection, and surfaces all six intent commands in top-level help; **Circe
+  owns orchestration for V1** (validate / routes / import / `serve --mode worker`). The
+  path is proven: the full Rekon test suite (4281 / 0 fail at `c5e0337`) and package gates
+  pass, Circe handoff schema validation passes against Circe's real normalizers, and the
+  external serve-loop proof passed (pass 1 / fail 0); top-level help alignment is covered by
+  the slice-104 contract test. V1 **excludes** `intent:go`, Rekon-side command execution,
+  Rekon-side source writes, and Rekon-side VerificationRun / VerificationResult generation —
+  **intent:go remains deferred beyond V1**, **Rekon does not execute commands in V1**,
+  **Rekon does not write source files in V1**, and **VerificationRun and VerificationResult
+  generation remain deferred beyond V1**. **The Circe proof/gate projection carries Rekon
+  approval/proof state.** "Conditional approval" means the product surface is declared
+  ready but release mechanics (version bump / tag / publish / release notes / migration
+  notes) are deferred to a separate **V1 Release Mechanics / Versioning Decision** slice;
+  this batch bumps nothing, tags nothing, and publishes nothing. New
+  `docs/strategy/v1-readiness-release-review.md` (13 sections + surface / command / proof /
+  boundary / limitation tables + options A–E) + 17-assertion docs test + review packet; no
+  source changes.
 - Shipped **CLI Intent Help Surface Alignment** — one-hundred-fourth slice on the
   codebase-intel-classic capability-ontology track. Product-polish batch resolving the
   stale-help discoverability gap recorded by the slice-103 re-review (`2cb5bdc`):
