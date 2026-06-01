@@ -317,3 +317,8 @@ intelligence; canonical truth remains `.rekon/artifacts/`.
    context prepare` (runs the existing producer commands in dependency order after `rekon scan`)
    and reviewed it safe/stable; `rekon scan` is unchanged by that work. See
    [Fresh Repo Intent Readiness Safety Review](./fresh-repo-intent-readiness-safety-review.md).
+7. **Rekon Install / Setup / ASCII Art UX Decision** (**decided, slice 117**): defined the polished
+   V1 install + first-run setup + ASCII / branding UX (staged install/setup polish; scan-first;
+   non-interactive install; no ASCII in `--json`). `rekon scan` remains the documented first-run
+   command and `rekon refresh` stays expert / compatibility. See
+   [Rekon Install / Setup / ASCII Art UX Decision](./rekon-install-setup-ascii-ux-decision.md).

@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Rekon Install / Setup / ASCII Art UX Decision** — one-hundred-seventeenth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / product UX decision batch defining the
+  polished V1 install + first-run setup + ASCII / branding experience. Selects **Option B — staged
+  install/setup polish**: the V1 install path stays scriptable (`npm install -D @rekon/cli` → `npx
+  rekon scan`), with a future optional `rekon setup` and later `npm init rekon` layering interactive
+  guidance on top. Pins: install must not run onboarding automatically (`@rekon/cli` ships no
+  postinstall); first-run setup must start with scan; docs / agent / verification options are not
+  offered before the first scan; ASCII art never appears in `--json`; non-TTY / CI never prompt and
+  default to no banner; `NO_COLOR` / `REKON_NO_BANNER` respected; `refresh` stays expert / compat;
+  onboarding never implies command execution, source writes, or Circe execution by Rekon; `intent:go`
+  remains deferred. Records the brand line (`REKON` / Scan → Snapshot → Act), a compact mark, and a
+  resource candidate plan (figlet / picocolors / string-width / @inquirer/prompts /
+  node:readline/promises) — **no dependency added, no setup / prompts / ASCII / create-rekon
+  implemented**. Adds the decision memo, a 20-assertion docs test, a review packet, and additive doc
+  pointers. No code, CLI, package, version, or runtime change. Recommended next: **Rekon Setup /
+  Welcome UI Implementation**.
 - Reviewed **Intent Bundle Phase-Level Verification Safety Review** — one-hundred-sixteenth slice on
   the codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming the
   slice-115 Intent Bundle Phase-Level Verification Policy / Implementation is **safe/stable**: every

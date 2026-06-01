@@ -256,3 +256,7 @@ cross-reference / pointer updates to existing docs.
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.
+- **Rekon Install / Setup / ASCII Art UX Decision** (decided, slice 117): the V1 operator install /
+  first-run setup UX is decided — staged install/setup polish, scan-first, non-interactive install,
+  no ASCII in `--json`, `intent:go` still deferred. See
+  [Rekon Install / Setup / ASCII Art UX Decision](./rekon-install-setup-ascii-ux-decision.md).

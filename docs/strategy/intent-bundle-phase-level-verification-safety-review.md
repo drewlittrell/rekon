@@ -198,3 +198,7 @@ memo, a docs test, a review packet, and additive doc pointers.
 - **Scan Auto Context Preparation Decision** (alternative, deferred): decide whether `rekon scan`
   should auto-run the intent-context prep — a UX enhancement, not a proof blocker, decided
   separately because scan was already safety-reviewed.
+
+> Update (slice 117): the recommended-next slice — **Rekon Install / Setup / ASCII Art UX Decision**
+> — is now decided (staged install/setup polish). Next: Rekon Setup / Welcome UI Implementation. See
+> [Rekon Install / Setup / ASCII Art UX Decision](./rekon-install-setup-ascii-ux-decision.md).

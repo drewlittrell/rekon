@@ -203,3 +203,8 @@ doc pointers.
   intent-preparation gap downstream of `rekon scan` was closed with `rekon intent context
   prepare` and reviewed safe/stable; `rekon scan` itself is unchanged by that work. See
   [Fresh Repo Intent Readiness Safety Review](./fresh-repo-intent-readiness-safety-review.md).
+- **Rekon Install / Setup / ASCII Art UX Decision** (decided slice 117): the recommended-next
+  install / setup polish is now decided — staged install/setup polish, scan-first, non-interactive
+  install, no ASCII in `--json`, `intent:go` still deferred. `rekon scan` remains the documented
+  first-run command. See
+  [Rekon Install / Setup / ASCII Art UX Decision](./rekon-install-setup-ascii-ux-decision.md).

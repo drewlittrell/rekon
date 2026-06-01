@@ -1120,6 +1120,21 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Rekon Install / Setup / ASCII Art UX Decision has shipped.
+# One-hundred-seventeenth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / product UX decision batch. Decides the polished V1 install + first-run setup + ASCII UX.
+#   - Selects Option B (staged install/setup polish): npm install -D @rekon/cli -> npx rekon scan
+#     stays scriptable; a future optional rekon setup + later npm init rekon layer guidance on top.
+#   - Install must not run onboarding (no postinstall); first-run setup starts with scan; docs /
+#     agent / verification options are not offered before the first scan.
+#   - ASCII art never in --json; non-TTY / CI never prompt + default no banner; NO_COLOR /
+#     REKON_NO_BANNER respected; refresh stays expert / compat.
+#   - Onboarding never implies command execution, source writes, or Circe execution by Rekon;
+#     intent:go deferred. Decision-only: no setup / prompts / ASCII / create-rekon / dependency.
+#
+# See docs/strategy/rekon-install-setup-ascii-ux-decision.md.
+# Recommended next slice: Rekon Setup / Welcome UI Implementation.
+#
 # Intent Bundle Phase-Level Verification Safety Review has shipped.
 # One-hundred-sixteenth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch. Reviews the slice-115 phase-level verification posture end-to-end.

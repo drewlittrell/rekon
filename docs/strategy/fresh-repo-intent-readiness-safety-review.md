@@ -215,3 +215,7 @@ strategy cross-links, and additive doc pointers.
 > Update (slice 116): that safety review shipped — **Intent Bundle Phase-Level Verification is
 > safe/stable**. Next: Rekon Install / Setup / ASCII Art UX Decision. See
 > [Intent Bundle Phase-Level Verification Safety Review](./intent-bundle-phase-level-verification-safety-review.md).
+
+> Update (slice 117): that next slice — **Rekon Install / Setup / ASCII Art UX Decision** — is now
+> decided (staged install/setup polish, scan-first, non-interactive install). See
+> [Rekon Install / Setup / ASCII Art UX Decision](./rekon-install-setup-ascii-ux-decision.md).

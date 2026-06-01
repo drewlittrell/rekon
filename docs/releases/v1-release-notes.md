@@ -196,3 +196,16 @@ a VerificationRun. No commands executed, no VerificationRun / VerificationResult
 writes, no Circe run by Rekon, `intent:go` deferred. No package version change and no npm publish.
 See
 [Intent Bundle Phase-Level Verification Safety Review](../strategy/intent-bundle-phase-level-verification-safety-review.md).
+
+## Update — Install / Setup / ASCII UX Decided (slice 117)
+
+The Rekon Install / Setup / ASCII Art UX Decision selected **Option B — staged install/setup
+polish**. The V1 install path stays scriptable — `npm install -D @rekon/cli` then `npx rekon scan` —
+with a future optional `rekon setup` and later `npm init rekon` layering interactive guidance.
+Install runs no onboarding (`@rekon/cli` ships no postinstall); first-run setup starts with scan;
+docs / agent / verification options are not offered before the first scan; ASCII art never appears in
+`--json`; non-TTY / CI never prompt and default to no banner; `NO_COLOR` / `REKON_NO_BANNER` are
+respected; onboarding never implies command execution, source writes, or Circe execution by Rekon;
+`intent:go` remains deferred. Decision-only — no setup / prompts / ASCII / `create-rekon` / dependency
+implemented. No package version change and no npm publish. See
+[Rekon Install / Setup / ASCII Art UX Decision](../strategy/rekon-install-setup-ascii-ux-decision.md).
