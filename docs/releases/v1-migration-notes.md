@@ -111,3 +111,9 @@ remains available unchanged as the expert / compatibility update command, so exi
 Review confirmed `rekon scan` is safe as the canonical first-run command; `rekon refresh`
 remains unchanged as the expert / compatibility update command. No package version change and
 no npm publish.
+
+**Update (slice 113): fresh-repo intent path.** On a fresh repo, run `rekon scan` then
+`rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context;
+not-evaluated where there is no event log) before `rekon intent assess` — the documented public
+intent sequence then works without manual `.rekon/artifacts` seeding. No package version change
+and no npm publish.

@@ -279,6 +279,59 @@ function isMainEntry(): boolean {
   }
 }
 
+type IntentContextStepResult = {
+  id: string;
+  command: string;
+  status: "passed" | "failed";
+  message?: string;
+};
+
+/**
+ * Build the intent-readiness context substrate (`StepCapabilityGraph`,
+ * `HandoffContract`, `RuntimeGraphObservationReport`, `RuntimeGraphDriftReport`,
+ * `HandoffCoverageReport`) by running the existing producer commands in
+ * dependency order. Best-effort: a failing producer is recorded and the rest
+ * continue. Reuses the existing command logic (no duplicated builder wiring);
+ * mutates nothing outside `.rekon/`. On a repo with no runtime/handoff event
+ * log, the runtime/handoff producers write explicit not-evaluated context, NOT
+ * false success.
+ */
+async function prepareIntentContext(root: string): Promise<IntentContextStepResult[]> {
+  const steps: Array<{ id: string; argv: string[] }> = [
+    { id: "step-capability-graph", argv: ["step", "graph", "build"] },
+    { id: "handoff-contract", argv: ["handoff", "contract", "build"] },
+    { id: "runtime-graph-observation", argv: ["runtime", "graph", "observe"] },
+    { id: "runtime-graph-drift", argv: ["runtime", "graph", "drift"] },
+    { id: "handoff-coverage-report", argv: ["handoff", "coverage", "report"] },
+  ];
+  const results: IntentContextStepResult[] = [];
+  const originalLog = console.log;
+  const priorExitCode = process.exitCode;
+  for (const step of steps) {
+    const command = `rekon ${step.argv.join(" ")}`;
+    let status: "passed" | "failed" = "passed";
+    let message: string | undefined;
+    // Suppress each sub-command's own stdout; this orchestrator emits one summary.
+    console.log = () => {};
+    try {
+      await main([...step.argv, "--root", root, "--json"]);
+      if (typeof process.exitCode === "number" && process.exitCode !== 0) {
+        status = "failed";
+        message = "producer reported a non-zero exit";
+      }
+    } catch (error) {
+      status = "failed";
+      message = messageOf(error);
+    } finally {
+      console.log = originalLog;
+      // Best-effort: never let a producer's exit code fail the orchestrator/caller.
+      process.exitCode = priorExitCode;
+    }
+    results.push({ id: step.id, command, status, ...(message ? { message } : {}) });
+  }
+  return results;
+}
+
 export async function main(argv: string[]): Promise<void> {
   const parsed = parseArgs(argv);
   const [command, subcommand, positional] = parsed.positionals;
@@ -3830,6 +3883,63 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("");
       lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder or VerificationPlan artifacts were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "context" && positional === "prepare") {
+    // `rekon intent context prepare [--root <path>] [--json]` — build the
+    // intent-readiness context substrate `rekon intent assess` needs
+    // (StepCapabilityGraph + HandoffContract + RuntimeGraphObservationReport +
+    // RuntimeGraphDriftReport + HandoffCoverageReport) by running the existing
+    // producer commands in dependency order. On a repo with no runtime/handoff
+    // event log, the runtime/handoff artifacts are written as explicit
+    // not-evaluated context, NOT false success. This executes no source changes,
+    // runs no Circe, creates no WorkOrder / VerificationPlan, does not implement
+    // intent:go, and writes nothing outside `.rekon/`.
+    const results = await prepareIntentContext(root);
+    const built = results.filter((entry) => entry.status === "passed").length;
+    const boundaries = {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      ranCirce: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      implementedIntentGo: false,
+    };
+
+    if (json) {
+      writeOutput(
+        {
+          command: "intent context prepare",
+          steps: results,
+          summary: { total: results.length, built, failed: results.length - built },
+          boundaries,
+          nextActions: ['rekon intent assess --goal "..." --kind feature --path <path>'],
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Rekon intent context prepare");
+      lines.push("");
+      for (const entry of results) {
+        lines.push(
+          `  ${entry.status === "passed" ? "ok  " : "FAIL"} ${entry.command}${entry.message ? ` — ${entry.message}` : ""}`,
+        );
+      }
+      lines.push("");
+      lines.push(
+        `Built ${built}/${results.length} context artifacts. Runtime/handoff context with no event log is written as explicit not-evaluated context, not success.`,
+      );
+      lines.push("");
+      lines.push("Next:");
+      lines.push('  rekon intent assess --goal "..." --kind feature --path <path>');
+      lines.push("");
+      lines.push(
+        "No source files, commands, Circe runs, WorkOrder, VerificationPlan, or intent:go were created.",
+      );
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -10066,6 +10176,12 @@ function usage(): string {
     "rekon intent work-order generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent verification-plan generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--work-order <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
+    "rekon intent context prepare [--root <path>] [--json]",
+    "rekon step graph build [--root <path>] [--json]",
+    "rekon handoff contract build [--root <path>] [--json]",
+    "rekon handoff coverage report [--root <path>] [--json]",
+    "rekon runtime graph observe [--root <path>] [--json]",
+    "rekon runtime graph drift [--root <path>] [--json]",
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--skip-verified] [--root <path>] [--json]",
     "rekon reconcile [--operation <name>] [--apply] [--root <path>] [--json]",
@@ -10115,7 +10231,8 @@ function usage(): string {
     "  rekon init — create the .rekon/ workspace and config only (no scan).",
     "",
     "Intent flow:",
-    "  intent assess → intent prepare → intent status → intent work-order generate → intent verification-plan generate → intent bundle write",
+    "  scan → intent context prepare → intent assess → intent prepare → intent status → intent work-order generate → intent verification-plan generate → intent bundle write",
+    "Fresh repo: run `rekon scan` then `rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context — not-evaluated where there is no event log) before `rekon intent assess`.",
     "The bundle can then be handed to Circe via: circe rekon-handoff validate/routes/import.",
     "Rekon prepares, proves, packages, and exports; Circe imports and orchestrates.",
     "Rekon does not run Circe, does not execute commands, and does not write source files, and does not implement intent:go.",

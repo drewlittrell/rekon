@@ -146,3 +146,13 @@ compatibility verb, the no-docs/agent/CI/verification-before-scan and no-executi
 no-source-write / no-ASCII-in-`--json` boundaries hold, and the `config.capabilities`
 normalization (`[]` = defaults) is acceptable for v1. No code or behavior change. See
 [Rekon First-Run Scan Safety Review](../strategy/rekon-first-run-scan-safety-review.md).
+
+## Update — Fresh-Repo Intent Readiness (slice 113)
+
+The fresh-repo intent-preparation path is fixed: a fresh operator runs `rekon scan` → **`rekon
+intent context prepare`** → `rekon intent assess` → … → `rekon intent bundle write` with no
+manual `.rekon/artifacts` seeding. `rekon intent context prepare` builds the intent-readiness
+context substrate (StepCapabilityGraph + runtime/handoff context, recorded as not-evaluated
+where there is no event log) by running the existing producer commands, and is now discoverable
+in top-level help. No change to `scan` / `refresh` or the `intent assess` approval/proof policy;
+no `intent:go` and no Circe execution by Rekon.

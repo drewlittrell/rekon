@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Fixed **Fresh Repo Intent Readiness / Proof Context** — one-hundred-thirteenth slice on the
+  codebase-intel-classic capability-ontology track. Product-capability batch fixing the
+  fresh-repo intent-preparation gap exposed by Circe operator dogfood: `rekon scan → rekon
+  intent assess` was blocked by missing `StepCapabilityGraph` and `RuntimeGraphDriftReport`.
+  Adds the orchestrator command **`rekon intent context prepare`** (runs the existing producer
+  commands — step graph build, handoff contract build, runtime graph observe/drift, handoff
+  coverage report — in dependency order, best-effort) so the public path `rekon scan → rekon
+  intent context prepare → rekon intent assess → … → rekon intent bundle write` works on a
+  fresh repo with **no manual `.rekon/artifacts` seeding**. The orchestrator + producers are now
+  listed in top-level help, and the two `intent assess` blocker messages point at the one-step
+  command and are honest that runtime/handoff context with no event log is **not-evaluated, not
+  proof**. Proven on a fresh repo: assess unblocked (0 blockers), bundle emits
+  `circe/handoff.json`, `artifacts validate` clean, no source writes. No change to `scan` /
+  `refresh` or the assess approval/proof policy; no `intent:go`, no Circe execution by Rekon.
+  Recorded follow-up: phase-level VerificationPlan coverage. See
+  [Fresh Repo Intent Readiness / Proof Context](.rekon-dev/review-packets/fresh-repo-intent-readiness-context.md).
 - Reviewed **Rekon First-Run Scan Safety Review** — one-hundred-twelfth slice on the
   codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming
   the shipped `rekon scan` is **safe and stable as the canonical first-run command**: it

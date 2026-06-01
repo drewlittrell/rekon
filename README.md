@@ -89,6 +89,15 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > are offered only after the first scan. See
 > [Rekon First-Run Scan / Install Onboarding Decision](docs/strategy/rekon-first-run-scan-onboarding-decision.md).
 
+> **Fresh-repo intent preparation:** to prepare an intent plan on a fresh repo, run `rekon scan`
+> then `rekon intent context prepare` (builds the StepCapabilityGraph + runtime/handoff context
+> `rekon intent assess` needs — recorded as not-evaluated where there is no runtime/handoff event
+> log) before `rekon intent assess`. The full path is `rekon scan → rekon intent context prepare
+> → rekon intent assess → rekon intent prepare → rekon intent status → rekon intent work-order
+> generate → rekon intent verification-plan generate → rekon intent bundle write`; the resulting
+> `.rekon/intent/plans/<intent-id>/circe/` projection is handed to Circe. No manual
+> `.rekon/artifacts` seeding is required.
+
 Then inspect the workspace:
 
 ```sh

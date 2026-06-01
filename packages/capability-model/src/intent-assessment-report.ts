@@ -157,7 +157,7 @@ export function buildIntentAssessmentReport(input: BuildIntentAssessmentReportIn
       id: "missing:step-capability-graph",
       category: "missing-artifact",
       severity: "high",
-      message: "No StepCapabilityGraph is available; the requested intent cannot be scoped against expected step topology. Run `rekon step graph build`.",
+      message: "No StepCapabilityGraph is available; the requested intent cannot be scoped against expected step topology. Run `rekon intent context prepare` (or `rekon step graph build`) after `rekon scan`.",
     });
   }
   if (!driftPresent && !input.allowMissingSpine) {
@@ -165,7 +165,7 @@ export function buildIntentAssessmentReport(input: BuildIntentAssessmentReportIn
       id: "missing:runtime-graph-drift-report",
       category: "missing-artifact",
       severity: "high",
-      message: "No RuntimeGraphDriftReport is available; runtime readiness cannot be assessed. Run `rekon runtime graph drift`.",
+      message: "No RuntimeGraphDriftReport is available; runtime readiness was not evaluated. Run `rekon intent context prepare` after `rekon scan` to build the intent-readiness context (with no runtime/handoff event log the runtime/handoff context is recorded as not-evaluated, not proof).",
     });
   }
 
