@@ -209,3 +209,15 @@ respected; onboarding never implies command execution, source writes, or Circe e
 `intent:go` remains deferred. Decision-only — no setup / prompts / ASCII / `create-rekon` / dependency
 implemented. No package version change and no npm publish. See
 [Rekon Install / Setup / ASCII Art UX Decision](../strategy/rekon-install-setup-ascii-ux-decision.md).
+
+## Update — Setup / Welcome UI Implemented (slice 118)
+
+The non-interactive-safe welcome / setup UI foundation is implemented. `rekon welcome [--json]
+[--no-banner]` prints a branded Scan → Snapshot → Act lifecycle introduction; `rekon setup [--root
+<path>] [--json] [--no-banner]` is deterministic and non-interactive, detecting workspace state
+read-only (no scan, no `.rekon/` creation before scan) and printing recommended next actions. ASCII
+art never appears in `--json`; `NO_COLOR` disables color, `REKON_NO_BANNER` / `--no-banner` disable
+the banner, non-TTY shows the compact mark and never prompts. No prompts, no `create-rekon`, no
+postinstall onboarding, no dependency, no Circe execution, no command execution, no source writes;
+`intent:go` remains deferred. No package version change and no npm publish. See
+[Rekon Setup / Welcome UI](../concepts/rekon-setup-welcome.md).

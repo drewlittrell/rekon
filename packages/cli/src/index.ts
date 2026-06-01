@@ -332,6 +332,167 @@ async function prepareIntentContext(root: string): Promise<IntentContextStepResu
   return results;
 }
 
+// ---- Setup / Welcome UI helpers (slice 118) ----
+// Non-interactive-safe branding. Per the Rekon Install / Setup / ASCII Art UX
+// Decision: `--json` and `REKON_NO_BANNER` disable the banner, `NO_COLOR`
+// disables color, non-TTY disables the big banner by default, and no command
+// here prompts, executes commands, writes source, runs Circe, or implements
+// intent:go. ASCII art never appears in `--json` output.
+function isTruthyEnvFlag(value: string | undefined): boolean {
+  return typeof value === "string" && value !== "" && value !== "0" && value.toLowerCase() !== "false";
+}
+
+function shouldUseColor(env: NodeJS.ProcessEnv, stdoutIsTTY: boolean): boolean {
+  // NO_COLOR convention: any presence disables color.
+  if (env.NO_COLOR !== undefined) return false;
+  return stdoutIsTTY === true;
+}
+
+function shouldShowBanner(options: { json: boolean; noBanner: boolean; stdoutIsTTY: boolean; env: NodeJS.ProcessEnv }): boolean {
+  if (options.json) return false;
+  if (options.noBanner) return false;
+  if (isTruthyEnvFlag(options.env.REKON_NO_BANNER)) return false;
+  return options.stdoutIsTTY === true;
+}
+
+function renderRekonBanner(): string {
+  return [
+    "╔═══════════════════════════════════════╗",
+    "║  R E K O N                            ║",
+    "║  Scan → Snapshot → Act                ║",
+    "╚═══════════════════════════════════════╝",
+  ].join("\n");
+}
+
+function renderRekonCompactMark(): string {
+  return [
+    "┌─ Rekon ─────────────────────────────┐",
+    "│ scan → snapshot → act               │",
+    "└─────────────────────────────────────┘",
+  ].join("\n");
+}
+
+// Branding prefix for human (non-`--json`) output. Returns the big banner in an
+// interactive TTY, the compact mark in a non-TTY human context, or an empty
+// string when branding is suppressed (`--json`, `--no-banner`, or
+// `REKON_NO_BANNER`). Never emits ANSI color.
+function rekonBrandPrefix(options: { json: boolean; noBanner: boolean; stdoutIsTTY: boolean; env: NodeJS.ProcessEnv }): string {
+  if (options.json) return "";
+  if (options.noBanner || isTruthyEnvFlag(options.env.REKON_NO_BANNER)) return "";
+  return shouldShowBanner(options) ? renderRekonBanner() : renderRekonCompactMark();
+}
+
+// A hoisted function (not a module `const`) so it is safe to call from `main()`,
+// which is invoked synchronously during module load before module-level `const`
+// initializers run (the welcome branch has no preceding await).
+function rekonIntentWorkflow(): string[] {
+  return [
+    "rekon scan",
+    "rekon intent context prepare",
+    "rekon intent assess",
+    "rekon intent prepare",
+    "rekon intent status",
+    "rekon intent work-order generate",
+    "rekon intent verification-plan generate",
+    "rekon intent bundle write",
+  ];
+}
+
+function renderWelcome(brand: string): string {
+  const lines: string[] = [];
+  if (brand) lines.push(brand, "");
+  lines.push(
+    "Rekon builds local repository intelligence.",
+    "",
+    "Lifecycle:",
+    "  scan → snapshot → act",
+    "",
+    "First run:",
+    "  rekon scan",
+    "",
+    "Intent workflow:",
+    ...rekonIntentWorkflow().map((c) => `  ${c}`),
+    "",
+    "Boundaries:",
+    "  Rekon does not run Circe.",
+    "  Rekon does not execute commands.",
+    "  Rekon does not write source files.",
+    "  intent:go remains deferred.",
+  );
+  return lines.join("\n");
+}
+
+type RekonSetupWorkspaceState = "not_initialized" | "initialized_without_snapshot" | "snapshot_ready";
+
+type RekonSetupPlan = {
+  command: "setup";
+  workspace: { state: RekonSetupWorkspaceState; root: string };
+  recommendedNextActions: string[];
+  boundaries: {
+    runsScan: false;
+    createdDocs: false;
+    createdAgentHandoff: false;
+    createdCi: false;
+    createdVerificationPlan: false;
+    runsCirce: false;
+    executesCommands: false;
+    writesSourceFiles: false;
+    implementsIntentGo: false;
+  };
+};
+
+// Detect workspace state for `rekon setup` WITHOUT running a scan or creating
+// `.rekon/`. When `.rekon/` is absent the filesystem is not touched at all
+// (so setup never creates `.rekon/` before the first scan); when it is present
+// the artifact store is opened (idempotently) only to read whether a snapshot
+// exists.
+async function detectSetupWorkspaceState(root: string): Promise<RekonSetupWorkspaceState> {
+  const dotRekon = resolve(root, ".rekon");
+  let initialized = true;
+  try {
+    await access(dotRekon);
+  } catch {
+    initialized = false;
+  }
+  if (!initialized) return "not_initialized";
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const snapshots = await store.list("IntelligenceSnapshot");
+    return snapshots.length > 0 ? "snapshot_ready" : "initialized_without_snapshot";
+  } catch {
+    return "initialized_without_snapshot";
+  }
+}
+
+function buildSetupPlan(input: { state: RekonSetupWorkspaceState; root: string }): RekonSetupPlan {
+  const recommendedNextActions =
+    input.state === "snapshot_ready"
+      ? [
+          "rekon intent context prepare --root .",
+          'rekon intent assess --root . --goal "..." --kind feature --path <path>',
+          "rekon publish agents --root .",
+          "rekon artifacts list --root .",
+        ]
+      : ["rekon scan --root ."];
+  return {
+    command: "setup",
+    workspace: { state: input.state, root: input.root },
+    recommendedNextActions,
+    boundaries: {
+      runsScan: false,
+      createdDocs: false,
+      createdAgentHandoff: false,
+      createdCi: false,
+      createdVerificationPlan: false,
+      runsCirce: false,
+      executesCommands: false,
+      writesSourceFiles: false,
+      implementsIntentGo: false,
+    },
+  };
+}
+
 export async function main(argv: string[]): Promise<void> {
   const parsed = parseArgs(argv);
   const [command, subcommand, positional] = parsed.positionals;
@@ -477,6 +638,72 @@ export async function main(argv: string[]): Promise<void> {
       process.exitCode = 1;
     }
 
+    return;
+  }
+
+  if (command === "welcome") {
+    // `rekon welcome [--json] [--no-banner]` — a branded, read-only lifecycle
+    // introduction (Rekon Setup / Welcome UI Implementation). It prints the
+    // Scan → Snapshot → Act lifecycle, the first-run command, the intent
+    // workflow, and the V1 boundaries. It does not prompt, run scan, write any
+    // file, execute commands, run Circe, or implement intent:go. ASCII art never
+    // appears in `--json`.
+    const noBanner = Boolean(parsed.flags["no-banner"]);
+    const stdoutIsTTY = process.stdout.isTTY === true;
+    if (json) {
+      writeOutput(
+        {
+          command: "welcome",
+          lifecycle: ["scan", "snapshot", "act"],
+          firstRun: "rekon scan",
+          intentWorkflow: rekonIntentWorkflow(),
+          boundaries: {
+            runsCirce: false,
+            executesCommands: false,
+            writesSourceFiles: false,
+            implementsIntentGo: false,
+          },
+        },
+        true,
+      );
+    } else {
+      const brand = rekonBrandPrefix({ json, noBanner, stdoutIsTTY, env: process.env });
+      writeOutput(renderWelcome(brand), false);
+    }
+    return;
+  }
+
+  if (command === "setup") {
+    // `rekon setup [--root <path>] [--json] [--no-banner]` — a non-interactive,
+    // read-only setup-plan command (Rekon Setup / Welcome UI Implementation). It
+    // detects the workspace state WITHOUT running a scan or creating `.rekon/`,
+    // then prints a deterministic plan of recommended next actions. It does NOT
+    // prompt, run scan, generate docs/agent/CI, create a VerificationPlan,
+    // execute commands, write source files, run Circe, or implement intent:go.
+    // ASCII art never appears in `--json`.
+    const noBanner = Boolean(parsed.flags["no-banner"]);
+    const stdoutIsTTY = process.stdout.isTTY === true;
+    const state = await detectSetupWorkspaceState(root);
+    const plan = buildSetupPlan({ state, root });
+
+    if (json) {
+      writeOutput(plan, true);
+    } else {
+      const brand = rekonBrandPrefix({ json, noBanner, stdoutIsTTY, env: process.env });
+      const lines: string[] = [];
+      if (brand) lines.push(brand, "");
+      lines.push(
+        "Rekon setup",
+        "",
+        `Workspace: ${state}`,
+        "",
+        "Recommended next action:",
+        ...plan.recommendedNextActions.map((action) => `  ${action}`),
+        "",
+        "This command does not run scans, create docs, add CI, execute commands, write source files, or implement intent:go.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
     return;
   }
 
@@ -10147,6 +10374,8 @@ function writeOutput(value: unknown, json: boolean): void {
 function usage(): string {
   return [
     "rekon scan [--root <path>] [--json]",
+    "rekon welcome [--json] [--no-banner]",
+    "rekon setup [--root <path>] [--json] [--no-banner]",
     "rekon init [--root <path>]",
     "rekon refresh [--root <path>] [--skip-publish] [--skip-freshness] [--changed-file <path>] [--json]",
     "rekon paths freshness [--path <path>] [--root <path>] [--json]",
@@ -10238,6 +10467,8 @@ function usage(): string {
     "rekon verify github-workflow validate --path <workflow.yml> [--profile read-only|github-check-send|github-pr-comment-send] [--root <path>] [--json]",
     "",
     "First run:",
+    "  rekon welcome — a branded Scan → Snapshot → Act introduction (read-only; no scan, no prompts, no ASCII art in --json).",
+    "  rekon setup — a non-interactive setup plan: detect workspace state and recommend the next action (does not run scan or create .rekon/, does not prompt).",
     "  rekon scan — initialize if needed and run the first (or a repeat) repository scan; the canonical first-run command.",
     "  rekon refresh — expert / compatibility update command (the same lifecycle pipeline scan shares); not the first-run UX.",
     "  rekon init — create the .rekon/ workspace and config only (no scan).",

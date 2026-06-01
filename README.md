@@ -1120,6 +1120,21 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Rekon Setup / Welcome UI has shipped.
+# One-hundred-eighteenth slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch: the non-interactive-safe welcome / setup UI foundation.
+#   - rekon welcome [--json] [--no-banner]: branded Scan → Snapshot → Act intro (lifecycle, first
+#     run, intent workflow, boundaries); --json is structured + banner-free.
+#   - rekon setup [--root <path>] [--json] [--no-banner]: deterministic, non-interactive setup plan;
+#     detects workspace state read-only (no scan, no .rekon/ creation before scan) + recommends next.
+#   - ASCII art never in --json; NO_COLOR disables color; REKON_NO_BANNER / --no-banner disable the
+#     banner; non-TTY shows the compact mark and never prompts.
+#   - No prompts, no create-rekon, no postinstall, no dependency, no Circe, no command execution, no
+#     source writes; intent:go deferred.
+#
+# See docs/concepts/rekon-setup-welcome.md.
+# Recommended next slice: Rekon Setup / Welcome UI Safety Review.
+#
 # Rekon Install / Setup / ASCII Art UX Decision has shipped.
 # One-hundred-seventeenth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / product UX decision batch. Decides the polished V1 install + first-run setup + ASCII UX.

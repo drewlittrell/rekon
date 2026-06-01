@@ -4,6 +4,19 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Implemented **Rekon Setup / Welcome UI Implementation** — one-hundred-eighteenth slice on the
+  codebase-intel-classic capability-ontology track. Product-capability batch adding the
+  non-interactive-safe welcome / setup UI foundation decided by the Rekon Install / Setup / ASCII Art
+  UX Decision. New `rekon welcome [--json] [--no-banner]` prints a branded Scan → Snapshot → Act
+  lifecycle introduction (lifecycle, first-run command, intent workflow, boundaries); new `rekon setup
+  [--root <path>] [--json] [--no-banner]` is deterministic and non-interactive — it detects the
+  workspace state read-only (no scan, no `.rekon/` creation before scan) and prints recommended next
+  actions. ASCII art never appears in `--json`; `NO_COLOR` disables color, `REKON_NO_BANNER` /
+  `--no-banner` disable the banner, non-TTY shows the compact mark and never prompts. No prompts, no
+  `create-rekon`, no postinstall onboarding, no dependency, no Circe execution, no command execution,
+  no source writes; `intent:go` deferred. New concept doc, contract test (32), docs test (12), review
+  packet. No version bump, no npm publish. Recommended next: **Rekon Setup / Welcome UI Safety
+  Review**.
 - Decided **Rekon Install / Setup / ASCII Art UX Decision** — one-hundred-seventeenth slice on the
   codebase-intel-classic capability-ontology track. Strategy / product UX decision batch defining the
   polished V1 install + first-run setup + ASCII / branding experience. Selects **Option B — staged

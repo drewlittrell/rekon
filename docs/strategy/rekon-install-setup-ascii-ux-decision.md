@@ -235,3 +235,9 @@ test, a review packet, and additive doc pointers.
 
 Still no postinstall onboarding, no `create-rekon` before the setup UI is decided, and no
 `intent:go`.
+
+> Update (slice 118): step 1 — **Rekon Setup / Welcome UI Implementation** — shipped. `rekon
+> welcome` and `rekon setup` are implemented as non-interactive-safe, prompt-free, banner-gated
+> commands (no ASCII in `--json`, `NO_COLOR` / `REKON_NO_BANNER` respected, setup never runs scan or
+> creates `.rekon/`). Next: Rekon Setup / Welcome UI Safety Review. See
+> [Rekon Setup / Welcome UI](../concepts/rekon-setup-welcome.md).

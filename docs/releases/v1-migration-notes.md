@@ -150,3 +150,11 @@ init rekon`. First-run setup starts with scan; ASCII art never appears in `--jso
 prompt; `intent:go` remains deferred. Decision-only — nothing implemented this slice. No package
 version change and no npm publish. See
 [Rekon Install / Setup / ASCII Art UX Decision](../strategy/rekon-install-setup-ascii-ux-decision.md).
+
+**Update (slice 118): setup / welcome UI implemented.** Operators get two new read-only commands:
+`rekon welcome` (a branded Scan → Snapshot → Act introduction) and `rekon setup` (a deterministic,
+non-interactive setup plan that detects workspace state without running scan or creating `.rekon/`).
+ASCII art never appears in `--json`; `NO_COLOR` / `REKON_NO_BANNER` are respected; non-TTY never
+prompts. `rekon scan` remains the canonical first-run command and `rekon refresh` stays expert /
+compatibility. No prompts, no `create-rekon`, no postinstall, `intent:go` deferred. No package
+version change and no npm publish. See [Rekon Setup / Welcome UI](../concepts/rekon-setup-welcome.md).
