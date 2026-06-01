@@ -1103,6 +1103,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# V1 Release Mechanics / Versioning Decision has shipped.
+# One-hundred-sixth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / release-mechanics decision batch. No runtime or package-metadata change.
+#   - Decision: Option B — staged V1 release mechanics.
+#   - V1 release mechanics do not publish to npm in this slice; do not bump versions
+#     in this slice.
+#   - Real package state recorded (not edited): private workspace root rekon + 21
+#     public packages, all lockstep at 0.1.0-beta.0, none private. Intended release
+#     target 1.0.0 applied lockstep, deferred to an explicit versioning slice.
+#   - Pinned: version-bump / git-tag / npm-publish gates, release-notes model,
+#     migration-notes model (intent assess → … → intent bundle write; circe
+#     rekon-handoff validate/routes/import; legacy rekon prepare plan / .rekon/handoffs
+#     superseded by .rekon/intent/plans/<intent-id>/circe/).
+#   - V1 boundaries reaffirmed: prepare/prove/package/export, not Rekon-side execution;
+#     Circe owns orchestration; intent:go deferred; no Rekon command execution / source
+#     writes / VerificationRun / VerificationResult.
+#
+# See docs/strategy/v1-release-mechanics-versioning-decision.md.
+# Recommended next slice: V1 Release Prep Implementation.
+#
 # V1 Readiness / Release Review has shipped.
 # One-hundred-fifth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / release-readiness review batch. No runtime change.

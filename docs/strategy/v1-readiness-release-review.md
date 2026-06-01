@@ -225,7 +225,11 @@ cross-reference / pointer updates to existing docs.
 
 - **V1 Release Mechanics / Versioning Decision** (recommended next): decide whether to bump
   the version, tag, publish, and what release notes / package readiness / migration notes
-  are required — still no npm publish unless explicitly approved.
+  are required — still no npm publish unless explicitly approved. **Shipped (slice 106):
+  Option B — staged V1 release mechanics — was selected; the version-bump / git-tag /
+  npm-publish gates and the lockstep (`1.0.0`-target) versioning model are pinned, but no
+  version is bumped and nothing is published in that slice. See
+  [V1 Release Mechanics / Versioning Decision](./v1-release-mechanics-versioning-decision.md).**
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.

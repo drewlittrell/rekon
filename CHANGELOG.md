@@ -4,6 +4,29 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Decided **V1 Release Mechanics / Versioning Decision** — one-hundred-sixth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / release-mechanics
+  decision batch, no runtime or package-metadata change. Decision: **Option B — staged V1
+  release mechanics.** This slice decides *how* a V1 release will happen without taking any
+  release action: **V1 release mechanics do not publish to npm in this slice** and **do not
+  bump versions in this slice**. Release actions are split into separately-gated later
+  slices — release-prep (notes/migration/metadata), an explicit versioning slice (the only
+  place package versions change), and an explicit, approval-gated tag/publish slice (the
+  only place a tag or npm publish happens). Real package state was inspected and recorded
+  (not edited): a private workspace root `rekon` plus **21 public packages, all lockstep at
+  `0.1.0-beta.0`, none private**; the intended release target is **`1.0.0` applied
+  lockstep**, deferred to the versioning slice. The memo pins the version-bump / git-tag /
+  npm-publish gates, the lockstep package-versioning model, and the release-notes and
+  migration-notes models (canonical `intent assess → … → intent bundle write` flow + `circe
+  rekon-handoff validate/routes/import` import path; legacy `rekon prepare plan` /
+  `.rekon/handoffs` superseded by `.rekon/intent/plans/<intent-id>/circe/`). V1 boundaries
+  reaffirmed: **V1 means prepare/prove/package/export, not Rekon-side execution; Circe owns
+  orchestration for V1; intent:go remains deferred beyond V1; Rekon does not execute
+  commands in V1; Rekon does not write source files in V1; VerificationRun and
+  VerificationResult generation remain deferred beyond V1.** New
+  `docs/strategy/v1-release-mechanics-versioning-decision.md` (15 sections + option / gate /
+  package / boundary tables + options A–E) + 17-assertion docs test + review packet. No
+  source changes; no version bump; no npm publish.
 - Reviewed **V1 Readiness / Release Review** — one-hundred-fifth slice on the
   codebase-intel-classic capability-ontology track. Strategy / release-readiness review
   batch, no runtime change. Decision: **V1 readiness is conditionally approved for the
