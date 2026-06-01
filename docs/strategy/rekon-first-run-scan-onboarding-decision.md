@@ -307,3 +307,8 @@ intelligence; canonical truth remains `.rekon/artifacts/`.
    scan, create the first intelligence substrate, and show post-scan next actions. Still no
    docs / agent / CI prompts before scan; still no source writes beyond `.rekon/` operational
    state; still no `intent:go`.
+5. **Rekon First-Run Scan Safety Review** (**shipped, slice 112**): reviewed the shipped
+   `rekon scan` end-to-end and confirmed it safe/stable as the canonical first-run command;
+   recorded the `config.capabilities` normalization as acceptable for v1. See
+   [Rekon First-Run Scan Safety Review](./rekon-first-run-scan-safety-review.md). Recommended
+   next: Rekon Install / Setup / ASCII Art UX Decision.

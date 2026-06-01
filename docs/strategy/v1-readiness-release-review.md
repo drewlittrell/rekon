@@ -249,6 +249,10 @@ cross-reference / pointer updates to existing docs.
   that initializes `.rekon/` if needed and creates the first repository intelligence substrate,
   sharing the existing refresh pipeline. `refresh` retained as the expert / compatibility verb;
   no version bump, no npm publish, no `intent:go`.**
+  **Then reviewed (slice 112): the Rekon First-Run Scan Safety Review confirmed `rekon scan`
+  safe/stable as the canonical first-run command (first-run + repeat paths pass; boundaries
+  hold; config normalization acceptable for v1). Recommended next: Rekon Install / Setup /
+  ASCII Art UX Decision. See [Rekon First-Run Scan Safety Review](./rekon-first-run-scan-safety-review.md).**
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.

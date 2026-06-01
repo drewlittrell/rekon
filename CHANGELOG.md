@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Rekon First-Run Scan Safety Review** — one-hundred-twelfth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming
+  the shipped `rekon scan` is **safe and stable as the canonical first-run command**: it
+  initializes `.rekon/` when needed and creates the first repository intelligence substrate
+  (reusing the self-initializing `runRefresh` pipeline), works repeatedly, preserves `refresh`
+  as the expert / compatibility verb, offers no docs / agent / CI / verification generation
+  before the first scan, executes no commands, writes no source files outside `.rekon/`, emits
+  no ASCII art in `--json`, and does not implement `intent:go`. The config.capabilities
+  normalization (`[]` = default capabilities) is recorded as acceptable for v1 (existing
+  refresh behavior). No code or behavior change. Next: Rekon Install / Setup / ASCII Art UX
+  Decision. See
+  [Rekon First-Run Scan Safety Review](docs/strategy/rekon-first-run-scan-safety-review.md).
 - Implemented **Rekon First-Run Scan Implementation** — one-hundred-eleventh slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch adding the
   canonical first-run command **`rekon scan [--root <path>] [--json]`**, a thin wrapper over

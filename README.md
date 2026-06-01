@@ -1111,6 +1111,22 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# First-Run Scan Safety Review has shipped.
+# One-hundred-twelfth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch. Reviews the shipped rekon scan end-to-end.
+#   - rekon scan is confirmed safe/stable as the canonical first-run command: it
+#     initializes .rekon/ when needed, creates the first repository intelligence
+#     substrate (reusing runRefresh), and works repeatedly.
+#   - refresh retained as the expert / compatibility update command; no docs / agent /
+#     CI / verification generation before the first scan; no command execution; no
+#     source writes outside .rekon/; no ASCII art in --json; no intent:go.
+#   - config.capabilities normalization ([] = default capabilities) recorded as
+#     acceptable for v1 (existing refresh behavior, surfaced not introduced by scan).
+#   - No code or behavior change.
+#
+# See docs/strategy/rekon-first-run-scan-safety-review.md.
+# Recommended next slice: Rekon Install / Setup / ASCII Art UX Decision.
+#
 # First-Run Scan has shipped.
 # One-hundred-eleventh slice on the codebase-intel-classic capability-ontology track.
 # Product-capability batch. Implements rekon scan as the canonical first-run command.

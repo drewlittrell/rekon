@@ -106,3 +106,8 @@ behavior change yet.
 `rekon scan` (equivalent to `rekon init` + `rekon refresh` in one step); `rekon refresh`
 remains available unchanged as the expert / compatibility update command, so existing
 `rekon refresh` scripts continue to work. No package version change and no npm publish.
+
+**Update (slice 112): `rekon scan` reviewed safe/stable.** The Rekon First-Run Scan Safety
+Review confirmed `rekon scan` is safe as the canonical first-run command; `rekon refresh`
+remains unchanged as the expert / compatibility update command. No package version change and
+no npm publish.

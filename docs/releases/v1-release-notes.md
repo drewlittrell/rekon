@@ -137,3 +137,12 @@ creates the first repository intelligence substrate (sharing the existing `refre
 then reports the workspace state and post-scan next actions. `scan --json` carries boundary
 booleans and emits no ASCII art. `refresh` is unchanged and retained as the expert /
 compatibility update command. **No version bump and no npm publish occurred.**
+
+## Update — First-Run Scan Safety Review (slice 112)
+
+The Rekon First-Run Scan Safety Review confirmed `rekon scan` is **safe/stable as the canonical
+first-run command** — first-run and repeat paths pass, `refresh` is preserved as the expert /
+compatibility verb, the no-docs/agent/CI/verification-before-scan and no-execution /
+no-source-write / no-ASCII-in-`--json` boundaries hold, and the `config.capabilities`
+normalization (`[]` = defaults) is acceptable for v1. No code or behavior change. See
+[Rekon First-Run Scan Safety Review](../strategy/rekon-first-run-scan-safety-review.md).
