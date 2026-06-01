@@ -98,7 +98,9 @@ new test, the versioning memo, a review packet, and supporting docs.
 
 - **V1 Tagging Decision / Implementation** (recommended next): decide and, if explicitly
   approved, create a V1 git tag from the verified `1.0.0` version commit — still no npm
-  publish unless separately approved.
+  publish unless separately approved. **Shipped (slice 109): an annotated `v1.0.0` git tag
+  was created from the verified final commit and pushed to origin after the full gate passed;
+  no version change and no npm publish. See [V1 Tagging Decision](./v1-tagging-decision.md).**
 - **V1 Publish** (explicit, approval-gated, later): npm publish from the tagged commit once
   the before-publish gates pass — the only slice that publishes.
 - `intent:go` / Rekon-side execution remain out of V1 and are a later, separate decision.

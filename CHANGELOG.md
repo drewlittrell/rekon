@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Tagged **V1 Tagging** (V1 Tagging Decision / Implementation) — one-hundred-ninth slice on
+  the codebase-intel-classic capability-ontology track. Release-mechanics batch creating the
+  durable V1 release anchor: an **annotated `v1.0.0` git tag** (Option B) pointing at this
+  slice's verified final commit, pushed to origin. The tag is created only after the full
+  nine-command gate passes; **no npm publish occurs in this slice** and **no package version
+  changes** (root + 21 public packages remain at `1.0.0`). The annotated message records the
+  V1 scope (`V1 scope: prepare/prove/package/export. Circe owns orchestration. No Rekon-side
+  command execution, source writes, VerificationRun generation, or intent:go.`). Pre-gate
+  confirmed `1.0.0` lockstep package state and no pre-existing local/remote `v1.0.0` tag. V1
+  boundaries reaffirmed: **V1 means prepare/prove/package/export, not Rekon-side execution;
+  Circe owns orchestration for V1; intent:go remains deferred;** Rekon does not execute
+  commands or write source files; VerificationRun / VerificationResult generation remain
+  deferred. New `docs/strategy/v1-tagging-decision.md` (11 sections + option / gate / boundary
+  tables) + 13-assertion docs test + review packet. No runtime change; no version change; no
+  npm publish. npm publish remains deferred to a separate, approval-gated **V1 Publish
+  Decision / Implementation** slice.
 - Shipped **V1 Versioning** (V1 Versioning Implementation) — one-hundred-eighth slice on the
   codebase-intel-classic capability-ontology track. Release-mechanics product batch
   executing the staged lockstep version bump decided by V1 Release Mechanics / Versioning

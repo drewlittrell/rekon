@@ -238,6 +238,9 @@ cross-reference / pointer updates to existing docs.
   **Then shipped (slice 108): the lockstep version bump was executed — all 21 public
   packages and the private root are now at `1.0.0` (no tag / publish). See
   [V1 Versioning Implementation](./v1-versioning-implementation.md).**
+  **Then shipped (slice 109): an annotated `v1.0.0` git tag was created from the verified
+  final commit and pushed to origin after the full gate passed (no npm publish, no version
+  change). See [V1 Tagging Decision](./v1-tagging-decision.md).**
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.

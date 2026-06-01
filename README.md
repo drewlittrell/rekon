@@ -1103,6 +1103,21 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# V1 Tagging has shipped.
+# One-hundred-ninth slice on the codebase-intel-classic capability-ontology track.
+# Release-mechanics product batch. Creates the annotated v1.0.0 git tag.
+#   - An annotated v1.0.0 git tag is created from the verified final commit and
+#     pushed to origin, after the full nine-command gate passes.
+#   - Package versions remain 1.0.0 (no bump); npm publish does NOT occur in this
+#     slice — publish remains a separate, explicitly-approved slice.
+#   - Pre-tag state re-confirmed: root + 21 public packages lockstep at 1.0.0, with
+#     no pre-existing local or remote v1.0.0 tag.
+#   - V1 remains prepare/prove/package/export, not Rekon-side execution; Circe owns
+#     orchestration for V1; intent:go remains deferred.
+#
+# See docs/strategy/v1-tagging-decision.md.
+# Recommended next slice: V1 Publish Decision / Implementation.
+#
 # V1 Versioning has shipped.
 # One-hundred-eighth slice on the codebase-intel-classic capability-ontology track.
 # Release-mechanics product batch. The lockstep version bump for V1.

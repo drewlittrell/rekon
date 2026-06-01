@@ -90,3 +90,11 @@ all 21 public packages and the private root are now at **`1.0.0`** (lockstep; in
 publish occurred** in that slice — those remain separate, explicitly-approved slices. The
 "prep slice" statements above are retained as the historical record of the prep step. See
 [V1 Versioning Implementation](../strategy/v1-versioning-implementation.md).
+
+## Update — V1 Tagging (slice 109)
+
+The V1 release commit has since been tagged by **V1 Tagging Decision / Implementation**
+(slice 109): an annotated `v1.0.0` git tag was created from the verified final commit and
+pushed to origin after the full nine-command gate passed. **No npm publish occurred** —
+publish remains a separate, explicitly-approved slice. See
+[V1 Tagging Decision](../strategy/v1-tagging-decision.md).

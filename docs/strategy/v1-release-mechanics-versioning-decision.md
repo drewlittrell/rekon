@@ -257,7 +257,9 @@ existing docs.
    at `1.0.0` (internal `@rekon/*` pins + `package-lock.json` updated); no tag, no publish.
    See [V1 Versioning Implementation](./v1-versioning-implementation.md).**
 3. **V1 Tag** (explicit, later): cut the V1 tag from the version-bump commit once the
-   before-tag gates pass.
+   before-tag gates pass. **Shipped (slice 109): an annotated `v1.0.0` git tag was created
+   from the verified final commit and pushed to origin after the full gate passed — no npm
+   publish and no version change. See [V1 Tagging Decision](./v1-tagging-decision.md).**
 4. **V1 Publish** (explicit, approval-gated, later): npm publish from the tagged commit once
    the before-publish gates pass — the only slice that publishes, and only with explicit
    approval.
