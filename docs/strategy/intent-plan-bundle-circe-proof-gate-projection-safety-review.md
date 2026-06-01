@@ -173,6 +173,16 @@ assessment"; `intent bundle write` → reaches its branch). **Top-level Rekon he
 stale and must be aligned before V1/operator-ready release.** This review does not change
 the CLI help; it is recorded as the next slice.
 
+**Resolved (CLI Intent Help Surface Alignment).** Top-level `rekon help` now lists all six
+shipped rich intent commands (`intent assess` / `prepare` / `status` / `work-order
+generate` / `verification-plan generate` / `bundle write`), states the canonical flow
+(`intent assess → … → intent bundle write`, then `circe rekon-handoff
+validate/routes/import`), and restates the boundary (Rekon prepares/proves/packages/exports;
+Circe imports/orchestrates; Rekon does not run Circe, does not execute commands, does not
+write source files, and does not implement `intent:go`). The change is help text only — no
+command behavior changed, and `intent:go` remains deferred. See
+[CLI Intent Help Surface Alignment review packet](../../.rekon-dev/review-packets/cli-intent-help-surface-alignment.md).
+
 ## Rekon / Circe Boundary Review
 
 | Boundary | Decision |

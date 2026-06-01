@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Shipped **CLI Intent Help Surface Alignment** — one-hundred-fourth slice on the
+  codebase-intel-classic capability-ontology track. Product-polish batch resolving the
+  stale-help discoverability gap recorded by the slice-103 re-review (`2cb5bdc`):
+  top-level `rekon help` now lists all six shipped rich intent commands —
+  `rekon intent assess`, `rekon intent prepare`, `rekon intent status`,
+  `rekon intent work-order generate`, `rekon intent verification-plan generate`, and
+  `rekon intent bundle write` (previously only the legacy `intent work-order --path
+  --goal` and `intent remediation` appeared). Help also states the canonical flow
+  (`intent assess → intent prepare → intent status → intent work-order generate → intent
+  verification-plan generate → intent bundle write`, then `circe rekon-handoff
+  validate/routes/import`) and restates the boundary: **Rekon prepares, proves, packages,
+  and exports; Circe imports and orchestrates; Rekon does not run Circe, does not execute
+  commands, does not write source files, and does not implement `intent:go`.** This is a
+  **discoverability fix only — no command behavior changed**; the six commands already
+  worked when invoked directly, no new command was added, `intent go` is not listed as a
+  shipped command, and `intent:go` remains deferred. New
+  `tests/contract/cli-intent-help-surface.test.mjs` (12 assertions: `help` exits 0, the
+  six commands present, the Circe handoff note, the three boundary statements, and `intent
+  go` absent) + review packet. The only source change is the `usage()` string in
+  `@rekon/cli`; no artifact schema, version, or publish change.
 - Re-reviewed the **Intent Plan Bundle → Circe Proof/Gate Projection Safety Review** —
   one-hundred-third slice on the codebase-intel-classic capability-ontology track.
   Strategy / safety-review batch expanding the slice-102 review (`261b756`) with two

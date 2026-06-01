@@ -1103,6 +1103,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# CLI Intent Help Surface Alignment has shipped.
+# One-hundred-fourth slice on the codebase-intel-classic capability-ontology track.
+# Product-polish batch. Resolves the stale-help discoverability gap recorded by the
+# slice-103 re-review.
+#   - Top-level `rekon help` now lists all six shipped rich intent commands:
+#     intent assess / intent prepare / intent status / intent work-order generate /
+#     intent verification-plan generate / intent bundle write.
+#   - Help states the canonical flow (intent assess → … → intent bundle write, then
+#     circe rekon-handoff validate/routes/import) and the boundary: Rekon prepares,
+#     proves, packages, and exports; Circe imports and orchestrates; Rekon does not run
+#     Circe, does not execute commands, does not write source files, and does not
+#     implement intent:go.
+#   - Discoverability fix only: no command behavior changed, no new command, intent go
+#     is not listed as a shipped command, intent:go remains deferred.
+#   - Only source change is the usage() string in @rekon/cli + a 12-assertion help
+#     contract test.
+#
+# See .rekon-dev/review-packets/cli-intent-help-surface-alignment.md.
+# Recommended next slice: V1 Readiness / Release Review.
+#
 # Intent Plan Bundle → Circe Proof/Gate Projection Safety Review re-reviewed.
 # One-hundred-third slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch expanding the slice-102 review with two operational
