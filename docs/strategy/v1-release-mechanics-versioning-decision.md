@@ -263,3 +263,8 @@ existing docs.
 4. **V1 Publish** (explicit, approval-gated, later): npm publish from the tagged commit once
    the before-publish gates pass — the only slice that publishes, and only with explicit
    approval.
+
+Related (separate track): the install / first-run onboarding model is decided in
+[Rekon First-Run Scan / Install Onboarding Decision](./rekon-first-run-scan-onboarding-decision.md)
+(slice 110) — the public first-run verb is `rekon scan`, not `refresh`. That decision changes
+onboarding vocabulary only; it does not bump versions, tag, or publish.

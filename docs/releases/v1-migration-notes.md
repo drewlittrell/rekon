@@ -91,3 +91,13 @@ still exist as legacy/compatibility surfaces, but are not the V1 recommended pat
   by Circe.
 - No package versions changed in this migration-notes slice; packages remain at
   `0.1.0-beta.0`.
+
+## Update — First-Run Onboarding (slice 110)
+
+The canonical first-run verb is moving to `rekon scan` (decided in
+[Rekon First-Run Scan / Install Onboarding Decision](../strategy/rekon-first-run-scan-onboarding-decision.md)):
+`rekon scan` initializes `.rekon/` if needed and creates the first repository intelligence
+substrate, replacing `rekon refresh` as the documented first-run command. `refresh` remains an
+expert / compatibility alias, so existing scripts that call `rekon refresh` continue to work.
+This decision changes onboarding vocabulary only — no `rekon scan` implementation and no CLI
+behavior change yet.

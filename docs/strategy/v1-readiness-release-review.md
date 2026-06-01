@@ -241,6 +241,10 @@ cross-reference / pointer updates to existing docs.
   **Then shipped (slice 109): an annotated `v1.0.0` git tag was created from the verified
   final commit and pushed to origin after the full gate passed (no npm publish, no version
   change). See [V1 Tagging Decision](./v1-tagging-decision.md).**
+  **Then decided (slice 110): the V1 first-run onboarding model — the public first-run verb is
+  `rekon scan` (not `refresh`), and docs / agent / verification / CI options are offered only
+  after the first scan. No `rekon scan` implementation, no CLI change. See
+  [Rekon First-Run Scan / Install Onboarding Decision](./rekon-first-run-scan-onboarding-decision.md).**
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.

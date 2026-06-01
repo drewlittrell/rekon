@@ -118,3 +118,13 @@ node scripts/install-tarball-smoke.mjs
   public packages lockstep from `0.1.0-beta.0` to `1.0.0`.
 - Then a separate git-tag slice, then a separate, approval-gated npm-publish slice.
 - `intent:go` / Rekon-side execution remain out of V1 and are a later, separate decision.
+
+## Update — First-Run Onboarding (slice 110)
+
+The V1 install / first-run onboarding model is decided in
+[Rekon First-Run Scan / Install Onboarding Decision](../strategy/rekon-first-run-scan-onboarding-decision.md):
+the public first-run verb is `rekon scan` (not `refresh`). `rekon scan` initializes `.rekon/`
+if needed and creates the first repository intelligence substrate; docs / agent-context /
+verification / CI options are offered only after the first scan. `refresh` is retained as an
+expert / compatibility alias. This is a vocabulary / UX decision only — **no `rekon scan`
+implementation, no CLI behavior change, no version bump, no npm publish.**

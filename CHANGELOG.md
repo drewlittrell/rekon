@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Rekon First-Run Scan / Install Onboarding Decision** — one-hundred-tenth slice on
+  the codebase-intel-classic capability-ontology track. Strategy / product-UX decision batch
+  correcting the V1 onboarding model: the public first-run verb is **`rekon scan`** (Option B),
+  not `refresh`. `rekon scan` initializes `.rekon/` if needed and creates the first repository
+  intelligence substrate; docs / agent-context / verification / CI options are offered only
+  **after** the first scan (`snapshot_ready`), never before. `refresh` is demoted to an expert
+  / compatibility alias. Recorded UX gap at `6297d69`: no `rekon scan` exists; `rekon init` +
+  `rekon refresh` lead `usage()` and the README "First 10 Minutes" leads with `refresh`. Pins
+  the workspace state model (`not_initialized` / `initialized_without_snapshot` /
+  `snapshot_ready`), pre-scan messaging, post-scan action sequence, and ASCII/branding posture
+  (no ASCII art in `--json`; `NO_COLOR` / `REKON_NO_BANNER` respected). **No `rekon scan`
+  implementation, no CLI behavior change, no prompts, no ASCII art, no version bump, no npm
+  publish, no `intent:go`.** Next: Rekon First-Run Scan Implementation. See
+  [Rekon First-Run Scan / Install Onboarding Decision](docs/strategy/rekon-first-run-scan-onboarding-decision.md).
 - Tagged **V1 Tagging** (V1 Tagging Decision / Implementation) — one-hundred-ninth slice on
   the codebase-intel-classic capability-ontology track. Release-mechanics batch creating the
   durable V1 release anchor: an **annotated `v1.0.0` git tag** (Option B) pointing at this

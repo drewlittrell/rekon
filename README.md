@@ -81,6 +81,12 @@ step. Use the
 individual verbs (`rekon observe`, `rekon project`, ...) when you need
 to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md).
 
+> **First-run direction (decided, not yet implemented):** the canonical first-run verb is
+> moving to `rekon scan` (initialize `.rekon/` if needed + first scan + snapshot); `refresh`
+> is retained as an expert / compatibility alias, and docs / agent-context / verification
+> options are offered only after the first scan. See
+> [Rekon First-Run Scan / Install Onboarding Decision](docs/strategy/rekon-first-run-scan-onboarding-decision.md).
+
 Then inspect the workspace:
 
 ```sh
@@ -1102,6 +1108,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # See docs/artifacts/capability-phrase-report.md.
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
+#
+# First-Run Scan Onboarding Decision has shipped.
+# One-hundred-tenth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / product-UX decision batch. Decides the V1 first-run onboarding model.
+#   - The public first-run verb is rekon scan (Option B), not refresh.
+#   - rekon scan initializes .rekon/ if needed and creates the first repository
+#     intelligence substrate; dependent actions unlock only after the first scan.
+#   - Docs / agent context / verification / CI options are offered AFTER scan, never
+#     before. refresh is demoted to an expert / compatibility alias.
+#   - Workspace state model (not_initialized / initialized_without_snapshot /
+#     snapshot_ready), pre-scan messaging, post-scan actions, and ASCII/branding
+#     posture pinned (no ASCII art in --json; NO_COLOR / REKON_NO_BANNER respected).
+#   - No rekon scan implementation, no CLI behavior change, no prompts, no ASCII art,
+#     no version bump, no npm publish, no intent:go.
+#
+# See docs/strategy/rekon-first-run-scan-onboarding-decision.md.
+# Recommended next slice: Rekon First-Run Scan Implementation.
 #
 # V1 Tagging has shipped.
 # One-hundred-ninth slice on the codebase-intel-classic capability-ontology track.
