@@ -211,3 +211,7 @@ strategy cross-links, and additive doc pointers.
 > bundle and its Circe projection (per-phase `verificationPosture`), so skipped verification never
 > reads as proof. Next: Intent Bundle Phase-Level Verification Safety Review. See
 > [intent plan bundle](../concepts/intent-plan-bundle.md).
+
+> Update (slice 116): that safety review shipped — **Intent Bundle Phase-Level Verification is
+> safe/stable**. Next: Rekon Install / Setup / ASCII Art UX Decision. See
+> [Intent Bundle Phase-Level Verification Safety Review](./intent-bundle-phase-level-verification-safety-review.md).

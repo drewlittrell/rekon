@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Intent Bundle Phase-Level Verification Safety Review** — one-hundred-sixteenth slice on
+  the codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming the
+  slice-115 Intent Bundle Phase-Level Verification Policy / Implementation is **safe/stable**: every
+  phase has explicit verification posture; `phase-modify` / `phase-refactor` get executable
+  verification when safe requirements exist (else `needs-review`); `phase-verify` carries final
+  verification; `phase-investigate` / `phase-review` are explicit manual / reviewer gates; a phase
+  without executable verification is never silently treated as verified; skipped verification is not
+  proof; posture is projection metadata, not a VerificationRun. No commands executed, no
+  VerificationRun / VerificationResult created, no source writes, no Circe run by Rekon, `intent:go`
+  deferred. Adds the safety-review memo, a 22-assertion docs test, a review packet, and additive doc
+  pointers. No code, CLI, package, version, or runtime change. Recommended next: **Rekon Install /
+  Setup / ASCII Art UX Decision**.
 - Implemented **Intent Bundle Phase-Level Verification Policy / Implementation** — one-hundred-fifteenth
   slice on the codebase-intel-classic capability-ontology track. Product-capability batch making
   phase-level verification explicit in the intent plan bundle and its Circe projection so skipped
