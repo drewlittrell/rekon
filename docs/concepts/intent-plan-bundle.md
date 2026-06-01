@@ -142,6 +142,35 @@ fields Circe's normalizers ignore, so **Circe schema validation remains intact**
 projections are still accepted by Circe's `readRekonHandoffManifestFile` /
 `readRekonPhasePlanFile` / `normalizeRekonWorkOrder` / `normalizeRekonVerificationPlan`).
 
+## Phase Verification Posture
+
+Slice 115 makes phase-level verification explicit in the bundle and its Circe
+projection so skipped verification never reads as proof. **Every phase has an
+explicit verification posture.** The posture is one of `executable`,
+`final-verification`, `manual-review`, or `needs-review` — recorded in `circe/rekon-proof.json`
+`phaseGates[]` (with `manualGate`, `needsReview`, `reason`, and, when present,
+`verificationPlanPath`), mirrored on `circe/phase-plan.json` `phases[].rekon`, and
+summarized in `verification-plan.md` and `agent/verification.json`.
+
+The posture is derived from the phase `kind` and the plan's safe executable
+verification requirements (those that carry a command):
+
+- **`phase-modify` gets executable verification when possible.** Implementation
+  phases (`modify` / `refactor`) map the plan's safe executable requirements and
+  ship a per-phase VerificationPlan; if no safe requirement applies they are
+  recorded as `needs-review` (not silently skipped).
+- **`phase-verify` carries final verification.** The verify phase ships the final
+  VerificationPlan when executable requirements exist, else `needs-review`.
+- **`phase-investigate` and `phase-review` may be manual / reviewer-gated.** They
+  are `manual-review` by default unless explicit executable requirements attach.
+
+**Manual-only phases are marked explicitly so skipped verification does not look
+like proof.** Each `manual-review` / `needs-review` phase records why it carries no
+executable VerificationPlan. **A phase without executable verification is never
+silently treated as verified.** `rekon intent bundle write` reports a
+`phaseVerification` summary (executable / final-verification / manual-review /
+needs-review counts); the bundle still executes no commands and writes no source.
+
 ## CLI
 
 ```sh

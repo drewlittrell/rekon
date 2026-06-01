@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Implemented **Intent Bundle Phase-Level Verification Policy / Implementation** — one-hundred-fifteenth
+  slice on the codebase-intel-classic capability-ontology track. Product-capability batch making
+  phase-level verification explicit in the intent plan bundle and its Circe projection so skipped
+  verification never reads as proof. Every phase now carries an explicit `verificationPosture`
+  (`executable` / `final-verification` / `manual-review` / `needs-review`) in `circe/rekon-proof.json`
+  `phaseGates[]` (with `manualGate` / `needsReview` / `reason` / `verificationPlanPath`), mirrored on
+  `circe/phase-plan.json` `phases[].rekon`, and summarized in `verification-plan.md` and
+  `agent/verification.json`. `phase-modify` / `phase-refactor` map the plan's safe executable
+  verification requirements and ship a per-phase VerificationPlan (or `needs-review` when none
+  applies); `phase-verify` carries final verification; `phase-investigate` / `phase-review` are
+  reviewer-gated `manual-review`. `rekon intent bundle write` reports a `phaseVerification` summary.
+  Derived in the bundle projection layer only — no canonical artifact, approval/proof, scan/refresh,
+  or runtime-execution change; no `intent:go`, no Circe execution by Rekon, no source writes. New
+  exported type `IntentPhaseVerificationPosture`; all projection fields additive and
+  Circe-schema-compatible. Contract test +20 (105 pass) + docs test (8). Recommended next: **Intent
+  Bundle Phase-Level Verification Safety Review**.
 - Reviewed **Fresh Repo Intent Readiness Safety Review** — one-hundred-fourteenth slice on the
   codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming the
   slice-113 Fresh Repo Intent Readiness / Proof Context Fix is **safe/stable**: the fresh-repo

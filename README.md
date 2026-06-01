@@ -1120,6 +1120,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Bundle Phase-Level Verification has shipped.
+# One-hundred-fifteenth slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch making phase-level verification explicit in the intent plan
+# bundle + Circe projection so skipped verification never reads as proof.
+#   - Every phase carries an explicit verificationPosture (executable / final-verification /
+#     manual-review / needs-review) in circe/rekon-proof.json phaseGates[] (+ manualGate /
+#     needsReview / reason / verificationPlanPath), on circe/phase-plan.json phases[].rekon,
+#     in verification-plan.md, and in agent/verification.json.
+#   - phase-modify / phase-refactor map the plan's safe executable requirements and ship a
+#     per-phase VerificationPlan (else needs-review); phase-verify carries final verification;
+#     phase-investigate / phase-review are reviewer-gated manual-review.
+#   - rekon intent bundle write reports a phaseVerification summary.
+#   - Projection layer only: no canonical artifact / approval-proof / scan-refresh / runtime
+#     change; no intent:go; no Circe execution by Rekon; no source writes.
+#
+# See docs/concepts/intent-plan-bundle.md.
+# Recommended next slice: Intent Bundle Phase-Level Verification Safety Review.
+#
 # Fresh Repo Intent Readiness Safety Review has shipped.
 # One-hundred-fourteenth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch. Reviews the slice-113 fresh-repo intent-context fix end-to-end.

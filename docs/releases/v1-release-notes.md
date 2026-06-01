@@ -169,3 +169,17 @@ rather than false success; Rekon runs no Circe and writes no source in this path
 remains deferred; phase-level VerificationPlan behavior is a recorded follow-up. No package
 version change and no npm publish. See
 [Fresh Repo Intent Readiness Safety Review](../strategy/fresh-repo-intent-readiness-safety-review.md).
+
+## Update — Phase-Level Verification In Bundles (slice 115)
+
+The intent plan bundle and its Circe projection now make phase-level verification **explicit**, so
+skipped verification never reads as proof. Every phase carries a `verificationPosture`
+(`executable` / `final-verification` / `manual-review` / `needs-review`) in `circe/rekon-proof.json`
+`phaseGates[]`, on `circe/phase-plan.json` `phases[].rekon`, in `verification-plan.md`, and in
+`agent/verification.json`. `phase-modify` / `phase-refactor` map the plan's safe executable
+verification requirements and ship a per-phase VerificationPlan (or `needs-review` when none
+applies); `phase-verify` carries final verification; `phase-investigate` / `phase-review` are
+reviewer-gated `manual-review`. `rekon intent bundle write` reports a `phaseVerification` summary.
+Derived in the bundle projection layer only — no canonical artifact, approval/proof, or
+runtime-execution change; no `intent:go`, no Circe execution by Rekon, no source writes. No package
+version change and no npm publish.

@@ -205,3 +205,9 @@ strategy cross-links, and additive doc pointers.
 - **Scan Auto Context Preparation Decision** (alternative, deferred): decide whether `rekon
   scan` should auto-run the intent-context prep — separate from this review because scan was
   just safety-reviewed.
+
+> Update (slice 115): the recommended follow-up — **Intent Bundle Phase-Level Verification Policy /
+> Implementation** — has shipped. Phase-level verification is now explicit in the intent plan
+> bundle and its Circe projection (per-phase `verificationPosture`), so skipped verification never
+> reads as proof. Next: Intent Bundle Phase-Level Verification Safety Review. See
+> [intent plan bundle](../concepts/intent-plan-bundle.md).

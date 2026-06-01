@@ -158,6 +158,29 @@ const BOUNDARY_NOTE =
 
 type CirceHandoffArtifactRef = { phaseId: string; path: string; artifactId: string };
 
+/**
+ * Per-phase verification posture (slice 115). Makes phase-level verification
+ * explicit in the bundle / Circe projection so a phase without an executable
+ * VerificationPlan is never silently read as proof.
+ * - `executable`: an implementation phase that carries safe executable verification.
+ * - `final-verification`: the final verification phase carrying executable verification.
+ * - `manual-review`: a reviewer-gated phase; no executable verification is implied.
+ * - `needs-review`: a phase that should carry verification but has no safe
+ *   executable requirement — explicitly unverified, not skipped-as-proof.
+ */
+export type IntentPhaseVerificationPosture =
+  | "executable"
+  | "manual-review"
+  | "final-verification"
+  | "needs-review";
+
+type PhaseVerificationSummary = {
+  executable: number;
+  manualReview: number;
+  finalVerification: number;
+  needsReview: number;
+};
+
 type CirceProjectionResult = {
   files: IntentPlanBundleFile[];
   manifestCirce: Record<string, unknown>;
@@ -165,6 +188,8 @@ type CirceProjectionResult = {
   phaseCount: number;
   workOrderCount: number;
   verificationPlanCount: number;
+  phaseGates: CircePhaseGate[];
+  phaseVerification: PhaseVerificationSummary;
 };
 
 type RenderCirceProjectionInput = {
@@ -191,10 +216,17 @@ type RenderCirceProjectionInput = {
 
 type CircePhaseGate = {
   phaseId: string;
+  title: string;
+  kind: string;
   approvalStatus: string;
   readyForCirce: boolean;
   obligationIds: string[];
   verificationRequirementIds: string[];
+  verificationPosture: IntentPhaseVerificationPosture;
+  manualGate: boolean;
+  needsReview: boolean;
+  reason: string;
+  verificationPlanPath?: string;
   blockers: string[];
   warnings: string[];
   boundaries: { sourceWriteAllowed: false; commandsExecuted: false; intentGoDeferred: true };
@@ -236,6 +268,13 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     if (id.length === 0) continue;
     obligationMessageById.set(id, asString(o.message) || id);
   }
+  // Plan-level "safe executable" requirement ids: those that carry an actual
+  // command. These are the only requirements that can back an `executable` /
+  // `final-verification` posture; a requirement with no command (e.g. a
+  // document-findings reviewer obligation) is not executable verification.
+  const executableRequirementIds = [...requirementById.entries()]
+    .filter(([, r]) => r.command.length > 0)
+    .map(([id]) => id);
 
   let phases = input.phases;
   if (phases.length === 0) {
@@ -290,16 +329,72 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       .filter((m): m is string => typeof m === "string" && m.length > 0);
     const riskNotes = [...constraints, ...obligationMessages];
 
-    let requirementIds = asArray(p.verificationRequirements).map((x) => asString(x)).filter(Boolean);
-    if (requirementIds.length === 0 && singlePhase) {
-      requirementIds = [...requirementById.keys()];
+    let declaredRequirementIds = asArray(p.verificationRequirements).map((x) => asString(x)).filter(Boolean);
+    if (declaredRequirementIds.length === 0 && singlePhase) {
+      declaredRequirementIds = [...requirementById.keys()];
     }
     const phaseReady = planApproved && asString(p.status) !== "blocked";
-    const phaseRequirements = requirementIds
+
+    // ---- Phase verification posture (slice 115) ----
+    // Derive an explicit posture from the phase kind + the safe executable
+    // requirements that can apply. An implementation phase whose plan declares
+    // safe executable verification carries it (mapped) even when the canonical
+    // plan only attached requirements to the verify phase; a phase with no safe
+    // executable requirement is recorded as needs-review (explicitly unverified),
+    // and investigation / review phases are reviewer-gated (manual-review).
+    // Skipped verification is never represented as proof.
+    const phaseKind = asString(p.kind);
+    const ownExecutableIds = declaredRequirementIds.filter((id) => executableRequirementIds.includes(id));
+    let verificationPosture: IntentPhaseVerificationPosture;
+    let effectiveRequirementIds: string[];
+    let manualGate = false;
+    let needsReview = false;
+    let postureReason: string;
+    if (phaseKind === "verify") {
+      effectiveRequirementIds = ownExecutableIds.length > 0 ? ownExecutableIds : executableRequirementIds;
+      if (effectiveRequirementIds.length > 0) {
+        verificationPosture = "final-verification";
+        postureReason = "Final verification phase carries the executable verification requirements.";
+      } else {
+        verificationPosture = "needs-review";
+        needsReview = true;
+        postureReason = "Verification phase has no executable verification requirement; recorded as needs-review.";
+      }
+    } else if (phaseKind === "modify" || phaseKind === "refactor") {
+      effectiveRequirementIds = ownExecutableIds.length > 0 ? ownExecutableIds : executableRequirementIds;
+      if (effectiveRequirementIds.length > 0) {
+        verificationPosture = "executable";
+        postureReason = "Safe verification requirements apply to the implementation phase.";
+      } else {
+        verificationPosture = "needs-review";
+        needsReview = true;
+        effectiveRequirementIds = [];
+        postureReason = "Implementation phase has no safe verification requirement; recorded as needs-review (not verified).";
+      }
+    } else if (ownExecutableIds.length > 0) {
+      // investigate / review / unknown with explicitly attached executable verification.
+      verificationPosture = "executable";
+      effectiveRequirementIds = ownExecutableIds;
+      postureReason = "Explicit verification requirements attach to this phase.";
+    } else {
+      verificationPosture = "manual-review";
+      manualGate = true;
+      effectiveRequirementIds = [];
+      postureReason =
+        phaseKind === "investigate"
+          ? "Investigation phase is reviewer-gated; no executable verification is implied."
+          : phaseKind === "review"
+            ? "Review phase is reviewer-gated; no executable verification is implied."
+            : "Phase is reviewer-gated by default; no executable verification is implied.";
+    }
+
+    const phaseRequirements = effectiveRequirementIds
       .map((id) => requirementById.get(id))
       .filter((r): r is { command: string; reason: string } => Boolean(r));
     const commands = phaseRequirements.map((r) => r.command).filter((c) => c.length > 0);
     const reasons = phaseRequirements.map((r) => r.reason).filter((c) => c.length > 0);
+    const emitVerificationPlan =
+      (verificationPosture === "executable" || verificationPosture === "final-verification") && commands.length > 0;
 
     const workOrderArtifactId = `${input.intentId}-${phaseId}.work-order`;
     const verificationPlanArtifactId = `${input.intentId}-${phaseId}.verification-plan`;
@@ -334,7 +429,8 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
         phaseId,
         approvalStatus,
         obligationIds,
-        verificationRequirementIds: requirementIds,
+        verificationRequirementIds: effectiveRequirementIds,
+        verificationPosture,
         sourceRefs: sourceRefList,
         boundaries: phaseBoundaries,
       },
@@ -343,7 +439,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     handoffWorkOrders.push({ phaseId, path: workOrderRelPath, artifactId: workOrderArtifactId });
 
     let verificationPlanPath: string | undefined;
-    if (phaseRequirements.length > 0) {
+    if (emitVerificationPlan) {
       // Canonical Rekon VerificationPlan shape (Circe normalizeRekonVerificationPlan).
       const verificationPlan = {
         header: {
@@ -362,7 +458,8 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
         intentHandoff: {
           preparedIntentPlanRef: planRefStr,
           phaseId,
-          verificationRequirementIds: requirementIds,
+          verificationPosture,
+          verificationRequirementIds: effectiveRequirementIds,
           sourceRefs: sourceRefList,
           boundaries: {
             createsVerificationRun: false,
@@ -378,17 +475,34 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       });
       handoffVerificationPlans.push({ phaseId, path: verificationPlanRelPath, artifactId: verificationPlanArtifactId });
       verificationPlanPath = verificationPlanRelPath;
-    } else {
-      warnings.push(`Phase ${phaseId} has no verification requirement; Circe projection omits its VerificationPlan.`);
+    } else if (needsReview) {
+      // Explicitly unverified: a phase that should carry verification but has no
+      // safe executable requirement. Surfaced as a warning so skipped verification
+      // is never silently read as proof.
+      warnings.push(
+        `Phase ${phaseId} (${phaseKind || "phase"}) has no safe executable verification requirement; recorded as needs-review (not verified, not proof).`,
+      );
     }
 
-    const phaseWarnings = phaseRequirements.length > 0 ? [] : ["No verification requirement; VerificationPlan omitted."];
+    const phaseWarnings: string[] = [];
+    if (needsReview) {
+      phaseWarnings.push("No safe executable verification requirement; recorded as needs-review (not verified).");
+    } else if (manualGate) {
+      phaseWarnings.push("Reviewer-gated phase; no executable verification is implied.");
+    }
     phaseGates.push({
       phaseId,
+      title,
+      kind: phaseKind,
       approvalStatus,
       readyForCirce: phaseReady,
       obligationIds,
-      verificationRequirementIds: requirementIds,
+      verificationRequirementIds: effectiveRequirementIds,
+      verificationPosture,
+      manualGate,
+      needsReview,
+      reason: postureReason,
+      ...(verificationPlanPath ? { verificationPlanPath } : {}),
       blockers: [],
       warnings: phaseWarnings,
       boundaries: phaseBoundaries,
@@ -407,7 +521,10 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
         approvalStatus,
         readyForCirce: phaseReady,
         obligationIds,
-        verificationRequirementIds: requirementIds,
+        verificationRequirementIds: effectiveRequirementIds,
+        verificationPosture,
+        manualGate,
+        needsReview,
       },
     });
   });
@@ -509,6 +626,13 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     ...verificationPlanFiles,
   ];
 
+  const phaseVerification: PhaseVerificationSummary = {
+    executable: phaseGates.filter((g) => g.verificationPosture === "executable").length,
+    manualReview: phaseGates.filter((g) => g.verificationPosture === "manual-review").length,
+    finalVerification: phaseGates.filter((g) => g.verificationPosture === "final-verification").length,
+    needsReview: phaseGates.filter((g) => g.verificationPosture === "needs-review").length,
+  };
+
   const manifestCirce = {
     handoff: "circe/handoff.json",
     phasePlan: "circe/phase-plan.json",
@@ -519,6 +643,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     kind: "rekon-circe-handoff",
     workOrders: handoffWorkOrders.length,
     verificationPlans: handoffVerificationPlans.length,
+    phaseVerification,
     warnings: warnings.length,
   };
 
@@ -529,6 +654,8 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     phaseCount: phaseEntries.length,
     workOrderCount: handoffWorkOrders.length,
     verificationPlanCount: handoffVerificationPlans.length,
+    phaseGates,
+    phaseVerification,
   };
 }
 
@@ -655,6 +782,47 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
 
   const sourceRefList = Object.entries(sourceArtifacts).map(([name, entry]) => `- ${name}: \`${entry.ref}\``);
 
+  // ---- Circe handoff projection (circe/) ----
+  // Projects the bundle into Circe's `rekon-circe-handoff` import package, one
+  // WorkOrder (and optional VerificationPlan) per PreparedIntentPlan phase.
+  // Computed here (before the human / agent files) so verification-plan.md and
+  // agent/verification.json can surface the per-phase verification posture (slice 115).
+  const circeRepoRoot = typeof input.repoRoot === "string" && input.repoRoot.length > 0 ? input.repoRoot : ".";
+  const producerVersion =
+    typeof input.producerVersion === "string" && input.producerVersion.length > 0 ? input.producerVersion : null;
+  const circe = renderCirceProjection({
+    intentId,
+    generatedAt,
+    repoRoot: circeRepoRoot,
+    goal,
+    planRef: source.preparedIntentPlanRef,
+    producerVersion,
+    phases,
+    requirements: asArray(plan.verificationRequirements).map((r) => asRecord(r)),
+    obligations: asArray(plan.obligations).map((o) => asRecord(o)),
+    workOrderSchemaVersion: asString(asRecord(workOrder.header).schemaVersion, "0.1.0"),
+    verificationPlanSchemaVersion: asString(asRecord(verificationPlan.header).schemaVersion, "0.1.0"),
+    // Proof/gate enrichment (slice 101).
+    hasPreparedPlan: Boolean(source.preparedIntentPlan),
+    sourceArtifacts,
+    approval,
+    planStatusValue: asString(planStatus.value, "unknown"),
+    planNextAction: asString(planStatus.recommendedNextAction, "(none)"),
+    intentStatusValue: asString(asRecord(status.status).value),
+    intentStatusNextAction: asString(asRecord(status).recommendedNextAction),
+  });
+  // Surface the Circe projection in the manifest (additive; all relative paths).
+  files.circeHandoff = "circe/handoff.json";
+  files.circePhasePlan = "circe/phase-plan.json";
+  files.circeProof = "circe/rekon-proof.json";
+  manifest.circe = circe.manifestCirce;
+
+  // Per-phase verification posture lines for the human / agent bundle files (slice 115).
+  const phasePostureLines = circe.phaseGates.map((g) => {
+    const reqs = g.verificationRequirementIds.length > 0 ? ` [${g.verificationRequirementIds.join(", ")}]` : "";
+    return `${g.phaseId} — ${g.verificationPosture}${reqs}: ${g.reason}`;
+  });
+
   // ---- README.md ----
   const readme = [
     `# Intent plan bundle: ${intentId}`,
@@ -742,6 +910,12 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     "## Success criteria",
     "",
     bullets(planSuccess.length > 0 ? planSuccess : ["Verification guidance is addressed."]),
+    "",
+    "## Phase verification posture",
+    "",
+    "Each phase carries an explicit verification posture. `executable` and `final-verification` phases ship a per-phase VerificationPlan under `circe/verification-plans/`. `manual-review` phases are reviewer-gated; no executable verification is implied. `needs-review` phases should carry verification but have no safe executable requirement. **Skipped verification is not proof: a phase without an executable VerificationPlan is never treated as verified.**",
+    "",
+    bullets(phasePostureLines.length > 0 ? phasePostureLines : ["(no phases)"]),
     "",
     refString(source.verificationPlanRef)
       ? `Traceability: \`${refString(source.verificationPlanRef)}\`${
@@ -880,6 +1054,16 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
       successCriteria: planSuccess,
       sourceRefs: Object.fromEntries(Object.entries(sourceArtifacts).map(([name, entry]) => [name, entry.ref])),
       executesCommands: false,
+      // Per-phase verification posture (slice 115). Skipped verification is not
+      // proof: manual-review / needs-review phases carry no executable VerificationPlan.
+      phaseVerification: circe.phaseVerification,
+      phases: circe.phaseGates.map((g) => ({
+        phaseId: g.phaseId,
+        verificationPosture: g.verificationPosture,
+        manualGate: g.manualGate,
+        needsReview: g.needsReview,
+        ...(g.verificationPlanPath ? { verificationPlanPath: g.verificationPlanPath } : {}),
+      })),
     },
     null,
     2,
@@ -896,37 +1080,9 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
   );
 
   // ---- Circe handoff projection (circe/) ----
-  // Projects the bundle into Circe's `rekon-circe-handoff` import package, one
-  // WorkOrder (and optional VerificationPlan) per PreparedIntentPlan phase.
-  const circeRepoRoot = typeof input.repoRoot === "string" && input.repoRoot.length > 0 ? input.repoRoot : ".";
-  const producerVersion =
-    typeof input.producerVersion === "string" && input.producerVersion.length > 0 ? input.producerVersion : null;
-  const circe = renderCirceProjection({
-    intentId,
-    generatedAt,
-    repoRoot: circeRepoRoot,
-    goal,
-    planRef: source.preparedIntentPlanRef,
-    producerVersion,
-    phases,
-    requirements: asArray(plan.verificationRequirements).map((r) => asRecord(r)),
-    obligations: asArray(plan.obligations).map((o) => asRecord(o)),
-    workOrderSchemaVersion: asString(asRecord(workOrder.header).schemaVersion, "0.1.0"),
-    verificationPlanSchemaVersion: asString(asRecord(verificationPlan.header).schemaVersion, "0.1.0"),
-    // Proof/gate enrichment (slice 101).
-    hasPreparedPlan: Boolean(source.preparedIntentPlan),
-    sourceArtifacts,
-    approval,
-    planStatusValue: asString(planStatus.value, "unknown"),
-    planNextAction: asString(planStatus.recommendedNextAction, "(none)"),
-    intentStatusValue: asString(asRecord(status.status).value),
-    intentStatusNextAction: asString(asRecord(status).recommendedNextAction),
-  });
-  // Surface the Circe projection in the manifest (additive; all relative paths).
-  files.circeHandoff = "circe/handoff.json";
-  files.circePhasePlan = "circe/phase-plan.json";
-  files.circeProof = "circe/rekon-proof.json";
-  manifest.circe = circe.manifestCirce;
+  // (Computed above — before the human / agent files — so verification-plan.md and
+  // agent/verification.json can surface the per-phase verification posture.
+  // `circe.files` are appended to the bundle below.)
 
   const bundleFiles: IntentPlanBundleFile[] = [
     { path: "manifest.json", content: `${JSON.stringify(manifest, null, 2)}\n` },

@@ -4820,7 +4820,14 @@ export async function main(argv: string[]): Promise<void> {
       verificationPlansDir?: string;
       workOrders?: number;
       verificationPlans?: number;
+      phaseVerification?: { executable?: number; manualReview?: number; finalVerification?: number; needsReview?: number };
       warnings?: number;
+    };
+    const phaseVerification = {
+      executable: circeManifest.phaseVerification?.executable ?? 0,
+      finalVerification: circeManifest.phaseVerification?.finalVerification ?? 0,
+      manualReview: circeManifest.phaseVerification?.manualReview ?? 0,
+      needsReview: circeManifest.phaseVerification?.needsReview ?? 0,
     };
 
     if (json) {
@@ -4838,6 +4845,7 @@ export async function main(argv: string[]): Promise<void> {
             rekonProof: `${bundlePath}${circeManifest.rekonProof ?? "circe/rekon-proof.json"}`,
             workOrders: typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0,
             verificationPlans: typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0,
+            phaseVerification,
             warnings: typeof circeManifest.warnings === "number" ? circeManifest.warnings : 0,
           },
           canonicalTruth: ".rekon/artifacts",
@@ -4860,6 +4868,10 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(
         `Circe artifacts: ${typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0} work order(s), ` +
           `${typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0} verification plan(s)`,
+      );
+      lines.push(
+        `Phase verification: ${phaseVerification.executable} executable, ${phaseVerification.finalVerification} final-verification, ` +
+          `${phaseVerification.manualReview} manual-review, ${phaseVerification.needsReview} needs-review`,
       );
       lines.push("Canonical truth: .rekon/artifacts/");
       lines.push("");

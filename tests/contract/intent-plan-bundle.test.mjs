@@ -362,12 +362,13 @@ test("circe: helper renders one WorkOrder JSON per phase", () => {
   assert.ok(fileByPath(result, "circe/work-orders/phase-modify.work-order.json") !== undefined);
 });
 
-// ---------- C4: per-phase VerificationPlan JSON files when requirements exist ----------
-test("circe: helper renders a VerificationPlan only for phases with requirements", () => {
+// ---------- C4: per-phase VerificationPlan JSON files for executable phases ----------
+test("circe: helper renders a VerificationPlan for each executable / final-verification phase", () => {
   const result = build();
+  // phase:investigate carries an explicit executable requirement -> VerificationPlan.
   assert.ok(fileByPath(result, "circe/verification-plans/phase-investigate.verification-plan.json") !== undefined);
-  // phase:modify has no verification requirements -> no VerificationPlan file.
-  assert.equal(fileByPath(result, "circe/verification-plans/phase-modify.verification-plan.json"), undefined);
+  // phase:modify maps the plan's safe executable requirement -> executable -> VerificationPlan (slice 115).
+  assert.ok(fileByPath(result, "circe/verification-plans/phase-modify.verification-plan.json") !== undefined);
 });
 
 // ---------- C5: handoff schemaVersion 1 ----------
@@ -449,10 +450,16 @@ test("circe: per-phase VerificationPlan traces the phase's verification requirem
   assert.ok(vp.successCriteria.includes("Type safety must hold."));
 });
 
-// ---------- C16: missing verification plan for a phase emits warning ----------
-test("circe: a phase with no verification requirement emits a handoff warning", () => {
-  const handoff = circeJson(build(), "handoff.json");
-  assert.ok(handoff.warnings.some((w) => w.includes("phase-modify")));
+// ---------- C16: a needs-review phase (no safe executable requirement) emits a warning ----------
+test("circe: an implementation phase with no safe executable requirement emits a needs-review handoff warning", () => {
+  const src = baseSource();
+  // Strip executable requirements: modify can no longer map any safe command.
+  src.preparedIntentPlan.verificationRequirements = [];
+  src.preparedIntentPlan.phases = [
+    { id: "phase:modify", title: "Modify", kind: "modify", goal: "Modify", paths: ["src/app.ts"], systems: [], constraints: [], obligations: [], verificationRequirements: [] },
+  ];
+  const handoff = circeJson(buildIntentPlanBundle({ generatedAt: "2026-05-31T00:00:00.000Z", source: src }), "handoff.json");
+  assert.ok(handoff.warnings.some((w) => w.includes("phase-modify") && /needs-review/.test(w)));
 });
 
 // ---------- C17: manifest includes circe section ----------
@@ -463,7 +470,8 @@ test("circe: manifest includes a circe section", () => {
   assert.equal(circe.schemaVersion, 1);
   assert.equal(circe.kind, "rekon-circe-handoff");
   assert.equal(circe.workOrders, 2);
-  assert.equal(circe.verificationPlans, 1);
+  // Both phases are executable in the base fixture (investigate explicit, modify mapped) -> 2 VPs (slice 115).
+  assert.equal(circe.verificationPlans, 2);
 });
 
 // ---------- C18: bundle generation runs no Circe / executes no commands ----------
@@ -747,4 +755,189 @@ test("proof: CLI writes rekon-proof.json + artifacts validate stays clean", asyn
   assert.ok(s.isFile());
   const validate = runCli(["artifacts", "validate", "--root", cliRoot, "--json"]);
   assert.equal(JSON.parse(validate.stdout).valid, true);
+});
+
+// ========== Phase-level verification posture (slice 115) ==========
+
+function richSource() {
+  const s = baseSource();
+  s.preparedIntentPlan.verificationRequirements = [
+    { id: "verify:typecheck", command: "npm run typecheck", reason: "Type safety must hold." },
+    { id: "verify:test", command: "npm run test", reason: "Tests must pass." },
+    { id: "verify:build", command: "npm run build", reason: "The build must succeed." },
+  ];
+  s.preparedIntentPlan.phases = [
+    { id: "phase:investigate", title: "Investigate", kind: "investigate", goal: "Investigate", paths: ["src/app.ts"], systems: [], constraints: [], obligations: [], verificationRequirements: [] },
+    { id: "phase:modify", title: "Modify", kind: "modify", goal: "Modify", paths: ["src/app.ts"], systems: [], constraints: [], obligations: [], verificationRequirements: [] },
+    { id: "phase:verify", title: "Verify", kind: "verify", goal: "Verify", paths: [], systems: [], constraints: [], obligations: [], verificationRequirements: ["verify:typecheck", "verify:test", "verify:build"] },
+    { id: "phase:review", title: "Review", kind: "review", goal: "Review", paths: [], systems: [], constraints: [], obligations: [], verificationRequirements: [] },
+  ];
+  return s;
+}
+const buildRich = () => buildIntentPlanBundle({ generatedAt: "2026-05-31T00:00:00.000Z", source: richSource() });
+const gateById = (result, phaseId) => proofJson(result).phaseGates.find((g) => g.phaseId === phaseId);
+
+function noSafeReqSource() {
+  const s = baseSource();
+  // Only a non-executable (document-findings) requirement: nothing can back an executable posture.
+  s.preparedIntentPlan.verificationRequirements = [
+    { id: "verify:document-findings", reason: "Document findings; no source change implied." },
+  ];
+  s.preparedIntentPlan.phases = [
+    { id: "phase:investigate", title: "Investigate", kind: "investigate", goal: "Investigate", paths: [], systems: [], constraints: [], obligations: [], verificationRequirements: [] },
+    { id: "phase:modify", title: "Modify", kind: "modify", goal: "Modify", paths: ["src/app.ts"], systems: [], constraints: [], obligations: [], verificationRequirements: [] },
+  ];
+  return s;
+}
+const buildNoSafeReq = () => buildIntentPlanBundle({ generatedAt: "2026-05-31T00:00:00.000Z", source: noSafeReqSource() });
+
+const POSTURES = ["executable", "manual-review", "final-verification", "needs-review"];
+
+// ---------- PV1: phaseGates include verificationPosture ----------
+test("phase-verification: rekon-proof phaseGates include verificationPosture", () => {
+  for (const g of proofJson(buildRich()).phaseGates) assert.ok(POSTURES.includes(g.verificationPosture), g.verificationPosture);
+});
+
+// ---------- PV2: phaseGates include manualGate ----------
+test("phase-verification: phaseGates include manualGate boolean", () => {
+  for (const g of proofJson(buildRich()).phaseGates) assert.equal(typeof g.manualGate, "boolean");
+});
+
+// ---------- PV3: phaseGates include needsReview ----------
+test("phase-verification: phaseGates include needsReview boolean", () => {
+  for (const g of proofJson(buildRich()).phaseGates) assert.equal(typeof g.needsReview, "boolean");
+});
+
+// ---------- PV4: phaseGates include reason ----------
+test("phase-verification: phaseGates include a non-empty reason", () => {
+  for (const g of proofJson(buildRich()).phaseGates) assert.ok(typeof g.reason === "string" && g.reason.length > 0);
+});
+
+// ---------- PV5: phase-modify executable when safe requirement exists ----------
+test("phase-verification: phase-modify gets executable posture when a safe requirement exists", () => {
+  assert.equal(gateById(buildRich(), "phase-modify").verificationPosture, "executable");
+});
+
+// ---------- PV6: phase-modify gets a per-phase VerificationPlan ----------
+test("phase-verification: phase-modify ships a per-phase VerificationPlan when safe requirement exists", () => {
+  const vp = circeJson(buildRich(), "verification-plans/phase-modify.verification-plan.json");
+  assert.equal(vp.header.artifactType, "VerificationPlan");
+  assert.ok(vp.commands.length > 0);
+});
+
+// ---------- PV7: phase-verify final-verification posture ----------
+test("phase-verification: phase-verify gets final-verification posture", () => {
+  assert.equal(gateById(buildRich(), "phase-verify").verificationPosture, "final-verification");
+});
+
+// ---------- PV8: phase-verify gets a per-phase VerificationPlan ----------
+test("phase-verification: phase-verify ships a per-phase VerificationPlan when requirements exist", () => {
+  const vp = circeJson(buildRich(), "verification-plans/phase-verify.verification-plan.json");
+  assert.equal(vp.header.artifactType, "VerificationPlan");
+  assert.ok(vp.commands.includes("npm run test"));
+});
+
+// ---------- PV9: phase-investigate manual-review by default ----------
+test("phase-verification: phase-investigate is manual-review when no requirements attach", () => {
+  const g = gateById(buildRich(), "phase-investigate");
+  assert.equal(g.verificationPosture, "manual-review");
+  assert.equal(g.manualGate, true);
+});
+
+// ---------- PV10: phase-review manual-review by default ----------
+test("phase-verification: phase-review is manual-review when no requirements attach", () => {
+  assert.equal(gateById(buildRich(), "phase-review").verificationPosture, "manual-review");
+});
+
+// ---------- PV11: implementation phase without safe requirement is needs-review ----------
+test("phase-verification: implementation phase without safe requirement is needs-review, not skipped", () => {
+  const result = buildNoSafeReq();
+  const g = gateById(result, "phase-modify");
+  assert.equal(g.verificationPosture, "needs-review");
+  assert.equal(g.needsReview, true);
+  // No VerificationPlan file is emitted, but the gap is explicit, not silent.
+  assert.equal(fileByPath(result, "circe/verification-plans/phase-modify.verification-plan.json"), undefined);
+});
+
+// ---------- PV12: manual-review phase does not claim executable proof ----------
+test("phase-verification: manual-review phase carries no executable VerificationPlan or proof", () => {
+  const result = buildRich();
+  const g = gateById(result, "phase-investigate");
+  assert.equal(g.needsReview, false);
+  assert.ok(!("verificationPlanPath" in g));
+  assert.equal(fileByPath(result, "circe/verification-plans/phase-investigate.verification-plan.json"), undefined);
+});
+
+// ---------- PV13: needs-review phase does not claim proof ----------
+test("phase-verification: needs-review phase carries no VerificationPlan path", () => {
+  assert.ok(!("verificationPlanPath" in gateById(buildNoSafeReq(), "phase-modify")));
+});
+
+// ---------- PV14: circe/phase-plan remains schema-compatible ----------
+test("phase-verification: phase-plan stays schema-compatible with rekon.verificationPosture metadata", () => {
+  const pp = circeJson(buildRich(), "phase-plan.json");
+  assert.equal(pp.schemaVersion, 1);
+  assert.equal(typeof pp.planId, "string");
+  assert.equal(typeof pp.repoRoot, "string");
+  for (const phase of pp.phases) {
+    assert.equal(typeof phase.phaseId, "string");
+    assert.equal(typeof phase.workOrderPath, "string");
+    assert.ok(POSTURES.includes(phase.rekon.verificationPosture));
+  }
+});
+
+// ---------- PV15: circe/handoff remains schema-compatible ----------
+test("phase-verification: handoff stays schema-compatible", () => {
+  const h = circeJson(buildRich(), "handoff.json");
+  assert.equal(h.schemaVersion, 1);
+  assert.equal(h.kind, "rekon-circe-handoff");
+  assert.equal(typeof h.handoffId, "string");
+  assert.equal(typeof h.repoRoot, "string");
+  assert.equal(h.phasePlanPath, "phase-plan.json");
+  assert.ok(Array.isArray(h.artifacts.verificationPlans));
+});
+
+// ---------- PV16: per-phase VerificationPlan remains schema-compatible ----------
+test("phase-verification: mapped per-phase VerificationPlan stays canonical-shaped", () => {
+  const vp = circeJson(buildRich(), "verification-plans/phase-modify.verification-plan.json");
+  assert.equal(vp.header.artifactType, "VerificationPlan");
+  assert.equal(vp.workOrderRef.id, "pip-1-phase-modify.work-order");
+  assert.ok(Array.isArray(vp.commands));
+  assert.equal(vp.source, "intent-handoff");
+});
+
+// ---------- PV17: agent/verification.json includes phase verification posture ----------
+test("phase-verification: agent/verification.json includes phaseVerification + per-phase posture", () => {
+  const av = JSON.parse(fileByPath(buildRich(), "agent/verification.json"));
+  assert.equal(typeof av.phaseVerification.executable, "number");
+  assert.equal(typeof av.phaseVerification.manualReview, "number");
+  assert.ok(av.phases.some((p) => p.phaseId === "phase-modify" && p.verificationPosture === "executable"));
+  assert.ok(av.phases.some((p) => p.phaseId === "phase-investigate" && p.manualGate === true));
+});
+
+// ---------- PV18: verification-plan.md explains manual/reviewer-gated phases ----------
+test("phase-verification: verification-plan.md explains posture + reviewer-gated phases", () => {
+  const md = fileByPath(buildRich(), "verification-plan.md");
+  assert.match(md, /Phase verification posture/);
+  assert.match(md, /reviewer-gated/);
+  assert.match(md, /manual-review/);
+  assert.match(md, /Skipped verification is not proof/);
+});
+
+// ---------- PV19: bundle generation still runs no commands ----------
+test("phase-verification: bundle generation declares no command execution / source writes", () => {
+  const m = buildRich().manifest;
+  assert.equal(m.boundaries.executesCommands, false);
+  assert.equal(m.boundaries.writesSourceFiles, false);
+  assert.equal(m.boundaries.implementsIntentGo, false);
+});
+
+// ---------- PV20: phaseGates align with phase-plan + summary totals are coherent ----------
+test("phase-verification: phaseGates align with phase-plan ids and the summary totals add up", () => {
+  const result = buildRich();
+  const gateIds = proofJson(result).phaseGates.map((g) => g.phaseId);
+  const planIds = circeJson(result, "phase-plan.json").phases.map((p) => p.phaseId);
+  assert.deepEqual(gateIds, planIds);
+  const pv = result.manifest.circe.phaseVerification;
+  assert.equal(pv.executable + pv.manualReview + pv.finalVerification + pv.needsReview, gateIds.length);
 });

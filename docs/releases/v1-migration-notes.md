@@ -125,3 +125,12 @@ unchanged, missing runtime/handoff evidence is recorded as not-evaluated / obser
 (not false success), Rekon runs no Circe and writes no source, and `intent:go` remains deferred.
 No package version change and no npm publish. See
 [Fresh Repo Intent Readiness Safety Review](../strategy/fresh-repo-intent-readiness-safety-review.md).
+
+**Update (slice 115): phase-level verification is explicit in bundles.** Operators importing a
+bundle into Circe now see a per-phase `verificationPosture` (`executable` / `final-verification` /
+`manual-review` / `needs-review`) in `circe/rekon-proof.json` `phaseGates[]` and on
+`circe/phase-plan.json` `phases[].rekon`; `phase-modify` / `phase-refactor` ship a per-phase
+VerificationPlan when a safe executable requirement applies, `phase-verify` carries final
+verification, and `phase-investigate` / `phase-review` are reviewer-gated. A phase without
+executable verification is recorded as `manual-review` or `needs-review`, never silently verified.
+All fields are additive and Circe-schema-compatible. No package version change and no npm publish.
