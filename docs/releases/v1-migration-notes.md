@@ -117,3 +117,11 @@ no npm publish.
 not-evaluated where there is no event log) before `rekon intent assess` — the documented public
 intent sequence then works without manual `.rekon/artifacts` seeding. No package version change
 and no npm publish.
+
+**Update (slice 114): fresh-repo intent path reviewed safe/stable.** The Fresh Repo Intent
+Readiness Safety Review confirmed the slice-113 fix is safe/stable: the fresh-repo public intent
+sequence works without manual `.rekon/artifacts` seeding, `rekon scan` / `rekon refresh` are
+unchanged, missing runtime/handoff evidence is recorded as not-evaluated / observation-missing
+(not false success), Rekon runs no Circe and writes no source, and `intent:go` remains deferred.
+No package version change and no npm publish. See
+[Fresh Repo Intent Readiness Safety Review](../strategy/fresh-repo-intent-readiness-safety-review.md).

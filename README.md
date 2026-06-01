@@ -1120,6 +1120,37 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Fresh Repo Intent Readiness Safety Review has shipped.
+# One-hundred-fourteenth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch. Reviews the slice-113 fresh-repo intent-context fix end-to-end.
+#   - The fresh-repo public path (rekon scan -> rekon intent context prepare -> rekon intent
+#     assess -> ... -> rekon intent bundle write) is confirmed safe/stable without private
+#     .rekon/artifacts seeding.
+#   - rekon intent context prepare uses the existing producer commands in dependency order;
+#     rekon scan / rekon refresh and the intent assess severity policy are unchanged.
+#   - Missing runtime/handoff evidence is recorded as not-evaluated / observation-missing, not
+#     false success; Rekon runs no Circe and writes no source in this path; intent:go remains
+#     deferred; phase-level VerificationPlan behavior is a recorded follow-up.
+#   - No code or behavior change.
+#
+# See docs/strategy/fresh-repo-intent-readiness-safety-review.md.
+# Recommended next slice: Intent Bundle Phase-Level Verification Policy / Implementation.
+#
+# Fresh Repo Intent Readiness / Proof Context Fix has shipped.
+# One-hundred-thirteenth slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch closing the fresh-repo intent-preparation gap from Circe dogfood.
+#   - Adds rekon intent context prepare, which runs the existing producer commands (step graph
+#     build, handoff contract build, runtime graph observe/drift, handoff coverage report) in
+#     dependency order, best-effort, so rekon scan -> rekon intent assess is no longer blocked
+#     by missing StepCapabilityGraph / RuntimeGraphDriftReport on a fresh repo.
+#   - The orchestrator + producers are now listed in top-level help; the two intent assess
+#     blocker messages point at the one-step command and state the not-evaluated honesty.
+#   - No change to scan / refresh or the intent assess approval/proof policy; no intent:go and
+#     no Circe execution by Rekon; no source writes.
+#
+# See docs/concepts/intent-assessment.md.
+# Recommended next slice: Fresh Repo Intent Readiness Safety Review.
+#
 # First-Run Scan Safety Review has shipped.
 # One-hundred-twelfth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch. Reviews the shipped rekon scan end-to-end.

@@ -199,3 +199,7 @@ doc pointers.
 - Optional: continue scan dogfood against real repos (does not block the UX decision).
 - Optional, later (a refresh concern, not scan): make the init/refresh `config.capabilities`
   on-disk representation consistent.
+- **Fresh Repo Intent Readiness** (shipped slice 113, reviewed slice 114): the fresh-repo
+  intent-preparation gap downstream of `rekon scan` was closed with `rekon intent context
+  prepare` and reviewed safe/stable; `rekon scan` itself is unchanged by that work. See
+  [Fresh Repo Intent Readiness Safety Review](./fresh-repo-intent-readiness-safety-review.md).

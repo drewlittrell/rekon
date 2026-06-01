@@ -156,3 +156,16 @@ context substrate (StepCapabilityGraph + runtime/handoff context, recorded as no
 where there is no event log) by running the existing producer commands, and is now discoverable
 in top-level help. No change to `scan` / `refresh` or the `intent assess` approval/proof policy;
 no `intent:go` and no Circe execution by Rekon.
+
+## Update — Fresh-Repo Intent Readiness Reviewed (slice 114)
+
+The Fresh Repo Intent Readiness Safety Review confirmed the slice-113 fresh-repo intent-context
+fix is **safe/stable**. The public fresh-repo sequence `rekon scan` → **`rekon intent context
+prepare`** → `rekon intent assess` → … → `rekon intent bundle write` works without manual
+`.rekon/artifacts` seeding; `rekon intent context prepare` uses the existing producer commands in
+dependency order; `rekon scan` / `rekon refresh` and the `intent assess` severity policy are
+unchanged; missing runtime/handoff evidence is recorded as `not-evaluated` / `observation-missing`
+rather than false success; Rekon runs no Circe and writes no source in this path; `intent:go`
+remains deferred; phase-level VerificationPlan behavior is a recorded follow-up. No package
+version change and no npm publish. See
+[Fresh Repo Intent Readiness Safety Review](../strategy/fresh-repo-intent-readiness-safety-review.md).

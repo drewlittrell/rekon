@@ -4,6 +4,19 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Fresh Repo Intent Readiness Safety Review** — one-hundred-fourteenth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming the
+  slice-113 Fresh Repo Intent Readiness / Proof Context Fix is **safe/stable**: the fresh-repo
+  public path (`rekon scan → rekon intent context prepare → rekon intent assess → … → rekon
+  intent bundle write`) works without private `.rekon/artifacts` seeding; `rekon intent context
+  prepare` uses the existing producer commands in dependency order; `rekon scan` / `rekon refresh`
+  and the `intent assess` severity policy are unchanged; missing runtime/handoff evidence is
+  represented as `not-evaluated` / `observation-missing`, not false success; Rekon runs no Circe
+  and writes no source in this path; `intent:go` remains deferred; phase-level VerificationPlan
+  behavior is a recorded follow-up. Adds the safety-review memo, a docs test, a review packet, the
+  deferred slice-113 concept/strategy cross-links, and additive doc pointers. No code, CLI,
+  package, version, or runtime change. Recommended next: **Intent Bundle Phase-Level Verification
+  Policy / Implementation**.
 - Fixed **Fresh Repo Intent Readiness / Proof Context** — one-hundred-thirteenth slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch fixing the
   fresh-repo intent-preparation gap exposed by Circe operator dogfood: `rekon scan → rekon

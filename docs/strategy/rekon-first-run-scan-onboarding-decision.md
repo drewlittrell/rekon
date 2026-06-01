@@ -312,3 +312,8 @@ intelligence; canonical truth remains `.rekon/artifacts/`.
    recorded the `config.capabilities` normalization as acceptable for v1. See
    [Rekon First-Run Scan Safety Review](./rekon-first-run-scan-safety-review.md). Recommended
    next: Rekon Install / Setup / ASCII Art UX Decision.
+6. **Fresh Repo Intent Readiness / Proof Context** (**fixed slice 113, reviewed slice 114**):
+   closed the fresh-repo intent-preparation gap downstream of `rekon scan` with `rekon intent
+   context prepare` (runs the existing producer commands in dependency order after `rekon scan`)
+   and reviewed it safe/stable; `rekon scan` is unchanged by that work. See
+   [Fresh Repo Intent Readiness Safety Review](./fresh-repo-intent-readiness-safety-review.md).
