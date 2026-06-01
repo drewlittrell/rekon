@@ -246,6 +246,11 @@ existing docs.
 1. **V1 Release Prep Implementation** (recommended next): draft/finalize release notes and
    migration notes and prepare package-metadata changes *if approved* — still no tag, still
    no publish, still no version bump beyond what an explicit versioning slice authorizes.
+   **Shipped (slice 107): `docs/releases/` now holds the
+   [V1 Release Notes](../releases/v1-release-notes.md),
+   [V1 Migration Notes](../releases/v1-migration-notes.md), and
+   [V1 Release Checklist](../releases/v1-release-checklist.md); packages remain at
+   `0.1.0-beta.0` — no version bump, tag, or publish occurred.**
 2. **V1 Versioning** (explicit, later): bump all 21 public packages lockstep to the approved
    target (`1.0.0`) once the before-version-bump gates pass — the only slice that edits
    package versions.

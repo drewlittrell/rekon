@@ -4,6 +4,28 @@ All notable changes to Rekon will be documented in this file.
 
 ## 0.1.0-beta.0
 
+- Prepared **V1 Release Prep** (V1 Release Prep Implementation) — one-hundred-seventh slice
+  on the codebase-intel-classic capability-ontology track. Release-prep documentation
+  batch, no runtime or package-metadata change. New `docs/releases/` directory with
+  **V1 release notes**, **V1 migration notes**, and a **V1 release checklist** (plus an
+  index README), making the V1 release legible before any irreversible release action.
+  Release notes pin V1 = prepare/prove/package/export (not Rekon-side execution), the six
+  rich `rekon intent ...` commands, the Rekon/Circe boundary, and the proof/safety evidence
+  (full suite + package gates + Circe schema validation + the external serve-loop proof,
+  pass 1 / fail 0). Migration notes pin the canonical `intent assess → … → intent bundle
+  write` flow + `circe rekon-handoff validate/routes/import`, that legacy `rekon prepare
+  plan` / `.rekon/handoffs` is superseded by `.rekon/intent/plans/<intent-id>/circe/`, that
+  `intent:go` is not available in V1, and that `.rekon/artifacts/` remains canonical truth.
+  The checklist pins the before-version-bump / before-git-tag / before-npm-publish gates,
+  the nine required verification commands, and the stop conditions. Real package state was
+  re-confirmed to match slice 106 (private root + 21 public lockstep at `0.1.0-beta.0`,
+  none private) and recorded, **not edited**: **current packages remain at `0.1.0-beta.0`;
+  no version bump and no npm publish occur in this prep slice**; the intended `1.0.0`
+  lockstep target is deferred to an explicit versioning slice. V1 boundaries reaffirmed:
+  Circe owns orchestration; `intent:go` remains deferred beyond V1; Rekon does not execute
+  commands or write source files; VerificationRun and VerificationResult generation remain
+  deferred beyond V1. New 18-assertion docs test + review packet. No source changes; no
+  version bump; no tag; no npm publish.
 - Decided **V1 Release Mechanics / Versioning Decision** — one-hundred-sixth slice on the
   codebase-intel-classic capability-ontology track. Strategy / release-mechanics
   decision batch, no runtime or package-metadata change. Decision: **Option B — staged V1

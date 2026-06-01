@@ -1103,6 +1103,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# V1 Release Prep has shipped.
+# One-hundred-seventh slice on the codebase-intel-classic capability-ontology track.
+# Release-prep documentation batch. No runtime or package-metadata change.
+#   - New docs/releases/ directory: V1 release notes, V1 migration notes, and a V1
+#     release checklist (+ index README), making the V1 release legible before any
+#     irreversible release action.
+#   - Release notes pin V1 = prepare/prove/package/export (not Rekon-side execution),
+#     the six rich intent commands, the Rekon/Circe boundary, and the proof/safety
+#     evidence (incl. the external serve-loop proof, pass 1 / fail 0).
+#   - Migration notes pin the canonical intent assess → … → intent bundle write flow +
+#     circe rekon-handoff validate/routes/import; legacy rekon prepare plan /
+#     .rekon/handoffs superseded by .rekon/intent/plans/<intent-id>/circe/; intent:go not
+#     available; .rekon/artifacts/ remains canonical truth.
+#   - Checklist pins the version-bump / git-tag / npm-publish gates + stop conditions.
+#   - Package state re-confirmed and recorded (not edited): private root + 21 public
+#     packages lockstep at 0.1.0-beta.0. No version bump, no tag, no npm publish.
+#
+# See docs/releases/v1-release-notes.md.
+# Recommended next slice: V1 Versioning Decision / Implementation.
+#
 # V1 Release Mechanics / Versioning Decision has shipped.
 # One-hundred-sixth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / release-mechanics decision batch. No runtime or package-metadata change.

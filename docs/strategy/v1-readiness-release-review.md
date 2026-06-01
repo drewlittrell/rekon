@@ -230,6 +230,11 @@ cross-reference / pointer updates to existing docs.
   npm-publish gates and the lockstep (`1.0.0`-target) versioning model are pinned, but no
   version is bumped and nothing is published in that slice. See
   [V1 Release Mechanics / Versioning Decision](./v1-release-mechanics-versioning-decision.md).**
+  **Then shipped (slice 107): the V1 release materials —
+  [V1 Release Notes](../releases/v1-release-notes.md),
+  [V1 Migration Notes](../releases/v1-migration-notes.md),
+  [V1 Release Checklist](../releases/v1-release-checklist.md) — were drafted under
+  `docs/releases/`; packages remain at `0.1.0-beta.0` (no version bump / tag / publish).**
 - Continued dogfood of the non-executing handoff against real repos (does not block V1).
 - `intent:go` / execution boundary remains a separate, later decision, owned by Circe at
   the execution boundary — not part of V1.
