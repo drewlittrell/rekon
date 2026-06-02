@@ -81,3 +81,10 @@ deterministic, non-interactive; setup does not run scan or create `.rekon/` befo
 banner-free; onboarding implies no command execution, source writes, or Circe run; `intent:go`
 deferred. Next: Rekon Interactive Setup Prompt Decision. See
 [Rekon Setup / Welcome UI Safety Review](../strategy/rekon-setup-welcome-ui-safety-review.md)._
+
+_Decided (slice 120): the prompt policy is pinned — **Rekon Interactive Setup Prompt Decision**
+selects TTY-only scan-first prompts. Prompts only in human TTY mode; never in `--json` / non-TTY / CI;
+before scan only the first-scan prompt; a decided (unimplemented) `--yes` runs the first scan only; no
+persistence; no Circe / command execution / source writes; `intent:go` deferred. Next: Rekon
+Interactive Setup Prompt Implementation. See
+[Rekon Interactive Setup Prompt Decision](../strategy/rekon-interactive-setup-prompt-decision.md)._

@@ -176,3 +176,9 @@ versions, or publish. It adds this memo, a docs test, a review packet, and addit
   implemented, no `create-rekon`, no postinstall onboarding, no `intent:go`.
 - **create-rekon / @rekon/create Decision** (alternative, deferred): an `npm init`-native
   initializer that reuses the decided prompt / welcome / setup model.
+
+> Decided (slice 120): the prompt policy is now pinned — **Rekon Interactive Setup Prompt Decision**
+> selects TTY-only scan-first prompts (`--json` / non-TTY / CI never prompt; `--yes` runs the first
+> scan only; no persistence; setup never runs Circe, executes commands, or writes source; `intent:go`
+> deferred). Next: Rekon Interactive Setup Prompt Implementation. See
+> [Rekon Interactive Setup Prompt Decision](./rekon-interactive-setup-prompt-decision.md).

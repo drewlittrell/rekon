@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Rekon Interactive Setup Prompt Decision** — one-hundred-twentieth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / product-UX decision-only batch pinning
+  the interactive prompt policy for `rekon setup`: **selected Option B — TTY-only scan-first prompts**.
+  Prompts are allowed only in human TTY mode; `rekon setup --json`, non-TTY, and CI never prompt.
+  Before scan, setup may ask only whether to run the first scan; after a snapshot exists it may present
+  post-scan next actions as explicit choices (never auto-run). A decided (unimplemented) `--yes` flag
+  may run the first scan only and must not perform downstream actions automatically. Prompt answers are
+  not persisted in v1; cancellation runs and persists nothing. Setup never runs Circe, executes
+  arbitrary commands, or writes source files; `intent:go` remains deferred. Adds the decision memo, a
+  23-assertion docs test, a review packet, and additive doc pointers. No code, CLI, dependency,
+  package, version, or runtime change. Recommended next: **Rekon Interactive Setup Prompt
+  Implementation**.
 - Reviewed **Rekon Setup / Welcome UI Safety Review** — one-hundred-nineteenth slice on the
   codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming the
   slice-118 Rekon Setup / Welcome UI Implementation is **safe/stable**: `rekon welcome` is

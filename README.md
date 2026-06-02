@@ -1120,6 +1120,20 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Rekon Interactive Setup Prompt Decision has shipped.
+# One-hundred-twentieth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / product-UX decision-only batch. Pins the interactive prompt policy for rekon setup.
+#   - Selected Option B — TTY-only scan-first prompts: prompts only in human TTY mode; never in
+#     --json / non-TTY / CI.
+#   - Before scan, setup may ask only whether to run the first scan; after a snapshot, present
+#     post-scan next actions as explicit choices (never auto-run).
+#   - Decided (unimplemented) --yes runs the first scan only; no downstream actions; no prompt
+#     persistence; setup never runs Circe, executes commands, or writes source; intent:go deferred.
+#   - Decision-only: no code, CLI, dependency, version, or behavior change.
+#
+# See docs/strategy/rekon-interactive-setup-prompt-decision.md.
+# Recommended next slice: Rekon Interactive Setup Prompt Implementation.
+#
 # Rekon Setup / Welcome UI Safety Review has shipped.
 # One-hundred-nineteenth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch. Reviews the slice-118 welcome/setup UI end-to-end.

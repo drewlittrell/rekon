@@ -245,3 +245,9 @@ Still no postinstall onboarding, no `create-rekon` before the setup UI is decide
 > Update (slice 119): step 1 was reviewed — **Rekon Setup / Welcome UI v1 is safe/stable**. Next:
 > Rekon Interactive Setup Prompt Decision. See
 > [Rekon Setup / Welcome UI Safety Review](./rekon-setup-welcome-ui-safety-review.md).
+
+> Update (slice 120): the interactive prompt policy is now decided — **Rekon Interactive Setup Prompt
+> Decision** selects TTY-only scan-first prompts (`--json` / non-TTY / CI never prompt; `--yes` runs
+> the first scan only; no persistence; no Circe / command execution / source writes; `intent:go`
+> deferred). Next: Rekon Interactive Setup Prompt Implementation. See
+> [Rekon Interactive Setup Prompt Decision](./rekon-interactive-setup-prompt-decision.md).

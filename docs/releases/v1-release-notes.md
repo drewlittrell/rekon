@@ -232,3 +232,15 @@ generates no docs / agent handoff / CI / VerificationPlan. ASCII art never appea
 Circe run, command execution, or source writes; `intent:go` remains deferred. No package version
 change and no npm publish. See
 [Rekon Setup / Welcome UI Safety Review](../strategy/rekon-setup-welcome-ui-safety-review.md).
+
+## Update — Interactive Setup Prompt Decided (slice 120)
+
+The Rekon Interactive Setup Prompt Decision pins the prompt policy for `rekon setup`: **TTY-only
+scan-first prompts**. Prompts are allowed only in human TTY mode; `rekon setup --json`, non-TTY, and
+CI never prompt. Before scan, setup may ask only whether to run the first scan; after a snapshot
+exists it may present post-scan next actions as explicit choices. A decided (unimplemented) `--yes`
+flag may run the first scan only and must not perform downstream actions automatically. Prompt answers
+are not persisted in v1. Setup never runs Circe, executes arbitrary commands, or writes source files;
+`intent:go` remains deferred. Decision-only — no CLI, package version, or runtime change and no npm
+publish. See
+[Rekon Interactive Setup Prompt Decision](../strategy/rekon-interactive-setup-prompt-decision.md).

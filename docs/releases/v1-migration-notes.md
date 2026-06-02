@@ -165,3 +165,10 @@ deterministic / non-interactive, setup does not run scan or create `.rekon/` bef
 is banner-free, and onboarding implies no command execution, source writes, or Circe run. `intent:go`
 remains deferred. No package version change and no npm publish. See
 [Rekon Setup / Welcome UI Safety Review](../strategy/rekon-setup-welcome-ui-safety-review.md).
+
+**Update (slice 120): interactive setup prompt policy decided.** The Rekon Interactive Setup Prompt
+Decision selects TTY-only scan-first prompts for `rekon setup`: prompts only in human TTY mode, never
+in `--json` / non-TTY / CI; before scan only the first-scan prompt; a decided (unimplemented) `--yes`
+runs the first scan only; no prompt persistence; setup never runs Circe, executes commands, or writes
+source. `intent:go` remains deferred. Decision-only — no CLI or behavior change and no npm publish. See
+[Rekon Interactive Setup Prompt Decision](../strategy/rekon-interactive-setup-prompt-decision.md).
