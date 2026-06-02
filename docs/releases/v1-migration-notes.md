@@ -172,3 +172,12 @@ in `--json` / non-TTY / CI; before scan only the first-scan prompt; a decided (u
 runs the first scan only; no prompt persistence; setup never runs Circe, executes commands, or writes
 source. `intent:go` remains deferred. Decision-only — no CLI or behavior change and no npm publish. See
 [Rekon Interactive Setup Prompt Decision](../strategy/rekon-interactive-setup-prompt-decision.md).
+
+**Update (slice 121): fresh-repo intent prepare is now planful.** On a fresh repo, after `rekon scan`
+→ `rekon intent context prepare` → `rekon intent assess` (needs-review, zero hard blockers), `rekon
+intent prepare` now produces an implementation-bearing **draft** plan (investigate / modify|refactor /
+verify / review with safe `npm run typecheck` / `npm test` / `npm run build` requirements) instead of
+a bare review phase. The draft stays `needs-review`; approval is never auto-elevated; WorkOrder and
+VerificationPlan generation remain blocked until explicit approval. No commands execute, no source is
+written, `intent:go` remains deferred. No package version change and no npm publish. See
+[Intent Prepare Needs-Review Planfulness Fix](../strategy/intent-prepare-needs-review-planfulness.md).

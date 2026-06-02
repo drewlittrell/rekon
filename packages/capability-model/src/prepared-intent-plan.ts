@@ -102,6 +102,11 @@ export type BuildPreparedIntentPlanInput = {
   pathFreshnessReportRef?: ArtifactRef;
   verificationResult?: PreparedIntentVerificationResultLike;
   verificationResultRef?: ArtifactRef;
+
+  // Repository script names (e.g. ["typecheck", "test", "build"]) used to derive
+  // safe default verification requirements for an implementation-bearing DRAFT
+  // plan. `undefined` means "unknown" — the standard safe trio is assumed.
+  availableScripts?: string[];
 };
 
 const ASSESSMENT_READINESS_TO_STATUS: Record<string, PreparedIntentPlanStatus> = {
@@ -149,6 +154,40 @@ const SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 const MODIFY_KINDS = new Set<string>(["bug", "feature", "migration"]);
 const VERIFY_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
 const IMPLEMENTATION_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
+
+// Safe default verification requirements for an implementation-bearing DRAFT
+// plan (a needs-review plan with no hard blockers). Derived from repository
+// scripts when known; only command STRINGS are recorded — nothing is executed.
+const DRAFT_SCRIPT_REQUIREMENTS: ReadonlyArray<{ script: string; id: string; command: string; reason: string }> = [
+  { script: "typecheck", id: "verify:typecheck", command: "npm run typecheck", reason: "Typecheck must hold for the requested implementation scope." },
+  { script: "test", id: "verify:test", command: "npm test", reason: "Tests must pass for the requested implementation scope." },
+  { script: "build", id: "verify:build", command: "npm run build", reason: "The build must succeed for the requested implementation scope." },
+];
+
+// Derive draft verification requirements. `availableScripts === undefined` means
+// the script set is unknown, so the standard safe trio is assumed; a known list
+// keeps only requirements whose script is present. Implementation-bearing drafts
+// are never left empty — when no safe script exists, a manual reviewer-gated
+// requirement (no command) is recorded instead of inventing proof.
+function deriveDraftVerificationRequirements(
+  availableScripts: string[] | undefined,
+  refList: ArtifactRef[],
+): PreparedIntentVerificationRequirement[] {
+  const out: PreparedIntentVerificationRequirement[] = [];
+  for (const entry of DRAFT_SCRIPT_REQUIREMENTS) {
+    if (availableScripts === undefined || availableScripts.includes(entry.script)) {
+      out.push({ id: entry.id, command: entry.command, reason: entry.reason, sourceRefs: refList });
+    }
+  }
+  if (out.length === 0) {
+    out.push({
+      id: "verify:manual-review",
+      reason: "No safe repository scripts were found; verification requires manual, reviewer-gated checks.",
+      sourceRefs: refList,
+    });
+  }
+  return out;
+}
 
 // Assessment warning category → blocking approval reason, used when the
 // assessment is `needs-review`.
@@ -350,6 +389,18 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
   }
   const recommendedNextAction = STATUS_TO_NEXT_ACTION[statusValue];
 
+  // ---- Draft planfulness gate ----
+  // A needs-review assessment with NO hard assessment blockers still deserves a
+  // useful, reviewable plan. When the request is implementation-bearing and its
+  // matched context is present, produce an implementation-bearing DRAFT: real
+  // investigate / modify(refactor) / verify / review phases plus safe verification
+  // requirements. The plan stays needs-review — approval is unchanged and the
+  // WorkOrder / VerificationPlan handoff gates remain closed until explicit
+  // approval. Hard-blocked, insufficient, or stale assessments never reach here.
+  const hardBlockerCount = Array.isArray(assessment.blockers) ? assessment.blockers.length : 0;
+  const draftImplementationBearing =
+    statusValue === "needs-review" && implementationBearing && hardBlockerCount === 0 && requiredContextPresent;
+
   // ---- Obligations ----
   const obligations: PreparedIntentObligation[] = [];
   const obligationCategories = new Set<PreparedIntentObligationCategory>();
@@ -396,6 +447,11 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     } else {
       verificationRequirements.push({ id: "verify:document-findings", reason: "Document investigation findings; no source change is implied.", sourceRefs: refList });
     }
+  } else if (draftImplementationBearing) {
+    // Safe default requirements for the DRAFT (recorded as strings, never executed).
+    for (const requirement of deriveDraftVerificationRequirements(input.availableScripts, refList)) {
+      verificationRequirements.push(requirement);
+    }
   }
 
   const obligationIds = obligations.map((obligation) => obligation.id);
@@ -438,6 +494,19 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
       phases.push(phase("phase:verify", "Verify", "verify", "planned", [], requirementIds));
     }
     phases.push(phase("phase:review", "Review", "review", "planned", [], []));
+  } else if (draftImplementationBearing) {
+    // Implementation-bearing DRAFT phases. All phases stay needs-review until an
+    // explicit approval bridge exists. Safe verification requirements attach to
+    // the implementation phase (executable posture) and the verify phase (final
+    // verification); investigate / review stay reviewer-gated.
+    phases.push(phase("phase:investigate", "Investigate", "investigate", "needs-review", [], []));
+    if (MODIFY_KINDS.has(kind)) {
+      phases.push(phase("phase:modify", "Modify", "modify", "needs-review", obligationIds, requirementIds));
+    } else if (kind === "refactor") {
+      phases.push(phase("phase:refactor", "Refactor", "refactor", "needs-review", obligationIds, requirementIds));
+    }
+    phases.push(phase("phase:verify", "Verify", "verify", "needs-review", [], requirementIds));
+    phases.push(phase("phase:review", "Review", "review", "needs-review", obligationIds, []));
   } else if (statusValue === "needs-review") {
     phases.push(phase("phase:review", "Review", "review", "needs-review", obligationIds, []));
   }

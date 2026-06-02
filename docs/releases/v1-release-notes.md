@@ -244,3 +244,16 @@ are not persisted in v1. Setup never runs Circe, executes arbitrary commands, or
 `intent:go` remains deferred. Decision-only — no CLI, package version, or runtime change and no npm
 publish. See
 [Rekon Interactive Setup Prompt Decision](../strategy/rekon-interactive-setup-prompt-decision.md).
+
+## Update — Intent Prepare Planfulness (slice 121)
+
+`rekon intent prepare` now produces an implementation-bearing **draft** plan when `rekon intent
+assess` is `needs-review` with zero hard blockers, instead of a bare review phase. The draft includes
+investigate / modify (or refactor) / verify / review phases plus safe default verification
+requirements (`npm run typecheck`, `npm test`, `npm run build`) derived from `package.json` scripts
+and attached to the implementation + verify phases. The plan stays `needs-review`; approval is never
+auto-elevated; `rekon intent work-order generate` and `rekon intent verification-plan generate`
+remain blocked until explicit approval. No commands execute, no VerificationRun / VerificationResult
+is created, no source is written, and `intent:go` remains deferred. No package version change and no
+npm publish. See
+[Intent Prepare Needs-Review Planfulness Fix](../strategy/intent-prepare-needs-review-planfulness.md).

@@ -280,10 +280,23 @@ test("verification result ref is recorded as proof when present", () => {
 });
 
 // ---------- 25 ----------
-test("needs-review emits a review phase only; matched context propagates; source-write-boundary always present", () => {
-  const reviewPlan = build({ readiness: { status: "needs-review" } });
-  assert.equal(reviewPlan.phases.length, 1);
-  assert.equal(reviewPlan.phases[0].kind, "review");
+test("needs-review implementation-bearing emits a DRAFT plan; review-only otherwise; matched context propagates; source-write-boundary always present", () => {
+  // Implementation-bearing (kind=bug) needs-review with no hard blockers → an
+  // implementation-bearing DRAFT (Intent Prepare Needs-Review Planfulness Fix).
+  const draft = build({ readiness: { status: "needs-review" } });
+  assert.equal(draft.status.value, "needs-review");
+  assert.equal(draft.approval.status, "needs-review");
+  const draftKinds = draft.phases.map((phase) => phase.kind);
+  assert.ok(draftKinds.includes("investigate"), "draft has investigate");
+  assert.ok(draftKinds.includes("modify"), "draft has modify");
+  assert.ok(draftKinds.includes("verify"), "draft has verify");
+  assert.ok(draftKinds.includes("review"), "draft has review");
+  assert.ok(draft.verificationRequirements.length > 0, "draft has verification requirements");
+
+  // Non-implementation-bearing (kind=unknown) needs-review → review-only.
+  const reviewOnly = build({ readiness: { status: "needs-review" }, request: { goal: "Look into it", kind: "unknown" } });
+  assert.equal(reviewOnly.phases.length, 1);
+  assert.equal(reviewOnly.phases[0].kind, "review");
 
   const prepared = build({ readiness: { status: "ready-for-prepare" } });
   assert.ok(prepared.phases.some((phase) => phase.paths.includes("src/app.ts")));

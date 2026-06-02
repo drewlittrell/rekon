@@ -4,6 +4,17 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Fixed **Intent Prepare Needs-Review Planfulness Fix** — one-hundred-twenty-first slice on the
+  codebase-intel-classic capability-ontology track. Product-capability batch. `rekon intent prepare`
+  now produces an implementation-bearing **draft** plan when `rekon intent assess` is `needs-review`
+  with zero hard blockers (instead of a bare review phase): investigate / modify (or refactor) /
+  verify / review phases plus safe default verification requirements (`npm run typecheck`, `npm test`,
+  `npm run build`) derived from `package.json` scripts and attached to the implementation + verify
+  phases. The plan stays `needs-review`; approval is never elevated; `rekon intent work-order generate`
+  and `rekon intent verification-plan generate` remain blocked until explicit approval. No commands
+  execute, no VerificationRun / VerificationResult is created, no source is written, and `intent:go`
+  remains deferred. Adds a 24-assertion contract test, an 11-assertion docs test, a strategy memo, and
+  a review packet. Recommended next: **Intent Operator Approval / Proof Acceptance Decision**.
 - Decided **Rekon Interactive Setup Prompt Decision** — one-hundred-twentieth slice on the
   codebase-intel-classic capability-ontology track. Strategy / product-UX decision-only batch pinning
   the interactive prompt policy for `rekon setup`: **selected Option B — TTY-only scan-first prompts**.

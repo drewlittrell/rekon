@@ -1120,6 +1120,20 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Prepare Needs-Review Planfulness Fix has shipped.
+# One-hundred-twenty-first slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch. Fixes the fresh-repo intent-prepare planfulness gap.
+#   - rekon intent prepare now produces an implementation-bearing DRAFT plan when intent assess is
+#     needs-review with zero hard blockers (investigate / modify|refactor / verify / review).
+#   - Draft verification requirements (npm run typecheck / npm test / npm run build) are derived from
+#     package.json scripts and attached to the implementation + verify phases.
+#   - The plan stays needs-review; approval is never auto-elevated; work-order + verification-plan
+#     generation remain blocked until explicit approval.
+#   - No commands execute; no VerificationRun/Result; no source writes; intent:go deferred.
+#
+# See docs/strategy/intent-prepare-needs-review-planfulness.md.
+# Recommended next slice: Intent Operator Approval / Proof Acceptance Decision.
+#
 # Rekon Interactive Setup Prompt Decision has shipped.
 # One-hundred-twentieth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / product-UX decision-only batch. Pins the interactive prompt policy for rekon setup.

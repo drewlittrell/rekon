@@ -219,3 +219,5 @@ strategy cross-links, and additive doc pointers.
 > Update (slice 117): that next slice — **Rekon Install / Setup / ASCII Art UX Decision** — is now
 > decided (staged install/setup polish, scan-first, non-interactive install). See
 > [Rekon Install / Setup / ASCII Art UX Decision](./rekon-install-setup-ascii-ux-decision.md).
+
+> Update (slice 121): the fresh-repo intent path is now **planful** — `rekon intent prepare` produces an implementation-bearing draft plan (investigate / modify / verify / review + safe `npm run typecheck` / `npm test` / `npm run build` requirements) when the assessment is needs-review with zero hard blockers, instead of a bare review phase. The draft stays needs-review; approval is never auto-elevated; WorkOrder / VerificationPlan generation remain blocked until explicit approval; no commands execute and no source is written. See [Intent Prepare Needs-Review Planfulness Fix](./intent-prepare-needs-review-planfulness.md).

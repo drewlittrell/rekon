@@ -4459,6 +4459,17 @@ export async function main(argv: string[]): Promise<void> {
       provenance: { confidence: 0.7 },
     };
 
+    // Repository scripts inform safe default verification requirements for an
+    // implementation-bearing draft plan (recorded as command strings; never run).
+    let availableScripts: string[] | undefined;
+    try {
+      const pkgRaw = await readFile(resolve(root, "package.json"), "utf8");
+      const pkg = JSON.parse(pkgRaw) as { scripts?: Record<string, unknown> };
+      availableScripts = pkg.scripts && typeof pkg.scripts === "object" ? Object.keys(pkg.scripts) : [];
+    } catch {
+      availableScripts = undefined;
+    }
+
     const plan: PreparedIntentPlan = buildPreparedIntentPlan({
       header,
       intentAssessmentReport: assessmentValue,
@@ -4475,6 +4486,7 @@ export async function main(argv: string[]): Promise<void> {
       pathFreshnessReportRef: freshnessRef,
       verificationResult: proofValue,
       verificationResultRef: proofRef,
+      availableScripts,
     });
 
     const ref = await store.write(plan, { category: "actions" });
