@@ -312,3 +312,250 @@ export function coercePhaseDrafts(data: unknown): Record<string, unknown>[] | nu
   if (!phases.every((phase) => isRecord(phase))) return null;
   return phases as Record<string, unknown>[];
 }
+
+// ---------------------------------------------------------------------------
+// OpenAI-compatible provider adapter (fetch-based; no SDK dependency)
+// ---------------------------------------------------------------------------
+//
+// This is the first real completion provider. It is built on the global `fetch`
+// so this package keeps ZERO dependencies (no provider SDK, no audit/license
+// churn). It targets the OpenAI-compatible Chat Completions API with a JSON
+// response. The API key is supplied by the caller — the CLI / orchestration
+// layer reads it from the environment and passes it in. This package never reads
+// the environment and never stores a key. The provider's output is a PROPOSAL,
+// not proof: callers schema-gate it (`coercePhaseDrafts`) and deterministically
+// re-check it. Every failure path returns `{ ok: false, error }` — it never
+// throws a raw error — so the router can fall back / fail per mode. With no API
+// key it refuses cleanly (`missing-api-key`) and makes NO network call.
+
+/** Minimal HTTP response shape this package relies on (a subset of fetch's Response). */
+export type RekonHttpResponseLike = {
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+};
+
+/** Minimal fetch shape this package relies on (a subset of the global fetch). */
+export type RekonFetchLike = (
+  url: string,
+  init: { method: string; headers: Record<string, string>; body: string; signal?: unknown },
+) => Promise<RekonHttpResponseLike>;
+
+export type CreateOpenAiLlmProviderOptions = {
+  /** API key. Supplied by the CLI/orchestration layer from env; never stored in repo config. */
+  apiKey?: string;
+  /** API base URL (e.g. an OpenAI-compatible gateway). Defaults to the OpenAI v1 base. */
+  baseUrl?: string;
+  /** Provider id used for routing (defaults to "openai"). */
+  id?: string;
+  /** Model used when neither the route nor the input specifies one. */
+  defaultModel?: string;
+  /** Per-request timeout in milliseconds (defaults to 30000). */
+  timeoutMs?: number;
+  /** Inject a fetch implementation (tests). Defaults to globalThis.fetch. */
+  fetchImpl?: RekonFetchLike;
+};
+
+type LlmGlobalLike = {
+  fetch?: RekonFetchLike;
+  AbortController?: new () => { signal: unknown; abort(): void };
+  setTimeout?: (fn: () => void, ms: number) => unknown;
+  clearTimeout?: (handle: unknown) => void;
+};
+
+function truncateText(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function extractMessageContent(payload: unknown): string | null {
+  if (!isRecord(payload)) return null;
+  const choices = (payload as { choices?: unknown }).choices;
+  if (!Array.isArray(choices) || choices.length === 0) return null;
+  const first = choices[0];
+  if (!isRecord(first)) return null;
+  const message = (first as { message?: unknown }).message;
+  if (!isRecord(message)) return null;
+  const content = (message as { content?: unknown }).content;
+  return typeof content === "string" ? content : null;
+}
+
+function extractUsage(payload: unknown): RekonLlmProviderUsage | undefined {
+  if (!isRecord(payload)) return undefined;
+  const usage = (payload as { usage?: unknown }).usage;
+  if (!isRecord(usage)) return undefined;
+  const input = (usage as { prompt_tokens?: unknown }).prompt_tokens;
+  const output = (usage as { completion_tokens?: unknown }).completion_tokens;
+  const result: RekonLlmProviderUsage = {};
+  if (typeof input === "number") result.inputTokens = input;
+  if (typeof output === "number") result.outputTokens = output;
+  return result.inputTokens === undefined && result.outputTokens === undefined ? undefined : result;
+}
+
+function extractModel(payload: unknown): string | undefined {
+  if (!isRecord(payload)) return undefined;
+  const model = (payload as { model?: unknown }).model;
+  return typeof model === "string" && model.length > 0 ? model : undefined;
+}
+
+export function createOpenAiLlmProvider(options: CreateOpenAiLlmProviderOptions = {}): RekonLlmProvider {
+  const id = options.id ?? "openai";
+  const baseUrl = (
+    typeof options.baseUrl === "string" && options.baseUrl.length > 0 ? options.baseUrl : "https://api.openai.com/v1"
+  ).replace(/\/+$/, "");
+  const apiKey = typeof options.apiKey === "string" ? options.apiKey.trim() : "";
+  const timeoutMs = typeof options.timeoutMs === "number" && options.timeoutMs > 0 ? options.timeoutMs : 30000;
+
+  return {
+    id,
+    async completeJson(input: RekonLlmProviderInput): Promise<RekonLlmProviderResult> {
+      const model = input.model ?? options.defaultModel;
+      const withModel = model ? { model } : {};
+
+      // Boundary: no key → clean refusal, and NO network call.
+      if (apiKey.length === 0) {
+        return {
+          ok: false,
+          provider: id,
+          ...withModel,
+          error: "missing-api-key",
+          warnings: [
+            `No API key configured for provider "${id}"; set it via the CLI/orchestration env (it is never stored in repo config).`,
+          ],
+        };
+      }
+
+      const g = globalThis as unknown as LlmGlobalLike;
+      const fetchImpl = options.fetchImpl ?? g.fetch;
+      if (typeof fetchImpl !== "function") {
+        return {
+          ok: false,
+          provider: id,
+          ...withModel,
+          error: "fetch-unavailable",
+          warnings: ["No global fetch is available in this runtime."],
+        };
+      }
+
+      const requestBody = JSON.stringify({
+        model: model ?? "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You normalize rough software plans into structured phase drafts. Return only valid JSON for the requested schema. Preserve the author's meaning. Never invent file paths, commands, or acceptance criteria; leave unknown fields empty.",
+          },
+          { role: "user", content: input.prompt },
+        ],
+        temperature: typeof input.temperature === "number" ? input.temperature : 0,
+        response_format: { type: "json_object" },
+        ...(typeof input.maxOutputTokens === "number" ? { max_tokens: input.maxOutputTokens } : {}),
+      });
+
+      let controller: { signal: unknown; abort(): void } | undefined;
+      let timer: unknown;
+      try {
+        if (typeof g.AbortController === "function" && typeof g.setTimeout === "function") {
+          controller = new g.AbortController();
+          timer = g.setTimeout(() => controller?.abort(), timeoutMs);
+        }
+
+        const response = await fetchImpl(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+          body: requestBody,
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+
+        if (!response.ok) {
+          let detail = "";
+          try {
+            detail = truncateText(await response.text(), 500);
+          } catch {
+            detail = "";
+          }
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: `http-${response.status}`,
+            warnings: detail ? [detail] : [],
+          };
+        }
+
+        let rawText: string;
+        try {
+          rawText = await response.text();
+        } catch (error) {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: "response-read-failed",
+            warnings: [error instanceof Error ? error.message : String(error)],
+          };
+        }
+
+        let envelope: unknown;
+        try {
+          envelope = JSON.parse(rawText);
+        } catch {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: "invalid-response-json",
+            warnings: ["Provider response was not valid JSON."],
+          };
+        }
+
+        const content = extractMessageContent(envelope);
+        if (content === null) {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: "no-content",
+            warnings: ["Provider response contained no message content."],
+          };
+        }
+
+        let data: unknown;
+        try {
+          data = JSON.parse(content);
+        } catch {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: "content-not-json",
+            warnings: ["Provider message content was not valid JSON."],
+          };
+        }
+
+        const resolvedModel = extractModel(envelope) ?? model;
+        const usage = extractUsage(envelope);
+        return {
+          ok: true,
+          provider: id,
+          ...(resolvedModel ? { model: resolvedModel } : {}),
+          data,
+          ...(usage ? { usage } : {}),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const aborted = error instanceof Error && (error.name === "AbortError" || message.toLowerCase().includes("abort"));
+        return {
+          ok: false,
+          provider: id,
+          ...withModel,
+          error: aborted ? "timeout" : "request-failed",
+          warnings: [message],
+        };
+      } finally {
+        if (timer !== undefined && typeof g.clearTimeout === "function") {
+          g.clearTimeout(timer);
+        }
+      }
+    },
+  };
+}

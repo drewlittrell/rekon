@@ -1,5 +1,13 @@
 # Intent Plan Compiler
 
+> **Semantic normalization wired (slice 139):** the rough-plan normalization step
+> can now use a routed LLM provider (the first real adapter,
+> `createOpenAiLlmProvider`, behind `RekonLlmRouter`) via `rekon intent plan
+> review --semantic auto|required --llm-provider ...`. Provider output is a
+> proposal, not proof — schema-gated and deterministically re-checked; no source
+> writes, command execution, Circe run, or `intent:go`. See
+> [`../strategy/intent-plan-compiler-semantic-normalization-dogfood.md`](../strategy/intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## What it is
 
 The **intent plan compiler** is the part of the Rekon intent spine that turns a

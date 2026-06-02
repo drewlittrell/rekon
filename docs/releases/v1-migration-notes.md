@@ -3,6 +3,13 @@
 > Migration guidance prepared by V1 Release Prep Implementation. No version bump, tag, or
 > npm publish has occurred; packages remain at `0.1.0-beta.0`.
 
+> **Semantic normalization (slice 139):** `rekon intent plan review` can route
+> rough-plan normalization through an LLM provider (`--llm-provider` /
+> `--llm-model`, `REKON_LLM_*` env, key from `OPENAI_API_KEY`). It is opt-in and
+> deterministic by default (`--semantic off`); API keys are never stored in repo
+> config. See
+> [`../strategy/intent-plan-compiler-semantic-normalization-dogfood.md`](../strategy/intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## Who Should Read This
 
 Operators and maintainers who used Rekon during beta — especially anyone who relied on the

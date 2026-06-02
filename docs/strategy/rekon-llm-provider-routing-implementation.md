@@ -8,6 +8,13 @@ boundaries it preserves. It implements **Option B** — a shared provider router
 with task-specific routes and injected adapters — without wiring any live hosted
 provider.
 
+> **Real provider wired (slice 139):** the first real completion provider,
+> `createOpenAiLlmProvider(...)` (fetch-based, no SDK), is now registered behind
+> the router in `rekon intent plan review`, with the API key read from the
+> environment by the CLI only — semantic normalization is usable with a routed
+> provider, and provider output stays proposal-not-proof. See
+> [`intent-plan-compiler-semantic-normalization-dogfood.md`](./intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## What shipped
 
 - **`@rekon/llm-provider`** (new 22nd public package): `RekonLlmProvider` /

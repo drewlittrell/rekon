@@ -7,6 +7,14 @@ intelligence snapshot.
 Rekon is for codebase intelligence, repository intelligence,
 architecture-aware agent context, and governance for AI-assisted software work.
 
+> **Semantic normalization (slice 139):** the intent plan compiler can route
+> rough-plan normalization through an LLM provider (`createOpenAiLlmProvider`
+> behind the shared `RekonLlmRouter`), selected via `--llm-provider` /
+> `--llm-model` or `REKON_LLM_*` env. It is deterministic by default; LLM output
+> is proposal, not proof — schema-validated and deterministically re-checked, with
+> no source writes, command execution, Circe run, or `intent:go`. See
+> [`docs/strategy/intent-plan-compiler-semantic-normalization-dogfood.md`](docs/strategy/intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## What Rekon Is
 
 Rekon is a local-first alpha substrate that observes a repository, writes typed

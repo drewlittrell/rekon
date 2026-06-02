@@ -1,5 +1,12 @@
 # IntentPlanActionabilityReport
 
+> **Semantic normalization wired (slice 139):** the phase-draft normalization
+> step can now use a routed LLM provider (the first real adapter behind
+> `RekonLlmRouter`). Provider output is schema-gated and deterministically
+> re-checked into the same findings/actionability — proposal, not proof; no
+> source writes, command execution, Circe run, or `intent:go`. See
+> [`../strategy/intent-plan-compiler-semantic-normalization-dogfood.md`](../strategy/intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## Purpose
 
 `IntentPlanActionabilityReport` is the **plan-review** artifact of the Rekon

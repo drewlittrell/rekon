@@ -9,6 +9,13 @@ implementation in this batch.
 > provider yet, providers stay proposal-not-proof — see
 > [`rekon-llm-provider-routing-implementation.md`](./rekon-llm-provider-routing-implementation.md).
 
+> **First real provider + dogfood (slice 139):** `createOpenAiLlmProvider(...)`
+> (fetch-based, no SDK) is now registered behind the router in `rekon intent plan
+> review`; semantic normalization is usable with a routed provider, the API key
+> is read from env by the CLI only, and provider output stays
+> proposal-not-proof — see
+> [`intent-plan-compiler-semantic-normalization-dogfood.md`](./intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## Context
 
 The [classic intent plan compiler / elicitation parity decision](./classic-intent-plan-compiler-elicitation-parity-decision.md)

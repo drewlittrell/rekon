@@ -1,5 +1,12 @@
 # Rekon LLM Provider Routing
 
+> **Real provider wired (slice 139):** the first real completion provider —
+> `createOpenAiLlmProvider(...)`, a fetch-based, no-SDK OpenAI-compatible adapter
+> — is registered behind the router by `rekon intent plan review`. Semantic
+> normalization can use a routed provider; the API key is read from the
+> environment by the CLI only (never in repo config). See
+> [`../strategy/intent-plan-compiler-semantic-normalization-dogfood.md`](../strategy/intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## What it is
 
 Rekon routes LLM-backed semantic tasks through a **shared provider router**
@@ -10,7 +17,7 @@ router-bound adapter into the pure builders.
 ```
 CLI / orchestration
 → RekonLlmRouter        (resolves task → route → provider)
-→ selected provider     (mock today; hosted providers later)
+→ selected provider     (mock + OpenAI-compatible fetch adapter; more later)
 → schema-constrained result
 → deterministic re-check (the actionability evaluator)
 → artifact

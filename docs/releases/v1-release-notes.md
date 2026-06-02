@@ -4,6 +4,13 @@
 > tag, and no npm publish has occurred; the packages remain at `0.1.0-beta.0`. Versioning,
 > tagging, and publishing are separate, explicitly-approved slices.
 
+> **Semantic normalization (slice 139):** the plan compiler can use a routed LLM
+> provider (`createOpenAiLlmProvider` behind `RekonLlmRouter`, selected via
+> `--llm-provider` / `--llm-model` and `REKON_LLM_*` env). LLM output is proposal,
+> not proof — schema-validated and deterministically re-checked; no source writes,
+> command execution, Circe run, or `intent:go`. See
+> [`../strategy/intent-plan-compiler-semantic-normalization-dogfood.md`](../strategy/intent-plan-compiler-semantic-normalization-dogfood.md).
+
 ## V1 Definition
 
 **V1 means prepare/prove/package/export, not Rekon-side execution.** Rekon V1 is the

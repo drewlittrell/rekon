@@ -4,6 +4,19 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Intent Plan Compiler Semantic Normalization / Dogfood** — one-hundred-thirty-ninth slice on the
+  intent-spine track. Product-capability / dogfood batch (real code). Wires the **first real completion
+  provider** behind the shared router: `@rekon/llm-provider` gains `createOpenAiLlmProvider(...)`, a
+  **fetch-based, no-SDK** OpenAI-compatible adapter (the package stays zero-dependency). `rekon intent plan
+  review` registers it behind the `RekonLlmRouter`, reads the API key from the environment (`OPENAI_API_KEY`;
+  never stored in repo config and never read inside `@rekon/capability-model`), and sends a bounded
+  `plan.semantic-normalize` prompt. Semantic normalization can now use a routed provider: `--semantic off` is
+  deterministic, `auto` falls back when unavailable, `required` fails (non-zero exit, no report) when
+  unavailable. LLM output stays **proposal, not proof** — schema-gated by `coercePhaseDrafts` and
+  deterministically re-checked by the actionability evaluator; no commands executed, no source written, no
+  Circe run, `intent:go` deferred. No live default; the live path is operator-gated
+  (`REKON_RUN_LIVE_LLM_TESTS=1` + a key). Tests: package +10, contract 13, docs 15. See
+  [`docs/strategy/intent-plan-compiler-semantic-normalization-dogfood.md`](docs/strategy/intent-plan-compiler-semantic-normalization-dogfood.md).
 - Shipped **Rekon LLM Provider Routing Implementation** — one-hundred-thirty-eighth slice on the intent-spine
   track. Product-capability batch (real code). Adds the new public package **`@rekon/llm-provider`** (the 22nd
   workspace package): `RekonLlmProvider` / `RekonEmbeddingProvider` interfaces (embeddings kept **separate** from

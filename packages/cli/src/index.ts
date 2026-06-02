@@ -145,7 +145,7 @@ import modelCapability, {
   type StepCapabilityGraphPhraseReportLike,
   type IntentPlanSemanticNormalizationAdapter,
 } from "@rekon/capability-model";
-import { RekonLlmRouter, coercePhaseDrafts } from "@rekon/llm-provider";
+import { RekonLlmRouter, coercePhaseDrafts, createOpenAiLlmProvider } from "@rekon/llm-provider";
 import policyCapability from "@rekon/capability-policy";
 import reconcileCapability, {
   buildReconciliationPreview,
@@ -7450,12 +7450,15 @@ type PlanSemanticNormalizationResult = Awaited<ReturnType<IntentPlanSemanticNorm
  * and the `REKON_LLM_PROVIDER` / `REKON_LLM_MODEL` / `REKON_LLM_ENABLED`
  * environment variables, then routes a bounded `plan.semantic-normalize` task.
  *
- * This slice registers NO live providers, so the router only ever falls back or
- * fails: `auto` returns no phases (the builder warns and uses deterministic
- * parsing); `required` throws (the build rejects and the CLI writes no report);
- * `off` returns no adapter. Provider output is gated by `coercePhaseDrafts` and
+ * The OpenAI-compatible provider is registered (slice 139) but self-guards on a
+ * missing API key, so with no key the router still only falls back or fails:
+ * `auto` returns no phases (the builder warns and uses deterministic parsing);
+ * `required` throws (the build rejects and the CLI writes no report); `off`
+ * returns no adapter. With a key present and a provider selected the router
+ * makes the call; its output is gated by `coercePhaseDrafts` and
  * deterministically re-checked by the actionability evaluator — proposal, not
- * proof. Returns `undefined` for `off`.
+ * proof. The API key is read here from the environment (never inside
+ * capability-model, never stored in repo config). Returns `undefined` for `off`.
  */
 function createPlanSemanticNormalizationAdapter(
   mode: "off" | "auto" | "required",
@@ -7468,18 +7471,40 @@ function createPlanSemanticNormalizationAdapter(
     typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
   const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
   const envEnabled = process.env.REKON_LLM_ENABLED;
-  const enabled = envEnabled === "1" || envEnabled === "true";
   const provider = flagProvider || envProvider;
   const model = flagModel || envModel;
+  // The router is "enabled" when REKON_LLM_ENABLED is set OR a provider was
+  // explicitly selected (--llm-provider / REKON_LLM_PROVIDER wins). Without
+  // either, every route falls back / fails per mode and no provider is called.
+  const enabled = envEnabled === "1" || envEnabled === "true" || provider.length > 0;
 
-  const router = new RekonLlmRouter({ config: { enabled } });
+  // Provider registry. The CLI / orchestration layer is the ONLY place that
+  // reads API keys from the environment; capability-model never does. The
+  // OpenAI-compatible adapter self-guards on a missing key (clean ok:false and
+  // no network), so registering it unconditionally is safe: with no key it
+  // routes to a clean fallback (auto) or a clean hard failure (required).
+  const providers = [
+    createOpenAiLlmProvider({
+      id: "openai",
+      apiKey: process.env.OPENAI_API_KEY,
+      ...(typeof process.env.REKON_LLM_BASE_URL === "string" && process.env.REKON_LLM_BASE_URL.length > 0
+        ? { baseUrl: process.env.REKON_LLM_BASE_URL }
+        : {}),
+      ...(model ? { defaultModel: model } : {}),
+    }),
+  ];
+
+  const router = new RekonLlmRouter({ config: { enabled }, providers });
   const override: { provider?: string; model?: string; mode: "off" | "auto" | "required" } = { mode };
   if (provider) override.provider = provider;
   if (model) override.model = model;
 
   return async ({ planText, goal, kind }) => {
     const prompt = [
-      "Normalize the following rough plan into executable phase drafts.",
+      "Normalize the following rough software plan into executable phase drafts.",
+      'Return ONE JSON object of the shape { "phases": [ ... ] }.',
+      "Each phase has: id, order (number), title, kind, objective, deliverables[], acceptanceCriteria[], touchedPaths[], verificationCommands[], evidenceArtifacts[], constraints[], sourceEvidence[].",
+      "Rules: preserve the author's meaning; do NOT invent file paths; do NOT invent commands or acceptance criteria; leave unknown fields as empty arrays or empty strings.",
       goal ? `Goal: ${goal}` : "",
       kind ? `Kind: ${kind}` : "",
       "Plan:",
