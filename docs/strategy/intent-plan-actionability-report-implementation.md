@@ -6,6 +6,11 @@ Shipped (slice 129). This memo records *how* the first integrated intent
 plan-compiler capability was built, and the boundaries that were deliberately
 held.
 
+**Reviewed (safety review):** the shipped capability was reviewed end-to-end and
+declared safe/stable as a read / transform / report-only layer (no blocker) — see
+[`intent-plan-actionability-report-safety-review.md`](./intent-plan-actionability-report-safety-review.md).
+The recommended next slice is Intent Prepare Integration With Actionability Report.
+
 This is the implementation of the decision recorded in
 [`classic-intent-plan-compiler-elicitation-parity-decision.md`](./classic-intent-plan-compiler-elicitation-parity-decision.md):
 add a **report-first** plan-review layer (`IntentPlanActionabilityReport`) rather

@@ -103,7 +103,10 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > blocked — with findings, elicitation questions, and an operator-or-LLM revision prompt — before
 > `rekon intent assess`. Report-only: it writes one `IntentPlanActionabilityReport` and creates no
 > downstream artifacts, runs no commands, and writes no source. See
-> [the intent plan compiler](docs/concepts/intent-plan-compiler.md).
+> [the intent plan compiler](docs/concepts/intent-plan-compiler.md). The plan-compiler layer was
+> safety-reviewed safe/stable as read / transform / report-only — see the
+> [Intent Plan Actionability Report Safety Review](docs/strategy/intent-plan-actionability-report-safety-review.md);
+> prepare integration follows next.
 
 Then inspect the workspace:
 

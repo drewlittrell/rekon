@@ -122,5 +122,6 @@ stays behind the existing intent-spine gates and the still-deferred `intent:go`.
 
 - Concept: [`docs/concepts/intent-plan-compiler.md`](../concepts/intent-plan-compiler.md)
 - Strategy: [`docs/strategy/intent-plan-actionability-report-implementation.md`](../strategy/intent-plan-actionability-report-implementation.md)
+- Safety review: [`docs/strategy/intent-plan-actionability-report-safety-review.md`](../strategy/intent-plan-actionability-report-safety-review.md)
 - Decision: [`docs/strategy/classic-intent-plan-compiler-elicitation-parity-decision.md`](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md)
 - Spine neighbors: [`IntentAssessmentReport`](./intent-assessment-report.md), [`PreparedIntentPlan`](./prepared-intent-plan.md), [`IntentStatusReport`](./intent-status-report.md)

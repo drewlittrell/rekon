@@ -13,6 +13,10 @@
 > [implementation memo](./intent-plan-actionability-report-implementation.md), the
 > [artifact reference](../artifacts/intent-plan-actionability-report.md), and the
 > [intent plan compiler concept](../concepts/intent-plan-compiler.md).
+>
+> **Reviewed (safety review):** the shipped capability is safe/stable as a read /
+> transform / report-only layer (no blocker); next is prepare integration. See the
+> [Intent Plan Actionability Report Safety Review](./intent-plan-actionability-report-safety-review.md).
 
 ## Decision Summary
 

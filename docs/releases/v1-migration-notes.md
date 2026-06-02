@@ -36,6 +36,11 @@ Rekon runs the first six commands to assess, prepare a proof-approved plan, repo
 generate the WorkOrder and VerificationPlan, and write the bundle. Circe then validates,
 previews routes, and imports the handoff — and orchestrates execution.
 
+> The optional `rekon intent plan review` step that precedes `intent assess` was safety-reviewed
+> safe/stable as a read / transform / report-only plan-compiler layer (no downstream artifacts, no
+> command execution, no source writes, no Circe). See the
+> [Intent Plan Actionability Report Safety Review](../strategy/intent-plan-actionability-report-safety-review.md).
+
 ## Intent Bundle Directory
 
 `.rekon/intent/plans/<intent-id>/` is the human + agent handoff bundle: the Markdown /

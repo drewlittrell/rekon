@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Intent Plan Actionability Report Safety Review** — one-hundred-thirtieth slice on the
+  intent-spine track. Strategy / safety-review batch (docs-only; no runtime change). Reviewed the
+  shipped `IntentPlanActionabilityReport` + `rekon intent plan review` implementation end-to-end and
+  declared the plan-compiler layer **safe/stable as a read / transform / report-only capability** (no
+  blocker): it reviews raw / semi-structured plans before approval, normalizes them into phase drafts,
+  surfaces missing actionability requirements as findings + elicitation questions, and emits an
+  operator-or-LLM revision prompt. The report-only boundary is structural — the seven-field `boundaries`
+  block is factory-forced and validator-rejected unless all-`false`, so the artifact creates no
+  `PreparedIntentPlan` / `WorkOrder` / `VerificationPlan` / `VerificationRun` / `VerificationResult`,
+  executes no commands, writes no source, and runs no Circe; `intent:go` remains deferred. LLM-backed
+  semantic normalization stays bounded to read/transform/critique behind an injected adapter (no live
+  provider wired; deterministic fallback never blocks review). Adds the safety-review memo
+  (`docs/strategy/intent-plan-actionability-report-safety-review.md`), review packet, and a 24-assertion
+  docs test, plus cross-references. Recommended next slice: **Intent Prepare Integration With
+  Actionability Report** (gate preparation on the report; no auto-approval, no source writes, no
+  execution, no `intent:go`). Follows Intent Plan Actionability / Compiler Implementation at `723e5a1`.
 - Shipped **IntentPlanActionabilityReport v1 / `rekon intent plan review`** — one-hundred-twenty-ninth
   slice on the intent-spine track. Product-capability batch: the first integrated Rekon **intent plan
   compiler** capability. `rekon intent plan review --plan <path> [--goal] [--kind] [--semantic

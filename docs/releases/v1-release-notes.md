@@ -41,6 +41,11 @@ The generated bundle is then handed to Circe via `circe rekon-handoff validate` 
 `routes`, `circe import rekon-handoff`, and `circe serve --mode worker` — these are
 external, Circe-owned steps.
 
+> The optional pre-assess `rekon intent plan review` step (`IntentPlanActionabilityReport`) was
+> safety-reviewed safe/stable as a read / transform / report-only plan-compiler layer — it creates no
+> downstream artifacts, executes no commands, writes no source, and runs no Circe. See the
+> [Intent Plan Actionability Report Safety Review](../strategy/intent-plan-actionability-report-safety-review.md).
+
 ## Rekon / Circe Boundary
 
 **Circe owns orchestration for V1.** Rekon prepares, proves, packages, and exports; Circe

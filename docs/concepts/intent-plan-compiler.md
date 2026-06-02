@@ -73,5 +73,6 @@ earlier.
 
 - Artifact: [`IntentPlanActionabilityReport`](../artifacts/intent-plan-actionability-report.md)
 - Strategy: [`intent-plan-actionability-report-implementation.md`](../strategy/intent-plan-actionability-report-implementation.md)
+- Safety review: [`intent-plan-actionability-report-safety-review.md`](../strategy/intent-plan-actionability-report-safety-review.md)
 - Decision: [`classic-intent-plan-compiler-elicitation-parity-decision.md`](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md)
 - Neighboring concepts: [`prepared-intent-plan.md`](./prepared-intent-plan.md), [`intent-assessment.md`](./intent-assessment.md), [`intent-plan-bundle.md`](./intent-plan-bundle.md)
