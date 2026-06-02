@@ -224,10 +224,11 @@ prepare integration slice.** No version bump, no npm publish, no branch.
 
 ## Follow-Up Work
 
-1. **Intent Prepare Integration With Actionability Report** (shipped — slice 131) —
-   `intent prepare` now gates on the report without auto-approval, source writes,
-   command execution, or `intent:go`. See
-   [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md).
+1. **Intent Prepare Integration With Actionability Report** (shipped — slice 131;
+   safety-reviewed slice 132) — `intent prepare` now gates on the report without
+   auto-approval, source writes, command execution, or `intent:go`. See
+   [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md)
+   and [`intent-prepare-actionability-integration-safety-review.md`](./intent-prepare-actionability-integration-safety-review.md).
 2. **Plan Actionability Answer / Merge-Back Decision** — restore the classic
    ask/answer/merge-back loop after prepare integration.
 3. **Semantic normalization provider wiring** — connect a concrete, bounded provider

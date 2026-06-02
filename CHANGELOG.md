@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Intent Prepare Actionability Integration Safety Review** — one-hundred-thirty-second slice on the
+  intent-spine track. Strategy / safety-review batch (docs-only; no runtime change). Re-read the shipped
+  slice-131 integration between `IntentPlanActionabilityReport` and `rekon intent prepare` end-to-end and
+  declared it **safe/stable** (no blocker): **`intent prepare` respects `IntentPlanActionabilityReport`** —
+  non-actionable reports block preparation (no `PreparedIntentPlan`, non-zero exit, preserved
+  `revisionPrompt` + findings/questions summary + all-`false` boundary booleans), while actionable reports
+  may feed `PreparedIntentPlan` generation (normalized phase drafts map to phases + verificationRequirements;
+  the report ref is recorded in `header.inputRefs`). Two structural facts make the gate sound: the CLI's
+  non-actionable block returns **before** `buildPreparedIntentPlan` (so the helper only ever sees an
+  actionable report), and the helper's actionable-report override rewrites only `phases` +
+  `verificationRequirements`, never `approval` / `status` — so **prepare does not auto-approve**. Boundary
+  confirmed unchanged: prepare creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult,
+  executes no commands, writes no source files, runs no Circe, and `intent:go` remains deferred; the source
+  plan + report are read, never mutated; answer/merge-back remains deferred. Adds the safety-review memo
+  (`docs/strategy/intent-prepare-actionability-integration-safety-review.md`), review packet, and a
+  23-assertion docs test, plus cross-references. Recommended next slice: **Plan Actionability Answer /
+  Merge-Back Decision** (restore the classic ask/answer/merge-back loop; still no source writes, no command
+  execution, no auto-approval, no `intent:go`). Follows Intent Prepare Integration With Actionability Report
+  at `73c2519`.
 - Shipped **Intent Prepare Integration With Actionability Report** — one-hundred-thirty-first slice on the
   intent-spine track. Product-capability batch: integrates the shipped `IntentPlanActionabilityReport`
   (the plan compiler's review output) into `rekon intent prepare` so a written plan's **actionability gates

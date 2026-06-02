@@ -53,8 +53,13 @@ scope:
   raw-plan → normalization → phase-decomposition → actionability-checks →
   elicitation-questions → revision-feedback loop as a report-first layer. Deterministic-first;
   bounded provenance-tagged semantic adapter (provider wiring deferred); report-only — no plan
-  mutation, source writes, command execution, or Circe. See
-  [the intent plan compiler](../concepts/intent-plan-compiler.md).
+  mutation, source writes, command execution, or Circe. Slice 131 wired the report into
+  `rekon intent prepare` (actionable → may shape the PreparedIntentPlan; non-actionable →
+  blocks with revision guidance, no auto-approval), safety-reviewed safe/stable in slice 132.
+  The remaining classic `askPreparedPhaseQuestions` / `answerPreparedPhaseQuestions`
+  answer/merge-back loop is the next compiler-loop step. See
+  [the intent plan compiler](../concepts/intent-plan-compiler.md) and the
+  [Intent Prepare Actionability Integration Safety Review](./intent-prepare-actionability-integration-safety-review.md).
 - **First external rule-pack example.** ✅ Shipped as
   `examples/import-boundary-rule-pack`. Community-style evaluator-only
   capability that consumes `EvidenceGraph` and produces a `FindingReport`

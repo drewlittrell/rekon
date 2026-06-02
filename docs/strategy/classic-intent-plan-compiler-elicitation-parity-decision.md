@@ -288,4 +288,8 @@ no source writes, no Circe, `intent:go` deferred.
 > generation, while a needs-revision / blocked report prevents preparation and
 > returns the revision guidance. It still does not auto-approve, write source, run
 > commands, or implement `intent:go`. The answer / merge-back loop remains deferred.
-> See [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md).
+> See [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md),
+> safety-reviewed safe/stable in
+> [`intent-prepare-actionability-integration-safety-review.md`](./intent-prepare-actionability-integration-safety-review.md)
+> (slice 132). The next compiler-loop step is the **Plan Actionability Answer /
+> Merge-Back Decision**.

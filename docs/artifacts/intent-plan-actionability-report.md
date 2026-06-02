@@ -136,4 +136,5 @@ requirements, and the report ref is recorded in the prepared plan's input refs. 
 - Safety review: [`docs/strategy/intent-plan-actionability-report-safety-review.md`](../strategy/intent-plan-actionability-report-safety-review.md)
 - Decision: [`docs/strategy/classic-intent-plan-compiler-elicitation-parity-decision.md`](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md)
 - Prepare integration: [`docs/strategy/intent-prepare-actionability-integration.md`](../strategy/intent-prepare-actionability-integration.md)
+- Prepare integration safety review: [`docs/strategy/intent-prepare-actionability-integration-safety-review.md`](../strategy/intent-prepare-actionability-integration-safety-review.md)
 - Spine neighbors: [`IntentAssessmentReport`](./intent-assessment-report.md), [`PreparedIntentPlan`](./prepared-intent-plan.md), [`IntentStatusReport`](./intent-status-report.md)

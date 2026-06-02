@@ -39,7 +39,9 @@ circe import rekon-handoff
 > canonical flow above and adds no execution power: prepare still does not auto-approve,
 > create a WorkOrder / VerificationPlan, execute commands, or write source; `intent:go`
 > remains deferred. See
-> [Intent Prepare Integration With Actionability Report](../strategy/intent-prepare-actionability-integration.md).
+> [Intent Prepare Integration With Actionability Report](../strategy/intent-prepare-actionability-integration.md),
+> safety-reviewed safe/stable in the
+> [Intent Prepare Actionability Integration Safety Review](../strategy/intent-prepare-actionability-integration-safety-review.md).
 
 Rekon runs the first six commands to assess, prepare a proof-approved plan, report status,
 generate the WorkOrder and VerificationPlan, and write the bundle. Circe then validates,

@@ -74,7 +74,9 @@ As of slice 131, `rekon intent prepare` **consults** the report when you pass
 generation, while a needs-revision / blocked report prevents preparation and
 returns the revision guidance. Prepare still does not auto-approve, write source,
 run commands, or implement `intent:go`. See
-[`intent-prepare-actionability-integration.md`](../strategy/intent-prepare-actionability-integration.md).
+[`intent-prepare-actionability-integration.md`](../strategy/intent-prepare-actionability-integration.md),
+safety-reviewed safe/stable (slice 132) in
+[`intent-prepare-actionability-integration-safety-review.md`](../strategy/intent-prepare-actionability-integration-safety-review.md).
 
 ## Related
 

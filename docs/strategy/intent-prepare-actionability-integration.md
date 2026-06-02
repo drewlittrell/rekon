@@ -81,10 +81,11 @@ are unchanged.
 
 ## Follow-Up Work
 
-1. **Intent Prepare Integration With Actionability Report Safety Review** —
-   ground-the-review pass over this slice before answer/merge-back.
-2. **Plan Actionability Answer / Merge-Back Decision** — restore the classic
-   ask/answer/merge-back loop (questions → answers → merged plan → re-review).
+1. **Intent Prepare Integration With Actionability Report Safety Review** (shipped —
+   slice 132) — ground-the-review pass over this slice declared it safe/stable. See
+   [`intent-prepare-actionability-integration-safety-review.md`](./intent-prepare-actionability-integration-safety-review.md).
+2. **Plan Actionability Answer / Merge-Back Decision** (recommended next) — restore the
+   classic ask/answer/merge-back loop (questions → answers → merged plan → re-review).
 
 ## Related
 

@@ -115,7 +115,8 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > not silently prepared for approval. Prepare still does not auto-approve, creates no WorkOrder /
 > VerificationPlan, executes no commands, and writes no source; `intent:go` remains deferred. See the
 > [Intent Prepare Integration With Actionability Report](docs/strategy/intent-prepare-actionability-integration.md)
-> memo.
+> memo, safety-reviewed safe/stable in the
+> [Intent Prepare Actionability Integration Safety Review](docs/strategy/intent-prepare-actionability-integration-safety-review.md).
 
 Then inspect the workspace:
 

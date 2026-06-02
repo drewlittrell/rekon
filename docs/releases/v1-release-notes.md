@@ -43,7 +43,9 @@ flag (slice 131) that gates preparation on the plan compiler's
 generation, while a needs-revision / blocked report blocks preparation with revision
 guidance (no plan written). Prepare still does not auto-approve, execute commands, or
 write source; `intent:go` stays deferred. See
-[Intent Prepare Integration With Actionability Report](../strategy/intent-prepare-actionability-integration.md).
+[Intent Prepare Integration With Actionability Report](../strategy/intent-prepare-actionability-integration.md),
+safety-reviewed safe/stable in the
+[Intent Prepare Actionability Integration Safety Review](../strategy/intent-prepare-actionability-integration-safety-review.md).
 
 The generated bundle is then handed to Circe via `circe rekon-handoff validate` /
 `routes`, `circe import rekon-handoff`, and `circe serve --mode worker` — these are
