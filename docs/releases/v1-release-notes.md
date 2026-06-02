@@ -330,3 +330,14 @@ WorkOrder / VerificationPlan handoffs — creating no WorkOrder / VerificationPl
 VerificationResult, executing no commands, writing no source, and running no Circe; `intent:go` remains
 deferred. Review-only — no code or version change and no npm publish. See the
 [Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).
+
+**Decided (slice 128): Classic Intent Plan Compiler / Elicitation Parity.** A parity audit found the
+old codebase-intel system compiled and interrogated plans (intake sufficiency → normalization into
+executable phase drafts → per-phase actionability gates → missing-info elicitation), a layer Rekon had
+not rebuilt. The decision adds a report-first `IntentPlanActionabilityReport` + `rekon intent plan
+review` that normalizes a plan and reports exactly what must change before approval, with LLM-backed
+semantic normalization in scope (deterministic-first, bounded to read / transform / critique / elicit;
+never execution). Report-only: no plan mutation, no source writes, no command execution, no Circe;
+`intent:go` deferred. Decision-only — nothing implemented this slice. No package version change and no
+npm publish. See the
+[Classic Intent Plan Compiler / Elicitation Parity Decision](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md).

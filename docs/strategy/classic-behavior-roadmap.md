@@ -10562,3 +10562,9 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 > [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).
 > Reviewed safe/stable (slice 127): see the
 > [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md).
+
+> Decided (slice 128): the missing classic plan-preparation intelligence (intake / normalization /
+> actionability / elicitation) is restored by the
+> [Classic Intent Plan Compiler / Elicitation Parity Decision](./classic-intent-plan-compiler-elicitation-parity-decision.md)
+> — a report-first `IntentPlanActionabilityReport` before approval. No source writes, no command
+> execution, no Circe; `intent:go` deferred. Next: Intent Plan Actionability Report v1.

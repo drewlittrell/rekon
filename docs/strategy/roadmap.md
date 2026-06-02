@@ -8330,3 +8330,9 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 > Reviewed safe/stable (slice 127): see the
 > [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md).
 > Next: Fresh Repo Intent Handoff End-to-End Safety Review.
+
+> Decided (slice 128): Classic Intent Plan Compiler / Elicitation Parity — restore the old
+> plan compiler + critique + elicitation loop via a report-first `IntentPlanActionabilityReport`
+> (LLM-backed normalization in scope, bounded to read/transform/critique). Next:
+> Intent Plan Actionability Report v1. See
+> [Classic Intent Plan Compiler / Elicitation Parity Decision](./classic-intent-plan-compiler-elicitation-parity-decision.md).

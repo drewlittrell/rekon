@@ -103,3 +103,7 @@ read-only:
 > [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).
 > Reviewed safe/stable (slice 127): see the
 > [Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).
+
+> Related (slice 128): the upstream plan-intelligence gap (intake / normalization /
+> actionability / elicitation) is addressed by the
+> [Classic Intent Plan Compiler / Elicitation Parity Decision](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md).

@@ -319,3 +319,11 @@ no version, and publishes nothing.
 > Decided (slice 88): the intent work/proof handoff uses separate, explicit, gated generators — PreparedIntentPlan -> WorkOrder and PreparedIntentPlan -> VerificationPlan, each decided / implemented / safety-reviewed on its own. Intent work/proof handoff is artifact generation, not intent:go; WorkOrder generation must require a proof-approved PreparedIntentPlan; VerificationPlan generation must require PreparedIntentPlan verification requirements; IntentStatusReport gates handoff but does not generate downstream artifacts; generated WorkOrder and VerificationPlan must trace back to PreparedIntentPlan; handoff generation does not execute commands or write source files; intent:go remains deferred. See [Intent Work / Proof Handoff Decision](intent-work-proof-handoff-decision.md).
 
 > Shipped (slice 90): the Intent WorkOrder handoff generator shipped — `rekon intent work-order generate` reads a proof-approved `PreparedIntentPlan` (gated by `IntentStatusReport` work-ready + a handoff-time freshness / drift recheck) and writes exactly one `WorkOrder` (`source: "intent-handoff"`) that traces back to the plan / status / assessment refs and the phase / obligation / verification-requirement ids. **Intent WorkOrder handoff is WorkOrder artifact generation, not intent:go**; it creates no `VerificationPlan`, executes no commands, and writes no source files; intent:go remains deferred. See [intent WorkOrder handoff](../concepts/intent-work-order-handoff.md).
+
+> Follow-up (slice 128): a deeper old-system parity audit found the missing **plan
+> compiler + critique + elicitation loop** between `intent assess` and `intent
+> prepare`/`intent approve`. The
+> [Classic Intent Plan Compiler / Elicitation Parity Decision](./classic-intent-plan-compiler-elicitation-parity-decision.md)
+> closes it with a report-first `IntentPlanActionabilityReport` (LLM-backed
+> normalization in scope, bounded to read/transform/critique). No source writes, no
+> command execution, no Circe; `intent:go` deferred.

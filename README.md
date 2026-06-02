@@ -1120,6 +1120,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Classic Intent Plan Compiler / Elicitation Parity Decision has shipped.
+# One-hundred-twenty-eighth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / architecture decision-only batch. A parity audit found the old codebase-intel system
+# compiled and interrogated plans (intake sufficiency -> normalization into executable phase drafts ->
+# per-phase actionability gates -> missing-info elicitation), a layer Rekon had not rebuilt.
+#   - Selected the report-first IntentPlanActionabilityReport + rekon intent plan review: normalize a
+#     plan and report exactly what must change (objective / deliverables / acceptance criteria / touched
+#     paths / verification evidence / scope ambiguity / non-goals / evidence gates) before approval.
+#   - LLM-backed semantic normalization is in scope (deterministic-first, bounded to read / transform /
+#     critique / elicit; never execution) — Rekon's first model-calling capability in the intent pipeline.
+#   - Report-only: no plan mutation, no source writes, no command execution, no Circe; missing required
+#     fields become blocking findings; elicitation answer/merge-back deferred; intent:go deferred.
+#   - Decision-only: memo (parity / option / boundary / selected-model tables) + review packet +
+#     20-assertion docs test + doc pointers. No code, CLI, runtime, package, or version change; no npm publish.
+#
+# See docs/strategy/classic-intent-plan-compiler-elicitation-parity-decision.md.
+# Recommended next slice: Intent Plan Actionability Report v1.
+#
 # Intent Status Work-Ready Transition Safety Review has shipped.
 # One-hundred-twenty-seventh slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch confirming the slice-126 rekon intent status transition implementation.

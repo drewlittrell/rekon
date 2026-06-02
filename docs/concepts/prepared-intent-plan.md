@@ -132,3 +132,10 @@ Status reporting and execution are downstream, separately-decided layers.
 > [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).
 > Reviewed safe/stable (slice 127): see the
 > [Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).
+
+> Next (slice 128): a report-first `IntentPlanActionabilityReport` will sit before
+> approval, normalizing a plan and reporting exactly what must change (objective /
+> deliverables / acceptance criteria / touched paths / verification evidence / scope
+> ambiguity / non-goals / evidence gates). See the
+> [Classic Intent Plan Compiler / Elicitation Parity Decision](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md).
+> Report-only; no plan mutation, no source writes, no command execution, no Circe.
