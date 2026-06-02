@@ -154,3 +154,5 @@ Review** that re-reads the shipped helper and CLI branch against this boundary
 model. Do not start it without a new confirmed Work Order against the new SHA.
 
 > **Loop closure (slice 135):** the full plan compiler loop (review → answer → merge-back → prepare) is proven end-to-end on a fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle handoff — see [`plan-compiler-loop-closure.md`](./plan-compiler-loop-closure.md).
+
+> **Dogfood review (slice 136):** the answered-report → prepare → handoff path is dogfooded on a realistic fresh TypeScript package and confirmed Circe-importable end-to-end (source report + source plan immutable, no command execution, no Circe run by Rekon, `intent:go` deferred) — see [`fresh-repo-intent-handoff-circe-dogfood-review.md`](./fresh-repo-intent-handoff-circe-dogfood-review.md).

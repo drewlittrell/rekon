@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed the **Fresh Repo Intent Handoff / Circe Dogfood Review** — one-hundred-thirty-sixth slice on the
+  intent-spine track. Dogfood / review-proof batch (no new capability; **no source change required**). Runs the
+  closed public plan-compiler + intent-handoff path on a *realistic* fresh TypeScript package (existing export +
+  `greet()` + a test + a rough plan with a `TODO` and `Non-goals`) and confirms a fresh-repo operator goes from a
+  rough plan to a Circe-importable handoff using only public commands: scan → intent context prepare → intent
+  plan review → intent plan answer → intent assess (`--path` ×2, `--constraint` ×2) → intent prepare
+  (`--actionability-report`) → intent status → intent approve → intent status transition (work-ready) → intent
+  work-order generate → intent verification-plan generate → intent bundle write → artifacts validate. The emitted
+  bundle carries the agent-handoff files and the `circe/` projection (handoff, phase-plan, rekon-proof, per-phase
+  WorkOrders + VerificationPlans); boundaries are explicit (`manifest.boundaries` + proof `gates`:
+  `sourceWriteAllowed`/`commandsExecuted` false, `intentGoDeferred` true), phase verification posture is
+  explicit, accepted proof gaps are traceable, and there is **no Circe-run record** (the handoff producer is
+  `rekon`). Source / test / plan files are byte-identical afterward; zero `VerificationRun` / `VerificationResult`
+  exist. A real, **non-blocking** Circe import (`circe import rekon-phase-plan` / `rekon-work-order`) from outside
+  Rekon, against an isolated store, accepted the projection (`{ ok: true }`). **Rekon does not execute
+  verification commands, does not write source/plan files, does not run Circe during bundle generation, and does
+  not implement intent:go.** Includes an embedded safety review (the dogfood introduces no new
+  execution/source-write/Circe boundary; it reviews the already-shipped public path end-to-end). See
+  [`fresh-repo-intent-handoff-circe-dogfood-review.md`](docs/strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).
 - Closed the **Plan Compiler Loop Closure / Fresh Repo End-to-End Proof** — one-hundred-thirty-fifth slice on
   the intent-spine track. Product-capability / system-closure batch. Treats the classic plan compiler loop as
   one integrated capability (**review → answer → merge-back → prepare**) and proves the full public Rekon path

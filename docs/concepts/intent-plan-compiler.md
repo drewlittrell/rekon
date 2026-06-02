@@ -88,3 +88,5 @@ safety-reviewed safe/stable (slice 132) in
 - Neighboring concepts: [`prepared-intent-plan.md`](./prepared-intent-plan.md), [`intent-assessment.md`](./intent-assessment.md), [`intent-plan-bundle.md`](./intent-plan-bundle.md)
 
 > **Loop closure (slice 135):** the full plan compiler loop (review → answer → merge-back → prepare) is proven end-to-end on a fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle handoff — see [`plan-compiler-loop-closure.md`](../strategy/plan-compiler-loop-closure.md).
+
+> **Dogfood review (slice 136):** that path is dogfooded on a realistic fresh TypeScript package and confirmed Circe-importable end-to-end (boundaries explicit, source/plan files immutable, no Circe-run record, `intent:go` deferred) — see [`fresh-repo-intent-handoff-circe-dogfood-review.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).

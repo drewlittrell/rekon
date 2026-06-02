@@ -107,6 +107,9 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > The full plan-compiler loop (**review → answer → merge-back → prepare**) is proven end-to-end on a
 > fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle
 > handoff — see [plan-compiler-loop-closure](docs/strategy/plan-compiler-loop-closure.md).
+> That path is dogfooded on a realistic fresh TypeScript package and confirmed Circe-importable
+> end-to-end (boundaries explicit, source/plan files immutable, no Circe-run record, `intent:go`
+> deferred) — see [fresh-repo-intent-handoff-circe-dogfood-review](docs/strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).
 > Report-only: it writes one `IntentPlanActionabilityReport` and creates no
 > downstream artifacts, runs no commands, and writes no source. See
 > [the intent plan compiler](docs/concepts/intent-plan-compiler.md). The plan-compiler layer was

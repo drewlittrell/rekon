@@ -26,6 +26,12 @@ The boundary statements the generator preserves:
   source artifact digests and a staleness state; a stale bundle is a signal to
   regenerate, not a current handoff.
 
+> **Dogfood review (slice 136):** these bundle boundaries (no command execution, no source
+> write, no `intent:go`, no Circe run by Rekon — the handoff `producer.system` is `rekon`) were
+> confirmed end-to-end on a realistic fresh TypeScript package, and the emitted `circe/` projection
+> was accepted by a real `circe import rekon-phase-plan` / `rekon-work-order` from outside Rekon —
+> see [`fresh-repo-intent-handoff-circe-dogfood-review.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).
+
 ## The Bundle
 
 ```text

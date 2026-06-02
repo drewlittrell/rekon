@@ -110,3 +110,10 @@ Dogfood Review**: run the operator-facing path against a real-ish repo and Circe
 environment, record usability gaps, and decide what remains before npm publish / broader
 v1 release. Do not restart the micro-slice pattern; if closure regresses, take a single
 blocker-specific fix slice only.
+
+> **Dogfood review shipped (slice 136):** the operator-facing path was dogfooded on a
+> realistic fresh TypeScript package and confirmed Circe-importable end-to-end — no source
+> change was required, boundaries are explicit, and a real `circe import rekon-phase-plan` /
+> `rekon-work-order` from outside Rekon accepted the projection. The recommended follow-on is
+> now **V1 Publish Readiness Reconciliation / npm Release Decision**. See
+> [`fresh-repo-intent-handoff-circe-dogfood-review.md`](./fresh-repo-intent-handoff-circe-dogfood-review.md).
