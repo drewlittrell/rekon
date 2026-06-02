@@ -230,3 +230,9 @@ additive: new optional kernel fields (`source.approvedPreparedIntentPlanRef`,
 `IntentStatusReport` artifacts still validate unchanged. No migration action is required; the previous
 report and approved plan are never mutated. No package version change and no npm publish. See the
 [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).
+
+**Update (slice 127): status work-ready transition reviewed safe/stable.** The safety review confirms the
+shipped `rekon intent status transition` introduces no migration action: the additive fields stay
+optional, existing `IntentStatusReport` artifacts still validate unchanged, and the previous report and
+approved plan remain immutable. Review-only — no code or version change and no npm publish. See the
+[Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).

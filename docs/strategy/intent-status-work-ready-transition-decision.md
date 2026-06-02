@@ -7,7 +7,8 @@
 >
 > Shipped (slice 126): implemented as the
 > [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md)
-> (`rekon intent status transition`).
+> (`rekon intent status transition`). Reviewed safe/stable (slice 127): see the
+> [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md).
 
 ## Decision Summary
 

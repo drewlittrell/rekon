@@ -1120,6 +1120,21 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Status Work-Ready Transition Safety Review has shipped.
+# One-hundred-twenty-seventh slice on the codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch confirming the slice-126 rekon intent status transition implementation.
+#   - Reviewed safe/stable: the transition is explicit (approval never auto-transitions), writes a new
+#     immutable IntentStatusReport revision, leaves the previous report and approved plan immutable,
+#     rechecks prior status / freshness / runtime drift conservatively, carries acceptedRisks into proof,
+#     and enables but does not create the WorkOrder / VerificationPlan handoffs.
+#   - Creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no commands,
+#     writes no source, runs no Circe; intent:go remains deferred.
+#   - Review-only: memo + review packet + 26-assertion docs test + doc pointers. No code, CLI, runtime,
+#     package, or version change; no npm publish.
+#
+# See docs/strategy/intent-status-work-ready-transition-safety-review.md.
+# Recommended next slice: Fresh Repo Intent Handoff End-to-End Safety Review.
+#
 # Intent Status Work-Ready Transition Implementation has shipped.
 # One-hundred-twenty-sixth slice on the codebase-intel-classic capability-ontology track.
 # Product-capability batch implementing the slice-125 decision (Option B).

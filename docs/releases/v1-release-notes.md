@@ -321,3 +321,12 @@ commands, writes no source, runs no Circe, and does not implement `intent:go`. A
 (`source.approvedPreparedIntentPlanRef`, `source.previousIntentStatusReportRef`,
 `proof.preparation.acceptedRisks`) are backward compatible. No package version change and no npm publish.
 See the [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).
+
+**Reviewed (slice 127): `rekon intent status transition` is safe/stable.** The safety review confirms the
+transition is explicit (approval never auto-transitions), writes a new immutable `IntentStatusReport`
+revision, leaves the previous report and approved plan immutable, rechecks prior status / freshness /
+runtime drift conservatively, carries `acceptedRisks` into proof, and enables but does not create the
+WorkOrder / VerificationPlan handoffs — creating no WorkOrder / VerificationPlan / VerificationRun /
+VerificationResult, executing no commands, writing no source, and running no Circe; `intent:go` remains
+deferred. Review-only — no code or version change and no npm publish. See the
+[Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).

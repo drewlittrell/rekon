@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Intent Status Work-Ready Transition Safety Review** — one-hundred-twenty-seventh slice on the
+  codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming the
+  slice-126 `rekon intent status transition` implementation is **safe/stable**: the transition is explicit
+  (operator approval never auto-transitions status), writes a NEW immutable `IntentStatusReport` revision,
+  leaves the previous report and the approved `PreparedIntentPlan` immutable, rechecks prior status /
+  freshness / runtime drift conservatively, preserves `sourceWriteAllowed` false, carries `acceptedRisks`
+  into `proof.preparation`, sets `recommendedNextAction = create-work-order`, and enables (does not create)
+  the WorkOrder / VerificationPlan handoffs past `status-not-work-ready`. It creates no WorkOrder /
+  VerificationPlan / VerificationRun / VerificationResult, executes no commands, writes no source, runs no
+  Circe, and does not implement `intent:go`. Adds the safety-review memo (surface / gate / boundary /
+  option tables), a 26-assertion docs test, a review packet, and additive doc pointers. Review-only — no
+  code, CLI, runtime, package, version, or behavior change; no npm publish. Next: Fresh Repo Intent
+  Handoff End-to-End Safety Review. See
+  [Intent Status Work-Ready Transition Safety Review](docs/strategy/intent-status-work-ready-transition-safety-review.md).
 - Shipped **Intent Status Work-Ready Transition** — one-hundred-twenty-sixth slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch implementing the slice-125
   decision (Option B). Adds `rekon intent status transition --prepared-plan <ref> --previous-status <ref>

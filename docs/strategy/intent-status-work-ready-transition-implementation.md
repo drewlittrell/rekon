@@ -5,6 +5,9 @@
 > (Option B) decided at `557fe2e`. Product-capability batch — additive kernel
 > fields, one new capability helper, one new CLI command; no package bump, no npm
 > publish.
+>
+> Reviewed safe/stable (slice 127): see the
+> [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md).
 
 ## Decision Summary
 

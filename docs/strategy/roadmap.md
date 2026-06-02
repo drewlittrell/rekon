@@ -8327,3 +8327,6 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 > Shipped (slice 126): `rekon intent status transition` writes the work-ready `IntentStatusReport`
 > revision — see the
 > [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).
+> Reviewed safe/stable (slice 127): see the
+> [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md).
+> Next: Fresh Repo Intent Handoff End-to-End Safety Review.

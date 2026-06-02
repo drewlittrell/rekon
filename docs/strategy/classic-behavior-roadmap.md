@@ -10560,3 +10560,5 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 >
 > Shipped (slice 126): the explicit transition is `rekon intent status transition` — see the
 > [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).
+> Reviewed safe/stable (slice 127): see the
+> [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md).

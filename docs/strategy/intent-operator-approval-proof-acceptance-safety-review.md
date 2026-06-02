@@ -236,3 +236,5 @@ update, bumps no version, and publishes nothing to npm.
 >
 > Shipped (slice 126): the transition is implemented as `rekon intent status transition` — see the
 > [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).
+> Reviewed safe/stable (slice 127): see the
+> [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md).

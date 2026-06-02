@@ -130,3 +130,5 @@ Status reporting and execution are downstream, separately-decided layers.
 >
 > Shipped (slice 126): the transition is `rekon intent status transition` — see the
 > [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).
+> Reviewed safe/stable (slice 127): see the
+> [Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).

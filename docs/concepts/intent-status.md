@@ -101,3 +101,5 @@ read-only:
 >
 > Shipped (slice 126): `rekon intent status transition` now writes that work-ready revision — see the
 > [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).
+> Reviewed safe/stable (slice 127): see the
+> [Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).
