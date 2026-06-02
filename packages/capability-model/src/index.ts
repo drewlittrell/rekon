@@ -174,6 +174,19 @@ export {
 } from "./intent-approval.js";
 
 export {
+  type BuildWorkReadyIntentStatusReportInput,
+  type IntentStatusTransitionBlocker,
+  type IntentStatusTransitionBlockerCategory,
+  type IntentStatusTransitionFreshnessLike,
+  type IntentStatusTransitionPreparedPlanLike,
+  type IntentStatusTransitionPreviousStatusLike,
+  type IntentStatusTransitionResult,
+  type IntentStatusTransitionRuntimeDriftLike,
+  INTENT_STATUS_TRANSITION_TARGETS,
+  buildWorkReadyIntentStatusReport,
+} from "./intent-status-transition.js";
+
+export {
   type BuildIntentWorkOrderHandoffInput,
   type IntentWorkOrderGenerationResult,
   type IntentWorkOrderGenerationBlocker,

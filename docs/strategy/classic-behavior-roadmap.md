@@ -10557,3 +10557,6 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 > effect), enabling but not creating the WorkOrder / VerificationPlan handoffs; no commands / source
 > writes / Circe; `intent:go` deferred. Next: Intent Status Work-Ready Transition Implementation. See
 > [Intent Status Work-Ready Transition Decision](./intent-status-work-ready-transition-decision.md).
+>
+> Shipped (slice 126): the explicit transition is `rekon intent status transition` — see the
+> [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).

@@ -233,3 +233,6 @@ update, bumps no version, and publishes nothing to npm.
 > approved plan + rechecks (previous report immutable; approval does not auto-transition). It enables
 > but does not create the WorkOrder / VerificationPlan handoffs; no commands / source writes / Circe;
 > `intent:go` deferred.
+>
+> Shipped (slice 126): the transition is implemented as `rekon intent status transition` — see the
+> [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).

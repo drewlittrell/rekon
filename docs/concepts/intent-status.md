@@ -98,3 +98,6 @@ read-only:
 > / VerificationPlan handoffs, creates no VerificationRun / VerificationResult, executes no commands,
 > writes no source, and runs no Circe; `intent:go` remains deferred. See
 > [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).
+>
+> Shipped (slice 126): `rekon intent status transition` now writes that work-ready revision — see the
+> [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).

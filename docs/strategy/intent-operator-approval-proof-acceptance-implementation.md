@@ -178,3 +178,6 @@ Intent Operator Approval / Proof Acceptance Safety Review.
 > an explicit `rekon intent status transition` (future) writes a new work-ready `IntentStatusReport`
 > revision after rechecking freshness / drift / status, leaving prior reports immutable. Status
 > transition enables but does not create the handoffs; `intent:go` deferred.
+>
+> Shipped (slice 126): `rekon intent status transition` now writes the work-ready revision — see the
+> [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).

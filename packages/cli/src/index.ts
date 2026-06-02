@@ -92,6 +92,11 @@ import modelCapability, {
   type IntentApprovalIntentStatusLike,
   type IntentApprovalPathFreshnessLike,
   type IntentApprovalRuntimeDriftLike,
+  buildWorkReadyIntentStatusReport,
+  type IntentStatusTransitionPreparedPlanLike,
+  type IntentStatusTransitionPreviousStatusLike,
+  type IntentStatusTransitionFreshnessLike,
+  type IntentStatusTransitionRuntimeDriftLike,
   type IntentStatusAssessmentLike,
   type IntentStatusPreparedPlanLike,
   type IntentStatusWorkOrderLike,
@@ -398,6 +403,7 @@ function rekonIntentWorkflow(): string[] {
     "rekon intent prepare",
     "rekon intent status",
     "rekon intent approve",
+    "rekon intent status transition",
     "rekon intent work-order generate",
     "rekon intent verification-plan generate",
     "rekon intent bundle write",
@@ -4693,6 +4699,159 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("");
       lines.push("A new approved PreparedIntentPlan revision was written; the source draft is unchanged.");
       lines.push("No WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, or source writes were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "status" && positional === "transition") {
+    // `rekon intent status transition --prepared-plan <PreparedIntentPlan:id|type:id>
+    // --previous-status <IntentStatusReport:id|type:id> [--path-freshness <ref>]
+    // [--runtime-drift <ref>] --to work-ready --reason <text> [--root <path>]
+    // [--json]` — Intent Status Work-Ready Transition.
+    //
+    // Reads an approved PreparedIntentPlan plus the previous IntentStatusReport,
+    // rechecks freshness / runtime drift / status context, and writes exactly ONE
+    // new work-ready IntentStatusReport revision. The transition is explicit —
+    // approval does NOT automatically make status work-ready. The previous status
+    // report is never mutated; the approved plan is never mutated. It creates no
+    // WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes
+    // no commands, writes no source files, and runs no Circe; intent:go remains
+    // deferred. The work-ready revision ENABLES (does not create) the WorkOrder /
+    // VerificationPlan handoffs. See
+    // docs/strategy/intent-status-work-ready-transition-implementation.md.
+    const toFlag = typeof parsed.flags.to === "string" ? parsed.flags.to.trim() : "";
+    if (toFlag !== "work-ready") {
+      throw new Error("rekon intent status transition requires --to work-ready (the only supported target in v1).");
+    }
+    const planFlag = typeof parsed.flags["prepared-plan"] === "string" ? parsed.flags["prepared-plan"].trim() : "";
+    if (planFlag.length === 0) {
+      throw new Error("rekon intent status transition requires --prepared-plan <PreparedIntentPlan:id|type:id>.");
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const planEntry = await findArtifactEntry(store, planFlag);
+    if (planEntry.type !== "PreparedIntentPlan") {
+      throw new Error(`rekon intent status transition --prepared-plan must reference a PreparedIntentPlan; got ${planEntry.type}.`);
+    }
+    const planValue = (await store.read(planEntry)) as IntentStatusTransitionPreparedPlanLike;
+    const planRef: ArtifactRef = {
+      type: planEntry.type,
+      id: planEntry.id,
+      path: planEntry.path,
+      digest: planEntry.digest,
+      schemaVersion: planEntry.schemaVersion ?? "0.1.0",
+    };
+
+    // Optional, ref-only (no latest fallback): an omitted previous status must
+    // block the transition rather than silently picking the latest report.
+    const resolveRefOnly = async <T>(flagName: string, type: string): Promise<{ ref?: ArtifactRef; value?: T }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      if (flag.length === 0) return {};
+      const entry = await findArtifactEntry(store, flag);
+      if (entry.type !== type) {
+        throw new Error(`rekon intent status transition --${flagName} must reference a ${type}; got ${entry.type}.`);
+      }
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      const value = (await store.read(entry)) as T;
+      return { ref, value };
+    };
+
+    const { ref: previousStatusRef, value: previousStatusValue } = await resolveRefOnly<IntentStatusTransitionPreviousStatusLike>("previous-status", "IntentStatusReport");
+    const { ref: freshnessRef, value: freshnessValue } = await resolveRefOnly<IntentStatusTransitionFreshnessLike>("path-freshness", "PathFreshnessReport");
+    const { ref: driftRef, value: driftValue } = await resolveRefOnly<IntentStatusTransitionRuntimeDriftLike>("runtime-drift", "RuntimeGraphDriftReport");
+
+    const reason = typeof parsed.flags.reason === "string" ? parsed.flags.reason : "";
+
+    const inputRefs = [planRef, previousStatusRef, freshnessRef, driftRef].filter((ref): ref is ArtifactRef => !!ref);
+
+    const header: ArtifactHeader = {
+      artifactType: "IntentStatusReport",
+      artifactId: `${INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.intent-status-transition", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.7 },
+    };
+
+    const result = buildWorkReadyIntentStatusReport({
+      header,
+      approvedPreparedIntentPlan: planValue,
+      approvedPreparedIntentPlanRef: planRef,
+      previousIntentStatusReport: previousStatusValue,
+      previousIntentStatusReportRef: previousStatusRef,
+      pathFreshnessReport: freshnessValue,
+      pathFreshnessReportRef: freshnessRef,
+      runtimeGraphDriftReport: driftValue,
+      runtimeGraphDriftReportRef: driftRef,
+      reason,
+    });
+
+    if (result.status === "blocked") {
+      process.exitCode = 1;
+      if (json) {
+        writeOutput({ status: "blocked", blockers: result.blockers }, true);
+      } else {
+        const lines: string[] = [];
+        lines.push("Intent status transition", "");
+        lines.push("Status: blocked");
+        lines.push(`Blockers: ${result.blockers.length}`);
+        for (const blocker of result.blockers) lines.push(`  - [${blocker.category}] ${blocker.message}`);
+        lines.push("");
+        lines.push("No IntentStatusReport was written. The previous status report is unchanged.");
+        lines.push("No WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, source writes, or Circe run were created.");
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
+    const report = result.intentStatusReport;
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          status: "work-ready",
+          artifact: { type: ref.type, id: ref.id },
+          source: {
+            approvedPreparedIntentPlanRef: planRef,
+            ...(previousStatusRef ? { previousIntentStatusReportRef: previousStatusRef } : {}),
+          },
+          recommendedNextAction: report.status.recommendedNextAction,
+          boundaries: {
+            createdWorkOrder: false,
+            createdVerificationPlan: false,
+            createdVerificationRun: false,
+            createdVerificationResult: false,
+            executedCommands: false,
+            wroteSourceFiles: false,
+            ranCirce: false,
+            implementedIntentGo: false,
+          },
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent status transition", "");
+      lines.push("Status: work-ready");
+      lines.push(`IntentStatusReport: ${ref.type}:${ref.id}`);
+      lines.push(`Approved plan: ${planRef.type}:${planRef.id}`);
+      if (previousStatusRef) lines.push(`Previous status: ${previousStatusRef.type}:${previousStatusRef.id} (unchanged)`);
+      lines.push(`Recommended next action: ${report.status.recommendedNextAction}`);
+      lines.push("");
+      lines.push("No WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, source writes, Circe run, or intent:go were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -10602,6 +10761,7 @@ function usage(): string {
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
     "rekon intent approve --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] --accept <gap> [--accept <gap>...] --reason <text> [--accepted-by <name>] [--root <path>] [--json]",
+    "rekon intent status transition --prepared-plan <PreparedIntentPlan:id|type:id> --previous-status <IntentStatusReport:id|type:id> [--path-freshness <ref>] [--runtime-drift <ref>] --to work-ready --reason <text> [--root <path>] [--json]",
     "rekon intent work-order generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent verification-plan generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--work-order <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
@@ -10662,7 +10822,7 @@ function usage(): string {
     "  rekon init — create the .rekon/ workspace and config only (no scan).",
     "",
     "Intent flow:",
-    "  scan → intent context prepare → intent assess → intent prepare → intent status → intent approve → intent work-order generate → intent verification-plan generate → intent bundle write",
+    "  scan → intent context prepare → intent assess → intent prepare → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
     "Fresh repo: run `rekon scan` then `rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context — not-evaluated where there is no event log) before `rekon intent assess`.",
     "The bundle can then be handed to Circe via: circe rekon-handoff validate/routes/import.",
     "Rekon prepares, proves, packages, and exports; Circe imports and orchestrates.",

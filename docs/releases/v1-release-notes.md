@@ -311,3 +311,13 @@ VerificationRun / VerificationResult, executes no commands, writes no source, an
 `intent:go` remains deferred. Decision-only — nothing implemented this slice. No package version change
 and no npm publish. See
 [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).
+
+**Shipped (slice 126): `rekon intent status transition`.** The decision is now implemented: the command
+reads an approved `PreparedIntentPlan` plus the previous `IntentStatusReport`, rechecks freshness / drift
+/ status, and writes one new work-ready `IntentStatusReport` (`status.value = work-ready`,
+`recommendedNextAction = create-work-order`). The previous report and approved plan stay immutable; the
+transition creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no
+commands, writes no source, runs no Circe, and does not implement `intent:go`. Additive kernel fields
+(`source.approvedPreparedIntentPlanRef`, `source.previousIntentStatusReportRef`,
+`proof.preparation.acceptedRisks`) are backward compatible. No package version change and no npm publish.
+See the [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).

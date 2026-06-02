@@ -1120,6 +1120,23 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Status Work-Ready Transition Implementation has shipped.
+# One-hundred-twenty-sixth slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch implementing the slice-125 decision (Option B).
+#   - Adds rekon intent status transition --prepared-plan <ref> --previous-status <ref>
+#     [--path-freshness <ref>] [--runtime-drift <ref>] --to work-ready --reason <text> [--root <path>]
+#     [--json]: reads an approved PreparedIntentPlan plus the previous IntentStatusReport, rechecks
+#     freshness / drift / status, and writes ONE new work-ready IntentStatusReport revision.
+#   - Result: status.value=work-ready, recommendedNextAction=create-work-order. The previous report and
+#     approved plan stay immutable; the transition creates no WorkOrder/VerificationPlan/VerificationRun/
+#     VerificationResult, executes no commands, writes no source, runs no Circe; intent:go deferred.
+#   - Additive kernel fields (source.approvedPreparedIntentPlanRef, source.previousIntentStatusReportRef,
+#     proof.preparation.acceptedRisks) are backward compatible. A 35-assertion contract test + 14-assertion
+#     docs test + doc pointers. No package or version change; no npm publish.
+#
+# See docs/strategy/intent-status-work-ready-transition-implementation.md.
+# Recommended next slice: Intent Status Work-Ready Transition Safety Review.
+#
 # Intent Status Work-Ready Transition Decision has shipped.
 # One-hundred-twenty-fifth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / architecture decision-only batch. Pins how an approved plan reaches work-ready status.

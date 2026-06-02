@@ -5649,6 +5649,11 @@ export type IntentStatusReportSource = {
   runtimeGraphDriftReportRef?: ArtifactRef;
   handoffCoverageReportRef?: ArtifactRef;
   findingReportRef?: ArtifactRef;
+  // Additive (slice 126): set by the work-ready status transition. The approved
+  // PreparedIntentPlan this revision reflects and the previous IntentStatusReport
+  // it transitions from. Optional and backward-compatible.
+  approvedPreparedIntentPlanRef?: ArtifactRef;
+  previousIntentStatusReportRef?: ArtifactRef;
 };
 
 export type IntentStatusProof = {
@@ -5660,6 +5665,9 @@ export type IntentStatusProof = {
     phases: number;
     obligations: number;
     verificationRequirements: number;
+    // Additive (slice 126): the operator-accepted proof gaps carried forward from
+    // the approved PreparedIntentPlan by the work-ready status transition.
+    acceptedRisks?: IntentOperatorAcceptedRisk[];
   };
   work?: { present: boolean; status?: string };
   verification?: { planPresent: boolean; runPresent: boolean; resultPresent: boolean; resultStatus?: string };
@@ -5748,6 +5756,8 @@ const INTENT_STATUS_SOURCE_FIELDS = [
   "runtimeGraphDriftReportRef",
   "handoffCoverageReportRef",
   "findingReportRef",
+  "approvedPreparedIntentPlanRef",
+  "previousIntentStatusReportRef",
 ] as const;
 
 const INTENT_STATUS_SCOPE_FIELDS = ["paths", "systems", "capabilities", "steps"] as const;
@@ -5830,6 +5840,8 @@ function normalizeIntentStatusProof(value: unknown): IntentStatusProof {
     };
     if (typeof p.status === "string") proof.preparation.status = p.status;
     if (typeof p.approvalStatus === "string") proof.preparation.approvalStatus = p.approvalStatus;
+    const preparationAcceptedRisks = preparedIntentNormalizeAcceptedRisks(p.acceptedRisks);
+    if (preparationAcceptedRisks.length > 0) proof.preparation.acceptedRisks = preparationAcceptedRisks;
   }
   if (isRecord(raw.work)) {
     const w = raw.work;
@@ -6061,6 +6073,14 @@ export function validateIntentStatusReport(value: unknown): ValidationResult<Int
     const proof = value.proof as Record<string, unknown>;
     if (proof.assessment !== undefined) validateIntentStatusProofBlock(proof.assessment, "$.proof.assessment", ["present"], ["blockers", "warnings"], ["readiness"], issues);
     if (proof.preparation !== undefined) validateIntentStatusProofBlock(proof.preparation, "$.proof.preparation", ["present"], ["phases", "obligations", "verificationRequirements"], ["status", "approvalStatus"], issues);
+    if (isRecord(proof.preparation) && (proof.preparation as Record<string, unknown>).acceptedRisks !== undefined) {
+      const ar = (proof.preparation as Record<string, unknown>).acceptedRisks;
+      if (!Array.isArray(ar)) {
+        issues.push({ path: "$.proof.preparation.acceptedRisks", message: "Expected an array." });
+      } else {
+        ar.forEach((risk, index) => validateIntentOperatorAcceptedRisk(risk, `$.proof.preparation.acceptedRisks[${index}]`, issues));
+      }
+    }
     if (proof.work !== undefined) validateIntentStatusProofBlock(proof.work, "$.proof.work", ["present"], [], ["status"], issues);
     if (proof.verification !== undefined) validateIntentStatusProofBlock(proof.verification, "$.proof.verification", ["planPresent", "runPresent", "resultPresent"], [], ["resultStatus"], issues);
     if (proof.freshness !== undefined) validateIntentStatusProofBlock(proof.freshness, "$.proof.freshness", ["present", "stale"], [], [], issues);

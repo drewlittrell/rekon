@@ -127,3 +127,6 @@ Status reporting and execution are downstream, separately-decided layers.
 > `status-not-work-ready`. The approved plan is read, never mutated; the transition creates no
 > downstream artifacts. See
 > [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).
+>
+> Shipped (slice 126): the transition is `rekon intent status transition` — see the
+> [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).

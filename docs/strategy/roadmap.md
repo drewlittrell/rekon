@@ -8323,3 +8323,7 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 > semantics (no in-place mutation, no auto-transition, no downstream-artifact creation; `intent:go`
 > deferred). Next: Intent Status Work-Ready Transition Implementation. See
 > [Intent Status Work-Ready Transition Decision](./intent-status-work-ready-transition-decision.md).
+>
+> Shipped (slice 126): `rekon intent status transition` writes the work-ready `IntentStatusReport`
+> revision — see the
+> [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md).

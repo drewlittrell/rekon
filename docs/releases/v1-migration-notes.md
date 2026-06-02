@@ -222,3 +222,11 @@ proceed against the latest work-ready status. The transition creates no WorkOrde
 VerificationRun / VerificationResult, executes no commands, writes no source, and runs no Circe;
 `intent:go` remains deferred. Decision-only — no CLI or behavior change and no npm publish. See
 [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).
+
+**Update (slice 126): status work-ready transition shipped.** `rekon intent status transition` now
+writes the new work-ready `IntentStatusReport` revision from an approved plan plus rechecks. This is
+additive: new optional kernel fields (`source.approvedPreparedIntentPlanRef`,
+`source.previousIntentStatusReportRef`, `proof.preparation.acceptedRisks`) — existing
+`IntentStatusReport` artifacts still validate unchanged. No migration action is required; the previous
+report and approved plan are never mutated. No package version change and no npm publish. See the
+[Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).

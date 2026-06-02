@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Intent Status Work-Ready Transition** — one-hundred-twenty-sixth slice on the
+  codebase-intel-classic capability-ontology track. Product-capability batch implementing the slice-125
+  decision (Option B). Adds `rekon intent status transition --prepared-plan <ref> --previous-status <ref>
+  [--path-freshness <ref>] [--runtime-drift <ref>] --to work-ready --reason <text> [--root <path>]
+  [--json]`: it reads an approved `PreparedIntentPlan` plus the previous `IntentStatusReport`, rechecks
+  freshness / drift / status conservatively, and writes ONE new work-ready `IntentStatusReport` revision
+  (`status.value=work-ready`, `recommendedNextAction=create-work-order`). The previous report and the
+  approved plan stay immutable; the transition is explicit (approval does not auto-transition). It creates
+  no WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no commands, writes no
+  source, runs no Circe, and does not implement `intent:go`; it enables but does not create the downstream
+  handoffs. Adds the pure `buildWorkReadyIntentStatusReport` helper, additive kernel fields
+  (`source.approvedPreparedIntentPlanRef`, `source.previousIntentStatusReportRef`,
+  `proof.preparation.acceptedRisks`; all optional and backward compatible), a 35-assertion contract test,
+  a 14-assertion docs test, an implementation memo, a review packet, and doc pointers. No package or
+  version change; no npm publish. Next: Intent Status Work-Ready Transition Safety Review. See
+  [Intent Status Work-Ready Transition Implementation](docs/strategy/intent-status-work-ready-transition-implementation.md).
 - Decided **Intent Status Work-Ready Transition Decision** — one-hundred-twenty-fifth slice on the
   codebase-intel-classic capability-ontology track. Strategy / architecture decision-only batch pinning
   how an approved `PreparedIntentPlan` reaches work-ready status past the remaining

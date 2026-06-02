@@ -4,6 +4,10 @@
 > runtime change, no package bump, no npm publish. Follows the
 > [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md)
 > at `1f27162`.
+>
+> Shipped (slice 126): implemented as the
+> [Intent Status Work-Ready Transition Implementation](./intent-status-work-ready-transition-implementation.md)
+> (`rekon intent status transition`).
 
 ## Decision Summary
 

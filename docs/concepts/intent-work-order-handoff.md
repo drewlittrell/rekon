@@ -132,3 +132,6 @@ source files.
 > — a future `rekon intent status transition` writes a new work-ready `IntentStatusReport` revision from
 > an approved plan + rechecks (previous report immutable). The transition enables but does not create the
 > WorkOrder handoff; WorkOrder generation still requires both an approved plan and work-ready status.
+>
+> Shipped (slice 126): `rekon intent status transition` now writes the work-ready revision — see the
+> [Intent Status Work-Ready Transition Implementation](../strategy/intent-status-work-ready-transition-implementation.md).
