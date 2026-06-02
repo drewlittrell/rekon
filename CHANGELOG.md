@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Fresh Repo Intent Handoff / Circe Dogfood Review** — one-hundred-fortieth slice on the intent-spine
+  track. System dogfood / review batch (semantic re-run of the slice-136 review). Ran the full operator path on
+  a fresh, real-ish repo through public commands (scan → intent context prepare → plan review off/auto/required
+  → plan answer → assess → prepare → status → approve → status transition → work-order → verification-plan →
+  bundle write → validate): the rough plan reviewed **blocked**, the answered revision became **actionable**, and
+  the bundle emitted the Circe projection (`handoff.json` / `phase-plan.json` / `rekon-proof.json` / per-phase
+  work-orders + verification-plans). Semantic `auto` fell back cleanly with no key and `required` failed cleanly;
+  source + plan files stayed byte-unchanged; no commands executed; no Circe run by Rekon; `intent:go` deferred.
+  The projected bundle imported into a local Circe checkout (`circe import rekon-phase-plan` / `rekon-work-order`
+  → `ok`) from outside Rekon. One small additive fix: the Circe proof sidecar now carries an explicit
+  `runsCirce: false` gate. Tests: contract 32, docs 14. See
+  [`docs/strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](docs/strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
 - Shipped **Intent Plan Compiler Semantic Normalization / Dogfood** — one-hundred-thirty-ninth slice on the
   intent-spine track. Product-capability / dogfood batch (real code). Wires the **first real completion
   provider** behind the shared router: `@rekon/llm-provider` gains `createOpenAiLlmProvider(...)`, a

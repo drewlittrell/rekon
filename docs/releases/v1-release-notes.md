@@ -4,6 +4,12 @@
 > tag, and no npm publish has occurred; the packages remain at `0.1.0-beta.0`. Versioning,
 > tagging, and publishing are separate, explicitly-approved slices.
 
+> **Fresh-repo dogfood (slice 140):** the full operator path (scan → review →
+> answer → prepare → approve → status → handoff → bundle) was re-run on a fresh
+> repo with semantic mode and the bundle imported into a local Circe checkout;
+> Rekon writes no source, runs no commands, and runs no Circe — see
+> [`../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 > **Semantic normalization (slice 139):** the plan compiler can use a routed LLM
 > provider (`createOpenAiLlmProvider` behind `RekonLlmRouter`, selected via
 > `--llm-provider` / `--llm-model` and `REKON_LLM_*` env). LLM output is proposal,

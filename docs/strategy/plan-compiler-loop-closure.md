@@ -1,5 +1,12 @@
 # Plan Compiler Loop Closure / Fresh Repo End-to-End Proof
 
+> **Re-dogfooded end-to-end (slice 140):** the full operator path (scan → review
+> → answer → prepare → approve → status → handoff → bundle) was re-run on a fresh
+> repo with semantic mode, and the bundle imported into a local Circe checkout —
+> provider output stays proposal-not-proof; Rekon writes no source, runs no
+> commands, and runs no Circe — see
+> [`fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](./fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 Status: closed (slice 135). This memo treats the classic intent **plan compiler loop
 as one integrated capability**, not another chain of micro-slices, and records the
 fresh-repo end-to-end proof that the whole public Rekon path works.

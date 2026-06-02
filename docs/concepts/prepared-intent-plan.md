@@ -1,5 +1,11 @@
 # Prepared Intent Plan
 
+> **Re-dogfooded end-to-end (slice 140):** the fresh-repo operator path through
+> prepare → approve → status transition → handoff → bundle was re-run and proven;
+> prepare does not auto-approve, and the bundle stays a passive Circe projection
+> (no source writes, no command execution, no Circe run) — see
+> [`../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 Prepared intent planning answers the second question of the staged Rekon intent
 spine: *given a safe assessment, what are the planned phases, obligations, and
 verification requirements?* `PreparedIntentPlan` is the artifact that answers

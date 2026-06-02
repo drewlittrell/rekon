@@ -3,6 +3,11 @@
 > Migration guidance prepared by V1 Release Prep Implementation. No version bump, tag, or
 > npm publish has occurred; packages remain at `0.1.0-beta.0`.
 
+> **Fresh-repo dogfood (slice 140):** the operator path was re-proven end-to-end
+> on a fresh repo and the bundle imported into a local Circe checkout; source +
+> plan files stay unchanged and Rekon runs no Circe — see
+> [`../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 > **Semantic normalization (slice 139):** `rekon intent plan review` can route
 > rough-plan normalization through an LLM provider (`--llm-provider` /
 > `--llm-model`, `REKON_LLM_*` env, key from `OPENAI_API_KEY`). It is opt-in and

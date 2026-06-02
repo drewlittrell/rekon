@@ -245,9 +245,12 @@ test("24. the agent verification handoff lists commands as text and does not exe
 });
 test("25. Rekon does not run Circe during bundle generation (no Circe-run record)", () => {
   // The bundle is a projection; the no-Circe-run boundary is expressed via the
-  // Rekon producer + commandsExecuted=false + the absence of any Circe-run record.
+  // Rekon producer + commandsExecuted=false + an explicit `runsCirce: false`
+  // proof gate (added slice 140) and the absence of any Circe-execution record.
+  // The projection must never CLAIM Rekon ran Circe: `runsCirce: false` is the
+  // record proving the opposite, so only `runsCirce: true` would be a violation.
   assert.ok(!ctx.projectionText.includes("ranCirce"));
-  assert.ok(!ctx.projectionText.includes("runsCirce"));
+  assert.ok(!/"runsCirce"\s*:\s*true/.test(ctx.projectionText));
   assert.ok(!ctx.projectionText.includes("circeExecuted"));
   assert.ok(!ctx.projectionText.includes("importedAt"));
 });

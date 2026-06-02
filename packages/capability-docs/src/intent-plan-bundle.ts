@@ -592,6 +592,10 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       verificationPlanAllowed: approvalStatus === "approved" && asBool(downstream.verificationPlanAllowed),
       sourceWriteAllowed: false,
       commandsExecuted: false,
+      // Rekon never runs Circe during bundle generation; the bundle is a passive
+      // projection for Circe to import. Surfaced explicitly (slice 140 dogfood)
+      // so the Circe-import contract carries the no-Circe-run boundary as a field.
+      runsCirce: false,
       intentGoDeferred: true,
     },
     proof: {

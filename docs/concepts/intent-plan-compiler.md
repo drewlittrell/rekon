@@ -1,5 +1,10 @@
 # Intent Plan Compiler
 
+> **Re-dogfooded end-to-end (slice 140):** the fresh-repo rough-plan path through
+> review → answer → prepare → approve → status → handoff → bundle was re-run with
+> semantic mode and the bundle imported into Circe — see
+> [`../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 > **Semantic normalization wired (slice 139):** the rough-plan normalization step
 > can now use a routed LLM provider (the first real adapter,
 > `createOpenAiLlmProvider`, behind `RekonLlmRouter`) via `rekon intent plan

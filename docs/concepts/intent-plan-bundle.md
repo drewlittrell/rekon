@@ -1,5 +1,13 @@
 # Intent Plan Bundle
 
+> **Re-dogfooded end-to-end (slice 140):** the bundle's Circe projection
+> (`handoff.json` / `phase-plan.json` / `rekon-proof.json` / per-phase
+> work-orders + verification-plans) was re-generated on a fresh repo and imported
+> into a local Circe checkout (`circe import rekon-phase-plan` / `rekon-work-order`).
+> The proof sidecar gates now include an explicit `runsCirce: false`; Rekon writes
+> no source, runs no commands, and runs no Circe — see
+> [`../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 An intent plan bundle is a stable, repo-local projection of the completed Rekon
 intent preparation artifacts into human-readable and LLM-agent-ready files. It
 answers a practical question: *where do an operator or an agent go to read the

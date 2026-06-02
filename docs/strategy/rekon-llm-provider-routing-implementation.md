@@ -3,6 +3,10 @@
 Status: implemented (slice 138). Decision of record:
 [rekon-llm-provider-routing-semantic-normalization-decision.md](./rekon-llm-provider-routing-semantic-normalization-decision.md).
 
+> **Re-dogfooded end-to-end (slice 140):** the router-bound provider was exercised
+> through the full fresh-repo operator path and the bundle imported into Circe —
+> see [`fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](./fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 This memo records *how* the shared provider routing foundation was built and the
 boundaries it preserves. It implements **Option B** — a shared provider router
 with task-specific routes and injected adapters — without wiring any live hosted

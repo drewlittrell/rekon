@@ -7,6 +7,12 @@ intelligence snapshot.
 Rekon is for codebase intelligence, repository intelligence,
 architecture-aware agent context, and governance for AI-assisted software work.
 
+> **Fresh-repo Circe dogfood (slice 140):** the full operator path (scan → review
+> → answer → prepare → approve → status → handoff → bundle) was re-run on a fresh
+> repo with semantic mode, and the bundle imported into a local Circe checkout —
+> Rekon writes no source, runs no commands, and runs no Circe — see
+> [`docs/strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](docs/strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 > **Semantic normalization (slice 139):** the intent plan compiler can route
 > rough-plan normalization through an LLM provider (`createOpenAiLlmProvider`
 > behind the shared `RekonLlmRouter`), selected via `--llm-provider` /

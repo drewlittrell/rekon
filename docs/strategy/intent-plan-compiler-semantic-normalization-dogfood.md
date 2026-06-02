@@ -6,7 +6,12 @@ Status: implemented (slice 139). Base: `8d1171a`. Follows
 [provider routing decision](./rekon-llm-provider-routing-semantic-normalization-decision.md).
 
 This slice wires the **first real completion provider** behind the shared
-`RekonLlmRouter` and dogfoods the plan-compiler semantic path. It proves the
+`RekonLlmRouter` and dogfoods the plan-compiler semantic path.
+
+> **Re-dogfooded end-to-end (slice 140):** semantic mode was re-run through the
+> full fresh-repo operator path (review → answer → prepare → approve → status →
+> handoff → bundle) and the bundle imported into a local Circe checkout — see
+> [`fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](./fresh-repo-intent-handoff-circe-dogfood-review-semantic.md). It proves the
 provider-router seam can carry real semantic normalization **without weakening
 any Rekon boundary**: the model proposes phase drafts; the deterministic
 actionability engine remains the authority.

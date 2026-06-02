@@ -1,5 +1,11 @@
 # Rekon LLM Provider Routing
 
+> **Re-dogfooded end-to-end (slice 140):** the routed provider was exercised
+> through the full fresh-repo operator path (semantic off/auto/required), and the
+> resulting bundle imported into Circe — provider output stays proposal-not-proof
+> — see
+> [`../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 > **Real provider wired (slice 139):** the first real completion provider —
 > `createOpenAiLlmProvider(...)`, a fetch-based, no-SDK OpenAI-compatible adapter
 > — is registered behind the router by `rekon intent plan review`. Semantic

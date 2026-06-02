@@ -1,5 +1,11 @@
 # IntentPlanActionabilityReport
 
+> **Re-dogfooded end-to-end (slice 140):** review → answer → actionable was
+> re-proven on a fresh repo (rough plan blocked with questions; answered revision
+> actionable; source report byte-unchanged), feeding prepare → approve → handoff →
+> bundle — see
+> [`../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review-semantic.md).
+
 > **Semantic normalization wired (slice 139):** the phase-draft normalization
 > step can now use a routed LLM provider (the first real adapter behind
 > `RekonLlmRouter`). Provider output is schema-gated and deterministically
