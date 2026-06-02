@@ -152,3 +152,5 @@ The report's `boundaries` block remains validator-enforced all-false.
 The recommended follow-on is a **Plan Actionability Answer / Merge-Back Safety
 Review** that re-reads the shipped helper and CLI branch against this boundary
 model. Do not start it without a new confirmed Work Order against the new SHA.
+
+> **Loop closure (slice 135):** the full plan compiler loop (review → answer → merge-back → prepare) is proven end-to-end on a fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle handoff — see [`plan-compiler-loop-closure.md`](./plan-compiler-loop-closure.md).

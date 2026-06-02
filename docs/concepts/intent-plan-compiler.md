@@ -86,3 +86,5 @@ safety-reviewed safe/stable (slice 132) in
 - Decision: [`classic-intent-plan-compiler-elicitation-parity-decision.md`](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md)
 - Answer / merge-back decision: [`plan-actionability-answer-merge-back-decision.md`](../strategy/plan-actionability-answer-merge-back-decision.md) and implementation: [`plan-actionability-answer-merge-back-implementation.md`](../strategy/plan-actionability-answer-merge-back-implementation.md) — `rekon intent plan answer --report <ref> --answer <question-id>=<answer>` merges answers deterministically into a new report revision (slice 134).
 - Neighboring concepts: [`prepared-intent-plan.md`](./prepared-intent-plan.md), [`intent-assessment.md`](./intent-assessment.md), [`intent-plan-bundle.md`](./intent-plan-bundle.md)
+
+> **Loop closure (slice 135):** the full plan compiler loop (review → answer → merge-back → prepare) is proven end-to-end on a fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle handoff — see [`plan-compiler-loop-closure.md`](../strategy/plan-compiler-loop-closure.md).

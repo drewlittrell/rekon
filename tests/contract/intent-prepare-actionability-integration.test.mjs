@@ -128,8 +128,11 @@ test("prepared plan from an actionable report is not auto-approved and validates
 test("phase goal falls back to the request goal when a draft has no objective", () => {
   const report = { status: { value: "actionable" }, normalizedPhases: [{ title: "Untitled work", kind: "unknown", objective: "", touchedPaths: [] }] };
   const plan = buildPlanWithReport(report);
-  assert.equal(plan.phases.length, 1);
-  assert.equal(plan.phases[0].kind, "modify"); // unknown maps to modify
+  // unknown maps to modify (implementation-bearing); a verify phase is synthesized so
+  // the prepared plan is a valid implementation-bearing plan (slice 135 loop closure).
+  assert.equal(plan.phases.length, 2);
+  assert.equal(plan.phases[0].kind, "modify");
+  assert.equal(plan.phases[1].kind, "verify");
   assert.ok(plan.phases[0].goal.length > 0);
 });
 

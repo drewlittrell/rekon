@@ -257,3 +257,5 @@ shipped `rekon intent status transition` introduces no migration action: the add
 optional, existing `IntentStatusReport` artifacts still validate unchanged, and the previous report and
 approved plan remain immutable. Review-only — no code or version change and no npm publish. See the
 [Intent Status Work-Ready Transition Safety Review](../strategy/intent-status-work-ready-transition-safety-review.md).
+
+> **Loop closure (slice 135):** the full plan compiler loop (review → answer → merge-back → prepare) is proven end-to-end on a fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle handoff — see [`plan-compiler-loop-closure.md`](../strategy/plan-compiler-loop-closure.md).

@@ -4,6 +4,21 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Closed the **Plan Compiler Loop Closure / Fresh Repo End-to-End Proof** — one-hundred-thirty-fifth slice on
+  the intent-spine track. Product-capability / system-closure batch. Treats the classic plan compiler loop as
+  one integrated capability (**review → answer → merge-back → prepare**) and proves the full public Rekon path
+  end-to-end on a fresh repo: scan → intent context prepare → intent plan review → intent plan answer → intent
+  assess → intent prepare (`--actionability-report`) → intent status → intent approve → intent status transition
+  (work-ready) → intent work-order generate → intent verification-plan generate → intent bundle write → artifacts
+  validate. **One small closure repair**: the actionability-report → prepare mapping now synthesizes a `verify`
+  phase when the report's normalized drafts are all implementation-bearing with no verify phase (the kernel
+  validator requires implementation-bearing plans to include a verify phase), mirroring the non-actionability
+  prepare path. **answered reports may feed prepare; source plan files are unchanged; source reports are
+  immutable; approval remains explicit; status transition remains explicit; WorkOrder / VerificationPlan handoff
+  remain gated; no command execution; no source writes; no Circe execution by Rekon; intent:go remains
+  deferred.** The batch includes an embedded safety review (no new execution/source-write/Circe boundary beyond
+  already-reviewed components). See
+  [`plan-compiler-loop-closure.md`](docs/strategy/plan-compiler-loop-closure.md).
 - Shipped **Plan Actionability Answer / Merge-Back Implementation** — one-hundred-thirty-fourth slice on the
   intent-spine track. Product-capability batch (real code). Adds `rekon intent plan answer --report <ref>
   --answer <question-id>=<answer> [--answer ...] [--answers <json>] [--answered-by <name>]`, which reads an

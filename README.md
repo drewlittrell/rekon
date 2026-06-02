@@ -104,6 +104,9 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > `rekon intent assess`. Then `rekon intent plan answer --report <ref> --answer <question-id>=<answer>`
 > (or `--answers <json>`) merges your answers deterministically into a new `IntentPlanActionabilityReport`
 > revision and re-scores it — closing the classic ask/answer loop without mutating the source report.
+> The full plan-compiler loop (**review → answer → merge-back → prepare**) is proven end-to-end on a
+> fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle
+> handoff — see [plan-compiler-loop-closure](docs/strategy/plan-compiler-loop-closure.md).
 > Report-only: it writes one `IntentPlanActionabilityReport` and creates no
 > downstream artifacts, runs no commands, and writes no source. See
 > [the intent plan compiler](docs/concepts/intent-plan-compiler.md). The plan-compiler layer was

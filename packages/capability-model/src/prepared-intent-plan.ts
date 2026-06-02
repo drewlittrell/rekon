@@ -633,6 +633,33 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
         sourceRefs: refList,
       });
     });
+
+    // Loop-closure repair (slice 135): the report's normalized drafts can be all
+    // implementation-bearing with no explicit verify phase. A prepared
+    // implementation-bearing plan must include a verify phase (kernel validator),
+    // so synthesize one — wired to the same report-derived verification
+    // requirements — exactly as the non-actionability path always does. This adds
+    // structure only; it changes no approval/status gate.
+    const derivedHasImplementation = phases.some((entry) => entry.kind === "modify" || entry.kind === "refactor");
+    const derivedHasVerify = phases.some((entry) => entry.kind === "verify");
+    if (derivedHasImplementation && !derivedHasVerify) {
+      const ord = String(reportDrafts.length + 1).padStart(3, "0");
+      phases.push({
+        id: `phase:plan-${ord}-verify`,
+        title: "Verify",
+        kind: "verify",
+        status: phaseStatus,
+        goal: "Verify the implemented plan phases satisfy their acceptance criteria and verification evidence.",
+        paths: [],
+        systems,
+        capabilities,
+        steps,
+        constraints: [],
+        obligations: [],
+        verificationRequirements: reportRequirementIds,
+        sourceRefs: refList,
+      });
+    }
   }
 
   const phaseKinds = new Set(phases.map((entry) => entry.kind));

@@ -216,3 +216,5 @@ executes no commands; writes no source files; runs no Circe; and does not implem
 - Compiler concept: [`intent-plan-compiler.md`](../concepts/intent-plan-compiler.md)
 - Artifacts: [`IntentPlanActionabilityReport`](../artifacts/intent-plan-actionability-report.md), [`PreparedIntentPlan`](../concepts/prepared-intent-plan.md)
 - Review packet: [`intent-prepare-actionability-integration-safety-review.md`](../../.rekon-dev/review-packets/intent-prepare-actionability-integration-safety-review.md)
+
+> **Loop closure (slice 135):** the full plan compiler loop (review → answer → merge-back → prepare) is proven end-to-end on a fresh repo through approval, work-ready status, and the gated WorkOrder / VerificationPlan / Circe-bundle handoff — see [`plan-compiler-loop-closure.md`](./plan-compiler-loop-closure.md).
