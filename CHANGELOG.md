@@ -4,6 +4,17 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Intent Operator Approval / Proof Acceptance Decision** — one-hundred-twenty-second slice
+  on the codebase-intel-classic capability-ontology track. Strategy / architecture decision-only batch
+  pinning the explicit operator approval path for a needs-review draft `PreparedIntentPlan`: **selected
+  Option B — a new approved PreparedIntentPlan revision**. A future `rekon intent approve` reads the
+  draft, rechecks freshness / drift / status, records the operator's explicitly accepted proof gaps,
+  and writes a NEW approved plan artifact (the source draft stays immutable). Approval is explicit
+  (never auto-approved), accepts named gaps rather than erasing them, and may enable WorkOrder /
+  VerificationPlan handoff but does not create them. No VerificationRun / VerificationResult, no command
+  execution, no source writes, no Circe, `intent:go` deferred. Adds the decision memo, an 18-assertion
+  docs test, a review packet, and additive doc pointers. No code, CLI, package, version, or runtime
+  change. Recommended next: **Intent Operator Approval / Proof Acceptance Implementation**.
 - Fixed **Intent Prepare Needs-Review Planfulness Fix** — one-hundred-twenty-first slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch. `rekon intent prepare`
   now produces an implementation-bearing **draft** plan when `rekon intent assess` is `needs-review`

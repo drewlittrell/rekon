@@ -147,3 +147,11 @@ The natural next step is **Intent Operator Approval / Proof Acceptance Decision*
 public command path for an operator to approve a needs-review `PreparedIntentPlan` by accepting
 specific proof gaps after rechecking freshness / drift. Still no auto-approval, no source writes, no
 command execution, no `intent:go`.
+
+> Decided (slice 122): the explicit operator approval path is now pinned — **Intent Operator Approval
+> / Proof Acceptance Decision** selects a new approved `PreparedIntentPlan` revision (the source
+> needs-review draft stays immutable). A future `rekon intent approve` rechecks freshness / drift /
+> status and records the operator's accepted proof gaps; approval is explicit (never auto-approved),
+> enables but does not create the WorkOrder / VerificationPlan handoff, runs no commands, and writes no
+> source. Next: Intent Operator Approval / Proof Acceptance Implementation. See [Intent Operator
+> Approval / Proof Acceptance Decision](./intent-operator-approval-proof-acceptance-decision.md).

@@ -257,3 +257,14 @@ remain blocked until explicit approval. No commands execute, no VerificationRun 
 is created, no source is written, and `intent:go` remains deferred. No package version change and no
 npm publish. See
 [Intent Prepare Needs-Review Planfulness Fix](../strategy/intent-prepare-needs-review-planfulness.md).
+
+## Update — Operator Approval Decided (slice 122)
+
+The Intent Operator Approval / Proof Acceptance Decision pins the explicit path to approve a
+needs-review draft `PreparedIntentPlan`: a future `rekon intent approve` rechecks freshness / drift /
+status, records the operator's explicitly accepted proof gaps, and writes a **new** approved plan
+revision (the source draft stays immutable). Approval is explicit (never auto-approved), accepts named
+gaps rather than erasing them, and may enable WorkOrder / VerificationPlan handoff but does not create
+them. No VerificationRun / VerificationResult, no command execution, no source writes; `intent:go`
+remains deferred. No package version change and no npm publish. See
+[Intent Operator Approval / Proof Acceptance Decision](../strategy/intent-operator-approval-proof-acceptance-decision.md).

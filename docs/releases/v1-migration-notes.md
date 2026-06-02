@@ -181,3 +181,11 @@ a bare review phase. The draft stays `needs-review`; approval is never auto-elev
 VerificationPlan generation remain blocked until explicit approval. No commands execute, no source is
 written, `intent:go` remains deferred. No package version change and no npm publish. See
 [Intent Prepare Needs-Review Planfulness Fix](../strategy/intent-prepare-needs-review-planfulness.md).
+
+**Update (slice 122): operator approval path decided.** The Intent Operator Approval / Proof
+Acceptance Decision pins how a needs-review draft `PreparedIntentPlan` becomes approved: a future
+`rekon intent approve` rechecks freshness / drift / status, records the operator's accepted proof
+gaps, and writes a new approved plan revision (the source draft stays immutable). Approval enables but
+does not create the WorkOrder / VerificationPlan handoff; no commands execute and no source is
+written; `intent:go` remains deferred. Decision-only — no CLI or behavior change and no npm publish.
+See [Intent Operator Approval / Proof Acceptance Decision](../strategy/intent-operator-approval-proof-acceptance-decision.md).

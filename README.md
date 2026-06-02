@@ -1120,6 +1120,20 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Operator Approval / Proof Acceptance Decision has shipped.
+# One-hundred-twenty-second slice on the codebase-intel-classic capability-ontology track.
+# Strategy / architecture decision-only batch. Pins the operator approval / proof-acceptance path.
+#   - Selected Option B — a new approved PreparedIntentPlan revision (the source draft stays immutable).
+#   - A future rekon intent approve rechecks freshness / drift / status and records operator-accepted
+#     proof gaps before writing the approved plan.
+#   - Approval is explicit (never auto-approved); accepts named gaps, does not erase them; may enable
+#     WorkOrder / VerificationPlan handoff but does not create them.
+#   - No VerificationRun/Result; no command execution; no source writes; intent:go deferred.
+#   - Decision-only: no code, CLI, package, version, or behavior change.
+#
+# See docs/strategy/intent-operator-approval-proof-acceptance-decision.md.
+# Recommended next slice: Intent Operator Approval / Proof Acceptance Implementation.
+#
 # Intent Prepare Needs-Review Planfulness Fix has shipped.
 # One-hundred-twenty-first slice on the codebase-intel-classic capability-ontology track.
 # Product-capability batch. Fixes the fresh-repo intent-prepare planfulness gap.
