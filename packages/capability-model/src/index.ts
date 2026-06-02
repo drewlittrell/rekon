@@ -161,6 +161,19 @@ export {
 } from "./intent-status-report.js";
 
 export {
+  type BuildApprovedPreparedIntentPlanInput,
+  type IntentApprovalAcceptedGap,
+  type IntentApprovalBlocker,
+  type IntentApprovalBlockerCategory,
+  type IntentApprovalIntentStatusLike,
+  type IntentApprovalPathFreshnessLike,
+  type IntentApprovalResult,
+  type IntentApprovalRuntimeDriftLike,
+  type IntentApprovalSourcePlanLike,
+  buildApprovedPreparedIntentPlan,
+} from "./intent-approval.js";
+
+export {
   type BuildIntentWorkOrderHandoffInput,
   type IntentWorkOrderGenerationResult,
   type IntentWorkOrderGenerationBlocker,

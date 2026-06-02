@@ -1120,6 +1120,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Operator Approval / Proof Acceptance Implementation has shipped.
+# One-hundred-twenty-third slice on the codebase-intel-classic capability-ontology track.
+# Product-capability batch implementing the slice-122 decision.
+#   - Adds rekon intent approve: reads a needs-review draft PreparedIntentPlan, verifies the operator
+#     explicitly accepted the plan's known proof gaps (--accept <gap> with a required --reason),
+#     rechecks freshness / runtime drift / status, and writes ONE new approved PreparedIntentPlan
+#     revision. The source draft is never mutated and stays byte-identical.
+#   - The approved revision sets status=prepared / next=create-work-order, approval.status=approved
+#     (reasons gain explicit-operator-approval + manual-risk-acceptance), records accepted gaps as
+#     approval.acceptedRisks[], and flips downstreamHandoff.workOrderAllowed / verificationPlanAllowed
+#     to true while keeping sourceWriteAllowed the literal false.
+#   - Additive kernel IntentOperatorAcceptedRisk type + optional approval.acceptedRisks field
+#     (backward-compatible); pure buildApprovedPreparedIntentPlan helper; 36 contract + 11 docs assertions.
+#   - Approval is never automatic, enables but does not create the handoffs, creates no
+#     WorkOrder/VerificationPlan/VerificationRun/VerificationResult, executes no commands, writes no
+#     source, runs no Circe; intent:go deferred. No package/version change; no npm publish.
+#
+# See docs/strategy/intent-operator-approval-proof-acceptance-implementation.md.
+# Recommended next slice: Intent Operator Approval / Proof Acceptance Safety Review.
+#
 # Intent Operator Approval / Proof Acceptance Decision has shipped.
 # One-hundred-twenty-second slice on the codebase-intel-classic capability-ontology track.
 # Strategy / architecture decision-only batch. Pins the operator approval / proof-acceptance path.

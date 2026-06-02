@@ -155,3 +155,9 @@ command execution, no `intent:go`.
 > enables but does not create the WorkOrder / VerificationPlan handoff, runs no commands, and writes no
 > source. Next: Intent Operator Approval / Proof Acceptance Implementation. See [Intent Operator
 > Approval / Proof Acceptance Decision](./intent-operator-approval-proof-acceptance-decision.md).
+
+> Implemented (slice 123): the explicit approval step now exists. `rekon intent approve` turns this
+> needs-review draft into a new approved `PreparedIntentPlan` revision once the operator accepts the
+> draft's known proof gaps and the freshness / drift / status recheck passes; the draft stays immutable
+> and the WorkOrder / VerificationPlan handoffs open only on the approved revision. See
+> [Intent Operator Approval / Proof Acceptance Implementation](./intent-operator-approval-proof-acceptance-implementation.md).

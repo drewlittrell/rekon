@@ -87,6 +87,11 @@ import modelCapability, {
   type PreparedIntentVerificationResultLike,
   INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX,
   buildIntentStatusReport,
+  buildApprovedPreparedIntentPlan,
+  type IntentApprovalSourcePlanLike,
+  type IntentApprovalIntentStatusLike,
+  type IntentApprovalPathFreshnessLike,
+  type IntentApprovalRuntimeDriftLike,
   type IntentStatusAssessmentLike,
   type IntentStatusPreparedPlanLike,
   type IntentStatusWorkOrderLike,
@@ -392,6 +397,7 @@ function rekonIntentWorkflow(): string[] {
     "rekon intent assess",
     "rekon intent prepare",
     "rekon intent status",
+    "rekon intent approve",
     "rekon intent work-order generate",
     "rekon intent verification-plan generate",
     "rekon intent bundle write",
@@ -4518,6 +4524,175 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("");
       lines.push(`Plan: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "approve") {
+    // `rekon intent approve --prepared-plan <PreparedIntentPlan:id|type:id>
+    // [--intent-status <IntentStatusReport:id|type:id>] [--path-freshness <ref>]
+    // [--runtime-drift <ref>] --accept <gap> [--accept <gap>...] --reason <text>
+    // [--accepted-by <name>] [--root <path>] [--json]` — Intent Operator
+    // Approval / Proof Acceptance.
+    //
+    // Reads a needs-review PreparedIntentPlan, verifies the operator explicitly
+    // accepted the plan's known proof gaps, rechecks freshness / runtime drift /
+    // status context, and writes exactly ONE new approved PreparedIntentPlan
+    // revision. It NEVER mutates the source plan in place. It creates no
+    // WorkOrder / VerificationPlan / VerificationRun / VerificationResult,
+    // executes no commands, writes no source files, and does not implement
+    // intent:go. Approval ENABLES — it does not create — the downstream WorkOrder
+    // and VerificationPlan handoffs. See
+    // docs/strategy/intent-operator-approval-proof-acceptance-implementation.md.
+    const planFlag = typeof parsed.flags["prepared-plan"] === "string" ? parsed.flags["prepared-plan"].trim() : "";
+    if (planFlag.length === 0) {
+      throw new Error("rekon intent approve requires --prepared-plan <PreparedIntentPlan:id|type:id>.");
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const planEntry = await findArtifactEntry(store, planFlag);
+    if (planEntry.type !== "PreparedIntentPlan") {
+      throw new Error(`rekon intent approve --prepared-plan must reference a PreparedIntentPlan; got ${planEntry.type}.`);
+    }
+    const planValue = (await store.read(planEntry)) as IntentApprovalSourcePlanLike;
+    const planRef: ArtifactRef = {
+      type: planEntry.type,
+      id: planEntry.id,
+      path: planEntry.path,
+      digest: planEntry.digest,
+      schemaVersion: planEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const resolveRefWithValue = async <T>(flagName: string, type: string): Promise<{ ref?: ArtifactRef; value?: T }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon intent approve --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        const entries = await store.list(type);
+        entry = entries.at(-1);
+      }
+      if (!entry) return {};
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      const value = (await store.read(entry)) as T;
+      return { ref, value };
+    };
+
+    const { ref: statusRef, value: statusValue } = await resolveRefWithValue<IntentApprovalIntentStatusLike>("intent-status", "IntentStatusReport");
+    const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<IntentApprovalPathFreshnessLike>("path-freshness", "PathFreshnessReport");
+    const { ref: driftRef, value: driftValue } = await resolveRefWithValue<IntentApprovalRuntimeDriftLike>("runtime-drift", "RuntimeGraphDriftReport");
+
+    const acceptedGaps = parseRepeatableFlag(parsed.flags.accept).map((g) => g.trim()).filter((g) => g.length > 0);
+    const reason = typeof parsed.flags.reason === "string" ? parsed.flags.reason : "";
+    const acceptedBy = typeof parsed.flags["accepted-by"] === "string" ? parsed.flags["accepted-by"].trim() : undefined;
+
+    const inputRefs = [planRef, statusRef, freshnessRef, driftRef].filter((ref): ref is ArtifactRef => !!ref);
+
+    const header: ArtifactHeader = {
+      artifactType: "PreparedIntentPlan",
+      artifactId: `${PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.intent-approve", version: "0.1.0-beta.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.7 },
+    };
+
+    const result = buildApprovedPreparedIntentPlan({
+      header,
+      preparedIntentPlan: planValue,
+      preparedIntentPlanRef: planRef,
+      intentStatusReport: statusValue,
+      intentStatusReportRef: statusRef,
+      pathFreshnessReport: freshnessValue,
+      pathFreshnessReportRef: freshnessRef,
+      runtimeGraphDriftReport: driftValue,
+      runtimeGraphDriftReportRef: driftRef,
+      acceptedGaps,
+      reason,
+      acceptedBy,
+      acceptedAt: new Date().toISOString(),
+    });
+
+    if (result.status === "blocked") {
+      process.exitCode = 1;
+      if (json) {
+        writeOutput(
+          {
+            status: "blocked",
+            blockers: result.blockers,
+            requiredGaps: result.requiredGaps,
+            acceptedGaps: result.acceptedGaps,
+          },
+          true,
+        );
+      } else {
+        const lines: string[] = [];
+        lines.push("Intent operator approval", "");
+        lines.push("Status: blocked");
+        lines.push(`Required accepted gaps: ${result.requiredGaps.join(", ") || "none"}`);
+        lines.push(`Accepted gaps: ${result.acceptedGaps.join(", ") || "none"}`);
+        lines.push(`Blockers: ${result.blockers.length}`);
+        for (const blocker of result.blockers) lines.push(`  - [${blocker.category}] ${blocker.message}`);
+        lines.push("");
+        lines.push("No approved plan was written. The source PreparedIntentPlan is unchanged.");
+        lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
+    const approvedPlan = result.preparedIntentPlan!;
+    const ref = await store.write(approvedPlan, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          status: "approved",
+          artifact: { type: ref.type, id: ref.id },
+          source: {
+            preparedIntentPlanRef: planRef,
+            ...(statusRef ? { intentStatusReportRef: statusRef } : {}),
+          },
+          approval: { status: approvedPlan.approval.status, reasons: approvedPlan.approval.reasons },
+          acceptedRisks: result.acceptedRisks.length,
+          acceptedGaps: result.acceptedGaps,
+          requiredGaps: result.requiredGaps,
+          downstreamHandoff: approvedPlan.approval.proof.downstreamHandoff,
+          blockers: [],
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent operator approval", "");
+      lines.push("Status: approved");
+      lines.push(`Approved plan: ${ref.type}:${ref.id}`);
+      lines.push(`Source PreparedIntentPlan: ${planRef.type}:${planRef.id} (unchanged)`);
+      if (statusRef) lines.push(`IntentStatusReport: ${statusRef.type}:${statusRef.id}`);
+      lines.push(`Approval reasons: ${approvedPlan.approval.reasons.join(", ") || "none"}`);
+      lines.push(`Accepted gaps: ${result.acceptedGaps.join(", ") || "none"}`);
+      lines.push(`Accepted risks recorded: ${result.acceptedRisks.length}`);
+      lines.push(
+        `Downstream handoff: workOrderAllowed=${approvedPlan.approval.proof.downstreamHandoff.workOrderAllowed} verificationPlanAllowed=${approvedPlan.approval.proof.downstreamHandoff.verificationPlanAllowed} sourceWriteAllowed=${approvedPlan.approval.proof.downstreamHandoff.sourceWriteAllowed}`,
+      );
+      lines.push("");
+      lines.push("A new approved PreparedIntentPlan revision was written; the source draft is unchanged.");
+      lines.push("No WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, or source writes were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -10426,6 +10601,7 @@ function usage(): string {
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
+    "rekon intent approve --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] --accept <gap> [--accept <gap>...] --reason <text> [--accepted-by <name>] [--root <path>] [--json]",
     "rekon intent work-order generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent verification-plan generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--work-order <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
@@ -10486,7 +10662,7 @@ function usage(): string {
     "  rekon init — create the .rekon/ workspace and config only (no scan).",
     "",
     "Intent flow:",
-    "  scan → intent context prepare → intent assess → intent prepare → intent status → intent work-order generate → intent verification-plan generate → intent bundle write",
+    "  scan → intent context prepare → intent assess → intent prepare → intent status → intent approve → intent work-order generate → intent verification-plan generate → intent bundle write",
     "Fresh repo: run `rekon scan` then `rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context — not-evaluated where there is no event log) before `rekon intent assess`.",
     "The bundle can then be handed to Circe via: circe rekon-handoff validate/routes/import.",
     "Rekon prepares, proves, packages, and exports; Circe imports and orchestrates.",

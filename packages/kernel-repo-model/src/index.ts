@@ -4719,11 +4719,39 @@ export type PreparedIntentPlanApprovalProof = {
   };
 };
 
+// An operator-accepted proof gap recorded on an approved PreparedIntentPlan
+// revision. Accepted risks make explicit which known proof gaps (missing
+// verification proof, unresolved runtime drift, un-evaluated handoff coverage,
+// un-proven freshness, required manual review) a human operator knowingly
+// accepted when approving a needs-review draft. They are evidence, not a
+// substitute for proof, and never authorize command execution or source writes.
+export type IntentOperatorAcceptedRiskCategory =
+  | "verification-proof-missing"
+  | "runtime-drift-unresolved"
+  | "handoff-coverage-not-evaluated"
+  | "freshness-not-proven"
+  | "manual-review-required"
+  | "other";
+
+export type IntentOperatorAcceptedRisk = {
+  id: string;
+  category: IntentOperatorAcceptedRiskCategory;
+  message: string;
+  acceptedAt: string;
+  acceptedBy?: string;
+  reason: string;
+  sourceRefs: ArtifactRef[];
+};
+
 export type PreparedIntentPlanApproval = {
   status: PreparedIntentPlanApprovalStatus;
   reasons: PreparedIntentPlanApprovalReason[];
   proof: PreparedIntentPlanApprovalProof;
   blockers: PreparedIntentObligation[];
+  // Additive (slice 123): the operator-accepted proof gaps recorded when a
+  // needs-review draft is explicitly approved. Optional and backward-compatible
+  // — existing approved/needs-review plans without this field still validate.
+  acceptedRisks?: IntentOperatorAcceptedRisk[];
 };
 
 export type PreparedIntentPlan = {
@@ -5018,14 +5046,49 @@ function preparedIntentNormalizeProof(value: unknown): PreparedIntentPlanApprova
   return proof;
 }
 
+const INTENT_OPERATOR_ACCEPTED_RISK_CATEGORIES = new Set<string>([
+  "verification-proof-missing",
+  "runtime-drift-unresolved",
+  "handoff-coverage-not-evaluated",
+  "freshness-not-proven",
+  "manual-review-required",
+  "other",
+]);
+
+function preparedIntentNormalizeAcceptedRisks(value: unknown): IntentOperatorAcceptedRisk[] {
+  if (!Array.isArray(value)) return [];
+  const out: IntentOperatorAcceptedRisk[] = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const category =
+      typeof entry.category === "string" && INTENT_OPERATOR_ACCEPTED_RISK_CATEGORIES.has(entry.category)
+        ? (entry.category as IntentOperatorAcceptedRiskCategory)
+        : "other";
+    const risk: IntentOperatorAcceptedRisk = {
+      id: typeof entry.id === "string" ? entry.id : "",
+      category,
+      message: typeof entry.message === "string" ? entry.message : "",
+      acceptedAt: typeof entry.acceptedAt === "string" ? entry.acceptedAt : "",
+      reason: typeof entry.reason === "string" ? entry.reason : "",
+      sourceRefs: normalizeRefs(Array.isArray(entry.sourceRefs) ? (entry.sourceRefs as ArtifactRef[]) : []),
+    };
+    if (typeof entry.acceptedBy === "string" && entry.acceptedBy.length > 0) risk.acceptedBy = entry.acceptedBy;
+    out.push(risk);
+  }
+  return out;
+}
+
 function preparedIntentNormalizeApproval(value: unknown): PreparedIntentPlanApproval {
   const raw = isRecord(value) ? value : {};
-  return {
+  const approval: PreparedIntentPlanApproval = {
     status: raw.status as PreparedIntentPlanApprovalStatus,
     reasons: preparedIntentApprovalReasons(raw.reasons),
     proof: preparedIntentNormalizeProof(raw.proof),
     blockers: preparedIntentNormalizeObligations(raw.blockers),
   };
+  const acceptedRisks = preparedIntentNormalizeAcceptedRisks(raw.acceptedRisks);
+  if (acceptedRisks.length > 0) approval.acceptedRisks = acceptedRisks;
+  return approval;
 }
 
 export function createPreparedIntentPlan(input: PreparedIntentPlan): PreparedIntentPlan {
@@ -5255,6 +5318,39 @@ function validatePreparedIntentProof(value: unknown, path: string, issues: Valid
   }
 }
 
+function validateIntentOperatorAcceptedRisk(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  }
+  if (typeof value.category !== "string" || !INTENT_OPERATOR_ACCEPTED_RISK_CATEGORIES.has(value.category)) {
+    issues.push({ path: `${path}.category`, message: "Expected a valid accepted-risk category." });
+  }
+  if (typeof value.message !== "string" || value.message.length === 0) {
+    issues.push({ path: `${path}.message`, message: "Expected a non-empty string." });
+  }
+  if (typeof value.acceptedAt !== "string" || value.acceptedAt.length === 0) {
+    issues.push({ path: `${path}.acceptedAt`, message: "Expected a non-empty string." });
+  }
+  if (typeof value.reason !== "string" || value.reason.length === 0) {
+    issues.push({ path: `${path}.reason`, message: "Expected a non-empty string." });
+  }
+  if (value.acceptedBy !== undefined && typeof value.acceptedBy !== "string") {
+    issues.push({ path: `${path}.acceptedBy`, message: "Expected a string." });
+  }
+  if (!Array.isArray(value.sourceRefs)) {
+    issues.push({ path: `${path}.sourceRefs`, message: "Expected an array." });
+  } else {
+    value.sourceRefs.forEach((ref, index) => {
+      const result = validateArtifactRef(ref);
+      if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.sourceRefs[${index}]`));
+    });
+  }
+}
+
 function validatePreparedIntentApproval(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!isRecord(value)) {
     issues.push({ path, message: "Expected an object." });
@@ -5279,6 +5375,15 @@ function validatePreparedIntentApproval(value: unknown, path: string, issues: Va
     value.blockers.forEach((blocker, index) => validatePreparedIntentObligation(blocker, `${path}.blockers[${index}]`, issues, seen));
   }
   validatePreparedIntentProof(value.proof, `${path}.proof`, issues);
+  if (value.acceptedRisks !== undefined) {
+    if (!Array.isArray(value.acceptedRisks)) {
+      issues.push({ path: `${path}.acceptedRisks`, message: "Expected an array." });
+    } else {
+      value.acceptedRisks.forEach((risk, index) =>
+        validateIntentOperatorAcceptedRisk(risk, `${path}.acceptedRisks[${index}]`, issues),
+      );
+    }
+  }
 }
 
 export function validatePreparedIntentPlan(value: unknown): ValidationResult<PreparedIntentPlan> {

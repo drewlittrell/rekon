@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Intent Operator Approval / Proof Acceptance Implementation** — one-hundred-twenty-third
+  slice on the codebase-intel-classic capability-ontology track. Product-capability batch implementing
+  the slice-122 decision: adds **`rekon intent approve`**, which reads a needs-review draft
+  `PreparedIntentPlan`, verifies the operator explicitly accepted the plan's known proof gaps (`--accept
+  <gap>` with a required `--reason`), rechecks freshness / runtime drift / status context, and writes
+  exactly ONE new **approved** `PreparedIntentPlan` revision — the source draft is never mutated and
+  stays byte-identical. The approved revision sets `status.value=prepared` /
+  `recommendedNextAction=create-work-order`, `approval.status=approved` (reasons gain
+  `explicit-operator-approval` + `manual-risk-acceptance`), records the accepted gaps as
+  `approval.acceptedRisks[]`, and flips `downstreamHandoff.workOrderAllowed` /
+  `verificationPlanAllowed` to `true` while keeping `sourceWriteAllowed` the literal `false`. Adds the
+  additive kernel `IntentOperatorAcceptedRisk` type + optional `approval.acceptedRisks` field
+  (backward-compatible — existing plans without it still validate), the pure
+  `buildApprovedPreparedIntentPlan` helper in `@rekon/capability-model`, the implementation memo, a
+  36-assertion contract test, an 11-assertion docs test, a review packet, and additive doc pointers.
+  **Approval is never automatic, enables but does not create the WorkOrder / VerificationPlan handoffs,
+  and creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no
+  commands, writes no source, and runs no Circe; `intent:go` remains deferred.** No package version bump
+  and no npm publish. Next: Intent Operator Approval / Proof Acceptance Safety Review. See
+  [Intent Operator Approval / Proof Acceptance Implementation](docs/strategy/intent-operator-approval-proof-acceptance-implementation.md).
 - Decided **Intent Operator Approval / Proof Acceptance Decision** — one-hundred-twenty-second slice
   on the codebase-intel-classic capability-ontology track. Strategy / architecture decision-only batch
   pinning the explicit operator approval path for a needs-review draft `PreparedIntentPlan`: **selected

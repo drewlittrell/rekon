@@ -106,3 +106,11 @@ Status reporting and execution are downstream, separately-decided layers.
 > Fixed (slice 121): a needs-review PreparedIntentPlan with zero hard blockers is now an implementation-bearing **draft** — `rekon intent prepare` emits investigate / modify (or refactor) / verify / review phases plus safe verification requirements derived from `package.json` scripts (attached to the implementation + verify phases), instead of a bare `phase:review`. The draft stays `needs-review` (approval is never auto-elevated); WorkOrder / VerificationPlan generation remain blocked until explicit approval; no commands execute, no VerificationRun / VerificationResult is created, no source is written, and `intent:go` remains deferred. See [Intent Prepare Needs-Review Planfulness Fix](../strategy/intent-prepare-needs-review-planfulness.md).
 
 > Decided (slice 122): the explicit operator approval path is pinned — **Intent Operator Approval / Proof Acceptance Decision** selects a new approved `PreparedIntentPlan` revision (the source needs-review draft stays immutable). A future `rekon intent approve` rechecks freshness / drift / status and records the operator's accepted proof gaps (preferably at `approval.acceptedRisks`); approval is explicit (never auto-approved), enables but does not create the WorkOrder / VerificationPlan handoff, runs no commands, and writes no source. See [Intent Operator Approval / Proof Acceptance Decision](../strategy/intent-operator-approval-proof-acceptance-decision.md).
+
+> Shipped (slice 123): a needs-review draft becomes approved through `rekon intent approve`, which
+> writes a **new approved revision** (never mutating the draft) after the operator explicitly accepts
+> the draft's known proof gaps. The approved revision records those acceptances as
+> `approval.acceptedRisks[]` (each `{ id: accepted:<gap>, category, message, acceptedAt, acceptedBy?,
+> reason, sourceRefs }`) — an additive, backward-compatible field; plans without it still validate.
+> Accepted risks are evidence of an explicit human decision, not a substitute for proof. See
+> [Intent Operator Approval / Proof Acceptance Implementation](../strategy/intent-operator-approval-proof-acceptance-implementation.md).

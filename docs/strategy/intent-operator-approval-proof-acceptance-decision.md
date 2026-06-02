@@ -287,3 +287,14 @@ this memo, a docs test, a review packet, and additive doc pointers.
 
 Still no auto-approval, no in-place mutation, no command execution, no source writes, and no
 `intent:go`.
+
+> Implemented (slice 123): `rekon intent approve` shipped exactly as decided — Option B (a new approved
+> `PreparedIntentPlan` revision; the source draft stays immutable). It verifies the operator explicitly
+> accepted the plan's known proof gaps (`--accept <gap>` + required `--reason`), rechecks freshness /
+> runtime drift / status, records the accepted gaps as `approval.acceptedRisks[]`, and flips
+> `downstreamHandoff.workOrderAllowed` / `verificationPlanAllowed` to `true` while keeping
+> `sourceWriteAllowed` the literal `false`. Approval is never automatic, enables but does not create the
+> handoffs, creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no
+> commands, writes no source, and runs no Circe; `intent:go` remains deferred. Next: Intent Operator
+> Approval / Proof Acceptance Safety Review. See
+> [Intent Operator Approval / Proof Acceptance Implementation](./intent-operator-approval-proof-acceptance-implementation.md).

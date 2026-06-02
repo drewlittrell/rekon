@@ -189,3 +189,14 @@ gaps, and writes a new approved plan revision (the source draft stays immutable)
 does not create the WorkOrder / VerificationPlan handoff; no commands execute and no source is
 written; `intent:go` remains deferred. Decision-only — no CLI or behavior change and no npm publish.
 See [Intent Operator Approval / Proof Acceptance Decision](../strategy/intent-operator-approval-proof-acceptance-decision.md).
+
+**Update (slice 123): operator approval is now implemented.** On a fresh repo, after `rekon scan` →
+`rekon intent context prepare` → `rekon intent assess` → `rekon intent prepare` (a needs-review draft) →
+`rekon intent status`, run `rekon intent approve --prepared-plan <ref> --intent-status <ref> --accept
+<gap> [--accept <gap>...] --reason <text>` to write a **new approved** `PreparedIntentPlan` revision; the
+source draft stays immutable. The required `--accept` gaps are exactly the draft's `approval.reasons`
+mapped to gap ids (e.g. `verification-proof-missing`, `runtime-drift-unresolved`). Approval enables — it
+does not create — the WorkOrder / VerificationPlan handoffs; it creates no WorkOrder / VerificationPlan /
+VerificationRun / VerificationResult, executes no commands, writes no source, and runs no Circe;
+`intent:go` remains deferred. No package version change and no npm publish. See
+[Intent Operator Approval / Proof Acceptance Implementation](../strategy/intent-operator-approval-proof-acceptance-implementation.md).
