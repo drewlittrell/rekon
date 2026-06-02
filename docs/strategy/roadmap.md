@@ -8310,3 +8310,9 @@ docs explain which wins each item preserves and how:
 ---
 
 _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection is safe/stable — no blocker. The current built Rekon CLI passed the Circe validate/routes/import/serve-loop proof (Circe's `rekon-intent-handoff-serve-loop.test.ts`, pass 1 / fail 0), so the enriched projection remains compatible with Circe. Top-level Rekon help is stale (0 of 6 richer intent commands listed) and must be aligned before V1/operator-ready release. `sourceWriteAllowed` / `commandsExecuted` stay false; `intent:go` remains deferred. See [Circe Proof/Gate Projection Safety Review](./intent-plan-bundle-circe-proof-gate-projection-safety-review.md)._
+
+> Reviewed (slice 124): Intent Operator Approval / Proof Acceptance is safe/stable — `rekon intent
+> approve` is explicit, recheck-gated, draft-immutable, and non-executing; it enables but does not create
+> the WorkOrder / VerificationPlan handoffs. `status-not-work-ready` remains a separate downstream gate.
+> Next: Intent Status Work-Ready Transition Decision. See
+> [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md).

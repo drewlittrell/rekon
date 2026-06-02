@@ -284,3 +284,16 @@ WorkOrder / VerificationPlan handoffs, and creates no WorkOrder / VerificationPl
 VerificationResult, executes no commands, writes no source, and runs no Circe; `intent:go` remains
 deferred. No package version change and no npm publish. See
 [Intent Operator Approval / Proof Acceptance Implementation](../strategy/intent-operator-approval-proof-acceptance-implementation.md).
+
+## Update — Operator Approval / Proof Acceptance Safety Review (slice 124)
+
+The Intent Operator Approval / Proof Acceptance Safety Review confirmed `rekon intent approve` is
+safe/stable: approval is explicit (needs-review plans are never auto-approved); accepted proof gaps are
+recorded, not erased; approval writes a new approved `PreparedIntentPlan` revision while the source draft
+stays immutable; freshness / runtime drift / IntentStatusReport are rechecked conservatively; approval
+blocks unknown or missing required accepted gaps and empty approval reasons; and `sourceWriteAllowed`
+remains the literal `false`. Approval may enable but does not create the WorkOrder / VerificationPlan
+handoffs, and creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no
+commands, writes no source, and runs no Circe; `intent:go` remains deferred. `status-not-work-ready`
+remains a separate downstream gate after approval. No package version change and no npm publish. See
+[Intent Operator Approval / Proof Acceptance Safety Review](../strategy/intent-operator-approval-proof-acceptance-safety-review.md).

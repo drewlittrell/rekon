@@ -4,6 +4,21 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Intent Operator Approval / Proof Acceptance Safety Review** — one-hundred-twenty-fourth
+  slice on the codebase-intel-classic capability-ontology track. Strategy / safety-review batch
+  confirming the slice-123 `rekon intent approve` implementation is **safe/stable**: operator approval
+  is explicit (needs-review plans are never auto-approved); accepted proof gaps are recorded, not
+  erased; approval writes a new approved `PreparedIntentPlan` revision while the source draft stays
+  immutable; freshness / runtime drift / IntentStatusReport are rechecked conservatively; approval
+  blocks unknown or missing required accepted gaps and empty approval reasons; `sourceWriteAllowed`
+  remains the literal `false`; and approval may enable but does not create the WorkOrder /
+  VerificationPlan handoffs. Approval creates no WorkOrder / VerificationPlan / VerificationRun /
+  VerificationResult, executes no commands, writes no source, and runs no Circe; `intent:go` remains
+  deferred. The review records that `status-not-work-ready` remains a separate downstream gate after
+  approval. Adds the safety-review memo, a 25-assertion docs test, a review packet, and additive doc
+  pointers. No code, CLI, runtime, package, version, or behavior change; no npm publish. Next: Intent
+  Status Work-Ready Transition Decision. See
+  [Intent Operator Approval / Proof Acceptance Safety Review](docs/strategy/intent-operator-approval-proof-acceptance-safety-review.md).
 - Shipped **Intent Operator Approval / Proof Acceptance Implementation** — one-hundred-twenty-third
   slice on the codebase-intel-classic capability-ontology track. Product-capability batch implementing
   the slice-122 decision: adds **`rekon intent approve`**, which reads a needs-review draft

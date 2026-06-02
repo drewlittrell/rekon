@@ -161,3 +161,9 @@ command execution, no `intent:go`.
 > draft's known proof gaps and the freshness / drift / status recheck passes; the draft stays immutable
 > and the WorkOrder / VerificationPlan handoffs open only on the approved revision. See
 > [Intent Operator Approval / Proof Acceptance Implementation](./intent-operator-approval-proof-acceptance-implementation.md).
+
+> Reviewed (slice 124): the approval step that promotes this needs-review draft —
+> `rekon intent approve` — was reviewed safe/stable in the
+> [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md):
+> explicit, recheck-gated, draft-immutable, and non-executing; it enables but does not create the
+> downstream handoffs.

@@ -298,3 +298,8 @@ Still no auto-approval, no in-place mutation, no command execution, no source wr
 > commands, writes no source, and runs no Circe; `intent:go` remains deferred. Next: Intent Operator
 > Approval / Proof Acceptance Safety Review. See
 > [Intent Operator Approval / Proof Acceptance Implementation](./intent-operator-approval-proof-acceptance-implementation.md).
+
+> Reviewed (slice 124): the [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md)
+> declared the shipped `rekon intent approve` safe/stable — every boundary this decision pinned holds.
+> `status-not-work-ready` remains a separate downstream gate after approval; next is the Intent Status
+> Work-Ready Transition Decision.

@@ -1120,6 +1120,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Operator Approval / Proof Acceptance Safety Review has shipped.
+# One-hundred-twenty-fourth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch confirming the slice-123 rekon intent approve implementation.
+#   - Declared safe/stable: approval is explicit (never auto-approved); accepted proof gaps are
+#     recorded (not erased); approval writes a new approved PreparedIntentPlan revision while the source
+#     draft stays immutable; freshness / runtime drift / IntentStatusReport are rechecked conservatively;
+#     approval blocks unknown or missing required accepted gaps and empty approval reasons;
+#     sourceWriteAllowed remains false.
+#   - Approval may enable but does not create the WorkOrder / VerificationPlan handoffs; it creates no
+#     WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no commands, writes
+#     no source, runs no Circe; intent:go deferred.
+#   - status-not-work-ready remains a separate downstream gate after approval.
+#   - Docs-only: safety-review memo + review packet + 25-assertion docs test + doc pointers. No code,
+#     CLI, runtime, package, or version change; no npm publish.
+#
+# See docs/strategy/intent-operator-approval-proof-acceptance-safety-review.md.
+# Recommended next slice: Intent Status Work-Ready Transition Decision.
+#
 # Intent Operator Approval / Proof Acceptance Implementation has shipped.
 # One-hundred-twenty-third slice on the codebase-intel-classic capability-ontology track.
 # Product-capability batch implementing the slice-122 decision.

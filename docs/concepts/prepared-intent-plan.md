@@ -114,3 +114,9 @@ Status reporting and execution are downstream, separately-decided layers.
 > reason, sourceRefs }`) — an additive, backward-compatible field; plans without it still validate.
 > Accepted risks are evidence of an explicit human decision, not a substitute for proof. See
 > [Intent Operator Approval / Proof Acceptance Implementation](../strategy/intent-operator-approval-proof-acceptance-implementation.md).
+
+> Reviewed (slice 124): the `rekon intent approve` path that writes the approved revision (recording
+> `approval.acceptedRisks[]`) was reviewed safe/stable in the
+> [Intent Operator Approval / Proof Acceptance Safety Review](../strategy/intent-operator-approval-proof-acceptance-safety-review.md)
+> — explicit approval, recorded (not erased) accepted gaps, immutable source draft, conservative
+> rechecks, and `sourceWriteAllowed` false; approval creates no downstream artifacts.

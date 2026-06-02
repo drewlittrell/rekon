@@ -163,3 +163,12 @@ source files are unchanged.
 ## Next Step
 
 Intent Operator Approval / Proof Acceptance Safety Review.
+
+> Reviewed (slice 124): the [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md)
+> confirmed `rekon intent approve` is safe/stable — approval is explicit (never auto-approved), accepted
+> proof gaps are recorded (not erased), the source draft stays immutable, freshness / drift /
+> IntentStatusReport are rechecked conservatively, `sourceWriteAllowed` remains `false`, and approval
+> enables but does not create the WorkOrder / VerificationPlan handoffs (creating no WorkOrder /
+> VerificationPlan / VerificationRun / VerificationResult, executing no commands, writing no source,
+> running no Circe; `intent:go` deferred). `status-not-work-ready` remains a separate downstream gate.
+> Next: Intent Status Work-Ready Transition Decision.
