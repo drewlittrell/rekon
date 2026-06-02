@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Rekon LLM Provider Routing / Semantic Normalization Decision** — one-hundred-thirty-seventh slice on
+  the intent-spine track. Strategy / architecture decision batch (docs-only; **no code change; no provider
+  implemented**). Revisits the earlier "provider wiring deferred" decision now that semantic parsing is needed in
+  several places (plan review, plan answer / merge-back, revision-prompt generation, summarization, future
+  embeddings/retrieval). **Selected Option B — a shared provider router with task-specific routes and injected
+  adapters**: direct LLM calls do not go inside `IntentPlanActionabilityReport` logic; a small router layer sits
+  above the pure builders (CLI/orchestration → router → provider → schema-constrained result → deterministic
+  re-check → artifact). Defines `RekonLlmTask`, `RekonLlmProvider.completeJson`, a **separate**
+  `RekonEmbeddingProvider.embed`, and a `RekonLlmRouter`; task routes `plan.semantic-normalize` /
+  `plan.answer-merge` / `plan.critique` / `plan.revision-prompt` / `artifact.summary` / `intent.classify` (plus
+  later `code.embedding` / `plan.similarity` / `artifact.retrieval`); routing priority **CLI flags → repo config
+  → environment defaults → built-in disabled/fallback** with `--llm-provider` / `--llm-model` beside the existing
+  `--semantic off|auto|required`; secrets via env, never repo config. **Boundaries:** providers may
+  read/transform/critique text but may not approve plans, execute commands, write source files, run Circe, or
+  implement intent:go; **LLM output is proposal, not proof** and must be schema-validated and deterministically
+  re-checked. New `packages/llm-provider` (interfaces/router/mock/adapters); `capability-model` stays pure (no
+  env reads, no network); the CLI injects a router-bound adapter — the existing injectable adapter seam +
+  `normalizationTrace` are preserved, not replaced. Implementation deferred. Recommended next: **Rekon LLM
+  Provider Routing Implementation**. See
+  [`rekon-llm-provider-routing-semantic-normalization-decision.md`](docs/strategy/rekon-llm-provider-routing-semantic-normalization-decision.md).
 - Reviewed the **Fresh Repo Intent Handoff / Circe Dogfood Review** — one-hundred-thirty-sixth slice on the
   intent-spine track. Dogfood / review-proof batch (no new capability; **no source change required**). Runs the
   closed public plan-compiler + intent-handoff path on a *realistic* fresh TypeScript package (existing export +

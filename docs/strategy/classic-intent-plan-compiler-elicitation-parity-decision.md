@@ -18,6 +18,12 @@
 > transform / report-only layer (no blocker); next is prepare integration. See the
 > [Intent Plan Actionability Report Safety Review](./intent-plan-actionability-report-safety-review.md).
 
+> **Revisited (slice 137):** the "provider wiring deferred" decision above is revisited — semantic parsing is
+> needed in several places, so provider routing becomes a shared Rekon capability (a task-routed `RekonLlmRouter`
+> with injected adapters), not a one-off bolted onto `intent plan review`. Providers may read/transform/critique
+> text but never approve/execute/write source/run Circe/implement `intent:go`; LLM output is proposal, not proof.
+> See [`rekon-llm-provider-routing-semantic-normalization-decision.md`](./rekon-llm-provider-routing-semantic-normalization-decision.md).
+
 ## Decision Summary
 
 **Rekon will add a plan-actionability / critique / elicitation layer between

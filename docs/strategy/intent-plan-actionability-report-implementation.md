@@ -17,6 +17,12 @@ add a **report-first** plan-review layer (`IntentPlanActionabilityReport`) rathe
 than a mutating plan rewriter, and do it in **one bounded slice** to avoid the
 "30-slice trap" of shipping a compiler one inert sub-artifact at a time.
 
+> **Provider routing (slice 137):** the deferred live-provider wiring for semantic normalization is now decided as
+> a shared `RekonLlmRouter` (task routes, injected adapters, `--llm-provider` / `--llm-model`), kept out of the
+> report builder; providers may read/transform/critique text but never approve/execute/write source/run
+> Circe/implement `intent:go`, and LLM output is proposal, not proof — see
+> [`rekon-llm-provider-routing-semantic-normalization-decision.md`](./rekon-llm-provider-routing-semantic-normalization-decision.md).
+
 ## What shipped
 
 - A kernel artifact: `IntentPlanActionabilityReport` (types, factory

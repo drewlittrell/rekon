@@ -110,6 +110,10 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > That path is dogfooded on a realistic fresh TypeScript package and confirmed Circe-importable
 > end-to-end (boundaries explicit, source/plan files immutable, no Circe-run record, `intent:go`
 > deferred) — see [fresh-repo-intent-handoff-circe-dogfood-review](docs/strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).
+> Semantic normalization is being generalized into a shared LLM provider router (task routes, injected
+> adapters, `--llm-provider` / `--llm-model`): providers may read/transform/critique text but never
+> approve/execute/write source/run Circe/implement `intent:go`, and LLM output is proposal, not proof —
+> see [rekon-llm-provider-routing-semantic-normalization-decision](docs/strategy/rekon-llm-provider-routing-semantic-normalization-decision.md).
 > Report-only: it writes one `IntentPlanActionabilityReport` and creates no
 > downstream artifacts, runs no commands, and writes no source. See
 > [the intent plan compiler](docs/concepts/intent-plan-compiler.md). The plan-compiler layer was
