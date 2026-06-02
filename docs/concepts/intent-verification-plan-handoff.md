@@ -134,3 +134,10 @@ files.
 > Approval enables but does not create the VerificationPlan handoff and clears `plan-not-approved`, and
 > creates no VerificationRun / VerificationResult; `status-not-work-ready` remains a separate downstream
 > gate.
+
+> Decided (slice 125): the status gate this handoff enforces (`work-ready` / `work-in-progress` /
+> `verification-ready`) is satisfied by the
+> [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md)
+> — a future `rekon intent status transition` writes a new work-ready `IntentStatusReport` revision from
+> an approved plan + rechecks (previous report immutable). The transition enables but does not create the
+> VerificationPlan handoff, and creates no VerificationRun / VerificationResult.

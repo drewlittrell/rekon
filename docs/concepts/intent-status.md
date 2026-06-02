@@ -90,3 +90,11 @@ read-only:
 > Reviewed (slice 97): the Intent plan bundle generator is safe/stable as a human + LLM-agent filesystem projection — `rekon intent bundle write` writes the bundle only under `.rekon/intent/plans/<intent-id>/` with path-traversal safety on the intent id and every file path. **Intent plan bundle is a projection, not canonical artifact truth**; canonical source of truth remains `.rekon/artifacts/`; bundle generation creates no canonical artifacts, executes no commands, and writes no source files; stale bundles must not be treated as current handoff; intent:go remains deferred. Next: Intent Go / Execution Boundary Decision. See [Intent Plan Bundle / Agent Handoff Safety Review](../strategy/intent-plan-bundle-agent-handoff-safety-review.md).
 
 > Fixed (slice 113) / Reviewed (slice 114): on a fresh repo, run `rekon intent context prepare` after `rekon scan` to build the intent-readiness context (`StepCapabilityGraph` + runtime / handoff context, recorded as not-evaluated where there is no event log) before reporting status — the public sequence `rekon scan → rekon intent context prepare → rekon intent assess → … → rekon intent bundle write` then works with no manual `.rekon/artifacts` seeding. The [Fresh Repo Intent Readiness Safety Review](../strategy/fresh-repo-intent-readiness-safety-review.md) confirmed this path is safe/stable; `rekon scan` / `rekon refresh` are unchanged, missing runtime evidence stays not-evaluated (not false success), Rekon runs no Circe and writes no source, and intent:go remains deferred.
+
+> Decided (slice 125): a future `rekon intent status transition` will write a NEW `IntentStatusReport`
+> work-ready revision from an approved `PreparedIntentPlan` plus freshness / drift / status rechecks
+> (the previous report stays immutable). The work-ready report sets `status.value = work-ready` and
+> `recommendedNextAction = create-work-order`. The transition enables but does not create the WorkOrder
+> / VerificationPlan handoffs, creates no VerificationRun / VerificationResult, executes no commands,
+> writes no source, and runs no Circe; `intent:go` remains deferred. See
+> [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).

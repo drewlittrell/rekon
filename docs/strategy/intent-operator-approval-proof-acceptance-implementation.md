@@ -172,3 +172,9 @@ Intent Operator Approval / Proof Acceptance Safety Review.
 > VerificationPlan / VerificationRun / VerificationResult, executing no commands, writing no source,
 > running no Circe; `intent:go` deferred). `status-not-work-ready` remains a separate downstream gate.
 > Next: Intent Status Work-Ready Transition Decision.
+
+> Decided (slice 125): the remaining `status-not-work-ready` gate after approval is closed by the
+> [Intent Status Work-Ready Transition Decision](./intent-status-work-ready-transition-decision.md) —
+> an explicit `rekon intent status transition` (future) writes a new work-ready `IntentStatusReport`
+> revision after rechecking freshness / drift / status, leaving prior reports immutable. Status
+> transition enables but does not create the handoffs; `intent:go` deferred.

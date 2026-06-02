@@ -8316,3 +8316,10 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 > the WorkOrder / VerificationPlan handoffs. `status-not-work-ready` remains a separate downstream gate.
 > Next: Intent Status Work-Ready Transition Decision. See
 > [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md).
+
+> Decided (slice 125): Intent Status Work-Ready Transition — an explicit `rekon intent status transition`
+> (future) writes a new work-ready `IntentStatusReport` revision from an approved plan + rechecks so
+> WorkOrder / VerificationPlan generation can move past `status-not-work-ready` without weakening proof
+> semantics (no in-place mutation, no auto-transition, no downstream-artifact creation; `intent:go`
+> deferred). Next: Intent Status Work-Ready Transition Implementation. See
+> [Intent Status Work-Ready Transition Decision](./intent-status-work-ready-transition-decision.md).

@@ -10551,3 +10551,9 @@ _Re-reviewed (slice 103): the Intent plan bundle → Circe proof/gate projection
 > does not create the downstream handoffs, and no commands / source writes / Circe occur; `intent:go`
 > remains deferred. Next: Intent Status Work-Ready Transition Decision. See
 > [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md).
+
+> Decided (slice 125): the explicit status work-ready transition was pinned — an approved plan reaches
+> work-ready via a new `IntentStatusReport` revision (not in-place mutation, not an approval side
+> effect), enabling but not creating the WorkOrder / VerificationPlan handoffs; no commands / source
+> writes / Circe; `intent:go` deferred. Next: Intent Status Work-Ready Transition Implementation. See
+> [Intent Status Work-Ready Transition Decision](./intent-status-work-ready-transition-decision.md).

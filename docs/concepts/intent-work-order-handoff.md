@@ -126,3 +126,9 @@ source files.
 > Approval enables but does not create the WorkOrder handoff and clears `plan-not-approved`;
 > `status-not-work-ready` remains a separate downstream gate (next: Intent Status Work-Ready Transition
 > Decision).
+
+> Decided (slice 125): the `status-not-work-ready` gate this handoff enforces is satisfied by the
+> [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md)
+> — a future `rekon intent status transition` writes a new work-ready `IntentStatusReport` revision from
+> an approved plan + rechecks (previous report immutable). The transition enables but does not create the
+> WorkOrder handoff; WorkOrder generation still requires both an approved plan and work-ready status.

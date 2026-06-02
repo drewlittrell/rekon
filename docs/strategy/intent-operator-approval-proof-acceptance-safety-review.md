@@ -226,3 +226,10 @@ update, bumps no version, and publishes nothing to npm.
   auto-approval, no source writes, no command execution, no `intent:go`.
 - Stale-context acceptance policy remains deliberately unsupported; a separate
   decision is required before relaxing the freshness block.
+
+> Decided (slice 125): the follow-up `status-not-work-ready` gate is addressed by the
+> [Intent Status Work-Ready Transition Decision](./intent-status-work-ready-transition-decision.md) —
+> a future `rekon intent status transition` writes a NEW work-ready `IntentStatusReport` from the
+> approved plan + rechecks (previous report immutable; approval does not auto-transition). It enables
+> but does not create the WorkOrder / VerificationPlan handoffs; no commands / source writes / Circe;
+> `intent:go` deferred.

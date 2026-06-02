@@ -1120,6 +1120,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Intent Status Work-Ready Transition Decision has shipped.
+# One-hundred-twenty-fifth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / architecture decision-only batch. Pins how an approved plan reaches work-ready status.
+#   - Selected Option B — a future rekon intent status transition writes a NEW IntentStatusReport
+#     work-ready revision after reading the approved PreparedIntentPlan and previous status report and
+#     rechecking freshness / drift / status. The previous report stays immutable; approval does not
+#     auto-transition status.
+#   - Work-ready gate: approved + prepared plan, recorded acceptedRisks, workOrderAllowed /
+#     verificationPlanAllowed true, sourceWriteAllowed false, traceable previous status, no new
+#     high-severity freshness/drift, non-empty reason. Result: status.value=work-ready,
+#     recommendedNextAction=create-work-order (existing enum values; no new value invented).
+#   - Status transition may enable but does not create the WorkOrder / VerificationPlan handoffs;
+#     creates no WorkOrder/VerificationPlan/VerificationRun/VerificationResult, executes no commands,
+#     writes no source, runs no Circe; intent:go deferred.
+#   - Decision-only: memo + review packet + 21-assertion docs test + doc pointers. No code, CLI,
+#     runtime, package, or version change; no npm publish.
+#
+# See docs/strategy/intent-status-work-ready-transition-decision.md.
+# Recommended next slice: Intent Status Work-Ready Transition Implementation.
+#
 # Intent Operator Approval / Proof Acceptance Safety Review has shipped.
 # One-hundred-twenty-fourth slice on the codebase-intel-classic capability-ontology track.
 # Strategy / safety-review batch confirming the slice-123 rekon intent approve implementation.

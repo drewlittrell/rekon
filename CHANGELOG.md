@@ -4,6 +4,24 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Intent Status Work-Ready Transition Decision** — one-hundred-twenty-fifth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / architecture decision-only batch pinning
+  how an approved `PreparedIntentPlan` reaches work-ready status past the remaining
+  `status-not-work-ready` gate: **selected Option B — an explicit `rekon intent status transition` (a
+  future command) writes a NEW `IntentStatusReport` work-ready revision** after reading the approved plan
+  and the previous status report and rechecking freshness / drift / status. The previous status report
+  stays immutable; operator approval does **not** automatically make status work-ready. The work-ready
+  gate requires an approved + prepared plan, recorded `acceptedRisks`,
+  `workOrderAllowed`/`verificationPlanAllowed` true, `sourceWriteAllowed` false, a traceable previous
+  status, no new high-severity freshness/drift, and a non-empty reason; the report sets
+  `status.value=work-ready` and `recommendedNextAction=create-work-order` (existing enum values — no new
+  value invented). Status transition may enable but does not create the WorkOrder / VerificationPlan
+  handoffs; it creates no WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes
+  no commands, writes no source, and runs no Circe; `intent:go` remains deferred. Adds the decision memo
+  (4 tables), a 21-assertion docs test, a review packet, and additive doc pointers. Decision-only — no
+  code, CLI, runtime, package, version, or behavior change; no npm publish. Next: Intent Status
+  Work-Ready Transition Implementation. See
+  [Intent Status Work-Ready Transition Decision](docs/strategy/intent-status-work-ready-transition-decision.md).
 - Reviewed **Intent Operator Approval / Proof Acceptance Safety Review** — one-hundred-twenty-fourth
   slice on the codebase-intel-classic capability-ontology track. Strategy / safety-review batch
   confirming the slice-123 `rekon intent approve` implementation is **safe/stable**: operator approval

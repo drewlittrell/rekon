@@ -120,3 +120,10 @@ Status reporting and execution are downstream, separately-decided layers.
 > [Intent Operator Approval / Proof Acceptance Safety Review](../strategy/intent-operator-approval-proof-acceptance-safety-review.md)
 > — explicit approval, recorded (not erased) accepted gaps, immutable source draft, conservative
 > rechecks, and `sourceWriteAllowed` false; approval creates no downstream artifacts.
+
+> Decided (slice 125): once a plan is approved, a future `rekon intent status transition` writes a new
+> work-ready `IntentStatusReport` revision (reading `approval.status`, `acceptedRisks`, and
+> `downstreamHandoff.*`) so WorkOrder / VerificationPlan generation can move past
+> `status-not-work-ready`. The approved plan is read, never mutated; the transition creates no
+> downstream artifacts. See
+> [Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).

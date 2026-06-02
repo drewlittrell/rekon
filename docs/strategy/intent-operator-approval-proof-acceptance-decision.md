@@ -303,3 +303,9 @@ Still no auto-approval, no in-place mutation, no command execution, no source wr
 > declared the shipped `rekon intent approve` safe/stable — every boundary this decision pinned holds.
 > `status-not-work-ready` remains a separate downstream gate after approval; next is the Intent Status
 > Work-Ready Transition Decision.
+
+> Decided (slice 125): the separate status gate this approval path deliberately left open is pinned by
+> the [Intent Status Work-Ready Transition Decision](./intent-status-work-ready-transition-decision.md)
+> — an explicit transition writes a new work-ready `IntentStatusReport` revision (no in-place mutation,
+> no auto-transition) so WorkOrder / VerificationPlan generation can proceed past `status-not-work-ready`
+> without weakening proof semantics.

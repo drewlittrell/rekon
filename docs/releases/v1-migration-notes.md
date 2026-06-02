@@ -211,3 +211,14 @@ deferred. After approval, WorkOrder / VerificationPlan generation can still stop
 `status-not-work-ready` (a separate IntentStatusReport gate). No package version change and no npm
 publish. See
 [Intent Operator Approval / Proof Acceptance Safety Review](../strategy/intent-operator-approval-proof-acceptance-safety-review.md).
+
+**Update (slice 125): status work-ready transition decided.** After `rekon intent approve` writes an
+approved `PreparedIntentPlan`, WorkOrder / VerificationPlan generation can still stop at
+`status-not-work-ready` because the prior `IntentStatusReport` reflects pre-approval state. The Intent
+Status Work-Ready Transition Decision pins the fix: a future `rekon intent status transition` writes a
+**new** work-ready `IntentStatusReport` revision from the approved plan + rechecks (the previous report
+stays immutable; approval does not auto-transition). WorkOrder / VerificationPlan generation will then
+proceed against the latest work-ready status. The transition creates no WorkOrder / VerificationPlan /
+VerificationRun / VerificationResult, executes no commands, writes no source, and runs no Circe;
+`intent:go` remains deferred. Decision-only — no CLI or behavior change and no npm publish. See
+[Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).

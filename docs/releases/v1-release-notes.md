@@ -297,3 +297,17 @@ handoffs, and creates no WorkOrder / VerificationPlan / VerificationRun / Verifi
 commands, writes no source, and runs no Circe; `intent:go` remains deferred. `status-not-work-ready`
 remains a separate downstream gate after approval. No package version change and no npm publish. See
 [Intent Operator Approval / Proof Acceptance Safety Review](../strategy/intent-operator-approval-proof-acceptance-safety-review.md).
+
+## Update — Status Work-Ready Transition Decision (slice 125)
+
+The Intent Status Work-Ready Transition Decision pins how an approved `PreparedIntentPlan` reaches
+work-ready status past the remaining `status-not-work-ready` gate. Selected Option B: a future
+`rekon intent status transition` writes a **new** `IntentStatusReport` work-ready revision after reading
+the approved plan and the previous status report and rechecking freshness / drift / status. The previous
+report stays immutable; operator approval does not auto-transition status. The work-ready report sets
+`status.value = work-ready` and `recommendedNextAction = create-work-order`. The transition may enable but
+does not create the WorkOrder / VerificationPlan handoffs; it creates no WorkOrder / VerificationPlan /
+VerificationRun / VerificationResult, executes no commands, writes no source, and runs no Circe;
+`intent:go` remains deferred. Decision-only — nothing implemented this slice. No package version change
+and no npm publish. See
+[Intent Status Work-Ready Transition Decision](../strategy/intent-status-work-ready-transition-decision.md).
