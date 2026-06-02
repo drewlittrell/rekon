@@ -187,6 +187,16 @@ export {
 } from "./intent-status-transition.js";
 
 export {
+  type BuildIntentPlanActionabilityReportInput,
+  type IntentPlanSemanticMode,
+  type IntentPlanSemanticNormalizationAdapter,
+  type IntentPlanSemanticNormalizationInput,
+  type IntentPlanSemanticNormalizationResult,
+  INTENT_PLAN_ACTIONABILITY_REPORT_ARTIFACT_ID_PREFIX,
+  buildIntentPlanActionabilityReport,
+} from "./intent-plan-actionability-report.js";
+
+export {
   type BuildIntentWorkOrderHandoffInput,
   type IntentWorkOrderGenerationResult,
   type IntentWorkOrderGenerationBlocker,

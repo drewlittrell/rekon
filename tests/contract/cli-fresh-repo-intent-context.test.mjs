@@ -145,6 +145,7 @@ test("rekon help lists intent context prepare and the context producer commands"
   assert.ok(help.includes("rekon step graph build"), "help must list rekon step graph build");
   assert.ok(help.includes("rekon runtime graph drift"), "help must list rekon runtime graph drift");
   assert.ok(help.includes("rekon handoff contract build"), "help must list rekon handoff contract build");
-  // the fresh-repo flow note names the context-prepare step
-  assert.ok(help.includes("scan → intent context prepare → intent assess"), "help flow note must include the fresh-repo context step");
+  // the fresh-repo flow note names the context-prepare step (plan review now sits
+  // between context prepare and assess — slice 129)
+  assert.ok(help.includes("scan → intent context prepare → intent plan review → intent assess"), "help flow note must include the fresh-repo context step");
 });

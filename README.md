@@ -98,6 +98,13 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > `.rekon/intent/plans/<intent-id>/circe/` projection is handed to Circe. No manual
 > `.rekon/artifacts` seeding is required.
 
+> **Review a rough plan first:** `rekon intent plan review --plan <path>` compiles a raw or
+> semi-structured plan into phase drafts and reports whether it is actionable / needs-revision /
+> blocked — with findings, elicitation questions, and an operator-or-LLM revision prompt — before
+> `rekon intent assess`. Report-only: it writes one `IntentPlanActionabilityReport` and creates no
+> downstream artifacts, runs no commands, and writes no source. See
+> [the intent plan compiler](docs/concepts/intent-plan-compiler.md).
+
 Then inspect the workspace:
 
 ```sh

@@ -4,6 +4,29 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **IntentPlanActionabilityReport v1 / `rekon intent plan review`** — one-hundred-twenty-ninth
+  slice on the intent-spine track. Product-capability batch: the first integrated Rekon **intent plan
+  compiler** capability. `rekon intent plan review --plan <path> [--goal] [--kind] [--semantic
+  off|auto|required] [--root] [--json]` reads a raw / semi-structured plan, normalizes it into
+  executable **phase drafts**, evaluates **actionability** over eight per-phase requirements (objective /
+  deliverables / acceptance-criteria / implementation-scope / verification-evidence / ambiguity-clearance
+  / phase-contract / evidence-gates), and writes ONE `IntentPlanActionabilityReport` (category `actions`)
+  carrying findings + elicitation questions + an operator-or-LLM **revision prompt** + per-phase evidence
+  gates. Status is `actionable` / `needs-revision` / `blocked` (critical ambiguity — `TBD` / `TODO` /
+  open question — blocks). Normalization is **deterministic-first and never invents** paths, commands, or
+  acceptance criteria; an **injectable, provenance-tagged semantic-normalization adapter** (modes `off` /
+  `auto` / `required`) is bounded to read → transform → critique, and falls back to deterministic parsing
+  with a warning when no provider is wired (provider wiring is the only deferred part). **Report-only:**
+  the seven-field `boundaries` block is forced + validated all-`false` — no commands, no source writes,
+  no `PreparedIntentPlan` / `WorkOrder` / `VerificationPlan` / `VerificationRun` / `VerificationResult`,
+  no Circe, no `intent:go`; answer / merge-back and approval remain deferred. Registers the kernel
+  artifact (`@rekon/kernel-repo-model`) + SDK + runtime, adds
+  `@rekon/capability-model.buildIntentPlanActionabilityReport`, the CLI command + help, contract +
+  docs tests, and 3 new docs (`docs/artifacts/intent-plan-actionability-report.md`,
+  `docs/concepts/intent-plan-compiler.md`,
+  `docs/strategy/intent-plan-actionability-report-implementation.md`) + review packet. Implements the
+  slice-128 Classic Intent Plan Compiler / Elicitation Parity Decision.
+
 - Decided **Classic Intent Plan Compiler / Elicitation Parity Decision** — one-hundred-twenty-eighth slice
   on the codebase-intel-classic capability-ontology track. Strategy / architecture decision-only batch. A
   parity audit found the old codebase-intel system **compiled and interrogated** plans (intake sufficiency

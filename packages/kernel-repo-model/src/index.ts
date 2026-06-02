@@ -6118,6 +6118,477 @@ export const intentStatusReportSchema: ArtifactSchema<IntentStatusReport> = {
   parse: assertIntentStatusReport,
 };
 
+// ---------------------------------------------------------------------------
+// IntentPlanActionabilityReport — plan compiler / actionability / elicitation
+// (slice 129). Reads a raw / semi-structured plan, normalizes it into phase
+// drafts, evaluates actionability, emits findings + elicitation questions + a
+// revision prompt. Read/transform/report-only: executes no commands, writes no
+// source, creates no PreparedIntentPlan / WorkOrder / VerificationPlan, runs no
+// Circe; intent:go remains deferred.
+// ---------------------------------------------------------------------------
+
+export type IntentPlanActionabilityStatus = "actionable" | "needs-revision" | "blocked";
+export type IntentPlanSourceShape = "structured-plan" | "semi-structured" | "brain-dump";
+export type IntentPlanNormalizationMethod = "deterministic" | "semantic-llm" | "deterministic-fallback";
+export type IntentPlanNormalizationProvenance = "source-only" | "semantic-llm";
+export type IntentPlanActionabilityRequirement =
+  | "objective"
+  | "deliverables"
+  | "acceptance-criteria"
+  | "implementation-scope"
+  | "verification-evidence"
+  | "ambiguity-clearance"
+  | "phase-contract"
+  | "evidence-gates";
+export type IntentPlanActionabilitySeverity = "low" | "medium" | "high" | "critical";
+export type IntentPlanPhaseDraftKind = "investigate" | "modify" | "refactor" | "verify" | "review" | "unknown";
+export type IntentPlanPhaseActionabilityStatus = "actionable" | "needs-revision" | "blocked";
+export type IntentPlanElicitationAnswerShape = "sentence" | "bullets" | "paths" | "command-or-artifact";
+export type IntentPlanElicitationPriority = "critical" | "high" | "medium";
+
+export type IntentPlanPhaseSourceEvidence = {
+  lineStart?: number;
+  lineEnd?: number;
+  excerpt: string;
+};
+
+export type IntentPlanPhaseDraft = {
+  id: string;
+  order: number;
+  title: string;
+  kind: IntentPlanPhaseDraftKind;
+  objective: string;
+  deliverables: string[];
+  acceptanceCriteria: string[];
+  touchedPaths: string[];
+  verificationCommands: string[];
+  evidenceArtifacts: string[];
+  constraints: string[];
+  sourceEvidence: IntentPlanPhaseSourceEvidence[];
+  actionability: {
+    status: IntentPlanPhaseActionabilityStatus;
+    satisfiedRequirements: IntentPlanActionabilityRequirement[];
+    missingRequirements: IntentPlanActionabilityRequirement[];
+  };
+};
+
+export type IntentPlanActionabilityFinding = {
+  id: string;
+  severity: IntentPlanActionabilitySeverity;
+  requirement: IntentPlanActionabilityRequirement;
+  phaseId?: string;
+  message: string;
+  sourceEvidence: string[];
+  suggestedFix: string;
+};
+
+export type IntentPlanElicitationQuestion = {
+  id: string;
+  phaseId?: string;
+  requirement: IntentPlanActionabilityRequirement;
+  question: string;
+  answerShape: IntentPlanElicitationAnswerShape;
+  whyAsked: string;
+  priority: IntentPlanElicitationPriority;
+};
+
+export type IntentPlanEvidenceGate = {
+  id: string;
+  phaseId?: string;
+  description: string;
+  satisfied: boolean;
+  evidence: string[];
+};
+
+export type IntentPlanActionabilityReport = {
+  header: ArtifactHeader;
+  status: { value: IntentPlanActionabilityStatus; reason: string };
+  sourcePlan: { path?: string; sha256?: string; lineCount?: number; sourceShape: IntentPlanSourceShape };
+  request?: { goal?: string; kind?: string };
+  normalizationTrace: {
+    method: IntentPlanNormalizationMethod;
+    invokedSemanticNormalization: boolean;
+    rationale: string;
+    model?: string;
+    provider?: string;
+    provenance: IntentPlanNormalizationProvenance;
+    warnings: string[];
+  };
+  normalizedPhases: IntentPlanPhaseDraft[];
+  findings: IntentPlanActionabilityFinding[];
+  elicitationQuestions: IntentPlanElicitationQuestion[];
+  revisionPrompt: { prompt: string; targetAudience: "operator-or-llm"; requiredChanges: string[] };
+  evidenceGates: IntentPlanEvidenceGate[];
+  summary: {
+    totalPhases: number;
+    actionablePhases: number;
+    blockedPhases: number;
+    questions: number;
+    findings: number;
+  };
+  boundaries: {
+    executedCommands: boolean;
+    wroteSourceFiles: boolean;
+    createdPreparedIntentPlan: boolean;
+    createdWorkOrder: boolean;
+    createdVerificationPlan: boolean;
+    ranCirce: boolean;
+    implementedIntentGo: boolean;
+  };
+};
+
+const INTENT_PLAN_ACTIONABILITY_STATUSES = new Set<string>(["actionable", "needs-revision", "blocked"]);
+const INTENT_PLAN_SOURCE_SHAPES = new Set<string>(["structured-plan", "semi-structured", "brain-dump"]);
+const INTENT_PLAN_NORMALIZATION_METHODS = new Set<string>(["deterministic", "semantic-llm", "deterministic-fallback"]);
+const INTENT_PLAN_NORMALIZATION_PROVENANCES = new Set<string>(["source-only", "semantic-llm"]);
+const INTENT_PLAN_ACTIONABILITY_REQUIREMENTS = new Set<string>([
+  "objective",
+  "deliverables",
+  "acceptance-criteria",
+  "implementation-scope",
+  "verification-evidence",
+  "ambiguity-clearance",
+  "phase-contract",
+  "evidence-gates",
+]);
+const INTENT_PLAN_ACTIONABILITY_SEVERITIES = new Set<string>(["low", "medium", "high", "critical"]);
+const INTENT_PLAN_PHASE_DRAFT_KINDS = new Set<string>(["investigate", "modify", "refactor", "verify", "review", "unknown"]);
+const INTENT_PLAN_PHASE_ACTIONABILITY_STATUSES = new Set<string>(["actionable", "needs-revision", "blocked"]);
+const INTENT_PLAN_ELICITATION_ANSWER_SHAPES = new Set<string>(["sentence", "bullets", "paths", "command-or-artifact"]);
+const INTENT_PLAN_ELICITATION_PRIORITIES = new Set<string>(["critical", "high", "medium"]);
+
+function intentPlanStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry === "string") {
+      const trimmed = entry.trim();
+      if (trimmed.length > 0) out.push(trimmed);
+    }
+  }
+  return out;
+}
+
+function intentPlanRequirementList(value: unknown): IntentPlanActionabilityRequirement[] {
+  if (!Array.isArray(value)) return [];
+  const out: IntentPlanActionabilityRequirement[] = [];
+  for (const entry of value) {
+    if (typeof entry === "string" && INTENT_PLAN_ACTIONABILITY_REQUIREMENTS.has(entry) && !out.includes(entry as IntentPlanActionabilityRequirement)) {
+      out.push(entry as IntentPlanActionabilityRequirement);
+    }
+  }
+  return out;
+}
+
+function normalizeIntentPlanPhaseDraft(value: unknown, index: number): IntentPlanPhaseDraft {
+  const raw = isRecord(value) ? value : {};
+  const kind = typeof raw.kind === "string" && INTENT_PLAN_PHASE_DRAFT_KINDS.has(raw.kind) ? (raw.kind as IntentPlanPhaseDraftKind) : "unknown";
+  const evidence: IntentPlanPhaseSourceEvidence[] = Array.isArray(raw.sourceEvidence)
+    ? raw.sourceEvidence
+        .filter(isRecord)
+        .map((e) => {
+          const out: IntentPlanPhaseSourceEvidence = { excerpt: typeof e.excerpt === "string" ? e.excerpt : "" };
+          if (typeof e.lineStart === "number" && Number.isInteger(e.lineStart) && e.lineStart >= 0) out.lineStart = e.lineStart;
+          if (typeof e.lineEnd === "number" && Number.isInteger(e.lineEnd) && e.lineEnd >= 0) out.lineEnd = e.lineEnd;
+          return out;
+        })
+        .filter((e) => e.excerpt.length > 0)
+    : [];
+  const act = isRecord(raw.actionability) ? raw.actionability : {};
+  const status = typeof act.status === "string" && INTENT_PLAN_PHASE_ACTIONABILITY_STATUSES.has(act.status) ? (act.status as IntentPlanPhaseActionabilityStatus) : "blocked";
+  return {
+    id: typeof raw.id === "string" && raw.id.length > 0 ? raw.id : `phase-${index + 1}`,
+    order: typeof raw.order === "number" && Number.isInteger(raw.order) ? raw.order : index + 1,
+    title: typeof raw.title === "string" ? raw.title : "",
+    kind,
+    objective: typeof raw.objective === "string" ? raw.objective : "",
+    deliverables: intentPlanStringList(raw.deliverables),
+    acceptanceCriteria: intentPlanStringList(raw.acceptanceCriteria),
+    touchedPaths: intentPlanStringList(raw.touchedPaths),
+    verificationCommands: intentPlanStringList(raw.verificationCommands),
+    evidenceArtifacts: intentPlanStringList(raw.evidenceArtifacts),
+    constraints: intentPlanStringList(raw.constraints),
+    sourceEvidence: evidence,
+    actionability: {
+      status,
+      satisfiedRequirements: intentPlanRequirementList(act.satisfiedRequirements),
+      missingRequirements: intentPlanRequirementList(act.missingRequirements),
+    },
+  };
+}
+
+function normalizeIntentPlanFinding(value: unknown, index: number): IntentPlanActionabilityFinding {
+  const raw = isRecord(value) ? value : {};
+  const out: IntentPlanActionabilityFinding = {
+    id: typeof raw.id === "string" && raw.id.length > 0 ? raw.id : `finding-${index + 1}`,
+    severity: typeof raw.severity === "string" && INTENT_PLAN_ACTIONABILITY_SEVERITIES.has(raw.severity) ? (raw.severity as IntentPlanActionabilitySeverity) : "medium",
+    requirement: typeof raw.requirement === "string" && INTENT_PLAN_ACTIONABILITY_REQUIREMENTS.has(raw.requirement) ? (raw.requirement as IntentPlanActionabilityRequirement) : "objective",
+    message: typeof raw.message === "string" ? raw.message : "",
+    sourceEvidence: intentPlanStringList(raw.sourceEvidence),
+    suggestedFix: typeof raw.suggestedFix === "string" ? raw.suggestedFix : "",
+  };
+  if (typeof raw.phaseId === "string" && raw.phaseId.length > 0) out.phaseId = raw.phaseId;
+  return out;
+}
+
+function normalizeIntentPlanQuestion(value: unknown, index: number): IntentPlanElicitationQuestion {
+  const raw = isRecord(value) ? value : {};
+  const out: IntentPlanElicitationQuestion = {
+    id: typeof raw.id === "string" && raw.id.length > 0 ? raw.id : `question-${index + 1}`,
+    requirement: typeof raw.requirement === "string" && INTENT_PLAN_ACTIONABILITY_REQUIREMENTS.has(raw.requirement) ? (raw.requirement as IntentPlanActionabilityRequirement) : "objective",
+    question: typeof raw.question === "string" ? raw.question : "",
+    answerShape: typeof raw.answerShape === "string" && INTENT_PLAN_ELICITATION_ANSWER_SHAPES.has(raw.answerShape) ? (raw.answerShape as IntentPlanElicitationAnswerShape) : "sentence",
+    whyAsked: typeof raw.whyAsked === "string" ? raw.whyAsked : "",
+    priority: typeof raw.priority === "string" && INTENT_PLAN_ELICITATION_PRIORITIES.has(raw.priority) ? (raw.priority as IntentPlanElicitationPriority) : "medium",
+  };
+  if (typeof raw.phaseId === "string" && raw.phaseId.length > 0) out.phaseId = raw.phaseId;
+  return out;
+}
+
+function normalizeIntentPlanEvidenceGate(value: unknown, index: number): IntentPlanEvidenceGate {
+  const raw = isRecord(value) ? value : {};
+  const out: IntentPlanEvidenceGate = {
+    id: typeof raw.id === "string" && raw.id.length > 0 ? raw.id : `evidence-gate-${index + 1}`,
+    description: typeof raw.description === "string" ? raw.description : "",
+    satisfied: raw.satisfied === true,
+    evidence: intentPlanStringList(raw.evidence),
+  };
+  if (typeof raw.phaseId === "string" && raw.phaseId.length > 0) out.phaseId = raw.phaseId;
+  return out;
+}
+
+export function createIntentPlanActionabilityReport(input: IntentPlanActionabilityReport): IntentPlanActionabilityReport {
+  const rawStatus = isRecord(input.status) ? input.status : ({} as IntentPlanActionabilityReport["status"]);
+  const rawSource = isRecord(input.sourcePlan) ? input.sourcePlan : ({} as IntentPlanActionabilityReport["sourcePlan"]);
+  const rawTrace = isRecord(input.normalizationTrace) ? input.normalizationTrace : ({} as IntentPlanActionabilityReport["normalizationTrace"]);
+  const rawRevision = isRecord(input.revisionPrompt) ? input.revisionPrompt : ({} as IntentPlanActionabilityReport["revisionPrompt"]);
+  const rawSummary = isRecord(input.summary) ? input.summary : ({} as IntentPlanActionabilityReport["summary"]);
+
+  const phases = Array.isArray(input.normalizedPhases) ? input.normalizedPhases.map((p, i) => normalizeIntentPlanPhaseDraft(p, i)) : [];
+  const findings = Array.isArray(input.findings) ? input.findings.map((f, i) => normalizeIntentPlanFinding(f, i)) : [];
+  const questions = Array.isArray(input.elicitationQuestions) ? input.elicitationQuestions.map((q, i) => normalizeIntentPlanQuestion(q, i)) : [];
+  const evidenceGates = Array.isArray(input.evidenceGates) ? input.evidenceGates.map((g, i) => normalizeIntentPlanEvidenceGate(g, i)) : [];
+
+  const sourcePlan: IntentPlanActionabilityReport["sourcePlan"] = {
+    sourceShape: typeof rawSource.sourceShape === "string" && INTENT_PLAN_SOURCE_SHAPES.has(rawSource.sourceShape) ? (rawSource.sourceShape as IntentPlanSourceShape) : "brain-dump",
+  };
+  if (typeof rawSource.path === "string" && rawSource.path.length > 0) sourcePlan.path = rawSource.path;
+  if (typeof rawSource.sha256 === "string" && rawSource.sha256.length > 0) sourcePlan.sha256 = rawSource.sha256;
+  if (typeof rawSource.lineCount === "number" && Number.isInteger(rawSource.lineCount) && rawSource.lineCount >= 0) sourcePlan.lineCount = rawSource.lineCount;
+
+  const normalizationTrace: IntentPlanActionabilityReport["normalizationTrace"] = {
+    method: typeof rawTrace.method === "string" && INTENT_PLAN_NORMALIZATION_METHODS.has(rawTrace.method) ? (rawTrace.method as IntentPlanNormalizationMethod) : "deterministic",
+    invokedSemanticNormalization: rawTrace.invokedSemanticNormalization === true,
+    rationale: typeof rawTrace.rationale === "string" ? rawTrace.rationale : "",
+    provenance: typeof rawTrace.provenance === "string" && INTENT_PLAN_NORMALIZATION_PROVENANCES.has(rawTrace.provenance) ? (rawTrace.provenance as IntentPlanNormalizationProvenance) : "source-only",
+    warnings: intentPlanStringList(rawTrace.warnings),
+  };
+  if (typeof rawTrace.model === "string" && rawTrace.model.length > 0) normalizationTrace.model = rawTrace.model;
+  if (typeof rawTrace.provider === "string" && rawTrace.provider.length > 0) normalizationTrace.provider = rawTrace.provider;
+
+  const report: IntentPlanActionabilityReport = {
+    header: input.header,
+    status: {
+      value: typeof rawStatus.value === "string" && INTENT_PLAN_ACTIONABILITY_STATUSES.has(rawStatus.value) ? (rawStatus.value as IntentPlanActionabilityStatus) : "blocked",
+      reason: typeof rawStatus.reason === "string" ? rawStatus.reason : "",
+    },
+    sourcePlan,
+    normalizationTrace,
+    normalizedPhases: phases,
+    findings,
+    elicitationQuestions: questions,
+    revisionPrompt: {
+      prompt: typeof rawRevision.prompt === "string" ? rawRevision.prompt : "",
+      targetAudience: "operator-or-llm",
+      requiredChanges: intentPlanStringList(rawRevision.requiredChanges),
+    },
+    evidenceGates,
+    summary: {
+      totalPhases: typeof rawSummary.totalPhases === "number" && Number.isInteger(rawSummary.totalPhases) && rawSummary.totalPhases >= 0 ? rawSummary.totalPhases : phases.length,
+      actionablePhases: typeof rawSummary.actionablePhases === "number" && Number.isInteger(rawSummary.actionablePhases) && rawSummary.actionablePhases >= 0 ? rawSummary.actionablePhases : phases.filter((p) => p.actionability.status === "actionable").length,
+      blockedPhases: typeof rawSummary.blockedPhases === "number" && Number.isInteger(rawSummary.blockedPhases) && rawSummary.blockedPhases >= 0 ? rawSummary.blockedPhases : phases.filter((p) => p.actionability.status === "blocked").length,
+      questions: typeof rawSummary.questions === "number" && Number.isInteger(rawSummary.questions) && rawSummary.questions >= 0 ? rawSummary.questions : questions.length,
+      findings: typeof rawSummary.findings === "number" && Number.isInteger(rawSummary.findings) && rawSummary.findings >= 0 ? rawSummary.findings : findings.length,
+    },
+    boundaries: {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    },
+  };
+
+  if (isRecord(input.request)) {
+    const rawRequest = input.request as { goal?: unknown; kind?: unknown };
+    const request: { goal?: string; kind?: string } = {};
+    if (typeof rawRequest.goal === "string" && rawRequest.goal.length > 0) request.goal = rawRequest.goal;
+    if (typeof rawRequest.kind === "string" && rawRequest.kind.length > 0) request.kind = rawRequest.kind;
+    if (Object.keys(request).length > 0) report.request = request;
+  }
+
+  return assertIntentPlanActionabilityReport(report);
+}
+
+function validateIntentPlanPhaseDraftList(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  const seen = new Set<string>();
+  value.forEach((entry, index) => {
+    const p = `${path}[${index}]`;
+    if (!isRecord(entry)) {
+      issues.push({ path: p, message: "Expected an object." });
+      return;
+    }
+    if (typeof entry.id !== "string" || entry.id.length === 0) issues.push({ path: `${p}.id`, message: "Expected a non-empty string." });
+    else if (seen.has(entry.id)) issues.push({ path: `${p}.id`, message: `Duplicate phase id ${entry.id}.` });
+    else seen.add(entry.id);
+    if (typeof entry.order !== "number" || !Number.isInteger(entry.order)) issues.push({ path: `${p}.order`, message: "Expected an integer." });
+    if (typeof entry.title !== "string") issues.push({ path: `${p}.title`, message: "Expected a string." });
+    if (typeof entry.kind !== "string" || !INTENT_PLAN_PHASE_DRAFT_KINDS.has(entry.kind)) issues.push({ path: `${p}.kind`, message: "Expected a valid phase kind." });
+    if (typeof entry.objective !== "string") issues.push({ path: `${p}.objective`, message: "Expected a string." });
+    for (const key of ["deliverables", "acceptanceCriteria", "touchedPaths", "verificationCommands", "evidenceArtifacts", "constraints"]) {
+      if (!Array.isArray(entry[key])) issues.push({ path: `${p}.${key}`, message: "Expected an array." });
+    }
+    if (!Array.isArray(entry.sourceEvidence)) issues.push({ path: `${p}.sourceEvidence`, message: "Expected an array." });
+    if (!isRecord(entry.actionability)) {
+      issues.push({ path: `${p}.actionability`, message: "Expected an object." });
+    } else {
+      const a = entry.actionability as Record<string, unknown>;
+      if (typeof a.status !== "string" || !INTENT_PLAN_PHASE_ACTIONABILITY_STATUSES.has(a.status)) issues.push({ path: `${p}.actionability.status`, message: "Expected a valid status." });
+      if (!Array.isArray(a.satisfiedRequirements)) issues.push({ path: `${p}.actionability.satisfiedRequirements`, message: "Expected an array." });
+      if (!Array.isArray(a.missingRequirements)) issues.push({ path: `${p}.actionability.missingRequirements`, message: "Expected an array." });
+    }
+  });
+}
+
+export function validateIntentPlanActionabilityReport(value: unknown): ValidationResult<IntentPlanActionabilityReport> {
+  const issues: ValidationIssue[] = [];
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "IntentPlanActionabilityReport", "$.header", issues);
+
+  if (!isRecord(value.status)) {
+    issues.push({ path: "$.status", message: "Expected an object." });
+  } else {
+    const s = value.status as Record<string, unknown>;
+    if (typeof s.value !== "string" || !INTENT_PLAN_ACTIONABILITY_STATUSES.has(s.value)) issues.push({ path: "$.status.value", message: "Expected one of actionable, needs-revision, blocked." });
+    if (typeof s.reason !== "string") issues.push({ path: "$.status.reason", message: "Expected a string." });
+  }
+
+  if (!isRecord(value.sourcePlan)) {
+    issues.push({ path: "$.sourcePlan", message: "Expected an object." });
+  } else {
+    const sp = value.sourcePlan as Record<string, unknown>;
+    if (typeof sp.sourceShape !== "string" || !INTENT_PLAN_SOURCE_SHAPES.has(sp.sourceShape)) issues.push({ path: "$.sourcePlan.sourceShape", message: "Expected a valid source shape." });
+    if (sp.path !== undefined && typeof sp.path !== "string") issues.push({ path: "$.sourcePlan.path", message: "Expected a string." });
+    if (sp.sha256 !== undefined && typeof sp.sha256 !== "string") issues.push({ path: "$.sourcePlan.sha256", message: "Expected a string." });
+    if (sp.lineCount !== undefined && (typeof sp.lineCount !== "number" || !Number.isInteger(sp.lineCount) || sp.lineCount < 0)) issues.push({ path: "$.sourcePlan.lineCount", message: "Expected a non-negative integer." });
+  }
+
+  if (value.request !== undefined && !isRecord(value.request)) issues.push({ path: "$.request", message: "Expected an object." });
+
+  if (!isRecord(value.normalizationTrace)) {
+    issues.push({ path: "$.normalizationTrace", message: "Expected an object." });
+  } else {
+    const t = value.normalizationTrace as Record<string, unknown>;
+    if (typeof t.method !== "string" || !INTENT_PLAN_NORMALIZATION_METHODS.has(t.method)) issues.push({ path: "$.normalizationTrace.method", message: "Expected a valid method." });
+    if (typeof t.invokedSemanticNormalization !== "boolean") issues.push({ path: "$.normalizationTrace.invokedSemanticNormalization", message: "Expected a boolean." });
+    if (typeof t.rationale !== "string") issues.push({ path: "$.normalizationTrace.rationale", message: "Expected a string." });
+    if (typeof t.provenance !== "string" || !INTENT_PLAN_NORMALIZATION_PROVENANCES.has(t.provenance)) issues.push({ path: "$.normalizationTrace.provenance", message: "Expected a valid provenance." });
+    if (!Array.isArray(t.warnings)) issues.push({ path: "$.normalizationTrace.warnings", message: "Expected an array." });
+  }
+
+  validateIntentPlanPhaseDraftList(value.normalizedPhases, "$.normalizedPhases", issues);
+
+  if (!Array.isArray(value.findings)) {
+    issues.push({ path: "$.findings", message: "Expected an array." });
+  } else {
+    (value.findings as unknown[]).forEach((entry, index) => {
+      const p = `$.findings[${index}]`;
+      if (!isRecord(entry)) { issues.push({ path: p, message: "Expected an object." }); return; }
+      if (typeof entry.id !== "string" || entry.id.length === 0) issues.push({ path: `${p}.id`, message: "Expected a non-empty string." });
+      if (typeof entry.severity !== "string" || !INTENT_PLAN_ACTIONABILITY_SEVERITIES.has(entry.severity)) issues.push({ path: `${p}.severity`, message: "Expected a valid severity." });
+      if (typeof entry.requirement !== "string" || !INTENT_PLAN_ACTIONABILITY_REQUIREMENTS.has(entry.requirement)) issues.push({ path: `${p}.requirement`, message: "Expected a valid requirement." });
+      if (typeof entry.message !== "string") issues.push({ path: `${p}.message`, message: "Expected a string." });
+      if (!Array.isArray(entry.sourceEvidence)) issues.push({ path: `${p}.sourceEvidence`, message: "Expected an array." });
+      if (typeof entry.suggestedFix !== "string") issues.push({ path: `${p}.suggestedFix`, message: "Expected a string." });
+    });
+  }
+
+  if (!Array.isArray(value.elicitationQuestions)) {
+    issues.push({ path: "$.elicitationQuestions", message: "Expected an array." });
+  } else {
+    (value.elicitationQuestions as unknown[]).forEach((entry, index) => {
+      const p = `$.elicitationQuestions[${index}]`;
+      if (!isRecord(entry)) { issues.push({ path: p, message: "Expected an object." }); return; }
+      if (typeof entry.id !== "string" || entry.id.length === 0) issues.push({ path: `${p}.id`, message: "Expected a non-empty string." });
+      if (typeof entry.requirement !== "string" || !INTENT_PLAN_ACTIONABILITY_REQUIREMENTS.has(entry.requirement)) issues.push({ path: `${p}.requirement`, message: "Expected a valid requirement." });
+      if (typeof entry.question !== "string") issues.push({ path: `${p}.question`, message: "Expected a string." });
+      if (typeof entry.answerShape !== "string" || !INTENT_PLAN_ELICITATION_ANSWER_SHAPES.has(entry.answerShape)) issues.push({ path: `${p}.answerShape`, message: "Expected a valid answer shape." });
+      if (typeof entry.priority !== "string" || !INTENT_PLAN_ELICITATION_PRIORITIES.has(entry.priority)) issues.push({ path: `${p}.priority`, message: "Expected a valid priority." });
+    });
+  }
+
+  if (!isRecord(value.revisionPrompt)) {
+    issues.push({ path: "$.revisionPrompt", message: "Expected an object." });
+  } else {
+    const r = value.revisionPrompt as Record<string, unknown>;
+    if (typeof r.prompt !== "string") issues.push({ path: "$.revisionPrompt.prompt", message: "Expected a string." });
+    if (r.targetAudience !== "operator-or-llm") issues.push({ path: "$.revisionPrompt.targetAudience", message: "Expected operator-or-llm." });
+    if (!Array.isArray(r.requiredChanges)) issues.push({ path: "$.revisionPrompt.requiredChanges", message: "Expected an array." });
+  }
+
+  if (!Array.isArray(value.evidenceGates)) {
+    issues.push({ path: "$.evidenceGates", message: "Expected an array." });
+  } else {
+    (value.evidenceGates as unknown[]).forEach((entry, index) => {
+      const p = `$.evidenceGates[${index}]`;
+      if (!isRecord(entry)) { issues.push({ path: p, message: "Expected an object." }); return; }
+      if (typeof entry.id !== "string" || entry.id.length === 0) issues.push({ path: `${p}.id`, message: "Expected a non-empty string." });
+      if (typeof entry.description !== "string") issues.push({ path: `${p}.description`, message: "Expected a string." });
+      if (typeof entry.satisfied !== "boolean") issues.push({ path: `${p}.satisfied`, message: "Expected a boolean." });
+      if (!Array.isArray(entry.evidence)) issues.push({ path: `${p}.evidence`, message: "Expected an array." });
+    });
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const sm = value.summary as Record<string, unknown>;
+    for (const key of ["totalPhases", "actionablePhases", "blockedPhases", "questions", "findings"]) {
+      const x = sm[key];
+      if (typeof x !== "number" || !Number.isInteger(x) || x < 0) issues.push({ path: `$.summary.${key}`, message: "Expected a non-negative integer." });
+    }
+  }
+
+  if (!isRecord(value.boundaries)) {
+    issues.push({ path: "$.boundaries", message: "Expected an object." });
+  } else {
+    const b = value.boundaries as Record<string, unknown>;
+    for (const key of ["executedCommands", "wroteSourceFiles", "createdPreparedIntentPlan", "createdWorkOrder", "createdVerificationPlan", "ranCirce", "implementedIntentGo"]) {
+      if (b[key] !== false) issues.push({ path: `$.boundaries.${key}`, message: "Expected false." });
+    }
+  }
+
+  return validationResult(value as IntentPlanActionabilityReport, issues);
+}
+
+export function assertIntentPlanActionabilityReport(value: unknown): IntentPlanActionabilityReport {
+  return assertValid(validateIntentPlanActionabilityReport(value), "IntentPlanActionabilityReport");
+}
+
+export const intentPlanActionabilityReportSchema: ArtifactSchema<IntentPlanActionabilityReport> = {
+  validate: validateIntentPlanActionabilityReport,
+  parse: assertIntentPlanActionabilityReport,
+};
+
 export function normalizeSystems(systems: ObservedSystem[]): ObservedSystem[] {
   const byId = new Map<string, ObservedSystem>();
 

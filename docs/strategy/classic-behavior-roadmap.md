@@ -48,6 +48,13 @@ These classic wins exist today in Rekon (alpha spine):
 Small, focused batches that move classic wins forward without expanding
 scope:
 
+- **Intent plan compiler (plan review / elicitation).** ✅ Shipped (slice 129) as
+  `rekon intent plan review` / `IntentPlanActionabilityReport` — restores the classic
+  raw-plan → normalization → phase-decomposition → actionability-checks →
+  elicitation-questions → revision-feedback loop as a report-first layer. Deterministic-first;
+  bounded provenance-tagged semantic adapter (provider wiring deferred); report-only — no plan
+  mutation, source writes, command execution, or Circe. See
+  [the intent plan compiler](../concepts/intent-plan-compiler.md).
 - **First external rule-pack example.** ✅ Shipped as
   `examples/import-boundary-rule-pack`. Community-style evaluator-only
   capability that consumes `EvidenceGraph` and produces a `FindingReport`

@@ -87,6 +87,7 @@ import modelCapability, {
   type PreparedIntentVerificationResultLike,
   INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX,
   buildIntentStatusReport,
+  buildIntentPlanActionabilityReport,
   buildApprovedPreparedIntentPlan,
   type IntentApprovalSourcePlanLike,
   type IntentApprovalIntentStatusLike,
@@ -399,6 +400,7 @@ function rekonIntentWorkflow(): string[] {
   return [
     "rekon scan",
     "rekon intent context prepare",
+    "rekon intent plan review",
     "rekon intent assess",
     "rekon intent prepare",
     "rekon intent status",
@@ -4349,6 +4351,91 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("");
       lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "plan" && positional === "review") {
+    // `rekon intent plan review --plan <path> [--goal <text>] [--kind <kind>]
+    // [--semantic off|auto|required] [--root <path>] [--json]` — Intent Plan
+    // Actionability / Compiler (slice 129).
+    //
+    // Reads a raw / semi-structured plan file, normalizes it into executable phase
+    // drafts, evaluates actionability, and writes ONE IntentPlanActionabilityReport
+    // with findings + elicitation questions + a revision prompt. Read/transform/
+    // report-only: it executes no commands, writes no source, creates no
+    // PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun /
+    // VerificationResult, runs no Circe, and does not implement intent:go. LLM-backed
+    // semantic normalization is bounded to text transformation and is reported via a
+    // deterministic-fallback warning when no provider is configured.
+    // See docs/concepts/intent-plan-compiler.md.
+    const planFlag = typeof parsed.flags.plan === "string" ? parsed.flags.plan.trim() : "";
+    if (planFlag.length === 0) {
+      throw new Error("rekon intent plan review requires --plan <path>.");
+    }
+    const semanticFlag = typeof parsed.flags.semantic === "string" ? parsed.flags.semantic.trim() : "off";
+    if (semanticFlag !== "off" && semanticFlag !== "auto" && semanticFlag !== "required") {
+      throw new Error("rekon intent plan review --semantic must be one of off, auto, required.");
+    }
+    const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : undefined;
+    const kind = typeof parsed.flags.kind === "string" ? parsed.flags.kind : undefined;
+
+    const resolvedPlanPath = resolve(root, planFlag);
+    let planText: string;
+    try {
+      planText = await readFile(resolvedPlanPath, "utf8");
+    } catch {
+      throw new Error(`rekon intent plan review could not read the plan file at ${planFlag}.`);
+    }
+    const planSha256 = createHash("sha256").update(planText).digest("hex");
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const report = await buildIntentPlanActionabilityReport({
+      planText,
+      planPath: planFlag,
+      planSha256,
+      goal,
+      kind,
+      root,
+      semanticMode: semanticFlag,
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+    const nextAction = report.status.value === "actionable" ? "prepare-intent" : "revise-plan";
+
+    if (json) {
+      writeOutput(
+        {
+          status: report.status.value,
+          artifact: { type: ref.type, id: ref.id },
+          summary: {
+            totalPhases: report.summary.totalPhases,
+            findings: report.summary.findings,
+            questions: report.summary.questions,
+          },
+          nextAction,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent plan review", "");
+      lines.push(`Status: ${report.status.value}`);
+      lines.push(`Findings: ${report.summary.findings}`);
+      lines.push(`Questions: ${report.summary.questions}`);
+      if (report.normalizationTrace.warnings.length > 0) {
+        lines.push(`Normalization: ${report.normalizationTrace.method} (${report.normalizationTrace.warnings[0]})`);
+      }
+      lines.push(
+        report.status.value === "actionable"
+          ? "Next: the plan is actionable — proceed to rekon intent assess / prepare."
+          : "Next: revise the plan using the generated revision prompt.",
+      );
+      lines.push("");
+      lines.push("No PreparedIntentPlan, WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, source writes, Circe run, or intent:go were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -10757,6 +10844,7 @@ function usage(): string {
     "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
+    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--root <path>] [--json]",
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
@@ -10822,7 +10910,7 @@ function usage(): string {
     "  rekon init — create the .rekon/ workspace and config only (no scan).",
     "",
     "Intent flow:",
-    "  scan → intent context prepare → intent assess → intent prepare → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
+    "  scan → intent context prepare → intent plan review → intent assess → intent prepare → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
     "Fresh repo: run `rekon scan` then `rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context — not-evaluated where there is no event log) before `rekon intent assess`.",
     "The bundle can then be handed to Circe via: circe rekon-handoff validate/routes/import.",
     "Rekon prepares, proves, packages, and exports; Circe imports and orchestrates.",

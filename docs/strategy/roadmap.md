@@ -8220,6 +8220,12 @@ docs explain which wins each item preserves and how:
 - [classic-behavior-roadmap.md](classic-behavior-roadmap.md)
 - [classic-alignment-map.md](classic-alignment-map.md)
 
+The intent plan compiler (`rekon intent plan review` / `IntentPlanActionabilityReport`,
+slice 129) restores the classic plan-review loop — raw plan → normalization → phase
+decomposition → actionability checks → elicitation questions → revision feedback — as a
+report-first layer upstream of assess / prepare / approve. See
+[the intent plan compiler](../concepts/intent-plan-compiler.md).
+
 ## Cross-References
 
 - [NorthStar](north-star.md)

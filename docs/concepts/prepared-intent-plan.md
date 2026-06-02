@@ -139,3 +139,13 @@ Status reporting and execution are downstream, separately-decided layers.
 > ambiguity / non-goals / evidence gates). See the
 > [Classic Intent Plan Compiler / Elicitation Parity Decision](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md).
 > Report-only; no plan mutation, no source writes, no command execution, no Circe.
+
+> Shipped (slice 129): the report-first `IntentPlanActionabilityReport` shipped as
+> `rekon intent plan review` — it normalizes a plan into phase drafts, evaluates actionability over
+> eight per-phase requirements, and emits findings + elicitation questions + an operator-or-LLM revision
+> prompt with status actionable / needs-revision / blocked. It is the intent plan compiler's front door,
+> upstream of preparation/approval. **Report-only: it creates no PreparedIntentPlan, executes no
+> commands, writes no source, runs no Circe, and does not implement intent:go** (boundaries forced +
+> validated all-false); answer / merge-back and approval remain deferred. See the
+> [IntentPlanActionabilityReport artifact](../artifacts/intent-plan-actionability-report.md) and the
+> [intent plan compiler](./intent-plan-compiler.md).

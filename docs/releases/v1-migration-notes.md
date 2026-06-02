@@ -20,6 +20,7 @@ path.
 ## V1 Canonical Flow
 
 ```
+rekon intent plan review
 rekon intent assess
 rekon intent prepare
 rekon intent status

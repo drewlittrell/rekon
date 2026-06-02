@@ -4,6 +4,15 @@
 > runtime change, no package bump, no npm publish. Follows the
 > [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md)
 > at `7eb6816`.
+>
+> **Implemented (slice 129):** shipped as the `IntentPlanActionabilityReport` artifact +
+> `rekon intent plan review` — deterministic-first normalization, eight-requirement actionability
+> evaluation, findings + elicitation questions + an operator-or-LLM revision prompt, and an injectable
+> provenance-tagged semantic-normalization adapter (provider wiring deferred). Report-only; boundaries
+> forced + validated all-false. See the
+> [implementation memo](./intent-plan-actionability-report-implementation.md), the
+> [artifact reference](../artifacts/intent-plan-actionability-report.md), and the
+> [intent plan compiler concept](../concepts/intent-plan-compiler.md).
 
 ## Decision Summary
 
