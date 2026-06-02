@@ -4,6 +4,37 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Intent Prepare Integration With Actionability Report** — one-hundred-thirty-first slice on the
+  intent-spine track. Product-capability batch: integrates the shipped `IntentPlanActionabilityReport`
+  (the plan compiler's review output) into `rekon intent prepare` so a written plan's **actionability gates
+  preparation**. `rekon intent prepare --assessment <ref> [--actionability-report <ref>]` (alias
+  `--plan-actionability-report`) now consults the report. **`intent prepare` respects
+  `IntentPlanActionabilityReport`.** When an **actionable** report is supplied, **actionable reports may feed
+  PreparedIntentPlan generation**: the prepared phases + verification requirements are derived from the
+  report's normalized phase drafts (preserving draft order, kind, objective→goal, and touched paths, and
+  carrying deliverables + acceptance criteria into phase constraints), and the report ref is recorded in the
+  prepared plan's input refs. When the report is **needs-revision** or **blocked**, **blocked or
+  needs-revision reports prevent or downgrade preparation**: `intent prepare` writes **no** `PreparedIntentPlan`,
+  exits non-zero, and prints the report's findings, questions, and revision prompt — **revision guidance is
+  preserved** and **non-actionable plans are not silently prepared for approval**. With no report supplied,
+  the existing assessment-only behavior is unchanged (backward-compatible). The report informs *structure*,
+  never *approval*: **prepare does not auto-approve** — approval status continues to come from the assessment
+  + proof gates. **Boundaries:** the integration adds no execution power — **prepare creates no WorkOrder or
+  VerificationPlan**, creates no `VerificationRun` / `VerificationResult`, **prepare executes no commands**,
+  **prepare writes no source files**, runs no Circe, and **intent:go remains deferred**; the source plan file
+  and the `IntentPlanActionabilityReport` are read, never mutated; answer / merge-back remains out of scope.
+  Kernel `PreparedIntentPlan` is unchanged (no type / factory / validator change): the report ref is carried
+  via the prepared plan's header `inputRefs` and phase `sourceRefs`, and rich report fields without a direct
+  PreparedIntentPlan home (deliverables, acceptance criteria) are preserved in phase `constraints` with clear
+  prefixes — a documented limitation. Extends `@rekon/capability-model.buildPreparedIntentPlan` with two
+  optional, additive inputs (`intentPlanActionabilityReport`, `intentPlanActionabilityReportRef`; the helper
+  stays pure — no files, no commands, no mutation; the non-actionable block is enforced at the CLI layer) and
+  exports `PreparedIntentActionabilityReportLike`; updates `usage()` (prepare signature + flow line). Adds the
+  strategy memo (`docs/strategy/intent-prepare-actionability-integration.md`), a contract test
+  (`tests/contract/intent-prepare-actionability-integration.test.mjs`, 27 assertions), a docs test
+  (`tests/docs/intent-prepare-actionability-integration.test.mjs`, 12 assertions), a review packet, and
+  cross-references. Recommended next slice: **Intent Prepare Integration With Actionability Report Safety
+  Review**. Follows Intent Plan Actionability Report Safety Review at `fc3e1c2`.
 - Reviewed **Intent Plan Actionability Report Safety Review** — one-hundred-thirtieth slice on the
   intent-spine track. Strategy / safety-review batch (docs-only; no runtime change). Reviewed the
   shipped `IntentPlanActionabilityReport` + `rekon intent plan review` implementation end-to-end and

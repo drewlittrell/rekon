@@ -37,6 +37,14 @@ rekon intent verification-plan generate
 rekon intent bundle write
 ```
 
+`rekon intent prepare` additionally accepts an optional `--actionability-report <ref>`
+flag (slice 131) that gates preparation on the plan compiler's
+`IntentPlanActionabilityReport`: an actionable report may feed `PreparedIntentPlan`
+generation, while a needs-revision / blocked report blocks preparation with revision
+guidance (no plan written). Prepare still does not auto-approve, execute commands, or
+write source; `intent:go` stays deferred. See
+[Intent Prepare Integration With Actionability Report](../strategy/intent-prepare-actionability-integration.md).
+
 The generated bundle is then handed to Circe via `circe rekon-handoff validate` /
 `routes`, `circe import rekon-handoff`, and `circe serve --mode worker` — these are
 external, Circe-owned steps.

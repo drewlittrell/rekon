@@ -69,6 +69,13 @@ preparing a `PreparedIntentPlan`, approving it, generating a `WorkOrder` or
 adds no new execution power; it only makes plans reviewable and revisable
 earlier.
 
+As of slice 131, `rekon intent prepare` **consults** the report when you pass
+`--actionability-report <ref>`: an actionable report may feed `PreparedIntentPlan`
+generation, while a needs-revision / blocked report prevents preparation and
+returns the revision guidance. Prepare still does not auto-approve, write source,
+run commands, or implement `intent:go`. See
+[`intent-prepare-actionability-integration.md`](../strategy/intent-prepare-actionability-integration.md).
+
 ## Related
 
 - Artifact: [`IntentPlanActionabilityReport`](../artifacts/intent-plan-actionability-report.md)

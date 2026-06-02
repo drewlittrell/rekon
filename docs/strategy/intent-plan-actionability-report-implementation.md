@@ -94,3 +94,4 @@ property of every stored report.
 - Artifact: [`IntentPlanActionabilityReport`](../artifacts/intent-plan-actionability-report.md)
 - Concept: [`intent-plan-compiler.md`](../concepts/intent-plan-compiler.md)
 - Decision: [`classic-intent-plan-compiler-elicitation-parity-decision.md`](./classic-intent-plan-compiler-elicitation-parity-decision.md)
+- Prepare integration: [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md) — `intent prepare` now gates on this report.

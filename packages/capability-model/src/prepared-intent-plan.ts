@@ -80,6 +80,30 @@ export type PreparedIntentVerificationResultLike = {
   status?: string;
 };
 
+/**
+ * Structural view of an `IntentPlanActionabilityReport` (read by shape; no class
+ * deps). Only the fields prepare integration reads are listed. The helper reads
+ * `status.value` + `normalizedPhases`; the CLI also reads `summary` +
+ * `revisionPrompt` for its non-actionable block output.
+ */
+export type PreparedIntentActionabilityReportLike = {
+  header?: ArtifactHeader;
+  status?: { value?: string };
+  summary?: { findings?: number; questions?: number };
+  revisionPrompt?: { prompt?: string };
+  normalizedPhases?: Array<{
+    title?: string;
+    kind?: string;
+    objective?: string;
+    deliverables?: string[];
+    acceptanceCriteria?: string[];
+    touchedPaths?: string[];
+    verificationCommands?: string[];
+    evidenceArtifacts?: string[];
+    constraints?: string[];
+  }>;
+};
+
 export type BuildPreparedIntentPlanInput = {
   header: ArtifactHeader;
   intentAssessmentReport: PreparedIntentAssessmentReportLike;
@@ -102,6 +126,14 @@ export type BuildPreparedIntentPlanInput = {
   pathFreshnessReportRef?: ArtifactRef;
   verificationResult?: PreparedIntentVerificationResultLike;
   verificationResultRef?: ArtifactRef;
+
+  // Optional plan-review input (slice 131). When an ACTIONABLE
+  // IntentPlanActionabilityReport is supplied for an implementation-bearing plan,
+  // its normalized phase drafts drive the prepared phases + verification
+  // requirements. The report informs STRUCTURE only — never approval/status.
+  // Non-actionable reports never reach the helper; the CLI blocks them.
+  intentPlanActionabilityReport?: PreparedIntentActionabilityReportLike;
+  intentPlanActionabilityReportRef?: ArtifactRef;
 
   // Repository script names (e.g. ["typecheck", "test", "build"]) used to derive
   // safe default verification requirements for an implementation-bearing DRAFT
@@ -234,6 +266,22 @@ function severityOf(value: unknown): PreparedIntentSeverity {
   return value === "high" || value === "medium" || value === "low" ? value : "low";
 }
 
+// Map an IntentPlanActionabilityReport phase-draft kind to a PreparedIntentPhase
+// kind. The report's "unknown" (and any unexpected value) becomes "modify" — a
+// work-bearing phase — so an actionable plan always yields a valid phase kind.
+function mapReportPhaseKind(kind: unknown): PreparedIntentPhase["kind"] {
+  switch (kind) {
+    case "investigate":
+    case "refactor":
+    case "verify":
+    case "review":
+    case "modify":
+      return kind;
+    default:
+      return "modify";
+  }
+}
+
 function countHighUnresolvedDrift(report: PreparedIntentRuntimeDriftReportLike | undefined): number {
   if (!report || !Array.isArray(report.rows)) return 0;
   let count = 0;
@@ -298,6 +346,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
   }
   const assessment = input.intentAssessmentReport ?? {};
   const refList: ArtifactRef[] = [assessmentRef];
+  if (input.intentPlanActionabilityReportRef) refList.push(input.intentPlanActionabilityReportRef);
 
   const readiness = typeof assessment.readiness?.status === "string" ? assessment.readiness.status : "insufficient-context";
   const baseStatus: PreparedIntentPlanStatus = ASSESSMENT_READINESS_TO_STATUS[readiness] ?? "needs-review";
@@ -509,6 +558,81 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     phases.push(phase("phase:review", "Review", "review", "needs-review", obligationIds, []));
   } else if (statusValue === "needs-review") {
     phases.push(phase("phase:review", "Review", "review", "needs-review", obligationIds, []));
+  }
+
+  // ---- Actionable plan-review integration (slice 131) ----
+  // When an ACTIONABLE IntentPlanActionabilityReport is supplied for an
+  // implementation-bearing plan (prepared or needs-review draft), derive the
+  // prepared phases + verification requirements from its normalized phase drafts:
+  // draft order is preserved (ids are zero-padded so the factory's id-sort is
+  // stable), along with kind, objective, and touched paths; deliverables and
+  // acceptance criteria are carried into phase constraints. Approval and status
+  // are UNCHANGED — the report informs structure, never approval. Non-actionable
+  // reports never reach the helper (the CLI blocks them before writing a plan).
+  const actionabilityReport = input.intentPlanActionabilityReport;
+  const reportDrafts =
+    actionabilityReport && Array.isArray(actionabilityReport.normalizedPhases)
+      ? actionabilityReport.normalizedPhases
+      : [];
+  const useReportPhases =
+    actionabilityReport?.status?.value === "actionable" &&
+    reportDrafts.length > 0 &&
+    (statusValue === "prepared" || draftImplementationBearing);
+
+  if (useReportPhases) {
+    const phaseStatus: PreparedIntentPhase["status"] = statusValue === "prepared" ? "planned" : "needs-review";
+
+    // Verification requirements from the report's per-phase commands + evidence.
+    const reportRequirements: PreparedIntentVerificationRequirement[] = [];
+    const seenRequirementId = new Set<string>();
+    reportDrafts.forEach((draft, i) => {
+      const ord = String(i + 1).padStart(3, "0");
+      const label = typeof draft.title === "string" && draft.title.length > 0 ? draft.title : `phase ${i + 1}`;
+      strings(draft.verificationCommands).forEach((cmd, j) => {
+        const id = `verify:plan-${ord}-${j + 1}`;
+        if (seenRequirementId.has(id)) return;
+        seenRequirementId.add(id);
+        reportRequirements.push({ id, command: cmd, reason: `Verification for plan phase "${label}".`, sourceRefs: refList });
+      });
+      strings(draft.evidenceArtifacts).forEach((art, j) => {
+        const id = `evidence:plan-${ord}-${j + 1}`;
+        if (seenRequirementId.has(id)) return;
+        seenRequirementId.add(id);
+        reportRequirements.push({ id, reason: `Evidence artifact for plan phase "${label}": ${art}.`, sourceRefs: refList });
+      });
+    });
+    if (reportRequirements.length > 0) {
+      verificationRequirements.length = 0;
+      verificationRequirements.push(...reportRequirements);
+    }
+    const reportRequirementIds = verificationRequirements.map((requirement) => requirement.id);
+
+    // Phases from the normalized drafts (order preserved via zero-padded ids).
+    phases.length = 0;
+    reportDrafts.forEach((draft, i) => {
+      const ord = String(i + 1).padStart(3, "0");
+      const mappedKind = mapReportPhaseKind(draft.kind);
+      const isImplementation = mappedKind === "modify" || mappedKind === "refactor";
+      const phaseConstraints = [...constraints];
+      for (const deliverable of strings(draft.deliverables)) phaseConstraints.push(`deliverable: ${deliverable}`);
+      for (const criterion of strings(draft.acceptanceCriteria)) phaseConstraints.push(`acceptance: ${criterion}`);
+      for (const constraint of strings(draft.constraints)) phaseConstraints.push(constraint);
+      phases.push({
+        id: `phase:plan-${ord}`,
+        title: typeof draft.title === "string" && draft.title.length > 0 ? draft.title : `Plan phase ${i + 1}`,
+        kind: mappedKind,
+        status: phaseStatus,
+        goal: typeof draft.objective === "string" && draft.objective.length > 0 ? draft.objective : goal,
+        paths: strings(draft.touchedPaths),
+        systems,
+        capabilities,
+        steps,
+        constraints: phaseConstraints,
+        obligations: isImplementation ? obligationIds : [],
+        verificationRequirements: isImplementation || mappedKind === "verify" ? reportRequirementIds : [],
+        sourceRefs: refList,
+      });
+    });
   }
 
   const phaseKinds = new Set(phases.map((entry) => entry.kind));

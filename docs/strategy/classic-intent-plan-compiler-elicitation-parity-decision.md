@@ -281,3 +281,11 @@ review` (report-only). Following slices: **LLM-backed semantic normalization**
 **elicitation answer/merge-back loop**, and **approval-gate coupling** (blocking
 findings block approval). Each remains report/prove-side: no command execution,
 no source writes, no Circe, `intent:go` deferred.
+
+> **Update (slice 131):** the first approval-gate coupling step shipped as
+> **Intent Prepare Integration With Actionability Report** — `intent prepare` now
+> consults the report: an actionable report may feed `PreparedIntentPlan`
+> generation, while a needs-revision / blocked report prevents preparation and
+> returns the revision guidance. It still does not auto-approve, write source, run
+> commands, or implement `intent:go`. The answer / merge-back loop remains deferred.
+> See [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md).

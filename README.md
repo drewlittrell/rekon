@@ -105,8 +105,17 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > downstream artifacts, runs no commands, and writes no source. See
 > [the intent plan compiler](docs/concepts/intent-plan-compiler.md). The plan-compiler layer was
 > safety-reviewed safe/stable as read / transform / report-only — see the
-> [Intent Plan Actionability Report Safety Review](docs/strategy/intent-plan-actionability-report-safety-review.md);
-> prepare integration follows next.
+> [Intent Plan Actionability Report Safety Review](docs/strategy/intent-plan-actionability-report-safety-review.md).
+
+> **Prepare respects plan actionability:** pass the report into preparation with
+> `rekon intent prepare --assessment <ref> --actionability-report <ref>`. An **actionable** report may
+> feed `PreparedIntentPlan` generation (its normalized phase drafts shape the prepared phases +
+> verification requirements); a **needs-revision** / **blocked** report makes `intent prepare` write
+> **no** `PreparedIntentPlan`, exit non-zero, and print the revision guidance — non-actionable plans are
+> not silently prepared for approval. Prepare still does not auto-approve, creates no WorkOrder /
+> VerificationPlan, executes no commands, and writes no source; `intent:go` remains deferred. See the
+> [Intent Prepare Integration With Actionability Report](docs/strategy/intent-prepare-actionability-integration.md)
+> memo.
 
 Then inspect the workspace:
 

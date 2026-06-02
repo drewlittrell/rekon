@@ -134,6 +134,7 @@ export {
 
 export {
   type BuildPreparedIntentPlanInput,
+  type PreparedIntentActionabilityReportLike,
   type PreparedIntentAssessmentReportLike,
   type PreparedIntentCapabilityMapLike,
   type PreparedIntentHandoffCoverageReportLike,

@@ -118,10 +118,22 @@ plan reviewable and revisable before any preparation, approval, work order,
 verification, Circe handoff, or source write happens. Everything past review
 stays behind the existing intent-spine gates and the still-deferred `intent:go`.
 
+## Consumed by `intent prepare`
+
+`rekon intent prepare --assessment <ref> --actionability-report <ref>` reads this
+report (never mutates it). An **actionable** report may feed `PreparedIntentPlan`
+generation — its `normalizedPhases` shape the prepared phases + verification
+requirements, and the report ref is recorded in the prepared plan's input refs. A
+**needs-revision** / **blocked** report makes `intent prepare` write no
+`PreparedIntentPlan`, exit non-zero, and surface this report's `summary.findings`,
+`summary.questions`, and `revisionPrompt`. Prepare still grants no approval. See
+[`intent-prepare-actionability-integration.md`](../strategy/intent-prepare-actionability-integration.md).
+
 ## Related
 
 - Concept: [`docs/concepts/intent-plan-compiler.md`](../concepts/intent-plan-compiler.md)
 - Strategy: [`docs/strategy/intent-plan-actionability-report-implementation.md`](../strategy/intent-plan-actionability-report-implementation.md)
 - Safety review: [`docs/strategy/intent-plan-actionability-report-safety-review.md`](../strategy/intent-plan-actionability-report-safety-review.md)
 - Decision: [`docs/strategy/classic-intent-plan-compiler-elicitation-parity-decision.md`](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md)
+- Prepare integration: [`docs/strategy/intent-prepare-actionability-integration.md`](../strategy/intent-prepare-actionability-integration.md)
 - Spine neighbors: [`IntentAssessmentReport`](./intent-assessment-report.md), [`PreparedIntentPlan`](./prepared-intent-plan.md), [`IntentStatusReport`](./intent-status-report.md)

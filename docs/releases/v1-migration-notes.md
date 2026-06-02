@@ -32,6 +32,15 @@ circe rekon-handoff routes
 circe import rekon-handoff
 ```
 
+> Optional gating (slice 131): `rekon intent prepare` accepts `--actionability-report <ref>`
+> so a written plan's actionability gates preparation — an actionable report may feed
+> `PreparedIntentPlan` generation, while a needs-revision / blocked report blocks
+> preparation and returns the revision guidance (no plan written). It does not change the
+> canonical flow above and adds no execution power: prepare still does not auto-approve,
+> create a WorkOrder / VerificationPlan, execute commands, or write source; `intent:go`
+> remains deferred. See
+> [Intent Prepare Integration With Actionability Report](../strategy/intent-prepare-actionability-integration.md).
+
 Rekon runs the first six commands to assess, prepare a proof-approved plan, report status,
 generate the WorkOrder and VerificationPlan, and write the bundle. Circe then validates,
 previews routes, and imports the handoff — and orchestrates execution.

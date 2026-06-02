@@ -80,6 +80,7 @@ import modelCapability, {
   INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX,
   PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX,
   buildPreparedIntentPlan,
+  type PreparedIntentActionabilityReportLike,
   type PreparedIntentAssessmentReportLike,
   type PreparedIntentHandoffCoverageReportLike,
   type PreparedIntentRuntimeDriftReportLike,
@@ -4534,8 +4535,85 @@ export async function main(argv: string[]): Promise<void> {
     const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<PreparedIntentPathFreshnessReportLike>("path-freshness-report", "PathFreshnessReport");
     const { ref: proofRef, value: proofValue } = await resolveRefWithValue<PreparedIntentVerificationResultLike>("verification-result", "VerificationResult");
 
+    // Optional plan-review gate (slice 131). When an IntentPlanActionabilityReport
+    // is supplied, prepare RESPECTS it: a non-actionable report BLOCKS preparation
+    // (no PreparedIntentPlan is written) with explicit revision guidance; an
+    // actionable report feeds the prepared phases. Absent flag = backward-compatible
+    // (existing assessment-only behavior). `--actionability-report` is canonical;
+    // `--plan-actionability-report` is an accepted alias.
+    const actionabilityFlag = (typeof parsed.flags["actionability-report"] === "string"
+      ? parsed.flags["actionability-report"]
+      : typeof parsed.flags["plan-actionability-report"] === "string"
+        ? parsed.flags["plan-actionability-report"]
+        : ""
+    ).trim();
+    let actionabilityRef: ArtifactRef | undefined;
+    let actionabilityValue: PreparedIntentActionabilityReportLike | undefined;
+    if (actionabilityFlag.length > 0) {
+      const entry = await findArtifactEntry(store, actionabilityFlag);
+      if (entry.type !== "IntentPlanActionabilityReport") {
+        throw new Error(`rekon intent prepare --actionability-report must reference an IntentPlanActionabilityReport; got ${entry.type}.`);
+      }
+      actionabilityRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      actionabilityValue = (await store.read(entry)) as PreparedIntentActionabilityReportLike;
+    }
+
+    if (actionabilityValue && actionabilityRef && actionabilityValue.status?.value !== "actionable") {
+      const reportStatus = typeof actionabilityValue.status?.value === "string" ? actionabilityValue.status.value : "needs-revision";
+      const findings = typeof actionabilityValue.summary?.findings === "number" ? actionabilityValue.summary.findings : 0;
+      const questions = typeof actionabilityValue.summary?.questions === "number" ? actionabilityValue.summary.questions : 0;
+      const revisionPrompt = typeof actionabilityValue.revisionPrompt?.prompt === "string" ? actionabilityValue.revisionPrompt.prompt : "";
+      process.exitCode = 1;
+      if (json) {
+        writeOutput(
+          {
+            status: "blocked",
+            reason: `plan-actionability-${reportStatus}`,
+            actionabilityReport: { type: actionabilityRef.type, id: actionabilityRef.id },
+            summary: { findings, questions },
+            revisionPrompt,
+            boundaries: {
+              createdPreparedIntentPlan: false,
+              createdWorkOrder: false,
+              createdVerificationPlan: false,
+              createdVerificationRun: false,
+              createdVerificationResult: false,
+              executedCommands: false,
+              wroteSourceFiles: false,
+              ranCirce: false,
+              implementedIntentGo: false,
+            },
+          },
+          true,
+        );
+      } else {
+        const lines: string[] = [];
+        lines.push("Intent prepare blocked by plan actionability", "");
+        lines.push(`Report: ${actionabilityRef.type}:${actionabilityRef.id}`);
+        lines.push(`Status: ${reportStatus}`);
+        lines.push(`Findings: ${findings}`);
+        lines.push(`Questions: ${questions}`);
+        lines.push("");
+        lines.push("Next:");
+        lines.push("  Revise the source plan using the report revisionPrompt, then rerun:");
+        lines.push("  rekon intent plan review --plan <path>");
+        lines.push("  rekon intent prepare --assessment <ref> --actionability-report <report-ref>");
+        lines.push("");
+        lines.push("No PreparedIntentPlan, WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, source writes, Circe run, or intent:go were created.");
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
     const inputRefs = [
       assessmentRef,
+      actionabilityRef,
       capabilityMapRef,
       capabilityContractRef,
       stepGraphRef,
@@ -4585,6 +4663,8 @@ export async function main(argv: string[]): Promise<void> {
       pathFreshnessReportRef: freshnessRef,
       verificationResult: proofValue,
       verificationResultRef: proofRef,
+      intentPlanActionabilityReport: actionabilityValue,
+      intentPlanActionabilityReportRef: actionabilityRef,
       availableScripts,
     });
 
@@ -4595,6 +4675,7 @@ export async function main(argv: string[]): Promise<void> {
         {
           artifact: { type: ref.type, id: ref.id },
           status: { value: plan.status.value, recommendedNextAction: plan.status.recommendedNextAction },
+          ...(actionabilityRef ? { actionabilityReport: { type: actionabilityRef.type, id: actionabilityRef.id } } : {}),
           approval: { status: plan.approval.status, reasons: plan.approval.reasons },
           phases: plan.phases.length,
           obligations: plan.obligations.length,
@@ -4614,6 +4695,9 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Phases: ${plan.phases.length}`);
       lines.push(`Obligations: ${plan.obligations.length}`);
       lines.push(`Verification requirements: ${plan.verificationRequirements.length}`);
+      if (actionabilityRef) {
+        lines.push(`Actionability report: ${actionabilityRef.type}:${actionabilityRef.id} (actionable)`);
+      }
       lines.push("");
       lines.push(`Plan: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
@@ -10846,7 +10930,7 @@ function usage(): string {
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--root <path>] [--json]",
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
-    "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
+    "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
     "rekon intent approve --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] --accept <gap> [--accept <gap>...] --reason <text> [--accepted-by <name>] [--root <path>] [--json]",
     "rekon intent status transition --prepared-plan <PreparedIntentPlan:id|type:id> --previous-status <IntentStatusReport:id|type:id> [--path-freshness <ref>] [--runtime-drift <ref>] --to work-ready --reason <text> [--root <path>] [--json]",
@@ -10910,7 +10994,7 @@ function usage(): string {
     "  rekon init — create the .rekon/ workspace and config only (no scan).",
     "",
     "Intent flow:",
-    "  scan → intent context prepare → intent plan review → intent assess → intent prepare → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
+    "  scan → intent context prepare → intent plan review → intent assess → intent prepare (--actionability-report) → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
     "Fresh repo: run `rekon scan` then `rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context — not-evaluated where there is no event log) before `rekon intent assess`.",
     "The bundle can then be handed to Circe via: circe rekon-handoff validate/routes/import.",
     "Rekon prepares, proves, packages, and exports; Circe imports and orchestrates.",
