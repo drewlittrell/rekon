@@ -17,6 +17,8 @@ add a **report-first** plan-review layer (`IntentPlanActionabilityReport`) rathe
 than a mutating plan rewriter, and do it in **one bounded slice** to avoid the
 "30-slice trap" of shipping a compiler one inert sub-artifact at a time.
 
+> **Provider routing implemented (slice 138):** the shared `RekonLlmRouter` shipped as `@rekon/llm-provider` and is injected into `intent plan review` via `--llm-provider` / `--llm-model`; the report builder stays pure (no env, no network) and provider output is schema-validated + deterministically re-checked — proposal, not proof — see [`rekon-llm-provider-routing-implementation.md`](./rekon-llm-provider-routing-implementation.md).
+
 > **Provider routing (slice 137):** the deferred live-provider wiring for semantic normalization is now decided as
 > a shared `RekonLlmRouter` (task routes, injected adapters, `--llm-provider` / `--llm-model`), kept out of the
 > report builder; providers may read/transform/critique text but never approve/execute/write source/run

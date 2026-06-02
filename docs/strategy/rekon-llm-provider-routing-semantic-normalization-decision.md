@@ -3,6 +3,12 @@
 Status: decision (strategy/architecture). Decision-only — no provider
 implementation in this batch.
 
+> **Implemented (slice 138):** the shared router shipped as `@rekon/llm-provider`
+> (interfaces, `RekonLlmRouter`, mock, `coercePhaseDrafts`) and is wired into
+> `rekon intent plan review` via `--llm-provider` / `--llm-model` — no live
+> provider yet, providers stay proposal-not-proof — see
+> [`rekon-llm-provider-routing-implementation.md`](./rekon-llm-provider-routing-implementation.md).
+
 ## Context
 
 The [classic intent plan compiler / elicitation parity decision](./classic-intent-plan-compiler-elicitation-parity-decision.md)

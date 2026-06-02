@@ -114,6 +114,9 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > adapters, `--llm-provider` / `--llm-model`): providers may read/transform/critique text but never
 > approve/execute/write source/run Circe/implement `intent:go`, and LLM output is proposal, not proof —
 > see [rekon-llm-provider-routing-semantic-normalization-decision](docs/strategy/rekon-llm-provider-routing-semantic-normalization-decision.md).
+> The shared router shipped as `@rekon/llm-provider` and `rekon intent plan review` gained `--llm-provider` /
+> `--llm-model` (no live provider yet; providers stay proposal-not-proof) —
+> see [rekon-llm-provider-routing-implementation](docs/strategy/rekon-llm-provider-routing-implementation.md).
 > Report-only: it writes one `IntentPlanActionabilityReport` and creates no
 > downstream artifacts, runs no commands, and writes no source. See
 > [the intent plan compiler](docs/concepts/intent-plan-compiler.md). The plan-compiler layer was

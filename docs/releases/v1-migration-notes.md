@@ -262,4 +262,6 @@ approved plan remain immutable. Review-only — no code or version change and no
 
 > **Dogfood review (slice 136):** the closed public path is dogfooded on a realistic fresh TypeScript package and confirmed Circe-importable end-to-end — boundaries explicit, source/plan/test files immutable, no Circe-run record, `intent:go` deferred — see [`fresh-repo-intent-handoff-circe-dogfood-review.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).
 
+> **Provider routing implemented (slice 138):** the shared router shipped as `@rekon/llm-provider` with `rekon intent plan review --llm-provider` / `--llm-model`; still no live provider, no command execution, no source writes, no Circe run, no `intent:go` — see [`rekon-llm-provider-routing-implementation.md`](../strategy/rekon-llm-provider-routing-implementation.md).
+
 > **Provider routing (slice 137):** a shared LLM provider router is decided for semantic normalization (task routes, injected adapters, env/config/CLI provider selection); no provider implemented yet, and provider output stays inside the same non-executing plan-compiler boundary — see [`rekon-llm-provider-routing-semantic-normalization-decision.md`](../strategy/rekon-llm-provider-routing-semantic-normalization-decision.md).

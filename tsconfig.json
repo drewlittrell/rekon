@@ -21,6 +21,7 @@
     { "path": "./packages/capability-intent" },
     { "path": "./packages/capability-reconcile" },
     { "path": "./packages/capability-verify" },
-    { "path": "./packages/capability-ontology" }
+    { "path": "./packages/capability-ontology" },
+    { "path": "./packages/llm-provider" }
   ]
 }

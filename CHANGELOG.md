@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Rekon LLM Provider Routing Implementation** — one-hundred-thirty-eighth slice on the intent-spine
+  track. Product-capability batch (real code). Adds the new public package **`@rekon/llm-provider`** (the 22nd
+  workspace package): `RekonLlmProvider` / `RekonEmbeddingProvider` interfaces (embeddings kept **separate** from
+  completions), a task-routed **`RekonLlmRouter`** (resolution order **CLI override → task route → default route →
+  fallback**), `createMockLlmProvider` / `createMockEmbeddingProvider` / `createDisabledLlmRouter`, and
+  `coercePhaseDrafts` (a structural schema gate). No external runtime dependencies and **no network calls**. The
+  CLI gains `--llm-provider <id>` / `--llm-model <model>` on `rekon intent plan review` plus `REKON_LLM_PROVIDER`
+  / `REKON_LLM_MODEL` / `REKON_LLM_ENABLED` env resolution, and injects a router-bound adapter into the existing
+  `IntentPlanSemanticNormalizationAdapter` seam: `--semantic off` stays deterministic; `--semantic auto` with no
+  available provider deterministically falls back (the builder records a warning and still writes a report);
+  `--semantic required` with no available provider exits non-zero and writes **no** report. **This slice
+  registers no live providers** (no OpenAI/Anthropic/Google SDK, no live default) — the router is the
+  routing/fallback skeleton plus a mock for tests; `@rekon/capability-model` stays pure (no env reads, no network).
+  **Boundaries:** providers may read/transform/critique text but may not approve plans, execute commands, write
+  source files, run Circe, or implement intent:go; **LLM output is proposal, not proof** — schema-validated by
+  `coercePhaseDrafts` and deterministically re-checked by the actionability evaluator. `intent plan review` still
+  creates no PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun / VerificationResult, runs no
+  commands, and writes no source. Recommended next: **Intent Plan Compiler Semantic Normalization / Dogfood**. See
+  [`rekon-llm-provider-routing-implementation.md`](docs/strategy/rekon-llm-provider-routing-implementation.md).
 - Decided **Rekon LLM Provider Routing / Semantic Normalization Decision** — one-hundred-thirty-seventh slice on
   the intent-spine track. Strategy / architecture decision batch (docs-only; **no code change; no provider
   implemented**). Revisits the earlier "provider wiring deferred" decision now that semantic parsing is needed in

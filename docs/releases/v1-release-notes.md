@@ -366,4 +366,6 @@ npm publish. See the
 
 > **Dogfood review (slice 136):** the closed public path is dogfooded on a realistic fresh TypeScript package and confirmed Circe-importable end-to-end — boundaries explicit, source/plan/test files immutable, no Circe-run record, `intent:go` deferred — see [`fresh-repo-intent-handoff-circe-dogfood-review.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).
 
+> **Provider routing implemented (slice 138):** `@rekon/llm-provider` ships the shared router; `rekon intent plan review` gains `--llm-provider` / `--llm-model` and a router-bound adapter — no live provider yet, providers stay proposal-not-proof — see [`rekon-llm-provider-routing-implementation.md`](../strategy/rekon-llm-provider-routing-implementation.md).
+
 > **Provider routing (slice 137):** semantic normalization is being generalized into a shared LLM provider router (task routes, injected adapters, `--llm-provider` / `--llm-model`); providers may read/transform/critique text but never approve/execute/write source/run Circe/implement `intent:go`, and LLM output is proposal, not proof — see [`rekon-llm-provider-routing-semantic-normalization-decision.md`](../strategy/rekon-llm-provider-routing-semantic-normalization-decision.md).

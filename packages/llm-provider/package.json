@@ -1,0 +1,20 @@
+{
+  "name": "@rekon/llm-provider",
+  "version": "1.0.0",
+  "description": "Shared Rekon LLM provider routing foundation: provider/embedding interfaces, a task-routed RekonLlmRouter with deterministic fallback, and a mock provider. No live providers and no network calls; provider output is a proposal, not proof.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --test test/*.test.mjs"
+  }
+}

@@ -144,4 +144,6 @@ requirements, and the report ref is recorded in the prepared plan's input refs. 
 
 > **Dogfood review (slice 136):** the closed public path is dogfooded on a realistic fresh TypeScript package and confirmed Circe-importable end-to-end — boundaries explicit, source/plan/test files immutable, no Circe-run record, `intent:go` deferred — see [`fresh-repo-intent-handoff-circe-dogfood-review.md`](../strategy/fresh-repo-intent-handoff-circe-dogfood-review.md).
 
+> **Provider routing implemented (slice 138):** the `normalizationTrace` provider/model provenance is now populated by a router-bound adapter (`@rekon/llm-provider` + `rekon intent plan review --llm-provider` / `--llm-model`); no live provider yet, output stays proposal-not-proof, schema-validated and deterministically re-checked — see [`rekon-llm-provider-routing-implementation.md`](../strategy/rekon-llm-provider-routing-implementation.md).
+
 > **Provider routing (slice 137):** the report's `normalizationTrace` records provider/model provenance from a shared LLM provider router; LLM output is proposal, not proof — schema-validated and deterministically re-checked, never approving/executing/writing source/running Circe/implementing `intent:go` — see [`rekon-llm-provider-routing-semantic-normalization-decision.md`](../strategy/rekon-llm-provider-routing-semantic-normalization-decision.md).

@@ -143,7 +143,9 @@ import modelCapability, {
   type StepCapabilityGraphConfig,
   type StepCapabilityGraphEvidenceGraphLike,
   type StepCapabilityGraphPhraseReportLike,
+  type IntentPlanSemanticNormalizationAdapter,
 } from "@rekon/capability-model";
+import { RekonLlmRouter, coercePhaseDrafts } from "@rekon/llm-provider";
 import policyCapability from "@rekon/capability-policy";
 import reconcileCapability, {
   buildReconciliationPreview,
@@ -4395,6 +4397,20 @@ export async function main(argv: string[]): Promise<void> {
     }
     const planSha256 = createHash("sha256").update(planText).digest("hex");
 
+    // Router-bound semantic normalization adapter (slice 138). The router holds
+    // NO live providers in this slice, so any requested provider is unknown:
+    // `--semantic auto` deterministically falls back (the adapter returns no
+    // phases → the builder warns); `--semantic required` throws (the build
+    // rejects → the CLI exits non-zero and writes no report); `--semantic off`
+    // stays purely deterministic. Provider output is schema-gated via
+    // coercePhaseDrafts and re-checked by the deterministic actionability
+    // evaluator — it is a proposal, not proof.
+    const llmProviderFlag =
+      typeof parsed.flags["llm-provider"] === "string" ? String(parsed.flags["llm-provider"]).trim() : "";
+    const llmModelFlag =
+      typeof parsed.flags["llm-model"] === "string" ? String(parsed.flags["llm-model"]).trim() : "";
+    const planSemanticAdapter = createPlanSemanticNormalizationAdapter(semanticFlag, llmProviderFlag, llmModelFlag);
+
     const store = createLocalArtifactStore(root);
     await store.init();
 
@@ -4406,6 +4422,7 @@ export async function main(argv: string[]): Promise<void> {
       kind,
       root,
       semanticMode: semanticFlag,
+      ...(planSemanticAdapter ? { semanticNormalization: planSemanticAdapter } : {}),
     });
 
     const ref = await store.write(report, { category: "actions" });
@@ -7423,6 +7440,83 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   throw new Error(`Unknown command: ${argv.join(" ")}`);
+}
+
+type PlanSemanticNormalizationResult = Awaited<ReturnType<IntentPlanSemanticNormalizationAdapter>>;
+
+/**
+ * Build a router-bound semantic-normalization adapter for `intent plan review`
+ * (slice 138). Resolves the provider/model from `--llm-provider` / `--llm-model`
+ * and the `REKON_LLM_PROVIDER` / `REKON_LLM_MODEL` / `REKON_LLM_ENABLED`
+ * environment variables, then routes a bounded `plan.semantic-normalize` task.
+ *
+ * This slice registers NO live providers, so the router only ever falls back or
+ * fails: `auto` returns no phases (the builder warns and uses deterministic
+ * parsing); `required` throws (the build rejects and the CLI writes no report);
+ * `off` returns no adapter. Provider output is gated by `coercePhaseDrafts` and
+ * deterministically re-checked by the actionability evaluator — proposal, not
+ * proof. Returns `undefined` for `off`.
+ */
+function createPlanSemanticNormalizationAdapter(
+  mode: "off" | "auto" | "required",
+  flagProvider: string,
+  flagModel: string,
+): IntentPlanSemanticNormalizationAdapter | undefined {
+  if (mode === "off") return undefined;
+
+  const envProvider =
+    typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
+  const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
+  const envEnabled = process.env.REKON_LLM_ENABLED;
+  const enabled = envEnabled === "1" || envEnabled === "true";
+  const provider = flagProvider || envProvider;
+  const model = flagModel || envModel;
+
+  const router = new RekonLlmRouter({ config: { enabled } });
+  const override: { provider?: string; model?: string; mode: "off" | "auto" | "required" } = { mode };
+  if (provider) override.provider = provider;
+  if (model) override.model = model;
+
+  return async ({ planText, goal, kind }) => {
+    const prompt = [
+      "Normalize the following rough plan into executable phase drafts.",
+      goal ? `Goal: ${goal}` : "",
+      kind ? `Kind: ${kind}` : "",
+      "Plan:",
+      planText,
+    ]
+      .filter((line) => line.length > 0)
+      .join("\n");
+
+    const routed = await router.completeJson(
+      { task: "plan.semantic-normalize", schemaName: "IntentPlanSemanticNormalizationResult", prompt },
+      override,
+    );
+
+    if (!routed.ok) {
+      if (mode === "required") {
+        throw new Error(
+          `Semantic normalization is required but no usable provider result was available (${routed.error}).`,
+        );
+      }
+      return { phases: [] };
+    }
+
+    const phases = coercePhaseDrafts(routed.result.data);
+    if (!phases) {
+      if (mode === "required") {
+        throw new Error("Semantic normalization is required but the provider returned no usable phase drafts.");
+      }
+      return { phases: [] };
+    }
+
+    const result: PlanSemanticNormalizationResult = {
+      phases: phases as unknown as PlanSemanticNormalizationResult["phases"],
+    };
+    if (routed.result.provider) result.provider = routed.result.provider;
+    if (routed.result.model) result.model = routed.result.model;
+    return result;
+  };
 }
 
 function parseCommandResults(value: unknown): VerificationCommandResult[] {
@@ -11092,7 +11186,7 @@ function usage(): string {
     "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
-    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--root <path>] [--json]",
+    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]",
     "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",

@@ -40,14 +40,14 @@ test("all public packages are version 1.0.0", () => {
 });
 
 // ---------- 3 ----------
-test("package count is 21", () => {
-  assert.equal(packages.length, 21);
+test("package count is 22", () => {
+  assert.equal(packages.length, 22);
 });
 
 // ---------- 4 ----------
 test("zero packages are private/internal", () => {
   const privateCount = packages.filter((pkg) => pkg.private === true).length;
-  assert.equal(privateCount, 0, "expected zero private packages among the 21");
+  assert.equal(privateCount, 0, "expected zero private packages among the 22");
 });
 
 // ---------- 5 ----------
