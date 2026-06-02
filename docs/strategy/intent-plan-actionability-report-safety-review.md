@@ -229,8 +229,9 @@ prepare integration slice.** No version bump, no npm publish, no branch.
    auto-approval, source writes, command execution, or `intent:go`. See
    [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md)
    and [`intent-prepare-actionability-integration-safety-review.md`](./intent-prepare-actionability-integration-safety-review.md).
-2. **Plan Actionability Answer / Merge-Back Decision** — restore the classic
-   ask/answer/merge-back loop after prepare integration.
+2. **Plan Actionability Answer / Merge-Back Decision** (decided — slice 133) — selected
+   Option B: a future `rekon intent plan answer` writes a new `IntentPlanActionabilityReport`
+   revision. See [`plan-actionability-answer-merge-back-decision.md`](./plan-actionability-answer-merge-back-decision.md).
 3. **Semantic normalization provider wiring** — connect a concrete, bounded provider
    behind the existing adapter boundary; keep it read/transform/critique only.
 

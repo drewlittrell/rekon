@@ -42,6 +42,10 @@ circe import rekon-handoff
 > [Intent Prepare Integration With Actionability Report](../strategy/intent-prepare-actionability-integration.md),
 > safety-reviewed safe/stable in the
 > [Intent Prepare Actionability Integration Safety Review](../strategy/intent-prepare-actionability-integration-safety-review.md).
+> A future `rekon intent plan answer` (decided in the
+> [Plan Actionability Answer / Merge-Back Decision](../strategy/plan-actionability-answer-merge-back-decision.md))
+> will merge answers into a new report revision; it adds no source writes, command execution, auto-approval,
+> or `intent:go`, so it does not change the canonical flow above.
 
 Rekon runs the first six commands to assess, prepare a proof-approved plan, report status,
 generate the WorkOrder and VerificationPlan, and write the bundle. Circe then validates,

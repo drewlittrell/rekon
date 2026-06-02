@@ -84,4 +84,5 @@ safety-reviewed safe/stable (slice 132) in
 - Strategy: [`intent-plan-actionability-report-implementation.md`](../strategy/intent-plan-actionability-report-implementation.md)
 - Safety review: [`intent-plan-actionability-report-safety-review.md`](../strategy/intent-plan-actionability-report-safety-review.md)
 - Decision: [`classic-intent-plan-compiler-elicitation-parity-decision.md`](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md)
+- Answer / merge-back decision: [`plan-actionability-answer-merge-back-decision.md`](../strategy/plan-actionability-answer-merge-back-decision.md) — a future `rekon intent plan answer` will merge answers into a new report revision.
 - Neighboring concepts: [`prepared-intent-plan.md`](./prepared-intent-plan.md), [`intent-assessment.md`](./intent-assessment.md), [`intent-plan-bundle.md`](./intent-plan-bundle.md)

@@ -4,7 +4,29 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Plan Actionability Answer / Merge-Back Decision** — one-hundred-thirty-third slice on the
+  intent-spine track. Strategy / architecture decision batch (docs-only; no runtime change). Pins how Rekon
+  restores the classic `askPreparedPhaseQuestions` / `answerPreparedPhaseQuestions` loop as a single coherent
+  answer/merge-back capability on the existing `IntentPlanActionabilityReport`. **Selected Option B — an
+  explicit answer/merge-back command writes a new `IntentPlanActionabilityReport` revision** (a future
+  `rekon intent plan answer --report <ref> --answer <question-id>=<answer> [--answers <json>]`). The decision
+  pins: **answer/merge-back creates a new `IntentPlanActionabilityReport` revision rather than mutating the
+  existing report**; **answers are tied to existing elicitationQuestions by question id**
+  (`question-<phaseId>-<requirement>`); answers merge deterministically into the normalized phase drafts by
+  `answerShape` (sentence→objective/clarification, bullets→deliverables/acceptance/constraints, paths→touched
+  paths, command-or-artifact→verification commands/evidence); **merge-back re-runs actionability checks after
+  applying answers**; **incomplete answers keep the report needs-revision or blocked**; and an actionable
+  revision feeds the existing `rekon intent prepare --actionability-report` integration. Rejected: critique-only
+  (misses the loop), mutate-in-place (breaks auditability), source-plan rewrite (needs a separate write policy),
+  a separate `IntentPlanAnswerSet` artifact (deferred), and LLM-only merge-back (deterministic baseline first).
+  **Boundaries:** answer/merge-back does not write to the source plan file, does not approve plans, creates no
+  PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun / VerificationResult, executes no commands,
+  writes no source files, runs no Circe, and `intent:go` remains deferred. Adds the decision memo
+  (`docs/strategy/plan-actionability-answer-merge-back-decision.md`), a review packet, and a 22-assertion docs
+  test, plus cross-references. Recommended next slice: **Plan Actionability Answer / Merge-Back Implementation**.
+  Follows Intent Prepare Actionability Integration Safety Review at `08bbea6`.
 - Reviewed **Intent Prepare Actionability Integration Safety Review** — one-hundred-thirty-second slice on the
+  intent-spine track. Strategy / safety-review batch (docs-only; no runtime change). Re-read the shipped
   intent-spine track. Strategy / safety-review batch (docs-only; no runtime change). Re-read the shipped
   slice-131 integration between `IntentPlanActionabilityReport` and `rekon intent prepare` end-to-end and
   declared it **safe/stable** (no blocker): **`intent prepare` respects `IntentPlanActionabilityReport`** —

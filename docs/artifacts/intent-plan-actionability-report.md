@@ -137,4 +137,5 @@ requirements, and the report ref is recorded in the prepared plan's input refs. 
 - Decision: [`docs/strategy/classic-intent-plan-compiler-elicitation-parity-decision.md`](../strategy/classic-intent-plan-compiler-elicitation-parity-decision.md)
 - Prepare integration: [`docs/strategy/intent-prepare-actionability-integration.md`](../strategy/intent-prepare-actionability-integration.md)
 - Prepare integration safety review: [`docs/strategy/intent-prepare-actionability-integration-safety-review.md`](../strategy/intent-prepare-actionability-integration-safety-review.md)
+- Answer / merge-back decision: [`docs/strategy/plan-actionability-answer-merge-back-decision.md`](../strategy/plan-actionability-answer-merge-back-decision.md) — a future `rekon intent plan answer` merges answers into a new report revision.
 - Spine neighbors: [`IntentAssessmentReport`](./intent-assessment-report.md), [`PreparedIntentPlan`](./prepared-intent-plan.md), [`IntentStatusReport`](./intent-status-report.md)

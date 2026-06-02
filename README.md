@@ -118,6 +118,13 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > memo, safety-reviewed safe/stable in the
 > [Intent Prepare Actionability Integration Safety Review](docs/strategy/intent-prepare-actionability-integration-safety-review.md).
 
+> **Answer / merge-back (decided, not yet built):** a future `rekon intent plan answer` will accept answers
+> to a report's elicitation questions (tied by question id), deterministically merge them into the normalized
+> phase drafts, re-run actionability, and write a **new** `IntentPlanActionabilityReport` revision — the source
+> report and the plan file stay immutable, and an actionable revision feeds `intent prepare`. It approves
+> nothing, writes no source, runs no commands, and `intent:go` stays deferred. See the
+> [Plan Actionability Answer / Merge-Back Decision](docs/strategy/plan-actionability-answer-merge-back-decision.md).
+
 Then inspect the workspace:
 
 ```sh

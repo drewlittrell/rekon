@@ -198,11 +198,12 @@ executes no commands; writes no source files; runs no Circe; and does not implem
 
 ## Follow-Up Work
 
-1. **Plan Actionability Answer / Merge-Back Decision** (recommended next) — restore the
-   ask/answer/merge-back loop: questions → answers → merge into draft/report →
-   re-review produces an actionable report → prepare consumes it. Still no source writes
-   unless explicitly approved later, still no command execution, still no auto-approval,
-   still no `intent:go`.
+1. **Plan Actionability Answer / Merge-Back Decision** (decided — slice 133) — selected
+   Option B: a future `rekon intent plan answer` writes a new
+   `IntentPlanActionabilityReport` revision (source report + plan file immutable;
+   answers tied to question ids; re-runs actionability). Still no source writes, no
+   command execution, no auto-approval, no `intent:go`. See
+   [`plan-actionability-answer-merge-back-decision.md`](./plan-actionability-answer-merge-back-decision.md).
 2. **Fresh Repo Intent Handoff End-to-End Safety Review** (alternative) — a whole-path
    review of scan → context → review → assess → prepare → status → approve → work-order
    / verification-plan → bundle → Circe projection.

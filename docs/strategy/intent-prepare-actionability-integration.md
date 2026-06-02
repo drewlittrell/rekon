@@ -84,8 +84,10 @@ are unchanged.
 1. **Intent Prepare Integration With Actionability Report Safety Review** (shipped —
    slice 132) — ground-the-review pass over this slice declared it safe/stable. See
    [`intent-prepare-actionability-integration-safety-review.md`](./intent-prepare-actionability-integration-safety-review.md).
-2. **Plan Actionability Answer / Merge-Back Decision** (recommended next) — restore the
-   classic ask/answer/merge-back loop (questions → answers → merged plan → re-review).
+2. **Plan Actionability Answer / Merge-Back Decision** (decided — slice 133) — selected
+   Option B: a future `rekon intent plan answer` writes a new `IntentPlanActionabilityReport`
+   revision (questions → answers → merged report → re-review → prepare). See
+   [`plan-actionability-answer-merge-back-decision.md`](./plan-actionability-answer-merge-back-decision.md).
 
 ## Related
 

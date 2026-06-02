@@ -57,9 +57,12 @@ scope:
   `rekon intent prepare` (actionable → may shape the PreparedIntentPlan; non-actionable →
   blocks with revision guidance, no auto-approval), safety-reviewed safe/stable in slice 132.
   The remaining classic `askPreparedPhaseQuestions` / `answerPreparedPhaseQuestions`
-  answer/merge-back loop is the next compiler-loop step. See
-  [the intent plan compiler](../concepts/intent-plan-compiler.md) and the
-  [Intent Prepare Actionability Integration Safety Review](./intent-prepare-actionability-integration-safety-review.md).
+  answer/merge-back loop was **decided** in slice 133 (Option B — a future `rekon intent plan
+  answer` merges answers into a new `IntentPlanActionabilityReport` revision; no source writes,
+  no command execution, no auto-approval, no `intent:go`); implementation follows. See
+  [the intent plan compiler](../concepts/intent-plan-compiler.md), the
+  [Intent Prepare Actionability Integration Safety Review](./intent-prepare-actionability-integration-safety-review.md),
+  and the [Plan Actionability Answer / Merge-Back Decision](./plan-actionability-answer-merge-back-decision.md).
 - **First external rule-pack example.** ✅ Shipped as
   `examples/import-boundary-rule-pack`. Community-style evaluator-only
   capability that consumes `EvidenceGraph` and produces a `FindingReport`

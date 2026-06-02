@@ -8226,9 +8226,13 @@ decomposition → actionability checks → elicitation questions → revision fe
 report-first layer upstream of assess / prepare / approve. As of slice 131,
 `rekon intent prepare` respects the report (actionable → may shape the PreparedIntentPlan;
 non-actionable → blocks with revision guidance, no auto-approval), safety-reviewed
-safe/stable in slice 132. The next compiler-loop step is the **Plan Actionability Answer /
-Merge-Back Decision**. See [the intent plan compiler](../concepts/intent-plan-compiler.md)
-and the [Intent Prepare Actionability Integration Safety Review](./intent-prepare-actionability-integration-safety-review.md).
+safe/stable in slice 132. The **Plan Actionability Answer / Merge-Back Decision** (slice 133)
+selected Option B — a future `rekon intent plan answer` will merge answers to elicitation
+questions into a new `IntentPlanActionabilityReport` revision (no source writes, no command
+execution, no auto-approval, no `intent:go`); implementation follows. See
+[the intent plan compiler](../concepts/intent-plan-compiler.md), the
+[Intent Prepare Actionability Integration Safety Review](./intent-prepare-actionability-integration-safety-review.md),
+and the [Plan Actionability Answer / Merge-Back Decision](./plan-actionability-answer-merge-back-decision.md).
 
 ## Cross-References
 
