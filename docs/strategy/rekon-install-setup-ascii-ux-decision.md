@@ -241,3 +241,7 @@ Still no postinstall onboarding, no `create-rekon` before the setup UI is decide
 > commands (no ASCII in `--json`, `NO_COLOR` / `REKON_NO_BANNER` respected, setup never runs scan or
 > creates `.rekon/`). Next: Rekon Setup / Welcome UI Safety Review. See
 > [Rekon Setup / Welcome UI](../concepts/rekon-setup-welcome.md).
+
+> Update (slice 119): step 1 was reviewed — **Rekon Setup / Welcome UI v1 is safe/stable**. Next:
+> Rekon Interactive Setup Prompt Decision. See
+> [Rekon Setup / Welcome UI Safety Review](./rekon-setup-welcome-ui-safety-review.md).

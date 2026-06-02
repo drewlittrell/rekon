@@ -221,3 +221,14 @@ the banner, non-TTY shows the compact mark and never prompts. No prompts, no `cr
 postinstall onboarding, no dependency, no Circe execution, no command execution, no source writes;
 `intent:go` remains deferred. No package version change and no npm publish. See
 [Rekon Setup / Welcome UI](../concepts/rekon-setup-welcome.md).
+
+## Update — Setup / Welcome UI Reviewed (slice 119)
+
+The Rekon Setup / Welcome UI Safety Review confirmed the slice-118 `rekon welcome` / `rekon setup`
+implementation is **safe/stable**. `rekon welcome` is explanatory (not action-taking); `rekon setup`
+is deterministic and non-interactive, does not run scan, does not create `.rekon/` before scan, and
+generates no docs / agent handoff / CI / VerificationPlan. ASCII art never appears in `--json`;
+`REKON_NO_BANNER` / `NO_COLOR` are respected; non-TTY setup does not prompt; onboarding implies no
+Circe run, command execution, or source writes; `intent:go` remains deferred. No package version
+change and no npm publish. See
+[Rekon Setup / Welcome UI Safety Review](../strategy/rekon-setup-welcome-ui-safety-review.md).

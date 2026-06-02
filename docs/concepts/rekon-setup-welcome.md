@@ -75,3 +75,9 @@ prompts. **intent:go remains deferred.**
 _Implemented (slice 118): the welcome / setup UI foundation. No interactive
 prompts, no `create-rekon`, no postinstall onboarding, no `intent:go`. Next:
 Rekon Setup / Welcome UI Safety Review._
+
+_Reviewed (slice 119): `rekon welcome` / `rekon setup` are **safe/stable** — explanatory,
+deterministic, non-interactive; setup does not run scan or create `.rekon/` before scan; `--json` is
+banner-free; onboarding implies no command execution, source writes, or Circe run; `intent:go`
+deferred. Next: Rekon Interactive Setup Prompt Decision. See
+[Rekon Setup / Welcome UI Safety Review](../strategy/rekon-setup-welcome-ui-safety-review.md)._

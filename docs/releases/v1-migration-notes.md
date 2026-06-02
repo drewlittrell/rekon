@@ -158,3 +158,10 @@ ASCII art never appears in `--json`; `NO_COLOR` / `REKON_NO_BANNER` are respecte
 prompts. `rekon scan` remains the canonical first-run command and `rekon refresh` stays expert /
 compatibility. No prompts, no `create-rekon`, no postinstall, `intent:go` deferred. No package
 version change and no npm publish. See [Rekon Setup / Welcome UI](../concepts/rekon-setup-welcome.md).
+
+**Update (slice 119): setup / welcome UI reviewed safe/stable.** The Rekon Setup / Welcome UI Safety
+Review confirmed `rekon welcome` / `rekon setup` are safe/stable: welcome is explanatory, setup is
+deterministic / non-interactive, setup does not run scan or create `.rekon/` before scan, `--json`
+is banner-free, and onboarding implies no command execution, source writes, or Circe run. `intent:go`
+remains deferred. No package version change and no npm publish. See
+[Rekon Setup / Welcome UI Safety Review](../strategy/rekon-setup-welcome-ui-safety-review.md).

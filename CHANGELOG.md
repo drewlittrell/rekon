@@ -4,6 +4,16 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Rekon Setup / Welcome UI Safety Review** — one-hundred-nineteenth slice on the
+  codebase-intel-classic capability-ontology track. Strategy / safety-review batch confirming the
+  slice-118 Rekon Setup / Welcome UI Implementation is **safe/stable**: `rekon welcome` is
+  explanatory, not action-taking; `rekon setup` is deterministic and non-interactive — it does not
+  run scan, does not create `.rekon/` before scan, and does not generate docs / agent handoff / CI /
+  VerificationPlan; ASCII art never appears in `--json`; `REKON_NO_BANNER` suppresses the banner and
+  `NO_COLOR` suppresses ANSI color; non-TTY setup does not prompt; onboarding implies no Circe run,
+  command execution, or source writes; `intent:go` remains deferred. Adds the safety-review memo, a
+  20-assertion docs test, a review packet, and additive doc pointers. No code, CLI, package, version,
+  or runtime change. Recommended next: **Rekon Interactive Setup Prompt Decision**.
 - Implemented **Rekon Setup / Welcome UI Implementation** — one-hundred-eighteenth slice on the
   codebase-intel-classic capability-ontology track. Product-capability batch adding the
   non-interactive-safe welcome / setup UI foundation decided by the Rekon Install / Setup / ASCII Art

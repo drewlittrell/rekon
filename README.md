@@ -1120,6 +1120,20 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # Recommended next slice: CapabilityPhraseReport safety
 # review.
 #
+# Rekon Setup / Welcome UI Safety Review has shipped.
+# One-hundred-nineteenth slice on the codebase-intel-classic capability-ontology track.
+# Strategy / safety-review batch. Reviews the slice-118 welcome/setup UI end-to-end.
+#   - Confirmed safe/stable: rekon welcome is explanatory (not action-taking); rekon setup is
+#     deterministic + non-interactive — does not run scan, does not create .rekon/ before scan, and
+#     generates no docs / agent / CI / VerificationPlan.
+#   - ASCII art never in --json; REKON_NO_BANNER suppresses the banner; NO_COLOR suppresses ANSI
+#     color; non-TTY setup does not prompt.
+#   - Onboarding implies no Circe run, command execution, or source writes; intent:go deferred.
+#     No code or behavior change.
+#
+# See docs/strategy/rekon-setup-welcome-ui-safety-review.md.
+# Recommended next slice: Rekon Interactive Setup Prompt Decision.
+#
 # Rekon Setup / Welcome UI has shipped.
 # One-hundred-eighteenth slice on the codebase-intel-classic capability-ontology track.
 # Product-capability batch: the non-interactive-safe welcome / setup UI foundation.
