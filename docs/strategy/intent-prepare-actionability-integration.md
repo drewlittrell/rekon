@@ -87,7 +87,7 @@ are unchanged.
 2. **Plan Actionability Answer / Merge-Back Decision** (decided — slice 133) — selected
    Option B: a future `rekon intent plan answer` writes a new `IntentPlanActionabilityReport`
    revision (questions → answers → merged report → re-review → prepare). See
-   [`plan-actionability-answer-merge-back-decision.md`](./plan-actionability-answer-merge-back-decision.md).
+   [`plan-actionability-answer-merge-back-decision.md`](./plan-actionability-answer-merge-back-decision.md) (shipped: [`plan-actionability-answer-merge-back-implementation.md`](./plan-actionability-answer-merge-back-implementation.md)).
 
 ## Related
 

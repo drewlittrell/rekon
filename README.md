@@ -101,7 +101,10 @@ to drive a single phase. See [docs/concepts/refresh.md](docs/concepts/refresh.md
 > **Review a rough plan first:** `rekon intent plan review --plan <path>` compiles a raw or
 > semi-structured plan into phase drafts and reports whether it is actionable / needs-revision /
 > blocked — with findings, elicitation questions, and an operator-or-LLM revision prompt — before
-> `rekon intent assess`. Report-only: it writes one `IntentPlanActionabilityReport` and creates no
+> `rekon intent assess`. Then `rekon intent plan answer --report <ref> --answer <question-id>=<answer>`
+> (or `--answers <json>`) merges your answers deterministically into a new `IntentPlanActionabilityReport`
+> revision and re-scores it — closing the classic ask/answer loop without mutating the source report.
+> Report-only: it writes one `IntentPlanActionabilityReport` and creates no
 > downstream artifacts, runs no commands, and writes no source. See
 > [the intent plan compiler](docs/concepts/intent-plan-compiler.md). The plan-compiler layer was
 > safety-reviewed safe/stable as read / transform / report-only — see the

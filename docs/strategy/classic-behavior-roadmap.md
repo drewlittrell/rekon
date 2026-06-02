@@ -62,7 +62,7 @@ scope:
   no command execution, no auto-approval, no `intent:go`); implementation follows. See
   [the intent plan compiler](../concepts/intent-plan-compiler.md), the
   [Intent Prepare Actionability Integration Safety Review](./intent-prepare-actionability-integration-safety-review.md),
-  and the [Plan Actionability Answer / Merge-Back Decision](./plan-actionability-answer-merge-back-decision.md).
+  and the [Plan Actionability Answer / Merge-Back Decision](./plan-actionability-answer-merge-back-decision.md), shipped as `rekon intent plan answer` ([implementation](./plan-actionability-answer-merge-back-implementation.md), slice 134).
 - **First external rule-pack example.** ✅ Shipped as
   `examples/import-boundary-rule-pack`. Community-style evaluator-only
   capability that consumes `EvidenceGraph` and produces a `FindingReport`

@@ -17,19 +17,22 @@
 // See docs/concepts/intent-plan-compiler.md and
 // docs/strategy/intent-plan-actionability-report-implementation.md.
 
-import type { ArtifactHeader } from "@rekon/kernel-artifacts";
+import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type IntentPlanActionabilityFinding,
   type IntentPlanActionabilityReport,
   type IntentPlanActionabilityRequirement,
   type IntentPlanActionabilitySeverity,
+  type IntentPlanAnswer,
   type IntentPlanElicitationQuestion,
   type IntentPlanEvidenceGate,
+  type IntentPlanMergeTrace,
   type IntentPlanNormalizationMethod,
   type IntentPlanNormalizationProvenance,
   type IntentPlanPhaseDraft,
   type IntentPlanPhaseDraftKind,
   type IntentPlanSourceShape,
+  type IntentPlanUnappliedAnswer,
   createIntentPlanActionabilityReport,
 } from "@rekon/kernel-repo-model";
 
@@ -353,6 +356,10 @@ function evaluatePhase(phase: IntentPlanPhaseDraft, indexBase: number): PhaseEva
   const text = phaseText(phase);
   const ambiguityCritical = AMBIGUITY_CRITICAL_RE.test(text);
   const ambiguitySoft = AMBIGUITY_SOFT_RE.test(text);
+  // An explicit clarification constraint (e.g. an answered elicitation question
+  // merged back into the phase) resolves ambiguity without erasing the original
+  // source evidence that still carries the ambiguous wording.
+  const hasClarification = phase.constraints.some((c) => /^\s*clarification:/i.test(c));
 
   const hasVerification = phase.verificationCommands.length > 0 || phase.evidenceArtifacts.length > 0;
   const satisfied: Record<IntentPlanActionabilityRequirement, boolean> = {
@@ -361,7 +368,7 @@ function evaluatePhase(phase: IntentPlanPhaseDraft, indexBase: number): PhaseEva
     "acceptance-criteria": phase.acceptanceCriteria.length > 0,
     "implementation-scope": phase.touchedPaths.length > 0,
     "verification-evidence": hasVerification,
-    "ambiguity-clearance": !ambiguityCritical && !ambiguitySoft,
+    "ambiguity-clearance": (!ambiguityCritical && !ambiguitySoft) || hasClarification,
     "phase-contract": phase.objective.trim().length > 0 && phase.deliverables.length > 0 && phase.acceptanceCriteria.length > 0,
     "evidence-gates": hasVerification,
   };
@@ -444,6 +451,56 @@ function buildRevisionPrompt(
   return { prompt: lines.join("\n"), targetAudience: "operator-or-llm", requiredChanges };
 }
 
+type IntentPlanEvaluatedBody = {
+  evaluatedPhases: IntentPlanPhaseDraft[];
+  findings: IntentPlanActionabilityFinding[];
+  questions: IntentPlanElicitationQuestion[];
+  evidenceGates: IntentPlanEvidenceGate[];
+  status: IntentPlanActionabilityReport["status"]["value"];
+  reason: string;
+  revisionPrompt: IntentPlanActionabilityReport["revisionPrompt"];
+  summary: IntentPlanActionabilityReport["summary"];
+};
+
+// Shared evaluator: turn a set of (already-normalized) phase drafts into the
+// findings / questions / evidence-gates / status / summary that make up an
+// IntentPlanActionabilityReport body. Both the initial review path and the
+// answered (merge-back) path call this so they cannot drift apart.
+function evaluatePlanPhases(phases: IntentPlanPhaseDraft[], ctx: { planPath?: string; goal?: string }): IntentPlanEvaluatedBody {
+  const evaluations = phases.map((phase, i) => evaluatePhase(phase, i));
+  const evaluatedPhases = evaluations.map((e) => e.phase);
+  const findings = evaluations.flatMap((e) => e.findings);
+  const questions = evaluations.flatMap((e) => e.questions);
+  const evidenceGates = evaluations.map((e) => e.evidenceGate);
+
+  const hasCritical = findings.some((f) => f.severity === "critical");
+  const status: IntentPlanActionabilityReport["status"]["value"] =
+    evaluatedPhases.length === 0 || hasCritical
+      ? "blocked"
+      : findings.length > 0
+        ? "needs-revision"
+        : "actionable";
+  const reason =
+    evaluatedPhases.length === 0
+      ? "No usable phases could be extracted from the plan."
+      : hasCritical
+        ? "The plan has critical actionability gaps (ambiguity that changes implementation meaning)."
+        : findings.length > 0
+          ? "The plan has unresolved actionability findings; revise before approval."
+          : "Every phase has an objective, deliverables, acceptance criteria, scope, and verification evidence.";
+
+  const revisionPrompt = buildRevisionPrompt(ctx.planPath, ctx.goal, status, findings, questions);
+  const summary = {
+    totalPhases: evaluatedPhases.length,
+    actionablePhases: evaluatedPhases.filter((p) => p.actionability.status === "actionable").length,
+    blockedPhases: evaluatedPhases.filter((p) => p.actionability.status === "blocked").length,
+    questions: questions.length,
+    findings: findings.length,
+  };
+
+  return { evaluatedPhases, findings, questions, evidenceGates, status, reason, revisionPrompt, summary };
+}
+
 // ---------------------------------------------------------------------------
 // buildIntentPlanActionabilityReport
 // ---------------------------------------------------------------------------
@@ -501,30 +558,10 @@ export async function buildIntentPlanActionabilityReport(
     }
   }
 
-  // Evaluate actionability over whichever phases we ended up with.
-  const evaluations = phases.map((phase, i) => evaluatePhase(phase, i));
-  const evaluatedPhases = evaluations.map((e) => e.phase);
-  const findings = evaluations.flatMap((e) => e.findings);
-  const questions = evaluations.flatMap((e) => e.questions);
-  const evidenceGates = evaluations.map((e) => e.evidenceGate);
-
-  const hasCritical = findings.some((f) => f.severity === "critical");
-  const status =
-    evaluatedPhases.length === 0 || hasCritical
-      ? "blocked"
-      : findings.length > 0
-        ? "needs-revision"
-        : "actionable";
-  const reason =
-    evaluatedPhases.length === 0
-      ? "No usable phases could be extracted from the plan."
-      : hasCritical
-        ? "The plan has critical actionability gaps (ambiguity that changes implementation meaning)."
-        : findings.length > 0
-          ? "The plan has unresolved actionability findings; revise before approval."
-          : "Every phase has an objective, deliverables, acceptance criteria, scope, and verification evidence.";
-
-  const revisionPrompt = buildRevisionPrompt(input.planPath, input.goal, status, findings, questions);
+  // Evaluate actionability over whichever phases we ended up with. The same
+  // evaluator is reused by the answered-report path (merge-back, slice 134).
+  const { evaluatedPhases, findings, questions, evidenceGates, status, reason, revisionPrompt, summary } =
+    evaluatePlanPhases(phases, { planPath: input.planPath, goal: input.goal });
 
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const idStamp = Date.parse(generatedAt);
@@ -555,13 +592,7 @@ export async function buildIntentPlanActionabilityReport(
     elicitationQuestions: questions,
     revisionPrompt,
     evidenceGates,
-    summary: {
-      totalPhases: evaluatedPhases.length,
-      actionablePhases: evaluatedPhases.filter((p) => p.actionability.status === "actionable").length,
-      blockedPhases: evaluatedPhases.filter((p) => p.actionability.status === "blocked").length,
-      questions: questions.length,
-      findings: findings.length,
-    },
+    summary,
     boundaries: {
       executedCommands: false,
       wroteSourceFiles: false,
@@ -583,4 +614,334 @@ export async function buildIntentPlanActionabilityReport(
   if (provider) report.normalizationTrace.provider = provider;
 
   return createIntentPlanActionabilityReport(report);
+}
+
+// ---------------------------------------------------------------------------
+// buildAnsweredIntentPlanActionabilityReport (slice 134)
+//
+// Deterministic answer / merge-back. Reads an existing IntentPlanActionabilityReport,
+// merges operator/agent answers (tied to that report's elicitation questions by
+// question id) into COPIES of the normalized phase drafts, re-runs the SAME
+// actionability evaluator, and returns ONE new report revision. It never mutates the
+// source report, never writes the source plan file, never invents fields, executes
+// no commands, and creates no PreparedIntentPlan / WorkOrder / VerificationPlan /
+// VerificationRun / VerificationResult.
+// ---------------------------------------------------------------------------
+
+export type IntentPlanAnswerInput = { questionId: string; answer: string };
+
+export type IntentPlanAnswerBlockerCategory =
+  | "missing-report"
+  | "missing-report-ref"
+  | "unknown-question"
+  | "empty-answer"
+  | "invalid-answer-shape"
+  | "duplicate-answer"
+  | "unsupported-requirement"
+  | "no-applicable-phase";
+
+export type IntentPlanAnswerBlocker = {
+  id: string;
+  category: IntentPlanAnswerBlockerCategory;
+  severity: "blocker";
+  message: string;
+};
+
+export type BuildAnsweredIntentPlanActionabilityReportInput = {
+  report?: IntentPlanActionabilityReport | null;
+  reportRef?: ArtifactRef | null;
+  answers: IntentPlanAnswerInput[];
+  answeredBy?: string;
+  answeredAt?: string;
+  root?: string;
+  generatedAt?: string;
+};
+
+export type IntentPlanAnswerResult =
+  | {
+      status: "merged";
+      report: IntentPlanActionabilityReport;
+      blockers: [];
+      appliedAnswers: number;
+      unappliedAnswers: IntentPlanUnappliedAnswer[];
+    }
+  | {
+      status: "blocked";
+      report: null;
+      blockers: IntentPlanAnswerBlocker[];
+      appliedAnswers: 0;
+      unappliedAnswers: IntentPlanUnappliedAnswer[];
+    };
+
+function parseBulletItems(answer: string): string[] {
+  return answer
+    .split(/\r?\n|;/)
+    .map((s) => s.replace(/^\s*[-*]\s*/, "").trim())
+    .filter((s) => s.length > 0);
+}
+
+function looksPathLike(token: string): boolean {
+  return token.length > 0 && !/\s/.test(token) && /[/.]/.test(token);
+}
+
+function parsePathItems(answer: string): string[] {
+  return answer
+    .split(/[\s,;]+/)
+    .map((t) => t.trim())
+    .filter((t) => looksPathLike(t));
+}
+
+function parseCommandOrArtifactItems(answer: string): { commands: string[]; artifacts: string[] } {
+  const lines = answer
+    .split(/\r?\n|;/)
+    .map((s) => s.replace(/^\s*[-*]\s*/, "").trim())
+    .filter((s) => s.length > 0);
+  const commands: string[] = [];
+  const artifacts: string[] = [];
+  for (const line of lines) {
+    if (looksPathLike(line)) artifacts.push(line);
+    else commands.push(line);
+  }
+  return { commands, artifacts };
+}
+
+function mergeUnique(target: string[], items: string[]): number {
+  let added = 0;
+  for (const item of items) {
+    if (!target.includes(item)) {
+      target.push(item);
+      added += 1;
+    }
+  }
+  return added;
+}
+
+function clonePhaseDraft(phase: IntentPlanPhaseDraft): IntentPlanPhaseDraft {
+  return {
+    ...phase,
+    deliverables: [...phase.deliverables],
+    acceptanceCriteria: [...phase.acceptanceCriteria],
+    touchedPaths: [...phase.touchedPaths],
+    verificationCommands: [...phase.verificationCommands],
+    evidenceArtifacts: [...phase.evidenceArtifacts],
+    constraints: [...phase.constraints],
+    sourceEvidence: phase.sourceEvidence.map((e) => ({ ...e })),
+    actionability: {
+      status: phase.actionability.status,
+      satisfiedRequirements: [...phase.actionability.satisfiedRequirements],
+      missingRequirements: [...phase.actionability.missingRequirements],
+    },
+  };
+}
+
+const ANSWER_SUPPORTED_REQUIREMENTS = new Set<IntentPlanActionabilityRequirement>([
+  "objective",
+  "deliverables",
+  "acceptance-criteria",
+  "implementation-scope",
+  "verification-evidence",
+  "ambiguity-clearance",
+  "phase-contract",
+  "evidence-gates",
+]);
+
+export function buildAnsweredIntentPlanActionabilityReport(
+  input: BuildAnsweredIntentPlanActionabilityReportInput,
+): IntentPlanAnswerResult {
+  const blockers: IntentPlanAnswerBlocker[] = [];
+  const blocked = (): IntentPlanAnswerResult => ({ status: "blocked", report: null, blockers, appliedAnswers: 0, unappliedAnswers: [] });
+
+  const report = input.report ?? null;
+  const reportRef = input.reportRef ?? null;
+  const answers = Array.isArray(input.answers) ? input.answers : [];
+
+  if (!report || typeof report !== "object" || !Array.isArray(report.elicitationQuestions) || !Array.isArray(report.normalizedPhases)) {
+    blockers.push({ id: "blocker-missing-report", category: "missing-report", severity: "blocker", message: "No source IntentPlanActionabilityReport was provided to answer." });
+    return blocked();
+  }
+  if (!reportRef || typeof reportRef.type !== "string" || reportRef.type.length === 0 || typeof reportRef.id !== "string" || reportRef.id.length === 0) {
+    blockers.push({ id: "blocker-missing-report-ref", category: "missing-report-ref", severity: "blocker", message: "A source report artifact reference (type + id) is required to record the merge trace." });
+    return blocked();
+  }
+
+  const questionsById = new Map<string, IntentPlanElicitationQuestion>();
+  for (const q of report.elicitationQuestions) questionsById.set(q.id, q);
+  const phasesById = new Map<string, IntentPlanPhaseDraft>();
+  for (const p of report.normalizedPhases) phasesById.set(p.id, p);
+
+  type ResolvedAnswer = { questionId: string; answer: string; question: IntentPlanElicitationQuestion };
+  const resolved: ResolvedAnswer[] = [];
+  const seen = new Set<string>();
+
+  for (const a of answers) {
+    const questionId = typeof a?.questionId === "string" ? a.questionId : "";
+    const answer = typeof a?.answer === "string" ? a.answer : "";
+    if (questionId.length === 0 || answer.trim().length === 0) {
+      blockers.push({ id: `blocker-empty-${questionId || "unknown"}`, category: "empty-answer", severity: "blocker", message: `Answer for "${questionId || "(missing id)"}" is empty.` });
+      continue;
+    }
+    if (seen.has(questionId)) {
+      blockers.push({ id: `blocker-duplicate-${questionId}`, category: "duplicate-answer", severity: "blocker", message: `Question "${questionId}" was answered more than once.` });
+      continue;
+    }
+    seen.add(questionId);
+    const question = questionsById.get(questionId);
+    if (!question) {
+      blockers.push({ id: `blocker-unknown-${questionId}`, category: "unknown-question", severity: "blocker", message: `Question "${questionId}" does not exist in the source report.` });
+      continue;
+    }
+    if (!ANSWER_SUPPORTED_REQUIREMENTS.has(question.requirement)) {
+      blockers.push({ id: `blocker-unsupported-${questionId}`, category: "unsupported-requirement", severity: "blocker", message: `Question "${questionId}" targets unsupported requirement "${question.requirement}".` });
+      continue;
+    }
+    if (question.phaseId && !phasesById.has(question.phaseId)) {
+      blockers.push({ id: `blocker-no-phase-${questionId}`, category: "no-applicable-phase", severity: "blocker", message: `Question "${questionId}" is scoped to phase "${question.phaseId}", which is not in the source report.` });
+      continue;
+    }
+    // Only the "paths" shape can fail; sentence / bullets / command-or-artifact always
+    // yield at least one item from non-empty text, so empty-answer already covers them.
+    if (question.requirement === "implementation-scope" && parsePathItems(answer).length === 0) {
+      blockers.push({ id: `blocker-shape-${questionId}`, category: "invalid-answer-shape", severity: "blocker", message: `Answer for "${questionId}" contains no path-like value (expected ${question.answerShape}).` });
+      continue;
+    }
+    resolved.push({ questionId, answer, question });
+  }
+
+  if (blockers.length > 0) return blocked();
+
+  // Apply answers into COPIES of the phase drafts. The source report is never mutated.
+  const workingPhases = report.normalizedPhases.map(clonePhaseDraft);
+  const workingById = new Map<string, IntentPlanPhaseDraft>();
+  for (const p of workingPhases) workingById.set(p.id, p);
+
+  const appliedRequirements: IntentPlanActionabilityRequirement[] = [];
+  const unappliedAnswers: IntentPlanUnappliedAnswer[] = [];
+  let appliedAnswers = 0;
+  const answeredAt = typeof input.answeredAt === "string" && input.answeredAt.length > 0 ? input.answeredAt : new Date().toISOString();
+
+  for (const { questionId, answer, question } of resolved) {
+    const phase = question.phaseId ? workingById.get(question.phaseId) : undefined;
+    if (!phase) {
+      unappliedAnswers.push({ questionId, reason: "Answer is not scoped to a known phase." });
+      continue;
+    }
+    const trimmed = answer.trim();
+    let added = 0;
+    switch (question.requirement) {
+      case "objective": {
+        if (phase.objective.trim().length === 0) {
+          phase.objective = trimmed;
+          added = 1;
+        } else {
+          added = mergeUnique(phase.constraints, [`clarification: ${trimmed}`]);
+        }
+        break;
+      }
+      case "ambiguity-clearance": {
+        added = mergeUnique(phase.constraints, [`clarification: ${trimmed}`]);
+        break;
+      }
+      case "deliverables": {
+        added = mergeUnique(phase.deliverables, parseBulletItems(answer));
+        break;
+      }
+      case "acceptance-criteria": {
+        added = mergeUnique(phase.acceptanceCriteria, parseBulletItems(answer));
+        break;
+      }
+      case "implementation-scope": {
+        added = mergeUnique(phase.touchedPaths, parsePathItems(answer));
+        break;
+      }
+      case "verification-evidence":
+      case "evidence-gates": {
+        const { commands, artifacts } = parseCommandOrArtifactItems(answer);
+        added = mergeUnique(phase.verificationCommands, commands) + mergeUnique(phase.evidenceArtifacts, artifacts);
+        break;
+      }
+      case "phase-contract": {
+        added = mergeUnique(phase.constraints, parseBulletItems(answer));
+        break;
+      }
+    }
+    if (added > 0) {
+      appliedAnswers += 1;
+      if (!appliedRequirements.includes(question.requirement)) appliedRequirements.push(question.requirement);
+    } else {
+      unappliedAnswers.push({ questionId, reason: "All provided values were already present in the phase; no new content merged." });
+    }
+  }
+
+  // Re-run the SAME actionability evaluator over the merged phases.
+  const body = evaluatePlanPhases(workingPhases, { planPath: report.sourcePlan.path, goal: report.request?.goal });
+
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const idStamp = Date.parse(generatedAt);
+  const artifactId = `${INTENT_PLAN_ACTIONABILITY_REPORT_ARTIFACT_ID_PREFIX}${Number.isFinite(idStamp) ? idStamp : Date.now()}`;
+  const header: ArtifactHeader = {
+    artifactType: "IntentPlanActionabilityReport",
+    artifactId,
+    schemaVersion: "0.1.0",
+    generatedAt,
+    subject: { repoId: input.root ?? report.header.subject?.repoId ?? "." },
+    producer: { id: "@rekon/capability-model.intent-plan-answer", version: "0.1.0-beta.0" },
+    inputRefs: [reportRef],
+    freshness: { status: "fresh" },
+    provenance: { confidence: 0.9 },
+  };
+
+  const sourcePlan: IntentPlanActionabilityReport["sourcePlan"] = {
+    sourceShape: report.sourcePlan.sourceShape,
+    lineCount: report.sourcePlan.lineCount ?? 0,
+  };
+  if (report.sourcePlan.path) sourcePlan.path = report.sourcePlan.path;
+  if (report.sourcePlan.sha256) sourcePlan.sha256 = report.sourcePlan.sha256;
+
+  const answerTrace: IntentPlanMergeTrace = {
+    sourceReportRef: reportRef,
+    answers: resolved.map(({ questionId, answer }) => {
+      const a: IntentPlanAnswer = { questionId, answer, answeredAt };
+      if (input.answeredBy && input.answeredBy.length > 0) a.answeredBy = input.answeredBy;
+      return a;
+    }),
+    appliedRequirements,
+    unappliedAnswers,
+    method: "deterministic",
+  };
+
+  const merged: IntentPlanActionabilityReport = {
+    header,
+    status: { value: body.status, reason: body.reason },
+    sourcePlan,
+    normalizationTrace: {
+      method: "deterministic",
+      invokedSemanticNormalization: false,
+      rationale: "Answers were merged deterministically into the normalized phase drafts; actionability was re-evaluated.",
+      provenance: "source-only",
+      warnings: [],
+    },
+    normalizedPhases: body.evaluatedPhases,
+    findings: body.findings,
+    elicitationQuestions: body.questions,
+    revisionPrompt: body.revisionPrompt,
+    evidenceGates: body.evidenceGates,
+    summary: body.summary,
+    boundaries: {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    },
+    answerTrace,
+  };
+  if (report.request && (report.request.goal || report.request.kind)) {
+    merged.request = {};
+    if (report.request.goal) merged.request.goal = report.request.goal;
+    if (report.request.kind) merged.request.kind = report.request.kind;
+  }
+
+  return { status: "merged", report: createIntentPlanActionabilityReport(merged), blockers: [], appliedAnswers, unappliedAnswers };
 }

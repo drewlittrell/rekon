@@ -4,6 +4,21 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Plan Actionability Answer / Merge-Back Implementation** — one-hundred-thirty-fourth slice on the
+  intent-spine track. Product-capability batch (real code). Adds `rekon intent plan answer --report <ref>
+  --answer <question-id>=<answer> [--answer ...] [--answers <json>] [--answered-by <name>]`, which reads an
+  existing `IntentPlanActionabilityReport`, merges answers (tied to that report's `elicitationQuestions` by
+  question id) deterministically into copies of the normalized phase drafts, re-runs the **same** actionability
+  evaluator, and writes **exactly one** new `IntentPlanActionabilityReport` revision. Restores the classic
+  `askPreparedPhaseQuestions` / `answerPreparedPhaseQuestions` / `mergeElicitationAnswersIntoDraft` loop. The
+  kernel gains additive `IntentPlanAnswer` / `IntentPlanUnappliedAnswer` / `IntentPlanMergeTrace` types and an
+  optional `IntentPlanActionabilityReport.answerTrace` (existing reports without it still validate; boundaries
+  stay validator-enforced all-false). capability-model exports `buildAnsweredIntentPlanActionabilityReport`. The
+  command **never mutates the source report, never writes the source plan file, executes no commands, and
+  creates no PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun / VerificationResult, runs no
+  Circe, and does not implement intent:go.** Canonical flow:
+  `intent plan review → intent plan answer → intent prepare --actionability-report`. See
+  [`plan-actionability-answer-merge-back-implementation.md`](docs/strategy/plan-actionability-answer-merge-back-implementation.md).
 - Decided **Plan Actionability Answer / Merge-Back Decision** — one-hundred-thirty-third slice on the
   intent-spine track. Strategy / architecture decision batch (docs-only; no runtime change). Pins how Rekon
   restores the classic `askPreparedPhaseQuestions` / `answerPreparedPhaseQuestions` loop as a single coherent

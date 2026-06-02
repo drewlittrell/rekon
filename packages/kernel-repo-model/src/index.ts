@@ -6200,6 +6200,27 @@ export type IntentPlanEvidenceGate = {
   evidence: string[];
 };
 
+// Answer / merge-back (slice 134). Optional, additive: an answered report revision
+// records the answers that were merged into the normalized phase drafts. Existing
+// reports without an answerTrace still validate.
+export type IntentPlanAnswer = {
+  questionId: string;
+  answer: string;
+  answeredAt: string;
+  answeredBy?: string;
+};
+export type IntentPlanUnappliedAnswer = {
+  questionId: string;
+  reason: string;
+};
+export type IntentPlanMergeTrace = {
+  sourceReportRef: ArtifactRef;
+  answers: IntentPlanAnswer[];
+  appliedRequirements: IntentPlanActionabilityRequirement[];
+  unappliedAnswers: IntentPlanUnappliedAnswer[];
+  method: "deterministic";
+};
+
 export type IntentPlanActionabilityReport = {
   header: ArtifactHeader;
   status: { value: IntentPlanActionabilityStatus; reason: string };
@@ -6235,6 +6256,8 @@ export type IntentPlanActionabilityReport = {
     ranCirce: boolean;
     implementedIntentGo: boolean;
   };
+  // Optional answer / merge trace (slice 134). Present only on answered revisions.
+  answerTrace?: IntentPlanMergeTrace;
 };
 
 const INTENT_PLAN_ACTIONABILITY_STATUSES = new Set<string>(["actionable", "needs-revision", "blocked"]);
@@ -6429,6 +6452,55 @@ export function createIntentPlanActionabilityReport(input: IntentPlanActionabili
     if (Object.keys(request).length > 0) report.request = request;
   }
 
+  // Optional answer / merge trace (slice 134). Additive: only attached when the
+  // caller supplies it. Existing reports omit it and still validate.
+  if (isRecord(input.answerTrace)) {
+    const rawAnswerTrace = input.answerTrace as {
+      sourceReportRef?: unknown;
+      answers?: unknown;
+      appliedRequirements?: unknown;
+      unappliedAnswers?: unknown;
+    };
+    const rawRef = isRecord(rawAnswerTrace.sourceReportRef) ? rawAnswerTrace.sourceReportRef : {};
+    const sourceReportRef: ArtifactRef = {
+      type: typeof rawRef.type === "string" && rawRef.type.length > 0 ? rawRef.type : "IntentPlanActionabilityReport",
+      id: typeof rawRef.id === "string" ? rawRef.id : "",
+      schemaVersion: typeof rawRef.schemaVersion === "string" && rawRef.schemaVersion.length > 0 ? rawRef.schemaVersion : "0.1.0",
+    };
+    if (typeof rawRef.path === "string" && rawRef.path.length > 0) sourceReportRef.path = rawRef.path;
+    if (typeof rawRef.digest === "string" && rawRef.digest.length > 0) sourceReportRef.digest = rawRef.digest;
+    const answers: IntentPlanAnswer[] = Array.isArray(rawAnswerTrace.answers)
+      ? rawAnswerTrace.answers.flatMap((a) => {
+          if (!isRecord(a)) return [];
+          const out: IntentPlanAnswer = {
+            questionId: typeof a.questionId === "string" ? a.questionId : "",
+            answer: typeof a.answer === "string" ? a.answer : "",
+            answeredAt: typeof a.answeredAt === "string" ? a.answeredAt : "",
+          };
+          if (typeof a.answeredBy === "string" && a.answeredBy.length > 0) out.answeredBy = a.answeredBy;
+          return [out];
+        })
+      : [];
+    const unappliedAnswers: IntentPlanUnappliedAnswer[] = Array.isArray(rawAnswerTrace.unappliedAnswers)
+      ? rawAnswerTrace.unappliedAnswers.flatMap((u) => {
+          if (!isRecord(u)) return [];
+          return [
+            {
+              questionId: typeof u.questionId === "string" ? u.questionId : "",
+              reason: typeof u.reason === "string" ? u.reason : "",
+            },
+          ];
+        })
+      : [];
+    report.answerTrace = {
+      sourceReportRef,
+      answers,
+      appliedRequirements: intentPlanRequirementList(rawAnswerTrace.appliedRequirements),
+      unappliedAnswers,
+      method: "deterministic",
+    };
+  }
+
   return assertIntentPlanActionabilityReport(report);
 }
 
@@ -6574,6 +6646,55 @@ export function validateIntentPlanActionabilityReport(value: unknown): Validatio
     const b = value.boundaries as Record<string, unknown>;
     for (const key of ["executedCommands", "wroteSourceFiles", "createdPreparedIntentPlan", "createdWorkOrder", "createdVerificationPlan", "ranCirce", "implementedIntentGo"]) {
       if (b[key] !== false) issues.push({ path: `$.boundaries.${key}`, message: "Expected false." });
+    }
+  }
+
+  // answerTrace is optional and additive (slice 134). Reports without it are valid.
+  if (value.answerTrace !== undefined) {
+    if (!isRecord(value.answerTrace)) {
+      issues.push({ path: "$.answerTrace", message: "Expected an object." });
+    } else {
+      const at = value.answerTrace as Record<string, unknown>;
+      if (at.method !== "deterministic") issues.push({ path: "$.answerTrace.method", message: 'Expected "deterministic".' });
+      if (!isRecord(at.sourceReportRef)) {
+        issues.push({ path: "$.answerTrace.sourceReportRef", message: "Expected an object." });
+      } else {
+        const ref = at.sourceReportRef as Record<string, unknown>;
+        if (typeof ref.type !== "string" || ref.type.length === 0) issues.push({ path: "$.answerTrace.sourceReportRef.type", message: "Expected a non-empty string." });
+        if (typeof ref.id !== "string" || ref.id.length === 0) issues.push({ path: "$.answerTrace.sourceReportRef.id", message: "Expected a non-empty string." });
+        if (typeof ref.schemaVersion !== "string" || ref.schemaVersion.length === 0) issues.push({ path: "$.answerTrace.sourceReportRef.schemaVersion", message: "Expected a non-empty string." });
+      }
+      if (!Array.isArray(at.answers)) {
+        issues.push({ path: "$.answerTrace.answers", message: "Expected an array." });
+      } else {
+        (at.answers as unknown[]).forEach((entry, index) => {
+          const p = `$.answerTrace.answers[${index}]`;
+          if (!isRecord(entry)) { issues.push({ path: p, message: "Expected an object." }); return; }
+          if (typeof entry.questionId !== "string" || entry.questionId.length === 0) issues.push({ path: `${p}.questionId`, message: "Expected a non-empty string." });
+          if (typeof entry.answer !== "string" || entry.answer.length === 0) issues.push({ path: `${p}.answer`, message: "Expected a non-empty string." });
+          if (typeof entry.answeredAt !== "string" || entry.answeredAt.length === 0) issues.push({ path: `${p}.answeredAt`, message: "Expected a non-empty string." });
+          if (entry.answeredBy !== undefined && typeof entry.answeredBy !== "string") issues.push({ path: `${p}.answeredBy`, message: "Expected a string." });
+        });
+      }
+      if (!Array.isArray(at.appliedRequirements)) {
+        issues.push({ path: "$.answerTrace.appliedRequirements", message: "Expected an array." });
+      } else {
+        (at.appliedRequirements as unknown[]).forEach((entry, index) => {
+          if (typeof entry !== "string" || !INTENT_PLAN_ACTIONABILITY_REQUIREMENTS.has(entry)) {
+            issues.push({ path: `$.answerTrace.appliedRequirements[${index}]`, message: "Expected an actionability requirement." });
+          }
+        });
+      }
+      if (!Array.isArray(at.unappliedAnswers)) {
+        issues.push({ path: "$.answerTrace.unappliedAnswers", message: "Expected an array." });
+      } else {
+        (at.unappliedAnswers as unknown[]).forEach((entry, index) => {
+          const p = `$.answerTrace.unappliedAnswers[${index}]`;
+          if (!isRecord(entry)) { issues.push({ path: p, message: "Expected an object." }); return; }
+          if (typeof entry.questionId !== "string" || entry.questionId.length === 0) issues.push({ path: `${p}.questionId`, message: "Expected a non-empty string." });
+          if (typeof entry.reason !== "string" || entry.reason.length === 0) issues.push({ path: `${p}.reason`, message: "Expected a non-empty string." });
+        });
+      }
     }
   }
 

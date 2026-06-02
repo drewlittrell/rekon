@@ -203,7 +203,7 @@ executes no commands; writes no source files; runs no Circe; and does not implem
    `IntentPlanActionabilityReport` revision (source report + plan file immutable;
    answers tied to question ids; re-runs actionability). Still no source writes, no
    command execution, no auto-approval, no `intent:go`. See
-   [`plan-actionability-answer-merge-back-decision.md`](./plan-actionability-answer-merge-back-decision.md).
+   [`plan-actionability-answer-merge-back-decision.md`](./plan-actionability-answer-merge-back-decision.md) (shipped: [`plan-actionability-answer-merge-back-implementation.md`](./plan-actionability-answer-merge-back-implementation.md)).
 2. **Fresh Repo Intent Handoff End-to-End Safety Review** (alternative) — a whole-path
    review of scan → context → review → assess → prepare → status → approve → work-order
    / verification-plan → bundle → Circe projection.

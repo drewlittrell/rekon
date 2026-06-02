@@ -43,7 +43,7 @@ circe import rekon-handoff
 > safety-reviewed safe/stable in the
 > [Intent Prepare Actionability Integration Safety Review](../strategy/intent-prepare-actionability-integration-safety-review.md).
 > A future `rekon intent plan answer` (decided in the
-> [Plan Actionability Answer / Merge-Back Decision](../strategy/plan-actionability-answer-merge-back-decision.md))
+> [Plan Actionability Answer / Merge-Back Decision](../strategy/plan-actionability-answer-merge-back-decision.md); shipped as `rekon intent plan answer` — [implementation](../strategy/plan-actionability-answer-merge-back-implementation.md))
 > will merge answers into a new report revision; it adds no source writes, command execution, auto-approval,
 > or `intent:go`, so it does not change the canonical flow above.
 

@@ -189,11 +189,17 @@ export {
 
 export {
   type BuildIntentPlanActionabilityReportInput,
+  type BuildAnsweredIntentPlanActionabilityReportInput,
+  type IntentPlanAnswerBlocker,
+  type IntentPlanAnswerBlockerCategory,
+  type IntentPlanAnswerInput,
+  type IntentPlanAnswerResult,
   type IntentPlanSemanticMode,
   type IntentPlanSemanticNormalizationAdapter,
   type IntentPlanSemanticNormalizationInput,
   type IntentPlanSemanticNormalizationResult,
   INTENT_PLAN_ACTIONABILITY_REPORT_ARTIFACT_ID_PREFIX,
+  buildAnsweredIntentPlanActionabilityReport,
   buildIntentPlanActionabilityReport,
 } from "./intent-plan-actionability-report.js";
 

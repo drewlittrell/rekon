@@ -89,6 +89,8 @@ import modelCapability, {
   INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX,
   buildIntentStatusReport,
   buildIntentPlanActionabilityReport,
+  buildAnsweredIntentPlanActionabilityReport,
+  type IntentPlanAnswerInput,
   buildApprovedPreparedIntentPlan,
   type IntentApprovalSourcePlanLike,
   type IntentApprovalIntentStatusLike,
@@ -206,6 +208,7 @@ import {
   type IntentAssessmentRequest,
   type IntentAssessmentIntentKind,
   type IntentAssessmentScope,
+  type IntentPlanActionabilityReport,
   type PreparedIntentPlan,
   type ObservedRepo,
   type OwnershipMap,
@@ -402,6 +405,7 @@ function rekonIntentWorkflow(): string[] {
     "rekon scan",
     "rekon intent context prepare",
     "rekon intent plan review",
+    "rekon intent plan answer",
     "rekon intent assess",
     "rekon intent prepare",
     "rekon intent status",
@@ -4437,6 +4441,166 @@ export async function main(argv: string[]): Promise<void> {
       );
       lines.push("");
       lines.push("No PreparedIntentPlan, WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, source writes, Circe run, or intent:go were created.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "intent" && subcommand === "plan" && positional === "answer") {
+    // `rekon intent plan answer --report <ref> --answer <question-id>=<answer>
+    // [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>]
+    // [--json]` — Plan Actionability Answer / Merge-Back (slice 134).
+    //
+    // Reads an existing IntentPlanActionabilityReport, merges answers (tied to that
+    // report's elicitation questions by question id) deterministically into COPIES of
+    // the normalized phase drafts, re-runs actionability, and writes exactly ONE new
+    // IntentPlanActionabilityReport revision. It never mutates the source report,
+    // never writes the source plan file, executes no commands, and creates no
+    // PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun /
+    // VerificationResult, and does not run Circe or implement intent:go.
+    // See docs/strategy/plan-actionability-answer-merge-back-implementation.md.
+    const reportFlag = typeof parsed.flags.report === "string" ? parsed.flags.report.trim() : "";
+    if (reportFlag.length === 0) {
+      throw new Error("rekon intent plan answer requires --report <IntentPlanActionabilityReport:id|type:id>.");
+    }
+    const answeredBy = typeof parsed.flags["answered-by"] === "string" ? parsed.flags["answered-by"].trim() : undefined;
+
+    // Collect answers from repeatable --answer <question-id>=<answer> and/or --answers <json>.
+    const answerInputs: IntentPlanAnswerInput[] = [];
+    for (const raw of parseRepeatableFlag(parsed.flags.answer)) {
+      const eq = raw.indexOf("=");
+      if (eq < 0) {
+        throw new Error(`rekon intent plan answer --answer must be <question-id>=<answer>; got "${raw}".`);
+      }
+      answerInputs.push({ questionId: raw.slice(0, eq).trim(), answer: raw.slice(eq + 1) });
+    }
+    const answersFile = typeof parsed.flags.answers === "string" ? parsed.flags.answers.trim() : "";
+    if (answersFile.length > 0) {
+      let parsedAnswers: unknown;
+      try {
+        parsedAnswers = JSON.parse(await readFile(resolve(root, answersFile), "utf8"));
+      } catch {
+        throw new Error(`rekon intent plan answer could not read or parse the answers JSON at ${answersFile}.`);
+      }
+      const list = Array.isArray(parsedAnswers)
+        ? parsedAnswers
+        : parsedAnswers && typeof parsedAnswers === "object" && Array.isArray((parsedAnswers as { answers?: unknown }).answers)
+          ? (parsedAnswers as { answers: unknown[] }).answers
+          : null;
+      if (!list) {
+        throw new Error('rekon intent plan answer --answers JSON must be an array or an object with an "answers" array.');
+      }
+      for (const entry of list) {
+        if (!entry || typeof entry !== "object") continue;
+        const rec = entry as { questionId?: unknown; id?: unknown; answer?: unknown };
+        const questionId = typeof rec.questionId === "string" ? rec.questionId : typeof rec.id === "string" ? rec.id : "";
+        const answer = typeof rec.answer === "string" ? rec.answer : "";
+        answerInputs.push({ questionId, answer });
+      }
+    }
+    if (answerInputs.length === 0) {
+      throw new Error("rekon intent plan answer requires at least one --answer <question-id>=<answer> or --answers <json>.");
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const reportEntry = await findArtifactEntry(store, reportFlag);
+    if (reportEntry.type !== "IntentPlanActionabilityReport") {
+      throw new Error(`rekon intent plan answer --report must reference an IntentPlanActionabilityReport; got ${reportEntry.type}.`);
+    }
+    const sourceReport = (await store.read(reportEntry)) as IntentPlanActionabilityReport;
+    const sourceReportRef: ArtifactRef = {
+      type: reportEntry.type,
+      id: reportEntry.id,
+      path: reportEntry.path,
+      digest: reportEntry.digest,
+      schemaVersion: reportEntry.schemaVersion ?? "0.1.0",
+    };
+
+    const result = buildAnsweredIntentPlanActionabilityReport({
+      report: sourceReport,
+      reportRef: sourceReportRef,
+      answers: answerInputs,
+      answeredBy,
+      root,
+    });
+
+    // Cosmetic boundary surface (all-false): this command writes exactly one new
+    // report revision and nothing else.
+    const boundaries = {
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      createdVerificationRun: false,
+      createdVerificationResult: false,
+      executedCommands: false,
+      wroteSourceFiles: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    };
+
+    if (result.status === "blocked") {
+      process.exitCode = 1;
+      if (json) {
+        writeOutput(
+          {
+            status: "blocked",
+            blockers: result.blockers.map((b) => ({ id: b.id, category: b.category, severity: b.severity, message: b.message })),
+            boundaries,
+          },
+          true,
+        );
+      } else {
+        const lines: string[] = [];
+        lines.push("Intent plan answer: blocked", "");
+        lines.push("No report was written. Resolve these blockers and retry:");
+        for (const b of result.blockers) lines.push(`- [${b.category}] ${b.message}`);
+        lines.push("");
+        lines.push("The source report and plan file were left unchanged. No downstream artifacts were created.");
+        writeOutput(lines.join("\n"), false);
+      }
+      return;
+    }
+
+    const ref = await store.write(result.report, { category: "actions" });
+    const nextAction = result.report.status.value === "actionable" ? "prepare-intent" : "revise-plan";
+
+    if (json) {
+      writeOutput(
+        {
+          status: result.report.status.value,
+          artifact: { type: ref.type, id: ref.id },
+          sourceReport: { type: sourceReportRef.type, id: sourceReportRef.id },
+          summary: {
+            findings: result.report.summary.findings,
+            questions: result.report.summary.questions,
+            appliedAnswers: result.appliedAnswers,
+            unappliedAnswers: result.unappliedAnswers.length,
+          },
+          unappliedAnswers: result.unappliedAnswers,
+          nextAction,
+          boundaries,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Intent plan answer", "");
+      lines.push(`New report: ${ref.type}:${ref.id}`);
+      lines.push(`Status: ${result.report.status.value}`);
+      lines.push(`Applied answers: ${result.appliedAnswers}`);
+      lines.push(`Unapplied answers: ${result.unappliedAnswers.length}`);
+      lines.push(`Findings: ${result.report.summary.findings}`);
+      lines.push(`Questions: ${result.report.summary.questions}`);
+      for (const u of result.unappliedAnswers) lines.push(`- unapplied ${u.questionId}: ${u.reason}`);
+      lines.push(
+        result.report.status.value === "actionable"
+          ? "Next: the plan is actionable — proceed to rekon intent prepare --actionability-report."
+          : "Next: answer the remaining questions or revise, then re-run rekon intent plan answer.",
+      );
+      lines.push("");
+      lines.push("The source report and plan file were left unchanged. No PreparedIntentPlan, WorkOrder, VerificationPlan, VerificationRun, VerificationResult, commands, source writes, Circe run, or intent:go were created.");
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -10929,6 +11093,7 @@ function usage(): string {
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--root <path>] [--json]",
+    "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
@@ -10994,7 +11159,7 @@ function usage(): string {
     "  rekon init — create the .rekon/ workspace and config only (no scan).",
     "",
     "Intent flow:",
-    "  scan → intent context prepare → intent plan review → intent assess → intent prepare (--actionability-report) → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
+    "  scan → intent context prepare → intent plan review → intent plan answer → intent assess → intent prepare (--actionability-report) → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
     "Fresh repo: run `rekon scan` then `rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context — not-evaluated where there is no event log) before `rekon intent assess`.",
     "The bundle can then be handed to Circe via: circe rekon-handoff validate/routes/import.",
     "Rekon prepares, proves, packages, and exports; Circe imports and orchestrates.",

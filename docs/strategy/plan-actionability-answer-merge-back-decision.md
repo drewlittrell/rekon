@@ -337,6 +337,7 @@ as later, separately-decided slices.
 
 ## Related
 
+- Implementation: [`plan-actionability-answer-merge-back-implementation.md`](./plan-actionability-answer-merge-back-implementation.md) — shipped as `rekon intent plan answer` (slice 134).
 - Prepare integration: [`intent-prepare-actionability-integration.md`](./intent-prepare-actionability-integration.md)
 - Prepare integration safety review: [`intent-prepare-actionability-integration-safety-review.md`](./intent-prepare-actionability-integration-safety-review.md)
 - Report safety review: [`intent-plan-actionability-report-safety-review.md`](./intent-plan-actionability-report-safety-review.md)
