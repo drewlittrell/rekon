@@ -4,6 +4,21 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Semantic File Understanding Intent Context Decision** — one-hundred-forty-ninth slice on the
+  intent-spine track (Track A). Strategy/architecture decision-only batch; no runtime behavior changes. Grounded the
+  actual `IntentAssessmentReport` and `IntentPlanActionabilityReport` shapes at `751757a` (recording that
+  `IntentAssessmentReport` has no top-level `recommendedNextAction` — the next action lives in `readiness` — and
+  already models `stale-context`; that `IntentPlanActionabilityReport` exposes `sourcePlan.sha256`, `evidenceGates`,
+  and a `normalizationTrace`). Selected **Option B — explicit semantic context consumption with latest-by-path
+  fallback**: `IntentAssessmentReport` / `IntentPlanActionabilityReport` may consume `SemanticFileUnderstandingReport`
+  as proposal/context via `rekon intent assess --semantic-context latest|--semantic-context-ref <ref>` and
+  `rekon intent plan review --semantic-context latest|--semantic-context-ref <ref>`. Pinned boundaries:
+  `SemanticFileUnderstandingReport` is proposal/context, not proof; semantic context consumption is explicit, not
+  automatic; semantic context must not approve plans, satisfy proof gates by itself, replace deterministic evidence
+  artifacts, execute commands, write source files, create WorkOrder or VerificationPlan, or run Circe; stale semantic
+  reports must not be consumed silently; embeddings remain deferred to a separate track; intent:go remains deferred.
+  12 boundary statements, 4 tables (option/consumption/staleness/boundary), 18 answered questions, 20-assertion docs
+  test; new memo + review packet. Next: Semantic File Understanding Intent Context Implementation.
 - Reviewed **Semantic File Understanding Scan Integration Safety Review** — one-hundred-forty-eighth slice on the
   intent-spine track (Track A). Strategy/safety-review batch; no runtime behavior changes. Ground-reviewed the shipped
   `rekon scan --semantic-files off|auto|required` integration at `d3cb9a3` (scan dispatch, flag parsing, semantic mode
