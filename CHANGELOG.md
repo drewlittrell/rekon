@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Embedding Provider / Index Decision** — one-hundred-fifty-eighth slice on the semantic-intelligence track,
+  starting the embeddings track as the next evidence source after `CapabilityEvidenceGraph` and the
+  semantic-file-understanding integration. Strategy/architecture decision-only batch; no runtime behavior changes, no
+  source changes, no embedding implementation. Grounded the old codebase-intel embedding architecture (Voyage
+  `voyage-code-3`, derived-summary-not-raw-source, regenerable JSON cache keyed by model version + per-file summary
+  hash, HNSW/hnswlib cosine index, deterministic feature-bag alongside semantic vectors) and confirmed Rekon already
+  ships the `RekonEmbeddingProvider` interface + `createMockEmbeddingProvider` and the kernel `embedding_similarity`
+  evidence / `embedding` claim sources — so embeddings need no kernel type change. Selected **Option B — an embedding
+  provider + cache/index layer that enters `CapabilityEvidenceGraph` as `embedding_similarity` evidence**: embeddings
+  become a graph evidence source, not the graph itself and not a parallel retrieval store. Pinned the chunk model
+  (`file_summary` / `symbol_summary` / `capability_text` / `doc_section` / `comment_block` / `signature` /
+  `structural_feature_bag`, identity `EmbeddingChunkRef`), storage (`.rekon/cache/embeddings/` cache/index — raw vectors
+  never canonical), index key (chunk id + sha256 + provider + model + dimensions + policy version), staleness (sha /
+  provider-model / chunking-policy / summary-text change → stale, never silent), retrieval (nearest chunk refs + scores
+  + provider/model + index version + source hashes + explanation, proposal/context not proof), privacy (no provider
+  calls by default, derived summaries not raw source), and graph integration as an opt-in flag on `rekon capability
+  graph build` mirroring `--semantic-file-reports`. Provider: mock first (tests) + **Voyage first** (parity / code
+  retrieval), OpenAI deferred as a second provider behind the same interface. Deterministic facts remain stronger than
+  embedding similarity; no command execution, no source writes, no approval, no Circe, no intent:go. Recommended next
+  slice: **Embedding Provider / Index v1**. 20-assertion docs test + full 9-command gate. See
+  [`embedding-provider-index-decision.md`](docs/strategy/embedding-provider-index-decision.md).
 - Reviewed **Semantic File Understanding → Evidence Graph Integration Safety Review** — one-hundred-fifty-seventh slice
   on the semantic-intelligence track. Strategy/safety-review batch; no runtime behavior changes, no source changes.
   Ground-reviewed the slice-156 integration end-to-end against committed source at `35453e8` and found it

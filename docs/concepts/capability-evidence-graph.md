@@ -1,5 +1,12 @@
 # Capability Evidence Graph
 
+> **Embeddings track started (slice 158):** the
+> [Embedding Provider / Index Decision](../strategy/embedding-provider-index-decision.md)
+> starts embeddings as the next graph evidence source — Voyage-first, entering as
+> `embedding_similarity` evidence; raw vectors are regenerable cache/index, never
+> canonical; retrieval is proposal/context, not proof; deterministic facts stay
+> stronger than similarity; no provider call by default.
+
 > **Semantic → Evidence Graph integration safety-reviewed (slice 157):** the
 > slice-156 integration was ground-reviewed and found **safe/stable** — opt-in,
 > inference-not-fact, deterministic facts win, stale never silent, `usedLlm`

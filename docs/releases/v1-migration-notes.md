@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **Embeddings track started (slice 158):** strategy/architecture decision-only batch — no API, artifact, or command changed; nothing to migrate. Starts the embeddings track (Voyage-first embeddings as `embedding_similarity` graph evidence) with no implementation. See [`embedding-provider-index-decision.md`](../strategy/embedding-provider-index-decision.md).
+
 > **Semantic → Evidence Graph integration safety-reviewed (slice 157):** strategy/safety-review batch — no API, artifact, or command changed; nothing to migrate. The slice-156 integration was confirmed safe/stable. See [`semantic-file-understanding-evidence-graph-integration-safety-review.md`](../strategy/semantic-file-understanding-evidence-graph-integration-safety-review.md).
 
 > **Semantic → Evidence Graph integration implemented (slice 156):** additive only — two new optional flags on `rekon capability graph build` (`--semantic-file-reports latest`, `--semantic-file-report-ref <ref>`) and new `@rekon/capability-model` exports (`selectSemanticReportsForGraph`, `SemanticReportForGraph`). No existing artifact, signature, or command changed; with no flags the build is byte-for-byte identical to before. Nothing to migrate. See [`semantic-file-understanding-evidence-graph-integration-implementation.md`](../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md).

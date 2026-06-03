@@ -4,6 +4,14 @@ Status: decided (slice 152). Base `bc5fb92`. Strategy/architecture decision-only
 batch; no runtime behavior changes, no source. Supersedes a narrow "Embeddings
 Parity Audit / Embedding Index Decision" as the immediate next step.
 
+> **Embeddings track started (slice 158):** the
+> [Embedding Provider / Index Decision](./embedding-provider-index-decision.md)
+> starts embeddings as the next graph evidence source — Voyage-first, embedded as
+> `embedding_similarity` evidence in `CapabilityEvidenceGraph`, raw vectors as
+> regenerable cache/index (never canonical), retrieval as proposal/context not
+> proof, deterministic facts stronger than similarity, no provider call by
+> default.
+
 > **v1 shipped (slice 153):** this architecture is now real. The
 > `CapabilityEvidenceGraph` artifact, the pure `buildCapabilityEvidenceGraph`
 > builder, and `rekon capability graph build` ship the deterministic substrate —

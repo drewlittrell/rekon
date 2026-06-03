@@ -247,4 +247,7 @@ publish to npm or bump versions.
 Embeddings remain the next evidence source to attach, on a separate track, as
 `embedding_similarity` evidence — proposal/context, never fact, never proof.
 Each new source enters the graph as an evidence-backed claim with bounded
-confidence.
+confidence. That track is now started: the
+[Embedding Provider / Index Decision](./embedding-provider-index-decision.md)
+(*slice 158*) selects Voyage-first embeddings as `embedding_similarity` graph
+evidence, with raw vectors as cache/index and deterministic facts authoritative.

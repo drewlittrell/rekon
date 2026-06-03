@@ -229,8 +229,11 @@ claims; summary/responsibility as evidence-backed context; provider/model
 provenance; confidence and conflicts) while staying context, not proof. No
 embeddings yet.
 
-Alternative next slice: **Embedding Provider / Index Decision** — embeddings are
-now structurally ready to land, but semantic file integration should happen
+Alternative next slice: **Embedding Provider / Index Decision** — *now decided
+(slice 158)*; see
+[`embedding-provider-index-decision.md`](./embedding-provider-index-decision.md).
+Embeddings are now structurally ready to land, but semantic file integration
+should happen
 first so LLM interpretations are represented before similarity evidence.
 
 ## What This Does Not Do
