@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Semantic File Understanding Scan Integration Safety Review** — one-hundred-forty-eighth slice on the
+  intent-spine track (Track A). Strategy/safety-review batch; no runtime behavior changes. Ground-reviewed the shipped
+  `rekon scan --semantic-files off|auto|required` integration at `d3cb9a3` (scan dispatch, flag parsing, semantic mode
+  behavior, required-mode provider preflight, file selection allow-list/exclusions, lockfile/binary/size exclusion,
+  `--semantic-file-limit` / `--semantic-file-path` / `--semantic-changed-only`, reuse by sha256 + provider/model/mode
+  policy, explicit-`artifactId` batch uniqueness, shared builder/adapter/`store.write` path, and **re-confirmed zero
+  raw NUL bytes** in both shipped `.ts` files). Declared the integration **safe/stable**: plain `rekon scan` remains
+  deterministic; semantic file understanding during scan is explicit opt-in only; provider calls are never surprising
+  defaults; source text is not sent to providers by default; `--semantic-files off` writes no report; `auto` falls
+  back safely; `required` fails cleanly without partial report writes; deterministic imports/exports remain
+  authoritative; source files are read, not modified; no command execution, embeddings, PreparedIntentPlan /
+  WorkOrder / VerificationPlan / VerificationRun / VerificationResult, or Circe; intent:go remains deferred; and
+  `SemanticFileUnderstandingReport` is not yet consumed automatically by intent context. 33-assertion docs test; new
+  memo + review packet. Next: Semantic File Understanding Intent Context Decision (embeddings remain a separate track).
 - Implemented **Semantic File Understanding Scan Integration** — one-hundred-forty-seventh slice on the
   intent-spine track (Track A). Integrates `SemanticFileUnderstandingReport` into the normal `rekon scan` path as an
   explicit opt-in semantic scan layer, **reversing** the slice-146 "batch command first, scan flag later" direction.
