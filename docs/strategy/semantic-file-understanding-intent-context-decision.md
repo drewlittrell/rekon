@@ -253,3 +253,7 @@ no intent:go; publishes nothing to npm; and bumps no versions.
 ## Semantic File Understanding Intent Context
 
 `rekon intent assess` and `rekon intent plan review` may explicitly consume SemanticFileUnderstandingReport(s) as proposal/context via `--semantic-context latest` or `--semantic-context-ref <ref>` — proposal/context, not proof; it never changes readiness or actionability status, and stale reports are never consumed silently. See [Semantic File Understanding Intent Context Implementation](./semantic-file-understanding-intent-context-implementation.md).
+
+## Semantic File Understanding Intent Context Safety Review
+
+The slice-150 semantic intent-context integration was ground-reviewed and declared safe/stable: `SemanticFileUnderstandingReport` consumption by `rekon intent assess` / `rekon intent plan review` is explicit, proposal/context-only, never weakens readiness/proof gates, and stale reports are never consumed silently. See [Semantic File Understanding Intent Context Safety Review](./semantic-file-understanding-intent-context-safety-review.md).

@@ -140,3 +140,7 @@ in v1: path-related matching plus sha/boundary staleness.
   `artifacts latest --id-only` → `intent assess --semantic-context`).
 
 Follow-up: Semantic File Understanding Intent Context Safety Review.
+
+## Semantic File Understanding Intent Context Safety Review
+
+The slice-150 semantic intent-context integration was ground-reviewed and declared safe/stable: `SemanticFileUnderstandingReport` consumption by `rekon intent assess` / `rekon intent plan review` is explicit, proposal/context-only, never weakens readiness/proof gates, and stale reports are never consumed silently. See [Semantic File Understanding Intent Context Safety Review](./semantic-file-understanding-intent-context-safety-review.md).

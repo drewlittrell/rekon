@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Semantic File Understanding Intent Context Safety Review** — one-hundred-fifty-first slice on the
+  intent-spine track (Track A). Strategy/safety-review batch; no runtime behavior changes. Ground-reviewed the shipped
+  Semantic File Understanding Intent Context integration at `de8c048` against committed source: the pure helper
+  `selectSemanticFileContext` (`packages/capability-model/src/semantic-file-context.ts`), the assess-builder injection
+  (readiness computed before semantic enrichment), the plan-review-builder injection (status/findings decided before
+  grounding append), and the CLI `resolveSemanticFileContextSelection` (opt-in returns `undefined` with no flag;
+  explicit refs take precedence and bypass the path filter; missing refs throw cleanly; `latest` is path-filtered).
+  Declared the integration **safe/stable**: SemanticFileUnderstandingReport is proposal/context, not proof; semantic
+  context consumption is explicit, not automatic; semantic context must not approve plans, satisfy proof gates by
+  itself, or replace deterministic evidence artifacts; stale semantic reports are not consumed silently; missing
+  explicit semantic-context refs fail cleanly; latest semantic context is path-filtered; IntentAssessmentReport
+  readiness remains governed by existing gates; IntentPlanActionabilityReport status remains governed by actionability,
+  not semantic context alone; semantic context creates no PreparedIntentPlan, WorkOrder, VerificationPlan,
+  VerificationRun, or VerificationResult, executes no commands, writes no source files, and runs no Circe; embeddings
+  remain deferred to a separate track; intent:go remains deferred. 19 boundary statements, 4 tables
+  (surface/consumption/boundary/option), 27-assertion docs test; new memo + review packet. Next: Embeddings Parity
+  Audit / Embedding Index Decision.
 - Shipped **Semantic File Understanding Intent Context Implementation** — one-hundred-fiftieth slice on the
   intent-spine track (Track A). Implements the slice-149 decision (Option B — explicit consumption) at `26622c5`.
   `rekon intent assess` and `rekon intent plan review` may now EXPLICITLY consume `SemanticFileUnderstandingReport`s
