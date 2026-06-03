@@ -1,5 +1,7 @@
 # Intent Plan Compiler — Semantic Normalization Quality Dogfood
 
+> **Semantic quality hardened (slice 142):** provider phases are re-checked against the source — unsupported touched paths and verification commands become findings + warnings, dropped non-goals are flagged, and a weak plan cannot become actionable by filling fields without source support. Deterministic recheck stays authoritative. See [`intent-plan-semantic-quality-hardening.md`](./intent-plan-semantic-quality-hardening.md).
+
 Status: **Proven** with a live OpenAI provider (slice 141). Path B.
 
 This memo records a live, evidence-backed evaluation of **LLM-backed semantic

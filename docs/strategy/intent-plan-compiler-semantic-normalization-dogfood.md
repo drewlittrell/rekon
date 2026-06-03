@@ -1,5 +1,7 @@
 # Intent Plan Compiler Semantic Normalization / Dogfood
 
+> **Semantic quality hardened (slice 142):** provider phases are re-checked against the source — unsupported touched paths and verification commands become findings + warnings, dropped non-goals are flagged, and a weak plan cannot become actionable by filling fields without source support. Deterministic recheck stays authoritative. See [`intent-plan-semantic-quality-hardening.md`](./intent-plan-semantic-quality-hardening.md).
+
 > **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](./intent-plan-semantic-quality-dogfood.md).
 
 Status: implemented (slice 139). Base: `8d1171a`. Follows

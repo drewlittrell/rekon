@@ -4411,6 +4411,12 @@ export async function main(argv: string[]): Promise<void> {
       typeof parsed.flags["llm-model"] === "string" ? String(parsed.flags["llm-model"]).trim() : "";
     const planSemanticAdapter = createPlanSemanticNormalizationAdapter(semanticFlag, llmProviderFlag, llmModelFlag);
 
+    // Supported-context for the semantic quality guard (slice 142): operator
+    // `--path` declarations plus the repo's package.json script command forms.
+    // Read-only and best-effort; absent context simply tightens the guard.
+    const providedPaths = parseRepeatableFlag(parsed.flags.path);
+    const packageScripts = await readPackageScriptForms(root);
+
     const store = createLocalArtifactStore(root);
     await store.init();
 
@@ -4423,6 +4429,8 @@ export async function main(argv: string[]): Promise<void> {
       root,
       semanticMode: semanticFlag,
       ...(planSemanticAdapter ? { semanticNormalization: planSemanticAdapter } : {}),
+      ...(providedPaths.length > 0 ? { providedPaths } : {}),
+      ...(packageScripts.length > 0 ? { packageScripts } : {}),
     });
 
     const ref = await store.write(report, { category: "actions" });
@@ -7476,6 +7484,28 @@ type PlanSemanticNormalizationResult = Awaited<ReturnType<IntentPlanSemanticNorm
  * proof. The API key is read here from the environment (never inside
  * capability-model, never stored in repo config). Returns `undefined` for `off`.
  */
+/**
+ * Best-effort package.json script command forms used by the semantic quality
+ * guard to recognize SUPPORTED verification commands (slice 142). Read-only;
+ * returns [] when no package.json or scripts are present. A command like
+ * "npm run build" is only "supported" when `build` is a real script.
+ */
+async function readPackageScriptForms(root: string): Promise<string[]> {
+  try {
+    const raw = await readFile(resolve(root, "package.json"), "utf8");
+    const pkg = JSON.parse(raw) as { scripts?: Record<string, unknown> };
+    const names = pkg.scripts && typeof pkg.scripts === "object" ? Object.keys(pkg.scripts) : [];
+    const forms: string[] = [];
+    for (const name of names) {
+      forms.push(`npm run ${name}`, `pnpm run ${name}`, `pnpm ${name}`, `yarn ${name}`);
+      if (name === "test" || name === "start" || name === "stop" || name === "restart") forms.push(`npm ${name}`);
+    }
+    return forms;
+  } catch {
+    return [];
+  }
+}
+
 function createPlanSemanticNormalizationAdapter(
   mode: "off" | "auto" | "required",
   flagProvider: string,
@@ -7520,7 +7550,14 @@ function createPlanSemanticNormalizationAdapter(
       "Normalize the following rough software plan into executable phase drafts.",
       'Return ONE JSON object of the shape { "phases": [ ... ] }.',
       "Each phase has: id, order (number), title, kind, objective, deliverables[], acceptanceCriteria[], touchedPaths[], verificationCommands[], evidenceArtifacts[], constraints[], sourceEvidence[].",
-      "Rules: preserve the author's meaning; do NOT invent file paths; do NOT invent commands or acceptance criteria; leave unknown fields as empty arrays or empty strings.",
+      "Rules (a deterministic reviewer re-checks every field against the source and will flag violations):",
+      "- Preserve the author's meaning; preserve non-goals and constraints verbatim where possible.",
+      "- Do NOT invent touched paths; only list a path stated in the plan or the goal.",
+      "- Do NOT invent verification commands; only list a command stated in the plan or a known package script.",
+      "- Do NOT invent acceptance criteria.",
+      "- If a path, command, or field is implied but not stated, leave it empty so the deterministic reviewer can ask for it.",
+      "- Keep missing fields as empty arrays or empty strings.",
+      "- Return only source-supported phase drafts.",
       goal ? `Goal: ${goal}` : "",
       kind ? `Kind: ${kind}` : "",
       "Plan:",
@@ -11227,7 +11264,7 @@ function usage(): string {
     "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
-    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]",
+    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--root <path>] [--json]",
     "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",

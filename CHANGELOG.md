@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Intent Plan Semantic Quality Hardening** — one-hundred-forty-second slice on the intent-spine track
+  (Path B). Turned the live semantic-quality dogfood findings into standing deterministic guards: after provider
+  phases pass the schema gate, `buildIntentPlanActionabilityReport` re-checks them against the source for the
+  `semantic-llm` path only. **Unsupported touched paths** (not in the plan, goal, or operator `--path`) become an
+  `implementation-scope` finding + warning; **unsupported verification commands** (not stated or a known package
+  script) become a `verification-evidence` finding + warning; **dropped non-goals** become a finding + warning;
+  provider content with no source evidence warns. Guard findings merge into the deterministic findings *before*
+  status is derived, so a weak plan can never become `actionable` merely by filling fields — **deterministic
+  recheck stays authoritative** and semantic output is never auto-`actionable`. The semantic prompt was hardened
+  (don't invent paths/commands/acceptance; preserve non-goals), `intent plan review` gained a repeatable
+  `--path` and reads package scripts as supported-command context, and guard warnings flow into the
+  `normalization` JSON block. Boundaries unchanged: no commands executed, no source/plan writes, no Circe,
+  intent:go deferred. Proven live (OpenAI `gpt-4o-mini`) and key-free. Tests: contract 21 (17 key-free + 4
+  live-gated), docs 13. See [`docs/strategy/intent-plan-semantic-quality-hardening.md`](docs/strategy/intent-plan-semantic-quality-hardening.md).
 - Shipped **Intent Plan Semantic Quality Dogfood** — one-hundred-forty-first slice on the intent-spine track
   (Path B). Product/quality dogfood of **LLM-backed semantic normalization** with a **live OpenAI provider**
   (`gpt-4o-mini`, plus a `gpt-4.1-mini` model-switch cross-check). Across six rough-plan shapes (brain dump,

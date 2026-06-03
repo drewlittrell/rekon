@@ -68,6 +68,10 @@ export type BuildIntentPlanActionabilityReportInput = {
   semanticNormalization?: IntentPlanSemanticNormalizationAdapter;
   semanticMode?: IntentPlanSemanticMode;
   generatedAt?: string;
+  /** Operator-declared supported paths (CLI `--path`); consulted by the semantic quality guard. */
+  providedPaths?: string[];
+  /** Package-known runnable command forms (e.g. "npm run build"); consulted by the semantic quality guard. */
+  packageScripts?: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -451,6 +455,160 @@ function buildRevisionPrompt(
   return { prompt: lines.join("\n"), targetAudience: "operator-or-llm", requiredChanges };
 }
 
+// ---------------------------------------------------------------------------
+// Semantic quality guards (slice 142)
+//
+// LLM-backed normalization is a PROPOSAL, not proof. After provider phases pass
+// the structural schema gate, these deterministic guards re-check them against
+// the SOURCE plan before the actionability evaluator trusts them: a provider may
+// not introduce unsupported touched paths or verification commands, and must
+// preserve stated non-goals. Violations become normalizationTrace warnings plus
+// findings, so the deterministic evaluator keeps semantic output from making a
+// weak plan look actionable merely by filling fields without source support. The
+// guards never reject structurally-valid output outright — they downgrade trust
+// (warn + find), not data. They run ONLY on the semantic-llm path; the
+// deterministic and merge-back paths are unaffected.
+// ---------------------------------------------------------------------------
+
+type SemanticQualityContext = {
+  planText: string;
+  goal?: string;
+  providedPaths?: string[];
+  packageScripts?: string[];
+};
+
+const NON_GOAL_STOPWORDS = new Set([
+  "change", "existing", "runtime", "files", "file", "code", "this", "that", "with", "from", "will", "keep", "make", "name", "names", "value", "values", "thing", "things",
+]);
+
+// Extract stated non-goals from the source plan: bullets under a Non-goals /
+// "Do not" section, plus inline "do not …" / "don't …" bullets. Extracts, never
+// invents; conservative (a missed non-goal under-warns, it never false-warns).
+function extractSourceNonGoals(planText: string): string[] {
+  const lines = planText.split(/\r?\n/);
+  const out: string[] = [];
+  let inSection = false;
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (/^#{1,6}\s/.test(raw)) {
+      inSection = /\bnon-?goals?\b/i.test(t) || /\bdo not\b/i.test(t) || /\bdon'?t\b/i.test(t);
+      continue;
+    }
+    if (/^(non-?goals?|do not|don'?t)\s*:?\s*$/i.test(t)) {
+      inSection = true;
+      continue;
+    }
+    const bullet = BULLET_RE.exec(raw);
+    const bulletText = bullet ? (bullet[1] ?? "").trim() : "";
+    if (inSection) {
+      if (bullet) {
+        out.push(bulletText);
+        continue;
+      }
+      if (t.length === 0) {
+        inSection = false;
+        continue;
+      }
+      inSection = false;
+    }
+    if (bullet && /\b(do not|don'?t)\b/i.test(bulletText)) out.push(bulletText);
+  }
+  return [...new Set(out.map((s) => s.replace(/\.\s*$/, "").trim().toLowerCase()).filter((s) => s.length > 0))];
+}
+
+function nonGoalPreserved(nonGoal: string, constraintsText: string): boolean {
+  const words = nonGoal.split(/[^a-z0-9]+/i).map((w) => w.toLowerCase());
+  const distinctive = words.filter((w) => w.length >= 4 && !NON_GOAL_STOPWORDS.has(w));
+  const tokens = distinctive.length > 0 ? distinctive : words.filter((w) => w.length >= 3);
+  return tokens.some((tok) => constraintsText.includes(tok));
+}
+
+function pathSupported(path: string, planLower: string, goalLower: string, providedLower: string[]): boolean {
+  const p = path.trim().toLowerCase();
+  if (p.length === 0) return true;
+  if (providedLower.some((pp) => pp === p || pp.includes(p) || p.includes(pp))) return true;
+  if (planLower.includes(p) || goalLower.includes(p)) return true;
+  const base = p.replace(/\.[a-z0-9]+$/, "");
+  if (base.length >= 3 && (planLower.includes(base) || goalLower.includes(base))) return true;
+  return false;
+}
+
+function commandSupported(cmd: string, planLower: string, scriptForms: string[]): boolean {
+  const c = cmd.trim().toLowerCase();
+  if (c.length === 0) return true;
+  if (planLower.includes(c)) return true;
+  return scriptForms.some((s) => s.length > 0 && (s === c || c.includes(s) || s.includes(c)));
+}
+
+function evaluateSemanticQuality(
+  phases: IntentPlanPhaseDraft[],
+  sq: SemanticQualityContext,
+): { warnings: string[]; findings: IntentPlanActionabilityFinding[] } {
+  const warnings: string[] = [];
+  const findings: IntentPlanActionabilityFinding[] = [];
+  const planLower = (sq.planText ?? "").toLowerCase();
+  const goalLower = (sq.goal ?? "").toLowerCase();
+  const providedLower = (sq.providedPaths ?? []).map((p) => p.trim().toLowerCase()).filter((p) => p.length > 0);
+  const scriptForms = (sq.packageScripts ?? []).map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0);
+
+  for (const phase of phases) {
+    for (const path of phase.touchedPaths) {
+      if (!pathSupported(path, planLower, goalLower, providedLower)) {
+        warnings.push(`Phase "${phase.title}": touched path "${path}" is not supported by the plan text, goal, or provided paths.`);
+        findings.push({
+          id: `finding-${phase.id}-unsupported-path-${findings.length}`,
+          severity: "high",
+          requirement: "implementation-scope",
+          phaseId: phase.id,
+          message: `Phase "${phase.title}" references an unsupported touched path "${path}" (absent from the plan text, goal, and provided paths).`,
+          sourceEvidence: phase.sourceEvidence.map((e) => e.excerpt),
+          suggestedFix: "Remove the unsupported path, or cite its source (add it to the plan or pass it via --path).",
+        });
+      }
+    }
+    for (const cmd of phase.verificationCommands) {
+      if (!commandSupported(cmd, planLower, scriptForms)) {
+        warnings.push(`Phase "${phase.title}": verification command "${cmd}" is not stated in the plan or a known package script.`);
+        findings.push({
+          id: `finding-${phase.id}-unsupported-command-${findings.length}`,
+          severity: "high",
+          requirement: "verification-evidence",
+          phaseId: phase.id,
+          message: `Phase "${phase.title}" cites an unsupported verification command "${cmd}" (absent from the plan text and known package scripts).`,
+          sourceEvidence: phase.sourceEvidence.map((e) => e.excerpt),
+          suggestedFix: "Cite a command that appears in the plan or matches a package script.",
+        });
+      }
+    }
+    const hasContent = phase.objective.trim().length > 0 || phase.deliverables.length > 0;
+    if (hasContent && phase.sourceEvidence.length === 0) {
+      warnings.push(`Phase "${phase.title}": semantic content carries no source evidence; the deterministic evaluator governs its actionability.`);
+    }
+  }
+
+  const sourceNonGoals = extractSourceNonGoals(sq.planText ?? "");
+  if (sourceNonGoals.length > 0) {
+    const constraintsText = phases.flatMap((p) => p.constraints).join(" \n ").toLowerCase();
+    const anchorPhaseId = phases[0]?.id ?? "phase:1";
+    for (const nonGoal of sourceNonGoals) {
+      if (!nonGoalPreserved(nonGoal, constraintsText)) {
+        warnings.push(`Stated non-goal not preserved in semantic output: "${nonGoal}".`);
+        findings.push({
+          id: `finding-non-goal-${findings.length}`,
+          severity: "high",
+          requirement: "implementation-scope",
+          phaseId: anchorPhaseId,
+          message: `Semantic normalization dropped a stated non-goal: "${nonGoal}". Restore it as a constraint before approval.`,
+          sourceEvidence: [],
+          suggestedFix: "Re-add the dropped non-goal to the phase constraints so it cannot be silently violated.",
+        });
+      }
+    }
+  }
+
+  return { warnings, findings };
+}
+
 type IntentPlanEvaluatedBody = {
   evaluatedPhases: IntentPlanPhaseDraft[];
   findings: IntentPlanActionabilityFinding[];
@@ -460,18 +618,34 @@ type IntentPlanEvaluatedBody = {
   reason: string;
   revisionPrompt: IntentPlanActionabilityReport["revisionPrompt"];
   summary: IntentPlanActionabilityReport["summary"];
+  semanticWarnings: string[];
 };
 
 // Shared evaluator: turn a set of (already-normalized) phase drafts into the
 // findings / questions / evidence-gates / status / summary that make up an
 // IntentPlanActionabilityReport body. Both the initial review path and the
 // answered (merge-back) path call this so they cannot drift apart.
-function evaluatePlanPhases(phases: IntentPlanPhaseDraft[], ctx: { planPath?: string; goal?: string }): IntentPlanEvaluatedBody {
+function evaluatePlanPhases(
+  phases: IntentPlanPhaseDraft[],
+  ctx: { planPath?: string; goal?: string; semanticQuality?: SemanticQualityContext },
+): IntentPlanEvaluatedBody {
   const evaluations = phases.map((phase, i) => evaluatePhase(phase, i));
   const evaluatedPhases = evaluations.map((e) => e.phase);
   const findings = evaluations.flatMap((e) => e.findings);
   const questions = evaluations.flatMap((e) => e.questions);
   const evidenceGates = evaluations.map((e) => e.evidenceGate);
+
+  // Semantic quality guards (slice 142): re-check provider output against the
+  // source BEFORE status is derived, so unsupported paths/commands and dropped
+  // non-goals become findings (keeping a weak plan from looking actionable) and
+  // surface as normalizationTrace warnings. Only the semantic-llm path passes a
+  // context; the deterministic and merge-back paths are unaffected.
+  let semanticWarnings: string[] = [];
+  if (ctx.semanticQuality) {
+    const guard = evaluateSemanticQuality(evaluatedPhases, ctx.semanticQuality);
+    semanticWarnings = guard.warnings;
+    for (const f of guard.findings) findings.push(f);
+  }
 
   const hasCritical = findings.some((f) => f.severity === "critical");
   const status: IntentPlanActionabilityReport["status"]["value"] =
@@ -498,7 +672,7 @@ function evaluatePlanPhases(phases: IntentPlanPhaseDraft[], ctx: { planPath?: st
     findings: findings.length,
   };
 
-  return { evaluatedPhases, findings, questions, evidenceGates, status, reason, revisionPrompt, summary };
+  return { evaluatedPhases, findings, questions, evidenceGates, status, reason, revisionPrompt, summary, semanticWarnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -559,9 +733,22 @@ export async function buildIntentPlanActionabilityReport(
   }
 
   // Evaluate actionability over whichever phases we ended up with. The same
-  // evaluator is reused by the answered-report path (merge-back, slice 134).
-  const { evaluatedPhases, findings, questions, evidenceGates, status, reason, revisionPrompt, summary } =
-    evaluatePlanPhases(phases, { planPath: input.planPath, goal: input.goal });
+  // evaluator is reused by the answered-report path (merge-back, slice 134). For
+  // semantic-llm output, pass a quality context so the evaluator re-checks the
+  // provider phases against the source (unsupported paths/commands, dropped
+  // non-goals -> findings + normalizationTrace warnings). Slice 142.
+  const semanticQuality: SemanticQualityContext | undefined =
+    method === "semantic-llm"
+      ? {
+          planText,
+          ...(input.goal ? { goal: input.goal } : {}),
+          ...(input.providedPaths ? { providedPaths: input.providedPaths } : {}),
+          ...(input.packageScripts ? { packageScripts: input.packageScripts } : {}),
+        }
+      : undefined;
+  const { evaluatedPhases, findings, questions, evidenceGates, status, reason, revisionPrompt, summary, semanticWarnings } =
+    evaluatePlanPhases(phases, { planPath: input.planPath, goal: input.goal, ...(semanticQuality ? { semanticQuality } : {}) });
+  for (const w of semanticWarnings) warnings.push(w);
 
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const idStamp = Date.parse(generatedAt);
