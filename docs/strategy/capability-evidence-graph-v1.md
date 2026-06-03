@@ -111,7 +111,10 @@ and the shape is ready to carry model-derived evidence without inheriting
 model-derived authority. See
 [`capability-evidence-graph-safety-review.md`](./capability-evidence-graph-safety-review.md).
 
-The next slice is the **Semantic File Understanding -> Evidence Graph Integration
-Decision** — how `SemanticFileUnderstandingReport` contributes LLM-derived
-inference claims into the graph (with provider/model provenance and bounded
-confidence), still as context and not proof. Embeddings follow.
+The **Semantic File Understanding → Evidence Graph Integration Decision** is now
+*done (slice 155)* — it selected Option B (explicit, opt-in): a future
+`--semantic-file-reports` / `--semantic-file-report-ref` flag adds semantic
+content as `llm_extraction` evidence and `llm` / `inference` claims, still as
+context and not proof, with deterministic facts authoritative. The
+implementation of that flag is the next slice; embeddings follow. See
+[`semantic-file-understanding-evidence-graph-integration-decision.md`](./semantic-file-understanding-evidence-graph-integration-decision.md).

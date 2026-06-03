@@ -22,6 +22,14 @@ Parity Audit / Embedding Index Decision" as the immediate next step.
 > the graph. See
 > [`capability-evidence-graph-safety-review.md`](./capability-evidence-graph-safety-review.md).
 
+> **Semantic source decided (slice 155):** the first LLM-evidence source is now
+> specified. The
+> [Semantic File Understanding → Evidence Graph Integration Decision](./semantic-file-understanding-evidence-graph-integration-decision.md)
+> selects Option B — `SemanticFileUnderstandingReport` enters as `llm_extraction`
+> evidence and `llm` / `inference` claims via an explicit, opt-in flag, with
+> deterministic facts authoritative and embeddings still deferred. This realizes
+> the "LLM/embedding outputs are evidence-backed inferences" pin from this memo.
+
 ## Decision Summary
 
 Selected: **Option B — CapabilityEvidenceGraph-first architecture.** Rekon's next

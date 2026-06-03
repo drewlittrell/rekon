@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Semantic File Understanding → Evidence Graph Integration Decision** — one-hundred-fifty-fifth slice on the
+  semantic-intelligence track. Strategy/architecture decision-only batch; no runtime behavior changes, no source
+  changes. Decides how `SemanticFileUnderstandingReport` contributes LLM-derived inference claims into
+  `CapabilityEvidenceGraph`. Grounded the actual field names at `33f28fb` and confirmed the kernel already accepts the
+  entire mapping with no type change: evidence `source` includes `llm_extraction`, claim `source` includes `llm`,
+  `claimType` includes `inference`, and `status` includes `accepted`/`needs-review`/`conflicted`. Selected **Option B —
+  explicit semantic-report-to-graph integration**: `CapabilityEvidenceGraph` remains deterministic by default; a future
+  explicit `rekon capability graph build --semantic-file-reports latest` / `--semantic-file-report-ref <ref>` may
+  include semantic content as `llm_extraction` evidence and `llm`/`inference` claims grounded back to the report and its
+  source excerpts. Pinned the mapping (purpose/responsibilities/touchedConcepts → inference claims; capabilitySignals →
+  capability nodes + inference claims; findings → needs-review/conflicted claims; normalizationTrace →
+  provider/model/provenance), the confidence enum→numeric rule (low→0.25 / medium→0.5 / high→0.75, never 1.0), the
+  conflict model (deterministic facts win; unsupported → needs-review/conflicted), and the staleness model (path +
+  sha256 match, warn-on-stale and skip, never silent). SemanticFileUnderstandingReport contributes inference claims,
+  not fact claims; semantic report evidence is proposal/context, not proof. Boundaries: no approval, no command
+  execution, no source writes, no WorkOrder/VerificationPlan, no Circe; embeddings remain deferred to a separate track;
+  intent:go remains deferred. New memo + review packet + 22-assertion docs test, 4 tables (option / mapping / boundary /
+  status), full 9-command gate (no CLI smoke for a decision-only batch). Next: Semantic File Understanding → Evidence
+  Graph Integration Implementation.
 - Reviewed **Capability Evidence Graph Safety Review** — one-hundred-fifty-fourth slice on the semantic-intelligence
   track. Strategy/safety-review batch; no runtime behavior changes, no source changes. Re-read the Capability Evidence
   Graph v1 implementation at `d7a3d27` against committed source (kernel artifact + factory + validator + schema +

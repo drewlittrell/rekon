@@ -1,5 +1,12 @@
 # Capability Evidence Graph
 
+> **Semantic → Evidence Graph integration decided (slice 155):** how
+> `SemanticFileUnderstandingReport` becomes graph evidence is decided —
+> Option B (explicit, opt-in). LLM file understanding will enter as
+> `llm_extraction` evidence and `llm` / `inference` claims; the default build
+> stays deterministic-only; deterministic facts win. See
+> [`../strategy/semantic-file-understanding-evidence-graph-integration-decision.md`](../strategy/semantic-file-understanding-evidence-graph-integration-decision.md).
+
 > **Safety-reviewed (slice 154):** v1 is **safe/stable** — evidence-backed context,
 > not proof; deterministic facts are the only source; all nine boundaries are
 > validator-enforced. See

@@ -375,6 +375,37 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# Semantic File Understanding -> Evidence Graph Integration
+# Decision has been decided.
+# One-hundred-fifty-fifth slice on the semantic-intelligence track.
+# Strategy / architecture decision-only batch; no runtime behavior
+# changes, no source changes. Decides how
+# SemanticFileUnderstandingReport contributes LLM-derived inference
+# claims into CapabilityEvidenceGraph. Grounded the actual field
+# names at 33f28fb and confirmed the kernel already accepts the whole
+# mapping with no type change (evidence source includes
+# llm_extraction; claim source includes llm; claimType includes
+# inference; status includes accepted/needs-review/conflicted).
+# Selected Option B -- explicit, opt-in semantic-report-to-graph
+# integration: capability graph build stays deterministic by default;
+# a future --semantic-file-reports latest / --semantic-file-report-ref
+# <ref> flag adds semantic content as llm_extraction evidence and
+# llm/inference claims grounded back to the report and its source
+# excerpts. Pinned the mapping (purpose/responsibilities/touchedConcepts
+# -> inference claims; capabilitySignals -> capability nodes + inference
+# claims; findings -> needs-review/conflicted claims), the confidence
+# enum->numeric rule (low 0.25 / medium 0.5 / high 0.75, never 1.0),
+# the conflict model (deterministic facts win), and the staleness model
+# (path + sha256 match, warn-on-stale and skip, never silent).
+# SemanticFileUnderstandingReport contributes inference claims, not
+# fact claims; semantic report evidence is proposal/context, not proof.
+# Embeddings remain deferred to a separate track; intent:go remains
+# deferred. New memo + review packet + 22-assertion docs test, 4
+# tables, full 9-command gate (no CLI smoke for a decision-only batch).
+# See docs/strategy/semantic-file-understanding-evidence-graph-integration-decision.md.
+# Recommended next slice: Semantic File Understanding -> Evidence Graph
+# Integration Implementation.
+#
 # Capability Evidence Graph Safety Review has been reviewed.
 # One-hundred-fifty-fourth slice on the semantic-intelligence track.
 # Strategy / safety-review batch; no runtime behavior changes, no source

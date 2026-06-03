@@ -3,6 +3,15 @@
 Status: **Implemented** (v1, slice 144). Category: `actions`. Stability: experimental.
 `schemaVersion: 0.1.0`.
 
+> **Evidence Graph integration decided (slice 155):** the
+> [Semantic File Understanding → Evidence Graph Integration Decision](../strategy/semantic-file-understanding-evidence-graph-integration-decision.md)
+> pins how this report contributes `llm_extraction` evidence and `llm` /
+> `inference` claims to `CapabilityEvidenceGraph` — explicit and opt-in
+> (Option B), grounded to `file.path` / `sha256`, with `capabilitySignals` →
+> capability nodes + inference claims and `findings` → needs-review / conflicted
+> claims. It contributes inference claims, not fact claims; deterministic facts
+> win.
+
 A read-only, per-file understanding artifact. It is produced by
 `rekon semantic file understand` (and `buildSemanticFileUnderstandingReport` in
 `@rekon/capability-model`). See the

@@ -8,6 +8,13 @@
 > validator-enforced. See
 > [`../strategy/capability-evidence-graph-safety-review.md`](../strategy/capability-evidence-graph-safety-review.md).
 
+> **Semantic → Evidence Graph integration decided (slice 155):** semantic file
+> understanding will enter the graph as `llm_extraction` evidence and `llm` /
+> `inference` claims via an explicit, opt-in `--semantic-file-reports` /
+> `--semantic-file-report-ref` flag (Option B). The evidence/claim source sets
+> already accept these values; no kernel change is required. See
+> [`../strategy/semantic-file-understanding-evidence-graph-integration-decision.md`](../strategy/semantic-file-understanding-evidence-graph-integration-decision.md).
+
 The `CapabilityEvidenceGraph` is the unified substrate for semantic
 codebase intelligence: file nodes, symbol nodes, and `verb:noun`
 capability nodes, connected by evidence-backed claims. See
