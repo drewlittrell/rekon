@@ -6010,6 +6010,15 @@ export async function main(argv: string[]): Promise<void> {
       phaseVerification?: { executable?: number; manualReview?: number; finalVerification?: number; needsReview?: number };
       warnings?: number;
     };
+    const circeHandoffPath = circeManifest.handoff ?? "circe/handoff.json";
+    const circePhasePlanPath = circeManifest.phasePlan ?? "circe/phase-plan.json";
+    const circeRekonProofPath = circeManifest.rekonProof ?? "circe/rekon-proof.json";
+    const circeHandoff = parseBundleJsonFile(result.files, circeHandoffPath);
+    const circePhasePlan = parseBundleJsonFile(result.files, circePhasePlanPath);
+    const circeWarnings = asStringArray((circeHandoff as { warnings?: unknown }).warnings);
+    const phaseCount = Array.isArray((circePhasePlan as { phases?: unknown }).phases)
+      ? (circePhasePlan as { phases: unknown[] }).phases.length
+      : 0;
     const phaseVerification = {
       executable: circeManifest.phaseVerification?.executable ?? 0,
       finalVerification: circeManifest.phaseVerification?.finalVerification ?? 0,
@@ -6020,6 +6029,14 @@ export async function main(argv: string[]): Promise<void> {
     if (json) {
       writeOutput(
         {
+          ok: true,
+          intentId: result.intentId,
+          bundlePath: bundlePath.replace(/\/$/, ""),
+          handoffPath: `${bundlePath}${circeHandoffPath}`,
+          phasePlanPath: `${bundlePath}${circePhasePlanPath}`,
+          rekonProofPath: `${bundlePath}${circeRekonProofPath}`,
+          phaseCount,
+          warnings: circeWarnings,
           bundle: {
             path: bundlePath,
             intentId: result.intentId,
@@ -6027,11 +6044,12 @@ export async function main(argv: string[]): Promise<void> {
             files: result.files.length,
           },
           circe: {
-            handoff: `${bundlePath}${circeManifest.handoff ?? "circe/handoff.json"}`,
-            phasePlan: `${bundlePath}${circeManifest.phasePlan ?? "circe/phase-plan.json"}`,
-            rekonProof: `${bundlePath}${circeManifest.rekonProof ?? "circe/rekon-proof.json"}`,
+            handoff: `${bundlePath}${circeHandoffPath}`,
+            phasePlan: `${bundlePath}${circePhasePlanPath}`,
+            rekonProof: `${bundlePath}${circeRekonProofPath}`,
             workOrders: typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0,
             verificationPlans: typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0,
+            phaseCount,
             phaseVerification,
             warnings: typeof circeManifest.warnings === "number" ? circeManifest.warnings : 0,
           },
@@ -11937,6 +11955,22 @@ function writeOutput(value: unknown, json: boolean): void {
   }
 
   console.log(JSON.stringify(value, null, 2));
+}
+
+function parseBundleJsonFile(files: { path: string; content: string }[], filePath: string): Record<string, unknown> {
+  const file = files.find((candidate) => candidate.path === filePath);
+  if (!file) return {};
+  try {
+    const parsed: unknown = JSON.parse(file.content);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
 function usage(): string {

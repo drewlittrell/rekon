@@ -284,6 +284,13 @@ test("CLI writes bundle files under .rekon/intent/plans/<intent-id>/", () => {
   const result = runCli(["intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed", "--json"]);
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.intentId, "pip-seed");
+  assert.equal(payload.bundlePath, ".rekon/intent/plans/pip-seed");
+  assert.equal(payload.handoffPath, ".rekon/intent/plans/pip-seed/circe/handoff.json");
+  assert.equal(payload.phasePlanPath, ".rekon/intent/plans/pip-seed/circe/phase-plan.json");
+  assert.equal(payload.phaseCount, 2);
+  assert.ok(Array.isArray(payload.warnings));
   assert.equal(payload.bundle.path, ".rekon/intent/plans/pip-seed/");
   assert.ok(payload.bundle.files >= 12);
 });
@@ -526,6 +533,13 @@ test("circe: CLI --json includes circe paths and counts", () => {
   ]);
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.intentId, "pip-seed");
+  assert.equal(payload.bundlePath, ".rekon/intent/plans/pip-seed");
+  assert.equal(payload.handoffPath, payload.circe.handoff);
+  assert.equal(payload.phasePlanPath, payload.circe.phasePlan);
+  assert.equal(payload.phaseCount, payload.circe.phaseCount);
+  assert.ok(Array.isArray(payload.warnings));
   assert.match(payload.circe.handoff, /circe\/handoff\.json$/);
   assert.match(payload.circe.phasePlan, /circe\/phase-plan\.json$/);
   assert.ok(payload.circe.workOrders >= 1);
