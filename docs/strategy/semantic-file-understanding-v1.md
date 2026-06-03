@@ -81,3 +81,7 @@ deferred track ([Embeddings Parity Audit](./classic-llm-semantic-parsing-parity-
 - [Classic LLM Semantic Parsing Parity Decision](./classic-llm-semantic-parsing-parity-decision.md)
 - [Intent Plan Semantic Quality Hardening](./intent-plan-semantic-quality-hardening.md)
 - [Rekon LLM Provider Routing Implementation](./rekon-llm-provider-routing-implementation.md)
+
+## Semantic File Understanding Safety Review
+
+Semantic File Understanding v1 was reviewed (slice 145) and found **safe/stable** as a proposal/context layer: semantic file understanding is proposal/context, not proof; deterministic structural facts remain authoritative for imports and public exports; provider output is schema-validated and deterministically rechecked; source files are read, not modified; no command execution, embeddings, PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun / VerificationResult, or Circe; intent:go, scan integration, and embeddings remain deferred. Next: a Semantic File Understanding Scan Integration Decision. See [Semantic File Understanding Safety Review](./semantic-file-understanding-safety-review.md).

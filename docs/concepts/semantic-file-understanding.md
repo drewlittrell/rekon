@@ -92,3 +92,7 @@ source file.
 - [Classic LLM Semantic Parsing Parity Decision](../strategy/classic-llm-semantic-parsing-parity-decision.md)
 - [Rekon LLM Provider Routing concept](./rekon-llm-provider-routing.md)
 - [Intent Plan Compiler concept](./intent-plan-compiler.md)
+
+## Semantic File Understanding Safety Review
+
+Semantic File Understanding v1 was reviewed (slice 145) and found **safe/stable** as a proposal/context layer: semantic file understanding is proposal/context, not proof; deterministic structural facts remain authoritative for imports and public exports; provider output is schema-validated and deterministically rechecked; source files are read, not modified; no command execution, embeddings, PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun / VerificationResult, or Circe; intent:go, scan integration, and embeddings remain deferred. Next: a Semantic File Understanding Scan Integration Decision. See [Semantic File Understanding Safety Review](../strategy/semantic-file-understanding-safety-review.md).

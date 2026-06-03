@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Semantic File Understanding Safety Review** — one-hundred-forty-fifth slice on the intent-spine track
+  (Track A). Strategy/safety-review batch; no runtime behavior changes. Grounded the shipped Semantic File
+  Understanding v1 implementation at `bc0d34a` (kernel file uses `grep -a` due to an em dash) and confirmed it is
+  **safe/stable** as a proposal/context layer: semantic file understanding is proposal/context, not proof;
+  deterministic structural facts remain authoritative for imports and public exports; provider output is
+  schema-validated and deterministically rechecked; source files are read, not modified; no command execution, no
+  embeddings, no PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun / VerificationResult, no Circe;
+  intent:go, scan integration, and embeddings all remain deferred. Verified structurally: the factory forces the
+  eight boundary booleans false and the validator rejects any non-false boundary; the builder imports only
+  `node:crypto`; the CLI reads one file and writes exactly one report to category `actions`. Selected next slice:
+  **Semantic File Understanding Scan Integration Decision** (explicit opt-in, no surprising provider calls, no
+  default LLM during scan, cache/staleness + source-text privacy policy); embeddings remain a separate, later track.
+  Adds a 23-assertion docs test, the safety-review memo, a review packet, and cross-references across 9 docs. See
+  [`docs/strategy/semantic-file-understanding-safety-review.md`](docs/strategy/semantic-file-understanding-safety-review.md).
 - Shipped **Semantic File Understanding v1** — one-hundred-forty-fourth slice on the intent-spine track (Track A:
   the first non-embedding semantic-parsing implementation). Restores the old `codebase-intel` per-file LLM scan
   (`runPureLlmPipeline`) inside Rekon's provider/router/artifact architecture as a new `SemanticFileUnderstandingReport`
