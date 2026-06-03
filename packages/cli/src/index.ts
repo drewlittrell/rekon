@@ -2,8 +2,8 @@
 
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { access, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import docsCapability, {
   GITHUB_CHECK_PUBLISHER_CANONICAL_TRUTH_REMINDER,
@@ -147,6 +147,7 @@ import modelCapability, {
   type SemanticFileUnderstandingAdapter,
   type SemanticFileUnderstandingAdapterResult,
   buildSemanticFileUnderstandingReport,
+  SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
 } from "@rekon/capability-model";
 import { RekonLlmRouter, coercePhaseDrafts, createOpenAiLlmProvider } from "@rekon/llm-provider";
 import policyCapability from "@rekon/capability-policy";
@@ -439,6 +440,7 @@ function renderWelcome(brand: string): string {
     "",
     "Analysis:",
     "  rekon semantic file understand",
+    "  rekon scan --semantic-files auto",
     "",
     "Boundaries:",
     "  Rekon does not run Circe.",
@@ -627,6 +629,56 @@ export async function main(argv: string[]): Promise<void> {
       implementedIntentGo: false,
     };
 
+    // Semantic File Understanding scan layer (slice 147) — EXPLICIT opt-in.
+    // Absent `--semantic-files` → plain deterministic scan: no `semanticFiles`
+    // in the output and no provider call. `--semantic-files off` is the explicit
+    // no-op form. The deterministic substrate above always runs regardless.
+    const semanticFilesFlagRaw = parsed.flags["semantic-files"];
+    const semanticFilesRequested = semanticFilesFlagRaw !== undefined;
+    const semanticFilesMode = typeof semanticFilesFlagRaw === "string" ? semanticFilesFlagRaw.trim() : "off";
+    if (
+      semanticFilesRequested &&
+      semanticFilesMode !== "off" &&
+      semanticFilesMode !== "auto" &&
+      semanticFilesMode !== "required"
+    ) {
+      throw new Error("rekon scan --semantic-files must be one of off, auto, required.");
+    }
+    const semanticLlmProvider =
+      typeof parsed.flags["llm-provider"] === "string" ? String(parsed.flags["llm-provider"]).trim() : "";
+    const semanticLlmModel =
+      typeof parsed.flags["llm-model"] === "string" ? String(parsed.flags["llm-model"]).trim() : "";
+    const semanticFilePath =
+      typeof parsed.flags["semantic-file-path"] === "string" ? String(parsed.flags["semantic-file-path"]).trim() : "";
+    const semanticChangedOnly = parsed.flags["semantic-changed-only"] === true;
+    let semanticFileLimit = SEMANTIC_SCAN_DEFAULT_FILE_LIMIT;
+    if (parsed.flags["semantic-file-limit"] !== undefined) {
+      const parsedLimit = Number.parseInt(String(parsed.flags["semantic-file-limit"]), 10);
+      if (!Number.isFinite(parsedLimit) || parsedLimit < 0) {
+        throw new Error("rekon scan --semantic-file-limit must be a non-negative integer.");
+      }
+      semanticFileLimit = parsedLimit;
+    }
+
+    let semanticLayer: SemanticScanLayerResult = {
+      summary: { mode: "off", selected: 0, written: 0, reused: 0, skipped: 0, failed: 0 },
+      exitNonZero: false,
+    };
+    if (semanticFilesRequested) {
+      const semanticStore = createLocalArtifactStore(root);
+      await semanticStore.init();
+      semanticLayer = await runSemanticScanLayer({
+        root,
+        store: semanticStore,
+        mode: semanticFilesMode as "off" | "auto" | "required",
+        llmProvider: semanticLlmProvider,
+        llmModel: semanticLlmModel,
+        fileLimit: semanticFileLimit,
+        filePath: semanticFilePath,
+        changedOnly: semanticChangedOnly,
+      });
+    }
+
     const scanOutput = {
       command: "scan" as const,
       status: refresh.status,
@@ -640,17 +692,27 @@ export async function main(argv: string[]): Promise<void> {
       nextActions,
       boundaries,
       refresh,
+      ...(semanticFilesRequested ? { semanticFiles: semanticLayer.summary } : {}),
     };
 
     if (json) {
       writeOutput(scanOutput, true);
     } else {
+      const semanticHumanLines: string[] = semanticFilesRequested
+        ? [
+            semanticLayer.summary.mode === "off"
+              ? "Semantic files: off"
+              : `Semantic files: ${semanticLayer.summary.mode} — ${semanticLayer.summary.written} written, ${semanticLayer.summary.reused} reused, ${semanticLayer.summary.skipped} skipped, ${semanticLayer.summary.failed} failed`,
+            ...(semanticLayer.message ? [semanticLayer.message] : []),
+          ]
+        : [];
       const scanLines = [
         "Rekon scan",
         "",
         `Workspace: ${initializedBefore ? "existing" : "initialized"}`,
         `Snapshot: ${snapshotReady ? "ready" : "not ready"}`,
         `Artifacts: ${refresh.artifacts.length}`,
+        ...semanticHumanLines,
         firstScan ? "First scan complete." : "Scan complete.",
         "",
         "Next:",
@@ -661,7 +723,7 @@ export async function main(argv: string[]): Promise<void> {
       writeOutput(scanLines.join("\n"), false);
     }
 
-    if (refresh.status === "failed") {
+    if (refresh.status === "failed" || semanticLayer.exitNonZero) {
       process.exitCode = 1;
     }
 
@@ -4542,7 +4604,7 @@ export async function main(argv: string[]): Promise<void> {
     const store = createLocalArtifactStore(root);
     await store.init();
 
-    const report = await buildSemanticFileUnderstandingReport({
+    const { report, ref } = await produceSemanticFileUnderstandingReport(store, {
       filePath: pathFlag,
       fileText,
       fileSha256,
@@ -4550,8 +4612,6 @@ export async function main(argv: string[]): Promise<void> {
       semanticMode: semanticFlag,
       ...(understandingAdapter ? { semanticUnderstanding: understandingAdapter } : {}),
     });
-
-    const ref = await store.write(report, { category: "actions" });
 
     if (json) {
       writeOutput(
@@ -7725,6 +7785,319 @@ function createPlanSemanticNormalizationAdapter(
     if (routed.result.provider) result.provider = routed.result.provider;
     if (routed.result.model) result.model = routed.result.model;
     return result;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Semantic File Understanding scan layer (slice 147).
+//
+// `rekon scan --semantic-files auto|required` integrates Semantic File
+// Understanding into the normal scan path as an EXPLICIT opt-in layer. Plain
+// `rekon scan` (and `--semantic-files off`) remain purely deterministic and
+// never call a provider. The layer reuses the shipped single-file builder and
+// router-bound adapter; it executes no commands, writes no source files, and
+// generates no embeddings. See docs/strategy/semantic-file-understanding-scan-integration.md.
+// ---------------------------------------------------------------------------
+
+const SEMANTIC_SCAN_FILE_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".json",
+  ".md",
+  ".yml",
+  ".yaml",
+]);
+const SEMANTIC_SCAN_EXCLUDED_DIRS = new Set(["node_modules", "dist", "build", "coverage", ".git", ".rekon"]);
+const SEMANTIC_SCAN_EXCLUDED_FILES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "npm-shrinkwrap.json"]);
+const SEMANTIC_SCAN_MAX_BYTES = 262144; // 256 KiB — skip large files conservatively.
+const SEMANTIC_SCAN_DEFAULT_FILE_LIMIT = 100;
+
+/**
+ * Conservative recursive file selection for the semantic scan layer. Includes a
+ * fixed allow-list of source/config/docs extensions; excludes generated/vendor
+ * directories, lockfiles, and files above a conservative byte limit. Binary
+ * files are excluded both by the extension allow-list and by a NUL-byte sniff
+ * at read time. Returns repo-relative, forward-slash paths, sorted, for
+ * deterministic selection.
+ */
+async function collectSemanticScanCandidates(root: string): Promise<string[]> {
+  const out: string[] = [];
+  async function walk(absDir: string): Promise<void> {
+    const entries = await readdir(absDir, { withFileTypes: true }).catch(() => []);
+    for (const ent of entries) {
+      const abs = join(absDir, ent.name);
+      if (ent.isDirectory()) {
+        if (SEMANTIC_SCAN_EXCLUDED_DIRS.has(ent.name)) continue;
+        await walk(abs);
+      } else if (ent.isFile()) {
+        if (SEMANTIC_SCAN_EXCLUDED_FILES.has(ent.name)) continue;
+        const dot = ent.name.lastIndexOf(".");
+        const ext = dot >= 0 ? ent.name.slice(dot).toLowerCase() : "";
+        if (!SEMANTIC_SCAN_FILE_EXTENSIONS.has(ext)) continue;
+        let size = 0;
+        try {
+          size = (await stat(abs)).size;
+        } catch {
+          continue;
+        }
+        if (size > SEMANTIC_SCAN_MAX_BYTES) continue;
+        out.push(relative(root, abs).replace(/\\/g, "/"));
+      }
+    }
+  }
+  await walk(root);
+  out.sort();
+  return out;
+}
+
+/** First 16 hex of sha256(path) — keeps per-file batch artifact ids unique. */
+function semanticScanPathHashSegment(relPath: string): string {
+  return createHash("sha256").update(relPath).digest("hex").slice(0, 16);
+}
+
+/**
+ * Recover the policy-hash segment from a batch-produced artifact id
+ * (`<prefix><pathHash>-<policyHash>-<idStamp>`). Single-file ids
+ * (`<prefix><idStamp>`) have no policy segment and return "" (never reused by
+ * the scan layer, which always rewrites them under its own policy).
+ */
+function semanticScanPolicyHashFromArtifactId(id: string): string {
+  if (!id.startsWith(SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX)) return "";
+  const rest = id.slice(SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX.length);
+  const parts = rest.split("-");
+  return parts.length >= 3 ? parts[1] ?? "" : "";
+}
+
+/**
+ * Shared producer: build ONE SemanticFileUnderstandingReport and persist it.
+ * Used by both `rekon semantic file understand --path` (single file) and the
+ * `rekon scan --semantic-files` batch layer, so both paths share the same
+ * builder, deterministic extraction, provider-output coercion, and write
+ * (category `actions`). The builder owns mode logic (auto → deterministic
+ * fallback with a warning; required → throw, no report).
+ */
+async function produceSemanticFileUnderstandingReport(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  input: Parameters<typeof buildSemanticFileUnderstandingReport>[0],
+): Promise<{ ref: ArtifactRef; report: Awaited<ReturnType<typeof buildSemanticFileUnderstandingReport>> }> {
+  const report = await buildSemanticFileUnderstandingReport(input);
+  const ref = await store.write(report, { category: "actions" });
+  return { ref, report };
+}
+
+type SemanticScanLayerSummary = {
+  mode: "off" | "auto" | "required";
+  selected: number;
+  written: number;
+  reused: number;
+  skipped: number;
+  failed: number;
+  provider?: string;
+  model?: string;
+};
+
+type SemanticScanLayerResult = {
+  summary: SemanticScanLayerSummary;
+  exitNonZero: boolean;
+  message?: string;
+};
+
+/**
+ * Run the semantic scan layer for `rekon scan --semantic-files`. `off` returns
+ * an all-zero summary and writes nothing (identical to plain scan). `auto`
+ * writes a SemanticFileUnderstandingReport per selected file, falling back to a
+ * deterministic report with a warning when no provider/key is available.
+ * `required` PREFLIGHTS provider availability and writes nothing (exit
+ * non-zero) when no provider/key is present, so it can never partially write
+ * reports before failing in the missing-provider case. Hash-based reuse skips
+ * files whose latest report already matches the content sha256 AND the
+ * provider/model/mode policy.
+ */
+async function runSemanticScanLayer(input: {
+  root: string;
+  store: ReturnType<typeof createLocalArtifactStore>;
+  mode: "off" | "auto" | "required";
+  llmProvider: string;
+  llmModel: string;
+  fileLimit: number;
+  filePath: string;
+  changedOnly: boolean;
+}): Promise<SemanticScanLayerResult> {
+  const { root, store, mode } = input;
+  if (mode === "off") {
+    return {
+      summary: { mode: "off", selected: 0, written: 0, reused: 0, skipped: 0, failed: 0 },
+      exitNonZero: false,
+    };
+  }
+
+  // Resolve the effective provider/model policy (flags first, then env). The
+  // policy participates in the reuse key so switching provider/model forces
+  // fresh reports.
+  const envProvider = typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
+  const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
+  const providerResolved = input.llmProvider || envProvider;
+  const modelResolved = input.llmModel || envModel;
+  const envEnabled = process.env.REKON_LLM_ENABLED;
+  const enabledResolved = envEnabled === "1" || envEnabled === "true" || providerResolved.length > 0;
+  const keyPresent = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 0;
+  const providerAvailable = enabledResolved && keyPresent;
+
+  // required: preflight provider availability BEFORE writing any report.
+  if (mode === "required" && !providerAvailable) {
+    return {
+      summary: {
+        mode,
+        selected: 0,
+        written: 0,
+        reused: 0,
+        skipped: 0,
+        failed: 0,
+        ...(providerResolved ? { provider: providerResolved } : {}),
+        ...(modelResolved ? { model: modelResolved } : {}),
+      },
+      exitNonZero: true,
+      message:
+        "Semantic files required, but no LLM provider/key is available; wrote no SemanticFileUnderstandingReport.",
+    };
+  }
+
+  const adapter = createSemanticFileUnderstandingAdapter(mode, input.llmProvider, input.llmModel);
+
+  // File selection.
+  let candidates: string[];
+  if (input.filePath.length > 0) {
+    // Explicit path bypasses the allow-list / lockfile / size filters.
+    const abs = resolve(root, input.filePath);
+    candidates = [relative(root, abs).replace(/\\/g, "/")];
+  } else {
+    candidates = await collectSemanticScanCandidates(root);
+  }
+
+  // Prior reports → latest-by-path for hash-based reuse.
+  const latestByPath = new Map<string, { sha256: string; id: string }>();
+  try {
+    const priorEntries = await store.list("SemanticFileUnderstandingReport");
+    for (const entry of priorEntries) {
+      let rep: unknown;
+      try {
+        rep = await store.read(entry);
+      } catch {
+        continue;
+      }
+      const file =
+        rep && typeof rep === "object" && "file" in rep && (rep as { file?: unknown }).file
+          ? ((rep as { file: unknown }).file as { path?: unknown; sha256?: unknown })
+          : undefined;
+      const p = file && typeof file.path === "string" ? file.path : undefined;
+      const s = file && typeof file.sha256 === "string" ? file.sha256 : undefined;
+      if (p && s) latestByPath.set(p, { sha256: s, id: typeof entry.id === "string" ? entry.id : "" });
+    }
+  } catch {
+    // No prior reports — every selected file is new.
+  }
+
+  const semanticGeneratedAt = new Date().toISOString();
+  const idStamp = String(Date.parse(semanticGeneratedAt) || Date.now());
+  const policyHash = createHash("sha256")
+    .update(`${mode}\u0000${providerResolved}\u0000${modelResolved}`)
+    .digest("hex")
+    .slice(0, 16);
+
+  let written = 0;
+  let reused = 0;
+  let failed = 0;
+  let skipped = 0;
+  let usedProvider: string | undefined;
+  let usedModel: string | undefined;
+  let requiredHardFail = false;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const budgetUsed = input.changedOnly ? written + failed : written + reused + failed;
+    if (budgetUsed >= input.fileLimit) {
+      skipped += candidates.length - i;
+      break;
+    }
+    const relPath = candidates[i];
+    if (typeof relPath !== "string" || relPath.length === 0) {
+      skipped += 1;
+      continue;
+    }
+    const abs = resolve(root, relPath);
+    let text: string;
+    try {
+      text = await readFile(abs, "utf8");
+    } catch {
+      skipped += 1;
+      continue;
+    }
+    if (text.indexOf("\u0000") !== -1) {
+      // Binary file — never send to a provider, never persist.
+      skipped += 1;
+      continue;
+    }
+    const sha = createHash("sha256").update(text).digest("hex");
+    const prior = latestByPath.get(relPath);
+    const fresh =
+      prior !== undefined && prior.sha256 === sha && semanticScanPolicyHashFromArtifactId(prior.id) === policyHash;
+    if (fresh) {
+      reused += 1;
+      continue;
+    }
+    const artifactId = `${SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX}${semanticScanPathHashSegment(
+      relPath,
+    )}-${policyHash}-${idStamp}`;
+    try {
+      const { report } = await produceSemanticFileUnderstandingReport(store, {
+        filePath: relPath,
+        fileText: text,
+        fileSha256: sha,
+        root,
+        semanticMode: mode,
+        artifactId,
+        generatedAt: semanticGeneratedAt,
+        ...(adapter ? { semanticUnderstanding: adapter } : {}),
+      });
+      written += 1;
+      if (!usedProvider && typeof report.normalizationTrace.provider === "string") {
+        usedProvider = report.normalizationTrace.provider;
+      }
+      if (!usedModel && typeof report.normalizationTrace.model === "string") {
+        usedModel = report.normalizationTrace.model;
+      }
+    } catch {
+      // In `required` mode the builder throws when the provider returns nothing
+      // usable; stop to avoid further provider calls and fail the command.
+      failed += 1;
+      if (mode === "required") {
+        requiredHardFail = true;
+        break;
+      }
+    }
+  }
+
+  const selected = input.changedOnly ? written + failed : written + reused + failed;
+  const provider = usedProvider ?? (providerResolved || undefined);
+  const model = usedModel ?? (modelResolved || undefined);
+  return {
+    summary: {
+      mode,
+      selected,
+      written,
+      reused,
+      skipped,
+      failed,
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
+    },
+    exitNonZero: requiredHardFail,
+    ...(requiredHardFail
+      ? { message: "Semantic files required, but a provider call returned no usable result; not all files were analyzed." }
+      : {}),
   };
 }
 
@@ -11445,7 +11818,7 @@ function writeOutput(value: unknown, json: boolean): void {
 
 function usage(): string {
   return [
-    "rekon scan [--root <path>] [--json]",
+    "rekon scan [--semantic-files off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--root <path>] [--json]",
     "rekon welcome [--json] [--no-banner]",
     "rekon setup [--root <path>] [--json] [--no-banner]",
     "rekon init [--root <path>]",

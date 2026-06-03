@@ -1,7 +1,20 @@
 # Semantic File Understanding Scan Integration Decision
 
-Status: **Decided** (slice 146). Base: `8bad858`. Track A. Decision-only batch; no
-runtime behavior changes, no scan integration implemented here.
+Status: **Superseded** (slice 147). Originally **Decided** (slice 146), base
+`8bad858`. Track A. Decision-only batch; no runtime behavior changes, no scan
+integration implemented here.
+
+> **Superseded by implementation (slice 147).** This decision recommended a
+> "batch command first, scan flag later" sequencing (`rekon semantic files
+> understand --changed|--all` before any `rekon scan` flag). That direction was
+> **reversed**: the scan flag was implemented directly. Semantic file
+> understanding is now integrated into `rekon scan --semantic-files
+> off|auto|required` as an explicit opt-in layer; the separate batch command was
+> not needed as a precondition. The product guarantees below still hold (scan
+> remains deterministic by default; explicit opt-in; no surprising provider
+> calls; source text not sent to providers by default; reports are
+> proposal/context, not proof). See
+> [Semantic File Understanding Scan Integration](./semantic-file-understanding-scan-integration.md).
 
 ## Decision Summary
 

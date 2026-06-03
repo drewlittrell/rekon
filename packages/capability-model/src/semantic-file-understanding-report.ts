@@ -82,6 +82,14 @@ export type BuildSemanticFileUnderstandingReportInput = {
   root?: string;
   semanticMode?: "off" | "auto" | "required";
   semanticUnderstanding?: SemanticFileUnderstandingAdapter;
+  /**
+   * Optional explicit header `artifactId`. When omitted (the single-file
+   * `rekon semantic file understand` path), the id is derived from the
+   * generated-at timestamp. Batch producers (`rekon scan --semantic-files`)
+   * pass a per-file unique id so reports for distinct files never collide on
+   * the same millisecond (the store keys files by `type-artifactId`).
+   */
+  artifactId?: string;
 };
 
 type NormalizedSemantic = {
@@ -450,9 +458,12 @@ export async function buildSemanticFileUnderstandingReport(
 
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const idStamp = Date.parse(generatedAt);
-  const artifactId = `${SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX}${
-    Number.isFinite(idStamp) ? idStamp : Date.now()
-  }`;
+  const artifactId =
+    typeof input.artifactId === "string" && input.artifactId.length > 0
+      ? input.artifactId
+      : `${SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX}${
+          Number.isFinite(idStamp) ? idStamp : Date.now()
+        }`;
   const header: ArtifactHeader = {
     artifactType: "SemanticFileUnderstandingReport",
     artifactId,

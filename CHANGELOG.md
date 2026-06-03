@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Implemented **Semantic File Understanding Scan Integration** — one-hundred-forty-seventh slice on the
+  intent-spine track (Track A). Integrates `SemanticFileUnderstandingReport` into the normal `rekon scan` path as an
+  explicit opt-in semantic scan layer, **reversing** the slice-146 "batch command first, scan flag later" direction.
+  New flags: `rekon scan [--semantic-files off|auto|required] [--llm-provider <id>] [--llm-model <model>]
+  [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only]`. Default `--semantic-files off`
+  keeps plain scan byte-identical (no `semanticFiles` output, no provider call). `auto` writes a
+  `SemanticFileUnderstandingReport` per selected file, falling back to a deterministic report with a warning when no
+  provider/key is available; `required` preflights provider availability and writes nothing (exit non-zero) when
+  unavailable, never falsely reporting success. Conservative file selection (allow-listed extensions; excludes
+  `node_modules`/`dist`/`build`/`coverage`/`.git`/`.rekon`, lockfiles, files > 256 KiB, and binary files);
+  hash-based reuse skips files whose latest report matches content sha256 + provider/model/mode policy. The
+  single-file `rekon semantic file understand --path` command and `rekon scan` now share one builder / adapter /
+  write. Boundaries hold: **scan remains deterministic by default**; semantic file understanding in scan is explicit
+  opt-in; provider calls are never surprising defaults; source text is not sent to providers by default; reports are
+  proposal/context, not proof; no command execution, source writes, embeddings, PreparedIntentPlan / WorkOrder /
+  VerificationPlan, or Circe; embeddings remain a separate deferred track; intent:go remains deferred. The slice-146
+  **Semantic File Understanding Scan Integration Decision** is superseded by this implementation. 26-assertion
+  contract test + 13-assertion docs test; new strategy doc + review packet. Next: Semantic File Understanding Scan
+  Integration Safety Review.
 - Decided **Semantic File Understanding Scan Integration Decision** — one-hundred-forty-sixth slice on the
   intent-spine track (Track A). Strategy/architecture decision-only batch; no runtime behavior changes. Grounded
   the current `rekon scan` surface at `8bad858` (scan delegates to `runRefresh`, has no `--semantic`/`--llm-*`
