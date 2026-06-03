@@ -364,7 +364,7 @@ test("CLI: verify run without --dry-run / --preview fails", async () => {
 // execute path is now covered by
 // tests/contract/verification-run-execution.test.mjs.)
 
-test("CLI: verify run without --plan fails", async () => {
+test("CLI: verify run without a plan source fails", async () => {
   await withFixture(async (root) => {
     await preparePlan(root);
     const failure = runCliExpectFailure([
@@ -377,8 +377,8 @@ test("CLI: verify run without --plan fails", async () => {
     ]);
 
     assert.ok(
-      failure.stderr.includes("requires --plan"),
-      `expected --plan requirement message; got: ${failure.stderr}`,
+      failure.stderr.includes("requires a plan source"),
+      `expected plan-source requirement message; got: ${failure.stderr}`,
     );
   });
 });

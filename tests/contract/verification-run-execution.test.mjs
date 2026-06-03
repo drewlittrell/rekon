@@ -514,6 +514,163 @@ test("CLI: verify run --dry-run still does NOT spawn after --execute lands", asy
   });
 });
 
+test("CLI: verify run --plan-file --dry-run reads an unregistered VerificationPlan file", async () => {
+  await withPlanFileFixture(async ({ root, artifactRoot, execRoot, planFilePath }) => {
+    const sentinelPath = join(execRoot, "SENTINEL_PLAN_FILE_DRY_RUN");
+    await writePlanFile(planFilePath, [
+      `node -e "require('fs').writeFileSync('SENTINEL_PLAN_FILE_DRY_RUN', 'wrote')"`,
+    ]);
+
+    const dryRun = runCliJson([
+      "verify",
+      "run",
+      "--plan-file",
+      planFilePath,
+      "--dry-run",
+      "--root",
+      root,
+      "--exec-root",
+      execRoot,
+      "--artifact-root",
+      artifactRoot,
+      "--json",
+    ]);
+
+    assert.equal(dryRun.executed, false);
+    assert.equal(dryRun.planFile.artifactId, "verification-plan-test");
+    assert.equal(dryRun.planFile.path, planFilePath);
+    assert.equal(dryRun.roots.execRoot, execRoot);
+    assert.equal(dryRun.roots.artifactRoot, artifactRoot);
+    assert.equal(dryRun.planRef.path, planFilePath);
+    assert.equal(dryRun.planRef.digest.length, 64);
+    await assertMissing(sentinelPath, "dry-run plan-file command must not execute");
+
+    const stored = JSON.parse(await readFile(join(artifactRoot, dryRun.artifact.path), "utf8"));
+    assert.equal(stored.planFile.path, planFilePath);
+    assert.equal(stored.verificationPlanRef.path, planFilePath);
+  });
+});
+
+test("CLI: verify run --plan-file --execute runs commands in --exec-root and writes under --artifact-root", async () => {
+  await withPlanFileFixture(async ({ root, artifactRoot, execRoot, planFilePath }) => {
+    await writePlanFile(planFilePath, [
+      `node -e "require('fs').writeFileSync('exec-root-proof.txt', 'ok')"`,
+    ]);
+
+    const result = runCliJson([
+      "verify",
+      "run",
+      "--plan-file",
+      planFilePath,
+      "--execute",
+      "--command-timeout-ms",
+      "30000",
+      "--root",
+      root,
+      "--exec-root",
+      execRoot,
+      "--artifact-root",
+      artifactRoot,
+      "--json",
+    ]);
+
+    assert.equal(result.executed, true);
+    assert.equal(result.verificationRun.status, "passed");
+    assert.equal(await readFile(join(execRoot, "exec-root-proof.txt"), "utf8"), "ok");
+    await assertMissing(join(artifactRoot, "exec-root-proof.txt"), "command must run in exec-root, not artifact-root");
+    assert.ok(result.artifact.path.startsWith(".rekon/artifacts/actions/"), result.artifact.path);
+    assert.equal(JSON.parse(await readFile(join(artifactRoot, result.artifact.path), "utf8")).planFile.sha256.length, 64);
+
+    const derived = runCliJson([
+      "verify",
+      "result",
+      "from-run",
+      "--run",
+      result.verificationRun.id,
+      "--artifact-root",
+      artifactRoot,
+      "--json",
+    ]);
+    assert.equal(derived.verificationResult.status, "passed");
+  });
+});
+
+test("CLI: verify run --plan-file without --exec-root falls back to artifact/root", async () => {
+  await withPlanFileFixture(async ({ root, artifactRoot, planFilePath }) => {
+    await writePlanFile(planFilePath, [
+      `node -e "require('fs').writeFileSync('fallback-proof.txt', 'ok')"`,
+    ]);
+
+    const result = runCliJson([
+      "verify",
+      "run",
+      "--plan-file",
+      planFilePath,
+      "--execute",
+      "--command-timeout-ms",
+      "30000",
+      "--root",
+      root,
+      "--artifact-root",
+      artifactRoot,
+      "--json",
+    ]);
+
+    assert.equal(result.verificationRun.status, "passed");
+    assert.equal(result.roots.execRoot, artifactRoot);
+    assert.equal(await readFile(join(artifactRoot, "fallback-proof.txt"), "utf8"), "ok");
+  });
+});
+
+test("CLI: verify run refuses --plan and --plan-file together", async () => {
+  await withFixture(async (root) => {
+    const planRefData = await preparePlanWithCommands(root, [`node -e "console.log('ok')"`]);
+    const planFilePath = join(root, "unregistered.verification-plan.json");
+    await writePlanFile(planFilePath, [`node -e "console.log('ok')"`]);
+
+    const failure = runCliExpectFailure([
+      "verify",
+      "run",
+      "--plan",
+      planRefData.id,
+      "--plan-file",
+      planFilePath,
+      "--dry-run",
+      "--root",
+      root,
+      "--json",
+    ]);
+
+    assert.ok(failure.stderr.includes("choose either --plan or --plan-file"));
+  });
+});
+
+test("CLI: verify run --plan-file keeps unsafe commands blocked", async () => {
+  await withPlanFileFixture(async ({ root, artifactRoot, execRoot, planFilePath }) => {
+    await writePlanFile(planFilePath, [
+      `node -e "console.log('ok')" && node -e "require('fs').writeFileSync('unsafe-proof.txt', 'bad')"`,
+    ]);
+
+    const failure = runCliExpectFailure([
+      "verify",
+      "run",
+      "--plan-file",
+      planFilePath,
+      "--execute",
+      "--root",
+      root,
+      "--exec-root",
+      execRoot,
+      "--artifact-root",
+      artifactRoot,
+      "--json",
+    ]);
+
+    assert.ok(failure.stderr.includes("refused to spawn") || failure.stderr.includes("shell-control-operator"));
+    await assertMissing(join(execRoot, "unsafe-proof.txt"), "unsafe plan-file command must not execute");
+  });
+});
+
 test("CLI: verify record behavior is unchanged after --execute lands", async () => {
   await withFixture(async (root) => {
     const planRefData = await preparePlanWithCommands(root, [
@@ -667,6 +824,40 @@ async function withFixture(callback) {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+}
+
+async function withPlanFileFixture(callback) {
+  const root = await mkdtemp(join(tmpdir(), "rekon-plan-file-root-"));
+  const artifactRoot = await mkdtemp(join(tmpdir(), "rekon-plan-file-artifacts-"));
+  const execRoot = await mkdtemp(join(tmpdir(), "rekon-plan-file-exec-"));
+  const planFilePath = join(root, "unregistered.verification-plan.json");
+
+  try {
+    await callback({ root, artifactRoot, execRoot, planFilePath });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(artifactRoot, { recursive: true, force: true });
+    await rm(execRoot, { recursive: true, force: true });
+  }
+}
+
+async function writePlanFile(path, commands) {
+  await writeFile(
+    path,
+    `${JSON.stringify(planFixture(commands), null, 2)}\n`,
+    "utf8",
+  );
+}
+
+async function assertMissing(path, message) {
+  let exists = false;
+  try {
+    await access(path);
+    exists = true;
+  } catch {
+    exists = false;
+  }
+  assert.equal(exists, false, message);
 }
 
 async function preparePlanWithCommands(root, commands) {

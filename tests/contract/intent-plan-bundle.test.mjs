@@ -791,6 +791,27 @@ function richSource() {
 const buildRich = () => buildIntentPlanBundle({ generatedAt: "2026-05-31T00:00:00.000Z", source: richSource() });
 const gateById = (result, phaseId) => proofJson(result).phaseGates.find((g) => g.phaseId === phaseId);
 
+function duplicateCommandSource() {
+  const s = richSource();
+  s.preparedIntentPlan.verificationRequirements = [
+    ...s.preparedIntentPlan.verificationRequirements,
+    { id: "verify:typecheck-duplicate", command: "npm run typecheck", reason: "Repeated typecheck source." },
+    { id: "verify:test-duplicate", command: "npm run test", reason: "Repeated test source." },
+    { id: "verify:build-duplicate", command: "npm run build", reason: "Repeated build source." },
+  ];
+  const allRequirementIds = s.preparedIntentPlan.verificationRequirements.map((r) => r.id);
+  s.preparedIntentPlan.phases = s.preparedIntentPlan.phases.map((phase) => (
+    phase.kind === "modify" || phase.kind === "verify"
+      ? { ...phase, verificationRequirements: allRequirementIds }
+      : phase
+  ));
+  return s;
+}
+const buildDuplicateCommands = () => buildIntentPlanBundle({
+  generatedAt: "2026-05-31T00:00:00.000Z",
+  source: duplicateCommandSource(),
+});
+
 function noSafeReqSource() {
   const s = baseSource();
   // Only a non-executable (document-findings) requirement: nothing can back an executable posture.
@@ -836,7 +857,14 @@ test("phase-verification: phase-modify gets executable posture when a safe requi
 test("phase-verification: phase-modify ships a per-phase VerificationPlan when safe requirement exists", () => {
   const vp = circeJson(buildRich(), "verification-plans/phase-modify.verification-plan.json");
   assert.equal(vp.header.artifactType, "VerificationPlan");
-  assert.ok(vp.commands.length > 0);
+  assert.deepEqual(vp.commands, ["npm run typecheck", "npm run test", "npm run build"]);
+});
+
+test("phase-verification: phase VerificationPlans dedupe repeated command text", () => {
+  const modify = circeJson(buildDuplicateCommands(), "verification-plans/phase-modify.verification-plan.json");
+  const verify = circeJson(buildDuplicateCommands(), "verification-plans/phase-verify.verification-plan.json");
+  assert.deepEqual(modify.commands, ["npm run typecheck", "npm run test", "npm run build"]);
+  assert.deepEqual(verify.commands, ["npm run typecheck", "npm run test", "npm run build"]);
 });
 
 // ---------- PV7: phase-verify final-verification posture ----------
@@ -848,7 +876,7 @@ test("phase-verification: phase-verify gets final-verification posture", () => {
 test("phase-verification: phase-verify ships a per-phase VerificationPlan when requirements exist", () => {
   const vp = circeJson(buildRich(), "verification-plans/phase-verify.verification-plan.json");
   assert.equal(vp.header.artifactType, "VerificationPlan");
-  assert.ok(vp.commands.includes("npm run test"));
+  assert.deepEqual(vp.commands, ["npm run typecheck", "npm run test", "npm run build"]);
 });
 
 // ---------- PV9: phase-investigate manual-review by default ----------

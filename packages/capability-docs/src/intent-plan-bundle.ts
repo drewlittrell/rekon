@@ -133,6 +133,17 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    if (seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
+}
+
 function bullets(items: string[]): string {
   return items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : "- (none)";
 }
@@ -391,8 +402,8 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     const phaseRequirements = effectiveRequirementIds
       .map((id) => requirementById.get(id))
       .filter((r): r is { command: string; reason: string } => Boolean(r));
-    const commands = phaseRequirements.map((r) => r.command).filter((c) => c.length > 0);
-    const reasons = phaseRequirements.map((r) => r.reason).filter((c) => c.length > 0);
+    const commands = uniqueStrings(phaseRequirements.map((r) => r.command).filter((c) => c.length > 0));
+    const reasons = uniqueStrings(phaseRequirements.map((r) => r.reason).filter((c) => c.length > 0));
     const emitVerificationPlan =
       (verificationPosture === "executable" || verificationPosture === "final-verification") && commands.length > 0;
 

@@ -7415,9 +7415,14 @@ export async function main(argv: string[]): Promise<void> {
     //   execution detail.
     //
     // The two flags are mutually exclusive. Either flag requires
-    // `--plan`. The CLI exits non-zero when execution returns
+    // exactly one plan source: a registered `--plan` artifact id or
+    // an unregistered `--plan-file` JSON artifact. The CLI exits
+    // non-zero when execution returns
     // `failed` / `timeout` / `killed`.
     const planFlag = typeof parsed.flags.plan === "string" ? parsed.flags.plan : undefined;
+    const planFileFlag = typeof parsed.flags["plan-file"] === "string" ? parsed.flags["plan-file"] : undefined;
+    const artifactRootFlag = typeof parsed.flags["artifact-root"] === "string" ? parsed.flags["artifact-root"] : undefined;
+    const execRootFlag = typeof parsed.flags["exec-root"] === "string" ? parsed.flags["exec-root"] : undefined;
     const dryRunFlag = Boolean(parsed.flags["dry-run"]) || Boolean(parsed.flags.preview);
     const executeFlag = Boolean(parsed.flags.execute);
     const commandTimeoutFlag = typeof parsed.flags["command-timeout-ms"] === "string"
@@ -7436,8 +7441,11 @@ export async function main(argv: string[]): Promise<void> {
           + "Choose one: `--dry-run` (no execution) or `--execute` (run the plan).",
       );
     }
-    if (!planFlag) {
-      throw new Error("rekon verify run requires --plan <id|type:id>.");
+    if (planFlag && planFileFlag) {
+      throw new Error("rekon verify run requires exactly one plan source; choose either --plan or --plan-file, not both.");
+    }
+    if (!planFlag && !planFileFlag) {
+      throw new Error("rekon verify run requires a plan source: --plan <id|type:id> or --plan-file <path>.");
     }
     if (!dryRunFlag && !executeFlag) {
       throw new Error(
@@ -7446,19 +7454,15 @@ export async function main(argv: string[]): Promise<void> {
       );
     }
 
-    const store = createLocalArtifactStore(root);
+    const artifactRoot = resolveFlagPath(root, artifactRootFlag) ?? root;
+    const execRoot = resolveFlagPath(root, execRootFlag) ?? artifactRoot;
+    const store = createLocalArtifactStore(artifactRoot);
     await store.init();
 
-    const { entry, warnings: resolveWarnings } = await resolveVerificationPlanEntry(
-      store,
-      planFlag,
-    );
-    const planArtifact = (await store.read(entry)) as VerificationPlanLike;
-    const planRef: ArtifactRef = {
-      type: entry.type,
-      id: entry.id,
-      schemaVersion: entry.schemaVersion,
-    };
+    const planResolution = planFileFlag
+      ? await readVerificationPlanFile(root, planFileFlag)
+      : await readRegisteredVerificationPlan(store, planFlag);
+    const { planArtifact, planRef, planFile, warnings: resolveWarnings } = planResolution;
     const workOrderRef = planArtifact.workOrderRef;
     const inputRefs: ArtifactRef[] = workOrderRef ? [planRef, workOrderRef] : [planRef];
     const generatedAt = new Date().toISOString();
@@ -7490,6 +7494,12 @@ export async function main(argv: string[]): Promise<void> {
             "VerificationRun produced by `rekon verify run --execute`.",
             "Execution is local; logs are redacted and truncated.",
             "No findings were auto-resolved.",
+            ...(planFile
+              ? [
+                  `VerificationPlan was read from unregistered plan file ${planFile.path}.`,
+                  `Plan file sha256: ${planFile.sha256}.`,
+                ]
+              : []),
           ],
         },
       };
@@ -7506,7 +7516,7 @@ export async function main(argv: string[]): Promise<void> {
           generatedAt,
         },
         {
-          cwd: root,
+          cwd: execRoot,
           commandTimeoutMs: Number.isFinite(commandTimeoutFlag) && commandTimeoutFlag! > 0
             ? commandTimeoutFlag
             : undefined,
@@ -7529,8 +7539,10 @@ export async function main(argv: string[]): Promise<void> {
         );
       }
 
-      const ref = await store.write(executionResult.verificationRun, { category: "actions" });
-      const verificationRun = executionResult.verificationRun;
+      const verificationRun = planFile
+        ? { ...executionResult.verificationRun, planFile }
+        : executionResult.verificationRun;
+      const ref = await store.write(verificationRun, { category: "actions" });
       const failureExit = verificationRun.status === "failed"
         || verificationRun.status === "timeout"
         || verificationRun.status === "killed";
@@ -7563,6 +7575,11 @@ export async function main(argv: string[]): Promise<void> {
         },
         planRef,
         workOrderRef,
+        ...(planFile ? { planFile } : {}),
+        roots: {
+          artifactRoot,
+          execRoot,
+        },
         safety: executionResult.safety,
         warnings: [...resolveWarnings, ...executionResult.safety.warnings],
         message: failureExit
@@ -7608,6 +7625,12 @@ export async function main(argv: string[]): Promise<void> {
         notes: [
           "Planned-but-not-run VerificationRun produced by `rekon verify run --dry-run`.",
           "No commands were executed.",
+          ...(planFile
+            ? [
+                `VerificationPlan was read from unregistered plan file ${planFile.path}.`,
+                `Plan file sha256: ${planFile.sha256}.`,
+              ]
+            : []),
         ],
       },
     };
@@ -7642,17 +7665,20 @@ export async function main(argv: string[]): Promise<void> {
       );
     }
 
-    const ref = await store.write(dryRunResult.verificationRun, { category: "actions" });
+    const verificationRun = planFile
+      ? { ...dryRunResult.verificationRun, planFile }
+      : dryRunResult.verificationRun;
+    const ref = await store.write(verificationRun, { category: "actions" });
 
     const output = {
       dryRun: true,
       executed: false,
       artifact: ref,
       verificationRun: {
-        id: dryRunResult.verificationRun.header.artifactId,
-        status: dryRunResult.verificationRun.status,
-        summary: dryRunResult.verificationRun.summary,
-        commands: dryRunResult.verificationRun.commands.map((command) => ({
+        id: verificationRun.header.artifactId,
+        status: verificationRun.status,
+        summary: verificationRun.summary,
+        commands: verificationRun.commands.map((command) => ({
           id: command.id,
           command: command.command,
           status: command.status,
@@ -7661,6 +7687,11 @@ export async function main(argv: string[]): Promise<void> {
       },
       planRef,
       workOrderRef,
+      ...(planFile ? { planFile } : {}),
+      roots: {
+        artifactRoot,
+        execRoot,
+      },
       safety: dryRunResult.safety,
       validationIssues: dryRunResult.validationIssues,
       warnings,
@@ -7683,13 +7714,15 @@ export async function main(argv: string[]): Promise<void> {
     // dry-run / not-run runs by default; pass `--allow-not-run`
     // to override (rare).
     const runFlag = typeof parsed.flags.run === "string" ? parsed.flags.run : undefined;
+    const artifactRootFlag = typeof parsed.flags["artifact-root"] === "string" ? parsed.flags["artifact-root"] : undefined;
     const allowNotRun = Boolean(parsed.flags["allow-not-run"]);
 
     if (!runFlag) {
       throw new Error("rekon verify result from-run requires --run <id|type:id>.");
     }
 
-    const store = createLocalArtifactStore(root);
+    const artifactRoot = resolveFlagPath(root, artifactRootFlag) ?? root;
+    const store = createLocalArtifactStore(artifactRoot);
     await store.init();
 
     const { entry: runEntry, warnings: resolveWarnings } = await resolveVerificationRunEntry(
@@ -8655,6 +8688,122 @@ async function resolveVerificationPlanEntry(
   }
 
   return { entry: match, warnings };
+}
+
+type VerificationPlanResolution = {
+  planArtifact: VerificationPlanLike;
+  planRef: ArtifactRef;
+  planFile?: {
+    path: string;
+    sha256: string;
+    artifactId: string;
+    artifactType: "VerificationPlan";
+  };
+  warnings: string[];
+};
+
+async function readRegisteredVerificationPlan(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  planFlag: string | undefined,
+): Promise<VerificationPlanResolution> {
+  const { entry, warnings } = await resolveVerificationPlanEntry(store, planFlag);
+  const planArtifact = (await store.read(entry)) as VerificationPlanLike;
+  const planRef: ArtifactRef = {
+    type: entry.type,
+    id: entry.id,
+    schemaVersion: entry.schemaVersion,
+  };
+  return { planArtifact, planRef, warnings };
+}
+
+async function readVerificationPlanFile(
+  root: string,
+  planFileFlag: string,
+): Promise<VerificationPlanResolution> {
+  const planPath = resolveFlagPath(root, planFileFlag);
+  if (!planPath) {
+    throw new Error("rekon verify run --plan-file requires a non-empty path.");
+  }
+
+  let text: string;
+  try {
+    text = await readFile(planPath, "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`rekon verify run --plan-file could not read ${planPath}: ${message}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`rekon verify run --plan-file could not parse JSON from ${planPath}: ${message}`);
+  }
+
+  const planArtifact = assertVerificationPlanFileArtifact(parsed, planPath);
+  const sha256 = createHash("sha256").update(text).digest("hex");
+  const schemaVersion = typeof planArtifact.header.schemaVersion === "string"
+    ? planArtifact.header.schemaVersion
+    : "0.1.0";
+  const planRef: ArtifactRef = {
+    type: "VerificationPlan",
+    id: planArtifact.header.artifactId,
+    path: planPath,
+    digest: sha256,
+    schemaVersion,
+  };
+  const planFile = {
+    path: planPath,
+    sha256,
+    artifactId: planArtifact.header.artifactId,
+    artifactType: "VerificationPlan" as const,
+  };
+  return {
+    planArtifact,
+    planRef,
+    planFile,
+    warnings: ["VerificationPlan was read from --plan-file and was not required to be registered in .rekon/artifacts."],
+  };
+}
+
+function assertVerificationPlanFileArtifact(value: unknown, planPath: string): VerificationPlanLike {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`rekon verify run --plan-file expected a VerificationPlan object at ${planPath}.`);
+  }
+  const candidate = value as Partial<VerificationPlanLike>;
+  const header = candidate.header as Partial<ArtifactHeader> | undefined;
+  if (!header || typeof header !== "object") {
+    throw new Error(`rekon verify run --plan-file expected $.header in ${planPath}.`);
+  }
+  if (header.artifactType !== "VerificationPlan") {
+    throw new Error(`rekon verify run --plan-file expected $.header.artifactType to be VerificationPlan in ${planPath}.`);
+  }
+  if (typeof header.artifactId !== "string" || header.artifactId.length === 0) {
+    throw new Error(`rekon verify run --plan-file expected $.header.artifactId to be a non-empty string in ${planPath}.`);
+  }
+  if (typeof header.schemaVersion !== "string" || header.schemaVersion.length === 0) {
+    throw new Error(`rekon verify run --plan-file expected $.header.schemaVersion to be a non-empty string in ${planPath}.`);
+  }
+  if (candidate.commands !== undefined) {
+    if (!Array.isArray(candidate.commands) || !candidate.commands.every((command) => typeof command === "string")) {
+      throw new Error(`rekon verify run --plan-file expected $.commands to be an array of strings in ${planPath}.`);
+    }
+  }
+  if (candidate.successCriteria !== undefined) {
+    if (!Array.isArray(candidate.successCriteria) || !candidate.successCriteria.every((criterion) => typeof criterion === "string")) {
+      throw new Error(`rekon verify run --plan-file expected $.successCriteria to be an array of strings in ${planPath}.`);
+    }
+  }
+  return value as VerificationPlanLike;
+}
+
+function resolveFlagPath(root: string, flagValue: string | undefined): string | undefined {
+  const trimmed = typeof flagValue === "string" ? flagValue.trim() : "";
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  return isAbsolute(trimmed) ? resolve(trimmed) : resolve(root, trimmed);
 }
 
 async function resolveVerificationRunEntry(
@@ -12285,9 +12434,9 @@ function usage(): string {
     "rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note> [--reason <reason>] [--decided-by <name>] [--root <path>] [--json]",
     "rekon issues merge decisions [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
-    "rekon verify run --plan <id|type:id> --dry-run|--preview [--root <path>] [--json]",
-    "rekon verify run --plan <id|type:id> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--json]",
-    "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--json]",
+    "rekon verify run --plan <id|type:id>|--plan-file <path> --dry-run|--preview [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",
+    "rekon verify run --plan <id|type:id>|--plan-file <path> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",
+    "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--artifact-root <path>] [--json]",
     "rekon verify github-workflow validate --path <workflow.yml> [--profile read-only|github-check-send|github-pr-comment-send] [--root <path>] [--json]",
     "",
     "First run:",
