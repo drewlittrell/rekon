@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **Capability Evidence Graph Safety Review** — one-hundred-fifty-fourth slice on the semantic-intelligence
+  track. Strategy/safety-review batch; no runtime behavior changes, no source changes. Re-read the Capability Evidence
+  Graph v1 implementation at `d7a3d27` against committed source (kernel artifact + factory + validator + schema +
+  `CAPABILITY_EVIDENCE_GRAPH_BOUNDARY_KEYS`, SDK/runtime registration, the pure `buildCapabilityEvidenceGraph` builder,
+  and the `rekon capability graph build` CLI) and confirmed each safety property in code: the graph is evidence-backed
+  context, not proof by itself; deterministic facts are the only v1 source; file nodes and symbol nodes are first-class
+  graph nodes; capability nodes are richer than verb:noun and are heuristic inferences, not facts; every claim carries
+  evidence/provenance/confidence; confidence values are validated to 0..1; summary counts are recomputed by the factory;
+  boundaries are forced false by the factory and the validator rejects non-false boundaries. Confirmed the builder uses
+  no LLM and generates no embeddings, and the command executes no commands, writes no source files, and creates no
+  PreparedIntentPlan / WorkOrder / VerificationPlan, runs no Circe, with intent:go deferred. Verified the builder is pure
+  (no fs/child_process/network/provider imports) and the CLI is read-only on source (writes only the canonical graph
+  artifact under `.rekon/artifacts/graphs/`). Decision: **Capability Evidence Graph v1 is safe/stable** — no blocker;
+  semantic file integration and embeddings remain follow-up work. New memo + review packet + 28-assertion docs test, 4
+  tables (surface / claim / boundary / option), full 9-command gate (no CLI smoke for a strategy-only batch). Next:
+  Semantic File Understanding -> Evidence Graph Integration Decision.
 - Shipped **Capability Evidence Graph v1** — one-hundred-fifty-third slice on the semantic-intelligence track. First
   build slice of the architecture decided in the previous slice: a new `CapabilityEvidenceGraph` kernel artifact
   (types + factory + validator + schema), registered in the SDK (experimental, `0.1.0`) and runtime (category

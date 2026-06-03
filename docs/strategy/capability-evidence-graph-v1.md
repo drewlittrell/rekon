@@ -104,7 +104,14 @@ where it is.
 
 ## Next step
 
-**Capability Evidence Graph Safety Review** — an adversarial pass over
-the shipped substrate confirming the boundaries hold, the deterministic
-floor is authoritative, and the shape is ready to carry model-derived
-evidence without inheriting model-derived authority.
+**Capability Evidence Graph Safety Review** — *done (slice 154).* The shipped
+substrate was re-read end-to-end against committed source and found
+**safe/stable**: the boundaries hold, the deterministic floor is authoritative,
+and the shape is ready to carry model-derived evidence without inheriting
+model-derived authority. See
+[`capability-evidence-graph-safety-review.md`](./capability-evidence-graph-safety-review.md).
+
+The next slice is the **Semantic File Understanding -> Evidence Graph Integration
+Decision** — how `SemanticFileUnderstandingReport` contributes LLM-derived
+inference claims into the graph (with provider/model provenance and bounded
+confidence), still as context and not proof. Embeddings follow.

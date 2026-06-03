@@ -1,5 +1,10 @@
 # Capability Evidence Graph
 
+> **Safety-reviewed (slice 154):** v1 is **safe/stable** — evidence-backed context,
+> not proof; deterministic facts are the only source; all nine boundaries are
+> validator-enforced. See
+> [`../strategy/capability-evidence-graph-safety-review.md`](../strategy/capability-evidence-graph-safety-review.md).
+
 The **CapabilityEvidenceGraph** is Rekon's substrate for semantic
 codebase intelligence. It unifies what Rekon already knows — files,
 symbols, imports, and `verb:noun` capabilities — into a single graph

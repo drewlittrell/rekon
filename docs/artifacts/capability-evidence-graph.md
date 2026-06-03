@@ -3,6 +3,11 @@
 **Status:** experimental (`0.1.0`) · **Category:** `graphs` · **Producer:**
 `@rekon/capability-model.capability-evidence-graph`
 
+> **Safety-reviewed (slice 154):** v1 is **safe/stable** — evidence-backed context
+> not proof, deterministic facts the only source, all nine boundaries
+> validator-enforced. See
+> [`../strategy/capability-evidence-graph-safety-review.md`](../strategy/capability-evidence-graph-safety-review.md).
+
 The `CapabilityEvidenceGraph` is the unified substrate for semantic
 codebase intelligence: file nodes, symbol nodes, and `verb:noun`
 capability nodes, connected by evidence-backed claims. See

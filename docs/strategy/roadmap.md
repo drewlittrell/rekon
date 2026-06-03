@@ -1,5 +1,7 @@
 # Roadmap
 
+> **Capability Evidence Graph safety-reviewed (slice 154):** the v1 substrate is **safe/stable** — re-read end-to-end against committed source; evidence-backed context not proof, deterministic facts the only source, all nine boundaries validator-enforced. Next: Semantic File Understanding -> Evidence Graph Integration Decision (LLM-derived inference claims into the graph), then embeddings. See [`capability-evidence-graph-safety-review.md`](./capability-evidence-graph-safety-review.md).
+
 > **Capability Evidence Graph v1 shipped (slice 153):** the semantic-intelligence substrate ships its first build slice — `CapabilityEvidenceGraph` artifact + `buildCapabilityEvidenceGraph` + `rekon capability graph build`. Deterministic facts are the substrate; embeddings/LLM/runtime/human signals attach later as evidence-backed inferences. Next: Capability Evidence Graph Safety Review. See [`capability-evidence-graph-v1.md`](./capability-evidence-graph-v1.md).
 
 > **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](./classic-llm-semantic-parsing-parity-decision.md).

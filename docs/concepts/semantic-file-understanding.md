@@ -7,6 +7,10 @@ Status: **Implemented** (v1, slice 144).
 > with deterministic facts only. The semantic file understanding report is a
 > planned *evidence source* that will attach to that graph as evidence-backed
 > inference claims — never as deterministic facts. The two stay separate in v1.
+> The graph was [safety-reviewed in slice 154](../strategy/capability-evidence-graph-safety-review.md);
+> the **next slice** is the Semantic File Understanding -> Evidence Graph
+> Integration Decision that specifies exactly how this report becomes inference
+> claims with provider/model provenance and bounded confidence.
 
 Semantic file understanding is Rekon's per-file scan: it reads one source file and
 reports what that file is and does. It restores the old codebase-intel per-file LLM

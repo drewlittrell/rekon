@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **Capability Evidence Graph safety-reviewed (slice 154):** strategy/safety-review batch — no API, artifact, or command changed; nothing to migrate. The v1 substrate was confirmed safe/stable. See [`capability-evidence-graph-safety-review.md`](../strategy/capability-evidence-graph-safety-review.md).
+
 > **Capability Evidence Graph v1 shipped (slice 153):** additive only — a new `CapabilityEvidenceGraph` artifact type, new `@rekon/capability-model` exports (`buildCapabilityEvidenceGraph`), and a new `rekon capability graph build` command. No existing artifact, signature, or command changed; nothing to migrate. See [`capability-evidence-graph.md`](../artifacts/capability-evidence-graph.md).
 
 > **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](../strategy/classic-llm-semantic-parsing-parity-decision.md).

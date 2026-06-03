@@ -375,6 +375,29 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# Capability Evidence Graph Safety Review has been reviewed.
+# One-hundred-fifty-fourth slice on the semantic-intelligence track.
+# Strategy / safety-review batch; no runtime behavior changes, no source
+# changes. Re-read the Capability Evidence Graph v1 implementation at
+# d7a3d27 against committed source and confirmed each safety property in
+# code: the graph is evidence-backed context, not proof by itself;
+# deterministic facts are the only v1 source; file and symbol nodes are
+# first-class graph nodes; capability nodes are richer than verb:noun and
+# are heuristic inferences, not facts; every claim carries
+# evidence/provenance/confidence; confidence is validated to 0..1; the
+# summary is recomputed by the factory; boundaries are forced false by the
+# factory and the validator rejects non-false boundaries. Verified the
+# builder uses no LLM, generates no embeddings, and is pure (no
+# fs/child_process/network/provider imports), and the command executes no
+# commands, writes no source files, creates no PreparedIntentPlan /
+# WorkOrder / VerificationPlan, runs no Circe, with intent:go deferred.
+# Decision: Capability Evidence Graph v1 is safe/stable. New memo + review
+# packet + 28-assertion docs test, 4 tables, full 9-command gate (no CLI
+# smoke for a strategy-only batch). See
+# docs/strategy/capability-evidence-graph-safety-review.md.
+# Recommended next slice: Semantic File Understanding -> Evidence Graph
+# Integration Decision.
+#
 # Capability Evidence Graph v1 has shipped.
 # One-hundred-fifty-third slice on the semantic-intelligence track.
 # New `CapabilityEvidenceGraph` kernel artifact (category graphs), a pure

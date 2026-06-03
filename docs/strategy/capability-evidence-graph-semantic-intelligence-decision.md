@@ -14,6 +14,14 @@ Parity Audit / Embedding Index Decision" as the immediate next step.
 > [`../artifacts/capability-evidence-graph.md`](../artifacts/capability-evidence-graph.md),
 > and [`../concepts/capability-evidence-graph.md`](../concepts/capability-evidence-graph.md).
 
+> **Safety-reviewed (slice 154):** the v1 substrate was re-read end-to-end and
+> found **safe/stable** — the deterministic floor is authoritative, model output
+> remains deferred and would enter only as evidence-backed inferences, and all
+> nine boundaries are validator-enforced. The next slice decides how
+> `SemanticFileUnderstandingReport` contributes LLM-derived inference claims into
+> the graph. See
+> [`capability-evidence-graph-safety-review.md`](./capability-evidence-graph-safety-review.md).
+
 ## Decision Summary
 
 Selected: **Option B — CapabilityEvidenceGraph-first architecture.** Rekon's next
