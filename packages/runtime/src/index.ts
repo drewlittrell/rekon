@@ -274,6 +274,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   PreparedIntentPlan: "actions",
   IntentStatusReport: "actions",
   IntentPlanActionabilityReport: "actions",
+  SemanticFileUnderstandingReport: "actions",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [

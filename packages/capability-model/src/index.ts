@@ -204,6 +204,14 @@ export {
 } from "./intent-plan-actionability-report.js";
 
 export {
+  type BuildSemanticFileUnderstandingReportInput,
+  type SemanticFileUnderstandingAdapter,
+  type SemanticFileUnderstandingAdapterResult,
+  SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
+  buildSemanticFileUnderstandingReport,
+} from "./semantic-file-understanding-report.js";
+
+export {
   type BuildIntentWorkOrderHandoffInput,
   type IntentWorkOrderGenerationResult,
   type IntentWorkOrderGenerationBlocker,

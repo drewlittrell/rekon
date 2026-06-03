@@ -106,3 +106,7 @@ no live providers, so `--llm-provider <id>` deterministically falls back
 - Implementation: [`rekon-llm-provider-routing-implementation.md`](../strategy/rekon-llm-provider-routing-implementation.md)
 - Package: `@rekon/llm-provider`
 - Consumer: [`intent-plan-compiler.md`](./intent-plan-compiler.md)
+
+## Semantic File Understanding v1
+
+Rekon has a per-file semantic understanding capability (slice 144): `rekon semantic file understand` produces a `SemanticFileUnderstandingReport`. Deterministic structural extraction (language, line/byte counts, imports, public exports, responsibilities) is always on and authoritative for imports/exports (the hallucination guard); optional LLM semantic understanding is a schema-validated, deterministically-rechecked proposal, not proof. It executes no commands, writes no source files, generates no embeddings, creates no PreparedIntentPlan / WorkOrder / VerificationPlan, runs no Circe, and intent:go remains deferred. See [Semantic File Understanding v1](../strategy/semantic-file-understanding-v1.md) and the [concept](./semantic-file-understanding.md).

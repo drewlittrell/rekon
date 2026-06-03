@@ -6119,6 +6119,441 @@ export const intentStatusReportSchema: ArtifactSchema<IntentStatusReport> = {
 };
 
 // ---------------------------------------------------------------------------
+// SemanticFileUnderstandingReport — per-file LLM semantic understanding
+// (slice 144). A read-only, proposal-not-proof per-file scan: it reads ONE
+// source file's text (by value, passed in) and reports a structural plus
+// optionally semantic understanding — purpose, responsibilities, public
+// exports, imports, capability signals, and findings. Imports/exports are
+// always deterministically extracted (the hallucination guard); provider output
+// is schema-checked and deterministically re-checked. It executes no commands,
+// writes no source, generates no embeddings, creates no PreparedIntentPlan /
+// WorkOrder / VerificationPlan, runs no Circe; intent:go remains deferred.
+// ---------------------------------------------------------------------------
+
+export type SemanticFileUnderstandingStatus = "understood" | "needs-review" | "provider-unavailable" | "blocked";
+
+export type SemanticFileUnderstandingMode = "deterministic" | "semantic-llm" | "deterministic-fallback";
+
+export type SemanticFileUnderstandingProvenance = "source-only" | "semantic-llm";
+
+export type SemanticFileUnderstandingConfidence = "low" | "medium" | "high";
+
+export type SemanticFileUnderstandingSeverity = "low" | "medium" | "high";
+
+export type SemanticFileSourceEvidence = {
+  lineStart?: number;
+  lineEnd?: number;
+  excerpt: string;
+};
+
+export type SemanticFileCapabilitySignal = {
+  id: string;
+  label: string;
+  confidence: SemanticFileUnderstandingConfidence;
+  sourceEvidence: SemanticFileSourceEvidence[];
+};
+
+export type SemanticFileUnderstandingFinding = {
+  id: string;
+  severity: SemanticFileUnderstandingSeverity;
+  message: string;
+  sourceEvidence: string[];
+  suggestedFollowUp?: string;
+};
+
+export type SemanticFileUnderstandingBoundaries = {
+  executedCommands: false;
+  wroteSourceFiles: false;
+  createdPreparedIntentPlan: false;
+  createdWorkOrder: false;
+  createdVerificationPlan: false;
+  generatedEmbeddings: false;
+  ranCirce: false;
+  implementedIntentGo: false;
+};
+
+export type SemanticFileUnderstandingReport = {
+  header: ArtifactHeader;
+  schemaVersion: "0.1.0";
+  status: {
+    value: SemanticFileUnderstandingStatus;
+    reason: string;
+  };
+  file: {
+    path: string;
+    sha256: string;
+    language?: string;
+    lineCount: number;
+    byteLength: number;
+  };
+  normalizationTrace: {
+    method: SemanticFileUnderstandingMode;
+    invokedSemanticUnderstanding: boolean;
+    provider?: string;
+    model?: string;
+    provenance: SemanticFileUnderstandingProvenance;
+    warnings: string[];
+  };
+  summary: {
+    purpose: string;
+    responsibilities: string[];
+    publicExports: string[];
+    imports: string[];
+    touchedConcepts: string[];
+  };
+  capabilitySignals: SemanticFileCapabilitySignal[];
+  findings: SemanticFileUnderstandingFinding[];
+  boundaries: SemanticFileUnderstandingBoundaries;
+};
+
+const SEMANTIC_FILE_UNDERSTANDING_STATUSES = new Set<string>([
+  "understood",
+  "needs-review",
+  "provider-unavailable",
+  "blocked",
+]);
+const SEMANTIC_FILE_UNDERSTANDING_METHODS = new Set<string>(["deterministic", "semantic-llm", "deterministic-fallback"]);
+const SEMANTIC_FILE_UNDERSTANDING_PROVENANCES = new Set<string>(["source-only", "semantic-llm"]);
+const SEMANTIC_FILE_UNDERSTANDING_CONFIDENCES = new Set<string>(["low", "medium", "high"]);
+const SEMANTIC_FILE_UNDERSTANDING_SEVERITIES = new Set<string>(["low", "medium", "high"]);
+const SEMANTIC_FILE_UNDERSTANDING_BOUNDARY_KEYS = [
+  "executedCommands",
+  "wroteSourceFiles",
+  "createdPreparedIntentPlan",
+  "createdWorkOrder",
+  "createdVerificationPlan",
+  "generatedEmbeddings",
+  "ranCirce",
+  "implementedIntentGo",
+] as const;
+
+function sfuStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item === "string" && item.length > 0) out.push(item);
+  }
+  return out;
+}
+
+function sfuNonNegInt(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function sfuNormalizeSourceEvidence(value: unknown): SemanticFileSourceEvidence[] {
+  if (!Array.isArray(value)) return [];
+  const out: SemanticFileSourceEvidence[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw)) continue;
+    const excerpt = typeof raw.excerpt === "string" ? raw.excerpt : "";
+    if (excerpt.length === 0) continue;
+    const evidence: SemanticFileSourceEvidence = { excerpt };
+    if (typeof raw.lineStart === "number" && Number.isInteger(raw.lineStart) && raw.lineStart >= 0) {
+      evidence.lineStart = raw.lineStart;
+    }
+    if (typeof raw.lineEnd === "number" && Number.isInteger(raw.lineEnd) && raw.lineEnd >= 0) {
+      evidence.lineEnd = raw.lineEnd;
+    }
+    out.push(evidence);
+  }
+  return out;
+}
+
+function sfuNormalizeCapabilitySignals(value: unknown): SemanticFileCapabilitySignal[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: SemanticFileCapabilitySignal[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0 || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const confidence: SemanticFileUnderstandingConfidence =
+      raw.confidence === "high" || raw.confidence === "medium" || raw.confidence === "low" ? raw.confidence : "low";
+    out.push({
+      id: raw.id,
+      label: typeof raw.label === "string" ? raw.label : "",
+      confidence,
+      sourceEvidence: sfuNormalizeSourceEvidence(raw.sourceEvidence),
+    });
+  }
+  return out;
+}
+
+function sfuNormalizeFindings(value: unknown): SemanticFileUnderstandingFinding[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: SemanticFileUnderstandingFinding[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0 || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const severity: SemanticFileUnderstandingSeverity =
+      raw.severity === "high" || raw.severity === "medium" || raw.severity === "low" ? raw.severity : "low";
+    const finding: SemanticFileUnderstandingFinding = {
+      id: raw.id,
+      severity,
+      message: typeof raw.message === "string" ? raw.message : "",
+      sourceEvidence: sfuStringList(raw.sourceEvidence),
+    };
+    if (typeof raw.suggestedFollowUp === "string" && raw.suggestedFollowUp.length > 0) {
+      finding.suggestedFollowUp = raw.suggestedFollowUp;
+    }
+    out.push(finding);
+  }
+  return out;
+}
+
+export function createSemanticFileUnderstandingReport(
+  input: SemanticFileUnderstandingReport,
+): SemanticFileUnderstandingReport {
+  const rawStatus = isRecord(input.status)
+    ? (input.status as SemanticFileUnderstandingReport["status"])
+    : ({} as SemanticFileUnderstandingReport["status"]);
+  const rawFile = isRecord(input.file)
+    ? (input.file as SemanticFileUnderstandingReport["file"])
+    : ({} as SemanticFileUnderstandingReport["file"]);
+  const rawTrace = isRecord(input.normalizationTrace)
+    ? (input.normalizationTrace as SemanticFileUnderstandingReport["normalizationTrace"])
+    : ({} as SemanticFileUnderstandingReport["normalizationTrace"]);
+  const rawSummary = isRecord(input.summary)
+    ? (input.summary as SemanticFileUnderstandingReport["summary"])
+    : ({} as SemanticFileUnderstandingReport["summary"]);
+
+  const file: SemanticFileUnderstandingReport["file"] = {
+    path: typeof rawFile.path === "string" ? rawFile.path : "",
+    sha256: typeof rawFile.sha256 === "string" ? rawFile.sha256 : "",
+    lineCount: sfuNonNegInt(rawFile.lineCount),
+    byteLength: sfuNonNegInt(rawFile.byteLength),
+  };
+  if (typeof rawFile.language === "string" && rawFile.language.length > 0) file.language = rawFile.language;
+
+  const trace: SemanticFileUnderstandingReport["normalizationTrace"] = {
+    method: rawTrace.method ?? "deterministic",
+    invokedSemanticUnderstanding: rawTrace.invokedSemanticUnderstanding === true,
+    provenance: rawTrace.provenance ?? "source-only",
+    warnings: sfuStringList(rawTrace.warnings),
+  };
+  if (typeof rawTrace.provider === "string" && rawTrace.provider.length > 0) trace.provider = rawTrace.provider;
+  if (typeof rawTrace.model === "string" && rawTrace.model.length > 0) trace.model = rawTrace.model;
+
+  const report: SemanticFileUnderstandingReport = {
+    header: input.header,
+    schemaVersion: "0.1.0",
+    status: {
+      value: rawStatus.value,
+      reason: typeof rawStatus.reason === "string" ? rawStatus.reason : "",
+    },
+    file,
+    normalizationTrace: trace,
+    summary: {
+      purpose: typeof rawSummary.purpose === "string" ? rawSummary.purpose : "",
+      responsibilities: sfuStringList(rawSummary.responsibilities),
+      publicExports: sfuStringList(rawSummary.publicExports),
+      imports: sfuStringList(rawSummary.imports),
+      touchedConcepts: sfuStringList(rawSummary.touchedConcepts),
+    },
+    capabilitySignals: sfuNormalizeCapabilitySignals(input.capabilitySignals),
+    findings: sfuNormalizeFindings(input.findings),
+    boundaries: {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      generatedEmbeddings: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    },
+  };
+
+  return assertSemanticFileUnderstandingReport(report);
+}
+
+function sfuValidateSourceEvidenceList(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    if (!isRecord(entry)) {
+      issues.push({ path: entryPath, message: "Expected an object." });
+      return;
+    }
+    if (typeof entry.excerpt !== "string" || entry.excerpt.length === 0) {
+      issues.push({ path: `${entryPath}.excerpt`, message: "Expected a non-empty string." });
+    }
+    for (const key of ["lineStart", "lineEnd"] as const) {
+      const x = entry[key];
+      if (x !== undefined && (typeof x !== "number" || !Number.isInteger(x) || x < 0)) {
+        issues.push({ path: `${entryPath}.${key}`, message: "Expected a non-negative integer when present." });
+      }
+    }
+  });
+}
+
+export function validateSemanticFileUnderstandingReport(
+  value: unknown,
+): ValidationResult<SemanticFileUnderstandingReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "SemanticFileUnderstandingReport", "$.header", issues);
+
+  if (value.schemaVersion !== "0.1.0") {
+    issues.push({ path: "$.schemaVersion", message: "Expected schemaVersion to be 0.1.0." });
+  }
+
+  if (!isRecord(value.status)) {
+    issues.push({ path: "$.status", message: "Expected an object." });
+  } else {
+    const status = value.status as Record<string, unknown>;
+    if (typeof status.value !== "string" || !SEMANTIC_FILE_UNDERSTANDING_STATUSES.has(status.value)) {
+      issues.push({ path: "$.status.value", message: "Expected a valid status value." });
+    }
+    if (typeof status.reason !== "string") {
+      issues.push({ path: "$.status.reason", message: "Expected a string." });
+    }
+  }
+
+  if (!isRecord(value.file)) {
+    issues.push({ path: "$.file", message: "Expected an object." });
+  } else {
+    const file = value.file as Record<string, unknown>;
+    pushRequiredStringIssue(issues, file.path, "$.file.path");
+    pushRequiredStringIssue(issues, file.sha256, "$.file.sha256");
+    if (file.language !== undefined && (typeof file.language !== "string" || file.language.length === 0)) {
+      issues.push({ path: "$.file.language", message: "Expected a non-empty string when present." });
+    }
+    for (const key of ["lineCount", "byteLength"] as const) {
+      const x = file[key];
+      if (typeof x !== "number" || !Number.isInteger(x) || x < 0) {
+        issues.push({ path: `$.file.${key}`, message: "Expected a non-negative integer." });
+      }
+    }
+  }
+
+  if (!isRecord(value.normalizationTrace)) {
+    issues.push({ path: "$.normalizationTrace", message: "Expected an object." });
+  } else {
+    const trace = value.normalizationTrace as Record<string, unknown>;
+    if (typeof trace.method !== "string" || !SEMANTIC_FILE_UNDERSTANDING_METHODS.has(trace.method)) {
+      issues.push({ path: "$.normalizationTrace.method", message: "Expected a valid method." });
+    }
+    if (typeof trace.invokedSemanticUnderstanding !== "boolean") {
+      issues.push({ path: "$.normalizationTrace.invokedSemanticUnderstanding", message: "Expected a boolean." });
+    }
+    if (typeof trace.provenance !== "string" || !SEMANTIC_FILE_UNDERSTANDING_PROVENANCES.has(trace.provenance)) {
+      issues.push({ path: "$.normalizationTrace.provenance", message: "Expected source-only or semantic-llm." });
+    }
+    if (!isStringArray(trace.warnings)) {
+      issues.push({ path: "$.normalizationTrace.warnings", message: "Expected an array of strings." });
+    }
+    for (const key of ["provider", "model"] as const) {
+      const x = trace[key];
+      if (x !== undefined && (typeof x !== "string" || x.length === 0)) {
+        issues.push({ path: `$.normalizationTrace.${key}`, message: "Expected a non-empty string when present." });
+      }
+    }
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const summary = value.summary as Record<string, unknown>;
+    if (typeof summary.purpose !== "string") {
+      issues.push({ path: "$.summary.purpose", message: "Expected a string." });
+    }
+    for (const key of ["responsibilities", "publicExports", "imports", "touchedConcepts"] as const) {
+      if (!isStringArray(summary[key])) {
+        issues.push({ path: `$.summary.${key}`, message: "Expected an array of strings." });
+      }
+    }
+  }
+
+  if (!Array.isArray(value.capabilitySignals)) {
+    issues.push({ path: "$.capabilitySignals", message: "Expected an array." });
+  } else {
+    const seen = new Set<string>();
+    value.capabilitySignals.forEach((signal, index) => {
+      const path = `$.capabilitySignals[${index}]`;
+      if (!isRecord(signal)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (typeof signal.id !== "string" || signal.id.length === 0) {
+        issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+      } else if (seen.has(signal.id)) {
+        issues.push({ path: `${path}.id`, message: `Duplicate signal id ${signal.id}.` });
+      } else {
+        seen.add(signal.id);
+      }
+      if (typeof signal.label !== "string") issues.push({ path: `${path}.label`, message: "Expected a string." });
+      if (typeof signal.confidence !== "string" || !SEMANTIC_FILE_UNDERSTANDING_CONFIDENCES.has(signal.confidence)) {
+        issues.push({ path: `${path}.confidence`, message: "Expected one of low, medium, high." });
+      }
+      sfuValidateSourceEvidenceList(signal.sourceEvidence, `${path}.sourceEvidence`, issues);
+    });
+  }
+
+  if (!Array.isArray(value.findings)) {
+    issues.push({ path: "$.findings", message: "Expected an array." });
+  } else {
+    const seen = new Set<string>();
+    value.findings.forEach((finding, index) => {
+      const path = `$.findings[${index}]`;
+      if (!isRecord(finding)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (typeof finding.id !== "string" || finding.id.length === 0) {
+        issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+      } else if (seen.has(finding.id)) {
+        issues.push({ path: `${path}.id`, message: `Duplicate finding id ${finding.id}.` });
+      } else {
+        seen.add(finding.id);
+      }
+      if (typeof finding.severity !== "string" || !SEMANTIC_FILE_UNDERSTANDING_SEVERITIES.has(finding.severity)) {
+        issues.push({ path: `${path}.severity`, message: "Expected one of low, medium, high." });
+      }
+      if (typeof finding.message !== "string") issues.push({ path: `${path}.message`, message: "Expected a string." });
+      if (!isStringArray(finding.sourceEvidence)) {
+        issues.push({ path: `${path}.sourceEvidence`, message: "Expected an array of strings." });
+      }
+      if (
+        finding.suggestedFollowUp !== undefined &&
+        (typeof finding.suggestedFollowUp !== "string" || finding.suggestedFollowUp.length === 0)
+      ) {
+        issues.push({ path: `${path}.suggestedFollowUp`, message: "Expected a non-empty string when present." });
+      }
+    });
+  }
+
+  if (!isRecord(value.boundaries)) {
+    issues.push({ path: "$.boundaries", message: "Expected an object." });
+  } else {
+    const boundaries = value.boundaries as Record<string, unknown>;
+    for (const key of SEMANTIC_FILE_UNDERSTANDING_BOUNDARY_KEYS) {
+      if (boundaries[key] !== false) {
+        issues.push({ path: `$.boundaries.${key}`, message: "Expected false." });
+      }
+    }
+  }
+
+  return validationResult(value as SemanticFileUnderstandingReport, issues);
+}
+
+export function assertSemanticFileUnderstandingReport(value: unknown): SemanticFileUnderstandingReport {
+  return assertValid(validateSemanticFileUnderstandingReport(value), "SemanticFileUnderstandingReport");
+}
+
+export const semanticFileUnderstandingReportSchema: ArtifactSchema<SemanticFileUnderstandingReport> = {
+  validate: validateSemanticFileUnderstandingReport,
+  parse: assertSemanticFileUnderstandingReport,
+};
+
+// ---------------------------------------------------------------------------
 // IntentPlanActionabilityReport — plan compiler / actionability / elicitation
 // (slice 129). Reads a raw / semi-structured plan, normalizes it into phase
 // drafts, evaluates actionability, emits findings + elicitation questions + a

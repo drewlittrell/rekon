@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Semantic File Understanding v1** — one-hundred-forty-fourth slice on the intent-spine track (Track A:
+  the first non-embedding semantic-parsing implementation). Restores the old `codebase-intel` per-file LLM scan
+  (`runPureLlmPipeline`) inside Rekon's provider/router/artifact architecture as a new `SemanticFileUnderstandingReport`
+  artifact (category `actions`; registered in kernel-repo-model + SDK + runtime), a pure `buildSemanticFileUnderstandingReport`
+  helper in `@rekon/capability-model`, and a `rekon semantic file understand --path <file> [--semantic off|auto|required]`
+  CLI command. The deterministic structural extraction (language, line/byte counts, imports, public exports,
+  responsibilities, purpose) is always on, and **imports and public exports are always the deterministic extraction —
+  the hallucination guard**. Optional LLM semantic understanding (purpose / capability signals / findings) is routed
+  through `@rekon/llm-provider` (`artifact.summary` task) only when a provider is explicitly selected; provider output
+  is **schema-validated and deterministically rechecked** — a proposal, not proof. Modes: `off` (deterministic only,
+  no key read), `auto` (fall back to deterministic with a warning → `provider-unavailable`), `required` (exit non-zero
+  and write no report if no usable provider result). The `normalizationTrace` persists method/provider/model/provenance/
+  warnings. Boundaries (eight false-only booleans, factory-forced, validator-enforced): no command execution, no source
+  writes, no embeddings, no PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun / VerificationResult, no
+  Circe; intent:go remains deferred. Scan is NOT changed to run per-file understanding by default. Adds a 23-assertion
+  contract test + 12-assertion docs test (committed key-free; live provider runs are opt-in), `docs/concepts/semantic-file-understanding.md`,
+  `docs/artifacts/semantic-file-understanding-report.md`, `docs/strategy/semantic-file-understanding-v1.md`, and a review
+  packet. Recommended next: a Semantic File Understanding Safety Review. See
+  [`docs/strategy/semantic-file-understanding-v1.md`](docs/strategy/semantic-file-understanding-v1.md).
 - Decided **Classic LLM Semantic Parsing Parity Decision** — one-hundred-forty-third slice on the intent-spine
   track (Track A: finish LLM-backed semantic work before Track B embeddings). Decision-only batch: audited the
   old `codebase-intel` system's **non-embedding** LLM-backed semantic surfaces against actual source (local

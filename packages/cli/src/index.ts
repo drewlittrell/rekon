@@ -144,6 +144,9 @@ import modelCapability, {
   type StepCapabilityGraphEvidenceGraphLike,
   type StepCapabilityGraphPhraseReportLike,
   type IntentPlanSemanticNormalizationAdapter,
+  type SemanticFileUnderstandingAdapter,
+  type SemanticFileUnderstandingAdapterResult,
+  buildSemanticFileUnderstandingReport,
 } from "@rekon/capability-model";
 import { RekonLlmRouter, coercePhaseDrafts, createOpenAiLlmProvider } from "@rekon/llm-provider";
 import policyCapability from "@rekon/capability-policy";
@@ -433,6 +436,9 @@ function renderWelcome(brand: string): string {
     "",
     "Intent workflow:",
     ...rekonIntentWorkflow().map((c) => `  ${c}`),
+    "",
+    "Analysis:",
+    "  rekon semantic file understand",
     "",
     "Boundaries:",
     "  Rekon does not run Circe.",
@@ -4487,6 +4493,131 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "semantic" && subcommand === "file" && positional === "understand") {
+    // `rekon semantic file understand --path <file> [--semantic off|auto|required]
+    // [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]` —
+    // Semantic File Understanding v1 (slice 144).
+    //
+    // Reads ONE source file, deterministically extracts a structural understanding
+    // (language, line/byte counts, imports, public exports, responsibilities), and
+    // optionally enriches it with a router-bound LLM semantic understanding
+    // (purpose / capability signals / findings). Imports and public exports are
+    // ALWAYS the deterministic extraction (the hallucination guard); provider
+    // output is schema-gated and deterministically re-checked — a proposal, not
+    // proof. Writes exactly ONE SemanticFileUnderstandingReport. It executes no
+    // commands, writes no source, generates no embeddings, creates no
+    // PreparedIntentPlan / WorkOrder / VerificationPlan / VerificationRun /
+    // VerificationResult, runs no Circe, and does not implement intent:go.
+    // See docs/concepts/semantic-file-understanding.md.
+    const pathFlag = typeof parsed.flags.path === "string" ? parsed.flags.path.trim() : "";
+    if (pathFlag.length === 0) {
+      throw new Error("rekon semantic file understand requires --path <file>.");
+    }
+    const semanticFlag = typeof parsed.flags.semantic === "string" ? parsed.flags.semantic.trim() : "off";
+    if (semanticFlag !== "off" && semanticFlag !== "auto" && semanticFlag !== "required") {
+      throw new Error("rekon semantic file understand --semantic must be one of off, auto, required.");
+    }
+
+    const resolvedFilePath = resolve(root, pathFlag);
+    let fileText: string;
+    try {
+      fileText = await readFile(resolvedFilePath, "utf8");
+    } catch {
+      throw new Error(`rekon semantic file understand could not read the file at ${pathFlag}.`);
+    }
+    const fileSha256 = createHash("sha256").update(fileText).digest("hex");
+
+    // Router-bound semantic-understanding adapter (slice 144). With no API key the
+    // OpenAI-compatible provider self-guards (`missing-api-key`, no network), so
+    // `--semantic auto` falls back to deterministic structural understanding with a
+    // warning, `--semantic required` exits non-zero (the build rejects → no report),
+    // and `--semantic off` stays purely deterministic. The API key is read here from
+    // the environment, never inside capability-model, never stored in repo config.
+    const llmProviderFlag =
+      typeof parsed.flags["llm-provider"] === "string" ? String(parsed.flags["llm-provider"]).trim() : "";
+    const llmModelFlag =
+      typeof parsed.flags["llm-model"] === "string" ? String(parsed.flags["llm-model"]).trim() : "";
+    const understandingAdapter = createSemanticFileUnderstandingAdapter(semanticFlag, llmProviderFlag, llmModelFlag);
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const report = await buildSemanticFileUnderstandingReport({
+      filePath: pathFlag,
+      fileText,
+      fileSha256,
+      root,
+      semanticMode: semanticFlag,
+      ...(understandingAdapter ? { semanticUnderstanding: understandingAdapter } : {}),
+    });
+
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          status: report.status.value,
+          artifact: { type: ref.type, id: ref.id },
+          file: {
+            path: report.file.path,
+            sha256: report.file.sha256,
+            ...(typeof report.file.language === "string" ? { language: report.file.language } : {}),
+            lineCount: report.file.lineCount,
+            byteLength: report.file.byteLength,
+          },
+          normalization: {
+            method: report.normalizationTrace.method,
+            invokedSemanticUnderstanding: report.normalizationTrace.invokedSemanticUnderstanding,
+            provenance: report.normalizationTrace.provenance,
+            ...(typeof report.normalizationTrace.provider === "string"
+              ? { provider: report.normalizationTrace.provider }
+              : {}),
+            ...(typeof report.normalizationTrace.model === "string" ? { model: report.normalizationTrace.model } : {}),
+            warnings: report.normalizationTrace.warnings,
+          },
+          summary: {
+            purpose: report.summary.purpose,
+            responsibilities: report.summary.responsibilities.length,
+            publicExports: report.summary.publicExports.length,
+            imports: report.summary.imports.length,
+            touchedConcepts: report.summary.touchedConcepts.length,
+            capabilitySignals: report.capabilitySignals.length,
+            findings: report.findings.length,
+          },
+          boundaries: {
+            executedCommands: report.boundaries.executedCommands,
+            wroteSourceFiles: report.boundaries.wroteSourceFiles,
+            generatedEmbeddings: report.boundaries.generatedEmbeddings,
+            ranCirce: report.boundaries.ranCirce,
+            implementedIntentGo: report.boundaries.implementedIntentGo,
+          },
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("Semantic file understanding", "");
+      lines.push(`File: ${report.file.path}${typeof report.file.language === "string" ? ` (${report.file.language})` : ""}`);
+      lines.push(`Status: ${report.status.value} — ${report.status.reason}`);
+      const traceProvider = typeof report.normalizationTrace.provider === "string" ? ` via ${report.normalizationTrace.provider}` : "";
+      const traceModel = typeof report.normalizationTrace.model === "string" ? ` (${report.normalizationTrace.model})` : "";
+      lines.push(`Method: ${report.normalizationTrace.method}${traceProvider}${traceModel}`);
+      if (report.summary.purpose.length > 0) lines.push(`Purpose: ${report.summary.purpose}`);
+      lines.push(
+        `Exports: ${report.summary.publicExports.length} · Imports: ${report.summary.imports.length} · Responsibilities: ${report.summary.responsibilities.length}`,
+      );
+      lines.push(`Capability signals: ${report.capabilitySignals.length} · Findings: ${report.findings.length}`);
+      const firstWarning = report.normalizationTrace.warnings[0];
+      if (typeof firstWarning === "string") lines.push(`Note: ${firstWarning}`);
+      lines.push("");
+      lines.push(
+        "No commands were executed, no source was written, no embeddings were generated, no PreparedIntentPlan / WorkOrder / VerificationPlan was created, Circe was not run, and intent:go was not implemented.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
   if (command === "intent" && subcommand === "plan" && positional === "answer") {
     // `rekon intent plan answer --report <ref> --answer <question-id>=<answer>
     // [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>]
@@ -7591,6 +7722,94 @@ function createPlanSemanticNormalizationAdapter(
     const result: PlanSemanticNormalizationResult = {
       phases: phases as unknown as PlanSemanticNormalizationResult["phases"],
     };
+    if (routed.result.provider) result.provider = routed.result.provider;
+    if (routed.result.model) result.model = routed.result.model;
+    return result;
+  };
+}
+
+/**
+ * Build a router-bound semantic file-understanding adapter for
+ * `rekon semantic file understand` (slice 144). Mirrors the plan-review semantic
+ * adapter: resolves the provider/model from `--llm-provider` / `--llm-model` and
+ * the `REKON_LLM_PROVIDER` / `REKON_LLM_MODEL` / `REKON_LLM_ENABLED` env vars,
+ * registers the OpenAI-compatible provider (which self-guards on a missing key),
+ * and routes a bounded `artifact.summary` task. The adapter NEVER throws and
+ * NEVER decides modes: it returns `{}` whenever no usable provider result is
+ * available, and `buildSemanticFileUnderstandingReport` owns the auto/required
+ * fallback (auto → deterministic-fallback warning; required → throw, no report).
+ * Provider output is a proposal; the builder coerces and the deterministic
+ * extraction stays authoritative. The API key is read here from the environment
+ * (never in capability-model, never stored in repo config). Returns `undefined`
+ * for `off`.
+ */
+function createSemanticFileUnderstandingAdapter(
+  mode: "off" | "auto" | "required",
+  flagProvider: string,
+  flagModel: string,
+): SemanticFileUnderstandingAdapter | undefined {
+  if (mode === "off") return undefined;
+
+  const envProvider =
+    typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
+  const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
+  const envEnabled = process.env.REKON_LLM_ENABLED;
+  const provider = flagProvider || envProvider;
+  const model = flagModel || envModel;
+  const enabled = envEnabled === "1" || envEnabled === "true" || provider.length > 0;
+
+  const providers = [
+    createOpenAiLlmProvider({
+      id: "openai",
+      apiKey: process.env.OPENAI_API_KEY,
+      ...(typeof process.env.REKON_LLM_BASE_URL === "string" && process.env.REKON_LLM_BASE_URL.length > 0
+        ? { baseUrl: process.env.REKON_LLM_BASE_URL }
+        : {}),
+      ...(model ? { defaultModel: model } : {}),
+    }),
+  ];
+
+  const router = new RekonLlmRouter({ config: { enabled }, providers });
+  const override: { provider?: string; model?: string; mode: "off" | "auto" | "required" } = { mode };
+  if (provider) override.provider = provider;
+  if (model) override.model = model;
+
+  return async ({ filePath, fileText, language }) => {
+    const prompt = [
+      "Summarize the following source file for codebase intelligence.",
+      'Return ONE JSON object of the shape { "summary": { "purpose": string, "responsibilities": string[], "touchedConcepts": string[] }, "capabilitySignals": [ ... ], "findings": [ ... ] }.',
+      "Each capabilitySignal has: id, label, confidence (low|medium|high), sourceEvidence[] (each { excerpt, lineStart?, lineEnd? }).",
+      "Each finding has: id, severity (low|medium|high), message, sourceEvidence[] (strings), suggestedFollowUp?.",
+      "Rules (a deterministic reviewer re-checks every field against the source; imports and public exports are extracted deterministically and your values for them are ignored):",
+      "- Summarize this file's purpose in one sentence.",
+      "- List the concrete responsibilities you can see in the file.",
+      "- List capability signals with source evidence; do NOT invent capabilities the source does not support.",
+      "- Do NOT claim any command ran, any test passed, or any behavior not visible in this file.",
+      "- Do NOT infer runtime behavior you cannot see; leave unknown fields empty.",
+      "- Return only source-supported content.",
+      language ? `Language: ${language}` : "",
+      `File path: ${filePath}`,
+      "File contents:",
+      fileText,
+    ]
+      .filter((line) => line.length > 0)
+      .join("\n");
+
+    const routed = await router.completeJson(
+      { task: "artifact.summary", schemaName: "SemanticFileUnderstandingResult", prompt },
+      override,
+    );
+
+    if (!routed.ok) {
+      return {};
+    }
+
+    const data = routed.result.data;
+    const base: SemanticFileUnderstandingAdapterResult =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as SemanticFileUnderstandingAdapterResult)
+        : {};
+    const result: SemanticFileUnderstandingAdapterResult = { ...base };
     if (routed.result.provider) result.provider = routed.result.provider;
     if (routed.result.model) result.model = routed.result.model;
     return result;
@@ -11266,6 +11485,7 @@ function usage(): string {
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
     "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--root <path>] [--json]",
     "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
+    "rekon semantic file understand --path <file> [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]",
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",

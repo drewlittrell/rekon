@@ -82,3 +82,7 @@ quality is honestly stable.
 - [Rekon LLM Provider Routing concept](../concepts/rekon-llm-provider-routing.md)
 - [Intent Plan Compiler concept](../concepts/intent-plan-compiler.md)
 - [IntentPlanActionabilityReport artifact](../artifacts/intent-plan-actionability-report.md)
+
+## Semantic File Understanding v1
+
+Rekon has a per-file semantic understanding capability (slice 144): `rekon semantic file understand` produces a `SemanticFileUnderstandingReport`. Deterministic structural extraction (language, line/byte counts, imports, public exports, responsibilities) is always on and authoritative for imports/exports (the hallucination guard); optional LLM semantic understanding is a schema-validated, deterministically-rechecked proposal, not proof. It executes no commands, writes no source files, generates no embeddings, creates no PreparedIntentPlan / WorkOrder / VerificationPlan, runs no Circe, and intent:go remains deferred. See [Semantic File Understanding v1](./semantic-file-understanding-v1.md) and the [concept](../concepts/semantic-file-understanding.md).
