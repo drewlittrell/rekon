@@ -1,5 +1,7 @@
 # Roadmap
 
+> **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](./intent-plan-semantic-quality-dogfood.md).
+
 This roadmap sequences post-NorthStar work. It distinguishes:
 
 - **Completed alpha spine.** Things that already ship under

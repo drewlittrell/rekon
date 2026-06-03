@@ -4438,6 +4438,22 @@ export async function main(argv: string[]): Promise<void> {
             findings: report.summary.findings,
             questions: report.summary.questions,
           },
+          // Surface the normalization trace so `--json` consumers (operators /
+          // agents) can see whether semantic normalization actually fired and via
+          // which provider/model, without a second `artifacts show`. Additive,
+          // read-only: provider output stays a proposal that the deterministic
+          // evaluator already re-checked into the findings above (slice 141).
+          normalization: {
+            method: report.normalizationTrace.method,
+            invokedSemanticNormalization: report.normalizationTrace.invokedSemanticNormalization,
+            ...(typeof report.normalizationTrace.provider === "string"
+              ? { provider: report.normalizationTrace.provider }
+              : {}),
+            ...(typeof report.normalizationTrace.model === "string"
+              ? { model: report.normalizationTrace.model }
+              : {}),
+            warnings: report.normalizationTrace.warnings,
+          },
           nextAction,
         },
         true,

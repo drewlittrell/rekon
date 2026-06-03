@@ -1,5 +1,7 @@
 # Rekon LLM Provider Routing
 
+> **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](../strategy/intent-plan-semantic-quality-dogfood.md).
+
 > **Re-dogfooded end-to-end (slice 140):** the routed provider was exercised
 > through the full fresh-repo operator path (semantic off/auto/required), and the
 > resulting bundle imported into Circe — provider output stays proposal-not-proof

@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](../strategy/intent-plan-semantic-quality-dogfood.md).
+
 > Migration guidance prepared by V1 Release Prep Implementation. No version bump, tag, or
 > npm publish has occurred; packages remain at `0.1.0-beta.0`.
 

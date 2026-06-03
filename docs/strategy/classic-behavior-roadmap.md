@@ -1,5 +1,7 @@
 # Classic Behavior Roadmap
 
+> **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](./intent-plan-semantic-quality-dogfood.md).
+
 A phased plan for distilling `codebase-intel-classic` behavior into Rekon.
 Each phase moves wins forward without copying the accidents.
 

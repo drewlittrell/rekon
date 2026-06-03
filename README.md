@@ -1,5 +1,7 @@
 # Rekon
 
+> **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](docs/strategy/intent-plan-semantic-quality-dogfood.md).
+
 Rekon is an open-source intelligence substrate for codebases: evidence in,
 typed artifacts out, extensible capabilities around a shared repository
 intelligence snapshot.

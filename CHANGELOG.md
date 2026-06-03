@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Intent Plan Semantic Quality Dogfood** — one-hundred-forty-first slice on the intent-spine track
+  (Path B). Product/quality dogfood of **LLM-backed semantic normalization** with a **live OpenAI provider**
+  (`gpt-4o-mini`, plus a `gpt-4.1-mini` model-switch cross-check). Across six rough-plan shapes (brain dump,
+  messy bullets, implicit phases, missing verification, non-goals, old source-plan style), `--semantic required`
+  produced a `semantic-llm` normalization that **extracted objectives/deliverables/acceptance/touched-paths/
+  verification-commands and preserved non-goals**, reducing deterministic findings (e.g. 8→4, 12→4) and
+  decomposing an implicit plan 1→4 phases — with **zero invented paths and zero invented commands** across all
+  runs. Provider output stayed a proposal: schema-gated and deterministically rechecked (never auto-`actionable`);
+  source/plan files byte-unchanged; no commands executed; no Circe run; `intent:go` deferred. No-key fallback
+  remains safety behavior, not quality proof. One small additive fix: `rekon intent plan review --json` now emits
+  a `normalization` block (`method`/`provider`/`model`/`warnings`). Tests: contract 20 (11 no-key + 9 live-gated),
+  docs 13. See [`docs/strategy/intent-plan-semantic-quality-dogfood.md`](docs/strategy/intent-plan-semantic-quality-dogfood.md).
 - Shipped **Fresh Repo Intent Handoff / Circe Dogfood Review** — one-hundred-fortieth slice on the intent-spine
   track. System dogfood / review batch (semantic re-run of the slice-136 review). Ran the full operator path on
   a fresh, real-ish repo through public commands (scan → intent context prepare → plan review off/auto/required

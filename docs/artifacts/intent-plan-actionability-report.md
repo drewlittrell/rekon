@@ -1,5 +1,7 @@
 # IntentPlanActionabilityReport
 
+> **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](../strategy/intent-plan-semantic-quality-dogfood.md).
+
 > **Re-dogfooded end-to-end (slice 140):** review → answer → actionable was
 > re-proven on a fresh repo (rough plan blocked with questions; answered revision
 > actionable; source report byte-unchanged), feeding prepare → approve → handoff →

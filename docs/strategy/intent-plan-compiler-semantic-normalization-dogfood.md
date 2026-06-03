@@ -1,5 +1,7 @@
 # Intent Plan Compiler Semantic Normalization / Dogfood
 
+> **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](./intent-plan-semantic-quality-dogfood.md).
+
 Status: implemented (slice 139). Base: `8d1171a`. Follows
 [`rekon-llm-provider-routing-implementation.md`](./rekon-llm-provider-routing-implementation.md)
 (the shared router) and the
