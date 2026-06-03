@@ -1,5 +1,11 @@
 # Capability Evidence Graph
 
+> **Semantic → Evidence Graph integration safety-reviewed (slice 157):** the
+> slice-156 integration was ground-reviewed and found **safe/stable** — opt-in,
+> inference-not-fact, deterministic facts win, stale never silent, `usedLlm`
+> stays false. See
+> [`../strategy/semantic-file-understanding-evidence-graph-integration-safety-review.md`](../strategy/semantic-file-understanding-evidence-graph-integration-safety-review.md).
+
 > **Semantic → Evidence Graph integration implemented (slice 156):** `rekon
 > capability graph build --semantic-file-reports latest` /
 > `--semantic-file-report-ref <ref>` now folds `SemanticFileUnderstandingReport`

@@ -376,6 +376,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # never deletes reviewer-touched comments.
 #
 # Semantic File Understanding -> Evidence Graph Integration
+# Safety Review has been reviewed.
+# One-hundred-fifty-seventh slice on the semantic-intelligence track.
+# Strategy/safety-review batch; no runtime behavior changes, no
+# source changes. Ground-reviewed the slice-156 integration
+# end-to-end against committed source at 35453e8 and found it
+# safe/stable: the default rekon capability graph build stays
+# deterministic-only; SemanticFileUnderstandingReport content enters
+# only through --semantic-file-reports / --semantic-file-report-ref,
+# as llm_extraction evidence and llm / inference claims -- never
+# facts, never proof; deterministic facts win (semantic-only
+# export/import -> conflicted); stale/unmatched reports are surfaced
+# as needs-review claims, never consumed silently; the builder is
+# pure (no fs/child_process/network/provider imports) so the graph
+# build calls no LLM and usedLlm stays false; confidence maps
+# low->0.25 / medium->0.5 / high->0.75, never 1.0; no embeddings, no
+# command execution, no source writes, no approval, no
+# WorkOrder/VerificationPlan, no Circe, no intent:go. Recommended
+# next slice: Embedding Provider / Index Decision. 24-assertion docs
+# test + full 9-command gate.
+#
+# Semantic File Understanding -> Evidence Graph Integration
 # Implementation has shipped.
 # One-hundred-fifty-sixth slice on the semantic-intelligence track.
 # Product-capability batch implementing the slice-155 Option B

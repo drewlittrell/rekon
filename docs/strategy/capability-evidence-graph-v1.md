@@ -116,7 +116,8 @@ The **Semantic File Understanding → Evidence Graph Integration Decision**
 **Implementation** is now *done (slice 156)*: `rekon capability graph build
 --semantic-file-reports latest` / `--semantic-file-report-ref <ref>` add
 semantic content as `llm_extraction` evidence and `llm` / `inference` claims,
-still as context and not proof, with deterministic facts authoritative.
+still as context and not proof, with deterministic facts authoritative. That
+integration was **safety-reviewed and found safe/stable** (*slice 157*).
 Embeddings follow on a separate track. See
 [`semantic-file-understanding-evidence-graph-integration-decision.md`](./semantic-file-understanding-evidence-graph-integration-decision.md)
 and

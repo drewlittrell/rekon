@@ -8,6 +8,14 @@
 > validator-enforced. See
 > [`../strategy/capability-evidence-graph-safety-review.md`](../strategy/capability-evidence-graph-safety-review.md).
 
+> **Semantic → Evidence Graph integration safety-reviewed (slice 157):** the
+> slice-156 integration was ground-reviewed against committed source and found
+> **safe/stable** — default build deterministic-only, semantic content opt-in as
+> `llm_extraction` evidence and `llm` / `inference` claims, deterministic facts
+> win, stale reports never consumed silently, builder calls no provider so
+> `usedLlm` stays false. See
+> [`../strategy/semantic-file-understanding-evidence-graph-integration-safety-review.md`](../strategy/semantic-file-understanding-evidence-graph-integration-safety-review.md).
+
 > **Semantic → Evidence Graph integration implemented (slice 156):** `rekon
 > capability graph build --semantic-file-reports latest` /
 > `--semantic-file-report-ref <ref>` now folds stored

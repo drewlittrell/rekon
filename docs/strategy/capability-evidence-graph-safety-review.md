@@ -10,7 +10,10 @@ Graph v1 implementation shipped in slice 153 end-to-end.
 > `llm_extraction` evidence and `llm` / `inference` claims (explicit, opt-in),
 > with deterministic facts authoritative — and the
 > [Implementation](./semantic-file-understanding-evidence-graph-integration-implementation.md)
-> shipped the `--semantic-file-reports` / `--semantic-file-report-ref` flags.
+> shipped the `--semantic-file-reports` / `--semantic-file-report-ref` flags. The
+> integration was itself
+> [safety-reviewed (slice 157)](./semantic-file-understanding-evidence-graph-integration-safety-review.md)
+> and found **safe/stable**.
 
 ## Decision Summary
 

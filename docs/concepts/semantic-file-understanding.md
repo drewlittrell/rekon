@@ -9,6 +9,12 @@ Status: **Implemented** (v1, slice 144).
 > inference claims — never as deterministic facts. The two stay separate in v1.
 > The graph was [safety-reviewed in slice 154](../strategy/capability-evidence-graph-safety-review.md).
 
+> **Integration safety-reviewed (slice 157):** the slice-156 integration was
+> ground-reviewed and found **safe/stable** — opt-in, inference-not-fact,
+> deterministic facts win, stale never consumed silently, the builder calls no
+> provider. See
+> [Integration Safety Review](../strategy/semantic-file-understanding-evidence-graph-integration-safety-review.md).
+
 > **Integration implemented (slice 156):** `rekon capability graph build
 > --semantic-file-reports latest` / `--semantic-file-report-ref <ref>` now folds
 > this report into `CapabilityEvidenceGraph` as `llm_extraction` evidence and

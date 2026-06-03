@@ -234,7 +234,9 @@ publish to npm or bump versions.
    capability nodes where verb/noun is derivable. No embeddings, no source
    writes, no command execution, no approval, no intent:go. See
    [`semantic-file-understanding-evidence-graph-integration-implementation.md`](./semantic-file-understanding-evidence-graph-integration-implementation.md).
-2. **Safety review** of that implementation.
+2. **Safety review** of that implementation — *done (slice 157)*; found
+   safe/stable. See
+   [`semantic-file-understanding-evidence-graph-integration-safety-review.md`](./semantic-file-understanding-evidence-graph-integration-safety-review.md).
 3. **Embedding Provider / Index Decision** — only after semantic reports can
    land in the graph, embeddings enter as `embedding_similarity` evidence on a
    separate track.

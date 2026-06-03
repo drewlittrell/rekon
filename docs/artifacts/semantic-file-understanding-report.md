@@ -12,7 +12,9 @@ Status: **Implemented** (v1, slice 144). Category: `actions`. Stability: experim
 > claims. It contributes inference claims, not fact claims; deterministic facts
 > win. `rekon capability graph build --semantic-file-reports latest` /
 > `--semantic-file-report-ref <ref>` now ship that integration — see the
-> [Implementation](../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md).
+> [Implementation](../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md)
+> — and it was [safety-reviewed (slice 157)](../strategy/semantic-file-understanding-evidence-graph-integration-safety-review.md)
+> and found **safe/stable**.
 
 A read-only, per-file understanding artifact. It is produced by
 `rekon semantic file understand` (and `buildSemanticFileUnderstandingReport` in

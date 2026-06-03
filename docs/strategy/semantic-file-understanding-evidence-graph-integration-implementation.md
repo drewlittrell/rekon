@@ -142,8 +142,10 @@ to npm or bump versions.
 
 ## Next Step
 
-**Semantic File Understanding → Evidence Graph Integration Safety Review** — a
-ground review of this implementation against committed source, confirming the
-boundaries above hold in code. Then the **Embedding Provider / Index Decision**:
-with semantic reports now landing in the graph, embeddings enter as
-`embedding_similarity` evidence on a separate track.
+**Semantic File Understanding → Evidence Graph Integration Safety Review** —
+*done (slice 157)*. The shipped integration was ground-reviewed against committed
+source and found **safe/stable**: the boundaries above hold in code. See
+[`semantic-file-understanding-evidence-graph-integration-safety-review.md`](./semantic-file-understanding-evidence-graph-integration-safety-review.md).
+Then the **Embedding Provider / Index Decision**: with semantic reports now
+landing in the graph, embeddings enter as `embedding_similarity` evidence on a
+separate track.
