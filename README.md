@@ -376,6 +376,43 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # never deletes reviewer-touched comments.
 #
 # Semantic File Understanding -> Evidence Graph Integration
+# Implementation has shipped.
+# One-hundred-fifty-sixth slice on the semantic-intelligence track.
+# Product-capability batch implementing the slice-155 Option B
+# decision. Added two opt-in flags to rekon capability graph build:
+# --semantic-file-reports latest and --semantic-file-report-ref
+# <ref>. With no flags the build is byte-for-byte the
+# deterministic-only v1 build; with them, stored
+# SemanticFileUnderstandingReport content is folded into
+# CapabilityEvidenceGraph as llm_extraction evidence and llm /
+# inference claims -- never facts, never proof. No kernel type change
+# was needed. Implemented in the pure buildCapabilityEvidenceGraph
+# builder (new optional semanticFileUnderstandingReports input plus an
+# exported selectSemanticReportsForGraph selector): purpose /
+# responsibilities -> accepted inference claims; touchedConcepts ->
+# low-confidence inference claims; capabilitySignals -> capability
+# nodes + implements_capability claims (verb/noun derivable + evidence
+# -> accepted node, otherwise needs-review claim with no node);
+# findings -> has_semantic_finding needs-review claims. Confidence
+# maps low->0.25 / medium->0.5 / high->0.75, never 1.0. Deterministic
+# facts win: publicExports / imports reconcile against the
+# deterministic exposes / imports facts (match -> no new claim;
+# semantic-only -> conflicted), and a deterministic capability node is
+# never overwritten. Stale (sha-mismatch / boundaries-not-clean) and
+# unmatched-path reports are never consumed silently -- each becomes a
+# semantic_report_stale / semantic_report_unmatched needs-review claim
+# plus a CLI warning. The build calls no LLM provider (reads stored
+# artifacts) so the graph's usedLlm boundary stays false. CLI JSON
+# gains a semanticFileReports summary
+# (requested/used/stale/missing/warnings) only when requested; an
+# unresolved --semantic-file-report-ref fails cleanly. No embeddings,
+# no source writes, no command execution, no approval, no
+# WorkOrder/VerificationPlan, no Circe, no intent:go. 29 contract
+# assertions + 16 docs assertions + CLI smoke. Next: the safety
+# review of this implementation, then the Embedding Provider / Index
+# Decision.
+#
+# Semantic File Understanding -> Evidence Graph Integration
 # Decision has been decided.
 # One-hundred-fifty-fifth slice on the semantic-intelligence track.
 # Strategy / architecture decision-only batch; no runtime behavior

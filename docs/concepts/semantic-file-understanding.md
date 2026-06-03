@@ -9,6 +9,13 @@ Status: **Implemented** (v1, slice 144).
 > inference claims — never as deterministic facts. The two stay separate in v1.
 > The graph was [safety-reviewed in slice 154](../strategy/capability-evidence-graph-safety-review.md).
 
+> **Integration implemented (slice 156):** `rekon capability graph build
+> --semantic-file-reports latest` / `--semantic-file-report-ref <ref>` now folds
+> this report into `CapabilityEvidenceGraph` as `llm_extraction` evidence and
+> `llm` / `inference` claims (opt-in; deterministic facts win; stale reports
+> surfaced, never silent). See the
+> [Implementation](../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md).
+
 > **Integration decided (slice 155):** the
 > [Semantic File Understanding → Evidence Graph Integration Decision](../strategy/semantic-file-understanding-evidence-graph-integration-decision.md)
 > pins how this report becomes graph evidence — Option B (explicit, opt-in):

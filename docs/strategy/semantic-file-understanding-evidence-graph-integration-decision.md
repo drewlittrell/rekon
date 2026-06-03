@@ -227,12 +227,13 @@ publish to npm or bump versions.
 ## Implementation Sequence
 
 1. **Semantic File Understanding → Evidence Graph Integration Implementation** —
-   add the `--semantic-file-reports` / `--semantic-file-report-ref` flags to
-   `rekon capability graph build`; read stored reports; emit `llm_extraction`
-   evidence and `llm` / `inference` claims with the confidence-mapping,
-   conflict, and staleness rules above; enrich capability nodes where verb/noun
-   is derivable. No embeddings, no source writes, no command execution, no
-   approval, no intent:go.
+   *done (slice 156).* Added the `--semantic-file-reports` /
+   `--semantic-file-report-ref` flags to `rekon capability graph build`; read
+   stored reports; emit `llm_extraction` evidence and `llm` / `inference` claims
+   with the confidence-mapping, conflict, and staleness rules above; enrich
+   capability nodes where verb/noun is derivable. No embeddings, no source
+   writes, no command execution, no approval, no intent:go. See
+   [`semantic-file-understanding-evidence-graph-integration-implementation.md`](./semantic-file-understanding-evidence-graph-integration-implementation.md).
 2. **Safety review** of that implementation.
 3. **Embedding Provider / Index Decision** — only after semantic reports can
    land in the graph, embeddings enter as `embedding_similarity` evidence on a

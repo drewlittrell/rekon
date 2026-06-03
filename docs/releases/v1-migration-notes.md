@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **Semantic → Evidence Graph integration implemented (slice 156):** additive only — two new optional flags on `rekon capability graph build` (`--semantic-file-reports latest`, `--semantic-file-report-ref <ref>`) and new `@rekon/capability-model` exports (`selectSemanticReportsForGraph`, `SemanticReportForGraph`). No existing artifact, signature, or command changed; with no flags the build is byte-for-byte identical to before. Nothing to migrate. See [`semantic-file-understanding-evidence-graph-integration-implementation.md`](../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md).
+
 > **Semantic → Evidence Graph integration decided (slice 155):** strategy/architecture decision-only batch — no API, artifact, or command changed; nothing to migrate. Pins how `SemanticFileUnderstandingReport` will later contribute `llm_extraction` evidence and `llm` / `inference` claims to `CapabilityEvidenceGraph` (Option B, explicit/opt-in). See [`semantic-file-understanding-evidence-graph-integration-decision.md`](../strategy/semantic-file-understanding-evidence-graph-integration-decision.md).
 
 > **Capability Evidence Graph safety-reviewed (slice 154):** strategy/safety-review batch — no API, artifact, or command changed; nothing to migrate. The v1 substrate was confirmed safe/stable. See [`capability-evidence-graph-safety-review.md`](../strategy/capability-evidence-graph-safety-review.md).

@@ -8,6 +8,17 @@
 > validator-enforced. See
 > [`../strategy/capability-evidence-graph-safety-review.md`](../strategy/capability-evidence-graph-safety-review.md).
 
+> **Semantic → Evidence Graph integration implemented (slice 156):** `rekon
+> capability graph build --semantic-file-reports latest` /
+> `--semantic-file-report-ref <ref>` now folds stored
+> `SemanticFileUnderstandingReport` content in as `llm_extraction` evidence and
+> `llm` / `inference` claims (purpose/responsibilities/touchedConcepts/
+> capabilitySignals/findings). The default build stays deterministic-only;
+> deterministic facts win (semantic-only export/import → `conflicted`); stale
+> reports are surfaced, never consumed silently; the build calls no provider so
+> `usedLlm` stays `false`. See
+> [`../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md`](../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md).
+
 > **Semantic → Evidence Graph integration decided (slice 155):** semantic file
 > understanding will enter the graph as `llm_extraction` evidence and `llm` /
 > `inference` claims via an explicit, opt-in `--semantic-file-reports` /

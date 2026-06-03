@@ -214,8 +214,11 @@ export {
 export {
   type CapabilityEvidenceGraphInputFile,
   type BuildCapabilityEvidenceGraphInput,
+  type SemanticReportForGraph,
+  type SemanticReportGraphSelection,
   CAPABILITY_EVIDENCE_GRAPH_ARTIFACT_ID_PREFIX,
   buildCapabilityEvidenceGraph,
+  selectSemanticReportsForGraph,
 } from "./capability-evidence-graph.js";
 
 export {

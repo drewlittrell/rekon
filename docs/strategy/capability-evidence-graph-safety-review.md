@@ -4,11 +4,13 @@ Status: reviewed (slice 154). Base `d7a3d27`. Strategy / safety-review batch; no
 runtime behavior changes, no source changes. Reviews the Capability Evidence
 Graph v1 implementation shipped in slice 153 end-to-end.
 
-> **Follow-up decided (slice 155):** the recommended next slice is now decided.
-> The [Semantic File Understanding → Evidence Graph Integration Decision](./semantic-file-understanding-evidence-graph-integration-decision.md)
-> selects Option B — semantic file understanding enters the graph as
+> **Follow-up decided (slice 155) and implemented (slice 156):** the
+> [Semantic File Understanding → Evidence Graph Integration Decision](./semantic-file-understanding-evidence-graph-integration-decision.md)
+> selected Option B — semantic file understanding enters the graph as
 > `llm_extraction` evidence and `llm` / `inference` claims (explicit, opt-in),
-> with deterministic facts authoritative. Implementation follows.
+> with deterministic facts authoritative — and the
+> [Implementation](./semantic-file-understanding-evidence-graph-integration-implementation.md)
+> shipped the `--semantic-file-reports` / `--semantic-file-report-ref` flags.
 
 ## Decision Summary
 

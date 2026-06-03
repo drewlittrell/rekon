@@ -153,6 +153,8 @@ import modelCapability, {
   buildSemanticFileUnderstandingReport,
   SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
   buildCapabilityEvidenceGraph,
+  selectSemanticReportsForGraph,
+  type SemanticReportForGraph,
 } from "@rekon/capability-model";
 import { RekonLlmRouter, coercePhaseDrafts, createOpenAiLlmProvider } from "@rekon/llm-provider";
 import policyCapability from "@rekon/capability-policy";
@@ -1144,9 +1146,79 @@ export async function main(argv: string[]): Promise<void> {
       files.push({ path: relPath, sha256: sha, text });
     }
 
+    // Optional, explicit semantic-report integration (slice 156). With no
+    // `--semantic-file-reports` / `--semantic-file-report-ref` flags the build is
+    // deterministic-only (identical to v1). When requested, stored
+    // SemanticFileUnderstandingReport(s) are folded in as `llm_extraction`
+    // evidence and `llm` / `inference` claims — never facts, never proof. The
+    // build calls NO provider; it reads stored artifacts. Stale/unmatched reports
+    // are surfaced (never consumed silently); deterministic facts win.
+    const semanticMode = String(parsed.flags["semantic-file-reports"] ?? "").trim();
+    const semanticRefs = parseRepeatableFlag(parsed.flags["semantic-file-report-ref"]);
+    const wantSemantic = semanticMode === "latest" || semanticRefs.length > 0;
+
+    let semanticReports: SemanticReportForGraph[] = [];
+    let semanticSelection: ReturnType<typeof selectSemanticReportsForGraph> | undefined;
+    if (wantSemantic) {
+      const SEMANTIC_TYPE = "SemanticFileUnderstandingReport";
+      const entries = await store.list(SEMANTIC_TYPE);
+      const toRef = (entry: (typeof entries)[number]): ArtifactRef => ({
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      });
+      const normalizeRel = (value: string): string =>
+        String(value).replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
+      const graphedPaths = new Set(files.map((file) => normalizeRel(file.path)));
+      const candidates: SemanticReportForGraph[] = [];
+      if (semanticRefs.length > 0) {
+        // Explicit refs are the candidate set; an unresolved ref fails cleanly.
+        for (const refString of semanticRefs) {
+          const trimmed = refString.trim();
+          if (trimmed.length === 0) continue;
+          const wantedId = trimmed.includes(":") ? trimmed.slice(trimmed.indexOf(":") + 1) : trimmed;
+          const entry = entries.find((candidate) => candidate.id === wantedId);
+          if (!entry) {
+            throw new Error(
+              `rekon capability graph build: could not resolve --semantic-file-report-ref ${trimmed}; `
+              + `no ${SEMANTIC_TYPE} with id ${wantedId} was found.`,
+            );
+          }
+          candidates.push({ report: (await store.read(entry)) as SemanticFileUnderstandingReportLike, ref: toRef(entry) });
+        }
+      } else {
+        // `latest`: every stored report whose file path matches a graphed file.
+        for (const entry of entries) {
+          const report = (await store.read(entry)) as SemanticFileUnderstandingReportLike;
+          const reportPath = typeof report.file?.path === "string" ? normalizeRel(report.file.path) : "";
+          if (reportPath.length === 0 || !graphedPaths.has(reportPath)) continue;
+          candidates.push({ report, ref: toRef(entry) });
+        }
+      }
+      semanticReports = candidates;
+      semanticSelection = selectSemanticReportsForGraph({ reports: candidates, files });
+    }
+
     const generatedAt = new Date().toISOString();
-    const graph = buildCapabilityEvidenceGraph({ root, files, generatedAt });
+    const graph = buildCapabilityEvidenceGraph({
+      root,
+      files,
+      generatedAt,
+      ...(wantSemantic ? { semanticFileUnderstandingReports: semanticReports } : {}),
+    });
     const ref = await store.write(graph, { category: "graphs" });
+
+    const semanticSummary = semanticSelection
+      ? {
+          requested: semanticSelection.requested,
+          used: semanticSelection.usable.length,
+          stale: semanticSelection.stale.length,
+          missing: semanticSelection.missing.length,
+          warnings: semanticSelection.warnings,
+        }
+      : undefined;
 
     if (json) {
       writeOutput(
@@ -1155,6 +1227,7 @@ export async function main(argv: string[]): Promise<void> {
           artifact: { type: ref.type, id: ref.id },
           summary: graph.summary,
           boundaries: graph.boundaries,
+          ...(semanticSummary ? { semanticFileReports: semanticSummary } : {}),
         },
         true,
       );
@@ -1171,6 +1244,14 @@ export async function main(argv: string[]): Promise<void> {
         + `Evidence: ${graph.summary.evidence}.`,
       );
       lines.push("Boundaries: no LLM, no embeddings, no commands, no source writes (all false).");
+      if (semanticSummary) {
+        lines.push(
+          `Semantic file reports: ${semanticSummary.used} used, `
+          + `${semanticSummary.stale} stale, ${semanticSummary.missing} missing `
+          + `(of ${semanticSummary.requested} requested) — inference claims, not facts.`,
+        );
+        for (const warning of semanticSummary.warnings) lines.push(`  warning: ${warning}`);
+      }
       lines.push(
         `Status: ${graph.status.value}`
         + (graph.status.reason ? ` — ${graph.status.reason}` : "")
@@ -12180,7 +12261,7 @@ function usage(): string {
     "rekon capability lint architecture [--capability-contract <id|type:id>] [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint bridge-findings [--lint-report <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint write-findings --bridge-report <id|type:id> (--dry-run | --confirm-finding-write) [--root <path>] [--json]",
-    "rekon capability graph build [--path <file-or-dir>] [--root <path>] [--json]",
+    "rekon capability graph build [--path <file-or-dir>] [--semantic-file-reports latest] [--semantic-file-report-ref <ref>] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

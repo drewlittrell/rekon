@@ -1,5 +1,14 @@
 # Capability Evidence Graph
 
+> **Semantic → Evidence Graph integration implemented (slice 156):** `rekon
+> capability graph build --semantic-file-reports latest` /
+> `--semantic-file-report-ref <ref>` now folds `SemanticFileUnderstandingReport`
+> content into the graph as `llm_extraction` evidence and `llm` / `inference`
+> claims (opt-in; the default build stays deterministic-only; deterministic
+> facts win; stale reports are surfaced, never silent; `usedLlm` stays false).
+> See
+> [`../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md`](../strategy/semantic-file-understanding-evidence-graph-integration-implementation.md).
+
 > **Semantic → Evidence Graph integration decided (slice 155):** how
 > `SemanticFileUnderstandingReport` becomes graph evidence is decided —
 > Option B (explicit, opt-in). LLM file understanding will enter as
