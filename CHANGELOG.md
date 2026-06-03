@@ -4,6 +4,21 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Classic LLM Semantic Parsing Parity Decision** — one-hundred-forty-third slice on the intent-spine
+  track (Track A: finish LLM-backed semantic work before Track B embeddings). Decision-only batch: audited the
+  old `codebase-intel` system's **non-embedding** LLM-backed semantic surfaces against actual source (local
+  checkout `dfe66dc`) and decided what remains. Findings: codebase-intel used LLM semantic parsing in a narrow
+  set of places — per-file semantic scan (`runPureLlmPipeline`), plan triage + normalization (haiku/sonnet),
+  gate semantic critique, verb categorization — while intent classification, actionability, elicitation, and
+  answer/merge-back were **deterministic** (so already at parity in Rekon). Rekon already matches plan semantic
+  normalization and **exceeds** codebase-intel on hallucination guards (deterministic path/command/non-goal
+  guards vs. prompt-only) and provenance (persists provider/model). The single real non-embedding gap is
+  **per-file semantic file understanding**. Decision: **Option B — finish the LLM semantic parsing layer before
+  embeddings.** Embeddings (codebase-intel's mature Voyage/HNSW stack) are intentionally deferred to a separate
+  track. Boundaries pinned: semantic output is proposal-not-proof; no approval, no command execution, no source
+  writes, no Circe; provider calls explicit/configured; source-text privacy an explicit policy decision;
+  intent:go deferred. Next: Semantic File Understanding v1. Docs test: 16. See
+  [`docs/strategy/classic-llm-semantic-parsing-parity-decision.md`](docs/strategy/classic-llm-semantic-parsing-parity-decision.md).
 - Shipped **Intent Plan Semantic Quality Hardening** — one-hundred-forty-second slice on the intent-spine track
   (Path B). Turned the live semantic-quality dogfood findings into standing deterministic guards: after provider
   phases pass the schema gate, `buildIntentPlanActionabilityReport` re-checks them against the source for the

@@ -1,5 +1,7 @@
 # Rekon LLM Provider Routing — Implementation
 
+> **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](./classic-llm-semantic-parsing-parity-decision.md).
+
 Status: implemented (slice 138). Decision of record:
 [rekon-llm-provider-routing-semantic-normalization-decision.md](./rekon-llm-provider-routing-semantic-normalization-decision.md).
 
