@@ -166,3 +166,7 @@ requirements, and the report ref is recorded in the prepared plan's input refs. 
 > **Provider routing implemented (slice 138):** the `normalizationTrace` provider/model provenance is now populated by a router-bound adapter (`@rekon/llm-provider` + `rekon intent plan review --llm-provider` / `--llm-model`); no live provider yet, output stays proposal-not-proof, schema-validated and deterministically re-checked — see [`rekon-llm-provider-routing-implementation.md`](../strategy/rekon-llm-provider-routing-implementation.md).
 
 > **Provider routing (slice 137):** the report's `normalizationTrace` records provider/model provenance from a shared LLM provider router; LLM output is proposal, not proof — schema-validated and deterministically re-checked, never approving/executing/writing source/running Circe/implementing `intent:go` — see [`rekon-llm-provider-routing-semantic-normalization-decision.md`](../strategy/rekon-llm-provider-routing-semantic-normalization-decision.md).
+
+## Semantic File Understanding Intent Context
+
+`rekon intent assess` and `rekon intent plan review` may explicitly consume SemanticFileUnderstandingReport(s) as proposal/context via `--semantic-context latest` or `--semantic-context-ref <ref>` — proposal/context, not proof; it never changes readiness or actionability status, and stale reports are never consumed silently. See [Semantic File Understanding Intent Context Implementation](../strategy/semantic-file-understanding-intent-context-implementation.md).

@@ -74,6 +74,10 @@ import modelCapability, {
   buildRuntimeGraphObservationReport,
   buildRuntimeGraphDriftReport,
   buildIntentAssessmentReport,
+  selectSemanticFileContext,
+  summarizeSemanticFileContext,
+  type SemanticFileUnderstandingReportLike,
+  type SemanticFileContextSelection,
   RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX,
   RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH,
   RUNTIME_GRAPH_DRIFT_REPORT_ARTIFACT_ID_PREFIX,
@@ -4372,9 +4376,24 @@ export async function main(argv: string[]): Promise<void> {
       provenance: { confidence: 0.7 },
     };
 
+    // Semantic File Understanding context (slice 150). Opt-in via
+    // `--semantic-context latest` or `--semantic-context-ref <ref>`; proposal/
+    // context only — enriches matched paths + warnings, never readiness/proof.
+    const semanticContextMode =
+      typeof parsed.flags["semantic-context"] === "string" ? String(parsed.flags["semantic-context"]).trim() : "";
+    const semanticContextRefs = parseRepeatableFlag(parsed.flags["semantic-context-ref"]);
+    const semanticSelection = await resolveSemanticFileContextSelection({
+      store,
+      root,
+      requestedPaths: scopePaths,
+      mode: semanticContextMode,
+      refs: semanticContextRefs,
+    });
+
     const report: IntentAssessmentReport = buildIntentAssessmentReport({
       header,
       request,
+      ...(semanticSelection ? { semanticFileContext: semanticSelection } : {}),
       capabilityMap: capabilityMap.value,
       capabilityMapRef: capabilityMap.ref,
       capabilityContractRef: capabilityContract.ref,
@@ -4409,6 +4428,7 @@ export async function main(argv: string[]): Promise<void> {
           warnings: report.warnings.length,
           missingContext: report.missingContext.length,
           matchedContext: report.matchedContext,
+          ...(semanticSelection ? { semanticContext: summarizeSemanticFileContext(semanticSelection) } : {}),
         },
         true,
       );
@@ -4423,6 +4443,11 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Blockers: ${report.blockers.length}`);
       lines.push(`Warnings: ${report.warnings.length}`);
       lines.push(`Missing context: ${report.missingContext.length}`);
+      if (semanticSelection) {
+        lines.push(
+          `Semantic context: ${semanticSelection.usedReports.length} used, ${semanticSelection.staleReports.length} stale`,
+        );
+      }
       lines.push("");
       lines.push(`Report: ${ref.type}:${ref.id}`);
       lines.push("No WorkOrder, VerificationPlan, commands, or source writes were created.");
@@ -4488,6 +4513,21 @@ export async function main(argv: string[]): Promise<void> {
     const store = createLocalArtifactStore(root);
     await store.init();
 
+    // Semantic File Understanding context (slice 150). Opt-in via
+    // `--semantic-context latest` or `--semantic-context-ref <ref>`; proposal/
+    // context only — appends grounding to the revision prompt, never changes
+    // actionability status, findings, or proof.
+    const semanticContextMode =
+      typeof parsed.flags["semantic-context"] === "string" ? String(parsed.flags["semantic-context"]).trim() : "";
+    const semanticContextRefs = parseRepeatableFlag(parsed.flags["semantic-context-ref"]);
+    const semanticSelection = await resolveSemanticFileContextSelection({
+      store,
+      root,
+      requestedPaths: providedPaths,
+      mode: semanticContextMode,
+      refs: semanticContextRefs,
+    });
+
     const report = await buildIntentPlanActionabilityReport({
       planText,
       planPath: planFlag,
@@ -4499,6 +4539,7 @@ export async function main(argv: string[]): Promise<void> {
       ...(planSemanticAdapter ? { semanticNormalization: planSemanticAdapter } : {}),
       ...(providedPaths.length > 0 ? { providedPaths } : {}),
       ...(packageScripts.length > 0 ? { packageScripts } : {}),
+      ...(semanticSelection ? { semanticFileContext: semanticSelection } : {}),
     });
 
     const ref = await store.write(report, { category: "actions" });
@@ -4530,6 +4571,7 @@ export async function main(argv: string[]): Promise<void> {
               : {}),
             warnings: report.normalizationTrace.warnings,
           },
+          ...(semanticSelection ? { semanticContext: summarizeSemanticFileContext(semanticSelection) } : {}),
           nextAction,
         },
         true,
@@ -4540,6 +4582,11 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Status: ${report.status.value}`);
       lines.push(`Findings: ${report.summary.findings}`);
       lines.push(`Questions: ${report.summary.questions}`);
+      if (semanticSelection) {
+        lines.push(
+          `Semantic context: ${semanticSelection.usedReports.length} used, ${semanticSelection.staleReports.length} stale`,
+        );
+      }
       if (report.normalizationTrace.warnings.length > 0) {
         lines.push(`Normalization: ${report.normalizationTrace.method} (${report.normalizationTrace.warnings[0]})`);
       }
@@ -7675,6 +7722,82 @@ type PlanSemanticNormalizationResult = Awaited<ReturnType<IntentPlanSemanticNorm
  * proof. The API key is read here from the environment (never inside
  * capability-model, never stored in repo config). Returns `undefined` for `off`.
  */
+/**
+ * Resolve Semantic File Understanding context for `rekon intent assess` /
+ * `rekon intent plan review` (slice 150). Proposal/context only — reads existing
+ * SemanticFileUnderstandingReport artifacts, hashes the current files to detect
+ * staleness, and returns a pure SemanticFileContextSelection (or `undefined` when
+ * the operator did not request semantic context). Reads only: it never executes
+ * commands, never writes source, never creates a WorkOrder / VerificationPlan,
+ * never runs Circe, and never becomes proof.
+ *
+ * `--semantic-context-ref <Type:id>` (repeatable) takes precedence: the named
+ * reports ARE the candidate set, and a ref that does not resolve throws so the
+ * command fails cleanly. `--semantic-context latest` falls back to every stored
+ * SemanticFileUnderstandingReport, path-filtered to `requestedPaths`.
+ */
+async function resolveSemanticFileContextSelection(input: {
+  store: ReturnType<typeof createLocalArtifactStore>;
+  root: string;
+  requestedPaths: string[];
+  mode: string;
+  refs: string[];
+}): Promise<SemanticFileContextSelection | undefined> {
+  const { store, root, requestedPaths, mode, refs } = input;
+  const wantLatest = mode === "latest";
+  if (!wantLatest && refs.length === 0) return undefined;
+
+  const SEMANTIC_TYPE = "SemanticFileUnderstandingReport";
+  const entries = await store.list(SEMANTIC_TYPE);
+  const toRef = (entry: (typeof entries)[number]): ArtifactRef => ({
+    type: entry.type,
+    id: entry.id,
+    path: entry.path,
+    digest: entry.digest,
+    schemaVersion: entry.schemaVersion ?? "0.1.0",
+  });
+
+  const candidates: Array<{ report: SemanticFileUnderstandingReportLike; ref?: ArtifactRef }> = [];
+  // Explicit refs are the candidate set and are never path-filtered; `latest`
+  // considers every stored report and lets selection path-filter by request.
+  let selectionRequestedPaths: string[] = requestedPaths;
+
+  if (refs.length > 0) {
+    selectionRequestedPaths = [];
+    for (const refString of refs) {
+      const trimmed = refString.trim();
+      if (trimmed.length === 0) continue;
+      const wantedId = trimmed.includes(":") ? trimmed.slice(trimmed.indexOf(":") + 1) : trimmed;
+      const entry = entries.find((candidate) => candidate.id === wantedId);
+      if (!entry) {
+        throw new Error(
+          `rekon could not resolve --semantic-context-ref ${trimmed}; no ${SEMANTIC_TYPE} with id ${wantedId} was found.`,
+        );
+      }
+      candidates.push({ report: (await store.read(entry)) as SemanticFileUnderstandingReportLike, ref: toRef(entry) });
+    }
+  } else {
+    for (const entry of entries) {
+      candidates.push({ report: (await store.read(entry)) as SemanticFileUnderstandingReportLike, ref: toRef(entry) });
+    }
+  }
+
+  // Current-file hashes for staleness detection (best-effort, read-only).
+  const currentFileHashes: Record<string, string> = {};
+  for (const candidate of candidates) {
+    const path = candidate.report?.file?.path;
+    if (typeof path !== "string" || path.length === 0 || currentFileHashes[path] !== undefined) continue;
+    try {
+      const contents = await readFile(resolve(root, path), "utf8");
+      currentFileHashes[path] = createHash("sha256").update(contents).digest("hex");
+    } catch {
+      // File missing/unreadable → no current hash → no sha-staleness assertion.
+    }
+  }
+
+  return selectSemanticFileContext({ reports: candidates, requestedPaths: selectionRequestedPaths, currentFileHashes });
+}
+
 /**
  * Best-effort package.json script command forms used by the semantic quality
  * guard to recognize SUPPORTED verification commands (slice 142). Read-only;
@@ -11856,10 +11979,10 @@ function usage(): string {
     "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
-    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--root <path>] [--json]",
+    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--root <path>] [--json]",
     "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
     "rekon semantic file understand --path <file> [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]",
-    "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>]",
+    "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
     "rekon intent approve --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] --accept <gap> [--accept <gap>...] --reason <text> [--accepted-by <name>] [--root <path>] [--json]",

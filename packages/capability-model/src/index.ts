@@ -212,6 +212,17 @@ export {
 } from "./semantic-file-understanding-report.js";
 
 export {
+  type SemanticFileUnderstandingReportLike,
+  type SemanticFileContextReport,
+  type SemanticFileContextStaleReason,
+  type SemanticFileContextStaleWarning,
+  type SemanticFileContextSelection,
+  normalizeSemanticContextPath,
+  selectSemanticFileContext,
+  summarizeSemanticFileContext,
+} from "./semantic-file-context.js";
+
+export {
   type BuildIntentWorkOrderHandoffInput,
   type IntentWorkOrderGenerationResult,
   type IntentWorkOrderGenerationBlocker,

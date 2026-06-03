@@ -35,6 +35,7 @@ import {
   type IntentPlanUnappliedAnswer,
   createIntentPlanActionabilityReport,
 } from "@rekon/kernel-repo-model";
+import type { SemanticFileContextSelection } from "./semantic-file-context.js";
 
 export const INTENT_PLAN_ACTIONABILITY_REPORT_ARTIFACT_ID_PREFIX = "intent-plan-actionability-report-";
 
@@ -72,6 +73,10 @@ export type BuildIntentPlanActionabilityReportInput = {
   providedPaths?: string[];
   /** Package-known runnable command forms (e.g. "npm run build"); consulted by the semantic quality guard. */
   packageScripts?: string[];
+  // Semantic File Understanding context (slice 150): proposal/context only.
+  // Appends grounding to the revision prompt + notes to the normalization trace;
+  // never changes actionability status, never adds/removes findings, never proof.
+  semanticFileContext?: SemanticFileContextSelection;
 };
 
 // ---------------------------------------------------------------------------
@@ -799,6 +804,37 @@ export async function buildIntentPlanActionabilityReport(
 
   if (model) report.normalizationTrace.model = model;
   if (provider) report.normalizationTrace.provider = provider;
+
+  // Semantic File Understanding context (slice 150). Proposal/context only:
+  // append file grounding (purpose / responsibilities / public exports) to the
+  // revision prompt and stale notes to the normalization trace. The
+  // actionability `status` and `findings` are already decided above and are NOT
+  // touched here — semantic context never makes a weak plan actionable, never
+  // erases a missing-requirement finding, and never becomes proof.
+  if (input.semanticFileContext) {
+    const semantic = input.semanticFileContext;
+    if (semantic.usedReports.length > 0) {
+      const groundingLines: string[] = ["", "Semantic file context (proposal/context, not proof):"];
+      for (const used of semantic.usedReports) {
+        const bits: string[] = [];
+        if (used.purpose) bits.push(`purpose: ${used.purpose}`);
+        if (used.responsibilities.length > 0) bits.push(`responsibilities: ${used.responsibilities.slice(0, 5).join("; ")}`);
+        if (used.publicExports.length > 0) bits.push(`exports: ${used.publicExports.slice(0, 8).join(", ")}`);
+        groundingLines.push(`- ${used.path}${bits.length > 0 ? ` — ${bits.join(" | ")}` : ""}`);
+      }
+      report.revisionPrompt.prompt = `${report.revisionPrompt.prompt}\n${groundingLines.join("\n")}`;
+    }
+    for (const staleEntry of semantic.staleReports) {
+      report.normalizationTrace.warnings.push(
+        `Semantic file context for ${staleEntry.path} is stale (${staleEntry.reason}); not used as fresh grounding.`,
+      );
+    }
+    for (const missingPath of semantic.missingReports) {
+      report.normalizationTrace.warnings.push(
+        `No usable semantic file context for ${missingPath}; revision grounding falls back to the plan text only.`,
+      );
+    }
+  }
 
   return createIntentPlanActionabilityReport(report);
 }

@@ -249,3 +249,7 @@ no intent:go; publishes nothing to npm; and bumps no versions.
 - [Intent Assessment concept](../concepts/intent-assessment.md)
 - [Intent Plan Compiler concept](../concepts/intent-plan-compiler.md)
 - [PreparedIntentPlan concept](../concepts/prepared-intent-plan.md)
+
+## Semantic File Understanding Intent Context
+
+`rekon intent assess` and `rekon intent plan review` may explicitly consume SemanticFileUnderstandingReport(s) as proposal/context via `--semantic-context latest` or `--semantic-context-ref <ref>` — proposal/context, not proof; it never changes readiness or actionability status, and stale reports are never consumed silently. See [Semantic File Understanding Intent Context Implementation](./semantic-file-understanding-intent-context-implementation.md).

@@ -127,3 +127,7 @@ The `rekon scan --semantic-files off|auto|required` integration was reviewed (sl
 ## Semantic File Understanding Intent Context Decision
 
 How `IntentAssessmentReport` and `IntentPlanActionabilityReport` may consume `SemanticFileUnderstandingReport` is decided (slice 149): **Option B — explicit semantic context consumption with latest-by-path fallback** (`rekon intent assess --semantic-context latest|--semantic-context-ref <ref>`, `rekon intent plan review --semantic-context latest|--semantic-context-ref <ref>`). Semantic reports remain proposal/context, not proof; consumption is explicit, not automatic; semantic context never approves plans, satisfies proof gates by itself, replaces deterministic evidence, executes commands, writes source, creates WorkOrder/VerificationPlan, or runs Circe; stale reports are not consumed silently; embeddings and intent:go remain deferred. Next: Semantic File Understanding Intent Context Implementation. See [Semantic File Understanding Intent Context Decision](../strategy/semantic-file-understanding-intent-context-decision.md).
+
+### Intent semantic context — implemented (slice 150)
+
+The slice-149 decision is now implemented: `rekon intent assess` / `rekon intent plan review` consume SemanticFileUnderstandingReport(s) as proposal/context via `--semantic-context latest` or `--semantic-context-ref <ref>`, never as proof. See [Semantic File Understanding Intent Context Implementation](../strategy/semantic-file-understanding-intent-context-implementation.md).

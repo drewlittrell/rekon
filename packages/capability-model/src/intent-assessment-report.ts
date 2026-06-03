@@ -33,6 +33,7 @@ import {
   type IntentAssessmentRequest,
   createIntentAssessmentReport,
 } from "@rekon/kernel-repo-model";
+import type { SemanticFileContextSelection } from "./semantic-file-context.js";
 
 /** Stable header `artifactId` prefix; the timestamp piece varies. */
 export const INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX = "intent-assessment-report-";
@@ -101,6 +102,10 @@ export type BuildIntentAssessmentReportInput = {
   verificationResultRef?: ArtifactRef;
   verificationRunRef?: ArtifactRef;
   verificationPlanRef?: ArtifactRef;
+  // Semantic File Understanding context (slice 150): proposal/context only.
+  // Enriches matched paths + adds non-blocking warnings; never changes
+  // readiness, never suppresses blockers, never satisfies a proof gate.
+  semanticFileContext?: SemanticFileContextSelection;
 };
 
 const READINESS_NEXT_ACTION: Record<IntentAssessmentReadiness, IntentAssessmentRecommendedNextAction> = {
@@ -410,6 +415,35 @@ export function buildIntentAssessmentReport(input: BuildIntentAssessmentReportIn
   assign(source, "verificationResultRef", input.verificationResultRef);
   assign(source, "verificationRunRef", input.verificationRunRef);
   assign(source, "verificationPlanRef", input.verificationPlanRef);
+
+  // Semantic File Understanding context (slice 150). Proposal/context only:
+  // enrich matched paths and add non-blocking, low-severity warnings AFTER
+  // readiness is already decided, so semantic context never flips readiness,
+  // never suppresses a deterministic blocker, and never satisfies a proof gate.
+  // Findings surface as `scope-ambiguous`; stale reports as `stale-context`.
+  if (input.semanticFileContext) {
+    for (const used of input.semanticFileContext.usedReports) {
+      if (used.path.length > 0 && !matchedContext.paths.includes(used.path)) matchedContext.paths.push(used.path);
+      if (used.findingCount > 0) {
+        warnings.push({
+          id: `semantic-context:findings:${used.path}`,
+          category: "scope-ambiguous",
+          severity: "low",
+          message: `Semantic file understanding for ${used.path} reported ${used.findingCount} finding(s) (proposal/context, not proof); review before preparing.`,
+          ...(used.ref ? { sourceRefs: [used.ref] } : {}),
+        });
+      }
+    }
+    for (const staleEntry of input.semanticFileContext.staleReports) {
+      warnings.push({
+        id: `semantic-context:stale:${staleEntry.path}`,
+        category: "stale-context",
+        severity: "low",
+        message: `Semantic file understanding for ${staleEntry.path} is stale (${staleEntry.reason}); not consumed as fresh context.`,
+        ...(staleEntry.ref ? { sourceRefs: [staleEntry.ref] } : {}),
+      });
+    }
+  }
 
   // The factory normalizes the request, dedupes + sorts each blocker list
   // (severity, category, id), sorts matched-context arrays, and asserts. No

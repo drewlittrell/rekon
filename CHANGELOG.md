@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Semantic File Understanding Intent Context Implementation** — one-hundred-fiftieth slice on the
+  intent-spine track (Track A). Implements the slice-149 decision (Option B — explicit consumption) at `26622c5`.
+  `rekon intent assess` and `rekon intent plan review` may now EXPLICITLY consume `SemanticFileUnderstandingReport`s
+  as proposal/context via `--semantic-context latest` or `--semantic-context-ref <SemanticFileUnderstandingReport:id>`
+  (repeatable). New pure helper `selectSemanticFileContext` (+ `summarizeSemanticFileContext`,
+  `SemanticFileUnderstandingReportLike`, `SemanticFileContextSelection`) in `@rekon/capability-model`; both
+  `buildIntentAssessmentReport` and `buildIntentPlanActionabilityReport` gain an optional `semanticFileContext` input.
+  Assessment enriches `matchedContext.paths` and adds low-severity `scope-ambiguous`/`stale-context` warnings (never
+  changing readiness or suppressing blockers); plan review appends grounding to `revisionPrompt.prompt` and stale/
+  missing notes to `normalizationTrace.warnings` (never changing actionability status or findings). `--json` gains a
+  CLI-only `semanticContext: { requested, used, stale, missing, warnings }` summary shown only when requested. No
+  kernel artifact schema changed. Boundaries preserved: `SemanticFileUnderstandingReport` is proposal/context, not
+  proof; consumption is explicit, not automatic; semantic context must not approve plans, satisfy proof gates by
+  itself, replace deterministic evidence artifacts, execute commands, write source files, create WorkOrder or
+  VerificationPlan, or run Circe; stale semantic reports must not be consumed silently; embeddings remain deferred to
+  a separate track; intent:go remains deferred. 23-assertion contract test (+5 key-free CLI end-to-end checks) +
+  14-assertion docs test; new memo + review packet. Next: Semantic File Understanding Intent Context Safety Review.
 - Decided **Semantic File Understanding Intent Context Decision** — one-hundred-forty-ninth slice on the
   intent-spine track (Track A). Strategy/architecture decision-only batch; no runtime behavior changes. Grounded the
   actual `IntentAssessmentReport` and `IntentPlanActionabilityReport` shapes at `751757a` (recording that
