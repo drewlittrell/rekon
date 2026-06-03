@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Semantic File Understanding Scan Integration Decision** — one-hundred-forty-sixth slice on the
+  intent-spine track (Track A). Strategy/architecture decision-only batch; no runtime behavior changes. Grounded
+  the current `rekon scan` surface at `8bad858` (scan delegates to `runRefresh`, has no `--semantic`/`--llm-*`
+  flags, produces only the deterministic substrate, no providers, no `SemanticFileUnderstandingReport`) and decided
+  how semantic file understanding becomes repo-scale. Selected **Option B / B1 — an explicit batch command
+  (`rekon semantic files understand --changed|--all`, plural) before any scan flag**; a `rekon scan
+  --semantic-files off|auto|required` flag is deferred until the batch command is implemented and safety-reviewed.
+  Pinned: **scan remains deterministic by default**; semantic file understanding during scan is explicit opt-in
+  only; provider calls are never surprising defaults; source text is not sent to providers by default (batch default
+  `--semantic off`); `SemanticFileUnderstandingReport` is proposal/context, not proof, and stays a canonical artifact
+  with path+sha256 reuse/staleness; reports may later feed intent context as context (not proof, no approval, never
+  replacing deterministic EvidenceGraph/CapabilityMap/StepCapabilityGraph) but automatic consumption is deferred;
+  no command execution, no source writes, no embeddings; embeddings remain a separate track; intent:go deferred.
+  Adds a 19-assertion docs test, the decision memo (14 headings + 16 answered questions + option/command/staleness/
+  boundary tables), a review packet, and cross-references across 9 docs. Recommended next: Semantic Files Understand
+  Batch Command v1. See
+  [`docs/strategy/semantic-file-understanding-scan-integration-decision.md`](docs/strategy/semantic-file-understanding-scan-integration-decision.md).
 - Reviewed **Semantic File Understanding Safety Review** — one-hundred-forty-fifth slice on the intent-spine track
   (Track A). Strategy/safety-review batch; no runtime behavior changes. Grounded the shipped Semantic File
   Understanding v1 implementation at `bc0d34a` (kernel file uses `grep -a` due to an em dash) and confirmed it is

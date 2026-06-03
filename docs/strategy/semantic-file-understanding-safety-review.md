@@ -202,3 +202,7 @@ intent:go, publishes nothing to npm, and bumps no versions.
 - [SemanticFileUnderstandingReport artifact](../artifacts/semantic-file-understanding-report.md)
 - [Semantic File Understanding concept](../concepts/semantic-file-understanding.md)
 - [Classic LLM Semantic Parsing Parity Decision](./classic-llm-semantic-parsing-parity-decision.md)
+
+## Semantic File Understanding Scan Integration Decision
+
+How `SemanticFileUnderstandingReport` integrates with scan is decided (slice 146): scan remains deterministic by default; repo-scale understanding arrives first as an explicit batch command (`rekon semantic files understand --changed|--all`) before any `rekon scan --semantic-files` flag. Provider calls are never surprising defaults; source text is not sent to providers by default; reports are proposal/context, not proof; no command execution, source writes, or embeddings; embeddings remain a separate track; intent:go deferred. Next: Semantic Files Understand Batch Command v1. See [Semantic File Understanding Scan Integration Decision](./semantic-file-understanding-scan-integration-decision.md).
