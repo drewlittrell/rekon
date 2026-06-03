@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Capability Evidence Graph / Semantic Intelligence Architecture Decision** — one-hundred-fifty-second slice
+  on the intent/semantic-intelligence track. Strategy/architecture decision-only batch; no runtime behavior changes.
+  Supersedes a narrow "Embeddings Parity Audit / Embedding Index Decision" as the immediate next step. Ground-reviewed
+  the old `codebase-intel` system (real source) and Rekon's current surfaces at `bc5fb92` (Rekon already has
+  `EvidenceFact`/`EvidenceGraph` in `@rekon/kernel-evidence`, verb:noun phrase capabilities carrying `evidenceRefs`, a
+  `RuntimeGraphObservationReport`, and routed-but-unused embedding tasks). Selected **Option B —
+  CapabilityEvidenceGraph-first architecture**: the canonical semantic-intelligence substrate is a graph of
+  evidence-backed claims where deterministic scan facts, semantic file understanding, ontology labels, capability
+  signals, embedding similarities, runtime traces, and human overrides all become traceable claims; scan reports,
+  capability maps, duplicate detection, context bundles, canonical recommendations, ownership warnings, and agent
+  instructions are derived from it. Pinned: deterministic facts are the substrate and LLM/embedding outputs are
+  evidence-backed inferences; verb:noun remains the human-readable shorthand, not the whole capability model; label
+  quality becomes a special case of general claim reconciliation; embeddings are neighbor evidence, not truth (don't
+  embed whole files as the primary artifact; structural and semantic vectors separate); files remain containers and
+  symbols become first-class intelligence nodes; context bundles are task-shaped graph neighborhoods; human feedback
+  upgrades ontology/rules when patterns repeat. Boundaries: CapabilityEvidenceGraph / LLM interpretation / embedding
+  similarity are proposal/context, not proof; deterministic facts remain stronger; ontology is the contract; semantic
+  intelligence approves no plans, executes no commands, writes no source, and runs no Circe; intent:go remains
+  deferred. Proposed `EvidenceClaim` / `GraphRef` / rich `CapabilityNode` shapes, 5 tables, 30-assertion docs test;
+  new memo + review packet. Next: Capability Evidence Graph v1.
 - Reviewed **Semantic File Understanding Intent Context Safety Review** — one-hundred-fifty-first slice on the
   intent-spine track (Track A). Strategy/safety-review batch; no runtime behavior changes. Ground-reviewed the shipped
   Semantic File Understanding Intent Context integration at `de8c048` against committed source: the pure helper

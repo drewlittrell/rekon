@@ -120,3 +120,7 @@ The slice-149 decision is now implemented: `rekon intent assess` / `rekon intent
 ## Semantic File Understanding Intent Context Safety Review
 
 The slice-150 semantic intent-context integration was ground-reviewed and declared safe/stable: `SemanticFileUnderstandingReport` consumption by `rekon intent assess` / `rekon intent plan review` is explicit, proposal/context-only, never weakens readiness/proof gates, and stale reports are never consumed silently. See [Semantic File Understanding Intent Context Safety Review](../strategy/semantic-file-understanding-intent-context-safety-review.md).
+
+## Capability Evidence Graph / Semantic Intelligence
+
+Rekon's next semantic-intelligence substrate is a `CapabilityEvidenceGraph`: deterministic facts, LLM interpretation, ontology labels, embedding similarity, runtime traces, and human overrides become evidence-backed claims. Embeddings are one evidence source, not the center — embedding similarity is proposal, not proof. See [Capability Evidence Graph / Semantic Intelligence Architecture Decision](../strategy/capability-evidence-graph-semantic-intelligence-decision.md).
