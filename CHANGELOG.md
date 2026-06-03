@@ -4,6 +4,24 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **Capability Evidence Graph v1** — one-hundred-fifty-third slice on the semantic-intelligence track. First
+  build slice of the architecture decided in the previous slice: a new `CapabilityEvidenceGraph` kernel artifact
+  (types + factory + validator + schema), registered in the SDK (experimental, `0.1.0`) and runtime (category
+  `graphs`); a pure deterministic builder `buildCapabilityEvidenceGraph` in `@rekon/capability-model`; and a `rekon
+  capability graph build [--path <file-or-dir>] [--root <path>] [--json]` CLI command. The graph unifies file nodes,
+  symbol nodes, and `verb:noun` capability nodes connected by evidence-backed claims: `imports` and `exposes` are
+  deterministic facts at confidence 1.0; heuristic `verb:noun` capability `implements` claims are inferences at
+  confidence ≤ 0.5; every claim cites a `deterministic_scan` evidence row with a line and excerpt. Pins: deterministic
+  facts are the substrate; LLM and embedding outputs are evidence-backed inferences (this slice generates neither);
+  verb:noun remains shorthand, not the whole capability model (a capability node carries implementedBy / entrypoints /
+  sideEffects / dependencies / consumers / confidence / evidence); files remain containers and symbols are first-class
+  intelligence nodes. The capability heuristic is conservative — classes derive no capability, and a non-verb first
+  token (e.g. `joinName`) derives none. Boundaries: the factory forces all nine boundary booleans false and the
+  validator rejects any non-false boundary — no LLM is used in v1, no embeddings are generated in v1, semantic
+  intelligence must not execute commands, semantic intelligence must not write source files, and it creates no
+  PreparedIntentPlan / WorkOrder / VerificationPlan, runs no Circe, and leaves intent:go deferred. The graph is
+  evidence-backed context, not proof by itself. 3 new docs (artifact, concept, v1 strategy memo), review packet,
+  23-case contract test, 15-case docs test, full gate + CLI smoke. Next: Capability Evidence Graph Safety Review.
 - Decided **Capability Evidence Graph / Semantic Intelligence Architecture Decision** — one-hundred-fifty-second slice
   on the intent/semantic-intelligence track. Strategy/architecture decision-only batch; no runtime behavior changes.
   Supersedes a narrow "Embeddings Parity Audit / Embedding Index Decision" as the immediate next step. Ground-reviewed

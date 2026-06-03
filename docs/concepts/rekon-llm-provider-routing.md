@@ -1,5 +1,7 @@
 # Rekon LLM Provider Routing
 
+> **Capability Evidence Graph v1 shipped (slice 153):** the CapabilityEvidenceGraph substrate ships — file nodes, symbol nodes, and verb:noun capability nodes connected by evidence-backed claims, built deterministically by `rekon capability graph build`. When a provider is added later, its output enters the graph as an evidence-backed inference (a `source: llm` claim with bounded confidence), never as a new fact — deterministic facts are the substrate. No LLM is used in v1. See [`capability-evidence-graph.md`](../artifacts/capability-evidence-graph.md) and [`capability-evidence-graph-v1.md`](../strategy/capability-evidence-graph-v1.md).
+
 > **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](../strategy/classic-llm-semantic-parsing-parity-decision.md).
 
 > **Semantic quality hardened (slice 142):** provider phases are re-checked against the source — unsupported touched paths and verification commands become findings + warnings, dropped non-goals are flagged, and a weak plan cannot become actionable by filling fields without source support. Deterministic recheck stays authoritative. See [`intent-plan-semantic-quality-hardening.md`](../strategy/intent-plan-semantic-quality-hardening.md).

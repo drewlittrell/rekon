@@ -212,6 +212,13 @@ export {
 } from "./semantic-file-understanding-report.js";
 
 export {
+  type CapabilityEvidenceGraphInputFile,
+  type BuildCapabilityEvidenceGraphInput,
+  CAPABILITY_EVIDENCE_GRAPH_ARTIFACT_ID_PREFIX,
+  buildCapabilityEvidenceGraph,
+} from "./capability-evidence-graph.js";
+
+export {
   type SemanticFileUnderstandingReportLike,
   type SemanticFileContextReport,
   type SemanticFileContextStaleReason,

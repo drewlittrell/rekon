@@ -2,6 +2,12 @@
 
 Status: **Implemented** (v1, slice 144).
 
+> **Future evidence source of the CapabilityEvidenceGraph (slice 153):** the
+> [CapabilityEvidenceGraph](./capability-evidence-graph.md) substrate ships in v1
+> with deterministic facts only. The semantic file understanding report is a
+> planned *evidence source* that will attach to that graph as evidence-backed
+> inference claims — never as deterministic facts. The two stay separate in v1.
+
 Semantic file understanding is Rekon's per-file scan: it reads one source file and
 reports what that file is and does. It restores the old codebase-intel per-file LLM
 pipeline (`runPureLlmPipeline`) inside Rekon's provider/router/artifact architecture,

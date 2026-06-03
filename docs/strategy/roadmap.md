@@ -1,5 +1,7 @@
 # Roadmap
 
+> **Capability Evidence Graph v1 shipped (slice 153):** the semantic-intelligence substrate ships its first build slice — `CapabilityEvidenceGraph` artifact + `buildCapabilityEvidenceGraph` + `rekon capability graph build`. Deterministic facts are the substrate; embeddings/LLM/runtime/human signals attach later as evidence-backed inferences. Next: Capability Evidence Graph Safety Review. See [`capability-evidence-graph-v1.md`](./capability-evidence-graph-v1.md).
+
 > **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](./classic-llm-semantic-parsing-parity-decision.md).
 
 > **Semantic quality hardened (slice 142):** provider phases are re-checked against the source — unsupported touched paths and verification commands become findings + warnings, dropped non-goals are flagged, and a weak plan cannot become actionable by filling fields without source support. Deterministic recheck stays authoritative. See [`intent-plan-semantic-quality-hardening.md`](./intent-plan-semantic-quality-hardening.md).

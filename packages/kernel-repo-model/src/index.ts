@@ -6554,6 +6554,544 @@ export const semanticFileUnderstandingReportSchema: ArtifactSchema<SemanticFileU
 };
 
 // ---------------------------------------------------------------------------
+// CapabilityEvidenceGraph (v1) — the central semantic-intelligence substrate
+// (CapabilityEvidenceGraph / Semantic Intelligence Architecture Decision). A
+// graph of evidence-backed claims: file / symbol / capability nodes, evidence
+// refs with provenance, and EvidenceClaims separating deterministic FACTS from
+// INFERENCES. v1 is **deterministic facts only** — it uses no LLM, generates no
+// embeddings, executes no commands, writes no source, and runs no Circe. It is
+// **evidence-backed context, not proof by itself**.
+// ---------------------------------------------------------------------------
+
+export type CapabilityGraphRefKind =
+  | "file"
+  | "symbol"
+  | "capability"
+  | "system"
+  | "route"
+  | "event"
+  | "db_table"
+  | "api"
+  | "pattern"
+  | "invariant"
+  | "test"
+  | "doc";
+
+export type CapabilityGraphRef = {
+  kind: CapabilityGraphRefKind;
+  id: string;
+};
+
+export type CapabilityEvidenceSource =
+  | "ast"
+  | "import_graph"
+  | "typechecker"
+  | "runtime_trace"
+  | "llm_extraction"
+  | "embedding_similarity"
+  | "human_override"
+  | "ontology_rule"
+  | "ground_truth"
+  | "deterministic_scan";
+
+export type CapabilityEvidenceRef = {
+  id: string;
+  source: CapabilityEvidenceSource;
+  artifactRef?: ArtifactRef;
+  path?: string;
+  lineStart?: number;
+  lineEnd?: number;
+  excerpt?: string;
+};
+
+export type CapabilityEvidenceClaimType = "fact" | "inference" | "recommendation";
+export type CapabilityEvidenceClaimSource =
+  | "deterministic"
+  | "llm"
+  | "embedding"
+  | "runtime"
+  | "human"
+  | "ontology";
+export type CapabilityEvidenceClaimStatus = "accepted" | "conflicted" | "rejected" | "needs-review";
+
+export type CapabilityEvidenceClaim = {
+  id: string;
+  subject: CapabilityGraphRef;
+  predicate: string;
+  object: CapabilityGraphRef | string;
+  claimType: CapabilityEvidenceClaimType;
+  source: CapabilityEvidenceClaimSource;
+  confidence: number;
+  evidenceRefs: string[];
+  status: CapabilityEvidenceClaimStatus;
+};
+
+export type CapabilityEvidenceGraphCapabilityNode = {
+  id: string;
+  verb: string;
+  noun: string;
+  objectType?: string;
+  ownerSystem?: string;
+  implementedBy: CapabilityGraphRef[];
+  entrypoints: CapabilityGraphRef[];
+  sideEffects: string[];
+  dependencies: CapabilityGraphRef[];
+  consumers: CapabilityGraphRef[];
+  canonicalImplementation?: CapabilityGraphRef;
+  confidence: number;
+  evidenceRefs: string[];
+};
+
+export type CapabilityEvidenceGraphBoundaries = {
+  usedLlm: false;
+  generatedEmbeddings: false;
+  executedCommands: false;
+  wroteSourceFiles: false;
+  createdPreparedIntentPlan: false;
+  createdWorkOrder: false;
+  createdVerificationPlan: false;
+  ranCirce: false;
+  implementedIntentGo: false;
+};
+
+export type CapabilityEvidenceGraphStatus = {
+  value: "built" | "partial" | "blocked";
+  reason: string;
+};
+
+export type CapabilityEvidenceGraphSummary = {
+  files: number;
+  symbols: number;
+  capabilities: number;
+  facts: number;
+  inferences: number;
+  recommendations: number;
+  evidence: number;
+};
+
+export type CapabilityEvidenceGraph = {
+  header: ArtifactHeader;
+  schemaVersion: "0.1.0";
+  status: CapabilityEvidenceGraphStatus;
+  nodes: CapabilityGraphRef[];
+  evidence: CapabilityEvidenceRef[];
+  claims: CapabilityEvidenceClaim[];
+  capabilities: CapabilityEvidenceGraphCapabilityNode[];
+  summary: CapabilityEvidenceGraphSummary;
+  boundaries: CapabilityEvidenceGraphBoundaries;
+};
+
+const CAPABILITY_EVIDENCE_GRAPH_BOUNDARY_KEYS = [
+  "usedLlm",
+  "generatedEmbeddings",
+  "executedCommands",
+  "wroteSourceFiles",
+  "createdPreparedIntentPlan",
+  "createdWorkOrder",
+  "createdVerificationPlan",
+  "ranCirce",
+  "implementedIntentGo",
+] as const;
+
+const CAPABILITY_GRAPH_REF_KINDS = new Set<string>([
+  "file",
+  "symbol",
+  "capability",
+  "system",
+  "route",
+  "event",
+  "db_table",
+  "api",
+  "pattern",
+  "invariant",
+  "test",
+  "doc",
+]);
+
+const CAPABILITY_EVIDENCE_SOURCES = new Set<string>([
+  "ast",
+  "import_graph",
+  "typechecker",
+  "runtime_trace",
+  "llm_extraction",
+  "embedding_similarity",
+  "human_override",
+  "ontology_rule",
+  "ground_truth",
+  "deterministic_scan",
+]);
+
+const CAPABILITY_EVIDENCE_CLAIM_TYPES = new Set<string>(["fact", "inference", "recommendation"]);
+const CAPABILITY_EVIDENCE_CLAIM_SOURCES = new Set<string>([
+  "deterministic",
+  "llm",
+  "embedding",
+  "runtime",
+  "human",
+  "ontology",
+]);
+const CAPABILITY_EVIDENCE_CLAIM_STATUSES = new Set<string>(["accepted", "conflicted", "rejected", "needs-review"]);
+
+function cegClamp01(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+function cegStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry === "string" && entry.trim().length > 0) out.push(entry.trim());
+  }
+  return out;
+}
+
+function cegNormalizeGraphRef(value: unknown): CapabilityGraphRef | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.kind !== "string" || !CAPABILITY_GRAPH_REF_KINDS.has(value.kind)) return null;
+  if (typeof value.id !== "string" || value.id.length === 0) return null;
+  return { kind: value.kind as CapabilityGraphRefKind, id: value.id };
+}
+
+function cegNormalizeGraphRefList(value: unknown): CapabilityGraphRef[] {
+  if (!Array.isArray(value)) return [];
+  const out: CapabilityGraphRef[] = [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    const ref = cegNormalizeGraphRef(raw);
+    if (!ref) continue;
+    const key = `${ref.kind}:${ref.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(ref);
+  }
+  return out;
+}
+
+export function createCapabilityEvidenceGraph(input: CapabilityEvidenceGraph): CapabilityEvidenceGraph {
+  const nodes: CapabilityGraphRef[] = cegNormalizeGraphRefList(input.nodes);
+  nodes.sort((a, b) => (a.kind !== b.kind ? a.kind.localeCompare(b.kind) : a.id.localeCompare(b.id)));
+
+  const evidence: CapabilityEvidenceRef[] = [];
+  const seenEvidence = new Set<string>();
+  for (const raw of input.evidence ?? []) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0) continue;
+    if (seenEvidence.has(raw.id)) continue;
+    if (typeof raw.source !== "string" || !CAPABILITY_EVIDENCE_SOURCES.has(raw.source)) continue;
+    seenEvidence.add(raw.id);
+    const ref: CapabilityEvidenceRef = { id: raw.id, source: raw.source as CapabilityEvidenceSource };
+    if (raw.artifactRef) ref.artifactRef = assertArtifactRef(raw.artifactRef);
+    if (typeof raw.path === "string" && raw.path.length > 0) ref.path = raw.path;
+    if (typeof raw.lineStart === "number" && Number.isInteger(raw.lineStart)) ref.lineStart = raw.lineStart;
+    if (typeof raw.lineEnd === "number" && Number.isInteger(raw.lineEnd)) ref.lineEnd = raw.lineEnd;
+    if (typeof raw.excerpt === "string" && raw.excerpt.length > 0) ref.excerpt = raw.excerpt;
+    evidence.push(ref);
+  }
+  evidence.sort((a, b) => a.id.localeCompare(b.id));
+
+  const claims: CapabilityEvidenceClaim[] = [];
+  const seenClaims = new Set<string>();
+  for (const raw of input.claims ?? []) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0 || seenClaims.has(raw.id)) continue;
+    const subject = cegNormalizeGraphRef(raw.subject);
+    if (!subject) continue;
+    if (typeof raw.predicate !== "string" || raw.predicate.length === 0) continue;
+    if (typeof raw.claimType !== "string" || !CAPABILITY_EVIDENCE_CLAIM_TYPES.has(raw.claimType)) continue;
+    if (typeof raw.source !== "string" || !CAPABILITY_EVIDENCE_CLAIM_SOURCES.has(raw.source)) continue;
+    if (typeof raw.status !== "string" || !CAPABILITY_EVIDENCE_CLAIM_STATUSES.has(raw.status)) continue;
+    const object = cegNormalizeGraphRef(raw.object) ?? (typeof raw.object === "string" ? raw.object : null);
+    if (object === null) continue;
+    seenClaims.add(raw.id);
+    claims.push({
+      id: raw.id,
+      subject,
+      predicate: raw.predicate,
+      object,
+      claimType: raw.claimType as CapabilityEvidenceClaimType,
+      source: raw.source as CapabilityEvidenceClaimSource,
+      confidence: cegClamp01(raw.confidence),
+      evidenceRefs: cegStringList(raw.evidenceRefs),
+      status: raw.status as CapabilityEvidenceClaimStatus,
+    });
+  }
+  claims.sort((a, b) => a.id.localeCompare(b.id));
+
+  const capabilities: CapabilityEvidenceGraphCapabilityNode[] = [];
+  const seenCaps = new Set<string>();
+  for (const raw of input.capabilities ?? []) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length === 0 || seenCaps.has(raw.id)) continue;
+    if (typeof raw.verb !== "string" || typeof raw.noun !== "string") continue;
+    seenCaps.add(raw.id);
+    const cap: CapabilityEvidenceGraphCapabilityNode = {
+      id: raw.id,
+      verb: raw.verb,
+      noun: raw.noun,
+      implementedBy: cegNormalizeGraphRefList(raw.implementedBy),
+      entrypoints: cegNormalizeGraphRefList(raw.entrypoints),
+      sideEffects: cegStringList(raw.sideEffects),
+      dependencies: cegNormalizeGraphRefList(raw.dependencies),
+      consumers: cegNormalizeGraphRefList(raw.consumers),
+      confidence: cegClamp01(raw.confidence),
+      evidenceRefs: cegStringList(raw.evidenceRefs),
+    };
+    if (typeof raw.objectType === "string" && raw.objectType.length > 0) cap.objectType = raw.objectType;
+    if (typeof raw.ownerSystem === "string" && raw.ownerSystem.length > 0) cap.ownerSystem = raw.ownerSystem;
+    const canonical = cegNormalizeGraphRef(raw.canonicalImplementation);
+    if (canonical) cap.canonicalImplementation = canonical;
+    capabilities.push(cap);
+  }
+  capabilities.sort((a, b) => a.id.localeCompare(b.id));
+
+  const status: CapabilityEvidenceGraphStatus = {
+    value:
+      input.status?.value === "built" || input.status?.value === "partial" || input.status?.value === "blocked"
+        ? input.status.value
+        : "built",
+    reason: typeof input.status?.reason === "string" ? input.status.reason : "",
+  };
+
+  return assertCapabilityEvidenceGraph({
+    header: input.header,
+    schemaVersion: "0.1.0",
+    status,
+    nodes,
+    evidence,
+    claims,
+    capabilities,
+    summary: {
+      files: nodes.filter((node) => node.kind === "file").length,
+      symbols: nodes.filter((node) => node.kind === "symbol").length,
+      capabilities: capabilities.length,
+      facts: claims.filter((claim) => claim.claimType === "fact").length,
+      inferences: claims.filter((claim) => claim.claimType === "inference").length,
+      recommendations: claims.filter((claim) => claim.claimType === "recommendation").length,
+      evidence: evidence.length,
+    },
+    boundaries: {
+      usedLlm: false,
+      generatedEmbeddings: false,
+      executedCommands: false,
+      wroteSourceFiles: false,
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    },
+  });
+}
+
+function cegValidateGraphRef(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.kind !== "string" || !CAPABILITY_GRAPH_REF_KINDS.has(value.kind)) {
+    issues.push({ path: `${path}.kind`, message: "Expected a known graph node kind." });
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  }
+}
+
+export function validateCapabilityEvidenceGraph(value: unknown): ValidationResult<CapabilityEvidenceGraph> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "CapabilityEvidenceGraph", "$.header", issues);
+
+  if (value.schemaVersion !== "0.1.0") {
+    issues.push({ path: "$.schemaVersion", message: 'Expected "0.1.0".' });
+  }
+
+  if (!isRecord(value.status)) {
+    issues.push({ path: "$.status", message: "Expected an object." });
+  } else {
+    if (value.status.value !== "built" && value.status.value !== "partial" && value.status.value !== "blocked") {
+      issues.push({ path: "$.status.value", message: "Expected built | partial | blocked." });
+    }
+    if (typeof value.status.reason !== "string") {
+      issues.push({ path: "$.status.reason", message: "Expected a string." });
+    }
+  }
+
+  let nodes: unknown[] = [];
+  if (!Array.isArray(value.nodes)) {
+    issues.push({ path: "$.nodes", message: "Expected an array." });
+  } else {
+    nodes = value.nodes;
+    nodes.forEach((node, index) => cegValidateGraphRef(node, `$.nodes[${index}]`, issues));
+  }
+
+  let evidence: unknown[] = [];
+  if (!Array.isArray(value.evidence)) {
+    issues.push({ path: "$.evidence", message: "Expected an array." });
+  } else {
+    evidence = value.evidence;
+    const seen = new Set<string>();
+    evidence.forEach((ref, index) => {
+      const refPath = `$.evidence[${index}]`;
+      if (!isRecord(ref)) {
+        issues.push({ path: refPath, message: "Expected an object." });
+        return;
+      }
+      if (typeof ref.id !== "string" || ref.id.length === 0) {
+        issues.push({ path: `${refPath}.id`, message: "Expected a non-empty string." });
+      } else if (seen.has(ref.id)) {
+        issues.push({ path: `${refPath}.id`, message: `Duplicate evidence id "${ref.id}".` });
+      } else {
+        seen.add(ref.id);
+      }
+      if (typeof ref.source !== "string" || !CAPABILITY_EVIDENCE_SOURCES.has(ref.source)) {
+        issues.push({ path: `${refPath}.source`, message: "Expected a known evidence source." });
+      }
+      if (ref.artifactRef !== undefined) {
+        const result = validateArtifactRef(ref.artifactRef);
+        if (!result.ok) issues.push(...prefixIssues(result.issues, `${refPath}.artifactRef`));
+      }
+    });
+  }
+
+  const evidenceIds = new Set<string>(
+    Array.isArray(evidence)
+      ? evidence.filter((ref): ref is Record<string, unknown> => isRecord(ref) && typeof ref.id === "string").map((ref) => ref.id as string)
+      : [],
+  );
+
+  let claims: unknown[] = [];
+  if (!Array.isArray(value.claims)) {
+    issues.push({ path: "$.claims", message: "Expected an array." });
+  } else {
+    claims = value.claims;
+    const seen = new Set<string>();
+    claims.forEach((claim, index) => {
+      const claimPath = `$.claims[${index}]`;
+      if (!isRecord(claim)) {
+        issues.push({ path: claimPath, message: "Expected an object." });
+        return;
+      }
+      if (typeof claim.id !== "string" || claim.id.length === 0) {
+        issues.push({ path: `${claimPath}.id`, message: "Expected a non-empty string." });
+      } else if (seen.has(claim.id)) {
+        issues.push({ path: `${claimPath}.id`, message: `Duplicate claim id "${claim.id}".` });
+      } else {
+        seen.add(claim.id);
+      }
+      cegValidateGraphRef(claim.subject, `${claimPath}.subject`, issues);
+      if (typeof claim.predicate !== "string" || claim.predicate.length === 0) {
+        issues.push({ path: `${claimPath}.predicate`, message: "Expected a non-empty string." });
+      }
+      if (isRecord(claim.object)) {
+        cegValidateGraphRef(claim.object, `${claimPath}.object`, issues);
+      } else if (typeof claim.object !== "string" || claim.object.length === 0) {
+        issues.push({ path: `${claimPath}.object`, message: "Expected a graph ref or non-empty string." });
+      }
+      if (typeof claim.claimType !== "string" || !CAPABILITY_EVIDENCE_CLAIM_TYPES.has(claim.claimType)) {
+        issues.push({ path: `${claimPath}.claimType`, message: "Expected fact | inference | recommendation." });
+      }
+      if (typeof claim.source !== "string" || !CAPABILITY_EVIDENCE_CLAIM_SOURCES.has(claim.source)) {
+        issues.push({ path: `${claimPath}.source`, message: "Expected a known claim source." });
+      }
+      if (typeof claim.status !== "string" || !CAPABILITY_EVIDENCE_CLAIM_STATUSES.has(claim.status)) {
+        issues.push({ path: `${claimPath}.status`, message: "Expected accepted | conflicted | rejected | needs-review." });
+      }
+      if (typeof claim.confidence !== "number" || !Number.isFinite(claim.confidence) || claim.confidence < 0 || claim.confidence > 1) {
+        issues.push({ path: `${claimPath}.confidence`, message: "Expected a number in [0, 1]." });
+      }
+      if (!Array.isArray(claim.evidenceRefs)) {
+        issues.push({ path: `${claimPath}.evidenceRefs`, message: "Expected an array." });
+      } else {
+        claim.evidenceRefs.forEach((refId, refIndex) => {
+          if (typeof refId !== "string" || refId.length === 0) {
+            issues.push({ path: `${claimPath}.evidenceRefs[${refIndex}]`, message: "Expected a non-empty string." });
+          } else if (evidenceIds.size > 0 && !evidenceIds.has(refId)) {
+            issues.push({ path: `${claimPath}.evidenceRefs[${refIndex}]`, message: `Unknown evidence id "${refId}".` });
+          }
+        });
+      }
+    });
+  }
+
+  let capabilities: unknown[] = [];
+  if (!Array.isArray(value.capabilities)) {
+    issues.push({ path: "$.capabilities", message: "Expected an array." });
+  } else {
+    capabilities = value.capabilities;
+    const seen = new Set<string>();
+    capabilities.forEach((cap, index) => {
+      const capPath = `$.capabilities[${index}]`;
+      if (!isRecord(cap)) {
+        issues.push({ path: capPath, message: "Expected an object." });
+        return;
+      }
+      if (typeof cap.id !== "string" || cap.id.length === 0) {
+        issues.push({ path: `${capPath}.id`, message: "Expected a non-empty string." });
+      } else if (seen.has(cap.id)) {
+        issues.push({ path: `${capPath}.id`, message: `Duplicate capability id "${cap.id}".` });
+      } else {
+        seen.add(cap.id);
+      }
+      if (typeof cap.verb !== "string" || cap.verb.length === 0) {
+        issues.push({ path: `${capPath}.verb`, message: "Expected a non-empty string." });
+      }
+      if (typeof cap.noun !== "string" || cap.noun.length === 0) {
+        issues.push({ path: `${capPath}.noun`, message: "Expected a non-empty string." });
+      }
+      if (typeof cap.confidence !== "number" || !Number.isFinite(cap.confidence) || cap.confidence < 0 || cap.confidence > 1) {
+        issues.push({ path: `${capPath}.confidence`, message: "Expected a number in [0, 1]." });
+      }
+    });
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const computed: Record<string, number> = {
+      files: Array.isArray(nodes) ? nodes.filter((n) => isRecord(n) && n.kind === "file").length : 0,
+      symbols: Array.isArray(nodes) ? nodes.filter((n) => isRecord(n) && n.kind === "symbol").length : 0,
+      capabilities: Array.isArray(capabilities) ? capabilities.length : 0,
+      facts: Array.isArray(claims) ? claims.filter((c) => isRecord(c) && c.claimType === "fact").length : 0,
+      inferences: Array.isArray(claims) ? claims.filter((c) => isRecord(c) && c.claimType === "inference").length : 0,
+      recommendations: Array.isArray(claims) ? claims.filter((c) => isRecord(c) && c.claimType === "recommendation").length : 0,
+      evidence: Array.isArray(evidence) ? evidence.length : 0,
+    };
+    for (const field of ["files", "symbols", "capabilities", "facts", "inferences", "recommendations", "evidence"] as const) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      } else if (supplied !== computed[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${computed[field]} (recomputed).` });
+      }
+    }
+  }
+
+  if (!isRecord(value.boundaries)) {
+    issues.push({ path: "$.boundaries", message: "Expected an object." });
+  } else {
+    const boundaries = value.boundaries as Record<string, unknown>;
+    for (const key of CAPABILITY_EVIDENCE_GRAPH_BOUNDARY_KEYS) {
+      if (boundaries[key] !== false) {
+        issues.push({ path: `$.boundaries.${key}`, message: "Expected false." });
+      }
+    }
+  }
+
+  return validationResult(value as CapabilityEvidenceGraph, issues);
+}
+
+export function assertCapabilityEvidenceGraph(value: unknown): CapabilityEvidenceGraph {
+  return assertValid(validateCapabilityEvidenceGraph(value), "CapabilityEvidenceGraph");
+}
+
+export const capabilityEvidenceGraphSchema: ArtifactSchema<CapabilityEvidenceGraph> = {
+  validate: validateCapabilityEvidenceGraph,
+  parse: assertCapabilityEvidenceGraph,
+};
+
+// ---------------------------------------------------------------------------
 // IntentPlanActionabilityReport — plan compiler / actionability / elicitation
 // (slice 129). Reads a raw / semi-structured plan, normalizes it into phase
 // drafts, evaluates actionability, emits findings + elicitation questions + a

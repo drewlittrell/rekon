@@ -4,6 +4,16 @@ Status: decided (slice 152). Base `bc5fb92`. Strategy/architecture decision-only
 batch; no runtime behavior changes, no source. Supersedes a narrow "Embeddings
 Parity Audit / Embedding Index Decision" as the immediate next step.
 
+> **v1 shipped (slice 153):** this architecture is now real. The
+> `CapabilityEvidenceGraph` artifact, the pure `buildCapabilityEvidenceGraph`
+> builder, and `rekon capability graph build` ship the deterministic substrate —
+> file/symbol/capability nodes and evidence-backed `imports`/`exposes`/`implements`
+> claims, with all boundary booleans forced false. Embeddings, LLM inference, and
+> retrieval remain deferred evidence sources that attach to this graph. See
+> [`capability-evidence-graph-v1.md`](./capability-evidence-graph-v1.md),
+> [`../artifacts/capability-evidence-graph.md`](../artifacts/capability-evidence-graph.md),
+> and [`../concepts/capability-evidence-graph.md`](../concepts/capability-evidence-graph.md).
+
 ## Decision Summary
 
 Selected: **Option B — CapabilityEvidenceGraph-first architecture.** Rekon's next

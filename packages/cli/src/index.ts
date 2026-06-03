@@ -152,6 +152,7 @@ import modelCapability, {
   type SemanticFileUnderstandingAdapterResult,
   buildSemanticFileUnderstandingReport,
   SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
+  buildCapabilityEvidenceGraph,
 } from "@rekon/capability-model";
 import { RekonLlmRouter, coercePhaseDrafts, createOpenAiLlmProvider } from "@rekon/llm-provider";
 import policyCapability from "@rekon/capability-policy";
@@ -1082,6 +1083,98 @@ export async function main(argv: string[]): Promise<void> {
         + `ignored: ${report.summary.ignored}. `
         + `low-confidence: ${report.summary.lowConfidence}. `
         + `aliases applied: ${report.summary.aliasApplied}.`,
+      );
+      lines.push(`Artifact: ${ref.type}:${ref.id}`);
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "capability" && subcommand === "graph" && positional === "build") {
+    // `rekon capability graph build [--path <file-or-dir>] [--root <path>] [--json]` —
+    // v1 of the CapabilityEvidenceGraph substrate (capability-evidence-graph-v1).
+    // Reads selected source files and builds ONE CapabilityEvidenceGraph from
+    // deterministic facts only: file nodes, symbol nodes, import + exposes FACTS
+    // (confidence 1.0), and heuristic verb:noun capability INFERENCES
+    // (confidence <= 0.5) derived from exported symbol names. **Read-only** with
+    // respect to source files. Uses NO LLM, generates NO embeddings, executes NO
+    // commands, writes NO source, creates NO PreparedIntentPlan / WorkOrder /
+    // VerificationPlan, and runs NO Circe — the artifact factory forces every
+    // boundary boolean false. The graph is evidence-backed context, not proof by
+    // itself. See docs/concepts/capability-evidence-graph.md and
+    // docs/artifacts/capability-evidence-graph.md.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const requestedPaths = parseRepeatableFlag(parsed.flags.path);
+    const pathFlag = requestedPaths.length > 0 ? String(requestedPaths[0]).trim() : "";
+
+    let candidates: string[];
+    if (pathFlag.length > 0) {
+      const abs = resolve(root, pathFlag);
+      let stats;
+      try {
+        stats = await stat(abs);
+      } catch {
+        throw new Error(`rekon capability graph build: --path not found: ${pathFlag}`);
+      }
+      if (stats.isDirectory()) {
+        candidates = await collectCapabilityGraphCandidates(root, abs);
+      } else {
+        // Explicit single file bypasses the extension allow-list / size filter.
+        candidates = [relative(root, abs).replace(/\\/g, "/")];
+      }
+    } else {
+      candidates = await collectCapabilityGraphCandidates(root);
+    }
+
+    const files: Array<{ path: string; sha256: string; text: string }> = [];
+    for (const relPath of candidates) {
+      if (typeof relPath !== "string" || relPath.length === 0) continue;
+      const abs = resolve(root, relPath);
+      let text: string;
+      try {
+        text = await readFile(abs, "utf8");
+      } catch {
+        continue;
+      }
+      // Binary file — never analyze, never persist.
+      if (text.indexOf("\u0000") !== -1) continue;
+      const sha = createHash("sha256").update(text).digest("hex");
+      files.push({ path: relPath, sha256: sha, text });
+    }
+
+    const generatedAt = new Date().toISOString();
+    const graph = buildCapabilityEvidenceGraph({ root, files, generatedAt });
+    const ref = await store.write(graph, { category: "graphs" });
+
+    if (json) {
+      writeOutput(
+        {
+          status: graph.status,
+          artifact: { type: ref.type, id: ref.id },
+          summary: graph.summary,
+          boundaries: graph.boundaries,
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push(
+        `Capability evidence graph: ${graph.summary.files} file(s), `
+        + `${graph.summary.symbols} symbol(s), ${graph.summary.capabilities} capability(ies).`,
+      );
+      lines.push(
+        `Facts: ${graph.summary.facts}. `
+        + `Inferences: ${graph.summary.inferences}. `
+        + `Recommendations: ${graph.summary.recommendations}. `
+        + `Evidence: ${graph.summary.evidence}.`,
+      );
+      lines.push("Boundaries: no LLM, no embeddings, no commands, no source writes (all false).");
+      lines.push(
+        `Status: ${graph.status.value}`
+        + (graph.status.reason ? ` — ${graph.status.reason}` : "")
+        + ".",
       );
       lines.push(`Artifact: ${ref.type}:${ref.id}`);
       writeOutput(lines.join("\n"), false);
@@ -7995,6 +8088,48 @@ async function collectSemanticScanCandidates(root: string): Promise<string[]> {
   return out;
 }
 
+const CAPABILITY_GRAPH_SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+
+/**
+ * Conservative recursive *source-only* file selection for the
+ * CapabilityEvidenceGraph builder (`rekon capability graph build`). Includes only
+ * code extensions (.ts/.tsx/.js/.jsx/.mjs/.cjs); excludes the same generated/vendor
+ * directories, lockfiles, and oversized files as the semantic scan layer.
+ * Declaration files (`.d.ts`) are excluded — they expose no runnable symbols.
+ * `startDir` lets `--path <dir>` narrow the walk while node ids stay relative to
+ * `root` for stable, deterministic identifiers. Read-only; performs no writes.
+ */
+async function collectCapabilityGraphCandidates(root: string, startDir?: string): Promise<string[]> {
+  const out: string[] = [];
+  async function walk(absDir: string): Promise<void> {
+    const entries = await readdir(absDir, { withFileTypes: true }).catch(() => []);
+    for (const ent of entries) {
+      const abs = join(absDir, ent.name);
+      if (ent.isDirectory()) {
+        if (SEMANTIC_SCAN_EXCLUDED_DIRS.has(ent.name)) continue;
+        await walk(abs);
+      } else if (ent.isFile()) {
+        if (SEMANTIC_SCAN_EXCLUDED_FILES.has(ent.name)) continue;
+        if (ent.name.endsWith(".d.ts")) continue;
+        const dot = ent.name.lastIndexOf(".");
+        const ext = dot >= 0 ? ent.name.slice(dot).toLowerCase() : "";
+        if (!CAPABILITY_GRAPH_SOURCE_EXTENSIONS.has(ext)) continue;
+        let size = 0;
+        try {
+          size = (await stat(abs)).size;
+        } catch {
+          continue;
+        }
+        if (size > SEMANTIC_SCAN_MAX_BYTES) continue;
+        out.push(relative(root, abs).replace(/\\/g, "/"));
+      }
+    }
+  }
+  await walk(startDir ?? root);
+  out.sort();
+  return out;
+}
+
 /** First 16 hex of sha256(path) — keeps per-file batch artifact ids unique. */
 function semanticScanPathHashSegment(relPath: string): string {
   return createHash("sha256").update(relPath).digest("hex").slice(0, 16);
@@ -12045,6 +12180,7 @@ function usage(): string {
     "rekon capability lint architecture [--capability-contract <id|type:id>] [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint bridge-findings [--lint-report <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint write-findings --bridge-report <id|type:id> (--dry-run | --confirm-finding-write) [--root <path>] [--json]",
+    "rekon capability graph build [--path <file-or-dir>] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

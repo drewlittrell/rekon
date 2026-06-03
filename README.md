@@ -375,6 +375,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# Capability Evidence Graph v1 has shipped.
+# One-hundred-fifty-third slice on the semantic-intelligence track.
+# New `CapabilityEvidenceGraph` kernel artifact (category graphs), a pure
+# builder `buildCapabilityEvidenceGraph` in @rekon/capability-model, and a
+# `rekon capability graph build [--path <file-or-dir>] [--root <path>] [--json]`
+# command. The graph unifies file nodes, symbol nodes, and verb:noun capability
+# nodes connected by evidence-backed claims: imports/exposes are deterministic
+# facts (confidence 1.0); heuristic verb:noun capabilities are inferences
+# (confidence <= 0.5); each claim cites a deterministic_scan evidence row.
+# Deterministic facts are the substrate; LLM and embedding outputs are
+# evidence-backed inferences that attach later. The factory forces all nine
+# boundary booleans false and the validator rejects any non-false boundary: no
+# LLM, no embeddings, no commands, no source writes, no PreparedIntentPlan /
+# WorkOrder / VerificationPlan, no Circe, intent:go deferred. The graph is
+# evidence-backed context, not proof by itself. See
+# docs/artifacts/capability-evidence-graph.md,
+# docs/concepts/capability-evidence-graph.md, and
+# docs/strategy/capability-evidence-graph-v1.md.
+# Recommended next slice: Capability Evidence Graph Safety Review.
+#
 # Step 7g shipped the PR Comment Publisher Safety Review at
 # docs/strategy/pr-comment-publisher-safety-review.md.
 # Decision: beta-ready as an opt-in, trusted-context-only,

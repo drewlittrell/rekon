@@ -275,6 +275,11 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   IntentStatusReport: "actions",
   IntentPlanActionabilityReport: "actions",
   SemanticFileUnderstandingReport: "actions",
+  // No `knowledge` category exists; `graphs` is the established home for graph
+  // artifacts (StepCapabilityGraph, RuntimeGraphObservationReport). The
+  // CapabilityEvidenceGraph joins them. (`evidence` is reserved for the raw
+  // EvidenceGraph fact bag.)
+  CapabilityEvidenceGraph: "graphs",
 };
 
 const DEFAULT_ALLOWED_PERMISSIONS: CapabilityPermission[] = [

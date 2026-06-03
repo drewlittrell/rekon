@@ -3,6 +3,13 @@
 Status: **Decided** (slice 143). Base: `bdf5643`. Track A (finish LLM-backed semantic
 work) before Track B (embeddings).
 
+> **Superseded framing (slice 153):** Track B is no longer "Embedding Index v1." Embeddings,
+> LLM inference, and retrieval are now evidence sources of the
+> [CapabilityEvidenceGraph](../artifacts/capability-evidence-graph.md), whose deterministic
+> substrate ships in v1. LLM and embedding outputs enter that graph as evidence-backed
+> inferences, never as facts. See
+> [`capability-evidence-graph-v1.md`](./capability-evidence-graph-v1.md).
+
 This memo audits the **non-embedding** LLM-backed semantic parsing behavior of the
 old `codebase-intel` system and decides what remains for Rekon to finish before we
 open the separate embeddings track. It is a decision-only batch: no semantic
