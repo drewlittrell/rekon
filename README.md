@@ -375,6 +375,34 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# Embedding Provider / Index Safety Review is complete.
+# One-hundred-sixtieth slice on the embeddings track.
+# Strategy/safety-review batch; no runtime behavior changes, no
+# source changes. Re-read the slice-159 Embedding Provider / Index v1
+# implementation end-to-end against committed source at 47043ef and
+# found it safe/stable: embedding similarity is proposal/context, not
+# proof; retrieval output is proposal/context, not proof; raw vectors
+# are cache/index data, not canonical proof artifacts; no stale
+# embedding is used silently; embedding provider calls are explicit or
+# configured, never surprising defaults; Voyage missing-key behavior
+# fails cleanly without a network call; live embedding tests are gated
+# by environment variables; the embedding index writes only under
+# .rekon/cache/embeddings; CapabilityEvidenceGraph remains the evidence
+# substrate; embedding similarity enters the graph as
+# embedding_similarity evidence; embedding claims are inference claims,
+# not facts; deterministic facts remain stronger than embedding
+# similarity; capability graph build does not generate embeddings, so
+# generatedEmbeddings / usedLlm stay false; no approval, command
+# execution, source writes, WorkOrder / VerificationPlan, or Circe;
+# intent:go remains deferred. The slice-159 TDZ hoisting fix (mock
+# embedding constants moved above the top-of-module main() invocation)
+# was reviewed explicitly and found correct, minimal, and semantically
+# inert. Recommended next: Embedding Retrieval / Graph Dogfood Review
+# (V1 publish readiness, canonical recommendations, and OpenAI
+# embeddings deferred until retrieval quality is dogfooded).
+# 30-assertion docs test + full 9-command gate. See
+# docs/strategy/embedding-provider-index-safety-review.md.
+#
 # Embedding Provider / Index v1 has shipped.
 # One-hundred-fifty-ninth slice and the first product capability on
 # the embeddings track. Implements the first real Rekon embedding

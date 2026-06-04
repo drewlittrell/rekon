@@ -1,5 +1,10 @@
 # Embedding Provider / Index
 
+> **Safety-reviewed (slice 160):** this capability was found **safe/stable** —
+> embeddings stay proposal/context, not proof. See
+> [Embedding Provider / Index Safety Review](../strategy/embedding-provider-index-safety-review.md).
+> Next: Embedding Retrieval / Graph Dogfood Review.
+
 Rekon's first embedding capability (slice 159, *Embedding Provider / Index v1*)
 turns derived code descriptions into vectors, caches them, and folds
 nearest-neighbor similarity into the `CapabilityEvidenceGraph` as **evidence —

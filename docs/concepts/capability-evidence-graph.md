@@ -1,5 +1,10 @@
 # Capability Evidence Graph
 
+> **Embedding integration safety-reviewed (slice 160):** the embedding evidence
+> path was found **safe/stable** — embedding claims are inference, not facts;
+> deterministic facts remain stronger; the builder generates no embeddings. See
+> [Embedding Provider / Index Safety Review](../strategy/embedding-provider-index-safety-review.md).
+
 > **Embeddings evidence shipped (slice 159):** `embedding_similarity` evidence
 > and `embedding` claims now enter the graph via
 > [Embedding Provider / Index v1](../strategy/embedding-provider-index-v1.md)

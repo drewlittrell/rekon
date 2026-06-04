@@ -1,5 +1,9 @@
 # Capability Evidence Graph / Semantic Intelligence Architecture Decision
 
+> **Embeddings evidence safety-reviewed (slice 160):** the embedding evidence
+> source was found **safe/stable** — see
+> [Embedding Provider / Index Safety Review](./embedding-provider-index-safety-review.md).
+
 > **Embeddings evidence source shipped (slice 159):** embedding similarity is
 > now a real evidence source via [Embedding Provider / Index v1](./embedding-provider-index-v1.md)
 > (Voyage first). Embedding similarity is proposal/context, not proof; the graph

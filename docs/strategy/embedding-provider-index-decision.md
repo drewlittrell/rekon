@@ -1,5 +1,9 @@
 # Embedding Provider / Index Decision
 
+> **Safety-reviewed (slice 160):** the shipped implementation was found
+> **safe/stable** — see [Embedding Provider / Index Safety Review](./embedding-provider-index-safety-review.md).
+> Next: Embedding Retrieval / Graph Dogfood Review.
+
 > **Shipped (slice 159):** this decision is now implemented — see
 > [Embedding Provider / Index v1](./embedding-provider-index-v1.md) and the
 > [concept](../concepts/embedding-provider-index.md). Voyage is the first real

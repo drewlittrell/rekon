@@ -1,5 +1,11 @@
 # Capability Evidence Graph Safety Review
 
+> **Embedding contribution safety-reviewed (slice 160):** the
+> `embedding_similarity` evidence source and its graph integration were re-read
+> end-to-end and found **safe/stable** — embedding claims are inference, not
+> facts, and `generatedEmbeddings` / `usedLlm` stay false. See
+> [Embedding Provider / Index Safety Review](./embedding-provider-index-safety-review.md).
+
 > **Embeddings now contribute (slice 159):** the graph gained an
 > `embedding_similarity` evidence source via [Embedding Provider / Index v1](./embedding-provider-index-v1.md).
 > The boundary holds — the builder generates no embeddings (`generatedEmbeddings`

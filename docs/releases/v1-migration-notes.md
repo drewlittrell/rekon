@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **Embedding Provider / Index safety-reviewed (slice 160):** strategy/safety-review batch — no API, artifact, or command changed; nothing to migrate. The slice-159 implementation was confirmed safe/stable. See [`embedding-provider-index-safety-review.md`](../strategy/embedding-provider-index-safety-review.md).
+
 > **Embedding Provider / Index v1 shipped (slice 159):** additive only — nothing to migrate. New optional exports (`createVoyageEmbeddingProvider` in `@rekon/llm-provider`; the `embedding-index` surface + `BuildCapabilityEvidenceGraphInput.embeddingSimilarities?` in `@rekon/capability-model`) and new opt-in CLI surfaces (`rekon embeddings index`, `rekon embeddings query`, `rekon capability graph build --embedding-similarity latest`). Existing commands are unchanged; a plain `rekon capability graph build` folds in no embeddings; the embeddings cache is gitignored under `.rekon/cache/embeddings`. `VOYAGE_API_KEY` is read from the environment only — never add it to repo config. See [`embedding-provider-index-v1.md`](../strategy/embedding-provider-index-v1.md).
 
 > **Embeddings track started (slice 158):** strategy/architecture decision-only batch — no API, artifact, or command changed; nothing to migrate. Starts the embeddings track (Voyage-first embeddings as `embedding_similarity` graph evidence) with no implementation. See [`embedding-provider-index-decision.md`](../strategy/embedding-provider-index-decision.md).

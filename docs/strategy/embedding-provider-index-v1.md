@@ -1,5 +1,11 @@
 # Embedding Provider / Index v1
 
+> **Safety-reviewed (slice 160):** this implementation was re-read end-to-end
+> against committed source and found **safe/stable** — embeddings stay
+> proposal/context, not proof; the slice-159 TDZ fix was reviewed explicitly.
+> Next: Embedding Retrieval / Graph Dogfood Review. See
+> [Embedding Provider / Index Safety Review](./embedding-provider-index-safety-review.md).
+
 > **Status:** shipped (slice 159). First real Rekon embedding provider +
 > cache/index, folding similarity into `CapabilityEvidenceGraph` as evidence.
 
