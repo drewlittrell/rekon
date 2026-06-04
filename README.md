@@ -1,5 +1,7 @@
 # Rekon
 
+> **Task-context intent path dogfooded (slice 173):** the full operator path (`context task` → `intent assess --task-context` → `intent plan review --task-context` → `plan answer` → `prepare` → `approve` → `status transition` → `work-order generate` → `verification-plan generate` → `bundle write`) was run with opt-in task context — it improved matchedContext / revisionPrompt and preserved do-not-touch / verification-hint guidance while every readiness / actionability / approval / status / handoff gate held; source and plan unchanged; intent:go deferred. See [`task-context-report-intent-dogfood.md`](docs/strategy/task-context-report-intent-dogfood.md).
+
 > **Task-context intent integration safety-reviewed (slice 172):** the slice-171 opt-in TaskContextReport consumption by `rekon intent assess` and `rekon intent plan review` was reviewed end-to-end and declared safe/stable — additive context only (readiness / status / findings unchanged; never proof, never approval), prepare by lineage; intent:go deferred. See [`task-context-report-intent-integration-safety-review.md`](docs/strategy/task-context-report-intent-integration-safety-review.md).
 
 > **Task context wired into intent (slice 171):** `rekon intent assess` and `rekon intent plan review` now accept opt-in `--task-context latest|<ref>` — used TaskContextReports enrich assessment `matchedContext` and plan-review `revisionPrompt` as additive context (readiness / status decided first; never proof, never approval; prepare by lineage only; intent:go deferred). See [`task-context-report-intent-integration-implementation.md`](docs/strategy/task-context-report-intent-integration-implementation.md).
@@ -378,6 +380,24 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # update-in-place handle. Forked PRs remain denied by default;
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
+#
+# TaskContextReport Intent Dogfood is complete.
+# One-hundred-seventy-third slice on the embeddings track.
+# Product dogfood / review batch; no runtime behavior change, no source change, no new
+# artifact, no CLI command. Ran the full operator path with opt-in TaskContextReport
+# context: context task -> intent assess --task-context -> intent plan review
+# --task-context -> plan answer -> prepare -> approve -> status transition -> work-order
+# generate -> verification-plan generate -> bundle write. TaskContextReport improved
+# matchedContext and improved revisionPrompt; do-not-touch guidance survived into plan
+# review; verification-hint guidance survived into plan review; task context did not make
+# readiness ready by itself; task context did not make actionability actionable by
+# itself; prepare remained lineage-only; approval still required explicit accepted risks;
+# WorkOrder / VerificationPlan generated only after approve + work-ready status; bundle
+# write emitted handoff paths; source and plan files were unchanged; no commands were
+# executed; intent:go remains deferred. A retrieval scenario (mock + optional live
+# Voyage) preserved do-not-touch / verification hints and honestly reported
+# retrieval-low-signal. Adds a 26-assertion contract test and a 16-assertion docs test.
+# Next: TaskContextReport Intent Dogfood Safety Review.
 #
 # TaskContextReport Intent Integration Safety Review is complete.
 # One-hundred-seventy-second slice on the embeddings track.

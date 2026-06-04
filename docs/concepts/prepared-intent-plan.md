@@ -1,5 +1,7 @@
 # Prepared Intent Plan
 
+> **Dogfooded (slice 173):** the dogfood confirmed `intent prepare` stays lineage-only (`--assessment` + `--actionability-report`, no task-context flag), approval still requires explicit accepted risks, and WorkOrder / VerificationPlan generate only after approve + work-ready status; source unchanged. See [`../strategy/task-context-report-intent-dogfood.md`](../strategy/task-context-report-intent-dogfood.md).
+
 > **TaskContextReport integration safety-reviewed (slice 172):** the slice-171 lineage model was reviewed end-to-end and declared safe/stable — `rekon intent prepare` has no direct task-context flag; a PreparedIntentPlan receives TaskContextReport only by lineage, not direct proof, and task context creates no PreparedIntentPlan. See [`../strategy/task-context-report-intent-integration-safety-review.md`](../strategy/task-context-report-intent-integration-safety-review.md).
 
 > **TaskContextReport integration implemented (slice 171):** `rekon intent prepare` gains no task-context flag — a PreparedIntentPlan receives TaskContextReport only by lineage (`header.inputRefs`) through the assessment / actionability reports that consumed it, never as direct proof, and it never satisfies `approval.proof` or enables WorkOrder / VerificationPlan handoff. See [`../strategy/task-context-report-intent-integration-implementation.md`](../strategy/task-context-report-intent-integration-implementation.md).

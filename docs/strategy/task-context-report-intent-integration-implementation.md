@@ -1,5 +1,11 @@
 # TaskContextReport Intent Integration Implementation
 
+> **Dogfooded (slice 173):** the full operator path (`context task` → assess → plan
+> review → answer → prepare → approve → status → work-order → verification-plan →
+> bundle) was run with opt-in task context — it improved matchedContext / revisionPrompt
+> while every gate held; source unchanged. See
+> [`task-context-report-intent-dogfood.md`](./task-context-report-intent-dogfood.md).
+
 > **Safety-reviewed (slice 172):** this integration was reviewed end-to-end and
 > declared safe/stable — additive context only (never proof/approval), prepare by
 > lineage; intent:go deferred. See

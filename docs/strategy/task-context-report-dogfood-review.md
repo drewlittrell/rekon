@@ -1,5 +1,10 @@
 # TaskContextReport Dogfood Review
 
+> **Intent path dogfooded (slice 173):** the full operator path was run with opt-in task
+> context — it improved matchedContext / revisionPrompt while every readiness /
+> actionability / approval / status / handoff gate held; source unchanged. See
+> [`task-context-report-intent-dogfood.md`](./task-context-report-intent-dogfood.md).
+
 > **Safety-reviewed (slice 172):** the slice-171 intent integration was reviewed
 > end-to-end and declared safe/stable — additive context only (never proof/approval),
 > prepare by lineage; intent:go deferred. See

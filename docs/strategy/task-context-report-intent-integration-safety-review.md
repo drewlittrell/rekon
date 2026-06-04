@@ -1,5 +1,11 @@
 # TaskContextReport Intent Integration Safety Review
 
+> **Dogfooded (slice 173):** the full operator path (`context task` → assess → plan
+> review → answer → prepare → approve → status → work-order → verification-plan →
+> bundle) was run with opt-in task context — it improved matchedContext / revisionPrompt
+> while every gate held; source unchanged. See
+> [`task-context-report-intent-dogfood.md`](./task-context-report-intent-dogfood.md).
+
 > **Slice 172 · strategy / safety-review batch.** Base `cc9f254`. Reviews the
 > slice-171 [TaskContextReport Intent Integration Implementation](./task-context-report-intent-integration-implementation.md)
 > end-to-end. No runtime behavior change, no source change, no new artifact, no CLI

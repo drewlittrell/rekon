@@ -4,6 +4,19 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Dogfooded **TaskContextReport Intent Dogfood** — one-hundred-seventy-third slice on the embeddings track. Product
+  dogfood / review batch (no runtime behavior change, no source change, no new artifact or CLI command). Ran the full
+  operator path with opt-in TaskContextReport context: `context task` → `intent assess --task-context` → `intent plan
+  review --task-context` → `plan answer` → `prepare` → `approve` → `status transition` → `work-order generate` →
+  `verification-plan generate` → `bundle write`. TaskContextReport improved matchedContext and improved revisionPrompt;
+  do-not-touch guidance survived into plan review; verification-hint guidance survived into plan review; task context did
+  not make readiness ready by itself; task context did not make actionability actionable by itself; prepare remained
+  lineage-only; approval still required explicit accepted risks; WorkOrder / VerificationPlan generated only after
+  approve + work-ready status; bundle write emitted handoff paths; source and plan files were unchanged; no commands were
+  executed; intent:go remains deferred. A retrieval scenario (mock + optional live Voyage) preserved do-not-touch /
+  verification hints and honestly reported retrieval-low-signal. Adds a 26-assertion contract test and a 16-assertion
+  docs test. Next: TaskContextReport Intent Dogfood Safety Review. See
+  [`task-context-report-intent-dogfood.md`](docs/strategy/task-context-report-intent-dogfood.md).
 - Reviewed **TaskContextReport Intent Integration Safety Review** — one-hundred-seventy-second slice on the embeddings
   track. Strategy / safety-review batch (no runtime behavior change, no source change, no new artifact or CLI command).
   Reviewed the slice-171 opt-in TaskContextReport consumption by `rekon intent assess` and `rekon intent plan review`

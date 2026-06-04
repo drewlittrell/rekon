@@ -1,5 +1,7 @@
 # Intent Plan Compiler
 
+> **Dogfooded (slice 173):** the dogfood confirmed `intent plan review --task-context` grows `revisionPrompt` with a "Task context (proposal/context, not proof)" section (relevant paths, do-not-touch constraint, verification hint "(hint, not an executed command)") while status stays `needs-revision` and no finding is added/removed; source unchanged. See [`../strategy/task-context-report-intent-dogfood.md`](../strategy/task-context-report-intent-dogfood.md).
+
 > **TaskContextReport integration safety-reviewed (slice 172):** the slice-171 plan-review consumption was reviewed end-to-end and declared safe/stable — actionability status remains governed by plan actionability (not task context alone); enrichment grounds `revisionPrompt` additively after status/findings; no finding added/removed; hints stay hints; not proof. See [`../strategy/task-context-report-intent-integration-safety-review.md`](../strategy/task-context-report-intent-integration-safety-review.md).
 
 > **TaskContextReport integration implemented (slice 171):** `rekon intent plan review` accepts opt-in `--task-context latest|<ref>`; used reports ground `revisionPrompt` (relevant paths, do-not-touch constraints, verification-hint guidance rendered as hints, not commands) and add `normalizationTrace.warnings` **after** status/findings are decided — a weak plan is never made actionable, and no finding is added/removed. See [`../strategy/task-context-report-intent-integration-implementation.md`](../strategy/task-context-report-intent-integration-implementation.md).

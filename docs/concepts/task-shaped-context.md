@@ -1,5 +1,10 @@
 # Task-Shaped Context
 
+> **Intent path dogfooded (slice 173):** the full operator path was run with opt-in task
+> context — it improved matchedContext / revisionPrompt while every readiness /
+> actionability / approval / status / handoff gate held; source unchanged. See
+> [TaskContextReport Intent Dogfood](../strategy/task-context-report-intent-dogfood.md).
+
 > **Intent integration safety-reviewed (slice 172):** the slice-171 opt-in consumption
 > by `rekon intent assess` / `rekon intent plan review` was reviewed end-to-end and
 > declared safe/stable — additive context only (never proof/approval), prepare by
