@@ -1,5 +1,11 @@
 # Embedding Provider / Index
 
+> **First consumer dogfooded (slice 168):** task-shaped context was dogfooded — the
+> explicit-path + graph baseline is useful and reliable; the lexical mock retrieval
+> path is low-signal (all neighbors below the useful band → empty embedding
+> context), so a real embedding provider is needed for semantic retrieval. See
+> [TaskContextReport Dogfood Review](../strategy/task-context-report-dogfood-review.md).
+
 > **First consumer safety-reviewed (slice 167):** task-shaped context found
 > safe/stable as proposal/context. See
 > [TaskContextReport Safety Review](../strategy/task-context-report-safety-review.md).

@@ -1840,6 +1840,19 @@ export async function main(argv: string[]): Promise<void> {
       topK: effectiveTopK,
       repoId: root,
     });
+
+    // Retrieval ran but every neighbor scored below the useful band, so no
+    // embedding context items were selected. Surface this instead of returning a
+    // silent "ok" with empty context — task-shaped context is only as good as the
+    // provider's semantic signal, and the lexical mock provider routinely lands
+    // here. Visibility only: the selection itself is unchanged, and this never
+    // promotes an ignored neighbor into context.
+    if (records.length > 0 && retrievalResults.length > 0 && report.summary.embeddingNeighbors === 0) {
+      warnings.push(
+        `retrieval-low-signal: all ${retrievalResults.length} embedding neighbor(s) scored below the useful band, so no embedding context items were selected; build relied on graph + explicit paths (use a real embedding provider for semantic retrieval — the lexical mock provider routinely scores below the band)`,
+      );
+    }
+
     const ref = await store.write(report, { category: "actions" });
 
     if (json) {

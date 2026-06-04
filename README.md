@@ -375,6 +375,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# TaskContextReport Dogfood Review is complete.
+# One-hundred-sixty-eighth slice on the embeddings track.
+# Product dogfood / review batch; one tiny output-visibility fix (a
+# retrieval-low-signal warning), no new architecture, no artifact-model change.
+# Dogfooded TaskContextReport on two realistic scenarios. The explicit-path +
+# deterministic-graph baseline is useful and reliable: operator paths become core
+# context, graph expansion adds the symbols a file exposes, do-not-touch zones and
+# verification hints are extracted, and evidence refs are preserved. The lexical
+# mock retrieval path is low-signal: every neighbor scored below the useful band,
+# so pure retrieval selected zero embedding context items — a provider limitation,
+# not a TaskContextReport defect (a real embedding provider like Voyage is needed
+# for semantic retrieval). The silent empty-retrieval result is now visible: the
+# context task command emits a retrieval-low-signal warning when retrieval ran but
+# every neighbor scored below the useful band (selection unchanged; an ignored
+# neighbor is never promoted into context). Task-shaped context is proposal/context,
+# not proof; do-not-touch zones are guidance, not enforcement; verification hints
+# are hints, not executed commands; no source files were written, no commands were
+# executed, no Circe was run, and no WorkOrder or VerificationPlan was created;
+# intent:go remains deferred. Next: TaskContextReport Selection Quality Fix.
+#
 # TaskContextReport Safety Review is complete.
 # One-hundred-sixty-seventh slice on the embeddings track.
 # Strategy / safety-review batch; no source changes, no runtime behavior change.

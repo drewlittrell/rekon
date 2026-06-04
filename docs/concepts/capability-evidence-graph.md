@@ -1,5 +1,11 @@
 # Capability Evidence Graph
 
+> **First consumer dogfooded (slice 168):** the dogfood confirmed deterministic
+> graph expansion is the reliable source of task-shaped context — it outranks
+> embedding similarity, and the lexical mock retrieval path was low-signal. The
+> graph stays the evidence substrate. See
+> [TaskContextReport Dogfood Review](../strategy/task-context-report-dogfood-review.md).
+
 > **First consumer safety-reviewed (slice 167):** `TaskContextReport` found
 > safe/stable; the graph stays the evidence substrate and deterministic facts
 > outrank similarity. See

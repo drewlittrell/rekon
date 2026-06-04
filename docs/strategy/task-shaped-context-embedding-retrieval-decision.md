@@ -1,5 +1,11 @@
 # Task-Shaped Context / Embedding Retrieval Decision
 
+> **Dogfooded (slice 168):** task-shaped context was dogfooded on explicit-path and
+> retrieval scenarios — the explicit-path + graph baseline is useful and reliable,
+> the lexical mock retrieval path is low-signal (a real embedding provider is
+> needed), context not proof. See
+> [TaskContextReport Dogfood Review](./task-context-report-dogfood-review.md).
+
 > **Safety-reviewed (slice 167):** the shipped implementation was re-read and found
 > safe/stable as proposal/context. See
 > [TaskContextReport Safety Review](./task-context-report-safety-review.md).

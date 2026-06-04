@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Dogfood Review** — one-hundred-sixty-eighth slice on the embeddings track. Product
+  dogfood / review batch (one tiny output-visibility fix; no new architecture, no artifact-model change). Dogfooded
+  TaskContextReport on explicit-path and retrieval scenarios: the explicit-path + deterministic-graph baseline is useful
+  and reliable (operator paths + graph expansion + do-not-touch zones + verification hints, evidence refs preserved); the
+  lexical mock retrieval path is low-signal (every neighbor below the useful band → empty embedding context), so a real
+  embedding provider is needed for semantic retrieval. `rekon context task` now emits a `retrieval-low-signal` warning
+  instead of a silent empty result when retrieval ran but every neighbor scored below the useful band (selection
+  unchanged; an ignored neighbor is never promoted into context). Task-shaped context is proposal/context, not proof;
+  do-not-touch zones are guidance, not enforcement; verification hints are hints, not executed commands; no source files
+  were written, no commands were executed, no Circe was run, and no WorkOrder or VerificationPlan was created; intent:go
+  remains deferred. Adds a 25-assertion dogfood contract test + 14-assertion docs test. Next: TaskContextReport Selection
+  Quality Fix. See [`task-context-report-dogfood-review.md`](docs/strategy/task-context-report-dogfood-review.md).
 - Reviewed **TaskContextReport Safety Review** — one-hundred-sixty-seventh slice on the embeddings track. Strategy /
   safety-review batch (no source, no runtime behavior change). Re-read the shipped TaskContextReport v1 end-to-end and
   confirmed it is safe/stable as proposal/context: the factory forces every boundary false and recomputes the summary;

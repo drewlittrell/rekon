@@ -1,5 +1,7 @@
 # Roadmap
 
+> **First retrieval consumer dogfooded (slice 168):** task-shaped context was dogfooded — the explicit-path + graph baseline is useful and reliable (operator paths + graph expansion + do-not-touch + verification hints, evidence refs preserved); the lexical mock retrieval path is low-signal (a real embedding provider is needed). One tiny output-visibility fix (a `retrieval-low-signal` warning). Context, not proof. Next: TaskContextReport Selection Quality Fix. See [`task-context-report-dogfood-review.md`](./task-context-report-dogfood-review.md).
+
 > **First consumer safety-reviewed (slice 167):** TaskContextReport v1 is safe/stable as proposal/context (boundaries forced false; builder pure; CLI writes only the report). Next: TaskContextReport Dogfood Review. See [`task-context-report-safety-review.md`](./task-context-report-safety-review.md).
 
 > **First retrieval consumer shipped (slice 166):** task-shaped context is implemented — the `TaskContextReport` artifact + `rekon context task` command. It turns score-banded retrieval neighbors + graph facts + do-not-touch zones + verification hints into a compact, explainable bundle (context, not proof; deterministic facts outrank similarity; verification hints are hints). Next: TaskContextReport Safety Review. See [`task-context-report-v1.md`](./task-context-report-v1.md).

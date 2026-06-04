@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **TaskContextReport Dogfood Review (slice 168):** product dogfood / review batch — additive output only; nothing to migrate. `rekon context task` adds one advisory `retrieval-low-signal` string to its existing `warnings[]` array when retrieval ran but every neighbor scored below the useful band; no type, artifact, command, or existing behavior changed (the string does not contain `retrieval-unavailable`, so consumers keying on that are unaffected). See [`task-context-report-dogfood-review.md`](../strategy/task-context-report-dogfood-review.md).
+
 > **TaskContextReport Safety Review (slice 167):** strategy / safety-review batch — no API, artifact, or command changed; nothing to migrate. Confirms TaskContextReport v1 is safe/stable as proposal/context. See [`task-context-report-safety-review.md`](../strategy/task-context-report-safety-review.md).
 
 > **TaskContextReport v1 (slice 166):** additive — nothing to migrate. New `TaskContextReport` artifact + `buildTaskContextReport` helper (`@rekon/kernel-repo-model` / `@rekon/capability-model`) and a new `rekon context task` command; no existing command, type, or behavior changed. The new artifact is written to the `.rekon/` store under the `actions` category. See [`task-context-report-v1.md`](../strategy/task-context-report-v1.md).

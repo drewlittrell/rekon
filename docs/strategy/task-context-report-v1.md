@@ -1,5 +1,12 @@
 # TaskContextReport v1
 
+> **Dogfooded (slice 168):** task-shaped context was dogfooded on explicit-path and
+> retrieval scenarios — the explicit-path + graph baseline is useful and reliable,
+> the lexical mock retrieval path is low-signal (a real embedding provider is
+> needed), context not proof. One tiny output-visibility fix (a
+> `retrieval-low-signal` warning). See
+> [TaskContextReport Dogfood Review](./task-context-report-dogfood-review.md).
+
 > **Safety-reviewed (slice 167):** TaskContextReport v1 was re-read end-to-end and
 > found safe/stable as proposal/context. See
 > [TaskContextReport Safety Review](./task-context-report-safety-review.md).
