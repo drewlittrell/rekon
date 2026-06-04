@@ -1,5 +1,11 @@
 # TaskContextReport Dogfood Review
 
+> **Selection quality fixed (slice 169):** the two gaps found here are closed —
+> free-form verification intent now creates a hint (no command invented), and
+> weak-band retrieval is gated to labelled supporting context with
+> `retrieval-low-signal` kept visible. See
+> [TaskContextReport Selection Quality Fix](./task-context-report-selection-quality-fix.md).
+
 > **Slice 168 · product dogfood / review batch.** Base `503b632`. One tiny
 > output-visibility fix only (a `retrieval-low-signal` warning); no new
 > architecture, no artifact-model change, no selection-logic change. This memo

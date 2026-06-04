@@ -375,6 +375,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# TaskContextReport Selection Quality Fix is complete.
+# One-hundred-sixty-ninth slice on the embeddings track.
+# Product capability batch; a focused quality fix with no new architecture, no new
+# artifact, and no new CLI command. Closes the two gaps the dogfood review found.
+# Free-form verification intent now creates a hint: clauses like "Verify routing
+# behavior" / "Make sure inbound SMS routing still works" / "Confirm greet behavior"
+# produce a manual-verification hint with NO command invented and a reason quoting
+# the operator's clause; explicit command mentions (typecheck / build / lint / test /
+# npm run) still produce command hints, and a command clause never also emits a
+# free-form duplicate. Weak-band embedding neighbors are now included as labelled
+# supporting context only when there is no strong or useful neighbor (otherwise
+# excluded), so weak never dilutes stronger signal and is never presented as core
+# context; and rekon context task keeps retrieval-low-signal visible — now with the
+# top candidate's score and band, plus an all-weak warning. Verification hints are
+# hints, not executed commands; no source files were written, no commands were
+# executed, no Circe was run, and no WorkOrder or VerificationPlan was created;
+# intent:go remains deferred. The optional live Voyage retrieval dogfood was not run
+# (no env opt-in); its four contract assertions skip cleanly. Next: TaskContextReport
+# Intent Integration Decision.
+#
 # TaskContextReport Dogfood Review is complete.
 # One-hundred-sixty-eighth slice on the embeddings track.
 # Product dogfood / review batch; one tiny output-visibility fix (a

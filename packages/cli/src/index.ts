@@ -1841,16 +1841,30 @@ export async function main(argv: string[]): Promise<void> {
       repoId: root,
     });
 
-    // Retrieval ran but every neighbor scored below the useful band, so no
-    // embedding context items were selected. Surface this instead of returning a
-    // silent "ok" with empty context — task-shaped context is only as good as the
-    // provider's semantic signal, and the lexical mock provider routinely lands
-    // here. Visibility only: the selection itself is unchanged, and this never
-    // promotes an ignored neighbor into context.
-    if (records.length > 0 && retrievalResults.length > 0 && report.summary.embeddingNeighbors === 0) {
-      warnings.push(
-        `retrieval-low-signal: all ${retrievalResults.length} embedding neighbor(s) scored below the useful band, so no embedding context items were selected; build relied on graph + explicit paths (use a real embedding provider for semantic retrieval — the lexical mock provider routinely scores below the band)`,
-      );
+    // Keep retrieval honesty visible. Two low-signal cases, both surfaced instead
+    // of a silent "ok": (a) retrieval ran but every neighbor scored below the
+    // useful band, so no embedding context items were selected — report the top
+    // candidate's score/band so the operator can judge; (b) the only embedding
+    // context selected is weak-band supporting context (no strong/useful neighbor).
+    // Visibility only: selection is unchanged and an ignored neighbor is never
+    // promoted into context.
+    if (records.length > 0 && retrievalResults.length > 0) {
+      const embeddingItems = report.contextItems.filter((item) => item.source === "embedding_retrieval");
+      if (embeddingItems.length === 0) {
+        const top = retrievalResults[0];
+        const topDetail = top
+          ? ` (top candidate ${top.path ?? top.symbolId ?? top.chunkId ?? "?"} scored ${
+              typeof top.score === "number" ? top.score.toFixed(3) : "?"
+            }, band ${top.scoreBand ?? "?"})`
+          : "";
+        warnings.push(
+          `retrieval-low-signal: all ${retrievalResults.length} embedding neighbor(s) scored below the useful band${topDetail}, so no embedding context items were selected; build relied on graph + explicit paths (use a real embedding provider for semantic retrieval — the lexical mock provider routinely scores below the band)`,
+        );
+      } else if (embeddingItems.every((item) => item.scoreBand === "weak")) {
+        warnings.push(
+          `retrieval-low-signal: the ${embeddingItems.length} selected embedding neighbor(s) are all weak-band supporting context (no strong or useful neighbor); treat them as low-confidence and prefer deterministic graph context`,
+        );
+      }
     }
 
     const ref = await store.write(report, { category: "actions" });

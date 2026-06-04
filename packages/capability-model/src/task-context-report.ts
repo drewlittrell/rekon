@@ -128,26 +128,58 @@ function extractDoNotTouchZones(taskText: string, paths: string[]): TaskContextD
   return zones;
 }
 
-// Extract verification hints from task-text command mentions. Hints only — never
-// executed. v1 detects explicit `npm run <script>` / `npm test` mentions plus a
-// few common verification keywords.
+// Recognizes command-style verification mentions (explicit commands or the
+// keyword-mapped scripts below). Used both to extract command hints and to skip
+// the same clauses during free-form extraction, so a clause never yields both a
+// command hint and a redundant free-form hint.
+const VERIFICATION_COMMAND_KEYWORD = /\b(npm run|npm test|typecheck|type-check|build|compile|lint|tests?)\b/i;
+// Recognizes free-form verification intent ("verify X", "make sure Y works").
+const VERIFICATION_INTENT_VERB = /\b(verify|confirm|validate|ensure|make sure|double[- ]?check|sanity[- ]?check|check)\b/i;
+
+// Extract verification hints from the task text. Hints only — NEVER executed.
+// Two kinds, both with empty evidence refs (they come from operator input):
+//   1. command hints — explicit `npm run <script>` / `npm test` mentions plus a
+//      few keyword-mapped scripts (typecheck/build/lint/test). Unchanged behavior.
+//   2. free-form intent hints — clauses asking to verify/confirm/validate/ensure
+//      something but naming no command. These carry NO command (none is inferred
+//      or executed); they use `artifact: "manual-verification"` so the operator's
+//      verification intent is captured without inventing a shell command.
 function extractVerificationHints(taskText: string): TaskContextVerificationHint[] {
   const hints: TaskContextVerificationHint[] = [];
-  const seen = new Set<string>();
+  const seenCommands = new Set<string>();
   const lower = taskText.toLowerCase();
-  const add = (command: string, reason: string): void => {
-    if (seen.has(command)) return;
-    seen.add(command);
+  const addCommand = (command: string, reason: string): void => {
+    if (seenCommands.has(command)) return;
+    seenCommands.add(command);
     hints.push({ command, reason, evidenceRefs: [] });
   };
   for (const cmd of taskText.match(/npm run [a-z0-9:_-]+/gi) ?? []) {
-    add(cmd.replace(/\s+/g, " ").trim(), "task references this command (hint only, not executed)");
+    addCommand(cmd.replace(/\s+/g, " ").trim(), "task references this command (hint only, not executed)");
   }
-  if (/\bnpm test\b/i.test(taskText)) add("npm test", "task references this command (hint only, not executed)");
-  if (/\btypecheck\b/.test(lower)) add("npm run typecheck", "task references typecheck verification (hint only)");
-  if (/\b(build|compile)\b/.test(lower)) add("npm run build", "task references build verification (hint only)");
-  if (/\blint\b/.test(lower)) add("npm run lint", "task references lint verification (hint only)");
-  if (/\b(test|tests)\b/.test(lower)) add("npm test", "task references test verification (hint only)");
+  if (/\bnpm test\b/i.test(taskText)) addCommand("npm test", "task references this command (hint only, not executed)");
+  if (/\btypecheck\b/.test(lower)) addCommand("npm run typecheck", "task references typecheck verification (hint only)");
+  if (/\b(build|compile)\b/.test(lower)) addCommand("npm run build", "task references build verification (hint only)");
+  if (/\blint\b/.test(lower)) addCommand("npm run lint", "task references lint verification (hint only)");
+  if (/\b(test|tests)\b/.test(lower)) addCommand("npm test", "task references test verification (hint only)");
+
+  // Free-form verification intent: surface clauses that ask to verify something
+  // but name no command. Skip clauses already covered by a command keyword so we
+  // never duplicate a command hint with a free-form one.
+  const seenIntents = new Set<string>();
+  for (const clauseRaw of taskText.split(/(?<=[.!?])\s+|\n+/)) {
+    const clause = clauseRaw.replace(/\s+/g, " ").trim();
+    if (clause.length === 0) continue;
+    if (!VERIFICATION_INTENT_VERB.test(clause)) continue;
+    if (VERIFICATION_COMMAND_KEYWORD.test(clause)) continue;
+    const key = clause.toLowerCase();
+    if (seenIntents.has(key)) continue;
+    seenIntents.add(key);
+    hints.push({
+      artifact: "manual-verification",
+      reason: `operator asked to verify (free-form verification intent extracted from the task text; no command was inferred or executed): "${clause}"`,
+      evidenceRefs: [],
+    });
+  }
   return hints;
 }
 
@@ -222,21 +254,32 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     if (connected) addNeighborhoodNode(fileRef);
   }
 
-  // 2. Embedding retrieval neighbors: strong + useful included, weak as supporting
-  //    context, ignored excluded by default. Retrieval is proposal/context.
-  for (const result of retrieval) {
-    const chunk = result.chunk ?? {};
-    const path = String(result.path ?? chunk.path ?? "").trim();
-    const symbolId = String(result.symbolId ?? chunk.symbolId ?? "").trim();
-    const score = typeof result.score === "number" ? result.score : undefined;
-    const band: TaskContextScoreBand = result.scoreBand ?? (score !== undefined ? classifyBand(score) : "ignored");
-    if (band === "ignored") continue;
-    if (!path && !symbolId) continue;
+  // 2. Embedding retrieval neighbors: strong + useful are always included; weak
+  //    neighbors are included as labelled SUPPORTING context ONLY when there are
+  //    no strong/useful neighbors (so weak retrieval degrades usefully without
+  //    diluting stronger signal, and weak is never presented as core context);
+  //    ignored excluded by default. Retrieval is proposal/context, never proof.
+  const classifiedRetrieval = retrieval
+    .map((result) => {
+      const chunk = result.chunk ?? {};
+      const path = String(result.path ?? chunk.path ?? "").trim();
+      const symbolId = String(result.symbolId ?? chunk.symbolId ?? "").trim();
+      const score = typeof result.score === "number" ? result.score : undefined;
+      const band: TaskContextScoreBand =
+        result.scoreBand ?? (score !== undefined ? classifyBand(score) : "ignored");
+      return { result, chunk, path, symbolId, score, band };
+    })
+    .filter((entry) => entry.band !== "ignored" && (entry.path.length > 0 || entry.symbolId.length > 0));
+  const hasStrongOrUseful = classifiedRetrieval.some((entry) => entry.band === "strong" || entry.band === "useful");
+  for (const entry of classifiedRetrieval) {
+    // Weak neighbors are supporting context only — drop them when stronger signal exists.
+    if (entry.band === "weak" && hasStrongOrUseful) continue;
+    const { result, chunk, path, symbolId, score, band } = entry;
     const kind: TaskContextItem["kind"] = symbolId ? "symbol" : "file";
     const scoreText = score !== undefined ? ` (score ${score.toFixed(3)})` : "";
     const reason =
       band === "weak"
-        ? `weak / supporting embedding neighbor${scoreText}`
+        ? `weak supporting embedding neighbor (no strong or useful neighbor present; low-confidence supporting context)${scoreText}`
         : `${band} embedding neighbor${scoreText}`;
     pushItem(
       {

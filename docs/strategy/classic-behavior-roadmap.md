@@ -1,5 +1,7 @@
 # Classic Behavior Roadmap
 
+> **First retrieval consumer selection-quality fixed (slice 169):** the embeddings track (classic Track B) tightened task-shaped context — free-form verification intent (codebase-intel checkMatrix parity) now yields hints without inventing commands, and weak retrieval degrades to labelled supporting context. Context, not proof. See [`task-context-report-selection-quality-fix.md`](./task-context-report-selection-quality-fix.md).
+
 > **First retrieval consumer dogfooded (slice 168):** the embeddings track (classic Track B) dogfooded task-shaped context — the explicit-path + graph baseline mirrors codebase-intel's context packets usefully (mustNot → do-not-touch, checkMatrix → verification hints); the lexical mock retrieval path is low-signal, so a real embedding provider (Voyage) is needed before relying on retrieval for context. Context, not proof. Next: selection-quality fix. See [`task-context-report-dogfood-review.md`](./task-context-report-dogfood-review.md).
 
 > **First consumer safety-reviewed (slice 167):** the embeddings track (classic Track B) confirmed task-shaped context is safe/stable as context only — mirroring codebase-intel's context packets (guidance, not automation). Next: dogfood review. See [`task-context-report-safety-review.md`](./task-context-report-safety-review.md).

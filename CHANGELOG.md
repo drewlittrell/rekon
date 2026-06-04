@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **TaskContextReport Selection Quality Fix** — one-hundred-sixty-ninth slice on the embeddings track. Product
+  capability batch closing the two gaps the dogfood review found (no new architecture, artifact, or CLI command).
+  Free-form verification intent now creates a verification hint without inventing commands: clauses like "Verify routing
+  behavior" produce a `manual-verification` hint with no `command` field and a reason quoting the operator's clause,
+  while explicit command mentions (`typecheck` / `build` / `lint` / `test` / `npm run …`) still produce command hints and
+  a command clause never also emits a free-form duplicate. Weak-band embedding neighbors are now included as labelled
+  supporting context only when no strong/useful neighbor exists (otherwise excluded), and `rekon context task` keeps
+  `retrieval-low-signal` visible — now with the top candidate's score/band, plus an all-weak warning. Verification hints
+  are hints, not executed commands; no source files are written, no commands are executed, no Circe is run, and no
+  WorkOrder or VerificationPlan is created; intent:go remains deferred. Adds a 19-keyless + 4-live-gated contract test
+  and a 12-assertion docs test. Next: TaskContextReport Intent Integration Decision. See
+  [`task-context-report-selection-quality-fix.md`](docs/strategy/task-context-report-selection-quality-fix.md).
 - Reviewed **TaskContextReport Dogfood Review** — one-hundred-sixty-eighth slice on the embeddings track. Product
   dogfood / review batch (one tiny output-visibility fix; no new architecture, no artifact-model change). Dogfooded
   TaskContextReport on explicit-path and retrieval scenarios: the explicit-path + deterministic-graph baseline is useful

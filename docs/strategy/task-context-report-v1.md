@@ -1,5 +1,10 @@
 # TaskContextReport v1
 
+> **Selection quality fixed (slice 169):** free-form verification intent now creates
+> a hint (no command invented) and weak-band retrieval is gated to supporting
+> context with `retrieval-low-signal` kept visible. Context, not proof. See
+> [TaskContextReport Selection Quality Fix](./task-context-report-selection-quality-fix.md).
+
 > **Dogfooded (slice 168):** task-shaped context was dogfooded on explicit-path and
 > retrieval scenarios — the explicit-path + graph baseline is useful and reliable,
 > the lexical mock retrieval path is low-signal (a real embedding provider is
