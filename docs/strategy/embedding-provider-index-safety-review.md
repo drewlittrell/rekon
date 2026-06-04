@@ -1,5 +1,11 @@
 # Embedding Provider / Index Safety Review
 
+> **Dogfooded (slice 161):** the index/retrieval/graph path was exercised on a
+> realistic multi-domain fixture and ranks by domain; embeddings stay
+> proposal/context, not proof. The offline mock is lexical, so a live-provider
+> dogfood is recommended before product features. See
+> [Embedding Retrieval / Graph Dogfood Review](./embedding-retrieval-graph-dogfood-review.md).
+
 Status: reviewed (slice 160). Base `47043ef`. Strategy / safety-review batch; no
 runtime behavior changes, no source changes. Reviews the Embedding Provider /
 Index v1 implementation shipped in slice 159 end-to-end against committed source.

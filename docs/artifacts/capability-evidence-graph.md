@@ -3,6 +3,13 @@
 **Status:** experimental (`0.1.0`) · **Category:** `graphs` · **Producer:**
 `@rekon/capability-model.capability-evidence-graph`
 
+> **Embedding similarity dogfooded (slice 161):** `rekon capability graph build
+> --embedding-similarity latest` was exercised on a realistic fixture — it emits
+> `embedding_similarity` evidence and `embedding` inference claims (confidence
+> clamped below the deterministic `1.0`) read from the `.rekon/cache/embeddings`
+> cache, generating no embeddings, so `generatedEmbeddings` / `usedLlm` stay
+> false. See [Embedding Retrieval / Graph Dogfood Review](../strategy/embedding-retrieval-graph-dogfood-review.md).
+
 > **Safety-reviewed (slice 154):** v1 is **safe/stable** — evidence-backed context
 > not proof, deterministic facts the only source, all nine boundaries
 > validator-enforced. See

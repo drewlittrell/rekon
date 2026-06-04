@@ -1,5 +1,11 @@
 # Capability Evidence Graph
 
+> **Embedding integration dogfooded (slice 161):** `--embedding-similarity latest`
+> was exercised on a realistic fixture and emitted explainable
+> `embedding_similarity` evidence + `embedding` inference claims while
+> `generatedEmbeddings` / `usedLlm` stayed false. See
+> [Embedding Retrieval / Graph Dogfood Review](../strategy/embedding-retrieval-graph-dogfood-review.md).
+
 > **Embedding integration safety-reviewed (slice 160):** the embedding evidence
 > path was found **safe/stable** — embedding claims are inference, not facts;
 > deterministic facts remain stronger; the builder generates no embeddings. See

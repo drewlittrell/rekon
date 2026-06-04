@@ -1,5 +1,10 @@
 # Embedding Provider / Index
 
+> **Dogfooded (slice 161):** index/retrieval/graph exercised on a realistic
+> fixture — ranks by domain, stale/policy behavior visible, graph evidence
+> explainable; mock is lexical, so a live Voyage dogfood is recommended next. See
+> [Embedding Retrieval / Graph Dogfood Review](../strategy/embedding-retrieval-graph-dogfood-review.md).
+
 > **Safety-reviewed (slice 160):** this capability was found **safe/stable** —
 > embeddings stay proposal/context, not proof. See
 > [Embedding Provider / Index Safety Review](../strategy/embedding-provider-index-safety-review.md).

@@ -1,5 +1,10 @@
 # Embedding Provider / Index v1
 
+> **Dogfooded (slice 161):** retrieval and graph embedding-similarity were
+> exercised on a realistic fixture and rank by domain (mock is lexical; live
+> Voyage dogfood recommended next). See
+> [Embedding Retrieval / Graph Dogfood Review](./embedding-retrieval-graph-dogfood-review.md).
+
 > **Safety-reviewed (slice 160):** this implementation was re-read end-to-end
 > against committed source and found **safe/stable** — embeddings stay
 > proposal/context, not proof; the slice-159 TDZ fix was reviewed explicitly.

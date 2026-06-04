@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Dogfooded **Embedding Retrieval / Graph Dogfood Review** — one-hundred-sixty-first slice on the embeddings track.
+  Product dogfood / review batch; no runtime behavior changes, no source changes, no new embedding architecture. Ran the
+  shipped `embeddings index` / `embeddings query` / `capability graph build --embedding-similarity latest` against a fresh
+  four-domain fixture (users / orders / sms / unrelated colors). Findings: the pipeline works and ranks usefully — the
+  "user lookup and profile data" query returned an all-`users/` top-5 and the "route inbound SMS … support or default"
+  query returned an all-`sms/` top-5, with the unrelated `colors.ts` ranked first for neither; the cache wrote
+  `index.json` + 35 `vectors/<hash>.json` under `.rekon/cache/embeddings` (vectors never canonical) and stale/policy
+  behavior was visible (no-change → reused 35; one file edited → indexed 4 / reused 33 / stale 2; model change → all 37
+  policy-changed); `--embedding-similarity latest` emitted 28 `embedding_similarity` evidence rows + 92 `embedding`
+  inference claims (max confidence 0.885 < 1.0, explainable excerpts, all evidenceRefs resolve) while
+  `generatedEmbeddings` / `usedLlm` stayed false; `artifacts validate` was clean and source was unchanged. Honest caveat:
+  the offline `mock` provider is a deterministic **lexical** (token-hash) embedding, so it proves vocabulary-aligned
+  ranking and is a good regression baseline but is **not** evidence of paraphrase-robust semantic ranking. Embedding
+  retrieval is proposal/context, not proof; embedding_similarity enters CapabilityEvidenceGraph as evidence; embedding
+  claims are inference claims, not facts; raw vectors remain cache/index data; no WorkOrder / VerificationPlan, no command
+  execution, no Circe; intent:go remains deferred. Recommended next: **Live Voyage Embedding Dogfood** before building
+  duplicate detection, canonical recommendations, or task-shaped context (those product surfaces and ANN/HNSW remain
+  deferred). 20-assertion contract test + 13-assertion docs test + full 9-command gate. See
+  [`embedding-retrieval-graph-dogfood-review.md`](docs/strategy/embedding-retrieval-graph-dogfood-review.md).
 - Reviewed **Embedding Provider / Index Safety Review** — one-hundred-sixtieth slice on the embeddings track.
   Strategy/safety-review batch; no runtime behavior changes, no source changes. Re-read the slice-159 Embedding Provider
   / Index v1 implementation end-to-end against committed source at `47043ef` and found it **safe/stable**: embedding

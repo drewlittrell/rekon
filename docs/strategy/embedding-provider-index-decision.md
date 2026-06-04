@@ -1,5 +1,10 @@
 # Embedding Provider / Index Decision
 
+> **Dogfooded (slice 161):** retrieval + graph embedding-similarity ranked by
+> domain on a realistic fixture; live Voyage dogfood recommended before duplicate
+> detection / canonical recommendations / task-shaped context. See
+> [Embedding Retrieval / Graph Dogfood Review](./embedding-retrieval-graph-dogfood-review.md).
+
 > **Safety-reviewed (slice 160):** the shipped implementation was found
 > **safe/stable** — see [Embedding Provider / Index Safety Review](./embedding-provider-index-safety-review.md).
 > Next: Embedding Retrieval / Graph Dogfood Review.
