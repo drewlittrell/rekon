@@ -1,5 +1,10 @@
 # Capability Evidence Graph
 
+> **Retrieval ranking decided (slice 163):** embedding retrieval ranking policy is
+> pinned and stays graph-first — results become `embedding_similarity` evidence or
+> graph-adjacent context, never a standalone vector-search product. See
+> [Embedding Retrieval / Similarity Ranking Decision](../strategy/embedding-retrieval-similarity-ranking-decision.md).
+
 > **Live Voyage embedding integration dogfooded (slice 162):** `--embedding-similarity
 > latest` was exercised over a **real Voyage** (`voyage-code-3`, 1024-dim) cache —
 > it emitted 31 explainable `embedding_similarity` evidence rows + 154 `embedding`

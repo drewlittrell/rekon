@@ -1,5 +1,10 @@
 # Embedding Provider / Index v1
 
+> **Ranking policy decided (slice 163):** retrieval ranking policy (score bands,
+> default top-k 8 / max 20, `input_type=query` for queries) is decided;
+> implementation lands next. See
+> [Embedding Retrieval / Similarity Ranking Decision](./embedding-retrieval-similarity-ranking-decision.md).
+
 > **Live Voyage dogfooded (slice 162):** the real Voyage provider
 > (`voyage-code-3`, 1024-dim) was exercised end-to-end — paraphrase queries with
 > no shared vocabulary ranked the correct domain, scores beat the mock, the cache

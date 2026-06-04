@@ -1,5 +1,10 @@
 # Embedding Retrieval / Graph Dogfood Review
 
+> **Ranking policy decided (slice 163):** retrieval ranking policy is now pinned —
+> score bands, default top-k 8 (max 20), `input_type=query` for queries, and
+> task-shaped context as the first consumer. See
+> [Embedding Retrieval / Similarity Ranking Decision](./embedding-retrieval-similarity-ranking-decision.md).
+
 > **Superseded by the live run (slice 162):** the live-provider follow-up this
 > review recommended has shipped. Real Voyage (`voyage-code-3`, 1024-dim) ranked
 > paraphrase queries with no shared vocabulary to the correct domain — the

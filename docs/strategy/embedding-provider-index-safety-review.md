@@ -1,5 +1,11 @@
 # Embedding Provider / Index Safety Review
 
+> **Ranking policy decided (slice 163):** the retrieval ranking policy is now
+> explicit — thresholds are policy, not proof; queries use `input_type=query`;
+> retrieval stays proposal/context; and CapabilityEvidenceGraph remains the
+> evidence substrate. See
+> [Embedding Retrieval / Similarity Ranking Decision](./embedding-retrieval-similarity-ranking-decision.md).
+
 > **Live Voyage dogfooded (slice 162):** the safe-by-default behaviors reviewed
 > here held under the real provider — missing-key returns a clean error, the key
 > is read from the environment only and is never committed, live tests are

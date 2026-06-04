@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **Embedding Retrieval / Similarity Ranking Decision (slice 163):** strategy / architecture decision-only batch — no API, artifact, or command changed; nothing to migrate. Pins retrieval ranking policy (score bands, default top-k 8 / max 20, `input_type=query` for queries, task-shaped context as the first consumer) for the implementation slice that follows. See [`embedding-retrieval-similarity-ranking-decision.md`](../strategy/embedding-retrieval-similarity-ranking-decision.md).
+
 > **Live Voyage Embedding Dogfood (slice 162):** live-provider dogfood / review batch — no API, artifact, or command changed; nothing to migrate. The real Voyage provider (`voyage-code-3`) was exercised and confirmed paraphrase-robust; the committed test suite stays keyless (the gated live contract test skips without `VOYAGE_API_KEY` + `REKON_RUN_LIVE_EMBEDDING_TESTS=1`); the key is read from the environment only and is never committed. See [`live-voyage-embedding-dogfood.md`](../strategy/live-voyage-embedding-dogfood.md).
 
 > **Embedding Retrieval / Graph dogfooded (slice 161):** product dogfood / review batch — no API, artifact, or command changed; nothing to migrate. The shipped embedding index/retrieval/graph path was exercised on a realistic fixture and found useful and safe. See [`embedding-retrieval-graph-dogfood-review.md`](../strategy/embedding-retrieval-graph-dogfood-review.md).

@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Embedding Retrieval / Similarity Ranking Decision** — one-hundred-sixty-third slice on the embeddings track.
+  Strategy / architecture decision batch; no runtime behavior changes, no source changes, no Voyage adapter changes, no
+  ranking implementation. After the successful Live Voyage dogfood, this pins the retrieval ranking policy so product
+  features inherit one calibrated contract instead of hard-coding thresholds, top-k, or provider quirks. Score bands
+  (calibrated against the live results — Voyage strong matches ~0.75–0.81, off-target ~0.64–0.67, graph max confidence
+  0.9187): `>= 0.78` strong / `0.65–0.78` useful / `0.50–0.65` weak / `< 0.50` ignored. Top-k: default 8, max default 20
+  (down from the current uncapped 10). Query embeddings should use `input_type=query`; index embeddings should use
+  `input_type=document` (an improvement over codebase-intel, which only ever used `document`); the Voyage adapter already
+  exposes the option, so the implementation is a small wiring change. Every result must be explainable (chunk id/kind/
+  path/symbol, score + band, provider/model/policy version, a why-this-exists rationale, an excerpt, staleness status);
+  stale and policy-changed vectors are excluded by default (warn-and-skip, never silent). Graph-first: retrieval results
+  become `embedding_similarity` evidence or graph-adjacent context, not a standalone vector-search product, and
+  CapabilityEvidenceGraph remains the evidence substrate. First selected consumer: **task-shaped context** (a false
+  positive there is just extra context); duplicate detection is deferred until stronger precision evidence exists, and
+  canonical recommendations are deferred until similarity is combined with deterministic ownership/fan-in/runtime evidence
+  (codebase-intel ranked canonicals by base score + `log2(fanIn+1)*5`, never similarity alone). Linear scan remains
+  acceptable for v1; ANN/HNSW and OpenAI embeddings stay deferred. Embedding retrieval is proposal/context, not proof;
+  similarity thresholds are policy, not proof; no approval, command execution, source writes, WorkOrder,
+  VerificationPlan, or Circe; intent:go remains deferred. 24-assertion docs test + full 9-command gate. Recommended next:
+  **Embedding Query Input-Type / Ranking Policy Implementation**. See
+  [`embedding-retrieval-similarity-ranking-decision.md`](docs/strategy/embedding-retrieval-similarity-ranking-decision.md).
 - Dogfooded **Live Voyage Embedding Dogfood** — one-hundred-sixty-second slice on the embeddings track.
   Live-provider dogfood / review batch; no runtime behavior changes, no source changes, no new embedding architecture.
   Ran the **real Voyage provider** (`voyage-code-3`, 1024-dim, key consumed from the environment only) against the same

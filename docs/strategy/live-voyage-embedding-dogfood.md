@@ -1,5 +1,12 @@
 # Live Voyage Embedding Dogfood
 
+> **Ranking policy decided (slice 163):** the retrieval ranking policy this
+> dogfood calibrated is now decided — score bands (>= 0.78 strong / 0.65–0.78
+> useful / 0.50–0.65 weak / < 0.50 ignore), default top-k 8 (max 20),
+> `input_type=query` for queries and `input_type=document` for indexing, and
+> task-shaped context as the first product consumer. See
+> [Embedding Retrieval / Similarity Ranking Decision](./embedding-retrieval-similarity-ranking-decision.md).
+
 > **Slice 162 · live-provider dogfood / review batch.** This memo records a
 > dogfood of the **real Voyage provider** (`voyage-code-3`, 1024-dim) against the
 > same four-domain fixture used in the slice-161 mock dogfood. It introduces no

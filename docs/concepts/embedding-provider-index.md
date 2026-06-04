@@ -1,5 +1,10 @@
 # Embedding Provider / Index
 
+> **Retrieval ranking decided (slice 163):** score bands (>= 0.78 / 0.65 / 0.50),
+> default top-k 8 (max 20), the query/document input-type split, and task-shaped
+> context as the first consumer are pinned. See
+> [Embedding Retrieval / Similarity Ranking Decision](../strategy/embedding-retrieval-similarity-ranking-decision.md).
+
 > **Live Voyage dogfooded (slice 162):** the real Voyage provider
 > (`voyage-code-3`, 1024-dim, key env-only) ranked paraphrase queries with no
 > shared vocabulary to the correct domain — the semantic robustness the lexical
