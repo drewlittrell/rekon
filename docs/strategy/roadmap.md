@@ -1,5 +1,7 @@
 # Roadmap
 
+> **First retrieval consumer intent-integration decided (slice 170):** TaskContextReport will be explicit, opt-in context for `rekon intent assess` and `rekon intent plan review` (prepare by lineage only) — context, not proof; no approval, proof-gate satisfaction, command execution, source writes, WorkOrder/VerificationPlan, or Circe; intent:go deferred. Next: TaskContextReport Intent Integration Implementation. See [`task-context-report-intent-integration-decision.md`](./task-context-report-intent-integration-decision.md).
+
 > **First retrieval consumer selection-quality fixed (slice 169):** free-form verification intent now creates hints (no command invented), explicit command hints preserved, and weak-band retrieval is gated to labelled supporting context with `retrieval-low-signal` kept visible. Context, not proof. Next: TaskContextReport Intent Integration Decision. See [`task-context-report-selection-quality-fix.md`](./task-context-report-selection-quality-fix.md).
 
 > **First retrieval consumer dogfooded (slice 168):** task-shaped context was dogfooded — the explicit-path + graph baseline is useful and reliable (operator paths + graph expansion + do-not-touch + verification hints, evidence refs preserved); the lexical mock retrieval path is low-signal (a real embedding provider is needed). One tiny output-visibility fix (a `retrieval-low-signal` warning). Context, not proof. Next: TaskContextReport Selection Quality Fix. See [`task-context-report-dogfood-review.md`](./task-context-report-dogfood-review.md).

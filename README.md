@@ -375,6 +375,25 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# TaskContextReport Intent Integration Decision is complete.
+# One-hundred-seventieth slice on the embeddings track.
+# Strategy / architecture decision-only batch; no runtime behavior change, no source
+# change, no new artifact, no CLI command. Decides how TaskContextReport optionally
+# feeds intent planning. Selected Option B: explicit, opt-in consumption by
+# rekon intent assess and rekon intent plan review (via --task-context latest/<ref>),
+# never automatic. rekon intent prepare does not consume it directly; a
+# PreparedIntentPlan receives it only by lineage through the assessment/actionability
+# reports that consumed it (header.inputRefs). contextItems enrich matchedContext /
+# plan grounding; doNotTouch maps to constraints/non-goals; verificationHints inform
+# revision guidance; warnings (including retrieval-low-signal and staleness) surface
+# as report warnings. TaskContextReport is proposal/context, not proof: it must not
+# approve plans, satisfy proof gates by itself, replace deterministic evidence
+# artifacts, execute commands, write source files, create WorkOrder or
+# VerificationPlan, or run Circe. Verification hints remain hints, not executed
+# commands; do-not-touch zones are constraints/context, not enforcement;
+# retrieval-low-signal remains a warning, not an approval blocker; intent:go remains
+# deferred. Next: TaskContextReport Intent Integration Implementation.
+#
 # TaskContextReport Selection Quality Fix is complete.
 # One-hundred-sixty-ninth slice on the embeddings track.
 # Product capability batch; a focused quality fix with no new architecture, no new

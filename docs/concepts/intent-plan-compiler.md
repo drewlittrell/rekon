@@ -1,5 +1,7 @@
 # Intent Plan Compiler
 
+> **TaskContextReport integration decided (slice 170):** TaskContextReport may be supplied explicitly (opt-in) as context to `rekon intent plan review` — it may add revision-prompt context, reduce redundant path elicitation, add do-not-touch constraints/non-goals, and inform verification guidance, but it is context, not proof: it never makes a weak plan actionable by itself, invents paths, executes hints, or auto-approves. See [`../strategy/task-context-report-intent-integration-decision.md`](../strategy/task-context-report-intent-integration-decision.md).
+
 > **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](../strategy/classic-llm-semantic-parsing-parity-decision.md).
 
 > **Semantic quality hardened (slice 142):** provider phases are re-checked against the source — unsupported touched paths and verification commands become findings + warnings, dropped non-goals are flagged, and a weak plan cannot become actionable by filling fields without source support. Deterministic recheck stays authoritative. See [`intent-plan-semantic-quality-hardening.md`](../strategy/intent-plan-semantic-quality-hardening.md).

@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **TaskContextReport Intent Integration Decision (slice 170):** strategy / architecture decision-only batch — no API, artifact, or command changed; nothing to migrate. Decides explicit opt-in TaskContextReport consumption by `rekon intent assess` / `rekon intent plan review` (prepare by lineage only) for the implementation slice that follows. See [`task-context-report-intent-integration-decision.md`](../strategy/task-context-report-intent-integration-decision.md).
+
 > **TaskContextReport Selection Quality Fix (slice 169):** additive — nothing to migrate. `rekon context task` verification hints may now include free-form `manual-verification` entries (no `command` field, using the already-optional `artifact` field), and the `retrieval-low-signal` warning string is enriched; no type, artifact, command, or existing behavior changed. See [`task-context-report-selection-quality-fix.md`](../strategy/task-context-report-selection-quality-fix.md).
 
 > **TaskContextReport Dogfood Review (slice 168):** product dogfood / review batch — additive output only; nothing to migrate. `rekon context task` adds one advisory `retrieval-low-signal` string to its existing `warnings[]` array when retrieval ran but every neighbor scored below the useful band; no type, artifact, command, or existing behavior changed (the string does not contain `retrieval-unavailable`, so consumers keying on that are unaffected). See [`task-context-report-dogfood-review.md`](../strategy/task-context-report-dogfood-review.md).

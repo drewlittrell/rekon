@@ -1,5 +1,11 @@
 # Intent Assessment
 
+> **TaskContextReport integration decided (slice 170):** TaskContextReport may be
+> supplied explicitly (opt-in) as context to intent assess / plan review — context,
+> not proof; it never approves plans, satisfies proof gates, or replaces
+> deterministic evidence. See
+> [TaskContextReport Intent Integration Decision](../strategy/task-context-report-intent-integration-decision.md).
+
 Intent assessment answers the question the staged Rekon intent spine opens
 with: *is this requested change ready to be prepared?* `IntentAssessmentReport`
 is the artifact that answers it, by reading a user request against the

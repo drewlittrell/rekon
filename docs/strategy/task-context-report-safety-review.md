@@ -1,5 +1,10 @@
 # TaskContextReport Safety Review
 
+> **Intent integration decided (slice 170):** TaskContextReport will be explicit,
+> opt-in context for `rekon intent assess` and `rekon intent plan review` (prepare by
+> lineage only); context, not proof. See
+> [TaskContextReport Intent Integration Decision](./task-context-report-intent-integration-decision.md).
+
 > **Selection quality fixed (slice 169):** free-form verification intent now creates
 > a hint (no command invented) and weak-band retrieval is gated to supporting
 > context with `retrieval-low-signal` kept visible. Context, not proof. See

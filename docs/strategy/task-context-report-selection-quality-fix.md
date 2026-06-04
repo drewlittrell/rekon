@@ -1,5 +1,10 @@
 # TaskContextReport Selection Quality Fix
 
+> **Intent integration decided (slice 170):** TaskContextReport will be explicit,
+> opt-in context for `rekon intent assess` and `rekon intent plan review` (prepare by
+> lineage only); context, not proof. See
+> [TaskContextReport Intent Integration Decision](./task-context-report-intent-integration-decision.md).
+
 > **Slice 169 · product capability batch.** Base `50f63f2`. Focused quality fix —
 > no new architecture track, no new artifact, no new CLI command. Closes the two
 > selection-quality gaps found by the

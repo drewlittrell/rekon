@@ -4,6 +4,18 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **TaskContextReport Intent Integration Decision** — one-hundred-seventieth slice on the embeddings track.
+  Strategy / architecture decision-only batch (no runtime behavior change, no source change, no new artifact or CLI
+  command). Selected Option B: explicit, opt-in TaskContextReport consumption by `rekon intent assess` and `rekon intent
+  plan review` (via `--task-context latest|<ref>`), never automatic; `rekon intent prepare` does not consume it directly
+  — a PreparedIntentPlan receives it only by lineage (`header.inputRefs`) through the assessment / actionability reports.
+  `contextItems` → matchedContext / plan grounding, `doNotTouch` → constraints/non-goals, `verificationHints` → revision
+  guidance, `warnings` (incl. `retrieval-low-signal` / staleness) → report warnings. TaskContextReport is
+  proposal/context, not proof: it must not approve plans, satisfy proof gates by itself, replace deterministic evidence
+  artifacts, execute commands, write source files, create WorkOrder or VerificationPlan, or run Circe; verification hints
+  remain hints, not executed commands; do-not-touch zones are constraints/context, not enforcement; intent:go remains
+  deferred. Adds a 22-assertion docs test. Next: TaskContextReport Intent Integration Implementation. See
+  [`task-context-report-intent-integration-decision.md`](docs/strategy/task-context-report-intent-integration-decision.md).
 - Shipped **TaskContextReport Selection Quality Fix** — one-hundred-sixty-ninth slice on the embeddings track. Product
   capability batch closing the two gaps the dogfood review found (no new architecture, artifact, or CLI command).
   Free-form verification intent now creates a verification hint without inventing commands: clauses like "Verify routing
