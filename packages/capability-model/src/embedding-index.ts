@@ -285,3 +285,34 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   if (normA === 0 || normB === 0) return 0;
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
+
+/**
+ * A retrieval similarity score's policy band (Embedding Retrieval / Similarity
+ * Ranking Decision, slice 163). Bands are **policy labels, not proof** — they
+ * describe how much weight a neighbor's similarity carries, never whether a
+ * claim is true. Calibrated against the live Voyage dogfood (strong matches
+ * ~0.75-0.81; off-target ~0.64-0.67):
+ *   - `strong`   score >= 0.78  (strong semantic neighbor; include)
+ *   - `useful`   0.65 <= score < 0.78  (useful contextual neighbor; include for context)
+ *   - `weak`     0.50 <= score < 0.65  (weak / needs-review; optional/supporting)
+ *   - `ignored`  score < 0.50  (ignored by default)
+ */
+export type EmbeddingScoreBand = "strong" | "useful" | "weak" | "ignored";
+
+/** Strong-neighbor threshold: score >= this is a `strong` semantic neighbor. */
+export const EMBEDDING_SCORE_BAND_STRONG = 0.78;
+/** Useful-neighbor threshold: score >= this (and < strong) is `useful` context. */
+export const EMBEDDING_SCORE_BAND_USEFUL = 0.65;
+/** Weak-neighbor threshold: score >= this (and < useful) is `weak` / needs-review. */
+export const EMBEDDING_SCORE_BAND_WEAK = 0.5;
+
+/**
+ * Classify a similarity score into its policy band. Pure; deterministic.
+ * `NaN` and scores below the weak threshold classify as `ignored`.
+ */
+export function classifyEmbeddingSimilarityScore(score: number): EmbeddingScoreBand {
+  if (!Number.isFinite(score) || score < EMBEDDING_SCORE_BAND_WEAK) return "ignored";
+  if (score >= EMBEDDING_SCORE_BAND_STRONG) return "strong";
+  if (score >= EMBEDDING_SCORE_BAND_USEFUL) return "useful";
+  return "weak";
+}

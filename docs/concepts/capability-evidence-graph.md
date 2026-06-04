@@ -1,5 +1,11 @@
 # Capability Evidence Graph
 
+> **Retrieval ranking implemented (slice 164):** the `embeddings query` ranking
+> policy shipped (input_type=query, top-k 8/20, score bands); graph
+> embedding-similarity is unchanged and stays graph-first with `generatedEmbeddings`
+> / `usedLlm` false. See
+> [Embedding Query Input-Type / Ranking Policy Implementation](../strategy/embedding-query-input-type-ranking-policy-implementation.md).
+
 > **Retrieval ranking decided (slice 163):** embedding retrieval ranking policy is
 > pinned and stays graph-first — results become `embedding_similarity` evidence or
 > graph-adjacent context, never a standalone vector-search product. See

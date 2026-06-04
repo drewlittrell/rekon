@@ -1,5 +1,11 @@
 # Live Voyage Embedding Dogfood
 
+> **Ranking policy implemented (slice 164):** the `input_type=query` follow-up this
+> dogfood recorded has shipped — queries now embed with `input_type=query`,
+> indexing keeps `input_type=document`, and retrieval applies the score bands /
+> top-k policy. See
+> [Embedding Query Input-Type / Ranking Policy Implementation](./embedding-query-input-type-ranking-policy-implementation.md).
+
 > **Ranking policy decided (slice 163):** the retrieval ranking policy this
 > dogfood calibrated is now decided — score bands (>= 0.78 strong / 0.65–0.78
 > useful / 0.50–0.65 weak / < 0.50 ignore), default top-k 8 (max 20),

@@ -1,5 +1,10 @@
 # Embedding Provider / Index
 
+> **Retrieval ranking implemented (slice 164):** `embeddings query` now uses
+> `input_type=query` (indexing keeps `document`), applies default top-k 8 / max 20,
+> and labels every result with a score band — proposal/context, not proof. See
+> [Embedding Query Input-Type / Ranking Policy Implementation](../strategy/embedding-query-input-type-ranking-policy-implementation.md).
+
 > **Retrieval ranking decided (slice 163):** score bands (>= 0.78 / 0.65 / 0.50),
 > default top-k 8 (max 20), the query/document input-type split, and task-shaped
 > context as the first consumer are pinned. See

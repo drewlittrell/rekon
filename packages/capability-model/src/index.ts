@@ -238,6 +238,11 @@ export {
   embeddingVectorRef,
   classifyEmbeddingChunks,
   cosineSimilarity,
+  type EmbeddingScoreBand,
+  EMBEDDING_SCORE_BAND_STRONG,
+  EMBEDDING_SCORE_BAND_USEFUL,
+  EMBEDDING_SCORE_BAND_WEAK,
+  classifyEmbeddingSimilarityScore,
 } from "./embedding-index.js";
 
 export {

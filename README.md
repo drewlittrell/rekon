@@ -375,6 +375,33 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# Embedding Query Input-Type / Ranking Policy Implementation is complete.
+# One-hundred-sixty-fourth slice on the embeddings track.
+# Product capability batch implementing the slice-163 ranking policy.
+# rekon embeddings query now embeds query text with input_type=query while
+# rekon embeddings index keeps input_type=document (the Voyage adapter already
+# exposed the option; threaded through resolveEmbeddingProvider; the mock
+# provider ignores it; both commands report their input type in JSON). Top-k
+# policy: default 8, max 20 -- an omitted --top-k yields 8, values above 20
+# clamp to 20 (JSON reports requestedTopK and effectiveTopK), and a
+# non-positive or non-numeric --top-k fails cleanly. A new pure
+# classifyEmbeddingSimilarityScore helper labels every result with a score
+# band: >= 0.78 strong, 0.65-0.78 useful, 0.50-0.65 weak, < 0.50 ignored --
+# policy labels, not proof. Query results carry score/scoreBand/chunk/
+# explanation under results (with a matches alias + flat fields kept for
+# backward compatibility), plus a query block and a boundaries block; human
+# output shows the band. Ignored-score results are labeled and retained this
+# slice (default removal is a documented follow-up; the lexical mock's low
+# scores make removal-by-default unsafe for the keyless fixtures). Graph
+# embedding-similarity is untouched (generatedEmbeddings / usedLlm stay false).
+# Retrieval is proposal/context, not proof; deterministic facts remain
+# stronger than similarity; no command execution, no source writes, no Circe,
+# no WorkOrder/VerificationPlan; intent:go deferred. Duplicate detection,
+# canonical recommendations, and task-shaped context remain unimplemented.
+# 24-assertion contract test + 19-assertion docs test; the three existing
+# embedding contract suites pass unchanged; full 9-command gate + CLI smoke.
+# Recommended next: Task-Shaped Context / Embedding Retrieval Decision.
+#
 # Embedding Retrieval / Similarity Ranking Decision is complete.
 # One-hundred-sixty-third slice on the embeddings track.
 # Strategy / architecture decision batch; no runtime behavior changes, no

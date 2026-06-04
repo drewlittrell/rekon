@@ -161,6 +161,7 @@ import modelCapability, {
   embeddingVectorRef,
   embeddingChunkGraphRef,
   cosineSimilarity,
+  classifyEmbeddingSimilarityScore,
   EMBEDDING_POLICY_VERSION,
   type EmbeddingChunkRef,
   type EmbeddingIndexRecord,
@@ -314,6 +315,11 @@ const ISSUE_MERGE_DECISION_REASONS = new Set<string>([
 const GRAPH_EMBEDDING_NEIGHBOR_TOP_K = 5;
 const GRAPH_EMBEDDING_NEIGHBOR_FLOOR = 0.5;
 const MOCK_EMBEDDING_DIMENSIONS = 64;
+// `embeddings query` top-k policy (Embedding Retrieval / Similarity Ranking
+// Decision, slice 163): default 8, capped at 20. Top-of-module (read in the
+// `embeddings query` synchronous flag-parsing prefix, before its first await).
+const DEFAULT_QUERY_TOP_K = 8;
+const MAX_QUERY_TOP_K = 20;
 
 if (isMainEntry()) {
   main(process.argv.slice(2)).catch((error: unknown) => {
@@ -1435,7 +1441,7 @@ export async function main(argv: string[]): Promise<void> {
     let failed = 0;
     let providerError: string | undefined;
     if (toEmbed.length > 0) {
-      const provider = resolveEmbeddingProvider({ providerId, model, dimensions });
+      const provider = resolveEmbeddingProvider({ providerId, model, dimensions, inputType: "document" });
       const result = await provider.embed({ task: "code.embedding", texts: toEmbed.map((entry) => entry.chunk.text), model });
       if (!result.ok) {
         failed = toEmbed.length;
@@ -1499,6 +1505,7 @@ export async function main(argv: string[]): Promise<void> {
       provider: providerId,
       model,
       dimensions,
+      inputType: "document" as const,
       chunks: chunks.length,
       indexed: indexedRecords.length,
       reused: reused.length,
@@ -1571,28 +1578,47 @@ export async function main(argv: string[]): Promise<void> {
         : providerId === "mock"
           ? MOCK_EMBEDDING_DIMENSIONS
           : VOYAGE_DEFAULT_DIMENSIONS;
-    const topKFlag = Number.parseInt(String(parsed.flags["top-k"] ?? ""), 10);
-    const topK = Number.isFinite(topKFlag) && topKFlag > 0 ? topKFlag : 10;
+    // Top-k policy (Embedding Retrieval / Similarity Ranking Decision, slice
+    // 163/164): default 8, capped at 20. Absent flag -> default; present but
+    // non-positive/non-numeric -> fail cleanly; above the cap -> clamp and
+    // report requestedTopK vs effectiveTopK. Never silently use uncapped values.
+    const topKRaw = parsed.flags["top-k"];
+    const topKProvided = topKRaw !== undefined && String(topKRaw).trim().length > 0;
+    let requestedTopK = DEFAULT_QUERY_TOP_K;
+    if (topKProvided) {
+      const parsedTopK = Number.parseInt(String(topKRaw), 10);
+      if (!Number.isFinite(parsedTopK) || parsedTopK <= 0) {
+        throw new Error(`rekon embeddings query --top-k must be a positive integer (got "${String(topKRaw)}").`);
+      }
+      requestedTopK = parsedTopK;
+    }
+    const effectiveTopK = Math.min(requestedTopK, MAX_QUERY_TOP_K);
+    // Query text embeds with input_type=query (indexing uses document); the mock
+    // provider ignores it. Retrieval is proposal/context, never proof.
+    const inputType = "query" as const;
 
     const cacheDir = embeddingCacheDir(root);
     const records = await readEmbeddingIndexRecords(cacheDir);
     if (records.length === 0) {
       if (json) {
-        writeOutput({ status: "empty", matches: [], note: "no embeddings indexed; run `rekon embeddings index`" }, true);
+        writeOutput(
+          { status: "empty", results: [], matches: [], note: "no embeddings indexed; run `rekon embeddings index`" },
+          true,
+        );
       } else {
         writeOutput("No embeddings indexed. Run `rekon embeddings index` first.", false);
       }
       return;
     }
 
-    const provider = resolveEmbeddingProvider({ providerId, model, dimensions });
+    const provider = resolveEmbeddingProvider({ providerId, model, dimensions, inputType });
     const result = await provider.embed({ task: "artifact.retrieval", texts: [text], model });
     const queryVector = result.ok ? result.vectors[0] : undefined;
     if (!result.ok || !queryVector) {
       process.exitCode = 1;
       const error = result.ok ? "no-embeddings" : result.error;
       if (json) {
-        writeOutput({ status: "failed", error, matches: [] }, true);
+        writeOutput({ status: "failed", error, results: [], matches: [] }, true);
       } else {
         writeOutput(`Embedding provider ${providerId} returned no embedding (${error}). No retrieval performed.`, false);
       }
@@ -1606,31 +1632,69 @@ export async function main(argv: string[]): Promise<void> {
       scored.push({ record, score: cosineSimilarity(queryVector, vector) });
     }
     scored.sort((a, b) => b.score - a.score || a.record.chunk.id.localeCompare(b.record.chunk.id));
-    const matches = scored.slice(0, topK).map((entry) => ({
-      chunkId: entry.record.chunk.id,
-      kind: entry.record.chunk.kind,
-      path: entry.record.chunk.path,
-      score: Number(entry.score.toFixed(6)),
-    }));
+    const previewOf = (value: string): string => {
+      const collapsed = String(value ?? "").replace(/\s+/g, " ").trim();
+      return collapsed.length > 160 ? `${collapsed.slice(0, 157)}...` : collapsed;
+    };
+    // Every result carries an explainable score band (policy label, not proof).
+    // Ignored-score (< 0.50) results are labeled but retained in this slice; default
+    // removal of ignored results is a documented follow-up.
+    const results = scored.slice(0, effectiveTopK).map((entry) => {
+      const chunk = entry.record.chunk;
+      const score = Number(entry.score.toFixed(6));
+      return {
+        score,
+        scoreBand: classifyEmbeddingSimilarityScore(entry.score),
+        chunkId: chunk.id,
+        kind: chunk.kind,
+        path: chunk.path,
+        ...(chunk.symbolId ? { symbolId: chunk.symbolId } : {}),
+        chunk: { id: chunk.id, kind: chunk.kind, path: chunk.path, ...(chunk.symbolId ? { symbolId: chunk.symbolId } : {}) },
+        explanation: {
+          provider: entry.record.provider,
+          model: entry.record.model,
+          policyVersion: entry.record.policyVersion,
+          textPreview: previewOf(chunk.text),
+        },
+      };
+    });
 
     if (json) {
       writeOutput(
         {
+          command: "embeddings query",
           status: "ok",
           provider: providerId,
           model,
-          query: text,
-          topK,
-          matches,
-          note: "embedding similarity is proposal/context, not proof",
+          query: { text, provider: providerId, model, requestedTopK, effectiveTopK, inputType },
+          requestedTopK,
+          effectiveTopK,
+          inputType,
+          topK: effectiveTopK,
+          results,
+          matches: results,
+          boundaries: {
+            retrievalIsProof: false,
+            approvedPlans: false,
+            executedCommands: false,
+            wroteSourceFiles: false,
+            ranCirce: false,
+            implementedIntentGo: false,
+          },
+          note: "embedding similarity is proposal/context, not proof; score bands are policy labels, not proof",
         },
         true,
       );
     } else {
+      const clamped = requestedTopK !== effectiveTopK ? ` (requested ${requestedTopK}, clamped to ${effectiveTopK})` : "";
       const lines: string[] = [];
-      lines.push(`Embedding query (${providerId}/${model}): top ${matches.length} of ${records.length} cached chunk(s).`);
-      for (const match of matches) lines.push(`  ${match.score.toFixed(3)}  ${match.kind}  ${match.path}  (${match.chunkId})`);
-      lines.push("Proposal / context, not proof. Deterministic facts remain stronger than embedding similarity.");
+      lines.push(
+        `Embedding query (${providerId}/${model}, input_type=${inputType}): top ${results.length} of ${records.length} cached chunk(s), top-k ${effectiveTopK}${clamped}.`,
+      );
+      for (const r of results) {
+        lines.push(`  ${r.score.toFixed(3)}  ${r.scoreBand}  ${r.path}  ${r.kind}  ${r.symbolId ?? r.chunkId}`);
+      }
+      lines.push("Proposal / context, not proof. Score bands are policy labels, not proof. Deterministic facts remain stronger than embedding similarity.");
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -8709,6 +8773,13 @@ function resolveEmbeddingProvider(input: {
   providerId: string;
   model: string;
   dimensions: number;
+  /**
+   * Voyage `input_type` (Embedding Retrieval / Similarity Ranking Decision,
+   * slice 164): `"document"` for indexing chunks, `"query"` for query text.
+   * The `mock` provider ignores it (deterministic token-hash, no input modes).
+   * Defaults to `"document"` (the indexing case).
+   */
+  inputType?: "document" | "query";
 }): RekonEmbeddingProvider {
   if (input.providerId === "mock") {
     const { model, dimensions } = input;
@@ -8728,6 +8799,7 @@ function resolveEmbeddingProvider(input: {
     apiKey: process.env.VOYAGE_API_KEY ?? "",
     defaultModel: input.model,
     dimensions: input.dimensions,
+    inputType: input.inputType ?? "document",
   });
 }
 
@@ -12945,7 +13017,7 @@ function usage(): string {
     "rekon capability lint write-findings --bridge-report <id|type:id> (--dry-run | --confirm-finding-write) [--root <path>] [--json]",
     "rekon capability graph build [--path <file-or-dir>] [--semantic-file-reports latest] [--semantic-file-report-ref <ref>] [--embedding-similarity latest] [--root <path>] [--json]",
     "rekon embeddings index [--all] [--path <p>] [--provider voyage|mock] [--model <m>] [--dimensions <n>] [--root <path>] [--json]",
-    "rekon embeddings query --text <query> [--top-k <n>] [--provider voyage|mock] [--model <m>] [--dimensions <n>] [--root <path>] [--json]",
+    "rekon embeddings query --text <query> [--top-k <n>] [--provider voyage|mock] [--model <m>] [--dimensions <n>] [--root <path>] [--json]  (default top-k 8, max 20; query uses input_type=query; results carry score bands; proposal/context, not proof)",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

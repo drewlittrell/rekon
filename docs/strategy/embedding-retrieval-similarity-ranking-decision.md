@@ -1,5 +1,10 @@
 # Embedding Retrieval / Similarity Ranking Decision
 
+> **Implemented (slice 164):** this policy is now implemented — `embeddings query`
+> uses `input_type=query` (indexing keeps `document`), default top-k 8 / max 20,
+> and every result carries a score band (strong/useful/weak/ignored). See
+> [Embedding Query Input-Type / Ranking Policy Implementation](./embedding-query-input-type-ranking-policy-implementation.md).
+
 > **Slice 163 · strategy / architecture decision batch.** Base `9d57089`. No
 > runtime behavior changes, no source changes, no Voyage adapter changes, no
 > ranking implementation. This memo decides Rekon's embedding **retrieval

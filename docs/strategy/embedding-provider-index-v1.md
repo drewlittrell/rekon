@@ -1,5 +1,10 @@
 # Embedding Provider / Index v1
 
+> **Ranking policy implemented (slice 164):** `embeddings query` now uses
+> `input_type=query` (indexing keeps `document`), default top-k 8 / max 20, and
+> labels every result with a score band. See
+> [Embedding Query Input-Type / Ranking Policy Implementation](./embedding-query-input-type-ranking-policy-implementation.md).
+
 > **Ranking policy decided (slice 163):** retrieval ranking policy (score bands,
 > default top-k 8 / max 20, `input_type=query` for queries) is decided;
 > implementation lands next. See
