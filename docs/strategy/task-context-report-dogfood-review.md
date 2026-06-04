@@ -1,5 +1,10 @@
 # TaskContextReport Dogfood Review
 
+> **Implemented (slice 171):** `rekon intent assess` and `rekon intent plan review`
+> now accept opt-in `--task-context latest|<ref>` — additive context only (readiness /
+> status decided first; never proof, never approval). See
+> [`task-context-report-intent-integration-implementation.md`](./task-context-report-intent-integration-implementation.md).
+
 > **Intent integration decided (slice 170):** TaskContextReport will be explicit,
 > opt-in context for `rekon intent assess` and `rekon intent plan review` (prepare by
 > lineage only); context, not proof. See

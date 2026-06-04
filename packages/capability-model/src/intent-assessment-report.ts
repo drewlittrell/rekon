@@ -34,6 +34,7 @@ import {
   createIntentAssessmentReport,
 } from "@rekon/kernel-repo-model";
 import type { SemanticFileContextSelection } from "./semantic-file-context.js";
+import type { TaskContextSelection } from "./task-context.js";
 
 /** Stable header `artifactId` prefix; the timestamp piece varies. */
 export const INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX = "intent-assessment-report-";
@@ -106,6 +107,10 @@ export type BuildIntentAssessmentReportInput = {
   // Enriches matched paths + adds non-blocking warnings; never changes
   // readiness, never suppresses blockers, never satisfies a proof gate.
   semanticFileContext?: SemanticFileContextSelection;
+  // TaskContextReport intent context (slice 171): proposal/context only. Enriches
+  // matched paths + capabilities and adds non-blocking warnings; never changes
+  // readiness, never suppresses blockers, never satisfies a proof gate.
+  taskContext?: TaskContextSelection;
 };
 
 const READINESS_NEXT_ACTION: Record<IntentAssessmentReadiness, IntentAssessmentRecommendedNextAction> = {
@@ -440,6 +445,55 @@ export function buildIntentAssessmentReport(input: BuildIntentAssessmentReportIn
         category: "stale-context",
         severity: "low",
         message: `Semantic file understanding for ${staleEntry.path} is stale (${staleEntry.reason}); not consumed as fresh context.`,
+        ...(staleEntry.ref ? { sourceRefs: [staleEntry.ref] } : {}),
+      });
+    }
+  }
+
+  // TaskContextReport intent context (slice 171). Proposal/context only, mirroring
+  // the semantic-context block above: enrich matched paths + capabilities and add
+  // non-blocking, low-severity warnings AFTER readiness is decided, so task context
+  // never flips readiness, never suppresses a deterministic blocker, never satisfies
+  // a proof gate. Do-not-touch zones surface as `scope-ambiguous` guidance; stale /
+  // retrieval-low-signal reports surface as low-severity warnings.
+  if (input.taskContext) {
+    let dntIndex = 0;
+    for (const used of input.taskContext.usedReports) {
+      for (const path of used.paths) {
+        if (path.length > 0 && !matchedContext.paths.includes(path)) matchedContext.paths.push(path);
+      }
+      for (const capability of used.capabilities) {
+        if (capability.length > 0 && !matchedContext.capabilities.includes(capability)) {
+          matchedContext.capabilities.push(capability);
+        }
+      }
+      for (const zone of used.doNotTouch) {
+        warnings.push({
+          id: `task-context:do-not-touch:${(dntIndex += 1)}`,
+          category: "scope-ambiguous",
+          severity: "low",
+          message: `Task context constraint (do-not-touch): "${zone}" — guidance/context, not enforcement.`,
+          ...(used.ref ? { sourceRefs: [used.ref] } : {}),
+        });
+      }
+      if (used.provider && used.embeddingNeighborCount === 0) {
+        warnings.push({
+          id: `task-context:retrieval-low-signal:${used.ref?.id ?? "report"}`,
+          category: "scope-ambiguous",
+          severity: "low",
+          message:
+            "retrieval-low-signal: task context selected no embedding-retrieval neighbors (proposal/context, not proof).",
+          ...(used.ref ? { sourceRefs: [used.ref] } : {}),
+        });
+      }
+    }
+    let staleIndex = 0;
+    for (const staleEntry of input.taskContext.staleReports) {
+      warnings.push({
+        id: `task-context:stale:${staleEntry.reason}:${(staleIndex += 1)}`,
+        category: "stale-context",
+        severity: "low",
+        message: `Task context report not consumed (${staleEntry.reason}); proposal/context, not proof.`,
         ...(staleEntry.ref ? { sourceRefs: [staleEntry.ref] } : {}),
       });
     }

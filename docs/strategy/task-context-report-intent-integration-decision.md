@@ -1,5 +1,10 @@
 # TaskContextReport Intent Integration Decision
 
+> **Implemented (slice 171):** `rekon intent assess` and `rekon intent plan review`
+> now accept opt-in `--task-context latest|<ref>` — additive context only (readiness /
+> status decided first; never proof, never approval). See
+> [`task-context-report-intent-integration-implementation.md`](./task-context-report-intent-integration-implementation.md).
+
 > **Slice 170 · strategy / architecture decision batch.** Base `18086b1`.
 > Decision-only — no runtime behavior change, no source change, no new artifact,
 > no CLI command. Decides how the shipped

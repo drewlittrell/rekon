@@ -268,6 +268,17 @@ export {
 } from "./semantic-file-context.js";
 
 export {
+  type TaskContextReportLike,
+  type TaskContextSelectionReport,
+  type TaskContextStaleReason,
+  type TaskContextStaleWarning,
+  type TaskContextSelection,
+  normalizeTaskContextPath,
+  selectTaskContextReports,
+  summarizeTaskContext,
+} from "./task-context.js";
+
+export {
   type BuildIntentWorkOrderHandoffInput,
   type IntentWorkOrderGenerationResult,
   type IntentWorkOrderGenerationBlocker,

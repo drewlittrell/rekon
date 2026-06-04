@@ -1,5 +1,7 @@
 # Rekon
 
+> **Task context wired into intent (slice 171):** `rekon intent assess` and `rekon intent plan review` now accept opt-in `--task-context latest|<ref>` — used TaskContextReports enrich assessment `matchedContext` and plan-review `revisionPrompt` as additive context (readiness / status decided first; never proof, never approval; prepare by lineage only; intent:go deferred). See [`task-context-report-intent-integration-implementation.md`](docs/strategy/task-context-report-intent-integration-implementation.md).
+
 > **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](docs/strategy/classic-llm-semantic-parsing-parity-decision.md).
 
 > **Semantic quality hardened (slice 142):** provider phases are re-checked against the source — unsupported touched paths and verification commands become findings + warnings, dropped non-goals are flagged, and a weak plan cannot become actionable by filling fields without source support. Deterministic recheck stays authoritative. See [`intent-plan-semantic-quality-hardening.md`](docs/strategy/intent-plan-semantic-quality-hardening.md).
@@ -374,6 +376,29 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # update-in-place handle. Forked PRs remain denied by default;
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
+#
+# TaskContextReport Intent Integration Implementation is complete.
+# One-hundred-seventy-first slice on the embeddings track.
+# Product capability batch implementing the slice-170 decision (Option B).
+# rekon intent assess and rekon intent plan review now accept opt-in
+# --task-context latest/<ref> (--task-context-ref <TaskContextReport:id>), backed by a
+# new pure selector selectTaskContextReports / summarizeTaskContext in
+# @rekon/capability-model (task-context.ts). The selector gates on all-false boundaries
+# and relevance, returning used / stale / missing reports plus warnings.
+# buildIntentAssessmentReport enriches matchedContext (paths/capabilities) and adds
+# low-severity warnings (do-not-touch, retrieval-low-signal, staleness) AFTER readiness
+# is computed; buildIntentPlanActionabilityReport grounds revisionPrompt and
+# normalizationTrace.warnings AFTER status is decided. Consumption never flips readiness,
+# suppresses a blocker, adds/removes a finding, or makes a weak plan actionable.
+# rekon intent prepare gains no flag: a PreparedIntentPlan receives TaskContextReport
+# only by lineage, not direct proof. TaskContextReport is proposal/context, not proof;
+# consumption is explicit, not automatic; it must not approve plans, satisfy proof gates
+# by itself, replace deterministic evidence artifacts, execute commands, write source
+# files, create WorkOrder or VerificationPlan, or run Circe; verification hints remain
+# hints, not executed commands; do-not-touch zones are constraints/context, not
+# enforcement; retrieval-low-signal remains a warning, not an approval blocker; intent:go
+# remains deferred. Adds a 28-assertion contract test and a 17-assertion docs test.
+# Next: TaskContextReport Intent Integration Safety Review.
 #
 # TaskContextReport Intent Integration Decision is complete.
 # One-hundred-seventieth slice on the embeddings track.

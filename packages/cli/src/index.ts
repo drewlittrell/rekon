@@ -170,6 +170,10 @@ import modelCapability, {
   buildTaskContextReport,
   type TaskContextGraphLike,
   type TaskContextRetrievalResultLike,
+  selectTaskContextReports,
+  summarizeTaskContext,
+  type TaskContextReportLike,
+  type TaskContextSelection,
 } from "@rekon/capability-model";
 import {
   RekonLlmRouter,
@@ -5245,10 +5249,26 @@ export async function main(argv: string[]): Promise<void> {
       refs: semanticContextRefs,
     });
 
+    // TaskContextReport intent context (slice 171). Opt-in via `--task-context
+    // latest` or `--task-context-ref <ref>`; proposal/context only — enriches
+    // matched paths/capabilities + warnings, never readiness/proof.
+    const taskContextMode =
+      typeof parsed.flags["task-context"] === "string" ? String(parsed.flags["task-context"]).trim() : "";
+    const taskContextRefs = parseRepeatableFlag(parsed.flags["task-context-ref"]);
+    const taskContextSelection = await resolveTaskContextSelection({
+      store,
+      root,
+      requestedPaths: scopePaths,
+      mode: taskContextMode,
+      refs: taskContextRefs,
+      goal,
+    });
+
     const report: IntentAssessmentReport = buildIntentAssessmentReport({
       header,
       request,
       ...(semanticSelection ? { semanticFileContext: semanticSelection } : {}),
+      ...(taskContextSelection ? { taskContext: taskContextSelection } : {}),
       capabilityMap: capabilityMap.value,
       capabilityMapRef: capabilityMap.ref,
       capabilityContractRef: capabilityContract.ref,
@@ -5284,6 +5304,7 @@ export async function main(argv: string[]): Promise<void> {
           missingContext: report.missingContext.length,
           matchedContext: report.matchedContext,
           ...(semanticSelection ? { semanticContext: summarizeSemanticFileContext(semanticSelection) } : {}),
+          ...(taskContextSelection ? { taskContext: summarizeTaskContext(taskContextSelection) } : {}),
         },
         true,
       );
@@ -5301,6 +5322,11 @@ export async function main(argv: string[]): Promise<void> {
       if (semanticSelection) {
         lines.push(
           `Semantic context: ${semanticSelection.usedReports.length} used, ${semanticSelection.staleReports.length} stale`,
+        );
+      }
+      if (taskContextSelection) {
+        lines.push(
+          `Task context: ${taskContextSelection.usedReports.length} used, ${taskContextSelection.staleReports.length} stale, ${taskContextSelection.missingReports.length} missing`,
         );
       }
       lines.push("");
@@ -5383,6 +5409,23 @@ export async function main(argv: string[]): Promise<void> {
       refs: semanticContextRefs,
     });
 
+    // TaskContextReport intent context (slice 171). Opt-in via `--task-context
+    // latest` or `--task-context-ref <ref>`; proposal/context only — appends
+    // grounding to the revision prompt + warnings to the normalization trace,
+    // never changes actionability status, findings, or proof.
+    const taskContextMode =
+      typeof parsed.flags["task-context"] === "string" ? String(parsed.flags["task-context"]).trim() : "";
+    const taskContextRefs = parseRepeatableFlag(parsed.flags["task-context-ref"]);
+    const taskContextSelection = await resolveTaskContextSelection({
+      store,
+      root,
+      requestedPaths: providedPaths,
+      mode: taskContextMode,
+      refs: taskContextRefs,
+      ...(goal ? { goal } : {}),
+      planText,
+    });
+
     const report = await buildIntentPlanActionabilityReport({
       planText,
       planPath: planFlag,
@@ -5395,6 +5438,7 @@ export async function main(argv: string[]): Promise<void> {
       ...(providedPaths.length > 0 ? { providedPaths } : {}),
       ...(packageScripts.length > 0 ? { packageScripts } : {}),
       ...(semanticSelection ? { semanticFileContext: semanticSelection } : {}),
+      ...(taskContextSelection ? { taskContext: taskContextSelection } : {}),
     });
 
     const ref = await store.write(report, { category: "actions" });
@@ -5427,6 +5471,7 @@ export async function main(argv: string[]): Promise<void> {
             warnings: report.normalizationTrace.warnings,
           },
           ...(semanticSelection ? { semanticContext: summarizeSemanticFileContext(semanticSelection) } : {}),
+          ...(taskContextSelection ? { taskContext: summarizeTaskContext(taskContextSelection) } : {}),
           nextAction,
         },
         true,
@@ -5440,6 +5485,11 @@ export async function main(argv: string[]): Promise<void> {
       if (semanticSelection) {
         lines.push(
           `Semantic context: ${semanticSelection.usedReports.length} used, ${semanticSelection.staleReports.length} stale`,
+        );
+      }
+      if (taskContextSelection) {
+        lines.push(
+          `Task context: ${taskContextSelection.usedReports.length} used, ${taskContextSelection.staleReports.length} stale, ${taskContextSelection.missingReports.length} missing`,
         );
       }
       if (report.normalizationTrace.warnings.length > 0) {
@@ -8702,6 +8752,71 @@ async function resolveSemanticFileContextSelection(input: {
   }
 
   return selectSemanticFileContext({ reports: candidates, requestedPaths: selectionRequestedPaths, currentFileHashes });
+}
+
+/**
+ * Resolve opt-in TaskContextReport context for `rekon intent assess` / `rekon
+ * intent plan review` (slice 171). Reads only: it never executes commands, writes
+ * source, creates a WorkOrder / VerificationPlan, runs Circe, or becomes proof.
+ *
+ * `--task-context-ref <Type:id>` (repeatable) takes precedence: the named reports
+ * ARE the candidate set (explicit mode), and a ref that does not resolve throws so
+ * the command fails cleanly. `--task-context latest` considers every stored
+ * TaskContextReport and selects the single most relevant (latest mode). Returns
+ * `undefined` when the operator requested no task context.
+ */
+async function resolveTaskContextSelection(input: {
+  store: ReturnType<typeof createLocalArtifactStore>;
+  root: string;
+  requestedPaths: string[];
+  mode: string;
+  refs: string[];
+  goal?: string;
+  planText?: string;
+}): Promise<TaskContextSelection | undefined> {
+  const { store, requestedPaths, mode, refs, goal, planText } = input;
+  const wantLatest = mode === "latest";
+  if (!wantLatest && refs.length === 0) return undefined;
+
+  const TASK_CONTEXT_TYPE = "TaskContextReport";
+  const entries = await store.list(TASK_CONTEXT_TYPE);
+  const toRef = (entry: (typeof entries)[number]): ArtifactRef => ({
+    type: entry.type,
+    id: entry.id,
+    path: entry.path,
+    digest: entry.digest,
+    schemaVersion: entry.schemaVersion ?? "0.1.0",
+  });
+
+  const candidates: Array<{ report: TaskContextReportLike; ref?: ArtifactRef }> = [];
+  let selectionMode: "explicit" | "latest" = "latest";
+  if (refs.length > 0) {
+    selectionMode = "explicit";
+    for (const refString of refs) {
+      const trimmed = refString.trim();
+      if (trimmed.length === 0) continue;
+      const wantedId = trimmed.includes(":") ? trimmed.slice(trimmed.indexOf(":") + 1) : trimmed;
+      const entry = entries.find((candidate) => candidate.id === wantedId);
+      if (!entry) {
+        throw new Error(
+          `rekon could not resolve --task-context-ref ${trimmed}; no ${TASK_CONTEXT_TYPE} with id ${wantedId} was found.`,
+        );
+      }
+      candidates.push({ report: (await store.read(entry)) as TaskContextReportLike, ref: toRef(entry) });
+    }
+  } else {
+    for (const entry of entries) {
+      candidates.push({ report: (await store.read(entry)) as TaskContextReportLike, ref: toRef(entry) });
+    }
+  }
+
+  return selectTaskContextReports({
+    reports: candidates,
+    mode: selectionMode,
+    ...(goal !== undefined ? { goal } : {}),
+    ...(planText !== undefined ? { planText } : {}),
+    requestedPaths,
+  });
 }
 
 /**
@@ -13227,10 +13342,10 @@ function usage(): string {
     "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
-    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--root <path>] [--json]",
+    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...] [--root <path>] [--json]",
     "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
     "rekon semantic file understand --path <file> [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]",
-    "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...]",
+    "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
     "rekon intent approve --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] --accept <gap> [--accept <gap>...] --reason <text> [--accepted-by <name>] [--root <path>] [--json]",

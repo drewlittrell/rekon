@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **TaskContextReport Intent Integration Implementation** — one-hundred-seventy-first slice on the embeddings
+  track. Product capability batch implementing the slice-170 decision (Option B). Adds an optional, opt-in
+  `--task-context latest|<ref>` (`--task-context-ref <TaskContextReport:id>`) to `rekon intent assess` and `rekon intent
+  plan review`, backed by a new pure selector `selectTaskContextReports` / `summarizeTaskContext` in
+  `@rekon/capability-model` (`task-context.ts`). The selector gates on all-false boundaries and relevance, returning
+  used / stale / missing reports + warnings. `buildIntentAssessmentReport` enriches `matchedContext` (paths/capabilities)
+  and adds low-severity warnings (do-not-touch, `retrieval-low-signal`, staleness) **after** readiness is computed;
+  `buildIntentPlanActionabilityReport` grounds `revisionPrompt` and `normalizationTrace.warnings` **after** status is
+  decided — so consumption never flips readiness, suppresses a blocker, adds/removes a finding, or makes a weak plan
+  actionable. `rekon intent prepare` gains no flag: a PreparedIntentPlan receives TaskContextReport only by lineage, not
+  direct proof. TaskContextReport is proposal/context, not proof; TaskContextReport consumption is explicit, not
+  automatic; it must not approve plans, satisfy proof gates by itself, replace deterministic evidence artifacts, execute
+  commands, write source files, create WorkOrder or VerificationPlan, or run Circe; verification hints remain hints, not
+  executed commands; do-not-touch zones are constraints/context, not enforcement; retrieval-low-signal remains a warning,
+  not an approval blocker; intent:go remains deferred. Adds a 28-assertion contract test and a 17-assertion docs test.
+  Next: TaskContextReport Intent Integration Safety Review. See
+  [`task-context-report-intent-integration-implementation.md`](docs/strategy/task-context-report-intent-integration-implementation.md).
 - Decided **TaskContextReport Intent Integration Decision** — one-hundred-seventieth slice on the embeddings track.
   Strategy / architecture decision-only batch (no runtime behavior change, no source change, no new artifact or CLI
   command). Selected Option B: explicit, opt-in TaskContextReport consumption by `rekon intent assess` and `rekon intent

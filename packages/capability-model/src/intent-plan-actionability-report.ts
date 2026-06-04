@@ -36,6 +36,7 @@ import {
   createIntentPlanActionabilityReport,
 } from "@rekon/kernel-repo-model";
 import type { SemanticFileContextSelection } from "./semantic-file-context.js";
+import type { TaskContextSelection } from "./task-context.js";
 
 export const INTENT_PLAN_ACTIONABILITY_REPORT_ARTIFACT_ID_PREFIX = "intent-plan-actionability-report-";
 
@@ -77,6 +78,11 @@ export type BuildIntentPlanActionabilityReportInput = {
   // Appends grounding to the revision prompt + notes to the normalization trace;
   // never changes actionability status, never adds/removes findings, never proof.
   semanticFileContext?: SemanticFileContextSelection;
+  // TaskContextReport intent context (slice 171): proposal/context only. Appends
+  // grounding (paths, do-not-touch constraints, verification-hint guidance) to the
+  // revision prompt + notes to the normalization trace; never changes actionability
+  // status, never adds/removes findings, never turns a hint into a command, no proof.
+  taskContext?: TaskContextSelection;
 };
 
 // ---------------------------------------------------------------------------
@@ -834,6 +840,36 @@ export async function buildIntentPlanActionabilityReport(
         `No usable semantic file context for ${missingPath}; revision grounding falls back to the plan text only.`,
       );
     }
+  }
+
+  // TaskContextReport intent context (slice 171). Proposal/context only, mirroring
+  // the semantic-context block above: append relevant paths, do-not-touch
+  // constraints, and verification-hint guidance to the revision prompt, plus
+  // warnings to the normalization trace. The actionability `status` and `findings`
+  // are already decided above and are NOT touched — task context never makes a weak
+  // plan actionable, never adds/removes a finding, never turns a hint into an
+  // executed command or evidence gate, and never approves.
+  if (input.taskContext) {
+    const taskContext = input.taskContext;
+    if (taskContext.usedReports.length > 0) {
+      const lines: string[] = ["", "Task context (proposal/context, not proof):"];
+      for (const used of taskContext.usedReports) {
+        if (used.paths.length > 0) lines.push(`- relevant paths: ${used.paths.slice(0, 8).join(", ")}`);
+        if (used.doNotTouch.length > 0) {
+          lines.push(`- do-not-touch (constraints / non-goals, not enforcement): ${used.doNotTouch.slice(0, 5).join("; ")}`);
+        }
+        if (used.verificationHints.length > 0) {
+          const rendered = used.verificationHints.slice(0, 5).map((hint) =>
+            hint.command
+              ? `${hint.command} (hint, not executed)`
+              : `${hint.artifact ?? "manual-verification"}: ${hint.reason} (hint, not an executed command)`,
+          );
+          lines.push(`- verification hints (hints, not executed commands): ${rendered.join("; ")}`);
+        }
+      }
+      report.revisionPrompt.prompt = `${report.revisionPrompt.prompt}\n${lines.join("\n")}`;
+    }
+    for (const warning of taskContext.warnings) report.normalizationTrace.warnings.push(warning);
   }
 
   return createIntentPlanActionabilityReport(report);

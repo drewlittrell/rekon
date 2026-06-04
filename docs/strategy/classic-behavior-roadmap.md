@@ -1,5 +1,7 @@
 # Classic Behavior Roadmap
 
+> **First retrieval consumer intent-integration implemented (slice 171):** the embeddings track (classic Track B) wired task-shaped context into the intent spine — explicit opt-in `--task-context latest|<ref>` on assess / plan review (mirroring codebase-intel context packets as planning context), additive only (readiness / status decided first), prepare by lineage, context not proof. See [`task-context-report-intent-integration-implementation.md`](./task-context-report-intent-integration-implementation.md).
+
 > **First retrieval consumer intent-integration decided (slice 170):** the embeddings track (classic Track B) decided how task-shaped context feeds the intent spine — explicit, opt-in consumption by assess / plan review (mirroring codebase-intel context packets as planning context), prepare by lineage only, context not proof. See [`task-context-report-intent-integration-decision.md`](./task-context-report-intent-integration-decision.md).
 
 > **First retrieval consumer selection-quality fixed (slice 169):** the embeddings track (classic Track B) tightened task-shaped context — free-form verification intent (codebase-intel checkMatrix parity) now yields hints without inventing commands, and weak retrieval degrades to labelled supporting context. Context, not proof. See [`task-context-report-selection-quality-fix.md`](./task-context-report-selection-quality-fix.md).

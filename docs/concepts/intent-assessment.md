@@ -1,5 +1,12 @@
 # Intent Assessment
 
+> **TaskContextReport integration implemented (slice 171):** `rekon intent assess`
+> accepts opt-in `--task-context latest|<ref>`; used reports enrich `matchedContext`
+> (paths/capabilities) and add low-severity warnings (do-not-touch,
+> `retrieval-low-signal`, staleness) **after** readiness is computed — readiness and
+> blockers are never changed. See
+> [TaskContextReport Intent Integration Implementation](../strategy/task-context-report-intent-integration-implementation.md).
+
 > **TaskContextReport integration decided (slice 170):** TaskContextReport may be
 > supplied explicitly (opt-in) as context to intent assess / plan review — context,
 > not proof; it never approves plans, satisfies proof gates, or replaces
