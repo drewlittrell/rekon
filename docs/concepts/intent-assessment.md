@@ -1,5 +1,11 @@
 # Intent Assessment
 
+> **TaskContextReport integration safety-reviewed (slice 172):** the slice-171 assess
+> consumption was reviewed end-to-end and declared safe/stable — readiness remains
+> governed by existing readiness gates; enrichment is additive after readiness; no
+> blocker suppressed; not proof. See
+> [TaskContextReport Intent Integration Safety Review](../strategy/task-context-report-intent-integration-safety-review.md).
+
 > **TaskContextReport integration implemented (slice 171):** `rekon intent assess`
 > accepts opt-in `--task-context latest|<ref>`; used reports enrich `matchedContext`
 > (paths/capabilities) and add low-severity warnings (do-not-touch,

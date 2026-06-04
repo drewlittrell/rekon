@@ -1,5 +1,11 @@
 # Task-Shaped Context
 
+> **Intent integration safety-reviewed (slice 172):** the slice-171 opt-in consumption
+> by `rekon intent assess` / `rekon intent plan review` was reviewed end-to-end and
+> declared safe/stable — additive context only (never proof/approval), prepare by
+> lineage; intent:go deferred. See
+> [TaskContextReport Intent Integration Safety Review](../strategy/task-context-report-intent-integration-safety-review.md).
+
 > **Intent integration implemented (slice 171):** `rekon intent assess` and `rekon
 > intent plan review` now accept opt-in `--task-context latest|<ref>` — additive
 > context only (readiness / status decided first; never proof, never approval). See

@@ -1,5 +1,10 @@
 # TaskContextReport Intent Integration Implementation
 
+> **Safety-reviewed (slice 172):** this integration was reviewed end-to-end and
+> declared safe/stable — additive context only (never proof/approval), prepare by
+> lineage; intent:go deferred. See
+> [`task-context-report-intent-integration-safety-review.md`](./task-context-report-intent-integration-safety-review.md).
+
 > **Slice 171 · product capability batch.** Base `9345145`. Implements the explicit
 > opt-in TaskContextReport consumption selected by the
 > [TaskContextReport Intent Integration Decision](./task-context-report-intent-integration-decision.md)

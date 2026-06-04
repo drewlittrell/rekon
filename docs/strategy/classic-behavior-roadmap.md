@@ -1,5 +1,7 @@
 # Classic Behavior Roadmap
 
+> **First retrieval consumer intent-integration safety-reviewed (slice 172):** the embeddings track (classic Track B) reviewed the slice-171 task-shaped-context intent integration end-to-end and declared it safe/stable — additive context only (codebase-intel context-packet analogue), prepare by lineage, context not proof; intent:go deferred. See [`task-context-report-intent-integration-safety-review.md`](./task-context-report-intent-integration-safety-review.md).
+
 > **First retrieval consumer intent-integration implemented (slice 171):** the embeddings track (classic Track B) wired task-shaped context into the intent spine — explicit opt-in `--task-context latest|<ref>` on assess / plan review (mirroring codebase-intel context packets as planning context), additive only (readiness / status decided first), prepare by lineage, context not proof. See [`task-context-report-intent-integration-implementation.md`](./task-context-report-intent-integration-implementation.md).
 
 > **First retrieval consumer intent-integration decided (slice 170):** the embeddings track (classic Track B) decided how task-shaped context feeds the intent spine — explicit, opt-in consumption by assess / plan review (mirroring codebase-intel context packets as planning context), prepare by lineage only, context not proof. See [`task-context-report-intent-integration-decision.md`](./task-context-report-intent-integration-decision.md).

@@ -1,5 +1,10 @@
 # TaskContextReport Selection Quality Fix
 
+> **Safety-reviewed (slice 172):** the slice-171 intent integration was reviewed
+> end-to-end and declared safe/stable — additive context only (never proof/approval),
+> prepare by lineage; intent:go deferred. See
+> [`task-context-report-intent-integration-safety-review.md`](./task-context-report-intent-integration-safety-review.md).
+
 > **Implemented (slice 171):** `rekon intent assess` and `rekon intent plan review`
 > now accept opt-in `--task-context latest|<ref>` — additive context only (readiness /
 > status decided first; never proof, never approval). See

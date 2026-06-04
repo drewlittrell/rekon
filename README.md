@@ -1,5 +1,7 @@
 # Rekon
 
+> **Task-context intent integration safety-reviewed (slice 172):** the slice-171 opt-in TaskContextReport consumption by `rekon intent assess` and `rekon intent plan review` was reviewed end-to-end and declared safe/stable — additive context only (readiness / status / findings unchanged; never proof, never approval), prepare by lineage; intent:go deferred. See [`task-context-report-intent-integration-safety-review.md`](docs/strategy/task-context-report-intent-integration-safety-review.md).
+
 > **Task context wired into intent (slice 171):** `rekon intent assess` and `rekon intent plan review` now accept opt-in `--task-context latest|<ref>` — used TaskContextReports enrich assessment `matchedContext` and plan-review `revisionPrompt` as additive context (readiness / status decided first; never proof, never approval; prepare by lineage only; intent:go deferred). See [`task-context-report-intent-integration-implementation.md`](docs/strategy/task-context-report-intent-integration-implementation.md).
 
 > **LLM-semantic parity decided (slice 143):** an audit of the old codebase-intel system separated Track A (finish LLM-backed semantic parsing — the one real non-embedding gap is per-file semantic file understanding) from Track B (embeddings, deferred). Semantic output stays proposal-not-proof; no approval/execution/source-writes/Circe. See [`classic-llm-semantic-parsing-parity-decision.md`](docs/strategy/classic-llm-semantic-parsing-parity-decision.md).
@@ -376,6 +378,28 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # update-in-place handle. Forked PRs remain denied by default;
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
+#
+# TaskContextReport Intent Integration Safety Review is complete.
+# One-hundred-seventy-second slice on the embeddings track.
+# Strategy / safety-review batch; no runtime behavior change, no source change, no new
+# artifact, no CLI command. Reviewed the slice-171 opt-in TaskContextReport consumption
+# by rekon intent assess and rekon intent plan review end-to-end against the shipped
+# source (task-context.ts, both intent builders, prepared-intent-plan.ts, the CLI).
+# Verdict: safe/stable -- the additive boundary holds. TaskContextReport is
+# proposal/context, not proof; consumption is explicit, not automatic; it must not
+# approve plans, satisfy proof gates by itself, replace deterministic evidence
+# artifacts, or suppress deterministic blockers; IntentAssessmentReport readiness
+# remains governed by existing readiness gates; IntentPlanActionabilityReport status
+# remains governed by plan actionability, not task context alone; enrichment is additive
+# after readiness/status decisions; verification hints remain hints, not executed
+# commands; do-not-touch zones are constraints/context, not enforcement;
+# retrieval-low-signal remains a warning, not an approval blocker; missing explicit
+# task-context refs fail cleanly; stale or irrelevant task context is not consumed
+# silently; PreparedIntentPlan receives TaskContextReport only by lineage, not direct
+# proof; intent prepare has no direct task-context flag; TaskContextReport creates no
+# PreparedIntentPlan / WorkOrder / VerificationPlan, executes no commands, writes no
+# source files, and runs no Circe; intent:go remains deferred. Adds a 31-assertion docs
+# test. Next: TaskContextReport Intent Dogfood.
 #
 # TaskContextReport Intent Integration Implementation is complete.
 # One-hundred-seventy-first slice on the embeddings track.

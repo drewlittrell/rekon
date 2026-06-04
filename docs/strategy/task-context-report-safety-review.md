@@ -1,5 +1,11 @@
 # TaskContextReport Safety Review
 
+> **Intent integration safety-reviewed (slice 172):** the slice-171 opt-in consumption
+> by `rekon intent assess` / `rekon intent plan review` was reviewed end-to-end and
+> declared safe/stable — additive context only (never proof/approval), prepare by
+> lineage; intent:go deferred. See
+> [`task-context-report-intent-integration-safety-review.md`](./task-context-report-intent-integration-safety-review.md).
+
 > **Intent integration decided (slice 170):** TaskContextReport will be explicit,
 > opt-in context for `rekon intent assess` and `rekon intent plan review` (prepare by
 > lineage only); context, not proof. See

@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Intent Integration Safety Review** — one-hundred-seventy-second slice on the embeddings
+  track. Strategy / safety-review batch (no runtime behavior change, no source change, no new artifact or CLI command).
+  Reviewed the slice-171 opt-in TaskContextReport consumption by `rekon intent assess` and `rekon intent plan review`
+  end-to-end against the shipped source (`task-context.ts`, both intent builders, `prepared-intent-plan.ts`, the CLI).
+  Verdict: safe/stable — the additive boundary holds. TaskContextReport is proposal/context, not proof; consumption is
+  explicit, not automatic; it must not approve plans, satisfy proof gates by itself, replace deterministic evidence
+  artifacts, or suppress deterministic blockers; IntentAssessmentReport readiness remains governed by existing readiness
+  gates; IntentPlanActionabilityReport status remains governed by plan actionability, not task context alone;
+  TaskContextReport enrichment is additive after readiness/status decisions; verification hints remain hints, not
+  executed commands; do-not-touch zones are constraints/context, not enforcement; retrieval-low-signal remains a warning,
+  not an approval blocker; missing explicit task-context refs fail cleanly; stale or irrelevant task context is not
+  consumed silently; PreparedIntentPlan receives TaskContextReport only by lineage, not direct proof; intent prepare has
+  no direct task-context flag; TaskContextReport creates no PreparedIntentPlan / WorkOrder / VerificationPlan, executes
+  no commands, writes no source files, and runs no Circe; intent:go remains deferred. Adds a 31-assertion docs test. Next:
+  TaskContextReport Intent Dogfood. See
+  [`task-context-report-intent-integration-safety-review.md`](docs/strategy/task-context-report-intent-integration-safety-review.md).
 - Shipped **TaskContextReport Intent Integration Implementation** — one-hundred-seventy-first slice on the embeddings
   track. Product capability batch implementing the slice-170 decision (Option B). Adds an optional, opt-in
   `--task-context latest|<ref>` (`--task-context-ref <TaskContextReport:id>`) to `rekon intent assess` and `rekon intent
