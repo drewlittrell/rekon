@@ -222,6 +222,25 @@ export {
 } from "./capability-evidence-graph.js";
 
 export {
+  type EmbeddingChunkKind,
+  type EmbeddingChunkRef,
+  type EmbeddingIndexRecord,
+  type EmbeddingGraphRefLite,
+  type EmbeddingSimilarityForGraph,
+  type EvidenceGraphForChunks,
+  type BuildEmbeddingChunksInput,
+  type EmbeddingChunkReason,
+  type ClassifyEmbeddingChunksResult,
+  EMBEDDING_POLICY_VERSION,
+  embeddingChunkGraphRef,
+  buildEmbeddingChunks,
+  computeEmbeddingIndexKey,
+  embeddingVectorRef,
+  classifyEmbeddingChunks,
+  cosineSimilarity,
+} from "./embedding-index.js";
+
+export {
   type SemanticFileUnderstandingReportLike,
   type SemanticFileContextReport,
   type SemanticFileContextStaleReason,

@@ -1,5 +1,11 @@
 # Capability Evidence Graph Safety Review
 
+> **Embeddings now contribute (slice 159):** the graph gained an
+> `embedding_similarity` evidence source via [Embedding Provider / Index v1](./embedding-provider-index-v1.md).
+> The boundary holds — the builder generates no embeddings (`generatedEmbeddings`
+> / `usedLlm` stay false), reads cached vectors only, and embedding claims are
+> clamped strictly below the deterministic `1.0` confidence.
+
 Status: reviewed (slice 154). Base `d7a3d27`. Strategy / safety-review batch; no
 runtime behavior changes, no source changes. Reviews the Capability Evidence
 Graph v1 implementation shipped in slice 153 end-to-end.

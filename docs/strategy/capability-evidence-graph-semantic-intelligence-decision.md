@@ -1,5 +1,11 @@
 # Capability Evidence Graph / Semantic Intelligence Architecture Decision
 
+> **Embeddings evidence source shipped (slice 159):** embedding similarity is
+> now a real evidence source via [Embedding Provider / Index v1](./embedding-provider-index-v1.md)
+> (Voyage first). Embedding similarity is proposal/context, not proof; the graph
+> remains the evidence substrate; deterministic facts remain stronger than
+> embedding similarity.
+
 Status: decided (slice 152). Base `bc5fb92`. Strategy/architecture decision-only
 batch; no runtime behavior changes, no source. Supersedes a narrow "Embeddings
 Parity Audit / Embedding Index Decision" as the immediate next step.

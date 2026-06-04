@@ -19,6 +19,7 @@ import {
 } from "@rekon/kernel-repo-model";
 
 import type { SemanticFileUnderstandingReportLike } from "./semantic-file-context.js";
+import type { EmbeddingSimilarityForGraph } from "./embedding-index.js";
 
 export const CAPABILITY_EVIDENCE_GRAPH_ARTIFACT_ID_PREFIX = "capability-evidence-graph-";
 
@@ -50,6 +51,14 @@ export type BuildCapabilityEvidenceGraphInput = {
    * silently. Omitting this field keeps the build deterministic-only.
    */
   semanticFileUnderstandingReports?: SemanticReportForGraph[];
+  /**
+   * Optional pre-computed embedding nearest-neighbor results to fold in as
+   * `embedding_similarity` evidence and `embedding` / `inference` claims. The
+   * CLI computes these from the `.rekon/cache/embeddings` index (the builder
+   * never generates embeddings, so `generatedEmbeddings` / `usedLlm` stay
+   * false). Similarity is proposal/context; deterministic facts remain stronger.
+   */
+  embeddingSimilarities?: EmbeddingSimilarityForGraph[];
 };
 
 // Confidence mapping for semantic capability signals (slice 155 decision):
@@ -60,6 +69,14 @@ export type BuildCapabilityEvidenceGraphInput = {
 const SEMANTIC_CONFIDENCE_BY_ENUM: Record<string, number> = { low: 0.25, medium: 0.5, high: 0.75 };
 const SEMANTIC_DEFAULT_CONFIDENCE = 0.5;
 const SEMANTIC_LOW_CONFIDENCE = 0.25;
+
+// Embedding similarity pass (slice 159). A neighbor at or above this cosine
+// score is surfaced as a `duplicate_candidate` PROPOSAL (never an authoritative
+// merge); anything below is a `similar_to` proposal. Embedding confidence is
+// always clamped strictly below 1.0 — 1.0 is reserved for deterministic facts —
+// so similarity can never outrank a deterministic claim.
+const EMBEDDING_DUPLICATE_THRESHOLD = 0.95;
+const EMBEDDING_MAX_CONFIDENCE = 0.99;
 
 function confidenceFromEnum(value: unknown): number {
   if (typeof value === "string" && value in SEMANTIC_CONFIDENCE_BY_ENUM) {
@@ -649,6 +666,70 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
       });
     });
   }
+
+  // Embedding similarity pass (slice 159). Pre-computed nearest-neighbor results
+  // from the `.rekon/cache/embeddings` index are folded in as
+  // `embedding_similarity` EVIDENCE rows and `embedding` / `inference` CLAIMS.
+  // The builder NEVER generates embeddings — the CLI supplies these from cached
+  // vectors — so the `generatedEmbeddings` / `usedLlm` boundaries stay false.
+  // Similarity is proposal/context: every claim is status `accepted` but its
+  // confidence is clamped strictly below 1.0 (reserved for deterministic facts),
+  // a high score becomes a `duplicate_candidate` proposal (never a merge), and
+  // the refs are NOT added to the deterministic node set — embeddings overlay
+  // claims on top of the substrate, they do not extend it.
+  const embeddingSimilarities = Array.isArray(input.embeddingSimilarities) ? input.embeddingSimilarities : [];
+  embeddingSimilarities.forEach((similarity, simIndex) => {
+    if (!similarity || typeof similarity !== "object") return;
+    const source = similarity.source;
+    if (!source || typeof source !== "object") return;
+    const sourceRef = source.ref;
+    if (!sourceRef || typeof sourceRef !== "object" || typeof sourceRef.id !== "string" || sourceRef.id.length === 0) return;
+    const neighbors = Array.isArray(similarity.neighbors) ? similarity.neighbors : [];
+    if (neighbors.length === 0) return;
+    const subjectRef: CapabilityGraphRef = { kind: sourceRef.kind, id: sourceRef.id };
+    const sourceChunkId =
+      typeof source.chunkId === "string" && source.chunkId.length > 0 ? source.chunkId : `source-${simIndex}`;
+    const provider = typeof similarity.provider === "string" && similarity.provider.length > 0 ? similarity.provider : "unknown";
+    const model = typeof similarity.model === "string" && similarity.model.length > 0 ? similarity.model : "unknown";
+    const neighborSummary = neighbors
+      .slice(0, 5)
+      .map((neighbor) => {
+        const id = neighbor && typeof neighbor.ref?.id === "string" ? neighbor.ref.id : "?";
+        const score = neighbor && typeof neighbor.score === "number" && Number.isFinite(neighbor.score) ? neighbor.score.toFixed(3) : "?";
+        return `${id}~${score}`;
+      })
+      .join(", ");
+    const evidenceId = `embed-ev:${simIndex}:${sourceChunkId}`.replace(/[^A-Za-z0-9_.:-]+/g, "-");
+    const embeddingEvidence: CapabilityEvidenceRef = {
+      id: evidenceId,
+      source: "embedding_similarity",
+      excerpt: truncate(`embedding ${provider}/${model} neighbors for ${sourceChunkId}: ${neighborSummary}`, 300),
+    };
+    if (typeof source.path === "string" && source.path.length > 0) embeddingEvidence.path = source.path;
+    evidence.push(embeddingEvidence);
+    neighbors.forEach((neighbor, neighborIndex) => {
+      if (!neighbor || typeof neighbor !== "object") return;
+      const neighborRef = neighbor.ref;
+      if (!neighborRef || typeof neighborRef !== "object" || typeof neighborRef.id !== "string" || neighborRef.id.length === 0) return;
+      const rawScore = typeof neighbor.score === "number" && Number.isFinite(neighbor.score) ? neighbor.score : 0;
+      const confidence = Math.min(Math.max(rawScore, 0), EMBEDDING_MAX_CONFIDENCE);
+      const objectRef: CapabilityGraphRef = { kind: neighborRef.kind, id: neighborRef.id };
+      const predicate = rawScore >= EMBEDDING_DUPLICATE_THRESHOLD ? "duplicate_candidate" : "similar_to";
+      const neighborChunkId =
+        typeof neighbor.chunkId === "string" && neighbor.chunkId.length > 0 ? neighbor.chunkId : `n-${neighborIndex}`;
+      claims.push({
+        id: `claim:embedding:${predicate}:${simIndex}:${sourceChunkId}:${neighborChunkId}`.replace(/[^A-Za-z0-9_.:-]+/g, "-"),
+        subject: subjectRef,
+        predicate,
+        object: objectRef,
+        claimType: "inference",
+        source: "embedding",
+        confidence,
+        evidenceRefs: [evidenceId],
+        status: "accepted",
+      });
+    });
+  });
 
   const capabilities = [...capabilitiesById.values()];
   const fileCount = nodes.filter((node) => node.kind === "file").length;

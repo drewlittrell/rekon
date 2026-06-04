@@ -1,5 +1,11 @@
 # Embedding Provider / Index Decision
 
+> **Shipped (slice 159):** this decision is now implemented — see
+> [Embedding Provider / Index v1](./embedding-provider-index-v1.md) and the
+> [concept](../concepts/embedding-provider-index.md). Voyage is the first real
+> embedding provider; embeddings enter `CapabilityEvidenceGraph` as
+> `embedding_similarity` evidence; raw vectors are cache/index data, not proof.
+
 Status: decided (slice 158). Base `5cca5d5`. Strategy / architecture
 decision-only batch; no runtime behavior changes, no source changes, no
 embedding implementation. Starts Rekon's embeddings track as the next evidence

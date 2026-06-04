@@ -155,8 +155,27 @@ import modelCapability, {
   buildCapabilityEvidenceGraph,
   selectSemanticReportsForGraph,
   type SemanticReportForGraph,
+  buildEmbeddingChunks,
+  classifyEmbeddingChunks,
+  computeEmbeddingIndexKey,
+  embeddingVectorRef,
+  embeddingChunkGraphRef,
+  cosineSimilarity,
+  EMBEDDING_POLICY_VERSION,
+  type EmbeddingChunkRef,
+  type EmbeddingIndexRecord,
+  type EmbeddingSimilarityForGraph,
+  type EvidenceGraphForChunks,
 } from "@rekon/capability-model";
-import { RekonLlmRouter, coercePhaseDrafts, createOpenAiLlmProvider } from "@rekon/llm-provider";
+import {
+  RekonLlmRouter,
+  coercePhaseDrafts,
+  createOpenAiLlmProvider,
+  createVoyageEmbeddingProvider,
+  VOYAGE_DEFAULT_MODEL,
+  VOYAGE_DEFAULT_DIMENSIONS,
+  type RekonEmbeddingProvider,
+} from "@rekon/llm-provider";
 import policyCapability from "@rekon/capability-policy";
 import reconcileCapability, {
   buildReconciliationPreview,
@@ -283,6 +302,18 @@ const ISSUE_MERGE_DECISION_REASONS = new Set<string>([
   "false-positive-candidate",
   "other",
 ]);
+
+// Embedding Provider / Index v1 (slice 159). Top-of-module (like
+// ISSUE_MERGE_DECISION_REASONS above) to avoid a TDZ when `embeddings query`
+// reads `MOCK_EMBEDDING_DIMENSIONS` in its synchronous flag-parsing prefix
+// (before its first await), since main() is invoked during module evaluation.
+// GRAPH_EMBEDDING_* bound the per-source neighbor claims folded into
+// `capability graph build --embedding-similarity latest` (proposal/context,
+// never proof); MOCK_EMBEDDING_DIMENSIONS is the offline `mock` provider's
+// default width (real `voyage` uses VOYAGE_DEFAULT_DIMENSIONS).
+const GRAPH_EMBEDDING_NEIGHBOR_TOP_K = 5;
+const GRAPH_EMBEDDING_NEIGHBOR_FLOOR = 0.5;
+const MOCK_EMBEDDING_DIMENSIONS = 64;
 
 if (isMainEntry()) {
   main(process.argv.slice(2)).catch((error: unknown) => {
@@ -1201,14 +1232,44 @@ export async function main(argv: string[]): Promise<void> {
       semanticSelection = selectSemanticReportsForGraph({ reports: candidates, files });
     }
 
+    // Optional, explicit embedding-similarity integration (slice 159). With no
+    // `--embedding-similarity` flag the build folds in NO similarity and calls
+    // NO provider (identical to the deterministic/semantic build). `latest`
+    // reads the `.rekon/cache/embeddings` cache (populated by `rekon embeddings
+    // index`) and folds nearest-neighbor results in as `embedding_similarity`
+    // evidence and `embedding` / `inference` claims — proposal/context, never
+    // facts. The build generates NO embeddings (it reads cached vectors), so the
+    // graph's `generatedEmbeddings` boundary stays false. A stale cache is
+    // re-indexed by `embeddings index`; the graph never embeds and never uses a
+    // stale embedding silently.
+    const embeddingSimilarityMode = String(parsed.flags["embedding-similarity"] ?? "").trim();
+    const wantEmbeddingSimilarity = embeddingSimilarityMode === "latest";
+    let embeddingSimilarities: EmbeddingSimilarityForGraph[] = [];
+    if (wantEmbeddingSimilarity) {
+      const cacheDir = embeddingCacheDir(root);
+      const records = await readEmbeddingIndexRecords(cacheDir);
+      embeddingSimilarities = await computeEmbeddingSimilaritiesFromCache(cacheDir, records, {
+        topK: GRAPH_EMBEDDING_NEIGHBOR_TOP_K,
+        floor: GRAPH_EMBEDDING_NEIGHBOR_FLOOR,
+      });
+    }
+
     const generatedAt = new Date().toISOString();
     const graph = buildCapabilityEvidenceGraph({
       root,
       files,
       generatedAt,
       ...(wantSemantic ? { semanticFileUnderstandingReports: semanticReports } : {}),
+      ...(wantEmbeddingSimilarity ? { embeddingSimilarities } : {}),
     });
     const ref = await store.write(graph, { category: "graphs" });
+
+    const embeddingSummary = wantEmbeddingSimilarity
+      ? {
+          sources: embeddingSimilarities.length,
+          pairs: embeddingSimilarities.reduce((total, similarity) => total + similarity.neighbors.length, 0),
+        }
+      : undefined;
 
     const semanticSummary = semanticSelection
       ? {
@@ -1228,6 +1289,7 @@ export async function main(argv: string[]): Promise<void> {
           summary: graph.summary,
           boundaries: graph.boundaries,
           ...(semanticSummary ? { semanticFileReports: semanticSummary } : {}),
+          ...(embeddingSummary ? { embeddingSimilarity: embeddingSummary } : {}),
         },
         true,
       );
@@ -1252,12 +1314,323 @@ export async function main(argv: string[]): Promise<void> {
         );
         for (const warning of semanticSummary.warnings) lines.push(`  warning: ${warning}`);
       }
+      if (embeddingSummary) {
+        lines.push(
+          `Embedding similarity: ${embeddingSummary.sources} source(s), `
+          + `${embeddingSummary.pairs} neighbor claim(s) from cache — proposal/context, not facts. `
+          + "No embeddings generated (read cache).",
+        );
+      }
       lines.push(
         `Status: ${graph.status.value}`
         + (graph.status.reason ? ` — ${graph.status.reason}` : "")
         + ".",
       );
       lines.push(`Artifact: ${ref.type}:${ref.id}`);
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "embeddings" && subcommand === "index") {
+    // `rekon embeddings index [--all] [--path <p>] [--provider voyage|mock]
+    //  [--model <m>] [--dimensions <n>] [--root <path>] [--json]` — Embedding
+    // Provider / Index v1 (slice 159). Reads the latest CapabilityEvidenceGraph
+    // (+ optional latest SemanticFileUnderstandingReport summaries), builds
+    // DERIVED embedding chunks (summaries / signatures / feature bags — never raw
+    // whole-file source), classifies them against the `.rekon/cache/embeddings`
+    // cache, and calls the embedding provider ONLY for new / stale /
+    // policy-changed chunks. Raw vectors are written under
+    // `.rekon/cache/embeddings/vectors/` — cache/index data, NOT canonical proof
+    // artifacts. A stale embedding is reclassified and re-embedded, NEVER used
+    // silently. Writes NO source files, executes NO commands, creates NO
+    // PreparedIntentPlan / WorkOrder / VerificationPlan, runs NO Circe. The API
+    // key is read from VOYAGE_API_KEY (env only); a missing key fails cleanly
+    // (ok:false) with no false success.
+    const store = createLocalArtifactStore(root);
+    await store.init();
+
+    const providerId =
+      typeof parsed.flags.provider === "string" && parsed.flags.provider.trim().length > 0
+        ? parsed.flags.provider.trim()
+        : "voyage";
+    const model =
+      typeof parsed.flags.model === "string" && parsed.flags.model.trim().length > 0
+        ? parsed.flags.model.trim()
+        : providerId === "mock"
+          ? "mock-embedding"
+          : VOYAGE_DEFAULT_MODEL;
+    const dimsFlag = Number.parseInt(String(parsed.flags.dimensions ?? ""), 10);
+    const dimensions =
+      Number.isFinite(dimsFlag) && dimsFlag > 0
+        ? dimsFlag
+        : providerId === "mock"
+          ? MOCK_EMBEDDING_DIMENSIONS
+          : VOYAGE_DEFAULT_DIMENSIONS;
+    const forceAll = Boolean(parsed.flags.all);
+
+    const graphEntries = await store.list("CapabilityEvidenceGraph");
+    if (graphEntries.length === 0) {
+      throw new Error(
+        "rekon embeddings index: no CapabilityEvidenceGraph found. Run `rekon capability graph build` first.",
+      );
+    }
+    const latestGraphEntry = graphEntries[graphEntries.length - 1];
+    if (!latestGraphEntry) {
+      throw new Error("rekon embeddings index: no CapabilityEvidenceGraph found.");
+    }
+    const graph = (await store.read(latestGraphEntry)) as EvidenceGraphForChunks;
+
+    // Optional DERIVED file summaries from stored SemanticFileUnderstandingReports
+    // (a summary is a derived description, never raw source). Absent => the chunk
+    // builder uses deterministic summaries.
+    const fileSummaries: Record<string, string> = {};
+    const semEntries = await store.list("SemanticFileUnderstandingReport").catch(() => []);
+    for (const entry of semEntries) {
+      const report = (await store.read(entry)) as {
+        file?: { path?: string };
+        semantic?: { summary?: string };
+        understanding?: { summary?: string };
+      };
+      const reportPath =
+        typeof report.file?.path === "string" ? report.file.path.replace(/\\/g, "/").replace(/^\.\//, "") : "";
+      const summary =
+        typeof report.semantic?.summary === "string"
+          ? report.semantic.summary
+          : typeof report.understanding?.summary === "string"
+            ? report.understanding.summary
+            : "";
+      if (reportPath.length > 0 && summary.trim().length > 0 && !fileSummaries[reportPath]) {
+        fileSummaries[reportPath] = summary.trim();
+      }
+    }
+
+    const allChunks = buildEmbeddingChunks({ graph, fileSummaries });
+    const pathScope = parseRepeatableFlag(parsed.flags.path).map((value) =>
+      String(value).replace(/\\/g, "/").replace(/^\.\//, ""),
+    );
+    const chunks: EmbeddingChunkRef[] =
+      pathScope.length > 0
+        ? allChunks.filter((chunk) =>
+            pathScope.some((scope) => chunk.path === scope || chunk.path.startsWith(scope.endsWith("/") ? scope : `${scope}/`)),
+          )
+        : allChunks;
+
+    const cacheDir = embeddingCacheDir(root);
+    const existing = await readEmbeddingIndexRecords(cacheDir);
+    const classification = classifyEmbeddingChunks({
+      chunks,
+      existing,
+      provider: providerId,
+      model,
+      dimensions,
+      policyVersion: EMBEDDING_POLICY_VERSION,
+    });
+    const toEmbed = forceAll ? chunks.map((chunk) => ({ chunk, reason: "new" as const })) : classification.toEmbed;
+    const reused = forceAll ? [] : classification.reused;
+    const staleCount = toEmbed.filter((entry) => entry.reason !== "new").length;
+
+    const generatedAt = new Date().toISOString();
+    const indexedRecords: EmbeddingIndexRecord[] = [];
+    let failed = 0;
+    let providerError: string | undefined;
+    if (toEmbed.length > 0) {
+      const provider = resolveEmbeddingProvider({ providerId, model, dimensions });
+      const result = await provider.embed({ task: "code.embedding", texts: toEmbed.map((entry) => entry.chunk.text), model });
+      if (!result.ok) {
+        failed = toEmbed.length;
+        providerError = result.error;
+      } else if (result.vectors.length !== toEmbed.length) {
+        failed = toEmbed.length;
+        providerError = "embedding-count-mismatch";
+      } else {
+        await mkdir(join(cacheDir, "vectors"), { recursive: true });
+        for (let i = 0; i < toEmbed.length; i += 1) {
+          const entry = toEmbed[i];
+          const vector = result.vectors[i];
+          if (!entry || !vector) continue;
+          const indexKey = computeEmbeddingIndexKey(entry.chunk, {
+            provider: providerId,
+            model,
+            dimensions,
+            policyVersion: EMBEDDING_POLICY_VERSION,
+          });
+          const vectorRef = embeddingVectorRef(indexKey);
+          const vectorJson = JSON.stringify(vector);
+          const vectorSha256 = createHash("sha256").update(vectorJson).digest("hex");
+          await writeFile(join(cacheDir, vectorRef), vectorJson, "utf8");
+          indexedRecords.push({
+            chunk: entry.chunk,
+            provider: providerId,
+            model,
+            dimensions,
+            policyVersion: EMBEDDING_POLICY_VERSION,
+            vectorRef,
+            vectorSha256,
+            createdAt: generatedAt,
+          });
+        }
+      }
+    }
+
+    // Merge: reused records + existing records outside the scoped set + newly
+    // indexed (new wins by chunk id). On provider failure nothing new is written;
+    // the cache keeps prior records (no partial write, no false success).
+    const mergedById = new Map<string, EmbeddingIndexRecord>();
+    for (const record of reused) mergedById.set(record.chunk.id, record);
+    const scopedIds = new Set(chunks.map((chunk) => chunk.id));
+    for (const record of existing) {
+      if (!scopedIds.has(record.chunk.id)) mergedById.set(record.chunk.id, record);
+    }
+    for (const record of indexedRecords) mergedById.set(record.chunk.id, record);
+    const merged = [...mergedById.values()].sort((a, b) => a.chunk.id.localeCompare(b.chunk.id));
+
+    if (indexedRecords.length > 0 || existing.length > 0) {
+      await mkdir(cacheDir, { recursive: true });
+      await writeFile(
+        join(cacheDir, "index.json"),
+        `${JSON.stringify({ version: EMBEDDING_POLICY_VERSION, provider: providerId, model, dimensions, records: merged }, null, 2)}\n`,
+        "utf8",
+      );
+    }
+
+    if (failed > 0) process.exitCode = 1;
+    const summary = {
+      provider: providerId,
+      model,
+      dimensions,
+      chunks: chunks.length,
+      indexed: indexedRecords.length,
+      reused: reused.length,
+      stale: staleCount,
+      failed,
+      cached: merged.length,
+    };
+
+    if (json) {
+      writeOutput(
+        {
+          status: failed > 0 ? "failed" : "indexed",
+          ...(providerError ? { error: providerError } : {}),
+          summary,
+          cache: ".rekon/cache/embeddings",
+          boundaries: {
+            executedCommands: false,
+            wroteSourceFiles: false,
+            createdPreparedIntentPlan: false,
+            createdWorkOrder: false,
+            createdVerificationPlan: false,
+            ranCirce: false,
+            rawVectorsAreProof: false,
+          },
+          note: "raw vectors are cache/index data, not canonical proof artifacts",
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push(`Embeddings index (${providerId}/${model}, ${dimensions}-dim): ${chunks.length} chunk(s).`);
+      lines.push(`Indexed: ${indexedRecords.length}. Reused: ${reused.length}. Stale: ${staleCount}. Failed: ${failed}.`);
+      if (providerError) {
+        lines.push(`Provider ${providerId} returned no embeddings (${providerError}) — nothing falsely indexed.`);
+      }
+      lines.push(
+        "Raw vectors are cache/index data under .rekon/cache/embeddings — not proof. No source writes, no commands.",
+      );
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "embeddings" && subcommand === "query") {
+    // `rekon embeddings query --text "<query>" [--top-k <n>] [--provider
+    //  voyage|mock] [--model <m>] [--dimensions <n>] [--root <path>] [--json]` —
+    // retrieval over the `.rekon/cache/embeddings` cache. Embeds the query, ranks
+    // cached chunks by cosine similarity, and returns the nearest as
+    // PROPOSAL / CONTEXT — never proof, never an authoritative answer.
+    // Deterministic facts remain stronger than embedding similarity. Reads cache
+    // only; writes nothing. A missing key fails cleanly (ok:false).
+    const text = typeof parsed.flags.text === "string" ? parsed.flags.text : String(parsed.flags.text ?? "");
+    if (text.trim().length === 0) {
+      throw new Error("rekon embeddings query requires --text <query>.");
+    }
+    const providerId =
+      typeof parsed.flags.provider === "string" && parsed.flags.provider.trim().length > 0
+        ? parsed.flags.provider.trim()
+        : "voyage";
+    const model =
+      typeof parsed.flags.model === "string" && parsed.flags.model.trim().length > 0
+        ? parsed.flags.model.trim()
+        : providerId === "mock"
+          ? "mock-embedding"
+          : VOYAGE_DEFAULT_MODEL;
+    const dimsFlag = Number.parseInt(String(parsed.flags.dimensions ?? ""), 10);
+    const dimensions =
+      Number.isFinite(dimsFlag) && dimsFlag > 0
+        ? dimsFlag
+        : providerId === "mock"
+          ? MOCK_EMBEDDING_DIMENSIONS
+          : VOYAGE_DEFAULT_DIMENSIONS;
+    const topKFlag = Number.parseInt(String(parsed.flags["top-k"] ?? ""), 10);
+    const topK = Number.isFinite(topKFlag) && topKFlag > 0 ? topKFlag : 10;
+
+    const cacheDir = embeddingCacheDir(root);
+    const records = await readEmbeddingIndexRecords(cacheDir);
+    if (records.length === 0) {
+      if (json) {
+        writeOutput({ status: "empty", matches: [], note: "no embeddings indexed; run `rekon embeddings index`" }, true);
+      } else {
+        writeOutput("No embeddings indexed. Run `rekon embeddings index` first.", false);
+      }
+      return;
+    }
+
+    const provider = resolveEmbeddingProvider({ providerId, model, dimensions });
+    const result = await provider.embed({ task: "artifact.retrieval", texts: [text], model });
+    const queryVector = result.ok ? result.vectors[0] : undefined;
+    if (!result.ok || !queryVector) {
+      process.exitCode = 1;
+      const error = result.ok ? "no-embeddings" : result.error;
+      if (json) {
+        writeOutput({ status: "failed", error, matches: [] }, true);
+      } else {
+        writeOutput(`Embedding provider ${providerId} returned no embedding (${error}). No retrieval performed.`, false);
+      }
+      return;
+    }
+
+    const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
+    for (const record of records) {
+      const vector = await readEmbeddingVector(cacheDir, record.vectorRef);
+      if (!vector) continue;
+      scored.push({ record, score: cosineSimilarity(queryVector, vector) });
+    }
+    scored.sort((a, b) => b.score - a.score || a.record.chunk.id.localeCompare(b.record.chunk.id));
+    const matches = scored.slice(0, topK).map((entry) => ({
+      chunkId: entry.record.chunk.id,
+      kind: entry.record.chunk.kind,
+      path: entry.record.chunk.path,
+      score: Number(entry.score.toFixed(6)),
+    }));
+
+    if (json) {
+      writeOutput(
+        {
+          status: "ok",
+          provider: providerId,
+          model,
+          query: text,
+          topK,
+          matches,
+          note: "embedding similarity is proposal/context, not proof",
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push(`Embedding query (${providerId}/${model}): top ${matches.length} of ${records.length} cached chunk(s).`);
+      for (const match of matches) lines.push(`  ${match.score.toFixed(3)}  ${match.kind}  ${match.path}  (${match.chunkId})`);
+      lines.push("Proposal / context, not proof. Deterministic facts remain stronger than embedding similarity.");
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -8244,6 +8617,166 @@ async function collectCapabilityGraphCandidates(root: string, startDir?: string)
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Embedding Provider / Index v1 (slice 159) — cache I/O + provider resolution.
+//
+// The cache lives under `.rekon/cache/embeddings` (gitignored): `index.json`
+// holds EmbeddingIndexRecord metadata; `vectors/<hash>.json` holds each raw
+// vector. Raw vectors are cache/index data, NOT canonical proof artifacts. The
+// CLI owns all fs + provider calls; the model package stays pure.
+// ---------------------------------------------------------------------------
+
+/** The embeddings cache directory (gitignored): `<root>/.rekon/cache/embeddings`. */
+function embeddingCacheDir(root: string): string {
+  return join(root, ".rekon", "cache", "embeddings");
+}
+
+/** Read the embedding `index.json`; returns [] when absent or unreadable. */
+async function readEmbeddingIndexRecords(cacheDir: string): Promise<EmbeddingIndexRecord[]> {
+  let raw: string;
+  try {
+    raw = await readFile(join(cacheDir, "index.json"), "utf8");
+  } catch {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const records = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === "object" && Array.isArray((parsed as { records?: unknown }).records)
+        ? (parsed as { records: unknown[] }).records
+        : [];
+    return records.filter(
+      (record): record is EmbeddingIndexRecord =>
+        Boolean(record)
+        && typeof record === "object"
+        && typeof (record as EmbeddingIndexRecord).vectorRef === "string"
+        && Boolean((record as EmbeddingIndexRecord).chunk)
+        && typeof (record as EmbeddingIndexRecord).chunk?.id === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Read one cached vector (`vectors/<hash>.json`); null when absent/invalid. Rejects path traversal. */
+async function readEmbeddingVector(cacheDir: string, vectorRef: string): Promise<number[] | null> {
+  if (typeof vectorRef !== "string" || vectorRef.length === 0 || vectorRef.includes("..") || isAbsolute(vectorRef)) {
+    return null;
+  }
+  let raw: string;
+  try {
+    raw = await readFile(join(cacheDir, vectorRef), "utf8");
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.every((value) => typeof value === "number")) return parsed as number[];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deterministic, offline embedding for the `mock` provider: hashes each token
+ * and sums byte-derived contributions into a fixed-width vector. Texts that
+ * share tokens get correlated vectors, so cosine similarity is meaningful in
+ * tests with NO network and NO API key.
+ */
+function deterministicMockEmbedding(text: string, dimensions: number): number[] {
+  const dims = Math.max(1, Math.min(dimensions, 256));
+  const vector = new Array<number>(dims).fill(0);
+  const tokens = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  for (const token of tokens) {
+    const digest = createHash("sha256").update(token).digest();
+    for (let i = 0; i < dims; i += 1) {
+      const byte = digest[i % digest.length] ?? 0;
+      vector[i] = (vector[i] ?? 0) + ((byte / 255) * 2 - 1);
+    }
+  }
+  return vector;
+}
+
+/**
+ * Resolve the embedding provider for a CLI command. `voyage` reads the API key
+ * from VOYAGE_API_KEY (env only, never repo config); a missing key returns a
+ * clean `ok:false` at `embed()` time — never throws, never a network call.
+ * `mock` is an offline deterministic provider for tests (no network, no key).
+ */
+function resolveEmbeddingProvider(input: {
+  providerId: string;
+  model: string;
+  dimensions: number;
+}): RekonEmbeddingProvider {
+  if (input.providerId === "mock") {
+    const { model, dimensions } = input;
+    return {
+      id: "mock",
+      async embed(embedInput) {
+        return {
+          ok: true,
+          provider: "mock",
+          model: embedInput.model ?? model,
+          vectors: embedInput.texts.map((text) => deterministicMockEmbedding(text, dimensions)),
+        };
+      },
+    };
+  }
+  return createVoyageEmbeddingProvider({
+    apiKey: process.env.VOYAGE_API_KEY ?? "",
+    defaultModel: input.model,
+    dimensions: input.dimensions,
+  });
+}
+
+/**
+ * Compute nearest-neighbor similarities for the graph builder from CACHED
+ * records only (reads cache; never calls a provider, so the graph's
+ * `generatedEmbeddings` boundary stays false). Each record becomes a source
+ * with up to `topK` neighbors at or above `floor`, in deterministic order.
+ */
+async function computeEmbeddingSimilaritiesFromCache(
+  cacheDir: string,
+  records: EmbeddingIndexRecord[],
+  options: { topK: number; floor: number },
+): Promise<EmbeddingSimilarityForGraph[]> {
+  const loaded: Array<{ record: EmbeddingIndexRecord; vector: number[] }> = [];
+  for (const record of records) {
+    const vector = await readEmbeddingVector(cacheDir, record.vectorRef);
+    if (vector && vector.length > 0) loaded.push({ record, vector });
+  }
+  loaded.sort((a, b) => a.record.chunk.id.localeCompare(b.record.chunk.id));
+  const out: EmbeddingSimilarityForGraph[] = [];
+  for (const source of loaded) {
+    const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
+    for (const candidate of loaded) {
+      if (candidate.record.chunk.id === source.record.chunk.id) continue;
+      const score = cosineSimilarity(source.vector, candidate.vector);
+      if (score >= options.floor) scored.push({ record: candidate.record, score });
+    }
+    scored.sort((a, b) => b.score - a.score || a.record.chunk.id.localeCompare(b.record.chunk.id));
+    const neighbors = scored.slice(0, options.topK).map((entry) => ({
+      chunkId: entry.record.chunk.id,
+      ref: embeddingChunkGraphRef(entry.record.chunk),
+      score: entry.score,
+    }));
+    if (neighbors.length === 0) continue;
+    out.push({
+      source: {
+        chunkId: source.record.chunk.id,
+        ref: embeddingChunkGraphRef(source.record.chunk),
+        ...(source.record.chunk.path ? { path: source.record.chunk.path } : {}),
+      },
+      neighbors,
+      provider: source.record.provider,
+      model: source.record.model,
+    });
+  }
+  return out;
+}
+
 /** First 16 hex of sha256(path) — keeps per-file batch artifact ids unique. */
 function semanticScanPathHashSegment(relPath: string): string {
   return createHash("sha256").update(relPath).digest("hex").slice(0, 16);
@@ -12410,7 +12943,9 @@ function usage(): string {
     "rekon capability lint architecture [--capability-contract <id|type:id>] [--capability-map <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint bridge-findings [--lint-report <id|type:id>] [--root <path>] [--json]",
     "rekon capability lint write-findings --bridge-report <id|type:id> (--dry-run | --confirm-finding-write) [--root <path>] [--json]",
-    "rekon capability graph build [--path <file-or-dir>] [--semantic-file-reports latest] [--semantic-file-report-ref <ref>] [--root <path>] [--json]",
+    "rekon capability graph build [--path <file-or-dir>] [--semantic-file-reports latest] [--semantic-file-report-ref <ref>] [--embedding-similarity latest] [--root <path>] [--json]",
+    "rekon embeddings index [--all] [--path <p>] [--provider voyage|mock] [--model <m>] [--dimensions <n>] [--root <path>] [--json]",
+    "rekon embeddings query --text <query> [--top-k <n>] [--provider voyage|mock] [--model <m>] [--dimensions <n>] [--root <path>] [--json]",
     "rekon artifacts list [--root <path>] [--type <type>] [--json]",
     "rekon artifacts show <id|type:id> [--root <path>] [--json]",
     "rekon artifacts validate [--root <path>] [--json]",

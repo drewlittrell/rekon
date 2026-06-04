@@ -375,6 +375,45 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# Embedding Provider / Index v1 has shipped.
+# One-hundred-fifty-ninth slice and the first product capability on
+# the embeddings track. Implements the first real Rekon embedding
+# provider plus a cache/index that folds nearest-neighbor similarity
+# into CapabilityEvidenceGraph as evidence, executing the slice-158
+# Option B decision (Voyage first). Added createVoyageEmbeddingProvider
+# to @rekon/llm-provider: a fetch-based, no-SDK voyage-code-3 / 1024-dim
+# adapter behind the existing RekonEmbeddingProvider surface; no key in
+# repo config; a missing key returns ok:false with missing-api-key and
+# makes no network call; never throws a raw provider error; tests inject
+# fetchImpl; live tests gated by VOYAGE_API_KEY +
+# REKON_RUN_LIVE_EMBEDDING_TESTS. Added a pure embedding-index module to
+# @rekon/capability-model: derived embedding chunks (file_summary,
+# structural_feature_bag, signature, capability_text -- never raw
+# whole-file source), a content identity (sha256 of derived text), a
+# deterministic index key + vector ref, and a new / stale /
+# policy-changed classifier so no stale embedding is used silently.
+# Extended buildCapabilityEvidenceGraph to accept optional
+# embeddingSimilarities and emit embedding_similarity evidence +
+# embedding / inference claims (similar_to / duplicate_candidate,
+# accepted, confidence the cosine score clamped strictly below the
+# deterministic 1.0) while the builder generates no embeddings, so
+# generatedEmbeddings / usedLlm stay false -- the kernel already allowed
+# these sources, so no kernel change. Added CLI rekon embeddings index
+# (writes index.json + vectors/<hash>.json under .rekon/cache/embeddings;
+# reports indexed/reused/stale/failed; a missing key fails cleanly with a
+# non-zero exit and no false success), rekon embeddings query --text
+# (cosine retrieval as proposal/context), and rekon capability graph
+# build --embedding-similarity latest (reads the cache, generates
+# nothing). Raw vectors are cache/index data, not canonical proof
+# artifacts; CapabilityEvidenceGraph remains the evidence substrate;
+# deterministic facts remain stronger than embedding similarity;
+# embeddings approve no plans, execute no commands, write no source
+# files, run no Circe; OpenAI embeddings and intent:go remain deferred.
+# 24-assertion contract test + 14-assertion docs test + full 9-command
+# gate + keyless CLI smoke. Next: Embedding Provider / Index Safety
+# Review. See docs/strategy/embedding-provider-index-v1.md and
+# docs/concepts/embedding-provider-index.md.
+#
 # Embedding Provider / Index Decision has been decided.
 # One-hundred-fifty-eighth slice on the semantic-intelligence track.
 # Strategy/architecture decision-only batch; no runtime behavior

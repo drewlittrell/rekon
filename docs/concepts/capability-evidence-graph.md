@@ -1,5 +1,13 @@
 # Capability Evidence Graph
 
+> **Embeddings evidence shipped (slice 159):** `embedding_similarity` evidence
+> and `embedding` claims now enter the graph via
+> [Embedding Provider / Index v1](../strategy/embedding-provider-index-v1.md)
+> (`rekon capability graph build --embedding-similarity latest`, reading the
+> `.rekon/cache/embeddings` cache). The builder generates no embeddings, so every
+> boundary stays false; similarity is proposal/context, never proof. See the
+> [Embedding Provider / Index concept](./embedding-provider-index.md).
+
 > **Embeddings track started (slice 158):** the
 > [Embedding Provider / Index Decision](../strategy/embedding-provider-index-decision.md)
 > starts embeddings as the next graph evidence source — Voyage-first, entering as

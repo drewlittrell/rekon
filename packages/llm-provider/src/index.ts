@@ -559,3 +559,176 @@ export function createOpenAiLlmProvider(options: CreateOpenAiLlmProviderOptions 
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Voyage embedding provider adapter (fetch-based; no SDK dependency)
+// ---------------------------------------------------------------------------
+//
+// The first real embedding provider (Embedding Provider / Index Decision —
+// Voyage selected for code-retrieval strength / old-codebase-intel parity).
+// Built on the injectable `RekonFetchLike` so this package keeps ZERO
+// dependencies. It targets the Voyage `/embeddings` API. The API key is supplied
+// by the caller (the CLI reads it from the environment and passes it in); this
+// package never reads the environment and never stores a key. Embeddings are
+// PROPOSAL/CONTEXT, not proof. Every failure path returns `{ ok: false, error }`
+// — it never throws a raw provider error. With no API key it refuses cleanly
+// (`missing-api-key`) and makes NO network call.
+
+export type CreateVoyageEmbeddingProviderOptions = {
+  /** API key. Supplied by the CLI/orchestration layer from env; never stored in repo config. */
+  apiKey?: string;
+  /** API base URL. Defaults to the Voyage v1 base. */
+  baseUrl?: string;
+  /** Provider id used for routing (defaults to "voyage"). */
+  id?: string;
+  /** Model used when the input does not specify one (defaults to voyage-code-3). */
+  defaultModel?: string;
+  /** Embedding dimensions hint (defaults to 1024); informational for the caller. */
+  dimensions?: number;
+  /** Voyage `input_type` (defaults to "document"). */
+  inputType?: "document" | "query";
+  /** Per-request timeout in milliseconds (defaults to 30000). */
+  timeoutMs?: number;
+  /** Inject a fetch implementation (tests). Defaults to globalThis.fetch. */
+  fetchImpl?: RekonFetchLike;
+};
+
+export const VOYAGE_DEFAULT_MODEL = "voyage-code-3";
+export const VOYAGE_DEFAULT_DIMENSIONS = 1024;
+
+function extractEmbeddingVectors(payload: unknown): number[][] | null {
+  if (!isRecord(payload)) return null;
+  const data = (payload as { data?: unknown }).data;
+  if (!Array.isArray(data)) return null;
+  const vectors: number[][] = [];
+  for (const entry of data) {
+    if (!isRecord(entry)) return null;
+    const embedding = (entry as { embedding?: unknown }).embedding;
+    if (!Array.isArray(embedding) || !embedding.every((value) => typeof value === "number")) return null;
+    vectors.push(embedding as number[]);
+  }
+  return vectors;
+}
+
+export function createVoyageEmbeddingProvider(
+  options: CreateVoyageEmbeddingProviderOptions = {},
+): RekonEmbeddingProvider {
+  const id = options.id ?? "voyage";
+  const baseUrl = (
+    typeof options.baseUrl === "string" && options.baseUrl.length > 0 ? options.baseUrl : "https://api.voyageai.com/v1"
+  ).replace(/\/+$/, "");
+  const apiKey = typeof options.apiKey === "string" ? options.apiKey.trim() : "";
+  const timeoutMs = typeof options.timeoutMs === "number" && options.timeoutMs > 0 ? options.timeoutMs : 30000;
+  const inputType = options.inputType ?? "document";
+
+  return {
+    id,
+    async embed(input: RekonEmbeddingProviderInput): Promise<RekonEmbeddingProviderResult> {
+      const model = input.model ?? options.defaultModel ?? VOYAGE_DEFAULT_MODEL;
+      const withModel = { model };
+
+      // Boundary: no key → clean refusal, and NO network call.
+      if (apiKey.length === 0) {
+        return {
+          ok: false,
+          provider: id,
+          ...withModel,
+          error: "missing-api-key",
+          warnings: [
+            `No API key configured for provider "${id}"; set it via the CLI/orchestration env (it is never stored in repo config).`,
+          ],
+        };
+      }
+
+      const texts = Array.isArray(input.texts) ? input.texts.filter((text) => typeof text === "string") : [];
+      if (texts.length === 0) {
+        return { ok: true, provider: id, ...withModel, vectors: [] };
+      }
+
+      const g = globalThis as unknown as LlmGlobalLike;
+      const fetchImpl = options.fetchImpl ?? g.fetch;
+      if (typeof fetchImpl !== "function") {
+        return {
+          ok: false,
+          provider: id,
+          ...withModel,
+          error: "fetch-unavailable",
+          warnings: ["No global fetch is available in this runtime."],
+        };
+      }
+
+      const requestBody = JSON.stringify({ model, input: texts, input_type: inputType });
+
+      let controller: { signal: unknown; abort(): void } | undefined;
+      let timer: unknown;
+      try {
+        if (typeof g.AbortController === "function" && typeof g.setTimeout === "function") {
+          controller = new g.AbortController();
+          timer = g.setTimeout(() => controller?.abort(), timeoutMs);
+        }
+
+        const response = await fetchImpl(`${baseUrl}/embeddings`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+          body: requestBody,
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+
+        if (!response.ok) {
+          let detail = "";
+          try {
+            detail = truncateText(await response.text(), 500);
+          } catch {
+            detail = "";
+          }
+          return { ok: false, provider: id, ...withModel, error: `http-${response.status}`, warnings: detail ? [detail] : [] };
+        }
+
+        let rawText: string;
+        try {
+          rawText = await response.text();
+        } catch (error) {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: "response-read-failed",
+            warnings: [error instanceof Error ? error.message : String(error)],
+          };
+        }
+
+        let envelope: unknown;
+        try {
+          envelope = JSON.parse(rawText);
+        } catch {
+          return { ok: false, provider: id, ...withModel, error: "invalid-response-json", warnings: ["Provider response was not valid JSON."] };
+        }
+
+        const vectors = extractEmbeddingVectors(envelope);
+        if (vectors === null) {
+          return { ok: false, provider: id, ...withModel, error: "no-embeddings", warnings: ["Provider response contained no usable embeddings."] };
+        }
+        if (vectors.length !== texts.length) {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: "embedding-count-mismatch",
+            warnings: [`Expected ${texts.length} embeddings, received ${vectors.length}.`],
+          };
+        }
+
+        const resolvedModel = extractModel(envelope) ?? model;
+        return { ok: true, provider: id, model: resolvedModel, vectors };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const aborted = error instanceof Error && (error.name === "AbortError" || message.toLowerCase().includes("abort"));
+        return { ok: false, provider: id, ...withModel, error: aborted ? "timeout" : "request-failed", warnings: [message] };
+      } finally {
+        if (timer !== undefined && typeof g.clearTimeout === "function") {
+          g.clearTimeout(timer);
+        }
+      }
+    },
+  };
+}
