@@ -375,6 +375,31 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
 #
+# Task-Shaped Context / Embedding Retrieval Decision is complete.
+# One-hundred-sixty-fifth slice on the embeddings track.
+# Strategy / architecture decision batch; no source changes, no runtime behavior
+# changes, no new artifact, no CLI command. Selects task-shaped context as the
+# first product consumer of embedding retrieval: a future TaskContextReport
+# artifact and a rekon context task --task <text> [--path] [--root] [--json]
+# command that turns score-banded retrieval neighbors into a compact, explainable
+# context bundle combining deterministic graph facts, semantic file understanding,
+# embedding neighbors, do-not-touch zones, and verification hints. Selection
+# policy: start from the ranking policy (strong + useful included, weak optional,
+# ignored excluded by default), expand selected chunks through
+# CapabilityEvidenceGraph, add deterministic facts even when the embedding score
+# is lower, and add operator paths even if retrieval misses them. The artifact is
+# canonical structured JSON; the human/markdown summary is a rendered view; every
+# context item, do-not-touch zone, and verification hint preserves evidence refs.
+# Boundaries: task-shaped context is proposal/context, not proof; embedding
+# retrieval is proposal/context, not proof; CapabilityEvidenceGraph remains the
+# evidence substrate; deterministic graph facts outrank embedding similarity;
+# verification hints are hints, not executed commands; no plan approval, command
+# execution, source writes, WorkOrder/VerificationPlan, or Circe; intent:go
+# remains deferred. Rejected raw-embeddings-query-only and markdown-only output;
+# duplicate detection and canonical recommendations remain deferred. New decision
+# memo + review packet + 24-assertion docs test; 9 supporting docs + both roadmaps
+# cross-referenced. Recommended next: TaskContextReport v1.
+#
 # Embedding Query Input-Type / Ranking Policy Implementation is complete.
 # One-hundred-sixty-fourth slice on the embeddings track.
 # Product capability batch implementing the slice-163 ranking policy.

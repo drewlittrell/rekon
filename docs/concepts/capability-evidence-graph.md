@@ -1,5 +1,11 @@
 # Capability Evidence Graph
 
+> **First retrieval consumer decided (slice 165):** task-shaped context
+> (`TaskContextReport`) is the first retrieval consumer and stays graph-first —
+> the graph remains the evidence substrate and deterministic facts outrank
+> embedding similarity. See
+> [Task-Shaped Context / Embedding Retrieval Decision](../strategy/task-shaped-context-embedding-retrieval-decision.md).
+
 > **Retrieval ranking implemented (slice 164):** the `embeddings query` ranking
 > policy shipped (input_type=query, top-k 8/20, score bands); graph
 > embedding-similarity is unchanged and stays graph-first with `generatedEmbeddings`

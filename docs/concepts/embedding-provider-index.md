@@ -1,5 +1,11 @@
 # Embedding Provider / Index
 
+> **First retrieval consumer decided (slice 165):** task-shaped context is the
+> first product consumer of embedding retrieval — a future `TaskContextReport`
+> bundle (`rekon context task`) that combines retrieval neighbors with graph facts
+> as context, not proof. See
+> [Task-Shaped Context / Embedding Retrieval Decision](../strategy/task-shaped-context-embedding-retrieval-decision.md).
+
 > **Retrieval ranking implemented (slice 164):** `embeddings query` now uses
 > `input_type=query` (indexing keeps `document`), applies default top-k 8 / max 20,
 > and labels every result with a score band — proposal/context, not proof. See

@@ -1,5 +1,12 @@
 # Embedding Retrieval / Similarity Ranking Decision
 
+> **First consumer decided (slice 165):** the first retrieval consumer this memo
+> selected is now specified — **task-shaped context** as a future
+> `TaskContextReport` artifact and `rekon context task` command, combining graph
+> facts, semantic understanding, and embedding neighbors as context, not proof.
+> Duplicate detection and canonical recommendations remain deferred. See
+> [Task-Shaped Context / Embedding Retrieval Decision](./task-shaped-context-embedding-retrieval-decision.md).
+
 > **Implemented (slice 164):** this policy is now implemented — `embeddings query`
 > uses `input_type=query` (indexing keeps `document`), default top-k 8 / max 20,
 > and every result carries a score band (strong/useful/weak/ignored). See

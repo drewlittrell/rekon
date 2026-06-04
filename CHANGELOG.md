@@ -4,6 +4,24 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Task-Shaped Context / Embedding Retrieval Decision** — one-hundred-sixty-fifth slice on the embeddings
+  track. Strategy / architecture decision batch; no source changes, no runtime behavior changes, no new artifact, no
+  CLI command. Selects **task-shaped context** as the first product consumer of embedding retrieval: a future
+  `TaskContextReport` artifact and a `rekon context task --task <text> [--path <path>] [--root <path>] [--json]` command
+  that turns score-banded retrieval neighbors into a compact, explainable context bundle by combining deterministic
+  graph facts, semantic file understanding, embedding neighbors, do-not-touch zones, and verification hints. Selection
+  policy: start from the ranking policy (strong + useful included, weak optional/supporting, ignored excluded by
+  default), expand selected chunks through `CapabilityEvidenceGraph`, add deterministic facts even when the embedding
+  score is lower, and add operator-provided paths even if retrieval misses them. The artifact is canonical structured
+  JSON; the human/markdown summary is a rendered view; every context item, do-not-touch zone, and verification hint
+  preserves evidence refs. Boundaries: task-shaped context is proposal/context, not proof; embedding retrieval is
+  proposal/context, not proof; CapabilityEvidenceGraph remains the evidence substrate; deterministic graph facts
+  outrank embedding similarity; verification hints are hints, not executed commands; no plan approval, command
+  execution, source writes, WorkOrder/VerificationPlan, or Circe; intent:go remains deferred. Rejected
+  raw-embeddings-query-only (not enough context) and markdown-only output (no artifact traceability); duplicate
+  detection and canonical recommendations remain deferred until similarity is corroborated by deterministic evidence.
+  New decision memo (`docs/strategy/task-shaped-context-embedding-retrieval-decision.md`) + review packet +
+  24-assertion docs test; 9 supporting docs + both roadmaps cross-referenced. Next: TaskContextReport v1.
 - Implemented **Embedding Query Input-Type / Ranking Policy Implementation** — one-hundred-sixty-fourth slice on the
   embeddings track. Product capability batch implementing the slice-163 ranking policy. `rekon embeddings query` now
   embeds query text with `input_type=query` while `rekon embeddings index` keeps `input_type=document` (the Voyage

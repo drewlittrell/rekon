@@ -1,5 +1,11 @@
 # Embedding Query Input-Type / Ranking Policy Implementation
 
+> **First consumer decided (slice 165):** task-shaped context is now decided as
+> the first consumer of this ranking policy — a future `TaskContextReport` (the
+> `rekon context task` command) that turns score-banded neighbors into a
+> graph-grounded context bundle, not proof. See
+> [Task-Shaped Context / Embedding Retrieval Decision](./task-shaped-context-embedding-retrieval-decision.md).
+
 > **Slice 164 · product capability batch.** Base `eb08123`. Implements the
 > retrieval ranking policy selected by the
 > [Embedding Retrieval / Similarity Ranking Decision](./embedding-retrieval-similarity-ranking-decision.md):

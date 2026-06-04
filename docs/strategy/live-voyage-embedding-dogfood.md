@@ -1,5 +1,10 @@
 # Live Voyage Embedding Dogfood
 
+> **First retrieval consumer decided (slice 165):** task-shaped context is the
+> first consumer of the retrieval this dogfood validated — a future
+> `TaskContextReport` / `rekon context task`, context not proof. See
+> [Task-Shaped Context / Embedding Retrieval Decision](./task-shaped-context-embedding-retrieval-decision.md).
+
 > **Ranking policy implemented (slice 164):** the `input_type=query` follow-up this
 > dogfood recorded has shipped — queries now embed with `input_type=query`,
 > indexing keeps `input_type=document`, and retrieval applies the score bands /
