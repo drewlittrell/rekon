@@ -1,5 +1,12 @@
 # Embedding Provider / Index Safety Review
 
+> **Live Voyage dogfooded (slice 162):** the safe-by-default behaviors reviewed
+> here held under the real provider — missing-key returns a clean error, the key
+> is read from the environment only and is never committed, live tests are
+> env-gated, and graph build over a live cache keeps `generatedEmbeddings` /
+> `usedLlm` false. See
+> [Live Voyage Embedding Dogfood](./live-voyage-embedding-dogfood.md).
+
 > **Dogfooded (slice 161):** the index/retrieval/graph path was exercised on a
 > realistic multi-domain fixture and ranks by domain; embeddings stay
 > proposal/context, not proof. The offline mock is lexical, so a live-provider

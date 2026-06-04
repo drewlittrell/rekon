@@ -1,5 +1,13 @@
 # Embedding Provider / Index v1
 
+> **Live Voyage dogfooded (slice 162):** the real Voyage provider
+> (`voyage-code-3`, 1024-dim) was exercised end-to-end — paraphrase queries with
+> no shared vocabulary ranked the correct domain, scores beat the mock, the cache
+> held genuine 1024-dim vectors, and graph evidence stayed inference with
+> `generatedEmbeddings` / `usedLlm` false. The `VOYAGE_API_KEY` is read from the
+> environment only and is never committed. See
+> [Live Voyage Embedding Dogfood](./live-voyage-embedding-dogfood.md).
+
 > **Dogfooded (slice 161):** retrieval and graph embedding-similarity were
 > exercised on a realistic fixture and rank by domain (mock is lexical; live
 > Voyage dogfood recommended next). See

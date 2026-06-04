@@ -4,6 +4,28 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Dogfooded **Live Voyage Embedding Dogfood** — one-hundred-sixty-second slice on the embeddings track.
+  Live-provider dogfood / review batch; no runtime behavior changes, no source changes, no new embedding architecture.
+  Ran the **real Voyage provider** (`voyage-code-3`, 1024-dim, key consumed from the environment only) against the same
+  four-domain fixture as slice 161, to prove the paraphrase-robust semantic ranking the lexical mock could not. Findings:
+  live index = 31 chunks / 0 failed at `dimensions: 1024`; the two literal queries returned all-`users/` and all-`sms/`
+  top-5 with sharper scores than the mock (0.80 / 0.90 vs 0.61 / 0.51); the decisive result — **paraphrase** queries with
+  no shared vocabulary ("look up the person who owns an account" → Voyage top-3 all `users/` at 0.81 where the mock ranks
+  an unrelated `sms/` file first; "decide which channel an incoming text should be forwarded to" → Voyage top-5 all
+  `sms/`); `--embedding-similarity latest` emitted 31 `embedding_similarity` evidence rows + 154 `embedding` inference
+  claims (max confidence 0.9187 < 1.0, explainable excerpts carrying real Voyage neighbor scores, all evidenceRefs
+  resolve) while `generatedEmbeddings` / `usedLlm` stayed false; the cache held 31 genuine 1024-length vectors (never
+  inlined); `artifacts validate` clean; source unchanged. Honest follow-up recorded: the Voyage adapter sends
+  `input_type: "document"` for both indexing and queries, where the API recommends `"query"` for query-side embeddings —
+  a quality opportunity, not a defect, deferred to the ranking decision. Security: the Voyage API key is read from the
+  environment only and is never committed; live embedding tests are gated by environment variables; the committed test
+  suite runs without any API key (the gated live contract test skips, not fails). Live Voyage embedding retrieval is
+  proposal and context, not proof; embedding claims are inference claims, never facts; deterministic facts remain
+  stronger than embedding similarity; raw vectors are regenerable cache and index data, never canonical; no WorkOrder /
+  VerificationPlan, no command execution, no Circe; intent:go remains deferred. Recommended next: **Embedding Retrieval /
+  Similarity Ranking Decision** (thresholds, top-k, `input_type=query`, first product surface). Gated live contract test
+  (skips keyless, passes live) + 18-assertion docs test + full 9-command gate. See
+  [`live-voyage-embedding-dogfood.md`](docs/strategy/live-voyage-embedding-dogfood.md).
 - Dogfooded **Embedding Retrieval / Graph Dogfood Review** — one-hundred-sixty-first slice on the embeddings track.
   Product dogfood / review batch; no runtime behavior changes, no source changes, no new embedding architecture. Ran the
   shipped `embeddings index` / `embeddings query` / `capability graph build --embedding-similarity latest` against a fresh

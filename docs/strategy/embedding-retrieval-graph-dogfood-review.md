@@ -1,5 +1,12 @@
 # Embedding Retrieval / Graph Dogfood Review
 
+> **Superseded by the live run (slice 162):** the live-provider follow-up this
+> review recommended has shipped. Real Voyage (`voyage-code-3`, 1024-dim) ranked
+> paraphrase queries with no shared vocabulary to the correct domain — the
+> semantic robustness the lexical mock here could not prove — while every
+> boundary held and the key stayed env-only. See
+> [Live Voyage Embedding Dogfood](./live-voyage-embedding-dogfood.md).
+
 Status: dogfooded (slice 161). Base `533ff6a`. Product dogfood / review batch; no
 runtime behavior changes, no embedding architecture changes. Dogfoods the shipped
 embedding index, retrieval, and graph embedding-similarity path on a realistic

@@ -1,5 +1,12 @@
 # Embedding Provider / Index
 
+> **Live Voyage dogfooded (slice 162):** the real Voyage provider
+> (`voyage-code-3`, 1024-dim, key env-only) ranked paraphrase queries with no
+> shared vocabulary to the correct domain — the semantic robustness the lexical
+> mock could not prove — with `generatedEmbeddings` / `usedLlm` false and the key
+> never committed. See
+> [Live Voyage Embedding Dogfood](../strategy/live-voyage-embedding-dogfood.md).
+
 > **Dogfooded (slice 161):** index/retrieval/graph exercised on a realistic
 > fixture — ranks by domain, stale/policy behavior visible, graph evidence
 > explainable; mock is lexical, so a live Voyage dogfood is recommended next. See

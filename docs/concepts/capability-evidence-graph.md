@@ -1,5 +1,13 @@
 # Capability Evidence Graph
 
+> **Live Voyage embedding integration dogfooded (slice 162):** `--embedding-similarity
+> latest` was exercised over a **real Voyage** (`voyage-code-3`, 1024-dim) cache —
+> it emitted 31 explainable `embedding_similarity` evidence rows + 154 `embedding`
+> inference claims (max confidence 0.9187 < 1.0, real neighbor scores) while
+> `generatedEmbeddings` / `usedLlm` stayed false; deterministic facts remain
+> stronger than embedding similarity. See
+> [Live Voyage Embedding Dogfood](../strategy/live-voyage-embedding-dogfood.md).
+
 > **Embedding integration dogfooded (slice 161):** `--embedding-similarity latest`
 > was exercised on a realistic fixture and emitted explainable
 > `embedding_similarity` evidence + `embedding` inference claims while

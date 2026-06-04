@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **Live Voyage Embedding Dogfood (slice 162):** live-provider dogfood / review batch — no API, artifact, or command changed; nothing to migrate. The real Voyage provider (`voyage-code-3`) was exercised and confirmed paraphrase-robust; the committed test suite stays keyless (the gated live contract test skips without `VOYAGE_API_KEY` + `REKON_RUN_LIVE_EMBEDDING_TESTS=1`); the key is read from the environment only and is never committed. See [`live-voyage-embedding-dogfood.md`](../strategy/live-voyage-embedding-dogfood.md).
+
 > **Embedding Retrieval / Graph dogfooded (slice 161):** product dogfood / review batch — no API, artifact, or command changed; nothing to migrate. The shipped embedding index/retrieval/graph path was exercised on a realistic fixture and found useful and safe. See [`embedding-retrieval-graph-dogfood-review.md`](../strategy/embedding-retrieval-graph-dogfood-review.md).
 
 > **Embedding Provider / Index safety-reviewed (slice 160):** strategy/safety-review batch — no API, artifact, or command changed; nothing to migrate. The slice-159 implementation was confirmed safe/stable. See [`embedding-provider-index-safety-review.md`](../strategy/embedding-provider-index-safety-review.md).

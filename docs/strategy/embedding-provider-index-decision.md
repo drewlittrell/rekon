@@ -1,5 +1,12 @@
 # Embedding Provider / Index Decision
 
+> **Live Voyage dogfooded (slice 162):** the Voyage-first bet paid off — real
+> `voyage-code-3` delivered paraphrase-robust semantic ranking the lexical mock
+> could not, unblocking the product surfaces this decision deferred. Recommended
+> next: an Embedding Retrieval / Similarity Ranking Decision (thresholds, top-k,
+> `input_type=query`, first product surface). See
+> [Live Voyage Embedding Dogfood](./live-voyage-embedding-dogfood.md).
+
 > **Dogfooded (slice 161):** retrieval + graph embedding-similarity ranked by
 > domain on a realistic fixture; live Voyage dogfood recommended before duplicate
 > detection / canonical recommendations / task-shaped context. See

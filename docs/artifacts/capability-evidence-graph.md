@@ -3,6 +3,15 @@
 **Status:** experimental (`0.1.0`) · **Category:** `graphs` · **Producer:**
 `@rekon/capability-model.capability-evidence-graph`
 
+> **Live Voyage embedding similarity dogfooded (slice 162):** `rekon capability
+> graph build --embedding-similarity latest` was exercised over a **real Voyage**
+> (`voyage-code-3`, 1024-dim) cache — it emitted 31 `embedding_similarity`
+> evidence rows + 154 `embedding` inference claims (max confidence `0.9187` < the
+> deterministic `1.0`, explainable excerpts with real neighbor scores) while
+> `generatedEmbeddings` / `usedLlm` stayed false and source was unchanged. The
+> Voyage API key is read from the environment only and is never committed. See
+> [Live Voyage Embedding Dogfood](../strategy/live-voyage-embedding-dogfood.md).
+
 > **Embedding similarity dogfooded (slice 161):** `rekon capability graph build
 > --embedding-similarity latest` was exercised on a realistic fixture — it emits
 > `embedding_similarity` evidence and `embedding` inference claims (confidence
