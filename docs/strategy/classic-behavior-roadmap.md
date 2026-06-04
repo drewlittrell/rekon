@@ -1,5 +1,7 @@
 # Classic Behavior Roadmap
 
+> **First consumer safety-reviewed (slice 167):** the embeddings track (classic Track B) confirmed task-shaped context is safe/stable as context only — mirroring codebase-intel's context packets (guidance, not automation). Next: dogfood review. See [`task-context-report-safety-review.md`](./task-context-report-safety-review.md).
+
 > **First retrieval consumer shipped (slice 166):** the embeddings track (classic Track B) shipped task-shaped context — `TaskContextReport` / `rekon context task` — mirroring codebase-intel's context bundle (mustNot → do-not-touch, checkMatrix → verification hints) while keeping duplicate detection and canonical recommendations deferred. See [`task-context-report-v1.md`](./task-context-report-v1.md).
 
 > **First retrieval consumer decided (slice 165):** the embeddings track (classic Track B) decided task-shaped context as the first retrieval consumer — a future `TaskContextReport` / `rekon context task` that mirrors codebase-intel's context bundle (its `mustNot` → do-not-touch zones, `checkMatrix` → verification hints, representative selection → graph-grounded diversity) while keeping similarity-only canonical scoring deferred. Context, not proof; deterministic facts outrank similarity. See [`task-shaped-context-embedding-retrieval-decision.md`](./task-shaped-context-embedding-retrieval-decision.md).

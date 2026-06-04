@@ -1,5 +1,9 @@
 # Embedding Provider / Index
 
+> **First consumer safety-reviewed (slice 167):** task-shaped context found
+> safe/stable as proposal/context. See
+> [TaskContextReport Safety Review](../strategy/task-context-report-safety-review.md).
+
 > **First retrieval consumer implemented (slice 166):** task-shaped context
 > (`TaskContextReport` / `rekon context task`) consumes embedding retrieval as
 > proposal/context. See [TaskContextReport v1](../strategy/task-context-report-v1.md).

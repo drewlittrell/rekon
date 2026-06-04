@@ -1,5 +1,8 @@
 # TaskContextReport
 
+> **Safety-reviewed (slice 167):** found safe/stable as proposal/context. See
+> [TaskContextReport Safety Review](../strategy/task-context-report-safety-review.md).
+
 > **Slice 166 · product capability batch.** Base `3721523`. The first product
 > consumer of embedding retrieval — task-shaped context — shipped as the
 > `TaskContextReport` artifact and the `rekon context task` command, selected by

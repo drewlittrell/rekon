@@ -1,5 +1,10 @@
 # Capability Evidence Graph
 
+> **First consumer safety-reviewed (slice 167):** `TaskContextReport` found
+> safe/stable; the graph stays the evidence substrate and deterministic facts
+> outrank similarity. See
+> [TaskContextReport Safety Review](../strategy/task-context-report-safety-review.md).
+
 > **First retrieval consumer implemented (slice 166):** `TaskContextReport`
 > (`rekon context task`) expands the graph for task-shaped context — graph-first,
 > deterministic facts outrank similarity. See

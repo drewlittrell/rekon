@@ -1,5 +1,9 @@
 # Task-Shaped Context / Embedding Retrieval Decision
 
+> **Safety-reviewed (slice 167):** the shipped implementation was re-read and found
+> safe/stable as proposal/context. See
+> [TaskContextReport Safety Review](./task-context-report-safety-review.md).
+
 > **Implemented (slice 166):** this decision shipped — the `TaskContextReport`
 > artifact, the pure `buildTaskContextReport` helper, and the `rekon context task`
 > command. See [TaskContextReport v1](./task-context-report-v1.md).

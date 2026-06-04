@@ -1,5 +1,9 @@
 # Task-Shaped Context
 
+> **Safety-reviewed (slice 167):** task-shaped context found safe/stable as
+> proposal/context. See
+> [TaskContextReport Safety Review](../strategy/task-context-report-safety-review.md).
+
 > **Shipped (slice 166):** task-shaped context is the first product consumer of
 > embedding retrieval — the `TaskContextReport` artifact and the
 > `rekon context task` command. See

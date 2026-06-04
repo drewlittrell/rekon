@@ -1,5 +1,7 @@
 # Roadmap
 
+> **First consumer safety-reviewed (slice 167):** TaskContextReport v1 is safe/stable as proposal/context (boundaries forced false; builder pure; CLI writes only the report). Next: TaskContextReport Dogfood Review. See [`task-context-report-safety-review.md`](./task-context-report-safety-review.md).
+
 > **First retrieval consumer shipped (slice 166):** task-shaped context is implemented — the `TaskContextReport` artifact + `rekon context task` command. It turns score-banded retrieval neighbors + graph facts + do-not-touch zones + verification hints into a compact, explainable bundle (context, not proof; deterministic facts outrank similarity; verification hints are hints). Next: TaskContextReport Safety Review. See [`task-context-report-v1.md`](./task-context-report-v1.md).
 
 > **First retrieval consumer decided (slice 165):** task-shaped context is the first product consumer of embedding retrieval — a future `TaskContextReport` artifact and `rekon context task` command that turns score-banded neighbors into a graph-grounded context bundle (deterministic facts + semantic summaries + do-not-touch zones + verification hints), context not proof. The artifact is canonical JSON with a rendered markdown view; every item preserves evidence refs. Duplicate detection and canonical recommendations remain deferred. Next: TaskContextReport v1. See [`task-shaped-context-embedding-retrieval-decision.md`](./task-shaped-context-embedding-retrieval-decision.md).

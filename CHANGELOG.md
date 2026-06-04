@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Safety Review** — one-hundred-sixty-seventh slice on the embeddings track. Strategy /
+  safety-review batch (no source, no runtime behavior change). Re-read the shipped TaskContextReport v1 end-to-end and
+  confirmed it is safe/stable as proposal/context: the factory forces every boundary false and recomputes the summary;
+  the validator rejects non-false boundaries, empty task text, and reasonless context items; `buildTaskContextReport`
+  is pure (imports only `node:crypto`; no providers, no commands, no source writes, no PreparedIntentPlan / WorkOrder /
+  VerificationPlan); the CLI `context task` writes only the report artifact and fails cleanly
+  `context-retrieval-unavailable` when there is neither retrieval nor a `--path`. Task-shaped context is
+  proposal/context, not proof; embedding retrieval is proposal/context, not proof; CapabilityEvidenceGraph remains the
+  evidence substrate; deterministic graph facts outrank embedding similarity; do-not-touch zones are guidance/context,
+  not enforcement; verification hints are hints, not executed commands; no plan approval, command execution, source
+  writes, WorkOrder/VerificationPlan, or Circe; intent:go deferred. Duplicate detection and canonical recommendations
+  remain deferred. New safety-review memo + review packet + 31-assertion docs test; ten supporting docs + both roadmaps
+  cross-referenced. Full keyless 9-command gate green. Next: TaskContextReport Dogfood Review.
+
 - Shipped **TaskContextReport v1** — one-hundred-sixty-sixth slice on the embeddings track. Product capability batch
   implementing the first product consumer of embedding retrieval (task-shaped context), selected by the slice-165
   decision. New `TaskContextReport` artifact in `@rekon/kernel-repo-model` (types, factory `createTaskContextReport`,

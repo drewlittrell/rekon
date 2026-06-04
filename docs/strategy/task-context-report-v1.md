@@ -1,5 +1,9 @@
 # TaskContextReport v1
 
+> **Safety-reviewed (slice 167):** TaskContextReport v1 was re-read end-to-end and
+> found safe/stable as proposal/context. See
+> [TaskContextReport Safety Review](./task-context-report-safety-review.md).
+
 > **Slice 166 · product capability batch.** Base `3721523`. Implements the first
 > product consumer of embedding retrieval — task-shaped context — selected by the
 > [Task-Shaped Context / Embedding Retrieval Decision](./task-shaped-context-embedding-retrieval-decision.md):

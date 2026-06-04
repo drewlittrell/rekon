@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **TaskContextReport Safety Review (slice 167):** strategy / safety-review batch — no API, artifact, or command changed; nothing to migrate. Confirms TaskContextReport v1 is safe/stable as proposal/context. See [`task-context-report-safety-review.md`](../strategy/task-context-report-safety-review.md).
+
 > **TaskContextReport v1 (slice 166):** additive — nothing to migrate. New `TaskContextReport` artifact + `buildTaskContextReport` helper (`@rekon/kernel-repo-model` / `@rekon/capability-model`) and a new `rekon context task` command; no existing command, type, or behavior changed. The new artifact is written to the `.rekon/` store under the `actions` category. See [`task-context-report-v1.md`](../strategy/task-context-report-v1.md).
 
 > **Task-Shaped Context / Embedding Retrieval Decision (slice 165):** strategy / architecture decision-only batch — no API, artifact, or command changed; nothing to migrate. Decides task-shaped context (a future `TaskContextReport` artifact + `rekon context task` command) as the first retrieval consumer, sketched for the implementation slice that follows. See [`task-shaped-context-embedding-retrieval-decision.md`](../strategy/task-shaped-context-embedding-retrieval-decision.md).
