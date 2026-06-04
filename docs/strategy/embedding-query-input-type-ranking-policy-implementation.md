@@ -1,5 +1,9 @@
 # Embedding Query Input-Type / Ranking Policy Implementation
 
+> **First consumer implemented (slice 166):** the ranking policy now has its first
+> product consumer — `TaskContextReport` / `rekon context task`. See
+> [TaskContextReport v1](./task-context-report-v1.md).
+
 > **First consumer decided (slice 165):** task-shaped context is now decided as
 > the first consumer of this ranking policy — a future `TaskContextReport` (the
 > `rekon context task` command) that turns score-banded neighbors into a

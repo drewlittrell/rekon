@@ -162,6 +162,17 @@ export {
 } from "./intent-status-report.js";
 
 export {
+  type TaskContextGraphRefLike,
+  type TaskContextGraphClaimLike,
+  type TaskContextGraphCapabilityLike,
+  type TaskContextGraphLike,
+  type TaskContextRetrievalResultLike,
+  type BuildTaskContextReportInput,
+  TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX,
+  buildTaskContextReport,
+} from "./task-context-report.js";
+
+export {
   type BuildApprovedPreparedIntentPlanInput,
   type IntentApprovalAcceptedGap,
   type IntentApprovalBlocker,

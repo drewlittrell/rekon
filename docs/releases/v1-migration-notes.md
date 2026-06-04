@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **TaskContextReport v1 (slice 166):** additive — nothing to migrate. New `TaskContextReport` artifact + `buildTaskContextReport` helper (`@rekon/kernel-repo-model` / `@rekon/capability-model`) and a new `rekon context task` command; no existing command, type, or behavior changed. The new artifact is written to the `.rekon/` store under the `actions` category. See [`task-context-report-v1.md`](../strategy/task-context-report-v1.md).
+
 > **Task-Shaped Context / Embedding Retrieval Decision (slice 165):** strategy / architecture decision-only batch — no API, artifact, or command changed; nothing to migrate. Decides task-shaped context (a future `TaskContextReport` artifact + `rekon context task` command) as the first retrieval consumer, sketched for the implementation slice that follows. See [`task-shaped-context-embedding-retrieval-decision.md`](../strategy/task-shaped-context-embedding-retrieval-decision.md).
 
 > **Embedding Query Input-Type / Ranking Policy Implementation (slice 164):** additive — nothing to migrate. `rekon embeddings query` now uses `input_type=query`, defaults to top-k 8 (max 20), and adds `scoreBand`/`chunk`/`explanation`/`boundaries` + a `query` block to its JSON (the old `matches` array and its flat `path`/`kind`/`score` are retained, so existing callers are unaffected); `rekon embeddings index` reports `inputType: "document"`. No artifact or graph change. See [`embedding-query-input-type-ranking-policy-implementation.md`](../strategy/embedding-query-input-type-ranking-policy-implementation.md).

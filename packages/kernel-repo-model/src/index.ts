@@ -4125,6 +4125,434 @@ export const runtimeGraphDriftReportSchema: ArtifactSchema<RuntimeGraphDriftRepo
   parse: assertRuntimeGraphDriftReport,
 };
 
+// ---- TaskContextReport (v1, task-shaped context: first embedding-retrieval consumer) ----
+// The Task-Shaped Context / Embedding Retrieval Decision (slice 165) selected
+// task-shaped context as the first product consumer of embedding retrieval.
+// TaskContextReport is context, not proof: retrieval results are proposal/context,
+// deterministic graph facts outrank embedding similarity, every context item /
+// do-not-touch zone / verification hint preserves evidence refs, verification
+// hints are hints (never executed), and the boundaries block is all-false — the
+// factory forces it and the validator rejects any non-false boundary.
+
+export type TaskContextItemKind =
+  | "file"
+  | "symbol"
+  | "capability"
+  | "semantic_summary"
+  | "verification_hint"
+  | "do_not_touch"
+  | "risk";
+
+export type TaskContextItemSource =
+  | "deterministic_graph"
+  | "semantic_file_understanding"
+  | "embedding_retrieval"
+  | "operator_input";
+
+export type TaskContextScoreBand = "strong" | "useful" | "weak" | "ignored";
+
+export type TaskContextItem = {
+  id: string;
+  kind: TaskContextItemKind;
+  path?: string;
+  symbolId?: string;
+  capabilityId?: string;
+  reason: string;
+  score?: number;
+  scoreBand?: TaskContextScoreBand;
+  evidenceRefs: string[];
+  source: TaskContextItemSource;
+};
+
+export type TaskContextGraphNeighborhoodRef = {
+  kind: string;
+  id: string;
+};
+
+export type TaskContextDoNotTouchZone = {
+  reason: string;
+  path?: string;
+  symbolId?: string;
+  evidenceRefs: string[];
+};
+
+export type TaskContextVerificationHint = {
+  command?: string;
+  artifact?: string;
+  reason: string;
+  evidenceRefs: string[];
+};
+
+export type TaskContextReportSelection = {
+  query: string;
+  provider?: string;
+  model?: string;
+  topK: number;
+  scoreBands: {
+    strong: number;
+    useful: number;
+    weak: number;
+    ignored: number;
+  };
+};
+
+export type TaskContextReportSummary = {
+  contextItems: number;
+  graphNodes: number;
+  graphClaims: number;
+  doNotTouch: number;
+  verificationHints: number;
+  embeddingNeighbors: number;
+};
+
+export type TaskContextReportBoundaries = {
+  retrievalIsProof: false;
+  approvedPlans: false;
+  executedCommands: false;
+  wroteSourceFiles: false;
+  createdPreparedIntentPlan: false;
+  createdWorkOrder: false;
+  createdVerificationPlan: false;
+  ranCirce: false;
+  implementedIntentGo: false;
+};
+
+export type TaskContextReport = {
+  header: ArtifactHeader;
+  schemaVersion: "0.1.0";
+  task: {
+    text: string;
+    paths: string[];
+    goal?: string;
+  };
+  selection: TaskContextReportSelection;
+  contextItems: TaskContextItem[];
+  graphNeighborhood: {
+    nodes: TaskContextGraphNeighborhoodRef[];
+    claims: string[];
+  };
+  doNotTouch: TaskContextDoNotTouchZone[];
+  verificationHints: TaskContextVerificationHint[];
+  summary: TaskContextReportSummary;
+  boundaries: TaskContextReportBoundaries;
+};
+
+const TASK_CONTEXT_ITEM_KINDS = new Set<string>([
+  "file",
+  "symbol",
+  "capability",
+  "semantic_summary",
+  "verification_hint",
+  "do_not_touch",
+  "risk",
+]);
+const TASK_CONTEXT_ITEM_SOURCES = new Set<string>([
+  "deterministic_graph",
+  "semantic_file_understanding",
+  "embedding_retrieval",
+  "operator_input",
+]);
+const TASK_CONTEXT_SCORE_BANDS = new Set<string>(["strong", "useful", "weak", "ignored"]);
+const TASK_CONTEXT_REPORT_BOUNDARY_KEYS = [
+  "retrievalIsProof",
+  "approvedPlans",
+  "executedCommands",
+  "wroteSourceFiles",
+  "createdPreparedIntentPlan",
+  "createdWorkOrder",
+  "createdVerificationPlan",
+  "ranCirce",
+  "implementedIntentGo",
+] as const;
+
+function isTaskContextStringArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+export function createTaskContextReport(input: TaskContextReport): TaskContextReport {
+  const contextItems = (input.contextItems ?? []).map((item) => ({
+    ...item,
+    evidenceRefs: [...(item.evidenceRefs ?? [])],
+  }));
+  const nodes = [...(input.graphNeighborhood?.nodes ?? [])];
+  const claims = [...(input.graphNeighborhood?.claims ?? [])];
+  const doNotTouch = (input.doNotTouch ?? []).map((zone) => ({
+    ...zone,
+    evidenceRefs: [...(zone.evidenceRefs ?? [])],
+  }));
+  const verificationHints = (input.verificationHints ?? []).map((hint) => ({
+    ...hint,
+    evidenceRefs: [...(hint.evidenceRefs ?? [])],
+  }));
+  return assertTaskContextReport({
+    header: input.header,
+    schemaVersion: "0.1.0",
+    task: {
+      text: input.task?.text ?? "",
+      paths: [...(input.task?.paths ?? [])],
+      ...(input.task?.goal !== undefined ? { goal: input.task.goal } : {}),
+    },
+    selection: input.selection,
+    contextItems,
+    graphNeighborhood: { nodes, claims },
+    doNotTouch,
+    verificationHints,
+    summary: {
+      contextItems: contextItems.length,
+      graphNodes: nodes.length,
+      graphClaims: claims.length,
+      doNotTouch: doNotTouch.length,
+      verificationHints: verificationHints.length,
+      embeddingNeighbors: contextItems.filter((item) => item.source === "embedding_retrieval").length,
+    },
+    boundaries: {
+      retrievalIsProof: false,
+      approvedPlans: false,
+      executedCommands: false,
+      wroteSourceFiles: false,
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    },
+  });
+}
+
+function validateTaskContextItem(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    issues.push({ path: `${path}.id`, message: "Expected a non-empty string." });
+  } else if (seenIds.has(value.id)) {
+    issues.push({ path: `${path}.id`, message: `Duplicate context item id ${value.id}.` });
+  } else {
+    seenIds.add(value.id);
+  }
+  if (typeof value.kind !== "string" || !TASK_CONTEXT_ITEM_KINDS.has(value.kind)) {
+    issues.push({ path: `${path}.kind`, message: "Expected a valid context item kind." });
+  }
+  if (typeof value.source !== "string" || !TASK_CONTEXT_ITEM_SOURCES.has(value.source)) {
+    issues.push({ path: `${path}.source`, message: "Expected a valid context item source." });
+  }
+  if (typeof value.reason !== "string" || value.reason.trim().length === 0) {
+    issues.push({ path: `${path}.reason`, message: "Expected a non-empty string (context items must carry a reason)." });
+  }
+  for (const field of ["path", "symbolId", "capabilityId"] as const) {
+    const supplied = value[field];
+    if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string when present." });
+    }
+  }
+  if (value.score !== undefined && typeof value.score !== "number") {
+    issues.push({ path: `${path}.score`, message: "Expected a number when present." });
+  }
+  if (
+    value.scoreBand !== undefined &&
+    (typeof value.scoreBand !== "string" || !TASK_CONTEXT_SCORE_BANDS.has(value.scoreBand))
+  ) {
+    issues.push({ path: `${path}.scoreBand`, message: "Expected a valid score band when present." });
+  }
+  if (!isTaskContextStringArray(value.evidenceRefs)) {
+    issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array of strings." });
+  }
+}
+
+export function validateTaskContextReport(value: unknown): ValidationResult<TaskContextReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "TaskContextReport", "$.header", issues);
+
+  if (value.schemaVersion !== "0.1.0") {
+    issues.push({ path: "$.schemaVersion", message: 'Expected "0.1.0".' });
+  }
+
+  if (!isRecord(value.task)) {
+    issues.push({ path: "$.task", message: "Expected an object." });
+  } else {
+    if (typeof value.task.text !== "string" || value.task.text.trim().length === 0) {
+      issues.push({ path: "$.task.text", message: "Expected a non-empty string." });
+    }
+    if (!isTaskContextStringArray(value.task.paths)) {
+      issues.push({ path: "$.task.paths", message: "Expected an array of strings." });
+    }
+    if (value.task.goal !== undefined && (typeof value.task.goal !== "string" || value.task.goal.length === 0)) {
+      issues.push({ path: "$.task.goal", message: "Expected a non-empty string when present." });
+    }
+  }
+
+  if (!isRecord(value.selection)) {
+    issues.push({ path: "$.selection", message: "Expected an object." });
+  } else {
+    if (typeof value.selection.query !== "string") {
+      issues.push({ path: "$.selection.query", message: "Expected a string." });
+    }
+    if (
+      typeof value.selection.topK !== "number" ||
+      !Number.isInteger(value.selection.topK) ||
+      value.selection.topK < 0
+    ) {
+      issues.push({ path: "$.selection.topK", message: "Expected a non-negative integer." });
+    }
+    for (const field of ["provider", "model"] as const) {
+      const supplied = (value.selection as Record<string, unknown>)[field];
+      if (supplied !== undefined && typeof supplied !== "string") {
+        issues.push({ path: `$.selection.${field}`, message: "Expected a string when present." });
+      }
+    }
+    if (!isRecord(value.selection.scoreBands)) {
+      issues.push({ path: "$.selection.scoreBands", message: "Expected an object." });
+    } else {
+      for (const band of ["strong", "useful", "weak", "ignored"] as const) {
+        if (typeof (value.selection.scoreBands as Record<string, unknown>)[band] !== "number") {
+          issues.push({ path: `$.selection.scoreBands.${band}`, message: "Expected a number." });
+        }
+      }
+    }
+  }
+
+  let contextItems: unknown[] = [];
+  if (!Array.isArray(value.contextItems)) {
+    issues.push({ path: "$.contextItems", message: "Expected an array." });
+  } else {
+    contextItems = value.contextItems;
+    const seen = new Set<string>();
+    contextItems.forEach((item, index) => validateTaskContextItem(item, `$.contextItems[${index}]`, issues, seen));
+  }
+
+  let nodes: unknown[] = [];
+  let claims: unknown[] = [];
+  if (!isRecord(value.graphNeighborhood)) {
+    issues.push({ path: "$.graphNeighborhood", message: "Expected an object." });
+  } else {
+    if (!Array.isArray(value.graphNeighborhood.nodes)) {
+      issues.push({ path: "$.graphNeighborhood.nodes", message: "Expected an array." });
+    } else {
+      nodes = value.graphNeighborhood.nodes;
+      nodes.forEach((node, index) => {
+        if (!isRecord(node) || typeof node.kind !== "string" || typeof node.id !== "string" || node.id.length === 0) {
+          issues.push({
+            path: `$.graphNeighborhood.nodes[${index}]`,
+            message: "Expected { kind, id } with a non-empty id.",
+          });
+        }
+      });
+    }
+    if (!isTaskContextStringArray(value.graphNeighborhood.claims)) {
+      issues.push({ path: "$.graphNeighborhood.claims", message: "Expected an array of strings." });
+    } else {
+      claims = value.graphNeighborhood.claims as unknown[];
+    }
+  }
+
+  let doNotTouch: unknown[] = [];
+  if (!Array.isArray(value.doNotTouch)) {
+    issues.push({ path: "$.doNotTouch", message: "Expected an array." });
+  } else {
+    doNotTouch = value.doNotTouch;
+    doNotTouch.forEach((zone, index) => {
+      const path = `$.doNotTouch[${index}]`;
+      if (!isRecord(zone)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (typeof zone.reason !== "string" || zone.reason.trim().length === 0) {
+        issues.push({ path: `${path}.reason`, message: "Expected a non-empty string." });
+      }
+      for (const field of ["path", "symbolId"] as const) {
+        const supplied = zone[field];
+        if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+          issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string when present." });
+        }
+      }
+      if (!isTaskContextStringArray(zone.evidenceRefs)) {
+        issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array of strings." });
+      }
+    });
+  }
+
+  let verificationHints: unknown[] = [];
+  if (!Array.isArray(value.verificationHints)) {
+    issues.push({ path: "$.verificationHints", message: "Expected an array." });
+  } else {
+    verificationHints = value.verificationHints;
+    verificationHints.forEach((hint, index) => {
+      const path = `$.verificationHints[${index}]`;
+      if (!isRecord(hint)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (typeof hint.reason !== "string" || hint.reason.trim().length === 0) {
+        issues.push({ path: `${path}.reason`, message: "Expected a non-empty string." });
+      }
+      for (const field of ["command", "artifact"] as const) {
+        const supplied = hint[field];
+        if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+          issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string when present." });
+        }
+      }
+      if (!isTaskContextStringArray(hint.evidenceRefs)) {
+        issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array of strings." });
+      }
+    });
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const itemList = Array.isArray(contextItems) ? (contextItems.filter(isRecord) as Array<Record<string, unknown>>) : [];
+    const computed: Record<string, number> = {
+      contextItems: Array.isArray(contextItems) ? contextItems.length : 0,
+      graphNodes: Array.isArray(nodes) ? nodes.length : 0,
+      graphClaims: Array.isArray(claims) ? claims.length : 0,
+      doNotTouch: Array.isArray(doNotTouch) ? doNotTouch.length : 0,
+      verificationHints: Array.isArray(verificationHints) ? verificationHints.length : 0,
+      embeddingNeighbors: itemList.filter((item) => item.source === "embedding_retrieval").length,
+    };
+    for (const field of Object.keys(computed)) {
+      const supplied = (value.summary as Record<string, unknown>)[field];
+      if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
+        issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
+      } else if (supplied !== computed[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${computed[field]} (recomputed).` });
+      }
+    }
+  }
+
+  if (!isRecord(value.boundaries)) {
+    issues.push({ path: "$.boundaries", message: "Expected an object." });
+  } else {
+    const boundaries = value.boundaries as Record<string, unknown>;
+    for (const key of TASK_CONTEXT_REPORT_BOUNDARY_KEYS) {
+      if (boundaries[key] !== false) {
+        issues.push({ path: `$.boundaries.${key}`, message: "Expected false." });
+      }
+    }
+  }
+
+  return validationResult(value as TaskContextReport, issues);
+}
+
+export function assertTaskContextReport(value: unknown): TaskContextReport {
+  return assertValid(validateTaskContextReport(value), "TaskContextReport");
+}
+
+export const taskContextReportSchema: ArtifactSchema<TaskContextReport> = {
+  validate: validateTaskContextReport,
+  parse: assertTaskContextReport,
+};
+
 // ---- IntentAssessmentReport (v1, artifact-backed readiness assessment) ----
 //
 // A read-only readiness assessment of a user request against existing Rekon

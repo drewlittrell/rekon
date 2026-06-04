@@ -1,5 +1,9 @@
 # Embedding Retrieval / Similarity Ranking Decision
 
+> **First consumer implemented (slice 166):** task-shaped context shipped as the
+> `TaskContextReport` artifact + `rekon context task` command. See
+> [TaskContextReport v1](./task-context-report-v1.md).
+
 > **First consumer decided (slice 165):** the first retrieval consumer this memo
 > selected is now specified — **task-shaped context** as a future
 > `TaskContextReport` artifact and `rekon context task` command, combining graph

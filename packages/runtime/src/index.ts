@@ -275,6 +275,10 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   IntentStatusReport: "actions",
   IntentPlanActionabilityReport: "actions",
   SemanticFileUnderstandingReport: "actions",
+  // TaskContextReport is the first product consumer of embedding retrieval
+  // (Task-Shaped Context / Embedding Retrieval Decision, slice 165). It is
+  // context, not proof — an "actions" report like the intent reports above.
+  TaskContextReport: "actions",
   // No `knowledge` category exists; `graphs` is the established home for graph
   // artifacts (StepCapabilityGraph, RuntimeGraphObservationReport). The
   // CapabilityEvidenceGraph joins them. (`evidence` is reserved for the raw

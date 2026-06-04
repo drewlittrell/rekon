@@ -167,6 +167,9 @@ import modelCapability, {
   type EmbeddingIndexRecord,
   type EmbeddingSimilarityForGraph,
   type EvidenceGraphForChunks,
+  buildTaskContextReport,
+  type TaskContextGraphLike,
+  type TaskContextRetrievalResultLike,
 } from "@rekon/capability-model";
 import {
   RekonLlmRouter,
@@ -454,6 +457,7 @@ function rekonIntentWorkflow(): string[] {
   return [
     "rekon scan",
     "rekon intent context prepare",
+    "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",
     "rekon intent plan review",
     "rekon intent plan answer",
     "rekon intent assess",
@@ -1695,6 +1699,219 @@ export async function main(argv: string[]): Promise<void> {
         lines.push(`  ${r.score.toFixed(3)}  ${r.scoreBand}  ${r.path}  ${r.kind}  ${r.symbolId ?? r.chunkId}`);
       }
       lines.push("Proposal / context, not proof. Score bands are policy labels, not proof. Deterministic facts remain stronger than embedding similarity.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
+  if (command === "context" && subcommand === "task") {
+    // `rekon context task --task "<text>" [--path <p> ...] [--provider voyage|mock]
+    //  [--model <m>] [--top-k <n>] [--root <path>] [--json]` — TaskContextReport v1,
+    // the first product consumer of embedding retrieval (Task-Shaped Context /
+    // Embedding Retrieval Decision, slice 165). Reads the latest
+    // CapabilityEvidenceGraph and the embedding cache (when present), then writes
+    // ONE TaskContextReport. Task-shaped context is PROPOSAL / CONTEXT, never proof:
+    // deterministic graph facts outrank embedding similarity, verification hints are
+    // hints (never executed), and do-not-touch zones come from explicit constraints.
+    // Writes the report artifact only — never writes source files, executes project
+    // commands, creates a PreparedIntentPlan / WorkOrder / VerificationPlan, or runs
+    // Circe.
+    const taskText = typeof parsed.flags.task === "string" ? parsed.flags.task : String(parsed.flags.task ?? "");
+    if (taskText.trim().length === 0) {
+      throw new Error("rekon context task requires --task <text>.");
+    }
+    const paths = parseRepeatableFlag(parsed.flags.path)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    const providerId =
+      typeof parsed.flags.provider === "string" && parsed.flags.provider.trim().length > 0
+        ? parsed.flags.provider.trim()
+        : "voyage";
+    const model =
+      typeof parsed.flags.model === "string" && parsed.flags.model.trim().length > 0
+        ? parsed.flags.model.trim()
+        : providerId === "mock"
+          ? "mock-embedding"
+          : VOYAGE_DEFAULT_MODEL;
+    const dimsFlag = Number.parseInt(String(parsed.flags.dimensions ?? ""), 10);
+    const dimensions =
+      Number.isFinite(dimsFlag) && dimsFlag > 0
+        ? dimsFlag
+        : providerId === "mock"
+          ? MOCK_EMBEDDING_DIMENSIONS
+          : VOYAGE_DEFAULT_DIMENSIONS;
+    const topKRaw = parsed.flags["top-k"];
+    const topKProvided = topKRaw !== undefined && String(topKRaw).trim().length > 0;
+    let requestedTopK = DEFAULT_QUERY_TOP_K;
+    if (topKProvided) {
+      const parsedTopK = Number.parseInt(String(topKRaw), 10);
+      if (!Number.isFinite(parsedTopK) || parsedTopK <= 0) {
+        throw new Error(`rekon context task --top-k must be a positive integer (got "${String(topKRaw)}").`);
+      }
+      requestedTopK = parsedTopK;
+    }
+    const effectiveTopK = Math.min(requestedTopK, MAX_QUERY_TOP_K);
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const graphEntries = await store.list("CapabilityEvidenceGraph");
+    const latestGraphEntry = graphEntries[graphEntries.length - 1];
+    if (!latestGraphEntry) {
+      throw new Error("rekon context task: no CapabilityEvidenceGraph found. Run `rekon capability graph build` first.");
+    }
+    const graphForContext = (await store.read(latestGraphEntry)) as unknown as TaskContextGraphLike;
+
+    // Retrieval is best-effort: with the embedding cache present and the provider
+    // able to embed, rank cached chunks; otherwise record a warning and build from
+    // graph + explicit paths only. Reads the cache only — writes no embeddings here.
+    const warnings: string[] = [];
+    const cacheDir = embeddingCacheDir(root);
+    const records = await readEmbeddingIndexRecords(cacheDir);
+    let retrievalResults: TaskContextRetrievalResultLike[] = [];
+    if (records.length === 0) {
+      warnings.push(
+        "retrieval-unavailable: no embeddings indexed (run `rekon embeddings index`); building from graph + explicit paths only",
+      );
+    } else {
+      const provider = resolveEmbeddingProvider({ providerId, model, dimensions, inputType: "query" });
+      const result = await provider.embed({ task: "artifact.retrieval", texts: [taskText], model });
+      const queryVector = result.ok ? result.vectors[0] : undefined;
+      if (!result.ok || !queryVector) {
+        const error = result.ok ? "no-embeddings" : result.error;
+        warnings.push(
+          `retrieval-unavailable: embedding provider ${providerId} returned no embedding (${error}); building from graph + explicit paths only`,
+        );
+      } else {
+        const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
+        for (const record of records) {
+          const vector = await readEmbeddingVector(cacheDir, record.vectorRef);
+          if (!vector) continue;
+          scored.push({ record, score: cosineSimilarity(queryVector, vector) });
+        }
+        scored.sort((a, b) => b.score - a.score || a.record.chunk.id.localeCompare(b.record.chunk.id));
+        retrievalResults = scored.slice(0, effectiveTopK).map((entry) => {
+          const chunk = entry.record.chunk;
+          return {
+            score: Number(entry.score.toFixed(6)),
+            scoreBand: classifyEmbeddingSimilarityScore(entry.score),
+            chunkId: chunk.id,
+            kind: chunk.kind,
+            path: chunk.path,
+            ...(chunk.symbolId ? { symbolId: chunk.symbolId } : {}),
+            chunk: {
+              id: chunk.id,
+              kind: chunk.kind,
+              path: chunk.path,
+              ...(chunk.symbolId ? { symbolId: chunk.symbolId } : {}),
+            },
+          };
+        });
+      }
+    }
+
+    // Fail cleanly when there is nothing to build from: no retrieval AND no paths.
+    if (retrievalResults.length === 0 && paths.length === 0) {
+      process.exitCode = 1;
+      const payload = {
+        command: "context task",
+        status: "failed",
+        error: "context-retrieval-unavailable",
+        warnings,
+        note: "no embedding retrieval available and no explicit --path provided; run `rekon embeddings index` or pass --path",
+      };
+      if (json) {
+        writeOutput(payload, true);
+      } else {
+        writeOutput(
+          "rekon context task: context-retrieval-unavailable — no embeddings indexed and no --path provided. Run `rekon embeddings index` or pass --path <path>.",
+          false,
+        );
+      }
+      return;
+    }
+
+    const report = buildTaskContextReport({
+      taskText,
+      paths,
+      graph: graphForContext,
+      retrievalResults,
+      provider: providerId,
+      model,
+      topK: effectiveTopK,
+      repoId: root,
+    });
+    const ref = await store.write(report, { category: "actions" });
+
+    if (json) {
+      writeOutput(
+        {
+          command: "context task",
+          status: warnings.length > 0 ? "partial" : "ok",
+          provider: providerId,
+          model,
+          artifact: { type: ref.type, id: ref.id },
+          task: report.task,
+          selection: report.selection,
+          summary: report.summary,
+          contextItems: report.contextItems,
+          graphNeighborhood: report.graphNeighborhood,
+          doNotTouch: report.doNotTouch,
+          verificationHints: report.verificationHints,
+          warnings,
+          boundaries: report.boundaries,
+          note: "task-shaped context is proposal/context, not proof; deterministic graph facts outrank embedding similarity; verification hints are hints, not executed commands",
+        },
+        true,
+      );
+    } else {
+      const lines: string[] = [];
+      lines.push("# Task Context");
+      lines.push("");
+      lines.push(`Task: ${taskText.replace(/\s+/g, " ").trim()}`);
+      const core = report.contextItems.filter(
+        (item) => item.source === "operator_input" || item.source === "deterministic_graph",
+      );
+      const related = report.contextItems.filter(
+        (item) => item.source === "embedding_retrieval" || item.source === "semantic_file_understanding",
+      );
+      if (core.length > 0) {
+        lines.push("");
+        lines.push("## Core Context");
+        for (const item of core) {
+          lines.push(`- ${item.path ?? item.symbolId ?? item.capabilityId ?? item.id} — ${item.reason}`);
+        }
+      }
+      if (related.length > 0) {
+        lines.push("");
+        lines.push("## Related Context");
+        for (const item of related) {
+          lines.push(`- ${item.path ?? item.symbolId ?? item.id} — ${item.reason}`);
+        }
+      }
+      if (report.doNotTouch.length > 0) {
+        lines.push("");
+        lines.push("## Do Not Touch");
+        for (const zone of report.doNotTouch) {
+          lines.push(`- ${zone.reason}${zone.path ? ` (${zone.path})` : ""}`);
+        }
+      }
+      if (report.verificationHints.length > 0) {
+        lines.push("");
+        lines.push("## Verification Hints");
+        for (const hint of report.verificationHints) {
+          lines.push(`- ${hint.command ?? hint.artifact ?? "hint"} — ${hint.reason}`);
+        }
+      }
+      if (warnings.length > 0) {
+        lines.push("");
+        lines.push("## Warnings");
+        for (const warning of warnings) lines.push(`- ${warning}`);
+      }
+      lines.push("");
+      lines.push(
+        "Task-shaped context is proposal/context, not proof. Deterministic graph facts outrank embedding similarity. Verification hints are hints, not executed commands.",
+      );
+      lines.push(`Report: ${ref.id}`);
       writeOutput(lines.join("\n"), false);
     }
     return;
@@ -12995,6 +13212,7 @@ function usage(): string {
     "rekon intent verification-plan generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--work-order <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent context prepare [--root <path>] [--json]",
+    "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",

@@ -1,5 +1,9 @@
 # Embedding Provider / Index
 
+> **First retrieval consumer implemented (slice 166):** task-shaped context
+> (`TaskContextReport` / `rekon context task`) consumes embedding retrieval as
+> proposal/context. See [TaskContextReport v1](../strategy/task-context-report-v1.md).
+
 > **First retrieval consumer decided (slice 165):** task-shaped context is the
 > first product consumer of embedding retrieval — a future `TaskContextReport`
 > bundle (`rekon context task`) that combines retrieval neighbors with graph facts

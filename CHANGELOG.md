@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **TaskContextReport v1** — one-hundred-sixty-sixth slice on the embeddings track. Product capability batch
+  implementing the first product consumer of embedding retrieval (task-shaped context), selected by the slice-165
+  decision. New `TaskContextReport` artifact in `@rekon/kernel-repo-model` (types, factory `createTaskContextReport`,
+  validator `validateTaskContextReport` / `assertTaskContextReport`, schema), registered in the SDK and the runtime
+  `actions` category; a pure `buildTaskContextReport` helper in `@rekon/capability-model`; and a new `rekon context
+  task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]`
+  command. The command reads the latest CapabilityEvidenceGraph and the embedding cache (when present), runs retrieval
+  best-effort (warns `retrieval-unavailable` when the cache/provider are absent; fails cleanly
+  `context-retrieval-unavailable` when there is neither retrieval nor an explicit `--path`), and writes one report.
+  Selection: operator paths + strong/useful neighbors included, weak optional, ignored excluded; selected paths expand
+  through the graph and admit deterministic facts regardless of embedding score; every context item, do-not-touch
+  zone, and verification hint preserves evidence refs. The factory forces every boundary false and recomputes the
+  summary; the validator rejects any non-false boundary, empty task text, a reasonless context item, and a mismatched
+  summary. The artifact is canonical structured JSON; human output is a `# Task Context` markdown rendering.
+  Task-shaped context is proposal/context, not proof; deterministic graph facts outrank embedding similarity;
+  verification hints are hints, not executed commands; no plan approval, command execution, source writes,
+  WorkOrder/VerificationPlan, or Circe; intent:go deferred. Duplicate detection and canonical recommendations remain
+  deferred. New artifact + concept + strategy docs, a 27-assertion contract test, an 18-assertion docs test; full
+  keyless 9-command gate + CLI smoke. Next: TaskContextReport Safety Review.
+
 - Decided **Task-Shaped Context / Embedding Retrieval Decision** — one-hundred-sixty-fifth slice on the embeddings
   track. Strategy / architecture decision batch; no source changes, no runtime behavior changes, no new artifact, no
   CLI command. Selects **task-shaped context** as the first product consumer of embedding retrieval: a future

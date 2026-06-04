@@ -278,6 +278,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "IntentPlanActionabilityReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "SemanticFileUnderstandingReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "CapabilityEvidenceGraph", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "TaskContextReport", schemaVersion: "0.1.0", stability: "experimental" },
 ];
 
 export function defineCapability(definition: CapabilityDefinition): CapabilityDefinition {

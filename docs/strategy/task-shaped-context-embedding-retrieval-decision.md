@@ -1,5 +1,9 @@
 # Task-Shaped Context / Embedding Retrieval Decision
 
+> **Implemented (slice 166):** this decision shipped — the `TaskContextReport`
+> artifact, the pure `buildTaskContextReport` helper, and the `rekon context task`
+> command. See [TaskContextReport v1](./task-context-report-v1.md).
+
 > **Slice 165 · strategy / architecture decision batch.** Base `4bd331f`. No
 > runtime behavior changes, no source changes, no new artifact, no CLI command,
 > no Voyage calls. This memo decides the **first product consumer** of embedding

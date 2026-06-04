@@ -1,5 +1,10 @@
 # Capability Evidence Graph
 
+> **First retrieval consumer implemented (slice 166):** `TaskContextReport`
+> (`rekon context task`) expands the graph for task-shaped context — graph-first,
+> deterministic facts outrank similarity. See
+> [TaskContextReport v1](../strategy/task-context-report-v1.md).
+
 > **First retrieval consumer decided (slice 165):** task-shaped context
 > (`TaskContextReport`) is the first retrieval consumer and stays graph-first —
 > the graph remains the evidence substrate and deterministic facts outrank
