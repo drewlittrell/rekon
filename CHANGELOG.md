@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Human/Agent Export Safety Review** — one-hundred-seventy-eighth slice on the embeddings
+  track. Strategy / safety-review batch (docs-only: no runtime behavior change, no source change, no new artifact, no
+  CLI command, no CLI smoke). Reviews the slice-177 `rekon context task` human/agent export end-to-end and declares it
+  **safe/stable**. The TaskContextReport artifact is canonical, human markdown is a rendered view, and the agent JSON
+  `agentContext` block is the structured source of truth. The human view says "Read this before editing." agentContext
+  is additive and preserves existing top-level JSON fields. Verification hints remain hints, not executed commands, and
+  agentContext verification hints carry `executed:false`; do-not-touch zones remain guidance/context, not enforcement,
+  and agentContext do-not-touch zones carry `enforced:false`; evidence refs are preserved; agentContext includes
+  all-false boundaries. TaskContextReport must not approve plans; must not execute commands; must not write source
+  files; must not create WorkOrder or VerificationPlan; must not run Circe; intent:go remains deferred. Note: `b0e80b9`
+  ("fix: harden source scan traversal") landed between slice 177 and this review and is out of scope (it touches
+  `capability-js-ts` source scanning, not the export presentation layer); the slice-177 export subject is intact at
+  `b0e80b9`. Adds a 25-assertion docs test. Next: TaskContextReport Workflow Integration Decision. See
+  [`task-context-human-agent-export-safety-review.md`](docs/strategy/task-context-human-agent-export-safety-review.md).
 - Shipped **TaskContextReport Human/Agent Context Export** — one-hundred-seventy-seventh slice on the embeddings
   track. Product capability batch (presentation only: no new artifact, no schema change, no new CLI command, no
   executed command, no source write). Improves how the existing `TaskContextReport` is consumed by its two readers via

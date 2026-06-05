@@ -145,3 +145,5 @@ docs-only review that re-reads the shipped presentation code and confirms the
 boundary model holds (no execution, no writes, no approval, evidence preserved,
 intent:go still deferred). Alternative: **TaskContextReport Workflow Integration
 Decision** (where the export surface plugs into the broader intent/operator flow).
+
+> Update (slice 178 · TaskContextReport Human/Agent Export Safety Review): the slice-177 `rekon context task` human/agent export was reviewed end-to-end and declared safe/stable — presentation only. The TaskContextReport artifact is canonical, human markdown is a rendered view, agent JSON (`agentContext`) is the structured source of truth and is additive (every existing top-level JSON field preserved); verification hints stay hints (`executed:false`), do-not-touch zones stay guidance (`enforced:false`), evidence refs are preserved, boundaries stay all-false; no approval / command execution / source write / WorkOrder / VerificationPlan / Circe; intent:go deferred. See [`task-context-human-agent-export-safety-review.md`](task-context-human-agent-export-safety-review.md).
