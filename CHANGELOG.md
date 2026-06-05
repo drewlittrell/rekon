@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **TaskContextReport Workflow Integration Decision** — one-hundred-seventy-ninth slice on the embeddings
+  track. Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no new
+  artifact, no CLI command, no CLI smoke). Decides how `TaskContextReport` appears in broader operator/agent workflows
+  now that the artifact, `rekon context task`, the intent integration, the dogfood, the provider-fallback fix, and the
+  human/agent export (with its safety review) are all shipped. Selected **Option B — context-first workflow policy**:
+  the standard workflow becomes context first, plan second, approval third, handoff fourth, with `TaskContextReport`
+  recommended (not required, not automatic) before human/agent implementation and before `intent assess` /
+  `intent plan review`. Rejected ad-hoc-only, automatic context generation, and required-context-for-handoff; bundle
+  inclusion approved in principle as optional context only (implementation deferred). TaskContextReport is the standard
+  pre-work context substrate, not a proof artifact; context-first means context before planning or editing, not context
+  as approval; humans should read the markdown brief before editing; agents should consume agentContext before editing;
+  TaskContextReport must not approve plans, execute commands, write source files, or create WorkOrder or
+  VerificationPlan; verification hints remain hints, not executed commands; do-not-touch zones remain guidance/context,
+  not enforcement; consumption remains explicit unless a future decision changes it; prepare / approve / status /
+  handoff remain separately gated; bundle inclusion is optional context, not proof; intent:go remains deferred. Adds a
+  22-assertion docs test. First implementation: TaskContextReport Workflow Guide / Agent Instructions. See
+  [`task-context-report-workflow-integration-decision.md`](docs/strategy/task-context-report-workflow-integration-decision.md).
 - Reviewed **TaskContextReport Human/Agent Export Safety Review** — one-hundred-seventy-eighth slice on the embeddings
   track. Strategy / safety-review batch (docs-only: no runtime behavior change, no source change, no new artifact, no
   CLI command, no CLI smoke). Reviews the slice-177 `rekon context task` human/agent export end-to-end and declares it
