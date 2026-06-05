@@ -1,5 +1,11 @@
 # TaskContextReport v1
 
+> **Broader-workflow role decided (slice 176):** TaskContextReport is the standard
+> pre-intent / pre-work context substrate — context only, never proof/approval;
+> consumption stays explicit; the deterministic spine stays separately gated;
+> intent:go deferred. Next: TaskContextReport Human/Agent Context Export. See
+> [`task-context-report-broader-workflow-decision.md`](./task-context-report-broader-workflow-decision.md).
+
 > **Provider-default UX fixed (slice 175):** `rekon context task` with an existing
 > embeddings index, no `--path`, and an implicitly-defaulted provider whose key is
 > missing now degrades to a graph + lexical context fallback instead of exiting

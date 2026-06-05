@@ -1,5 +1,7 @@
 # Classic Behavior Roadmap
 
+> **First retrieval consumer broader-workflow role decided (slice 176):** the embeddings track (classic Track B) pinned TaskContextReport as the standard pre-work context substrate (codebase-intel context-packet role) — context only, never proof/approval; do-not-touch zones / hints stay guidance; consumption stays explicit; intent:go deferred. See [`task-context-report-broader-workflow-decision.md`](./task-context-report-broader-workflow-decision.md).
+
 > **First retrieval consumer provider-default UX fixed (slice 175):** the embeddings track (classic Track B) made `rekon context task` degrade to graph + lexical context (codebase-intel context-packet fallback) when an implicitly-defaulted embedding provider has no key, instead of failing; explicit provider failures stay strict; context stays proposal/context, not proof; intent:go deferred. See [`intent-planning-ux-context-quality-fix.md`](./intent-planning-ux-context-quality-fix.md).
 
 > **First retrieval consumer intent-integration dogfood safety-reviewed (slice 174):** the embeddings track (classic Track B) reviewed the slice-173 task-shaped-context intent dogfood path end-to-end and declared it safe/stable — codebase-intel context-packet value confirmed with every deterministic gate holding; context stays proposal/context, not proof; intent:go deferred. See [`task-context-report-intent-dogfood-safety-review.md`](./task-context-report-intent-dogfood-safety-review.md).

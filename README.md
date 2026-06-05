@@ -1,5 +1,7 @@
 # Rekon
 
+> **TaskContextReport broader-workflow role decided (slice 176):** TaskContextReport is the standard pre-intent / pre-work context substrate (context first, plan second, approval third, handoff fourth) — a context substrate, not a proof artifact; it may guide humans and agents but must not approve plans, execute commands, or write source files; do-not-touch zones stay guidance, verification hints stay hints; consumption stays explicit; intent prepare / approve / status / handoff remain separately gated; intent:go deferred. The artifact is canonical, human markdown a rendered view, agent JSON the structured source of truth, bundle inclusion optional context (not proof). Strategy / architecture decision batch; no runtime/API/command change. Next: TaskContextReport Human/Agent Context Export. See [`task-context-report-broader-workflow-decision.md`](docs/strategy/task-context-report-broader-workflow-decision.md).
+
 > **Provider-default context UX fixed (slice 175):** `rekon context task` with an existing embeddings index, no `--path`, and an implicitly-defaulted provider (`voyage`) whose API key is missing now degrades to a graph + lexical context fallback (deriving candidate paths by lexically matching the task text against graph file nodes) instead of exiting non-zero. Implicit provider failure degrades; explicit provider failure stays visible and strict; if no graph match it still fails cleanly. Task context stays proposal/context, not proof; verification hints stay hints; no source writes; no commands executed; no WorkOrder/VerificationPlan; no Circe; intent:go deferred. Additive only — new `selectLexicalGraphContextPaths` helper + `providerExplicit` / `retrieval` JSON fields + two warning codes; no new artifact or command. Next: TaskContextReport Broader Workflow Decision. See [`intent-planning-ux-context-quality-fix.md`](docs/strategy/intent-planning-ux-context-quality-fix.md).
 
 > **Task-context intent dogfood safety-reviewed (slice 174):** the slice-173 full task-context intent dogfood path was reviewed end-to-end and declared safe/stable — the path completed because the existing readiness / actionability / approval / status / handoff gates held, not because task context weakened any boundary. TaskContextReport is proposal/context, not proof; do-not-touch and verification-hint guidance survived into plan review as hints, not executed commands; source and plan unchanged; no commands executed; no VerificationRun/Result; no Circe; intent:go deferred. One non-blocking ergonomics finding (context task provider-default missing-key behavior) is deferred to the next slice. Strategy / safety-review batch; no runtime/API/command change. Next: Intent Planning UX / Context Quality Fix. See [`task-context-report-intent-dogfood-safety-review.md`](docs/strategy/task-context-report-intent-dogfood-safety-review.md).
@@ -384,6 +386,27 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # update-in-place handle. Forked PRs remain denied by default;
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
+#
+# TaskContextReport Broader Workflow Decision is complete.
+# One-hundred-seventy-sixth slice on the embeddings track.
+# Strategy / architecture decision batch; no runtime behavior change, no source
+# change, no new artifact, no CLI command. Decides where TaskContextReport may be
+# used now that it is implemented, safety-reviewed, dogfooded through the intent
+# path, integrated into intent assess / plan review, and free of the provider-default
+# UX issue. Selected Option B: TaskContextReport is the standard pre-intent / pre-work
+# context substrate (context first, plan second, approval third, handoff fourth),
+# rejecting CLI-only, automatic-consumption, enforcement, and duplicate/canonical
+# options. TaskContextReport is a context substrate, not a proof artifact;
+# TaskContextReport may guide humans and agents, but must not approve plans;
+# TaskContextReport must not execute commands; TaskContextReport must not write source
+# files; TaskContextReport must not create WorkOrder or VerificationPlan; verification
+# hints remain hints, not executed commands; do-not-touch zones remain
+# guidance/context, not enforcement; TaskContextReport consumption remains explicit
+# unless a future decision changes it; intent prepare / approve / status / handoff
+# remain separately gated; intent:go remains deferred. The artifact is canonical,
+# human markdown a rendered view, agent JSON the structured source of truth, bundle
+# inclusion optional context (never proof). Adds an 18-assertion docs test. Next:
+# TaskContextReport Human/Agent Context Export.
 #
 # Intent Planning UX / Context Quality Fix is complete.
 # One-hundred-seventy-fifth slice on the embeddings track.

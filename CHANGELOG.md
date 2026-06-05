@@ -4,6 +4,21 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **TaskContextReport Broader Workflow Decision** — one-hundred-seventy-sixth slice on the embeddings
+  track. Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no new
+  artifact, no CLI command). Decides where TaskContextReport may be used now that it is implemented, safety-reviewed,
+  dogfooded through the intent path, integrated into `intent assess` / `intent plan review`, and free of the
+  provider-default UX issue. Selected **Option B — TaskContextReport as the standard pre-intent / pre-work context
+  substrate** (context first, plan second, approval third, handoff fourth), rejecting CLI-only, automatic-consumption,
+  enforcement, and duplicate/canonical options. TaskContextReport is a context substrate, not a proof artifact;
+  TaskContextReport may guide humans and agents, but must not approve plans; TaskContextReport must not execute
+  commands; TaskContextReport must not write source files; TaskContextReport must not create WorkOrder or
+  VerificationPlan; verification hints remain hints, not executed commands; do-not-touch zones remain guidance/context,
+  not enforcement; TaskContextReport consumption remains explicit unless a future decision changes it; intent prepare /
+  approve / status / handoff remain separately gated; intent:go remains deferred. The artifact is canonical, human
+  markdown a rendered view, agent JSON the structured source of truth, and bundle inclusion optional context (never
+  proof). Adds an 18-assertion docs test. Next: TaskContextReport Human/Agent Context Export. See
+  [`task-context-report-broader-workflow-decision.md`](docs/strategy/task-context-report-broader-workflow-decision.md).
 - Fixed **Intent Planning UX / Context Quality Fix** — one-hundred-seventy-fifth slice on the embeddings track.
   Product capability batch (no new artifact, no new CLI command, no version change). Fixes the one carried ergonomics
   issue from the TaskContextReport intent dogfood: `rekon context task` with an existing embeddings index, no `--path`,

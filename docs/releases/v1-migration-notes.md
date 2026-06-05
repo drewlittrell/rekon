@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **TaskContextReport Broader Workflow Decision (slice 176):** strategy / architecture decision batch — no API, artifact, or command changed; nothing to migrate. Pins TaskContextReport's product role as the standard pre-intent / pre-work context substrate (context only, never proof/approval; consumption stays explicit; the deterministic spine stays separately gated). See [`task-context-report-broader-workflow-decision.md`](../strategy/task-context-report-broader-workflow-decision.md).
+
 > **Intent Planning UX / Context Quality Fix (slice 175):** product capability batch — additive output only; nothing to migrate. `rekon context task` gains a graph + lexical fallback for the implicit-provider missing-key case (new `selectLexicalGraphContextPaths` helper + additive `providerExplicit` / `retrieval` JSON fields + `provider-unavailable` / `graph-lexical-fallback` warning codes); no type, artifact, command, or existing behavior changed. See [`intent-planning-ux-context-quality-fix.md`](../strategy/intent-planning-ux-context-quality-fix.md).
 
 > **TaskContextReport Intent Dogfood Safety Review (slice 174):** strategy / safety-review batch — no API, artifact, or command changed; nothing to migrate. Reviewed the slice-173 full task-context intent dogfood path end-to-end and declared it safe/stable (gates held; task context stays proposal/context, not proof). See [`task-context-report-intent-dogfood-safety-review.md`](../strategy/task-context-report-intent-dogfood-safety-review.md).

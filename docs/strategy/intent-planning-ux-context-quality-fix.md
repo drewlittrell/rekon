@@ -1,5 +1,13 @@
 # Intent Planning UX / Context Quality Fix
 
+> **Broader-workflow role decided (slice 176):** TaskContextReport is the standard
+> pre-intent / pre-work context substrate — a context substrate, not a proof
+> artifact; it may guide humans and agents but must not approve plans, execute
+> commands, or write source files; consumption stays explicit; intent prepare /
+> approve / status / handoff remain separately gated; intent:go deferred. Next:
+> TaskContextReport Human/Agent Context Export. See
+> [`task-context-report-broader-workflow-decision.md`](./task-context-report-broader-workflow-decision.md).
+
 > **Slice 175 · product capability batch.** Base `f210b1c`. Fixes the one
 > non-blocking ergonomics issue carried out of the TaskContextReport intent
 > dogfood and its safety review: `rekon context task` with an existing embeddings

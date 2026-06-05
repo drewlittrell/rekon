@@ -1,5 +1,11 @@
 # Intent Assessment
 
+> **Broader-workflow role decided (slice 176):** TaskContextReport is the standard
+> pre-intent / pre-work context substrate — `intent assess` consumes it explicitly
+> as context only, never proof/approval; the deterministic spine stays separately
+> gated; intent:go deferred. See
+> [TaskContextReport Broader Workflow Decision](../strategy/task-context-report-broader-workflow-decision.md).
+
 > **Intent dogfood safety-reviewed (slice 174):** the slice-173 dogfood was reviewed
 > end-to-end and declared safe/stable — assess enrichment runs after readiness and never
 > makes readiness ready by itself; the gates held throughout. See

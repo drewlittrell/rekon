@@ -1,5 +1,11 @@
 # TaskContextReport Intent Integration Safety Review
 
+> **Broader-workflow role decided (slice 176):** TaskContextReport is the standard
+> pre-intent / pre-work context substrate — context only, never proof/approval;
+> consumption stays explicit; the deterministic spine stays separately gated;
+> intent:go deferred. Next: TaskContextReport Human/Agent Context Export. See
+> [`task-context-report-broader-workflow-decision.md`](./task-context-report-broader-workflow-decision.md).
+
 > **Intent dogfood safety-reviewed (slice 174):** the slice-173 dogfood was reviewed
 > end-to-end and declared safe/stable — completion came from the existing readiness /
 > actionability / approval / status / handoff gates, not from task context weakening any
