@@ -1,5 +1,11 @@
 # TaskContextReport Dogfood Review
 
+> **Intent dogfood safety-reviewed (slice 174):** the slice-173 dogfood was reviewed
+> end-to-end and declared safe/stable — completion came from the existing readiness /
+> actionability / approval / status / handoff gates, not from task context weakening any
+> boundary; intent:go deferred. Next: Intent Planning UX / Context Quality Fix. See
+> [`task-context-report-intent-dogfood-safety-review.md`](./task-context-report-intent-dogfood-safety-review.md).
+
 > **Intent path dogfooded (slice 173):** the full operator path was run with opt-in task
 > context — it improved matchedContext / revisionPrompt while every readiness /
 > actionability / approval / status / handoff gate held; source unchanged. See

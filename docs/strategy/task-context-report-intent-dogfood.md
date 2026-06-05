@@ -1,5 +1,11 @@
 # TaskContextReport Intent Dogfood
 
+> **Safety-reviewed (slice 174):** this dogfood was reviewed end-to-end and declared
+> safe/stable — the full path completed because the existing readiness / actionability /
+> approval / status / handoff gates held, not because task context weakened any boundary;
+> intent:go deferred. Next: Intent Planning UX / Context Quality Fix. See
+> [`task-context-report-intent-dogfood-safety-review.md`](./task-context-report-intent-dogfood-safety-review.md).
+
 > **Slice 173 · product dogfood / review batch.** Base `5f76d89`. Ran the full
 > operator path using TaskContextReport as opt-in context for intent planning:
 > `context task` → `intent assess --task-context` → `intent plan review

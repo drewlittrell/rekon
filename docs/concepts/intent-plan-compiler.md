@@ -1,5 +1,7 @@
 # Intent Plan Compiler
 
+> **Intent dogfood safety-reviewed (slice 174):** the slice-173 dogfood was reviewed end-to-end and declared safe/stable — plan-review enrichment grows `revisionPrompt` additively after status/findings (never makes actionability actionable by itself); do-not-touch and verification-hint guidance survived into plan review as hints, not executed commands. See [`../strategy/task-context-report-intent-dogfood-safety-review.md`](../strategy/task-context-report-intent-dogfood-safety-review.md).
+
 > **Dogfooded (slice 173):** the dogfood confirmed `intent plan review --task-context` grows `revisionPrompt` with a "Task context (proposal/context, not proof)" section (relevant paths, do-not-touch constraint, verification hint "(hint, not an executed command)") while status stays `needs-revision` and no finding is added/removed; source unchanged. See [`../strategy/task-context-report-intent-dogfood.md`](../strategy/task-context-report-intent-dogfood.md).
 
 > **TaskContextReport integration safety-reviewed (slice 172):** the slice-171 plan-review consumption was reviewed end-to-end and declared safe/stable — actionability status remains governed by plan actionability (not task context alone); enrichment grounds `revisionPrompt` additively after status/findings; no finding added/removed; hints stay hints; not proof. See [`../strategy/task-context-report-intent-integration-safety-review.md`](../strategy/task-context-report-intent-integration-safety-review.md).

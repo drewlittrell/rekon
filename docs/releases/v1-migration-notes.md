@@ -1,5 +1,7 @@
 # Rekon V1 Migration Notes
 
+> **TaskContextReport Intent Dogfood Safety Review (slice 174):** strategy / safety-review batch — no API, artifact, or command changed; nothing to migrate. Reviewed the slice-173 full task-context intent dogfood path end-to-end and declared it safe/stable (gates held; task context stays proposal/context, not proof). See [`task-context-report-intent-dogfood-safety-review.md`](../strategy/task-context-report-intent-dogfood-safety-review.md).
+
 > **TaskContextReport Intent Dogfood (slice 173):** product dogfood / review batch — no API, artifact, or command changed; nothing to migrate. Ran the full operator path with opt-in task context and confirmed it improves planning while every gate holds. See [`task-context-report-intent-dogfood.md`](../strategy/task-context-report-intent-dogfood.md).
 
 > **TaskContextReport Intent Integration Safety Review (slice 172):** strategy / safety-review batch — no API, artifact, or command changed; nothing to migrate. Reviewed the slice-171 opt-in TaskContextReport consumption by `rekon intent assess` / `rekon intent plan review` and declared it safe/stable (additive context only, prepare by lineage). See [`task-context-report-intent-integration-safety-review.md`](../strategy/task-context-report-intent-integration-safety-review.md).

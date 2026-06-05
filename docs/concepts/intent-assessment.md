@@ -1,5 +1,10 @@
 # Intent Assessment
 
+> **Intent dogfood safety-reviewed (slice 174):** the slice-173 dogfood was reviewed
+> end-to-end and declared safe/stable — assess enrichment runs after readiness and never
+> makes readiness ready by itself; the gates held throughout. See
+> [TaskContextReport Intent Dogfood Safety Review](../strategy/task-context-report-intent-dogfood-safety-review.md).
+
 > **Dogfooded (slice 173):** the dogfood confirmed `intent assess --task-context` adds
 > the used report's paths to `matchedContext` and keeps readiness `needs-review` (not
 > made ready by task context); no blocker suppressed; source unchanged. See

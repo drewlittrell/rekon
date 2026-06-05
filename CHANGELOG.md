@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Intent Dogfood Safety Review** — one-hundred-seventy-fourth slice on the embeddings
+  track. Strategy / safety-review batch (no runtime behavior change, no source change, no new artifact or CLI command).
+  Reviewed the slice-173 full task-context intent dogfood path end-to-end against the shipped source (`task-context.ts`
+  and both intent builders, unchanged since slice 171; `prepared-intent-plan.ts`, `intent-approval.ts`,
+  `intent-status-transition.ts`, `intent-plan-bundle.ts`, the CLI). Verdict: safe/stable — completion came from the
+  existing explicit gates, not from any weakened boundary. TaskContextReport is proposal/context, not proof;
+  TaskContextReport improved matchedContext without making readiness ready by itself; TaskContextReport improved
+  revisionPrompt without making actionability actionable by itself; do-not-touch guidance survived into plan review;
+  verification-hint guidance survived into plan review as hints, not executed commands; plan answer became actionable
+  only after explicit operator answers; prepare remained lineage-only; prepare approval remained needs-review before
+  explicit approval; approval required explicit accepted risks; status transition required explicit work-ready
+  transition; WorkOrder and VerificationPlan generated only after approve plus work-ready status; bundle write emitted
+  handoff paths; source and plan files were unchanged; no commands were executed; no VerificationRun or
+  VerificationResult was created; Rekon did not run Circe; intent:go remains deferred. The context task provider-default
+  finding is non-blocking but should be fixed before broader workflow use. Adds a 26-assertion docs test. Next: Intent
+  Planning UX / Context Quality Fix. See
+  [`task-context-report-intent-dogfood-safety-review.md`](docs/strategy/task-context-report-intent-dogfood-safety-review.md).
 - Dogfooded **TaskContextReport Intent Dogfood** — one-hundred-seventy-third slice on the embeddings track. Product
   dogfood / review batch (no runtime behavior change, no source change, no new artifact or CLI command). Ran the full
   operator path with opt-in TaskContextReport context: `context task` → `intent assess --task-context` → `intent plan

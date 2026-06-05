@@ -1,5 +1,7 @@
 # Classic Behavior Roadmap
 
+> **First retrieval consumer intent-integration dogfood safety-reviewed (slice 174):** the embeddings track (classic Track B) reviewed the slice-173 task-shaped-context intent dogfood path end-to-end and declared it safe/stable — codebase-intel context-packet value confirmed with every deterministic gate holding; context stays proposal/context, not proof; intent:go deferred. See [`task-context-report-intent-dogfood-safety-review.md`](./task-context-report-intent-dogfood-safety-review.md).
+
 > **First retrieval consumer intent-integration dogfooded (slice 173):** the embeddings track (classic Track B) ran the full operator path with opt-in task-shaped context — it improved matchedContext / revisionPrompt (codebase-intel context-packet value) while every gate held; source unchanged; intent:go deferred. See [`task-context-report-intent-dogfood.md`](./task-context-report-intent-dogfood.md).
 
 > **First retrieval consumer intent-integration safety-reviewed (slice 172):** the embeddings track (classic Track B) reviewed the slice-171 task-shaped-context intent integration end-to-end and declared it safe/stable — additive context only (codebase-intel context-packet analogue), prepare by lineage, context not proof; intent:go deferred. See [`task-context-report-intent-integration-safety-review.md`](./task-context-report-intent-integration-safety-review.md).

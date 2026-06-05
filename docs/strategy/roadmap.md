@@ -1,5 +1,7 @@
 # Roadmap
 
+> **First retrieval consumer intent-integration dogfood safety-reviewed (slice 174):** the slice-173 task-context intent dogfood path was reviewed end-to-end and declared safe/stable — completion came from the existing readiness / actionability / approval / status / handoff gates, not from task context weakening any boundary; intent:go deferred. Next: Intent Planning UX / Context Quality Fix. See [`task-context-report-intent-dogfood-safety-review.md`](./task-context-report-intent-dogfood-safety-review.md).
+
 > **First retrieval consumer intent-integration dogfooded (slice 173):** the full operator path (`context task` → assess → plan review → answer → prepare → approve → status → work-order → verification-plan → bundle) was run with opt-in task context — it improved matchedContext / revisionPrompt while every gate held; source unchanged; intent:go deferred. Next: TaskContextReport Intent Dogfood Safety Review. See [`task-context-report-intent-dogfood.md`](./task-context-report-intent-dogfood.md).
 
 > **First retrieval consumer intent-integration safety-reviewed (slice 172):** the slice-171 opt-in TaskContextReport consumption by assess / plan review was reviewed end-to-end and declared safe/stable — additive context only (never proof/approval), prepare by lineage; intent:go deferred. Next: TaskContextReport Intent Dogfood. See [`task-context-report-intent-integration-safety-review.md`](./task-context-report-intent-integration-safety-review.md).

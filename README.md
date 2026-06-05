@@ -1,5 +1,7 @@
 # Rekon
 
+> **Task-context intent dogfood safety-reviewed (slice 174):** the slice-173 full task-context intent dogfood path was reviewed end-to-end and declared safe/stable — the path completed because the existing readiness / actionability / approval / status / handoff gates held, not because task context weakened any boundary. TaskContextReport is proposal/context, not proof; do-not-touch and verification-hint guidance survived into plan review as hints, not executed commands; source and plan unchanged; no commands executed; no VerificationRun/Result; no Circe; intent:go deferred. One non-blocking ergonomics finding (context task provider-default missing-key behavior) is deferred to the next slice. Strategy / safety-review batch; no runtime/API/command change. Next: Intent Planning UX / Context Quality Fix. See [`task-context-report-intent-dogfood-safety-review.md`](docs/strategy/task-context-report-intent-dogfood-safety-review.md).
+
 > **Task-context intent path dogfooded (slice 173):** the full operator path (`context task` → `intent assess --task-context` → `intent plan review --task-context` → `plan answer` → `prepare` → `approve` → `status transition` → `work-order generate` → `verification-plan generate` → `bundle write`) was run with opt-in task context — it improved matchedContext / revisionPrompt and preserved do-not-touch / verification-hint guidance while every readiness / actionability / approval / status / handoff gate held; source and plan unchanged; intent:go deferred. See [`task-context-report-intent-dogfood.md`](docs/strategy/task-context-report-intent-dogfood.md).
 
 > **Task-context intent integration safety-reviewed (slice 172):** the slice-171 opt-in TaskContextReport consumption by `rekon intent assess` and `rekon intent plan review` was reviewed end-to-end and declared safe/stable — additive context only (readiness / status / findings unchanged; never proof, never approval), prepare by lineage; intent:go deferred. See [`task-context-report-intent-integration-safety-review.md`](docs/strategy/task-context-report-intent-integration-safety-review.md).
@@ -380,6 +382,28 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # update-in-place handle. Forked PRs remain denied by default;
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
+#
+# TaskContextReport Intent Dogfood Safety Review is complete.
+# One-hundred-seventy-fourth slice on the embeddings track.
+# Strategy / safety-review batch; no runtime behavior change, no source change, no new
+# artifact, no CLI command. Reviewed the slice-173 full task-context intent dogfood path
+# end-to-end against the shipped source (task-context.ts and both intent builders,
+# unchanged since slice 171; prepared-intent-plan.ts, intent-approval.ts,
+# intent-status-transition.ts, intent-plan-bundle.ts, the CLI). Verdict: safe/stable --
+# completion came from the existing explicit gates, not from any weakened boundary.
+# TaskContextReport is proposal/context, not proof; TaskContextReport improved
+# matchedContext without making readiness ready by itself; TaskContextReport improved
+# revisionPrompt without making actionability actionable by itself; do-not-touch guidance
+# survived into plan review; verification-hint guidance survived into plan review as
+# hints, not executed commands; plan answer became actionable only after explicit operator
+# answers; prepare remained lineage-only; prepare approval remained needs-review before
+# explicit approval; approval required explicit accepted risks; status transition required
+# explicit work-ready transition; WorkOrder and VerificationPlan generated only after
+# approve plus work-ready status; bundle write emitted handoff paths; source and plan files
+# were unchanged; no commands were executed; no VerificationRun or VerificationResult was
+# created; Rekon did not run Circe; intent:go remains deferred. The context task
+# provider-default finding is non-blocking but should be fixed before broader workflow use.
+# Adds a 26-assertion docs test. Next: Intent Planning UX / Context Quality Fix.
 #
 # TaskContextReport Intent Dogfood is complete.
 # One-hundred-seventy-third slice on the embeddings track.
