@@ -1,5 +1,7 @@
 # Rekon
 
+> **Provider-default context UX fixed (slice 175):** `rekon context task` with an existing embeddings index, no `--path`, and an implicitly-defaulted provider (`voyage`) whose API key is missing now degrades to a graph + lexical context fallback (deriving candidate paths by lexically matching the task text against graph file nodes) instead of exiting non-zero. Implicit provider failure degrades; explicit provider failure stays visible and strict; if no graph match it still fails cleanly. Task context stays proposal/context, not proof; verification hints stay hints; no source writes; no commands executed; no WorkOrder/VerificationPlan; no Circe; intent:go deferred. Additive only — new `selectLexicalGraphContextPaths` helper + `providerExplicit` / `retrieval` JSON fields + two warning codes; no new artifact or command. Next: TaskContextReport Broader Workflow Decision. See [`intent-planning-ux-context-quality-fix.md`](docs/strategy/intent-planning-ux-context-quality-fix.md).
+
 > **Task-context intent dogfood safety-reviewed (slice 174):** the slice-173 full task-context intent dogfood path was reviewed end-to-end and declared safe/stable — the path completed because the existing readiness / actionability / approval / status / handoff gates held, not because task context weakened any boundary. TaskContextReport is proposal/context, not proof; do-not-touch and verification-hint guidance survived into plan review as hints, not executed commands; source and plan unchanged; no commands executed; no VerificationRun/Result; no Circe; intent:go deferred. One non-blocking ergonomics finding (context task provider-default missing-key behavior) is deferred to the next slice. Strategy / safety-review batch; no runtime/API/command change. Next: Intent Planning UX / Context Quality Fix. See [`task-context-report-intent-dogfood-safety-review.md`](docs/strategy/task-context-report-intent-dogfood-safety-review.md).
 
 > **Task-context intent path dogfooded (slice 173):** the full operator path (`context task` → `intent assess --task-context` → `intent plan review --task-context` → `plan answer` → `prepare` → `approve` → `status transition` → `work-order generate` → `verification-plan generate` → `bundle write`) was run with opt-in task context — it improved matchedContext / revisionPrompt and preserved do-not-touch / verification-hint guidance while every readiness / actionability / approval / status / handoff gate held; source and plan unchanged; intent:go deferred. See [`task-context-report-intent-dogfood.md`](docs/strategy/task-context-report-intent-dogfood.md).
@@ -382,6 +384,26 @@ node packages/cli/dist/index.js publish pr-comment --root . --send \
 # update-in-place handle. Forked PRs remain denied by default;
 # pull_request_target remains denied unconditionally. The writer
 # never deletes reviewer-touched comments.
+#
+# Intent Planning UX / Context Quality Fix is complete.
+# One-hundred-seventy-fifth slice on the embeddings track.
+# Product capability batch; no new artifact, no new CLI command, no version change.
+# Fixes the one carried ergonomics issue from the TaskContextReport intent dogfood:
+# `rekon context task` with an existing embeddings index, no --path, and an
+# implicitly-defaulted provider (voyage) whose API key is missing used to exit
+# non-zero. It now degrades gracefully to a graph + lexical context fallback,
+# deriving candidate context paths by lexically matching the task text against graph
+# file nodes (a pure, additive selectLexicalGraphContextPaths helper) and surfacing
+# them as deterministic_graph context with provider-unavailable /
+# graph-lexical-fallback warnings and a retrieval: { status: "fallback", fallback:
+# "graph-lexical" } field. Implicit embedding-provider failure degrades to graph +
+# lexical context or a clear warning; explicit provider failure remains visible and
+# strict; if the fallback finds no graph match it still fails cleanly (never
+# fabricates context). Task context remains proposal/context, not proof; verification
+# hints remain hints, not executed commands; source files are not written; no commands
+# are executed; no WorkOrder or VerificationPlan is created; no Circe is run; intent:go
+# remains deferred. Adds a 19-assertion contract test and a 12-assertion docs test.
+# Next: TaskContextReport Broader Workflow Decision.
 #
 # TaskContextReport Intent Dogfood Safety Review is complete.
 # One-hundred-seventy-fourth slice on the embeddings track.

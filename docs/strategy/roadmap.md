@@ -1,5 +1,7 @@
 # Roadmap
 
+> **First retrieval consumer provider-default UX fixed (slice 175):** `rekon context task` with an existing embeddings index, no `--path`, and an implicitly-defaulted provider whose key is missing now degrades to a graph + lexical context fallback instead of exiting non-zero; explicit-provider failures stay strict; context stays proposal/context, not proof; intent:go deferred. Next: TaskContextReport Broader Workflow Decision. See [`intent-planning-ux-context-quality-fix.md`](./intent-planning-ux-context-quality-fix.md).
+
 > **First retrieval consumer intent-integration dogfood safety-reviewed (slice 174):** the slice-173 task-context intent dogfood path was reviewed end-to-end and declared safe/stable — completion came from the existing readiness / actionability / approval / status / handoff gates, not from task context weakening any boundary; intent:go deferred. Next: Intent Planning UX / Context Quality Fix. See [`task-context-report-intent-dogfood-safety-review.md`](./task-context-report-intent-dogfood-safety-review.md).
 
 > **First retrieval consumer intent-integration dogfooded (slice 173):** the full operator path (`context task` → assess → plan review → answer → prepare → approve → status → work-order → verification-plan → bundle) was run with opt-in task context — it improved matchedContext / revisionPrompt while every gate held; source unchanged; intent:go deferred. Next: TaskContextReport Intent Dogfood Safety Review. See [`task-context-report-intent-dogfood.md`](./task-context-report-intent-dogfood.md).

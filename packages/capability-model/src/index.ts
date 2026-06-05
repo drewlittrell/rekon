@@ -169,7 +169,9 @@ export {
   type TaskContextRetrievalResultLike,
   type BuildTaskContextReportInput,
   TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX,
+  DEFAULT_LEXICAL_FALLBACK_LIMIT,
   buildTaskContextReport,
+  selectLexicalGraphContextPaths,
 } from "./task-context-report.js";
 
 export {

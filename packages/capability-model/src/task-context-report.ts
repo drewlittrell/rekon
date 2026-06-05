@@ -77,6 +77,15 @@ export type TaskContextRetrievalResultLike = {
 export type BuildTaskContextReportInput = {
   taskText: string;
   paths?: string[];
+  /**
+   * Graph + lexical fallback paths. When embedding retrieval is unavailable
+   * because an IMPLICITLY-defaulted provider has no API key, the CLI lexically
+   * matches the task text against graph file nodes (see
+   * `selectLexicalGraphContextPaths`) and passes the matched paths here. They are
+   * surfaced as `deterministic_graph` context (the nodes are real graph facts; only
+   * the SELECTION is lexical) and expanded like any selected path. Never proof.
+   */
+  lexicalContextPaths?: string[];
   goal?: string;
   graph: TaskContextGraphLike;
   retrievalResults?: TaskContextRetrievalResultLike[];
@@ -183,6 +192,91 @@ function extractVerificationHints(taskText: string): TaskContextVerificationHint
   return hints;
 }
 
+// Default cap on graph + lexical fallback paths, so the degraded context stays
+// compact. The CLI uses this when an implicitly-defaulted embedding provider is
+// unavailable and no operator --path was given.
+export const DEFAULT_LEXICAL_FALLBACK_LIMIT = 5;
+
+// Stopwords + tokenizers for the lexical graph fallback. Conservative: drop
+// short and structural words so the match is driven by salient task terms.
+const LEXICAL_FALLBACK_STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "but", "to", "of", "in", "on", "for", "with",
+  "from", "by", "at", "as", "is", "are", "be", "it", "its", "this", "that",
+  "these", "those", "do", "dont", "does", "not", "no", "when", "then", "into",
+  "should", "must", "never", "also", "via", "use", "using", "new", "make", "sure",
+  "change", "update", "fix", "add", "remove", "verify", "check", "ensure",
+  "confirm", "validate", "behavior", "behaviour", "something", "anything",
+]);
+
+function lexicalQueryTokens(text: string): Set<string> {
+  const tokens = new Set<string>();
+  for (const raw of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+    if (raw.length < 3) continue;
+    if (LEXICAL_FALLBACK_STOPWORDS.has(raw)) continue;
+    tokens.add(raw);
+  }
+  return tokens;
+}
+
+function lexicalPathTokens(path: string): Set<string> {
+  const tokens = new Set<string>();
+  for (const raw of path.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+    if (raw.length < 2) continue;
+    tokens.add(raw);
+  }
+  return tokens;
+}
+
+// Pure, deterministic graph + lexical fallback selector. Returns file-node paths
+// from the graph whose path tokens (plus the labels of capabilities they
+// implement) lexically overlap salient task-text tokens, ranked by overlap then
+// lexicographically, capped at `limit`. Returns [] when nothing matches. Reads no
+// files, calls no providers, executes nothing, embeds nothing. The returned paths
+// are REAL graph nodes — only the SELECTION is lexical; they are proposal/context,
+// never proof.
+export function selectLexicalGraphContextPaths(
+  taskText: string,
+  graph: TaskContextGraphLike,
+  options?: { limit?: number },
+): string[] {
+  const limit = Math.max(0, options?.limit ?? DEFAULT_LEXICAL_FALLBACK_LIMIT);
+  if (limit === 0) return [];
+  const query = lexicalQueryTokens(taskText ?? "");
+  if (query.size === 0) return [];
+
+  // Capability label tokens, mapped to the paths they are implemented by, so a
+  // task mentioning a capability term also surfaces its implementing files.
+  const pathCapabilityTokens = new Map<string, Set<string>>();
+  for (const cap of graph.capabilities ?? []) {
+    const labelTokens = lexicalQueryTokens(`${cap.verb ?? ""} ${cap.noun ?? ""} ${cap.id ?? ""}`);
+    if (labelTokens.size === 0) continue;
+    for (const ref of cap.implementedBy ?? []) {
+      const refId = String(ref.id ?? "");
+      const p = refId.split("#")[0] ?? refId;
+      if (p.length === 0) continue;
+      const set = pathCapabilityTokens.get(p) ?? new Set<string>();
+      for (const token of labelTokens) set.add(token);
+      pathCapabilityTokens.set(p, set);
+    }
+  }
+
+  const scored: Array<{ path: string; score: number }> = [];
+  const seen = new Set<string>();
+  for (const node of graph.nodes ?? []) {
+    if (node.kind !== "file") continue;
+    const path = node.id;
+    if (typeof path !== "string" || path.length === 0 || seen.has(path)) continue;
+    seen.add(path);
+    const tokens = lexicalPathTokens(path);
+    for (const token of pathCapabilityTokens.get(path) ?? []) tokens.add(token);
+    let score = 0;
+    for (const token of query) if (tokens.has(token)) score += 1;
+    if (score > 0) scored.push({ path, score });
+  }
+  scored.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+  return scored.slice(0, limit).map((entry) => entry.path);
+}
+
 export function buildTaskContextReport(input: BuildTaskContextReportInput): TaskContextReport {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const taskText = input.taskText ?? "";
@@ -254,6 +348,31 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     if (connected) addNeighborhoodNode(fileRef);
   }
 
+  // 1b. Graph + lexical fallback paths: when embedding retrieval was unavailable
+  //     and no operator --path was given, the CLI passes lexically-matched graph
+  //     file-node paths here. They are REAL deterministic graph nodes (selection
+  //     is lexical; the nodes are facts), surfaced as deterministic_graph context
+  //     and expanded by step 3 like any selected path. Proposal/context, not proof.
+  const lexicalPaths = (input.lexicalContextPaths ?? [])
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0 && !paths.includes(p));
+  for (const path of lexicalPaths) {
+    const fileRef: TaskContextGraphRefLike = { kind: "file", id: path };
+    if (!nodeExists(fileRef)) continue; // only surface paths that are real graph nodes
+    pushItem(
+      {
+        kind: "file",
+        path,
+        reason:
+          "graph file node lexically matched to the task text (embedding retrieval unavailable; graph + lexical fallback — proposal/context, not proof)",
+        evidenceRefs: [],
+        source: "deterministic_graph",
+      },
+      `lex:${path}`,
+    );
+    addNeighborhoodNode(fileRef);
+  }
+
   // 2. Embedding retrieval neighbors: strong + useful are always included; weak
   //    neighbors are included as labelled SUPPORTING context ONLY when there are
   //    no strong/useful neighbors (so weak retrieval degrades usefully without
@@ -302,6 +421,7 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
   //    similarity, so they are admitted regardless of embedding score.
   const selectedPaths = new Set<string>([
     ...paths,
+    ...lexicalPaths.filter((p) => nodeExists({ kind: "file", id: p })),
     ...contextItems
       .filter((item) => item.source === "embedding_retrieval" && typeof item.path === "string")
       .map((item) => item.path as string),

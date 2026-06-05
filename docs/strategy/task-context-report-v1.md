@@ -1,5 +1,12 @@
 # TaskContextReport v1
 
+> **Provider-default UX fixed (slice 175):** `rekon context task` with an existing
+> embeddings index, no `--path`, and an implicitly-defaulted provider whose key is
+> missing now degrades to a graph + lexical context fallback instead of exiting
+> non-zero; explicit-provider failures stay strict; task context stays
+> proposal/context, not proof; intent:go deferred. See
+> [`intent-planning-ux-context-quality-fix.md`](./intent-planning-ux-context-quality-fix.md).
+
 > **Safety-reviewed (slice 172):** the slice-171 intent integration was reviewed
 > end-to-end and declared safe/stable — additive context only (never proof/approval),
 > prepare by lineage; intent:go deferred. See

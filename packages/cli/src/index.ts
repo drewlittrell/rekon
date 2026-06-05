@@ -168,6 +168,7 @@ import modelCapability, {
   type EmbeddingSimilarityForGraph,
   type EvidenceGraphForChunks,
   buildTaskContextReport,
+  selectLexicalGraphContextPaths,
   type TaskContextGraphLike,
   type TaskContextRetrievalResultLike,
   selectTaskContextReports,
@@ -1727,10 +1728,13 @@ export async function main(argv: string[]): Promise<void> {
     const paths = parseRepeatableFlag(parsed.flags.path)
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
-    const providerId =
-      typeof parsed.flags.provider === "string" && parsed.flags.provider.trim().length > 0
-        ? parsed.flags.provider.trim()
-        : "voyage";
+    // Explicit vs implicit provider selection drives the graph + lexical fallback
+    // policy below: an EXPLICIT --provider that fails stays strict; an IMPLICITLY
+    // defaulted provider that fails (e.g. `voyage` with no API key) degrades to
+    // graph + lexical context instead of hard-failing.
+    const providerExplicit =
+      typeof parsed.flags.provider === "string" && parsed.flags.provider.trim().length > 0;
+    const providerId = providerExplicit ? (parsed.flags.provider as string).trim() : "voyage";
     const model =
       typeof parsed.flags.model === "string" && parsed.flags.model.trim().length > 0
         ? parsed.flags.model.trim()
@@ -1769,6 +1773,12 @@ export async function main(argv: string[]): Promise<void> {
     // able to embed, rank cached chunks; otherwise record a warning and build from
     // graph + explicit paths only. Reads the cache only — writes no embeddings here.
     const warnings: string[] = [];
+    // Track whether an embedding-provider call was actually attempted and failed
+    // (e.g. missing API key). Combined with `providerExplicit`, this decides
+    // whether the no-retrieval/no-path path degrades to graph + lexical context
+    // (implicit failure) or stays strict (explicit failure).
+    let providerCallFailed = false;
+    let providerErrorCode = "";
     const cacheDir = embeddingCacheDir(root);
     const records = await readEmbeddingIndexRecords(cacheDir);
     let retrievalResults: TaskContextRetrievalResultLike[] = [];
@@ -1781,9 +1791,10 @@ export async function main(argv: string[]): Promise<void> {
       const result = await provider.embed({ task: "artifact.retrieval", texts: [taskText], model });
       const queryVector = result.ok ? result.vectors[0] : undefined;
       if (!result.ok || !queryVector) {
-        const error = result.ok ? "no-embeddings" : result.error;
+        providerCallFailed = true;
+        providerErrorCode = result.ok ? "no-embeddings" : result.error;
         warnings.push(
-          `retrieval-unavailable: embedding provider ${providerId} returned no embedding (${error}); building from graph + explicit paths only`,
+          `retrieval-unavailable: embedding provider ${providerId} returned no embedding (${providerErrorCode}); building from graph + explicit paths only`,
         );
       } else {
         const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
@@ -1813,25 +1824,50 @@ export async function main(argv: string[]): Promise<void> {
       }
     }
 
-    // Fail cleanly when there is nothing to build from: no retrieval AND no paths.
+    // Graph + lexical fallback (Intent Planning UX / Context Quality Fix): when
+    // there is no embedding retrieval AND no operator --path, degrade gracefully
+    // instead of hard-failing — BUT ONLY when an IMPLICITLY-defaulted provider was
+    // the one that failed (e.g. `voyage` with no API key). An EXPLICIT --provider
+    // failure stays strict and visible. The fallback derives candidate context
+    // paths by lexically matching the task text against graph file nodes; if it
+    // finds nothing, we still fail cleanly (never emit misleading context).
+    let lexicalContextPaths: string[] = [];
+    let usedGraphLexicalFallback = false;
     if (retrievalResults.length === 0 && paths.length === 0) {
-      process.exitCode = 1;
-      const payload = {
-        command: "context task",
-        status: "failed",
-        error: "context-retrieval-unavailable",
-        warnings,
-        note: "no embedding retrieval available and no explicit --path provided; run `rekon embeddings index` or pass --path",
-      };
-      if (json) {
-        writeOutput(payload, true);
-      } else {
-        writeOutput(
-          "rekon context task: context-retrieval-unavailable — no embeddings indexed and no --path provided. Run `rekon embeddings index` or pass --path <path>.",
-          false,
-        );
+      const implicitProviderFailure = providerCallFailed && !providerExplicit;
+      if (implicitProviderFailure) {
+        lexicalContextPaths = selectLexicalGraphContextPaths(taskText, graphForContext);
       }
-      return;
+      if (lexicalContextPaths.length === 0) {
+        process.exitCode = 1;
+        const note =
+          providerExplicit && providerCallFailed
+            ? `embedding provider ${providerId} was explicitly requested but is unavailable (${providerErrorCode || "unavailable"}); pass --path <path> or a working provider`
+            : "no embedding retrieval available, no graph + lexical match, and no explicit --path provided; run `rekon embeddings index` or pass --path";
+        const payload = {
+          command: "context task",
+          status: "failed",
+          error: "context-retrieval-unavailable",
+          provider: providerId,
+          providerExplicit,
+          retrieval: { status: "unavailable" },
+          warnings,
+          note,
+        };
+        if (json) {
+          writeOutput(payload, true);
+        } else {
+          writeOutput(`rekon context task: context-retrieval-unavailable — ${note}.`, false);
+        }
+        return;
+      }
+      usedGraphLexicalFallback = true;
+      warnings.push(
+        `provider-unavailable: embedding provider ${providerId} unavailable for implicit retrieval (${providerErrorCode || "unavailable"}); using graph + lexical context fallback`,
+      );
+      warnings.push(
+        `graph-lexical-fallback: derived ${lexicalContextPaths.length} context path(s) from the capability graph by lexical match against the task text (embedding retrieval unavailable; proposal/context, not proof)`,
+      );
     }
 
     const report = buildTaskContextReport({
@@ -1839,6 +1875,7 @@ export async function main(argv: string[]): Promise<void> {
       paths,
       graph: graphForContext,
       retrievalResults,
+      ...(lexicalContextPaths.length > 0 ? { lexicalContextPaths } : {}),
       provider: providerId,
       model,
       topK: effectiveTopK,
@@ -1873,13 +1910,23 @@ export async function main(argv: string[]): Promise<void> {
 
     const ref = await store.write(report, { category: "actions" });
 
+    // Retrieval status, surfaced so operators (and agents) can tell ranked
+    // embedding retrieval apart from the graph + lexical fallback degrade path.
+    const retrievalStatus = usedGraphLexicalFallback
+      ? { status: "fallback", fallback: "graph-lexical" }
+      : retrievalResults.length > 0
+        ? { status: "ranked" }
+        : { status: "graph-only" };
+
     if (json) {
       writeOutput(
         {
           command: "context task",
           status: warnings.length > 0 ? "partial" : "ok",
           provider: providerId,
+          providerExplicit,
           model,
+          retrieval: retrievalStatus,
           artifact: { type: ref.type, id: ref.id },
           task: report.task,
           selection: report.selection,

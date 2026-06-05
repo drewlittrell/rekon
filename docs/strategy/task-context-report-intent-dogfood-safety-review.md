@@ -1,5 +1,12 @@
 # TaskContextReport Intent Dogfood Safety Review
 
+> **Provider-default UX fixed (slice 175):** `rekon context task` with an existing
+> embeddings index, no `--path`, and an implicitly-defaulted provider whose key is
+> missing now degrades to a graph + lexical context fallback instead of exiting
+> non-zero; explicit-provider failures stay strict; task context stays
+> proposal/context, not proof; intent:go deferred. See
+> [`intent-planning-ux-context-quality-fix.md`](./intent-planning-ux-context-quality-fix.md).
+
 > **Slice 174 · strategy / safety-review batch.** Base `cc926a2`. Reviews the slice-173
 > [TaskContextReport Intent Dogfood](./task-context-report-intent-dogfood.md)
 > end-to-end. No runtime behavior change, no source change, no new artifact, no CLI

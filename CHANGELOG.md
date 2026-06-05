@@ -4,6 +4,20 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Fixed **Intent Planning UX / Context Quality Fix** — one-hundred-seventy-fifth slice on the embeddings track.
+  Product capability batch (no new artifact, no new CLI command, no version change). Fixes the one carried ergonomics
+  issue from the TaskContextReport intent dogfood: `rekon context task` with an existing embeddings index, no `--path`,
+  and an implicitly-defaulted provider (`voyage`) whose API key is missing used to exit non-zero. It now degrades
+  gracefully to a graph + lexical context fallback — deriving candidate context paths by lexically matching the task
+  text against graph file nodes (a pure, additive `selectLexicalGraphContextPaths` helper) and surfacing them as
+  `deterministic_graph` context with `provider-unavailable` / `graph-lexical-fallback` warnings and a
+  `retrieval: { status: "fallback", fallback: "graph-lexical" }` field. Implicit embedding-provider failure degrades to
+  graph + lexical context or a clear warning; explicit provider failure remains visible and strict; if the fallback
+  finds no graph match it still fails cleanly (never fabricates context). Task context remains proposal/context, not
+  proof; verification hints remain hints, not executed commands; source files are not written; no commands are executed;
+  no WorkOrder or VerificationPlan is created; no Circe is run; intent:go remains deferred. Adds a 19-assertion contract
+  test and a 12-assertion docs test. Next: TaskContextReport Broader Workflow Decision. See
+  [`intent-planning-ux-context-quality-fix.md`](docs/strategy/intent-planning-ux-context-quality-fix.md).
 - Reviewed **TaskContextReport Intent Dogfood Safety Review** — one-hundred-seventy-fourth slice on the embeddings
   track. Strategy / safety-review batch (no runtime behavior change, no source change, no new artifact or CLI command).
   Reviewed the slice-173 full task-context intent dogfood path end-to-end against the shipped source (`task-context.ts`
