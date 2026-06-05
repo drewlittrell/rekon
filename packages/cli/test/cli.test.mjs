@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -149,6 +149,46 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     ]) {
       assert.ok(artifactTypes.includes(type), `${type} should be listed`);
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI scan handles generated runtime dirs and symlink cycles", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-cli-scan-cycle-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "index.ts"), "export const value = 1;\n", "utf8");
+
+    await mkdir(join(root, ".circe", "workspaces"), { recursive: true });
+    await writeFile(join(root, ".circe", "workspaces", "ignored.ts"), "export const ignoredCirce = true;\n", "utf8");
+    await symlink(root, join(root, ".circe", "workspaces", "link-to-root"), "dir");
+
+    await mkdir(join(root, ".rekon", "intent", "plans", "fixture", "circe"), { recursive: true });
+    await writeFile(join(root, ".rekon", "intent", "plans", "fixture", "circe", "handoff.ts"), "export const ignoredRekon = true;\n", "utf8");
+
+    await mkdir(join(root, "node_modules", "pkg"), { recursive: true });
+    await writeFile(join(root, "node_modules", "pkg", "ignored.ts"), "export const ignoredNodeModules = true;\n", "utf8");
+
+    await symlink(join(root, "missing-target"), join(root, "broken-link"), "file");
+
+    const scan = runCli(["scan", "--root", root, "--json"]);
+    assert.equal(scan.status, 0, scan.stderr || scan.stdout);
+    assert.doesNotMatch(scan.stdout, /Maximum call stack size exceeded/);
+
+    const output = JSON.parse(scan.stdout);
+    assert.equal(output.status, "passed");
+    assert.equal(output.refresh.status, "passed");
+    assert.equal(output.refresh.steps.some((step) => step.id === "observe" && step.status === "passed"), true);
+
+    const artifacts = runCli(["artifacts", "latest", "--type", "ObservedRepo", "--root", root, "--json"]);
+    assert.equal(artifacts.status, 0, artifacts.stderr);
+    const latest = JSON.parse(artifacts.stdout).artifact;
+    const show = runCli(["artifacts", "show", latest.id, "--root", root, "--json"]);
+    assert.equal(show.status, 0, show.stderr);
+    const observed = JSON.parse(show.stdout).artifact;
+    assert.deepEqual(observed.files, ["src/index.ts"]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

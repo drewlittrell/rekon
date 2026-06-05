@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { digestJson } from "@rekon/kernel-artifacts";
 import {
@@ -21,7 +21,8 @@ import {
 } from "./ast-extractor.js";
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
-const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", "dist", "build", "coverage"]);
+const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", ".circe", "dist", "build", "coverage"]);
+const DEFAULT_MAX_WALK_DEPTH = 80;
 
 export {
   type AstConfidence,
@@ -140,13 +141,51 @@ async function listSourceFiles(ctx: ProviderContext): Promise<string[]> {
 
   const files: string[] = [];
 
-  await walk(ctx.repoRoot, ctx.repoRoot, files);
+  await walk(ctx.repoRoot, ctx.repoRoot, files, {
+    visitedRealpaths: new Set<string>(),
+    maxDepth: DEFAULT_MAX_WALK_DEPTH,
+  });
 
   return files.sort();
 }
 
-async function walk(root: string, directory: string, files: string[]): Promise<void> {
-  const entries = await readdir(directory, { withFileTypes: true });
+type WalkState = {
+  visitedRealpaths: Set<string>;
+  maxDepth: number;
+};
+
+async function walk(
+  root: string,
+  directory: string,
+  files: string[],
+  state: WalkState,
+  depth = 0,
+): Promise<void> {
+  if (depth > state.maxDepth) {
+    return;
+  }
+
+  let directoryRealpath: string;
+
+  try {
+    directoryRealpath = await realpath(directory);
+  } catch {
+    return;
+  }
+
+  if (state.visitedRealpaths.has(directoryRealpath)) {
+    return;
+  }
+
+  state.visitedRealpaths.add(directoryRealpath);
+
+  let entries;
+
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch {
+    return;
+  }
 
   for (const entry of entries) {
     const absolutePath = join(directory, entry.name);
@@ -156,9 +195,21 @@ async function walk(root: string, directory: string, files: string[]): Promise<v
       continue;
     }
 
-    if (entry.isDirectory()) {
-      await walk(root, absolutePath, files);
-    } else if (entry.isFile() && isSourcePath(relativePath)) {
+    let stats;
+
+    try {
+      stats = await lstat(absolutePath);
+    } catch {
+      continue;
+    }
+
+    if (stats.isSymbolicLink()) {
+      continue;
+    }
+
+    if (stats.isDirectory()) {
+      await walk(root, absolutePath, files, state, depth + 1);
+    } else if (stats.isFile() && isSourcePath(relativePath)) {
       files.push(relativePath);
     }
   }
