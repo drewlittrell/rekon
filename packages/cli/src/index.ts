@@ -1918,6 +1918,75 @@ export async function main(argv: string[]): Promise<void> {
         ? { status: "ranked" }
         : { status: "graph-only" };
 
+    // Human + agent consumption surfaces (TaskContextReport Human/Agent Context
+    // Export, slice 177). The TaskContextReport artifact stays canonical; the
+    // human markdown is a rendered VIEW and the JSON `agentContext` block is the
+    // structured source of truth an agent consumes. Both partition the same
+    // context items: CORE = operator input + deterministic graph facts (graph
+    // outranks embedding similarity); SUPPORTING = embedding retrieval + semantic
+    // understanding (proposal/context, never proof). No new artifact, no command
+    // executed, no source written — purely how the existing report is presented.
+    type AgentContextItem = (typeof report.contextItems)[number];
+    const READ_BEFORE_EDITING =
+      "Read this before editing. Task-shaped context is proposal/context, not proof: deterministic graph facts outrank embedding similarity, do-not-touch zones are guidance (not enforced), and verification hints are hints (never executed).";
+    const coreItems = report.contextItems.filter(
+      (item) => item.source === "operator_input" || item.source === "deterministic_graph",
+    );
+    const supportingItems = report.contextItems.filter(
+      (item) => item.source === "embedding_retrieval" || item.source === "semantic_file_understanding",
+    );
+    const itemRef = (item: AgentContextItem): string =>
+      item.path ?? item.symbolId ?? item.capabilityId ?? item.id;
+    // Deduped, sorted evidence refs across every context item / zone / hint — the
+    // "evidence refs are preserved" guarantee, surfaced for humans and agents.
+    const evidenceRefs = Array.from(
+      new Set([
+        ...report.contextItems.flatMap((item) => item.evidenceRefs),
+        ...report.doNotTouch.flatMap((zone) => zone.evidenceRefs),
+        ...report.verificationHints.flatMap((hint) => hint.evidenceRefs),
+      ]),
+    ).sort();
+    const toAgentItem = (item: AgentContextItem) => ({
+      ref: itemRef(item),
+      kind: item.kind,
+      source: item.source,
+      reason: item.reason,
+      ...(item.path !== undefined ? { path: item.path } : {}),
+      ...(item.symbolId !== undefined ? { symbolId: item.symbolId } : {}),
+      ...(item.capabilityId !== undefined ? { capabilityId: item.capabilityId } : {}),
+      ...(item.score !== undefined ? { score: item.score } : {}),
+      ...(item.scoreBand !== undefined ? { scoreBand: item.scoreBand } : {}),
+      evidenceRefs: item.evidenceRefs,
+    });
+    // Agent-facing structured view. Additive only: every existing JSON field is
+    // preserved unchanged below; `agentContext` is a convenience projection plus
+    // the explicit boundary block (all-false, including `approvedPlans` and
+    // `implementedIntentGo`) so an agent can read the limits without re-deriving
+    // them. `executed: false` / `enforced: false` are pinned constants.
+    const agentContext = {
+      readBeforeEditing: READ_BEFORE_EDITING,
+      task: report.task,
+      coreContext: coreItems.map(toAgentItem),
+      supportingContext: supportingItems.map(toAgentItem),
+      doNotTouch: report.doNotTouch.map((zone) => ({
+        reason: zone.reason,
+        ...(zone.path !== undefined ? { path: zone.path } : {}),
+        ...(zone.symbolId !== undefined ? { symbolId: zone.symbolId } : {}),
+        evidenceRefs: zone.evidenceRefs,
+        enforced: false as const,
+      })),
+      verificationHints: report.verificationHints.map((hint) => ({
+        ...(hint.command !== undefined ? { command: hint.command } : {}),
+        ...(hint.artifact !== undefined ? { artifact: hint.artifact } : {}),
+        reason: hint.reason,
+        evidenceRefs: hint.evidenceRefs,
+        executed: false as const,
+      })),
+      warnings,
+      evidence: evidenceRefs,
+      boundaries: report.boundaries,
+    };
+
     if (json) {
       writeOutput(
         {
@@ -1937,57 +2006,83 @@ export async function main(argv: string[]): Promise<void> {
           verificationHints: report.verificationHints,
           warnings,
           boundaries: report.boundaries,
+          agentContext,
           note: "task-shaped context is proposal/context, not proof; deterministic graph facts outrank embedding similarity; verification hints are hints, not executed commands",
         },
         true,
       );
     } else {
+      // Human "read this before editing" brief: a rendered view of the same
+      // report. The five core sections always render (with explicit "(none)"
+      // fallbacks) so the brief has a stable, self-documenting skeleton; Warnings
+      // render only when present.
       const lines: string[] = [];
       lines.push("# Task Context");
       lines.push("");
+      lines.push(`> ${READ_BEFORE_EDITING}`);
+      lines.push("");
       lines.push(`Task: ${taskText.replace(/\s+/g, " ").trim()}`);
-      const core = report.contextItems.filter(
-        (item) => item.source === "operator_input" || item.source === "deterministic_graph",
-      );
-      const related = report.contextItems.filter(
-        (item) => item.source === "embedding_retrieval" || item.source === "semantic_file_understanding",
-      );
-      if (core.length > 0) {
-        lines.push("");
-        lines.push("## Core Context");
-        for (const item of core) {
-          lines.push(`- ${item.path ?? item.symbolId ?? item.capabilityId ?? item.id} — ${item.reason}`);
-        }
+      if (report.task.goal) lines.push(`Goal: ${report.task.goal}`);
+      if (report.task.paths.length > 0) lines.push(`Paths: ${report.task.paths.join(", ")}`);
+
+      lines.push("");
+      lines.push("## Core Context");
+      if (coreItems.length > 0) {
+        for (const item of coreItems) lines.push(`- ${itemRef(item)} — ${item.reason}`);
+      } else {
+        lines.push("- (no operator paths or deterministic graph context selected)");
       }
-      if (related.length > 0) {
-        lines.push("");
-        lines.push("## Related Context");
-        for (const item of related) {
-          lines.push(`- ${item.path ?? item.symbolId ?? item.id} — ${item.reason}`);
+
+      lines.push("");
+      lines.push("## Related / Supporting Context");
+      if (supportingItems.length > 0) {
+        for (const item of supportingItems) {
+          const band = item.scoreBand
+            ? ` (band ${item.scoreBand}${typeof item.score === "number" ? `, score ${item.score}` : ""})`
+            : "";
+          lines.push(`- ${itemRef(item)} — ${item.reason}${band}`);
         }
+      } else {
+        lines.push("- (no embedding or semantic supporting context selected)");
       }
+
+      lines.push("");
+      lines.push("## Do Not Touch");
       if (report.doNotTouch.length > 0) {
-        lines.push("");
-        lines.push("## Do Not Touch");
         for (const zone of report.doNotTouch) {
-          lines.push(`- ${zone.reason}${zone.path ? ` (${zone.path})` : ""}`);
+          lines.push(`- ${zone.reason}${zone.path ? ` (${zone.path})` : ""} (guidance, not enforced)`);
         }
+      } else {
+        lines.push("- (no explicit do-not-touch zones stated in the task text)");
       }
+
+      lines.push("");
+      lines.push("## Verification Hints");
       if (report.verificationHints.length > 0) {
-        lines.push("");
-        lines.push("## Verification Hints");
         for (const hint of report.verificationHints) {
-          lines.push(`- ${hint.command ?? hint.artifact ?? "hint"} — ${hint.reason}`);
+          lines.push(`- ${hint.command ?? hint.artifact ?? "hint"} — ${hint.reason} (hint, not executed)`);
         }
+      } else {
+        lines.push("- (no verification hints extracted from the task text)");
       }
+
       if (warnings.length > 0) {
         lines.push("");
         lines.push("## Warnings");
         for (const warning of warnings) lines.push(`- ${warning}`);
       }
+
+      lines.push("");
+      lines.push("## Evidence");
+      if (evidenceRefs.length > 0) {
+        for (const refId of evidenceRefs) lines.push(`- ${refId}`);
+      } else {
+        lines.push("- (no evidence refs collected for this context)");
+      }
+
       lines.push("");
       lines.push(
-        "Task-shaped context is proposal/context, not proof. Deterministic graph facts outrank embedding similarity. Verification hints are hints, not executed commands.",
+        "Task-shaped context is proposal/context, not proof. Deterministic graph facts outrank embedding similarity. Verification hints are hints, not executed commands. Re-run with --json for the structured agentContext form.",
       );
       lines.push(`Report: ${ref.id}`);
       writeOutput(lines.join("\n"), false);
@@ -13402,6 +13497,7 @@ function usage(): string {
     "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent context prepare [--root <path>] [--json]",
     "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",
+    "    (prints a human 'read this before editing' brief: Core Context, Related / Supporting Context, Do Not Touch, Verification Hints, Evidence; --json adds a structured `agentContext` block for agents — context is proposal, not proof)",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",

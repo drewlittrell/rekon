@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **TaskContextReport Human/Agent Context Export** — one-hundred-seventy-seventh slice on the embeddings
+  track. Product capability batch (presentation only: no new artifact, no schema change, no new CLI command, no
+  executed command, no source write). Improves how the existing `TaskContextReport` is consumed by its two readers via
+  `rekon context task`. Humans get a stable "read this before editing" markdown brief (lead notice, Task, Core Context,
+  Related / Supporting Context, Do Not Touch, Verification Hints, optional Warnings, Evidence — each section always
+  rendered with an explicit `(none)` fallback). Agents get an additive `agentContext` block on the `--json` payload
+  (task, core/supporting context partition, do-not-touch with `enforced:false`, verification hints with
+  `executed:false`, warnings, deduped+sorted evidence, all-false boundaries). The TaskContextReport artifact is
+  canonical, the human markdown is a rendered view, and the agent JSON `agentContext` block is the structured source of
+  truth. Every pre-existing `--json` field is preserved (additive only). Verification hints are hints, not executed
+  commands; do-not-touch zones are guidance and context, not enforcement; evidence refs are preserved; TaskContextReport
+  must not approve plans; no commands are executed; no source files are written; no WorkOrder or VerificationPlan is
+  created; no Circe is run; intent:go remains deferred. A `--format` flag and a separate export command are deferred.
+  Adds a 26-assertion contract test and a 16-assertion docs test. Implements the first step of the slice-176 decision
+  (Option B). Next: TaskContextReport Human/Agent Export Safety Review. See
+  [`task-context-human-agent-export.md`](docs/strategy/task-context-human-agent-export.md).
 - Decided **TaskContextReport Broader Workflow Decision** — one-hundred-seventy-sixth slice on the embeddings
   track. Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no new
   artifact, no CLI command). Decides where TaskContextReport may be used now that it is implemented, safety-reviewed,

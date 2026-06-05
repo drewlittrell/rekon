@@ -214,3 +214,5 @@ recommendations; no npm publish; no version bump; no branch.
 - [TaskContextReport Intent Dogfood](./task-context-report-intent-dogfood.md)
 - [TaskContextReport Intent Integration Safety Review](./task-context-report-intent-integration-safety-review.md)
 - [TaskContextReport Intent Integration Implementation](./task-context-report-intent-integration-implementation.md)
+
+> Update (slice 177 · TaskContextReport Human/Agent Context Export): `rekon context task` now prints a human "read this before editing" brief (Core Context, Related / Supporting Context, Do Not Touch, Verification Hints, Evidence) and adds an additive `agentContext` block to its `--json` payload. Presentation only — the TaskContextReport artifact stays canonical, human markdown is a rendered view, agent JSON is the structured source of truth; every existing JSON field preserved; verification hints stay hints, do-not-touch stays guidance, evidence preserved; no approval / execution / source write / WorkOrder / VerificationPlan / Circe; intent:go deferred. See [`task-context-human-agent-export.md`](task-context-human-agent-export.md).

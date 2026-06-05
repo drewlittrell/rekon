@@ -116,3 +116,5 @@ Task-shaped context is **context**, not judgment or automation:
 - Artifact: [TaskContextReport](../artifacts/task-context-report.md)
 - Concept: [Capability Evidence Graph](./capability-evidence-graph.md)
 - Concept: [Embedding Provider / Index](./embedding-provider-index.md)
+
+> Update (slice 177 · TaskContextReport Human/Agent Context Export): `rekon context task` now prints a human "read this before editing" brief (Core Context, Related / Supporting Context, Do Not Touch, Verification Hints, Evidence) and adds an additive `agentContext` block to its `--json` payload. Presentation only — the TaskContextReport artifact stays canonical, human markdown is a rendered view, agent JSON is the structured source of truth; every existing JSON field preserved; verification hints stay hints, do-not-touch stays guidance, evidence preserved; no approval / execution / source write / WorkOrder / VerificationPlan / Circe; intent:go deferred. See [`task-context-human-agent-export.md`](../strategy/task-context-human-agent-export.md).
