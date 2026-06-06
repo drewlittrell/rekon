@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **TaskContextReport Bundle Broader Handoff Decision** — one-hundred-eighty-seventh slice on the embeddings
+  track. Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no bundle
+  behavior change, no Circe schema change, no gate change, no CLI smoke). Decides how broader operator/agent handoff
+  workflows should use the optional `TaskContextReport` bundle-context sidecars. Grounded in the bundle producer
+  (`packages/capability-docs/src/intent-plan-bundle.ts`: `agent/handoff.md`, `agent/instructions.md`,
+  `agent/context.json`, the `context/` sidecars, the README "## Task context" section, and the Circe trio). Selected
+  **Option B — promote the optional sidecars in human/agent handoff guidance, recommended not required**; rejected
+  manifest/README-only (A), required-for-bundles (C), add-to-Circe-schema (D), execute-hints (E). Pins: humans should
+  inspect `context/task-context.md` when present; agents should read `context/task-context.agent.json` when present;
+  the bundle README continues to point humans at the sidecars; the follow-up will point `agent/instructions.md` +
+  `agent/handoff.md` (and optionally `agent/context.json` metadata) at them. TaskContextReport sidecars are optional
+  context, not proof; must not be required to write an intent bundle; must not approve plans; must not execute commands;
+  must not write source files; verification hints remain hints, not executed commands; do-not-touch zones remain
+  guidance/context, not enforcement; WorkOrder and VerificationPlan gates remain authoritative; phase gates remain
+  authoritative; Circe handoff JSON remains the machine handoff contract; Circe should not be required to understand
+  TaskContextReport internals; intent:go remains deferred. New
+  `docs/strategy/task-context-report-bundle-broader-handoff-decision.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-broader-handoff-decision.md` + docs test
+  `tests/docs/task-context-report-bundle-broader-handoff-decision.test.mjs` (22 assertions). First implementation:
+  TaskContextReport Bundle Handoff Guidance Implementation (alternative: Intent Bundle Context UX Fix, only if a
+  narrower discoverability issue surfaces).
 - Reviewed **TaskContextReport Bundle Context Dogfood Safety Review** — one-hundred-eighty-sixth slice on the embeddings
   track. Strategy / safety-review batch (review-only: no runtime behavior change, no source change, no bundle-context
   implementation change, no bundle-README rendering change, no Circe schema change, no gate change, no CLI smoke).
