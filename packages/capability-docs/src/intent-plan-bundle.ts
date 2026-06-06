@@ -1059,6 +1059,22 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     "",
     sourceRefList.length > 0 ? sourceRefList.join("\n") : "- (none)",
     "",
+    // Optional task-context section: only rendered when a TaskContextReport is
+    // attached. Makes the `context/` sidecars discoverable from the human-facing
+    // bundle README (not just `manifest.context`). Descriptive only — guidance,
+    // not proof; it grants no authority.
+    ...(taskContext
+      ? [
+          "## Task context",
+          "",
+          "Optional context for the agent/operator picking up this bundle — guidance, not proof. It does not approve the plan, satisfy any gate, execute commands, or write source.",
+          "",
+          ...taskContext.refStrings.map((ref) => `- ${ref}`),
+          "",
+          `See \`${TASK_CONTEXT_SIDECAR_MARKDOWN}\` (human brief), \`${TASK_CONTEXT_SIDECAR_AGENT}\` (agent JSON), and \`${TASK_CONTEXT_SIDECAR_REFS}\` (refs). Also listed under \`manifest.context.taskContextReports\`.`,
+          "",
+        ]
+      : []),
     "## Boundaries",
     "",
     BOUNDARY_NOTE,

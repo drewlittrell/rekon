@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Dogfooded **TaskContextReport Bundle Context Dogfood** — one-hundred-eighty-fifth slice on the embeddings track.
+  Product dogfood / review batch with one narrow, additive visibility fix (covered by tests). Ran the full public
+  operator path keyless against the built CLI (scan → intent context prepare → capability graph build → context task →
+  intent assess / plan review `--task-context-ref` → answer → prepare → status → approve → status transition work-ready
+  → work-order generate → verification-plan generate → `intent bundle write --task-context-ref` → artifacts validate →
+  git diff) and inspected the resulting bundle. Findings: bundle write succeeded with `--task-context-ref`;
+  `manifest.context.taskContextReports` was discoverable (`proof:false`, `role: optional-agent-context`);
+  `context/task-context.md` was useful to a human operator; `context/task-context.agent.json` was useful to an agent;
+  `context/task-context.refs.json` was useful for traceability; bundle JSON reported the `taskContext` sidecars; the
+  Circe handoff JSON remains unchanged / not dependent on task context; WorkOrder / VerificationPlan gates remain
+  unchanged; phase gates remain unchanged; source and plan files were unchanged; no commands were executed; no
+  VerificationRun or VerificationResult was created; Rekon did not run Circe; intent:go remains deferred. One narrow
+  human-discoverability gap was found — the bundle `README.md` did not point to the `context/` sidecars (only
+  `manifest.context` did) — and fixed under the work order's allowed-fix policy: `packages/capability-docs/src/intent-plan-bundle.ts`
+  now renders an additive "## Task context" README section (guidance, not proof; grants no authority) **only when a
+  TaskContextReport is attached**; with no context the bundle is byte-identical. New
+  `tests/contract/task-context-bundle-context-dogfood.test.mjs` (33 assertions) +
+  `tests/docs/task-context-bundle-context-dogfood.test.mjs` (17 assertions) +
+  `docs/strategy/task-context-report-bundle-context-dogfood.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-context-dogfood.md`. The sidecars are ready for broader
+  agent/operator handoff use. Recommended next: TaskContextReport Bundle Context Dogfood Safety Review.
 - Reviewed **TaskContextReport Bundle Context Safety Review** — one-hundred-eighty-fourth slice on the embeddings track.
   Strategy / safety-review batch (review-only: no runtime behavior change, no source change, no new artifact, no CLI
   command, no Circe schema change, no gate change, no CLI smoke). Reviews the slice-183 bundle-context implementation at
