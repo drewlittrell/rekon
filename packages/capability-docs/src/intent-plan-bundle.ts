@@ -67,6 +67,17 @@ export type BuildIntentPlanBundleInput = {
   repoRoot?: string;
   /** Producer version recorded in the Circe handoff (`producer.version`). */
   producerVersion?: string;
+  /**
+   * Optional TaskContextReport bundle context (TaskContextReport Bundle Context,
+   * slice 183). When present, the bundle carries these reports as OPTIONAL context
+   * for agents/operators: an additive `manifest.context.taskContextReports[]` block
+   * plus Rekon-side `context/` sidecar files. Never proof and never required —
+   * empty/missing task context does not affect bundle success, and it never alters
+   * WorkOrder / VerificationPlan / phase gates, proof status, or the Circe
+   * projection. The report is read defensively (typed `unknown` like the other
+   * bundle inputs).
+   */
+  taskContextReports?: Array<{ ref: ArtifactRef; report: unknown }>;
 };
 
 const DEFAULT_BUNDLE_ROOT = ".rekon/intent/plans";
@@ -674,6 +685,182 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
   };
 }
 
+// ---- TaskContextReport bundle context (slice 183) ----
+// Pure: projects already-loaded TaskContextReport artifacts into OPTIONAL
+// Rekon-side context sidecars + the additive manifest `context` block. The
+// reports are context, never proof: nothing here alters gates, proof status, the
+// Circe projection, WorkOrders, or VerificationPlans. Reads reports defensively.
+type TaskContextBundleEntry = { ref: ArtifactRef; report: unknown };
+
+const TASK_CONTEXT_CORE_SOURCES = new Set(["operator_input", "deterministic_graph"]);
+const TASK_CONTEXT_SUPPORTING_SOURCES = new Set([
+  "embedding_retrieval",
+  "semantic_file_understanding",
+]);
+const TASK_CONTEXT_SIDECAR_MARKDOWN = "context/task-context.md";
+const TASK_CONTEXT_SIDECAR_AGENT = "context/task-context.agent.json";
+const TASK_CONTEXT_SIDECAR_REFS = "context/task-context.refs.json";
+const TASK_CONTEXT_BOUNDARIES = {
+  proof: false,
+  approvesPlans: false,
+  executesCommands: false,
+  writesSourceFiles: false,
+  runsCirce: false,
+  implementsIntentGo: false,
+} as const;
+
+function stringList(value: unknown): string[] {
+  return asArray(value)
+    .map((entry) => asString(entry))
+    .filter((entry) => entry.length > 0);
+}
+
+function projectTaskContextAgent(report: Record<string, unknown>): Record<string, unknown> {
+  const task = asRecord(report.task);
+  const items = asArray(report.contextItems).map((item) => asRecord(item));
+  const toItem = (item: Record<string, unknown>) => {
+    const ref =
+      asString(item.path) || asString(item.symbolId) || asString(item.capabilityId) || asString(item.id);
+    return {
+      ref,
+      kind: asString(item.kind),
+      source: asString(item.source),
+      reason: asString(item.reason),
+      evidenceRefs: stringList(item.evidenceRefs),
+    };
+  };
+  const core = items.filter((i) => TASK_CONTEXT_CORE_SOURCES.has(asString(i.source))).map(toItem);
+  const supporting = items
+    .filter((i) => TASK_CONTEXT_SUPPORTING_SOURCES.has(asString(i.source)))
+    .map(toItem);
+  const doNotTouch = asArray(report.doNotTouch).map((zone) => {
+    const z = asRecord(zone);
+    return {
+      reason: asString(z.reason),
+      ...(asString(z.path) ? { path: asString(z.path) } : {}),
+      evidenceRefs: stringList(z.evidenceRefs),
+      enforced: false as const,
+    };
+  });
+  const verificationHints = asArray(report.verificationHints).map((hint) => {
+    const h = asRecord(hint);
+    return {
+      ...(asString(h.command) ? { command: asString(h.command) } : {}),
+      ...(asString(h.artifact) ? { artifact: asString(h.artifact) } : {}),
+      reason: asString(h.reason),
+      executed: false as const,
+    };
+  });
+  const evidence = Array.from(
+    new Set([
+      ...items.flatMap((i) => stringList(i.evidenceRefs)),
+      ...asArray(report.doNotTouch).flatMap((z) => stringList(asRecord(z).evidenceRefs)),
+      ...asArray(report.verificationHints).flatMap((h) => stringList(asRecord(h).evidenceRefs)),
+    ]),
+  ).sort();
+  return {
+    task: {
+      text: asString(task.text),
+      paths: stringList(task.paths),
+      ...(asString(task.goal) ? { goal: asString(task.goal) } : {}),
+    },
+    coreContext: core,
+    supportingContext: supporting,
+    doNotTouch,
+    verificationHints,
+    evidence,
+    boundaries: { ...TASK_CONTEXT_BOUNDARIES },
+  };
+}
+
+function renderTaskContextSidecars(entries: TaskContextBundleEntry[]):
+  | { files: IntentPlanBundleFile[]; manifestContext: Record<string, unknown>; refStrings: string[] }
+  | undefined {
+  if (!Array.isArray(entries) || entries.length === 0) return undefined;
+  const reports = entries.map((entry) => {
+    const report = asRecord(entry.report);
+    const id = entry.ref.id || asString(asRecord(report.header).artifactId);
+    return { ref: entry.ref, id, report, agent: projectTaskContextAgent(report) };
+  });
+  const refStrings = reports.map((r) => `${r.ref.type}:${r.id}`);
+
+  const md: string[] = [
+    "# Task Context",
+    "",
+    "This context is optional guidance, not proof.",
+    "",
+    "## Reports",
+    ...reports.map((r) => `- TaskContextReport:${r.id}`),
+  ];
+  for (const r of reports) {
+    md.push("", `## Read This Before Editing (TaskContextReport:${r.id})`, "");
+    md.push(`Task: ${asString(asRecord(r.report.task).text) || "(none)"}`);
+    md.push("", "### Do Not Touch");
+    const zones = asArray(r.report.doNotTouch).map((z) => asRecord(z));
+    if (zones.length > 0) {
+      for (const z of zones) md.push(`- ${asString(z.reason)} (guidance, not enforced)`);
+    } else {
+      md.push("- (none)");
+    }
+    md.push("", "### Verification Hints");
+    const hints = asArray(r.report.verificationHints).map((h) => asRecord(h));
+    if (hints.length > 0) {
+      for (const h of hints) {
+        md.push(
+          `- ${asString(h.command) || asString(h.artifact) || "hint"} — ${asString(h.reason)} (hint, not executed)`,
+        );
+      }
+    } else {
+      md.push("- (none)");
+    }
+  }
+  md.push(
+    "",
+    "## Boundaries",
+    "- proof: false",
+    "- approves plans: false",
+    "- executes commands: false",
+    "- writes source files: false",
+    "- runs Circe: false",
+    "- implements intent:go: false",
+    "",
+  );
+
+  const agentJson = {
+    taskContextReports: reports.map((r) => ({
+      ref: { type: r.ref.type, id: r.id },
+      agentContext: r.agent,
+      proof: false,
+    })),
+    boundaries: { ...TASK_CONTEXT_BOUNDARIES },
+  };
+  const refsJson = {
+    taskContextReports: reports.map((r) => ({
+      ref: { type: r.ref.type, id: r.id },
+      role: "optional-agent-context",
+      proof: false,
+    })),
+  };
+  const manifestContext = {
+    taskContextReports: reports.map((r) => ({
+      ref: { type: r.ref.type, id: r.id },
+      role: "optional-agent-context",
+      proof: false,
+      sidecars: { markdown: TASK_CONTEXT_SIDECAR_MARKDOWN, agentJson: TASK_CONTEXT_SIDECAR_AGENT },
+    })),
+  };
+
+  return {
+    files: [
+      { path: TASK_CONTEXT_SIDECAR_MARKDOWN, content: `${md.join("\n")}\n` },
+      { path: TASK_CONTEXT_SIDECAR_AGENT, content: `${JSON.stringify(agentJson, null, 2)}\n` },
+      { path: TASK_CONTEXT_SIDECAR_REFS, content: `${JSON.stringify(refsJson, null, 2)}\n` },
+    ],
+    manifestContext,
+    refStrings,
+  };
+}
+
 export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): IntentPlanBundleRenderResult {
   const source = input.source ?? {};
   const generatedAt = typeof input.generatedAt === "string" ? input.generatedAt : "1970-01-01T00:00:00.000Z";
@@ -758,6 +945,17 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     agentSourceRefs: "agent/source-refs.json",
   };
 
+  // Optional TaskContextReport bundle context (slice 183). Additive only: when
+  // present, the `context/` sidecars + the manifest `context` block are added;
+  // otherwise the bundle is byte-identical to before. Never alters WorkOrder /
+  // VerificationPlan / phase gates, proof status, or the Circe projection.
+  const taskContext = renderTaskContextSidecars(input.taskContextReports ?? []);
+  if (taskContext) {
+    files.taskContextMarkdown = TASK_CONTEXT_SIDECAR_MARKDOWN;
+    files.taskContextAgent = TASK_CONTEXT_SIDECAR_AGENT;
+    files.taskContextRefs = TASK_CONTEXT_SIDECAR_REFS;
+  }
+
   const manifest: Record<string, unknown> = {
     schemaVersion: "0.1.0",
     bundleKind: "intent-plan",
@@ -831,6 +1029,13 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
   files.circePhasePlan = "circe/phase-plan.json";
   files.circeProof = "circe/rekon-proof.json";
   manifest.circe = circe.manifestCirce;
+
+  // TaskContextReport bundle context (slice 183): additive optional context refs.
+  // `proof: false` / `role: "optional-agent-context"` make the non-authoritative
+  // status explicit. Never proof, never required, never alters gates / Circe.
+  if (taskContext) {
+    manifest.context = taskContext.manifestContext;
+  }
 
   // Per-phase verification posture lines for the human / agent bundle files (slice 115).
   const phasePostureLines = circe.phaseGates.map((g) => {
@@ -1112,6 +1317,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     { path: "agent/constraints.md", content: agentConstraints },
     { path: "agent/verification.json", content: `${agentVerification}\n` },
     { path: "agent/source-refs.json", content: `${agentSourceRefs}\n` },
+    ...(taskContext ? taskContext.files : []),
     ...circe.files,
   ];
 

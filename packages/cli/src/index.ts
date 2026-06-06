@@ -7009,6 +7009,64 @@ export async function main(argv: string[]): Promise<void> {
     if (freshness.digest) sourceDigests.pathFreshnessReport = freshness.digest;
     if (drift.digest) sourceDigests.runtimeGraphDriftReport = drift.digest;
 
+    // Optional TaskContextReport bundle context (TaskContextReport Bundle Context
+    // Implementation, slice 183). The bundle MAY carry TaskContextReport refs as
+    // OPTIONAL context for agents/operators — never proof, never required. Sources:
+    // (1) explicit, repeatable `--task-context-ref` (a missing or wrong-type ref
+    // fails cleanly); (2) bounded lineage discovery from the prepared-plan /
+    // assessment `header.inputRefs` (a ref that no longer resolves is skipped).
+    // Empty task context leaves the bundle byte-identical and never alters
+    // WorkOrder / VerificationPlan / phase gates, proof status, or Circe.
+    const taskContextEntries: Array<{ ref: ArtifactRef; report: unknown }> = [];
+    const seenTaskContextIds = new Set<string>();
+    const toTaskContextRef = (entry: ArtifactIndexEntry): ArtifactRef => ({
+      type: entry.type,
+      id: entry.id,
+      path: entry.path,
+      digest: entry.digest,
+      schemaVersion: entry.schemaVersion ?? "0.1.0",
+    });
+    const explicitTaskContextRefs = parseRepeatableFlag(parsed.flags["task-context-ref"])
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0);
+    for (const flag of explicitTaskContextRefs) {
+      const entry = await findArtifactEntry(store, flag);
+      if (entry.type !== "TaskContextReport") {
+        throw new Error(
+          `rekon intent bundle write --task-context-ref must reference a TaskContextReport; got ${entry.type}.`,
+        );
+      }
+      if (seenTaskContextIds.has(entry.id)) continue;
+      seenTaskContextIds.add(entry.id);
+      taskContextEntries.push({ ref: toTaskContextRef(entry), report: await store.read(entry) });
+    }
+    // Bounded lineage discovery: TaskContextReport refs already recorded in the
+    // prepared-plan / assessment `header.inputRefs`. Reads only those two arrays;
+    // a ref that no longer resolves in the store is silently skipped.
+    const asRec = (value: unknown): Record<string, unknown> =>
+      value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+    const lineageTaskContextIds = (value: unknown): string[] => {
+      const header = asRec(asRec(value).header);
+      const refs = Array.isArray(header.inputRefs) ? (header.inputRefs as unknown[]) : [];
+      const ids: string[] = [];
+      for (const ref of refs) {
+        const r = asRec(ref);
+        if (r.type === "TaskContextReport" && typeof r.id === "string" && r.id.length > 0) ids.push(r.id);
+      }
+      return ids;
+    };
+    const lineageIds = [...lineageTaskContextIds(plan.value), ...lineageTaskContextIds(assessment.value)];
+    if (lineageIds.some((id) => !seenTaskContextIds.has(id))) {
+      const tcrEntries = await store.list("TaskContextReport");
+      for (const id of lineageIds) {
+        if (seenTaskContextIds.has(id)) continue;
+        const entry = tcrEntries.find((e) => e.id === id);
+        if (!entry) continue;
+        seenTaskContextIds.add(id);
+        taskContextEntries.push({ ref: toTaskContextRef(entry), report: await store.read(entry) });
+      }
+    }
+
     const intentIdFlag = typeof parsed.flags["intent-id"] === "string" ? parsed.flags["intent-id"].trim() : "";
     const result = buildIntentPlanBundle({
       ...(intentIdFlag.length > 0 ? { intentId: intentIdFlag } : {}),
@@ -7020,6 +7078,7 @@ export async function main(argv: string[]): Promise<void> {
       // version. Rekon emits the projection; it never runs Circe.
       repoRoot: root,
       producerVersion: "0.1.0-beta.0",
+      ...(taskContextEntries.length > 0 ? { taskContextReports: taskContextEntries } : {}),
     });
 
     // Write files only under <root>/.rekon/intent/plans/, with path-traversal
@@ -7073,6 +7132,30 @@ export async function main(argv: string[]): Promise<void> {
       needsReview: circeManifest.phaseVerification?.needsReview ?? 0,
     };
 
+    // Optional TaskContextReport bundle context (slice 183), reported from the
+    // manifest the bundle actually wrote. `included: false` when no context was
+    // attached; never proof.
+    const manifestContext = (result.manifest.context ?? {}) as {
+      taskContextReports?: Array<{ ref?: { type?: string; id?: string } }>;
+    };
+    const includedTaskContext = Array.isArray(manifestContext.taskContextReports)
+      ? manifestContext.taskContextReports
+      : [];
+    const taskContextOut =
+      includedTaskContext.length > 0
+        ? {
+            included: true as const,
+            count: includedTaskContext.length,
+            refs: includedTaskContext.map((c) => `${c.ref?.type ?? "TaskContextReport"}:${c.ref?.id ?? ""}`),
+            sidecars: [
+              "context/task-context.md",
+              "context/task-context.agent.json",
+              "context/task-context.refs.json",
+            ],
+            proof: false as const,
+          }
+        : { included: false as const };
+
     if (json) {
       writeOutput(
         {
@@ -7101,6 +7184,7 @@ export async function main(argv: string[]): Promise<void> {
             warnings: typeof circeManifest.warnings === "number" ? circeManifest.warnings : 0,
           },
           canonicalTruth: ".rekon/artifacts",
+          taskContext: taskContextOut,
           boundaries: {
             executesCommands: false,
             writesSourceFiles: false,
@@ -7125,6 +7209,11 @@ export async function main(argv: string[]): Promise<void> {
         `Phase verification: ${phaseVerification.executable} executable, ${phaseVerification.finalVerification} final-verification, ` +
           `${phaseVerification.manualReview} manual-review, ${phaseVerification.needsReview} needs-review`,
       );
+      if (taskContextOut.included) {
+        lines.push(
+          `Task context: ${taskContextOut.count} optional context report(s) included (context/, not proof).`,
+        );
+      }
       lines.push("Canonical truth: .rekon/artifacts/");
       lines.push("");
       lines.push(
@@ -13494,7 +13583,8 @@ function usage(): string {
     "rekon intent status transition --prepared-plan <PreparedIntentPlan:id|type:id> --previous-status <IntentStatusReport:id|type:id> [--path-freshness <ref>] [--runtime-drift <ref>] --to work-ready --reason <text> [--root <path>] [--json]",
     "rekon intent work-order generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent verification-plan generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--work-order <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
-    "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
+    "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--task-context-ref <TaskContextReport ref>] [--root <path>] [--json]",
+    "    (--task-context-ref is repeatable; task context is optional bundle context, not proof — it never approves plans, satisfies gates, executes, or writes source)",
     "rekon intent context prepare [--root <path>] [--json]",
     "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",
     "    (prints a human 'read this before editing' brief: Core Context, Related / Supporting Context, Do Not Touch, Verification Hints, Evidence; --json adds a structured `agentContext` block for agents — context is proposal, not proof)",

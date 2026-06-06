@@ -4,6 +4,33 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **TaskContextReport Bundle Context Implementation** — one-hundred-eighty-third slice on the embeddings track.
+  Source batch with CLI smoke (implements the slice-182 Bundle Context Decision, Option B + E). `rekon intent bundle write`
+  now accepts a repeatable `--task-context-ref <TaskContextReport ref>` and discovers `TaskContextReport` refs already
+  recorded in the prepared-plan / assessment `header.inputRefs` (bounded lineage; missing refs skipped; explicit + lineage
+  de-duplicated by id). Attached reports become OPTIONAL bundle context: an additive `manifest.context.taskContextReports[]`
+  section (`role: optional-agent-context`, `proof: false`, `sidecars: { markdown, agentJson }`) plus three Rekon-side
+  `context/` sidecars — `context/task-context.md` (human brief opening "This context is optional guidance, not proof.",
+  with per-report "Read This Before Editing", "Do Not Touch" tagged "(guidance, not enforced)", "Verification Hints" tagged
+  "(hint, not executed)", and an all-false "Boundaries" list), `context/task-context.agent.json` (per-report `agentContext`
+  + `proof: false`, plus a top-level all-false `boundaries` block), and `context/task-context.refs.json` (ref index,
+  `role: optional-agent-context`, `proof: false`). `rekon intent bundle write --json` gains an additive `taskContext` block
+  (`{ included, count, refs, sidecars, proof: false }`, or `{ included: false }`); human output adds one line when context
+  is present; `rekon help` lists the flag and states it is not proof. With no ref attached the bundle is byte-identical
+  (no `context/`, no `manifest.context`, `taskContext.included: false`); a missing ref (`Artifact not found`) or a
+  wrong-type ref (`must reference a TaskContextReport`) fails cleanly before any file is written. The Circe handoff
+  projection (`circe/handoff.json`, `circe/phase-plan.json`, `circe/rekon-proof.json`) and the WorkOrder / VerificationPlan
+  / phase-gate files are unchanged and never carry task context. TaskContextReport may be included in bundles only as
+  optional context, not proof; must not be required to write an intent bundle; must not approve plans; must not satisfy
+  WorkOrder or VerificationPlan gates; must not change phase gates; must not execute commands; must not write source files;
+  must not run Circe; verification hints remain hints, not executed commands; do-not-touch zones remain guidance/context,
+  not enforcement; Circe handoff JSON is unchanged in v1; intent:go remains deferred. New
+  `packages/capability-docs/src/intent-plan-bundle.ts` render helpers (`projectTaskContextAgent`,
+  `renderTaskContextSidecars`) + CLI wiring in `packages/cli/src/index.ts`. New
+  `tests/contract/task-context-bundle-context.test.mjs` (27 assertions) and
+  `tests/docs/task-context-report-bundle-context.test.mjs` (15 assertions). New
+  `docs/strategy/task-context-report-bundle-context-implementation.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-context-v1.md`. Next: TaskContextReport Bundle Context Safety Review.
 - Decided **TaskContextReport Bundle Context Decision** — one-hundred-eighty-second slice on the embeddings track.
   Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no new artifact,
   no CLI command, no Circe schema change, no CLI smoke). Decides whether/how optional `TaskContextReport` refs appear
