@@ -4,6 +4,24 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Bundle Context Dogfood Safety Review** — one-hundred-eighty-sixth slice on the embeddings
+  track. Strategy / safety-review batch (review-only: no runtime behavior change, no source change, no bundle-context
+  implementation change, no bundle-README rendering change, no Circe schema change, no gate change, no CLI smoke).
+  Reviews the slice-185 bundle-context dogfood result and the narrow bundle-README discoverability fix at `83185a3` and
+  declares them safe/stable. Findings: TaskContextReport bundle context is optional context, not proof; the full
+  bundle-context dogfood path completed successfully; `manifest.context.taskContextReports` was discoverable and marks
+  `proof:false` and `role: optional-agent-context`; `context/task-context.md` was useful to a human operator,
+  `context/task-context.agent.json` was useful to an agent, and `context/task-context.refs.json` was useful for
+  traceability; bundle JSON reported the `taskContext` sidecars; the bundle README now points to the task-context
+  sidecars when context is attached, the README task-context section is guidance, not proof, and the section is omitted
+  when no TaskContextReport is attached; Circe handoff JSON remains unchanged / not dependent on task context; WorkOrder
+  / VerificationPlan gates remain unchanged; phase gates remain unchanged; source and plan files were unchanged; no
+  commands were executed; no VerificationRun or VerificationResult was created; Rekon did not run Circe; intent:go
+  remains deferred. New `docs/strategy/task-context-report-bundle-context-dogfood-safety-review.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-context-dogfood-safety-review.md` + docs test
+  `tests/docs/task-context-report-bundle-context-dogfood-safety-review.test.mjs` (28 assertions). Bundle context is
+  ready for broader handoff use. Recommended next: TaskContextReport Bundle Context Broader Handoff Decision
+  (alternative: Intent Bundle Context UX Fix, only if more discoverability/usability issues surface).
 - Dogfooded **TaskContextReport Bundle Context Dogfood** — one-hundred-eighty-fifth slice on the embeddings track.
   Product dogfood / review batch with one narrow, additive visibility fix (covered by tests). Ran the full public
   operator path keyless against the built CLI (scan → intent context prepare → capability graph build → context task →
