@@ -4,6 +4,35 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Implemented **TaskContextReport Bundle Handoff Guidance Implementation** — one-hundred-eighty-eighth slice on the
+  embeddings track. Product capability batch with CLI smoke (implements the slice-187 broader handoff decision, Option
+  B). When a `TaskContextReport` is attached to an intent plan bundle, the agent-facing bundle files promote the
+  optional context sidecars — three additive, guarded renderer changes in
+  `packages/capability-docs/src/intent-plan-bundle.ts`, each rendered only when a TaskContextReport is attached (the
+  bundle is byte-identical otherwise): `agent/instructions.md` gains a "## Task context" section ("Task context is
+  optional context, not proof.", "Read context/task-context.agent.json before editing.", "Read context/task-context.md
+  for the human-oriented brief.", "Verification hints are hints, not executed commands.", "Do-not-touch zones are
+  guidance/context, not enforcement.", "WorkOrder / VerificationPlan / phase gates remain authoritative.");
+  `agent/handoff.md` gains a "## Task context" section ("Optional task context is available.", "Use
+  context/task-context.agent.json for structured context.", "Use context/task-context.md for the readable brief.",
+  "This context is not proof and does not change the handoff gates."); and `agent/context.json` gains an additive
+  `taskContext` metadata block (`{ available: true, reports: [{ ref, role: "optional-agent-context", proof: false,
+  sidecars: { markdown, agentJson, refsJson } }] }`) with every existing field preserved. With no task context the
+  agent files are byte-identical (no section, no metadata). The bundle README "## Task context" section (slice 185),
+  the `context/` sidecars, and the Circe handoff trio (`circe/handoff.json`, `circe/phase-plan.json`,
+  `circe/rekon-proof.json`) are unchanged. TaskContextReport sidecars are optional context, not proof; humans should
+  inspect context/task-context.md when present; agents should read context/task-context.agent.json when present;
+  verification hints remain hints, not executed commands; do-not-touch zones remain guidance/context, not enforcement;
+  WorkOrder and VerificationPlan gates remain authoritative; phase gates remain authoritative; Circe handoff JSON
+  remains the machine handoff contract; Circe should not be required to understand TaskContextReport internals;
+  TaskContextReport sidecars must not approve plans, must not execute commands, must not write source files; intent:go
+  remains deferred. New `tests/contract/task-context-bundle-handoff-guidance.test.mjs` (24 assertions) +
+  `tests/docs/task-context-bundle-handoff-guidance.test.mjs` (16 assertions);
+  `tests/contract/intent-plan-bundle.test.mjs` (106), `task-context-bundle-context.test.mjs` (27), and
+  `task-context-bundle-context-dogfood.test.mjs` (33) remain green (the `agent/context.json` change is additive). New
+  `docs/strategy/task-context-report-bundle-handoff-guidance-implementation.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-handoff-guidance-v1.md`. Next: TaskContextReport Bundle Handoff
+  Guidance Safety Review.
 - Decided **TaskContextReport Bundle Broader Handoff Decision** — one-hundred-eighty-seventh slice on the embeddings
   track. Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no bundle
   behavior change, no Circe schema change, no gate change, no CLI smoke). Decides how broader operator/agent handoff

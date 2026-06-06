@@ -1218,6 +1218,20 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     "",
     bullets(stopConditions),
     "",
+    // Optional task-context guidance (slice 188): only rendered when a
+    // TaskContextReport is attached. Points the agent at the optional sidecars;
+    // grants no authority — context, not proof.
+    ...(taskContext
+      ? [
+          "## Task context",
+          "",
+          "Optional task context is available.",
+          "Use context/task-context.agent.json for structured context.",
+          "Use context/task-context.md for the readable brief.",
+          "This context is not proof and does not change the handoff gates.",
+          "",
+        ]
+      : []),
     BOUNDARY_NOTE,
     "",
   ].join("\n");
@@ -1236,6 +1250,29 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
       phases: phases.map((p) => ({ id: asString(p.id), title: asString(p.title), kind: asString(p.kind) })),
       obligations: obligationLines,
       artifactRefs: Object.fromEntries(Object.entries(sourceArtifacts).map(([name, entry]) => [name, entry.ref])),
+      // Optional task-context metadata (slice 188): additive; present only when a
+      // TaskContextReport is attached. `available: false` is never emitted —
+      // without-context bundles omit the key entirely. Metadata only, not proof.
+      ...(taskContext
+        ? {
+            taskContext: {
+              available: true,
+              reports: taskContext.refStrings.map((refStr) => {
+                const sep = refStr.indexOf(":");
+                return {
+                  ref: { type: refStr.slice(0, sep), id: refStr.slice(sep + 1) },
+                  role: "optional-agent-context",
+                  proof: false,
+                  sidecars: {
+                    markdown: TASK_CONTEXT_SIDECAR_MARKDOWN,
+                    agentJson: TASK_CONTEXT_SIDECAR_AGENT,
+                    refsJson: TASK_CONTEXT_SIDECAR_REFS,
+                  },
+                };
+              }),
+            },
+          }
+        : {}),
     },
     null,
     2,
@@ -1256,6 +1293,22 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     "",
     asString(workOrder.markdown) ? "## WorkOrder guidance\n\n" + asString(workOrder.markdown) : "",
     "",
+    // Optional task-context guidance (slice 188): only rendered when a
+    // TaskContextReport is attached. Tells the agent to read the optional
+    // sidecars while keeping every gate authoritative — context, not proof.
+    ...(taskContext
+      ? [
+          "## Task context",
+          "",
+          "Task context is optional context, not proof.",
+          "Read context/task-context.agent.json before editing.",
+          "Read context/task-context.md for the human-oriented brief.",
+          "Verification hints are hints, not executed commands.",
+          "Do-not-touch zones are guidance/context, not enforcement.",
+          "WorkOrder / VerificationPlan / phase gates remain authoritative.",
+          "",
+        ]
+      : []),
   ].join("\n");
 
   const agentConstraints = [

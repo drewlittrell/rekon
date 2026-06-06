@@ -1,0 +1,99 @@
+# TaskContextReport Bundle Handoff Guidance Implementation
+
+This memo records the implementation of the [TaskContextReport Bundle Broader
+Handoff Decision](task-context-report-bundle-broader-handoff-decision.md) (Option B).
+When a `TaskContextReport` is attached to an intent plan bundle, the agent-facing
+bundle files now promote the optional context sidecars. The change is additive and
+guarded behind sidecar presence; it grants no authority. TaskContextReport sidecars
+are optional context, not proof.
+
+## What Shipped
+
+Three additive, guarded renderer changes in
+`packages/capability-docs/src/intent-plan-bundle.ts`, each rendered **only when a
+TaskContextReport is attached** (the bundle is byte-identical otherwise):
+
+- `agent/instructions.md` gains a "## Task context" section:
+  - "Task context is optional context, not proof."
+  - "Read context/task-context.agent.json before editing."
+  - "Read context/task-context.md for the human-oriented brief."
+  - "Verification hints are hints, not executed commands."
+  - "Do-not-touch zones are guidance/context, not enforcement."
+  - "WorkOrder / VerificationPlan / phase gates remain authoritative."
+- `agent/handoff.md` gains a "## Task context" section:
+  - "Optional task context is available."
+  - "Use context/task-context.agent.json for structured context."
+  - "Use context/task-context.md for the readable brief."
+  - "This context is not proof and does not change the handoff gates."
+- `agent/context.json` gains an additive `taskContext` metadata block:
+  `{ available: true, reports: [{ ref, role: "optional-agent-context", proof: false,
+  sidecars: { markdown, agentJson, refsJson } }] }`. The block is omitted entirely
+  when no task context is attached, and every existing field (`intentId`, `goal`,
+  `status`, `phases`, …) is preserved.
+
+The bundle README "## Task context" section (slice 185) is unchanged. The three
+`context/` sidecars are unchanged. The Circe handoff trio (`circe/handoff.json`,
+`circe/phase-plan.json`, `circe/rekon-proof.json`) is unchanged and free of task
+context.
+
+## Why This Is Safe
+
+The change is presentation only and additive. With no task context, the agent files
+are byte-identical to the prior release: no "## Task context" section, no
+`taskContext` metadata. The guidance points readers at the optional sidecars and
+explicitly frames them as not-proof; it grants no authority. Humans should inspect
+context/task-context.md when present. Agents should read
+context/task-context.agent.json when present.
+
+## Boundary Model
+
+- TaskContextReport sidecars are optional context, not proof.
+- humans should inspect context/task-context.md when present.
+- agents should read context/task-context.agent.json when present.
+- verification hints remain hints, not executed commands.
+- do-not-touch zones remain guidance/context, not enforcement.
+- WorkOrder and VerificationPlan gates remain authoritative.
+- phase gates remain authoritative.
+- Circe handoff JSON remains the machine handoff contract.
+- Circe should not be required to understand TaskContextReport internals.
+- TaskContextReport sidecars must not approve plans.
+- TaskContextReport sidecars must not execute commands.
+- TaskContextReport sidecars must not write source files.
+- intent:go remains deferred.
+
+| Surface | Behavior |
+| --- | --- |
+| agent/instructions.md | "## Task context" section when sidecars present; tells agent to read the agent JSON; gates authoritative |
+| agent/handoff.md | "## Task context" section when sidecars present; points at the sidecars; not proof, gates unchanged |
+| agent/context.json | additive `taskContext` metadata (`proof: false`, `role: optional-agent-context`) when sidecars present |
+| README.md | unchanged (slice-185 "## Task context" section) |
+| context/ sidecars | unchanged |
+| circe/ trio | unchanged; no task-context dependency |
+| WorkOrder / VerificationPlan / phase gates | unchanged, authoritative |
+
+## What This Does Not Do
+
+This implementation changes no Circe handoff schema, no WorkOrder / VerificationPlan
+gate, and no phase gate. It does not make TaskContextReport required to write a
+bundle, treat it as proof, approve a plan, execute a verification hint or any
+target-repo command, write source, create a WorkOrder or VerificationPlan, or run
+Circe. The agent guidance never implies that an agent may execute verification
+hints automatically, ignore WorkOrder / VerificationPlan, or treat TaskContextReport
+as approval. intent:go remains deferred.
+
+## Verification
+
+- `tests/contract/task-context-bundle-handoff-guidance.test.mjs` (24 assertions)
+  replays the full operator path and asserts the agent-file sections, the
+  `agent/context.json` metadata, the unchanged without-context surfaces, the
+  unchanged Circe trio, and the no-source / no-command / no-go invariants.
+- `tests/docs/task-context-bundle-handoff-guidance.test.mjs` locks the boundary
+  language.
+- The existing `intent-plan-bundle.test.mjs`, `task-context-bundle-context.test.mjs`,
+  and `task-context-bundle-context-dogfood.test.mjs` remain green (the
+  `agent/context.json` change is additive).
+
+## Next Step
+
+The recommended follow-up is a **TaskContextReport Bundle Handoff Guidance Safety
+Review**: review the promoted handoff guidance before broader handoff workflow use.
