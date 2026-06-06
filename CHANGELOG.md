@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped **TaskContextReport Workflow Guide / Agent Instructions** — one-hundred-eightieth slice on the embeddings
+  track. Product documentation / workflow-surface batch (docs only: no runtime behavior change, no source change, no
+  new artifact, no CLI command, no CLI smoke). Turns the slice-179 context-first workflow policy into a usable product
+  surface: a human workflow guide (`docs/guides/task-context-workflow.md`) and an agent instruction set
+  (`docs/guides/agent-context-instructions.md`), plus an implementation note. Teaches the canonical pre-work sequence
+  (`rekon scan` → `rekon capability graph build` → `rekon context task` → `rekon artifacts latest --type
+  TaskContextReport --id-only` → `rekon intent assess` / `rekon intent plan review --task-context-ref`) and how each
+  reader uses the surface. TaskContextReport is the standard pre-work context substrate, not a proof artifact;
+  context-first means context before planning or editing, not context as approval; humans should read the
+  TaskContextReport markdown before editing; agents should consume agentContext before editing; TaskContextReport must
+  not approve plans, execute commands, write source files, or create WorkOrder or VerificationPlan; verification hints
+  remain hints, not executed commands; do-not-touch zones remain guidance/context, not enforcement; consumption remains
+  explicit unless a future decision changes it; prepare / approve / status / handoff remain separately gated; bundle
+  inclusion is optional context, not proof; intent:go remains deferred. All documented commands were verified against
+  the current CLI; no help text changed. Adds a 22-assertion docs test. Next: TaskContextReport Workflow Guide Safety
+  Review. See [`task-context-workflow.md`](docs/guides/task-context-workflow.md) and
+  [`task-context-workflow-guide-agent-instructions.md`](docs/strategy/task-context-workflow-guide-agent-instructions.md).
 - Decided **TaskContextReport Workflow Integration Decision** — one-hundred-seventy-ninth slice on the embeddings
   track. Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no new
   artifact, no CLI command, no CLI smoke). Decides how `TaskContextReport` appears in broader operator/agent workflows
