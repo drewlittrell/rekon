@@ -179,3 +179,5 @@ WorkOrder or VerificationPlan, runs no Circe, and does not bring intent:go forwa
   with no proof / approval / execution / source-write authority and no intent:go.
 - **TaskContextReport Workflow Guide Quality Fix** — only if a concrete
   guide/agent-instruction issue surfaces (none did).
+
+> Update (slice 182 · TaskContextReport Bundle Context Decision): intent bundles may carry optional `TaskContextReport` refs as context for agents/operators (Option B + E) — an additive `manifest.context.taskContextReports[]` section plus Rekon-side `context/` sidecars, with the Circe handoff schema unchanged in v1. Inclusion is optional, never required; context stays context, not proof — it must not approve plans, satisfy WorkOrder/VerificationPlan gates, change phase gates, execute commands, write source, or run Circe; hints stay hints; do-not-touch stays guidance; Circe is not required to know TaskContextReport internals in v1; intent:go deferred. First implementation: TaskContextReport Bundle Context Implementation. See [`task-context-report-bundle-context-decision.md`](task-context-report-bundle-context-decision.md).

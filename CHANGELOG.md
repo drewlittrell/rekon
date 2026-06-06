@@ -4,6 +4,22 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **TaskContextReport Bundle Context Decision** — one-hundred-eighty-second slice on the embeddings track.
+  Strategy / architecture decision batch (decision-only: no runtime behavior change, no source change, no new artifact,
+  no CLI command, no Circe schema change, no CLI smoke). Decides whether/how optional `TaskContextReport` refs appear
+  in intent bundles / handoffs as context for agents and operators. Grounded in the bundle producer
+  (`packages/capability-docs/src/intent-plan-bundle.ts`): `TaskContextReport` is not carried today, the `manifest` is a
+  flexible record already carrying `manifest.circe`, and `intent bundle write` has no `--task-context-ref`. Selected
+  **Option B + E — optional context refs in an additive `manifest.context.taskContextReports[]` section plus Rekon-side
+  `context/` sidecars (`task-context.md`, `task-context.agent.json`, `task-context.refs.json`), with the Circe handoff
+  schema unchanged in v1**; rejected required-context and embedding agentContext into the Circe handoff. TaskContextReport
+  may be included in bundles only as optional context, not proof; must not be required to write an intent bundle; must
+  not approve plans; must not satisfy WorkOrder or VerificationPlan gates; must not change phase gates; must not execute
+  commands; must not write source files; must not run Circe; verification hints remain hints, not executed commands;
+  do-not-touch zones remain guidance/context, not enforcement; Circe should not be required to know TaskContextReport
+  internals in v1; intent:go remains deferred. Adds a 20-assertion docs test. First implementation: TaskContextReport
+  Bundle Context Implementation. See
+  [`task-context-report-bundle-context-decision.md`](docs/strategy/task-context-report-bundle-context-decision.md).
 - Reviewed **TaskContextReport Workflow Guide Safety Review** — one-hundred-eighty-first slice on the embeddings
   track. Strategy / safety-review batch (docs-only: no runtime behavior change, no source change, no new artifact, no
   CLI command, no CLI smoke). Reviews the slice-180 workflow guide + agent instructions end-to-end and declares the
