@@ -86,6 +86,21 @@ The Circe target adds a Circe-specific projection:
 Circe reads these files when present. Older handoffs continue to work because
 Circe falls back to built-in actor contracts.
 
+### Operator Command Boundary
+
+Circe-target actor contracts include an Operator Command Boundary. Worker
+verification commands should be executable repo-local checks, such as
+`npm run typecheck`, `npm run agents:generate`, or `npm test`.
+
+Circe cockpit/admin/report commands, such as `circe handoffs show`,
+`circe phase report`, `circe handoffs trace`, `circe admin attention`, and
+`circe workers status`, are operator inspection commands. They belong after or
+outside actor execution. If a plan asks a worker to run them as implementation
+verification, the worker should report a plan-quality concern.
+
+This guidance is target-specific. Generic Rekon bundles remain Circe-neutral and
+do not include Circe cockpit commands.
+
 ## Operator Flow
 
 ```bash

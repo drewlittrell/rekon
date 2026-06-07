@@ -380,6 +380,7 @@ test("artifacts validate remains clean after bundle write", () => {
 // ===========================================================================
 
 const circeJson = (result, rel) => JSON.parse(fileByPath(result, `circe/${rel}`));
+const circeText = (result, rel) => fileByPath(result, `circe/${rel}`) ?? "";
 
 // ---------- C1: helper renders circe/handoff.json ----------
 test("circe: helper renders circe/handoff.json", () => {
@@ -520,6 +521,21 @@ test("circe: handoff.json links actor contracts relative to circe directory", ()
   assert.equal(handoff.actorContracts.plannerVerifier.path, "actor-contracts/planner-verifier.md");
 });
 
+test("circe: actor contracts include the operator command boundary", () => {
+  for (const rel of [
+    "actor-contracts/implementer.md",
+    "actor-contracts/reviewer.md",
+    "actor-contracts/planner-verifier.md",
+  ]) {
+    const contract = circeText(build(), rel);
+    assert.match(contract, /## Operator Command Boundary/);
+    assert.match(contract, /Do not run Circe cockpit\/report\/admin commands from inside the worker phase\./);
+    assert.match(contract, /circe handoffs show/);
+    assert.match(contract, /circe phase report/);
+    assert.match(contract, /report that as a plan-quality concern/);
+  }
+});
+
 // ---------- C18: bundle generation runs no Circe / executes no commands ----------
 test("circe: WorkOrder requiredChecks are plain command text, never executed", () => {
   const wo = circeJson(build(), "work-orders/phase-investigate.work-order.json");
@@ -611,6 +627,24 @@ test("circe: CLI --target generic writes a generic bundle without circe projecti
   assert.equal(payload.handoffPath, null);
   await assert.rejects(() => stat(join(cliRoot, ".rekon", "intent", "plans", "generic-target", "circe", "handoff.json")));
   await assert.rejects(() => stat(join(cliRoot, ".rekon", "intent", "plans", "generic-target", "circe", "actor-contracts", "implementer.md")));
+});
+
+test("circe: CLI --target generic remains free of Circe operator cockpit guidance", async () => {
+  runCli([
+    "intent", "bundle", "write",
+    "--root", cliRoot,
+    "--prepared-plan", "PreparedIntentPlan:pip-seed",
+    "--intent-id", "generic-neutral-contract",
+    "--target", "generic",
+    "--json",
+  ]);
+  const agentInstructions = await readFile(
+    join(cliRoot, ".rekon", "intent", "plans", "generic-neutral-contract", "agent", "instructions.md"),
+    "utf8",
+  );
+  assert.doesNotMatch(agentInstructions, /circe handoffs show/);
+  assert.doesNotMatch(agentInstructions, /circe phase report/);
+  assert.doesNotMatch(agentInstructions, /Operator Command Boundary/);
 });
 
 // ---------- C24: CLI does not register the circe projection as an artifact ----------

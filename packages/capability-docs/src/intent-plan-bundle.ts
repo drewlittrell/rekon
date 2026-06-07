@@ -258,6 +258,16 @@ const CIRCE_ACTOR_CONTRACT_REFS = {
   },
 } as const;
 
+const CIRCE_OPERATOR_COMMAND_BOUNDARY = [
+  "## Operator Command Boundary",
+  "",
+  "Do not run Circe cockpit/report/admin commands from inside the worker phase.",
+  "",
+  "Commands such as `circe handoffs show`, `circe phase report`, `circe handoffs trace`, `circe admin attention`, `circe workers status`, and `circe actors pipeline` are operator inspection commands.",
+  "",
+  "They belong after or outside actor execution. If a plan asks you to run them as implementation verification, report that as a plan-quality concern.",
+].join("\n");
+
 const CIRCE_IMPLEMENTER_CONTRACT = [
   "# Circe Implementer Completion Handoff",
   "",
@@ -281,6 +291,8 @@ const CIRCE_IMPLEMENTER_CONTRACT = [
   "- Do not omit files you know you edited.",
   "- Do not run `git add`, `git commit`, or `git push`.",
   "- Leave changes uncommitted for Circe to inspect, verify, commit, and publish.",
+  "",
+  CIRCE_OPERATOR_COMMAND_BOUNDARY,
 ].join("\n");
 
 const CIRCE_REVIEWER_CONTRACT = [
@@ -303,6 +315,8 @@ const CIRCE_REVIEWER_CONTRACT = [
   "- Do not edit source files.",
   "- Cite concrete evidence from the diff, worker output, verification, and constraints.",
   "- If implementation or verification evidence is incomplete, do not approve.",
+  "",
+  CIRCE_OPERATOR_COMMAND_BOUNDARY,
 ].join("\n");
 
 const CIRCE_PLANNER_VERIFIER_CONTRACT = [
@@ -325,6 +339,8 @@ const CIRCE_PLANNER_VERIFIER_CONTRACT = [
   "- Choose `next_phase` only with sufficient implementation, review, and verification evidence.",
   "- Use only valid next phase candidates supplied by Circe.",
   "- Provide a concise reason, not hidden chain-of-thought.",
+  "",
+  CIRCE_OPERATOR_COMMAND_BOUNDARY,
 ].join("\n");
 
 const CIRCE_IMPLEMENTATION_HANDOFF_SCHEMA = {
