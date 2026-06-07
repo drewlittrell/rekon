@@ -6948,6 +6948,11 @@ export async function main(argv: string[]): Promise<void> {
     // docs/concepts/intent-plan-bundle.md.
     const store = createLocalArtifactStore(root);
     await store.init();
+    const targetFlag = typeof parsed.flags.target === "string" ? parsed.flags.target.trim() : "";
+    if (targetFlag.length > 0 && targetFlag !== "generic" && targetFlag !== "circe") {
+      throw new Error("rekon intent bundle write --target must be generic or circe.");
+    }
+    const bundleTarget: "generic" | "circe" = targetFlag === "generic" ? "generic" : "circe";
 
     const resolveSource = async (
       flagName: string,
@@ -7071,6 +7076,7 @@ export async function main(argv: string[]): Promise<void> {
     const result = buildIntentPlanBundle({
       ...(intentIdFlag.length > 0 ? { intentId: intentIdFlag } : {}),
       generatedAt: new Date().toISOString(),
+      target: bundleTarget,
       source,
       sourceDigests,
       // Circe handoff projection: record the repo root operators pass to
@@ -7105,25 +7111,37 @@ export async function main(argv: string[]): Promise<void> {
     const staleness = (result.manifest.staleness ?? {}) as { state?: string };
     const stalenessState = typeof staleness.state === "string" ? staleness.state : "fresh";
     const bundlePath = `.rekon/intent/plans/${result.intentId}/`;
-    const circeManifest = (result.manifest.circe ?? {}) as {
+    const circeManifestValue = result.manifest.circe;
+    const hasCirceProjection = bundleTarget === "circe"
+      && circeManifestValue !== null
+      && typeof circeManifestValue === "object";
+    const circeManifest = (hasCirceProjection ? circeManifestValue : {}) as {
       handoff?: string;
       phasePlan?: string;
       rekonProof?: string;
       workOrdersDir?: string;
       verificationPlansDir?: string;
+      actorContracts?: {
+        implementer?: string;
+        reviewer?: string;
+        plannerVerifier?: string;
+        implementationHandoffSchema?: string;
+        reviewVerdictSchema?: string;
+        plannerDecisionSchema?: string;
+      };
       workOrders?: number;
       verificationPlans?: number;
       phaseVerification?: { executable?: number; manualReview?: number; finalVerification?: number; needsReview?: number };
       warnings?: number;
     };
-    const circeHandoffPath = circeManifest.handoff ?? "circe/handoff.json";
-    const circePhasePlanPath = circeManifest.phasePlan ?? "circe/phase-plan.json";
-    const circeRekonProofPath = circeManifest.rekonProof ?? "circe/rekon-proof.json";
-    const circeHandoff = parseBundleJsonFile(result.files, circeHandoffPath);
-    const circePhasePlan = parseBundleJsonFile(result.files, circePhasePlanPath);
-    const circeWarnings = asStringArray((circeHandoff as { warnings?: unknown }).warnings);
-    const phaseCount = Array.isArray((circePhasePlan as { phases?: unknown }).phases)
-      ? (circePhasePlan as { phases: unknown[] }).phases.length
+    const circeHandoffPath = hasCirceProjection ? circeManifest.handoff ?? "circe/handoff.json" : null;
+    const circePhasePlanPath = hasCirceProjection ? circeManifest.phasePlan ?? "circe/phase-plan.json" : null;
+    const circeRekonProofPath = hasCirceProjection ? circeManifest.rekonProof ?? "circe/rekon-proof.json" : null;
+    const circeHandoff = circeHandoffPath ? parseBundleJsonFile(result.files, circeHandoffPath) : null;
+    const circePhasePlan = circePhasePlanPath ? parseBundleJsonFile(result.files, circePhasePlanPath) : null;
+    const circeWarnings = asStringArray((circeHandoff as { warnings?: unknown } | null)?.warnings);
+    const phaseCount = Array.isArray((circePhasePlan as { phases?: unknown } | null)?.phases)
+      ? ((circePhasePlan as { phases: unknown[] }).phases.length)
       : 0;
     const phaseVerification = {
       executable: circeManifest.phaseVerification?.executable ?? 0,
@@ -7160,11 +7178,12 @@ export async function main(argv: string[]): Promise<void> {
       writeOutput(
         {
           ok: true,
+          target: bundleTarget,
           intentId: result.intentId,
           bundlePath: bundlePath.replace(/\/$/, ""),
-          handoffPath: `${bundlePath}${circeHandoffPath}`,
-          phasePlanPath: `${bundlePath}${circePhasePlanPath}`,
-          rekonProofPath: `${bundlePath}${circeRekonProofPath}`,
+          handoffPath: circeHandoffPath ? `${bundlePath}${circeHandoffPath}` : null,
+          phasePlanPath: circePhasePlanPath ? `${bundlePath}${circePhasePlanPath}` : null,
+          rekonProofPath: circeRekonProofPath ? `${bundlePath}${circeRekonProofPath}` : null,
           phaseCount,
           warnings: circeWarnings,
           bundle: {
@@ -7173,16 +7192,38 @@ export async function main(argv: string[]): Promise<void> {
             status: stalenessState,
             files: result.files.length,
           },
-          circe: {
-            handoff: `${bundlePath}${circeHandoffPath}`,
-            phasePlan: `${bundlePath}${circePhasePlanPath}`,
-            rekonProof: `${bundlePath}${circeRekonProofPath}`,
-            workOrders: typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0,
-            verificationPlans: typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0,
-            phaseCount,
-            phaseVerification,
-            warnings: typeof circeManifest.warnings === "number" ? circeManifest.warnings : 0,
-          },
+          circe: hasCirceProjection
+            ? {
+                handoff: `${bundlePath}${circeHandoffPath}`,
+                phasePlan: `${bundlePath}${circePhasePlanPath}`,
+                rekonProof: `${bundlePath}${circeRekonProofPath}`,
+                actorContracts: {
+                  implementer: circeManifest.actorContracts?.implementer
+                    ? `${bundlePath}${circeManifest.actorContracts.implementer}`
+                    : null,
+                  reviewer: circeManifest.actorContracts?.reviewer
+                    ? `${bundlePath}${circeManifest.actorContracts.reviewer}`
+                    : null,
+                  plannerVerifier: circeManifest.actorContracts?.plannerVerifier
+                    ? `${bundlePath}${circeManifest.actorContracts.plannerVerifier}`
+                    : null,
+                  implementationHandoffSchema: circeManifest.actorContracts?.implementationHandoffSchema
+                    ? `${bundlePath}${circeManifest.actorContracts.implementationHandoffSchema}`
+                    : null,
+                  reviewVerdictSchema: circeManifest.actorContracts?.reviewVerdictSchema
+                    ? `${bundlePath}${circeManifest.actorContracts.reviewVerdictSchema}`
+                    : null,
+                  plannerDecisionSchema: circeManifest.actorContracts?.plannerDecisionSchema
+                    ? `${bundlePath}${circeManifest.actorContracts.plannerDecisionSchema}`
+                    : null,
+                },
+                workOrders: typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0,
+                verificationPlans: typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0,
+                phaseCount,
+                phaseVerification,
+                warnings: typeof circeManifest.warnings === "number" ? circeManifest.warnings : 0,
+              }
+            : null,
           canonicalTruth: ".rekon/artifacts",
           taskContext: taskContextOut,
           boundaries: {
@@ -7198,17 +7239,22 @@ export async function main(argv: string[]): Promise<void> {
       const lines: string[] = [];
       lines.push("Intent plan bundle", "");
       lines.push(`Bundle: ${bundlePath}`);
+      lines.push(`Target: ${bundleTarget}`);
       lines.push(`Status: ${stalenessState}`);
       lines.push(`Files: ${result.files.length}`);
-      lines.push(`Circe handoff: ${circeManifest.handoff ?? "circe/handoff.json"}`);
-      lines.push(
-        `Circe artifacts: ${typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0} work order(s), ` +
-          `${typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0} verification plan(s)`,
-      );
-      lines.push(
-        `Phase verification: ${phaseVerification.executable} executable, ${phaseVerification.finalVerification} final-verification, ` +
-          `${phaseVerification.manualReview} manual-review, ${phaseVerification.needsReview} needs-review`,
-      );
+      if (hasCirceProjection) {
+        lines.push(`Circe handoff: ${circeManifest.handoff ?? "circe/handoff.json"}`);
+        lines.push(
+          `Circe artifacts: ${typeof circeManifest.workOrders === "number" ? circeManifest.workOrders : 0} work order(s), ` +
+            `${typeof circeManifest.verificationPlans === "number" ? circeManifest.verificationPlans : 0} verification plan(s)`,
+        );
+        lines.push(
+          `Phase verification: ${phaseVerification.executable} executable, ${phaseVerification.finalVerification} final-verification, ` +
+            `${phaseVerification.manualReview} manual-review, ${phaseVerification.needsReview} needs-review`,
+        );
+      } else {
+        lines.push("Circe handoff: not emitted (target=generic)");
+      }
       if (taskContextOut.included) {
         lines.push(
           `Task context: ${taskContextOut.count} optional context report(s) included (context/, not proof).`,
@@ -13583,7 +13629,7 @@ function usage(): string {
     "rekon intent status transition --prepared-plan <PreparedIntentPlan:id|type:id> --previous-status <IntentStatusReport:id|type:id> [--path-freshness <ref>] [--runtime-drift <ref>] --to work-ready --reason <text> [--root <path>] [--json]",
     "rekon intent work-order generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
     "rekon intent verification-plan generate --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--work-order <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--root <path>] [--json]",
-    "rekon intent bundle write [--intent-id <id>] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--task-context-ref <TaskContextReport ref>] [--root <path>] [--json]",
+    "rekon intent bundle write [--intent-id <id>] [--target generic|circe] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--task-context-ref <TaskContextReport ref>] [--root <path>] [--json]",
     "    (--task-context-ref is repeatable; task context is optional bundle context, not proof — it never approves plans, satisfies gates, executes, or writes source)",
     "rekon intent context prepare [--root <path>] [--json]",
     "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",

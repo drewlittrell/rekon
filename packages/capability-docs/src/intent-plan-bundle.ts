@@ -46,6 +46,8 @@ export type IntentPlanBundleFile = {
   content: string;
 };
 
+export type IntentPlanBundleTarget = "generic" | "circe";
+
 export type IntentPlanBundleRenderResult = {
   intentId: string;
   rootDir: string;
@@ -57,6 +59,8 @@ export type BuildIntentPlanBundleInput = {
   rootDir?: string;
   intentId?: string;
   generatedAt?: string;
+  /** Target projection to emit. Omitted defaults to `circe` for compatibility. */
+  target?: IntentPlanBundleTarget;
   source: IntentPlanBundleSource;
   sourceDigests?: Record<string, string>;
   /**
@@ -235,6 +239,163 @@ type RenderCirceProjectionInput = {
   intentStatusValue: string;
   intentStatusNextAction: string;
 };
+
+const CIRCE_ACTOR_CONTRACT_REFS = {
+  implementer: {
+    path: "actor-contracts/implementer.md",
+    schemaPath: "actor-contracts/implementation-handoff.schema.json",
+    outputContract: "implementation_handoff",
+  },
+  reviewer: {
+    path: "actor-contracts/reviewer.md",
+    schemaPath: "actor-contracts/review-verdict.schema.json",
+    outputContract: "review_verdict",
+  },
+  plannerVerifier: {
+    path: "actor-contracts/planner-verifier.md",
+    schemaPath: "actor-contracts/planner-decision.schema.json",
+    outputContract: "planner_decision",
+  },
+} as const;
+
+const CIRCE_IMPLEMENTER_CONTRACT = [
+  "# Circe Implementer Completion Handoff",
+  "",
+  "When your implementation turn is complete, return an implementation handoff.",
+  "",
+  "Required fields:",
+  "",
+  "- `status`: `implemented`, `blocked`, or `failed`",
+  "- `summary`: concise description of what changed",
+  "- `changedFiles`: files you changed",
+  "- `commandsRun`: commands you personally ran; use `[]` if none",
+  "- `verification`: checks you personally ran; use `[]` if none",
+  "- `residualRisk`: risks or uncertainties; use `[]` if none",
+  "- `blockers`: blockers if unable to complete; use `[]` if none",
+  "",
+  "Rules:",
+  "",
+  "- Do not claim commands you did not run.",
+  "- Do not list Circe/Rekon verification as commands you personally ran.",
+  "- Do not invent changed files.",
+  "- Do not omit files you know you edited.",
+  "- Do not run `git add`, `git commit`, or `git push`.",
+  "- Leave changes uncommitted for Circe to inspect, verify, commit, and publish.",
+].join("\n");
+
+const CIRCE_REVIEWER_CONTRACT = [
+  "# Circe Reviewer Verdict Handoff",
+  "",
+  "Review the implementation evidence that Circe provides and return a review verdict.",
+  "",
+  "Required fields:",
+  "",
+  "- `phase_id`",
+  "- `verdict`: `approved`, `rework_required`, or `blocked`",
+  "- `approved_for_phase_completion`",
+  "- `required_rework`",
+  "- `review_evidence`",
+  "- `risk_assessment`",
+  "- `summary`",
+  "",
+  "Rules:",
+  "",
+  "- Do not edit source files.",
+  "- Cite concrete evidence from the diff, worker output, verification, and constraints.",
+  "- If implementation or verification evidence is incomplete, do not approve.",
+].join("\n");
+
+const CIRCE_PLANNER_VERIFIER_CONTRACT = [
+  "# Circe Planner / Verifier Decision Handoff",
+  "",
+  "Decide the next orchestration action using the implementation, review, verification, and phase-candidate evidence Circe provides.",
+  "",
+  "Required fields:",
+  "",
+  "- `phase_id`",
+  "- `phase_complete`",
+  "- `next_action`: `next_phase`, `rework`, `debug`, `revise_plan`, or `stop`",
+  "- `plan_updates`",
+  "- `next_phase_id`",
+  "- `reasoning_summary`",
+  "",
+  "Rules:",
+  "",
+  "- Do not edit source files.",
+  "- Choose `next_phase` only with sufficient implementation, review, and verification evidence.",
+  "- Use only valid next phase candidates supplied by Circe.",
+  "- Provide a concise reason, not hidden chain-of-thought.",
+].join("\n");
+
+const CIRCE_IMPLEMENTATION_HANDOFF_SCHEMA = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  title: "Circe Implementation Handoff",
+  type: "object",
+  required: ["status", "summary", "changedFiles", "commandsRun", "verification", "residualRisk", "blockers"],
+  properties: {
+    status: { enum: ["implemented", "blocked", "failed"] },
+    summary: { type: "string" },
+    changedFiles: { type: "array", items: { type: "string" } },
+    commandsRun: { type: "array" },
+    verification: { type: "array" },
+    residualRisk: { type: "array", items: { type: "string" } },
+    blockers: { type: "array", items: { type: "string" } },
+  },
+  additionalProperties: true,
+};
+
+const CIRCE_REVIEW_VERDICT_SCHEMA = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  title: "Circe Review Verdict",
+  type: "object",
+  required: ["phase_id", "verdict", "approved_for_phase_completion", "required_rework", "review_evidence", "risk_assessment", "summary"],
+  properties: {
+    phase_id: { type: "string" },
+    verdict: { enum: ["approved", "rework_required", "blocked"] },
+    approved_for_phase_completion: { type: "boolean" },
+    required_rework: { type: "array" },
+    review_evidence: { type: "array" },
+    risk_assessment: { type: "string" },
+    summary: { type: "string" },
+  },
+  additionalProperties: true,
+};
+
+const CIRCE_PLANNER_DECISION_SCHEMA = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  title: "Circe Planner Decision",
+  type: "object",
+  required: ["phase_id", "phase_complete", "next_action", "plan_updates", "next_phase_id", "reasoning_summary"],
+  properties: {
+    phase_id: { type: "string" },
+    phase_complete: { type: "boolean" },
+    next_action: { enum: ["next_phase", "rework", "debug", "revise_plan", "stop"] },
+    plan_updates: { type: "array" },
+    next_phase_id: { type: ["string", "null"] },
+    reasoning_summary: { type: "string" },
+  },
+  additionalProperties: true,
+};
+
+function renderCirceActorContractFiles(): IntentPlanBundleFile[] {
+  return [
+    { path: `circe/${CIRCE_ACTOR_CONTRACT_REFS.implementer.path}`, content: `${CIRCE_IMPLEMENTER_CONTRACT}\n` },
+    { path: `circe/${CIRCE_ACTOR_CONTRACT_REFS.reviewer.path}`, content: `${CIRCE_REVIEWER_CONTRACT}\n` },
+    { path: `circe/${CIRCE_ACTOR_CONTRACT_REFS.plannerVerifier.path}`, content: `${CIRCE_PLANNER_VERIFIER_CONTRACT}\n` },
+    {
+      path: `circe/${CIRCE_ACTOR_CONTRACT_REFS.implementer.schemaPath}`,
+      content: `${JSON.stringify(CIRCE_IMPLEMENTATION_HANDOFF_SCHEMA, null, 2)}\n`,
+    },
+    {
+      path: `circe/${CIRCE_ACTOR_CONTRACT_REFS.reviewer.schemaPath}`,
+      content: `${JSON.stringify(CIRCE_REVIEW_VERDICT_SCHEMA, null, 2)}\n`,
+    },
+    {
+      path: `circe/${CIRCE_ACTOR_CONTRACT_REFS.plannerVerifier.schemaPath}`,
+      content: `${JSON.stringify(CIRCE_PLANNER_DECISION_SCHEMA, null, 2)}\n`,
+    },
+  ];
+}
 
 type CircePhaseGate = {
   phaseId: string;
@@ -574,6 +735,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     status: "ready",
     warnings,
     artifacts: { workOrders: handoffWorkOrders, verificationPlans: handoffVerificationPlans },
+    actorContracts: CIRCE_ACTOR_CONTRACT_REFS,
   };
 
   // rekon-proof.json (slice 101): the Rekon-specific proof/gate sidecar for Circe
@@ -648,6 +810,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     { path: "circe/handoff.json", content: `${JSON.stringify(handoff, null, 2)}\n` },
     { path: "circe/phase-plan.json", content: `${JSON.stringify(phasePlan, null, 2)}\n` },
     { path: "circe/rekon-proof.json", content: `${JSON.stringify(rekonProof, null, 2)}\n` },
+    ...renderCirceActorContractFiles(),
     ...workOrderFiles,
     ...verificationPlanFiles,
   ];
@@ -665,6 +828,15 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     rekonProof: "circe/rekon-proof.json",
     workOrdersDir: "circe/work-orders",
     verificationPlansDir: "circe/verification-plans",
+    actorContractsDir: "circe/actor-contracts",
+    actorContracts: {
+      implementer: `circe/${CIRCE_ACTOR_CONTRACT_REFS.implementer.path}`,
+      reviewer: `circe/${CIRCE_ACTOR_CONTRACT_REFS.reviewer.path}`,
+      plannerVerifier: `circe/${CIRCE_ACTOR_CONTRACT_REFS.plannerVerifier.path}`,
+      implementationHandoffSchema: `circe/${CIRCE_ACTOR_CONTRACT_REFS.implementer.schemaPath}`,
+      reviewVerdictSchema: `circe/${CIRCE_ACTOR_CONTRACT_REFS.reviewer.schemaPath}`,
+      plannerDecisionSchema: `circe/${CIRCE_ACTOR_CONTRACT_REFS.plannerVerifier.schemaPath}`,
+    },
     schemaVersion: 1,
     kind: "rekon-circe-handoff",
     workOrders: handoffWorkOrders.length,
@@ -865,6 +1037,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
   const source = input.source ?? {};
   const generatedAt = typeof input.generatedAt === "string" ? input.generatedAt : "1970-01-01T00:00:00.000Z";
   const digests = input.sourceDigests ?? {};
+  const target: IntentPlanBundleTarget = input.target === "generic" ? "generic" : "circe";
 
   // ---- intent id ----
   const idCandidate =
@@ -959,6 +1132,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
   const manifest: Record<string, unknown> = {
     schemaVersion: "0.1.0",
     bundleKind: "intent-plan",
+    target,
     intentId,
     generatedAt,
     status: statusValue,
@@ -1003,32 +1177,37 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
   const circeRepoRoot = typeof input.repoRoot === "string" && input.repoRoot.length > 0 ? input.repoRoot : ".";
   const producerVersion =
     typeof input.producerVersion === "string" && input.producerVersion.length > 0 ? input.producerVersion : null;
-  const circe = renderCirceProjection({
-    intentId,
-    generatedAt,
-    repoRoot: circeRepoRoot,
-    goal,
-    planRef: source.preparedIntentPlanRef,
-    producerVersion,
-    phases,
-    requirements: asArray(plan.verificationRequirements).map((r) => asRecord(r)),
-    obligations: asArray(plan.obligations).map((o) => asRecord(o)),
-    workOrderSchemaVersion: asString(asRecord(workOrder.header).schemaVersion, "0.1.0"),
-    verificationPlanSchemaVersion: asString(asRecord(verificationPlan.header).schemaVersion, "0.1.0"),
-    // Proof/gate enrichment (slice 101).
-    hasPreparedPlan: Boolean(source.preparedIntentPlan),
-    sourceArtifacts,
-    approval,
-    planStatusValue: asString(planStatus.value, "unknown"),
-    planNextAction: asString(planStatus.recommendedNextAction, "(none)"),
-    intentStatusValue: asString(asRecord(status.status).value),
-    intentStatusNextAction: asString(asRecord(status).recommendedNextAction),
-  });
-  // Surface the Circe projection in the manifest (additive; all relative paths).
-  files.circeHandoff = "circe/handoff.json";
-  files.circePhasePlan = "circe/phase-plan.json";
-  files.circeProof = "circe/rekon-proof.json";
-  manifest.circe = circe.manifestCirce;
+  const circe = target === "circe"
+    ? renderCirceProjection({
+        intentId,
+        generatedAt,
+        repoRoot: circeRepoRoot,
+        goal,
+        planRef: source.preparedIntentPlanRef,
+        producerVersion,
+        phases,
+        requirements: asArray(plan.verificationRequirements).map((r) => asRecord(r)),
+        obligations: asArray(plan.obligations).map((o) => asRecord(o)),
+        workOrderSchemaVersion: asString(asRecord(workOrder.header).schemaVersion, "0.1.0"),
+        verificationPlanSchemaVersion: asString(asRecord(verificationPlan.header).schemaVersion, "0.1.0"),
+        // Proof/gate enrichment (slice 101).
+        hasPreparedPlan: Boolean(source.preparedIntentPlan),
+        sourceArtifacts,
+        approval,
+        planStatusValue: asString(planStatus.value, "unknown"),
+        planNextAction: asString(planStatus.recommendedNextAction, "(none)"),
+        intentStatusValue: asString(asRecord(status.status).value),
+        intentStatusNextAction: asString(asRecord(status).recommendedNextAction),
+      })
+    : null;
+  // Surface the Circe projection in the manifest only when target=circe
+  // (default for compatibility; explicit target=generic stays generic).
+  if (circe) {
+    files.circeHandoff = "circe/handoff.json";
+    files.circePhasePlan = "circe/phase-plan.json";
+    files.circeProof = "circe/rekon-proof.json";
+    manifest.circe = circe.manifestCirce;
+  }
 
   // TaskContextReport bundle context (slice 183): additive optional context refs.
   // `proof: false` / `role: "optional-agent-context"` make the non-authoritative
@@ -1038,10 +1217,10 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
   }
 
   // Per-phase verification posture lines for the human / agent bundle files (slice 115).
-  const phasePostureLines = circe.phaseGates.map((g) => {
+  const phasePostureLines = circe ? circe.phaseGates.map((g) => {
     const reqs = g.verificationRequirementIds.length > 0 ? ` [${g.verificationRequirementIds.join(", ")}]` : "";
     return `${g.phaseId} — ${g.verificationPosture}${reqs}: ${g.reason}`;
-  });
+  }) : [];
 
   // ---- README.md ----
   const readme = [
@@ -1149,7 +1328,9 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     "",
     "## Phase verification posture",
     "",
-    "Each phase carries an explicit verification posture. `executable` and `final-verification` phases ship a per-phase VerificationPlan under `circe/verification-plans/`. `manual-review` phases are reviewer-gated; no executable verification is implied. `needs-review` phases should carry verification but have no safe executable requirement. **Skipped verification is not proof: a phase without an executable VerificationPlan is never treated as verified.**",
+    circe
+      ? "Each phase carries an explicit verification posture. `executable` and `final-verification` phases ship a per-phase VerificationPlan under `circe/verification-plans/`. `manual-review` phases are reviewer-gated; no executable verification is implied. `needs-review` phases should carry verification but have no safe executable requirement. **Skipped verification is not proof: a phase without an executable VerificationPlan is never treated as verified.**"
+      : "No target-specific phase projection was requested. Verification commands are requirements for the receiving system or operator; bundle generation executes no commands.",
     "",
     bullets(phasePostureLines.length > 0 ? phasePostureLines : ["(no phases)"]),
     "",
@@ -1345,14 +1526,18 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
       executesCommands: false,
       // Per-phase verification posture (slice 115). Skipped verification is not
       // proof: manual-review / needs-review phases carry no executable VerificationPlan.
-      phaseVerification: circe.phaseVerification,
-      phases: circe.phaseGates.map((g) => ({
-        phaseId: g.phaseId,
-        verificationPosture: g.verificationPosture,
-        manualGate: g.manualGate,
-        needsReview: g.needsReview,
-        ...(g.verificationPlanPath ? { verificationPlanPath: g.verificationPlanPath } : {}),
-      })),
+      ...(circe
+        ? {
+            phaseVerification: circe.phaseVerification,
+            phases: circe.phaseGates.map((g) => ({
+              phaseId: g.phaseId,
+              verificationPosture: g.verificationPosture,
+              manualGate: g.manualGate,
+              needsReview: g.needsReview,
+              ...(g.verificationPlanPath ? { verificationPlanPath: g.verificationPlanPath } : {}),
+            })),
+          }
+        : {}),
     },
     null,
     2,
@@ -1387,7 +1572,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     { path: "agent/verification.json", content: `${agentVerification}\n` },
     { path: "agent/source-refs.json", content: `${agentSourceRefs}\n` },
     ...(taskContext ? taskContext.files : []),
-    ...circe.files,
+    ...(circe ? circe.files : []),
   ];
 
   // Defensive: every emitted path must be bundle-safe.

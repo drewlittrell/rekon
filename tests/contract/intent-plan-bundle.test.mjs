@@ -238,6 +238,35 @@ test("agent/source-refs.json includes canonical refs / digests", () => {
   assert.equal(refs.sourceArtifacts.preparedIntentPlan.ref, "PreparedIntentPlan:pip-1");
 });
 
+test("target generic omits the Circe projection and actor contracts", () => {
+  const result = build({ target: "generic" });
+  assert.equal(result.manifest.target, "generic");
+  assert.equal(result.manifest.circe, undefined);
+  assert.equal(fileByPath(result, "circe/handoff.json"), undefined);
+  assert.equal(fileByPath(result, "circe/actor-contracts/implementer.md"), undefined);
+  assert.doesNotMatch(fileByPath(result, "agent/instructions.md"), /Circe Implementer Completion Handoff/);
+});
+
+test("target circe emits actor contracts and keeps generic agent instructions neutral", () => {
+  const result = build({ target: "circe" });
+  assert.equal(result.manifest.target, "circe");
+  assert.ok(fileByPath(result, "circe/actor-contracts/implementer.md"));
+  assert.ok(fileByPath(result, "circe/actor-contracts/reviewer.md"));
+  assert.ok(fileByPath(result, "circe/actor-contracts/planner-verifier.md"));
+  assert.ok(fileByPath(result, "circe/actor-contracts/implementation-handoff.schema.json"));
+  assert.ok(fileByPath(result, "circe/actor-contracts/review-verdict.schema.json"));
+  assert.ok(fileByPath(result, "circe/actor-contracts/planner-decision.schema.json"));
+
+  const implementer = fileByPath(result, "circe/actor-contracts/implementer.md");
+  assert.match(implementer, /changedFiles/);
+  assert.match(implementer, /commandsRun/);
+  assert.match(implementer, /residualRisk/);
+  assert.match(implementer, /blockers/);
+  assert.match(implementer, /Do not run `git add`, `git commit`, or `git push`/);
+  assert.match(implementer, /Leave changes uncommitted for Circe/);
+  assert.doesNotMatch(fileByPath(result, "agent/instructions.md"), /Circe Implementer Completion Handoff/);
+});
+
 // ---------- 28 (helper staleness) ----------
 test("stale inputs mark manifest stale", () => {
   const result = build({
@@ -474,11 +503,21 @@ test("circe: manifest includes a circe section", () => {
   const circe = build().manifest.circe;
   assert.equal(circe.handoff, "circe/handoff.json");
   assert.equal(circe.phasePlan, "circe/phase-plan.json");
+  assert.equal(circe.actorContracts.implementer, "circe/actor-contracts/implementer.md");
   assert.equal(circe.schemaVersion, 1);
   assert.equal(circe.kind, "rekon-circe-handoff");
   assert.equal(circe.workOrders, 2);
   // Both phases are executable in the base fixture (investigate explicit, modify mapped) -> 2 VPs (slice 115).
   assert.equal(circe.verificationPlans, 2);
+});
+
+test("circe: handoff.json links actor contracts relative to circe directory", () => {
+  const handoff = circeJson(build(), "handoff.json");
+  assert.equal(handoff.actorContracts.implementer.path, "actor-contracts/implementer.md");
+  assert.equal(handoff.actorContracts.implementer.schemaPath, "actor-contracts/implementation-handoff.schema.json");
+  assert.equal(handoff.actorContracts.implementer.outputContract, "implementation_handoff");
+  assert.equal(handoff.actorContracts.reviewer.path, "actor-contracts/reviewer.md");
+  assert.equal(handoff.actorContracts.plannerVerifier.path, "actor-contracts/planner-verifier.md");
 });
 
 // ---------- C18: bundle generation runs no Circe / executes no commands ----------
@@ -520,7 +559,13 @@ test("circe: a plan with no phases yields a fallback phase and a warning", () =>
 // ---------- C22: CLI writes circe projection files ----------
 test("circe: CLI writes circe projection files inside the bundle", async () => {
   runCli(["intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed", "--json"]);
-  for (const rel of ["circe/handoff.json", "circe/phase-plan.json", "circe/work-orders/phase-investigate.work-order.json"]) {
+  for (const rel of [
+    "circe/handoff.json",
+    "circe/phase-plan.json",
+    "circe/actor-contracts/implementer.md",
+    "circe/actor-contracts/implementation-handoff.schema.json",
+    "circe/work-orders/phase-investigate.work-order.json",
+  ]) {
     const s = await stat(join(bundleDir, ...rel.split("/")));
     assert.ok(s.isFile(), `missing ${rel}`);
   }
@@ -529,11 +574,12 @@ test("circe: CLI writes circe projection files inside the bundle", async () => {
 // ---------- C23: CLI JSON includes circe paths / counts ----------
 test("circe: CLI --json includes circe paths and counts", () => {
   const result = runCli([
-    "intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed", "--json",
+    "intent", "bundle", "write", "--root", cliRoot, "--prepared-plan", "PreparedIntentPlan:pip-seed", "--target", "circe", "--json",
   ]);
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.ok, true);
+  assert.equal(payload.target, "circe");
   assert.equal(payload.intentId, "pip-seed");
   assert.equal(payload.bundlePath, ".rekon/intent/plans/pip-seed");
   assert.equal(payload.handoffPath, payload.circe.handoff);
@@ -542,8 +588,29 @@ test("circe: CLI --json includes circe paths and counts", () => {
   assert.ok(Array.isArray(payload.warnings));
   assert.match(payload.circe.handoff, /circe\/handoff\.json$/);
   assert.match(payload.circe.phasePlan, /circe\/phase-plan\.json$/);
+  assert.match(payload.circe.actorContracts.implementer, /circe\/actor-contracts\/implementer\.md$/);
+  assert.match(payload.circe.actorContracts.implementationHandoffSchema, /circe\/actor-contracts\/implementation-handoff\.schema\.json$/);
   assert.ok(payload.circe.workOrders >= 1);
   assert.equal(payload.boundaries.runsCirce, false);
+});
+
+test("circe: CLI --target generic writes a generic bundle without circe projection", async () => {
+  const result = runCli([
+    "intent", "bundle", "write",
+    "--root", cliRoot,
+    "--prepared-plan", "PreparedIntentPlan:pip-seed",
+    "--intent-id", "generic-target",
+    "--target", "generic",
+    "--json",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.target, "generic");
+  assert.equal(payload.circe, null);
+  assert.equal(payload.handoffPath, null);
+  await assert.rejects(() => stat(join(cliRoot, ".rekon", "intent", "plans", "generic-target", "circe", "handoff.json")));
+  await assert.rejects(() => stat(join(cliRoot, ".rekon", "intent", "plans", "generic-target", "circe", "actor-contracts", "implementer.md")));
 });
 
 // ---------- C24: CLI does not register the circe projection as an artifact ----------
