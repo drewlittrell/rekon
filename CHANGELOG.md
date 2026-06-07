@@ -4,6 +4,24 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Bundle Handoff Guidance Safety Review** — one-hundred-eighty-ninth slice on the
+  embeddings track. Strategy / safety-review batch (review-only: no runtime behavior change, no source change, no
+  handoff guidance implementation change, no agent-file rendering change, no Circe schema change, no gate change, no
+  CLI smoke). Reviews the slice-188 agent-facing handoff guidance at `1687749` and declares it safe/stable. Findings:
+  TaskContextReport sidecars are optional context, not proof; `agent/instructions.md` promotes optional task context
+  only when sidecars are present; `agent/handoff.md` promotes optional task context only when sidecars are present;
+  `agent/context.json` carries additive `taskContext` metadata when sidecars are present and preserves existing fields;
+  `taskContext` metadata marks `proof:false` and `role: optional-agent-context`; agents should read
+  `context/task-context.agent.json` when it is present in a bundle; humans should inspect `context/task-context.md`
+  when it is present in a bundle; verification hints remain hints, not executed commands; do-not-touch zones remain
+  guidance/context, not enforcement; WorkOrder and VerificationPlan gates remain authoritative; phase gates remain
+  authoritative; Circe handoff JSON remains the machine handoff contract; Circe should not be required to understand
+  TaskContextReport internals; TaskContextReport sidecars must not approve plans, must not execute commands, must not
+  write source files; without-context bundles are byte-identical; intent:go remains deferred. New
+  `docs/strategy/task-context-report-bundle-handoff-guidance-safety-review.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-handoff-guidance-safety-review.md` + docs test
+  `tests/docs/task-context-report-bundle-handoff-guidance-safety-review.test.mjs` (27 assertions). Recommended next:
+  TaskContextReport Bundle Handoff Dogfood (alternative: Handoff Guidance UX Fix, only if a concrete issue surfaces).
 - Implemented **TaskContextReport Bundle Handoff Guidance Implementation** — one-hundred-eighty-eighth slice on the
   embeddings track. Product capability batch with CLI smoke (implements the slice-187 broader handoff decision, Option
   B). When a `TaskContextReport` is attached to an intent plan bundle, the agent-facing bundle files promote the
