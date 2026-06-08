@@ -110,10 +110,15 @@ approved.** **A plan with phases but without approval is not prepared.**
 ## Phase Model
 
 Phases structure planned work without performing it: `id`, `title`, `kind`
-(`investigate` / `modify` / `refactor` / `verify` / `review`), `status`
+(`investigate` / `implement` / `modify` / `refactor` / `verify` / `review`), `status`
 (`planned` / `blocked` / `needs-review`), `goal`, `paths`, `systems`,
 `capabilities`, `steps`, `constraints`, `obligations`,
-`verificationRequirements`, `sourceRefs`. A `prepared` plan emits
+`verificationRequirements`, `sourceRefs`, optional `sourceChange`, and optional
+`classification`. `sourceChange` is `required`, `allowed`, or `forbidden`.
+`classification` records `{ source, signals[], warnings[] }` when the phase came
+from an `IntentPlanActionabilityReport` classifier or a compatibility fallback.
+
+A `prepared` plan emits
 `investigate` + (`modify` for bug/feature/migration, `refactor` for refactor) +
 `verify` + `review`; investigation/unknown emit `investigate` + `review`. A
 `needs-review` plan emits a single `review` phase; `blocked` /

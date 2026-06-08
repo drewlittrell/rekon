@@ -101,6 +101,8 @@ export type PreparedIntentActionabilityReportLike = {
     verificationCommands?: string[];
     evidenceArtifacts?: string[];
     constraints?: string[];
+    sourceChange?: string;
+    classification?: { source?: string; signals?: string[]; warnings?: string[] };
   }>;
 };
 
@@ -272,6 +274,7 @@ function severityOf(value: unknown): PreparedIntentSeverity {
 function mapReportPhaseKind(kind: unknown): PreparedIntentPhase["kind"] {
   switch (kind) {
     case "investigate":
+    case "implement":
     case "refactor":
     case "verify":
     case "review":
@@ -280,6 +283,32 @@ function mapReportPhaseKind(kind: unknown): PreparedIntentPhase["kind"] {
     default:
       return "modify";
   }
+}
+
+function sourceChangeForPreparedKind(kind: PreparedIntentPhase["kind"]): NonNullable<PreparedIntentPhase["sourceChange"]> {
+  if (kind === "modify" || kind === "implement" || kind === "refactor") return "required";
+  return "forbidden";
+}
+
+function normalizeReportSourceChange(value: unknown, kind: PreparedIntentPhase["kind"]): NonNullable<PreparedIntentPhase["sourceChange"]> {
+  return value === "required" || value === "allowed" || value === "forbidden"
+    ? value
+    : sourceChangeForPreparedKind(kind);
+}
+
+function normalizeReportClassification(
+  value: unknown,
+  fallbackSource: string,
+): NonNullable<PreparedIntentPhase["classification"]> {
+  if (value && typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    return {
+      source: typeof rec.source === "string" && rec.source.length > 0 ? rec.source : fallbackSource,
+      signals: strings(rec.signals),
+      warnings: strings(rec.warnings),
+    };
+  }
+  return { source: fallbackSource, signals: [], warnings: [] };
 }
 
 function countHighUnresolvedDrift(report: PreparedIntentRuntimeDriftReportLike | undefined): number {
@@ -528,6 +557,12 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     obligations: obligationsForPhase,
     verificationRequirements: requirementsForPhase,
     sourceRefs: refList,
+    sourceChange: sourceChangeForPreparedKind(kind2),
+    classification: {
+      source: "prepared_intent_default",
+      signals: [`phase_kind:${kind2}`],
+      warnings: [],
+    },
   });
 
   // ---- Phases (regenerated from the FINAL status) ----
@@ -612,7 +647,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     reportDrafts.forEach((draft, i) => {
       const ord = String(i + 1).padStart(3, "0");
       const mappedKind = mapReportPhaseKind(draft.kind);
-      const isImplementation = mappedKind === "modify" || mappedKind === "refactor";
+      const isImplementation = mappedKind === "modify" || mappedKind === "implement" || mappedKind === "refactor";
       const phaseConstraints = [...constraints];
       for (const deliverable of strings(draft.deliverables)) phaseConstraints.push(`deliverable: ${deliverable}`);
       for (const criterion of strings(draft.acceptanceCriteria)) phaseConstraints.push(`acceptance: ${criterion}`);
@@ -631,6 +666,8 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
         obligations: isImplementation ? obligationIds : [],
         verificationRequirements: isImplementation || mappedKind === "verify" ? reportRequirementIds : [],
         sourceRefs: refList,
+        sourceChange: normalizeReportSourceChange(draft.sourceChange, mappedKind),
+        classification: normalizeReportClassification(draft.classification, "intent_plan_actionability_report"),
       });
     });
 
@@ -640,7 +677,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
     // so synthesize one — wired to the same report-derived verification
     // requirements — exactly as the non-actionability path always does. This adds
     // structure only; it changes no approval/status gate.
-    const derivedHasImplementation = phases.some((entry) => entry.kind === "modify" || entry.kind === "refactor");
+    const derivedHasImplementation = phases.some((entry) => entry.kind === "modify" || entry.kind === "implement" || entry.kind === "refactor");
     const derivedHasVerify = phases.some((entry) => entry.kind === "verify");
     if (derivedHasImplementation && !derivedHasVerify) {
       const ord = String(reportDrafts.length + 1).padStart(3, "0");
@@ -658,6 +695,12 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
         obligations: [],
         verificationRequirements: reportRequirementIds,
         sourceRefs: refList,
+        sourceChange: "forbidden",
+        classification: {
+          source: "prepared_intent_loop_closure",
+          signals: ["phase_kind:verify"],
+          warnings: [],
+        },
       });
     }
   }
@@ -697,7 +740,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
       phasesPresent: phases.length > 0,
       minimumPhaseCountMet: statusValue === "prepared" ? phases.length >= 2 : phases.length >= 1,
       hasInvestigation: phaseKinds.has("investigate"),
-      hasImplementationOrRefactor: phaseKinds.has("modify") || phaseKinds.has("refactor"),
+      hasImplementationOrRefactor: phaseKinds.has("modify") || phaseKinds.has("implement") || phaseKinds.has("refactor"),
       hasVerification: phaseKinds.has("verify"),
       hasReview: phaseKinds.has("review"),
     },

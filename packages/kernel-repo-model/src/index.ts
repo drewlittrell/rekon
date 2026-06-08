@@ -5001,12 +5001,19 @@ export type PreparedIntentPlanRecommendedNextAction =
 
 export type PreparedIntentPhaseKind =
   | "investigate"
+  | "implement"
   | "modify"
   | "refactor"
   | "verify"
   | "review";
 
 export type PreparedIntentPhaseStatus = "planned" | "blocked" | "needs-review";
+export type IntentPlanPhaseSourceChange = "required" | "allowed" | "forbidden";
+export type IntentPlanPhaseClassification = {
+  source: string;
+  signals: string[];
+  warnings: string[];
+};
 
 export type PreparedIntentObligationCategory =
   | "capability-preservation"
@@ -5034,6 +5041,8 @@ export type PreparedIntentPhase = {
   obligations: string[];
   verificationRequirements: string[];
   sourceRefs: ArtifactRef[];
+  sourceChange?: IntentPlanPhaseSourceChange;
+  classification?: IntentPlanPhaseClassification;
 };
 
 export type PreparedIntentObligation = {
@@ -5240,11 +5249,13 @@ const PREPARED_INTENT_EXPLICIT_APPROVAL_REASONS = new Set<string>([
 
 const PREPARED_INTENT_PHASE_KINDS = new Set<string>([
   "investigate",
+  "implement",
   "modify",
   "refactor",
   "verify",
   "review",
 ]);
+const INTENT_PLAN_PHASE_SOURCE_CHANGES = new Set<string>(["required", "allowed", "forbidden"]);
 
 const PREPARED_INTENT_PHASE_STATUSES = new Set<string>([
   "planned",
@@ -5347,7 +5358,7 @@ function preparedIntentNormalizePhases(values: unknown): PreparedIntentPhase[] {
     const id = raw.id;
     if (typeof id !== "string" || id.length === 0 || seen.has(id)) continue;
     seen.add(id);
-    out.push({
+    const normalized: PreparedIntentPhase = {
       id,
       title: typeof raw.title === "string" ? raw.title : "",
       kind: raw.kind as PreparedIntentPhaseKind,
@@ -5361,7 +5372,12 @@ function preparedIntentNormalizePhases(values: unknown): PreparedIntentPhase[] {
       obligations: preparedIntentCompactStrings(raw.obligations),
       verificationRequirements: preparedIntentCompactStrings(raw.verificationRequirements),
       sourceRefs: normalizeRefs(Array.isArray(raw.sourceRefs) ? (raw.sourceRefs as ArtifactRef[]) : []),
-    });
+    };
+    const sourceChange = normalizeIntentPlanPhaseSourceChange(raw.sourceChange);
+    if (sourceChange) normalized.sourceChange = sourceChange;
+    const classification = normalizeIntentPlanPhaseClassification(raw.classification);
+    if (classification) normalized.classification = classification;
+    out.push(normalized);
   }
   out.sort((a, b) => a.id.localeCompare(b.id));
   return out;
@@ -5632,7 +5648,7 @@ function validatePreparedIntentPhase(
     issues.push({ path: `${path}.title`, message: "Expected a non-empty string." });
   }
   if (typeof value.kind !== "string" || !PREPARED_INTENT_PHASE_KINDS.has(value.kind)) {
-    issues.push({ path: `${path}.kind`, message: "Expected one of investigate, modify, refactor, verify, review." });
+    issues.push({ path: `${path}.kind`, message: "Expected one of investigate, implement, modify, refactor, verify, review." });
   }
   if (typeof value.status !== "string" || !PREPARED_INTENT_PHASE_STATUSES.has(value.status)) {
     issues.push({ path: `${path}.status`, message: "Expected one of planned, blocked, needs-review." });
@@ -5651,6 +5667,8 @@ function validatePreparedIntentPhase(
       if (!result.ok) issues.push(...prefixIssues(result.issues, `${path}.sourceRefs[${index}]`));
     });
   }
+  validateIntentPlanPhaseSourceChange(value.sourceChange, `${path}.sourceChange`, issues, true);
+  validateIntentPlanPhaseClassification(value.classification, `${path}.classification`, issues, true);
 }
 
 function validatePreparedIntentProofBool(rec: Record<string, unknown>, key: string, path: string, issues: ValidationIssue[]): void {
@@ -7542,7 +7560,7 @@ export type IntentPlanActionabilityRequirement =
   | "phase-contract"
   | "evidence-gates";
 export type IntentPlanActionabilitySeverity = "low" | "medium" | "high" | "critical";
-export type IntentPlanPhaseDraftKind = "investigate" | "modify" | "refactor" | "verify" | "review" | "unknown";
+export type IntentPlanPhaseDraftKind = "investigate" | "implement" | "modify" | "refactor" | "verify" | "review" | "unknown";
 export type IntentPlanPhaseActionabilityStatus = "actionable" | "needs-revision" | "blocked";
 export type IntentPlanElicitationAnswerShape = "sentence" | "bullets" | "paths" | "command-or-artifact";
 export type IntentPlanElicitationPriority = "critical" | "high" | "medium";
@@ -7566,6 +7584,8 @@ export type IntentPlanPhaseDraft = {
   evidenceArtifacts: string[];
   constraints: string[];
   sourceEvidence: IntentPlanPhaseSourceEvidence[];
+  sourceChange?: IntentPlanPhaseSourceChange;
+  classification?: IntentPlanPhaseClassification;
   actionability: {
     status: IntentPlanPhaseActionabilityStatus;
     satisfiedRequirements: IntentPlanActionabilityRequirement[];
@@ -7577,6 +7597,7 @@ export type IntentPlanActionabilityFinding = {
   id: string;
   severity: IntentPlanActionabilitySeverity;
   requirement: IntentPlanActionabilityRequirement;
+  code?: string;
   phaseId?: string;
   message: string;
   sourceEvidence: string[];
@@ -7676,7 +7697,7 @@ const INTENT_PLAN_ACTIONABILITY_REQUIREMENTS = new Set<string>([
   "evidence-gates",
 ]);
 const INTENT_PLAN_ACTIONABILITY_SEVERITIES = new Set<string>(["low", "medium", "high", "critical"]);
-const INTENT_PLAN_PHASE_DRAFT_KINDS = new Set<string>(["investigate", "modify", "refactor", "verify", "review", "unknown"]);
+const INTENT_PLAN_PHASE_DRAFT_KINDS = new Set<string>(["investigate", "implement", "modify", "refactor", "verify", "review", "unknown"]);
 const INTENT_PLAN_PHASE_ACTIONABILITY_STATUSES = new Set<string>(["actionable", "needs-revision", "blocked"]);
 const INTENT_PLAN_ELICITATION_ANSWER_SHAPES = new Set<string>(["sentence", "bullets", "paths", "command-or-artifact"]);
 const INTENT_PLAN_ELICITATION_PRIORITIES = new Set<string>(["critical", "high", "medium"]);
@@ -7691,6 +7712,41 @@ function intentPlanStringList(value: unknown): string[] {
     }
   }
   return out;
+}
+
+function normalizeIntentPlanPhaseSourceChange(value: unknown): IntentPlanPhaseSourceChange | undefined {
+  return typeof value === "string" && INTENT_PLAN_PHASE_SOURCE_CHANGES.has(value)
+    ? (value as IntentPlanPhaseSourceChange)
+    : undefined;
+}
+
+function normalizeIntentPlanPhaseClassification(value: unknown): IntentPlanPhaseClassification | undefined {
+  if (!isRecord(value)) return undefined;
+  const source = typeof value.source === "string" && value.source.length > 0 ? value.source : "";
+  if (source.length === 0) return undefined;
+  return {
+    source,
+    signals: intentPlanStringList(value.signals),
+    warnings: intentPlanStringList(value.warnings),
+  };
+}
+
+function validateIntentPlanPhaseSourceChange(value: unknown, path: string, issues: ValidationIssue[], optional = false): void {
+  if (value === undefined && optional) return;
+  if (typeof value !== "string" || !INTENT_PLAN_PHASE_SOURCE_CHANGES.has(value)) {
+    issues.push({ path, message: "Expected one of required, allowed, forbidden." });
+  }
+}
+
+function validateIntentPlanPhaseClassification(value: unknown, path: string, issues: ValidationIssue[], optional = false): void {
+  if (value === undefined && optional) return;
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (typeof value.source !== "string" || value.source.length === 0) issues.push({ path: `${path}.source`, message: "Expected a non-empty string." });
+  if (!Array.isArray(value.signals)) issues.push({ path: `${path}.signals`, message: "Expected an array." });
+  if (!Array.isArray(value.warnings)) issues.push({ path: `${path}.warnings`, message: "Expected an array." });
 }
 
 function intentPlanRequirementList(value: unknown): IntentPlanActionabilityRequirement[] {
@@ -7720,7 +7776,7 @@ function normalizeIntentPlanPhaseDraft(value: unknown, index: number): IntentPla
     : [];
   const act = isRecord(raw.actionability) ? raw.actionability : {};
   const status = typeof act.status === "string" && INTENT_PLAN_PHASE_ACTIONABILITY_STATUSES.has(act.status) ? (act.status as IntentPlanPhaseActionabilityStatus) : "blocked";
-  return {
+  const normalized: IntentPlanPhaseDraft = {
     id: typeof raw.id === "string" && raw.id.length > 0 ? raw.id : `phase-${index + 1}`,
     order: typeof raw.order === "number" && Number.isInteger(raw.order) ? raw.order : index + 1,
     title: typeof raw.title === "string" ? raw.title : "",
@@ -7739,6 +7795,11 @@ function normalizeIntentPlanPhaseDraft(value: unknown, index: number): IntentPla
       missingRequirements: intentPlanRequirementList(act.missingRequirements),
     },
   };
+  const sourceChange = normalizeIntentPlanPhaseSourceChange(raw.sourceChange);
+  if (sourceChange) normalized.sourceChange = sourceChange;
+  const classification = normalizeIntentPlanPhaseClassification(raw.classification);
+  if (classification) normalized.classification = classification;
+  return normalized;
 }
 
 function normalizeIntentPlanFinding(value: unknown, index: number): IntentPlanActionabilityFinding {
@@ -7751,6 +7812,7 @@ function normalizeIntentPlanFinding(value: unknown, index: number): IntentPlanAc
     sourceEvidence: intentPlanStringList(raw.sourceEvidence),
     suggestedFix: typeof raw.suggestedFix === "string" ? raw.suggestedFix : "",
   };
+  if (typeof raw.code === "string" && raw.code.length > 0) out.code = raw.code;
   if (typeof raw.phaseId === "string" && raw.phaseId.length > 0) out.phaseId = raw.phaseId;
   return out;
 }
@@ -7928,6 +7990,8 @@ function validateIntentPlanPhaseDraftList(value: unknown, path: string, issues: 
       if (!Array.isArray(entry[key])) issues.push({ path: `${p}.${key}`, message: "Expected an array." });
     }
     if (!Array.isArray(entry.sourceEvidence)) issues.push({ path: `${p}.sourceEvidence`, message: "Expected an array." });
+    validateIntentPlanPhaseSourceChange(entry.sourceChange, `${p}.sourceChange`, issues, true);
+    validateIntentPlanPhaseClassification(entry.classification, `${p}.classification`, issues, true);
     if (!isRecord(entry.actionability)) {
       issues.push({ path: `${p}.actionability`, message: "Expected an object." });
     } else {
@@ -7989,6 +8053,7 @@ export function validateIntentPlanActionabilityReport(value: unknown): Validatio
       if (typeof entry.id !== "string" || entry.id.length === 0) issues.push({ path: `${p}.id`, message: "Expected a non-empty string." });
       if (typeof entry.severity !== "string" || !INTENT_PLAN_ACTIONABILITY_SEVERITIES.has(entry.severity)) issues.push({ path: `${p}.severity`, message: "Expected a valid severity." });
       if (typeof entry.requirement !== "string" || !INTENT_PLAN_ACTIONABILITY_REQUIREMENTS.has(entry.requirement)) issues.push({ path: `${p}.requirement`, message: "Expected a valid requirement." });
+      if (entry.code !== undefined && (typeof entry.code !== "string" || entry.code.length === 0)) issues.push({ path: `${p}.code`, message: "Expected a non-empty string." });
       if (typeof entry.message !== "string") issues.push({ path: `${p}.message`, message: "Expected a string." });
       if (!Array.isArray(entry.sourceEvidence)) issues.push({ path: `${p}.sourceEvidence`, message: "Expected an array." });
       if (typeof entry.suggestedFix !== "string") issues.push({ path: `${p}.suggestedFix`, message: "Expected a string." });

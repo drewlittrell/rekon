@@ -284,12 +284,12 @@ export function buildApprovedPreparedIntentPlan(
   for (const phase of phases) {
     if (isRecord(phase) && typeof phase.kind === "string") phaseKinds.add(phase.kind);
   }
-  const implementationBearing = phaseKinds.has("modify") || phaseKinds.has("refactor");
+  const implementationBearing = phaseKinds.has("modify") || phaseKinds.has("implement") || phaseKinds.has("refactor");
   if (plan && !implementationBearing) {
     push(
       "plan-not-implementation-bearing",
       "plan-not-implementation-bearing",
-      "Operator approval requires an implementation-bearing plan (at least one modify or refactor phase).",
+      "Operator approval requires an implementation-bearing plan (at least one modify, implement, or refactor phase).",
       planRefs,
     );
   }

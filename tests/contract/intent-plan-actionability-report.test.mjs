@@ -343,3 +343,214 @@ test("CLI errors on missing --plan and invalid --semantic", async () => {
   );
   assert.equal(badSemantic.status, 1);
 });
+
+const PLAN_WITH = (phaseBody) => `# Source-change classification
+
+## Phase 1: ${phaseBody.title}
+
+${phaseBody.body}
+`;
+
+// --- 22. implementation objective outranks verification wording ---
+test("phase classification: modify objective plus verification commands is modify/required", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Add tested utility",
+    body: `Objective: Modify source by adding the math utility and regression tests.
+
+### Deliverables
+- src/math.ts implementation
+- tests/math.test.ts coverage
+
+### Acceptance Criteria
+- double(2) returns 4
+
+### Expected Changed Files
+- src/math.ts
+- tests/math.test.ts
+
+### Verification Commands
+- npm run typecheck
+- npm test
+`,
+  }));
+  const phase = report.normalizedPhases[0];
+  assert.equal(phase.kind, "modify");
+  assert.equal(phase.sourceChange, "required");
+  assert.equal(phase.classification.source, "objective");
+  assert.equal(report.status.value, "actionable");
+});
+
+// --- 23. expected changed files imply required source change even with "test" title ---
+test("phase classification: expected changed files imply required source change despite test wording", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Test regression coverage",
+    body: `Objective: Cover the regression in the source tree.
+
+### Deliverables
+- Regression coverage
+
+### Acceptance Criteria
+- Regression is covered
+
+### Expected Changed Files
+- tests/regression.test.ts
+
+### Verification Commands
+- npm test
+`,
+  }));
+  const phase = report.normalizedPhases[0];
+  assert.equal(phase.kind, "modify");
+  assert.equal(phase.sourceChange, "required");
+  assert.equal(phase.classification.source, "expected_changed_files");
+});
+
+// --- 24. read-only final verification is verify/forbidden ---
+test("phase classification: final verify with no source changes is verify/forbidden", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Final verify",
+    body: `Objective: Verify final tree. Do not change source files unless verification finds a real issue.
+
+### Deliverables
+- Verification notes
+
+### Acceptance Criteria
+- Final tree satisfies the plan
+
+### Scope
+- src/index.ts
+
+### Verification Commands
+- npm test
+`,
+  }));
+  const phase = report.normalizedPhases[0];
+  assert.equal(phase.kind, "verify");
+  assert.equal(phase.sourceChange, "forbidden");
+  assert.equal(phase.classification.source, "objective");
+});
+
+// --- 25. explicit Source Change required overrides verify/test wording ---
+test("phase classification: explicit Source Change required overrides verify wording", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Verify tested implementation",
+    body: `Source Change: required
+Objective: Verify and test the implementation by updating the source.
+
+### Deliverables
+- Implementation update
+
+### Acceptance Criteria
+- Updated behavior passes tests
+
+### Scope
+- src/index.ts
+
+### Verification Commands
+- npm test
+`,
+  }));
+  const phase = report.normalizedPhases[0];
+  assert.equal(phase.sourceChange, "required");
+  assert.equal(phase.kind, "modify");
+  assert.equal(phase.classification.source, "explicit_source_change");
+});
+
+// --- 26. explicit Source Change forbidden is preserved ---
+test("phase classification: explicit Source Change forbidden is preserved", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Review final state",
+    body: `Phase Kind: review
+Source Change: forbidden
+Objective: Review the final source tree and do not change source files.
+
+### Deliverables
+- Review notes
+
+### Acceptance Criteria
+- Review decision is recorded
+
+### Scope
+- src/index.ts
+
+### Verification Commands
+- npm test
+`,
+  }));
+  const phase = report.normalizedPhases[0];
+  assert.equal(phase.kind, "review");
+  assert.equal(phase.sourceChange, "forbidden");
+});
+
+// --- 27. ambiguous source-change intent is surfaced ---
+test("phase classification: ambiguous source-change intent produces a finding", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Update and inspect",
+    body: `Objective: Modify source by adding coverage. Do not change source files.
+
+### Deliverables
+- tests/ambiguous.test.ts coverage
+
+### Acceptance Criteria
+- Coverage exists
+
+### Expected Changed Files
+- tests/ambiguous.test.ts
+
+### Verification Commands
+- npm test
+`,
+  }));
+  assert.equal(report.status.value, "needs-revision");
+  assert.ok(report.findings.some((f) => f.code === "phase_source_change_intent_ambiguous"));
+  assert.ok(report.normalizedPhases[0].classification.warnings.includes("phase_source_change_intent_ambiguous"));
+});
+
+// --- 28. conflicting explicit metadata blocks preparation ---
+test("phase classification: conflicting Phase Kind and Source Change produces a blocker", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Verify but edit",
+    body: `Phase Kind: verify
+Source Change: required
+Objective: Verify the source tree.
+
+### Deliverables
+- Verification notes
+
+### Acceptance Criteria
+- Verification decision is recorded
+
+### Scope
+- src/index.ts
+
+### Verification Commands
+- npm test
+`,
+  }));
+  assert.equal(report.status.value, "blocked");
+  assert.ok(report.findings.some((f) => f.code === "phase_kind_source_change_conflict" && f.severity === "critical"));
+});
+
+// --- 29. verification commands alone do not imply forbidden source change ---
+test("phase classification: verification commands alone do not imply source-change forbidden", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Document behavior",
+    body: `Objective: Record the current behavior for operators.
+
+### Deliverables
+- Behavior notes
+
+### Acceptance Criteria
+- Notes describe the current behavior
+
+### Scope
+- src/index.ts
+
+### Verification Commands
+- npm test
+`,
+  }));
+  const phase = report.normalizedPhases[0];
+  assert.equal(phase.kind, "unknown");
+  assert.equal(phase.sourceChange, "allowed");
+});

@@ -417,6 +417,8 @@ type CircePhaseGate = {
   phaseId: string;
   title: string;
   kind: string;
+  sourceChange: string;
+  classificationSource: string | null;
   approvalStatus: string;
   readyForCirce: boolean;
   obligationIds: string[];
@@ -430,6 +432,18 @@ type CircePhaseGate = {
   warnings: string[];
   boundaries: { sourceWriteAllowed: false; commandsExecuted: false; intentGoDeferred: true };
 };
+
+function sourceChangeForPhaseKind(kind: string): "required" | "allowed" | "forbidden" {
+  if (kind === "modify" || kind === "implement" || kind === "refactor") return "required";
+  if (kind === "investigate" || kind === "review" || kind === "verify") return "forbidden";
+  return "allowed";
+}
+
+function phaseSourceChangePolicy(phase: Record<string, unknown>, kind: string): "required" | "allowed" | "forbidden" {
+  const raw = asString(phase.sourceChange);
+  if (raw === "required" || raw === "allowed" || raw === "forbidden") return raw;
+  return sourceChangeForPhaseKind(kind);
+}
 
 /** Slug-safe, de-duplicated phase id (Circe rejects duplicate phaseIds). */
 function uniquePhaseId(raw: string, index: number, seen: Set<string>): string {
@@ -543,6 +557,11 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     // and investigation / review phases are reviewer-gated (manual-review).
     // Skipped verification is never represented as proof.
     const phaseKind = asString(p.kind);
+    const sourceChange = phaseSourceChangePolicy(p, phaseKind);
+    const classification = asRecord(p.classification);
+    const classificationSource = asString(classification.source) || null;
+    const classificationSignals = asArray(classification.signals).map((x) => asString(x)).filter(Boolean);
+    const classificationWarnings = asArray(classification.warnings).map((x) => asString(x)).filter(Boolean);
     const ownExecutableIds = declaredRequirementIds.filter((id) => executableRequirementIds.includes(id));
     let verificationPosture: IntentPhaseVerificationPosture;
     let effectiveRequirementIds: string[];
@@ -559,7 +578,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
         needsReview = true;
         postureReason = "Verification phase has no executable verification requirement; recorded as needs-review.";
       }
-    } else if (phaseKind === "modify" || phaseKind === "refactor") {
+    } else if (phaseKind === "modify" || phaseKind === "implement" || phaseKind === "refactor") {
       effectiveRequirementIds = ownExecutableIds.length > 0 ? ownExecutableIds : executableRequirementIds;
       if (effectiveRequirementIds.length > 0) {
         verificationPosture = "executable";
@@ -626,6 +645,14 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       intentHandoff: {
         preparedIntentPlanRef: planRefStr,
         phaseId,
+        phaseKind,
+        sourceChange,
+        classificationSource,
+        classification: {
+          source: classificationSource,
+          signals: classificationSignals,
+          warnings: classificationWarnings,
+        },
         approvalStatus,
         obligationIds,
         verificationRequirementIds: effectiveRequirementIds,
@@ -657,6 +684,14 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
         intentHandoff: {
           preparedIntentPlanRef: planRefStr,
           phaseId,
+          phaseKind,
+          sourceChange,
+          classificationSource,
+          classification: {
+            source: classificationSource,
+            signals: classificationSignals,
+            warnings: classificationWarnings,
+          },
           verificationPosture,
           verificationRequirementIds: effectiveRequirementIds,
           sourceRefs: sourceRefList,
@@ -693,6 +728,8 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       phaseId,
       title,
       kind: phaseKind,
+      sourceChange,
+      classificationSource,
       approvalStatus,
       readyForCirce: phaseReady,
       obligationIds,
@@ -710,6 +747,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     phaseEntries.push({
       phaseId,
       title,
+      sourceChangePolicy: sourceChange,
       workOrderPath: workOrderRelPath,
       ...(verificationPlanPath ? { verificationPlanPath } : {}),
       // implementerProfile omitted by default: Rekon does not know the operator's
@@ -717,6 +755,14 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       // Proof/gate metadata (slice 101). Additive; Circe's normalizePhasePlan ignores
       // unknown phase fields, so this stays schema-valid.
       rekon: {
+        phaseKind,
+        sourceChange,
+        classificationSource,
+        classification: {
+          source: classificationSource,
+          signals: classificationSignals,
+          warnings: classificationWarnings,
+        },
         approvalStatus,
         readyForCirce: phaseReady,
         obligationIds,
@@ -1547,6 +1593,8 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
             phaseVerification: circe.phaseVerification,
             phases: circe.phaseGates.map((g) => ({
               phaseId: g.phaseId,
+              sourceChange: g.sourceChange,
+              classificationSource: g.classificationSource,
               verificationPosture: g.verificationPosture,
               manualGate: g.manualGate,
               needsReview: g.needsReview,

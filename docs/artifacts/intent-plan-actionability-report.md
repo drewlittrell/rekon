@@ -121,6 +121,51 @@ extracts fields from Markdown headings and bullets, and **extracts literal
 path-like tokens that actually appear in the text — it never invents paths,
 commands, or acceptance criteria.**
 
+### Phase Kind And Source Change Classification
+
+Each normalized phase records its phase `kind`, a `sourceChange` posture, and
+classification evidence:
+
+- `kind`: `modify`, `implement`, `refactor`, `investigate`, `review`, `verify`,
+  or `unknown`.
+- `sourceChange`: `required`, `allowed`, or `forbidden`.
+- `classification`: `{ source, signals[], warnings[] }`, showing which plan text
+  drove the decision.
+
+The deterministic classifier gives source-changing implementation language higher
+priority than verification wording. A mutation phase may mention tests,
+verification commands, validation, or evidence gates without becoming a read-only
+`verify` phase. Classification priority is:
+
+1. Explicit `Source Change:` / `Source Change Policy:` and `Phase Kind:` lines.
+2. The phase objective.
+3. `Expected Changed Files` / `Changed files should include`.
+4. Deliverables.
+5. The phase title.
+6. Verification commands and evidence gates.
+
+Verification commands and evidence gates do not classify a phase as read-only by
+themselves. When a phase mixes implementation intent with read-only source-change
+language, the report emits `phase_source_change_intent_ambiguous` and asks for an
+explicit `Source Change: required`, `allowed`, or `forbidden`. Conflicting
+explicit metadata, such as `Phase Kind: verify` with `Source Change: required`,
+emits `phase_kind_source_change_conflict` and blocks preparation until the plan is
+clarified.
+
+For mixed implementation/verification prose, prefer explicit metadata:
+
+```md
+## Phase 1: Add regression coverage
+Phase Kind: modify
+Source Change: required
+
+Objective: Modify source by adding the regression test and the minimal fix.
+
+### Verification Commands
+- npm run typecheck
+- npm test
+```
+
 An optional, injected **semantic normalization adapter** may transform the plan
 text into phase drafts when `semanticMode` is `auto` or `required`. It is
 bounded to *read → transform → critique*: it executes nothing, and its output is

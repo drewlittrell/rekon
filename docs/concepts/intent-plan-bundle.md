@@ -169,8 +169,10 @@ summarized in `verification-plan.md` and `agent/verification.json`.
 The posture is derived from the phase `kind` and the plan's safe executable
 verification requirements (those that carry a command):
 
-- **`phase-modify` gets executable verification when possible.** Implementation
-  phases (`modify` / `refactor`) map the plan's safe executable requirements and
+- **`phase-modify` gets executable verification when possible.** `phase-implement`
+  and `phase-refactor` use the same executable verification posture when safe
+  requirements exist.
+  Implementation phases (`modify` / `implement` / `refactor`) map the plan's safe executable requirements and
   ship a per-phase VerificationPlan; if no safe requirement applies they are
   recorded as `needs-review` (not silently skipped).
 - **`phase-verify` carries final verification.** The verify phase ships the final
@@ -184,6 +186,44 @@ executable VerificationPlan. **A phase without executable verification is never
 silently treated as verified.** `rekon intent bundle write` reports a
 `phaseVerification` summary (executable / final-verification / manual-review /
 needs-review counts); the bundle still executes no commands and writes no source.
+
+## Phase Source-Change Posture
+
+The Circe projection also carries Rekon's phase source-change classification so
+Circe can enforce the intended source-change policy instead of inferring it from
+phase titles. The projection mirrors the plan compiler fields:
+
+- `circe/phase-plan.json` `phases[].sourceChangePolicy`
+- `circe/phase-plan.json` `phases[].rekon.phaseKind`
+- `circe/phase-plan.json` `phases[].rekon.sourceChange`
+- `circe/phase-plan.json` `phases[].rekon.classificationSource`
+- per-phase WorkOrder / VerificationPlan `intentHandoff.sourceChange`
+- `circe/rekon-proof.json` `phaseGates[].sourceChange`
+
+`sourceChangePolicy` is `required`, `allowed`, or `forbidden`. When the
+PreparedIntentPlan has explicit classifier metadata, that value is projected.
+Older prepared plans remain compatible: the bundle falls back from phase kind
+(`modify` / `implement` / `refactor` ⇒ `required`; `investigate` / `review` /
+`verify` ⇒ `forbidden`; otherwise `allowed`).
+
+Plan authors should use explicit phase metadata when implementation prose and
+verification prose are intentionally mixed:
+
+```md
+Phase Kind: modify
+Source Change: required
+```
+
+or for final no-change verification:
+
+```md
+Phase Kind: verify
+Source Change: forbidden
+```
+
+This metadata is still preparation evidence only. Rekon does not execute the
+phase, does not run Circe, and does not write source; Circe enforces the projected
+policy after import.
 
 ## CLI
 

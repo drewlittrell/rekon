@@ -57,7 +57,19 @@ const actionableReport = {
   summary: { findings: 0, questions: 0 },
   revisionPrompt: { prompt: "" },
   normalizedPhases: [
-    { title: "Add token bucket", kind: "modify", objective: "Add a token-bucket limiter.", deliverables: ["middleware module"], acceptanceCriteria: ["429 over limit"], touchedPaths: ["src/gateway/rate-limit.ts"], verificationCommands: ["npm run test:gateway"], evidenceArtifacts: [], constraints: [] },
+    {
+      title: "Add token bucket",
+      kind: "modify",
+      objective: "Add a token-bucket limiter.",
+      deliverables: ["middleware module"],
+      acceptanceCriteria: ["429 over limit"],
+      touchedPaths: ["src/gateway/rate-limit.ts"],
+      verificationCommands: ["npm run test:gateway"],
+      evidenceArtifacts: [],
+      constraints: [],
+      sourceChange: "required",
+      classification: { source: "explicit_source_change", signals: ["explicit_source_change:required"], warnings: [] },
+    },
     { title: "Refactor pipeline", kind: "refactor", objective: "Refactor the request pipeline.", deliverables: ["cleaner pipeline"], acceptanceCriteria: ["pipeline simplified"], touchedPaths: ["src/gateway/pipeline.ts"], verificationCommands: ["npm run lint"], evidenceArtifacts: [], constraints: [] },
     { title: "Verify limits", kind: "verify", objective: "Verify the limits hold.", deliverables: [], acceptanceCriteria: [], touchedPaths: [], verificationCommands: ["npm run test:limits"], evidenceArtifacts: ["artifacts/limit-report.json"], constraints: [] },
   ],
@@ -116,6 +128,14 @@ test("prepared plan carries the actionability report ref in phase sourceRefs", (
   const plan = buildPlanWithReport(actionableReport);
   const hasRef = plan.phases[0].sourceRefs.some((r) => r.type === "IntentPlanActionabilityReport");
   assert.ok(hasRef, "expected the report ref in phase sourceRefs");
+});
+
+test("prepared phases preserve source-change classification evidence", () => {
+  const plan = buildPlanWithReport(actionableReport);
+  assert.equal(plan.phases[0].sourceChange, "required");
+  assert.equal(plan.phases[0].classification.source, "explicit_source_change");
+  assert.ok(plan.phases[0].classification.signals.includes("explicit_source_change:required"));
+  assert.equal(plan.phases[2].sourceChange, "forbidden");
 });
 
 test("prepared plan from an actionable report is not auto-approved and validates clean", () => {

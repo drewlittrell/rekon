@@ -25,12 +25,14 @@ import {
   type IntentPlanActionabilitySeverity,
   type IntentPlanAnswer,
   type IntentPlanElicitationQuestion,
+  type IntentPlanElicitationPriority,
   type IntentPlanEvidenceGate,
   type IntentPlanMergeTrace,
   type IntentPlanNormalizationMethod,
   type IntentPlanNormalizationProvenance,
   type IntentPlanPhaseDraft,
   type IntentPlanPhaseDraftKind,
+  type IntentPlanPhaseSourceChange,
   type IntentPlanSourceShape,
   type IntentPlanUnappliedAnswer,
   createIntentPlanActionabilityReport,
@@ -116,6 +118,7 @@ type FieldKey =
   | "deliverables"
   | "acceptance-criteria"
   | "touched-paths"
+  | "expected-changed-files"
   | "verification"
   | "evidence"
   | "constraints"
@@ -126,6 +129,7 @@ function classifyFieldHeading(text: string): FieldKey | null {
   if (/^(objective|goal|intent)$/.test(t)) return "objective";
   if (/^(deliverables?|work items?|outputs?)$/.test(t)) return "deliverables";
   if (/^(acceptance criteria|acceptance|done when|success criteria|definition of done)$/.test(t)) return "acceptance-criteria";
+  if (/^(expected changed files?|changed files should include|expected source changes?|source changes?)$/.test(t)) return "expected-changed-files";
   if (/^(touched paths?|scope|in scope|files?|paths?|implementation scope)$/.test(t)) return "touched-paths";
   if (/^(verification|verification commands?|verify|how to verify|tests?)$/.test(t)) return "verification";
   if (/^(evidence|evidence artifacts?|artifacts?)$/.test(t)) return "evidence";
@@ -140,14 +144,231 @@ function isPhaseHeading(level: number, text: string): boolean {
   return /^phase\b/i.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
 }
 
-function inferPhaseKind(title: string, objective: string): IntentPlanPhaseDraftKind {
-  const t = `${title} ${objective}`.toLowerCase();
-  if (/\b(investigate|research|explore|audit|analy[sz]e)\b/.test(t)) return "investigate";
-  if (/\brefactor\b/.test(t)) return "refactor";
-  if (/\b(verify|verification|test|validate)\b/.test(t)) return "verify";
-  if (/\breview\b/.test(t)) return "review";
-  if (/\b(add|implement|modify|update|change|create|build|wire|write|remove|delete|fix)\b/.test(t)) return "modify";
-  return "unknown";
+type PhaseMetadata = {
+  phaseKind?: IntentPlanPhaseDraftKind;
+  phaseKindRaw?: string;
+  sourceChange?: IntentPlanPhaseSourceChange;
+  sourceChangeRaw?: string;
+  invalid: string[];
+};
+
+type PhaseClassification = {
+  kind: IntentPlanPhaseDraftKind;
+  sourceChange: IntentPlanPhaseSourceChange;
+  classification: { source: string; signals: string[]; warnings: string[] };
+};
+
+const IMPLEMENT_SIGNAL_RE = /\b(add|implement|modify|update|change|create|build|wire|write|remove|delete|fix|introduce)\b/i;
+const REFACTOR_SIGNAL_RE = /\brefactor\b/i;
+const INVESTIGATE_SIGNAL_RE = /\b(investigate|research|explore|audit|analy[sz]e|inspect)\b/i;
+const REVIEW_SIGNAL_RE = /\breview\b/i;
+const VERIFY_SIGNAL_RE = /\b(verify|verification|validate|final verify|final verification)\b/i;
+const READ_ONLY_SOURCE_RE = /\b(no source changes? (?:are )?expected|do not change source(?: files?)?(?: unless verification finds a real issue)?|do not modify source(?: files?)?|read[- ]only|inspect only|verify final tree|final source tree)\b/i;
+
+function normalizePhaseKindValue(value: string): IntentPlanPhaseDraftKind | null {
+  const normalized = value.trim().toLowerCase().replace(/[_\s-]+/g, "-");
+  switch (normalized) {
+    case "investigate":
+    case "investigation":
+      return "investigate";
+    case "implement":
+    case "implementation":
+      return "implement";
+    case "modify":
+    case "mutation":
+      return "modify";
+    case "refactor":
+      return "refactor";
+    case "verify":
+    case "verification":
+    case "validate":
+      return "verify";
+    case "review":
+      return "review";
+    default:
+      return null;
+  }
+}
+
+function normalizeSourceChangeValue(value: string): IntentPlanPhaseSourceChange | null {
+  const normalized = value.trim().toLowerCase().replace(/[_\s-]+/g, "-");
+  switch (normalized) {
+    case "required":
+    case "require":
+    case "yes":
+    case "source-required":
+      return "required";
+    case "allowed":
+    case "allow":
+    case "optional":
+      return "allowed";
+    case "forbidden":
+    case "none":
+    case "no":
+    case "read-only":
+      return "forbidden";
+    default:
+      return null;
+  }
+}
+
+function parseInlineField(line: string): { key: string; value: string } | null {
+  const m = /^([A-Za-z][A-Za-z0-9 -]{0,64})\s*:\s*(.*)$/.exec(line.trim());
+  if (!m) return null;
+  return { key: (m[1] ?? "").trim(), value: (m[2] ?? "").trim() };
+}
+
+function stripReadOnlySourcePhrases(text: string): string {
+  return text
+    .replace(/\bverify final tree\b/gi, " ")
+    .replace(/\bfinal source tree\b/gi, " ")
+    .replace(/\bno source changes? (?:are )?expected\b/gi, " ")
+    .replace(/\bdo not change source(?: files?)?(?: unless verification finds a real issue)?\b/gi, " ")
+    .replace(/\bdo not modify source(?: files?)?\b/gi, " ")
+    .replace(/\bread[- ]only\b/gi, " ")
+    .replace(/\binspect only\b/gi, " ");
+}
+
+function readPhaseMetadata(key: string, value: string, metadata: PhaseMetadata): boolean {
+  const normalized = key.toLowerCase().replace(/[:*`]/g, "").trim();
+  if (normalized === "phase kind" || normalized === "kind") {
+    const phaseKind = normalizePhaseKindValue(value);
+    metadata.phaseKindRaw = value;
+    if (phaseKind) metadata.phaseKind = phaseKind;
+    else metadata.invalid.push(`invalid_phase_kind:${value}`);
+    return true;
+  }
+  if (normalized === "source change" || normalized === "source change policy" || normalized === "source-change") {
+    const sourceChange = normalizeSourceChangeValue(value);
+    metadata.sourceChangeRaw = value;
+    if (sourceChange) metadata.sourceChange = sourceChange;
+    else metadata.invalid.push(`invalid_source_change:${value}`);
+    return true;
+  }
+  return false;
+}
+
+function sourceChangeForKind(kind: IntentPlanPhaseDraftKind): IntentPlanPhaseSourceChange {
+  if (kind === "modify" || kind === "implement" || kind === "refactor") return "required";
+  if (kind === "unknown") return "allowed";
+  return "forbidden";
+}
+
+function kindFromSourceChange(sourceChange: IntentPlanPhaseSourceChange, signals: string[]): IntentPlanPhaseDraftKind {
+  if (sourceChange === "forbidden") {
+    if (signals.includes("title:review") || signals.includes("objective:review")) return "review";
+    if (signals.includes("title:investigate") || signals.includes("objective:investigate")) return "investigate";
+    return "verify";
+  }
+  if (signals.some((s) => s.includes("refactor"))) return "refactor";
+  if (signals.some((s) => s.includes("implement"))) return "implement";
+  return "modify";
+}
+
+function classifyPhaseIntent(input: {
+  title: string;
+  objective: string;
+  deliverables: string[];
+  expectedChangedFiles: string[];
+  constraints: string[];
+  metadata: PhaseMetadata;
+}): PhaseClassification {
+  const signals: string[] = [];
+  const warnings: string[] = [];
+  const title = input.title.trim();
+  const objective = input.objective.trim();
+  const deliverablesText = input.deliverables.join(" \n ");
+  const constraintsText = input.constraints.join(" \n ");
+  const objectiveReadOnly = READ_ONLY_SOURCE_RE.test(objective) || READ_ONLY_SOURCE_RE.test(constraintsText);
+  const objectiveForImplementationSignals = stripReadOnlySourcePhrases(objective);
+
+  if (input.metadata.phaseKind) signals.push(`explicit_phase_kind:${input.metadata.phaseKind}`);
+  if (input.metadata.sourceChange) signals.push(`explicit_source_change:${input.metadata.sourceChange}`);
+  for (const invalid of input.metadata.invalid) warnings.push(invalid);
+
+  const titleRefactor = REFACTOR_SIGNAL_RE.test(title);
+  const objectiveRefactor = REFACTOR_SIGNAL_RE.test(objectiveForImplementationSignals);
+  const titleImplement = IMPLEMENT_SIGNAL_RE.test(title);
+  const objectiveImplement = IMPLEMENT_SIGNAL_RE.test(objectiveForImplementationSignals);
+  const deliverablesImplement = IMPLEMENT_SIGNAL_RE.test(deliverablesText) || /\b(src|test|tests)\//i.test(deliverablesText);
+  const expectedChangedFiles = input.expectedChangedFiles.length > 0;
+  const titleInvestigate = INVESTIGATE_SIGNAL_RE.test(title);
+  const objectiveInvestigate = INVESTIGATE_SIGNAL_RE.test(objective);
+  const titleReview = REVIEW_SIGNAL_RE.test(title);
+  const objectiveReview = REVIEW_SIGNAL_RE.test(objective);
+  const titleVerify = VERIFY_SIGNAL_RE.test(title);
+  const objectiveVerify = VERIFY_SIGNAL_RE.test(objective);
+
+  if (objectiveRefactor) signals.push("objective:refactor");
+  if (objectiveImplement) signals.push(/\bimplement\b/i.test(objective) ? "objective:implement" : "objective:modify");
+  if (expectedChangedFiles) signals.push("expected_changed_files:source_change");
+  if (deliverablesImplement) signals.push("deliverables:source_change");
+  if (titleRefactor) signals.push("title:refactor");
+  if (titleImplement) signals.push(/\bimplement\b/i.test(title) ? "title:implement" : "title:modify");
+  if (objectiveReadOnly) signals.push("objective:read_only");
+  if (objectiveInvestigate) signals.push("objective:investigate");
+  if (objectiveReview) signals.push("objective:review");
+  if (objectiveVerify) signals.push("objective:verify");
+  if (titleInvestigate) signals.push("title:investigate");
+  if (titleReview) signals.push("title:review");
+  if (titleVerify) signals.push("title:verify");
+
+  const hasSourceChangingSignal = objectiveRefactor || objectiveImplement || expectedChangedFiles || deliverablesImplement || titleRefactor || titleImplement;
+  const hasReadOnlySignal = objectiveReadOnly || objectiveInvestigate || objectiveReview || objectiveVerify || titleInvestigate || titleReview || titleVerify;
+
+  if (!input.metadata.sourceChange && hasSourceChangingSignal && objectiveReadOnly) {
+    warnings.push("phase_source_change_intent_ambiguous");
+  }
+
+  if (input.metadata.phaseKind && input.metadata.sourceChange) {
+    const kindSourceChange = sourceChangeForKind(input.metadata.phaseKind);
+    if (
+      (kindSourceChange === "required" && input.metadata.sourceChange === "forbidden") ||
+      (kindSourceChange === "forbidden" && input.metadata.sourceChange === "required")
+    ) {
+      warnings.push("phase_kind_source_change_conflict");
+    }
+  }
+
+  if (input.metadata.sourceChange) {
+    const kind = input.metadata.phaseKind ?? kindFromSourceChange(input.metadata.sourceChange, signals);
+    return {
+      kind,
+      sourceChange: input.metadata.sourceChange,
+      classification: { source: "explicit_source_change", signals, warnings },
+    };
+  }
+
+  if (input.metadata.phaseKind) {
+    return {
+      kind: input.metadata.phaseKind,
+      sourceChange: sourceChangeForKind(input.metadata.phaseKind),
+      classification: { source: "explicit_phase_kind", signals, warnings },
+    };
+  }
+
+  if (objectiveRefactor) return { kind: "refactor", sourceChange: "required", classification: { source: "objective", signals, warnings } };
+  if (objectiveImplement) {
+    const kind: IntentPlanPhaseDraftKind = /\bimplement\b/i.test(objective) ? "implement" : "modify";
+    return { kind, sourceChange: "required", classification: { source: "objective", signals, warnings } };
+  }
+  if (expectedChangedFiles) return { kind: "modify", sourceChange: "required", classification: { source: "expected_changed_files", signals, warnings } };
+  if (deliverablesImplement) return { kind: "modify", sourceChange: "required", classification: { source: "deliverables", signals, warnings } };
+  if (titleRefactor) return { kind: "refactor", sourceChange: "required", classification: { source: "title", signals, warnings } };
+  if (titleImplement) return { kind: "modify", sourceChange: "required", classification: { source: "title", signals, warnings } };
+
+  if (objectiveInvestigate) return { kind: "investigate", sourceChange: "forbidden", classification: { source: "objective", signals, warnings } };
+  if (objectiveReview) return { kind: "review", sourceChange: "forbidden", classification: { source: "objective", signals, warnings } };
+  if (objectiveVerify || objectiveReadOnly) return { kind: "verify", sourceChange: "forbidden", classification: { source: "objective", signals, warnings } };
+  if (titleInvestigate) return { kind: "investigate", sourceChange: "forbidden", classification: { source: "title", signals, warnings } };
+  if (titleReview) return { kind: "review", sourceChange: "forbidden", classification: { source: "title", signals, warnings } };
+  if (titleVerify) return { kind: "verify", sourceChange: "forbidden", classification: { source: "title", signals, warnings } };
+
+  return {
+    kind: "unknown",
+    sourceChange: hasReadOnlySignal ? "forbidden" : "allowed",
+    classification: { source: "default", signals, warnings },
+  };
 }
 
 type ParsedPhaseRegion = {
@@ -200,21 +421,71 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
   const deliverables: string[] = [];
   const acceptanceCriteria: string[] = [];
   const touchedPaths: string[] = [];
+  const expectedChangedFiles: string[] = [];
   const verificationCommands: string[] = [];
   const evidenceArtifacts: string[] = [];
   const constraints: string[] = [];
+  const metadata: PhaseMetadata = { invalid: [] };
   let currentField: FieldKey | null = null;
 
   for (const rawLine of region.lines) {
     const line = rawLine.replace(/\s+$/, "");
     const headingMatch = HEADING_RE.exec(line);
     if (headingMatch) {
-      currentField = classifyFieldHeading(headingMatch[2] ?? "");
+      const headingText = headingMatch[2] ?? "";
+      const inlineHeading = parseInlineField(headingText);
+      if (inlineHeading && readPhaseMetadata(inlineHeading.key, inlineHeading.value, metadata)) {
+        currentField = null;
+        continue;
+      }
+      currentField = classifyFieldHeading(headingText);
       continue;
     }
     const bulletMatch = BULLET_RE.exec(line);
     const content = bulletMatch ? bulletMatch[1] ?? "" : line.trim();
     if (content.length === 0) continue;
+    if (!bulletMatch) {
+      const inlineField = parseInlineField(content);
+      if (inlineField) {
+        if (readPhaseMetadata(inlineField.key, inlineField.value, metadata)) continue;
+        const inlineFieldKey = classifyFieldHeading(inlineField.key);
+        if (inlineFieldKey) {
+          currentField = inlineFieldKey;
+          if (inlineField.value.length === 0) continue;
+          switch (currentField) {
+            case "objective":
+              objectiveLines.push(inlineField.value);
+              break;
+            case "deliverables":
+              deliverables.push(inlineField.value);
+              break;
+            case "acceptance-criteria":
+              acceptanceCriteria.push(inlineField.value);
+              break;
+            case "touched-paths":
+              touchedPaths.push(inlineField.value);
+              break;
+            case "expected-changed-files":
+              expectedChangedFiles.push(inlineField.value);
+              touchedPaths.push(inlineField.value);
+              break;
+            case "verification":
+              verificationCommands.push(inlineField.value);
+              break;
+            case "evidence":
+              evidenceArtifacts.push(inlineField.value);
+              break;
+            case "constraints":
+              constraints.push(inlineField.value);
+              break;
+            case "non-goals":
+              constraints.push(`non-goal: ${inlineField.value}`);
+              break;
+          }
+          continue;
+        }
+      }
+    }
     switch (currentField) {
       case "objective":
         objectiveLines.push(content);
@@ -227,6 +498,12 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
         break;
       case "touched-paths":
         if (bulletMatch) touchedPaths.push(content);
+        break;
+      case "expected-changed-files":
+        if (bulletMatch) {
+          expectedChangedFiles.push(content);
+          touchedPaths.push(content);
+        }
         break;
       case "verification":
         if (bulletMatch) verificationCommands.push(content);
@@ -252,6 +529,14 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
   }
 
   const objective = objectiveLines.join(" ").trim();
+  const classification = classifyPhaseIntent({
+    title: region.title,
+    objective,
+    deliverables,
+    expectedChangedFiles,
+    constraints,
+    metadata,
+  });
   const evidenceExcerpt = region.lines
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
@@ -265,7 +550,7 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
     id: `phase-${order + 1}`,
     order: order + 1,
     title: region.title,
-    kind: inferPhaseKind(region.title, objective),
+    kind: classification.kind,
     objective,
     deliverables,
     acceptanceCriteria,
@@ -274,6 +559,8 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
     evidenceArtifacts,
     constraints,
     sourceEvidence,
+    sourceChange: classification.sourceChange,
+    classification: classification.classification,
     actionability: { status: "blocked", satisfiedRequirements: [], missingRequirements: [] },
   };
 }
@@ -360,6 +647,46 @@ function suggestedFixFor(requirement: IntentPlanActionabilityRequirement, phaseT
   }
 }
 
+function classificationFindingSeverity(code: string): IntentPlanActionabilitySeverity {
+  if (code === "phase_kind_source_change_conflict") return "critical";
+  if (code.startsWith("invalid_")) return "critical";
+  if (code === "phase_source_change_intent_ambiguous") return "high";
+  return "medium";
+}
+
+function classificationFindingMessage(code: string, phaseTitle: string): string {
+  if (code === "phase_kind_source_change_conflict") {
+    return `Phase "${phaseTitle}" has conflicting explicit Phase Kind and Source Change metadata.`;
+  }
+  if (code === "phase_source_change_intent_ambiguous") {
+    return `Phase "${phaseTitle}" mixes source-changing and read-only source-change intent.`;
+  }
+  if (code.startsWith("invalid_phase_kind:")) {
+    return `Phase "${phaseTitle}" declares an unknown Phase Kind value.`;
+  }
+  if (code.startsWith("invalid_source_change:")) {
+    return `Phase "${phaseTitle}" declares an unknown Source Change value.`;
+  }
+  return `Phase "${phaseTitle}" has a source-change classification warning: ${code}.`;
+}
+
+function classificationSuggestedFix(code: string, phaseTitle: string): string {
+  const where = phaseTitle ? ` in phase "${phaseTitle}"` : "";
+  if (code === "phase_kind_source_change_conflict") {
+    return `Make Phase Kind and Source Change agree${where}; for example, use Phase Kind: modify with Source Change: required, or Phase Kind: verify with Source Change: forbidden.`;
+  }
+  if (code === "phase_source_change_intent_ambiguous") {
+    return `Add explicit Source Change: required, allowed, or forbidden${where}.`;
+  }
+  if (code.startsWith("invalid_phase_kind:")) {
+    return `Use Phase Kind: modify, refactor, implement, investigate, review, or verify${where}.`;
+  }
+  if (code.startsWith("invalid_source_change:")) {
+    return `Use Source Change: required, allowed, or forbidden${where}.`;
+  }
+  return `Clarify source-change intent${where}.`;
+}
+
 type PhaseEvaluation = {
   phase: IntentPlanPhaseDraft;
   findings: IntentPlanActionabilityFinding[];
@@ -409,6 +736,31 @@ function evaluatePhase(phase: IntentPlanPhaseDraft, indexBase: number): PhaseEva
     });
     const q = questionFor(requirement, phase.title);
     questions.push({ id: `question-${phase.id}-${requirement}`, phaseId: phase.id, requirement, ...q });
+    fi += 1;
+  }
+
+  for (const code of phase.classification?.warnings ?? []) {
+    const severity = classificationFindingSeverity(code);
+    findings.push({
+      id: `finding-${phase.id}-${code.replace(/[^a-z0-9-]/gi, "-").toLowerCase()}`,
+      severity,
+      requirement: "ambiguity-clearance",
+      code,
+      phaseId: phase.id,
+      message: classificationFindingMessage(code, phase.title),
+      sourceEvidence: phase.sourceEvidence.map((e) => e.excerpt),
+      suggestedFix: classificationSuggestedFix(code, phase.title),
+    });
+    const priority: IntentPlanElicitationPriority = severity === "critical" ? "critical" : "high";
+    questions.push({
+      id: `question-${phase.id}-${code.replace(/[^a-z0-9-]/gi, "-").toLowerCase()}`,
+      phaseId: phase.id,
+      requirement: "ambiguity-clearance",
+      question: `What Source Change value should govern phase "${phase.title}"? Use required, allowed, or forbidden.`,
+      answerShape: "sentence",
+      whyAsked: "Source-change posture controls downstream WorkOrder and Circe source-change policy.",
+      priority,
+    });
     fi += 1;
   }
 

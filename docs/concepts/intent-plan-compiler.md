@@ -91,6 +91,29 @@ plan into phase drafts when you opt in with `--semantic auto` or
 normalization but no provider is wired, the command falls back to deterministic
 parsing and says so in a warning — it never silently claims a model ran.
 
+## Phase source-change authoring
+
+The compiler classifies each phase's source-change posture before `intent
+prepare` turns it into a PreparedIntentPlan. Use explicit phase metadata when a
+phase both changes source and mentions tests, verification, validation, or
+evidence gates:
+
+```md
+Phase Kind: modify
+Source Change: required
+```
+
+Valid phase kinds are `modify`, `implement`, `refactor`, `investigate`,
+`review`, and `verify`. Valid source-change values are `required`, `allowed`,
+and `forbidden`.
+
+Verification commands do not make a phase read-only by themselves.
+Implementation signals in the objective, expected changed files, or deliverables
+classify the phase as source-changing before verification/test wording is
+considered. If the phase also says no source changes are expected, Rekon emits
+`phase_source_change_intent_ambiguous` and asks the operator to choose an
+explicit `Source Change` value.
+
 ## Where it sits in the spine
 
 The plan compiler is the **front door**. Everything downstream of review —

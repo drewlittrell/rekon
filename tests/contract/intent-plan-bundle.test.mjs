@@ -1084,3 +1084,88 @@ test("phase-verification: phaseGates align with phase-plan ids and the summary t
   const pv = result.manifest.circe.phaseVerification;
   assert.equal(pv.executable + pv.manualReview + pv.finalVerification + pv.needsReview, gateIds.length);
 });
+
+// ========== Phase source-change classification ==========
+
+function sourceChangeSource() {
+  const s = richSource();
+  s.preparedIntentPlan.phases = [
+    {
+      id: "phase:implement",
+      title: "Implement",
+      kind: "implement",
+      goal: "Implement the source change",
+      paths: ["src/app.ts"],
+      systems: [],
+      constraints: [],
+      obligations: [],
+      verificationRequirements: [],
+      sourceChange: "required",
+      classification: {
+        source: "explicit_source_change",
+        signals: ["explicit_source_change:required", "objective:implement"],
+        warnings: [],
+      },
+    },
+    {
+      id: "phase:verify",
+      title: "Verify",
+      kind: "verify",
+      goal: "Verify final tree",
+      paths: [],
+      systems: [],
+      constraints: [],
+      obligations: [],
+      verificationRequirements: ["verify:typecheck", "verify:test", "verify:build"],
+      sourceChange: "forbidden",
+      classification: {
+        source: "explicit_source_change",
+        signals: ["explicit_source_change:forbidden", "objective:verify"],
+        warnings: [],
+      },
+    },
+  ];
+  return s;
+}
+
+const buildSourceChange = () => buildIntentPlanBundle({
+  generatedAt: "2026-05-31T00:00:00.000Z",
+  source: sourceChangeSource(),
+});
+
+test("source-change: circe phase-plan includes sourceChangePolicy and Rekon classification evidence", () => {
+  const pp = circeJson(buildSourceChange(), "phase-plan.json");
+  const implement = pp.phases.find((p) => p.phaseId === "phase-implement");
+  const verify = pp.phases.find((p) => p.phaseId === "phase-verify");
+  assert.equal(implement.sourceChangePolicy, "required");
+  assert.equal(implement.rekon.phaseKind, "implement");
+  assert.equal(implement.rekon.sourceChange, "required");
+  assert.equal(implement.rekon.classificationSource, "explicit_source_change");
+  assert.equal(verify.sourceChangePolicy, "forbidden");
+  assert.equal(verify.rekon.sourceChange, "forbidden");
+});
+
+test("source-change: per-phase WorkOrder carries classification evidence", () => {
+  const wo = circeJson(buildSourceChange(), "work-orders/phase-implement.work-order.json");
+  assert.equal(wo.intentHandoff.phaseKind, "implement");
+  assert.equal(wo.intentHandoff.sourceChange, "required");
+  assert.equal(wo.intentHandoff.classificationSource, "explicit_source_change");
+  assert.ok(wo.intentHandoff.classification.signals.includes("explicit_source_change:required"));
+});
+
+test("source-change: VerificationPlan and proof phase gates carry source-change posture", () => {
+  const result = buildSourceChange();
+  const vp = circeJson(result, "verification-plans/phase-implement.verification-plan.json");
+  assert.equal(vp.intentHandoff.sourceChange, "required");
+  const gate = gateById(result, "phase-implement");
+  assert.equal(gate.sourceChange, "required");
+  assert.equal(gate.classificationSource, "explicit_source_change");
+  assert.equal(gate.verificationPosture, "executable");
+});
+
+test("source-change: agent verification summary includes phase source-change posture", () => {
+  const av = JSON.parse(fileByPath(buildSourceChange(), "agent/verification.json"));
+  const implement = av.phases.find((p) => p.phaseId === "phase-implement");
+  assert.equal(implement.sourceChange, "required");
+  assert.equal(implement.classificationSource, "explicit_source_change");
+});
