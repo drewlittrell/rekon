@@ -4,6 +4,24 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Dogfooded **Intent Bundle Handoff Reading Order Dogfood** — one-hundred-ninety-fifth slice on the embeddings
+  track (base `ead7c7c`). Product dogfood/review batch (docs + tests only: no source, runtime, renderer, Circe, or
+  gate change; no narrow fix was needed). Dogfooded the shipped slice-193 reading order from four perspectives —
+  human operator, general agent, task-context-aware agent, and Circe-targeted actor — by running the full public
+  operator path through `intent bundle write --task-context-ref` + `artifacts validate` (valid) and a
+  without-context comparison bundle. The reading order is practically useful and every boundary held: README.md
+  exposed a useful handoff reading order (human order practical); `agent/instructions.md` / `agent/handoff.md`
+  exposed useful agent reading orders; `agent/context.json.handoffReadingOrder` helped agents consume the bundle,
+  preserved every existing field, and distinguished context from authority; source-change posture remained in the
+  authority layer (handoff evidence, not approval); TaskContextReport remained optional context; WorkOrder /
+  VerificationPlan + `agent/verification.json` + `agent/source-refs.json` remained authoritative; actor contracts
+  remained role/return guidance; the Operator Command Boundary remained operator-only; the without-context bundle
+  remained clean and accurate; source + plan unchanged; no commands executed; no VerificationRun/VerificationResult;
+  Rekon did not run Circe; intent:go deferred. New
+  `tests/contract/intent-bundle-handoff-reading-order-dogfood.test.mjs` (41 assertions) +
+  `tests/docs/intent-bundle-handoff-reading-order-dogfood.test.mjs` (24 assertions) + review packet. Recommended
+  next slice: Intent Bundle Handoff Reading Order Dogfood Safety Review. See
+  [`intent-bundle-handoff-reading-order-dogfood.md`](docs/strategy/intent-bundle-handoff-reading-order-dogfood.md).
 - Safety-reviewed **Intent Bundle Handoff Reading Order Safety Review** — one-hundred-ninety-fourth slice on the
   embeddings track (base `a227f2d`). Strategy / safety-review batch (review-only: no runtime change, no
   reading-order-implementation change, no renderer change, no Circe handoff schema change, no actor-contract change,
