@@ -445,6 +445,23 @@ function phaseSourceChangePolicy(phase: Record<string, unknown>, kind: string): 
   return sourceChangeForPhaseKind(kind);
 }
 
+// The Circe projection may emit executable per-phase VerificationPlans. Keep
+// that projection stricter than generic human-readable evidence gates: only
+// command strings in Rekon's supported safe subset can be copied into the
+// executable command list.
+function isSafeExecutableVerificationCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (trimmed.length === 0) return false;
+  if ([";", "&&", "||", "|", ">", "<", "`", "$(", "${"].some((token) => trimmed.includes(token))) return false;
+  return [
+    /^npm run [a-z][a-z0-9:_-]*$/,
+    /^npm test$/,
+    /^node scripts\/[A-Za-z0-9._-]+\.mjs$/,
+    /^rekon [a-z][a-z0-9 _-]*--json$/,
+    /^rekon artifacts (validate|freshness)( --json)?$/,
+  ].some((pattern) => pattern.test(trimmed));
+}
+
 /** Slug-safe, de-duplicated phase id (Circe rejects duplicate phaseIds). */
 function uniquePhaseId(raw: string, index: number, seen: Set<string>): string {
   let base = slugifyIntentId(raw);
@@ -469,11 +486,16 @@ function uniquePhaseId(raw: string, index: number, seen: Set<string>): string {
 function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjectionResult {
   const warnings: string[] = [];
 
-  const requirementById = new Map<string, { command: string; reason: string }>();
+  const requirementById = new Map<string, { command: string; executableCommand: string; reason: string }>();
   for (const r of input.requirements) {
     const id = asString(r.id);
     if (id.length === 0) continue;
-    requirementById.set(id, { command: asString(r.command), reason: asString(r.reason, "Verify the change.") });
+    const command = asString(r.command);
+    requirementById.set(id, {
+      command,
+      executableCommand: isSafeExecutableVerificationCommand(command) ? command.trim() : "",
+      reason: asString(r.reason, "Verify the change."),
+    });
   }
   const obligationMessageById = new Map<string, string>();
   for (const o of input.obligations) {
@@ -486,7 +508,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
   // `final-verification` posture; a requirement with no command (e.g. a
   // document-findings reviewer obligation) is not executable verification.
   const executableRequirementIds = [...requirementById.entries()]
-    .filter(([, r]) => r.command.length > 0)
+    .filter(([, r]) => r.executableCommand.length > 0)
     .map(([id]) => id);
 
   let phases = input.phases;
@@ -608,9 +630,13 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
 
     const phaseRequirements = effectiveRequirementIds
       .map((id) => requirementById.get(id))
-      .filter((r): r is { command: string; reason: string } => Boolean(r));
-    const commands = uniqueStrings(phaseRequirements.map((r) => r.command).filter((c) => c.length > 0));
-    const reasons = uniqueStrings(phaseRequirements.map((r) => r.reason).filter((c) => c.length > 0));
+      .filter((r): r is { command: string; executableCommand: string; reason: string } => Boolean(r));
+    const successCriterionRequirementIds = uniqueStrings([...effectiveRequirementIds, ...declaredRequirementIds]);
+    const criterionRequirements = successCriterionRequirementIds
+      .map((id) => requirementById.get(id))
+      .filter((r): r is { command: string; executableCommand: string; reason: string } => Boolean(r));
+    const commands = uniqueStrings(phaseRequirements.map((r) => r.executableCommand).filter((c) => c.length > 0));
+    const reasons = uniqueStrings(criterionRequirements.map((r) => r.reason).filter((c) => c.length > 0));
     const emitVerificationPlan =
       (verificationPosture === "executable" || verificationPosture === "final-verification") && commands.length > 0;
 

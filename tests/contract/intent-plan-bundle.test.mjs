@@ -913,6 +913,41 @@ const buildDuplicateCommands = () => buildIntentPlanBundle({
   source: duplicateCommandSource(),
 });
 
+function mixedExecutableAndEvidenceRequirementsSource() {
+  const s = richSource();
+  s.preparedIntentPlan.verificationRequirements = [
+    { id: "verify:typecheck", command: "npm run typecheck", reason: "Type safety must hold." },
+    {
+      id: "verify:doc-evidence",
+      command: "The changed document mentions reviewer and planner input handoff packets.",
+      reason: "The changed document mentions reviewer and planner input handoff packets.",
+    },
+    {
+      id: "verify:manual-evidence",
+      reason: "The changed document describes actor-reported, normalized implementer handoff, and Circe-observed evidence as separate lanes.",
+    },
+  ];
+  s.preparedIntentPlan.phases = [
+    {
+      id: "phase:modify",
+      title: "Modify",
+      kind: "modify",
+      goal: "Modify the handoff evidence documentation",
+      paths: ["docs/strategy/phase-reports-and-handoff-traces.md"],
+      systems: [],
+      constraints: [],
+      obligations: [],
+      verificationRequirements: ["verify:typecheck", "verify:doc-evidence", "verify:manual-evidence"],
+    },
+  ];
+  return s;
+}
+
+const buildMixedExecutableAndEvidenceRequirements = () => buildIntentPlanBundle({
+  generatedAt: "2026-05-31T00:00:00.000Z",
+  source: mixedExecutableAndEvidenceRequirementsSource(),
+});
+
 function noSafeReqSource() {
   const s = baseSource();
   // Only a non-executable (document-findings) requirement: nothing can back an executable posture.
@@ -966,6 +1001,17 @@ test("phase-verification: phase VerificationPlans dedupe repeated command text",
   const verify = circeJson(buildDuplicateCommands(), "verification-plans/phase-verify.verification-plan.json");
   assert.deepEqual(modify.commands, ["npm run typecheck", "npm run test", "npm run build"]);
   assert.deepEqual(verify.commands, ["npm run typecheck", "npm run test", "npm run build"]);
+});
+
+test("phase-verification: phase VerificationPlans do not execute evidence-gate prose", () => {
+  const vp = circeJson(buildMixedExecutableAndEvidenceRequirements(), "verification-plans/phase-modify.verification-plan.json");
+  assert.deepEqual(vp.commands, ["npm run typecheck"]);
+  assert.ok(vp.successCriteria.includes("The changed document mentions reviewer and planner input handoff packets."));
+  assert.ok(
+    vp.successCriteria.includes(
+      "The changed document describes actor-reported, normalized implementer handoff, and Circe-observed evidence as separate lanes.",
+    ),
+  );
 });
 
 // ---------- PV7: phase-verify final-verification posture ----------

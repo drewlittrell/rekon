@@ -331,6 +331,28 @@ test("executeVerificationRun preserves prior behaviour when package.json is abse
   }
 });
 
+test("executeVerificationRun records child start errors without double-finalizing streams", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-spawn-error-"));
+  try {
+    const result = await executeVerificationRun(
+      {
+        verificationPlan: planFixture(["DefinitelyNotARealExecutableForRekonTest"]),
+        verificationPlanRef: planRef(),
+        header: runHeaderFixture(),
+      },
+      { cwd: root, commandTimeoutMs: 30_000 },
+    );
+
+    assert.equal(result.verificationRun.status, "failed");
+    assert.equal(result.verificationRun.summary.failed, 1);
+    assert.equal(result.verificationRun.commands[0].status, "failed");
+    assert.equal(result.verificationRun.commands[0].exitCode, null);
+    assert.match(result.verificationRun.commands[0].stderrExcerpt.text, /child error:/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("executeVerificationRun preserves prior behaviour when script IS in package.json but fails at runtime", async () => {
   const { root, cleanup } = await withTempPackageJson({ test: "node -e 'process.exit(3)'" });
   try {

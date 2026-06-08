@@ -1208,9 +1208,11 @@ function createBoundedStreamSink(maxBytes: number): {
   const excerptCap = Math.max(maxBytes * 2, 4096);
   let excerptBuffer = "";
   let originalBytes = 0;
+  let finalized: BoundedStreamCapture | null = null;
 
   return {
     onChunk(chunk) {
+      if (finalized) return;
       hash.update(chunk);
       originalBytes += chunk.byteLength;
       if (excerptBuffer.length < excerptCap) {
@@ -1221,13 +1223,15 @@ function createBoundedStreamSink(maxBytes: number): {
       }
     },
     finalize() {
+      if (finalized) return finalized;
       const digest = hash.digest("hex");
-      return {
+      finalized = {
         excerpt: excerptBuffer,
         digest,
         originalBytes,
         truncated: originalBytes > excerptBuffer.length,
       };
+      return finalized;
     },
   };
 }
@@ -1296,6 +1300,7 @@ async function spawnPlanCommand(
     const stderrSink = createBoundedStreamSink(options.maxLogBytes);
     let timedOut = false;
     let killed = false;
+    let settled = false;
 
     child.stdout?.on("data", (chunk: Buffer) => {
       stdoutSink.onChunk(chunk);
@@ -1339,8 +1344,14 @@ async function spawnPlanCommand(
 
     termTimer.unref?.();
 
-    child.on("error", (error: Error) => {
+    const finish = (result: SpawnPlanCommandResult) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(termTimer);
+      resolve(result);
+    };
+
+    child.on("error", (error: Error) => {
       const stderrCapture = stderrSink.finalize();
       const augmented: BoundedStreamCapture = {
         ...stderrCapture,
@@ -1349,7 +1360,7 @@ async function spawnPlanCommand(
           + (stderrCapture.excerpt.length > 0 ? "\n" : "")
           + `child error: ${error.message}`,
       };
-      resolve({
+      finish({
         exitCode: null,
         signal: null,
         stdout: stdoutSink.finalize(),
@@ -1361,8 +1372,7 @@ async function spawnPlanCommand(
     });
 
     child.on("close", (exitCode, signal) => {
-      clearTimeout(termTimer);
-      resolve({
+      finish({
         exitCode: typeof exitCode === "number" ? exitCode : null,
         signal: typeof signal === "string" ? signal : null,
         stdout: stdoutSink.finalize(),
