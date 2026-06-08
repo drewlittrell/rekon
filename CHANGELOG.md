@@ -4,6 +4,28 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **TaskContextReport Bundle Handoff Broader Workflow Decision** — one-hundred-ninety-second slice on the
+  embeddings track, **rebased onto `e91dc087`** ("feat: classify phase source-change intent") after `origin/main`
+  advanced mid-slice; the decision scope was expanded to include the new per-phase source-change posture. Strategy /
+  architecture decision batch (decision-only: no runtime behavior change, no source change, no bundle implementation
+  change, no Circe handoff schema change, no gate change, no CLI smoke). Decides how broader operator/agent handoff
+  workflows should use the bundle surfaces: selects **Option B — an explicit reading-order policy**. Findings:
+  TaskContextReport sidecars are optional context, not proof; humans should inspect `README.md` first, then
+  `context/task-context.md` when present; agents should inspect `agent/instructions.md` first, then `agent/handoff.md`,
+  then `agent/context.json`, and then `context/task-context.agent.json` when present; WorkOrder and VerificationPlan
+  remain the authoritative work and verification gates; `agent/verification.json` remains authoritative for
+  verification posture; `agent/source-refs.json` remains authoritative for source refs; Circe handoff JSON remains the
+  machine handoff contract; actor contracts are role/return-shape guidance, not executed workers; the Operator Command
+  Boundary is operator-only inspection guidance, not worker execution guidance; worker requests to run operator-only
+  Circe commands are plan-quality concerns; phase source-change posture belongs to the authoritative source /
+  verification layer, not the task-context layer; source-change posture is handoff evidence, not approval;
+  TaskContextReport sidecars must not override `sourceChange` posture; TaskContextReport sidecars must not approve
+  plans, execute commands, or write source files; verification hints remain hints; do-not-touch zones remain
+  guidance/context; intent:go remains deferred. New
+  `docs/strategy/task-context-report-bundle-handoff-broader-workflow-decision.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-handoff-broader-workflow-decision.md` + docs test
+  `tests/docs/task-context-bundle-handoff-broader-workflow-decision.test.mjs` (27 assertions). First implementation:
+  Intent Bundle Handoff Reading Order Implementation (alternative: Handoff UX Fix).
 - Reviewed **TaskContextReport Bundle Handoff Dogfood Safety Review** — one-hundred-ninety-first slice on the
   embeddings track, **rebased onto `11a209fd`** ("feat: add Circe operator boundary to actor contracts") after
   `origin/main` advanced mid-slice; the earlier evidence (prepared against `c5acc07`) was re-grounded against the
