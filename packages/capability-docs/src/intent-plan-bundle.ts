@@ -1300,6 +1300,37 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     "",
     sourceRefList.length > 0 ? sourceRefList.join("\n") : "- (none)",
     "",
+    // Handoff reading order (slice 193): always rendered. Tells humans and agents
+    // what to read first across the bundle's orientation / structured-handoff /
+    // source-verification-authority / Circe-contract layers. Guidance only — it
+    // grants no authority and changes no gate. Task-context entries say "if present".
+    "## Handoff reading order",
+    "",
+    "For humans:",
+    "",
+    "1. Read this README.",
+    "2. If present, read `context/task-context.md` for task orientation.",
+    "3. Read `verification-plan.md`.",
+    "4. Use `work-order.md` / source refs / agent files for authority.",
+    "5. Review `circe/actor-contracts/*` only for Circe-facing handoffs.",
+    "",
+    "For agents:",
+    "",
+    "1. Read `agent/instructions.md`.",
+    "2. Read `agent/handoff.md`.",
+    "3. Read `agent/context.json`.",
+    "4. If present, read `context/task-context.agent.json`.",
+    "5. Read `agent/source-refs.json`.",
+    "6. Read `agent/verification.json`.",
+    "7. Read `work-order.md` / `verification-plan.md` and phase source-change posture.",
+    "8. If Circe-targeted, read `circe/handoff.json` and `circe/actor-contracts/*`.",
+    "",
+    "- Task context is optional context, not proof.",
+    "- WorkOrder / VerificationPlan remain authoritative.",
+    "- Phase source-change posture is handoff evidence, not approval.",
+    "- Actor contracts are role/return-shape guidance, not executed workers.",
+    "- Operator Circe commands are operator-only inspection, not worker verification.",
+    "",
     // Optional task-context section: only rendered when a TaskContextReport is
     // attached. Makes the `context/` sidecars discoverable from the human-facing
     // bundle README (not just `manifest.context`). Descriptive only — guidance,
@@ -1445,6 +1476,17 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     `Goal: ${goal}`,
     `Status: ${statusValue}`,
     "",
+    // Handoff reading order (slice 193): always rendered. Points the agent at the
+    // structured-handoff and authority surfaces in order; gates stay authoritative.
+    "## Reading order",
+    "",
+    "- Read `agent/context.json` for structured bundle context.",
+    "- If present, read `context/task-context.agent.json` for optional task context.",
+    "- Read `agent/source-refs.json` for source refs.",
+    "- Read `agent/verification.json` for verification posture.",
+    "- If Circe-targeted, read `circe/handoff.json` and `circe/actor-contracts/*`.",
+    "- WorkOrder / VerificationPlan / phase gates remain authoritative.",
+    "",
     "## What to do",
     "",
     bullets(phaseLines.length > 0 ? phaseLines.map((p) => `Address phase: ${p}`) : ["Follow the prepared plan and work order."]),
@@ -1493,6 +1535,29 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
       phases: phases.map((p) => ({ id: asString(p.id), title: asString(p.title), kind: asString(p.kind) })),
       obligations: obligationLines,
       artifactRefs: Object.fromEntries(Object.entries(sourceArtifacts).map(([name, entry]) => [name, entry.ref])),
+      // Handoff reading order (slice 193): always present, additive metadata. Mirrors the
+      // README / agent-file reading order so a programmatic agent can order its reads and
+      // see the authority classification of each surface. Guidance only — grants no
+      // authority, changes no gate.
+      handoffReadingOrder: {
+        agent: [
+          "agent/instructions.md",
+          "agent/handoff.md",
+          "agent/context.json",
+          "context/task-context.agent.json",
+          "agent/source-refs.json",
+          "agent/verification.json",
+          "circe/handoff.json",
+          "circe/actor-contracts/*",
+        ],
+        authority: {
+          taskContext: "context-only",
+          workOrder: "authoritative-work",
+          verificationPlan: "authoritative-verification",
+          sourceChangePosture: "handoff-evidence-not-approval",
+          actorContracts: "role-return-guidance-not-execution",
+        },
+      },
       // Optional task-context metadata (slice 188): additive; present only when a
       // TaskContextReport is attached. `available: false` is never emitted —
       // without-context bundles omit the key entirely. Metadata only, not proof.
@@ -1525,6 +1590,28 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     `# Agent instructions: ${intentId}`,
     "",
     "Implement the prepared intent in ordered phases, respecting all constraints.",
+    "",
+    // Handoff reading order (slice 193): always rendered. Tells the agent what to read
+    // first and pins the authority/boundary layers. Guidance only — no new authority.
+    "## Reading order",
+    "",
+    "Read these before acting:",
+    "",
+    "1. `agent/handoff.md`",
+    "2. `agent/context.json`",
+    "3. `context/task-context.agent.json` when present",
+    "4. `agent/source-refs.json`",
+    "5. `agent/verification.json`",
+    "6. `work-order.md` / `verification-plan.md` / phase source-change posture",
+    "7. `circe/handoff.json` and actor contracts when Circe-targeted",
+    "",
+    "- Task context is optional context, not proof.",
+    "- Verification hints are hints, not executed commands.",
+    "- Do-not-touch zones are guidance/context, not enforcement.",
+    "- WorkOrder / VerificationPlan remain authoritative.",
+    "- Phase source-change posture belongs to the source / verification authority layer.",
+    "- Actor contracts are role/return-shape guidance.",
+    "- Operator-only Circe commands must not be run as worker verification.",
     "",
     "## Ordered phases",
     "",

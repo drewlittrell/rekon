@@ -4,6 +4,30 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Implemented **Intent Bundle Handoff Reading Order Implementation** — one-hundred-ninety-third slice on the
+  embeddings track (base `01cda30`). Product capability batch (source change + CLI smoke); additive /
+  presentation-only. Implements the slice-192 decision (Option B): the intent plan bundle promotes the recommended
+  human + agent reading order directly inside its surfaces. `packages/capability-docs/src/intent-plan-bundle.ts`
+  gains four always-rendered additions — a "## Handoff reading order" section in `README.md` (a human list and an
+  agent list), a "## Reading order" section in `agent/instructions.md` and in `agent/handoff.md`, and an additive
+  `handoffReadingOrder` metadata block in `agent/context.json` (an ordered `agent` read list plus an `authority`
+  map: `taskContext: context-only`, `workOrder: authoritative-work`, `verificationPlan:
+  authoritative-verification`, `sourceChangePosture: handoff-evidence-not-approval`, `actorContracts:
+  role-return-guidance-not-execution`). All four render for every bundle; task-context entries are phrased "if
+  present", so a without-context bundle renders the reading order but creates no `context/` sidecars and carries no
+  `taskContext` key. Humans should inspect `README.md` first, then `context/task-context.md` when present; agents
+  should inspect `agent/instructions.md` first, then `agent/handoff.md`, then `agent/context.json`, then
+  `context/task-context.agent.json` when present. Guidance only — no Circe handoff schema, actor-contract,
+  source-change-classification, WorkOrder/VerificationPlan/phase-gate, or proof/approval change; the rekon-proof
+  gate booleans (`sourceWriteAllowed`/`commandsExecuted`/`runsCirce`/`intentGoDeferred`) are unchanged; phase
+  source-change posture stays handoff evidence, not approval, and sidecars must not override `sourceChange` posture;
+  actor contracts stay role/return-shape guidance, not executed workers; the Operator Command Boundary stays
+  operator-only inspection, not worker verification; verification hints stay hints; do-not-touch stays guidance;
+  intent:go remains deferred. New `tests/contract/intent-bundle-handoff-reading-order.test.mjs` (35 assertions) +
+  `tests/docs/intent-bundle-handoff-reading-order.test.mjs` (22 assertions); existing intent-plan-bundle,
+  task-context-bundle-handoff-dogfood, and task-context-bundle-handoff-guidance tests stay green. Recommended next
+  slice: Intent Bundle Handoff Reading Order Safety Review. See
+  [`intent-bundle-handoff-reading-order-implementation.md`](docs/strategy/intent-bundle-handoff-reading-order-implementation.md).
 - Decided **TaskContextReport Bundle Handoff Broader Workflow Decision** — one-hundred-ninety-second slice on the
   embeddings track, **rebased onto `e91dc087`** ("feat: classify phase source-change intent") after `origin/main`
   advanced mid-slice; the decision scope was expanded to include the new per-phase source-change posture. Strategy /
