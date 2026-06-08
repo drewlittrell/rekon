@@ -4,6 +4,25 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Safety-reviewed **Intent Bundle Handoff Reading Order Safety Review** — one-hundred-ninety-fourth slice on the
+  embeddings track (base `a227f2d`). Strategy / safety-review batch (review-only: no runtime change, no
+  reading-order-implementation change, no renderer change, no Circe handoff schema change, no actor-contract change,
+  no source-change-posture change, no gate change, no CLI smoke). Reviews the shipped slice-193 reading-order
+  implementation end-to-end and declares it **safe/stable** before broader handoff workflow use. Intent bundle
+  handoff reading order is guidance, not automation: the README / `agent/instructions.md` / `agent/handoff.md`
+  reading-order sections and the additive `agent/context.json.handoffReadingOrder` metadata (which preserves every
+  existing field) guide humans and agents toward authoritative surfaces while every boundary holds — TaskContextReport
+  sidecars stay optional context (not proof); WorkOrder / VerificationPlan stay the authoritative work / verification
+  gates; phase source-change posture stays handoff evidence, not approval, on the authoritative source / verification
+  layer (and sidecars must not override `sourceChange` posture); `agent/verification.json` stays authoritative for
+  verification posture and `agent/source-refs.json` for source refs; Circe handoff JSON stays the machine handoff
+  contract and `circe/*` is byte-unchanged; actor contracts stay role/return-shape guidance, not executed workers;
+  the Operator Command Boundary stays operator-only inspection; verification hints stay hints; do-not-touch stays
+  guidance; the without-context bundle stays clean; no commands executed; no source writes; no
+  VerificationRun/VerificationResult; Rekon did not run Circe; intent:go deferred. New
+  `tests/docs/intent-bundle-handoff-reading-order-safety-review.test.mjs` (29 assertions) + review packet.
+  Recommended next slice: Intent Bundle Handoff Reading Order Dogfood (alternative: UX Fix). See
+  [`intent-bundle-handoff-reading-order-safety-review.md`](docs/strategy/intent-bundle-handoff-reading-order-safety-review.md).
 - Implemented **Intent Bundle Handoff Reading Order Implementation** — one-hundred-ninety-third slice on the
   embeddings track (base `01cda30`). Product capability batch (source change + CLI smoke); additive /
   presentation-only. Implements the slice-192 decision (Option B): the intent plan bundle promotes the recommended
