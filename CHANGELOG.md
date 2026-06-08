@@ -4,6 +4,30 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reviewed **TaskContextReport Bundle Handoff Dogfood Safety Review** — one-hundred-ninety-first slice on the
+  embeddings track, **rebased onto `11a209fd`** ("feat: add Circe operator boundary to actor contracts") after
+  `origin/main` advanced mid-slice; the earlier evidence (prepared against `c5acc07`) was re-grounded against the
+  current producer and the review scope was expanded to cover the new Circe Operator Command Boundary. Strategy /
+  safety-review batch (review-only: no runtime behavior change, no source change, no bundle handoff guidance
+  implementation change, no actor-contract generation change, no operator-command-boundary generation change, no Circe
+  handoff schema change, no gate change, no CLI smoke). Reviews the shipped slice-190 TaskContextReport Bundle Handoff
+  Dogfood (`c5acc07`) end-to-end and declares it safe/stable before broader handoff workflow use. Findings:
+  TaskContextReport sidecars are optional context, not proof; the full handoff dogfood path completed successfully; the
+  human (`README.md`, `context/task-context.md`, `context/task-context.refs.json`) and agent (`agent/instructions.md`,
+  `agent/handoff.md`, `agent/context.json` `taskContext` metadata, `context/task-context.agent.json`) task-context
+  surfaces stay discoverable and non-authoritative; `agent/verification.json` remains authoritative for verification
+  posture and `agent/source-refs.json` for source refs; Circe handoff JSON remains stable and independent of
+  TaskContextReport; Circe actor-contract artifacts were present and non-executing; actor contracts are
+  guidance/artifacts, not executed workers; the new Operator Command Boundary is operator-only inspection guidance, not
+  worker execution guidance, reinforces that Rekon does not run Circe, and treats worker requests to run Circe operator
+  commands as plan-quality concerns; WorkOrder / VerificationPlan gates remain authoritative; phase gates remain
+  authoritative; source and plan files were unchanged; no commands were executed; no VerificationRun or
+  VerificationResult was created; Rekon did not run Circe; intent:go remains deferred; the without-context bundle stayed
+  clean. New `docs/strategy/task-context-report-bundle-handoff-dogfood-safety-review.md` + review packet
+  `.rekon-dev/review-packets/task-context-report-bundle-handoff-dogfood-safety-review.md` + docs test
+  `tests/docs/task-context-bundle-handoff-dogfood-safety-review.test.mjs` (33 assertions). Recommended next:
+  TaskContextReport Bundle Handoff Broader Workflow Decision (alternative: Handoff UX Fix, only if a concrete issue
+  surfaces).
 - Dogfooded **TaskContextReport Bundle Handoff Dogfood** — one-hundred-ninetieth slice on the embeddings track.
   Product dogfood / review batch (no source change), **rebased onto `4cc34b73`** ("feat: emit target-specific Circe
   actor contracts") after `origin/main` advanced mid-slice; the earlier evidence (prepared against `e4c47e5`) was
