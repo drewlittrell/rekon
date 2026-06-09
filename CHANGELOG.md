@@ -4,6 +4,26 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Safety-reviewed **Intent Bundle Handoff Reading Order Dogfood Safety Review** — one-hundred-ninety-sixth slice
+  on the embeddings track, **rebased onto `d975d3e`** ("keep Circe verification commands executable") after
+  `origin/main` advanced mid-slice; the review scope was expanded to include the new safe executable
+  verification-command projection. Strategy / safety-review batch (review-only: no runtime, reading-order-implementation,
+  projection, renderer, Circe-schema, actor-contract, source-change-posture, or gate change; no CLI smoke). Reviews the
+  slice-195 dogfood result end-to-end and declares it **safe/stable** before broader handoff workflow use; the
+  41-assertion dogfood contract test re-ran green against `d975d3e`. Intent bundle handoff reading order is guidance,
+  not automation: README / agent reading orders + `agent/context.json.handoffReadingOrder` (preserving every existing
+  field) guide humans and agents toward the authoritative surfaces. The new `isSafeExecutableVerificationCommand`
+  projection preserves only a bounded safe subset (`npm run <script>`, `npm test`, `node scripts/<file>.mjs`,
+  `rekon … --json`, `rekon artifacts validate|freshness`) and rejects shell-metacharacter command strings; safe
+  executable verification-command projection is handoff data, not execution — `circe/phase-plan.json` may describe
+  verification commands but Rekon does not execute them, and `circe/rekon-proof.json` keeps `commandsExecuted:false`.
+  Source-change posture stays in the authority layer; TaskContextReport stays optional context; WorkOrder /
+  VerificationPlan + `agent/verification.json` + `agent/source-refs.json` stay authoritative; actor contracts stay
+  role/return guidance; the Operator Command Boundary stays operator-only; the without-context bundle stays clean;
+  source + plan unchanged; no commands executed; no VerificationRun/VerificationResult; Rekon did not run Circe;
+  intent:go deferred. New `tests/docs/intent-bundle-handoff-reading-order-dogfood-safety-review.test.mjs` (37
+  assertions) + review packet. Recommended next slice: Intent Bundle Handoff Reading Order Broader Workflow Decision.
+  See [`intent-bundle-handoff-reading-order-dogfood-safety-review.md`](docs/strategy/intent-bundle-handoff-reading-order-dogfood-safety-review.md).
 - Dogfooded **Intent Bundle Handoff Reading Order Dogfood** — one-hundred-ninety-fifth slice on the embeddings
   track (base `ead7c7c`). Product dogfood/review batch (docs + tests only: no source, runtime, renderer, Circe, or
   gate change; no narrow fix was needed). Dogfooded the shipped slice-193 reading order from four perspectives —
