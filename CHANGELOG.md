@@ -4,6 +4,27 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Shipped the **Intent Bundle Handoff Workflow Guide** — one-hundred-ninety-eighth slice on the
+  embeddings track (base `7cbeb5c`). Product documentation / workflow-surface batch (docs + tests
+  only: no runtime, bundle, reading-order, projection, Circe-schema, actor-contract,
+  source-change-posture, gate, or help-text change; no CLI smoke). Implements the slice-197 Option-B
+  product-docs step: two reader guides — `docs/guides/intent-bundle-handoff-workflow.md` (human +
+  agent workflow, with the workflow / authority / boundary tables) and
+  `docs/guides/intent-bundle-agent-reading-order.md` (agent-focused reading-order companion) — plus
+  an implementation note `docs/strategy/intent-bundle-handoff-workflow-guide.md`. They teach: intent
+  bundle handoff reading order is guidance, not automation; broader workflows should recommend the
+  handoff reading order, not require it as proof; humans should inspect README.md first, then
+  context/task-context.md when present; agents should inspect agent/instructions.md first, then
+  agent/handoff.md, then agent/context.json, and then context/task-context.agent.json when present;
+  TaskContextReport sidecars are optional context, not proof; WorkOrder/VerificationPlan +
+  agent/verification.json + agent/source-refs.json remain authoritative; phase source-change posture
+  stays handoff evidence, not approval; safe executable verification-command projection is handoff
+  data, not execution (circe/phase-plan.json may describe verification commands but Rekon does not
+  execute them; circe/rekon-proof.json keeps commandsExecuted:false); actor contracts stay
+  role/return-shape guidance; the Operator Command Boundary stays operator-only; intent:go deferred.
+  New `tests/docs/intent-bundle-handoff-workflow-guide.test.mjs` (30 assertions) + review packet.
+  Recommended next: Intent Bundle Handoff Workflow Guide Safety Review. See
+  [`intent-bundle-handoff-workflow-guide.md`](docs/strategy/intent-bundle-handoff-workflow-guide.md).
 - Decided **Intent Bundle Handoff Reading Order Broader Workflow Decision** — one-hundred-ninety-seventh slice on
   the embeddings track (base `6983e15`). Strategy / architecture decision batch (decision-only: no runtime, bundle,
   reading-order, projection, Circe-schema, actor-contract, source-change-posture, or gate change; no CLI smoke).
