@@ -4,6 +4,24 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Decided **Intent Bundle Handoff Reading Order Broader Workflow Decision** — one-hundred-ninety-seventh slice on
+  the embeddings track (base `6983e15`). Strategy / architecture decision batch (decision-only: no runtime, bundle,
+  reading-order, projection, Circe-schema, actor-contract, source-change-posture, or gate change; no CLI smoke).
+  Decides how broader operator/agent workflow docs and handoff policy should treat the final intent bundle handoff
+  reading order: selects **Option B — a recommended (not required) broader handoff reading-order policy**. The reading
+  order becomes the recommended human/agent way to consume intent bundles; it is recommended, not required. Findings:
+  intent bundle handoff reading order is guidance, not automation; humans should inspect README.md first, then
+  context/task-context.md when present; agents should inspect agent/instructions.md first, then agent/handoff.md, then
+  agent/context.json, then context/task-context.agent.json when present, with handoffReadingOrder as the structured
+  map; TaskContextReport sidecars are optional context, not proof; WorkOrder/VerificationPlan + agent/verification.json
+  + agent/source-refs.json remain authoritative; phase source-change posture stays handoff evidence, not approval;
+  safe executable verification-command projection is handoff data, not execution (circe/phase-plan.json may describe
+  verification commands but Rekon does not execute them; circe/rekon-proof.json keeps commandsExecuted:false;
+  shell-metacharacter strings are rejected); actor contracts stay role/return-shape guidance; the Operator Command
+  Boundary stays operator-only; worker requests to run operator-only Circe commands are plan-quality concerns;
+  intent:go deferred. New `tests/docs/intent-bundle-handoff-reading-order-broader-workflow-decision.test.mjs` (30
+  assertions) + review packet. Recommended first implementation: Intent Bundle Handoff Workflow Guide. See
+  [`intent-bundle-handoff-reading-order-broader-workflow-decision.md`](docs/strategy/intent-bundle-handoff-reading-order-broader-workflow-decision.md).
 - Safety-reviewed **Intent Bundle Handoff Reading Order Dogfood Safety Review** — one-hundred-ninety-sixth slice
   on the embeddings track, **rebased onto `d975d3e`** ("keep Circe verification commands executable") after
   `origin/main` advanced mid-slice; the review scope was expanded to include the new safe executable
