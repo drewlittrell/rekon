@@ -1,0 +1,512 @@
+{
+  "generatedFrom": "local classic scan corpus (7 repos; 4 with non-zero baselines) + filtered-issues.json suppression layers",
+  "privacyNote": "counts and rule identifiers only; project-specific sub-rule ids redacted; per-finding samples live in the local dossier supplement outside this repository; repo identities anonymized (legend in the local supplement)",
+  "rules": [
+    {
+      "ruleId": "tech_debt",
+      "goalCluster": "shortcut-accumulation",
+      "perRepo": {
+        "repo-a": 1,
+        "repo-b": 853,
+        "repo-c": 65,
+        "repo-d (classic self-scan)": 1200
+      },
+      "totalFireCount": 2119,
+      "reposFiring": 4,
+      "distinctFiles": 939,
+      "firesPerFile": 2.26,
+      "severityMix": {
+        "low": 91,
+        "medium": 1896,
+        "high": 132
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 174,
+      "suppressionRatio": 0.08,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "architecture",
+      "goalCluster": "boundary-drift",
+      "perRepo": {
+        "repo-a": 155,
+        "repo-b": 800,
+        "repo-c": 217,
+        "repo-d (classic self-scan)": 812
+      },
+      "totalFireCount": 1984,
+      "reposFiring": 4,
+      "distinctFiles": 1003,
+      "firesPerFile": 1.98,
+      "severityMix": {
+        "medium": 1268,
+        "high": 653,
+        "low": 63
+      },
+      "distinctSubRules": 41,
+      "projectSpecificSubRules": 5,
+      "topSubRules": [
+        {
+          "id": "imports.use_at_alias",
+          "fires": 144
+        },
+        {
+          "id": "services.keep_thin",
+          "fires": 89
+        },
+        {
+          "id": "routes.baton_context_required",
+          "fires": 78
+        },
+        {
+          "id": "routes.blast_radius",
+          "fires": 73
+        },
+        {
+          "id": "handlers.keep_thin",
+          "fires": 63
+        }
+      ],
+      "suppressed": 981,
+      "suppressionRatio": 0.33,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "lint",
+      "goalCluster": "convention-coherence",
+      "perRepo": {
+        "repo-b": 562,
+        "repo-c": 38,
+        "repo-d (classic self-scan)": 682
+      },
+      "totalFireCount": 1282,
+      "reposFiring": 3,
+      "distinctFiles": 1133,
+      "firesPerFile": 1.13,
+      "severityMix": {
+        "low": 1220,
+        "medium": 61,
+        "high": 1
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 77,
+      "suppressionRatio": 0.06,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "naming_violation",
+      "goalCluster": "convention-coherence",
+      "perRepo": {
+        "repo-a": 62,
+        "repo-b": 361,
+        "repo-c": 29,
+        "repo-d (classic self-scan)": 394
+      },
+      "totalFireCount": 846,
+      "reposFiring": 4,
+      "distinctFiles": 491,
+      "firesPerFile": 1.72,
+      "severityMix": {
+        "medium": 122,
+        "high": 487,
+        "low": 237
+      },
+      "distinctSubRules": 7,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [
+        {
+          "id": "architecture.naming_contract_violation",
+          "fires": 724
+        },
+        {
+          "id": "taxonomy.hub_suffix_requires_hub_status",
+          "fires": 97
+        },
+        {
+          "id": "taxonomy.forbidden_type_suffix",
+          "fires": 14
+        },
+        {
+          "id": "naming.capability_aligned_entity",
+          "fires": 6
+        },
+        {
+          "id": "naming.exports.default_for_react_components",
+          "fires": 3
+        }
+      ],
+      "suppressed": 139,
+      "suppressionRatio": 0.14,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "capability_overlap",
+      "goalCluster": "redundancy",
+      "perRepo": {
+        "repo-a": 11,
+        "repo-b": 155,
+        "repo-c": 10,
+        "repo-d (classic self-scan)": 182
+      },
+      "totalFireCount": 358,
+      "reposFiring": 4,
+      "distinctFiles": 773,
+      "firesPerFile": 0.46,
+      "severityMix": {
+        "high": 79,
+        "medium": 113,
+        "low": 166
+      },
+      "distinctSubRules": 14,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [
+        {
+          "id": "validation",
+          "fires": 98
+        },
+        {
+          "id": "transformation",
+          "fires": 64
+        },
+        {
+          "id": "data_access",
+          "fires": 61
+        },
+        {
+          "id": "construction",
+          "fires": 33
+        },
+        {
+          "id": "event_handling",
+          "fires": 29
+        }
+      ],
+      "suppressed": 255,
+      "suppressionRatio": 0.42,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "dead_code",
+      "goalCluster": "redundancy",
+      "perRepo": {
+        "repo-a": 2,
+        "repo-b": 73,
+        "repo-c": 6,
+        "repo-d (classic self-scan)": 169
+      },
+      "totalFireCount": 250,
+      "reposFiring": 4,
+      "distinctFiles": 242,
+      "firesPerFile": 1.03,
+      "severityMix": {
+        "low": 187,
+        "medium": 42,
+        "high": 21
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 19,
+      "suppressionRatio": 0.07,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "anti_pattern",
+      "goalCluster": "shortcut-accumulation",
+      "perRepo": {
+        "repo-a": 11,
+        "repo-b": 81,
+        "repo-c": 9,
+        "repo-d (classic self-scan)": 24
+      },
+      "totalFireCount": 125,
+      "reposFiring": 4,
+      "distinctFiles": 119,
+      "firesPerFile": 1.05,
+      "severityMix": {
+        "low": 22,
+        "medium": 83,
+        "high": 20
+      },
+      "distinctSubRules": 5,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [
+        {
+          "id": "observability.no_console_logging",
+          "fires": 57
+        },
+        {
+          "id": "architecture.services.no_business_logic",
+          "fires": 38
+        },
+        {
+          "id": "validation.no_revalidate_after_route",
+          "fires": 13
+        },
+        {
+          "id": "react.no_conditional_hooks",
+          "fires": 13
+        },
+        {
+          "id": "derived_state.use_module_helpers",
+          "fires": 4
+        }
+      ],
+      "suppressed": 112,
+      "suppressionRatio": 0.47,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "semantic_similarity",
+      "goalCluster": "redundancy",
+      "perRepo": {
+        "repo-b": 26,
+        "repo-c": 23,
+        "repo-d (classic self-scan)": 69
+      },
+      "totalFireCount": 118,
+      "reposFiring": 3,
+      "distinctFiles": 116,
+      "firesPerFile": 1.02,
+      "severityMix": {
+        "medium": 58,
+        "low": 27,
+        "high": 33
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 16,
+      "suppressionRatio": 0.12,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "canonical_bypass",
+      "goalCluster": "boundary-drift",
+      "perRepo": {
+        "repo-a": 6,
+        "repo-b": 37,
+        "repo-c": 1,
+        "repo-d (classic self-scan)": 6
+      },
+      "totalFireCount": 50,
+      "reposFiring": 4,
+      "distinctFiles": 56,
+      "firesPerFile": 0.89,
+      "severityMix": {
+        "medium": 20,
+        "high": 30
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 13,
+      "suppressionRatio": 0.21,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "canonical_gap",
+      "goalCluster": "boundary-drift",
+      "perRepo": {
+        "repo-a": 6,
+        "repo-b": 26,
+        "repo-c": 1,
+        "repo-d (classic self-scan)": 12
+      },
+      "totalFireCount": 45,
+      "reposFiring": 4,
+      "distinctFiles": 80,
+      "firesPerFile": 0.56,
+      "severityMix": {
+        "medium": 45
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 99,
+      "suppressionRatio": 0.69,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "ownership_violation",
+      "goalCluster": "boundary-drift",
+      "perRepo": {
+        "repo-b": 36,
+        "repo-c": 1
+      },
+      "totalFireCount": 37,
+      "reposFiring": 2,
+      "distinctFiles": 35,
+      "firesPerFile": 1.06,
+      "severityMix": {
+        "high": 37
+      },
+      "distinctSubRules": 8,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [
+        {
+          "id": "orchestrates:*",
+          "fires": 18
+        },
+        {
+          "id": "extracts:*",
+          "fires": 4
+        },
+        {
+          "id": "calculates:*",
+          "fires": 4
+        },
+        {
+          "id": "routes:interaction action",
+          "fires": 3
+        },
+        {
+          "id": "persists:*",
+          "fires": 3
+        }
+      ],
+      "suppressed": 5,
+      "suppressionRatio": 0.12,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "system_anomaly",
+      "goalCluster": "boundary-drift",
+      "perRepo": {
+        "repo-a": 3,
+        "repo-b": 20,
+        "repo-d (classic self-scan)": 9
+      },
+      "totalFireCount": 32,
+      "reposFiring": 3,
+      "distinctFiles": 32,
+      "firesPerFile": 1,
+      "severityMix": {
+        "medium": 32
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 13,
+      "suppressionRatio": 0.29,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "duplication",
+      "goalCluster": "redundancy",
+      "perRepo": {
+        "repo-a": 13,
+        "repo-b": 11
+      },
+      "totalFireCount": 24,
+      "reposFiring": 2,
+      "distinctFiles": 26,
+      "firesPerFile": 0.92,
+      "severityMix": {
+        "medium": 15,
+        "low": 9
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 2,
+      "suppressionRatio": 0.08,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "stub",
+      "goalCluster": "shortcut-accumulation",
+      "perRepo": {
+        "repo-b": 11,
+        "repo-c": 2,
+        "repo-d (classic self-scan)": 8
+      },
+      "totalFireCount": 21,
+      "reposFiring": 3,
+      "distinctFiles": 15,
+      "firesPerFile": 1.4,
+      "severityMix": {
+        "medium": 10,
+        "high": 4,
+        "low": 7
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 245,
+      "suppressionRatio": 0.92,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "unification_opportunity",
+      "goalCluster": "redundancy",
+      "perRepo": {
+        "repo-b": 10,
+        "repo-d (classic self-scan)": 1
+      },
+      "totalFireCount": 11,
+      "reposFiring": 2,
+      "distinctFiles": 27,
+      "firesPerFile": 0.41,
+      "severityMix": {
+        "medium": 2,
+        "low": 9
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 5,
+      "suppressionRatio": 0.31,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "pattern_violation",
+      "goalCluster": "boundary-drift",
+      "perRepo": {
+        "repo-b": 4
+      },
+      "totalFireCount": 4,
+      "reposFiring": 1,
+      "distinctFiles": 4,
+      "firesPerFile": 1,
+      "severityMix": {
+        "medium": 4
+      },
+      "distinctSubRules": 1,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [
+        {
+          "id": "patterns.forbidden_by_system",
+          "fires": 4
+        }
+      ],
+      "suppressed": 0,
+      "suppressionRatio": 0,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    },
+    {
+      "ruleId": "canonical_misplacement",
+      "goalCluster": "boundary-drift",
+      "perRepo": {
+        "repo-b": 2
+      },
+      "totalFireCount": 2,
+      "reposFiring": 1,
+      "distinctFiles": 2,
+      "firesPerFile": 1,
+      "severityMix": {
+        "medium": 2
+      },
+      "distinctSubRules": 0,
+      "projectSpecificSubRules": 0,
+      "topSubRules": [],
+      "suppressed": 0,
+      "suppressionRatio": 0,
+      "statusDispositions": "absent: every issue carrying a status field carries status=new; no accepted/ignored/resolved dispositions exist in the corpus"
+    }
+  ]
+}
