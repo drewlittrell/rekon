@@ -59,6 +59,13 @@ test("docs say intent:go remains deferred", () => {
 });
 
 // ---------- 9 ----------
+test("docs say Circe cockpit commands move to Operator Inspection After Run", () => {
+  assert.match(concept, /plan review with --target circe/);
+  assert.match(concept, /Operator Inspection After Run/);
+  assert.match(concept, /circe_operator_command_in_worker_gate/);
+});
+
+// ---------- 9 ----------
 test("CHANGELOG mentions the Circe Handoff Projection Implementation", () => {
   assert.match(changelog, /Circe Handoff Projection Implementation/);
 });

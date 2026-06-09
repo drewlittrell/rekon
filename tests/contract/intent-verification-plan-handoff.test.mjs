@@ -160,6 +160,28 @@ test("helper blocks unsafe commands", () => {
   assert.ok(hasBlocker(result, "unsafe-command"));
 });
 
+// ---------- 14b ----------
+test("helper explains Circe cockpit commands placed in worker verification gates", () => {
+  const result = gen({
+    preparedIntentPlan: approvedPlan({
+      verificationRequirements: [
+        {
+          id: "verify:circe-handoff-show",
+          command: "circe handoffs show --work-key <key> --latest",
+          reason: "Inspect the phase handoff.",
+        },
+      ],
+    }),
+  });
+  assert.equal(result.status, "blocked");
+  const blocker = result.blockers.find((b) => b.category === "unsafe-command");
+  assert.ok(blocker);
+  assert.match(blocker.message, /Circe operator cockpit command/);
+  assert.match(blocker.message, /operator inspection command, not worker verification/);
+  assert.match(blocker.message, /Operator Inspection After Run/);
+  assert.match(blocker.message, /npm run typecheck/);
+});
+
 // ---------- 15 ----------
 test("helper maps command requirements into VerificationPlan.commands", () => {
   const result = gen();

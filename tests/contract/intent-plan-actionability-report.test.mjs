@@ -70,6 +70,7 @@ function build(planText, opts = {}) {
     planSha256: opts.planSha256 ?? "abc123",
     goal: opts.goal,
     kind: opts.kind,
+    target: opts.target,
     root: opts.root ?? "test-repo",
     semanticMode: opts.semanticMode,
     semanticNormalization: opts.semanticNormalization,
@@ -553,4 +554,144 @@ test("phase classification: verification commands alone do not imply source-chan
   const phase = report.normalizedPhases[0];
   assert.equal(phase.kind, "unknown");
   assert.equal(phase.sourceChange, "allowed");
+});
+
+// --- 30. Circe target blocks cockpit commands in worker Verification Commands ---
+test("circe target: cockpit command in Verification Commands is a placement blocker", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Implement report docs",
+    body: `Objective: Modify source by documenting report commands.
+
+### Deliverables
+- docs/report.md update
+
+### Acceptance Criteria
+- Documentation explains the report command
+
+### Scope
+- docs/report.md
+
+### Verification Commands
+- npm run typecheck
+- circe handoffs show --work-key <key> --latest
+`,
+  }), { target: "circe" });
+
+  assert.equal(report.status.value, "blocked");
+  const finding = report.findings.find((f) => f.code === "circe_operator_command_in_worker_gate");
+  assert.ok(finding);
+  assert.match(finding.message, /operator inspection command/);
+  assert.match(finding.suggestedFix, /Operator Inspection After Run/);
+  assert.match(finding.suggestedFix, /npm run typecheck/);
+});
+
+// --- 31. Circe target blocks cockpit commands in Evidence Gate worker action ---
+test("circe target: cockpit command in Evidence Gate is a placement blocker", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Implement report docs",
+    body: `Objective: Modify source by documenting report commands.
+
+### Deliverables
+- docs/report.md update
+
+### Acceptance Criteria
+- Documentation explains the report command
+
+### Scope
+- docs/report.md
+
+### Required Checks
+- npm run typecheck
+
+### Evidence Gate
+- Run circe phase report --work-key <key> --latest
+`,
+  }), { target: "circe" });
+
+  assert.equal(report.status.value, "blocked");
+  const finding = report.findings.find((f) => f.code === "circe_operator_command_in_worker_gate");
+  assert.ok(finding);
+  assert.match(finding.message, /Evidence Gate/);
+  assert.match(finding.suggestedFix, /worker-facing Verification Commands \/ Required Checks/);
+});
+
+// --- 32. Circe target allows cockpit commands in operator-only section ---
+test("circe target: cockpit commands in Operator Inspection After Run are allowed", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Implement report docs",
+    body: `Objective: Modify source by documenting report commands.
+
+### Deliverables
+- docs/report.md update
+
+### Acceptance Criteria
+- Documentation explains the report command
+
+### Scope
+- docs/report.md
+
+### Verification Commands
+- npm run typecheck
+- npm test
+
+### Operator Inspection After Run
+- circe handoffs show --work-key <key> --latest
+- circe admin attention --json
+`,
+  }), { target: "circe" });
+
+  assert.equal(report.status.value, "actionable");
+  assert.equal(report.findings.some((f) => f.code === "circe_operator_command_in_worker_gate"), false);
+  assert.deepEqual(report.normalizedPhases[0].verificationCommands, ["npm run typecheck", "npm test"]);
+});
+
+// --- 33. Generic target is unaffected by Circe-specific cockpit placement ---
+test("generic target: Circe cockpit placement rule is not applied", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Implement report docs",
+    body: `Objective: Modify source by documenting report commands.
+
+### Deliverables
+- docs/report.md update
+
+### Acceptance Criteria
+- Documentation explains the report command
+
+### Scope
+- docs/report.md
+
+### Verification Commands
+- npm run typecheck
+- circe handoffs show --work-key <key> --latest
+`,
+  }), { target: "generic" });
+
+  assert.equal(report.status.value, "actionable");
+  assert.equal(report.findings.some((f) => f.code === "circe_operator_command_in_worker_gate"), false);
+});
+
+// --- 34. Valid repo-local commands remain accepted for Circe target ---
+test("circe target: repo-local verification commands remain accepted", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Implement generated instruction docs",
+    body: `Objective: Modify source by updating generated instruction docs.
+
+### Deliverables
+- config.project/references/circe-project.md update
+
+### Acceptance Criteria
+- Generated instructions stay current
+
+### Scope
+- config.project/references/circe-project.md
+
+### Verification Commands
+- npm run typecheck
+- npm run agents:generate
+- npm test
+`,
+  }), { target: "circe" });
+
+  assert.equal(report.status.value, "actionable");
+  assert.deepEqual(report.normalizedPhases[0].verificationCommands, ["npm run typecheck", "npm run agents:generate", "npm test"]);
 });

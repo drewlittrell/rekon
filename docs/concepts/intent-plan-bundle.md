@@ -110,6 +110,15 @@ VerificationPlan and records a handoff warning. `implementerProfile` is omitted 
 default because Rekon does not know the operator's Circe workflow profiles. The
 projection files are derived files, **not** registered canonical artifacts.
 
+Before preparing a Circe-target plan, run plan review with `--target circe`.
+Worker-facing `Verification Commands`, `Required Checks`, and `Evidence Gate`
+sections should contain repo-local executable checks (`npm run typecheck`,
+`npm run agents:generate`, `npm test`). Circe cockpit commands such as
+`circe handoffs show`, `circe phase report`, and `circe admin attention` are
+operator inspection commands; put them under `Operator Inspection After Run`.
+Rekon reports `circe_operator_command_in_worker_gate` when a Circe-target plan
+places those operator commands in worker-facing gates.
+
 Operators import a bundle into Circe by pointing Circe at the projection:
 
 ```sh

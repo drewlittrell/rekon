@@ -98,6 +98,14 @@ Circe cockpit/admin/report commands, such as `circe handoffs show`,
 outside actor execution. If a plan asks a worker to run them as implementation
 verification, the worker should report a plan-quality concern.
 
+When reviewing a Circe-target plan, use `rekon intent plan review --target circe`.
+If a worker-facing section such as `Verification Commands`, `Required Checks`, or
+`Evidence Gate` contains one of those cockpit commands, Rekon reports
+`circe_operator_command_in_worker_gate` and asks the operator to move it to an
+`Operator Inspection After Run` section. Keep worker verification commands
+repo-local, for example `npm run typecheck`, `npm run agents:generate`, or
+`npm test`.
+
 This guidance is target-specific. Generic Rekon bundles remain Circe-neutral and
 do not include Circe cockpit commands.
 

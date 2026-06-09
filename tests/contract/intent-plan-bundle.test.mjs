@@ -532,6 +532,8 @@ test("circe: actor contracts include the operator command boundary", () => {
     assert.match(contract, /Do not run Circe cockpit\/report\/admin commands from inside the worker phase\./);
     assert.match(contract, /circe handoffs show/);
     assert.match(contract, /circe phase report/);
+    assert.match(contract, /Operator Inspection After Run/);
+    assert.match(contract, /npm run agents:generate/);
     assert.match(contract, /report that as a plan-quality concern/);
   }
 });

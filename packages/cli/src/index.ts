@@ -5481,7 +5481,7 @@ export async function main(argv: string[]): Promise<void> {
 
   if (command === "intent" && subcommand === "plan" && positional === "review") {
     // `rekon intent plan review --plan <path> [--goal <text>] [--kind <kind>]
-    // [--semantic off|auto|required] [--root <path>] [--json]` — Intent Plan
+    // [--target generic|circe] [--semantic off|auto|required] [--root <path>] [--json]` — Intent Plan
     // Actionability / Compiler (slice 129).
     //
     // Reads a raw / semi-structured plan file, normalizes it into executable phase
@@ -5501,6 +5501,11 @@ export async function main(argv: string[]): Promise<void> {
     if (semanticFlag !== "off" && semanticFlag !== "auto" && semanticFlag !== "required") {
       throw new Error("rekon intent plan review --semantic must be one of off, auto, required.");
     }
+    const targetFlag = typeof parsed.flags.target === "string" ? parsed.flags.target.trim() : "";
+    if (targetFlag.length > 0 && targetFlag !== "generic" && targetFlag !== "circe") {
+      throw new Error("rekon intent plan review --target must be generic or circe.");
+    }
+    const reviewTarget: "generic" | "circe" = targetFlag === "circe" ? "circe" : "generic";
     const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : undefined;
     const kind = typeof parsed.flags.kind === "string" ? parsed.flags.kind : undefined;
 
@@ -5574,6 +5579,7 @@ export async function main(argv: string[]): Promise<void> {
       planSha256,
       goal,
       kind,
+      target: reviewTarget,
       root,
       semanticMode: semanticFlag,
       ...(planSemanticAdapter ? { semanticNormalization: planSemanticAdapter } : {}),
@@ -5612,6 +5618,7 @@ export async function main(argv: string[]): Promise<void> {
               : {}),
             warnings: report.normalizationTrace.warnings,
           },
+          target: reviewTarget,
           ...(semanticSelection ? { semanticContext: summarizeSemanticFileContext(semanticSelection) } : {}),
           ...(taskContextSelection ? { taskContext: summarizeTaskContext(taskContextSelection) } : {}),
           nextAction,
@@ -5622,6 +5629,7 @@ export async function main(argv: string[]): Promise<void> {
       const lines: string[] = [];
       lines.push("Intent plan review", "");
       lines.push(`Status: ${report.status.value}`);
+      lines.push(`Target: ${reviewTarget}`);
       lines.push(`Findings: ${report.summary.findings}`);
       lines.push(`Questions: ${report.summary.questions}`);
       if (semanticSelection) {
@@ -13619,7 +13627,7 @@ function usage(): string {
     "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
-    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...] [--root <path>] [--json]",
+    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--target generic|circe] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...] [--root <path>] [--json]",
     "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
     "rekon semantic file understand --path <file> [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]",
     "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...]",

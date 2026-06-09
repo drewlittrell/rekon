@@ -17,6 +17,10 @@
 // - docs/concepts/intent-verification-plan-handoff.md
 
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  buildCirceOperatorCommandPlacement,
+  findCirceOperatorCockpitCommand,
+} from "./circe-operator-command-boundary.js";
 
 /** Stable header `artifactId` prefix for a generated VerificationPlan. */
 export const INTENT_VERIFICATION_PLAN_ARTIFACT_ID_PREFIX = "verification-plan-intent-handoff-";
@@ -310,7 +314,16 @@ export function buildIntentVerificationPlanHandoff(
   for (const mapping of mappings) {
     if (mapping.safety !== "rejected") continue;
     if (mapping.command) {
-      push(`unsafe-command:${mapping.requirementId}`, "unsafe-command", `Verification requirement ${mapping.requirementId} has an unsafe command and cannot be planned.`, planRefs);
+      const circeOperatorCommand = findCirceOperatorCockpitCommand(mapping.command);
+      const placement = circeOperatorCommand ? buildCirceOperatorCommandPlacement(circeOperatorCommand) : null;
+      push(
+        `unsafe-command:${mapping.requirementId}`,
+        "unsafe-command",
+        placement
+          ? `Verification requirement ${mapping.requirementId} has a Circe operator cockpit command in a worker verification gate: ${placement.message} ${placement.suggestedFix}`
+          : `Verification requirement ${mapping.requirementId} has an unsafe command and cannot be planned.`,
+        planRefs,
+      );
     } else {
       push(`ambiguous-requirement:${mapping.requirementId}`, "ambiguous-requirement", `Verification requirement ${mapping.requirementId} is ambiguous (no command and no reason).`, planRefs);
     }

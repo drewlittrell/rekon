@@ -39,6 +39,10 @@ import {
 } from "@rekon/kernel-repo-model";
 import type { SemanticFileContextSelection } from "./semantic-file-context.js";
 import type { TaskContextSelection } from "./task-context.js";
+import {
+  buildCirceOperatorCommandPlacement,
+  findCirceOperatorCockpitCommand,
+} from "./circe-operator-command-boundary.js";
 
 export const INTENT_PLAN_ACTIONABILITY_REPORT_ARTIFACT_ID_PREFIX = "intent-plan-actionability-report-";
 
@@ -68,6 +72,7 @@ export type BuildIntentPlanActionabilityReportInput = {
   planSha256?: string;
   goal?: string;
   kind?: string;
+  target?: "generic" | "circe";
   root?: string;
   semanticNormalization?: IntentPlanSemanticNormalizationAdapter;
   semanticMode?: IntentPlanSemanticMode;
@@ -120,6 +125,7 @@ type FieldKey =
   | "touched-paths"
   | "expected-changed-files"
   | "verification"
+  | "operator-inspection"
   | "evidence"
   | "constraints"
   | "non-goals";
@@ -131,8 +137,9 @@ function classifyFieldHeading(text: string): FieldKey | null {
   if (/^(acceptance criteria|acceptance|done when|success criteria|definition of done)$/.test(t)) return "acceptance-criteria";
   if (/^(expected changed files?|changed files should include|expected source changes?|source changes?)$/.test(t)) return "expected-changed-files";
   if (/^(touched paths?|scope|in scope|files?|paths?|implementation scope)$/.test(t)) return "touched-paths";
-  if (/^(verification|verification commands?|verify|how to verify|tests?)$/.test(t)) return "verification";
-  if (/^(evidence|evidence artifacts?|artifacts?)$/.test(t)) return "evidence";
+  if (/^(verification|verification commands?|verify|how to verify|tests?|required checks?)$/.test(t)) return "verification";
+  if (/^(operator inspection after run|operator inspection|operator review after run|cockpit inspection|post-run operator checklist)$/.test(t)) return "operator-inspection";
+  if (/^(evidence|evidence gates?|evidence artifacts?|artifacts?)$/.test(t)) return "evidence";
   if (/^(constraints?|guardrails?)$/.test(t)) return "constraints";
   if (/^(non-?goals?)$/.test(t)) return "non-goals";
   return null;
@@ -472,6 +479,8 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
             case "verification":
               verificationCommands.push(inlineField.value);
               break;
+            case "operator-inspection":
+              break;
             case "evidence":
               evidenceArtifacts.push(inlineField.value);
               break;
@@ -507,6 +516,8 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
         break;
       case "verification":
         if (bulletMatch) verificationCommands.push(content);
+        break;
+      case "operator-inspection":
         break;
       case "evidence":
         if (bulletMatch) evidenceArtifacts.push(content);
@@ -783,6 +794,45 @@ function evaluatePhase(phase: IntentPlanPhaseDraft, indexBase: number): PhaseEva
   return { phase: evaluatedPhase, findings, questions, evidenceGate };
 }
 
+function addCirceOperatorCommandFindings(
+  phase: IntentPlanPhaseDraft,
+  findings: IntentPlanActionabilityFinding[],
+  questions: IntentPlanElicitationQuestion[],
+): void {
+  const workerGateItems = [
+    ...phase.verificationCommands.map((value) => ({ value, section: "Verification Commands" })),
+    ...phase.evidenceArtifacts.map((value) => ({ value, section: "Evidence Gate" })),
+  ];
+  const seen = new Set<string>();
+  for (const item of workerGateItems) {
+    const command = findCirceOperatorCockpitCommand(item.value);
+    if (!command || seen.has(command)) continue;
+    seen.add(command);
+    const placement = buildCirceOperatorCommandPlacement(command);
+    const safeIdCommand = command.replace(/[^a-z0-9-]/gi, "-").replace(/-+/g, "-").toLowerCase();
+    findings.push({
+      id: `finding-${phase.id}-circe-operator-command-${safeIdCommand}`,
+      severity: "critical",
+      requirement: "verification-evidence",
+      code: "circe_operator_command_in_worker_gate",
+      phaseId: phase.id,
+      message: `${placement.message} It appears in ${item.section}.`,
+      sourceEvidence: phase.sourceEvidence.map((e) => e.excerpt),
+      suggestedFix: placement.suggestedFix,
+    });
+    questions.push({
+      id: `question-${phase.id}-circe-operator-command-${safeIdCommand}`,
+      phaseId: phase.id,
+      requirement: "verification-evidence",
+      question:
+        `Move "${command}" out of worker-facing ${item.section}. Which repo-local command should verify phase "${phase.title}", and which Operator Inspection After Run section should contain the Circe cockpit command?`,
+      answerShape: "command-or-artifact",
+      whyAsked: "Circe cockpit commands inspect orchestration state after the run; worker verification commands must be executable repo-local checks.",
+      priority: "critical",
+    });
+  }
+}
+
 function buildRevisionPrompt(
   planPath: string | undefined,
   goal: string | undefined,
@@ -990,13 +1040,19 @@ type IntentPlanEvaluatedBody = {
 // answered (merge-back) path call this so they cannot drift apart.
 function evaluatePlanPhases(
   phases: IntentPlanPhaseDraft[],
-  ctx: { planPath?: string; goal?: string; semanticQuality?: SemanticQualityContext },
+  ctx: { planPath?: string; goal?: string; target?: "generic" | "circe"; semanticQuality?: SemanticQualityContext },
 ): IntentPlanEvaluatedBody {
   const evaluations = phases.map((phase, i) => evaluatePhase(phase, i));
   const evaluatedPhases = evaluations.map((e) => e.phase);
   const findings = evaluations.flatMap((e) => e.findings);
   const questions = evaluations.flatMap((e) => e.questions);
   const evidenceGates = evaluations.map((e) => e.evidenceGate);
+
+  if (ctx.target === "circe") {
+    for (const phase of evaluatedPhases) {
+      addCirceOperatorCommandFindings(phase, findings, questions);
+    }
+  }
 
   // Semantic quality guards (slice 142): re-check provider output against the
   // source BEFORE status is derived, so unsupported paths/commands and dropped
@@ -1110,7 +1166,12 @@ export async function buildIntentPlanActionabilityReport(
         }
       : undefined;
   const { evaluatedPhases, findings, questions, evidenceGates, status, reason, revisionPrompt, summary, semanticWarnings } =
-    evaluatePlanPhases(phases, { planPath: input.planPath, goal: input.goal, ...(semanticQuality ? { semanticQuality } : {}) });
+    evaluatePlanPhases(phases, {
+      planPath: input.planPath,
+      goal: input.goal,
+      ...(input.target ? { target: input.target } : {}),
+      ...(semanticQuality ? { semanticQuality } : {}),
+    });
   for (const w of semanticWarnings) warnings.push(w);
 
   const generatedAt = input.generatedAt ?? new Date().toISOString();

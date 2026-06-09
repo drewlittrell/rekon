@@ -265,7 +265,9 @@ const CIRCE_OPERATOR_COMMAND_BOUNDARY = [
   "",
   "Commands such as `circe handoffs show`, `circe phase report`, `circe handoffs trace`, `circe admin attention`, `circe workers status`, and `circe actors pipeline` are operator inspection commands.",
   "",
-  "They belong after or outside actor execution. If a plan asks you to run them as implementation verification, report that as a plan-quality concern.",
+  "They belong after or outside actor execution, preferably under `Operator Inspection After Run`. If a plan asks you to run them as implementation verification, report that as a plan-quality concern.",
+  "",
+  "Worker-facing Verification Commands / Required Checks should stay repo-local, for example `npm run typecheck`, `npm run agents:generate`, or `npm test`.",
 ].join("\n");
 
 const CIRCE_IMPLEMENTER_CONTRACT = [
@@ -1355,7 +1357,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
     "- WorkOrder / VerificationPlan remain authoritative.",
     "- Phase source-change posture is handoff evidence, not approval.",
     "- Actor contracts are role/return-shape guidance, not executed workers.",
-    "- Operator Circe commands are operator-only inspection, not worker verification.",
+    "- Operator Circe commands are operator-only inspection, not worker verification; put them under `Operator Inspection After Run`, not `Verification Commands` / `Required Checks` / `Evidence Gate`.",
     "",
     // Optional task-context section: only rendered when a TaskContextReport is
     // attached. Makes the `context/` sidecars discoverable from the human-facing
