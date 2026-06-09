@@ -1827,7 +1827,13 @@ export async function runObserve(
   const activeProviders = registry.evidenceProviders.filter((provider) => provider.supports(providerContext));
 
   for (const provider of activeProviders) {
-    facts.push(...await provider.extract(providerContext));
+    // Append one-by-one: spreading the whole provider result
+    // (`facts.push(...extracted)`) overflows the call stack once a repo
+    // emits more than ~10^5 facts (every spread element becomes a
+    // stack-allocated argument).
+    for (const fact of await provider.extract(providerContext)) {
+      facts.push(fact);
+    }
   }
 
   const header = createRuntimeArtifactHeader({

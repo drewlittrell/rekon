@@ -389,3 +389,74 @@ function testHeader(artifactType, artifactId, inputRefs) {
     },
   };
 }
+
+test("runObserve completes when a provider emits ~200k facts (spread-overflow regression)", async () => {
+  // Regression for the WO-2 stack overflow: `facts.push(...await
+  // provider.extract(...))` in runObserve threw "Maximum call stack size
+  // exceeded" once a repo emitted more than ~10^5 evidence facts (every
+  // spread element becomes a stack-allocated argument; mentor-family-mvp
+  // emitted 107,158). The fixed code appends facts one-by-one, so this
+  // synthetic 200k-fact provider must complete and lose nothing.
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-scale-"));
+
+  try {
+    const FACT_COUNT = 200_000;
+    const capability = defineCapability({
+      manifest: {
+        id: "@rekon/capability-scale-test",
+        name: "Scale Test",
+        version: "0.1.0",
+        roles: ["evidence-provider"],
+        consumes: ["SourceFile"],
+        produces: ["EvidenceGraph"],
+        permissions: ["read:source", "write:artifacts"],
+        compatibility: { rekon: "^0.1.0" },
+      },
+      register(registry) {
+        registry.evidenceProvider({
+          id: "scale-test.provider",
+          kind: "repo",
+          supports() {
+            return true;
+          },
+          async extract() {
+            const facts = [];
+
+            for (let index = 0; index < FACT_COUNT; index += 1) {
+              facts.push({
+                id: `scale-fact-${index}`,
+                kind: "file",
+                subject: `src/file-${index}.ts`,
+                value: { path: `src/file-${index}.ts` },
+                confidence: 1,
+                provenance: {
+                  source: "repo",
+                  pack: "@rekon/capability-scale-test",
+                  file: `src/file-${index}.ts`,
+                  extractorVersion: "0.1.0",
+                },
+              });
+            }
+
+            return facts;
+          },
+        });
+      },
+    });
+
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "scale-fixture",
+      capabilities: [capability],
+      logger: silentLogger,
+    });
+    const evidenceRef = await runtime.runObserve();
+    const evidence = await runtime.artifacts.read(evidenceRef);
+
+    assert.equal(evidence.facts.length, FACT_COUNT);
+    assert.equal(evidence.facts[0].id, "scale-fact-0");
+    assert.equal(evidence.facts.at(-1).id, `scale-fact-${FACT_COUNT - 1}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

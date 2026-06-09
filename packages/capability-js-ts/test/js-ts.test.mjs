@@ -108,3 +108,42 @@ test("JS/TS provider skips runtime dirs and symlink cycles during source walk", 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("extract completes on a single generated file emitting >100k facts (per-file spread-overflow regression)", async () => {
+  // Same WO-2 failure class as the runtime site, one layer down: the
+  // per-file `facts.push(...astFacts)` spread overflows when one generated
+  // module alone emits more facts than the V8 argument ceiling (~10^5).
+  // 60k exports produce >120k facts (export + symbol per declaration), which
+  // crashed the pre-fix spread; the fixed appendFacts path must complete.
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-scale-"));
+
+  try {
+    const EXPORTS = 60_000;
+    const lines = [];
+
+    for (let index = 0; index < EXPORTS; index += 1) {
+      lines.push(`export const generatedValue${index} = ${index};`);
+    }
+
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "huge.ts"), `${lines.join("\n")}\n`, "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+
+    assert.ok(facts.length > 100_000, `expected >100k facts from the generated module, got ${facts.length}`);
+    assert.ok(facts.some((fact) => fact.kind === "file" && fact.subject === "src/huge.ts"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("extract is deterministic run-to-run on the simple-js-ts example fixture", async () => {
+  // Determinism guard for the WO-2 fix: appending facts one-by-one must not
+  // change fact content or order relative to a second identical run.
+  const exampleRoot = join(import.meta.dirname, "../../../examples/simple-js-ts");
+  const first = await jsTsProvider.extract({ repoRoot: exampleRoot, includeTests: false });
+  const second = await jsTsProvider.extract({ repoRoot: exampleRoot, includeTests: false });
+
+  assert.ok(first.length > 0, "example fixture should produce facts");
+  assert.deepEqual(second, first);
+});

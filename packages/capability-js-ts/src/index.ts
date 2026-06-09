@@ -82,15 +82,15 @@ export const jsTsProvider: EvidenceProvider = {
         }
 
         if (astFacts) {
-          facts.push(...astFacts);
+          appendFacts(facts, astFacts);
         } else {
           // Regex fallback. Mark every emitted fact with
           // extractionMethod: "regex-fallback" so downstream
           // consumers can distinguish AST evidence from
           // fallback evidence.
-          facts.push(...extractImportFacts(path, content, language));
-          facts.push(...extractExportFacts(path, content, language));
-          facts.push(...extractSymbolFacts(path, content, language));
+          appendFacts(facts, extractImportFacts(path, content, language));
+          appendFacts(facts, extractExportFacts(path, content, language));
+          appendFacts(facts, extractSymbolFacts(path, content, language));
         }
 
         facts.push(createOwnershipHintFact(path));
@@ -212,6 +212,18 @@ async function walk(
     } else if (stats.isFile() && isSourcePath(relativePath)) {
       files.push(relativePath);
     }
+  }
+}
+
+/**
+ * Append one-by-one instead of `target.push(...items)`: a single file can
+ * emit enough facts (e.g. a generated module with tens of thousands of
+ * exports) that spreading the per-file array overflows the call stack —
+ * every spread element becomes a stack-allocated argument.
+ */
+function appendFacts(target: EvidenceFact[], items: EvidenceFact[]): void {
+  for (const item of items) {
+    target.push(item);
   }
 }
 
