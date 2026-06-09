@@ -4,6 +4,23 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Safety-reviewed the **Intent Bundle Handoff Workflow Guide Safety Review** — one-hundred-ninety-ninth slice on the
+  embeddings track (base `8bd0144`). Strategy / safety-review batch (docs + tests only: no runtime, bundle,
+  reading-order, projection, Circe-schema, actor-contract, source-change-posture, gate, or guide-content change beyond
+  additive cross-ref pointers; no CLI smoke). Reviews the slice-198 workflow guide (two reader guides +
+  implementation note) and declares it safe/stable before recommending it as the default broader operator/agent handoff
+  practice. Findings: the workflow guide introduces no runtime behavior changes; intent bundle handoff reading order is
+  guidance, not automation; broader workflows should recommend the handoff reading order, not require it as proof; the
+  human/agent workflow guidance, authority model, safe verification-command projection guidance, and actor-contract /
+  Operator-Command-Boundary guidance all hold; the guides never tell a human or agent to execute commands or write
+  source from the guide. TaskContextReport sidecars stay optional context, not proof; WorkOrder/VerificationPlan +
+  agent/verification.json + agent/source-refs.json stay authoritative; phase source-change posture stays handoff
+  evidence, not approval; safe executable verification-command projection is handoff data, not execution
+  (circe/phase-plan.json may describe verification commands but Rekon does not execute them; circe/rekon-proof.json
+  keeps commandsExecuted:false); actor contracts stay role/return-shape guidance; the Operator Command Boundary stays
+  operator-only; intent:go deferred. New `tests/docs/intent-bundle-handoff-workflow-guide-safety-review.test.mjs` (31
+  assertions) + review packet. Recommended next: Intent Bundle Handoff Workflow Guide Dogfood. See
+  [`intent-bundle-handoff-workflow-guide-safety-review.md`](docs/strategy/intent-bundle-handoff-workflow-guide-safety-review.md).
 - Shipped the **Intent Bundle Handoff Workflow Guide** — one-hundred-ninety-eighth slice on the
   embeddings track (base `7cbeb5c`). Product documentation / workflow-surface batch (docs + tests
   only: no runtime, bundle, reading-order, projection, Circe-schema, actor-contract,
