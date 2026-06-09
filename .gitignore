@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .rekon/
+tests/bench/output/
 *.tsbuildinfo
 .DS_Store
 .env

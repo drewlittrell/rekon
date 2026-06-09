@@ -1,0 +1,10 @@
+{
+  "repos": [
+    {
+      "id": "parity-fixture",
+      "root": "./repos/parity-fixture",
+      "classicOutput": "./classic/parity-fixture",
+      "classicFormat": "classic-v1"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "tech_debt": { "status": "unported" },
+  "architecture": {
+    "status": "unported",
+    "note": "NOT mapped to architecture.noUnknownSystemForSourceFile — classic's architecture rule is the evaluator-catalog architecture family, not the ownership-hint check. Mapping them would inflate recall without preserving the guarantee."
+  },
+  "lint": { "status": "unported" },
+  "naming_violation": { "status": "unported" },
+  "capability_overlap": { "status": "unported" },
+  "dead_code": { "status": "unported" },
+  "anti_pattern": { "status": "unported" },
+  "semantic_similarity": { "status": "unported" },
+  "canonical_bypass": { "status": "unported" },
+  "canonical_gap": { "status": "unported" },
+  "ownership_violation": { "status": "unported" },
+  "system_anomaly": {
+    "status": "unported",
+    "note": "Closest Rekon neighbor is architecture.noUnknownSystemForSourceFile, but classic's system_anomaly covers misfit-within-system, not unknown ownership. Left unported until a port slice proves identity."
+  },
+  "duplication": { "status": "unported" },
+  "stub": {
+    "status": "unported",
+    "note": "Rekon's classic-inspired stub handling (details.stubName) is a finding FILTER, not an emitter. No emitter port exists yet."
+  },
+  "unification_opportunity": { "status": "unported" },
+  "pattern_violation": { "status": "unported" },
+  "canonical_misplacement": { "status": "unported" }
+}

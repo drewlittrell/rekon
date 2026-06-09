@@ -1,0 +1,90 @@
+# classic-parity-bench (Phase 0)
+
+A local harness that runs the Rekon lifecycle against repositories with
+`codebase-intel-classic` scan history, normalizes both systems' findings into a
+common shape, and emits a bench report (JSON + Markdown) classifying every
+classic finding as `matched`, `missed-gap`, `missed-intentional` (with a
+citation), or flagging Rekon findings classic never produced as `new`.
+
+The headline metric is **weighted recall**: the share of classic's historically
+surfaced findings (weighted by how often each rule fired across the corpus)
+that Rekon either reproduces or intentionally diverges from with a citable
+justification. The bench is the instrument; the baseline number is expected to
+be low. Every Phase 1 emission-gap slice measures itself against this bench.
+
+## Run
+
+```bash
+REKON_PARITY_CORPUS=/path/to/corpus node tests/bench/classic-parity-bench.mjs
+# or
+node tests/bench/classic-parity-bench.mjs --corpus /path/to/corpus \
+  [--rule-map tests/bench/rule-map.json] [--output tests/bench/output] \
+  [--repo <id>] [--skip-refresh]
+```
+
+Without `REKON_PARITY_CORPUS` (or `--corpus`) the bench skips cleanly with
+exit 0 — the same gating pattern as the live dogfood harnesses. Reports land
+in `tests/bench/output/` (gitignored).
+
+## Corpus manifest
+
+The corpus lives **outside this repository** — classic scan outputs and target
+repos contain private project data and must never be committed here. The
+corpus root carries a hand-authored `corpus.json`:
+
+```json
+{
+  "repos": [
+    {
+      "id": "repo-slug",
+      "root": "./repos/repo-slug",
+      "classicOutput": "./classic/repo-slug",
+      "classicFormat": "classic-v1"
+    }
+  ]
+}
+```
+
+`root` points at a **copy** of the target repo (the bench writes standard
+`.rekon/` output there during `rekon refresh`; it mutates nothing else).
+`classicOutput` is a directory containing classic's `issues.json` for that
+repo's baseline scan (classic writes it to
+`<repo>/.codebase-intel/reports/issues.json`; copy it into the corpus).
+`classic-v1` is the only supported format in bench v1.
+
+## Rule map
+
+`tests/bench/rule-map.json` is the explicit classic-ruleId → disposition table:
+
+```json
+{ "classic.rule.id": { "status": "ported", "rekonRuleId": "..." } }
+{ "classic.rule.id": { "status": "unported" } }
+{ "classic.rule.id": { "status": "rejected", "citation": "docs/strategy/..." } }
+```
+
+Every classic rule observed in the corpus must have a row; the bench fails
+loudly on unmapped rules rather than silently scoring them. `unported` rows
+sorted by fireCount are the Phase 1 porting queue.
+
+## Anti-gaming rules
+
+The recall number may not be improved by:
+
+1. reclassifying gaps as intentional without a citable
+   `FindingFilterReport` suppression or a named decision-doc citation;
+2. editing `rule-map.json` dispositions without a linked decision;
+3. adding filter policies whose only effect is bench score movement.
+
+The report renders every intentional classification with its citation so the
+operator can audit the scoreboard, not just read it.
+
+## Boundaries
+
+- Bench report, not a canonical artifact (no kernel schema, no freshness rule,
+  no capability registration). Local-only; no CI integration in v1.
+- Deterministic key matching only — no semantic / fuzzy / embedding matching,
+  consistent with the issue-governance ADR posture.
+- Classic outputs are data, never imports (AGENTS.md rule 4 / ADR 0004).
+- The bench reads Rekon artifacts; it never writes `FindingStatusLedger`,
+  filter policies, or config in corpus repos.
+- v1 measures; it does not gate (no recall target assertion in tests).

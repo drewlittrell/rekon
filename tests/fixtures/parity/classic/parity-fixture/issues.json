@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-06-01T00:00:00.000Z",
+  "summary": { "total": 3 },
+  "issues": [
+    {
+      "id": "fixture-issue-1",
+      "type": "fixture.dist_import",
+      "severity": "medium",
+      "system": "core",
+      "files": ["src/uses-dist.ts"],
+      "description": "Source file imports from a dist output.",
+      "details": {},
+      "lastSeen": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "id": "fixture-issue-2",
+      "type": "fixture.unported_rule",
+      "severity": "low",
+      "system": "core",
+      "files": ["src/helper.ts"],
+      "description": "Fixture rule with no Rekon port.",
+      "details": {},
+      "lastSeen": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "id": "fixture-issue-3",
+      "type": "fixture.rejected_rule",
+      "severity": "low",
+      "system": "core",
+      "files": ["src/index.ts"],
+      "description": "Fixture rule explicitly rejected by a cited decision.",
+      "details": {},
+      "lastSeen": "2026-06-01T00:00:00.000Z"
+    }
+  ]
+}
