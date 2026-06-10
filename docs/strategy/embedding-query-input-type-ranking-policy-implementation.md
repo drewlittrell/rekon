@@ -1,5 +1,10 @@
 # Embedding Query Input-Type / Ranking Policy Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **First consumer implemented (slice 166):** the ranking policy now has its first
 > product consumer — `TaskContextReport` / `rekon context task`. See
 > [TaskContextReport v1](./task-context-report-v1.md).

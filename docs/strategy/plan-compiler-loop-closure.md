@@ -1,5 +1,10 @@
 # Plan Compiler Loop Closure / Fresh Repo End-to-End Proof
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Re-dogfooded end-to-end (slice 140):** the full operator path (scan → review
 > → answer → prepare → approve → status → handoff → bundle) was re-run on a fresh
 > repo with semantic mode, and the bundle imported into a local Circe checkout —

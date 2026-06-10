@@ -1,5 +1,10 @@
 # Classic LLM Semantic Parsing Parity Audit / Completion Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: **Decided** (slice 143). Base: `bdf5643`. Track A (finish LLM-backed semantic
 work) before Track B (embeddings).
 

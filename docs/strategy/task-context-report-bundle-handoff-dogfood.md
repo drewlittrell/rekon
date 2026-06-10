@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Handoff Dogfood
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo records a dogfood of the promoted TaskContextReport bundle handoff guidance
 (slices 183–189) from both perspectives — a human operator reading a generated intent
 bundle, and an agent consuming it — re-run against the current bundle producer after

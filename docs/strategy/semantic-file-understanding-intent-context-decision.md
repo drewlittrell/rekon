@@ -1,5 +1,10 @@
 # Semantic File Understanding Intent Context Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: **Decided** (slice 149). Base: `751757a`. Track A. Decision-only batch; no
 runtime behavior changes, no consumption implemented here.
 

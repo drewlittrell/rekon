@@ -1,5 +1,10 @@
 # TaskContextReport Workflow Guide / Agent Instructions
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Slice 180 · product documentation / workflow-surface batch.** Base `3bb6375`.
 > Implements the docs/product-surface step selected by the slice-179
 > [TaskContextReport Workflow Integration

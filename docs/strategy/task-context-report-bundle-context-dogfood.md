@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Context Dogfood
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo records a dogfood of the optional `TaskContextReport` bundle-context
 sidecars (shipped in slice 183, safety-reviewed in slice 184) on a realistic
 operator/agent handoff path. The dogfood ran the full public operator sequence

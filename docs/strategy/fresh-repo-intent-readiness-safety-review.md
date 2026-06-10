@@ -1,5 +1,10 @@
 # Fresh Repo Intent Readiness Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 ## Decision Summary
 
 The Fresh Repo Intent Readiness / Proof Context Fix (shipped at `def20b8`) is reviewed

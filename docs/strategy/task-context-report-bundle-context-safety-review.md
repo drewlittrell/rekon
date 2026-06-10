@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Context Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo reviews the shipped [TaskContextReport Bundle Context
 Implementation](task-context-report-bundle-context-implementation.md) (slice 183,
 `44add36`) end-to-end and declares the optional bundle-context surface safe and

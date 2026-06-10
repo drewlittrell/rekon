@@ -1,5 +1,10 @@
 # Capability Ontology Suggestion Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** v1 review shipped.
 **Audience:** capability authors, operators, contributors planning the next step on the capability-ontology track.
 **Scope:** end-to-end review of the `normalize → review ledger → suggestion report → publication surfacing` loop. Decides whether the loop is safe and stable as a preview-only operator-control surface and whether the next step should add an operator-approved config apply command or keep manual editing of `.rekon/capability-ontology.json`.

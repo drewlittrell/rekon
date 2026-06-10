@@ -1,5 +1,10 @@
 # PR Comment Publisher API Decision Gate
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** Step 7c shipped. Step 7d (workflow /
 validator profile) shipped. Step 7e
 ([PR Comment API Writer Go/No-Go Review](pr-comment-api-writer-go-no-go-review.md))

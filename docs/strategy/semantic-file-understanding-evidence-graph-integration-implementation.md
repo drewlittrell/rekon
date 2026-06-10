@@ -1,5 +1,10 @@
 # Semantic File Understanding → Evidence Graph Integration Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: shipped (slice 156). Base `cb90414`. Product-capability batch (source
 changes). Implements the
 [Semantic File Understanding → Evidence Graph Integration Decision](./semantic-file-understanding-evidence-graph-integration-decision.md)

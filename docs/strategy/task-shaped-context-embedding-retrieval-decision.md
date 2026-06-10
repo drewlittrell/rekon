@@ -1,5 +1,10 @@
 # Task-Shaped Context / Embedding Retrieval Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Dogfooded (slice 168):** task-shaped context was dogfooded on explicit-path and
 > retrieval scenarios — the explicit-path + graph baseline is useful and reliable,
 > the lexical mock retrieval path is low-signal (a real embedding provider is

@@ -1,5 +1,10 @@
 # Classic Intent Plan Compiler / Elicitation Parity Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Status: Decided (slice 128). Decision-only batch — no implementation, no
 > runtime change, no package bump, no npm publish. Follows the
 > [Intent Status Work-Ready Transition Safety Review](./intent-status-work-ready-transition-safety-review.md)

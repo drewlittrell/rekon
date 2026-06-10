@@ -1,5 +1,10 @@
 # Classic To Rekon Translation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This document explains how to translate `codebase-intel-classic` behavior
 into Rekon-native form. It is the practical companion to
 [classic-behavior-distillation.md](classic-behavior-distillation.md) and

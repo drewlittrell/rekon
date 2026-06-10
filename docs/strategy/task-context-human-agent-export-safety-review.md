@@ -1,5 +1,10 @@
 # TaskContextReport Human/Agent Export Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Slice 178 · strategy / safety-review batch.** Base `b0e80b9`. Reviews the
 > slice-177 TaskContextReport human/agent context export end-to-end and declares
 > it safe/stable. Docs-only — no runtime behavior change, no source change, no new

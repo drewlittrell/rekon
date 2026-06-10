@@ -1,5 +1,10 @@
 # CapabilityMap v2 Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** review complete; recommendation recorded.
 **Slice:** `capability-map-v2-safety-review`.
 **Sequence position:** Twenty-ninth slice on the

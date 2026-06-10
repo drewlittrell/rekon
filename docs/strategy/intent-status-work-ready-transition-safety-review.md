@@ -1,5 +1,10 @@
 # Intent Status Work-Ready Transition Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Status: Reviewed safe/stable (slice 127). Reviews the `rekon intent status
 > transition` implementation shipped at `b466eed` (slice 126). Strategy /
 > safety-review batch — no runtime, transition, or package change; no npm publish.

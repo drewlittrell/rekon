@@ -1,5 +1,10 @@
 # Detection Design Evidence Dossier (WO-3, Step 1–2 + drafted Step 4 inputs)
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status: evidence dossier — no design decision is pinned by this document.**
 Every recommendation below is marked `AGENT-DRAFT` and is an input to the
 Step 3 operator adjudication interview, not a conclusion. The pinned

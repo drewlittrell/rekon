@@ -1,5 +1,10 @@
 # Semantic File Understanding Intent Context Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: reviewed — safe/stable (slice 151). Base `de8c048`. Strategy/safety-review
 batch; no runtime behavior changes. Ground-reviews the shipped Semantic File
 Understanding Intent Context integration ([implementation](./semantic-file-understanding-intent-context-implementation.md),

@@ -10,12 +10,9 @@ import test from "node:test";
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const artifactDocPath = join(repoRoot, "docs", "artifacts", "path-freshness-report.md");
 const conceptDocPath = join(repoRoot, "docs", "concepts", "path-freshness.md");
-const watcherMemoPath = join(
-  repoRoot,
-  "docs",
-  "strategy",
-  "watcher-path-freshness-policy-decision.md",
-);
+// The watcher memo assertion was removed by WO-5: the memo is archived
+// (superseded by rekon-system-model.md delta D2) and archived memos need no
+// content guards; the prose-assertion pattern is retired.
 const reviewPacketPath = join(
   repoRoot,
   ".rekon-dev",
@@ -36,12 +33,10 @@ test("PathFreshnessReport artifact doc exists", () => {
 
 // ---------- 2: concept / strategy docs mention PathFreshnessReport ----------
 
-test("concept + watcher memo mention PathFreshnessReport", async () => {
+test("concept doc mentions PathFreshnessReport", async () => {
   assert.ok(existsSync(conceptDocPath), `expected ${conceptDocPath}`);
   const concept = await readFile(conceptDocPath, "utf8");
-  const memo = await readFile(watcherMemoPath, "utf8");
   assert.ok(/PathFreshnessReport/.test(concept), "concept doc must mention PathFreshnessReport");
-  assert.ok(/PathFreshnessReport/.test(memo), "watcher memo must mention PathFreshnessReport");
 });
 
 // ---------- 3: docs say no daemon ----------

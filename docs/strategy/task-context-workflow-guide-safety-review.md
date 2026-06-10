@@ -1,5 +1,10 @@
 # TaskContextReport Workflow Guide Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Slice 181 · strategy / safety-review batch.** Base `7145945`. Reviews the
 > slice-180 TaskContextReport workflow guide and agent instructions end-to-end and
 > declares the docs/product surface safe/stable, before any workflow automation,

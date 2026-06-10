@@ -1,5 +1,10 @@
 # Intent Operator Approval / Proof Acceptance Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Status: Reviewed safe/stable (slice 124). Reviews the `rekon intent approve`
 > implementation shipped at `bf15ead` (slice 123). Strategy / safety-review
 > batch — no runtime, approval, or package change; no npm publish.

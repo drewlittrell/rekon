@@ -1,5 +1,10 @@
 # Plan Actionability Answer / Merge-Back Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: implemented (slice 134). Decision of record:
 [plan-actionability-answer-merge-back-decision.md](./plan-actionability-answer-merge-back-decision.md).
 

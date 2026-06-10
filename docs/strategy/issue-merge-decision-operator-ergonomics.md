@@ -1,5 +1,10 @@
 # Issue Merge Decision Operator Ergonomics
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Combined strategy + implementation memo. Improves the
 > human-in-the-loop merge workflow built on top of
 > [issue merge decision freshness guardrails](issue-merge-decision-freshness-guardrails.md):

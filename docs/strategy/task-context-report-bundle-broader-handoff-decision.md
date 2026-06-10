@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Broader Handoff Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo decides how broader operator/agent handoff workflows should use the
 optional `TaskContextReport` bundle-context sidecars shipped and dogfooded in
 slices 183–186. It is decision-only: it implements no broader handoff workflow

@@ -1,5 +1,10 @@
 # Live Voyage Embedding Dogfood
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **First retrieval consumer decided (slice 165):** task-shaped context is the
 > first consumer of the retrieval this dogfood validated — a future
 > `TaskContextReport` / `rekon context task`, context not proof. See

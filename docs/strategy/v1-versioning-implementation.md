@@ -1,5 +1,10 @@
 # V1 Versioning Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 ## Decision Summary
 
 Per the V1 Release Mechanics / Versioning Decision (staged Option B), this slice executes

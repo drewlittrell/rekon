@@ -1,5 +1,10 @@
 # Detection Design Decisions (WO-3, pinned)
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status: pinned. Operator-ratified 2026-06-10.** This document records the
 Step 3 adjudication answers verbatim, pins a decision for every classic
 detection goal (`port` / `redesign` / `reject` / `defer`), authorizes the

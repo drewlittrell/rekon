@@ -1,5 +1,10 @@
 # PreparedIntentPlan Approval / Proof Model Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 ## Decision Summary
 
 The PreparedIntentPlan v1 Decision (`a7feb33`) specified `PreparedIntentPlan`

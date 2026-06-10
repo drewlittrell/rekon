@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Handoff Guidance Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo records the implementation of the [TaskContextReport Bundle Broader
 Handoff Decision](task-context-report-bundle-broader-handoff-decision.md) (Option B).
 When a `TaskContextReport` is attached to an intent plan bundle, the agent-facing

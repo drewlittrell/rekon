@@ -1,5 +1,10 @@
 # Capability Evidence Graph v1
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** shipped (v1) · **Track:** semantic intelligence ·
 **Decision of record:**
 [capability-evidence-graph-semantic-intelligence-decision.md](./capability-evidence-graph-semantic-intelligence-decision.md)

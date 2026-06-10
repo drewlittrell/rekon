@@ -1,5 +1,10 @@
 # Migration From codebase-intel-classic
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 `codebase-intel-classic` is Rekon's reference implementation, capability
 mine, dogfood target, and migration source. It is not a Rekon dependency.
 

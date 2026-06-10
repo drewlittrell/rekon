@@ -1,5 +1,10 @@
 # Embedding Provider / Index Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Ranking policy decided (slice 163):** the retrieval ranking policy is now
 > explicit — thresholds are policy, not proof; queries use `input_type=query`;
 > retrieval stays proposal/context; and CapabilityEvidenceGraph remains the

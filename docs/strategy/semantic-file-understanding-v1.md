@@ -1,5 +1,10 @@
 # Semantic File Understanding v1
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: **Implemented** (slice 144). Base: `12ae032`. Track A (finish LLM-backed
 semantic parsing) — the first non-embedding semantic-parsing capability.
 

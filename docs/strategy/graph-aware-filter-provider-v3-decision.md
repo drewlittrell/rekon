@@ -1,5 +1,10 @@
 # Graph-Aware Filter Provider v3 Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Decision memo only. No runtime behavior changes ship in
 > this slice. The memo evaluates what (if anything) the
 > graph-aware finding filter provider should port next now

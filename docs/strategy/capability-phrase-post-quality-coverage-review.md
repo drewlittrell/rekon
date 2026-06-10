@@ -1,5 +1,10 @@
 # CapabilityPhraseReport Post-Quality Coverage Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** v3 coverage / dogfood-analysis memo. Strategy /
 docs / tests-only batch. **No runtime change. No
 `CapabilityMap` mutation. No `CapabilityPhraseReport` shape

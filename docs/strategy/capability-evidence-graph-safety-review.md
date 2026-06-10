@@ -1,5 +1,10 @@
 # Capability Evidence Graph Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Embedding contribution safety-reviewed (slice 160):** the
 > `embedding_similarity` evidence source and its graph integration were re-read
 > end-to-end and found **safe/stable** — embedding claims are inference, not

@@ -1,5 +1,10 @@
 # Embedding Provider / Index v1
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Ranking policy implemented (slice 164):** `embeddings query` now uses
 > `input_type=query` (indexing keeps `document`), default top-k 8 / max 20, and
 > labels every result with a score band. See

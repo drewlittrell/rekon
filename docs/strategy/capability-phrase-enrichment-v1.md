@@ -1,5 +1,10 @@
 # CapabilityPhraseReport Phrase Enrichment v1
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** v1 implementation memo. Product capability
 batch. **No `CapabilityMap` mutation. No
 `CapabilityPhraseReport` shape change. No

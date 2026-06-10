@@ -1,5 +1,10 @@
 # Intent Bundle Handoff Reading Order Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo records the implementation of the reading-order policy selected by the
 [TaskContextReport Bundle Handoff Broader Workflow
 Decision](task-context-report-bundle-handoff-broader-workflow-decision.md) (slice 192,

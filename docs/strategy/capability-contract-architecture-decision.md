@@ -1,5 +1,10 @@
 # CapabilityContract Architecture Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** decision recorded.
 **Slice:** `capability-contract-architecture-decision`.
 **Sequence position:** Thirty-second slice on the

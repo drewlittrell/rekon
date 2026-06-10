@@ -1,5 +1,10 @@
 # Real-Repo Dogfood Target: boundary-contracts
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Archetypes covered:** `<small-ts-package>` +
 `<github-workflows-repo>` (documented
 consolidation — boundary-contracts is a small

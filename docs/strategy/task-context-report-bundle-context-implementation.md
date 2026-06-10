@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Context Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo records the first implementation of the [TaskContextReport Bundle
 Context Decision](task-context-report-bundle-context-decision.md) (Option B + E).
 `rekon intent bundle write` can now attach one or more `TaskContextReport` refs to

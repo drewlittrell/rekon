@@ -1,5 +1,10 @@
 # Fresh Repo Intent Handoff / Circe Dogfood Review (Semantic Re-run)
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](./intent-plan-semantic-quality-dogfood.md).
 
 Status: dogfood / review (slice 140). Base: `cf1118f`. Successor to the slice-136

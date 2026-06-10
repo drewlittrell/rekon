@@ -1,5 +1,10 @@
 # Classic Behavior Distillation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This document distills the behavior of `codebase-intel-classic` into a Rekon-
 native form. It is a preservation/refactor planning pass, not a copy/port
 pass.

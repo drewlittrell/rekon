@@ -1,5 +1,10 @@
 # Classic Wins
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 These are the durable principles distilled from `codebase-intel-classic`.
 They are the answer to "what should Rekon preserve, no matter how the
 implementation evolves?"

@@ -1,5 +1,7 @@
 # NorthStar
 
+> **LIVING DOCUMENT.** Maintained as current state; governed by the Documentation authority section in AGENTS.md.
+
 Rekon is an open-source intelligence substrate for codebases: evidence in,
 typed artifacts out, extensible capabilities around a shared repository
 intelligence snapshot.

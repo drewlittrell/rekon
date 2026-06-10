@@ -1,5 +1,10 @@
 # CapabilityPhrase + CapabilityContract Architecture Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** v1 architecture decision. Strategy / docs /
 tests-only batch. **No runtime behavior. No new artifact
 registration. No `CapabilityMap` mutation. No

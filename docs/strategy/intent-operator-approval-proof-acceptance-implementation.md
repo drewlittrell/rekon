@@ -1,5 +1,10 @@
 # Intent Operator Approval / Proof Acceptance Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Status: Implemented (slice 123). Implements the design pinned by the
 > [Intent Operator Approval / Proof Acceptance Decision](./intent-operator-approval-proof-acceptance-decision.md).
 > No package version bump and no npm publish.

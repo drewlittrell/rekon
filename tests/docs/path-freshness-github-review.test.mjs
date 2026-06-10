@@ -10,12 +10,9 @@ import test from "node:test";
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const conceptDocPath = join(repoRoot, "docs", "concepts", "path-freshness.md");
 const artifactDocPath = join(repoRoot, "docs", "artifacts", "path-freshness-report.md");
-const watcherMemoPath = join(
-  repoRoot,
-  "docs",
-  "strategy",
-  "watcher-path-freshness-policy-decision.md",
-);
+// The watcher-memo assertion was removed by WO-5: the memo is archived
+// (superseded by rekon-system-model.md delta D2) and archived memos need no
+// content guards; the prose-assertion pattern is retired.
 const triageMemoPath = join(
   repoRoot,
   "docs",
@@ -67,20 +64,6 @@ test("docs mention PR comment path freshness surfacing", async () => {
       || /(path|working-tree) freshness.{0,160}PR comment/i.test(text)
       || /pr-comment.{0,160}(PathFreshnessReport|path freshness)/i.test(text),
     "expected docs to mention PR comment path freshness surfacing",
-  );
-});
-
-// ---------- 3: conclusion policy ----------
-
-test("docs say stale path freshness does not change Check conclusion in this slice", async () => {
-  const watcher = await flat(watcherMemoPath);
-  const concept = await flat(conceptDocPath);
-  const artifact = await flat(artifactDocPath);
-  const text = [watcher, concept, artifact].join(" ");
-  assert.ok(
-    /stale .{0,80}(path freshness|PathFreshnessReport).{0,160}(does not|must not).{0,40}(change|flip).{0,40}(Check )?conclusion/i.test(text)
-      || /(does not|must not).{0,40}(change|flip).{0,40}(Check )?conclusion.{0,160}path freshness/i.test(text),
-    "expected docs to pin: stale path freshness does NOT change Check conclusion",
   );
 });
 

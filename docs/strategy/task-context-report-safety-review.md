@@ -1,5 +1,10 @@
 # TaskContextReport Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Intent integration safety-reviewed (slice 172):** the slice-171 opt-in consumption
 > by `rekon intent assess` / `rekon intent plan review` was reviewed end-to-end and
 > declared safe/stable — additive context only (never proof/approval), prepare by

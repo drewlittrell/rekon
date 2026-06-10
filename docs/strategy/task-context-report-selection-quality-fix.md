@@ -1,5 +1,10 @@
 # TaskContextReport Selection Quality Fix
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Provider-default UX fixed (slice 175):** `rekon context task` with an existing
 > embeddings index, no `--path`, and an implicitly-defaulted provider whose key is
 > missing now degrades to a graph + lexical context fallback instead of exiting

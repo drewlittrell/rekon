@@ -1,5 +1,10 @@
 # Capability Ontology Canon + Override Model Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** v1 decision shipped.
 **Audience:** capability authors, operators, contributors planning the next implementation slice on the capability-ontology track.
 **Scope:** picks the product model for the capability ontology layer going forward. Rekon ships a built-in canonical ontology baseline and repo-archetype overlays. Repo-local override files supersede or extend the canonical set. Manual editing of the full ontology from scratch is **not** the steady-state model.

@@ -1,5 +1,10 @@
 # Intent Bundle Handoff Workflow Guide
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This note records the implementation of the workflow guidance selected by the [Intent Bundle
 Handoff Reading Order Broader Workflow
 Decision](intent-bundle-handoff-reading-order-broader-workflow-decision.md) (Option B). It ships

@@ -1,5 +1,10 @@
 # Graph-Aware Import Evidence Operator Review Refresh
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Strategy memo only. **No runtime behavior changes ship in
 > this slice.** Refreshes the
 > [prior operator review](graph-aware-import-evidence-operator-review.md)

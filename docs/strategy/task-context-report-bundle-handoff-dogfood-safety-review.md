@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Handoff Dogfood Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo reviews the shipped [TaskContextReport Bundle Handoff
 Dogfood](task-context-report-bundle-handoff-dogfood.md) (slice 190, `c5acc07`) end-to-end
 and declares the final handoff dogfood result — including the Circe actor-contract surface

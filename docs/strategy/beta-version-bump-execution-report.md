@@ -1,5 +1,10 @@
 # Beta Version Bump Execution Report
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 ## Decision Summary
 
 **Version `0.1.0-beta.0` has been applied

@@ -1,5 +1,10 @@
 # Classic Refactor Principles
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Rules for porting `codebase-intel-classic` behavior into Rekon-native form.
 These are derived from the wins distilled in
 [classic-wins.md](classic-wins.md) and the behavior cards in

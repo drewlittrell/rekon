@@ -1,5 +1,10 @@
 # Built-In Baseline Ontology Coverage Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** v1 review shipped.
 **Audience:** capability authors, operators, contributors evaluating the ontology track.
 **Scope:** evaluates the built-in capability ontology baseline (Layer 1 of the layered ontology decision) against real `CapabilityNormalizationReport` output, then decides whether the baseline is sufficient for private beta and whether `CapabilityMap` integration (Layer 6) can proceed.

@@ -1,5 +1,10 @@
 # Semantic File Understanding Scan Integration Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: **Superseded** (slice 147). Originally **Decided** (slice 146), base
 `8bad858`. Track A. Decision-only batch; no runtime behavior changes, no scan
 integration implemented here.

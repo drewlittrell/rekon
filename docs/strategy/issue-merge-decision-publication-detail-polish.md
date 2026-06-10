@@ -1,5 +1,10 @@
 # Issue Merge Decision Publication / Detail Polish v2
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Combined CLI + publication + docs + test polish
 > batch on top of
 > [issue merge decision operator ergonomics v1](issue-merge-decision-operator-ergonomics.md).

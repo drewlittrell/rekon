@@ -1,5 +1,10 @@
 # Classic Alignment Map
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 A quick-lookup table that maps `codebase-intel-classic` source areas to
 the Rekon capability/artifact they distill to. Use this when proposing
 a port to make sure the alignment is obvious and the destination is

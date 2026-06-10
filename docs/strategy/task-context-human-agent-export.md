@@ -1,5 +1,10 @@
 # TaskContextReport Human/Agent Context Export
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Slice 177 · product capability batch.** Base `b1073c4`. Improves how the
 > existing `TaskContextReport` is CONSUMED by its two readers — a human "read this
 > before editing" markdown brief and an additive `agentContext` block on the

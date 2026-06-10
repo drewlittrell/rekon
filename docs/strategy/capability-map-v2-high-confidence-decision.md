@@ -1,5 +1,10 @@
 # CapabilityMap v2 High-Confidence-Only Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 **Status:** decision recorded.
 **Slice:** `capability-map-v2-high-confidence-decision`.
 **Sequence position:** Twenty-seventh slice on the

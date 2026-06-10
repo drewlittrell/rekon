@@ -1,5 +1,10 @@
 # Graph-Aware Fixture Coverage Operator Review v3
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Strategy memo only. **No runtime behavior changes ship in
 > this slice.** Re-runs the
 > [v2 operator review](graph-aware-fixture-coverage-operator-review-v2.md)

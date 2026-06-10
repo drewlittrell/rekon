@@ -1,5 +1,10 @@
 # Semantic File Understanding → Evidence Graph Integration Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: reviewed (slice 157). Base `35453e8`. Strategy / safety-review batch; no
 runtime behavior changes, no source changes. Reviews the Semantic File
 Understanding → Evidence Graph integration shipped in slice 156 end-to-end.

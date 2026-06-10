@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Context Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Slice 182 · strategy / architecture decision batch.** Base `300c6ee`.
 > Decision-only — no runtime behavior change, no source change, no new artifact, no
 > CLI command, no Circe schema change. Decides whether and how optional

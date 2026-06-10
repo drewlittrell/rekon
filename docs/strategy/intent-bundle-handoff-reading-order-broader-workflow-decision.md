@@ -1,5 +1,10 @@
 # Intent Bundle Handoff Reading Order Broader Workflow Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo decides how broader operator / agent workflow docs and handoff policy should treat the
 final intent bundle handoff reading order — now implemented (slice 193), safety-reviewed (slice
 194), dogfooded (slice 195), and dogfood-safety-reviewed (slice 196, which also re-grounded the

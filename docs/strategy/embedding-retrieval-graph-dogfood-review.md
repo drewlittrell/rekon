@@ -1,5 +1,10 @@
 # Embedding Retrieval / Graph Dogfood Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Ranking policy decided (slice 163):** retrieval ranking policy is now pinned —
 > score bands, default top-k 8 (max 20), `input_type=query` for queries, and
 > task-shaped context as the first consumer. See

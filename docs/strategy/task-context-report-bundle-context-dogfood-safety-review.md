@@ -1,5 +1,10 @@
 # TaskContextReport Bundle Context Dogfood Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo reviews the [TaskContextReport Bundle Context
 Dogfood](task-context-report-bundle-context-dogfood.md) (slice 185, `83185a3`) and
 the narrow bundle-README discoverability fix shipped with it, and declares the

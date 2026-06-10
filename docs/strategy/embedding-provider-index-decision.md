@@ -1,5 +1,10 @@
 # Embedding Provider / Index Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Live Voyage dogfooded (slice 162):** the Voyage-first bet paid off — real
 > `voyage-code-3` delivered paraphrase-robust semantic ranking the lexical mock
 > could not, unblocking the product surfaces this decision deferred. Recommended

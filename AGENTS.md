@@ -94,3 +94,38 @@ For issue-governance work (anything touching `FindingReport`, `FindingFilterRepo
 - **Rekon product extension** — net-new behavior not present in classic. `IssueMergeCandidate`, `IssueMergeDecisionLedger`, accepted-merge rollups, and publication / resolver awareness of those rollups are the canonical examples. Product extensions are allowed but must be labeled explicitly; do not call them "classic parity" in CHANGELOG / strategy docs unless a new ADR promotes them.
 
 See [docs/strategy/issue-governance-architecture-decision.md](docs/strategy/issue-governance-architecture-decision.md) for the layered model.
+
+## Documentation authority
+
+When documents conflict, or when you need current state, this order
+governs:
+
+1. **Source code, CLI output, and artifact schemas.** The system itself is
+   the only authority on what exists. When any document contradicts a
+   verifiable surface, the surface wins and the document is stale; flag
+   it, do not obey it.
+2. **`docs/strategy/rekon-system-model.md`.** The operator-approved system
+   model. It wins over every other document.
+3. **`docs/strategy/north-star.md` and `docs/strategy/roadmap.md`.**
+   Living strategy.
+4. **`docs/concepts/` and `docs/artifacts/`.** Living descriptions of
+   current behavior and current contracts.
+5. **Everything else in `docs/strategy/`.** Historical snapshots:
+   point-in-time records of decisions, reviews, and audits. They are
+   never current state, never citable as current state, and never a
+   reason to override newer research or the tiers above. Among
+   snapshots, the newer slice wins.
+
+Rules of conduct:
+
+- Never answer "what does Rekon have" or "what does Rekon do" from a
+  strategy snapshot. Answer from tier 1, then tiers 2 through 4.
+- When an operator or planning conversation has established a direction
+  and a document contradicts it, surface the conflict explicitly. Do not
+  silently defer to the document.
+- New strategy memos are born as snapshots: they carry the snapshot
+  banner from their first commit.
+- Concepts docs are updated in place to describe current state. Do not
+  append slice banners to them; history belongs in CHANGELOG.md and git.
+- Do not add new `tests/docs` prose-assertion tests. That pattern is
+  retired; document freshness is owned by the doc governance workstream.

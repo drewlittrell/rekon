@@ -1,5 +1,7 @@
 # Roadmap
 
+> **LIVING DOCUMENT.** Maintained as current state; governed by the Documentation authority section in AGENTS.md.
+
 > **First retrieval consumer broader-workflow role decided (slice 176):** TaskContextReport is the standard pre-intent / pre-work context substrate — context only, never proof/approval; consumption stays explicit; the deterministic spine stays separately gated; intent:go deferred. Next: TaskContextReport Human/Agent Context Export. See [`task-context-report-broader-workflow-decision.md`](./task-context-report-broader-workflow-decision.md).
 
 > **First retrieval consumer provider-default UX fixed (slice 175):** `rekon context task` with an existing embeddings index, no `--path`, and an implicitly-defaulted provider whose key is missing now degrades to a graph + lexical context fallback instead of exiting non-zero; explicit-provider failures stay strict; context stays proposal/context, not proof; intent:go deferred. Next: TaskContextReport Broader Workflow Decision. See [`intent-planning-ux-context-quality-fix.md`](./intent-planning-ux-context-quality-fix.md).

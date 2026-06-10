@@ -1,5 +1,10 @@
 # Embedding Retrieval / Similarity Ranking Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **First consumer implemented (slice 166):** task-shaped context shipped as the
 > `TaskContextReport` artifact + `rekon context task` command. See
 > [TaskContextReport v1](./task-context-report-v1.md).

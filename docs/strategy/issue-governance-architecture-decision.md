@@ -1,5 +1,10 @@
 # Issue Governance Architecture Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: **Accepted** (2026-05). Author: Rekon core.
 Scope: P1.1 (Issue Adjudication) and downstream coherency / publication / resolver surfaces.
 

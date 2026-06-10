@@ -1,5 +1,10 @@
 # Intent Status Work-Ready Transition Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > Status: Decided (slice 125). Decision-only batch — no implementation, no
 > runtime change, no package bump, no npm publish. Follows the
 > [Intent Operator Approval / Proof Acceptance Safety Review](./intent-operator-approval-proof-acceptance-safety-review.md)

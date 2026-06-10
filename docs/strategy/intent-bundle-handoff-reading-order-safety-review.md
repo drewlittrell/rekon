@@ -1,5 +1,10 @@
 # Intent Bundle Handoff Reading Order Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo reviews the shipped [Intent Bundle Handoff Reading Order
 Implementation](intent-bundle-handoff-reading-order-implementation.md) (slice 193, `a227f2d`)
 end-to-end and declares the reading-order guidance safe and stable before broader handoff

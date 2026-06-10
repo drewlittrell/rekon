@@ -1,5 +1,10 @@
 # Semantic File Understanding Intent Context Implementation
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Status: shipped (slice 150). Base `26622c5`. Implements the slice-149
 decision ([semantic-file-understanding-intent-context-decision.md](./semantic-file-understanding-intent-context-decision.md),
 Option B — explicit consumption): `rekon intent assess` and `rekon intent plan

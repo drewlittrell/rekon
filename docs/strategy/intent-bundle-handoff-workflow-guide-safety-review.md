@@ -1,5 +1,10 @@
 # Intent Bundle Handoff Workflow Guide Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo reviews the shipped [Intent Bundle Handoff Workflow
 Guide](intent-bundle-handoff-workflow-guide.md) (slice 198) end-to-end and declares it safe and
 stable before recommending it as the default broader operator / agent handoff practice. It is a

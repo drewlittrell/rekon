@@ -1,5 +1,10 @@
 # Intent Bundle Handoff Reading Order Dogfood Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 This memo reviews the shipped [Intent Bundle Handoff Reading Order
 Dogfood](intent-bundle-handoff-reading-order-dogfood.md) (slice 195) end-to-end and declares
 the dogfood result safe and stable before broader handoff workflow use. It is re-grounded

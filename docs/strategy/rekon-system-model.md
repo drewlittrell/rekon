@@ -1,5 +1,7 @@
 # Rekon system model
 
+> **LIVING DOCUMENT.** Maintained as current state; governed by the Documentation authority section in AGENTS.md.
+
 Status: **Canonical strategy document. Operator-approved 2026-06-10.**
 Supersedes the framing of
 the "From detection to prevention" addendum and absorbs its workstreams; the

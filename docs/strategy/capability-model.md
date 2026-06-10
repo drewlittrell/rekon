@@ -1,5 +1,10 @@
 # Capability Model
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 Rekon is extended by capabilities. A capability is a unit of pluggable
 intelligence that declares what it consumes, what it produces, and what it
 needs from the runtime. Built-in and community capabilities use the same

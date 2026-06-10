@@ -1,5 +1,10 @@
 # Capability Evidence Graph / Semantic Intelligence Architecture Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 > **Embeddings evidence safety-reviewed (slice 160):** the embedding evidence
 > source was found **safe/stable** — see
 > [Embedding Provider / Index Safety Review](./embedding-provider-index-safety-review.md).

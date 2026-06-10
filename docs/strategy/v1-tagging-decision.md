@@ -1,5 +1,10 @@
 # V1 Tagging Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 ## Decision Summary
 
 Select **Option B — create an annotated `v1.0.0` git tag** from the verified `1.0.0`

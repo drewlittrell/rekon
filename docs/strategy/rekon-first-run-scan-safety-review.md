@@ -1,5 +1,10 @@
 # Rekon First-Run Scan Safety Review
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 ## Decision Summary
 
 `rekon scan` (shipped in Rekon First-Run Scan Implementation, `4041390`) is reviewed

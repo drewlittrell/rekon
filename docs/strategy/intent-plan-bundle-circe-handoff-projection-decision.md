@@ -1,5 +1,10 @@
 # Intent Plan Bundle → Circe Handoff Projection Decision
 
+> **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
+> read it as current state. Current state lives in source code, CLI
+> output, artifact schemas, `docs/concepts/`, and
+> `docs/strategy/rekon-system-model.md`.
+
 ## Decision Summary
 
 Rekon prepares and packages; Circe imports and orchestrates. The Intent plan
