@@ -1,0 +1,303 @@
+{
+  "layers.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "sourceFiles",
+      "layers"
+    ],
+    "collections": {
+      "layers": [
+        "route",
+        "service",
+        "domain",
+        "infra",
+        "config",
+        "ui"
+      ]
+    }
+  },
+  "verb-categories.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "sourceFiles",
+      "defaultCategory",
+      "categories",
+      "layerVerbMatrix"
+    ],
+    "collections": {
+      "categories": [
+        "coordination",
+        "delegation",
+        "transformation",
+        "state_mutation",
+        "data_access",
+        "validation",
+        "lifecycle",
+        "io_streaming",
+        "construction",
+        "extraction",
+        "registration",
+        "resilience",
+        "observability",
+        "event_handling",
+        "security",
+        "testing"
+      ]
+    }
+  },
+  "file-types.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "sourceFiles",
+      "hubClassification",
+      "types",
+      "forbiddenTypes",
+      "namingExceptions"
+    ],
+    "collections": {
+      "types": [
+        "Service",
+        "Engine",
+        "Registry",
+        "Handler",
+        "Orchestrator",
+        "Coordinator",
+        "Processor",
+        "Extractor",
+        "Classifier",
+        "Router",
+        "Executor",
+        "Resolver",
+        "Evaluator",
+        "Calculator",
+        "Validator",
+        "Transformer",
+        "Factory",
+        "Builder",
+        "Adapter",
+        "Compiler",
+        "Mapper",
+        "Catalog",
+        "Types",
+        "Schema",
+        "Index",
+        "Repository",
+        "Provider",
+        "Loader",
+        "Publisher",
+        "Cache",
+        "Logger",
+        "Bootstrap",
+        "Component",
+        "Hook",
+        "Page",
+        "Context",
+        "Store",
+        "Route",
+        "Command",
+        "Config",
+        "Manifest",
+        "Constants",
+        "Defaults"
+      ],
+      "forbiddenTypes": [
+        "Manager",
+        "Util",
+        "Utils",
+        "Helper",
+        "Helpers",
+        "Wrapper",
+        "Base"
+      ]
+    }
+  },
+  "patterns.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "patterns"
+    ],
+    "collections": {
+      "patterns": [
+        "orchestration",
+        "delegation",
+        "blast_radius",
+        "hub_spoke",
+        "hybrid_orchestrator",
+        "single_source_of_truth",
+        "validation_at_boundary",
+        "provider_isolation",
+        "declarative_gate",
+        "unidirectional_flow",
+        "separation_by_volatility",
+        "idempotent_turn",
+        "streaming_invariant",
+        "shared_processor",
+        "rule_versioning"
+      ]
+    }
+  },
+  "anti-patterns.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "sourceFiles",
+      "description",
+      "antiPatterns"
+    ],
+    "collections": {
+      "antiPatterns": [
+        "businessLogicInService",
+        "directDatabaseInService",
+        "manualDDEInstantiation",
+        "coreImportsModule",
+        "directDerivedAccess",
+        "conditionalHooks",
+        "consoleLogging",
+        "dbWriteDuringStream",
+        "revalidateAfterRoute",
+        "deleteFeatureDuringRefactor",
+        "routeOrchestration",
+        "routeBusinessLogic",
+        "ambiguousSuffix"
+      ]
+    }
+  },
+  "sequential-patterns.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "sourceFiles",
+      "patterns"
+    ],
+    "collections": {
+      "patterns": [
+        "routeHandler",
+        "serviceOrchestration",
+        "stateChanges",
+        "errorHandling",
+        "streaming",
+        "dependencyInjection",
+        "derivedHelper",
+        "thinAdapter",
+        "fireAndForget",
+        "providerWrapper",
+        "structuredPayload"
+      ]
+    }
+  },
+  "naming-conventions.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "sourceFiles",
+      "principles",
+      "pathNaming",
+      "directoryNaming",
+      "fileNamingByExtension",
+      "fileNaming",
+      "artifacts",
+      "exports"
+    ],
+    "collections": {}
+  },
+  "naming-rules.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "systemDirectory",
+      "fileNaming",
+      "capabilityNaming",
+      "layerRoleCompatibility",
+      "roleCollision"
+    ],
+    "collections": {}
+  },
+  "nouns.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "nouns"
+    ],
+    "collections": {
+      "nouns.canonical": [
+        "analysis",
+        "assessment",
+        "cache",
+        "capability",
+        "config",
+        "context",
+        "conversation",
+        "decision",
+        "embedding",
+        "event",
+        "experience",
+        "export",
+        "feedback",
+        "flow",
+        "gate",
+        "handler",
+        "import",
+        "index",
+        "insight",
+        "issue",
+        "label",
+        "message",
+        "module",
+        "ontology",
+        "persona",
+        "plan",
+        "preference",
+        "profile",
+        "progression",
+        "prompt",
+        "provider",
+        "report",
+        "repository",
+        "request",
+        "response",
+        "router",
+        "schema",
+        "service",
+        "state",
+        "stream",
+        "system",
+        "taxonomy",
+        "thread",
+        "token",
+        "user"
+      ]
+    }
+  },
+  "verb-rules.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "verbs"
+    ],
+    "collections": {}
+  },
+  "taxonomy.ontology.yaml": {
+    "topLevelKeys": [
+      "hub_classification",
+      "types",
+      "forbidden"
+    ],
+    "collections": {}
+  },
+  "pipelines.ontology.yaml": {
+    "topLevelKeys": [
+      "shared_infrastructure",
+      "pipelines"
+    ],
+    "collections": {}
+  },
+  "ito-semantic-coherence.ontology.yaml": {
+    "topLevelKeys": [
+      "version",
+      "description",
+      "operators",
+      "expectations",
+      "targets",
+      "coherence_rules",
+      "anti_patterns",
+      "bindings",
+      "contracts",
+      "pipeline_edges"
+    ],
+    "collections": {}
+  }
+}

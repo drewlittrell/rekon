@@ -1,0 +1,1147 @@
+{
+  "generatedBy": "WO-4 architecture grammar port",
+  "classicSourceRoot": "codebase-intel-classic ontology/",
+  "indexFile": "index.yaml is the classic catalog (files, sourceMapping, integration, postMigrationTasks, examples); catalog metadata, not law - no content rows",
+  "dispositions": [
+    "default-canon",
+    "overlay-example",
+    "vocabulary",
+    "rejected",
+    "deferred",
+    "metadata"
+  ],
+  "rows": [
+    {
+      "classicSource": "layers.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "layers.ontology.yaml#sourceFiles",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "layers.ontology.yaml#layers.route",
+      "disposition": "default-canon",
+      "destination": "grammar-base#layers.route"
+    },
+    {
+      "classicSource": "layers.ontology.yaml#layers.service",
+      "disposition": "default-canon",
+      "destination": "grammar-base#layers.service"
+    },
+    {
+      "classicSource": "layers.ontology.yaml#layers.domain",
+      "disposition": "default-canon",
+      "destination": "grammar-base#layers.domain"
+    },
+    {
+      "classicSource": "layers.ontology.yaml#layers.infra",
+      "disposition": "default-canon",
+      "destination": "grammar-base#layers.infra"
+    },
+    {
+      "classicSource": "layers.ontology.yaml#layers.config",
+      "disposition": "default-canon",
+      "destination": "grammar-base#layers.config"
+    },
+    {
+      "classicSource": "layers.ontology.yaml#layers.ui",
+      "disposition": "default-canon",
+      "destination": "grammar-base#layers.ui"
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#sourceFiles",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.coordination",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.coordination",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.delegation",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.delegation",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.transformation",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.transformation",
+      "note": "structural axis; bridged to vocabulary category \"transform\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.state_mutation",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.state_mutation",
+      "note": "structural axis; bridged to vocabulary category \"write\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.data_access",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.data_access",
+      "note": "structural axis; bridged to vocabulary category \"read\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.validation",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.validation",
+      "note": "structural axis; bridged to vocabulary category \"validate\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.lifecycle",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.lifecycle",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.io_streaming",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.io_streaming",
+      "note": "structural axis; bridged to vocabulary category \"communicate\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.construction",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.construction",
+      "note": "structural axis; bridged to vocabulary category \"create\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.extraction",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.extraction",
+      "note": "structural axis; bridged to vocabulary category \"transform\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.registration",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.registration",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.resilience",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.resilience",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.observability",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.observability",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.event_handling",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.event_handling",
+      "note": "structural axis; bridged to vocabulary category \"communicate\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.security",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.security",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#categories.testing",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories.testing",
+      "note": "structural axis; bridged to vocabulary category \"system\""
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#layerVerbMatrix",
+      "disposition": "default-canon",
+      "destination": "grammar-base#verbCategories[].allowedInLayers",
+      "note": "matrix content equals the per-category layer lists; carried per-category, not duplicated"
+    },
+    {
+      "classicSource": "verb-categories.ontology.yaml#defaultCategory",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming.capabilityNaming",
+      "note": "default category for unmatched verbs"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#sourceFiles",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#hubClassification",
+      "disposition": "default-canon",
+      "destination": "grammar-base#hubClassification"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Service",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Service"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Engine",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Engine"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Registry",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Registry"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Handler",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Handler"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Orchestrator",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Orchestrator"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Coordinator",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Coordinator"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Processor",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Processor"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Extractor",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Extractor"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Classifier",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Classifier"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Router",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Router"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Executor",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Executor"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Resolver",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Resolver"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Evaluator",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Evaluator"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Calculator",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Calculator"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Validator",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Validator"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Transformer",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Transformer"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Factory",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Factory"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Builder",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Builder"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Adapter",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Adapter"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Compiler",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Compiler"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Mapper",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Mapper"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Catalog",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Catalog"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Types",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Types"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Schema",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Schema"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Index",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Index"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Repository",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Repository"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Provider",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Provider"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Loader",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Loader"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Publisher",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Publisher"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Cache",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Cache"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Logger",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Logger"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Bootstrap",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Bootstrap"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Component",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Component"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Hook",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Hook"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Page",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Page"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Context",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Context"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Store",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Store"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Route",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Route"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Command",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Command"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Config",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Config"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Manifest",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Manifest"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Constants",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Constants"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#types.Defaults",
+      "disposition": "default-canon",
+      "destination": "grammar-base#fileTypes.Defaults"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#forbiddenTypes.Manager",
+      "disposition": "default-canon",
+      "destination": "grammar-base#forbiddenTypes.Manager"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#forbiddenTypes.Util",
+      "disposition": "default-canon",
+      "destination": "grammar-base#forbiddenTypes.Util"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#forbiddenTypes.Utils",
+      "disposition": "default-canon",
+      "destination": "grammar-base#forbiddenTypes.Utils"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#forbiddenTypes.Helper",
+      "disposition": "default-canon",
+      "destination": "grammar-base#forbiddenTypes.Helper"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#forbiddenTypes.Helpers",
+      "disposition": "default-canon",
+      "destination": "grammar-base#forbiddenTypes.Helpers"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#forbiddenTypes.Wrapper",
+      "disposition": "default-canon",
+      "destination": "grammar-base#forbiddenTypes.Wrapper"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#forbiddenTypes.Base",
+      "disposition": "default-canon",
+      "destination": "grammar-base#forbiddenTypes.Base"
+    },
+    {
+      "classicSource": "file-types.ontology.yaml#namingExceptions",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming.namingExceptions"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.orchestration",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.orchestration"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.delegation",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.delegation"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.blast_radius",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.blast_radius"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.hub_spoke",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.hub_spoke"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.hybrid_orchestrator",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.hybrid_orchestrator"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.single_source_of_truth",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.single_source_of_truth"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.validation_at_boundary",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.validation_at_boundary"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.provider_isolation",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.provider_isolation"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.declarative_gate",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#patterns.declarative_gate",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.unidirectional_flow",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.unidirectional_flow"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.separation_by_volatility",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.separation_by_volatility"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.idempotent_turn",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#patterns.idempotent_turn",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.streaming_invariant",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#patterns.streaming_invariant",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.shared_processor",
+      "disposition": "default-canon",
+      "destination": "grammar-base#patterns.shared_processor"
+    },
+    {
+      "classicSource": "patterns.ontology.yaml#patterns.rule_versioning",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#patterns.rule_versioning",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#sourceFiles",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#description",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.businessLogicInService",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.businessLogicInService"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.directDatabaseInService",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.directDatabaseInService"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.manualDDEInstantiation",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#antiPatterns.manualDDEInstantiation",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.coreImportsModule",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#antiPatterns.coreImportsModule",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.directDerivedAccess",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#antiPatterns.directDerivedAccess",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.conditionalHooks",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.conditionalHooks"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.consoleLogging",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.consoleLogging"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.dbWriteDuringStream",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#antiPatterns.dbWriteDuringStream",
+      "note": "project-specific law per detection-design-decisions.md A4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.revalidateAfterRoute",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.revalidateAfterRoute"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.deleteFeatureDuringRefactor",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.deleteFeatureDuringRefactor"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.routeOrchestration",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.routeOrchestration"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.routeBusinessLogic",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.routeBusinessLogic"
+    },
+    {
+      "classicSource": "anti-patterns.ontology.yaml#antiPatterns.ambiguousSuffix",
+      "disposition": "default-canon",
+      "destination": "grammar-base#antiPatterns.ambiguousSuffix"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#sourceFiles",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.routeHandler",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.routeHandler"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.serviceOrchestration",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.serviceOrchestration"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.stateChanges",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.stateChanges"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.errorHandling",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.errorHandling"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.streaming",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#sequentialPatterns.streaming",
+      "note": "project-specific recipe per detection-design-decisions.md A4/B4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.dependencyInjection",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.dependencyInjection"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.derivedHelper",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#sequentialPatterns.derivedHelper",
+      "note": "project-specific recipe per detection-design-decisions.md A4/B4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.thinAdapter",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.thinAdapter"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.fireAndForget",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.fireAndForget"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.providerWrapper",
+      "disposition": "default-canon",
+      "destination": "grammar-base#sequentialPatterns.providerWrapper"
+    },
+    {
+      "classicSource": "sequential-patterns.ontology.yaml#patterns.structuredPayload",
+      "disposition": "overlay-example",
+      "destination": "grammar-project-overlay-example#sequentialPatterns.structuredPayload",
+      "note": "project-specific recipe per detection-design-decisions.md A4/B4",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#sourceFiles",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "naming-rules.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#principles",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#pathNaming",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#directoryNaming",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#fileNamingByExtension",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#fileNaming",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#artifacts",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-conventions.ontology.yaml#exports",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-rules.ontology.yaml#systemDirectory",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-rules.ontology.yaml#fileNaming",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-rules.ontology.yaml#capabilityNaming",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-rules.ontology.yaml#layerRoleCompatibility",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "naming-rules.ontology.yaml#roleCollision",
+      "disposition": "default-canon",
+      "destination": "grammar-base#naming"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.analysis",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.assessment",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.cache",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.capability",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.config",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.context",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.conversation",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.decision",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.embedding",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.event",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.experience",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.export",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.feedback",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.flow",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.gate",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.handler",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.import",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.index",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.insight",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.issue",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.label",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.message",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.module",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.ontology",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.persona",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.plan",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.preference",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.profile",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.progression",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.prompt",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.provider",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.report",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.repository",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.request",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.response",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.router",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.schema",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.service",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.state",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.stream",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.system",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.taxonomy",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.thread",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.token",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.canonical.user",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.canonical)",
+      "note": "merged with provenance; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "nouns.ontology.yaml#nouns.aliases",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (nouns.aliases)",
+      "note": "26 aliases merged with provenance"
+    },
+    {
+      "classicSource": "verb-rules.ontology.yaml#version",
+      "disposition": "metadata",
+      "note": "provenance/metadata key, not law"
+    },
+    {
+      "classicSource": "verb-rules.ontology.yaml#verbs",
+      "disposition": "vocabulary",
+      "destination": "vocabulary base pack (verbs)",
+      "note": "classic verbs are 3rd-person capability-phrase forms; reconciled into base-form canon as canonical verbs + aliases; auxiliary tokens routed to noise; see vocabulary-additions report"
+    },
+    {
+      "classicSource": "taxonomy.ontology.yaml#hub_classification",
+      "disposition": "rejected",
+      "note": "superseded WITHIN classic by file-types.ontology.yaml (same hub thresholds and type taxonomy, camelCase successor); porting both would fork the canon",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "taxonomy.ontology.yaml#types",
+      "disposition": "rejected",
+      "note": "superseded WITHIN classic by file-types.ontology.yaml (same hub thresholds and type taxonomy, camelCase successor); porting both would fork the canon",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "taxonomy.ontology.yaml#forbidden",
+      "disposition": "rejected",
+      "note": "superseded WITHIN classic by file-types.ontology.yaml (same hub thresholds and type taxonomy, camelCase successor); porting both would fork the canon",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "pipelines.ontology.yaml#shared_infrastructure",
+      "disposition": "rejected",
+      "note": "project pipeline DAGs whose mechanism Rekon redesigned as StepCapabilityGraph + HandoffContract declarations (shipped); porting as grammar would contradict the pinned step/handoff architecture",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "pipelines.ontology.yaml#pipelines",
+      "disposition": "rejected",
+      "note": "project pipeline DAGs whose mechanism Rekon redesigned as StepCapabilityGraph + HandoffContract declarations (shipped); porting as grammar would contradict the pinned step/handoff architecture",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#version",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#description",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#operators",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#expectations",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#targets",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#coherence_rules",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#anti_patterns",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#bindings",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#contracts",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "ito-semantic-coherence.ontology.yaml#pipeline_edges",
+      "disposition": "deferred",
+      "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
+      "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    }
+  ]
+}
