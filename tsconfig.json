@@ -1,27 +1,74 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/kernel-artifacts" },
-    { "path": "./packages/kernel-evidence" },
-    { "path": "./packages/kernel-snapshot" },
-    { "path": "./packages/kernel-graph" },
-    { "path": "./packages/kernel-repo-model" },
-    { "path": "./packages/kernel-rulebook" },
-    { "path": "./packages/kernel-findings" },
-    { "path": "./packages/sdk" },
-    { "path": "./packages/runtime" },
-    { "path": "./packages/cli" },
-    { "path": "./packages/capability-js-ts" },
-    { "path": "./packages/capability-model" },
-    { "path": "./packages/capability-graph" },
-    { "path": "./packages/capability-policy" },
-    { "path": "./packages/capability-resolver" },
-    { "path": "./packages/capability-docs" },
-    { "path": "./packages/capability-memory" },
-    { "path": "./packages/capability-intent" },
-    { "path": "./packages/capability-reconcile" },
-    { "path": "./packages/capability-verify" },
-    { "path": "./packages/capability-ontology" },
-    { "path": "./packages/llm-provider" }
+    {
+      "path": "./packages/kernel-artifacts"
+    },
+    {
+      "path": "./packages/kernel-evidence"
+    },
+    {
+      "path": "./packages/kernel-snapshot"
+    },
+    {
+      "path": "./packages/kernel-graph"
+    },
+    {
+      "path": "./packages/kernel-repo-model"
+    },
+    {
+      "path": "./packages/kernel-rulebook"
+    },
+    {
+      "path": "./packages/kernel-findings"
+    },
+    {
+      "path": "./packages/sdk"
+    },
+    {
+      "path": "./packages/runtime"
+    },
+    {
+      "path": "./packages/cli"
+    },
+    {
+      "path": "./packages/capability-js-ts"
+    },
+    {
+      "path": "./packages/capability-model"
+    },
+    {
+      "path": "./packages/capability-graph"
+    },
+    {
+      "path": "./packages/capability-policy"
+    },
+    {
+      "path": "./packages/capability-resolver"
+    },
+    {
+      "path": "./packages/capability-docs"
+    },
+    {
+      "path": "./packages/capability-memory"
+    },
+    {
+      "path": "./packages/capability-intent"
+    },
+    {
+      "path": "./packages/capability-reconcile"
+    },
+    {
+      "path": "./packages/capability-verify"
+    },
+    {
+      "path": "./packages/capability-ontology"
+    },
+    {
+      "path": "./packages/llm-provider"
+    },
+    {
+      "path": "./packages/mcp"
+    }
   ]
 }

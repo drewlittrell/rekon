@@ -40,14 +40,15 @@ test("all public packages are version 1.0.0", () => {
 });
 
 // ---------- 3 ----------
-test("package count is 22", () => {
-  assert.equal(packages.length, 22);
+test("package count is 23", () => {
+  // 22 at v1.0.0 tagging; +1 when WO-6 added @rekon/mcp.
+  assert.equal(packages.length, 23);
 });
 
 // ---------- 4 ----------
 test("zero packages are private/internal", () => {
   const privateCount = packages.filter((pkg) => pkg.private === true).length;
-  assert.equal(privateCount, 0, "expected zero private packages among the 22");
+  assert.equal(privateCount, 0, "expected zero private packages");
 });
 
 // ---------- 5 ----------

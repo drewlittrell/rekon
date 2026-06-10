@@ -10,22 +10,59 @@
     "src/**/*.ts"
   ],
   "references": [
-    { "path": "../capability-docs" },
-    { "path": "../capability-graph" },
-    { "path": "../capability-intent" },
-    { "path": "../capability-js-ts" },
-    { "path": "../capability-memory" },
-    { "path": "../capability-ontology" },
-    { "path": "../capability-model" },
-    { "path": "../capability-policy" },
-    { "path": "../capability-reconcile" },
-    { "path": "../capability-resolver" },
-    { "path": "../capability-verify" },
-    { "path": "../llm-provider" },
-    { "path": "../kernel-artifacts" },
-    { "path": "../kernel-findings" },
-    { "path": "../kernel-repo-model" },
-    { "path": "../runtime" },
-    { "path": "../sdk" }
+    {
+      "path": "../capability-docs"
+    },
+    {
+      "path": "../capability-graph"
+    },
+    {
+      "path": "../capability-intent"
+    },
+    {
+      "path": "../capability-js-ts"
+    },
+    {
+      "path": "../capability-memory"
+    },
+    {
+      "path": "../capability-ontology"
+    },
+    {
+      "path": "../capability-model"
+    },
+    {
+      "path": "../capability-policy"
+    },
+    {
+      "path": "../capability-reconcile"
+    },
+    {
+      "path": "../capability-resolver"
+    },
+    {
+      "path": "../capability-verify"
+    },
+    {
+      "path": "../llm-provider"
+    },
+    {
+      "path": "../kernel-artifacts"
+    },
+    {
+      "path": "../kernel-findings"
+    },
+    {
+      "path": "../kernel-repo-model"
+    },
+    {
+      "path": "../runtime"
+    },
+    {
+      "path": "../sdk"
+    },
+    {
+      "path": "../mcp"
+    }
   ]
 }

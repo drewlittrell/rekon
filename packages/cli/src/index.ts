@@ -233,6 +233,7 @@ import {
   validateArtifactIndex,
 } from "@rekon/runtime";
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import { runMcpServer } from "@rekon/mcp";
 import {
   buildSourceStateFingerprint,
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
@@ -4746,6 +4747,17 @@ export async function main(argv: string[]): Promise<void> {
       },
     });
     writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "mcp" && subcommand === "serve") {
+    // `rekon mcp serve [--root <path>]` - WO-6, the first actuator surface.
+    // Local, read-only MCP context server over stdio. No listeners, no
+    // network, no writes: it reads the artifact index and compiled grammar
+    // and serves trust-classed, freshness-honest context. Runs until the
+    // agent host closes stdin.
+    runMcpServer(root);
+    await new Promise(() => {});
     return;
   }
 
@@ -13599,6 +13611,7 @@ function usage(): string {
     "rekon capabilities list [--root <path>] [--verbose] [--json]",
     "rekon capabilities inspect <capability-id> [--root <path>] [--json]",
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
+    "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
     "rekon project [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon evaluate list [--root <path>] [--json]",

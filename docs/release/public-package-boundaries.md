@@ -37,6 +37,7 @@ explicitly rather than forcing it.
 | `@rekon/capability-reconcile` | publish | Built-in reconciliation actuator. |
 | `@rekon/capability-verify` | publish | Built-in verification runner capability skeleton. v1 declares the runner / `execute:verification` boundary; command execution is not implemented yet. |
 | `@rekon/capability-ontology` | publish | Built-in capability ontology translation layer (`projector` role). Produces `CapabilityNormalizationReport`. Layer 5 of the layered ontology decision; `CapabilityMap` integration (Layer 6) is deferred to v2. |
+| `@rekon/mcp` | publish | Local, read-only MCP context server over stdio (WO-6, first actuator surface). Serves trust-classed, freshness-honest orientation and placement context; no write capability, no network, no execution. |
 | `@rekon/llm-provider` | publish | Shared LLM provider routing foundation. Provider / embedding interfaces + `RekonLlmRouter` + mock provider; no live providers, no network calls. Provider output is proposal-not-proof, schema-validated and deterministically re-checked. |
 
 All 22 packages are scheduled for publish at `0.1.0-alpha.1`, all under the

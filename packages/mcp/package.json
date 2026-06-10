@@ -1,0 +1,23 @@
+{
+  "name": "@rekon/mcp",
+  "version": "1.0.0",
+  "description": "Rekon MCP context server (WO-6): local, read-only, stdio-only. Serves trust-classed, freshness-honest orientation and placement context from existing artifacts. The first actuator surface.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@rekon/capability-ontology": "1.0.0"
+  }
+}

@@ -37,6 +37,7 @@
     "@rekon/kernel-findings": "1.0.0",
     "@rekon/kernel-repo-model": "1.0.0",
     "@rekon/runtime": "1.0.0",
-    "@rekon/sdk": "1.0.0"
+    "@rekon/sdk": "1.0.0",
+    "@rekon/mcp": "1.0.0"
   }
 }
