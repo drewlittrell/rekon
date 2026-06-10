@@ -24,8 +24,8 @@ const LawDataSchema = z.union([z.record(z.unknown()), z.array(z.unknown())]);
 /** Classic provenance reference: "<file>#<key>" under classic's ontology/. */
 export const GrammarSourceRefSchema = z
   .string()
-  .regex(/^[a-z0-9-]+\.ontology\.yaml#[A-Za-z0-9_.-]+$/, {
-    message: "grammar provenance must be '<classic-file>.ontology.yaml#<key>'",
+  .regex(/^[a-z0-9-]+\.(ontology\.yaml|ts)#[A-Za-z0-9_.-]+$/, {
+    message: "grammar provenance must be '<classic-file>#<key>'",
   });
 
 export const GrammarLayerSchema = z.object({
@@ -159,6 +159,22 @@ export const GrammarNamingSchema = z.object({
   sources: z.array(GrammarSourceRefSchema).default([]),
 });
 
+export const GrammarTopologyEdgeSchema = z.object({
+  fromLayer: z.string().min(1),
+  toLayer: z.string().min(1),
+  required: z.boolean(),
+  forbidden: z.boolean(),
+});
+
+/** Topology law ported from classic's BUILTIN_TOPOLOGY_TEMPLATES (WO-4.1). */
+export const GrammarTopologySchema = z.object({
+  archetype: z.string().min(1),
+  description: z.string(),
+  requiredLayers: z.array(z.string().min(1)),
+  layerEdges: z.array(GrammarTopologyEdgeSchema).default([]),
+  source: GrammarSourceRefSchema,
+});
+
 export const ArchitectureGrammarPackSchema = z.object({
   /** Stable pack identifier, e.g. "grammar-base". */
   id: z.string().min(1),
@@ -166,6 +182,15 @@ export const ArchitectureGrammarPackSchema = z.object({
   description: z.string(),
   /** Base canon vs operator-facing overlay example. */
   kind: z.enum(["base", "overlay"]),
+  /**
+   * Jurisdiction tier (WO-4.1): base law applies everywhere; archetype law
+   * backs findings only when the repo ratifies the archetype in config;
+   * overlays are operator-owned. Absent tier resolves from kind
+   * (base -> "base", overlay -> "overlay") for pre-amendment packs.
+   */
+  tier: z.enum(["base", "archetype", "overlay"]).optional(),
+  /** Topology law for archetype packs (required layers + layer edges). */
+  topology: GrammarTopologySchema.optional(),
   /** Classic migration provenance for the pack as a whole. */
   provenance: z.object({
     migratedFrom: z.string(),
@@ -191,3 +216,5 @@ export type GrammarPattern = z.infer<typeof GrammarPatternSchema>;
 export type GrammarAntiPattern = z.infer<typeof GrammarAntiPatternSchema>;
 export type GrammarSequentialPattern = z.infer<typeof GrammarSequentialPatternSchema>;
 export type GrammarFileType = z.infer<typeof GrammarFileTypeSchema>;
+export type GrammarTopology = z.infer<typeof GrammarTopologySchema>;
+export type GrammarTopologyEdge = z.infer<typeof GrammarTopologyEdgeSchema>;

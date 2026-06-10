@@ -4,6 +4,7 @@
   "indexFile": "index.yaml is the classic catalog (files, sourceMapping, integration, postMigrationTasks, examples); catalog metadata, not law - no content rows",
   "dispositions": [
     "default-canon",
+    "archetype",
     "overlay-example",
     "vocabulary",
     "rejected",
@@ -23,33 +24,74 @@
     },
     {
       "classicSource": "layers.ontology.yaml#layers.route",
-      "disposition": "default-canon",
-      "destination": "grammar-base#layers.route"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "layers.ontology.yaml#layers.service",
-      "disposition": "default-canon",
-      "destination": "grammar-base#layers.service"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "layers.ontology.yaml#layers.domain",
-      "disposition": "default-canon",
-      "destination": "grammar-base#layers.domain"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "layers.ontology.yaml#layers.infra",
-      "disposition": "default-canon",
-      "destination": "grammar-base#layers.infra"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "layers.ontology.yaml#layers.config",
-      "disposition": "default-canon",
-      "destination": "grammar-base#layers.config"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "layers.ontology.yaml#layers.ui",
-      "disposition": "default-canon",
-      "destination": "grammar-base#layers.ui"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#version",
@@ -63,111 +105,251 @@
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.coordination",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.coordination",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.delegation",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.delegation",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.transformation",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.transformation",
-      "note": "structural axis; bridged to vocabulary category \"transform\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"transform\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.state_mutation",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.state_mutation",
-      "note": "structural axis; bridged to vocabulary category \"write\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"write\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.data_access",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.data_access",
-      "note": "structural axis; bridged to vocabulary category \"read\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"read\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.validation",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.validation",
-      "note": "structural axis; bridged to vocabulary category \"validate\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"validate\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.lifecycle",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.lifecycle",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.io_streaming",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.io_streaming",
-      "note": "structural axis; bridged to vocabulary category \"communicate\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"communicate\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.construction",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.construction",
-      "note": "structural axis; bridged to vocabulary category \"create\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"create\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.extraction",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.extraction",
-      "note": "structural axis; bridged to vocabulary category \"transform\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"transform\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.registration",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.registration",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.resilience",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.resilience",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.observability",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.observability",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.event_handling",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.event_handling",
-      "note": "structural axis; bridged to vocabulary category \"communicate\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"communicate\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.security",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.security",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#categories.testing",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories.testing",
-      "note": "structural axis; bridged to vocabulary category \"system\""
+      "disposition": "archetype",
+      "note": "structural axis; bridged to vocabulary category \"system\"",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#layerVerbMatrix",
-      "disposition": "default-canon",
-      "destination": "grammar-base#verbCategories[].allowedInLayers",
-      "note": "matrix content equals the per-category layer lists; carried per-category, not duplicated"
+      "disposition": "archetype",
+      "note": "matrix content equals the per-category layer lists; carried per-category, not duplicated",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "verb-categories.ontology.yaml#defaultCategory",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming.capabilityNaming",
-      "note": "default category for unmatched verbs"
+      "disposition": "archetype",
+      "note": "default category for unmatched verbs",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#version",
@@ -182,262 +364,612 @@
     {
       "classicSource": "file-types.ontology.yaml#hubClassification",
       "disposition": "default-canon",
-      "destination": "grammar-base#hubClassification"
+      "destination": "grammar-base#hubClassification",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "fan-in percentile thresholds are graph mathematics, layer-independent"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Service",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Service"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Engine",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Engine"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Registry",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Registry"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Handler",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Handler"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Orchestrator",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Orchestrator"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Coordinator",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Coordinator"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Processor",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Processor"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Extractor",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Extractor"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Classifier",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Classifier"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Router",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Router"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Executor",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Executor"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Resolver",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Resolver"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Evaluator",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Evaluator"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Calculator",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Calculator"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Validator",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Validator"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Transformer",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Transformer"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Factory",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Factory"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Builder",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Builder"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Adapter",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Adapter"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Compiler",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Compiler"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Mapper",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Mapper"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Catalog",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Catalog"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Types",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Types"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Schema",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Schema"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Index",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Index"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Repository",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Repository"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Provider",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Provider"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Loader",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Loader"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Publisher",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Publisher"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Cache",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Cache"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Logger",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Logger"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Bootstrap",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Bootstrap"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Component",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Component"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Hook",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Hook"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Page",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Page"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Context",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Context"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Store",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Store"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Route",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Route"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Command",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Command"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Config",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Config"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Manifest",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Manifest"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Constants",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Constants"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#types.Defaults",
-      "disposition": "default-canon",
-      "destination": "grammar-base#fileTypes.Defaults"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "file-types.ontology.yaml#forbiddenTypes.Manager",
       "disposition": "default-canon",
-      "destination": "grammar-base#forbiddenTypes.Manager"
+      "destination": "grammar-base#forbiddenTypes.Manager",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "generic-name hygiene (Manager/Util/Utils...); meaningful in any repo regardless of topology"
     },
     {
       "classicSource": "file-types.ontology.yaml#forbiddenTypes.Util",
       "disposition": "default-canon",
-      "destination": "grammar-base#forbiddenTypes.Util"
+      "destination": "grammar-base#forbiddenTypes.Util",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "generic-name hygiene (Manager/Util/Utils...); meaningful in any repo regardless of topology"
     },
     {
       "classicSource": "file-types.ontology.yaml#forbiddenTypes.Utils",
       "disposition": "default-canon",
-      "destination": "grammar-base#forbiddenTypes.Utils"
+      "destination": "grammar-base#forbiddenTypes.Utils",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "generic-name hygiene (Manager/Util/Utils...); meaningful in any repo regardless of topology"
     },
     {
       "classicSource": "file-types.ontology.yaml#forbiddenTypes.Helper",
       "disposition": "default-canon",
-      "destination": "grammar-base#forbiddenTypes.Helper"
+      "destination": "grammar-base#forbiddenTypes.Helper",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "generic-name hygiene (Manager/Util/Utils...); meaningful in any repo regardless of topology"
     },
     {
       "classicSource": "file-types.ontology.yaml#forbiddenTypes.Helpers",
       "disposition": "default-canon",
-      "destination": "grammar-base#forbiddenTypes.Helpers"
+      "destination": "grammar-base#forbiddenTypes.Helpers",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "generic-name hygiene (Manager/Util/Utils...); meaningful in any repo regardless of topology"
     },
     {
       "classicSource": "file-types.ontology.yaml#forbiddenTypes.Wrapper",
       "disposition": "default-canon",
-      "destination": "grammar-base#forbiddenTypes.Wrapper"
+      "destination": "grammar-base#forbiddenTypes.Wrapper",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "generic-name hygiene (Manager/Util/Utils...); meaningful in any repo regardless of topology"
     },
     {
       "classicSource": "file-types.ontology.yaml#forbiddenTypes.Base",
       "disposition": "default-canon",
-      "destination": "grammar-base#forbiddenTypes.Base"
+      "destination": "grammar-base#forbiddenTypes.Base",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "generic-name hygiene (Manager/Util/Utils...); meaningful in any repo regardless of topology"
     },
     {
       "classicSource": "file-types.ontology.yaml#namingExceptions",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming.namingExceptions"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "patterns.ontology.yaml#version",
@@ -446,43 +978,93 @@
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.orchestration",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.orchestration"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.delegation",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.delegation"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.blast_radius",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.blast_radius"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.hub_spoke",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.hub_spoke"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.hybrid_orchestrator",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.hybrid_orchestrator"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.single_source_of_truth",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.single_source_of_truth"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.validation_at_boundary",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.validation_at_boundary"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.provider_isolation",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.provider_isolation"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.declarative_gate",
@@ -493,13 +1075,24 @@
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.unidirectional_flow",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.unidirectional_flow"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.separation_by_volatility",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.separation_by_volatility"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.idempotent_turn",
@@ -517,8 +1110,15 @@
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.shared_processor",
-      "disposition": "default-canon",
-      "destination": "grammar-base#patterns.shared_processor"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "patterns.ontology.yaml#patterns.rule_versioning",
@@ -544,13 +1144,27 @@
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.businessLogicInService",
-      "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.businessLogicInService"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.directDatabaseInService",
-      "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.directDatabaseInService"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.manualDDEInstantiation",
@@ -575,13 +1189,21 @@
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.conditionalHooks",
-      "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.conditionalHooks"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.consoleLogging",
       "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.consoleLogging"
+      "destination": "grammar-base#antiPatterns.consoleLogging",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "observability hygiene independent of any layering school; applies to every JS/TS repo"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.dbWriteDuringStream",
@@ -592,28 +1214,52 @@
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.revalidateAfterRoute",
-      "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.revalidateAfterRoute"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.deleteFeatureDuringRefactor",
       "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.deleteFeatureDuringRefactor"
+      "destination": "grammar-base#antiPatterns.deleteFeatureDuringRefactor",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "process hygiene about refactoring discipline; references no layer or school construct"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.routeOrchestration",
-      "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.routeOrchestration"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.routeBusinessLogic",
-      "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.routeBusinessLogic"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "anti-patterns.ontology.yaml#antiPatterns.ambiguousSuffix",
       "disposition": "default-canon",
-      "destination": "grammar-base#antiPatterns.ambiguousSuffix"
+      "destination": "grammar-base#antiPatterns.ambiguousSuffix",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "base",
+      "baseArgument": "naming-ambiguity hygiene; the rule forbids ambiguous suffixes regardless of architecture (corrections are suggestions, not layer law)"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#version",
@@ -627,23 +1273,48 @@
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.routeHandler",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.routeHandler"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.serviceOrchestration",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.serviceOrchestration"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.stateChanges",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.stateChanges"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.errorHandling",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.errorHandling"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.streaming",
@@ -654,8 +1325,14 @@
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.dependencyInjection",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.dependencyInjection"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.derivedHelper",
@@ -666,18 +1343,38 @@
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.thinAdapter",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.thinAdapter"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.fireAndForget",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.fireAndForget"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.providerWrapper",
-      "disposition": "default-canon",
-      "destination": "grammar-base#sequentialPatterns.providerWrapper"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "sequential-patterns.ontology.yaml#patterns.structuredPayload",
@@ -703,63 +1400,159 @@
     },
     {
       "classicSource": "naming-conventions.ontology.yaml#principles",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-conventions.ontology.yaml#pathNaming",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-conventions.ontology.yaml#directoryNaming",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-conventions.ontology.yaml#fileNamingByExtension",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-conventions.ontology.yaml#fileNaming",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-conventions.ontology.yaml#artifacts",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-conventions.ontology.yaml#exports",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-rules.ontology.yaml#systemDirectory",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-rules.ontology.yaml#fileNaming",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-rules.ontology.yaml#capabilityNaming",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-rules.ontology.yaml#layerRoleCompatibility",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "naming-rules.ontology.yaml#roleCollision",
-      "disposition": "default-canon",
-      "destination": "grammar-base#naming"
+      "disposition": "archetype",
+      "reDisposition": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered",
+        "service_layered",
+        "backend_layered",
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#, grammar-archetype-service-layered#, grammar-archetype-backend-layered#, grammar-archetype-domain-library#"
     },
     {
       "classicSource": "nouns.ontology.yaml#version",
@@ -1142,6 +1935,139 @@
       "disposition": "deferred",
       "note": "gate-semantic coherence law; no Rekon consumer exists (classic's GateSemanticCoherence evaluator was not ported). Re-entry: a Rekon gate-semantics consumer on the intent/step track",
       "citation": "docs/strategy/architecture-grammar-pack-decision.md"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#fullstack_layered.description",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#topology.description",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#fullstack_layered.requiredLayers",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#topology.requiredLayers",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#fullstack_layered.layerEdges",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "fullstack_layered"
+      ],
+      "destination": "grammar-archetype-fullstack-layered#topology.layerEdges",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#service_layered.description",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-service-layered#topology.description",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#service_layered.requiredLayers",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-service-layered#topology.requiredLayers",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#service_layered.layerEdges",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "service_layered"
+      ],
+      "destination": "grammar-archetype-service-layered#topology.layerEdges",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#backend_layered.description",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-backend-layered#topology.description",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#backend_layered.requiredLayers",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-backend-layered#topology.requiredLayers",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#backend_layered.layerEdges",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "backend_layered"
+      ],
+      "destination": "grammar-archetype-backend-layered#topology.layerEdges",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#domain_library.description",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-domain-library#topology.description",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#domain_library.requiredLayers",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-domain-library#topology.requiredLayers",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
+    },
+    {
+      "classicSource": "topology-contract-inference.ts#domain_library.layerEdges",
+      "disposition": "archetype",
+      "tier": "archetype",
+      "archetypes": [
+        "domain_library"
+      ],
+      "destination": "grammar-archetype-domain-library#topology.layerEdges",
+      "citation": "docs/strategy/architecture-grammar-archetype-amendment.md",
+      "note": "topology law ported verbatim from BUILTIN_TOPOLOGY_TEMPLATES"
     }
-  ]
+  ],
+  "amendment": "docs/strategy/architecture-grammar-archetype-amendment.md: three-tier restructure (WO-4.1); default-canon rows re-shelved to archetype tier unless they carry a baseArgument"
 }

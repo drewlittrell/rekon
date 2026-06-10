@@ -1,0 +1,25 @@
+{
+  "file": "domain/issues/topology-contract-inference.ts",
+  "templates": {
+    "fullstack_layered": [
+      "description",
+      "requiredLayers",
+      "layerEdges"
+    ],
+    "service_layered": [
+      "description",
+      "requiredLayers",
+      "layerEdges"
+    ],
+    "backend_layered": [
+      "description",
+      "requiredLayers",
+      "layerEdges"
+    ],
+    "domain_library": [
+      "description",
+      "requiredLayers",
+      "layerEdges"
+    ]
+  }
+}

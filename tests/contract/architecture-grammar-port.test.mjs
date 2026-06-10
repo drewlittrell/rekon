@@ -41,7 +41,11 @@ test("every ported entry carries classic provenance", () => {
 });
 
 test("compiled effective grammar resolves layer and verb-category cross-references", () => {
-  const effective = grammar.compileEffectiveGrammar();
+  // Post-WO-4.1 the school lives in archetype tier; ratify fullstack to
+  // exercise the full cross-reference surface.
+  const effective = grammar.compileEffectiveGrammar({
+    ratifiedArchetypeIds: ["grammar-archetype-fullstack-layered"],
+  });
 
   assert.equal(grammar.resolveGrammarReferences(effective).length, 0);
   assert.equal(effective.layers.size, 6);
@@ -76,6 +80,10 @@ test("the overlay example is opt-in: never applied without being passed", () => 
 
 test("operator overrides extend canon and supersede on collision, recorded in notes", () => {
   const effective = grammar.compileEffectiveGrammar({
+    // Ratify the archetype that carries `orchestration` so the override
+    // collides with existing canon (post-WO-4.1 the default compile is
+    // minimal base only).
+    ratifiedArchetypeIds: ["grammar-archetype-fullstack-layered"],
     overrides: {
       patterns: [
         {
@@ -126,10 +134,21 @@ test("manifest is complete against the checked-in classic-keys inventory", () =>
   }
 });
 
-test("every non-default disposition carries a citation", () => {
+test("every non-default disposition carries a citation (archetype rows cite the amendment)", () => {
   for (const row of manifest.rows) {
     if (["overlay-example", "rejected", "deferred"].includes(row.disposition)) {
       assert.ok(row.citation, `${row.classicSource} (${row.disposition}) must carry a citation`);
+    }
+
+    if (row.disposition === "archetype") {
+      assert.ok(
+        row.citation || row.reDisposition,
+        `${row.classicSource} (archetype) must cite the WO-4.1 amendment`,
+      );
+    }
+
+    if (row.disposition === "default-canon" && row.tier === "base") {
+      assert.ok(row.baseArgument, `${row.classicSource} kept base tier without a written argument`);
     }
   }
 });
@@ -145,7 +164,7 @@ test("round-trip fidelity: hub thresholds match classic's values", () => {
 });
 
 test("round-trip fidelity: route layer carries classic's position and allowed types", () => {
-  const route = grammar.grammarBasePack.layers.find((layer) => layer.id === "route");
+  const route = grammar.grammarArchetypeFullstackLayered.layers.find((layer) => layer.id === "route");
 
   assert.equal(route.position, 0);
   assert.ok(route.allowedTypes.includes("Handler"));
@@ -163,7 +182,7 @@ test("round-trip fidelity: consoleLogging anti-pattern keeps its correction pair
 });
 
 test("round-trip fidelity: routeHandler sequential pattern keeps its mandatory first step", () => {
-  const seq = grammar.grammarBasePack.sequentialPatterns.find((entry) => entry.id === "routeHandler");
+  const seq = grammar.grammarArchetypeFullstackLayered.sequentialPatterns.find((entry) => entry.id === "routeHandler");
 
   assert.equal(seq.steps[0].step, 1);
   assert.equal(seq.steps[0].name, "Validate");
@@ -172,7 +191,7 @@ test("round-trip fidelity: routeHandler sequential pattern keeps its mandatory f
 });
 
 test("round-trip fidelity: orchestration pattern keeps its structural signals", () => {
-  const pattern = grammar.grammarBasePack.patterns.find((entry) => entry.id === "orchestration");
+  const pattern = grammar.grammarArchetypeFullstackLayered.patterns.find((entry) => entry.id === "orchestration");
 
   assert.equal(pattern.category, "coordination");
   assert.ok(pattern.structuralSignals.some((signal) => /Multi-component coordination/.test(signal)));
@@ -184,5 +203,5 @@ test("the split matches the ratified assignments", () => {
 
   assert.deepEqual(overlayPatternIds, ["declarative_gate", "idempotent_turn", "rule_versioning", "streaming_invariant"]);
   assert.deepEqual(overlayAntiIds, ["coreImportsModule", "dbWriteDuringStream", "directDerivedAccess", "manualDDEInstantiation"]);
-  assert.ok(grammar.grammarBasePack.patterns.every((entry) => !overlayPatternIds.includes(entry.id)));
+  assert.ok(grammar.grammarArchetypeFullstackLayered.patterns.every((entry) => !overlayPatternIds.includes(entry.id)));
 });
