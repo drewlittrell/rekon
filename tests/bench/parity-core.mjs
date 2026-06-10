@@ -3,27 +3,41 @@
 // Classifies every normalized classic finding against Rekon's FindingReport /
 // FindingFilterReport for the same repo:
 //
-//   matched              - a ported rule's Rekon finding matches on
-//                          (rekonRuleId, normalized file), falling back to
-//                          (rekonRuleId, subject) when classic carries no file.
+//   matched              - a ported (or redesigned-with-rekonRuleId) rule's
+//                          Rekon finding matches on (rekonRuleId, normalized
+//                          file), falling back to (rekonRuleId, subject) when
+//                          classic carries no file.
 //   missed-gap           - no match and no citable justification. This is the
-//                          Phase 1 queue.
-//   missed-intentional   - citable divergence ONLY: (a) the mapped finding was
+//                          undecided queue (empty once every rule carries a
+//                          pinned disposition).
+//   missed-intentional   - citable suppression ONLY: the mapped finding was
 //                          suppressed by a FindingFilterReport entry (citation
-//                          carries the filter reason and policy id), or (b) the
-//                          rule-map row is `rejected` and carries a citation to
-//                          a named decision doc. Anything else stays a gap -
-//                          this is the anti-gaming spine of the scoreboard.
+//                          carries the filter reason and policy id). Credited.
+//   missed-redesigned    - the rule's disposition is `redesigned` (decision
+//                          pinned in the design doc, detector not yet landed/
+//                          matched). In the denominator, NOT credited; carries
+//                          the design-doc citation.
+//   missed-deferred      - the rule's disposition is `deferred` (real goal,
+//                          missing substrate, named re-entry condition). In
+//                          the denominator, NOT credited; cited; excluded from
+//                          the Phase 1 gap queue.
+//   rejected             - the goal is not Rekon's to serve (cited decision).
+//                          EXCLUDED from the denominator entirely - per WO-3,
+//                          the denominator shrinks only through rejected rows
+//                          with rationale.
 //   new                  - Rekon findings classic never produced.
 //
 // Weighted recall = sum fireCount(matched + missed-intentional) / sum
-// fireCount(all classic findings). Matching is deterministic key equality (no
-// semantic / fuzzy / embedding matching), consistent with the issue-governance
-// ADR posture.
+// fireCount(all non-rejected classic findings). Matching is deterministic key
+// equality (no semantic / fuzzy / embedding matching), consistent with the
+// issue-governance ADR posture. Disposition semantics are authorized by
+// docs/strategy/detection-design-decisions.md (Bench scoring policy).
 
 import { normalizePath } from "./normalize-classic.mjs";
 
-export const RULE_STATUSES = ["ported", "unported", "rejected"];
+export const RULE_STATUSES = ["ported", "unported", "rejected", "redesigned", "deferred"];
+
+const CITATION_REQUIRED = new Set(["rejected", "redesigned", "deferred"]);
 
 /** Validate the classic-rule disposition table. Throws on malformed rows. */
 export function validateRuleMap(ruleMap) {
@@ -46,11 +60,19 @@ export function validateRuleMap(ruleMap) {
       throw new Error(`rule-map: ported rule "${classicRuleId}" must carry a non-empty rekonRuleId.`);
     }
 
-    if (row.status === "rejected" && (typeof row.citation !== "string" || row.citation.length === 0)) {
+    if (CITATION_REQUIRED.has(row.status) && (typeof row.citation !== "string" || row.citation.length === 0)) {
       throw new Error(
-        `rule-map: rejected rule "${classicRuleId}" must carry a citation (a named decision doc, e.g. docs/strategy/... or docs/adr/...). ` +
+        `rule-map: ${row.status} rule "${classicRuleId}" must carry a citation (a named decision doc, e.g. docs/strategy/... or docs/adr/...). ` +
           "Intentional divergence without a citation is not allowed.",
       );
+    }
+
+    if (
+      row.status === "redesigned" &&
+      row.rekonRuleId !== undefined &&
+      (typeof row.rekonRuleId !== "string" || row.rekonRuleId.length === 0)
+    ) {
+      throw new Error(`rule-map: redesigned rule "${classicRuleId}" rekonRuleId, when present, must be a non-empty string.`);
     }
   }
 
@@ -162,7 +184,7 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
   if (unmapped.length > 0) {
     throw new Error(
       `classic-parity-bench: unmapped classic rule id(s): ${unmapped.sort().join(", ")}. ` +
-        "Add a row for each to the rule map (status ported | unported | rejected).",
+        `Add a row for each to the rule map (status ${RULE_STATUSES.join(" | ")}).`,
     );
   }
 
@@ -173,37 +195,51 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
     const disposition = ruleMap[classic.ruleId];
 
     if (disposition.status === "rejected") {
-      return { classic, classification: "missed-intentional", citation: disposition.citation };
+      // Out of the denominator entirely - per WO-3, the denominator shrinks
+      // only through cited rejected rows.
+      return { classic, classification: "rejected", citation: disposition.citation };
     }
 
     if (disposition.status === "unported") {
       return { classic, classification: "missed-gap" };
     }
 
-    for (const key of classicMatchKeys(disposition.rekonRuleId, classic)) {
-      const hits = index.get(key);
+    if (disposition.status === "deferred") {
+      return { classic, classification: "missed-deferred", citation: disposition.citation };
+    }
 
-      if (hits && hits.length > 0) {
-        for (const position of hits) {
-          matchedRekon.add(position);
+    // ported always carries a rekonRuleId; redesigned may, once its detector
+    // lands - matching works the same for both.
+    if (disposition.rekonRuleId) {
+      for (const key of classicMatchKeys(disposition.rekonRuleId, classic)) {
+        const hits = index.get(key);
+
+        if (hits && hits.length > 0) {
+          for (const position of hits) {
+            matchedRekon.add(position);
+          }
+
+          return {
+            classic,
+            classification: "matched",
+            matchedRekonIds: hits.map((position) => rekonFindings[position].id),
+          };
         }
+      }
 
-        return {
-          classic,
-          classification: "matched",
-          matchedRekonIds: hits.map((position) => rekonFindings[position].id),
-        };
+      const filterHit = findFilterHit(filteredFindings, disposition.rekonRuleId, classic);
+
+      if (filterHit) {
+        const citation = filterHit.policyId
+          ? `FindingFilterReport:${filterHit.reason}:policy=${filterHit.policyId}`
+          : `FindingFilterReport:${filterHit.reason}`;
+
+        return { classic, classification: "missed-intentional", citation };
       }
     }
 
-    const filterHit = findFilterHit(filteredFindings, disposition.rekonRuleId, classic);
-
-    if (filterHit) {
-      const citation = filterHit.policyId
-        ? `FindingFilterReport:${filterHit.reason}:policy=${filterHit.policyId}`
-        : `FindingFilterReport:${filterHit.reason}`;
-
-      return { classic, classification: "missed-intentional", citation };
+    if (disposition.status === "redesigned") {
+      return { classic, classification: "missed-redesigned", citation: disposition.citation };
     }
 
     return { classic, classification: "missed-gap" };
@@ -214,13 +250,25 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
   return { rows, newFindings };
 }
 
-/** Weighted recall over classification rows. Empty input scores 1 (vacuous). */
+/**
+ * Weighted recall over classification rows. Empty input scores 1 (vacuous).
+ * Rejected rows are excluded from the denominator (and reported in
+ * rejectedWeight); redesigned/deferred misses stay in the denominator,
+ * uncredited.
+ */
 export function computeWeightedRecall(rows) {
   let totalWeight = 0;
   let creditedWeight = 0;
+  let rejectedWeight = 0;
 
   for (const row of rows) {
     const weight = Number.isFinite(row.classic.fireCount) && row.classic.fireCount > 0 ? row.classic.fireCount : 1;
+
+    if (row.classification === "rejected") {
+      rejectedWeight += weight;
+      continue;
+    }
+
     totalWeight += weight;
 
     if (row.classification === "matched" || row.classification === "missed-intentional") {
@@ -231,6 +279,7 @@ export function computeWeightedRecall(rows) {
   return {
     totalWeight,
     creditedWeight,
+    rejectedWeight,
     recall: totalWeight === 0 ? 1 : creditedWeight / totalWeight,
   };
 }
@@ -251,28 +300,55 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
   const allRows = repos.flatMap((repo) => repo.rows);
   const aggregate = computeWeightedRecall(allRows);
   const gapByRule = new Map();
+  const redesignedByRule = new Map();
+  const deferredByRule = new Map();
+  const rejectedByRule = new Map();
   const intentional = [];
+
+  const accumulate = (map, repo, row, weight) => {
+    const entry = map.get(row.classic.ruleId) ?? {
+      ruleId: row.classic.ruleId,
+      fireCount: 0,
+      repos: new Set(),
+      citation: row.citation,
+    };
+    entry.fireCount += weight;
+    entry.repos.add(repo.id);
+    map.set(row.classic.ruleId, entry);
+  };
 
   for (const repo of repos) {
     for (const row of repo.rows) {
       const weight = row.classic.fireCount ?? 1;
 
       if (row.classification === "missed-gap") {
-        const entry = gapByRule.get(row.classic.ruleId) ?? { ruleId: row.classic.ruleId, fireCount: 0, repos: new Set() };
-        entry.fireCount += weight;
-        entry.repos.add(repo.id);
-        gapByRule.set(row.classic.ruleId, entry);
-      }
-
-      if (row.classification === "missed-intentional") {
+        accumulate(gapByRule, repo, row, weight);
+      } else if (row.classification === "missed-redesigned") {
+        accumulate(redesignedByRule, repo, row, weight);
+      } else if (row.classification === "missed-deferred") {
+        accumulate(deferredByRule, repo, row, weight);
+      } else if (row.classification === "rejected") {
+        accumulate(rejectedByRule, repo, row, weight);
+      } else if (row.classification === "missed-intentional") {
         intentional.push({ repo: repo.id, ruleId: row.classic.ruleId, fireCount: weight, citation: row.citation });
       }
     }
   }
 
-  const gapQueue = [...gapByRule.values()]
-    .map((entry) => ({ ruleId: entry.ruleId, fireCount: entry.fireCount, repos: [...entry.repos].sort() }))
-    .sort((left, right) => right.fireCount - left.fireCount || left.ruleId.localeCompare(right.ruleId));
+  const toQueue = (map) =>
+    [...map.values()]
+      .map((entry) => ({
+        ruleId: entry.ruleId,
+        fireCount: entry.fireCount,
+        repos: [...entry.repos].sort(),
+        ...(entry.citation ? { citation: entry.citation } : {}),
+      }))
+      .sort((left, right) => right.fireCount - left.fireCount || left.ruleId.localeCompare(right.ruleId));
+
+  const gapQueue = toQueue(gapByRule);
+  const redesignQueue = toQueue(redesignedByRule);
+  const deferred = toQueue(deferredByRule);
+  const rejected = toQueue(rejectedByRule);
 
   return {
     bench: "classic-parity-bench",
@@ -285,6 +361,9 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
       newFindings: repos.reduce((sum, repo) => sum + repo.newFindings.length, 0),
     },
     gapQueue,
+    redesignQueue,
+    deferred,
+    rejected,
     intentional,
     repos: repos.map((repo) => ({
       id: repo.id,
@@ -321,23 +400,76 @@ export function renderMarkdownReport(report) {
   lines.push("");
   lines.push(`## Weighted recall: ${formatRecall(report.aggregate)}`);
   lines.push("");
+
+  if (report.aggregate.rejectedWeight > 0) {
+    lines.push(
+      `Denominator excludes rejected rules: ${report.aggregate.rejectedWeight} weighted (see Rejected below for citations).`,
+    );
+    lines.push("");
+  }
+
   lines.push(
     `Classified: ${Object.entries(report.aggregate.classified)
       .map(([key, count]) => `${key}=${count}`)
       .join(", ") || "none"} - new Rekon findings: ${report.aggregate.newFindings}`,
   );
   lines.push("");
-  lines.push("## Gap queue (Phase 1, by fireCount)");
+  lines.push("## Gap queue (undecided, by fireCount)");
   lines.push("");
 
   if (report.gapQueue.length === 0) {
-    lines.push("No gaps. Every classic finding is matched or intentionally diverged with a citation.");
+    lines.push("No undecided gaps. Every classic rule carries a pinned disposition.");
   } else {
     lines.push("| Classic rule | fireCount | Repos |");
     lines.push("| --- | --- | --- |");
 
     for (const entry of report.gapQueue) {
       lines.push(`| ${entry.ruleId} | ${entry.fireCount} | ${entry.repos.join(", ")} |`);
+    }
+  }
+
+  lines.push("");
+  lines.push("## Redesign queue (Phase 1 - decision pinned, detector pending)");
+  lines.push("");
+
+  if (report.redesignQueue.length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("| Classic rule | fireCount | Repos | Citation |");
+    lines.push("| --- | --- | --- | --- |");
+
+    for (const entry of report.redesignQueue) {
+      lines.push(`| ${entry.ruleId} | ${entry.fireCount} | ${entry.repos.join(", ")} | ${entry.citation ?? ""} |`);
+    }
+  }
+
+  lines.push("");
+  lines.push("## Deferred (re-entry conditions cited)");
+  lines.push("");
+
+  if (report.deferred.length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("| Classic rule | fireCount | Repos | Citation |");
+    lines.push("| --- | --- | --- | --- |");
+
+    for (const entry of report.deferred) {
+      lines.push(`| ${entry.ruleId} | ${entry.fireCount} | ${entry.repos.join(", ")} | ${entry.citation ?? ""} |`);
+    }
+  }
+
+  lines.push("");
+  lines.push("## Rejected (out of denominator, with citations)");
+  lines.push("");
+
+  if (report.rejected.length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("| Classic rule | fireCount excluded | Repos | Citation |");
+    lines.push("| --- | --- | --- | --- |");
+
+    for (const entry of report.rejected) {
+      lines.push(`| ${entry.ruleId} | ${entry.fireCount} | ${entry.repos.join(", ")} | ${entry.citation ?? ""} |`);
     }
   }
 

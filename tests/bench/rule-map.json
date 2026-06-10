@@ -1,28 +1,105 @@
 {
-  "tech_debt": { "status": "unported" },
   "architecture": {
-    "status": "unported",
-    "note": "NOT mapped to architecture.noUnknownSystemForSourceFile — classic's architecture rule is the evaluator-catalog architecture family, not the ownership-hint check. Mapping them would inflate recall without preserving the guarantee."
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §A",
+    "note": "Declared-vs-observed divergence detector on the ontology/CapabilityMap/contract layer, composed onto the capability lint chain. NOT mapped to architecture.noUnknownSystemForSourceFile - mapping the umbrella to one narrow built-in would inflate recall without preserving the guarantee."
   },
-  "lint": { "status": "unported" },
-  "naming_violation": { "status": "unported" },
-  "capability_overlap": { "status": "unported" },
-  "dead_code": { "status": "unported" },
-  "anti_pattern": { "status": "unported" },
-  "semantic_similarity": { "status": "unported" },
-  "canonical_bypass": { "status": "unported" },
-  "canonical_gap": { "status": "unported" },
-  "ownership_violation": { "status": "unported" },
+  "canonical_gap": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §A",
+    "note": "Merged into the cluster-A detector; a gap requires a declaration to exist (classic's inferred gaps ran 69% suppression)."
+  },
+  "canonical_bypass": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §A"
+  },
+  "canonical_misplacement": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §A"
+  },
+  "ownership_violation": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §A",
+    "note": "Folded into the cluster-A detector; OwnershipMap is the declaration side."
+  },
+  "pattern_violation": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §A",
+    "note": "Decision: port (config-declared forbidden patterns). Row flips to ported with a rekonRuleId when the emitter lands (queue #7)."
+  },
   "system_anomaly": {
-    "status": "unported",
-    "note": "Closest Rekon neighbor is architecture.noUnknownSystemForSourceFile, but classic's system_anomaly covers misfit-within-system, not unknown ownership. Left unported until a port slice proves identity."
+    "status": "rejected",
+    "citation": "docs/strategy/detection-design-decisions.md §A4",
+    "note": "Policed classic's own LLM-vs-signals pipeline disagreement; meaningless in Rekon's architecture."
   },
-  "duplication": { "status": "unported" },
+  "tech_debt": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §B",
+    "note": "Split: deterministic markers + trend in the default set; LLM debt judgment as opt-in semantic overlay via the bridge pattern. LLM-origin: scores by goal-level file-set coverage when the detector lands."
+  },
   "stub": {
-    "status": "unported",
-    "note": "Rekon's classic-inspired stub handling (details.stubName) is a finding FILTER, not an emitter. No emitter port exists yet."
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §B",
+    "note": "Folded into the tech_debt deterministic core (standalone prose-judged rule ran 92% suppression). Rekon's classic-inspired stub handling (details.stubName) remains a finding FILTER, not an emitter."
   },
-  "unification_opportunity": { "status": "unported" },
-  "pattern_violation": { "status": "unported" },
-  "canonical_misplacement": { "status": "unported" }
+  "anti_pattern": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §B",
+    "note": "Deterministic sub-rules re-expressed as declared policy rules; LLM remainder to the semantic overlay."
+  },
+  "dead_code": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "note": "Graph reachability (unreferenced exports + GraphSlices). Classic baseline is LLM-origin: scores by goal-level file-set coverage."
+  },
+  "capability_overlap": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "note": "Priority redesign on the capability graph; declared sharing disambiguates intentional overlap from drift."
+  },
+  "semantic_similarity": {
+    "status": "deferred",
+    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "note": "Re-entry condition: embedding layer precision-scored against the corpus."
+  },
+  "duplication": {
+    "status": "deferred",
+    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "note": "Same re-entry condition as semantic_similarity (file-granularity end of the same goal)."
+  },
+  "unification_opportunity": {
+    "status": "deferred",
+    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "note": "Same re-entry condition as semantic_similarity (aggregation end of the same goal)."
+  },
+  "naming_violation": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §D",
+    "note": "Ontology-backed {Entity}{Role} naming-contract check derived from the declared grammar WO-4 ports."
+  },
+  "lint": {
+    "status": "rejected",
+    "citation": "docs/strategy/detection-design-decisions.md §D4",
+    "note": "Classic ran no linter; the model opined on style. Style enforcement belongs to real linters. Consuming real linter output as evidence facts is a separate future decision."
+  },
+  "capability_removed": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "note": "Preservation port from classic drift-artifacts.ts (CapabilityChangeReport, outside issues.json - no corpus fire history)."
+  },
+  "confidence_degraded": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "note": "Preservation port from classic drift-artifacts.ts."
+  },
+  "handoff_broken": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "note": "Preservation port from classic drift-artifacts.ts."
+  },
+  "outcome_missing": {
+    "status": "redesigned",
+    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "note": "Preservation port from classic drift-artifacts.ts."
+  }
 }

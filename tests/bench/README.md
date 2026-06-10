@@ -54,17 +54,30 @@ repo's baseline scan (classic writes it to
 
 ## Rule map
 
-`tests/bench/rule-map.json` is the explicit classic-ruleId → disposition table:
+`tests/bench/rule-map.json` is the explicit classic-ruleId → disposition table.
+Disposition semantics are authorized by
+`docs/strategy/detection-design-decisions.md` (Bench scoring policy):
 
 ```json
 { "classic.rule.id": { "status": "ported", "rekonRuleId": "..." } }
 { "classic.rule.id": { "status": "unported" } }
+{ "classic.rule.id": { "status": "redesigned", "citation": "docs/strategy/...", "rekonRuleId": "optional, once landed" } }
+{ "classic.rule.id": { "status": "deferred", "citation": "docs/strategy/..." } }
 { "classic.rule.id": { "status": "rejected", "citation": "docs/strategy/..." } }
 ```
 
+- `ported` — live emitter; per-finding matching on (rekonRuleId, file).
+- `unported` — undecided gap; in the denominator; the gap-queue table.
+- `redesigned` — decision pinned (port or redesign), detector not yet
+  landed/matched. In the denominator, **uncredited** (`missed-redesigned`),
+  citation required; matching activates when the row gains a `rekonRuleId`.
+- `deferred` — real goal, missing substrate, named re-entry condition.
+  In the denominator, uncredited, **excluded from the gap queue**.
+- `rejected` — goal not Rekon's to serve. **Excluded from the denominator**
+  with its citation; per WO-3, this is the only way the denominator shrinks.
+
 Every classic rule observed in the corpus must have a row; the bench fails
-loudly on unmapped rules rather than silently scoring them. `unported` rows
-sorted by fireCount are the Phase 1 porting queue.
+loudly on unmapped rules rather than silently scoring them.
 
 ## Anti-gaming rules
 

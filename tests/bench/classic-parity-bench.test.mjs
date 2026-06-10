@@ -12,7 +12,7 @@ import { join, relative, resolve } from "node:path";
 import { after, test } from "node:test";
 
 import { loadClassicFindings, normalizeClassicIssuesV1, normalizePath } from "./normalize-classic.mjs";
-import { classifyParity, computeWeightedRecall, validateRuleMap } from "./parity-core.mjs";
+import { buildBenchReport, classifyParity, computeWeightedRecall, validateRuleMap } from "./parity-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const benchPath = join(repoRoot, "tests/bench/classic-parity-bench.mjs");
@@ -116,17 +116,95 @@ test("missed-intentional: filter suppression cites reason and policy id", () => 
   assert.equal(rows[0].citation, "FindingFilterReport:below-min-severity:policy=min-severity-medium");
 });
 
-test("missed-intentional: rejected rule cites its decision doc", () => {
+test("rejected: cited rule leaves the denominator entirely", () => {
   const { rows } = classifyParity({
-    classicFindings: [classicFinding({ ruleId: "classic.rejected" })],
+    classicFindings: [
+      classicFinding({ id: "classic-1", ruleId: "classic.rejected", fireCount: 7 }),
+      classicFinding({ id: "classic-2", ruleId: "classic.unported", fireCount: 3 }),
+    ],
     rekonFindings: [],
     ruleMap: {
       "classic.rejected": { status: "rejected", citation: "docs/strategy/issue-governance-architecture-decision.md" },
+      "classic.unported": { status: "unported" },
     },
   });
 
-  assert.equal(rows[0].classification, "missed-intentional");
+  assert.equal(rows[0].classification, "rejected");
   assert.equal(rows[0].citation, "docs/strategy/issue-governance-architecture-decision.md");
+
+  const recall = computeWeightedRecall(rows);
+
+  assert.equal(recall.totalWeight, 3, "rejected weight must not count in the denominator");
+  assert.equal(recall.rejectedWeight, 7);
+  assert.equal(recall.creditedWeight, 0);
+});
+
+test("redesigned: pinned-but-unlanded rule classifies missed-redesigned with citation, uncredited", () => {
+  const { rows } = classifyParity({
+    classicFindings: [classicFinding({ ruleId: "classic.redesigned", fireCount: 5 })],
+    rekonFindings: [],
+    ruleMap: {
+      "classic.redesigned": { status: "redesigned", citation: "docs/strategy/detection-design-decisions.md §A" },
+    },
+  });
+
+  assert.equal(rows[0].classification, "missed-redesigned");
+  assert.equal(rows[0].citation, "docs/strategy/detection-design-decisions.md §A");
+
+  const recall = computeWeightedRecall(rows);
+
+  assert.equal(recall.totalWeight, 5, "redesigned misses stay in the denominator");
+  assert.equal(recall.creditedWeight, 0, "redesigned misses are not credited");
+});
+
+test("redesigned: with a rekonRuleId, a live match still classifies matched", () => {
+  const { rows } = classifyParity({
+    classicFindings: [classicFinding()],
+    rekonFindings: [rekonFinding()],
+    ruleMap: {
+      "classic.rule": {
+        status: "redesigned",
+        citation: "docs/strategy/detection-design-decisions.md §A",
+        rekonRuleId: "rekon.rule",
+      },
+    },
+  });
+
+  assert.equal(rows[0].classification, "matched");
+});
+
+test("deferred: classifies missed-deferred with citation and stays out of the gap queue", () => {
+  const { rows } = classifyParity({
+    classicFindings: [classicFinding({ ruleId: "classic.deferred" })],
+    rekonFindings: [],
+    ruleMap: {
+      "classic.deferred": { status: "deferred", citation: "docs/strategy/detection-design-decisions.md §C" },
+    },
+  });
+
+  assert.equal(rows[0].classification, "missed-deferred");
+  assert.equal(rows[0].citation, "docs/strategy/detection-design-decisions.md §C");
+
+  const report = buildBenchReport({
+    generatedAt: "2026-06-10T00:00:00.000Z",
+    corpusRoot: "/tmp/corpus",
+    repos: [{ id: "fixture", refresh: { status: "skipped" }, rows, rekonFindingCount: 0, newFindings: [] }],
+  });
+
+  assert.equal(report.gapQueue.length, 0, "deferred rules must not appear in the gap queue");
+  assert.equal(report.deferred.length, 1);
+  assert.equal(report.deferred[0].ruleId, "classic.deferred");
+});
+
+test("redesigned and deferred rows without a citation are rejected", () => {
+  assert.throws(
+    () => validateRuleMap({ "classic.x": { status: "redesigned" } }),
+    /must carry a citation/,
+  );
+  assert.throws(
+    () => validateRuleMap({ "classic.x": { status: "deferred", citation: "" } }),
+    /must carry a citation/,
+  );
 });
 
 test("file-less filter suppression does not credit a file-bearing classic finding", () => {
@@ -294,18 +372,19 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
 
   const byId = new Map(report.repos[0].rows.map((row) => [row.classicId, row]));
 
-  // The unported fixture rule is always a gap; the rejected fixture rule is
-  // always intentional with its citation. The ported fixture rule lands
+  // The unported fixture rule is always a gap; the rejected fixture rule
+  // leaves the denominator with its citation. The ported fixture rule lands
   // matched when the live built-in emitter fires on the fixture, otherwise it
   // is a gap — classification correctness for matched is covered by the pure
   // core tests above.
   assert.equal(byId.get("fixture-issue-2").classification, "missed-gap");
-  assert.equal(byId.get("fixture-issue-3").classification, "missed-intentional");
+  assert.equal(byId.get("fixture-issue-3").classification, "rejected");
   assert.equal(byId.get("fixture-issue-3").citation, "docs/strategy/issue-governance-architecture-decision.md");
   assert.ok(["matched", "missed-gap"].includes(byId.get("fixture-issue-1").classification));
 
   assert.match(markdown, /# Classic Parity Bench Report/);
-  assert.match(markdown, /Gap queue \(Phase 1, by fireCount\)/);
+  assert.match(markdown, /Gap queue \(undecided, by fireCount\)/);
+  assert.match(markdown, /Rejected \(out of denominator, with citations\)/);
   assert.match(markdown, /fixture\.unported_rule/);
   assert.match(markdown, /docs\/strategy\/issue-governance-architecture-decision\.md/);
 
