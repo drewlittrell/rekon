@@ -22,7 +22,35 @@ import {
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
 const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", ".circe", "dist", "build", "coverage"]);
+/**
+ * WO-10: agent scratch trees (executor worktrees, agent workspaces) are
+ * duplicated source the repo does not own; scanning them contaminates
+ * the EvidenceGraph (mentor corpus: 122 of 245 detector findings).
+ * Excluded at the file-walk level so NO provider path emits facts from
+ * them. Operators override via .rekon/scan-scope.json
+ * { "agentScratchSegments": [...] } - an explicit list REPLACES this
+ * default (empty list disables), so a directory an operator declares as
+ * real source is never silently swallowed. Core IGNORED_SEGMENTS are
+ * correctness, not policy, and stay non-negotiable.
+ */
+export const DEFAULT_AGENT_SCRATCH_SEGMENTS: ReadonlyArray<string> = Object.freeze([".claude", ".codex"]);
+export const SCAN_SCOPE_CONFIG_PATH = ".rekon/scan-scope.json";
 const DEFAULT_MAX_WALK_DEPTH = 80;
+
+export async function loadAgentScratchSegments(repoRoot: string): Promise<ReadonlyArray<string>> {
+  try {
+    const raw = await readFile(join(repoRoot, SCAN_SCOPE_CONFIG_PATH), "utf8");
+    const parsed = JSON.parse(raw) as { agentScratchSegments?: unknown };
+
+    if (Array.isArray(parsed.agentScratchSegments)) {
+      return parsed.agentScratchSegments.filter((value): value is string => typeof value === "string");
+    }
+  } catch {
+    // Missing or malformed config -> ship the default on.
+  }
+
+  return DEFAULT_AGENT_SCRATCH_SEGMENTS;
+}
 
 export {
   type AstConfidence,
@@ -147,7 +175,9 @@ export default defineCapability({
 });
 
 async function listSourceFiles(ctx: ProviderContext): Promise<string[]> {
-  const changedFiles = ctx.changedFiles?.filter(isSourcePath).filter((path) => !isIgnoredPath(path));
+  const scratchSegments = new Set(await loadAgentScratchSegments(ctx.repoRoot));
+  const ignored = (path: string) => isIgnoredPath(path, scratchSegments);
+  const changedFiles = ctx.changedFiles?.filter(isSourcePath).filter((path) => !ignored(path));
 
   if (ctx.incremental && changedFiles && changedFiles.length > 0) {
     return [...new Set(changedFiles)].sort();
@@ -158,6 +188,7 @@ async function listSourceFiles(ctx: ProviderContext): Promise<string[]> {
   await walk(ctx.repoRoot, ctx.repoRoot, files, {
     visitedRealpaths: new Set<string>(),
     maxDepth: DEFAULT_MAX_WALK_DEPTH,
+    scratchSegments,
   });
 
   return files.sort();
@@ -166,6 +197,7 @@ async function listSourceFiles(ctx: ProviderContext): Promise<string[]> {
 type WalkState = {
   visitedRealpaths: Set<string>;
   maxDepth: number;
+  scratchSegments: ReadonlySet<string>;
 };
 
 async function walk(
@@ -205,7 +237,7 @@ async function walk(
     const absolutePath = join(directory, entry.name);
     const relativePath = normalizePath(relative(root, absolutePath));
 
-    if (isIgnoredPath(relativePath)) {
+    if (isIgnoredPath(relativePath, state.scratchSegments)) {
       continue;
     }
 
@@ -693,8 +725,13 @@ function isSourcePath(path: string): boolean {
   return SOURCE_EXTENSIONS.has(extensionForPath(path));
 }
 
-function isIgnoredPath(path: string): boolean {
-  return normalizePath(path).split("/").some((segment) => IGNORED_SEGMENTS.has(segment));
+function isIgnoredPath(
+  path: string,
+  scratchSegments: ReadonlySet<string> = new Set(DEFAULT_AGENT_SCRATCH_SEGMENTS),
+): boolean {
+  return normalizePath(path)
+    .split("/")
+    .some((segment) => IGNORED_SEGMENTS.has(segment) || scratchSegments.has(segment));
 }
 
 function extensionForPath(path: string): string {
