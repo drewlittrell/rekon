@@ -10,7 +10,6 @@ freshness:
 > Committed verbatim as issued by the operator (2026-06-12) per the
 > docs/work-orders/ convention. Amendments land as commits.
 
-
 **Slice type:** decision + implementation (the library's first net-new
 archetype, one detection axis, two home-repo ratifications, overruled
 entries). Law and sensor tracks. **The WO-14 template binds.**
