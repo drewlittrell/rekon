@@ -18,6 +18,7 @@ import type { Finding } from "@rekon/kernel-findings";
 import { assignGrammarLayer, type EffectiveArchitectureGrammar } from "@rekon/capability-ontology";
 
 import { isNonProductionPath } from "./grammar-divergence.js";
+import { globLikeToRegExp } from "./dead-code.js";
 
 /** Service-scoped signals fire only on service-layer files (classic's evaluator scope). */
 const SIGNAL_LAYER: Readonly<Record<string, string>> = Object.freeze({
@@ -88,9 +89,21 @@ export function evaluateAntiPatterns(input: {
     }
 
     const details = (anti as { details?: { exceptions?: Array<{ path?: string }> } }).details;
-    const exceptionPrefixes = (details?.exceptions ?? [])
-      .map((e) => (typeof e.path === "string" ? e.path.replace(/\*+$/, "").replace(/\/$/, "") : ""))
-      .filter(Boolean);
+    // WO-17: exceptions are full globs (row-declared or operator-overlay
+    // supersedes). A bare path is an exact-or-prefix match; anything with
+    // a wildcard goes through the glob converter.
+    const exceptionMatchers = (details?.exceptions ?? [])
+      .map((e) => (typeof e.path === "string" ? e.path : ""))
+      .filter(Boolean)
+      .map((pattern) => {
+        if (pattern.includes("*")) {
+          const re = globLikeToRegExp(pattern);
+
+          return (file: string) => re.test(file);
+        }
+
+        return (file: string) => file === pattern || file.startsWith(`${pattern}/`);
+      });
 
     for (const file of [...files].sort()) {
       if (isNonProductionPath(file)) {
@@ -103,7 +116,22 @@ export function evaluateAntiPatterns(input: {
         continue;
       }
 
-      if (exceptionPrefixes.some((prefix) => file === prefix || file.startsWith(`${prefix}/`))) {
+      // WO-17 Part 4: conditionalHooks is scoped to where hooks can exist
+      // (ui layer, .tsx files, hook-role files). Fires on .types.ts,
+      // config, repositories were the FP class.
+      if (anti.id === "conditionalHooks") {
+        const base = file.split("/").at(-1) ?? "";
+        const hookish = file.endsWith(".tsx")
+          || assignGrammarLayer(grammar, file) === "ui"
+          || /^use[A-Z]/.test(base)
+          || /(^|\/)hooks?\//.test(file);
+
+        if (!hookish) {
+          continue;
+        }
+      }
+
+      if (exceptionMatchers.some((matches) => matches(file))) {
         // The grammar row's own declared exception (e.g. tools/** for
         // console logging) - law-declared, not score-motivated.
         continue;

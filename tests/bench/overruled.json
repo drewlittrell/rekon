@@ -48,5 +48,95 @@
     "classicId": "concern-4b6bbf6b",
     "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): services/analysis/evaluation-metrics.ts resolves 3 importer(s) via the reexport chain classic could not follow; sample importer: services/analysis/EvaluationRunner.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-70a39bd9",
+    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Engine.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Engine (batch semantics)). WO-17 Part 1."
+  },
+  {
+    "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-1442c323",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
+  },
+  {
+    "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-18b0b43e",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/assessments/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
+  },
+  {
+    "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-76550147",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/lcc/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-14cecdc8",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"app/api/v1/auth/AuthRequestSecurity.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Security). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-4a9b62de",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"app/api/v1/auth/CallbackSecurity.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Security). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-68ac7620",
+    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "note": "Classic flags \"app/api/v1/auth/Constants.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Constants (batch semantics)). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-16602d7d",
+    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "note": "Classic flags \"core/modules/Bootstrap.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Bootstrap (batch semantics)). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-40f6d33a",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-9e192a1",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/assessments/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-32fcb9f5",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/plume/domain/patch/PlumePatchPolicy.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Policy). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-28aacdfa",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"infra/realtime/Client.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Client). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-7aaff924",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"infra/realtime/Client.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Client). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-141adc40",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"infra/telemetry/handoff/ClientBridge.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Bridge). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-c58adfe",
+    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Engine.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Engine (batch semantics)). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-ed9f183",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-11f8b8e2",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/assessments/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
+  },
+  {
+    "classicId": "naming-62768619",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "note": "Classic flags \"experiences/career/modules/lcc/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   }
 ]

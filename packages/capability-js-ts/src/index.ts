@@ -21,7 +21,7 @@ import {
 } from "./ast-extractor.js";
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
-const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", ".circe", "dist", "build", "coverage"]);
+const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", ".circe", "dist", ".dist", "build", "coverage"]);
 /**
  * WO-10: agent scratch trees (executor worktrees, agent workspaces) are
  * duplicated source the repo does not own; scanning them contaminates
@@ -33,7 +33,8 @@ const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", ".circe", "d
  * real source is never silently swallowed. Core IGNORED_SEGMENTS are
  * correctness, not policy, and stay non-negotiable.
  */
-export const DEFAULT_AGENT_SCRATCH_SEGMENTS: ReadonlyArray<string> = Object.freeze([".claude", ".codex"]);
+// WO-17 Part 6: .agents is the third agent-scratch class observed in the wild.
+export const DEFAULT_AGENT_SCRATCH_SEGMENTS: ReadonlyArray<string> = Object.freeze([".claude", ".codex", ".agents"]);
 export const SCAN_SCOPE_CONFIG_PATH = ".rekon/scan-scope.json";
 const DEFAULT_MAX_WALK_DEPTH = 80;
 
@@ -815,7 +816,14 @@ function isIgnoredPath(
   path: string,
   scratchSegments: ReadonlySet<string> = new Set(DEFAULT_AGENT_SCRATCH_SEGMENTS),
 ): boolean {
-  return normalizePath(path)
+  const normalized = normalizePath(path);
+
+  // WO-17 Part 6: root-level .tmp-* files are working scratch, never source.
+  if (/^\.tmp-[^/]*$/.test(normalized)) {
+    return true;
+  }
+
+  return normalized
     .split("/")
     .some((segment) => IGNORED_SEGMENTS.has(segment) || scratchSegments.has(segment));
 }

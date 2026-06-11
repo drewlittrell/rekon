@@ -163,7 +163,7 @@ export async function loadDeclaredRoots(repoRoot: string): Promise<string[]> {
   return [...roots].sort();
 }
 
-function globLikeToRegExp(glob: string): RegExp {
+export function globLikeToRegExp(glob: string): RegExp {
   const escaped = glob
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*\*\//g, "\u0000")
