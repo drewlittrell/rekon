@@ -1,6 +1,8 @@
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
+import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots } from "./dead-code.js";
+import { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 import {
   compileEffectiveCapabilityOntology,
   compileEffectiveGrammar,
@@ -29,7 +31,14 @@ export const BUILT_IN_POLICY_RULES = [
   "architecture.noUnknownSystemForSourceFile",
   // WO-9: cluster-A declared-vs-observed divergence (jurisdiction-gated).
   GRAMMAR_DIVERGENCE_RULE_ID,
+  // WO-14 A: tech_debt deterministic core (markers as evidence).
+  DEBT_MARKERS_RULE_ID,
+  // WO-14 B: dead_code on unreferenced exports + declared-root reachability.
+  DEAD_CODE_RULE_ID,
 ] as const;
+
+export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
+export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclaredRoots } from "./dead-code.js";
 
 export const policyEvaluator: Evaluator = {
   id: "@rekon/capability-policy.evaluator",
@@ -51,6 +60,8 @@ export const policyEvaluator: Evaluator = {
       ...(!disabledRules.has("files.noGeneratedAsSource") ? noGeneratedAsSource(graph, evidenceRef) : []),
       ...(!disabledRules.has("architecture.noUnknownSystemForSourceFile") ? noUnknownSystemForSourceFile(graph, evidenceRef) : []),
       ...(!disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID) ? await grammarDivergenceFindings(graph, input, artifacts) : []),
+      ...(!disabledRules.has(DEBT_MARKERS_RULE_ID) ? evaluateDebtMarkers(graph.facts) : []),
+      ...(!disabledRules.has(DEAD_CODE_RULE_ID) ? await deadCodeFindings(graph, input) : []),
     ];
     const report = createFindingReport({
       header: {
@@ -102,6 +113,17 @@ export default defineCapability({
 // join OwnershipMap + CapabilityContract when present, and evaluate
 // divergence. Absent repo root or config, the grammar compiles with no
 // ratified archetypes and the layered axes are inert by construction.
+async function deadCodeFindings(
+  graph: EvidenceGraphLike,
+  input: Record<string, unknown> | undefined,
+): Promise<Finding[]> {
+  const repo = input?.repo as { root?: string } | undefined;
+  const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
+  const roots = repoRoot ? await loadDeclaredRoots(repoRoot) : [];
+
+  return evaluateDeadCode({ facts: graph.facts, roots });
+}
+
 async function grammarDivergenceFindings(
   graph: EvidenceGraphLike,
   input: Record<string, unknown> | undefined,
