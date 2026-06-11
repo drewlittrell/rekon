@@ -31,7 +31,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 
-import { loadClassicFindings } from "./normalize-classic.mjs";
+import { loadClassicFindings, loadSuppressedFindings } from "./normalize-classic.mjs";
 import { buildBenchReport, classifyParity, renderMarkdownReport, validateOverruledList, validateRuleMap } from "./parity-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
@@ -212,14 +212,17 @@ async function main() {
     const rekonFindings = findingReport?.findings ?? [];
     const filteredFindings = filterReport?.filteredFindings ?? [];
     const classicFindings = loadClassicFindings({ classicOutputDir, classicFormat: entry.classicFormat });
+    const suppressedFindings = loadSuppressedFindings({ classicOutputDir });
 
-    const { rows, newFindings } = classifyParity({ classicFindings, rekonFindings, filteredFindings, ruleMap, overruled });
+    const { rows, newFindings, coverage, precision } = classifyParity({ classicFindings, rekonFindings, filteredFindings, ruleMap, overruled, suppressedFindings });
 
     repoResults.push({
       id: entry.id,
       refresh,
       rows,
       newFindings,
+      coverage,
+      precision,
       rekonFindingCount: rekonFindings.length,
     });
   }

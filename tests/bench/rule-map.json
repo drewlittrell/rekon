@@ -40,13 +40,17 @@
   },
   "tech_debt": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B",
-    "note": "Split: deterministic markers + trend in the default set; LLM debt judgment as opt-in semantic overlay via the bridge pattern. LLM-origin: scores by goal-level file-set coverage when the detector lands."
+    "citation": "docs/strategy/detection-design-decisions.md §B/§C; docs/work-orders/wo-14-detection-wave-1.md (sub-order A); coverage scoring per bench policy item 2 (LLM-origin baseline)",
+    "note": "Split: deterministic markers + trend in the default set; LLM debt judgment as opt-in semantic overlay via the bridge pattern. LLM-origin: scores by goal-level file-set coverage when the detector lands.",
+    "rekonRuleId": "debt.markers",
+    "scoring": "coverage"
   },
   "stub": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B",
-    "note": "Folded into the tech_debt deterministic core (standalone prose-judged rule ran 92% suppression). Rekon's classic-inspired stub handling (details.stubName) remains a finding FILTER, not an emitter."
+    "citation": "docs/strategy/detection-design-decisions.md §B/§C; docs/work-orders/wo-14-detection-wave-1.md (sub-order A); stub folded into the tech_debt deterministic core (§B); coverage scoring per bench policy item 2",
+    "note": "Folded into the tech_debt deterministic core (standalone prose-judged rule ran 92% suppression). Rekon's classic-inspired stub handling (details.stubName) remains a finding FILTER, not an emitter.",
+    "rekonRuleId": "debt.markers",
+    "scoring": "coverage"
   },
   "anti_pattern": {
     "status": "redesigned",
@@ -55,8 +59,10 @@
   },
   "dead_code": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §C",
-    "note": "Graph reachability (unreferenced exports + GraphSlices). Classic baseline is LLM-origin: scores by goal-level file-set coverage."
+    "citation": "docs/strategy/detection-design-decisions.md §B/§C; docs/work-orders/wo-14-detection-wave-1.md (sub-order B); coverage scoring per bench policy item 2 (LLM-origin baseline)",
+    "note": "Graph reachability (unreferenced exports + GraphSlices). Classic baseline is LLM-origin: scores by goal-level file-set coverage.",
+    "rekonRuleId": "dead_code.unreferenced",
+    "scoring": "coverage"
   },
   "capability_overlap": {
     "status": "redesigned",

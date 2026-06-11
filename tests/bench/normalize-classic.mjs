@@ -21,7 +21,7 @@
 // matching (ruleId + file, with system as the subject fallback) and degrade
 // the rest gracefully rather than expanding the parser.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const CLASSIC_FORMAT_V1 = "classic-v1";
@@ -81,6 +81,30 @@ export function normalizeClassicIssuesV1(document) {
  * Load + normalize the classic baseline for one corpus repo.
  * `classicOutputDir` must contain `issues.json` in the classic-v1 shape.
  */
+/**
+ * WO-14 C: the labeled-negative set. `suppressed.json` sits beside
+ * `issues.json` in the corpus (exported from classic's filtered-issues
+ * filter artifacts by tests/bench/recover-suppressed.mjs). Each entry is
+ * a normalized classic finding plus the recorded suppression `reason`.
+ * Absent file -> empty set; the precision dimension simply reports
+ * nothing for that repo.
+ */
+export function loadSuppressedFindings({ classicOutputDir }) {
+  const path = join(classicOutputDir, "suppressed.json");
+
+  if (!existsSync(path)) {
+    return [];
+  }
+
+  const document = JSON.parse(readFileSync(path, "utf8"));
+  const entries = Array.isArray(document) ? document : [];
+
+  return normalizeClassicIssuesV1({ issues: entries.map((entry) => entry.issue ?? entry) }).map((finding, index) => ({
+    ...finding,
+    reason: typeof entries[index]?.reason === "string" ? entries[index].reason : "unspecified",
+  }));
+}
+
 export function loadClassicFindings({ classicOutputDir, classicFormat }) {
   if (classicFormat !== CLASSIC_FORMAT_V1) {
     throw new Error(

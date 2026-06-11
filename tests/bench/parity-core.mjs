@@ -37,6 +37,9 @@ import { normalizePath } from "./normalize-classic.mjs";
 
 export const RULE_STATUSES = ["ported", "unported", "rejected", "redesigned", "deferred"];
 
+/** WO-14 A (bench policy item 2): per-rule scoring mode. */
+export const RULE_SCORING_MODES = ["identity", "coverage"];
+
 const CITATION_REQUIRED = new Set(["rejected", "redesigned", "deferred"]);
 
 /** Validate the classic-rule disposition table. Throws on malformed rows. */
@@ -58,6 +61,12 @@ export function validateRuleMap(ruleMap) {
 
     if (row.status === "ported" && (typeof row.rekonRuleId !== "string" || row.rekonRuleId.length === 0)) {
       throw new Error(`rule-map: ported rule "${classicRuleId}" must carry a non-empty rekonRuleId.`);
+    }
+
+    if (row.scoring !== undefined && !RULE_SCORING_MODES.includes(row.scoring)) {
+      throw new Error(
+        `rule-map: "${classicRuleId}" has unknown scoring "${row.scoring}". Use one of: ${RULE_SCORING_MODES.join(", ")} (bench policy item 2).`,
+      );
     }
 
     if (CITATION_REQUIRED.has(row.status) && (typeof row.citation !== "string" || row.citation.length === 0)) {
@@ -176,7 +185,7 @@ function findFilterHit(filteredFindings, rekonRuleId, classic) {
  * Throws when the corpus observes a classic rule id with no rule-map row -
  * the bench fails loudly rather than silently scoring unmapped rules.
  */
-export function classifyParity({ classicFindings, rekonFindings = [], filteredFindings = [], ruleMap, overruled = [] }) {
+export function classifyParity({ classicFindings, rekonFindings = [], filteredFindings = [], ruleMap, overruled = [], suppressedFindings = [] }) {
   validateRuleMap(ruleMap);
 
   // WO-12: per-finding operator overrules. Keyed by classic finding id;
@@ -264,7 +273,100 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 
   const newFindings = rekonFindings.filter((_, position) => !matchedRekon.has(position));
 
-  return { rows, newFindings };
+  // WO-14 A (bench policy item 2): goal-level file-set coverage for
+  // LLM-origin clusters. Credit mechanics are unchanged (file overlap);
+  // this measures how much of the classic goal's FILE SET the redesigned
+  // detector touches, reported per coverage-scored rule.
+  const coverageByRule = new Map();
+
+  for (let position = 0; position < rows.length; position += 1) {
+    const row = rows[position];
+    const disposition = ruleMap[row.classic.ruleId];
+
+    if (disposition?.scoring !== "coverage" || row.classification === "rejected" || row.classification === "overruled") {
+      continue;
+    }
+
+    const entry = coverageByRule.get(row.classic.ruleId) ?? { classicFiles: new Set(), coveredFiles: new Set() };
+
+    for (const file of row.classic.files ?? []) {
+      entry.classicFiles.add(file);
+
+      if (row.classification === "matched") {
+        entry.coveredFiles.add(file);
+      }
+    }
+
+    coverageByRule.set(row.classic.ruleId, entry);
+  }
+
+  const coverage = [...coverageByRule.entries()].map(([ruleId, entry]) => ({
+    ruleId,
+    rekonRuleId: ruleMap[ruleId]?.rekonRuleId ?? null,
+    classicFiles: entry.classicFiles.size,
+    coveredFiles: entry.coveredFiles.size,
+    coverage: entry.classicFiles.size === 0 ? 0 : entry.coveredFiles.size / entry.classicFiles.size,
+  })).sort((a, b) => a.ruleId.localeCompare(b.ruleId));
+
+  // WO-14 C (bench policy item 3): precision against the labeled-negative
+  // set. Fire on kept, silent on suppressed. A suppressed finding whose
+  // file also carries a KEPT classic finding of the same rule cannot
+  // condemn a fire (the ambiguous-file guard, counted separately).
+  const precisionByRule = new Map();
+
+  if (suppressedFindings.length > 0) {
+    const keptFilesByRule = new Map();
+
+    for (const classic of classicFindings) {
+      const set = keptFilesByRule.get(classic.ruleId) ?? new Set();
+
+      for (const file of classic.files ?? []) {
+        set.add(file);
+      }
+
+      keptFilesByRule.set(classic.ruleId, set);
+    }
+
+    for (const suppressed of suppressedFindings) {
+      const disposition = ruleMap[suppressed.ruleId];
+
+      if (!disposition?.rekonRuleId) {
+        continue;
+      }
+
+      const entry = precisionByRule.get(disposition.rekonRuleId)
+        ?? { suppressedTotal: 0, ambiguousSkipped: 0, firedOnSuppressed: 0 };
+
+      entry.suppressedTotal += 1;
+
+      const keptFiles = keptFilesByRule.get(suppressed.ruleId) ?? new Set();
+      const files = suppressed.files ?? [];
+
+      if (files.some((file) => keptFiles.has(file))) {
+        entry.ambiguousSkipped += 1;
+      } else {
+        const fired = classicMatchKeys(disposition.rekonRuleId, suppressed).some((key) => {
+          const hits = index.get(key);
+
+          return hits && hits.length > 0;
+        });
+
+        if (fired) {
+          entry.firedOnSuppressed += 1;
+        }
+      }
+
+      precisionByRule.set(disposition.rekonRuleId, entry);
+    }
+  }
+
+  const precision = [...precisionByRule.entries()].map(([rekonRuleId, entry]) => ({
+    rekonRuleId,
+    ...entry,
+    silentOnSuppressed: entry.suppressedTotal - entry.ambiguousSkipped - entry.firedOnSuppressed,
+  })).sort((a, b) => a.rekonRuleId.localeCompare(b.rekonRuleId));
+
+  return { rows, newFindings, coverage, precision };
 }
 
 /**
@@ -350,6 +452,19 @@ export function validateOverruledList(entries, readFileOrNull) {
   }
 
   return entries;
+}
+
+/** Merge per-repo keyed entries (coverage / precision rows) into one list. */
+function aggregateKeyed(repos, field, keyOf, merge) {
+  const byKey = new Map();
+
+  for (const repo of repos) {
+    for (const entry of repo[field] ?? []) {
+      byKey.set(keyOf(entry), merge(byKey.get(keyOf(entry)), entry));
+    }
+  }
+
+  return [...byKey.values()].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
 }
 
 function countBy(rows, classify) {
@@ -445,6 +560,24 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
     rejected,
     intentional,
     overruled: overruledRows,
+    coverage: aggregateKeyed(repos, "coverage", (entry) => `${entry.ruleId}`, (acc, entry) => ({
+      ruleId: entry.ruleId,
+      rekonRuleId: entry.rekonRuleId,
+      classicFiles: (acc?.classicFiles ?? 0) + entry.classicFiles,
+      coveredFiles: (acc?.coveredFiles ?? 0) + entry.coveredFiles,
+    })).map((entry) => ({
+      ...entry,
+      coverage: entry.classicFiles === 0 ? 0 : entry.coveredFiles / entry.classicFiles,
+    })),
+    precision: aggregateKeyed(repos, "precision", (entry) => entry.rekonRuleId, (acc, entry) => ({
+      rekonRuleId: entry.rekonRuleId,
+      suppressedTotal: (acc?.suppressedTotal ?? 0) + entry.suppressedTotal,
+      ambiguousSkipped: (acc?.ambiguousSkipped ?? 0) + entry.ambiguousSkipped,
+      firedOnSuppressed: (acc?.firedOnSuppressed ?? 0) + entry.firedOnSuppressed,
+    })).map((entry) => ({
+      ...entry,
+      silentOnSuppressed: entry.suppressedTotal - entry.ambiguousSkipped - entry.firedOnSuppressed,
+    })),
     repos: repos.map((repo) => ({
       id: repo.id,
       refresh: repo.refresh,
@@ -573,6 +706,40 @@ export function renderMarkdownReport(report) {
     for (const entry of report.overruled) {
       lines.push(
         `| ${entry.classicId} | ${entry.ruleId} | ${entry.repo} | ${entry.files.join(", ")} | ${entry.fireCount} | ${entry.rulingRef} |`,
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push("## Coverage-scored rules (LLM-origin baselines, file-set coverage)");
+  lines.push("");
+
+  if ((report.coverage ?? []).length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("| Classic rule | Rekon rule | Classic files | Covered | Coverage |");
+    lines.push("| --- | --- | --- | --- | --- |");
+
+    for (const entry of report.coverage) {
+      lines.push(
+        `| ${entry.ruleId} | ${entry.rekonRuleId ?? "-"} | ${entry.classicFiles} | ${entry.coveredFiles} | ${(entry.coverage * 100).toFixed(1)}% |`,
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push("## Precision vs suppressed set (fire on kept, silent on suppressed)");
+  lines.push("");
+
+  if ((report.precision ?? []).length === 0) {
+    lines.push("No suppressed set loaded (corpus suppressed.json absent).");
+  } else {
+    lines.push("| Rekon rule | Suppressed | Fired on suppressed | Silent | Ambiguous (kept sibling) |");
+    lines.push("| --- | --- | --- | --- | --- |");
+
+    for (const entry of report.precision) {
+      lines.push(
+        `| ${entry.rekonRuleId} | ${entry.suppressedTotal} | ${entry.firedOnSuppressed} | ${entry.silentOnSuppressed} | ${entry.ambiguousSkipped} |`,
       );
     }
   }
