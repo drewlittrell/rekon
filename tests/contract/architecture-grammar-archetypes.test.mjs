@@ -15,10 +15,12 @@ const grammar = await import(join(pkgRoot, "dist/grammar/index.js"));
 const manifest = JSON.parse(readFileSync(join(pkgRoot, "grammar-port-manifest.json"), "utf8"));
 const topologyKeys = JSON.parse(readFileSync(join(pkgRoot, "classic-topology-keys.json"), "utf8"));
 
-test("the three tiers resolve: base, four archetypes, overlay", () => {
+test("the three tiers resolve: base, five archetypes, overlay", () => {
   assert.equal(grammar.resolveGrammarPackTier(grammar.grammarBasePack), "base");
   assert.equal(grammar.resolveGrammarPackTier(grammar.grammarProjectOverlayExample), "overlay");
-  assert.equal(grammar.BUILTIN_GRAMMAR_ARCHETYPE_PACKS.length, 4);
+  // Four ported packs (WO-4.1) + package-platform, the first net-new pack
+  // (WO-18 operator ruling).
+  assert.equal(grammar.BUILTIN_GRAMMAR_ARCHETYPE_PACKS.length, 5);
 
   for (const pack of grammar.BUILTIN_GRAMMAR_ARCHETYPE_PACKS) {
     assert.equal(grammar.resolveGrammarPackTier(pack), "archetype");
@@ -63,7 +65,7 @@ test("unratified archetypes never enter the effective grammar (no findings possi
 
   assert.equal(effective.layers.size, 0, "school layers must not compile in without ratification");
   assert.equal(effective.patterns.has("orchestration"), false);
-  assert.equal(effective.activation.unratifiedArchetypeIds.length, 4);
+  assert.equal(effective.activation.unratifiedArchetypeIds.length, 5);
   assert.deepEqual(effective.activation.ratifiedArchetypeIds, []);
   assert.deepEqual(effective.findingsEligiblePackIds, ["grammar-base"]);
 });

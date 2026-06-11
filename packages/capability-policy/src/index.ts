@@ -13,7 +13,7 @@ import {
   loadCapabilityOntologyConfig,
   loadGrammarOverrides,
 } from "@rekon/capability-ontology";
-import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence } from "./grammar-divergence.js";
+import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence, loadWorkspacePackages } from "./grammar-divergence.js";
 
 export * from "./grammar-divergence.js";
 
@@ -252,6 +252,9 @@ async function grammarDivergenceFindings(
     ownershipEntries: ownership?.entries ?? [],
     contractEntries: (contract?.contracts ?? []) as never,
     vocabularyNouns,
+    // WO-18: the package-boundary axis reads the workspace package table
+    // (inert unless the package-platform archetype is findings-eligible).
+    workspacePackages: repoRoot ? await loadWorkspacePackages(repoRoot) : undefined,
   });
 }
 

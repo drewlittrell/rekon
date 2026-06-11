@@ -146,7 +146,8 @@ test("orientation answers with repo identity, grammar activation, governance, po
   assert.ok(payload.data.repo.snapshotId.value.startsWith("snapshot-"));
   assert.equal(payload.data.repo.snapshotId.trust, "deterministic");
   assert.ok(Array.isArray(payload.data.grammar.unratifiedArchetypesPresent.value));
-  assert.equal(payload.data.grammar.unratifiedArchetypesPresent.value.length, 4);
+  // Five builtin archetypes since WO-18 (package-platform joined the registry).
+  assert.equal(payload.data.grammar.unratifiedArchetypesPresent.value.length, 5);
   assert.equal(payload.data.grammar.ratifiedArchetypes.value.length, 0);
   assert.equal(payload.data.grammar.ratifiedArchetypes.trust, "declared");
   assert.ok(typeof payload.data.governance.openFindings.value === "number");
@@ -204,7 +205,7 @@ test("no_declaration_covers_this: absence of declared truth is the honest answer
   assert.equal(payload.data.no_declaration_covers_this.value, true);
   assert.deepEqual(payload.data.ownerCandidates, []);
   assert.ok(payload.data.grammarPlacement.advisoryOnly.note.value.includes("advisory only"));
-  assert.equal(payload.data.grammarPlacement.advisoryOnly.unratifiedArchetypes.value.length, 4);
+  assert.equal(payload.data.grammarPlacement.advisoryOnly.unratifiedArchetypes.value.length, 5);
 });
 
 test("input strings are data: traversal/injection shapes change nothing structural", async () => {

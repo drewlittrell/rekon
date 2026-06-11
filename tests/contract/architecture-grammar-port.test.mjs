@@ -26,14 +26,18 @@ test("both shipped grammar packs validate against the schema", () => {
   assert.equal(grammar.grammarProjectOverlayExample.kind, "overlay");
 });
 
-test("every ported entry carries classic provenance", () => {
+test("every ported entry carries classic provenance; operator packs carry operator refs", () => {
   for (const pack of grammar.BUILTIN_GRAMMAR_PACKS) {
+    // WO-18 introduced operator provenance as a legitimate pack class:
+    // net-new packs carry operator:<ruling-ref> sources, never classic refs.
+    const operatorAuthored = pack.provenance?.migratedFrom === "operator";
+
     for (const section of ["layers", "verbCategories", "fileTypes", "forbiddenTypes", "patterns", "antiPatterns", "sequentialPatterns"]) {
       for (const entry of pack[section] ?? []) {
         assert.match(
           entry.source,
-          /^[a-z0-9-]+\.ontology\.yaml#/,
-          `${pack.id} ${section} "${entry.id}" must carry a classic source ref`,
+          operatorAuthored ? /^operator:[a-z0-9-]+(?:#[A-Za-z0-9_.-]+)?$/ : /^[a-z0-9-]+\.ontology\.yaml#/,
+          `${pack.id} ${section} "${entry.id}" must carry ${operatorAuthored ? "an operator ruling ref" : "a classic source ref"}`,
         );
       }
     }

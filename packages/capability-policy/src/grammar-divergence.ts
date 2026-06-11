@@ -16,12 +16,68 @@
 //
 // Decision memo: docs/strategy/cluster-a-divergence-detector-decision.md.
 
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+
 import {
   type EffectiveArchitectureGrammar,
   assignGrammarLayer,
   matchForbiddenTypeSuffixes,
 } from "@rekon/capability-ontology";
 import type { Finding } from "@rekon/kernel-findings";
+
+/** WO-18: the package-boundary axis belongs to the package-platform school;
+ * it fires only when this pack is findings-eligible (jurisdiction absolute). */
+const PACKAGE_PLATFORM_PACK_ID = "grammar-archetype-package-platform";
+
+export type WorkspacePackageRef = { name: string; dir: string };
+
+/** Workspace packages (name + dir) from manifests, read fail-soft as data
+ * (the WO-14 B loadDeclaredRoots pattern). The package-boundary axis uses
+ * these to tell a public-surface import from a deep import. */
+export async function loadWorkspacePackages(repoRoot: string): Promise<WorkspacePackageRef[]> {
+  const packages: WorkspacePackageRef[] = [];
+  const collect = async (dir: string): Promise<void> => {
+    try {
+      const pkg = JSON.parse(await readFile(join(repoRoot, dir, "package.json"), "utf8")) as {
+        name?: string;
+        workspaces?: string[] | { packages?: string[] };
+      };
+
+      if (dir !== "" && typeof pkg.name === "string" && pkg.name) {
+        packages.push({ name: pkg.name, dir });
+      }
+
+      if (dir === "") {
+        const globs = Array.isArray(pkg.workspaces) ? pkg.workspaces : pkg.workspaces?.packages ?? [];
+
+        for (const glob of globs) {
+          if (glob.endsWith("/*")) {
+            const parent = glob.slice(0, -2);
+
+            try {
+              const children = await readdir(join(repoRoot, parent), { withFileTypes: true });
+
+              for (const child of children.filter((c) => c.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
+                await collect(`${parent}/${child.name}`);
+              }
+            } catch {
+              // Missing workspace parent - skip.
+            }
+          } else if (!glob.includes("*")) {
+            await collect(glob);
+          }
+        }
+      }
+    } catch {
+      // No manifest at this level - fine.
+    }
+  };
+
+  await collect("");
+
+  return packages.sort((a, b) => a.dir.localeCompare(b.dir));
+}
 
 export const GRAMMAR_DIVERGENCE_RULE_ID = "grammar.divergence";
 
@@ -30,7 +86,8 @@ export type GrammarDivergenceAxis =
   | "canonical_gap"
   | "canonical_bypass"
   | "ownership"
-  | "placement";
+  | "placement"
+  | "package_boundary";
 
 export type GrammarDivergenceLaw = {
   axis: GrammarDivergenceAxis;
@@ -55,6 +112,8 @@ export type GrammarDivergenceInput = {
   vocabularyNouns?: ReadonlySet<string>;
   /** Transparency counter: vocabulary-exempted suffix suppressions are counted, never silent (WO-13). */
   stats?: { vocabularyExemptions: number };
+  /** Workspace packages (WO-18 package-boundary axis; archetype-tier). */
+  workspacePackages?: ReadonlyArray<WorkspacePackageRef>;
   /** CapabilityContract rows, when the artifact exists. */
   contractEntries?: ReadonlyArray<{
     id: string;
@@ -390,6 +449,13 @@ export function evaluateGrammarDivergence(input: GrammarDivergenceInput): Findin
       continue;
     }
 
+    // WO-18: a declared generated layer is exempt from placement law (the
+    // WO-15 generated class as a layer; keyed on layer id, the Factory-role
+    // pattern).
+    if (assignGrammarLayer(grammar, path) === "generated") {
+      continue;
+    }
+
     for (const match of matchForbiddenTypeSuffixes(grammar, path, input.vocabularyNouns)) {
       if (match.vocabularyExempted) {
         // WO-13: the suffix token is a declared canonical noun in this
@@ -476,6 +542,77 @@ export function evaluateGrammarDivergence(input: GrammarDivergenceInput): Findin
           : `${subject} is owned by ${owner}; the contract allows [${allowed.join(", ")}].`,
         files: [subject],
         subjects: [subject],
+      }));
+    }
+  }
+
+  // ---- Axis: package_boundary (WO-18; cross-package imports go through
+  // the package's public surface). Symbol-level law the topology schema
+  // can't express: an import_specifier whose resolvedTarget lies inside
+  // another workspace package but was not reached through that package's
+  // name is a deep-import violation. Purpose claim (operator:wo-18#
+  // package-boundary): deep imports rot the public surface until its
+  // barrels die (the WO-16 forty-dead-barrels discovery is this law's
+  // evidence); the public surface is where package contracts live.
+  const boundaryEligible = (grammar.findingsEligiblePackIds ?? []).includes(PACKAGE_PLATFORM_PACK_ID);
+
+  if (boundaryEligible && input.workspacePackages?.length) {
+    const byDirLength = [...input.workspacePackages].sort((a, b) => b.dir.length - a.dir.length);
+    const packageOf = (path: string): WorkspacePackageRef | undefined =>
+      byDirLength.find((pkg) => path === pkg.dir || path.startsWith(`${pkg.dir}/`));
+    const seen = new Set<string>();
+
+    for (const fact of facts) {
+      if (fact.kind !== "import_specifier") {
+        continue;
+      }
+
+      const source = typeof fact.value.source === "string" ? fact.value.source : "";
+      const resolved = typeof fact.value.resolvedTarget === "string" ? fact.value.resolvedTarget : "";
+      const specifier = typeof fact.value.target === "string" ? fact.value.target : "";
+
+      if (!source || !resolved || isNonProductionPath(source)) {
+        continue;
+      }
+
+      const targetPackage = packageOf(resolved);
+
+      if (!targetPackage) {
+        continue;
+      }
+
+      const sourcePackage = packageOf(source);
+
+      if (sourcePackage?.dir === targetPackage.dir) {
+        continue;
+      }
+
+      if (specifier === targetPackage.name || specifier.startsWith(`${targetPackage.name}/`)) {
+        // Reached through the public surface - the contract held.
+        continue;
+      }
+
+      const key = `${source}->${resolved}`;
+
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      findings.push(finding({
+        axis: "package_boundary",
+        law: {
+          axis: "package_boundary",
+          packId: PACKAGE_PLATFORM_PACK_ID,
+          tier: "archetype",
+          declaration: "operator:wo-18#package-boundary",
+        },
+        idDetail: `${source}->${resolved}`,
+        severity: "medium",
+        title: `Deep import into ${targetPackage.name}`,
+        description: `${source} imports ${resolved} via "${specifier}" instead of through ${targetPackage.name}'s public surface. Deep imports rot the public surface until its barrels die; the public surface is where package contracts live.`,
+        files: [source],
+        subjects: [source, resolved],
       }));
     }
   }

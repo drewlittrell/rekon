@@ -29,6 +29,7 @@ import { grammarArchetypeFullstackLayered } from "./packs/grammar-archetype-full
 import { grammarArchetypeServiceLayered } from "./packs/grammar-archetype-service-layered.js";
 import { grammarArchetypeBackendLayered } from "./packs/grammar-archetype-backend-layered.js";
 import { grammarArchetypeDomainLibrary } from "./packs/grammar-archetype-domain-library.js";
+import { grammarArchetypePackagePlatform } from "./packs/grammar-archetype-package-platform.js";
 
 export * from "./schema.js";
 export {
@@ -38,14 +39,18 @@ export {
   grammarArchetypeServiceLayered,
   grammarArchetypeBackendLayered,
   grammarArchetypeDomainLibrary,
+  grammarArchetypePackagePlatform,
 };
 
-/** The four archetype packs seeded from classic's BUILTIN_TOPOLOGY_TEMPLATES (WO-4.1). */
+/** The archetype packs: four seeded from classic's BUILTIN_TOPOLOGY_TEMPLATES
+ * (WO-4.1) plus package-platform, the first net-new pack (WO-18, operator
+ * provenance). */
 export const BUILTIN_GRAMMAR_ARCHETYPE_PACKS: ReadonlyArray<ArchitectureGrammarPackInput> = Object.freeze([
   grammarArchetypeFullstackLayered,
   grammarArchetypeServiceLayered,
   grammarArchetypeBackendLayered,
   grammarArchetypeDomainLibrary,
+  grammarArchetypePackagePlatform,
 ]);
 
 /** Jurisdiction tier; absent tier resolves from kind for pre-amendment packs. */

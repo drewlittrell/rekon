@@ -116,12 +116,14 @@ test("the seeded list is valid against this repository and stays single-entry-pe
   // The permanent regression seed stays first: the WO-11
   // boundary-contracts contradiction. The list grows ONLY by operator
   // ruling: WO-16 Part 1 added nine living-conduit entries; WO-17 Part 1
-  // added the eighteen naming entries (dispatch was the ratification act
-  // each time), so 1 + 9 + 18.
-  assert.equal(entries.length, 28);
+  // the eighteen naming entries; WO-18 Part 4 the sixteen keeps the
+  // WO-17 rulings directly contradicted (and landed the same-slice
+  // convention in docs/work-orders/README.md), so 1 + 9 + 18 + 16.
+  assert.equal(entries.length, 44);
   assert.equal(entries[0].classicId, "route-complexity-4f606b38");
   assert.equal(entries[0].rulingRef, "docs/work-orders/wo-11-law-calibration.md#boundary-contracts");
   assert.equal(entries.filter((e) => e.note?.includes("WO-17 Part 1")).length, 18);
+  assert.equal(entries.filter((e) => e.note?.includes("WO-18 Part 4")).length, 16);
 
   // It validates against the real repo files (the same check the runner runs).
   core.validateOverruledList(entries, (path) => {
