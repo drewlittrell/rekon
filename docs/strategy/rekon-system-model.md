@@ -1,3 +1,9 @@
+---
+freshness:
+  paths:
+    - packages/mcp/src/**
+    - packages/capability-ontology/src/grammar/**
+---
 # Rekon system model
 
 > **LIVING DOCUMENT.** Maintained as current state; governed by the Documentation authority section in AGENTS.md.

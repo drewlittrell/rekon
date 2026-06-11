@@ -129,3 +129,9 @@ Rules of conduct:
   append slice banners to them; history belongs in CHANGELOG.md and git.
 - Do not add new `tests/docs` prose-assertion tests. That pattern is
   retired; document freshness is owned by the doc governance workstream.
+
+Living-doc currency is testable: run `rekon docs freshness` (WO-7) and
+read `docs/INDEX.md` before relying on a living document. `stale` means a
+declared referent changed after the doc's last commit; `unknown` means
+the doc has not enrolled - honest, not fresh. Snapshots never appear in
+the status table; their banner is their contract.

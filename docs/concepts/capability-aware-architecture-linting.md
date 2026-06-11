@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-model/src/capability-architecture-lint.ts
+---
 # Capability-Aware Architecture Linting
 
 Capability-aware architecture linting evaluates an

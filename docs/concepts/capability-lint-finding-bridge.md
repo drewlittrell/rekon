@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-model/src/capability-lint-finding-bridge.ts
+---
 # Capability Lint Finding Bridge
 
 The capability lint finding bridge is the **preview** layer

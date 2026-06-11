@@ -234,6 +234,7 @@ import {
 } from "@rekon/runtime";
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import { runMcpServer } from "@rekon/mcp";
+import { buildDocsFreshnessReport, renderDocsIndex } from "@rekon/capability-docs";
 import {
   buildSourceStateFingerprint,
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
@@ -4747,6 +4748,58 @@ export async function main(argv: string[]): Promise<void> {
       },
     });
     writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "docs" && subcommand === "freshness") {
+    // `rekon docs freshness [--root <path>] [--json] [--strict]` - WO-7.
+    // Deterministic doc-governance freshness over git history. Report,
+    // don't gate: exits zero unless --strict and any enrolled living doc
+    // is stale/partial. The only write is the generated docs/INDEX.md
+    // (idempotent; skipped when byte-identical).
+    const report = buildDocsFreshnessReport(root);
+    const indexPath = join(root, "docs/INDEX.md");
+    const rendered = renderDocsIndex(report);
+    let indexAction = "unchanged";
+
+    try {
+      if ((await readFile(indexPath, "utf8")) !== rendered) {
+        await writeFile(indexPath, rendered);
+        indexAction = "updated";
+      }
+    } catch {
+      await writeFile(indexPath, rendered);
+      indexAction = "created";
+    }
+
+    const enrolled = report.entries.filter((entry) => entry.enrolled);
+    const offenders = enrolled.filter((entry) => entry.status === "stale" || entry.status === "partial");
+
+    if (json) {
+      writeOutput({ summary: report.summary, indexAction, entries: report.entries }, true);
+    } else {
+      const lines = [
+        `docs freshness: ${report.summary.fresh} fresh / ${report.summary.stale} stale / ${report.summary.partial} partial / ${report.summary.unknown} unknown (living), ${report.summary.snapshots} snapshots exempt`,
+        `docs/INDEX.md ${indexAction}`,
+      ];
+
+      for (const entry of report.entries) {
+        if (entry.classification === "living" && entry.enrolled) {
+          lines.push(`  ${entry.status.padEnd(7)} ${entry.doc}`);
+
+          for (const referent of entry.referents.filter((item) => item.newerThanDoc || !item.resolved)) {
+            lines.push(`          ${referent.newerThanDoc ? "newer:" : "unresolved:"} ${referent.declaration}`);
+          }
+        }
+      }
+
+      writeOutput(lines.join("\n"), false);
+    }
+
+    if (parsed.flags.strict && offenders.length > 0) {
+      process.exitCode = 1;
+    }
+
     return;
   }
 
@@ -13612,6 +13665,7 @@ function usage(): string {
     "rekon capabilities inspect <capability-id> [--root <path>] [--json]",
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
     "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
+    "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon evaluate list [--root <path>] [--json]",

@@ -8447,3 +8447,4 @@ export {
   isSafeBundleRelativePath,
   buildIntentPlanBundle,
 } from "./intent-plan-bundle.js";
+export * from "./doc-freshness.js";

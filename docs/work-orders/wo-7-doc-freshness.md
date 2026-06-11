@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-docs/src/doc-freshness.ts
+---
 # Work Order: Doc Governance Freshness (WO-7)
 
 > Committed verbatim as issued by the operator (2026-06-10) per the

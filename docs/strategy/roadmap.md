@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - docs/work-orders/**
+---
 # Roadmap
 
 > **LIVING DOCUMENT.** Maintained as current state; governed by the Documentation authority section in AGENTS.md.

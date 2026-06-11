@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-model/src/bridge-finding-lifecycle-integration.ts
+---
 # Bridge Finding Lifecycle Integration
 
 **Bridge finding lifecycle integration** is the question of how

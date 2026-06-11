@@ -1,3 +1,9 @@
+---
+freshness:
+  paths:
+    - packages/runtime/src/index.ts
+    - packages/capability-docs/src/doc-freshness.ts
+---
 # Freshness And Invalidation
 
 Freshness is Rekon's current statement about whether an artifact can be

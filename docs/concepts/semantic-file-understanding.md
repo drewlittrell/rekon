@@ -1,3 +1,9 @@
+---
+freshness:
+  paths:
+    - packages/capability-js-ts/src/ast-extractor.ts
+    - packages/llm-provider/src/**
+---
 # Semantic File Understanding
 
 Status: **Implemented** (v1, slice 144).

@@ -1,3 +1,9 @@
+---
+freshness:
+  paths:
+    - docs/strategy/roadmap.md
+    - README.md
+---
 # NorthStar
 
 > **LIVING DOCUMENT.** Maintained as current state; governed by the Documentation authority section in AGENTS.md.

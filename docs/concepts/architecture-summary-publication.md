@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-docs/src/**
+---
 # Architecture Summary Publication
 
 A concise governance read of the repository in one Rekon-native

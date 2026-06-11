@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/mcp/src/**
+---
 # Work Order: MCP Context Skeleton (WO-6)
 
 > Committed verbatim as issued by the operator (2026-06-10); first use of

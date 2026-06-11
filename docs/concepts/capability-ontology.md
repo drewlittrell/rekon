@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-ontology/src/**
+---
 # Capability Ontology
 
 **Status:** v1 shipped (CapabilityNormalizationReport).

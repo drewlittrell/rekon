@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-docs/src/**
+---
 # Publishers
 
 Publishers turn typed Rekon artifacts into durable user-facing artifacts.

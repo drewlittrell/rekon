@@ -1,3 +1,8 @@
+---
+freshness:
+  paths:
+    - packages/capability-docs/src/**
+---
 # Proof Report Publication
 
 A proof report is a focused, artifact-backed readout of the current
