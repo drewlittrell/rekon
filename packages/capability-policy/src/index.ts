@@ -3,7 +3,7 @@ import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
 import { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
-import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots, loadGeneratedGlobs } from "./dead-code.js";
+import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots, loadGeneratedGlobs, loadDistImportExemptions, globLikeToRegExp, type DistImportExemption } from "./dead-code.js";
 import { NAMING_CONTRACT_RULE_ID, evaluateNamingContract } from "./naming-contract.js";
 import { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 import {
@@ -53,6 +53,7 @@ export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclaredRoots, loadGeneratedGlobs } from "./dead-code.js";
 export type { DeadCodeStats } from "./dead-code.js";
+export { loadDistImportExemptions, type DistImportExemption as DistImportExemptionEntry } from "./dead-code.js";
 
 export const policyEvaluator: Evaluator = {
   id: "@rekon/capability-policy.evaluator",
@@ -65,11 +66,16 @@ export const policyEvaluator: Evaluator = {
     }
 
     const graph = await artifacts.read(evidenceRef) as EvidenceGraphLike;
+    // WO-19 Part 2: operator-config dist-import exemptions (repo
+    // jurisdiction; corpus repos without the config are untouched).
+    const evaluateRepo = input?.repo as { root?: string } | undefined;
+    const evaluateRepoRoot = typeof input?.repoRoot === "string" ? input.repoRoot : typeof evaluateRepo?.root === "string" ? evaluateRepo.root : undefined;
+    const distExemptions = evaluateRepoRoot ? await loadDistImportExemptions(evaluateRepoRoot) : [];
     const disabledRules = new Set(
       Array.isArray(input?.disabledRules) ? input.disabledRules.filter((rule): rule is string => typeof rule === "string") : [],
     );
     const findings = [
-      ...(!disabledRules.has("imports.noDistImports") ? noDistImports(graph, evidenceRef) : []),
+      ...(!disabledRules.has("imports.noDistImports") ? noDistImports(graph, evidenceRef, distExemptions) : []),
       ...(!disabledRules.has("imports.noNodeModulesRelativeImports") ? noNodeModulesRelativeImports(graph, evidenceRef) : []),
       ...(!disabledRules.has("files.noGeneratedAsSource") ? noGeneratedAsSource(graph, evidenceRef) : []),
       ...(!disabledRules.has("architecture.noUnknownSystemForSourceFile") ? noUnknownSystemForSourceFile(graph, evidenceRef) : []),
@@ -258,9 +264,16 @@ async function grammarDivergenceFindings(
   });
 }
 
-function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef): Finding[] {
+function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef, exemptions: ReadonlyArray<DistImportExemption> = []): Finding[] {
+  // WO-19 Part 2 (operator:wo-19#dist-scope): operator-declared trees where
+  // dist imports are the point (examples consume the built package; rule
+  // fixtures simulate violations by design). Repo-jurisdiction config.
+  const exemptMatchers = exemptions.map((e) => globLikeToRegExp(e.glob));
+  const exempt = (fact: { subject: string }) => exemptMatchers.some((re) => re.test(fact.subject.split(":")[0] ?? ""));
+
   return graph.facts
     .filter((fact) => fact.kind === "import" && typeof fact.value.target === "string" && /(^|\/)dist(\/|$)/.test(fact.value.target))
+    .filter((fact) => !exempt(fact))
     .map((fact) => finding("imports.noDistImports", "import", "medium", "Import points at dist output", "Import source files instead of generated dist output.", fact, evidenceRef));
 }
 

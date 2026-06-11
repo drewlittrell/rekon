@@ -34,6 +34,11 @@ export const grammarArchetypePackagePlatform: ArchitectureGrammarPackInput = {
       { fromLayer: "capability", toLayer: "product", required: false, forbidden: true },
       { fromLayer: "capability", toLayer: "surface", required: false, forbidden: true },
       { fromLayer: "product", toLayer: "surface", required: false, forbidden: true },
+      { fromLayer: "contract", toLayer: "core", required: false, forbidden: true },
+      { fromLayer: "contract", toLayer: "capability", required: false, forbidden: true },
+      { fromLayer: "contract", toLayer: "product", required: false, forbidden: true },
+      { fromLayer: "contract", toLayer: "surface", required: false, forbidden: true },
+      { fromLayer: "contract", toLayer: "adapter", required: false, forbidden: true },
       { fromLayer: "adapter", toLayer: "core", required: false, forbidden: true },
       { fromLayer: "adapter", toLayer: "capability", required: false, forbidden: true },
       { fromLayer: "adapter", toLayer: "product", required: false, forbidden: true },
@@ -77,12 +82,21 @@ export const grammarArchetypePackagePlatform: ArchitectureGrammarPackInput = {
       source: "operator:wo-18#product",
     },
     {
+      id: "contract",
+      name: "Contract",
+      description:
+        "The capability contract tier: the sdk, consumed by capabilities to define themselves and by the runtime host to register them. Imports kernel only; capability, product, and surface may import contract. The original surface assignment was a misclassification the detector caught - the repo was right; the law adjusts (operator:wo-19#contract-layer).",
+      position: 2,
+      paths: ["packages/sdk/**"],
+      source: "operator:wo-19#contract-layer",
+    },
+    {
       id: "surface",
       name: "Surface",
       description:
-        "Entry points (operator ruling: runtime and sdk are surfaces); imports everything below; nothing imports surface.",
+        "Entry points (operator ruling: runtime and sdk are surfaces; WO-19 reassigned sdk to the contract layer); imports everything below; nothing imports surface.",
       position: 4,
-      paths: ["cli/**", "packages/cli/**", "packages/mcp/**", "packages/sdk/**", "packages/runtime/**", "web/**", "api/**"],
+      paths: ["cli/**", "packages/cli/**", "packages/mcp/**", "packages/runtime/**", "web/**", "api/**"],
       source: "operator:wo-18#surface",
     },
     {

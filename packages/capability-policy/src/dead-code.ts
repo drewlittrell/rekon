@@ -29,6 +29,33 @@ import { isNonProductionPath } from "./grammar-divergence.js";
  * and by the declared codegen globs (WO-10 replace-semantics shape). */
 export const GENERATED_GLOBS_CONFIG_PATH = ".rekon/scan-scope.json";
 
+/** WO-19 Part 2 (operator:wo-19#dist-scope): repo-jurisdiction exemptions
+ * for imports.noDistImports, in the WO-15 generatedGlobs pattern. Each
+ * entry carries its purpose claim; the ruled classes are examples
+ * (consuming the built package is the point, never a violation) and rule
+ * fixtures (simulate violations by design). */
+export type DistImportExemption = { glob: string; reason: string };
+
+export async function loadDistImportExemptions(repoRoot: string): Promise<ReadonlyArray<DistImportExemption>> {
+  try {
+    const raw = await readFile(join(repoRoot, GENERATED_GLOBS_CONFIG_PATH), "utf8");
+    const parsed = JSON.parse(raw) as { distImportExemptions?: unknown };
+
+    if (Array.isArray(parsed.distImportExemptions)) {
+      return parsed.distImportExemptions.filter(
+        (value): value is DistImportExemption =>
+          typeof value === "object" && value !== null
+          && typeof (value as DistImportExemption).glob === "string"
+          && typeof (value as DistImportExemption).reason === "string",
+      );
+    }
+  } catch {
+    // Missing or malformed config -> no exemptions; the base law fires as before.
+  }
+
+  return [];
+}
+
 export async function loadGeneratedGlobs(repoRoot: string): Promise<ReadonlyArray<string>> {
   try {
     const raw = await readFile(join(repoRoot, GENERATED_GLOBS_CONFIG_PATH), "utf8");
