@@ -112,11 +112,49 @@ export interface AstImportRecord {
   location: AstLocation;
 }
 
+export type AstImportSpecifierKind =
+  | "named"
+  | "default"
+  | "namespace"
+  | "side-effect";
+
+/** WO-8: symbol-level import edge - which symbol a file
+ *  imports from where, beyond file-to-file. */
+export interface AstImportSpecifierRecord {
+  /** Module specifier (the import target). */
+  target: string;
+  /** Name as exported by the target module ("default" for
+   *  default imports, "*" for namespace / side-effect). */
+  name: string;
+  /** Local binding name ("*" for side-effect imports). */
+  local: string;
+  specifierKind: AstImportSpecifierKind;
+  typeOnly: boolean;
+  location: AstLocation;
+}
+
+export type AstReexportKind = "named" | "star" | "namespace";
+
+/** WO-8: re-export chain edge (`export ... from "..."`). */
+export interface AstReexportRecord {
+  /** Module specifier (the re-export source). */
+  target: string;
+  /** Name as exported by the target ("*" for star forms). */
+  name: string;
+  /** Name this module exposes it as ("*" for bare star). */
+  exportedAs: string;
+  reexportKind: AstReexportKind;
+  typeOnly: boolean;
+  location: AstLocation;
+}
+
 export interface AstExtractionResult {
   language: AstLanguage;
   symbols: AstSymbolRecord[];
   exports: AstExportRecord[];
   imports: AstImportRecord[];
+  importSpecifiers: AstImportSpecifierRecord[];
+  reexports: AstReexportRecord[];
 }
 
 export interface AstExtractionInput {
@@ -153,6 +191,8 @@ export function extractAstRecords(
     symbols: [],
     exports: [],
     imports: [],
+    importSpecifiers: [],
+    reexports: [],
   };
 
   visit(sourceFile, sourceFile, result);
@@ -175,6 +215,7 @@ function visit(
         syntaxKind: ts.SyntaxKind[node.kind],
         location: locationOf(node, sourceFile),
       });
+      collectImportSpecifiers(node, target, sourceFile, result);
     }
   } else if (ts.isImportEqualsDeclaration(node)) {
     const target = moduleReferenceTarget(node.moduleReference);
@@ -377,6 +418,66 @@ function visit(
   });
 }
 
+function collectImportSpecifiers(
+  node: ts.ImportDeclaration,
+  target: string,
+  sourceFile: ts.SourceFile,
+  result: AstExtractionResult,
+): void {
+  const clause = node.importClause;
+  const location = locationOf(node, sourceFile);
+
+  if (!clause) {
+    // `import "side-effect"` is still a file-to-file edge.
+    result.importSpecifiers.push({
+      target,
+      name: "*",
+      local: "*",
+      specifierKind: "side-effect",
+      typeOnly: false,
+      location,
+    });
+    return;
+  }
+
+  const clauseTypeOnly = clause.isTypeOnly === true;
+
+  if (clause.name) {
+    result.importSpecifiers.push({
+      target,
+      name: "default",
+      local: clause.name.text,
+      specifierKind: "default",
+      typeOnly: clauseTypeOnly,
+      location: locationOf(clause.name, sourceFile),
+    });
+  }
+
+  if (clause.namedBindings) {
+    if (ts.isNamespaceImport(clause.namedBindings)) {
+      result.importSpecifiers.push({
+        target,
+        name: "*",
+        local: clause.namedBindings.name.text,
+        specifierKind: "namespace",
+        typeOnly: clauseTypeOnly,
+        location: locationOf(clause.namedBindings.name, sourceFile),
+      });
+    } else if (ts.isNamedImports(clause.namedBindings)) {
+      for (const element of clause.namedBindings.elements) {
+        result.importSpecifiers.push({
+          target,
+          name: element.propertyName?.text ?? element.name.text,
+          local: element.name.text,
+          specifierKind: "named",
+          typeOnly: clauseTypeOnly || element.isTypeOnly === true,
+          location: locationOf(element.name, sourceFile),
+        });
+      }
+    }
+  }
+}
+
 function handleExportDeclaration(
   node: ts.ExportDeclaration,
   sourceFile: ts.SourceFile,
@@ -398,6 +499,14 @@ function handleExportDeclaration(
       location: locationOf(node, sourceFile),
       moduleSpecifier,
     });
+    result.reexports.push({
+      target: moduleSpecifier,
+      name: "*",
+      exportedAs: "*",
+      reexportKind: "star",
+      typeOnly,
+      location: locationOf(node, sourceFile),
+    });
     return;
   }
 
@@ -412,6 +521,16 @@ function handleExportDeclaration(
       location: locationOf(node.exportClause.name, sourceFile),
       moduleSpecifier,
     });
+    if (moduleSpecifier) {
+      result.reexports.push({
+        target: moduleSpecifier,
+        name: "*",
+        exportedAs: node.exportClause.name.text,
+        reexportKind: "namespace",
+        typeOnly,
+        location: locationOf(node.exportClause.name, sourceFile),
+      });
+    }
     return;
   }
 
@@ -448,6 +567,14 @@ function handleExportDeclaration(
       };
       if (moduleSpecifier) {
         record.moduleSpecifier = moduleSpecifier;
+        result.reexports.push({
+          target: moduleSpecifier,
+          name: element.propertyName?.text ?? exportedName,
+          exportedAs: exportedName,
+          reexportKind: "named",
+          typeOnly: isTypeOnly,
+          location: locationOf(element.name, sourceFile),
+        });
       }
       result.exports.push(record);
     }

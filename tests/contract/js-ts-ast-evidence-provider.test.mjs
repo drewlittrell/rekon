@@ -353,7 +353,9 @@ test("provider extraction does not produce CapabilityMap facts (CapabilityMap re
   const facts = await loadFacts();
   for (const fact of facts) {
     assert.ok(
-      ["file", "import", "export", "symbol", "ownership_hint", "capability_hint"]
+      // import_specifier + reexport added by WO-8 (symbol-facts projection
+      // v2); still EvidenceGraph kinds, never CapabilityMap.
+      ["file", "import", "export", "symbol", "import_specifier", "reexport", "ownership_hint", "capability_hint"]
         .includes(fact.kind),
       `provider must not emit non-EvidenceGraph fact kinds (saw ${fact.kind})`,
     );

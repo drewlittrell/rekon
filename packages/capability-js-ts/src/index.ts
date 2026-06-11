@@ -41,12 +41,16 @@ export {
 export function __extractRegexFallbackFactsForTesting(
   path: string,
   content: string,
+  fileSet: ReadonlySet<string> = new Set(),
 ): EvidenceFact[] {
   const language = languageForPath(path);
+  const resolve = (specifier: string) => resolveRelativeTarget(path, specifier, fileSet);
   return [
     ...extractImportFacts(path, content, language),
     ...extractExportFacts(path, content, language),
     ...extractSymbolFacts(path, content, language),
+    ...extractImportSpecifierFactsRegex(path, content, language, resolve),
+    ...extractReexportFactsRegex(path, content, language, resolve),
   ];
 }
 
@@ -59,6 +63,12 @@ export const jsTsProvider: EvidenceProvider = {
   async extract(ctx) {
     const files = await listSourceFiles(ctx);
     const facts: EvidenceFact[] = [];
+    // WO-8: relative and tsconfig-alias import specifiers resolve against
+    // the scanned file set so symbol-level edges become repo-path edges.
+    // Incremental runs see a partial set; resolution simply finds fewer
+    // targets (no false resolution, never an error).
+    const fileSet = new Set(files);
+    const aliases = await loadTsconfigPathAliases(ctx.repoRoot);
 
     for (const path of files) {
       try {
@@ -71,10 +81,12 @@ export const jsTsProvider: EvidenceProvider = {
         const language = languageForPath(path);
         let astFacts: EvidenceFact[] | undefined;
 
+        const resolve = (specifier: string) => resolveRelativeTarget(path, specifier, fileSet, aliases);
+
         if (astSupportsExtension(extension)) {
           try {
             const result = extractAstRecords({ path, content });
-            astFacts = factsFromAstResult(path, result);
+            astFacts = factsFromAstResult(path, result, resolve);
           } catch {
             // Fall through to regex fallback.
             astFacts = undefined;
@@ -91,6 +103,8 @@ export const jsTsProvider: EvidenceProvider = {
           appendFacts(facts, extractImportFacts(path, content, language));
           appendFacts(facts, extractExportFacts(path, content, language));
           appendFacts(facts, extractSymbolFacts(path, content, language));
+          appendFacts(facts, extractImportSpecifierFactsRegex(path, content, language, resolve));
+          appendFacts(facts, extractReexportFactsRegex(path, content, language, resolve));
         }
 
         facts.push(createOwnershipHintFact(path));
@@ -237,7 +251,11 @@ function createFileFact(path: string): EvidenceFact {
 
 // ---------- AST -> facts -------------------------------------------------
 
-function factsFromAstResult(path: string, result: AstExtractionResult): EvidenceFact[] {
+function factsFromAstResult(
+  path: string,
+  result: AstExtractionResult,
+  resolve: (specifier: string) => string | undefined,
+): EvidenceFact[] {
   const facts: EvidenceFact[] = [];
 
   // ---- imports ----
@@ -291,6 +309,56 @@ function factsFromAstResult(path: string, result: AstExtractionResult): Evidence
       value.moduleSpecifier = exportRecord.moduleSpecifier;
     }
     facts.push(fact("export", path, value, path));
+  }
+
+  // ---- import specifiers (WO-8) ----
+  // Symbol-level import edges. Like exports, `location` is OMITTED from
+  // `value` so repeated identical imports dedupe to one fact; the line
+  // rides in provenance only.
+  for (const spec of result.importSpecifiers) {
+    const value: Record<string, unknown> = {
+      source: path,
+      target: spec.target,
+      name: spec.name,
+      local: spec.local,
+      specifierKind: spec.specifierKind,
+      extractionMethod: "ast" as const,
+      language: result.language,
+      confidence: "high" as AstConfidence,
+    };
+    if (spec.typeOnly) {
+      value.typeOnly = true;
+    }
+    const resolvedTarget = resolve(spec.target);
+    if (resolvedTarget) {
+      value.resolvedTarget = resolvedTarget;
+    }
+    // Line is omitted from provenance too (not just value): the fact id
+    // hashes kind+subject+value, so a line-bearing provenance would let
+    // two facts share an id while failing to dedupe.
+    facts.push(fact("import_specifier", `${path}:${spec.target}:${spec.name}`, value, path));
+  }
+
+  // ---- re-exports (WO-8) ----
+  for (const reexport of result.reexports) {
+    const value: Record<string, unknown> = {
+      source: path,
+      target: reexport.target,
+      name: reexport.name,
+      exportedAs: reexport.exportedAs,
+      reexportKind: reexport.reexportKind,
+      extractionMethod: "ast" as const,
+      language: result.language,
+      confidence: "high" as AstConfidence,
+    };
+    if (reexport.typeOnly) {
+      value.typeOnly = true;
+    }
+    const resolvedTarget = resolve(reexport.target);
+    if (resolvedTarget) {
+      value.resolvedTarget = resolvedTarget;
+    }
+    facts.push(fact("reexport", `${path}:${reexport.target}:${reexport.exportedAs}`, value, path));
   }
 
   // ---- symbols ----
@@ -681,4 +749,382 @@ function lineForIndex(content: string, index: number): number {
 
 function normalizePath(path: string): string {
   return path.split("\\").join("/");
+}
+
+// ---------- WO-8: import-specifier + re-export facts (regex fallback) -----
+
+const IMPORT_CLAUSE_RE
+  = /\bimport\s+(type\s+)?([^'";]*?)\s*from\s*["']([^"']+)["']|\bimport\s*["']([^"']+)["']/g;
+const REEXPORT_NAMED_RE
+  = /\bexport\s+(type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+const REEXPORT_STAR_RE
+  = /\bexport\s+\*(?:\s+as\s+([A-Za-z_$][\w$]*))?\s+from\s+["']([^"']+)["']/g;
+
+function extractImportSpecifierFactsRegex(
+  path: string,
+  content: string,
+  language: AstLanguage,
+  resolve: (specifier: string) => string | undefined,
+): EvidenceFact[] {
+  const facts: EvidenceFact[] = [];
+  const push = (
+    target: string,
+    name: string,
+    local: string,
+    specifierKind: string,
+    typeOnly: boolean,
+    line: number,
+  ) => {
+    const value: Record<string, unknown> = {
+      source: path,
+      target,
+      name,
+      local,
+      specifierKind,
+      extractionMethod: "regex-fallback" as const,
+      language,
+      confidence: "medium" as AstConfidence,
+    };
+    if (typeOnly) {
+      value.typeOnly = true;
+    }
+    const resolvedTarget = resolve(target);
+    if (resolvedTarget) {
+      value.resolvedTarget = resolvedTarget;
+    }
+    facts.push(fact("import_specifier", `${path}:${target}:${name}`, value, path));
+  };
+
+  for (const m of content.matchAll(IMPORT_CLAUSE_RE)) {
+    if (m.index === undefined) continue;
+    const line = lineForIndex(content, m.index);
+    const sideEffectTarget = m[4];
+
+    if (sideEffectTarget) {
+      push(sideEffectTarget, "*", "*", "side-effect", false, line);
+      continue;
+    }
+
+    const typeOnly = Boolean(m[1]);
+    const clause = (m[2] ?? "").trim();
+    const target = m[3];
+    if (!target) continue;
+
+    if (!clause) {
+      push(target, "*", "*", "side-effect", typeOnly, line);
+      continue;
+    }
+
+    // `* as ns` (possibly after a default: `d, * as ns`).
+    const namespaceMatch = clause.match(/\*\s*as\s+([A-Za-z_$][\w$]*)/);
+    // Leading default binding (an identifier before `,` or alone).
+    const defaultMatch = clause.match(/^([A-Za-z_$][\w$]*)\s*(?:,|$)/);
+    const namedMatch = clause.match(/\{([^}]*)\}/);
+
+    if (defaultMatch?.[1]) {
+      push(target, "default", defaultMatch[1], "default", typeOnly, line);
+    }
+    if (namespaceMatch?.[1]) {
+      push(target, "*", namespaceMatch[1], "namespace", typeOnly, line);
+    }
+    if (namedMatch?.[1] !== undefined) {
+      for (const entry of namedMatch[1].split(",")) {
+        let trimmed = entry.trim();
+        if (!trimmed) continue;
+        const entryTypeOnly = /^type\s+/.test(trimmed);
+        trimmed = trimmed.replace(/^type\s+/, "");
+        const parts = trimmed.split(/\s+as\s+/);
+        const name = parts[0]?.trim();
+        const local = (parts[1] ?? parts[0])?.trim();
+        if (!name || !/^[A-Za-z_$][\w$]*$|^default$/.test(name)) continue;
+        push(target, name, local ?? name, "named", typeOnly || entryTypeOnly, line);
+      }
+    }
+  }
+
+  return facts;
+}
+
+function extractReexportFactsRegex(
+  path: string,
+  content: string,
+  language: AstLanguage,
+  resolve: (specifier: string) => string | undefined,
+): EvidenceFact[] {
+  const facts: EvidenceFact[] = [];
+  const push = (
+    target: string,
+    name: string,
+    exportedAs: string,
+    reexportKind: string,
+    typeOnly: boolean,
+    line: number,
+  ) => {
+    const value: Record<string, unknown> = {
+      source: path,
+      target,
+      name,
+      exportedAs,
+      reexportKind,
+      extractionMethod: "regex-fallback" as const,
+      language,
+      confidence: "medium" as AstConfidence,
+    };
+    if (typeOnly) {
+      value.typeOnly = true;
+    }
+    const resolvedTarget = resolve(target);
+    if (resolvedTarget) {
+      value.resolvedTarget = resolvedTarget;
+    }
+    facts.push(fact("reexport", `${path}:${target}:${exportedAs}`, value, path));
+  };
+
+  for (const m of content.matchAll(REEXPORT_STAR_RE)) {
+    if (m.index === undefined || !m[2]) continue;
+    const alias = m[1];
+    push(m[2], "*", alias ?? "*", alias ? "namespace" : "star", false, lineForIndex(content, m.index));
+  }
+
+  for (const m of content.matchAll(REEXPORT_NAMED_RE)) {
+    if (m.index === undefined || !m[3]) continue;
+    const typeOnly = Boolean(m[1]);
+    const line = lineForIndex(content, m.index);
+    for (const entry of (m[2] ?? "").split(",")) {
+      let trimmed = entry.trim();
+      if (!trimmed) continue;
+      const entryTypeOnly = /^type\s+/.test(trimmed);
+      trimmed = trimmed.replace(/^type\s+/, "");
+      const parts = trimmed.split(/\s+as\s+/);
+      const name = parts[0]?.trim();
+      const exportedAs = (parts[1] ?? parts[0])?.trim();
+      if (!name || !/^[A-Za-z_$][\w$]*$|^default$/.test(name)) continue;
+      push(m[3], name, exportedAs ?? name, "named", typeOnly || entryTypeOnly, line);
+    }
+  }
+
+  return facts;
+}
+
+// ---------- WO-8: relative-target resolution -------------------------------
+//
+// Pure and deterministic: relative specifiers only, a FIXED candidate
+// order probed against the scanned file set. Non-relative (package)
+// specifiers are never resolved. A miss yields no resolvedTarget - never
+// a guess.
+
+const RESOLUTION_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
+
+export function resolveRelativeTarget(
+  sourcePath: string,
+  specifier: string,
+  fileSet: ReadonlySet<string>,
+  aliases: ReadonlyArray<TsconfigPathAlias> = [],
+): string | undefined {
+  if (!specifier.startsWith("./") && !specifier.startsWith("../")) {
+    // tsconfig path aliases (declared, never guessed).
+    for (const alias of aliases) {
+      if (alias.wildcard ? specifier.startsWith(alias.prefix) : specifier === alias.prefix) {
+        const suffix = alias.wildcard ? specifier.slice(alias.prefix.length) : "";
+
+        for (const target of alias.targets) {
+          const joined = normalizePath(`${target}${suffix}`).replace(/^\.\//, "");
+          const resolved = probeCandidates(joined, fileSet);
+
+          if (resolved) {
+            return resolved;
+          }
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  const base = sourcePath.split("/").slice(0, -1);
+
+  for (const segment of specifier.split("/")) {
+    if (segment === "." || segment === "") {
+      continue;
+    }
+    if (segment === "..") {
+      if (base.length === 0) {
+        return undefined;
+      }
+      base.pop();
+    } else {
+      base.push(segment);
+    }
+  }
+
+  return probeCandidates(base.join("/"), fileSet);
+}
+
+// ---------- WO-8: tsconfig path-alias resolution (data read only) ---------
+//
+// The AST adapter stays parser-only (no ts.Program, no typechecker); the
+// PROVIDER may read tsconfig.json `compilerOptions.paths` as plain data so
+// alias imports (`@/components/x`) resolve to repo paths the same way
+// relative imports do. Tolerant of JSONC (comments, trailing commas);
+// any parse failure yields zero aliases - resolution degrades, never
+// errors and never guesses.
+
+export type TsconfigPathAlias = {
+  /** Alias prefix before `*` (e.g. "@/"), or the full key for exact aliases. */
+  prefix: string;
+  /** Target prefixes before `*`, repo-relative (e.g. "src/"). */
+  targets: string[];
+  /** Whether the alias key ended with `*`. */
+  wildcard: boolean;
+};
+
+export async function loadTsconfigPathAliases(repoRoot: string): Promise<TsconfigPathAlias[]> {
+  let raw: string;
+
+  try {
+    raw = await readFile(join(repoRoot, "tsconfig.json"), "utf8");
+  } catch {
+    return [];
+  }
+
+  let parsed: { compilerOptions?: { baseUrl?: string; paths?: Record<string, string[]> } };
+
+  try {
+    parsed = JSON.parse(stripJsonc(raw));
+  } catch {
+    return [];
+  }
+
+  const paths = parsed.compilerOptions?.paths;
+
+  if (!paths || typeof paths !== "object") {
+    return [];
+  }
+
+  const baseUrl = normalizePath(parsed.compilerOptions?.baseUrl ?? ".").replace(/^\.\/?/, "").replace(/\/$/, "");
+  const aliases: TsconfigPathAlias[] = [];
+
+  for (const key of Object.keys(paths).sort()) {
+    const values = paths[key];
+
+    if (!Array.isArray(values)) {
+      continue;
+    }
+
+    const wildcard = key.endsWith("*");
+    const prefix = wildcard ? key.slice(0, -1) : key;
+    const targets: string[] = [];
+
+    for (const value of values) {
+      if (typeof value !== "string") {
+        continue;
+      }
+      const stem = (wildcard && value.endsWith("*") ? value.slice(0, -1) : value)
+        .replace(/^\.\//, "")
+        .replace(/^\//, "");
+      targets.push(normalizePath(baseUrl ? `${baseUrl}/${stem}` : stem).replace(/^\.\//, ""));
+    }
+
+    if (targets.length > 0) {
+      aliases.push({ prefix, targets, wildcard });
+    }
+  }
+
+  // Longest prefix first so the most specific alias wins deterministically.
+  return aliases.sort((a, b) => b.prefix.length - a.prefix.length || a.prefix.localeCompare(b.prefix));
+}
+
+function probeCandidates(joined: string, fileSet: ReadonlySet<string>): string | undefined {
+  const candidates: string[] = [joined];
+  const jsStyle = joined.match(/^(.*)\.(js|mjs|cjs)$/);
+
+  if (jsStyle?.[1]) {
+    const stem = jsStyle[1];
+    candidates.push(`${stem}.ts`, `${stem}.tsx`, `${stem}.mts`, `${stem}.cts`);
+  }
+
+  for (const extension of RESOLUTION_EXTENSIONS) {
+    candidates.push(`${joined}${extension}`);
+  }
+  for (const extension of RESOLUTION_EXTENSIONS) {
+    candidates.push(`${joined}/index${extension}`);
+  }
+
+  for (const candidate of candidates) {
+    if (fileSet.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * String-aware JSONC stripper: removes // and block comments and trailing
+ * commas WITHOUT touching string contents. A naive regex eats everything
+ * between the `/*` in a `"@/*"` paths key and the `*\/` inside a
+ * `"**\/*.test.ts"` glob - exactly the shapes tsconfigs are made of.
+ */
+function stripJsonc(raw: string): string {
+  let out = "";
+  let inString = false;
+  let index = 0;
+
+  while (index < raw.length) {
+    const char = raw[index]!;
+    const next = raw[index + 1];
+
+    if (inString) {
+      out += char;
+      if (char === "\\" && next !== undefined) {
+        out += next;
+        index += 2;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      out += char;
+      index += 1;
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      while (index < raw.length && raw[index] !== "\n") {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (char === "/" && next === "*") {
+      index += 2;
+      while (index < raw.length && !(raw[index] === "*" && raw[index + 1] === "/")) {
+        index += 1;
+      }
+      index += 2;
+      continue;
+    }
+
+    if (char === ",") {
+      let lookahead = index + 1;
+      while (lookahead < raw.length && /\s/.test(raw[lookahead]!)) {
+        lookahead += 1;
+      }
+      if (raw[lookahead] === "}" || raw[lookahead] === "]") {
+        index += 1;
+        continue;
+      }
+    }
+
+    out += char;
+    index += 1;
+  }
+
+  return out;
 }
