@@ -19,7 +19,7 @@ import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 /** Stable header `artifactId` prefix for a generated WorkOrder. */
 export const INTENT_WORK_ORDER_ARTIFACT_ID_PREFIX = "work-order-intent-handoff-";
 
-export type IntentWorkOrderScope = {
+type IntentWorkOrderScope = {
   paths?: string[];
   systems?: string[];
   capabilities?: string[];

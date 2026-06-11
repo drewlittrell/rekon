@@ -21,13 +21,14 @@ export const grammarArchetypePackagePlatform: ArchitectureGrammarPackInput = {
   topology: {
     archetype: "package_platform",
     description:
-      "Kernel imports nothing above itself (the constitutional edge). Core is the cohesive platform body above kernel (operator ruling: core is not a capability). Capabilities are pluggable platform packages. Product packs sit above the platform; surfaces are entry points (operator ruling: runtime and sdk are surfaces) - everything may import downward, nothing imports surface. Adapters stay leaf: kernel at most.",
+      "Kernel imports nothing above itself (the constitutional edge; kernel->contract completes it, operator:wo-20#kernel-contract-edge). Core is the cohesive platform body above kernel (operator ruling: core is not a capability). Capabilities are pluggable platform packages. Product packs sit above the platform; surfaces are entry points (operator ruling: runtime and sdk are surfaces) - everything may import downward, nothing imports surface. Adapters stay leaf: kernel at most.",
     requiredLayers: ["kernel", "surface"],
     layerEdges: [
       { fromLayer: "kernel", toLayer: "core", required: false, forbidden: true },
       { fromLayer: "kernel", toLayer: "capability", required: false, forbidden: true },
       { fromLayer: "kernel", toLayer: "product", required: false, forbidden: true },
       { fromLayer: "kernel", toLayer: "surface", required: false, forbidden: true },
+      { fromLayer: "kernel", toLayer: "contract", required: false, forbidden: true },
       { fromLayer: "core", toLayer: "capability", required: false, forbidden: true },
       { fromLayer: "core", toLayer: "product", required: false, forbidden: true },
       { fromLayer: "core", toLayer: "surface", required: false, forbidden: true },

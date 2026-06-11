@@ -61,7 +61,7 @@ export type AstConfidence = "high" | "medium" | "low";
  *  named-export-list entries reference an existing
  *  symbol, so the keyword is not knowable without
  *  cross-file resolution). */
-export type AstDeclarationKeyword =
+type AstDeclarationKeyword =
   | "function"
   | "class"
   | "const"
@@ -74,14 +74,14 @@ export type AstDeclarationKeyword =
   | "default"
   | "unknown";
 
-export interface AstLocation {
+interface AstLocation {
   /** 1-based line. */
   line: number;
   /** 1-based column. */
   column: number;
 }
 
-export interface AstSymbolRecord {
+interface AstSymbolRecord {
   name: string;
   symbolKind: AstSymbolKind;
   syntaxKind: string;
@@ -92,7 +92,7 @@ export interface AstSymbolRecord {
   location: AstLocation;
 }
 
-export interface AstExportRecord {
+interface AstExportRecord {
   name: string;
   exportKind: AstExportKind;
   syntaxKind: string;
@@ -104,7 +104,7 @@ export interface AstExportRecord {
   moduleSpecifier?: string;
 }
 
-export interface AstImportRecord {
+interface AstImportRecord {
   /** Module specifier (the import target). */
   target: string;
   importKind: AstImportKind;
@@ -112,7 +112,7 @@ export interface AstImportRecord {
   location: AstLocation;
 }
 
-export type AstImportSpecifierKind =
+type AstImportSpecifierKind =
   | "named"
   | "default"
   | "namespace"
@@ -120,7 +120,7 @@ export type AstImportSpecifierKind =
 
 /** WO-8: symbol-level import edge - which symbol a file
  *  imports from where, beyond file-to-file. */
-export interface AstImportSpecifierRecord {
+interface AstImportSpecifierRecord {
   /** Module specifier (the import target). */
   target: string;
   /** Name as exported by the target module ("default" for
@@ -133,10 +133,10 @@ export interface AstImportSpecifierRecord {
   location: AstLocation;
 }
 
-export type AstReexportKind = "named" | "star" | "namespace";
+type AstReexportKind = "named" | "star" | "namespace";
 
 /** WO-8: re-export chain edge (`export ... from "..."`). */
-export interface AstReexportRecord {
+interface AstReexportRecord {
   /** Module specifier (the re-export source). */
   target: string;
   /** Name as exported by the target ("*" for star forms). */
@@ -157,7 +157,7 @@ export interface AstExtractionResult {
   reexports: AstReexportRecord[];
 }
 
-export interface AstExtractionInput {
+interface AstExtractionInput {
   /** Repo-relative path (used only to infer ScriptKind +
    *  language; the parser reads from the supplied
    *  content). */

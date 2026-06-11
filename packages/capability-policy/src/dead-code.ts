@@ -27,7 +27,7 @@ import { isNonProductionPath } from "./grammar-divergence.js";
 
 /** Generated-file header markers, scanned by the provider's content signals
  * and by the declared codegen globs (WO-10 replace-semantics shape). */
-export const GENERATED_GLOBS_CONFIG_PATH = ".rekon/scan-scope.json";
+const GENERATED_GLOBS_CONFIG_PATH = ".rekon/scan-scope.json";
 
 /** WO-19 Part 2 (operator:wo-19#dist-scope): repo-jurisdiction exemptions
  * for imports.noDistImports, in the WO-15 generatedGlobs pattern. Each
@@ -51,6 +51,33 @@ export async function loadDistImportExemptions(repoRoot: string): Promise<Readon
     }
   } catch {
     // Missing or malformed config -> no exemptions; the base law fires as before.
+  }
+
+  return [];
+}
+
+/** WO-20 Part 3 (operator:wo-20#package-roots): operator-declared root
+ * globs, joining the WO-14 declared-roots mechanism (general law, never a
+ * one-off exemption). A package's public entry is a consumption root,
+ * because a library platform's exported surface is consumed by hosts the
+ * repo cannot see. Each entry carries its purpose claim. */
+type DeclaredRootGlob = { glob: string; reason: string };
+
+export async function loadDeclaredRootGlobs(repoRoot: string): Promise<ReadonlyArray<DeclaredRootGlob>> {
+  try {
+    const raw = await readFile(join(repoRoot, GENERATED_GLOBS_CONFIG_PATH), "utf8");
+    const parsed = JSON.parse(raw) as { declaredRoots?: unknown };
+
+    if (Array.isArray(parsed.declaredRoots)) {
+      return parsed.declaredRoots.filter(
+        (value): value is DeclaredRootGlob =>
+          typeof value === "object" && value !== null
+          && typeof (value as DeclaredRootGlob).glob === "string"
+          && typeof (value as DeclaredRootGlob).reason === "string",
+      );
+    }
+  } catch {
+    // Missing or malformed config -> no declared root globs.
   }
 
   return [];

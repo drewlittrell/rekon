@@ -1,4 +1,4 @@
-export type CirceOperatorCommandPlacement = {
+type CirceOperatorCommandPlacement = {
   command: string;
   suggestedFix: string;
   message: string;

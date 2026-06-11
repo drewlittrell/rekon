@@ -46,7 +46,7 @@ export type IntentPlanBundleFile = {
   content: string;
 };
 
-export type IntentPlanBundleTarget = "generic" | "circe";
+type IntentPlanBundleTarget = "generic" | "circe";
 
 export type IntentPlanBundleRenderResult = {
   intentId: string;
@@ -194,7 +194,7 @@ type CirceHandoffArtifactRef = { phaseId: string; path: string; artifactId: stri
  * - `needs-review`: a phase that should carry verification but has no safe
  *   executable requirement — explicitly unverified, not skipped-as-proof.
  */
-export type IntentPhaseVerificationPosture =
+type IntentPhaseVerificationPosture =
   | "executable"
   | "manual-review"
   | "final-verification"
