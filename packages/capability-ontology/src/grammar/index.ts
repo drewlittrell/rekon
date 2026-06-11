@@ -367,19 +367,46 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${escaped}$|/${escaped}$`);
 }
 
+/**
+ * Most-specific-match-wins layer assignment (WO-11). The matching pattern
+ * with the most path segments wins; ties break to the longest pattern;
+ * remaining ties break to declaration order (Map insertion, then paths
+ * order). This makes file-scoped sublayers expressible: an operator
+ * overlay can carve "infra/http/withBatonContext.ts" out of "infra/**"
+ * without the parent's broad glob always winning. With no competing
+ * specific pattern, assignment is unchanged from first-match.
+ */
 export function assignGrammarLayer(
   grammar: EffectiveArchitectureGrammar,
   file: string,
 ): string | undefined {
+  let best:
+    | { layerId: string; segments: number; length: number; order: number }
+    | undefined;
+  let order = 0;
+
   for (const layer of grammar.layers.values()) {
     for (const pattern of layer.paths) {
-      if (globToRegExp(pattern).test(file)) {
-        return layer.id;
+      order += 1;
+
+      if (!globToRegExp(pattern).test(file)) {
+        continue;
+      }
+
+      const segments = pattern.split("/").filter(Boolean).length;
+      const length = pattern.length;
+
+      if (
+        !best
+        || segments > best.segments
+        || (segments === best.segments && length > best.length)
+      ) {
+        best = { layerId: layer.id, segments, length, order };
       }
     }
   }
 
-  return undefined;
+  return best?.layerId;
 }
 
 /**
