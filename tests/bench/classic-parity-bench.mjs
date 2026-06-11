@@ -32,7 +32,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 
 import { loadClassicFindings } from "./normalize-classic.mjs";
-import { buildBenchReport, classifyParity, renderMarkdownReport, validateRuleMap } from "./parity-core.mjs";
+import { buildBenchReport, classifyParity, renderMarkdownReport, validateOverruledList, validateRuleMap } from "./parity-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
@@ -171,6 +171,14 @@ async function main() {
     ? resolve(flags.ruleMap)
     : resolve(repoRoot, "tests/bench/rule-map.json");
   const ruleMap = validateRuleMap(JSON.parse(readFileSync(ruleMapPath, "utf8")));
+  const overruledPath = resolve(repoRoot, "tests/bench/overruled.json");
+  const overruled = existsSync(overruledPath)
+    ? validateOverruledList(JSON.parse(readFileSync(overruledPath, "utf8")), (path) => {
+        const candidate = resolve(repoRoot, path);
+
+        return existsSync(candidate) ? readFileSync(candidate, "utf8") : null;
+      })
+    : [];
   const outputDir = flags.output ? resolve(flags.output) : resolve(repoRoot, "tests/bench/output");
   const selected = manifest.repos.filter((entry) => flags.repos.length === 0 || flags.repos.includes(entry.id));
 
@@ -205,7 +213,7 @@ async function main() {
     const filteredFindings = filterReport?.filteredFindings ?? [];
     const classicFindings = loadClassicFindings({ classicOutputDir, classicFormat: entry.classicFormat });
 
-    const { rows, newFindings } = classifyParity({ classicFindings, rekonFindings, filteredFindings, ruleMap });
+    const { rows, newFindings } = classifyParity({ classicFindings, rekonFindings, filteredFindings, ruleMap, overruled });
 
     repoResults.push({
       id: entry.id,

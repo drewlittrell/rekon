@@ -99,6 +99,13 @@ export function isNonProductionPath(filePath: string): boolean {
     return true;
   }
 
+  // WO-12: a top-level tests/ directory is non-production; the segment
+  // list carried only the slash-prefixed form ("/tests/"), which a
+  // repo-root tests/ tree never matches.
+  if (lower.startsWith("tests/")) {
+    return true;
+  }
+
   if (lower.startsWith("tools/") || lower.includes("/devtools/")) {
     return true;
   }

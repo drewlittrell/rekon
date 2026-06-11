@@ -176,6 +176,9 @@ test("non-production scope: the same violation in a test tree is excluded (class
     "src/dev/d.ts",
     "tests/fixtures/f.ts",
     "examples/e.ts",
+    // WO-12: a top-level tests/ tree is non-production; the prior list
+    // only matched the slash-prefixed "/tests/" form.
+    "tests/visual/framework/VisualTestBase.ts",
   ]) {
     assert.equal(policy.isNonProductionPath(nonProd), true, `${nonProd} must be non-production`);
   }

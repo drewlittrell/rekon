@@ -86,7 +86,13 @@ The recall number may not be improved by:
 1. reclassifying gaps as intentional without a citable
    `FindingFilterReport` suppression or a named decision-doc citation;
 2. editing `rule-map.json` dispositions without a linked decision;
-3. adding filter policies whose only effect is bench score movement.
+3. adding filter policies whose only effect is bench score movement;
+4. adding `overruled.json` entries on agent judgment. **Only operator
+   rulings overrule.** Every entry must cite a resolvable `rulingRef`
+   into a committed law artifact (overlay entry id or ruling memo
+   section), is per-finding (never per-rule), and honest losses -
+   semantically wrong matches, umbrella file-overlap noise - never
+   qualify (WO-12).
 
 The report renders every intentional classification with its citation so the
 operator can audit the scoreboard, not just read it.

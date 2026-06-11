@@ -1,0 +1,7 @@
+[
+  {
+    "classicId": "route-complexity-4f606b38",
+    "rulingRef": "docs/work-orders/wo-11-law-calibration.md#boundary-contracts",
+    "note": "Classic kept finding on app/api/v1/events/handler.ts flagging the route->requestSchemas import; the operator's boundary-contracts ruling (WO-11, ratified 2026-06-11) declares exactly this import legal. The other three WO-11 losses on this file are honest losses and do not qualify (see docs/strategy/law-calibration-v1-decision.md)."
+  }
+]

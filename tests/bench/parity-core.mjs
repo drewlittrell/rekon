@@ -176,8 +176,13 @@ function findFilterHit(filteredFindings, rekonRuleId, classic) {
  * Throws when the corpus observes a classic rule id with no rule-map row -
  * the bench fails loudly rather than silently scoring unmapped rules.
  */
-export function classifyParity({ classicFindings, rekonFindings = [], filteredFindings = [], ruleMap }) {
+export function classifyParity({ classicFindings, rekonFindings = [], filteredFindings = [], ruleMap, overruled = [] }) {
   validateRuleMap(ruleMap);
+
+  // WO-12: per-finding operator overrules. Keyed by classic finding id;
+  // checked before rule-level dispositions because a ruling retires the
+  // specific finding it contradicts, never the rule.
+  const overruledById = new Map(overruled.map((entry) => [entry.classicId, entry]));
 
   const unmapped = [...new Set(classicFindings.map((finding) => finding.ruleId).filter((ruleId) => !(ruleId in ruleMap)))];
 
@@ -193,6 +198,18 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 
   const rows = classicFindings.map((classic) => {
     const disposition = ruleMap[classic.ruleId];
+    const overruling = overruledById.get(classic.id);
+
+    if (overruling) {
+      // Out of the denominator: the operator ruled classic wrong here.
+      // Citation is the rulingRef into a committed law artifact (WO-12).
+      return {
+        classic,
+        classification: "overruled",
+        citation: overruling.rulingRef,
+        ...(overruling.note ? { note: overruling.note } : {}),
+      };
+    }
 
     if (disposition.status === "rejected") {
       // Out of the denominator entirely - per WO-3, the denominator shrinks
@@ -260,12 +277,18 @@ export function computeWeightedRecall(rows) {
   let totalWeight = 0;
   let creditedWeight = 0;
   let rejectedWeight = 0;
+  let overruledWeight = 0;
 
   for (const row of rows) {
     const weight = Number.isFinite(row.classic.fireCount) && row.classic.fireCount > 0 ? row.classic.fireCount : 1;
 
     if (row.classification === "rejected") {
       rejectedWeight += weight;
+      continue;
+    }
+
+    if (row.classification === "overruled") {
+      overruledWeight += weight;
       continue;
     }
 
@@ -280,8 +303,53 @@ export function computeWeightedRecall(rows) {
     totalWeight,
     creditedWeight,
     rejectedWeight,
+    overruledWeight,
     recall: totalWeight === 0 ? 1 : creditedWeight / totalWeight,
   };
+}
+
+/**
+ * WO-12 guard: only operator rulings overrule. Every entry must cite a
+ * resolvable rulingRef of the form `<repo-path>#<fragment>` where the file
+ * is a committed law artifact and the fragment appears in its content
+ * (an overlay entry id or ruling memo section). Agents may not add
+ * entries on their own judgment - the bench README pins this beside the
+ * anti-gaming rules. Per-finding by construction: entries key on
+ * classicId, never on a rule id.
+ */
+export function validateOverruledList(entries, readFileOrNull) {
+  if (!Array.isArray(entries)) {
+    throw new Error("classic-parity-bench: overruled list must be an array of {classicId, rulingRef, note} entries.");
+  }
+
+  for (const entry of entries) {
+    if (typeof entry.classicId !== "string" || entry.classicId.length === 0) {
+      throw new Error("classic-parity-bench: overruled entry missing classicId (per-finding, never per-rule).");
+    }
+
+    if (typeof entry.rulingRef !== "string" || !entry.rulingRef.includes("#")) {
+      throw new Error(
+        `classic-parity-bench: overruled entry ${entry.classicId} needs a rulingRef of the form <path>#<fragment>.`,
+      );
+    }
+
+    const [path, fragment] = [entry.rulingRef.slice(0, entry.rulingRef.indexOf("#")), entry.rulingRef.slice(entry.rulingRef.indexOf("#") + 1)];
+    const content = readFileOrNull(path);
+
+    if (content === null) {
+      throw new Error(
+        `classic-parity-bench: overruled entry ${entry.classicId} cites ${path}, which is not a committed law artifact in this repository.`,
+      );
+    }
+
+    if (fragment.length === 0 || !content.includes(fragment)) {
+      throw new Error(
+        `classic-parity-bench: overruled entry ${entry.classicId} cites fragment "#${fragment}" not found in ${path} - the ruling must exist before the finding leaves the denominator.`,
+      );
+    }
+  }
+
+  return entries;
 }
 
 function countBy(rows, classify) {
@@ -304,6 +372,7 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
   const deferredByRule = new Map();
   const rejectedByRule = new Map();
   const intentional = [];
+  const overruledRows = [];
 
   const accumulate = (map, repo, row, weight) => {
     const entry = map.get(row.classic.ruleId) ?? {
@@ -331,6 +400,16 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
         accumulate(rejectedByRule, repo, row, weight);
       } else if (row.classification === "missed-intentional") {
         intentional.push({ repo: repo.id, ruleId: row.classic.ruleId, fireCount: weight, citation: row.citation });
+      } else if (row.classification === "overruled") {
+        overruledRows.push({
+          repo: repo.id,
+          classicId: row.classic.id,
+          ruleId: row.classic.ruleId,
+          files: row.classic.files ?? [],
+          fireCount: weight,
+          rulingRef: row.citation,
+          ...(row.note ? { note: row.note } : {}),
+        });
       }
     }
   }
@@ -365,6 +444,7 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
     deferred,
     rejected,
     intentional,
+    overruled: overruledRows,
     repos: repos.map((repo) => ({
       id: repo.id,
       refresh: repo.refresh,
@@ -404,6 +484,13 @@ export function renderMarkdownReport(report) {
   if (report.aggregate.rejectedWeight > 0) {
     lines.push(
       `Denominator excludes rejected rules: ${report.aggregate.rejectedWeight} weighted (see Rejected below for citations).`,
+    );
+    lines.push("");
+  }
+
+  if (report.aggregate.overruledWeight > 0) {
+    lines.push(
+      `Denominator excludes operator-overruled findings: ${report.aggregate.overruledWeight} weighted (see Overruled below for per-finding citations).`,
     );
     lines.push("");
   }
@@ -470,6 +557,23 @@ export function renderMarkdownReport(report) {
 
     for (const entry of report.rejected) {
       lines.push(`| ${entry.ruleId} | ${entry.fireCount} | ${entry.repos.join(", ")} | ${entry.citation ?? ""} |`);
+    }
+  }
+
+  lines.push("");
+  lines.push("## Overruled by operator ruling (out of denominator, per-finding)");
+  lines.push("");
+
+  if ((report.overruled ?? []).length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("| Classic finding | Rule | Repo | File(s) | Weight | Ruling |");
+    lines.push("| --- | --- | --- | --- | --- | --- |");
+
+    for (const entry of report.overruled) {
+      lines.push(
+        `| ${entry.classicId} | ${entry.ruleId} | ${entry.repo} | ${entry.files.join(", ")} | ${entry.fireCount} | ${entry.rulingRef} |`,
+      );
     }
   }
 
