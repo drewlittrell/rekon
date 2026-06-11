@@ -82,6 +82,41 @@ export function __extractRegexFallbackFactsForTesting(
   ];
 }
 
+// ---------- WO-14 A: debt markers as evidence facts ------------------------
+//
+// Deterministic content markers (detection-design-decisions.md §B): TODO /
+// FIXME / HACK comments, @deprecated tags, and disabled tests. One fact per
+// distinct (file, marker, detail) - location is omitted from value AND
+// provenance per WO-8's id-stability discipline, so identical marker lines
+// dedupe to one fact and ids never shift when code moves.
+
+const DEBT_COMMENT_MARKER_RE = /(?:\/\/|\/\*|^\s*\*)[^\n]*?\b(TODO|FIXME|HACK)\b/;
+const DEBT_DEPRECATED_RE = /(?:\/\/|\/\*|^\s*\*)[^\n]*?@deprecated\b/;
+const DEBT_DISABLED_TEST_RE = /\b(?:it|test|describe)\.skip\s*\(|(?:^|[^\w.])(?:xit|xdescribe|xtest)\s*\(/;
+
+export function extractDebtMarkerFacts(path: string, content: string): EvidenceFact[] {
+  const facts: EvidenceFact[] = [];
+
+  for (const line of content.split("\n")) {
+    const detail = line.trim().slice(0, 160);
+    const comment = DEBT_COMMENT_MARKER_RE.exec(line);
+
+    if (comment?.[1]) {
+      facts.push(fact("debt_marker", path, { marker: comment[1].toLowerCase(), detail }, path));
+    }
+
+    if (DEBT_DEPRECATED_RE.test(line)) {
+      facts.push(fact("debt_marker", path, { marker: "deprecated", detail }, path));
+    }
+
+    if (DEBT_DISABLED_TEST_RE.test(line)) {
+      facts.push(fact("debt_marker", path, { marker: "disabled-test", detail }, path));
+    }
+  }
+
+  return facts;
+}
+
 export const jsTsProvider: EvidenceProvider = {
   id: "@rekon/capability-js-ts.provider",
   kind: "language",
@@ -97,6 +132,7 @@ export const jsTsProvider: EvidenceProvider = {
     // targets (no false resolution, never an error).
     const fileSet = new Set(files);
     const aliases = await loadTsconfigPathAliases(ctx.repoRoot);
+    const workspaces = await loadWorkspaceAliases(ctx.repoRoot);
 
     for (const path of files) {
       try {
@@ -104,12 +140,13 @@ export const jsTsProvider: EvidenceProvider = {
         const content = await readFile(absolutePath, "utf8");
 
         facts.push(createFileFact(path));
+        appendFacts(facts, extractDebtMarkerFacts(path, content));
 
         const extension = extensionForPath(path);
         const language = languageForPath(path);
         let astFacts: EvidenceFact[] | undefined;
 
-        const resolve = (specifier: string) => resolveRelativeTarget(path, specifier, fileSet, aliases);
+        const resolve = (specifier: string) => resolveRelativeTarget(path, specifier, fileSet, aliases, workspaces);
 
         if (astSupportsExtension(extension)) {
           try {
@@ -957,6 +994,7 @@ export function resolveRelativeTarget(
   specifier: string,
   fileSet: ReadonlySet<string>,
   aliases: ReadonlyArray<TsconfigPathAlias> = [],
+  workspaces: ReadonlyArray<WorkspaceAlias> = [],
 ): string | undefined {
   if (!specifier.startsWith("./") && !specifier.startsWith("../")) {
     // tsconfig path aliases (declared, never guessed).
@@ -971,6 +1009,28 @@ export function resolveRelativeTarget(
           if (resolved) {
             return resolved;
           }
+        }
+      }
+    }
+
+    // WO-14 B: workspace package names (declared in workspace manifests,
+    // read as data - the WO-8 tsconfig-alias precedent). An export
+    // consumed through its package name must not read as dead.
+    for (const ws of workspaces) {
+      if (specifier === ws.name) {
+        for (const entry of ws.entries) {
+          const resolved = probeCandidates(entry, fileSet) ?? (fileSet.has(entry) ? entry : undefined);
+
+          if (resolved) {
+            return resolved;
+          }
+        }
+      } else if (specifier.startsWith(`${ws.name}/`)) {
+        const sub = specifier.slice(ws.name.length + 1);
+        const resolved = probeCandidates(`${ws.dir}/${sub}`, fileSet) ?? probeCandidates(`${ws.dir}/src/${sub}`, fileSet);
+
+        if (resolved) {
+          return resolved;
         }
       }
     }
@@ -995,6 +1055,105 @@ export function resolveRelativeTarget(
   }
 
   return probeCandidates(base.join("/"), fileSet);
+}
+
+// ---------- WO-14 B: workspace-name aliases (data read only) ---------------
+//
+// Reads the root manifest's `workspaces` globs and each member package's
+// `name` + entry fields. Same fail-soft discipline as tsconfig aliases:
+// any read or parse failure yields zero aliases - resolution degrades,
+// never errors and never guesses.
+
+export type WorkspaceAlias = {
+  /** Package name as imported (e.g. "@rekon/kernel-evidence"). */
+  name: string;
+  /** Repo-relative package directory. */
+  dir: string;
+  /** Repo-relative entry candidates (manifest main/exports + src/index conventions). */
+  entries: string[];
+};
+
+export async function loadWorkspaceAliases(repoRoot: string): Promise<WorkspaceAlias[]> {
+  try {
+    const rootRaw = JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8")) as {
+      workspaces?: string[] | { packages?: string[] };
+    };
+    const globs = Array.isArray(rootRaw.workspaces)
+      ? rootRaw.workspaces
+      : rootRaw.workspaces?.packages ?? [];
+    const dirs: string[] = [];
+
+    for (const glob of globs) {
+      if (glob.endsWith("/*")) {
+        const parent = glob.slice(0, -2);
+
+        try {
+          const children = await readdir(join(repoRoot, parent), { withFileTypes: true });
+
+          for (const child of children.filter((c) => c.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
+            dirs.push(`${parent}/${child.name}`);
+          }
+        } catch {
+          // Missing parent directory - skip the glob.
+        }
+      } else if (!glob.includes("*")) {
+        dirs.push(glob);
+      }
+    }
+
+    const aliases: WorkspaceAlias[] = [];
+
+    for (const dir of dirs) {
+      try {
+        const pkg = JSON.parse(await readFile(join(repoRoot, dir, "package.json"), "utf8")) as {
+          name?: string;
+          main?: string;
+          exports?: unknown;
+        };
+
+        if (typeof pkg.name !== "string" || pkg.name.length === 0) {
+          continue;
+        }
+
+        const entries = new Set<string>();
+        const addEntry = (rel: string) => {
+          const normalized = `${dir}/${rel.replace(/^\.\//, "")}`;
+
+          entries.add(normalized);
+          // Built entry points map back to source by convention.
+          entries.add(normalized.replace(/^((?:[^/]+\/)*[^/]+)\/dist\//, "$1/src/").replace(/\.js$/, ".ts"));
+        };
+
+        if (typeof pkg.main === "string") {
+          addEntry(pkg.main);
+        }
+
+        const exportRoot = (pkg.exports as Record<string, unknown> | string | undefined);
+
+        if (typeof exportRoot === "string") {
+          addEntry(exportRoot);
+        } else if (exportRoot && typeof exportRoot === "object") {
+          const dot = (exportRoot as Record<string, unknown>)["."];
+
+          if (typeof dot === "string") {
+            addEntry(dot);
+          }
+        }
+
+        entries.add(`${dir}/src/index.ts`);
+        entries.add(`${dir}/src/index.tsx`);
+        entries.add(`${dir}/index.ts`);
+
+        aliases.push({ name: pkg.name, dir, entries: [...entries] });
+      } catch {
+        // Unreadable member manifest - skip the package.
+      }
+    }
+
+    return aliases;
+  } catch {
+    return [];
+  }
 }
 
 // ---------- WO-8: tsconfig path-alias resolution (data read only) ---------
