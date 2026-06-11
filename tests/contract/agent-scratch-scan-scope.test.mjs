@@ -42,7 +42,8 @@ test("default: scratch trees produce zero facts of any kind", async () => {
 
   assert.deepEqual(scratchFacts, []);
   assert.ok(facts.some((fact) => fact.kind === "file" && fact.subject === "src/app.ts"), "real source still scanned");
-  assert.deepEqual([...pkg.DEFAULT_AGENT_SCRATCH_SEGMENTS], [".claude", ".codex"]);
+  // WO-17 Part 6 added .agents (third agent-scratch class observed in the wild).
+  assert.deepEqual([...pkg.DEFAULT_AGENT_SCRATCH_SEGMENTS], [".claude", ".codex", ".agents"]);
 });
 
 test("override: an explicit scan-scope list replaces the default (operator declares scratch as source)", async () => {
