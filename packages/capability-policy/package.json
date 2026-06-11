@@ -20,7 +20,8 @@
   "dependencies": {
     "@rekon/kernel-artifacts": "1.0.0",
     "@rekon/kernel-findings": "1.0.0",
-    "@rekon/sdk": "1.0.0"
+    "@rekon/sdk": "1.0.0",
+    "@rekon/capability-ontology": "1.0.0"
   },
   "devDependencies": {
     "@rekon/runtime": "1.0.0"

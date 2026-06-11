@@ -1,6 +1,10 @@
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
+import { compileEffectiveGrammar, loadGrammarOverrides } from "@rekon/capability-ontology";
+import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence } from "./grammar-divergence.js";
+
+export * from "./grammar-divergence.js";
 
 type EvidenceGraphLike = {
   header: ArtifactHeader;
@@ -17,6 +21,8 @@ export const BUILT_IN_POLICY_RULES = [
   "imports.noNodeModulesRelativeImports",
   "files.noGeneratedAsSource",
   "architecture.noUnknownSystemForSourceFile",
+  // WO-9: cluster-A declared-vs-observed divergence (jurisdiction-gated).
+  GRAMMAR_DIVERGENCE_RULE_ID,
 ] as const;
 
 export const policyEvaluator: Evaluator = {
@@ -38,6 +44,7 @@ export const policyEvaluator: Evaluator = {
       ...(!disabledRules.has("imports.noNodeModulesRelativeImports") ? noNodeModulesRelativeImports(graph, evidenceRef) : []),
       ...(!disabledRules.has("files.noGeneratedAsSource") ? noGeneratedAsSource(graph, evidenceRef) : []),
       ...(!disabledRules.has("architecture.noUnknownSystemForSourceFile") ? noUnknownSystemForSourceFile(graph, evidenceRef) : []),
+      ...(!disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID) ? await grammarDivergenceFindings(graph, input, artifacts) : []),
     ];
     const report = createFindingReport({
       header: {
@@ -83,6 +90,37 @@ export default defineCapability({
     registry.evaluator(policyEvaluator);
   },
 });
+
+// WO-9: compile the repo's effective grammar (ratification decided by the
+// repo's own overrides config - jurisdiction is the repo's, never ours),
+// join OwnershipMap + CapabilityContract when present, and evaluate
+// divergence. Absent repo root or config, the grammar compiles with no
+// ratified archetypes and the layered axes are inert by construction.
+async function grammarDivergenceFindings(
+  graph: EvidenceGraphLike,
+  input: Record<string, unknown> | undefined,
+  artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
+): Promise<Finding[]> {
+  const repo = input?.repo as { root?: string } | undefined;
+  const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
+  const overrides = repoRoot ? loadGrammarOverrides(repoRoot) : { overrides: null, path: null };
+  const grammar = compileEffectiveGrammar({
+    overrides: overrides.overrides ?? undefined,
+    overridesPath: overrides.path,
+  });
+
+  const ownershipRef = (await artifacts.list("OwnershipMap")).at(-1);
+  const ownership = ownershipRef ? await artifacts.read(ownershipRef) as { entries?: Array<{ path: string; ownerSystem: string }> } : undefined;
+  const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
+  const contract = contractRef ? await artifacts.read(contractRef) as { contracts?: Array<Record<string, unknown>> } : undefined;
+
+  return evaluateGrammarDivergence({
+    facts: graph.facts,
+    grammar,
+    ownershipEntries: ownership?.entries ?? [],
+    contractEntries: (contract?.contracts ?? []) as never,
+  });
+}
 
 function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef): Finding[] {
   return graph.facts

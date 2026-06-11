@@ -10,9 +10,20 @@
     "src/**/*.ts"
   ],
   "references": [
-    { "path": "../kernel-artifacts" },
-    { "path": "../kernel-findings" },
-    { "path": "../sdk" },
-    { "path": "../runtime" }
+    {
+      "path": "../kernel-artifacts"
+    },
+    {
+      "path": "../kernel-findings"
+    },
+    {
+      "path": "../sdk"
+    },
+    {
+      "path": "../runtime"
+    },
+    {
+      "path": "../capability-ontology"
+    }
   ]
 }

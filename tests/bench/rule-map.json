@@ -1,31 +1,37 @@
 {
   "architecture": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A",
-    "note": "Declared-vs-observed divergence detector on the ontology/CapabilityMap/contract layer, composed onto the capability lint chain. NOT mapped to architecture.noUnknownSystemForSourceFile - mapping the umbrella to one narrow built-in would inflate recall without preserving the guarantee."
+    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "note": "Declared-vs-observed divergence detector on the ontology/CapabilityMap/contract layer, composed onto the capability lint chain. NOT mapped to architecture.noUnknownSystemForSourceFile - mapping the umbrella to one narrow built-in would inflate recall without preserving the guarantee.",
+    "rekonRuleId": "grammar.divergence"
   },
   "canonical_gap": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A",
-    "note": "Merged into the cluster-A detector; a gap requires a declaration to exist (classic's inferred gaps ran 69% suppression)."
+    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "note": "Merged into the cluster-A detector; a gap requires a declaration to exist (classic's inferred gaps ran 69% suppression).",
+    "rekonRuleId": "grammar.divergence"
   },
   "canonical_bypass": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A"
+    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "rekonRuleId": "grammar.divergence"
   },
   "canonical_misplacement": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A"
+    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "rekonRuleId": "grammar.divergence"
   },
   "ownership_violation": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A",
-    "note": "Folded into the cluster-A detector; OwnershipMap is the declaration side."
+    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "note": "Folded into the cluster-A detector; OwnershipMap is the declaration side.",
+    "rekonRuleId": "grammar.divergence"
   },
   "pattern_violation": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A",
-    "note": "Decision: port (config-declared forbidden patterns). Row flips to ported with a rekonRuleId when the emitter lands (queue #7)."
+    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "note": "Decision: port (config-declared forbidden patterns). Row flips to ported with a rekonRuleId when the emitter lands (queue #7).",
+    "rekonRuleId": "grammar.divergence"
   },
   "system_anomaly": {
     "status": "rejected",

@@ -352,11 +352,17 @@ export type GrammarAdvisory = {
 };
 
 function globToRegExp(glob: string): RegExp {
+  // Placeholder tokens keep the replace chain from re-processing its own
+  // output (a bare `**` -> `.*` emits a `*` the next step would mangle
+  // into `[^/]*`, silently limiting globstars to one path segment - found
+  // by WO-9's layer-assignment tests).
   const escaped = glob
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*\//g, "(?:.*/)?")
-    .replace(/\*\*/g, ".*")
-    .replace(/\*/g, "[^/]*");
+    .replace(/\*\*\//g, "\u0000")
+    .replace(/\*\*/g, "\u0001")
+    .replace(/\*/g, "[^/]*")
+    .replaceAll("\u0000", "(?:.*/)?")
+    .replaceAll("\u0001", ".*");
 
   return new RegExp(`^${escaped}$|/${escaped}$`);
 }
