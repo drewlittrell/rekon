@@ -14,7 +14,7 @@ const jsts = await import(join(repoRoot, "packages/capability-js-ts/dist/index.j
 
 const file = (path) => ({ kind: "file", subject: path, value: {} });
 const exp = (path, name) => ({ kind: "export", subject: path, value: { name, kind: "const" } });
-const newStats = () => ({ typeOnlyReferences: 0, barrelExemptions: 0, generatedExemptions: 0, factoryExemptions: 0 });
+const newStats = () => ({ typeOnlyReferences: 0, barrelExemptions: 0, generatedExemptions: 0, factoryExemptions: 0, deadBarrels: 0 });
 
 test("class 1: type-only consumption counts as usage (opposite purpose from WO-9 layer law)", () => {
   const stats = newStats();
@@ -37,13 +37,17 @@ test("class 1: type-only consumption counts as usage (opposite purpose from WO-9
 
 test("class 2: barrel files are conduits - substantially-reexport files never flag, counted", () => {
   const stats = newStats();
+  // WO-16 Part 2 scoped the exemption to LIVING conduits: the barrel
+  // here carries a resolved importer.
   const facts = [
     file("src/barrel.ts"),
     file("src/orphanage.ts"),
+    file("src/consumer.ts"),
     exp("src/barrel.ts", "a"),
     exp("src/barrel.ts", "b"),
     { kind: "reexport", subject: "src/barrel.ts:src/a.ts:a", value: { source: "src/barrel.ts", target: "./a", name: "a", exportedAs: "a", reexportKind: "named", resolvedTarget: "src/a.ts" } },
     { kind: "reexport", subject: "src/barrel.ts:src/b.ts:b", value: { source: "src/barrel.ts", target: "./b", name: "b", exportedAs: "b", reexportKind: "named", resolvedTarget: "src/b.ts" } },
+    { kind: "import_specifier", subject: "src/consumer.ts:src/barrel.ts:a", value: { source: "src/consumer.ts", target: "./barrel", name: "a", local: "a", specifierKind: "named", resolvedTarget: "src/barrel.ts" } },
     // A genuinely dead file stays a finding.
     exp("src/orphanage.ts", "orphan"),
   ];

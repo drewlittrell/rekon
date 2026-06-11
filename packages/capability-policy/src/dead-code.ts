@@ -49,6 +49,10 @@ export type DeadCodeStats = {
   barrelExemptions: number;
   generatedExemptions: number;
   factoryExemptions: number;
+  /** WO-16 Part 2: barrel-shaped files with ZERO resolved importers - dead
+   * even as conduits; they fire and are counted separately from the
+   * living-conduit exemptions. */
+  deadBarrels: number;
 };
 
 export const DEAD_CODE_RULE_ID = "dead_code.unreferenced";
@@ -196,6 +200,7 @@ export function evaluateDeadCode(input: {
   const reexportCountByFile = new Map<string, number>();
   const exportCountByFile = new Map<string, number>();
   const generatedSignalFiles = new Set<string>();
+  const importedFiles = new Set<string>();
 
   for (const fact of facts) {
     if (fact.kind === "export") {
@@ -232,6 +237,7 @@ export function evaluateDeadCode(input: {
 
     edges.add(target);
     importEdges.set(source, edges);
+    importedFiles.add(target);
 
     const name = typeof fact.value.name === "string" ? fact.value.name : "*";
     const specifierKind = typeof fact.value.specifierKind === "string" ? fact.value.specifierKind : undefined;
@@ -273,11 +279,22 @@ export function evaluateDeadCode(input: {
   const classExemption = (file: string): keyof DeadCodeStats | undefined => {
     // Barrel: a file whose exports are substantially re-exports is a
     // conduit, not a consumer; reachability already flows through it.
+    // WO-16 Part 2 scopes this to LIVING conduits: a barrel nobody
+    // imports is dead code even as a conduit, so the file-level finding
+    // returns (counted as deadBarrels, distinguished from exemptions).
     const reexports = reexportCountByFile.get(file) ?? 0;
     const exports = exportCountByFile.get(file) ?? 0;
 
     if (reexports >= 1 && reexports * 2 >= exports) {
-      return "barrelExemptions";
+      if (importedFiles.has(file)) {
+        return "barrelExemptions";
+      }
+
+      if (input.stats) {
+        input.stats.deadBarrels += 1;
+      }
+
+      return undefined;
     }
 
     // Generated: header marker (provider content signal) or declared glob.

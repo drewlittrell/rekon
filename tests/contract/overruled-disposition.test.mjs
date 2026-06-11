@@ -113,11 +113,14 @@ test("the seeded list is valid against this repository and stays single-entry-pe
   const overruledPath = join(repoRoot, "tests/bench/overruled.json");
   const entries = JSON.parse(readFileSync(overruledPath, "utf8"));
 
-  // The permanent regression seed: exactly the WO-11 boundary-contracts
-  // contradiction, citing the committed ruling.
-  assert.equal(entries.length, 1);
+  // The permanent regression seed stays first: the WO-11
+  // boundary-contracts contradiction. The list grows ONLY by operator
+  // ruling: WO-16 Part 1 added the nine living-conduit entries (dispatch
+  // was the ratification act), so 1 + 9.
+  assert.equal(entries.length, 10);
   assert.equal(entries[0].classicId, "route-complexity-4f606b38");
   assert.equal(entries[0].rulingRef, "docs/work-orders/wo-11-law-calibration.md#boundary-contracts");
+  assert.equal(entries.filter((e) => e.rulingRef.startsWith("docs/work-orders/wo-16-calibration-v3-rulings.md#")).length, 9);
 
   // It validates against the real repo files (the same check the runner runs).
   core.validateOverruledList(entries, (path) => {

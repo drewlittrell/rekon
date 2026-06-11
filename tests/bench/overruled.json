@@ -3,5 +3,50 @@
     "classicId": "route-complexity-4f606b38",
     "rulingRef": "docs/work-orders/wo-11-law-calibration.md#boundary-contracts",
     "note": "Classic kept finding on app/api/v1/events/handler.ts flagging the route->requestSchemas import; the operator's boundary-contracts ruling (WO-11, ratified 2026-06-11) declares exactly this import legal. The other three WO-11 losses on this file are honest losses and do not qualify (see docs/strategy/law-calibration-v1-decision.md)."
+  },
+  {
+    "classicId": "concern-73c36f5f",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (mentor-family-mvp): core/services/intelligence/support/NarrativeEnhancer.ts resolves 6 importer(s) via the reexport chain classic could not follow; sample importer: .claude/worktrees/quirky-chatterjee-09fffa/core/services/intelligence/IntelligenceService.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-2a41b8f7",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (simulacrum): kernel/import-intake/index.ts resolves 226 importer(s) via the reexport chain classic could not follow; sample importer: api/v1/import-intake/native-build/handler.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-516e5945",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (codebase-intel): commands/expected-model-core.ts resolves 5 importer(s) via the reexport chain classic could not follow; sample importer: commands/expected-model-runner.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-79e7899e",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (codebase-intel): commands/graph/health-command.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-36bf4a98",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (codebase-intel): commands/graph/slice-build.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-12acec22",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (codebase-intel): commands/interfaces-query-core.ts resolves 4 importer(s) via the reexport chain classic could not follow; sample importer: commands/interfaces-runner.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-59a9fe4f",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (codebase-intel): commands/memory/instruction-signals.ts resolves 18 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory/review-artifacts.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-759b4dc1",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (codebase-intel): lib/memory/TurnObservation.ts resolves 11 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory.ts (WO-16 Part 1)."
+  },
+  {
+    "classicId": "concern-4b6bbf6b",
+    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "note": "Living conduit (codebase-intel): services/analysis/evaluation-metrics.ts resolves 3 importer(s) via the reexport chain classic could not follow; sample importer: services/analysis/EvaluationRunner.ts (WO-16 Part 1)."
   }
 ]
