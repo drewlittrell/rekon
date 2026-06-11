@@ -4,6 +4,11 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reworked the public front door for Rekon: README now presents Rekon as an evidence-backed AI handoff system for codebases, with a concise problem/solution story, 5-minute demo, output excerpts, safety model, docs map, reviewer guidance, and explicit current/deferred status.
+- Added `docs/README.md` as the human docs map, separate from generated `docs/INDEX.md` freshness output.
+- Added `docs/demo/task-context-to-handoff.md` as the canonical public demo from scan to capability graph to task context to plan review to agent guidance.
+- Added `docs/strategy/README.md` to label the strategy directory as mixed current strategy plus historical snapshots, demoting slice logs from the public starting path.
+- No runtime, SDK, artifact, capability, or CLI behavior changes were made in this public-facing product pass.
 - Safety-reviewed the **Intent Bundle Handoff Workflow Guide Safety Review** — one-hundred-ninety-ninth slice on the
   embeddings track (base `8bd0144`). Strategy / safety-review batch (docs + tests only: no runtime, bundle,
   reading-order, projection, Circe-schema, actor-contract, source-change-posture, gate, or guide-content change beyond
