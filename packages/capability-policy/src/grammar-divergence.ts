@@ -19,6 +19,7 @@
 import {
   type EffectiveArchitectureGrammar,
   assignGrammarLayer,
+  matchForbiddenTypeSuffixes,
 } from "@rekon/capability-ontology";
 import type { Finding } from "@rekon/kernel-findings";
 
@@ -50,6 +51,10 @@ export type GrammarDivergenceInput = {
   grammar: EffectiveArchitectureGrammar;
   /** OwnershipMap entries (path -> ownerSystem), when the artifact exists. */
   ownershipEntries?: ReadonlyArray<{ path: string; ownerSystem: string }>;
+  /** Lowercased canonical nouns from the repo's compiled vocabulary (WO-13; nouns only). */
+  vocabularyNouns?: ReadonlySet<string>;
+  /** Transparency counter: vocabulary-exempted suffix suppressions are counted, never silent (WO-13). */
+  stats?: { vocabularyExemptions: number };
   /** CapabilityContract rows, when the artifact exists. */
   contractEntries?: ReadonlyArray<{
     id: string;
@@ -376,13 +381,19 @@ export function evaluateGrammarDivergence(input: GrammarDivergenceInput): Findin
       continue;
     }
 
-    const stem = (path.split("/").at(-1) ?? "").replace(/\.[a-z]+$/i, "");
+    for (const match of matchForbiddenTypeSuffixes(grammar, path, input.vocabularyNouns)) {
+      if (match.vocabularyExempted) {
+        // WO-13: the suffix token is a declared canonical noun in this
+        // repo's vocabulary. Counted, never silent - a declaration can't
+        // swallow a hygiene class invisibly.
+        if (input.stats) {
+          input.stats.vocabularyExemptions += 1;
+        }
 
-    for (const forbidden of grammar.forbiddenTypes.values()) {
-      if (!stem.endsWith(forbidden.id)) {
         continue;
       }
 
+      const forbidden = match.forbidden;
       const packId = packOf(grammar, "forbiddenTypes", forbidden.id);
 
       findings.push(finding({

@@ -1,7 +1,13 @@
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
-import { compileEffectiveGrammar, loadGrammarOverrides } from "@rekon/capability-ontology";
+import {
+  compileEffectiveCapabilityOntology,
+  compileEffectiveGrammar,
+  detectOverlayPacks,
+  loadCapabilityOntologyConfig,
+  loadGrammarOverrides,
+} from "@rekon/capability-ontology";
 import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence } from "./grammar-divergence.js";
 
 export * from "./grammar-divergence.js";
@@ -114,11 +120,32 @@ async function grammarDivergenceFindings(
   const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
   const contract = contractRef ? await artifacts.read(contractRef) as { contracts?: Array<Record<string, unknown>> } : undefined;
 
+  // WO-13: the repo's compiled vocabulary (canon + overlays + overrides)
+  // informs the forbidden-type suffix check. Canonical nouns only -
+  // verbs and aliases never exempt.
+  let vocabularyNouns: ReadonlySet<string> | undefined;
+
+  if (repoRoot) {
+    try {
+      const configResult = await loadCapabilityOntologyConfig(repoRoot);
+      const detection = await detectOverlayPacks(repoRoot);
+      const ontology = compileEffectiveCapabilityOntology({
+        config: configResult.found ? configResult.config : undefined,
+        overlayPackIds: detection.packIds,
+      });
+
+      vocabularyNouns = new Set(ontology.nouns.canonical.map((noun) => noun.toLowerCase()));
+    } catch {
+      // No vocabulary means no exemptions - the hygiene law fires as before.
+    }
+  }
+
   return evaluateGrammarDivergence({
     facts: graph.facts,
     grammar,
     ownershipEntries: ownership?.entries ?? [],
     contractEntries: (contract?.contracts ?? []) as never,
+    vocabularyNouns,
   });
 }
 

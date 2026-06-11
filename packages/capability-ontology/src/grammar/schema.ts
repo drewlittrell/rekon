@@ -22,10 +22,12 @@ import { z } from "zod";
 const LawDataSchema = z.union([z.record(z.unknown()), z.array(z.unknown())]);
 
 /** Classic provenance reference: "<file>#<key>" under classic's ontology/. */
+// WO-13: operator rulings get an honest provenance form alongside the
+// classic-shaped refs (the WO-11 wart, retired).
 export const GrammarSourceRefSchema = z
   .string()
-  .regex(/^[a-z0-9-]+\.(ontology\.yaml|ts)#[A-Za-z0-9_.-]+$/, {
-    message: "grammar provenance must be '<classic-file>#<key>'",
+  .regex(/^(?:[a-z0-9-]+\.(?:ontology\.yaml|ts)#[A-Za-z0-9_.-]+|operator:[a-z0-9-]+(?:#[A-Za-z0-9_.-]+)?)$/, {
+    message: "grammar provenance must be '<classic-file>#<key>' or 'operator:<ruling-ref>'",
   });
 
 export const GrammarLayerSchema = z.object({

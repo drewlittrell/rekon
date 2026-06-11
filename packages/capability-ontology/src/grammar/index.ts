@@ -342,6 +342,8 @@ export type GrammarAdvisoryInput = {
   files: ReadonlyArray<string>;
   /** Import pairs (from file, to file), repo-relative. */
   imports?: ReadonlyArray<{ from: string; to: string }>;
+  /** Lowercased canonical nouns from the repo's compiled vocabulary (WO-13). */
+  vocabularyNouns?: ReadonlySet<string>;
 };
 
 export type GrammarAdvisory = {
@@ -410,6 +412,42 @@ export function assignGrammarLayer(
 }
 
 /**
+ * The ONE forbidden-type suffix check (WO-13 unification; the placement
+ * axis and the advisory evaluator both call this). Vocabulary-aware: a
+ * matched suffix whose token, lowercased, is a canonical noun in the
+ * repo's compiled vocabulary is marked exempted instead of firing -
+ * nouns only; verbs and aliases never exempt. Callers count exemptions
+ * so a vocabulary declaration can never silently swallow a hygiene
+ * class.
+ */
+export type ForbiddenTypeSuffixMatch = {
+  forbidden: { id: string; reason: string; source: string };
+  vocabularyExempted: boolean;
+};
+
+export function matchForbiddenTypeSuffixes(
+  grammar: EffectiveArchitectureGrammar,
+  filePath: string,
+  vocabularyNouns?: ReadonlySet<string>,
+): ForbiddenTypeSuffixMatch[] {
+  const stem = (filePath.split("/").at(-1) ?? "").replace(/\.[a-z]+$/i, "");
+  const matches: ForbiddenTypeSuffixMatch[] = [];
+
+  for (const forbidden of grammar.forbiddenTypes.values()) {
+    if (!stem.endsWith(forbidden.id)) {
+      continue;
+    }
+
+    matches.push({
+      forbidden,
+      vocabularyExempted: vocabularyNouns?.has(forbidden.id.toLowerCase()) ?? false,
+    });
+  }
+
+  return matches;
+}
+
+/**
  * Evaluate the compiled grammar against observed files/imports and return
  * advisories. Pure and read-only; writes nothing and emits no findings.
  */
@@ -428,17 +466,17 @@ export function evaluateGrammarAdvisory(
   };
 
   for (const file of input.files) {
-    const stem = file.replace(/\.[a-z]+$/i, "");
-
-    for (const forbidden of grammar.forbiddenTypes.values()) {
-      if (stem.endsWith(forbidden.id)) {
-        advisories.push({
-          rule: "forbidden-type-suffix",
-          file,
-          detail: `file name uses forbidden type "${forbidden.id}": ${forbidden.reason}`,
-          packId: "grammar-base",
-        });
+    for (const match of matchForbiddenTypeSuffixes(grammar, file, input.vocabularyNouns)) {
+      if (match.vocabularyExempted) {
+        continue;
       }
+
+      advisories.push({
+        rule: "forbidden-type-suffix",
+        file,
+        detail: `file name uses forbidden type "${match.forbidden.id}": ${match.forbidden.reason}`,
+        packId: "grammar-base",
+      });
     }
   }
 
