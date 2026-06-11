@@ -8,3 +8,11 @@ tests/bench/output/
 .env
 .env.*
 !.env.example
+
+# Circe strict-local workflow config: machine-specific absolute paths,
+# never published (the repo is public). See WORKFLOW.local.md body.
+WORKFLOW.local.md
+
+# Local agent scratch/worktree state. Keep out of the public repo surface.
+.claude/
+plans/

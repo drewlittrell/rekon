@@ -1,5 +1,8 @@
 # Intent Plan Bundle
 
+> Status: Current concept reference. Use this for the bundle projection and
+> handoff boundary model.
+
 > **Re-dogfooded end-to-end (slice 140):** the bundle's Circe projection
 > (`handoff.json` / `phase-plan.json` / `rekon-proof.json` / per-phase
 > work-orders + verification-plans) was re-generated on a fresh repo and imported

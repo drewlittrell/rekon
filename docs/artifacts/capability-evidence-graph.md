@@ -1,5 +1,8 @@
 # CapabilityEvidenceGraph
 
+> Status: Current artifact reference for the deterministic capability graph
+> publication surface.
+
 **Status:** experimental (`0.1.0`) · **Category:** `graphs` · **Producer:**
 `@rekon/capability-model.capability-evidence-graph`
 

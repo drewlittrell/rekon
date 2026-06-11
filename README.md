@@ -1,5 +1,8 @@
 # Rekon
 
+> Status: Current public product entry point. Start here, then use
+> [docs/README.md](docs/README.md) for the maintained docs map.
+
 **Rekon is an evidence-backed AI handoff system for codebases. It builds structured repo intelligence, task context, intent plans, verification handoffs, and agent-readable bundles without letting AI output become proof or execution authority.**
 
 Rekon is a repo intelligence and handoff system for AI-assisted engineering
@@ -245,16 +248,17 @@ Deferred or experimental:
 
 ## For Reviewers And Decision Makers
 
-Look at these first:
+If you have 10 minutes:
 
-1. Run the [5-minute demo](#5-minute-demo).
-2. Read [docs/README.md](docs/README.md) for current docs navigation.
+1. Read this README, then [docs/README.md](docs/README.md).
+2. Run the [5-minute demo](#5-minute-demo) and the deeper
+   [task-context-to-handoff demo](docs/demo/task-context-to-handoff.md).
 3. Inspect `TaskContextReport`, `ResolverPacket`, `IntentPlanActionabilityReport`,
    `WorkOrder`, `VerificationPlan`, and `Publication` artifacts under
    `/tmp/rekon-demo/.rekon/artifacts`.
 4. Run `node packages/cli/dist/index.js artifacts validate --root /tmp/rekon-demo --json`.
-5. Read [docs/demo/task-context-to-handoff.md](docs/demo/task-context-to-handoff.md)
-   for the broader workflow story.
+5. Check the [safety model](#safety-model) and the current guide for
+   [intent bundle handoff workflow](docs/guides/intent-bundle-handoff-workflow.md).
 
 The point is not that Rekon creates many files. The point is that the files
 separate context, inference, proof, approval, and execution in a way a reviewer

@@ -1,5 +1,7 @@
 # Intent Bundle Agent Reading Order
 
+> Status: Current agent-reading guide for intent bundle handoffs.
+
 This guide is the agent-focused companion to the [Intent Bundle Handoff
 Workflow](intent-bundle-handoff-workflow.md). It tells an agent what to read, in what order, and
 how to classify each surface when picking up an intent plan bundle.

@@ -1,5 +1,8 @@
 # Task-Shaped Context
 
+> Status: Current concept reference. Use this for how Rekon scopes context to a
+> task without making it proof or approval.
+
 > **Broader-workflow role decided (slice 176):** TaskContextReport is the standard
 > pre-intent / pre-work context substrate — context only, never proof/approval;
 > consumption stays explicit; the deterministic spine stays separately gated;

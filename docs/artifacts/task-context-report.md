@@ -1,5 +1,8 @@
 # TaskContextReport
 
+> Status: Current artifact reference. Use this for the supported
+> `TaskContextReport` contract and boundary model.
+
 > **Broader-workflow role decided (slice 176):** TaskContextReport is the standard
 > pre-intent / pre-work context substrate — context only, never proof/approval;
 > consumption stays explicit; the deterministic spine stays separately gated;

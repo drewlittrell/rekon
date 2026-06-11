@@ -1,5 +1,7 @@
 # Rekon Docs
 
+> Status: Current public docs map. Use this page after the root README.
+
 This is the human docs map. Use it before browsing the generated freshness
 index or historical strategy snapshots.
 
@@ -10,6 +12,36 @@ index or historical strategy snapshots.
 - [Demo: task context to handoff](demo/task-context-to-handoff.md): reviewer path from repo scan to agent handoff surfaces.
 - [NorthStar](strategy/north-star.md): durable product and architecture direction.
 - [System model](strategy/rekon-system-model.md): canonical living system model.
+
+## For Reviewers
+
+If you are evaluating Drew's AI-assisted engineering work, inspect these first:
+
+1. [README](../README.md): product framing, 5-minute demo, output excerpts,
+   safety model, and current status.
+2. [Demo: task context to handoff](demo/task-context-to-handoff.md): the runnable
+   path from scan to context, resolver trace, plan review, and agent guidance.
+3. [Intent bundle handoff workflow](guides/intent-bundle-handoff-workflow.md):
+   the handoff reading order and authority boundaries for humans and agents.
+
+## For Contributors
+
+Start with the public path above, then read:
+
+- [Contributing](../CONTRIBUTING.md): setup, checks, public API expectations,
+  and direct-to-main solo alpha process.
+- [Authoring capabilities](extensions/authoring-capabilities.md): extension
+  roles, manifests, permissions, conformance, and local testing.
+- [NorthStar](strategy/north-star.md): product and architecture direction before
+  changing package, artifact, or capability contracts.
+
+## Run The Demo
+
+- [Demo: task context to handoff](demo/task-context-to-handoff.md): current
+  reviewer demo with setup, commands, expected output shape, boundaries, and
+  troubleshooting.
+- [First 10 minutes](getting-started/first-10-minutes.md): broader local CLI
+  walkthrough over `examples/simple-js-ts`.
 
 ## Core Concepts
 
@@ -23,7 +55,7 @@ index or historical strategy snapshots.
 - [Verification runs](concepts/verification-runs.md): command execution records, when explicitly requested.
 - [Agent operating contract](concepts/agent-operating-contract.md): generated operating guidance from current artifacts.
 
-## CLI Guides
+## Current Guides And Workflows
 
 - [Task context workflow](guides/task-context-workflow.md)
 - [Intent bundle handoff workflow](guides/intent-bundle-handoff-workflow.md)
@@ -65,7 +97,7 @@ index or historical strategy snapshots.
 - [Security model](extensions/security-model.md)
 - [Custom TODO capability example](../examples/custom-capability/README.md)
 
-## Strategy
+## Strategy And Historical Decisions
 
 Current living strategy:
 

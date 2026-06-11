@@ -1,5 +1,7 @@
 # Agent Context Instructions
 
+> Status: Current agent-consumption guide for `TaskContextReport.agentContext`.
+
 How an agent should consume a `TaskContextReport` before doing work. This is the
 agent-facing half of the [Task Context Workflow](task-context-workflow.md).
 

@@ -1,5 +1,7 @@
 # Task Context Workflow
 
+> Status: Current workflow guide. Use this for the supported task-context path.
+
 This guide turns the [TaskContextReport Workflow Integration
 Decision](../strategy/task-context-report-workflow-integration-decision.md)
 (Option B — context-first workflow policy) into a practical habit for humans and

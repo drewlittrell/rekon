@@ -4,6 +4,12 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Public Docs Currentness / Reviewer Path Polish: tightened the public docs
+  hierarchy after the README reset, added current/historical status labels on
+  high-traffic docs, clarified reviewer and contributor paths, documented the
+  generated `docs/INDEX.md` disposition, kept README/demo command strings stable,
+  and added a focused public-docs currentness test. No runtime, CLI, SDK,
+  artifact, or capability behavior changed.
 - Reworked the public front door for Rekon: README now presents Rekon as an evidence-backed AI handoff system for codebases, with a concise problem/solution story, 5-minute demo, output excerpts, safety model, docs map, reviewer guidance, and explicit current/deferred status.
 - Added `docs/README.md` as the human docs map, separate from generated `docs/INDEX.md` freshness output.
 - Added `docs/demo/task-context-to-handoff.md` as the canonical public demo from scan to capability graph to task context to plan review to agent guidance.

@@ -1,5 +1,8 @@
 # Intent Bundle Handoff Workflow Guide
 
+> Status: Historical implementation note. Use
+> `docs/guides/intent-bundle-handoff-workflow.md` for current workflow guidance.
+
 > **SNAPSHOT.** This is a point-in-time record as of its slice. Do not
 > read it as current state. Current state lives in source code, CLI
 > output, artifact schemas, `docs/concepts/`, and

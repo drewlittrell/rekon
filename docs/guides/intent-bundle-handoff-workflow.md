@@ -1,5 +1,8 @@
 # Intent Bundle Handoff Workflow
 
+> Status: Current workflow guide. Use this for the supported intent-bundle
+> handoff reading order.
+
 This guide teaches operators and agents how to consume an intent plan bundle using the bundle's
 handoff reading order. It implements the [Intent Bundle Handoff Reading Order Broader Workflow
 Decision](../strategy/intent-bundle-handoff-reading-order-broader-workflow-decision.md) (Option B):
