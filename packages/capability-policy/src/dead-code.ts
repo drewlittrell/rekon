@@ -14,8 +14,42 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { Finding } from "@rekon/kernel-findings";
+import type { EffectiveArchitectureGrammar } from "@rekon/capability-ontology";
 
 import { isNonProductionPath } from "./grammar-divergence.js";
+
+// WO-15 Part 1: the four labeled suppression classes, each exemption
+// counted (the WO-13 transparency pattern). Purpose pin: WO-9 SKIPS
+// type-only imports for layer law because type dependencies do not
+// violate runtime layering; reachability has the OPPOSITE purpose, so
+// type-only edges are references here - a file whose exports are
+// consumed only as types is alive.
+
+/** Generated-file header markers, scanned by the provider's content signals
+ * and by the declared codegen globs (WO-10 replace-semantics shape). */
+export const GENERATED_GLOBS_CONFIG_PATH = ".rekon/scan-scope.json";
+
+export async function loadGeneratedGlobs(repoRoot: string): Promise<ReadonlyArray<string>> {
+  try {
+    const raw = await readFile(join(repoRoot, GENERATED_GLOBS_CONFIG_PATH), "utf8");
+    const parsed = JSON.parse(raw) as { generatedGlobs?: unknown };
+
+    if (Array.isArray(parsed.generatedGlobs)) {
+      return parsed.generatedGlobs.filter((value): value is string => typeof value === "string");
+    }
+  } catch {
+    // Missing or malformed config -> no declared codegen globs.
+  }
+
+  return [];
+}
+
+export type DeadCodeStats = {
+  typeOnlyReferences: number;
+  barrelExemptions: number;
+  generatedExemptions: number;
+  factoryExemptions: number;
+};
 
 export const DEAD_CODE_RULE_ID = "dead_code.unreferenced";
 
@@ -125,10 +159,28 @@ export async function loadDeclaredRoots(repoRoot: string): Promise<string[]> {
   return [...roots].sort();
 }
 
+function globLikeToRegExp(glob: string): RegExp {
+  const escaped = glob
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*\*\//g, "\u0000")
+    .replace(/\*\*/g, "\u0001")
+    .replace(/\*/g, "[^/]*")
+    .replaceAll("\u0000", "(?:.*/)?")
+    .replaceAll("\u0001", ".*");
+
+  return new RegExp(`^${escaped}$`);
+}
+
 export function evaluateDeadCode(input: {
   facts: ReadonlyArray<FactLike>;
   /** Declared roots (repo-relative). Empty -> unreferenced-exports mode. */
   roots?: ReadonlyArray<string>;
+  /** Effective grammar; supplies the declared Factory role signal (WO-15). */
+  grammar?: EffectiveArchitectureGrammar;
+  /** Declared codegen globs (operator-extendable, replace semantics). */
+  generatedGlobs?: ReadonlyArray<string>;
+  /** Transparency counters: every class exemption is counted, never silent. */
+  stats?: DeadCodeStats;
 }): Finding[] {
   const facts = input.facts;
   const files = new Set(facts.filter((f) => f.kind === "file").map((f) => f.subject));
@@ -141,10 +193,32 @@ export function evaluateDeadCode(input: {
   const referencedNames = new Set<string>();
   const wholeFileReferenced = new Set<string>();
   const importEdges = new Map<string, Set<string>>();
+  const reexportCountByFile = new Map<string, number>();
+  const exportCountByFile = new Map<string, number>();
+  const generatedSignalFiles = new Set<string>();
 
   for (const fact of facts) {
+    if (fact.kind === "export") {
+      exportCountByFile.set(fact.subject, (exportCountByFile.get(fact.subject) ?? 0) + 1);
+    }
+
+    if (fact.kind === "content_signal" && fact.value.signal === "generatedFile") {
+      generatedSignalFiles.add(fact.subject);
+    }
+
+    if (fact.kind === "reexport") {
+      const source = typeof fact.value.source === "string" ? fact.value.source : fact.subject;
+
+      reexportCountByFile.set(source, (reexportCountByFile.get(source) ?? 0) + 1);
+    }
+
     if (fact.kind !== "import_specifier" && fact.kind !== "reexport") {
       continue;
+    }
+
+    if (fact.value.typeOnly === true && input.stats) {
+      // Type-only consumption counts as usage (the purpose pin above).
+      input.stats.typeOnlyReferences += 1;
     }
 
     const target = typeof fact.value.resolvedTarget === "string" ? fact.value.resolvedTarget : undefined;
@@ -191,8 +265,44 @@ export function evaluateDeadCode(input: {
     }
   }
 
+  // WO-15 class signals, resolved per file once.
+  const factoryRoleIds = [...(input.grammar?.fileTypes.values() ?? [])]
+    .map((fileType) => fileType.id)
+    .filter((id) => id === "Factory");
+  const generatedGlobRes = (input.generatedGlobs ?? []).map((glob) => globLikeToRegExp(glob));
+  const classExemption = (file: string): keyof DeadCodeStats | undefined => {
+    // Barrel: a file whose exports are substantially re-exports is a
+    // conduit, not a consumer; reachability already flows through it.
+    const reexports = reexportCountByFile.get(file) ?? 0;
+    const exports = exportCountByFile.get(file) ?? 0;
+
+    if (reexports >= 1 && reexports * 2 >= exports) {
+      return "barrelExemptions";
+    }
+
+    // Generated: header marker (provider content signal) or declared glob.
+    if (generatedSignalFiles.has(file) || generatedGlobRes.some((re) => re.test(file))) {
+      return "generatedExemptions";
+    }
+
+    // Factory / dynamic registration: ONLY where the grammar declares the
+    // role (the Factory fileType, ratification-dependent). Without a
+    // declared signal the finding stands and the class is reported as
+    // residual by the bench - no prose guessing.
+    if (factoryRoleIds.some((role) => {
+      const stem = (file.split("/").at(-1) ?? "").replace(/\.[a-z]+$/i, "");
+
+      return stem.endsWith(role) && stem.length > role.length;
+    })) {
+      return "factoryExemptions";
+    }
+
+    return undefined;
+  };
+
   // Unreferenced exports per file.
   const deadByFile = new Map<string, string[]>();
+  const exempted = new Set<string>();
 
   for (const fact of facts) {
     if (fact.kind !== "export") {
@@ -207,6 +317,17 @@ export function evaluateDeadCode(input: {
       || declaredRoots.includes(file)
       || wholeFileReferenced.has(file)
     ) {
+      continue;
+    }
+
+    const exemption = classExemption(file);
+
+    if (exemption) {
+      if (input.stats && !exempted.has(file)) {
+        input.stats[exemption] += 1;
+      }
+
+      exempted.add(file);
       continue;
     }
 

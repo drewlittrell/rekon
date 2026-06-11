@@ -231,7 +231,16 @@ export function evaluateGrammarDivergence(input: GrammarDivergenceInput): Findin
   const forbiddenEdges = new Map<string, { packId: string; declaration: string }>();
   const requiredEdges = new Map<string, { packId: string; declaration: string }>();
 
+  const eligibleTopologyPacks = new Set(grammar.findingsEligiblePackIds ?? []);
+
   for (const [packId, topology] of grammar.topologies) {
+    // WO-15: only findings-eligible packs' topology backs findings (the
+    // map can now carry overlay/override topology, and could carry
+    // advisory topology - eligibility is the one gate).
+    if (!eligibleTopologyPacks.has(packId)) {
+      continue;
+    }
+
     for (const edge of topology.layerEdges) {
       const key = `${edge.fromLayer}->${edge.toLayer}`;
       const declaration = `${topology.source} layerEdges ${key}`;

@@ -3,7 +3,7 @@ import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
 import { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
-import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots } from "./dead-code.js";
+import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots, loadGeneratedGlobs } from "./dead-code.js";
 import { NAMING_CONTRACT_RULE_ID, evaluateNamingContract } from "./naming-contract.js";
 import { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 import {
@@ -51,7 +51,8 @@ export { NAMING_CONTRACT_RULE_ID, evaluateNamingContract, splitPascalTokens } fr
 export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
-export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclaredRoots } from "./dead-code.js";
+export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclaredRoots, loadGeneratedGlobs } from "./dead-code.js";
+export type { DeadCodeStats } from "./dead-code.js";
 
 export const policyEvaluator: Evaluator = {
   id: "@rekon/capability-policy.evaluator",
@@ -197,8 +198,14 @@ async function deadCodeFindings(
   const repo = input?.repo as { root?: string } | undefined;
   const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
   const roots = repoRoot ? await loadDeclaredRoots(repoRoot) : [];
+  const generatedGlobs = repoRoot ? await loadGeneratedGlobs(repoRoot) : [];
+  const overrides = repoRoot ? loadGrammarOverrides(repoRoot) : { overrides: null, path: null };
+  const grammar = compileEffectiveGrammar({
+    overrides: overrides.overrides ?? undefined,
+    overridesPath: overrides.path,
+  });
 
-  return evaluateDeadCode({ facts: graph.facts, roots });
+  return evaluateDeadCode({ facts: graph.facts, roots, grammar, generatedGlobs });
 }
 
 async function grammarDivergenceFindings(

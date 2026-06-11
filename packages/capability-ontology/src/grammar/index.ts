@@ -234,6 +234,13 @@ export function compileEffectiveGrammar(
 
   for (const overlay of overlays) {
     applyPack(overlay);
+
+    // WO-15 Part 2: overlay-declared topology joins the effective grammar
+    // (it never did - topology was archetype-only by accident, found
+    // during the WO-13 path-scope analysis).
+    if (overlay.topology) {
+      effective.topologies.set(overlay.id, overlay.topology);
+    }
   }
 
   effective.findingsEligiblePackIds = [
@@ -253,6 +260,12 @@ export function compileEffectiveGrammar(
     });
     applyPack(overridePack);
     effective.findingsEligiblePackIds.push(overridePack.id);
+
+    // WO-15 Part 2: operator-declared topology compiles in with the
+    // eligibility the override pack already has.
+    if (overridePack.topology) {
+      effective.topologies.set(overridePack.id, overridePack.topology);
+    }
   }
 
   const issues = resolveGrammarReferences(effective);
