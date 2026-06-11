@@ -1,7 +1,10 @@
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
+import { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
+import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
 import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots } from "./dead-code.js";
+import { NAMING_CONTRACT_RULE_ID, evaluateNamingContract } from "./naming-contract.js";
 import { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 import {
   compileEffectiveCapabilityOntology,
@@ -35,7 +38,17 @@ export const BUILT_IN_POLICY_RULES = [
   DEBT_MARKERS_RULE_ID,
   // WO-14 B: dead_code on unreferenced exports + declared-root reachability.
   DEAD_CODE_RULE_ID,
+  // WO-14 D: capability overlap with declared sharing.
+  CAPABILITY_OVERLAP_RULE_ID,
+  // WO-14 E: the {Entity}{Role} naming contract (ratified repos only).
+  NAMING_CONTRACT_RULE_ID,
+  // WO-14 F: the anti-pattern pack (declared signals + correction pairs).
+  ANTI_PATTERN_RULE_ID,
 ] as const;
+
+export { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
+export { NAMING_CONTRACT_RULE_ID, evaluateNamingContract, splitPascalTokens } from "./naming-contract.js";
+export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclaredRoots } from "./dead-code.js";
@@ -62,6 +75,10 @@ export const policyEvaluator: Evaluator = {
       ...(!disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID) ? await grammarDivergenceFindings(graph, input, artifacts) : []),
       ...(!disabledRules.has(DEBT_MARKERS_RULE_ID) ? evaluateDebtMarkers(graph.facts) : []),
       ...(!disabledRules.has(DEAD_CODE_RULE_ID) ? await deadCodeFindings(graph, input) : []),
+      ...(!disabledRules.has(CAPABILITY_OVERLAP_RULE_ID) ? await capabilityOverlapFindings(graph, artifacts) : []),
+      ...(!disabledRules.has(NAMING_CONTRACT_RULE_ID) || !disabledRules.has(ANTI_PATTERN_RULE_ID)
+        ? await grammarFamilyFindings(graph, input, disabledRules)
+        : []),
     ];
     const report = createFindingReport({
       header: {
@@ -113,6 +130,66 @@ export default defineCapability({
 // join OwnershipMap + CapabilityContract when present, and evaluate
 // divergence. Absent repo root or config, the grammar compiles with no
 // ratified archetypes and the layered axes are inert by construction.
+async function capabilityOverlapFindings(
+  graph: EvidenceGraphLike,
+  artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
+): Promise<Finding[]> {
+  const mapRef = (await artifacts.list("CapabilityMap")).at(-1);
+  const map = mapRef ? await artifacts.read(mapRef) as { capabilities?: Array<Record<string, unknown>> } : undefined;
+  const ownershipRef = (await artifacts.list("OwnershipMap")).at(-1);
+  const ownership = ownershipRef ? await artifacts.read(ownershipRef) as { entries?: Array<{ path: string; ownerSystem: string }> } : undefined;
+  const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
+  const contract = contractRef ? await artifacts.read(contractRef) as { contracts?: Array<Record<string, unknown>> } : undefined;
+
+  return evaluateCapabilityOverlap({
+    capabilities: (map?.capabilities ?? []) as never,
+    ownershipEntries: ownership?.entries ?? [],
+    contractEntries: (contract?.contracts ?? []) as never,
+  });
+}
+
+// WO-14 E + F share the divergence detector's grammar + vocabulary context
+// (one compile per evaluation, the WO-13 single-path discipline).
+async function grammarFamilyFindings(
+  graph: EvidenceGraphLike,
+  input: Record<string, unknown> | undefined,
+  disabledRules: Set<string>,
+): Promise<Finding[]> {
+  const repo = input?.repo as { root?: string } | undefined;
+  const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
+  const overrides = repoRoot ? loadGrammarOverrides(repoRoot) : { overrides: null, path: null };
+  const grammar = compileEffectiveGrammar({
+    overrides: overrides.overrides ?? undefined,
+    overridesPath: overrides.path,
+  });
+
+  let vocabularyNouns: ReadonlySet<string> | undefined;
+
+  if (repoRoot) {
+    try {
+      const configResult = await loadCapabilityOntologyConfig(repoRoot);
+      const detection = await detectOverlayPacks(repoRoot);
+      const ontology = compileEffectiveCapabilityOntology({
+        config: configResult.found ? configResult.config : undefined,
+        overlayPackIds: detection.packIds,
+      });
+
+      vocabularyNouns = new Set(ontology.nouns.canonical.map((noun) => noun.toLowerCase()));
+    } catch {
+      // No vocabulary -> no exemptions.
+    }
+  }
+
+  return [
+    ...(!disabledRules.has(NAMING_CONTRACT_RULE_ID)
+      ? evaluateNamingContract({ facts: graph.facts, grammar, vocabularyNouns })
+      : []),
+    ...(!disabledRules.has(ANTI_PATTERN_RULE_ID)
+      ? evaluateAntiPatterns({ facts: graph.facts, grammar })
+      : []),
+  ];
+}
+
 async function deadCodeFindings(
   graph: EvidenceGraphLike,
   input: Record<string, unknown> | undefined,

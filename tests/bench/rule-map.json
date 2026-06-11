@@ -54,8 +54,9 @@
   },
   "anti_pattern": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B",
-    "note": "Deterministic sub-rules re-expressed as declared policy rules; LLM remainder to the semantic overlay."
+    "citation": "docs/strategy/detection-design-decisions.md §B anti_pattern row; docs/work-orders/wo-14-detection-wave-1.md (sub-order F); deterministic declared-signal share, LLM remainder stays missed-redesigned",
+    "note": "Deterministic sub-rules re-expressed as declared policy rules; LLM remainder to the semantic overlay.",
+    "rekonRuleId": "grammar.antiPattern"
   },
   "dead_code": {
     "status": "redesigned",
@@ -66,8 +67,10 @@
   },
   "capability_overlap": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §C",
-    "note": "Priority redesign on the capability graph; declared sharing disambiguates intentional overlap from drift."
+    "citation": "docs/strategy/detection-design-decisions.md §C capability_overlap row; docs/work-orders/wo-14-detection-wave-1.md (sub-order D); coverage scoring: Step 0 found the classic baseline prose-origin (LLM-phrased capability names), per bench policy item 2",
+    "note": "Priority redesign on the capability graph; declared sharing disambiguates intentional overlap from drift.",
+    "rekonRuleId": "capability.overlap",
+    "scoring": "coverage"
   },
   "semantic_similarity": {
     "status": "deferred",
@@ -86,8 +89,9 @@
   },
   "naming_violation": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §D",
-    "note": "Ontology-backed {Entity}{Role} naming-contract check derived from the declared grammar WO-4 ports."
+    "citation": "docs/strategy/detection-design-decisions.md §D naming row; docs/work-orders/wo-14-detection-wave-1.md (sub-order E); per-finding identity (deterministic-origin)",
+    "note": "Ontology-backed {Entity}{Role} naming-contract check derived from the declared grammar WO-4 ports.",
+    "rekonRuleId": "naming.contract"
   },
   "lint": {
     "status": "rejected",

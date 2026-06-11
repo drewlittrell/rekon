@@ -117,6 +117,43 @@ export function extractDebtMarkerFacts(path: string, content: string): EvidenceF
   return facts;
 }
 
+// ---------- WO-14 F: content signals for the anti-pattern pack -------------
+//
+// The provider observes signal PRESENCE; the policy evaluator applies the
+// law (tier-aware, ratification-gated). The signal table mirrors the
+// grammar antiPattern rows' declared detectionRules regexes (drift-guarded
+// by contract test against the ported pack data); rows with prose
+// detection rules or detectable:false are the LLM remainder and have no
+// signals here. One fact per (file, signal).
+
+const CONTENT_SIGNALS: ReadonlyArray<{ signal: string; patterns: RegExp[] }> = [
+  { signal: "consoleLogging", patterns: [/console\.(log|warn|error|debug|info)\(/] },
+  {
+    signal: "businessLogicInService",
+    patterns: [/if.*state\./, /if.*phase\s*(?:===|!==)/, /if.*status\s*(?:===|!==)/],
+  },
+  {
+    signal: "directDatabaseInService",
+    patterns: [/supabase\.from\(/, /db\.(select|insert|update|delete)\(/, /\.rpc\(/],
+  },
+  {
+    signal: "conditionalHooks",
+    patterns: [/if.*\{[^}]*use[A-Z]/, /&&\s*use[A-Z]/, /\?.*use[A-Z]/],
+  },
+];
+
+export function extractContentSignalFacts(path: string, content: string): EvidenceFact[] {
+  const facts: EvidenceFact[] = [];
+
+  for (const { signal, patterns } of CONTENT_SIGNALS) {
+    if (patterns.some((pattern) => pattern.test(content))) {
+      facts.push(fact("content_signal", path, { signal }, path));
+    }
+  }
+
+  return facts;
+}
+
 export const jsTsProvider: EvidenceProvider = {
   id: "@rekon/capability-js-ts.provider",
   kind: "language",
@@ -141,6 +178,7 @@ export const jsTsProvider: EvidenceProvider = {
 
         facts.push(createFileFact(path));
         appendFacts(facts, extractDebtMarkerFacts(path, content));
+        appendFacts(facts, extractContentSignalFacts(path, content));
 
         const extension = extensionForPath(path);
         const language = languageForPath(path);
