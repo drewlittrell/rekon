@@ -115,3 +115,34 @@ test("Part 3: a declared root glob makes the package entry's exports API; orphan
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test("WO-21: law text is data - a console string inside the packs path is silent, package code fires", () => {
+  const base = [...ontology.compileEffectiveGrammar({}).antiPatterns.values()].find((a) => a.id === "consoleLogging");
+  const grammar = ontology.compileEffectiveGrammar({
+    overrides: {
+      antiPatterns: [{
+        ...base,
+        details: {
+          ...base.details,
+          exceptions: [
+            ...(base.details.exceptions ?? []),
+            { path: "packages/capability-ontology/src/grammar/packs/**", reason: "Law text is data (operator:wo-21#law-text-as-data)." },
+            { path: "packages/runtime/src/index.ts", reason: "The logging seam (operator:wo-21#logging-seam)." },
+          ],
+        },
+        source: "operator:wo-21#logging-seam",
+      }],
+    },
+  });
+  const signal = (path) => ({ kind: "content_signal", subject: path, value: { signal: "consoleLogging" } });
+  const findings = policy.evaluateAntiPatterns({
+    facts: [
+      signal("packages/capability-ontology/src/grammar/packs/grammar-base.ts"), // law text: silent
+      signal("packages/runtime/src/index.ts"), // the seam: silent
+      signal("packages/capability-policy/src/index.ts"), // package code: fires
+    ],
+    grammar,
+  });
+
+  assert.deepEqual(findings.map((f) => f.files[0]), ["packages/capability-policy/src/index.ts"]);
+});
