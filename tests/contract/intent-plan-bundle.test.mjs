@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { buildIntentPlanBundle, isSafeBundleRelativePath, slugifyIntentId } from "../../packages/capability-docs/dist/index.js";
+import { validatePreparedIntentPlan } from "../../packages/kernel-repo-model/dist/index.js";
 import { createLocalArtifactStore } from "../../packages/runtime/dist/index.js";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
@@ -294,6 +295,83 @@ function header(type, id) {
     provenance: { confidence: 0.7 },
   };
 }
+
+const IMPLEMENTATION_PHASE_KINDS = ["modify", "implement", "refactor"];
+
+function validationPhase(kind) {
+  return {
+    id: `phase:${kind}`,
+    title: kind,
+    kind,
+    status: "planned",
+    goal: `${kind} phase`,
+    paths: kind === "verify" ? [] : ["src/app.ts"],
+    systems: [],
+    capabilities: [],
+    steps: [],
+    constraints: [],
+    obligations: [],
+    verificationRequirements: kind === "verify" ? ["verify:typecheck"] : [],
+    sourceRefs: [],
+  };
+}
+
+function validationPreparedIntentPlan(requestKind, phaseKinds) {
+  const hasImplementationOrRefactor = phaseKinds.some((kind) => IMPLEMENTATION_PHASE_KINDS.includes(kind));
+  return {
+    header: header("PreparedIntentPlan", `pip-${requestKind}-${phaseKinds.join("-")}`),
+    source: { intentAssessmentReportRef: IA_REF },
+    request: { goal: `Validate ${requestKind}`, kind: requestKind },
+    status: { value: "prepared", recommendedNextAction: "create-work-order" },
+    approval: {
+      status: "approved",
+      reasons: ["assessment-ready-for-prepare"],
+      proof: {
+        intentAssessmentReportRef: IA_REF,
+        assessmentReadiness: "ready-for-prepare",
+        assessmentApprovedForPrepare: true,
+        requiredContextPresent: true,
+        missingContext: [],
+        runtimeDrift: { accepted: true, unresolvedHighSeverity: 0 },
+        handoffCoverage: { accepted: true, uncovered: 0, unresolvedContract: 0, notEvaluated: 0 },
+        freshness: { accepted: true, staleContext: false },
+        verification: { requirementsPresent: true, proofResultsPresent: false, verificationRefs: [] },
+        planStructure: {
+          phasesPresent: phaseKinds.length > 0,
+          minimumPhaseCountMet: phaseKinds.length >= 2,
+          hasInvestigation: phaseKinds.includes("investigate"),
+          hasImplementationOrRefactor,
+          hasVerification: phaseKinds.includes("verify"),
+          hasReview: phaseKinds.includes("review"),
+        },
+        downstreamHandoff: { workOrderAllowed: true, verificationPlanAllowed: true, sourceWriteAllowed: false },
+      },
+      blockers: [],
+    },
+    phases: phaseKinds.map(validationPhase),
+    obligations: [],
+    verificationRequirements: [{ id: "verify:typecheck", command: "npm run typecheck", reason: "Type safety must hold." }],
+    blockedReasons: [],
+  };
+}
+
+test("prepared-plan validation: bug/feature/migration accept the implementation-bearing phase kind class", () => {
+  for (const requestKind of ["bug", "feature", "migration"]) {
+    for (const phaseKind of IMPLEMENTATION_PHASE_KINDS) {
+      const result = validatePreparedIntentPlan(validationPreparedIntentPlan(requestKind, [phaseKind, "verify"]));
+      assert.equal(result.ok, true, `${requestKind}/${phaseKind}: ${JSON.stringify(result.issues)}`);
+    }
+  }
+});
+
+test("prepared-plan validation: bug/feature/migration without an implementation-bearing phase names the accepted class", () => {
+  for (const requestKind of ["bug", "feature", "migration"]) {
+    const result = validatePreparedIntentPlan(validationPreparedIntentPlan(requestKind, ["investigate", "verify"]));
+    assert.equal(result.ok, false, `${requestKind}: expected validation to fail`);
+    const phaseIssue = result.issues.find((issue) => issue.path === "$.phases");
+    assert.match(phaseIssue?.message ?? "", /modify, implement, or refactor/);
+  }
+});
 
 const cliRoot = await mkdtemp(join(tmpdir(), "rekon-bundle-"));
 await mkdir(join(cliRoot, "src"), { recursive: true });

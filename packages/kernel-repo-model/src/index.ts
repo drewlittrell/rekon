@@ -5255,6 +5255,8 @@ const PREPARED_INTENT_PHASE_KINDS = new Set<string>([
   "verify",
   "review",
 ]);
+const PREPARED_INTENT_IMPLEMENTATION_PHASE_KINDS = new Set<string>(["modify", "implement", "refactor"]);
+const PREPARED_INTENT_IMPLEMENTATION_PHASE_KIND_MESSAGE = "modify, implement, or refactor";
 const INTENT_PLAN_PHASE_SOURCE_CHANGES = new Set<string>(["required", "allowed", "forbidden"]);
 
 const PREPARED_INTENT_PHASE_STATUSES = new Set<string>([
@@ -5961,6 +5963,9 @@ export function validatePreparedIntentPlan(value: unknown): ValidationResult<Pre
   const requestKind = isRecord(value.request) ? (value.request as Record<string, unknown>).kind : undefined;
   const phaseList = Array.isArray(value.phases) ? value.phases.filter(isRecord) as Array<Record<string, unknown>> : [];
   const phaseKinds = new Set(phaseList.map((phase) => phase.kind));
+  const hasImplementationPhase = [...phaseKinds].some((kind) =>
+    typeof kind === "string" && PREPARED_INTENT_IMPLEMENTATION_PHASE_KINDS.has(kind)
+  );
   const requirementCount = Array.isArray(value.verificationRequirements) ? value.verificationRequirements.length : 0;
   const approvalReasons = isRecord(value.approval) && Array.isArray((value.approval as Record<string, unknown>).reasons)
     ? ((value.approval as Record<string, unknown>).reasons as unknown[])
@@ -5984,8 +5989,8 @@ export function validatePreparedIntentPlan(value: unknown): ValidationResult<Pre
     if (requestKind === "refactor" && !phaseKinds.has("refactor")) {
       issues.push({ path: "$.phases", message: "A prepared refactor plan must include a refactor phase." });
     }
-    if ((requestKind === "bug" || requestKind === "feature" || requestKind === "migration") && !phaseKinds.has("modify")) {
-      issues.push({ path: "$.phases", message: "A prepared bug/feature/migration plan must include a modify phase." });
+    if ((requestKind === "bug" || requestKind === "feature" || requestKind === "migration") && !hasImplementationPhase) {
+      issues.push({ path: "$.phases", message: `A prepared bug/feature/migration plan must include a ${PREPARED_INTENT_IMPLEMENTATION_PHASE_KIND_MESSAGE} phase.` });
     }
     if (requestKind === "unknown" && !approvalReasons.some((reason) => typeof reason === "string" && PREPARED_INTENT_EXPLICIT_APPROVAL_REASONS.has(reason))) {
       issues.push({ path: "$.status.value", message: "A prepared unknown-kind plan requires an explicit approval reason." });
