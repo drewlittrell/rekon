@@ -27,14 +27,13 @@ refactor," and failed prepare until scrubbed. Kind words that must be
 written down belong in deliverables or plan-level prose, which feed
 source-change signals only.
 
-## Machine-read sections use single-line bullets
+## Bullets in machine-read sections
 
-Implementation Scope, Changed files, Deliverables, Acceptance
-Criteria, and Evidence Gate bullets each fit on one line. The
-normalizer takes the first line of a hard-wrapped bullet, truncating
-the rest and leaking fragments into touched paths. Scope sections
-carry bare paths only; any condition on a path moves to prose after
-the list.
+As of commit ace6c38 the normalizer folds hard-wrapped bullet
+continuation lines into the owning bullet across all list-bearing
+fields, so bullets may wrap. Keep them concise anyway; one thought per
+bullet. Scope sections still carry bare paths only, with any condition
+on a path stated in prose after the list.
 
 ## Read-only phases say read-only
 
@@ -67,11 +66,14 @@ timeout addressed before it ships.
 A mutation plan is two phases: a required implementation phase, then
 a forbidden final verify that starts from the prior phase commit
 (previous_phase_commit) and proves the final tree with the full
-command set. Known limitation: the planner may conservatively stop
-after a successful phase 1 instead of routing to phase 2, and the
-dispatch guard then strands the final verify with no operator
-continuation (circe backlog). The fallback is operator-path
-verification of the phase commit, recorded in the plan's verdict.
+command set. Known limitation: under serve the planner stops at the
+phase boundary (two for two as of 2026-06-11) because the successor is
+blocked at decision time and the planner refuses blocked candidates,
+so the continuation signal never goes ready. The dispatch guard then
+strands the final verify with no operator continuation (circe
+backlog). The documented fallback is operator-path verification of the
+phase commit in the run's workspace, recorded in the plan's phase 2
+verdict with the warm-workspace caveat.
 
 ## Requeue hygiene
 
