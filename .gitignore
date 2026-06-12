@@ -15,4 +15,6 @@ WORKFLOW.local.md
 
 # Local agent scratch/worktree state. Keep out of the public repo surface.
 .claude/
-plans/
+
+# Circe runtime artifacts
+.circe/
