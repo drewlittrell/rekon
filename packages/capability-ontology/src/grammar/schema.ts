@@ -166,6 +166,7 @@ export const GrammarTopologyEdgeSchema = z.object({
   toLayer: z.string().min(1),
   required: z.boolean(),
   forbidden: z.boolean(),
+  source: GrammarSourceRefSchema.optional(),
 });
 
 /** Topology law ported from classic's BUILTIN_TOPOLOGY_TEMPLATES (WO-4.1). */

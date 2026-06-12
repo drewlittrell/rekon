@@ -60,6 +60,34 @@ test("topology fidelity: classic's fullstack template ported verbatim", () => {
   assert.equal(topology.source, "topology-contract-inference.ts#fullstack_layered");
 });
 
+test("topology edge source round-trips through grammar compilation", () => {
+  const effective = grammar.compileEffectiveGrammar({
+    ratifiedArchetypeIds: ["grammar-archetype-package-platform"],
+  });
+  const topology = effective.topologies.get("grammar-archetype-package-platform");
+
+  assert.ok(topology);
+  assert.equal(topology.description.includes("operator:wo-20#kernel-contract-edge"), false);
+
+  const kernelContractEdge = topology.layerEdges.find(
+    (edge) => edge.fromLayer === "kernel" && edge.toLayer === "contract",
+  );
+  assert.equal(kernelContractEdge?.source, "operator:wo-20#kernel-contract-edge");
+
+  const contractEdges = topology.layerEdges.filter((edge) => edge.fromLayer === "contract");
+  assert.equal(contractEdges.length, 5);
+  assert.ok(
+    contractEdges.every((edge) => edge.source === "operator:wo-19#contract-layer"),
+    "contract-layer topology edges must carry their operator ruling source",
+  );
+
+  const unsourcedEdge = topology.layerEdges.find(
+    (edge) => edge.fromLayer === "kernel" && edge.toLayer === "core",
+  );
+  assert.ok(unsourcedEdge);
+  assert.equal(unsourcedEdge.source, undefined);
+});
+
 test("unratified archetypes never enter the effective grammar (no findings possible)", () => {
   const effective = grammar.compileEffectiveGrammar();
 
