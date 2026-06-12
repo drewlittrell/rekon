@@ -695,3 +695,70 @@ test("circe target: repo-local verification commands remain accepted", async () 
   assert.equal(report.status.value, "actionable");
   assert.deepEqual(report.normalizedPhases[0].verificationCommands, ["npm run typecheck", "npm run agents:generate", "npm test"]);
 });
+
+// --- 35. wrapped list lines fold into their owning bullet ---
+test("deterministic parser folds continuation lines for list-bearing phase fields only", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Implement wrapped bullet parsing",
+    body: `Objective: Modify source by implementing continuation folding.
+
+### Deliverables
+- Fold wrapped deliverables
+  into the owning bullet
+- Preserve single-line deliverable
+Deliverables: Inline deliverable stays as-is
+  ignored inline continuation
+
+### Acceptance Criteria
+- Wrapped acceptance item
+  keeps its continuation
+- Single-line acceptance
+
+### Scope
+- packages/capability-model/src/intent-plan-actionability-
+  report.ts
+- tests/contract/intent-plan-actionability-report.test.mjs
+
+### Expected Changed Files
+- packages/capability-model/src/intent-plan-actionability-report.ts
+  mirrors into touched paths
+
+### Verification Commands
+- npm run build
+  before contract assertions
+- npm test
+
+### Evidence
+- Contract assertions prove folding
+  across list sections
+
+### Constraints
+- Keep parser deterministic
+  and source-only
+
+### Non-goals
+- Do not change semantic normalization
+  in this batch
+`,
+  }));
+
+  const phase = report.normalizedPhases[0];
+  assert.deepEqual(phase.deliverables, [
+    "Fold wrapped deliverables into the owning bullet",
+    "Preserve single-line deliverable",
+    "Inline deliverable stays as-is",
+  ]);
+  assert.deepEqual(phase.acceptanceCriteria, [
+    "Wrapped acceptance item keeps its continuation",
+    "Single-line acceptance",
+  ]);
+  assert.ok(phase.touchedPaths.includes("packages/capability-model/src/intent-plan-actionability- report.ts"));
+  assert.ok(phase.touchedPaths.includes("packages/capability-model/src/intent-plan-actionability-report.ts mirrors into touched paths"));
+  assert.equal(phase.touchedPaths.includes("packages/capability-model/src/intent-plan-actionability-"), false);
+  assert.equal(phase.touchedPaths.includes("report.ts"), false);
+  assert.deepEqual(phase.verificationCommands, ["npm run build before contract assertions", "npm test"]);
+  assert.deepEqual(phase.evidenceArtifacts, ["Contract assertions prove folding across list sections"]);
+  assert.ok(phase.constraints.includes("Keep parser deterministic and source-only"));
+  assert.ok(phase.constraints.includes("non-goal: Do not change semantic normalization in this batch"));
+  assert.equal(phase.deliverables.includes("Inline deliverable stays as-is ignored inline continuation"), false);
+});

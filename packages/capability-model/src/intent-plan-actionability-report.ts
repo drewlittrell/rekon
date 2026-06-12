@@ -130,6 +130,11 @@ type FieldKey =
   | "constraints"
   | "non-goals";
 
+type ListContinuationTarget = {
+  field: FieldKey;
+  append: (content: string) => void;
+};
+
 function classifyFieldHeading(text: string): FieldKey | null {
   const t = text.toLowerCase().replace(/[:*`]/g, "").trim();
   if (/^(objective|goal|intent)$/.test(t)) return "objective";
@@ -223,6 +228,14 @@ function parseInlineField(line: string): { key: string; value: string } | null {
   const m = /^([A-Za-z][A-Za-z0-9 -]{0,64})\s*:\s*(.*)$/.exec(line.trim());
   if (!m) return null;
   return { key: (m[1] ?? "").trim(), value: (m[2] ?? "").trim() };
+}
+
+function appendListContinuation(value: string, continuation: string): string {
+  return `${value} ${continuation.trim()}`;
+}
+
+function touchedPathCoversToken(path: string, token: string): boolean {
+  return path === token || path.split(/\s+/).includes(token);
 }
 
 function stripReadOnlySourcePhrases(text: string): string {
@@ -434,11 +447,81 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
   const constraints: string[] = [];
   const metadata: PhaseMetadata = { invalid: [] };
   let currentField: FieldKey | null = null;
+  const listContinuationState: { target: ListContinuationTarget | null } = { target: null };
+
+  const rememberArrayContinuation = (field: FieldKey, items: string[], index: number): void => {
+    listContinuationState.target = {
+      field,
+      append: (continuation) => {
+        items[index] = appendListContinuation(items[index] ?? "", continuation);
+      },
+    };
+  };
+
+  const rememberExpectedChangedFileContinuation = (expectedIndex: number, touchedIndex: number): void => {
+    listContinuationState.target = {
+      field: "expected-changed-files",
+      append: (continuation) => {
+        expectedChangedFiles[expectedIndex] = appendListContinuation(expectedChangedFiles[expectedIndex] ?? "", continuation);
+        touchedPaths[touchedIndex] = appendListContinuation(touchedPaths[touchedIndex] ?? "", continuation);
+      },
+    };
+  };
+
+  const pushListItem = (field: FieldKey, content: string): void => {
+    switch (field) {
+      case "deliverables": {
+        const index = deliverables.push(content) - 1;
+        rememberArrayContinuation(field, deliverables, index);
+        break;
+      }
+      case "acceptance-criteria": {
+        const index = acceptanceCriteria.push(content) - 1;
+        rememberArrayContinuation(field, acceptanceCriteria, index);
+        break;
+      }
+      case "touched-paths": {
+        const index = touchedPaths.push(content) - 1;
+        rememberArrayContinuation(field, touchedPaths, index);
+        break;
+      }
+      case "expected-changed-files": {
+        const expectedIndex = expectedChangedFiles.push(content) - 1;
+        const touchedIndex = touchedPaths.push(content) - 1;
+        rememberExpectedChangedFileContinuation(expectedIndex, touchedIndex);
+        break;
+      }
+      case "verification": {
+        const index = verificationCommands.push(content) - 1;
+        rememberArrayContinuation(field, verificationCommands, index);
+        break;
+      }
+      case "evidence": {
+        const index = evidenceArtifacts.push(content) - 1;
+        rememberArrayContinuation(field, evidenceArtifacts, index);
+        break;
+      }
+      case "constraints": {
+        const index = constraints.push(content) - 1;
+        rememberArrayContinuation(field, constraints, index);
+        break;
+      }
+      case "non-goals": {
+        const index = constraints.push(`non-goal: ${content}`) - 1;
+        rememberArrayContinuation(field, constraints, index);
+        break;
+      }
+      default:
+        listContinuationState.target = null;
+        break;
+    }
+  };
 
   for (const rawLine of region.lines) {
     const line = rawLine.replace(/\s+$/, "");
     const headingMatch = HEADING_RE.exec(line);
     if (headingMatch) {
+      listContinuationState.target = null;
       const headingText = headingMatch[2] ?? "";
       const inlineHeading = parseInlineField(headingText);
       if (inlineHeading && readPhaseMetadata(inlineHeading.key, inlineHeading.value, metadata)) {
@@ -450,10 +533,14 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
     }
     const bulletMatch = BULLET_RE.exec(line);
     const content = bulletMatch ? bulletMatch[1] ?? "" : line.trim();
-    if (content.length === 0) continue;
+    if (content.length === 0) {
+      listContinuationState.target = null;
+      continue;
+    }
     if (!bulletMatch) {
       const inlineField = parseInlineField(content);
       if (inlineField) {
+        listContinuationState.target = null;
         if (readPhaseMetadata(inlineField.key, inlineField.value, metadata)) continue;
         const inlineFieldKey = classifyFieldHeading(inlineField.key);
         if (inlineFieldKey) {
@@ -494,39 +581,43 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
           continue;
         }
       }
+      const continuationTarget = listContinuationState.target;
+      if (continuationTarget && currentField === continuationTarget.field) {
+        continuationTarget.append(content);
+        continue;
+      }
     }
     switch (currentField) {
       case "objective":
         objectiveLines.push(content);
         break;
       case "deliverables":
-        if (bulletMatch) deliverables.push(content);
+        if (bulletMatch) pushListItem(currentField, content);
         break;
       case "acceptance-criteria":
-        if (bulletMatch) acceptanceCriteria.push(content);
+        if (bulletMatch) pushListItem(currentField, content);
         break;
       case "touched-paths":
-        if (bulletMatch) touchedPaths.push(content);
+        if (bulletMatch) pushListItem(currentField, content);
         break;
       case "expected-changed-files":
-        if (bulletMatch) {
-          expectedChangedFiles.push(content);
-          touchedPaths.push(content);
-        }
+        if (bulletMatch) pushListItem(currentField, content);
         break;
       case "verification":
-        if (bulletMatch) verificationCommands.push(content);
+        if (bulletMatch) pushListItem(currentField, content);
         break;
       case "operator-inspection":
+        listContinuationState.target = null;
         break;
       case "evidence":
-        if (bulletMatch) evidenceArtifacts.push(content);
+        if (bulletMatch) pushListItem(currentField, content);
         break;
       case "constraints":
       case "non-goals":
-        if (bulletMatch) constraints.push(currentField === "non-goals" ? `non-goal: ${content}` : content);
+        if (bulletMatch) pushListItem(currentField, content);
         break;
       default:
+        listContinuationState.target = null;
         break;
     }
   }
@@ -536,7 +627,9 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
   const regionText = region.lines.join("\n");
   const inlinePaths = regionText.match(PATH_TOKEN_RE) ?? [];
   for (const token of inlinePaths) {
-    if (!/\.(md|txt)$/i.test(token) && !touchedPaths.includes(token)) touchedPaths.push(token);
+    if (!/\.(md|txt)$/i.test(token) && !touchedPaths.some((path) => touchedPathCoversToken(path, token))) {
+      touchedPaths.push(token);
+    }
   }
 
   const objective = objectiveLines.join(" ").trim();
