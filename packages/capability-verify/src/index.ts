@@ -579,7 +579,7 @@ function tokenizeCommandString(command: string): string[] {
  * Default execution policy values, pinned to the safety contract in
  * `docs/strategy/verification-runner-v1-decision.md`.
  */
-export const VERIFICATION_RUN_DEFAULT_COMMAND_TIMEOUT_MS = 120_000;
+export const VERIFICATION_RUN_DEFAULT_COMMAND_TIMEOUT_MS = 600_000;
 export const VERIFICATION_RUN_DEFAULT_PLAN_TIMEOUT_MS = 600_000;
 export const VERIFICATION_RUN_DEFAULT_KILL_GRACE_MS = 3_000;
 export const VERIFICATION_RUN_DEFAULT_MAX_LOG_BYTES = 8_192;
