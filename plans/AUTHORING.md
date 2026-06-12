@@ -1,9 +1,9 @@
 # Plan authoring conventions
 
-Conventions learned from the first strict run (2026-06-11), enforced
+Conventions learned from the first strict runs (2026-06-11), enforced
 at writing time so plans pass review and execute clean on the first
 attempt. Every rule here traces to a concrete failure or finding in
-plans/reviews/findings-first-strict-run.md.
+plans/reviews/.
 
 ## Source change declarations
 
@@ -13,14 +13,19 @@ heading: `Source Change: required`, `Source Change: allowed`, or
 inline marker; a bare value under the heading is not parsed and the
 phase falls back to verb inference from prose.
 
-## Phase titles drive kind classification
+## Kind verbs in titles, objectives, and phase contracts
 
-Title verbs feed both kind classification and the approve validator's
-vocabulary, which currently demands a `modify` phase in every
-bug/feature/migration plan. Implementation phase titles lead with
-"Modify". Final phases lead with "Final verify". Until the
-kind-vocabulary finding is fixed, "Implement" in a title fails
-approval.
+The deterministic normalizer derives each phase's kind from verb stems
+in the title, the objective, and the phase contract text, by substring
+match. Exactly one kind verb stem may appear across those fields per
+phase: the intended one. Implementation phases may lead with Modify,
+Implement, or Refactor (all three pass validation as of commit
+6a5b82b); final phases lead with Final verify. Naming other kinds in
+those fields misclassifies the phase: this repo's own fix plan
+classified as refactor because its objective said "implement or
+refactor," and failed prepare until scrubbed. Kind words that must be
+written down belong in deliverables or plan-level prose, which feed
+source-change signals only.
 
 ## Machine-read sections use single-line bullets
 
@@ -62,7 +67,11 @@ timeout addressed before it ships.
 A mutation plan is two phases: a required implementation phase, then
 a forbidden final verify that starts from the prior phase commit
 (previous_phase_commit) and proves the final tree with the full
-command set.
+command set. Known limitation: the planner may conservatively stop
+after a successful phase 1 instead of routing to phase 2, and the
+dispatch guard then strands the final verify with no operator
+continuation (circe backlog). The fallback is operator-path
+verification of the phase commit, recorded in the plan's verdict.
 
 ## Requeue hygiene
 
