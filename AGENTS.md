@@ -43,7 +43,7 @@ To materialize the generated contract to a repo-local path, run `rekon agent-con
 
 Process:
 
-- During solo alpha development, push directly to `main` after required checks pass.
+- During solo maintainer development, push directly to `main` after required checks pass.
 - Do not create branches unless explicitly requested.
 - Switch to branches and PRs when external contributors arrive, packages are published, users rely on `main`, risky source-writing actuator work begins, breaking public API changes are planned, or release candidate work begins.
 

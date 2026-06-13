@@ -6,10 +6,13 @@
 
 ## Package State
 
-**Current packages remain at 0.1.0-beta.0 in this prep slice.** The workspace is a private
-root `rekon` (not published) plus 21 public packages, all lockstep at `0.1.0-beta.0`, none
-private. The intended release target is `1.0.0` applied lockstep, deferred to an explicit
-versioning slice. No `package.json` version is edited here.
+**Current repository state:** the private root and all 23 public `@rekon/*`
+workspace packages are lockstep at **`1.0.0`**.
+
+Historical prep state: when this checklist was first drafted, the workspace was
+a private root `rekon` plus public packages at `0.1.0-beta.0`, and the intended
+target was `1.0.0`. The version bump and git tag happened in later,
+separately-approved slices. npm publish remains separately approval-gated.
 
 ## Before Version Bump
 

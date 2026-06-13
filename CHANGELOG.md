@@ -4,6 +4,10 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Corrected current public docs to reflect the actual lockstep `1.0.0` repository/package
+  state, replacing stale alpha/beta wording in the README, contributor docs, agent
+  instructions, and current V1 release index/notes while leaving historical alpha release
+  prep records intact. No runtime, CLI, SDK, artifact, or package metadata changes.
 - Public Docs Currentness / Reviewer Path Polish: tightened the public docs
   hierarchy after the README reset, added current/historical status labels on
   high-traffic docs, clarified reviewer and contributor paths, documented the

@@ -119,8 +119,8 @@ Add a concise entry to `CHANGELOG.md` for:
 
 ## Development Flow
 
-During solo alpha development, push directly to `main` after the required checks
-pass. Do not create branches unless explicitly requested.
+During solo maintainer development, push directly to `main` after the required
+checks pass. Do not create branches unless explicitly requested.
 
 Switch back to branches and PRs when:
 
@@ -140,7 +140,7 @@ Keep unrelated formatting or dependency churn out of the change.
 Capabilities are executable code. Review manifests and permissions before
 loading external packages from `.rekon/config.json`.
 
-Default alpha expectations:
+Default capability security expectations:
 
 - `read:source`, `read:artifacts`, and `write:artifacts` are normal for local analysis.
 - `write:source`, `execute:commands`, and `network:outbound` require explicit scrutiny.

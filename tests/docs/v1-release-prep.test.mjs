@@ -107,8 +107,9 @@ test("migration notes say .rekon/artifacts/ remains canonical truth", () => {
 });
 
 // ---------- 13 ----------
-test("checklist says current packages remain at 0.1.0-beta.0 in this prep slice", () => {
-  assert.ok(checklist.includes("Current packages remain at 0.1.0-beta.0 in this prep slice."));
+test("checklist says current packages are lockstep at 1.0.0", () => {
+  assert.ok(checklist.includes("Current repository state"));
+  assert.ok(checklist.includes("workspace packages are lockstep at 1.0.0."));
 });
 
 // ---------- 14 ----------

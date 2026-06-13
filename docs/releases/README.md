@@ -6,6 +6,14 @@ release notes, migration notes, and a release checklist are drafted here **befor
 version bump, git tag, or npm publish — each of which is a separate, explicitly-approved
 slice.
 
+## Current Release State
+
+The repository is now versioned at **`1.0.0`**. The private workspace root and all
+23 public `@rekon/*` workspace packages are lockstep at `1.0.0`.
+
+The older beta / alpha release-prep files remain in `docs/release/` as historical
+planning records. Use the V1 files in this directory for current release context.
+
 ## V1
 
 - [V1 Release Notes](./v1-release-notes.md) — what V1 includes and excludes, the
@@ -16,5 +24,5 @@ slice.
   bump, git tag, and npm publish.
 
 V1 means prepare/prove/package/export, not Rekon-side execution; Circe owns orchestration.
-At the time of preparation, packages remain at `0.1.0-beta.0`; no version bump, tag, or
-publish has occurred.
+The V1 version bump to `1.0.0` and `v1.0.0` git tag happened in later, separately
+approved slices. npm publishing remains separately approval-gated.

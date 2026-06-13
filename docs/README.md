@@ -29,7 +29,7 @@ If you are evaluating Drew's AI-assisted engineering work, inspect these first:
 Start with the public path above, then read:
 
 - [Contributing](../CONTRIBUTING.md): setup, checks, public API expectations,
-  and direct-to-main solo alpha process.
+  and direct-to-main solo maintainer process.
 - [Authoring capabilities](extensions/authoring-capabilities.md): extension
   roles, manifests, permissions, conformance, and local testing.
 - [NorthStar](strategy/north-star.md): product and architecture direction before

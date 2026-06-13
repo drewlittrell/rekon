@@ -54,8 +54,9 @@
 
 > **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](../strategy/intent-plan-semantic-quality-dogfood.md).
 
-> Migration guidance prepared by V1 Release Prep Implementation. No version bump, tag, or
-> npm publish has occurred; packages remain at `0.1.0-beta.0`.
+> Historical prep note: this migration guidance was first prepared before the version bump,
+> tag, or npm publish slices. The current repository state is `1.0.0`; npm publishing
+> remains separately approval-gated.
 
 > **Fresh-repo dogfood (slice 140):** the operator path was re-proven end-to-end
 > on a fresh repo and the bundle imported into a local Circe checkout; source +
@@ -176,8 +177,8 @@ still exist as legacy/compatibility surfaces, but are not the V1 recommended pat
 - The Circe projection is additive and validated against Circe's real normalizers; extra
   Rekon-owned fields (the proof sidecar, per-phase traceability) are tolerated and ignored
   by Circe.
-- No package versions changed in this migration-notes slice; packages remain at
-  `0.1.0-beta.0`.
+- No package versions changed in the original migration-notes slice. The repository has
+  since moved to lockstep `1.0.0`.
 
 ## Update — First-Run Onboarding (slice 110)
 

@@ -222,8 +222,11 @@ freshness status. It is not the human landing page.
 
 ## Status
 
-Rekon is public alpha software. Stable enough to inspect and run locally;
-not yet a package-published product.
+Rekon is version `1.0.0`. The private workspace root and every public
+`@rekon/*` package in this repository are versioned lockstep at `1.0.0`.
+Treat the source tree, CLI, artifact contracts, and docs as the current public
+surface. Registry publishing remains a separate release/distribution action and
+should be verified before assuming an npm install path.
 
 Current public strengths:
 
@@ -238,7 +241,7 @@ Current public strengths:
 
 Deferred or experimental:
 
-- package publishing;
+- registry publishing automation;
 - marketplace/discovery;
 - source-writing reconciliation by default;
 - full watcher/freshness engine;

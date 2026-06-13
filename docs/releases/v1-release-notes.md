@@ -54,9 +54,10 @@
 
 > **Semantic quality proven (slice 141):** LLM-backed semantic normalization was dogfooded live (OpenAI `gpt-4o-mini`) — it extracts objectives/deliverables/acceptance/paths/commands and preserves non-goals with **zero invented paths or commands**, while staying a proposal that is schema-gated and deterministically rechecked. See [`intent-plan-semantic-quality-dogfood.md`](../strategy/intent-plan-semantic-quality-dogfood.md).
 
-> Draft release notes prepared by V1 Release Prep Implementation. No version bump, no
-> tag, and no npm publish has occurred; the packages remain at `0.1.0-beta.0`. Versioning,
-> tagging, and publishing are separate, explicitly-approved slices.
+> Historical prep note: these release notes were first prepared by V1 Release Prep
+> Implementation before the version bump, tag, or npm publish slices. The current
+> repository state is `1.0.0`; see the update blocks below for the later versioning
+> and tagging slices. npm publishing remains separately approval-gated.
 
 > **Fresh-repo dogfood (slice 140):** the full operator path (scan → review →
 > answer → prepare → approve → status → handoff → bundle) was re-run on a fresh
@@ -172,12 +173,10 @@ source files in V1.** The bundle and projection are written only under
 
 ## Package Scope
 
-All 21 public workspace packages release together (lockstep). At the time of this prep
-slice every package is at `0.1.0-beta.0`; the private workspace root `rekon` is the
-container and is not published. The intended release target is `1.0.0` applied lockstep,
-deferred to an explicit versioning slice.
+All public workspace packages release together (lockstep). The private workspace root
+`rekon` is the container and is not published.
 
-> Updated (slice 108): the lockstep version bump has been executed — all 21 public packages
+> Updated (slice 108): the lockstep version bump has been executed — all public packages
 > and the private root are now at **`1.0.0`** (internal `@rekon/*` pins and
 > `package-lock.json` updated to match). No git tag and no npm publish occurred; those remain
 > separate, explicitly-approved slices. See
@@ -201,9 +200,7 @@ node scripts/install-tarball-smoke.mjs
 
 ## Next Steps
 
-- **V1 Versioning Decision / Implementation** — decide and, if approved, bump all 21
-  public packages lockstep from `0.1.0-beta.0` to `1.0.0`.
-- Then a separate git-tag slice, then a separate, approval-gated npm-publish slice.
+- npm publishing remains a separate, approval-gated release slice.
 - `intent:go` / Rekon-side execution remain out of V1 and are a later, separate decision.
 
 ## Update — First-Run Onboarding (slice 110)
