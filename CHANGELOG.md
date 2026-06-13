@@ -4,6 +4,11 @@ All notable changes to Rekon will be documented in this file.
 
 ## 1.0.0
 
+- Reframed the public README so private downstream orchestrators are not presented
+  as headline Rekon features. Intent bundle projections are described generally
+  as downstream integrations, and the safety/deferred sections now refer to
+  downstream orchestrators. No runtime, CLI, SDK, artifact, or package metadata
+  changes.
 - Corrected current public docs to reflect the actual lockstep `1.0.0` repository/package
   state, replacing stale alpha/beta wording in the README, contributor docs, agent
   instructions, and current V1 release index/notes while leaving historical alpha release

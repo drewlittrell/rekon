@@ -23,6 +23,8 @@ test("public docs expose the current reviewer path", async () => {
   includes(readme, "[docs/README.md](docs/README.md)");
   includes(readme, "docs/demo/task-context-to-handoff.md");
   includes(readme, "For Reviewers And Decision Makers");
+  assert.doesNotMatch(readme, /Circe/i);
+  includes(readme, "not Rekon requirements or headline features");
 
   const docsReadme = await read(docs.docsReadme);
   assert.match(docsReadme, /## Start Here/i);

@@ -159,6 +159,10 @@ before generating work handoff artifacts. The work-order handoff command is
 `rekon intent work-order generate`; it consumes approved/prepared intent state
 and writes a WorkOrder artifact rather than implementing the change.
 
+Intent bundles are Rekon artifacts first. Private downstream orchestrators can
+consume projections of those bundles, but those orchestrators are integrations,
+not Rekon requirements or headline features.
+
 ## Architecture
 
 ```text
@@ -184,7 +188,7 @@ Rekon's architecture rule:
 - Approvals are explicit.
 - Verification hints are not command execution.
 - Rekon does not write source by default.
-- Rekon does not run Circe.
+- Rekon does not run downstream orchestrators.
 - Reconciliation remains permissioned and artifact-first.
 - Generated docs and agent contracts are publications, not canonical truth.
 
@@ -247,7 +251,7 @@ Deferred or experimental:
 - full watcher/freshness engine;
 - hosted SaaS/dashboard;
 - `intent:go`;
-- Circe execution.
+- downstream orchestrator execution.
 
 ## For Reviewers And Decision Makers
 
