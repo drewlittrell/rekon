@@ -1,4 +1,4 @@
-# Rekon Verification — alpha GitHub Actions workflow template
+# Rekon Verification
 # (EXECUTE variant).
 #
 # **This is a template, not an active workflow.** Copy it into your
@@ -12,7 +12,7 @@
 #     --path .github/workflows/rekon-verification.yml --json
 #
 # The validator is static, read-only, and does not call GitHub. It
-# checks the alpha safety contract (no `pull_request_target`, no
+# checks the safety contract (no `pull_request_target`, no
 # write permissions, uses `rekon artifacts latest`, uploads
 # `.rekon/artifacts` excluding logs, writes the job summary).
 #
@@ -34,10 +34,7 @@
 # process. Switch to this execute variant only after reviewing
 # the plan's commands.
 #
-# Safety contract pinned by
-# `docs/strategy/verification-runner-ci-github-decision.md`:
-#
-#   - GitHub status is not canonical truth; Rekon artifacts remain
+# #   - GitHub status is not canonical truth; Rekon artifacts remain
 #     canonical.
 #   - Forked PRs must not receive secret-bearing execution by
 #     default.

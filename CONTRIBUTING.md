@@ -1,36 +1,15 @@
 # Contributing
 
-Rekon is open-source from the first commit. Contributions should preserve public package boundaries and treat API, docs, examples, and generated artifacts as product surfaces.
+Rekon is a public codebase intelligence project. Contributions should keep the
+repository easy to understand, easy to run, and careful about public contracts.
 
-Before working on public API, capability shape, artifact contracts, or
-lifecycle behavior, read [docs/strategy/north-star.md](docs/strategy/north-star.md).
-Capability authors should also read [docs/strategy/capability-model.md](docs/strategy/capability-model.md).
-The [roadmap](docs/strategy/roadmap.md) and the
-[codebase-intel-classic migration plan](docs/strategy/codebase-intel-classic-migration.md)
-describe sequencing and where the classic reference fits.
+Before changing public APIs, artifact shapes, lifecycle behavior, or capability
+contracts, read:
 
-Before proposing a migrated capability, also read:
-
-- [docs/strategy/classic-alignment-map.md](docs/strategy/classic-alignment-map.md)
-- [docs/strategy/classic-behavior-distillation.md](docs/strategy/classic-behavior-distillation.md)
-- [docs/strategy/classic-wins.md](docs/strategy/classic-wins.md)
-- [docs/strategy/classic-to-rekon-translation.md](docs/strategy/classic-to-rekon-translation.md)
-- [docs/strategy/classic-refactor-principles.md](docs/strategy/classic-refactor-principles.md)
-- [docs/strategy/classic-behavior-roadmap.md](docs/strategy/classic-behavior-roadmap.md)
-- [docs/strategy/issue-governance-architecture-decision.md](docs/strategy/issue-governance-architecture-decision.md)
-
-A proposal to port classic behavior must identify what is good, what is
-accidental, and how Rekon will preserve the win without copying the old
-shape. The proposal should also include a `CODEBASE-INTEL ALIGNMENT`
-section (per [AGENTS.md](AGENTS.md)) covering the classic capability,
-relevant source areas, what Rekon keeps, simplifies, and does not port,
-and which phase of the classic behavior roadmap the work advances.
-
-For issue-governance work, identify whether the batch is a classic
-guarantee preservation, a Rekon reinterpretation, or a Rekon product
-extension. See the
-[issue governance architecture decision](docs/strategy/issue-governance-architecture-decision.md)
-for the layered model and the product-extension boundary.
+- [North Star](docs/strategy/north-star.md)
+- [System model](docs/strategy/rekon-system-model.md)
+- [Capability model](docs/strategy/capability-model.md)
+- [Roadmap](docs/strategy/roadmap.md)
 
 ## Setup
 
@@ -42,7 +21,7 @@ npm run build
 node packages/cli/dist/index.js --help
 ```
 
-## Local Checks
+## Checks
 
 ```sh
 npm run typecheck
@@ -55,112 +34,45 @@ Run `npm run lint` when linting is configured.
 
 ## Ground Rules
 
-- Use Rekon naming consistently: `Rekon`, `rekon`, `.rekon/`, `REKON_`, and `@rekon/*`.
+- Use Rekon naming consistently: `Rekon`, `rekon`, `.rekon/`, `REKON_`, and
+  `@rekon/*`.
 - Do not import from `codebase-intel-classic`.
-- Do not use `.codebase-intel` paths or `CODEBASE_INTEL_*` names.
+- Do not use `.codebase-intel` paths or `CODEBASE_INTEL_*` names in Rekon
+  outputs.
 - Built-in capabilities must use `@rekon/sdk`.
-- Generated artifacts must include schema version, producer metadata, input refs, and provenance.
-- Capabilities must declare consumes, produces, permissions, and invalidation rules.
-- Keep kernel packages pure and side-effect free.
-- Prefer package-local changes over cross-package shortcuts.
-
-## Preserving Classic Workflow Guarantees
-
-When proposing to migrate or reinterpret a classic subsystem, contributors must identify the original problem and the workflow guarantee the classic implementation provided. A contribution that recreates a feature but loses the guarantee is incomplete.
-
-Use these strategy docs as the anchor:
-
-- [docs/strategy/classic-guarantees-audit.md](docs/strategy/classic-guarantees-audit.md) — per-subsystem original problem, classic workflow guarantee, what Rekon already preserves, gap, regression test, and next slice.
-- [docs/strategy/classic-guarantee-regression-plan.md](docs/strategy/classic-guarantee-regression-plan.md) — P0/P1/P2 regression tests.
-- [docs/strategy/classic-subsystem-purpose-map.md](docs/strategy/classic-subsystem-purpose-map.md) — quick-reference table to consult first.
-
-Implementation coupling may be simplified; workflow guarantees must be preserved or explicitly deferred. Do not call classic orchestration "weight" unless the work order identifies which guarantee is preserved elsewhere.
-
-Every major contribution (capability, resolver, publisher, actuator, memory, freshness, issue, orchestration) must include a `PURPOSE PRESERVATION CHECK` section in its review packet that names the original problem, the classic workflow guarantee, the Rekon equivalent, and the regression test that proves the original problem is still solved. See [AGENTS.md](AGENTS.md) for the exact required fields.
-
-## Authoring Capabilities
-
-Start with [docs/extensions/authoring-capabilities.md](docs/extensions/authoring-capabilities.md)
-and [examples/custom-capability](examples/custom-capability).
-
-A capability should:
-
-- export `defineCapability(...)` from `@rekon/sdk`;
-- declare roles, consumes, produces, permissions, invalidation rules, and compatibility;
-- register every artifact type it produces when the type is not already built in;
-- write artifacts with valid headers, producer metadata, input refs, and provenance;
-- pass `validateCapability()` or `assertCapabilityConforms()` in tests.
-
-Do not import runtime internals just to define a capability. Capability packages
-should depend on `@rekon/sdk` and relevant kernel packages.
+- Generated artifacts must include schema version, producer metadata, input
+  refs, freshness, and provenance.
+- Capabilities must declare consumes, produces, permissions, invalidation
+  rules, and compatibility.
+- Kernel packages should remain pure TypeScript with no side effects.
 
 ## Public API Changes
 
-Treat public package exports, artifact shapes, CLI commands, examples, and docs
-as user-facing surfaces. If a change affects one of those surfaces:
+Treat package exports, artifact contracts, CLI commands, examples, and docs as
+public surfaces. If a change affects one of them:
 
-- update the package README or relevant docs;
-- add or update tests for public behavior;
+- update the relevant README or docs;
+- add or update behavior tests;
 - record the change in `CHANGELOG.md`;
-- avoid hiding breaking changes inside implementation-only commits.
+- avoid hiding breaking changes in implementation-only code.
 
-Kernel artifacts and snapshot contracts are especially sensitive because every
-capability can consume them.
+## Authoring Capabilities
 
-## Changelog Expectations
+Start with [authoring capabilities](docs/extensions/authoring-capabilities.md)
+and [the custom capability example](examples/custom-capability/README.md).
 
-Add a concise entry to `CHANGELOG.md` for:
+A capability should export a `defineCapability(...)` result from `@rekon/sdk`,
+declare its manifest completely, register every new artifact type it produces,
+write artifacts with valid headers, and pass the SDK conformance helpers in
+tests.
 
-- new public exports;
-- artifact shape changes;
-- CLI command changes;
-- capability manifest or permission changes;
-- docs/example changes that affect onboarding or extension authoring.
-
-## Development Flow
-
-During solo maintainer development, push directly to `main` after the required
-checks pass. Do not create branches unless explicitly requested.
-
-Switch back to branches and PRs when:
-
-- external contributors arrive;
-- packages are published;
-- users rely on `main`;
-- risky source-writing actuator work begins;
-- breaking public API changes are planned;
-- release candidate work begins.
-
-Keep generated `.rekon/` artifacts out of commits unless the task explicitly
-asks for fixtures. Include verification commands and results in the handoff.
-Keep unrelated formatting or dependency churn out of the change.
-
-## Security Notes
+## Security
 
 Capabilities are executable code. Review manifests and permissions before
-loading external packages from `.rekon/config.json`.
+loading external packages.
 
-Default capability security expectations:
-
-- `read:source`, `read:artifacts`, and `write:artifacts` are normal for local analysis.
-- `write:source`, `execute:commands`, and `network:outbound` require explicit scrutiny.
-- Memory may enrich resolver output, but it must not rewrite ownership, rules, or findings.
-- Docs are publications, not canonical truth.
+`write:source`, `execute:commands`, and `network:outbound` are sensitive
+permissions. They should be requested only when the capability genuinely needs
+them and granted only deliberately.
 
 Report security issues using [SECURITY.md](SECURITY.md).
-
-## Codex and Agent Contributions
-
-Agents working in this repo must read `AGENTS.md` first. A good handoff or PR
-summary includes:
-
-- changes made;
-- public API changes;
-- tests and verification;
-- intentionally untouched areas;
-- risks and follow-up;
-- next step.
-
-If a task cannot be completed without changing runtime architecture or public
-SDK shape, stop and make the proposed change explicit instead of smuggling it
-through docs or examples.

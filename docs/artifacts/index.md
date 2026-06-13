@@ -1,46 +1,28 @@
 # Artifact Model
 
-Rekon artifacts are typed JSON outputs with headers, provenance, and input refs.
-They live under `.rekon/artifacts/` and are indexed by
-`.rekon/registry/artifacts.index.json`.
+Rekon artifacts are typed outputs written under `.rekon/artifacts`. They are
+the durable interface between observation, projection, evaluation, resolution,
+publication, and action.
 
-## Layers
+Every artifact should include:
 
-- inputs: `EvidenceGraph`
-- projections: `ObservedRepo`, `OwnershipMap`, `CapabilityMap`, `GraphSlice`
-- evaluations: `FindingReport`
-- resolved outputs: `ResolverPacket`
-- publications: `Publication`, `MemorySelection`
-- actions: `WorkOrder`, `VerificationPlan`, `ReconciliationPlan`,
-  `ReconciliationLog`, `ActionLog`
+- `header.artifactType`
+- `header.artifactId`
+- `header.schemaVersion`
+- `header.generatedAt`
+- `header.subject`
+- `header.producer`
+- `header.inputRefs`
+- `header.freshness`
+- provenance where the producer can provide it
 
-Lower layers may feed upper layers. Upper layers may not silently become
-lower-layer truth.
+Common references:
 
-## Required Header Fields
-
-Every artifact includes:
-
-- `artifactType`
-- `artifactId`
-- `schemaVersion`
-- `generatedAt`
-- `subject.repoId`
-- `producer.id`
-- `producer.version`
-- `inputRefs`
-
-See [artifact-header.md](./artifact-header.md).
-
-## Artifact Docs
-
-- [Artifact header](./artifact-header.md)
-- [EvidenceGraph](./evidence-graph.md)
-- [IntelligenceSnapshot](./intelligence-snapshot.md)
-- [ObservedRepo](./observed-repo.md)
-- [GraphSlice](./graph-slice.md)
-- [FindingReport](./finding-report.md)
-- [ResolverPacket](./resolver-packet.md)
-- [Memory artifacts](./memory-artifacts.md)
-- [WorkOrder](./work-order.md)
-- [ReconciliationLog](./reconciliation-log.md)
+- [Artifact contract](artifact-contract.md)
+- [Artifact header](artifact-header.md)
+- [EvidenceGraph](evidence-graph.md)
+- [ObservedRepo](observed-repo.md)
+- [IntelligenceSnapshot](intelligence-snapshot.md)
+- [ResolverPacket](resolver-packet.md)
+- [Memory artifacts](memory-artifacts.md)
+- [ReconciliationLog](reconciliation-log.md)

@@ -2,6 +2,9 @@ node_modules/
 dist/
 coverage/
 .rekon/
+.rekon-dev/
+docs/INDEX.md
+plans/
 tests/bench/output/
 *.tsbuildinfo
 .DS_Store
@@ -9,12 +12,12 @@ tests/bench/output/
 .env.*
 !.env.example
 
-# Circe strict-local workflow config: machine-specific absolute paths,
-# never published (the repo is public). See WORKFLOW.local.md body.
+# Strict-local workflow config: machine-specific absolute paths, never
+# published.
 WORKFLOW.local.md
 
 # Local agent scratch/worktree state. Keep out of the public repo surface.
 .claude/
 
-# Circe runtime artifacts
+# Local execution artifacts
 .circe/

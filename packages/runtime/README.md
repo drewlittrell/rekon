@@ -7,10 +7,10 @@ Local filesystem runtime for Rekon.
 Label: `experimental, public`.
 
 The artifact store, index validation, and lifecycle execution helpers are
-public alpha surfaces. Symbols not re-exported from the package root are
+public surfaces. Symbols not re-exported from the package root are
 `internal`. See [docs/concepts/stability.md](../../docs/concepts/stability.md).
 
-Current alpha responsibilities:
+Current responsibilities:
 
 - initialize `.rekon/`
 - write and read typed JSON artifacts

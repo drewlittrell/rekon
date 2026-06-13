@@ -1,28 +1,23 @@
 # `@rekon/mcp`
 
-Rekon **MCP context server** (WO-6) — the first actuator surface.
+Local, read-only MCP context server for Rekon.
 
-`rekon mcp serve` runs a **local, read-only** MCP server over stdio
-exposing two tools:
+`rekon mcp serve` exposes repository context over stdio. The server reads
+existing artifacts and returns trust-classed context; it does not write files,
+execute commands, or access the network.
 
-- `orientation` — repo identity, scan recency, declared systems, grammar
-  activation, governance summary, and a pointer map.
-- `where_does_this_belong` — normalized capability, declared owner
-  candidates with supporting declarations, applicable grammar placement
-  rules, or an explicit `no_declaration_covers_this`.
+## Tools
 
-Every served value carries a D5 trust class (`deterministic` |
-`declared` in v1 — `inference`/`memory` are gated and refused at the
-`tag()` call site); every source carries a four-status freshness marker.
-No write capability, no network, no command execution: the server reads
-the artifact index and compiled grammar, and nothing else.
+- `orientation`: repo identity, scan recency, systems, governance summary, and
+  useful pointers.
+- `where_does_this_belong`: placement context for a described capability or
+  path, with explicit fallback when no declaration covers it.
 
-Decision memo: `docs/strategy/mcp-context-skeleton-decision.md`.
-Safety review: `docs/strategy/mcp-context-skeleton-safety-review.md`.
-Work order: `docs/work-orders/wo-6-mcp-context-skeleton.md`.
+## Boundary
+
+Every response marks the trust class of served values. The server is a context
+surface, not an executor.
 
 ## Stability
 
-`experimental` — the tool surface and response envelope are new in this
-slice; later actuator slices (fused bundle, step grounding, learnings)
-ride this skeleton and may evolve the envelope additively.
+Label: `experimental, public`.

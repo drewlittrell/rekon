@@ -1,4 +1,4 @@
-# Rekon Verification — alpha GitHub Actions workflow template
+# Rekon Verification
 # (dry-run variant).
 #
 # **This is a TRIAL template, not an active workflow.** It is
@@ -15,7 +15,7 @@
 #     --path .github/workflows/rekon-verification-dry-run.yml --json
 #
 # The validator is static, read-only, and does not call GitHub. It
-# checks the alpha safety contract (no `pull_request_target`, no
+# checks the safety contract (no `pull_request_target`, no
 # write permissions, uses `rekon artifacts latest`, uploads
 # `.rekon/artifacts` excluding logs, writes the job summary).
 #
@@ -40,9 +40,7 @@
 #     planned-but-not-run VerificationRun artifact and spawns
 #     **zero** processes.
 #   - The workflow does NOT call `verify result from-run` — a
-#     dry-run is not proof. See
-#     `docs/strategy/verification-runner-v1-decision.md` step
-#     3 for the contract.
+#     dry-run is not proof. See docs/concepts/verification-runs.md.
 #   - `publish proof` / `architecture` / `agent-contract` still
 #     run so the publications + job summary stay current.
 
@@ -90,7 +88,7 @@ jobs:
       - name: Rekon verify run (dry-run)
         if: steps.plan.outputs.id != ''
         # Dry-run validates each plan command against the safety
-        # contract (rejects shell-control operators, command
+        # contract (rejects shell-control syntax, command
         # substitution, env-assignment prefixes, newlines, empty
         # commands) and writes a planned-but-not-run
         # VerificationRun. **No process is spawned.** Swap for

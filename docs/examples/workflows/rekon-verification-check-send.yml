@@ -1,4 +1,4 @@
-# Rekon Verification — beta GitHub Actions workflow template
+# Rekon Verification
 # (GITHUB-CHECK-SEND variant).
 #
 # **This is a template, not an active workflow.** Copy it into
@@ -26,7 +26,7 @@
 # env, a same-repo / trusted event context, and the
 # `--confirm-checks-write` flag.
 #
-# **Read the alpha read-only templates FIRST.** Adopt one of:
+# **Read the read-only templates first.** Adopt one of:
 #
 #   - docs/examples/workflows/rekon-verification-dry-run.yml
 #   - docs/examples/workflows/rekon-verification.yml

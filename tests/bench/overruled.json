@@ -1,222 +1,222 @@
 [
   {
     "classicId": "route-complexity-4f606b38",
-    "rulingRef": "docs/work-orders/wo-11-law-calibration.md#boundary-contracts",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#boundary-contracts",
     "note": "Classic kept finding on app/api/v1/events/handler.ts flagging the route->requestSchemas import; the operator's boundary-contracts ruling (WO-11, ratified 2026-06-11) declares exactly this import legal. The other three WO-11 losses on this file are honest losses and do not qualify (see docs/strategy/law-calibration-v1-decision.md)."
   },
   {
     "classicId": "concern-73c36f5f",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (mentor-family-mvp): core/services/intelligence/support/NarrativeEnhancer.ts resolves 6 importer(s) via the reexport chain classic could not follow; sample importer: .claude/worktrees/quirky-chatterjee-09fffa/core/services/intelligence/IntelligenceService.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-2a41b8f7",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (simulacrum): kernel/import-intake/index.ts resolves 226 importer(s) via the reexport chain classic could not follow; sample importer: api/v1/import-intake/native-build/handler.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-516e5945",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): commands/expected-model-core.ts resolves 5 importer(s) via the reexport chain classic could not follow; sample importer: commands/expected-model-runner.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-79e7899e",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): commands/graph/health-command.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-36bf4a98",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): commands/graph/slice-build.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-12acec22",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): commands/interfaces-query-core.ts resolves 4 importer(s) via the reexport chain classic could not follow; sample importer: commands/interfaces-runner.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-59a9fe4f",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): commands/memory/instruction-signals.ts resolves 18 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory/review-artifacts.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-759b4dc1",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): lib/memory/TurnObservation.ts resolves 11 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-4b6bbf6b",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 1: the ten overruled entries",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
     "note": "Living conduit (codebase-intel): services/analysis/evaluation-metrics.ts resolves 3 importer(s) via the reexport chain classic could not follow; sample importer: services/analysis/EvaluationRunner.ts (WO-16 Part 1)."
   },
   {
     "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-70a39bd9",
-    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#stem === role",
     "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Engine.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Engine (batch semantics)). WO-17 Part 1."
   },
   {
     "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-1442c323",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-18b0b43e",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/assessments/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-76550147",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/lcc/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "naming-14cecdc8",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"app/api/v1/auth/AuthRequestSecurity.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Security). WO-17 Part 1."
   },
   {
     "classicId": "naming-4a9b62de",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"app/api/v1/auth/CallbackSecurity.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Security). WO-17 Part 1."
   },
   {
     "classicId": "naming-68ac7620",
-    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#stem === role",
     "note": "Classic flags \"app/api/v1/auth/Constants.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Constants (batch semantics)). WO-17 Part 1."
   },
   {
     "classicId": "naming-16602d7d",
-    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#stem === role",
     "note": "Classic flags \"core/modules/Bootstrap.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Bootstrap (batch semantics)). WO-17 Part 1."
   },
   {
     "classicId": "naming-40f6d33a",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "naming-9e192a1",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/assessments/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "naming-32fcb9f5",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/plume/domain/patch/PlumePatchPolicy.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Policy). WO-17 Part 1."
   },
   {
     "classicId": "naming-28aacdfa",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"infra/realtime/Client.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Client). WO-17 Part 1."
   },
   {
     "classicId": "naming-7aaff924",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"infra/realtime/Client.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Client). WO-17 Part 1."
   },
   {
     "classicId": "naming-141adc40",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"infra/telemetry/handoff/ClientBridge.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Bridge). WO-17 Part 1."
   },
   {
     "classicId": "naming-c58adfe",
-    "rulingRef": "docs/strategy/calibration-v3-rulings-decision.md#stem === role",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#stem === role",
     "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Engine.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: bare ported role Engine (batch semantics)). WO-17 Part 1."
   },
   {
     "classicId": "naming-ed9f183",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/assessments/domain/core/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "naming-11f8b8e2",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/assessments/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "naming-62768619",
-    "rulingRef": "docs/work-orders/wo-16-calibration-v3-rulings.md#Part 3: the naming role batch",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: the naming role batch",
     "note": "Classic flags \"experiences/career/modules/lcc/surfaces/web/schema/Registry.ts\" as a naming violation; the WO-16 rulings declared the name valid (covering ruling: Registry). WO-17 Part 1."
   },
   {
     "classicId": "observability.no_console_logging-1fe3ba9a",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 2: the logging seam",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 2: the logging seam",
     "note": "Classic keep on \"infra/logging/Client.ts\" contradicted by the WO-17 ruling: the logging seam (infra/logging/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-6bb0391b",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 2: the logging seam",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 2: the logging seam",
     "note": "Classic keep on \"infra/logging/LoggingService.ts\" contradicted by the WO-17 ruling: the logging seam (infra/logging/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-5b12c71b",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 2: the logging seam",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 2: the logging seam",
     "note": "Classic keep on \"infra/realtime/logging/Logger.ts\" contradicted by the WO-17 ruling: the logging seam (named member). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-14dc8bb7",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 2: the logging seam",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 2: the logging seam",
     "note": "Classic keep on \"infra/telemetry/handoff/ServerLogger.ts\" contradicted by the WO-17 ruling: the logging seam (named member). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-1eaaa699",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 2: the logging seam",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 2: the logging seam",
     "note": "Classic keep on \"infra/utils/ClientDebugLog.ts\" contradicted by the WO-17 ruling: the logging seam (named member). WO-18 Part 4."
   },
   {
     "classicId": "concern-289454fc",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 5: codebase-intel's evaluator-routes correction",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 5: codebase-intel's evaluator-routes correction",
     "note": "Classic keep on \"domain/issues/evaluators/routes/KeepThin.ts\" contradicted by the WO-17 ruling: evaluator-routes correction: rule evaluators, not HTTP routes - classic also mis-read the layer. WO-18 Part 4."
   },
   {
     "classicId": "architecture.services.no_business_logic-7c7e5b17",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/evaluate-tiers.ts\" contradicted by the WO-17 ruling: command surface (commands/**): its matching fire was retired by the command-surface exemption. WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-331dd710",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/discover.ts\" contradicted by the WO-17 ruling: command surface (commands/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-4c24164",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/evaluate-tiers.ts\" contradicted by the WO-17 ruling: command surface (commands/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-58fda9a0",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/evaluate.ts\" contradicted by the WO-17 ruling: command surface (commands/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-3ca73945",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/export-invariants.ts\" contradicted by the WO-17 ruling: command surface (commands/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-7635af4a",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/host-integration.ts\" contradicted by the WO-17 ruling: command surface (commands/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-52210e38",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/memory.ts\" contradicted by the WO-17 ruling: command surface (commands/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-68880ddc",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"commands/policy-init.ts\" contradicted by the WO-17 ruling: command surface (commands/**). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-756c2777",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"run-eval-single.ts\" contradicted by the WO-17 ruling: command surface (root run-*.ts). WO-18 Part 4."
   },
   {
     "classicId": "observability.no_console_logging-35dc888f",
-    "rulingRef": "docs/work-orders/wo-17-wave-triage-rulings.md#Part 3: console on command surfaces",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 3: console on command surfaces",
     "note": "Classic keep on \"kernel/cli/index.ts\" contradicted by the WO-17 ruling: command surface (kernel/cli/**). WO-18 Part 4."
   }
 ]

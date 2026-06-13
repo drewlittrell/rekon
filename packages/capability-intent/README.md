@@ -30,4 +30,4 @@ work-order generation.
 ## Import Boundary
 
 Do not treat work orders as source mutations. They are typed action artifacts
-that downstream operators can inspect and execute separately.
+that downstream users can inspect and execute separately.

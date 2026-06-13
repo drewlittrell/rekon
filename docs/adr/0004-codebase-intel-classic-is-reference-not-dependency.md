@@ -10,7 +10,7 @@ The existing codebase-intel implementation is a useful source of behavior, fixtu
 
 ## Decision
 
-Rekon must not import from the old codebase-intel repository. The old project may be used only as `codebase-intel-classic`: a reference implementation, fixture corpus, dogfood target, and migration source.
+Rekon must not import from the old codebase-intel repository. The old project may be used only as `codebase-intel-classic`: a reference implementation, fixture corpus, validation target, and migration source.
 
 ## Consequences
 

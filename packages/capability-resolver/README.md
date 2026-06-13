@@ -6,7 +6,7 @@ Built-in Rekon resolver capability.
 
 Label: `experimental, public`.
 
-The default capability export and `ResolverPacket` field set are public alpha
+The default capability export and `ResolverPacket` field set are public
 artifacts. Resolver internals are `internal`. See
 [docs/concepts/stability.md](../../docs/concepts/stability.md).
 

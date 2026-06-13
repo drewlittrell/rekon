@@ -187,18 +187,13 @@ test("CLI --strict exits non-zero on stale/partial enrolled docs, zero otherwise
   }
 });
 
-test("the repo's own v1 enrollment parses and the INDEX exists", () => {
+test("the repo's own living-doc enrollment parses", () => {
   for (const doc of [
     "docs/strategy/rekon-system-model.md",
-    "docs/work-orders/wo-7-doc-freshness.md",
     "docs/concepts/capability-ontology.md",
   ]) {
     const declarations = docs.parseDocFreshnessFrontMatter(readFileSync(join(repoRoot, doc), "utf8"));
     assert.ok(declarations, `${doc} must carry freshness declarations`);
     assert.ok(declarations.paths.length > 0);
   }
-
-  const index = readFileSync(join(repoRoot, "docs/INDEX.md"), "utf8");
-  assert.match(index, /## Living documents/);
-  assert.match(index, /docs\/strategy\/rekon-system-model\.md/);
 });

@@ -1,24 +1,13 @@
 # Rekon PR Comment — opt-in workflow template
-# (steps 7d and 7f of the CI / GitHub adapter
-# implementation sequence pinned by
-# docs/strategy/verification-runner-ci-github-decision.md).
-#
-# **This is a template, not an active workflow.** Copy
+# # **This is a template, not an active workflow.** Copy
 # it into your repo's `.github/workflows/` directory
 # (renaming as you like) to enable. The Rekon
 # repository itself does NOT install this workflow.
 #
 # **This template runs the dry-run preview AND the
-# actual `publish pr-comment --send` step.** Step 7d
-# shipped the workflow / validator profile + dry-run
-# wiring. Step 7e's Go/No-Go Review approved Option B
-# (proceed to writer). Step 7f shipped the writer:
-# `publishPrCommentRun` helper +
-# `rekon publish pr-comment --send` CLI mode +
-# validator profile update. This template now wires
-# both the dry-run preview and the send call.
+# actual `publish pr-comment --send` step.** This template runs both the dry-run preview and the send call.
 #
-# **Pinned constraints (step 7f):**
+# **Pinned constraints:**
 #   - Send uses GitHub's issue-comments API
 #     (PR timeline comments are issue comments).
 #   - Updates the Rekon-owned comment in place via
@@ -57,7 +46,7 @@
 # comment, call the GitHub API, or read
 # `GITHUB_TOKEN`.
 #
-# **Read the alpha read-only templates FIRST.**
+# **Read the read-only templates FIRST.**
 # Adopt one of:
 #
 #   - docs/examples/workflows/rekon-verification-dry-run.yml

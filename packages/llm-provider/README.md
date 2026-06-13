@@ -24,9 +24,10 @@ Shared Rekon **LLM provider routing foundation.**
 
 Provider output is a **proposal, not proof.** Callers must schema-validate and
 deterministically re-check every result before trusting it. Providers may
-**read / transform / critique text** only — they never approve plans, execute
-commands, write source files, run Circe, or implement `intent:go`. This package
-holds no execution power; it only routes text in and structured proposals out.
+**read / transform / critique text** only. They never approve plans, execute
+commands, write source files, or invoke downstream execution adapters. This
+package holds no execution power; it only routes text in and structured
+proposals out.
 
 ## Modes
 
@@ -51,6 +52,4 @@ interfaces, the router, `createMockLlmProvider` / `createMockEmbeddingProvider`,
 
 ## Related
 
-- Decision: `docs/strategy/rekon-llm-provider-routing-semantic-normalization-decision.md`
 - Concept: `docs/concepts/rekon-llm-provider-routing.md`
-- Implementation: `docs/strategy/rekon-llm-provider-routing-implementation.md`

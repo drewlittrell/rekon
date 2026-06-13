@@ -63,7 +63,7 @@ for (const name of packages) {
     summary.issues.push("name must be scoped under @rekon/");
     fail(
       "non-rekon-scope",
-      `${pkg.name} must be scoped under @rekon/* for the public alpha`,
+      `${pkg.name} must be scoped under @rekon/*`,
     );
   }
 

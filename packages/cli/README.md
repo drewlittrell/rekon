@@ -6,13 +6,13 @@ Minimal Rekon command line interface.
 
 Label: `experimental, public`.
 
-CLI command names, flags, and JSON output shapes are part of the public alpha
+CLI command names, flags, and JSON output shapes are part of the public
 contract. Internal command implementation is `internal`. See
 [docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Lifecycle Fit
 
-The CLI is the operator surface for the local lifecycle:
+The CLI is the user surface for the local lifecycle:
 
 - `rekon init`
 - `rekon capabilities list`
