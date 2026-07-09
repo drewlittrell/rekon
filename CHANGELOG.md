@@ -2,6 +2,24 @@
 
 All notable changes to Rekon are documented here.
 
+## Unreleased
+
+- Semantic scan is now on by default: `rekon scan` runs the semantic file
+  layer in `auto` mode whenever `OPENAI_API_KEY` is present, without any
+  flag. Opt out with `--no-semantic`, `REKON_SEMANTIC=off`, or
+  `.rekon/config.json` `{"semantic": {"mode": "off"}}`. Keyless runs degrade
+  to the deterministic scan with a one-line notice and report
+  `semanticFiles.providerAvailable: false`. An explicit
+  `--semantic-files auto` keeps the documented keyless behavior (per-file
+  deterministic fallback reports with warnings); `--semantic-files required`
+  still fails clearly without a key.
+- LLM enablement flipped from opt-in to opt-out: a present key enables the
+  provider unless `REKON_LLM_ENABLED` is `0`/`false`/`off`
+  (`REKON_LLM_ENABLED=1` is no longer needed).
+- `@rekon/llm-provider`'s package description and module header now
+  accurately describe the shipped live OpenAI and Voyage adapters (they
+  previously claimed the package made no network calls).
+
 ## 1.0.0
 
 - Shipped the public Rekon repository as a local-first codebase intelligence

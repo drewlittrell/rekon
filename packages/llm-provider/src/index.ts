@@ -1,8 +1,11 @@
 // @rekon/llm-provider — shared LLM provider routing foundation.
 //
 // This package provides the provider/embedding interfaces, a task-routed
-// RekonLlmRouter with deterministic fallback, and a mock provider for tests.
-// It contains NO live providers and makes NO network calls. Provider output is
+// RekonLlmRouter with deterministic fallback, mock providers for tests, and
+// LIVE adapters: createOpenAiLlmProvider (chat) and createVoyageEmbeddingProvider
+// (embeddings). The live adapters call the network ONLY when constructed with
+// an API key; model use is on by default when keys are present (operator
+// ruling, 2026-07-09), with an explicit opt-out at the callers. Provider output is
 // a PROPOSAL, not proof: callers must schema-validate and deterministically
 // re-check every result before trusting it. Providers may read / transform /
 // critique text only — they never approve plans, execute commands, write source
