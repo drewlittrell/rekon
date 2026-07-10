@@ -105,11 +105,13 @@ test("1. plain `rekon scan` succeeds", () => {
   assert.equal(res.status, 0, res.stderr);
 });
 
-test("2. plain `rekon scan` writes no SemanticFileUnderstandingReport and has no semanticFiles key", () => {
+test("2. plain `rekon scan` defaults to auto (operator ruling 2026-07-09): keyless it writes nothing and reports an honest zero-work summary", () => {
   const ROOT = makeRepo();
   const res = scan(ROOT);
   const json = parse(res);
-  assert.equal("semanticFiles" in json, false);
+  assert.equal(json.semanticFiles.mode, "auto");
+  assert.equal(json.semanticFiles.providerAvailable, false);
+  assert.equal(json.semanticFiles.written, 0);
   assert.equal(countReports(ROOT), 0);
 });
 

@@ -503,7 +503,8 @@ function renderWelcome(brand: string): string {
     "",
     "Analysis:",
     "  rekon semantic file understand",
-    "  rekon scan --semantic-files auto",
+    "  rekon scan --semantic-files off|auto|required   (default auto: on when OPENAI_API_KEY is set)",
+    "  rekon scan --no-semantic   (opt out; also REKON_SEMANTIC=off or config semantic.mode)",
     "",
     "Boundaries:",
     "  Rekon does not run Circe.",
@@ -766,7 +767,7 @@ export async function main(argv: string[]): Promise<void> {
       summary: { mode: "off", selected: 0, written: 0, reused: 0, skipped: 0, failed: 0 },
       exitNonZero: false,
     };
-    if (semanticFilesRequested) {
+    if (semanticFilesMode !== "off") {
       const semanticStore = createLocalArtifactStore(root);
       await semanticStore.init();
       semanticLayer = await runSemanticScanLayer({
@@ -801,10 +802,11 @@ export async function main(argv: string[]): Promise<void> {
     if (json) {
       writeOutput(scanOutput, true);
     } else {
-      const semanticHumanLines: string[] = semanticFilesRequested
-        ? [
+      const semanticHumanLines: string[] = [
             semanticLayer.summary.mode === "off"
               ? "Semantic files: off"
+              : semanticLayer.summary.mode === "auto" && semanticLayer.summary.providerAvailable === false
+                ? "Semantic files: auto — no LLM key detected; deterministic scan only (set OPENAI_API_KEY, or opt out with --no-semantic)"
               : `Semantic files: ${semanticLayer.summary.mode} — ${semanticLayer.summary.written} written, ${semanticLayer.summary.reused} reused, ${semanticLayer.summary.skipped} skipped, ${semanticLayer.summary.failed} failed`,
             ...(semanticLayer.message ? [semanticLayer.message] : []),
           ]
@@ -9700,6 +9702,7 @@ type SemanticScanLayerSummary = {
   failed: number;
   provider?: string;
   model?: string;
+  providerAvailable?: boolean;
 };
 
 type SemanticScanLayerResult = {
@@ -9709,10 +9712,13 @@ type SemanticScanLayerResult = {
 };
 
 /**
- * Run the semantic scan layer for `rekon scan --semantic-files`. `off` returns
- * an all-zero summary and writes nothing (identical to plain scan). `auto`
- * writes a SemanticFileUnderstandingReport per selected file, falling back to a
- * deterministic report with a warning when no provider/key is available.
+ * Run the semantic scan layer for `rekon scan` (mode defaults to `auto`;
+ * operator ruling 2026-07-09). `off` returns an all-zero summary and writes
+ * nothing (identical to plain scan). `auto` writes a
+ * SemanticFileUnderstandingReport per selected file when a provider key is
+ * available, and returns a zero-work summary with providerAvailable=false
+ * when it is not (the deterministic scan is the whole scan; no per-file
+ * fallback reports are written).
  * `required` PREFLIGHTS provider availability and writes nothing (exit
  * non-zero) when no provider/key is present, so it can never partially write
  * reports before failing in the missing-provider case. Hash-based reuse skips
@@ -9728,6 +9734,7 @@ async function runSemanticScanLayer(input: {
   fileLimit: number;
   filePath: string;
   changedOnly: boolean;
+  explicitlyRequested?: boolean;
 }): Promise<SemanticScanLayerResult> {
   const { root, store, mode } = input;
   if (mode === "off") {
@@ -9744,10 +9751,32 @@ async function runSemanticScanLayer(input: {
   const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
   const providerResolved = input.llmProvider || envProvider;
   const modelResolved = input.llmModel || envModel;
+  // Enablement is opt-OUT (operator ruling, 2026-07-09): a present key means
+  // enabled unless REKON_LLM_ENABLED explicitly disables it.
   const envEnabled = process.env.REKON_LLM_ENABLED;
-  const enabledResolved = envEnabled === "1" || envEnabled === "true" || providerResolved.length > 0;
+  const explicitlyDisabled = envEnabled === "0" || envEnabled === "false" || envEnabled === "off";
   const keyPresent = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 0;
-  const providerAvailable = enabledResolved && keyPresent;
+  const providerAvailable = !explicitlyDisabled && keyPresent;
+
+  // DEFAULTED auto without a provider: the deterministic scan is the whole
+  // scan - return an honest zero-work summary instead of writing per-file
+  // deterministic fallback reports (artifact noise in the default-on world).
+  // An EXPLICIT --semantic-files auto keeps the documented fallback-writing
+  // behavior: the user asked for the layer, so it runs and degrades per file.
+  if (mode === "auto" && !providerAvailable && !input.explicitlyRequested) {
+    return {
+      summary: {
+        mode,
+        selected: 0,
+        written: 0,
+        reused: 0,
+        skipped: 0,
+        failed: 0,
+        providerAvailable: false,
+      },
+      exitNonZero: false,
+    };
+  }
 
   // required: preflight provider availability BEFORE writing any report.
   if (mode === "required" && !providerAvailable) {
@@ -10210,7 +10239,11 @@ function createSemanticFileUnderstandingAdapter(
   const envEnabled = process.env.REKON_LLM_ENABLED;
   const provider = flagProvider || envProvider;
   const model = flagModel || envModel;
-  const enabled = envEnabled === "1" || envEnabled === "true" || provider.length > 0;
+  // Opt-out enablement (operator ruling, 2026-07-09): enabled when a key is
+  // present and REKON_LLM_ENABLED is not explicitly off.
+  const explicitlyDisabled = envEnabled === "0" || envEnabled === "false" || envEnabled === "off";
+  const keyPresent = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 0;
+  const enabled = !explicitlyDisabled && keyPresent;
 
   const providers = [
     createOpenAiLlmProvider({
