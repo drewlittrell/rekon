@@ -10,7 +10,7 @@
 //
 // Imports and public exports are ALWAYS the deterministic extraction — the
 // provider can never override them (the hallucination guard, mirroring the old
-// codebase-intel per-file pipeline). Provider output is a PROPOSAL, not proof:
+// legacy per-file pipeline). Provider output is a PROPOSAL, not proof:
 // it is shape-coerced here and the deterministic recheck remains authoritative.
 //
 // Boundaries: no command execution, no source writes, no embeddings, no

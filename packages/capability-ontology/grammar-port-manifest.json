@@ -1,6 +1,6 @@
 {
   "generatedBy": "WO-4 architecture grammar port",
-  "classicSourceRoot": "codebase-intel-classic ontology/",
+  "classicSourceRoot": "legacy-source ontology/",
   "indexFile": "index.yaml is the classic catalog (files, sourceMapping, integration, postMigrationTasks, examples); catalog metadata, not law - no content rows",
   "dispositions": [
     "default-canon",

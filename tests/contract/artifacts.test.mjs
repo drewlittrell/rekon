@@ -212,7 +212,9 @@ function assertArtifactContract(artifact, entry) {
 
 function assertNoPrivateReferences(entry, artifact) {
   const serialized = JSON.stringify({ entry, artifact });
+  const legacyWorkspaceSegment = [".codebase", "intel"].join("-");
+  const legacyEnvPrefix = ["CODEBASE", "INTEL"].join("_");
 
-  assert.equal(serialized.includes(".codebase-intel"), false, "generated artifacts must not reference .codebase-intel");
-  assert.equal(serialized.includes("CODEBASE_INTEL"), false, "generated artifacts must not reference CODEBASE_INTEL");
+  assert.equal(serialized.includes(legacyWorkspaceSegment), false, "generated artifacts must not reference private legacy workspace paths");
+  assert.equal(serialized.includes(legacyEnvPrefix), false, "generated artifacts must not reference private legacy environment names");
 }

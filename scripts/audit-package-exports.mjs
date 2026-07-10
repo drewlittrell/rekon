@@ -5,7 +5,10 @@ import { join, resolve } from "node:path";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const packagesDir = join(repoRoot, "packages");
-const FORBIDDEN_TOKENS = [".codebase-intel", "CODEBASE_INTEL"];
+const LEGACY_WORKSPACE_SEGMENT = [".codebase", "intel"].join("-");
+const LEGACY_ENV_PREFIX = ["CODEBASE", "INTEL"].join("_");
+const LEGACY_DEPENDENCY_PATTERN = /^codebase[-]intel/;
+const FORBIDDEN_TOKENS = [LEGACY_WORKSPACE_SEGMENT, LEGACY_ENV_PREFIX];
 
 const issues = [];
 const summaries = [];
@@ -148,11 +151,11 @@ for (const name of packages) {
   }
 
   for (const dep of collectDependencies(pkg)) {
-    if (dep.startsWith("codebase-intel") || dep === "codebase-intel-classic") {
+    if (LEGACY_DEPENDENCY_PATTERN.test(dep)) {
       summary.issues.push(`depends on ${dep} which must not be imported`);
       fail(
         "forbidden-dependency",
-        `${pkg.name} depends on ${dep}; Rekon must not depend on codebase-intel`,
+        `${pkg.name} depends on ${dep}; Rekon must not depend on private reference packages`,
       );
     }
   }
@@ -300,33 +303,34 @@ async function scanSourceForForbiddenTokens(packageDir, packageName, summary) {
 
     const content = await readFile(file, "utf8");
 
-    if (/from ["'][^"']*codebase-intel/.test(content)) {
-      summary.issues.push(`source ${file} imports from codebase-intel`);
+    if (/from ["'][^"']*codebase[-]intel/.test(content)) {
+      summary.issues.push(`source ${file} imports from a private reference package`);
       fail(
         "forbidden-source-import",
-        `${packageName}: ${file} imports from codebase-intel`,
+        `${packageName}: ${file} imports from a private reference package`,
       );
     }
 
-    if (/require\(["'][^"']*codebase-intel/.test(content)) {
-      summary.issues.push(`source ${file} requires codebase-intel`);
+    if (/require\(["'][^"']*codebase[-]intel/.test(content)) {
+      summary.issues.push(`source ${file} requires a private reference package`);
       fail(
         "forbidden-source-require",
-        `${packageName}: ${file} requires codebase-intel via CommonJS`,
+        `${packageName}: ${file} requires a private reference package via CommonJS`,
       );
     }
 
-    if (/CODEBASE_INTEL[A-Z_]*/.test(content)) {
-      const matches = content.match(/CODEBASE_INTEL[A-Z_]*/g) ?? [];
+    const legacyEnvPattern = new RegExp(`${LEGACY_ENV_PREFIX}[A-Z_]*`, "g");
+    if (legacyEnvPattern.test(content)) {
+      const matches = content.match(legacyEnvPattern) ?? [];
       const isGuardrailOnly = matches.every((match) =>
         new RegExp(`["'\`]${match}["'\`]`, "g").test(content),
       );
 
       if (!isGuardrailOnly) {
-        summary.issues.push(`source ${file} references CODEBASE_INTEL_* identifier outside of guardrail strings`);
+        summary.issues.push(`source ${file} references a private legacy environment prefix outside of guardrail strings`);
         fail(
           "forbidden-source-identifier",
-          `${packageName}: ${file} references CODEBASE_INTEL_* outside of guardrail strings`,
+          `${packageName}: ${file} references a private legacy environment prefix outside of guardrail strings`,
         );
       }
     }

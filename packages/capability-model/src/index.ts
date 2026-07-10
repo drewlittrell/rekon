@@ -225,6 +225,20 @@ export {
 } from "./semantic-file-understanding-report.js";
 
 export {
+  type SemanticDebtAdapterConcern,
+  type SemanticDebtAdapterResult,
+  type SemanticDebtJudgmentAdapter,
+  type SemanticDebtConcernCoerced,
+  SEMANTIC_DEBT_PROMPT_VERSION,
+  buildSemanticDebtJudgmentPrompt,
+  categorizeDebtPattern,
+  hasSpeculativeDebtSignal,
+  hasStrongDebtSignal,
+  shouldIncludeDebtConcern,
+  coerceDebtConcerns,
+} from "./semantic-debt-judgment.js";
+
+export {
   type CapabilityEvidenceGraphInputFile,
   type BuildCapabilityEvidenceGraphInput,
   type SemanticReportForGraph,

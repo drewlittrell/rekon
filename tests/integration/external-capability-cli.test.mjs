@@ -18,6 +18,41 @@ const cliPath = join(repoRoot, "packages/cli/dist/index.js");
 const exampleRoot = join(repoRoot, "examples/simple-js-ts");
 const todoPackageName = "rekon-capability-todo-example";
 
+test("external capability package specifiers reject filesystem imports before load", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-external-cli-"));
+
+  try {
+    runCli(["init", "--root", root, "--json"]);
+
+    const configPath = join(root, ".rekon", "config.json");
+    await writeFile(
+      configPath,
+      `${JSON.stringify({
+        capabilities: [{ package: "file:./evil.js" }],
+        permissions: {},
+      }, null, 2)}\n`,
+      "utf8",
+    );
+
+    const validate = spawnSync(process.execPath, [cliPath, "config", "validate", "--root", root, "--json"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    assert.notEqual(validate.status, 0);
+    const validation = JSON.parse(validate.stdout);
+    assert.ok(validation.issues.some((issue) => issue.code === "capability-package-unsafe"));
+
+    const capabilities = spawnSync(process.execPath, [cliPath, "capabilities", "list", "--root", root, "--json"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    assert.notEqual(capabilities.status, 0);
+    assert.match(capabilities.stderr, /Refusing unsafe Rekon capability package/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("external TODO capability is operable through the CLI", async (t) => {
   if (!existsSync(join(repoRoot, "node_modules", todoPackageName))) {
     t.skip(

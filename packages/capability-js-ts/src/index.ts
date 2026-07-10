@@ -1,5 +1,5 @@
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { digestJson } from "@rekon/kernel-artifacts";
 import {
   type EvidenceFact,
@@ -264,10 +264,10 @@ export default defineCapability({
 async function listSourceFiles(ctx: ProviderContext): Promise<string[]> {
   const scratchSegments = new Set(await loadAgentScratchSegments(ctx.repoRoot));
   const ignored = (path: string) => isIgnoredPath(path, scratchSegments);
-  const changedFiles = ctx.changedFiles?.filter(isSourcePath).filter((path) => !ignored(path));
+  const changedFiles = await normalizeChangedSourceFiles(ctx, scratchSegments);
 
   if (ctx.incremental && changedFiles && changedFiles.length > 0) {
-    return [...new Set(changedFiles)].sort();
+    return changedFiles;
   }
 
   const files: string[] = [];
@@ -279,6 +279,76 @@ async function listSourceFiles(ctx: ProviderContext): Promise<string[]> {
   });
 
   return files.sort();
+}
+
+async function normalizeChangedSourceFiles(
+  ctx: ProviderContext,
+  scratchSegments: ReadonlySet<string>,
+): Promise<string[] | undefined> {
+  if (!ctx.changedFiles || ctx.changedFiles.length === 0) {
+    return undefined;
+  }
+
+  const repoRoot = resolve(ctx.repoRoot);
+  let repoRealpath: string;
+
+  try {
+    repoRealpath = await realpath(repoRoot);
+  } catch {
+    repoRealpath = repoRoot;
+  }
+
+  const normalized = new Set<string>();
+
+  for (const rawPath of ctx.changedFiles) {
+    if (typeof rawPath !== "string" || rawPath.trim().length === 0) {
+      continue;
+    }
+
+    const absolutePath = resolve(repoRoot, rawPath);
+
+    if (!isPathInside(absolutePath, repoRoot)) {
+      continue;
+    }
+
+    let stats;
+
+    try {
+      stats = await lstat(absolutePath);
+    } catch {
+      continue;
+    }
+
+    if (!stats.isFile() || stats.isSymbolicLink()) {
+      continue;
+    }
+
+    let realFilePath: string;
+
+    try {
+      realFilePath = await realpath(absolutePath);
+    } catch {
+      continue;
+    }
+
+    if (!isPathInside(realFilePath, repoRealpath)) {
+      continue;
+    }
+
+    const relativePath = relative(repoRealpath, realFilePath).replace(/\\/g, "/");
+
+    if (isAbsolute(relativePath) || relativePath.startsWith("../") || relativePath === "..") {
+      continue;
+    }
+
+    if (!isSourcePath(relativePath) || isIgnoredPath(relativePath, scratchSegments)) {
+      continue;
+    }
+
+    normalized.add(relativePath);
+  }
+
+  return [...normalized].sort();
 }
 
 type WalkState = {
@@ -880,6 +950,12 @@ function lineForIndex(content: string, index: number): number {
 
 function normalizePath(path: string): string {
   return path.split("\\").join("/");
+}
+
+function isPathInside(path: string, root: string): boolean {
+  const relativePath = relative(resolve(root), resolve(path));
+
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 // ---------- WO-8: import-specifier + re-export facts (regex fallback) -----

@@ -105,7 +105,7 @@ export default defineCapability({
     name: "Import Boundary Rule Pack Example",
     version: "0.1.0-alpha.1",
     description:
-      "Example external Rekon evaluator capability that flags parent-relative imports and imports from generated/build output. Distilled from codebase-intel-classic import governance.",
+      "Example external Rekon evaluator capability that flags parent-relative imports and imports from generated/build output. Distilled from prior import-governance behavior.",
     roles: ["evaluator"],
     consumes: ["EvidenceGraph"],
     produces: ["FindingReport"],

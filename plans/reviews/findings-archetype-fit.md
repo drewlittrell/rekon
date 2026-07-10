@@ -73,7 +73,7 @@ layer share, findings count under force-ratified law.
 One overrides file ratifying fullstack-layered, full scan, canonical
 bench: figma-ds matched 5 -> 28 (naming_violation 17, anti_pattern 5,
 architecture 4, dead_code 2), recall 1.9% -> 10.5%, aggregate 8.7% ->
-9.1% (520 -> 543 weighted). Mentor, simulacrum, and codebase-intel
+9.1% (520 -> 543 weighted). Mentor, simulacrum, and reference-repo
 returned byte-identical rows: the delta landed in isolation. The new
 canonical baseline is 9.1% (543/5950). The remaining figma-ds gap is
 226 missed-redesigned rows awaiting the pending redesign-queue

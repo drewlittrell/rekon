@@ -4,7 +4,7 @@
 // import rules, file types with tiers and hub thresholds, naming grammar,
 // patterns with structural signals, sequential step recipes, and
 // anti-patterns with corrections. Content is ported from
-// codebase-intel-classic's ontology directory as migration-source data
+// legacy-source ontology directory as migration-source data
 // (AGENTS.md rule 4: data ports, code never imports); every entry carries
 // its classic source reference, and packages/capability-ontology/
 // grammar-port-manifest.json carries the row-by-row audit.

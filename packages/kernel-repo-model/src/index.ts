@@ -7005,6 +7005,266 @@ export const semanticFileUnderstandingReportSchema: ArtifactSchema<SemanticFileU
 };
 
 // ---------------------------------------------------------------------------
+// SemanticDebtJudgmentReport — per-file semantic tech-debt judgment overlay.
+// Proposal-not-proof LLM judgments: the report records model provenance and the
+// policy evaluator later decides which included concerns become governed
+// findings. It executes no commands, writes no source, and shares the same
+// boundary booleans as SemanticFileUnderstandingReport.
+// ---------------------------------------------------------------------------
+
+export type SemanticDebtVerdict = "debt" | "clean" | "failed";
+
+export type SemanticDebtConcern = {
+  severity: SemanticFileUnderstandingSeverity;
+  description: string;
+  pattern?: string;
+  included: boolean;
+};
+
+export type SemanticDebtJudgmentEntry = {
+  path: string;
+  sha256: string;
+  verdict: SemanticDebtVerdict;
+  concerns: SemanticDebtConcern[];
+  reused: boolean;
+  warnings?: string[];
+};
+
+export type SemanticDebtJudgmentPolicy = {
+  mode: "auto" | "required";
+  provider: string;
+  model: string;
+  promptVersion: string;
+};
+
+export type SemanticDebtJudgmentReport = {
+  header: ArtifactHeader;
+  schemaVersion: "0.1.0";
+  policy: SemanticDebtJudgmentPolicy;
+  summary: {
+    filesJudged: number;
+    filesWithDebt: number;
+    reused: number;
+    failed: number;
+    skipped: number;
+  };
+  entries: SemanticDebtJudgmentEntry[];
+  boundaries: SemanticFileUnderstandingBoundaries;
+};
+
+const SEMANTIC_DEBT_VERDICTS = new Set<string>(["debt", "clean", "failed"]);
+const SEMANTIC_DEBT_POLICY_MODES = new Set<string>(["auto", "required"]);
+
+function normalizeSemanticDebtConcern(value: unknown): SemanticDebtConcern | undefined {
+  if (!isRecord(value)) return undefined;
+  const description = typeof value.description === "string" ? value.description.trim() : "";
+  const severity: SemanticFileUnderstandingSeverity =
+    value.severity === "high" || value.severity === "medium" || value.severity === "low"
+      ? value.severity
+      : "low";
+  const concern: SemanticDebtConcern = {
+    severity,
+    description,
+    included: value.included === true,
+  };
+  if (typeof value.pattern === "string" && value.pattern.trim().length > 0) {
+    concern.pattern = value.pattern.trim();
+  }
+  return concern;
+}
+
+function normalizeSemanticDebtEntry(value: unknown): SemanticDebtJudgmentEntry | undefined {
+  if (!isRecord(value)) return undefined;
+  const path = typeof value.path === "string" ? value.path.trim() : "";
+  if (path.length === 0) return undefined;
+  const verdict: SemanticDebtVerdict =
+    value.verdict === "debt" || value.verdict === "clean" || value.verdict === "failed"
+      ? value.verdict
+      : "failed";
+  return {
+    path,
+    sha256: typeof value.sha256 === "string" ? value.sha256 : "",
+    verdict,
+    concerns: Array.isArray(value.concerns)
+      ? value.concerns.map(normalizeSemanticDebtConcern).filter((item): item is SemanticDebtConcern => Boolean(item))
+      : [],
+    reused: value.reused === true,
+    ...(Array.isArray(value.warnings) ? { warnings: sfuStringList(value.warnings) } : {}),
+  };
+}
+
+export function createSemanticDebtJudgmentReport(
+  input: SemanticDebtJudgmentReport,
+): SemanticDebtJudgmentReport {
+  const rawPolicy = isRecord(input.policy)
+    ? input.policy as SemanticDebtJudgmentPolicy
+    : {} as SemanticDebtJudgmentPolicy;
+  const rawSummary = isRecord(input.summary)
+    ? input.summary as SemanticDebtJudgmentReport["summary"]
+    : {} as SemanticDebtJudgmentReport["summary"];
+  const seenPaths = new Set<string>();
+  const entries: SemanticDebtJudgmentEntry[] = [];
+
+  if (Array.isArray(input.entries)) {
+    for (const rawEntry of input.entries) {
+      const entry = normalizeSemanticDebtEntry(rawEntry);
+      if (!entry || seenPaths.has(entry.path)) continue;
+      seenPaths.add(entry.path);
+      entries.push(entry);
+    }
+  }
+
+  const report: SemanticDebtJudgmentReport = {
+    header: input.header,
+    schemaVersion: "0.1.0",
+    policy: {
+      mode: rawPolicy.mode === "required" ? "required" : "auto",
+      provider: typeof rawPolicy.provider === "string" ? rawPolicy.provider : "",
+      model: typeof rawPolicy.model === "string" ? rawPolicy.model : "",
+      promptVersion: typeof rawPolicy.promptVersion === "string" ? rawPolicy.promptVersion : "",
+    },
+    summary: {
+      filesJudged: sfuNonNegInt(rawSummary.filesJudged),
+      filesWithDebt: sfuNonNegInt(rawSummary.filesWithDebt),
+      reused: sfuNonNegInt(rawSummary.reused),
+      failed: sfuNonNegInt(rawSummary.failed),
+      skipped: sfuNonNegInt(rawSummary.skipped),
+    },
+    entries,
+    boundaries: {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      generatedEmbeddings: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    },
+  };
+
+  return assertSemanticDebtJudgmentReport(report);
+}
+
+export function validateSemanticDebtJudgmentReport(
+  value: unknown,
+): ValidationResult<SemanticDebtJudgmentReport> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "SemanticDebtJudgmentReport", "$.header", issues);
+
+  if (value.schemaVersion !== "0.1.0") {
+    issues.push({ path: "$.schemaVersion", message: "Expected schemaVersion to be 0.1.0." });
+  }
+
+  if (!isRecord(value.policy)) {
+    issues.push({ path: "$.policy", message: "Expected an object." });
+  } else {
+    const policy = value.policy as Record<string, unknown>;
+    if (typeof policy.mode !== "string" || !SEMANTIC_DEBT_POLICY_MODES.has(policy.mode)) {
+      issues.push({ path: "$.policy.mode", message: "Expected auto or required." });
+    }
+    for (const key of ["provider", "model", "promptVersion"] as const) {
+      pushRequiredStringIssue(issues, policy[key], `$.policy.${key}`);
+    }
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const summary = value.summary as Record<string, unknown>;
+    for (const key of ["filesJudged", "filesWithDebt", "reused", "failed", "skipped"] as const) {
+      const count = summary[key];
+      if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+        issues.push({ path: `$.summary.${key}`, message: "Expected a non-negative integer." });
+      }
+    }
+  }
+
+  if (!Array.isArray(value.entries)) {
+    issues.push({ path: "$.entries", message: "Expected an array." });
+  } else {
+    const seenPaths = new Set<string>();
+    value.entries.forEach((entry, index) => {
+      const path = `$.entries[${index}]`;
+      if (!isRecord(entry)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (typeof entry.path !== "string" || entry.path.trim().length === 0) {
+        issues.push({ path: `${path}.path`, message: "Expected a non-empty string." });
+      } else if (seenPaths.has(entry.path)) {
+        issues.push({ path: `${path}.path`, message: `Duplicate entry path ${entry.path}.` });
+      } else {
+        seenPaths.add(entry.path);
+      }
+      pushRequiredStringIssue(issues, entry.sha256, `${path}.sha256`);
+      if (typeof entry.verdict !== "string" || !SEMANTIC_DEBT_VERDICTS.has(entry.verdict)) {
+        issues.push({ path: `${path}.verdict`, message: "Expected debt, clean, or failed." });
+      }
+      if (typeof entry.reused !== "boolean") {
+        issues.push({ path: `${path}.reused`, message: "Expected a boolean." });
+      }
+      if (entry.warnings !== undefined && !isStringArray(entry.warnings)) {
+        issues.push({ path: `${path}.warnings`, message: "Expected an array of strings when present." });
+      }
+      if (!Array.isArray(entry.concerns)) {
+        issues.push({ path: `${path}.concerns`, message: "Expected an array." });
+      } else {
+        entry.concerns.forEach((concern, concernIndex) => {
+          const concernPath = `${path}.concerns[${concernIndex}]`;
+          if (!isRecord(concern)) {
+            issues.push({ path: concernPath, message: "Expected an object." });
+            return;
+          }
+          if (
+            typeof concern.severity !== "string" ||
+            !SEMANTIC_FILE_UNDERSTANDING_SEVERITIES.has(concern.severity)
+          ) {
+            issues.push({ path: `${concernPath}.severity`, message: "Expected one of low, medium, high." });
+          }
+          if (typeof concern.description !== "string" || concern.description.trim().length === 0) {
+            issues.push({ path: `${concernPath}.description`, message: "Expected a non-empty string." });
+          }
+          if (concern.pattern !== undefined && (typeof concern.pattern !== "string" || concern.pattern.length === 0)) {
+            issues.push({ path: `${concernPath}.pattern`, message: "Expected a non-empty string when present." });
+          }
+          if (typeof concern.included !== "boolean") {
+            issues.push({ path: `${concernPath}.included`, message: "Expected a boolean." });
+          }
+        });
+      }
+    });
+  }
+
+  if (!isRecord(value.boundaries)) {
+    issues.push({ path: "$.boundaries", message: "Expected an object." });
+  } else {
+    const boundaries = value.boundaries as Record<string, unknown>;
+    for (const key of SEMANTIC_FILE_UNDERSTANDING_BOUNDARY_KEYS) {
+      if (boundaries[key] !== false) {
+        issues.push({ path: `$.boundaries.${key}`, message: "Expected false." });
+      }
+    }
+  }
+
+  return validationResult(value as SemanticDebtJudgmentReport, issues);
+}
+
+export function assertSemanticDebtJudgmentReport(value: unknown): SemanticDebtJudgmentReport {
+  return assertValid(validateSemanticDebtJudgmentReport(value), "SemanticDebtJudgmentReport");
+}
+
+export const semanticDebtJudgmentReportSchema: ArtifactSchema<SemanticDebtJudgmentReport> = {
+  validate: validateSemanticDebtJudgmentReport,
+  parse: assertSemanticDebtJudgmentReport,
+};
+
+// ---------------------------------------------------------------------------
 // CapabilityEvidenceGraph (v1) — the central semantic-intelligence substrate
 // (CapabilityEvidenceGraph / Semantic Intelligence Architecture Decision). A
 // graph of evidence-backed claims: file / symbol / capability nodes, evidence

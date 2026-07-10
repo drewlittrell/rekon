@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-05-13T18:07:27.739Z",
-  "target": "codebase-intel-classic",
-  "targetPath": "/Users/andrewlittrell/Code/codebase-intel",
+  "target": "legacy-reference",
+  "targetPath": "/private/reference/repo",
   "representativePaths": [
     "services/AnalysisService.ts",
     "services/FullScanHandler.ts",
@@ -9,8 +9,8 @@
     "services/IssueDetectionService.ts",
     "domain/issues/RulesResolver.ts",
     "services/GraphBuildProvider.ts",
-    "packages/product-codebase-intel/src/replatform/replatform-observe.ts",
-    "packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts"
+    "packages/product-reference/src/replatform/replatform-observe.ts",
+    "packages/product-reference/src/reconcile/PlanExecutorService.ts"
   ],
   "artifactCounts": {
     "CapabilityMap": 1,
@@ -50,7 +50,7 @@
   },
   "notes": [
     "Dogfood ran against the classic repo as an external target only.",
-    "No code was imported from codebase-intel-classic.",
+    "No code was imported from the external reference target.",
     "The generated .rekon workspace was removed from the target after this summary was captured."
   ]
 }

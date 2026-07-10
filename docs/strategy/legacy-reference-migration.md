@@ -1,10 +1,10 @@
-# codebase-intel-classic Migration
+# Private Reference Migration
 
-`codebase-intel-classic` is Rekon's reference implementation, migration source,
-and fixture target. It is not a dependency.
+Some Rekon behavior was distilled from prior private systems. Those systems are
+not part of the public repo, and they are not dependencies.
 
-Rekon must not import from the classic repo, depend on private service paths,
-or carry `.codebase-intel` workspace conventions into generated artifacts.
+Rekon must not import from private repos, depend on private service paths, or
+carry private workspace conventions into generated artifacts.
 
 ## Mapping
 

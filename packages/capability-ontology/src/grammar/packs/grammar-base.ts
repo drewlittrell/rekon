@@ -11,7 +11,7 @@ export const grammarBasePack: ArchitectureGrammarPackInput = {
   "tier": "base",
   "description": "Minimal universal grammar canon: only content that earned base tier with a per-row argument in grammar-port-manifest.json. The layered-school grammar lives in the archetype packs and backs findings only where ratified.",
   "provenance": {
-    "migratedFrom": "codebase-intel-classic ontology/ (verified 2026-06-10)",
+    "migratedFrom": "legacy-source ontology/ (verified 2026-06-10)",
     "note": "restructured to three tiers by the WO-4.1 amendment; see the amendment memo"
   },
   "layers": [],

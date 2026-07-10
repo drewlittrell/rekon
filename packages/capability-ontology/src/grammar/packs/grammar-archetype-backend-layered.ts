@@ -11,7 +11,7 @@ export const grammarArchetypeBackendLayered: ArchitectureGrammarPackInput = {
   "tier": "archetype",
   "description": "Architecture archetype: Service orchestrates domain and infra without route layer. Ported from classic's topology template \"backend_layered\"; carries the layered-school grammar scoped to its layers. Backs findings only when ratified in repo config.",
   "provenance": {
-    "migratedFrom": "codebase-intel-classic domain/issues/topology-contract-inference.ts BUILTIN_TOPOLOGY_TEMPLATES.backend_layered",
+    "migratedFrom": "legacy-source topology-contract-inference.ts BUILTIN_TOPOLOGY_TEMPLATES.backend_layered",
     "note": "re-shelved school content per the WO-4.1 amendment memo"
   },
   "topology": {

@@ -6,6 +6,7 @@ import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capabil
 import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots, loadGeneratedGlobs, loadDistImportExemptions, globLikeToRegExp, type DistImportExemption, loadDeclaredRootGlobs } from "./dead-code.js";
 import { NAMING_CONTRACT_RULE_ID, evaluateNamingContract } from "./naming-contract.js";
 import { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
+import { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebt } from "./debt-semantic.js";
 import {
   compileEffectiveCapabilityOntology,
   compileEffectiveGrammar,
@@ -36,6 +37,8 @@ export const BUILT_IN_POLICY_RULES = [
   GRAMMAR_DIVERGENCE_RULE_ID,
   // WO-14 A: tech_debt deterministic core (markers as evidence).
   DEBT_MARKERS_RULE_ID,
+  // WO-25: semantic tech_debt overlay (proposal findings from judgment artifacts).
+  DEBT_SEMANTIC_RULE_ID,
   // WO-14 B: dead_code on unreferenced exports + declared-root reachability.
   DEAD_CODE_RULE_ID,
   // WO-14 D: capability overlap with declared sharing.
@@ -51,6 +54,7 @@ export { NAMING_CONTRACT_RULE_ID, evaluateNamingContract, splitPascalTokens } fr
 export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
+export { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebt } from "./debt-semantic.js";
 export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclaredRoots, loadGeneratedGlobs } from "./dead-code.js";
 export type { DeadCodeStats } from "./dead-code.js";
 export { loadDistImportExemptions, loadDeclaredRootGlobs, type DistImportExemption as DistImportExemptionEntry } from "./dead-code.js";
@@ -74,6 +78,12 @@ export const policyEvaluator: Evaluator = {
     const disabledRules = new Set(
       Array.isArray(input?.disabledRules) ? input.disabledRules.filter((rule): rule is string => typeof rule === "string") : [],
     );
+    const semanticDebtRef = (await artifacts.list("SemanticDebtJudgmentReport")).at(-1);
+    const semanticDebtFindings =
+      !disabledRules.has(DEBT_SEMANTIC_RULE_ID) && semanticDebtRef
+        ? evaluateSemanticDebt(await artifacts.read(semanticDebtRef), semanticDebtRef)
+        : [];
+    const inputRefs = semanticDebtRef ? [evidenceRef, semanticDebtRef] : [evidenceRef];
     const findings = [
       ...(!disabledRules.has("imports.noDistImports") ? noDistImports(graph, evidenceRef, distExemptions) : []),
       ...(!disabledRules.has("imports.noNodeModulesRelativeImports") ? noNodeModulesRelativeImports(graph, evidenceRef) : []),
@@ -81,6 +91,7 @@ export const policyEvaluator: Evaluator = {
       ...(!disabledRules.has("architecture.noUnknownSystemForSourceFile") ? noUnknownSystemForSourceFile(graph, evidenceRef) : []),
       ...(!disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID) ? await grammarDivergenceFindings(graph, input, artifacts) : []),
       ...(!disabledRules.has(DEBT_MARKERS_RULE_ID) ? evaluateDebtMarkers(graph.facts) : []),
+      ...semanticDebtFindings,
       ...(!disabledRules.has(DEAD_CODE_RULE_ID) ? await deadCodeFindings(graph, input) : []),
       ...(!disabledRules.has(CAPABILITY_OVERLAP_RULE_ID) ? await capabilityOverlapFindings(graph, artifacts) : []),
       ...(!disabledRules.has(NAMING_CONTRACT_RULE_ID) || !disabledRules.has(ANTI_PATTERN_RULE_ID)
@@ -98,7 +109,7 @@ export const policyEvaluator: Evaluator = {
           id: "@rekon/capability-policy",
           version: "0.1.0",
         },
-        inputRefs: [evidenceRef],
+        inputRefs,
         freshness: { status: "fresh" },
         provenance: { confidence: 0.9 },
       },
@@ -115,7 +126,7 @@ export default defineCapability({
     name: "Policy Evaluator",
     version: "0.1.0",
     roles: ["evaluator"],
-    consumes: ["EvidenceGraph"],
+    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport"],
     produces: ["FindingReport"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -123,6 +134,11 @@ export default defineCapability({
         id: "evidence.changed",
         description: "Policy findings are invalid when the evidence graph changes.",
         inputs: ["EvidenceGraph"],
+      },
+      {
+        id: "semantic-debt.changed",
+        description: "Semantic debt findings are invalid when the judgment report changes.",
+        inputs: ["SemanticDebtJudgmentReport"],
       },
     ],
     compatibility: { rekon: "^0.1.0" },

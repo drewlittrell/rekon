@@ -20,6 +20,7 @@ export type RekonLlmTask =
   | "plan.critique"
   | "plan.revision-prompt"
   | "artifact.summary"
+  | "policy.debt-judgment"
   | "intent.classify";
 
 export type RekonLlmProviderInput = {
@@ -565,7 +566,7 @@ export function createOpenAiLlmProvider(options: CreateOpenAiLlmProviderOptions 
 // ---------------------------------------------------------------------------
 //
 // The first real embedding provider (Embedding Provider / Index Decision —
-// Voyage selected for code-retrieval strength / old-codebase-intel parity).
+// Voyage selected for code-retrieval strength / legacy retrieval parity).
 // Built on the injectable `RekonFetchLike` so this package keeps ZERO
 // dependencies. It targets the Voyage `/embeddings` API. The API key is supplied
 // by the caller (the CLI reads it from the environment and passes it in); this

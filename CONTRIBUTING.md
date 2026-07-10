@@ -36,9 +36,8 @@ Run `npm run lint` when linting is configured.
 
 - Use Rekon naming consistently: `Rekon`, `rekon`, `.rekon/`, `REKON_`, and
   `@rekon/*`.
-- Do not import from `codebase-intel-classic`.
-- Do not use `.codebase-intel` paths or `CODEBASE_INTEL_*` names in Rekon
-  outputs.
+- Do not import from private reference repositories or generated workspaces.
+- Do not leak private workspace paths or environment names into Rekon outputs.
 - Built-in capabilities must use `@rekon/sdk`.
 - Generated artifacts must include schema version, producer metadata, input
   refs, freshness, and provenance.

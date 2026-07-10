@@ -24,8 +24,9 @@ store the deterministic digest of the written JSON payload.
 - the digest matches the parsed artifact payload using Rekon's current digest helper
 - duplicate `type:id` entries are reported
 - paths stay inside the repository root and under `.rekon/artifacts/`
-- paths and payloads do not reference `.codebase-intel` or `CODEBASE_INTEL`
+- paths and payloads do not reference private legacy workspace paths or
+  environment names
 
 Contract tests run the public CLI smoke flow and validate every emitted artifact
-file and index entry. Generated artifacts must not reference `.codebase-intel`
-or `CODEBASE_INTEL`.
+file and index entry. Generated artifacts must not reference private legacy
+workspace paths or environment names.

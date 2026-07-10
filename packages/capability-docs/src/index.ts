@@ -5284,6 +5284,13 @@ export type BuildGitHubCheckPayloadInput = {
    * possible.
    */
   pathFreshnessRef?: ArtifactRef;
+  /**
+   * Proof-chain warnings discovered by the caller while
+   * resolving verification artifacts. These do affect the
+   * Check conclusion because the payload would otherwise imply
+   * a coherent verification proof that Rekon could not load.
+   */
+  proofChainWarnings?: string[];
 };
 
 function deriveProofStatus(
@@ -5322,6 +5329,7 @@ function pickConclusion(
   run: GitHubCheckPublisherRunStatus,
   freshness: GitHubCheckPublisherFreshness,
   artifactsValid: boolean | undefined,
+  proofChainHasWarnings = false,
 ): GitHubCheckConclusion {
   // Conflict resolution: pick the most specific signal available.
   // `failure` outranks `timed_out` outranks `action_required`
@@ -5335,6 +5343,7 @@ function pickConclusion(
   if (run === "killed") return "failure";
   if (run === "timeout") return "timed_out";
   if (proof === "failed") return "failure";
+  if (proofChainHasWarnings) return "action_required";
   if (proof === "partial") return "action_required";
   if (proof === "missing") return "action_required";
   if (freshness === "stale" || freshness === "missing-plan") return "action_required";
@@ -5349,6 +5358,7 @@ function describeConclusion(
   conclusion: GitHubCheckConclusion,
   proof: GitHubCheckPublisherProofStatus,
   run: GitHubCheckPublisherRunStatus,
+  proofChainHasWarnings = false,
 ): string {
   switch (conclusion) {
     case "success":
@@ -5361,6 +5371,7 @@ function describeConclusion(
     case "timed_out":
       return "Verification: timed out";
     case "action_required": {
+      if (proofChainHasWarnings) return "Verification: proof chain warning — action required";
       if (proof === "partial") return "Verification: partial — action required";
       if (proof === "missing") return "Verification: missing — action required";
       return "Verification: stale — action required";
@@ -5397,8 +5408,12 @@ export function buildGitHubCheckPayload(
   const proof = deriveProofStatus(input.verificationResult);
   const run = input.verificationRun?.status ?? (input.verificationRunRef ? "completed" : "not-started");
   const freshness = deriveFreshness(input);
-  const conclusion = pickConclusion(proof, run, freshness, input.artifactsValid);
-  const title = describeConclusion(conclusion, proof, run);
+  const proofChainWarnings = Array.isArray(input.proofChainWarnings)
+    ? input.proofChainWarnings.filter((warning) => warning.trim().length > 0)
+    : [];
+  const proofChainHasWarnings = proofChainWarnings.length > 0;
+  const conclusion = pickConclusion(proof, run, freshness, input.artifactsValid, proofChainHasWarnings);
+  const title = describeConclusion(conclusion, proof, run, proofChainHasWarnings);
 
   const citedRefs: ArtifactRef[] = [];
   const summaryLines: string[] = [];
@@ -5415,6 +5430,12 @@ export function buildGitHubCheckPayload(
     summaryLines.push("Artifacts valid: `false`");
   } else {
     summaryLines.push("Artifacts valid: `not asserted`");
+  }
+  if (proofChainWarnings.length > 0) {
+    summaryLines.push("Proof-chain warnings:");
+    for (const warning of proofChainWarnings) {
+      summaryLines.push(`- ${warning}`);
+    }
   }
   summaryLines.push("");
 

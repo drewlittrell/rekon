@@ -11,7 +11,7 @@ export const grammarArchetypeDomainLibrary: ArchitectureGrammarPackInput = {
   "tier": "archetype",
   "description": "Architecture archetype: Domain-first library with no route/service requirement. Ported from classic's topology template \"domain_library\"; carries the layered-school grammar scoped to its layers. Backs findings only when ratified in repo config.",
   "provenance": {
-    "migratedFrom": "codebase-intel-classic domain/issues/topology-contract-inference.ts BUILTIN_TOPOLOGY_TEMPLATES.domain_library",
+    "migratedFrom": "legacy-source topology-contract-inference.ts BUILTIN_TOPOLOGY_TEMPLATES.domain_library",
     "note": "re-shelved school content per the WO-4.1 amendment memo"
   },
   "topology": {

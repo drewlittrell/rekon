@@ -18,8 +18,8 @@
 //   - Answer precision over volume: hard response ceilings with explicit
 //     truncation markers.
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   compileEffectiveGrammar,
@@ -27,6 +27,7 @@ import {
   splitCapabilityName,
   BUILTIN_GRAMMAR_ARCHETYPE_PACKS,
 } from "@rekon/capability-ontology";
+import { digestJson, validateArtifactHeader } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
 export const MCP_SERVER_VERSION = "1.0.0";
@@ -97,9 +98,12 @@ const MAX_CANDIDATES = 5;
 // bodies - no store init, no registry writes, no runtime construction.
 
 type IndexEntry = {
+  type?: string;
   artifactType: string;
   artifactId: string;
   id?: string;
+  schemaVersion?: string;
+  digest?: string;
   path: string;
   writtenAt?: string;
 };
@@ -113,7 +117,7 @@ export function createArtifactReader(repoRoot: string): ArtifactReader | null {
   let index: IndexEntry[];
 
   try {
-    index = JSON.parse(readFileSync(join(repoRoot, ".rekon/registry/artifacts.index.json"), "utf8"));
+    index = readArtifactIndexSafely(repoRoot);
   } catch {
     return null;
   }
@@ -126,19 +130,7 @@ export function createArtifactReader(repoRoot: string): ArtifactReader | null {
 
   const readBody = (entry: IndexEntry): Record<string, unknown> | null => {
     if (!bodyCache.has(entry.path)) {
-      const candidates = [entry.path, join(repoRoot, entry.path), join(repoRoot, ".rekon", entry.path)];
-      let parsed: Record<string, unknown> | null = null;
-
-      for (const candidate of candidates) {
-        try {
-          parsed = JSON.parse(readFileSync(candidate, "utf8"));
-          break;
-        } catch {
-          // try the next location
-        }
-      }
-
-      bodyCache.set(entry.path, parsed);
+      bodyCache.set(entry.path, readArtifactBodySafely(repoRoot, entry));
     }
 
     return bodyCache.get(entry.path) ?? null;
@@ -171,6 +163,118 @@ export function createArtifactReader(repoRoot: string): ArtifactReader | null {
       return typeof header?.generatedAt === "string" ? header.generatedAt : null;
     },
   };
+}
+
+function readArtifactIndexSafely(repoRoot: string): IndexEntry[] {
+  const indexPath = resolve(repoRoot, ".rekon", "registry", "artifacts.index.json");
+  const stats = lstatSync(indexPath);
+
+  if (!stats.isFile() || stats.isSymbolicLink()) {
+    throw new Error("Artifact index must be a regular file.");
+  }
+
+  const realRepoRoot = realpathSync(repoRoot);
+  const realIndexPath = realpathSync(indexPath);
+
+  if (!pathIsInside(realIndexPath, realRepoRoot)) {
+    throw new Error("Artifact index resolves outside the repository root.");
+  }
+
+  const parsed = JSON.parse(readFileSync(indexPath, "utf8")) as unknown;
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("Artifact index must be an array.");
+  }
+
+  return parsed.filter(isIndexEntry);
+}
+
+function readArtifactBodySafely(repoRoot: string, entry: IndexEntry): Record<string, unknown> | null {
+  try {
+    const artifactPath = resolveArtifactPath(repoRoot, entry);
+    const parsed = JSON.parse(readFileSync(artifactPath, "utf8")) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    if (entry.digest && digestJson(parsed) !== entry.digest) {
+      return null;
+    }
+
+    const headerResult = validateArtifactHeader((parsed as { header?: unknown }).header);
+
+    if (!headerResult.ok) {
+      return null;
+    }
+
+    const header = headerResult.value;
+    const entryType = entry.type ?? entry.artifactType;
+    const entryId = entry.id ?? entry.artifactId;
+
+    if (header.artifactType !== entryType || header.artifactId !== entryId) {
+      return null;
+    }
+
+    if (entry.schemaVersion && header.schemaVersion !== entry.schemaVersion) {
+      return null;
+    }
+
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function resolveArtifactPath(repoRoot: string, entry: IndexEntry): string {
+  if (isAbsolute(entry.path) || !entry.path.startsWith(".rekon/artifacts/")) {
+    throw new Error("Artifact path must stay under .rekon/artifacts.");
+  }
+
+  const legacyWorkspaceSegment = [".codebase", "intel"].join("-");
+
+  if (entry.path.split(/[\\/]/).includes(legacyWorkspaceSegment)) {
+    throw new Error("Artifact path points at a private workspace segment.");
+  }
+
+  const absolutePath = resolve(repoRoot, entry.path);
+
+  if (!pathIsInside(absolutePath, repoRoot)) {
+    throw new Error("Artifact path points outside the repository root.");
+  }
+
+  const stats = lstatSync(absolutePath);
+
+  if (!stats.isFile() || stats.isSymbolicLink()) {
+    throw new Error("Artifact path must be a regular file.");
+  }
+
+  const realRepoRoot = realpathSync(repoRoot);
+  const realArtifactsRoot = realpathSync(resolve(repoRoot, ".rekon", "artifacts"));
+  const realArtifactPath = realpathSync(absolutePath);
+
+  if (!pathIsInside(realArtifactPath, realRepoRoot) || !pathIsInside(realArtifactPath, realArtifactsRoot)) {
+    throw new Error("Artifact path resolves outside trusted Rekon artifact storage.");
+  }
+
+  return absolutePath;
+}
+
+function isIndexEntry(value: unknown): value is IndexEntry {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && typeof (value as { artifactType?: unknown }).artifactType === "string"
+    && typeof (value as { artifactId?: unknown }).artifactId === "string"
+    && typeof (value as { path?: unknown }).path === "string",
+  );
+}
+
+function pathIsInside(path: string, root: string): boolean {
+  const relativePath = relative(resolve(root), resolve(path));
+
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 /**

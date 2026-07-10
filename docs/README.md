@@ -51,7 +51,7 @@ docs, not generated freshness reports or internal planning logs.
 - [System model](strategy/rekon-system-model.md)
 - [Capability model](strategy/capability-model.md)
 - [Roadmap](strategy/roadmap.md)
-- [Classic migration](strategy/codebase-intel-classic-migration.md)
+- [Migration model](strategy/legacy-reference-migration.md)
 
 ## Examples
 

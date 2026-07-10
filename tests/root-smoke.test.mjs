@@ -12,8 +12,8 @@ test("root naming contract is documented", async () => {
   assert.match(readme, /`@rekon\/\*`/);
 });
 
-test("root AGENTS instructions prohibit old repo imports", async () => {
+test("root AGENTS instructions prohibit private reference imports", async () => {
   const agents = await readFile(new URL("../AGENTS.md", import.meta.url), "utf8");
 
-  assert.match(agents, /Do not import from the old codebase-intel repo/);
+  assert.match(agents, /Do not import from private reference repositories/);
 });

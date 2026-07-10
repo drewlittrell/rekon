@@ -161,6 +161,17 @@ test("artifactsValid: false overrides everything to failure", () => {
   assert.equal(payload.conclusion, "failure");
 });
 
+test("proof-chain warnings downgrade a passing proof to action_required", () => {
+  const payload = buildGitHubCheckPayload(makeBasePayloadInput({
+    proofChainWarnings: ["VerificationRun missing-run is not present in the artifact index."],
+  }));
+
+  assert.equal(payload.conclusion, "action_required");
+  assert.match(payload.output.title, /proof chain warning/i);
+  assert.match(payload.output.summary, /Proof-chain warnings:/);
+  assert.match(payload.output.summary, /missing-run/);
+});
+
 // ---------- summary content ----------
 
 test("summary includes the canonical-truth reminder", () => {

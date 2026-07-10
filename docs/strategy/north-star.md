@@ -73,5 +73,5 @@ artifact-first.
 - Generated artifacts include schema versioning, provenance, producer metadata,
   and declared inputs.
 - Capabilities declare what they consume, produce, require, and invalidate.
-- Rekon does not import from `codebase-intel-classic`; that project is a
-  reference implementation and migration source.
+- Rekon does not import from private reference repositories. Prior systems may
+  inform fixtures and migration only as external data.

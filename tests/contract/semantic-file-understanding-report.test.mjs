@@ -160,7 +160,7 @@ test("17. report generates no embeddings", async () => {
   assert.equal(r.boundaries.generatedEmbeddings, false);
 });
 
-// --- 18-23: CLI (no-key) ----------------------------------------------------
+// --- 18-24: CLI (no-key) ----------------------------------------------------
 
 const noKeyEnv = () => {
   const env = { ...process.env };
@@ -179,11 +179,12 @@ function makeRepo() {
   writeFileSync(join(ROOT, FILE), TS_SRC);
   return ROOT;
 }
-const understand = (ROOT, mode, extra = []) =>
-  spawnSync(process.execPath, [cliPath, "semantic", "file", "understand", "--path", FILE, "--semantic", mode, ...extra, "--root", ROOT, "--json"], {
+const understandPath = (ROOT, path, mode, extra = []) =>
+  spawnSync(process.execPath, [cliPath, "semantic", "file", "understand", "--path", path, "--semantic", mode, ...extra, "--root", ROOT, "--json"], {
     encoding: "utf8",
     env: noKeyEnv(),
   });
+const understand = (ROOT, mode, extra = []) => understandPath(ROOT, FILE, mode, extra);
 const countReports = (ROOT) => {
   const out = spawnSync(process.execPath, [cliPath, "artifacts", "list", "--root", ROOT, "--type", "SemanticFileUnderstandingReport", "--json"], {
     encoding: "utf8",
@@ -243,4 +244,17 @@ test("23. the source file is never modified", () => {
   understand(ROOT, "auto", ["--llm-provider", "openai", "--llm-model", "test-model"]);
   const after = readFileSync(join(ROOT, FILE), "utf8");
   assert.equal(after, before);
+});
+
+test("24. CLI refuses semantic file paths outside --root before reading", () => {
+  const ROOT = makeRepo();
+  const outsideRoot = mkdtempSync(join(tmpdir(), "rekon-sfu-outside-"));
+  const outsideFile = join(outsideRoot, "outside.ts");
+  writeFileSync(outsideFile, "export const outside = true;\n");
+
+  const res = understandPath(ROOT, outsideFile, "auto", ["--llm-provider", "openai", "--llm-model", "test-model"]);
+
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /outside --root/);
+  assert.equal(countReports(ROOT), 0);
 });

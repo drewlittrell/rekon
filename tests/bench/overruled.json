@@ -17,37 +17,37 @@
   {
     "classicId": "concern-516e5945",
     "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
-    "note": "Living conduit (codebase-intel): commands/expected-model-core.ts resolves 5 importer(s) via the reexport chain classic could not follow; sample importer: commands/expected-model-runner.ts (WO-16 Part 1)."
+    "note": "Living conduit (reference-repo): commands/expected-model-core.ts resolves 5 importer(s) via the reexport chain classic could not follow; sample importer: commands/expected-model-runner.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-79e7899e",
     "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
-    "note": "Living conduit (codebase-intel): commands/graph/health-command.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
+    "note": "Living conduit (reference-repo): commands/graph/health-command.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-36bf4a98",
     "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
-    "note": "Living conduit (codebase-intel): commands/graph/slice-build.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
+    "note": "Living conduit (reference-repo): commands/graph/slice-build.ts resolves 2 importer(s) via the reexport chain classic could not follow; sample importer: commands/Graph.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-12acec22",
     "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
-    "note": "Living conduit (codebase-intel): commands/interfaces-query-core.ts resolves 4 importer(s) via the reexport chain classic could not follow; sample importer: commands/interfaces-runner.ts (WO-16 Part 1)."
+    "note": "Living conduit (reference-repo): commands/interfaces-query-core.ts resolves 4 importer(s) via the reexport chain classic could not follow; sample importer: commands/interfaces-runner.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-59a9fe4f",
     "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
-    "note": "Living conduit (codebase-intel): commands/memory/instruction-signals.ts resolves 18 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory/review-artifacts.ts (WO-16 Part 1)."
+    "note": "Living conduit (reference-repo): commands/memory/instruction-signals.ts resolves 18 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory/review-artifacts.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-759b4dc1",
     "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
-    "note": "Living conduit (codebase-intel): lib/memory/TurnObservation.ts resolves 11 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory.ts (WO-16 Part 1)."
+    "note": "Living conduit (reference-repo): lib/memory/TurnObservation.ts resolves 11 importer(s) via the reexport chain classic could not follow; sample importer: commands/memory.ts (WO-16 Part 1)."
   },
   {
     "classicId": "concern-4b6bbf6b",
     "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 1: the ten overruled entries",
-    "note": "Living conduit (codebase-intel): services/analysis/evaluation-metrics.ts resolves 3 importer(s) via the reexport chain classic could not follow; sample importer: services/analysis/EvaluationRunner.ts (WO-16 Part 1)."
+    "note": "Living conduit (reference-repo): services/analysis/evaluation-metrics.ts resolves 3 importer(s) via the reexport chain classic could not follow; sample importer: services/analysis/EvaluationRunner.ts (WO-16 Part 1)."
   },
   {
     "classicId": "hub-suffix-taxonomy.hub_suffix_requires_hub_status-70a39bd9",
@@ -166,7 +166,7 @@
   },
   {
     "classicId": "concern-289454fc",
-    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 5: codebase-intel's evaluator-routes correction",
+    "rulingRef": "docs/adr/0005-overruled-classic-findings.md#Part 5: evaluator-routes correction",
     "note": "Classic keep on \"domain/issues/evaluators/routes/KeepThin.ts\" contradicted by the WO-17 ruling: evaluator-routes correction: rule evaluators, not HTTP routes - classic also mis-read the layer. WO-18 Part 4."
   },
   {

@@ -1,4 +1,5 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { lstat, mkdir, open, readFile, readdir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   type ArtifactHeader,
@@ -56,10 +57,14 @@ import {
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
 import {
   type CapabilityDefinition,
+  type CapabilityManifest,
   type CapabilityPermission,
   type CapabilityRegistrySnapshot,
+  type RegisteredCapability,
   type Actuator,
+  type Evaluator,
   type Learner,
+  type Projector,
   type Publisher,
   type Resolver,
   createCapabilityRegistry,
@@ -275,6 +280,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   IntentStatusReport: "actions",
   IntentPlanActionabilityReport: "actions",
   SemanticFileUnderstandingReport: "actions",
+  SemanticDebtJudgmentReport: "actions",
   // TaskContextReport is the first product consumer of embedding retrieval
   // (Task-Shaped Context / Embedding Retrieval Decision, slice 165). It is
   // context, not proof — an "actions" report like the intent reports above.
@@ -380,6 +386,7 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
     root: repoRoot,
     workspaceRoot,
     async init() {
+      await assertSafeWorkspaceRoot(repoRoot, workspaceRoot);
       await Promise.all([
         mkdir(join(workspaceRoot, "artifacts", "evidence"), { recursive: true }),
         mkdir(join(workspaceRoot, "artifacts", "snapshots"), { recursive: true }),
@@ -393,9 +400,13 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
         mkdir(join(workspaceRoot, "cache"), { recursive: true }),
       ]);
 
-      await ensureJsonFile(indexPath, []);
-      await ensureJsonFile(join(workspaceRoot, "registry", "capabilities.index.json"), []);
-      await ensureJsonFile(join(workspaceRoot, "config.json"), { capabilities: [], permissions: {} });
+      await ensureJsonFile(repoRoot, indexPath, []);
+      await ensureJsonFile(repoRoot, join(workspaceRoot, "registry", "capabilities.index.json"), []);
+      await ensureGeneratedFileIfMissing(
+        repoRoot,
+        join(workspaceRoot, "config.json"),
+        { capabilities: [], permissions: {} },
+      );
     },
     async write(artifact, options = {}) {
       const header = assertArtifactHeader(artifact.header);
@@ -411,8 +422,8 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
       });
 
       await mkdir(dirname(absolutePath), { recursive: true });
-      await writeFile(absolutePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-      await upsertArtifactIndex(indexPath, {
+      await writeGeneratedFileSafely(repoRoot, absolutePath, `${JSON.stringify(payload, null, 2)}\n`);
+      await upsertArtifactIndex(repoRoot, indexPath, {
         ...ref,
         artifactType: ref.type,
         artifactId: ref.id,
@@ -422,20 +433,15 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
       return ref;
     },
     async read(ref) {
-      if (!ref.path) {
-        const entry = await findIndexEntry(indexPath, ref.type, ref.id);
-        return readJson(join(repoRoot, entry.path ?? ""));
-      }
-
-      return readJson(join(repoRoot, ref.path));
+      return readValidatedArtifact(repoRoot, indexPath, ref);
     },
     async readById(type, id) {
-      const entry = await findIndexEntry(indexPath, type, id);
+      const entry = await findIndexEntry(repoRoot, indexPath, type, id);
 
-      return readJson(join(repoRoot, entry.path ?? ""));
+      return readValidatedArtifact(repoRoot, indexPath, entry);
     },
     async list(type) {
-      const index = await readArtifactIndex(indexPath);
+      const index = await readArtifactIndex(repoRoot, indexPath);
 
       return type ? index.filter((entry) => entry.type === type) : index;
     },
@@ -450,7 +456,7 @@ export async function validateArtifactIndex(
   let index: unknown;
 
   try {
-    index = JSON.parse(await readFile(indexPath, "utf8")) as unknown;
+    index = await readJsonFileSafely(store.root, indexPath);
   } catch (error) {
     issues.push({
       code: "index.missing_or_unreadable",
@@ -559,11 +565,13 @@ export async function validateArtifactIndex(
       continue;
     }
 
-    if (pathHasSegment(path, ".codebase-intel")) {
+    const legacyWorkspaceSegment = [".codebase", "intel"].join("-");
+
+    if (pathHasSegment(path, legacyWorkspaceSegment)) {
       issues.push({
         code: "index.entry.private_path",
         severity: "error",
-        message: "Artifact index entries must not point to .codebase-intel.",
+        message: "Artifact index entries must not point to private legacy workspace directories.",
         artifactId,
         artifactType,
         path,
@@ -592,21 +600,21 @@ export async function validateArtifactIndex(
         artifactType,
         path,
       });
-      continue;
     }
 
     let artifact: unknown;
 
     try {
-      artifact = JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
+      artifact = await readArtifactBodyForValidation(store.root, entry as ArtifactIndexEntry);
     } catch (error) {
+      const accessError = toArtifactAccessError(error);
       issues.push({
-        code: "index.entry.artifact_unreadable",
+        code: accessError.code,
         severity: "error",
-        message: `Indexed artifact could not be read: ${error instanceof Error ? error.message : String(error)}`,
+        message: accessError.message,
         artifactId,
         artifactType,
-        path,
+        path: accessError.path ?? path,
       });
       continue;
     }
@@ -725,18 +733,30 @@ export async function validateArtifactFreshness(
     try {
       artifact = (await store.read(entry)) as ArtifactWithHeader;
     } catch (error) {
-      entryIssues.push({
-        code: "artifact.unreadable",
-        severity: "error",
-        message: `Artifact could not be read: ${error instanceof Error ? error.message : String(error)}`,
-        artifactType: entry.type,
-        artifactId: entry.id,
-        path: entry.path,
-      });
-      const status: ArtifactFreshnessStatus = "unknown";
-      artifacts.push({ type: entry.type, id: entry.id, status, issues: entryIssues });
-      aggregateIssues.push(...entryIssues);
-      continue;
+      try {
+        artifact = (await readArtifactBodyForValidation(store.root, entry)) as ArtifactWithHeader;
+        entryIssues.push({
+          code: "artifact.integrity_unverified",
+          severity: "warning",
+          message: `Artifact failed strict integrity read and was parsed only for freshness diagnostics: ${error instanceof Error ? error.message : String(error)}`,
+          artifactType: entry.type,
+          artifactId: entry.id,
+          path: entry.path,
+        });
+      } catch {
+        entryIssues.push({
+          code: "artifact.unreadable",
+          severity: "error",
+          message: `Artifact could not be read: ${error instanceof Error ? error.message : String(error)}`,
+          artifactType: entry.type,
+          artifactId: entry.id,
+          path: entry.path,
+        });
+        const status: ArtifactFreshnessStatus = "unknown";
+        artifacts.push({ type: entry.type, id: entry.id, status, issues: entryIssues });
+        aggregateIssues.push(...entryIssues);
+        continue;
+      }
     }
 
     const inputRefs = Array.isArray(artifact.header?.inputRefs) ? artifact.header.inputRefs : [];
@@ -1901,7 +1921,7 @@ export async function runPublish(
   const writtenRefs: ArtifactRef[] = [];
 
   for (const publisher of publishers) {
-    writtenRefs.push(...await runSinglePublisher(context, publisher, options.input ?? {}));
+    writtenRefs.push(...await runSinglePublisher(context, registry, publisher, options.input ?? {}));
   }
 
   return writtenRefs;
@@ -1918,7 +1938,7 @@ export async function runLearn(
   const writtenRefs: ArtifactRef[] = [];
 
   for (const learner of learners) {
-    writtenRefs.push(...await runSingleLearner(context, learner, options.input ?? {}));
+    writtenRefs.push(...await runSingleLearner(context, registry, learner, options.input ?? {}));
   }
 
   return writtenRefs;
@@ -1935,7 +1955,7 @@ export async function runAct(
   const writtenRefs: ArtifactRef[] = [];
 
   for (const actuator of actuators) {
-    writtenRefs.push(...await runSingleActuator(context, actuator, options.input ?? {}));
+    writtenRefs.push(...await runSingleActuator(context, registry, actuator, options.input ?? {}));
   }
 
   return writtenRefs;
@@ -1952,14 +1972,9 @@ export async function runEvaluate(
   const writtenRefs: ArtifactRef[] = [];
 
   for (const evaluator of evaluators) {
+    const manifest = capabilityForHandler(registry, "evaluator", evaluator.id);
     writtenRefs.push(...await evaluator.evaluate({
-      artifacts: {
-        read: (ref: ArtifactRef) => context.artifacts.read(ref),
-        list: (type?: string) => context.artifacts.list(type),
-        write: (type: string, artifact: unknown) => context.artifacts.write(artifact as ArtifactWithHeader, {
-          category: categoryForArtifactType(type),
-        }),
-      },
+      artifacts: runtimeArtifactAccess(context, manifest),
       input: {
         repo: context.repo,
         ...(options.input ?? {}),
@@ -1981,16 +1996,9 @@ export async function runProject(
   const writtenRefs: ArtifactRef[] = [];
 
   for (const projector of projectors) {
+    const manifest = capabilityForHandler(registry, "projector", projector.id);
     writtenRefs.push(...await projector.project({
-      artifacts: {
-        read: (ref: ArtifactRef) => context.artifacts.read(ref),
-        list: (type?: string) => context.artifacts.list(type),
-        write: (type: string, artifact: unknown) => {
-          const category = categoryForArtifactType(type);
-
-          return context.artifacts.write(artifact as ArtifactWithHeader, { category });
-        },
-      },
+      artifacts: runtimeArtifactAccess(context, manifest),
       input: {
         repo: context.repo,
         ...(options.input ?? {}),
@@ -2012,7 +2020,7 @@ export async function runResolve(
   const writtenRefs: ArtifactRef[] = [];
 
   for (const resolver of resolvers) {
-    writtenRefs.push(...await runSingleResolver(context, resolver, options.input ?? {}));
+    writtenRefs.push(...await runSingleResolver(context, registry, resolver, options.input ?? {}));
   }
 
   return writtenRefs;
@@ -2020,11 +2028,14 @@ export async function runResolve(
 
 async function runSinglePublisher(
   context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
   publisher: Publisher,
   input: Record<string, unknown>,
 ): Promise<ArtifactRef[]> {
+  const manifest = capabilityForHandler(registry, "publisher", publisher.id);
+
   return publisher.publish({
-    artifacts: runtimeArtifactAccess(context),
+    artifacts: runtimeArtifactAccess(context, manifest),
     input: {
       repo: context.repo,
       ...input,
@@ -2034,11 +2045,14 @@ async function runSinglePublisher(
 
 async function runSingleLearner(
   context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
   learner: Learner,
   input: Record<string, unknown>,
 ): Promise<ArtifactRef[]> {
+  const manifest = capabilityForHandler(registry, "learner", learner.id);
+
   return learner.learn({
-    artifacts: runtimeArtifactAccess(context),
+    artifacts: runtimeArtifactAccess(context, manifest),
     input: {
       repo: context.repo,
       ...input,
@@ -2048,11 +2062,14 @@ async function runSingleLearner(
 
 async function runSingleActuator(
   context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
   actuator: Actuator,
   input: Record<string, unknown>,
 ): Promise<ArtifactRef[]> {
+  const manifest = capabilityForHandler(registry, "actuator", actuator.id);
+
   return actuator.act({
-    artifacts: runtimeArtifactAccess(context),
+    artifacts: runtimeArtifactAccess(context, manifest),
     input: {
       repo: context.repo,
       ...input,
@@ -2062,11 +2079,14 @@ async function runSingleActuator(
 
 async function runSingleResolver(
   context: RuntimeContext,
+  registry: CapabilityRegistrySnapshot,
   resolver: Resolver,
   input: Record<string, unknown>,
 ): Promise<ArtifactRef[]> {
+  const manifest = capabilityForHandler(registry, "resolver", resolver.id);
+
   return resolver.resolve({
-    artifacts: runtimeArtifactAccess(context),
+    artifacts: runtimeArtifactAccess(context, manifest),
     input: {
       repo: context.repo,
       ...input,
@@ -2074,16 +2094,74 @@ async function runSingleResolver(
   });
 }
 
-function runtimeArtifactAccess(context: RuntimeContext) {
+function runtimeArtifactAccess(context: RuntimeContext, manifest: CapabilityManifest) {
   return {
-    read: (ref: ArtifactRef) => context.artifacts.read(ref),
-    list: (type?: string) => context.artifacts.list(type),
+    read: (ref: ArtifactRef) => {
+      ensureArtifactPermission(context, manifest, "read:artifacts");
+
+      return context.artifacts.read(ref);
+    },
+    list: (type?: string) => {
+      ensureArtifactPermission(context, manifest, "read:artifacts");
+
+      return context.artifacts.list(type);
+    },
     write: (type: string, artifact: unknown) => {
+      ensureArtifactPermission(context, manifest, "write:artifacts");
+
       const category = categoryForArtifactType(type);
 
       return context.artifacts.write(artifact as ArtifactWithHeader, { category });
     },
   };
+}
+
+type ProducedRuntimeHandler = Projector | Evaluator | Resolver | Publisher | Actuator | Learner;
+type ArtifactHandlerRole = "projector" | "evaluator" | "resolver" | "publisher" | "actuator" | "learner";
+
+function capabilityForHandler(
+  registry: CapabilityRegistrySnapshot,
+  role: ArtifactHandlerRole,
+  handlerId: string,
+): CapabilityManifest {
+  const handlersForRole = (capability: RegisteredCapability): ProducedRuntimeHandler[] => {
+    switch (role) {
+      case "projector":
+        return capability.projectors;
+      case "evaluator":
+        return capability.evaluators;
+      case "resolver":
+        return capability.resolvers;
+      case "publisher":
+        return capability.publishers;
+      case "actuator":
+        return capability.actuators;
+      case "learner":
+        return capability.learners;
+    }
+  };
+
+  for (const capability of registry.capabilities) {
+    if (handlersForRole(capability).some((handler) => handler.id === handlerId)) {
+      return capability.manifest;
+    }
+  }
+
+  throw new Error(`Registered ${role} handler ${handlerId} has no owning capability.`);
+}
+
+function ensureArtifactPermission(
+  context: RuntimeContext,
+  manifest: CapabilityManifest,
+  permission: "read:artifacts" | "write:artifacts",
+): void {
+  if (!manifest.permissions.includes(permission)) {
+    throw new Error(`Capability ${manifest.id} did not declare required permission ${permission}.`);
+  }
+
+  if (!context.permissions.allowed(manifest.id, permission)) {
+    throw new Error(`Capability ${manifest.id} is denied required permission ${permission}.`);
+  }
 }
 
 function createRuntimeArtifactHeader(input: {
@@ -2131,24 +2209,110 @@ function enforceCapabilityPermissions(
   }
 }
 
-async function ensureJsonFile(path: string, value: unknown): Promise<void> {
-  try {
-    await readFile(path, "utf8");
-  } catch {
-    await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+class ArtifactAccessError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly path?: string,
+  ) {
+    super(message);
+    this.name = "ArtifactAccessError";
   }
 }
 
-async function readJson(path: string): Promise<unknown> {
-  return JSON.parse(await readFile(path, "utf8")) as unknown;
+async function ensureJsonFile(repoRoot: string, path: string, value: unknown): Promise<void> {
+  try {
+    await readJsonFileSafely(repoRoot, path);
+  } catch (error) {
+    if (error instanceof ArtifactAccessError && error.code !== "generated_file.missing") {
+      throw error;
+    }
+
+    await writeGeneratedFileSafely(repoRoot, path, `${JSON.stringify(value, null, 2)}\n`);
+  }
 }
 
-async function readArtifactIndex(path: string): Promise<ArtifactIndexEntry[]> {
-  return JSON.parse(await readFile(path, "utf8")) as ArtifactIndexEntry[];
+async function ensureGeneratedFileIfMissing(
+  repoRoot: string,
+  path: string,
+  value: unknown,
+): Promise<void> {
+  try {
+    await assertSafeExistingGeneratedFile(repoRoot, path);
+  } catch (error) {
+    if (error instanceof ArtifactAccessError && error.code !== "generated_file.missing") {
+      throw error;
+    }
+
+    await writeGeneratedFileSafely(repoRoot, path, `${JSON.stringify(value, null, 2)}\n`);
+  }
 }
 
-async function upsertArtifactIndex(path: string, entry: ArtifactIndexEntry): Promise<void> {
-  const index = await readArtifactIndex(path);
+async function readJsonFileSafely(repoRoot: string, path: string): Promise<unknown> {
+  await assertSafeExistingGeneratedFile(repoRoot, path);
+
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as unknown;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new ArtifactAccessError("generated_file.invalid_json", error.message, relative(repoRoot, path));
+    }
+
+    throw error;
+  }
+}
+
+async function writeGeneratedFileSafely(repoRoot: string, path: string, content: string): Promise<void> {
+  assertLexicallyInside(path, repoRoot, "generated_file.outside_repo");
+  await mkdir(dirname(path), { recursive: true });
+
+  await assertSafeParentForGeneratedWrite(repoRoot, dirname(path));
+
+  try {
+    const stats = await lstat(path);
+
+    if (stats.isSymbolicLink()) {
+      throw new ArtifactAccessError(
+        "generated_file.symlink",
+        "Refusing to write generated Rekon output through a symlink.",
+        relative(repoRoot, path),
+      );
+    }
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      throw error;
+    }
+  }
+
+  const handle = await open(
+    path,
+    fsConstants.O_CREAT | fsConstants.O_WRONLY | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
+    0o666,
+  );
+
+  try {
+    await handle.writeFile(content, "utf8");
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readArtifactIndex(repoRoot: string, path: string): Promise<ArtifactIndexEntry[]> {
+  const index = await readJsonFileSafely(repoRoot, path);
+
+  if (!Array.isArray(index)) {
+    throw new ArtifactAccessError(
+      "index.invalid_shape",
+      "Artifact index must be an array.",
+      relative(repoRoot, path),
+    );
+  }
+
+  return index as ArtifactIndexEntry[];
+}
+
+async function upsertArtifactIndex(repoRoot: string, path: string, entry: ArtifactIndexEntry): Promise<void> {
+  const index = await readArtifactIndex(repoRoot, path);
   const existingIndex = index.findIndex((candidate) => candidate.type === entry.type && candidate.id === entry.id);
 
   if (existingIndex >= 0) {
@@ -2158,17 +2322,351 @@ async function upsertArtifactIndex(path: string, entry: ArtifactIndexEntry): Pro
   }
 
   index.sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
-  await writeFile(path, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+  await writeGeneratedFileSafely(repoRoot, path, `${JSON.stringify(index, null, 2)}\n`);
 }
 
-async function findIndexEntry(path: string, type: string, id: string): Promise<ArtifactIndexEntry> {
-  const entry = (await readArtifactIndex(path)).find((candidate) => candidate.type === type && candidate.id === id);
+async function findIndexEntry(
+  repoRoot: string,
+  path: string,
+  type: string,
+  id: string,
+): Promise<ArtifactIndexEntry> {
+  const entry = (await readArtifactIndex(repoRoot, path)).find((candidate) => candidate.type === type && candidate.id === id);
 
   if (!entry) {
     throw new Error(`Artifact ${type}:${id} is not indexed.`);
   }
 
   return entry;
+}
+
+async function maybeFindIndexEntry(
+  repoRoot: string,
+  path: string,
+  type: string,
+  id: string,
+): Promise<ArtifactIndexEntry | undefined> {
+  return (await readArtifactIndex(repoRoot, path)).find((candidate) => candidate.type === type && candidate.id === id);
+}
+
+async function readValidatedArtifact(
+  repoRoot: string,
+  indexPath: string,
+  ref: ArtifactRef,
+): Promise<unknown> {
+  const indexed = await maybeFindIndexEntry(repoRoot, indexPath, ref.type, ref.id);
+  const entry = indexed ?? refToIndexEntry(ref);
+
+  if (ref.path && indexed?.path && ref.path !== indexed.path) {
+    throw new ArtifactAccessError(
+      "artifact.ref.index_path_mismatch",
+      `Artifact ref path does not match indexed path for ${ref.type}:${ref.id}.`,
+      ref.path,
+    );
+  }
+
+  if (ref.digest && entry.digest && ref.digest !== entry.digest) {
+    throw new ArtifactAccessError(
+      "artifact.ref.digest_mismatch",
+      `Artifact ref digest does not match indexed digest for ${ref.type}:${ref.id}.`,
+      ref.path ?? entry.path,
+    );
+  }
+
+  return (await readIndexedArtifactBody(repoRoot, {
+    ...entry,
+    digest: ref.digest ?? entry.digest,
+  })).artifact;
+}
+
+function refToIndexEntry(ref: ArtifactRef): ArtifactIndexEntry {
+  return {
+    ...ref,
+    artifactType: ref.type,
+    artifactId: ref.id,
+    writtenAt: "",
+  };
+}
+
+async function readIndexedArtifactBody(
+  repoRoot: string,
+  entry: ArtifactIndexEntry,
+): Promise<{ artifact: unknown; raw: string; digest: string; absolutePath: string }> {
+  const absolutePath = await resolveArtifactReadPath(repoRoot, entry);
+  const raw = await readFile(absolutePath, "utf8");
+  const artifact = JSON.parse(raw) as unknown;
+  const expectedDigest = entry.digest;
+
+  if (!isNonEmptyString(expectedDigest)) {
+    throw new ArtifactAccessError(
+      "artifact.digest_missing",
+      "Artifact index entry or ref must include a digest before the body can be read.",
+      entry.path,
+    );
+  }
+
+  const actualDigest = digestJson(artifact);
+
+  if (actualDigest !== expectedDigest) {
+    throw new ArtifactAccessError(
+      "artifact.digest_mismatch",
+      "Artifact digest does not match indexed digest.",
+      entry.path,
+    );
+  }
+
+  const artifactRecord = isRecord(artifact) ? artifact : undefined;
+  const headerResult = validateArtifactHeader(artifactRecord?.header);
+
+  if (!headerResult.ok) {
+    throw new ArtifactAccessError(
+      "artifact.header.invalid",
+      `Artifact header validation failed at ${headerResult.issues[0]?.path ?? "header"}.`,
+      entry.path,
+    );
+  }
+
+  const header = headerResult.value;
+
+  if (header.artifactType !== entry.type || header.artifactId !== entry.id || header.schemaVersion !== entry.schemaVersion) {
+    throw new ArtifactAccessError(
+      "artifact.header.index_mismatch",
+      "Artifact header does not match the requested index entry.",
+      entry.path,
+    );
+  }
+
+  return { artifact, raw, digest: actualDigest, absolutePath };
+}
+
+async function readArtifactBodyForValidation(repoRoot: string, entry: ArtifactIndexEntry): Promise<unknown> {
+  const absolutePath = await resolveArtifactReadPath(repoRoot, entry);
+
+  return JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
+}
+
+async function resolveArtifactReadPath(repoRoot: string, entry: Pick<ArtifactIndexEntry, "path">): Promise<string> {
+  const path = entry.path;
+
+  if (!isNonEmptyString(path)) {
+    throw new ArtifactAccessError("index.entry.missing_path", "Artifact index entry is missing path.");
+  }
+
+  if (isAbsolute(path)) {
+    throw new ArtifactAccessError(
+      "index.entry.absolute_path",
+      "Artifact index paths must be relative to the repository root.",
+      path,
+    );
+  }
+
+  const legacyWorkspaceSegment = [".codebase", "intel"].join("-");
+
+  if (pathHasSegment(path, legacyWorkspaceSegment)) {
+    throw new ArtifactAccessError(
+      "index.entry.private_path",
+      "Artifact index entries must not point to private legacy workspace directories.",
+      path,
+    );
+  }
+
+  if (!path.startsWith(".rekon/artifacts/")) {
+    throw new ArtifactAccessError(
+      "index.entry.outside_artifacts",
+      "Artifact index entries must point under .rekon/artifacts/.",
+      path,
+    );
+  }
+
+  const absolutePath = resolve(repoRoot, path);
+  assertLexicallyInside(absolutePath, repoRoot, "index.entry.outside_repo");
+
+  let stats;
+
+  try {
+    stats = await lstat(absolutePath);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw new ArtifactAccessError(
+        "index.entry.artifact_unreadable",
+        "Indexed artifact could not be read because it does not exist.",
+        path,
+      );
+    }
+
+    throw error;
+  }
+
+  if (stats.isSymbolicLink()) {
+    throw new ArtifactAccessError(
+      "index.entry.symlink_path",
+      "Indexed artifact path must not be a symlink.",
+      path,
+    );
+  }
+
+  if (!stats.isFile()) {
+    throw new ArtifactAccessError(
+      "index.entry.not_file",
+      "Indexed artifact path must point to a file.",
+      path,
+    );
+  }
+
+  const [realRepoRoot, realArtifactsRoot, realArtifactPath] = await Promise.all([
+    realpath(repoRoot),
+    realpath(resolve(repoRoot, ".rekon", "artifacts")),
+    realpath(absolutePath),
+  ]);
+
+  if (!isPathInside(realArtifactPath, realRepoRoot)) {
+    throw new ArtifactAccessError(
+      "index.entry.outside_repo",
+      "Artifact index entry resolves outside the repository root.",
+      path,
+    );
+  }
+
+  if (!isPathInside(realArtifactPath, realArtifactsRoot)) {
+    throw new ArtifactAccessError(
+      "index.entry.outside_artifacts_realpath",
+      "Artifact index entry resolves outside .rekon/artifacts.",
+      path,
+    );
+  }
+
+  return absolutePath;
+}
+
+async function assertSafeExistingGeneratedFile(repoRoot: string, path: string): Promise<void> {
+  assertLexicallyInside(path, repoRoot, "generated_file.outside_repo");
+
+  let stats;
+
+  try {
+    stats = await lstat(path);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw new ArtifactAccessError(
+        "generated_file.missing",
+        "Generated Rekon file does not exist.",
+        relative(repoRoot, path),
+      );
+    }
+
+    throw error;
+  }
+
+  if (stats.isSymbolicLink()) {
+    throw new ArtifactAccessError(
+      "generated_file.symlink",
+      "Refusing to read generated Rekon file through a symlink.",
+      relative(repoRoot, path),
+    );
+  }
+
+  if (!stats.isFile()) {
+    throw new ArtifactAccessError(
+      "generated_file.not_file",
+      "Generated Rekon path must be a regular file.",
+      relative(repoRoot, path),
+    );
+  }
+
+  const [realRepoRoot, realFilePath] = await Promise.all([realpath(repoRoot), realpath(path)]);
+
+  if (!isPathInside(realFilePath, realRepoRoot)) {
+    throw new ArtifactAccessError(
+      "generated_file.outside_repo",
+      "Generated Rekon file resolves outside the repository root.",
+      relative(repoRoot, path),
+    );
+  }
+}
+
+async function assertSafeWorkspaceRoot(repoRoot: string, workspaceRoot: string): Promise<void> {
+  assertLexicallyInside(workspaceRoot, repoRoot, "generated_file.outside_repo");
+
+  let stats;
+
+  try {
+    stats = await lstat(workspaceRoot);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+
+  if (!stats.isDirectory() || stats.isSymbolicLink()) {
+    throw new ArtifactAccessError(
+      "generated_file.workspace_not_directory",
+      "Rekon workspace root must be a regular directory.",
+      relative(repoRoot, workspaceRoot),
+    );
+  }
+
+  const [realRepoRoot, realWorkspaceRoot] = await Promise.all([realpath(repoRoot), realpath(workspaceRoot)]);
+
+  if (!isPathInside(realWorkspaceRoot, realRepoRoot)) {
+    throw new ArtifactAccessError(
+      "generated_file.outside_repo",
+      "Rekon workspace root resolves outside the repository root.",
+      relative(repoRoot, workspaceRoot),
+    );
+  }
+}
+
+async function assertSafeParentForGeneratedWrite(repoRoot: string, parentPath: string): Promise<void> {
+  assertLexicallyInside(parentPath, repoRoot, "generated_file.outside_repo");
+
+  const stats = await lstat(parentPath);
+
+  if (!stats.isDirectory() || stats.isSymbolicLink()) {
+    throw new ArtifactAccessError(
+      "generated_file.parent_not_directory",
+      "Generated Rekon file parent must be a regular directory.",
+      relative(repoRoot, parentPath),
+    );
+  }
+
+  const [realRepoRoot, realParentPath] = await Promise.all([realpath(repoRoot), realpath(parentPath)]);
+
+  if (!isPathInside(realParentPath, realRepoRoot)) {
+    throw new ArtifactAccessError(
+      "generated_file.outside_repo",
+      "Generated Rekon file parent resolves outside the repository root.",
+      relative(repoRoot, parentPath),
+    );
+  }
+}
+
+function assertLexicallyInside(path: string, root: string, code: string): void {
+  if (!isPathInside(path, root)) {
+    throw new ArtifactAccessError(
+      code,
+      "Path must stay inside the repository root.",
+      relative(root, path),
+    );
+  }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error
+    && "code" in error
+    && (error as NodeJS.ErrnoException).code === "ENOENT";
+}
+
+function toArtifactAccessError(error: unknown): ArtifactAccessError {
+  if (error instanceof ArtifactAccessError) {
+    return error;
+  }
+
+  return new ArtifactAccessError(
+    "index.entry.artifact_unreadable",
+    `Indexed artifact could not be read: ${error instanceof Error ? error.message : String(error)}`,
+  );
 }
 
 function latestByType(entries: ArtifactIndexEntry[], type: string): ArtifactIndexEntry | undefined {

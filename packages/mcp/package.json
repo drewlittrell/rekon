@@ -18,6 +18,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@rekon/capability-ontology": "1.0.0"
+    "@rekon/capability-ontology": "1.0.0",
+    "@rekon/kernel-artifacts": "1.0.0"
   }
 }

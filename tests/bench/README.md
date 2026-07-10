@@ -1,7 +1,7 @@
 # classic-parity-bench (Phase 0)
 
 A local harness that runs the Rekon lifecycle against repositories with
-`codebase-intel-classic` scan history, normalizes both systems' findings into a
+legacy-source scan history, normalizes both systems' findings into a
 common shape, and emits a bench report (JSON + Markdown) classifying every
 classic finding as `matched`, `missed-gap`, `missed-intentional` (with a
 citation), or flagging Rekon findings classic never produced as `new`.
@@ -49,7 +49,7 @@ corpus root carries a hand-authored `corpus.json`:
 `.rekon/` output there during `rekon refresh`; it mutates nothing else).
 `classicOutput` is a directory containing classic's `issues.json` for that
 repo's baseline scan (classic writes it to
-`<repo>/.codebase-intel/reports/issues.json`; copy it into the corpus).
+`<repo>/reports/issues.json`; copy it into the corpus).
 `classic-v1` is the only supported format in bench v1.
 
 ## Rule map

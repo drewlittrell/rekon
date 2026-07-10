@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { access, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import docsCapability, {
@@ -150,7 +150,12 @@ import modelCapability, {
   type IntentPlanSemanticNormalizationAdapter,
   type SemanticFileUnderstandingAdapter,
   type SemanticFileUnderstandingAdapterResult,
+  type SemanticDebtAdapterResult,
+  type SemanticDebtJudgmentAdapter,
   buildSemanticFileUnderstandingReport,
+  buildSemanticDebtJudgmentPrompt,
+  coerceDebtConcerns,
+  SEMANTIC_DEBT_PROMPT_VERSION,
   SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
   buildCapabilityEvidenceGraph,
   selectSemanticReportsForGraph,
@@ -255,6 +260,9 @@ import {
   type PreparedIntentPlan,
   type ObservedRepo,
   type OwnershipMap,
+  createSemanticDebtJudgmentReport,
+  type SemanticDebtJudgmentEntry,
+  type SemanticDebtJudgmentReport,
   type StepCapabilityGraph,
 } from "@rekon/kernel-repo-model";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
@@ -655,15 +663,6 @@ export async function main(argv: string[]): Promise<void> {
         ? "snapshot_ready"
         : "initialized_without_snapshot";
 
-    // Run the shared substrate pipeline — identical to `rekon refresh` with no
-    // skips, so scan produces the same substrate refresh produces.
-    const refresh = await runRefresh(root, {});
-
-    const snapshotReady = await detectSnapshotReady();
-    const stateAfter: RekonWorkspaceState = snapshotReady
-      ? "snapshot_ready"
-      : "initialized_without_snapshot";
-
     const firstScan = stateBefore !== "snapshot_ready";
     const nextActions = [
       'rekon intent assess --goal "..."',
@@ -684,21 +683,15 @@ export async function main(argv: string[]): Promise<void> {
       implementedIntentGo: false,
     };
 
-    // Semantic File Understanding scan layer (slice 147) — EXPLICIT opt-in.
-    // Absent `--semantic-files` → plain deterministic scan: no `semanticFiles`
-    // in the output and no provider call. `--semantic-files off` is the explicit
-    // no-op form. The deterministic substrate above always runs regardless.
+    // Semantic mode resolution is shared by scan-time semantic overlays. The
+    // file-understanding layer remains an explicit `--semantic-files` producer,
+    // while semantic debt defaults from the resolved mode so keyless scans can
+    // explain that the proposal layer did no LLM work.
     const semanticFilesFlagRaw = parsed.flags["semantic-files"];
     const semanticFilesRequested = semanticFilesFlagRaw !== undefined;
-    const semanticFilesMode = typeof semanticFilesFlagRaw === "string" ? semanticFilesFlagRaw.trim() : "off";
-    if (
-      semanticFilesRequested &&
-      semanticFilesMode !== "off" &&
-      semanticFilesMode !== "auto" &&
-      semanticFilesMode !== "required"
-    ) {
-      throw new Error("rekon scan --semantic-files must be one of off, auto, required.");
-    }
+    const resolvedSemanticFilesMode = await resolveScanSemanticFilesMode(root, parsed.flags);
+    const semanticFilesMode: SemanticLayerMode = semanticFilesRequested ? resolvedSemanticFilesMode : "off";
+    const semanticDebtMode = resolveScanSemanticDebtMode(parsed.flags, resolvedSemanticFilesMode);
     const semanticLlmProvider =
       typeof parsed.flags["llm-provider"] === "string" ? String(parsed.flags["llm-provider"]).trim() : "";
     const semanticLlmModel =
@@ -714,6 +707,60 @@ export async function main(argv: string[]): Promise<void> {
       }
       semanticFileLimit = parsedLimit;
     }
+    let semanticDebtFileLimit = SEMANTIC_DEBT_DEFAULT_FILE_LIMIT;
+    if (parsed.flags["semantic-debt-file-limit"] !== undefined) {
+      const parsedLimit = Number.parseInt(String(parsed.flags["semantic-debt-file-limit"]), 10);
+      if (!Number.isFinite(parsedLimit) || parsedLimit < 0) {
+        throw new Error("rekon scan --semantic-debt-file-limit must be a non-negative integer.");
+      }
+      semanticDebtFileLimit = parsedLimit;
+    }
+
+    const semanticDebtStore = createLocalArtifactStore(root);
+    const semanticDebtLayer = await runSemanticDebtLayer({
+      root,
+      store: semanticDebtStore,
+      mode: semanticDebtMode,
+      llmProvider: semanticLlmProvider,
+      llmModel: semanticLlmModel,
+      fileLimit: semanticDebtFileLimit,
+    });
+
+    if (semanticDebtLayer.exitNonZero && semanticDebtLayer.summary.providerAvailable === false) {
+      const scanOutput = {
+        command: "scan" as const,
+        status: "failed" as const,
+        workspace: {
+          stateBefore,
+          stateAfter: stateBefore,
+          initialized: false,
+        },
+        snapshot: { ready: false },
+        summary: { artifacts: 0 },
+        nextActions,
+        boundaries,
+        semanticDebt: semanticDebtLayer.summary,
+        ...(semanticDebtLayer.message ? { message: semanticDebtLayer.message } : {}),
+      };
+
+      if (json) {
+        writeOutput(scanOutput, true);
+      } else {
+        writeOutput(semanticDebtLayer.message ?? "Semantic debt required, but no LLM provider/key is available.", false);
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    // Run the shared substrate pipeline — identical to `rekon refresh` with no
+    // skips, so scan produces the same substrate refresh produces. Semantic debt
+    // runs before this so the policy evaluator can lift the current report.
+    const refresh = await runRefresh(root, {});
+
+    const snapshotReady = await detectSnapshotReady();
+    const stateAfter: RekonWorkspaceState = snapshotReady
+      ? "snapshot_ready"
+      : "initialized_without_snapshot";
 
     let semanticLayer: SemanticScanLayerResult = {
       summary: { mode: "off", selected: 0, written: 0, reused: 0, skipped: 0, failed: 0 },
@@ -725,7 +772,7 @@ export async function main(argv: string[]): Promise<void> {
       semanticLayer = await runSemanticScanLayer({
         root,
         store: semanticStore,
-        mode: semanticFilesMode as "off" | "auto" | "required",
+        mode: semanticFilesMode,
         llmProvider: semanticLlmProvider,
         llmModel: semanticLlmModel,
         fileLimit: semanticFileLimit,
@@ -748,6 +795,7 @@ export async function main(argv: string[]): Promise<void> {
       boundaries,
       refresh,
       ...(semanticFilesRequested ? { semanticFiles: semanticLayer.summary } : {}),
+      semanticDebt: semanticDebtLayer.summary,
     };
 
     if (json) {
@@ -761,6 +809,14 @@ export async function main(argv: string[]): Promise<void> {
             ...(semanticLayer.message ? [semanticLayer.message] : []),
           ]
         : [];
+      const semanticDebtHumanLines: string[] = [
+        semanticDebtLayer.summary.mode === "off"
+          ? "Semantic debt: off"
+          : semanticDebtLayer.summary.mode === "auto" && semanticDebtLayer.summary.providerAvailable === false
+            ? "Semantic debt: auto — no LLM key detected; deterministic debt markers only (set OPENAI_API_KEY, or opt out with --no-semantic)"
+            : `Semantic debt: ${semanticDebtLayer.summary.mode} — ${semanticDebtLayer.summary.judged} judged, ${semanticDebtLayer.summary.filesWithDebt} with debt, ${semanticDebtLayer.summary.reused} reused, ${semanticDebtLayer.summary.skipped} skipped, ${semanticDebtLayer.summary.failed} failed`,
+        ...(semanticDebtLayer.message ? [semanticDebtLayer.message] : []),
+      ];
       const scanLines = [
         "Rekon scan",
         "",
@@ -768,6 +824,7 @@ export async function main(argv: string[]): Promise<void> {
         `Snapshot: ${snapshotReady ? "ready" : "not ready"}`,
         `Artifacts: ${refresh.artifacts.length}`,
         ...semanticHumanLines,
+        ...semanticDebtHumanLines,
         firstScan ? "First scan complete." : "Scan complete.",
         "",
         "Next:",
@@ -778,7 +835,7 @@ export async function main(argv: string[]): Promise<void> {
       writeOutput(scanLines.join("\n"), false);
     }
 
-    if (refresh.status === "failed" || semanticLayer.exitNonZero) {
+    if (refresh.status === "failed" || semanticLayer.exitNonZero || semanticDebtLayer.exitNonZero) {
       process.exitCode = 1;
     }
 
@@ -3653,6 +3710,9 @@ export async function main(argv: string[]): Promise<void> {
         artifactsValid,
         pathFreshnessReport,
         pathFreshnessRef,
+        proofChainWarnings: proofChainCoherenceWarning
+          ? [proofChainCoherenceWarning]
+          : undefined,
       });
 
       const readiness = assessGitHubCheckPublisherReadiness({
@@ -3724,6 +3784,9 @@ export async function main(argv: string[]): Promise<void> {
       artifactsValid,
       pathFreshnessReport,
       pathFreshnessRef,
+      proofChainWarnings: proofChainCoherenceWarning
+        ? [proofChainCoherenceWarning]
+        : undefined,
     });
 
     const readiness = assessGitHubCheckPublisherReadiness({
@@ -5747,10 +5810,10 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error("rekon semantic file understand --semantic must be one of off, auto, required.");
     }
 
-    const resolvedFilePath = resolve(root, pathFlag);
+    const resolvedFile = await resolveReadableRepoFile(root, pathFlag, "rekon semantic file understand");
     let fileText: string;
     try {
-      fileText = await readFile(resolvedFilePath, "utf8");
+      fileText = await readFile(resolvedFile.absolutePath, "utf8");
     } catch {
       throw new Error(`rekon semantic file understand could not read the file at ${pathFlag}.`);
     }
@@ -5772,7 +5835,7 @@ export async function main(argv: string[]): Promise<void> {
     await store.init();
 
     const { report, ref } = await produceSemanticFileUnderstandingReport(store, {
-      filePath: pathFlag,
+      filePath: resolvedFile.relativePath,
       fileText,
       fileSha256,
       root,
@@ -9309,6 +9372,41 @@ const SEMANTIC_SCAN_EXCLUDED_DIRS = new Set(["node_modules", "dist", "build", "c
 const SEMANTIC_SCAN_EXCLUDED_FILES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "npm-shrinkwrap.json"]);
 const SEMANTIC_SCAN_MAX_BYTES = 262144; // 256 KiB — skip large files conservatively.
 const SEMANTIC_SCAN_DEFAULT_FILE_LIMIT = 100;
+/**
+ * Placeholder default until the operator-path eval pins the debt judge model.
+ * Operators can override it with `--llm-model` or `REKON_LLM_MODEL`.
+ */
+const SEMANTIC_DEBT_DEFAULT_MODEL = "gpt-4o-mini";
+const SEMANTIC_DEBT_DEFAULT_FILE_LIMIT = 200;
+const SEMANTIC_DEBT_MAX_PROMPT_CHARS = 24000;
+const SEMANTIC_DEBT_EXCLUDED_PREFIXES = [".claude/", ".codex/", ".agents/"] as const;
+const SEMANTIC_DEBT_REPORT_ARTIFACT_ID_PREFIX = "semantic-debt-judgment-report-";
+
+type SemanticLayerMode = "off" | "auto" | "required";
+
+function isSemanticLayerMode(value: string): value is SemanticLayerMode {
+  return value === "off" || value === "auto" || value === "required";
+}
+
+function normalizeSemanticFlagMode(value: unknown, fallback: SemanticLayerMode): SemanticLayerMode {
+  if (typeof value === "string" && value.trim().length > 0) {
+    const mode = value.trim();
+    if (isSemanticLayerMode(mode)) return mode;
+    throw new Error("semantic mode must be one of off, auto, required.");
+  }
+  if (value === true) return "auto";
+  return fallback;
+}
+
+function envDisablesLlm(value: string | undefined): boolean {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "0" || normalized === "false" || normalized === "off";
+}
+
+function envAllowsLlm(value: string | undefined): boolean {
+  return !envDisablesLlm(value);
+}
 
 /**
  * Conservative recursive file selection for the semantic scan layer. Includes a
@@ -9675,9 +9773,10 @@ async function runSemanticScanLayer(input: {
   // File selection.
   let candidates: string[];
   if (input.filePath.length > 0) {
-    // Explicit path bypasses the allow-list / lockfile / size filters.
-    const abs = resolve(root, input.filePath);
-    candidates = [relative(root, abs).replace(/\\/g, "/")];
+    // Explicit path bypasses the allow-list / lockfile / size filters, but not
+    // the repo-containment guard before any read or provider call.
+    const selected = await resolveReadableRepoFile(root, input.filePath, "rekon scan --semantic-files");
+    candidates = [selected.relativePath];
   } else {
     candidates = await collectSemanticScanCandidates(root);
   }
@@ -9726,15 +9825,22 @@ async function runSemanticScanLayer(input: {
       skipped += candidates.length - i;
       break;
     }
-    const relPath = candidates[i];
+    let relPath = candidates[i];
     if (typeof relPath !== "string" || relPath.length === 0) {
       skipped += 1;
       continue;
     }
-    const abs = resolve(root, relPath);
+    let selectedFile: { absolutePath: string; relativePath: string };
+    try {
+      selectedFile = await resolveReadableRepoFile(root, relPath, "rekon scan --semantic-files");
+      relPath = selectedFile.relativePath;
+    } catch {
+      skipped += 1;
+      continue;
+    }
     let text: string;
     try {
-      text = await readFile(abs, "utf8");
+      text = await readFile(selectedFile.absolutePath, "utf8");
     } catch {
       skipped += 1;
       continue;
@@ -9801,6 +9907,277 @@ async function runSemanticScanLayer(input: {
     exitNonZero: requiredHardFail,
     ...(requiredHardFail
       ? { message: "Semantic files required, but a provider call returned no usable result; not all files were analyzed." }
+      : {}),
+  };
+}
+
+type SemanticDebtLayerSummary = {
+  mode: SemanticLayerMode;
+  judged: number;
+  filesWithDebt: number;
+  reused: number;
+  failed: number;
+  skipped: number;
+  provider?: string;
+  model?: string;
+  providerAvailable?: boolean;
+};
+
+type SemanticDebtLayerResult = {
+  summary: SemanticDebtLayerSummary;
+  exitNonZero: boolean;
+  message?: string;
+};
+
+function semanticDebtZeroSummary(
+  mode: SemanticLayerMode,
+  extra: Partial<SemanticDebtLayerSummary> = {},
+): SemanticDebtLayerSummary {
+  return {
+    mode,
+    judged: 0,
+    filesWithDebt: 0,
+    reused: 0,
+    failed: 0,
+    skipped: 0,
+    ...extra,
+  };
+}
+
+function languageForSemanticDebtPath(relPath: string): string | undefined {
+  const lower = relPath.toLowerCase();
+  if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
+  if (lower.endsWith(".js") || lower.endsWith(".jsx") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) {
+    return "javascript";
+  }
+  if (lower.endsWith(".json")) return "json";
+  if (lower.endsWith(".md")) return "markdown";
+  if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return "yaml";
+  return undefined;
+}
+
+function semanticDebtPolicyMatches(
+  report: unknown,
+  policy: { provider: string; model: string; promptVersion: string },
+): report is SemanticDebtJudgmentReport {
+  if (!report || typeof report !== "object" || Array.isArray(report)) return false;
+  const candidate = report as { policy?: { provider?: unknown; model?: unknown; promptVersion?: unknown } };
+  return candidate.policy?.provider === policy.provider
+    && candidate.policy?.model === policy.model
+    && candidate.policy?.promptVersion === policy.promptVersion;
+}
+
+function semanticDebtEntryMap(report: SemanticDebtJudgmentReport): Map<string, SemanticDebtJudgmentEntry> {
+  const out = new Map<string, SemanticDebtJudgmentEntry>();
+  for (const entry of report.entries ?? []) {
+    if (entry && typeof entry.path === "string" && entry.path.length > 0) {
+      out.set(entry.path, entry);
+    }
+  }
+  return out;
+}
+
+async function runSemanticDebtLayer(input: {
+  root: string;
+  store: ReturnType<typeof createLocalArtifactStore>;
+  mode: SemanticLayerMode;
+  llmProvider: string;
+  llmModel: string;
+  fileLimit: number;
+}): Promise<SemanticDebtLayerResult> {
+  const { root, store, mode } = input;
+  if (mode === "off") {
+    return { summary: semanticDebtZeroSummary("off"), exitNonZero: false };
+  }
+
+  const envProvider = typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
+  const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
+  const providerResolved = input.llmProvider || envProvider || "openai";
+  const modelResolved = input.llmModel || envModel || SEMANTIC_DEBT_DEFAULT_MODEL;
+  const keyPresent = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim().length > 0;
+  const providerAvailable = keyPresent && envAllowsLlm(process.env.REKON_LLM_ENABLED);
+  const providerModelSummary = {
+    provider: providerResolved,
+    model: modelResolved,
+    providerAvailable,
+  };
+
+  if (!providerAvailable) {
+    const summary = semanticDebtZeroSummary(mode, providerModelSummary);
+    if (mode === "required") {
+      return {
+        summary,
+        exitNonZero: true,
+        message:
+          "Semantic debt required, but no LLM provider/key is available; wrote no SemanticDebtJudgmentReport.",
+      };
+    }
+    return { summary, exitNonZero: false };
+  }
+
+  await store.init();
+  const adapter = createSemanticDebtJudgmentAdapter(mode, providerResolved, modelResolved);
+  const policy = {
+    provider: providerResolved,
+    model: modelResolved,
+    promptVersion: SEMANTIC_DEBT_PROMPT_VERSION,
+  };
+
+  let priorByPath = new Map<string, SemanticDebtJudgmentEntry>();
+  try {
+    const priorRefs = await store.list("SemanticDebtJudgmentReport");
+    const latest = priorRefs.at(-1);
+    if (latest) {
+      const prior = await store.read(latest);
+      if (semanticDebtPolicyMatches(prior, policy)) {
+        priorByPath = semanticDebtEntryMap(prior);
+      }
+    }
+  } catch {
+    priorByPath = new Map();
+  }
+
+  const candidates = (await collectSemanticScanCandidates(root)).filter(
+    (relPath) => !SEMANTIC_DEBT_EXCLUDED_PREFIXES.some((prefix) => relPath.startsWith(prefix)),
+  );
+  const entries: SemanticDebtJudgmentEntry[] = [];
+  let judged = 0;
+  let filesWithDebt = 0;
+  let reused = 0;
+  let failed = 0;
+  let skipped = 0;
+  let requiredHardFail = false;
+  let usedProvider: string | undefined;
+  let usedModel: string | undefined;
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const relPath = candidates[i] ?? "";
+    let selectedFile: { absolutePath: string; relativePath: string };
+    try {
+      selectedFile = await resolveReadableRepoFile(root, relPath, "rekon scan --semantic-debt");
+    } catch {
+      skipped += 1;
+      continue;
+    }
+
+    let text: string;
+    try {
+      text = await readFile(selectedFile.absolutePath, "utf8");
+    } catch {
+      skipped += 1;
+      continue;
+    }
+
+    if (text.indexOf("\u0000") !== -1) {
+      skipped += 1;
+      continue;
+    }
+
+    const sha256 = createHash("sha256").update(text).digest("hex");
+    const prior = priorByPath.get(selectedFile.relativePath);
+    if (prior && prior.sha256 === sha256) {
+      const reusedEntry: SemanticDebtJudgmentEntry = { ...prior, reused: true };
+      entries.push(reusedEntry);
+      reused += 1;
+      if (reusedEntry.verdict === "debt" && reusedEntry.concerns.some((concern) => concern.included === true)) {
+        filesWithDebt += 1;
+      }
+      continue;
+    }
+
+    if (judged + failed >= input.fileLimit) {
+      skipped += candidates.length - i;
+      break;
+    }
+
+    const promptText = text.length > SEMANTIC_DEBT_MAX_PROMPT_CHARS
+      ? `${text.slice(0, SEMANTIC_DEBT_MAX_PROMPT_CHARS)}\n[truncated for judgment]`
+      : text;
+    const result = await adapter({
+      filePath: selectedFile.relativePath,
+      fileText: promptText,
+      language: languageForSemanticDebtPath(selectedFile.relativePath),
+    });
+
+    if (!usedProvider && result.provider) usedProvider = result.provider;
+    if (!usedModel && result.model) usedModel = result.model;
+
+    if (!Array.isArray(result.concerns)) {
+      failed += 1;
+      entries.push({
+        path: selectedFile.relativePath,
+        sha256,
+        verdict: "failed",
+        concerns: [],
+        reused: false,
+        warnings: result.warnings && result.warnings.length > 0 ? result.warnings : ["provider-result-missing-concerns"],
+      });
+      if (mode === "required") {
+        requiredHardFail = true;
+        break;
+      }
+      continue;
+    }
+
+    const concerns = coerceDebtConcerns(result);
+    const verdict = concerns.some((concern) => concern.included) ? "debt" : "clean";
+    judged += 1;
+    if (verdict === "debt") filesWithDebt += 1;
+    entries.push({
+      path: selectedFile.relativePath,
+      sha256,
+      verdict,
+      concerns,
+      reused: false,
+      ...(result.warnings && result.warnings.length > 0 ? { warnings: result.warnings } : {}),
+    });
+  }
+
+  const generatedAt = new Date().toISOString();
+  const report = createSemanticDebtJudgmentReport({
+    header: {
+      artifactType: "SemanticDebtJudgmentReport",
+      artifactId: `${SEMANTIC_DEBT_REPORT_ARTIFACT_ID_PREFIX}${Date.parse(generatedAt) || Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root },
+      producer: { id: "@rekon/cli.semantic-debt-judgment", version: "0.1.0" },
+      inputRefs: [],
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.6 },
+    },
+    schemaVersion: "0.1.0",
+    policy: { mode: mode === "required" ? "required" : "auto", ...policy },
+    summary: { filesJudged: judged, filesWithDebt, reused, failed, skipped },
+    entries,
+    boundaries: {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      createdPreparedIntentPlan: false,
+      createdWorkOrder: false,
+      createdVerificationPlan: false,
+      generatedEmbeddings: false,
+      ranCirce: false,
+      implementedIntentGo: false,
+    },
+  });
+  await store.write(report, { category: "actions" });
+
+  return {
+    summary: {
+      mode,
+      judged,
+      filesWithDebt,
+      reused,
+      failed,
+      skipped,
+      provider: usedProvider ?? providerResolved,
+      model: usedModel ?? modelResolved,
+      providerAvailable: true,
+    },
+    exitNonZero: requiredHardFail,
+    ...(requiredHardFail
+      ? { message: "Semantic debt required, but a provider call returned no usable result; not all files were judged." }
       : {}),
   };
 }
@@ -9887,6 +10264,69 @@ function createSemanticFileUnderstandingAdapter(
         ? (data as SemanticFileUnderstandingAdapterResult)
         : {};
     const result: SemanticFileUnderstandingAdapterResult = { ...base };
+    if (routed.result.provider) result.provider = routed.result.provider;
+    if (routed.result.model) result.model = routed.result.model;
+    return result;
+  };
+}
+
+function createSemanticDebtJudgmentAdapter(
+  mode: SemanticLayerMode,
+  flagProvider: string,
+  flagModel: string,
+): SemanticDebtJudgmentAdapter {
+  const envProvider =
+    typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
+  const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
+  const provider = flagProvider || envProvider || "openai";
+  const model = flagModel || envModel || SEMANTIC_DEBT_DEFAULT_MODEL;
+  const enabled =
+    envAllowsLlm(process.env.REKON_LLM_ENABLED)
+    && typeof process.env.OPENAI_API_KEY === "string"
+    && process.env.OPENAI_API_KEY.trim().length > 0;
+
+  const providers = [
+    createOpenAiLlmProvider({
+      id: "openai",
+      apiKey: process.env.OPENAI_API_KEY,
+      ...(typeof process.env.REKON_LLM_BASE_URL === "string" && process.env.REKON_LLM_BASE_URL.length > 0
+        ? { baseUrl: process.env.REKON_LLM_BASE_URL }
+        : {}),
+      defaultModel: model,
+    }),
+  ];
+
+  const router = new RekonLlmRouter({ config: { enabled }, providers });
+  const override: { provider?: string; model?: string; mode: SemanticLayerMode } = { mode };
+  if (provider) override.provider = provider;
+  if (model) override.model = model;
+
+  return async ({ filePath, fileText, language }) => {
+    const prompt = buildSemanticDebtJudgmentPrompt({ filePath, fileText, language });
+    const routed = await router.completeJson(
+      {
+        task: "policy.debt-judgment",
+        schemaName: "SemanticDebtJudgmentResult",
+        prompt,
+        temperature: 0,
+        maxOutputTokens: 1200,
+      },
+      override,
+    );
+
+    if (!routed.ok) {
+      return { warnings: [`provider-unavailable:${routed.error}`] };
+    }
+
+    const data = routed.result.data;
+    const base: SemanticDebtAdapterResult =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as SemanticDebtAdapterResult)
+        : {};
+    const result: SemanticDebtAdapterResult = { ...base };
+    if (!Array.isArray(result.concerns)) {
+      result.warnings = [...(result.warnings ?? []), "provider-result-missing-concerns"];
+    }
     if (routed.result.provider) result.provider = routed.result.provider;
     if (routed.result.model) result.model = routed.result.model;
     return result;
@@ -10157,9 +10597,61 @@ function sortByWrittenAtDesc<T extends { writtenAt: string }>(entries: T[]): T[]
   return [...entries].sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
 }
 
+async function resolveReadableRepoFile(
+  root: string,
+  inputPath: string,
+  commandName: string,
+): Promise<{ absolutePath: string; relativePath: string }> {
+  const repoRoot = resolve(root);
+  const absolutePath = resolve(repoRoot, inputPath);
+
+  if (!pathIsInside(absolutePath, repoRoot)) {
+    throw new Error(`${commandName} refuses to read paths outside --root.`);
+  }
+
+  let stats;
+
+  try {
+    stats = await lstat(absolutePath);
+  } catch {
+    throw new Error(`${commandName} could not read the file at ${inputPath}.`);
+  }
+
+  if (!stats.isFile() || stats.isSymbolicLink()) {
+    throw new Error(`${commandName} requires a regular source file inside --root.`);
+  }
+
+  let repoRealpath: string;
+  let fileRealpath: string;
+
+  try {
+    [repoRealpath, fileRealpath] = await Promise.all([realpath(repoRoot), realpath(absolutePath)]);
+  } catch {
+    throw new Error(`${commandName} could not resolve the file at ${inputPath}.`);
+  }
+
+  if (!pathIsInside(fileRealpath, repoRealpath)) {
+    throw new Error(`${commandName} refuses to read paths that resolve outside --root.`);
+  }
+
+  return {
+    absolutePath,
+    relativePath: relative(repoRealpath, fileRealpath).replace(/\\/g, "/"),
+  };
+}
+
+function pathIsInside(path: string, root: string): boolean {
+  const relativePath = relative(resolve(root), resolve(path));
+
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+}
+
 type RekonConfig = {
   capabilities?: Array<{ package: string }>;
   permissions?: Record<string, CapabilityPermission[]>;
+  semantic?: {
+    mode?: "off" | "auto" | "required";
+  };
 };
 
 const BUILT_IN_CAPABILITIES: Record<string, CapabilityDefinition> = {
@@ -10343,6 +10835,37 @@ function isCapabilityConfigEntry(value: unknown): value is { package: string } {
   );
 }
 
+function capabilityPackageSpecifierIssue(packageName: string): string | undefined {
+  const specifier = packageName.trim();
+
+  if (specifier.length === 0) {
+    return "capability package specifier must not be empty.";
+  }
+
+  if (specifier !== packageName) {
+    return "capability package specifier must not contain leading or trailing whitespace.";
+  }
+
+  if (
+    specifier.startsWith(".")
+    || specifier.startsWith("/")
+    || specifier.startsWith("~")
+    || specifier.includes("\\")
+    || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(specifier)
+    || specifier.split("/").includes("..")
+  ) {
+    return "capability package specifier must be an installed npm package name, not a file URL or filesystem path.";
+  }
+
+  const packageNamePattern = /^(?:[a-z0-9][a-z0-9._~-]*|@[a-z0-9][a-z0-9._~-]*\/[a-z0-9][a-z0-9._~-]*)$/;
+
+  if (!packageNamePattern.test(specifier)) {
+    return "capability package specifier must be a normalized npm package name.";
+  }
+
+  return undefined;
+}
+
 async function readConfig(root: string): Promise<RekonConfig> {
   const configPath = resolve(root, ".rekon", "config.json");
 
@@ -10354,12 +10877,60 @@ async function readConfig(root: string): Promise<RekonConfig> {
         ? parsed.capabilities
         : DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
       permissions: parsed.permissions ?? {},
+      ...(parsed.semantic ? { semantic: parsed.semantic } : {}),
     };
   } catch {
     return {
       capabilities: DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
       permissions: {},
     };
+  }
+}
+
+async function resolveScanSemanticFilesMode(
+  root: string,
+  flags: Record<string, string | boolean | string[]>,
+): Promise<SemanticLayerMode> {
+  if (flags["semantic-files"] !== undefined) {
+    try {
+      return normalizeSemanticFlagMode(flags["semantic-files"], "auto");
+    } catch {
+      throw new Error("rekon scan --semantic-files must be one of off, auto, required.");
+    }
+  }
+
+  if (flags["no-semantic"] === true) return "off";
+
+  const envMode = typeof process.env.REKON_SEMANTIC === "string" ? process.env.REKON_SEMANTIC.trim() : "";
+  if (envMode.length > 0) {
+    if (!isSemanticLayerMode(envMode)) {
+      throw new Error("REKON_SEMANTIC must be one of off, auto, required.");
+    }
+    return envMode;
+  }
+
+  const config = await readConfig(root);
+  const configMode = config.semantic?.mode;
+  if (typeof configMode === "string") {
+    if (!isSemanticLayerMode(configMode)) {
+      throw new Error(".rekon/config.json semantic.mode must be one of off, auto, required.");
+    }
+    return configMode;
+  }
+
+  return "auto";
+}
+
+function resolveScanSemanticDebtMode(
+  flags: Record<string, string | boolean | string[]>,
+  resolvedSemanticFilesMode: SemanticLayerMode,
+): SemanticLayerMode {
+  if (flags["no-semantic"] === true) return "off";
+  if (flags["semantic-debt"] === undefined) return resolvedSemanticFilesMode;
+  try {
+    return normalizeSemanticFlagMode(flags["semantic-debt"], "auto");
+  } catch {
+    throw new Error("rekon scan --semantic-debt must be one of off, auto, required.");
   }
 }
 
@@ -10372,6 +10943,12 @@ async function loadConfiguredCapabilities(config: RekonConfig): Promise<Capabili
 
     if (builtIn) {
       return builtIn;
+    }
+
+    const specifierIssue = capabilityPackageSpecifierIssue(packageName);
+
+    if (specifierIssue) {
+      throw new Error(`Refusing unsafe Rekon capability package '${packageName}': ${specifierIssue}`);
     }
 
     try {
@@ -11851,6 +12428,7 @@ const KNOWN_PERMISSIONS: ReadonlySet<CapabilityPermission> = new Set([
   "write:artifacts",
   "write:source",
   "execute:commands",
+  "execute:verification",
   "network:outbound",
 ]);
 
@@ -12025,6 +12603,18 @@ async function validateConfig(root: string): Promise<ConfigValidationResult> {
           code: "capability-package-missing",
           severity: "error",
           message: "capability entry must declare a non-empty 'package' string.",
+          path: `${entryPath}.package`,
+        });
+        continue;
+      }
+
+      const specifierIssue = capabilityPackageSpecifierIssue(packageName);
+
+      if (specifierIssue) {
+        issues.push({
+          code: "capability-package-unsafe",
+          severity: "error",
+          message: specifierIssue,
           path: `${entryPath}.package`,
         });
         continue;
@@ -13654,7 +14244,7 @@ function asStringArray(value: unknown): string[] {
 
 function usage(): string {
   return [
-    "rekon scan [--semantic-files off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--root <path>] [--json]",
+    "rekon scan [--semantic-files off|auto|required] [--semantic-debt off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--semantic-debt-file-limit <n>] [--root <path>] [--json]",
     "rekon welcome [--json] [--no-banner]",
     "rekon setup [--root <path>] [--json] [--no-banner]",
     "rekon init [--root <path>]",

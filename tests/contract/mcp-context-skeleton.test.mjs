@@ -10,6 +10,7 @@ import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { after, before, test } from "node:test";
+import { digestJson } from "@rekon/kernel-artifacts";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliEntry = join(repoRoot, "packages/cli/dist/index.js");
@@ -233,8 +234,10 @@ test("staleness propagation: a backdated source is served marked stale, never si
     const capPath = capEntry.path.startsWith(".rekon") ? join(fixtureRoot, capEntry.path) : capEntry.path;
     const body = JSON.parse(readFileSync(capPath, "utf8"));
     body.header.generatedAt = "2001-01-01T00:00:00.000Z";
+    capEntry.digest = digestJson(body);
     writeFileSync(capPath, JSON.stringify(body));
   }
+  writeFileSync(join(fixtureRoot, ".rekon/registry/artifacts.index.json"), `${JSON.stringify(index, null, 2)}\n`);
 
   // Fresh server: the reader caches bodies per process.
   const stale = startServer(fixtureRoot);
@@ -266,6 +269,29 @@ test("fail closed: unscanned repo yields a typed explain-and-point response, not
     assert.deepEqual(ping.result, {});
   } finally {
     bare.stop();
+  }
+});
+
+test("MCP artifact reader refuses forged index paths outside .rekon/artifacts", () => {
+  const forgedRoot = mkdtempSync(join(tmpdir(), "rekon-mcp-forged-"));
+
+  try {
+    cpSync(fixtureRoot, forgedRoot, { recursive: true });
+    const indexPath = join(forgedRoot, ".rekon/registry/artifacts.index.json");
+    const index = JSON.parse(readFileSync(indexPath, "utf8"));
+    const snapshots = index.filter((entry) => entry.artifactType === "IntelligenceSnapshot");
+    assert.ok(snapshots.length > 0, "fixture must include an IntelligenceSnapshot");
+
+    for (const snapshot of snapshots) {
+      snapshot.path = "../outside-snapshot.json";
+    }
+    writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
+
+    const payload = mcp.buildOrientation(forgedRoot);
+
+    assert.ok(payload.unavailable?.reason.includes("No IntelligenceSnapshot artifact exists yet."));
+  } finally {
+    rmSync(forgedRoot, { recursive: true, force: true });
   }
 });
 

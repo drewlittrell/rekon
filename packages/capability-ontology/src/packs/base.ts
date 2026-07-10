@@ -51,7 +51,7 @@ export const basePack: CapabilityOntologyPack = {
       { canonical: "subscribe", category: "communicate", aliases: ["listen", "watch"] },
       { canonical: "send", category: "communicate", aliases: ["post"] },
       { canonical: "receive", category: "communicate", aliases: ["consume"] },
-      // Ported from codebase-intel-classic ontology (WO-4); per-key audit in verb-rules.ontology.yaml rows of
+      // Ported from legacy-source ontology (WO-4); per-key audit in verb-rules.ontology.yaml rows of
       // packages/capability-ontology/grammar-port-manifest.json.
       { canonical: "acces", category: "system", aliases: [] },
       { canonical: "cach", category: "system", aliases: [] },
@@ -62,7 +62,7 @@ export const basePack: CapabilityOntologyPack = {
       { canonical: "log", category: "communicate", aliases: [] },
       { canonical: "schedule", category: "system", aliases: [] },
     ],
-    // Ported from codebase-intel-classic verb-rules.ontology.yaml (WO-4):
+    // Ported from legacy-source verb-rules.ontology.yaml (WO-4):
     // 3rd-person capability-phrase forms reconciled onto base-form canon.
     aliases: {
       "accesses": "acces",
@@ -247,7 +247,7 @@ export const basePack: CapabilityOntologyPack = {
       { canonical: "view", category: "ui", aliases: ["screen"] },
       { canonical: "form", category: "ui", aliases: [] },
       { canonical: "record", category: "data", aliases: ["row", "entity", "item", "doc", "document"] },
-      // Ported from codebase-intel-classic ontology (WO-4); per-key audit in nouns.ontology.yaml rows of
+      // Ported from legacy-source ontology (WO-4); per-key audit in nouns.ontology.yaml rows of
       // packages/capability-ontology/grammar-port-manifest.json.
       { canonical: "analysis", category: "process", aliases: [] },
       { canonical: "assessment", category: "process", aliases: [] },
@@ -280,7 +280,7 @@ export const basePack: CapabilityOntologyPack = {
       { canonical: "taxonomy", category: "system", aliases: [] },
       { canonical: "thread", category: "domain", aliases: [] },
     ],
-    // Ported from codebase-intel-classic nouns.ontology.yaml (WO-4).
+    // Ported from legacy-source nouns.ontology.yaml (WO-4).
     aliases: {
       "cfg": "config",
       "cfgs": "config",

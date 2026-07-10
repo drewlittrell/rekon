@@ -195,6 +195,37 @@ test("capabilities cannot request unknown permissions", () => {
   );
 });
 
+test("capabilities must declare permissions before registration", () => {
+  assert.throws(
+    () => defineCapability({
+      manifest: {
+        id: "@rekon/capability-no-permissions",
+        name: "No Permissions",
+        version: "0.1.0",
+        roles: ["evidence-provider"],
+        consumes: ["SourceFile"],
+        produces: ["EvidenceGraph"],
+        compatibility: {
+          rekon: "^0.1.0",
+        },
+      },
+      register(registry) {
+        registry.evidenceProvider(provider);
+      },
+    }),
+    /manifest.permissions/,
+  );
+
+  assert.throws(
+    () => sampleCapability({
+      manifest: {
+        permissions: [],
+      },
+    }),
+    /manifest.permissions must declare at least one permission/,
+  );
+});
+
 test("validateCapability reports conformance issues without throwing", () => {
   const result = validateCapability(sampleCapability({
     manifest: {

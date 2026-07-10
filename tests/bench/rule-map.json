@@ -40,9 +40,10 @@
   },
   "tech_debt": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B/§C; docs/work-orders/wo-14-detection-wave-1.md (sub-order A); coverage scoring per bench policy item 2 (LLM-origin baseline)",
-    "note": "Split: deterministic markers + trend in the default set; LLM debt judgment as opt-in semantic overlay via the bridge pattern. LLM-origin: scores by goal-level file-set coverage when the detector lands.",
+    "citation": "docs/strategy/detection-design-decisions.md §B/§C; CHANGELOG.md Unreleased WO-25 Semantic Debt Overlay; coverage scoring per bench policy item 2 (LLM-origin baseline)",
+    "note": "WO-25 maps the LLM-origin tech_debt goal to deterministic markers plus the semantic debt overlay under the 2026-07-09 models-on-by-default operator ruling. Scores by goal-level file-set coverage.",
     "rekonRuleId": "debt.markers",
+    "rekonRuleIds": ["debt.markers", "debt.semantic"],
     "scoring": "coverage"
   },
   "stub": {

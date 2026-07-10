@@ -9,8 +9,8 @@ history log, work queue, or execution transcript.
 - [Capability model](capability-model.md): extension roles, manifests,
   permissions, and artifact expectations.
 - [Roadmap](roadmap.md): committed direction and future areas of investment.
-- [Classic migration](codebase-intel-classic-migration.md): how proven
-  behavior from the reference implementation maps into Rekon.
+- [Migration model](legacy-reference-migration.md): how proven behavior from
+  private reference systems maps into Rekon.
 
 Historical planning notes and one-off execution records are intentionally not
 tracked here. Public docs should describe the product as it exists and the

@@ -36,7 +36,7 @@ export type CapabilityManifest = {
   roles: CapabilityRole[];
   consumes: string[];
   produces: string[];
-  permissions?: CapabilityPermission[];
+  permissions: CapabilityPermission[];
   invalidatedBy?: InvalidationRule[];
   compatibility: {
     rekon: string;
@@ -277,6 +277,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "IntentStatusReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "IntentPlanActionabilityReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "SemanticFileUnderstandingReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "SemanticDebtJudgmentReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "CapabilityEvidenceGraph", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "TaskContextReport", schemaVersion: "0.1.0", stability: "experimental" },
 ];
@@ -452,6 +453,11 @@ function validateManifest(manifest: CapabilityManifest): void {
   ensureStringArray(manifest.roles, "manifest.roles");
   ensureStringArray(manifest.consumes, "manifest.consumes");
   ensureStringArray(manifest.produces, "manifest.produces");
+  ensureStringArray(manifest.permissions, "manifest.permissions");
+
+  if (manifest.permissions.length === 0) {
+    throw new TypeError("manifest.permissions must declare at least one permission.");
+  }
 
   if (!manifest.compatibility || typeof manifest.compatibility !== "object") {
     throw new TypeError("manifest.compatibility is required.");
@@ -465,7 +471,7 @@ function validateManifest(manifest: CapabilityManifest): void {
     }
   }
 
-  for (const permission of manifest.permissions ?? []) {
+  for (const permission of manifest.permissions) {
     if (!VALID_PERMISSIONS.has(permission)) {
       throw new Error(`Unknown capability permission: ${permission}`);
     }
@@ -851,7 +857,7 @@ function cloneRegisteredCapability(capability: RegisteredCapability): Registered
       roles: [...capability.manifest.roles],
       consumes: [...capability.manifest.consumes],
       produces: [...capability.manifest.produces],
-      permissions: capability.manifest.permissions ? [...capability.manifest.permissions] : undefined,
+      permissions: [...capability.manifest.permissions],
       invalidatedBy: capability.manifest.invalidatedBy
         ? capability.manifest.invalidatedBy.map((rule) => ({ ...rule }))
         : undefined,

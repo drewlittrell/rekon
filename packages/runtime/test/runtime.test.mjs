@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
 import { defineCapability } from "@rekon/sdk";
+import { digestJson } from "@rekon/kernel-artifacts";
 import {
   createLocalArtifactStore,
   createRuntime,
@@ -95,6 +96,62 @@ test("artifact index validation checks paths, headers, digests, and duplicates",
     assert.equal(ref.type, "EvidenceGraph");
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("artifact reads reject forged outside paths and symlinked artifact bodies", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+  const outside = await mkdtemp(join(tmpdir(), "rekon-runtime-outside-"));
+
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const artifact = evidenceArtifact("evidence-test");
+    const ref = await store.write(artifact);
+    const outsideArtifact = evidenceArtifact("evidence-outside");
+    const outsidePath = join(outside, "outside.json");
+    await writeFile(outsidePath, `${JSON.stringify(outsideArtifact, null, 2)}\n`, "utf8");
+
+    await assert.rejects(
+      () => store.read({
+        type: "EvidenceGraph",
+        id: "evidence-outside",
+        schemaVersion: "0.1.0",
+        path: "../outside.json",
+        digest: digestJson(outsideArtifact),
+      }),
+      /Artifact index entries must point under \.rekon\/artifacts|Path must stay inside/,
+    );
+
+    const artifactPath = join(root, ref.path);
+    await rm(artifactPath);
+    await symlink(outsidePath, artifactPath, "file");
+
+    await assert.rejects(
+      () => store.read(ref),
+      /must not be a symlink/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("runtime initialization refuses a symlinked .rekon workspace", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+  const outside = await mkdtemp(join(tmpdir(), "rekon-runtime-workspace-"));
+
+  try {
+    await symlink(outside, join(root, ".rekon"), "dir");
+    const store = createLocalArtifactStore(root);
+
+    await assert.rejects(
+      () => store.init(),
+      /workspace root must be a regular directory/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   }
 });
 
@@ -312,6 +369,51 @@ test("runtime denies source-writing capabilities unless configured", async () =>
 
     const config = JSON.parse(await readFile(join(root, ".rekon", "config.json"), "utf8"));
     assert.deepEqual(config, { capabilities: [], permissions: {} });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime gates artifact handler access by declared capability permissions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
+
+  try {
+    const capability = defineCapability({
+      manifest: {
+        id: "@rekon/capability-artifact-gate",
+        name: "Artifact Gate",
+        version: "0.1.0",
+        roles: ["resolver"],
+        consumes: ["IntelligenceSnapshot"],
+        produces: ["ResolverPacket"],
+        permissions: ["write:artifacts"],
+        compatibility: {
+          rekon: "^0.1.0",
+        },
+      },
+      register(registry) {
+        registry.resolver({
+          id: "artifact-gate.resolver",
+          produces: ["ResolverPacket"],
+          async resolve({ artifacts }) {
+            await artifacts.list();
+            return [];
+          },
+        });
+      },
+    });
+
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [capability],
+      logger: silentLogger,
+    });
+
+    await assert.rejects(
+      () => runtime.runResolve({ resolverId: "artifact-gate.resolver" }),
+      /did not declare required permission read:artifacts/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

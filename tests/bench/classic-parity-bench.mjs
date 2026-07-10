@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Classic Parity Bench v1 (Phase 0).
 //
-// Runs the Rekon lifecycle against repositories with codebase-intel-classic
+// Runs the Rekon lifecycle against repositories with legacy-source outputs
 // scan history, normalizes both systems' findings into a common shape, and
 // emits a ClassicParityReport (a BENCH report, not a canonical artifact) that
 // classifies every classic finding as matched, missed-gap, missed-intentional

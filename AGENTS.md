@@ -17,9 +17,9 @@ shapes, read:
 1. Identify the package boundary being changed.
 2. State whether the change affects public API.
 3. Add or update tests for public behavior.
-4. Do not import from the old codebase-intel repo. The reference repository is
-   `codebase-intel-classic`; use it only as reference data, never as a runtime
-   dependency.
+4. Do not import from private reference repositories or generated workspaces.
+   External reference repos may be used only as data or fixtures, never as
+   runtime dependencies.
 5. Built-in capabilities must use `@rekon/sdk`.
 6. Generated artifacts must include schema version, producer, input refs, and
    provenance.

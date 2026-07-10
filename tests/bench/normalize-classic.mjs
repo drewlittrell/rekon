@@ -1,7 +1,7 @@
 // Classic-v1 normalizer for the classic-parity-bench (Phase 0).
 //
-// Parses codebase-intel-classic's emitted issues report — the
-// `.codebase-intel/reports/issues.json` shape observed across the operator's
+// Parses legacy-source emitted issues report — the
+// `reports/issues.json` shape observed across the operator's
 // historical scan corpus:
 //
 //   { generatedAt, summary, issues: [
@@ -14,7 +14,7 @@
 //
 // Classic's rule identity is the issue `type` field (e.g. `tech_debt`,
 // `naming_violation`, `canonical_bypass`). Classic outputs are consumed as
-// DATA, never imports (AGENTS.md rule 4 / ADR 0004 — codebase-intel-classic
+// DATA, never imports (AGENTS.md rule 4 / ADR 0004 — private reference repos
 // is reference, not dependency). The normalizer never reads classic source.
 //
 // Timebox posture per the work order: normalize the fields needed for

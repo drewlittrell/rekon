@@ -16,6 +16,7 @@ import { tmpdir, platform } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import test from "node:test";
 import { assessGitHubCheckPublisherReadiness } from "@rekon/capability-docs";
+import { digestJson } from "../../packages/kernel-artifacts/dist/index.js";
 import {
   VERIFICATION_RUN_ENV_ALLOWLIST,
   executeVerificationRun as runVerification,
@@ -86,7 +87,7 @@ function makeArtifactBody(type, id, generatedAt, extras, inputRefs = []) {
       generatedAt,
       subject: { repoId: "trust-bound" },
       producer: { id: "@rekon/capability-verify", version: "0.1.0" },
-      inputRefs,
+      inputRefs: inputRefs.map((ref) => ({ schemaVersion: "0.1.0", ...ref })),
     },
     ...extras,
   };
@@ -766,8 +767,8 @@ async function seedArtifact(root, { type, id, writtenAt, body }) {
   // `.rekon/artifacts/actions/<Type>-<id>.json` with
   // `{ path, digest, artifactType, artifactId, writtenAt }`
   // shape in the flat-array index. The digest is computed
-  // from the serialized body so the round-trip read is
-  // consistent.
+  // with Rekon's canonical JSON digest helper so strict
+  // artifact reads accept the seeded body.
   const fileName = `${type}-${id}.json`;
   const relativePath = `.rekon/artifacts/actions/${fileName}`;
   const artifactPath = join(root, relativePath);
@@ -776,7 +777,7 @@ async function seedArtifact(root, { type, id, writtenAt, body }) {
   // match that so any future digest validation still passes.
   const serialized = `${JSON.stringify(body, null, 2)}\n`;
   await writeFile(artifactPath, serialized, "utf8");
-  const digest = createHash("sha256").update(serialized).digest("hex");
+  const digest = digestJson(body);
 
   const indexPath = join(root, ".rekon/registry/artifacts.index.json");
   const raw = await readFile(indexPath, "utf8");

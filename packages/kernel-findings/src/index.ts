@@ -535,7 +535,7 @@ function findBestFilterMatch(finding: Finding): FilterMatch | null {
 
 // ---------- Classic-inspired deterministic content filters ----------
 //
-// Filters here mirror codebase-intel-classic's content-filter,
+// Filters here mirror legacy-source content filter,
 // content-filter-stub-and-import, content-filter-architecture, and
 // content-filter-ruleid pipelines. Each filter is a deterministic
 // structural check over `Finding` (no LLM, no regex over source code,
@@ -3675,7 +3675,7 @@ function validateFindingFilterPolicySuggestion(
 // `.rekon/config.json`. These helpers describe *what the apply
 // would do* — they never read or write the filesystem.
 //
-// The classic codebase-intel guarantee being preserved here is
+// The legacy issue-governance guarantee being preserved here is
 // that operators can promote recurring false positives into
 // durable policy without losing auditability or accidentally
 // suppressing real findings via an over-broad rule.

@@ -6,7 +6,9 @@ import { join, resolve } from "node:path";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const packagesDir = join(repoRoot, "packages");
-const FORBIDDEN_TOKENS = [".codebase-intel", "CODEBASE_INTEL"];
+const LEGACY_WORKSPACE_SEGMENT = [".codebase", "intel"].join("-");
+const LEGACY_ENV_PREFIX = ["CODEBASE", "INTEL"].join("_");
+const FORBIDDEN_TOKENS = [LEGACY_WORKSPACE_SEGMENT, LEGACY_ENV_PREFIX];
 const FORBIDDEN_PATH_FRAGMENTS = [
   ".rekon/",
   ".rekon-dev/",

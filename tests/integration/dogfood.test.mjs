@@ -15,11 +15,11 @@ const representativePaths = [
   "services/IssueDetectionService.ts",
   "domain/issues/RulesResolver.ts",
   "services/GraphBuildProvider.ts",
-  "packages/product-codebase-intel/src/replatform/replatform-observe.ts",
-  "packages/product-codebase-intel/src/reconcile/PlanExecutorService.ts",
+  "package.json",
+  "src/index.ts",
 ];
 
-test("optional codebase-intel-classic dogfood regression", async (t) => {
+test("optional legacy-reference dogfood regression", async (t) => {
   if (!dogfoodRoot) {
     t.skip("Set REKON_DOGFOOD_CLASSIC_ROOT to run the optional dogfood regression.");
     return;
@@ -69,7 +69,7 @@ test("optional codebase-intel-classic dogfood regression", async (t) => {
     warnings: preflight.packet.warnings,
     resolutionTraceEntries: preflight.packet.resolutionTrace.length,
   };
-  const summaryPath = join(repoRoot, "tests/fixtures/dogfood/codebase-intel-classic-summary.json");
+  const summaryPath = join(repoRoot, "tests/fixtures/dogfood/legacy-reference-summary.json");
 
   await mkdir(join(repoRoot, "tests/fixtures/dogfood"), { recursive: true });
   await writeFile(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
@@ -67,6 +67,33 @@ test("JS/TS provider supports changed-files incremental input", async () => {
     assert.equal(facts.some((fact) => fact.subject === "src/one.ts"), false);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("JS/TS provider rejects changed-files inputs outside the repo root", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-"));
+  const outside = await mkdtemp(join(tmpdir(), "rekon-js-ts-outside-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "inside.ts"), "export const inside = 1;\n", "utf8");
+    await writeFile(join(outside, "outside.ts"), "export const outside = 1;\n", "utf8");
+
+    const facts = await jsTsProvider.extract({
+      repoRoot: root,
+      includeTests: false,
+      incremental: true,
+      changedFiles: [
+        "src/inside.ts",
+        relative(root, join(outside, "outside.ts")),
+      ],
+    });
+
+    assert.equal(facts.some((fact) => fact.subject === "src/inside.ts"), true);
+    assert.equal(facts.some((fact) => fact.subject.includes("outside.ts")), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   }
 });
 

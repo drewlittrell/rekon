@@ -1,8 +1,8 @@
 # 0005. Overruled Classic Findings
 
-Some benchmark findings from `codebase-intel-classic` are excluded from recall
-scoring because Rekon has an explicit ruling that the classic finding is not a
-valid requirement for the current product.
+Some benchmark findings from prior reference scans are excluded from recall
+scoring because Rekon has an explicit ruling that the finding is not a valid
+requirement for the current product.
 
 The overrule is per finding, not per rule. A finding leaves the denominator only
 when `tests/bench/overruled.json` cites this document with a fragment that names
@@ -38,7 +38,7 @@ Command or diagnostic seams may own direct logging when the logging is the
 declared surface behavior. Classic console findings on those cited seams are
 overruled.
 
-## Part 5: codebase-intel's evaluator-routes correction
+## Part 5: evaluator-routes correction
 
 Evaluator route boundaries that match Rekon's declared grammar are not layering
 violations. Classic findings against the cited evaluator route imports are

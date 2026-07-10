@@ -83,9 +83,33 @@ export function validateRuleMap(ruleMap) {
     ) {
       throw new Error(`rule-map: redesigned rule "${classicRuleId}" rekonRuleId, when present, must be a non-empty string.`);
     }
+
+    if (row.rekonRuleIds !== undefined) {
+      if (
+        !Array.isArray(row.rekonRuleIds) ||
+        row.rekonRuleIds.length === 0 ||
+        row.rekonRuleIds.some((id) => typeof id !== "string" || id.length === 0)
+      ) {
+        throw new Error(`rule-map: "${classicRuleId}" rekonRuleIds, when present, must be a non-empty array of strings.`);
+      }
+
+      if (typeof row.rekonRuleId !== "string" || row.rekonRuleId.length === 0) {
+        throw new Error(`rule-map: "${classicRuleId}" with rekonRuleIds must also carry rekonRuleId.`);
+      }
+
+      if (!row.rekonRuleIds.includes(row.rekonRuleId)) {
+        throw new Error(`rule-map: "${classicRuleId}" rekonRuleIds must include rekonRuleId "${row.rekonRuleId}".`);
+      }
+    }
   }
 
   return ruleMap;
+}
+
+function effectiveRekonRuleIds(disposition) {
+  if (Array.isArray(disposition?.rekonRuleIds)) return disposition.rekonRuleIds;
+  if (typeof disposition?.rekonRuleId === "string" && disposition.rekonRuleId.length > 0) return [disposition.rekonRuleId];
+  return [];
 }
 
 function rekonRuleKeys(finding) {
@@ -236,24 +260,31 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 
     // ported always carries a rekonRuleId; redesigned may, once its detector
     // lands - matching works the same for both.
-    if (disposition.rekonRuleId) {
-      for (const key of classicMatchKeys(disposition.rekonRuleId, classic)) {
-        const hits = index.get(key);
+    const effectiveIds = effectiveRekonRuleIds(disposition);
+    if (effectiveIds.length > 0) {
+      for (const rekonRuleId of effectiveIds) {
+        for (const key of classicMatchKeys(rekonRuleId, classic)) {
+          const hits = index.get(key);
 
-        if (hits && hits.length > 0) {
-          for (const position of hits) {
-            matchedRekon.add(position);
+          if (hits && hits.length > 0) {
+            for (const position of hits) {
+              matchedRekon.add(position);
+            }
+
+            return {
+              classic,
+              classification: "matched",
+              matchedRekonIds: hits.map((position) => rekonFindings[position].id),
+            };
           }
-
-          return {
-            classic,
-            classification: "matched",
-            matchedRekonIds: hits.map((position) => rekonFindings[position].id),
-          };
         }
       }
 
-      const filterHit = findFilterHit(filteredFindings, disposition.rekonRuleId, classic);
+      let filterHit;
+      for (const rekonRuleId of effectiveIds) {
+        filterHit = findFilterHit(filteredFindings, rekonRuleId, classic);
+        if (filterHit) break;
+      }
 
       if (filterHit) {
         const citation = filterHit.policyId
@@ -302,7 +333,7 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 
   const coverage = [...coverageByRule.entries()].map(([ruleId, entry]) => ({
     ruleId,
-    rekonRuleId: ruleMap[ruleId]?.rekonRuleId ?? null,
+    rekonRuleId: effectiveRekonRuleIds(ruleMap[ruleId]).join("+") || null,
     classicFiles: entry.classicFiles.size,
     coveredFiles: entry.coveredFiles.size,
     coverage: entry.classicFiles.size === 0 ? 0 : entry.coveredFiles.size / entry.classicFiles.size,
@@ -329,12 +360,14 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 
     for (const suppressed of suppressedFindings) {
       const disposition = ruleMap[suppressed.ruleId];
+      const effectiveIds = effectiveRekonRuleIds(disposition);
 
-      if (!disposition?.rekonRuleId) {
+      if (effectiveIds.length === 0) {
         continue;
       }
 
-      const entry = precisionByRule.get(disposition.rekonRuleId)
+      const precisionKey = effectiveIds.join("+");
+      const entry = precisionByRule.get(precisionKey)
         ?? { suppressedTotal: 0, ambiguousSkipped: 0, firedOnSuppressed: 0 };
 
       entry.suppressedTotal += 1;
@@ -345,18 +378,20 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
       if (files.some((file) => keptFiles.has(file))) {
         entry.ambiguousSkipped += 1;
       } else {
-        const fired = classicMatchKeys(disposition.rekonRuleId, suppressed).some((key) => {
-          const hits = index.get(key);
+        const fired = effectiveIds.some((rekonRuleId) =>
+          classicMatchKeys(rekonRuleId, suppressed).some((key) => {
+            const hits = index.get(key);
 
-          return hits && hits.length > 0;
-        });
+            return hits && hits.length > 0;
+          }),
+        );
 
         if (fired) {
           entry.firedOnSuppressed += 1;
         }
       }
 
-      precisionByRule.set(disposition.rekonRuleId, entry);
+      precisionByRule.set(precisionKey, entry);
     }
   }
 

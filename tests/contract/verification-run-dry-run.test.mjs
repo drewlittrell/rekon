@@ -13,11 +13,12 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { access, cp, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import test from "node:test";
 
+import { digestJson } from "../../packages/kernel-artifacts/dist/index.js";
 import {
   createVerificationRunDryRun,
   validateVerificationRunCommandString,
@@ -549,7 +550,7 @@ async function preparePlanWithUnsafeCommands(root) {
 
   plan.commands = ["npm run test && rm -rf dist"];
 
-  await writeJson(artifactPath, plan);
+  await writeIndexedArtifact(root, planRef, plan);
   return planRef;
 }
 
@@ -560,13 +561,20 @@ async function preparePlanWithCommand(root, command) {
 
   plan.commands = [command];
 
-  await writeJson(artifactPath, plan);
+  await writeIndexedArtifact(root, planRef, plan);
   return planRef;
 }
 
-async function writeJson(path, value) {
-  const { writeFile } = await import("node:fs/promises");
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+async function writeIndexedArtifact(root, ref, value) {
+  const artifactPath = join(root, ref.path);
+  await writeFile(artifactPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+
+  const indexPath = join(root, ".rekon/registry/artifacts.index.json");
+  const index = JSON.parse(await readFile(indexPath, "utf8"));
+  const entry = index.find((candidate) => candidate.type === ref.type && candidate.id === ref.id);
+  assert.ok(entry, `missing index entry for ${ref.type}:${ref.id}`);
+  entry.digest = digestJson(value);
+  await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
 }
 
 function runCli(args) {
