@@ -142,6 +142,8 @@ test("1. default auto keyless scan reports no provider and writes no judgment ar
   const result = runCli(root, ["scan"]);
   assert.equal(result.status, 0, result.stderr);
   const json = parseStdout(result);
+  assert.equal(json.semanticFiles.mode, "auto");
+  assert.equal(json.semanticFiles.providerAvailable, false);
   assert.equal(json.semanticDebt.mode, "auto");
   assert.equal(json.semanticDebt.providerAvailable, false);
   assert.equal(json.semanticDebt.judged, 0);
@@ -150,16 +152,23 @@ test("1. default auto keyless scan reports no provider and writes no judgment ar
 
 test("2. --no-semantic turns both semantic layers off", async () => {
   const root = await makeRepo();
-  const result = runCli(root, ["scan", "--no-semantic"]);
+  const result = runCli(root, [
+    "scan",
+    "--no-semantic",
+    "--semantic-files",
+    "required",
+    "--semantic-debt",
+    "required",
+  ]);
   assert.equal(result.status, 0, result.stderr);
   const json = parseStdout(result);
+  assert.equal(json.semanticFiles.mode, "off");
   assert.equal(json.semanticDebt.mode, "off");
-  assert.equal("semanticFiles" in json, false);
 });
 
-test("3. --semantic-debt off turns only debt off when semantic files are requested", async () => {
+test("3. --semantic-debt off turns only debt off", async () => {
   const root = await makeRepo();
-  const result = runCli(root, ["scan", "--semantic-files", "auto", "--semantic-debt", "off"]);
+  const result = runCli(root, ["scan", "--semantic-debt", "off"]);
   assert.equal(result.status, 0, result.stderr);
   const json = parseStdout(result);
   assert.equal(json.semanticFiles.mode, "auto");
@@ -171,6 +180,7 @@ test("4. explicit --semantic-debt auto overrides REKON_SEMANTIC=off", async () =
   const result = runCli(root, ["scan", "--semantic-debt", "auto"], noKeyEnv({ REKON_SEMANTIC: "off" }));
   assert.equal(result.status, 0, result.stderr);
   const json = parseStdout(result);
+  assert.equal(json.semanticFiles.mode, "off");
   assert.equal(json.semanticDebt.mode, "auto");
   assert.equal(json.semanticDebt.providerAvailable, false);
   assert.equal(semanticDebtReports(root).length, 0);

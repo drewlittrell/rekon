@@ -684,14 +684,12 @@ export async function main(argv: string[]): Promise<void> {
       implementedIntentGo: false,
     };
 
-    // Semantic mode resolution is shared by scan-time semantic overlays. The
-    // file-understanding layer remains an explicit `--semantic-files` producer,
-    // while semantic debt defaults from the resolved mode so keyless scans can
-    // explain that the proposal layer did no LLM work.
+    // Both semantic overlays inherit the same default-on mode chain. An
+    // explicit files flag still matters because explicit auto retains the
+    // documented per-file deterministic fallback behavior when no key exists.
     const semanticFilesFlagRaw = parsed.flags["semantic-files"];
-    const semanticFilesRequested = semanticFilesFlagRaw !== undefined;
     const resolvedSemanticFilesMode = await resolveScanSemanticFilesMode(root, parsed.flags);
-    const semanticFilesMode: SemanticLayerMode = semanticFilesRequested ? resolvedSemanticFilesMode : "off";
+    const semanticFilesMode = resolvedSemanticFilesMode;
     const semanticDebtMode = resolveScanSemanticDebtMode(parsed.flags, resolvedSemanticFilesMode);
     const semanticLlmProvider =
       typeof parsed.flags["llm-provider"] === "string" ? String(parsed.flags["llm-provider"]).trim() : "";
@@ -740,6 +738,15 @@ export async function main(argv: string[]): Promise<void> {
         summary: { artifacts: 0 },
         nextActions,
         boundaries,
+        semanticFiles: {
+          mode: semanticFilesMode,
+          selected: 0,
+          written: 0,
+          reused: 0,
+          skipped: 0,
+          failed: 0,
+          ...(semanticFilesMode === "off" ? {} : { providerAvailable: false }),
+        },
         semanticDebt: semanticDebtLayer.summary,
         ...(semanticDebtLayer.message ? { message: semanticDebtLayer.message } : {}),
       };
@@ -779,6 +786,7 @@ export async function main(argv: string[]): Promise<void> {
         fileLimit: semanticFileLimit,
         filePath: semanticFilePath,
         changedOnly: semanticChangedOnly,
+        explicitlyRequested: semanticFilesFlagRaw !== undefined,
       });
     }
 
@@ -795,7 +803,7 @@ export async function main(argv: string[]): Promise<void> {
       nextActions,
       boundaries,
       refresh,
-      ...(semanticFilesRequested ? { semanticFiles: semanticLayer.summary } : {}),
+      semanticFiles: semanticLayer.summary,
       semanticDebt: semanticDebtLayer.summary,
     };
 
@@ -803,14 +811,13 @@ export async function main(argv: string[]): Promise<void> {
       writeOutput(scanOutput, true);
     } else {
       const semanticHumanLines: string[] = [
-            semanticLayer.summary.mode === "off"
-              ? "Semantic files: off"
-              : semanticLayer.summary.mode === "auto" && semanticLayer.summary.providerAvailable === false
-                ? "Semantic files: auto — no LLM key detected; deterministic scan only (set OPENAI_API_KEY, or opt out with --no-semantic)"
-              : `Semantic files: ${semanticLayer.summary.mode} — ${semanticLayer.summary.written} written, ${semanticLayer.summary.reused} reused, ${semanticLayer.summary.skipped} skipped, ${semanticLayer.summary.failed} failed`,
-            ...(semanticLayer.message ? [semanticLayer.message] : []),
-          ]
-        : [];
+        semanticLayer.summary.mode === "off"
+          ? "Semantic files: off"
+          : semanticLayer.summary.mode === "auto" && semanticLayer.summary.providerAvailable === false
+            ? "Semantic files: auto — no LLM key detected; deterministic scan only (set OPENAI_API_KEY, or opt out with --no-semantic)"
+            : `Semantic files: ${semanticLayer.summary.mode} — ${semanticLayer.summary.written} written, ${semanticLayer.summary.reused} reused, ${semanticLayer.summary.skipped} skipped, ${semanticLayer.summary.failed} failed`,
+        ...(semanticLayer.message ? [semanticLayer.message] : []),
+      ];
       const semanticDebtHumanLines: string[] = [
         semanticDebtLayer.summary.mode === "off"
           ? "Semantic debt: off"
@@ -9400,14 +9407,14 @@ function normalizeSemanticFlagMode(value: unknown, fallback: SemanticLayerMode):
   return fallback;
 }
 
+function hasUsableOpenAiKey(value: string | undefined): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function envDisablesLlm(value: string | undefined): boolean {
   if (typeof value !== "string") return false;
   const normalized = value.trim().toLowerCase();
   return normalized === "0" || normalized === "false" || normalized === "off";
-}
-
-function envAllowsLlm(value: string | undefined): boolean {
-  return !envDisablesLlm(value);
 }
 
 /**
@@ -9753,10 +9760,9 @@ async function runSemanticScanLayer(input: {
   const modelResolved = input.llmModel || envModel;
   // Enablement is opt-OUT (operator ruling, 2026-07-09): a present key means
   // enabled unless REKON_LLM_ENABLED explicitly disables it.
-  const envEnabled = process.env.REKON_LLM_ENABLED;
-  const explicitlyDisabled = envEnabled === "0" || envEnabled === "false" || envEnabled === "off";
-  const keyPresent = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 0;
-  const providerAvailable = !explicitlyDisabled && keyPresent;
+  const providerAvailable =
+    hasUsableOpenAiKey(process.env.OPENAI_API_KEY)
+    && !envDisablesLlm(process.env.REKON_LLM_ENABLED);
 
   // DEFAULTED auto without a provider: the deterministic scan is the whole
   // scan - return an honest zero-work summary instead of writing per-file
@@ -9788,6 +9794,7 @@ async function runSemanticScanLayer(input: {
         reused: 0,
         skipped: 0,
         failed: 0,
+        providerAvailable: false,
         ...(providerResolved ? { provider: providerResolved } : {}),
         ...(modelResolved ? { model: modelResolved } : {}),
       },
@@ -9999,7 +10006,12 @@ function semanticDebtPolicyMatches(
 function semanticDebtEntryMap(report: SemanticDebtJudgmentReport): Map<string, SemanticDebtJudgmentEntry> {
   const out = new Map<string, SemanticDebtJudgmentEntry>();
   for (const entry of report.entries ?? []) {
-    if (entry && typeof entry.path === "string" && entry.path.length > 0) {
+    if (
+      entry
+      && entry.verdict !== "failed"
+      && typeof entry.path === "string"
+      && entry.path.length > 0
+    ) {
       out.set(entry.path, entry);
     }
   }
@@ -10023,8 +10035,9 @@ async function runSemanticDebtLayer(input: {
   const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
   const providerResolved = input.llmProvider || envProvider || "openai";
   const modelResolved = input.llmModel || envModel || SEMANTIC_DEBT_DEFAULT_MODEL;
-  const keyPresent = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim().length > 0;
-  const providerAvailable = keyPresent && envAllowsLlm(process.env.REKON_LLM_ENABLED);
+  const providerAvailable =
+    hasUsableOpenAiKey(process.env.OPENAI_API_KEY)
+    && !envDisablesLlm(process.env.REKON_LLM_ENABLED);
   const providerModelSummary = {
     provider: providerResolved,
     model: modelResolved,
@@ -10115,8 +10128,8 @@ async function runSemanticDebtLayer(input: {
     }
 
     if (judged + failed >= input.fileLimit) {
-      skipped += candidates.length - i;
-      break;
+      skipped += 1;
+      continue;
     }
 
     const promptText = text.length > SEMANTIC_DEBT_MAX_PROMPT_CHARS
@@ -10143,6 +10156,7 @@ async function runSemanticDebtLayer(input: {
       });
       if (mode === "required") {
         requiredHardFail = true;
+        skipped += candidates.length - i - 1;
         break;
       }
       continue;
@@ -10236,14 +10250,13 @@ function createSemanticFileUnderstandingAdapter(
   const envProvider =
     typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
   const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
-  const envEnabled = process.env.REKON_LLM_ENABLED;
   const provider = flagProvider || envProvider;
   const model = flagModel || envModel;
   // Opt-out enablement (operator ruling, 2026-07-09): enabled when a key is
   // present and REKON_LLM_ENABLED is not explicitly off.
-  const explicitlyDisabled = envEnabled === "0" || envEnabled === "false" || envEnabled === "off";
-  const keyPresent = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 0;
-  const enabled = !explicitlyDisabled && keyPresent;
+  const enabled =
+    hasUsableOpenAiKey(process.env.OPENAI_API_KEY)
+    && !envDisablesLlm(process.env.REKON_LLM_ENABLED);
 
   const providers = [
     createOpenAiLlmProvider({
@@ -10314,9 +10327,8 @@ function createSemanticDebtJudgmentAdapter(
   const provider = flagProvider || envProvider || "openai";
   const model = flagModel || envModel || SEMANTIC_DEBT_DEFAULT_MODEL;
   const enabled =
-    envAllowsLlm(process.env.REKON_LLM_ENABLED)
-    && typeof process.env.OPENAI_API_KEY === "string"
-    && process.env.OPENAI_API_KEY.trim().length > 0;
+    hasUsableOpenAiKey(process.env.OPENAI_API_KEY)
+    && !envDisablesLlm(process.env.REKON_LLM_ENABLED);
 
   const providers = [
     createOpenAiLlmProvider({
@@ -10924,20 +10936,23 @@ async function resolveScanSemanticFilesMode(
   root: string,
   flags: Record<string, string | boolean | string[]>,
 ): Promise<SemanticLayerMode> {
+  const invalidModeMessage =
+    "rekon scan semantic mode must be one of off, auto, required (via --semantic-files, --no-semantic, REKON_SEMANTIC, or config semantic.mode).";
+
+  if (flags["no-semantic"] === true) return "off";
+
   if (flags["semantic-files"] !== undefined) {
     try {
       return normalizeSemanticFlagMode(flags["semantic-files"], "auto");
     } catch {
-      throw new Error("rekon scan --semantic-files must be one of off, auto, required.");
+      throw new Error(invalidModeMessage);
     }
   }
-
-  if (flags["no-semantic"] === true) return "off";
 
   const envMode = typeof process.env.REKON_SEMANTIC === "string" ? process.env.REKON_SEMANTIC.trim() : "";
   if (envMode.length > 0) {
     if (!isSemanticLayerMode(envMode)) {
-      throw new Error("REKON_SEMANTIC must be one of off, auto, required.");
+      throw new Error(invalidModeMessage);
     }
     return envMode;
   }
@@ -10946,7 +10961,7 @@ async function resolveScanSemanticFilesMode(
   const configMode = config.semantic?.mode;
   if (typeof configMode === "string") {
     if (!isSemanticLayerMode(configMode)) {
-      throw new Error(".rekon/config.json semantic.mode must be one of off, auto, required.");
+      throw new Error(invalidModeMessage);
     }
     return configMode;
   }
