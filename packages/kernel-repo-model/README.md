@@ -17,6 +17,7 @@ This package owns deterministic model artifacts derived from evidence:
 - `ObservedSystem`
 - `OwnershipMap`
 - `CapabilityMap`
+- `SemanticDebtJudgmentReport`
 
 ## Lifecycle Fit
 
@@ -26,7 +27,8 @@ policy, docs, and intent/work-order generation.
 ## Public Surface
 
 The package also exports validation helpers and normalization helpers for
-systems and paths.
+systems and paths. Semantic debt report policy records provider, model, effort,
+and prompt version so cached judgments retain their execution provenance.
 
 ## Import Boundary
 

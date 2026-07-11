@@ -4,16 +4,26 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added a token-aware semantic-debt model evaluator with a labeled corpus,
+  repeat stability, quality metrics, latency, detailed token usage, current and
+  steady-state cost, and a cost/quality frontier.
+- Added experimental OpenAI Responses and Anthropic Messages adapters with
+  structured JSON output and provider-native effort controls. Existing OpenAI
+  Chat Completions behavior is unchanged.
+- Moved scan-time semantic-debt judgment to OpenAI Responses and pinned the
+  evaluated production profiles: `gpt-5.6-luna` at `low` effort by default and
+  `gpt-5.4-nano` at `none` as the economy override. Added
+  debt-specific model and effort overrides through CLI flags and environment
+  variables.
 - Added WO-25 Semantic Debt Overlay: `SemanticDebtJudgmentReport` artifacts,
   the `debt.semantic` policy rule, and `rekon scan --semantic-debt
   off|auto|required`.
-- Added scan-time semantic debt report reuse keyed by provider, model, prompt
-  version, and full-file SHA-256. The report records model provenance and a
-  confidence score; judgments are proposals, not proof.
+- Added scan-time semantic debt report reuse keyed by provider, model, effort,
+  prompt version, and full-file SHA-256. The report records model provenance
+  and a confidence score; judgments are proposals, not proof.
 - Added the pure semantic debt judgment law in `@rekon/capability-model`,
   including the tech-debt concern filter, pattern tagger, and adapter-result
-  coercion. The default judge model remains overrideable and should be replaced
-  only after operator-path evaluation.
+  coercion. The judge model and reasoning effort remain overrideable.
 - Extended parity bench rule mapping with optional `rekonRuleIds` so `tech_debt`
   can be served by both `debt.markers` and `debt.semantic` without changing
   exact-match scoring semantics.

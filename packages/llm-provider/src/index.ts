@@ -2,9 +2,9 @@
 //
 // This package provides the provider/embedding interfaces, a task-routed
 // RekonLlmRouter with deterministic fallback, mock providers for tests, and
-// LIVE adapters: createOpenAiLlmProvider (chat) and createVoyageEmbeddingProvider
-// (embeddings). The live adapters call the network ONLY when constructed with
-// an API key; model use is on by default when keys are present (operator
+// LIVE adapters: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages,
+// and Voyage embeddings. The live adapters call the network ONLY when
+// constructed with an API key; model use is on by default when keys are present (operator
 // ruling, 2026-07-09), with an explicit opt-out at the callers. Provider output is
 // a PROPOSAL, not proof: callers must schema-validate and deterministically
 // re-check every result before trusting it. Providers may read / transform /
@@ -32,13 +32,18 @@ export type RekonLlmProviderInput = {
   prompt: string;
   model?: string;
   temperature?: number;
+  effort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   maxOutputTokens?: number;
+  jsonSchema?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 };
 
 export type RekonLlmProviderUsage = {
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  cachedInputTokens?: number;
+  cacheWriteInputTokens?: number;
 };
 
 export type RekonLlmProviderResult =
@@ -360,6 +365,25 @@ export type CreateOpenAiLlmProviderOptions = {
   fetchImpl?: RekonFetchLike;
 };
 
+export type CreateOpenAiResponsesLlmProviderOptions = CreateOpenAiLlmProviderOptions;
+
+export type CreateAnthropicLlmProviderOptions = {
+  /** API key. Supplied by the caller from env; never stored in repo config. */
+  apiKey?: string;
+  /** API base URL. Defaults to the Anthropic v1 base. */
+  baseUrl?: string;
+  /** Provider id used for routing (defaults to "anthropic"). */
+  id?: string;
+  /** Model used when neither the route nor the input specifies one. */
+  defaultModel?: string;
+  /** Anthropic API version header (defaults to 2023-06-01). */
+  apiVersion?: string;
+  /** Per-request timeout in milliseconds (defaults to 30000). */
+  timeoutMs?: number;
+  /** Inject a fetch implementation (tests). Defaults to globalThis.fetch. */
+  fetchImpl?: RekonFetchLike;
+};
+
 type LlmGlobalLike = {
   fetch?: RekonFetchLike;
   AbortController?: new () => { signal: unknown; abort(): void };
@@ -399,6 +423,112 @@ function extractModel(payload: unknown): string | undefined {
   if (!isRecord(payload)) return undefined;
   const model = (payload as { model?: unknown }).model;
   return typeof model === "string" && model.length > 0 ? model : undefined;
+}
+
+function safeSchemaName(value: string): string {
+  const normalized = value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
+  return normalized.length > 0 ? normalized : "rekon_result";
+}
+
+function extractResponsesContent(payload: unknown): string | null {
+  if (!isRecord(payload)) return null;
+  const output = (payload as { output?: unknown }).output;
+  if (!Array.isArray(output)) return null;
+  for (const item of output) {
+    if (!isRecord(item)) continue;
+    const content = (item as { content?: unknown }).content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if (!isRecord(block)) continue;
+      const type = (block as { type?: unknown }).type;
+      const text = (block as { text?: unknown }).text;
+      if (type === "output_text" && typeof text === "string") return text;
+    }
+  }
+  return null;
+}
+
+function extractResponsesUsage(payload: unknown): RekonLlmProviderUsage | undefined {
+  if (!isRecord(payload)) return undefined;
+  const usage = (payload as { usage?: unknown }).usage;
+  if (!isRecord(usage)) return undefined;
+  const input = (usage as { input_tokens?: unknown }).input_tokens;
+  const output = (usage as { output_tokens?: unknown }).output_tokens;
+  const inputDetails = (usage as { input_tokens_details?: unknown }).input_tokens_details;
+  const outputDetails = (usage as { output_tokens_details?: unknown }).output_tokens_details;
+  const cached = isRecord(inputDetails) ? (inputDetails as { cached_tokens?: unknown }).cached_tokens : undefined;
+  const cacheWrite = isRecord(inputDetails)
+    ? (inputDetails as { cache_write_tokens?: unknown }).cache_write_tokens
+    : undefined;
+  const reasoning = isRecord(outputDetails)
+    ? (outputDetails as { reasoning_tokens?: unknown }).reasoning_tokens
+    : undefined;
+  const result: RekonLlmProviderUsage = {};
+  if (typeof input === "number") result.inputTokens = input;
+  if (typeof output === "number") result.outputTokens = output;
+  if (typeof cached === "number") result.cachedInputTokens = cached;
+  if (typeof cacheWrite === "number") result.cacheWriteInputTokens = cacheWrite;
+  if (typeof reasoning === "number") result.reasoningTokens = reasoning;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function extractAnthropicContent(payload: unknown): string | null {
+  if (!isRecord(payload)) return null;
+  const content = (payload as { content?: unknown }).content;
+  if (!Array.isArray(content)) return null;
+  for (const block of content) {
+    if (!isRecord(block)) continue;
+    const type = (block as { type?: unknown }).type;
+    const text = (block as { text?: unknown }).text;
+    if (type === "text" && typeof text === "string") return text;
+  }
+  return null;
+}
+
+function extractAnthropicUsage(payload: unknown): RekonLlmProviderUsage | undefined {
+  if (!isRecord(payload)) return undefined;
+  const usage = (payload as { usage?: unknown }).usage;
+  if (!isRecord(usage)) return undefined;
+  const input = (usage as { input_tokens?: unknown }).input_tokens;
+  const output = (usage as { output_tokens?: unknown }).output_tokens;
+  const cached = (usage as { cache_read_input_tokens?: unknown }).cache_read_input_tokens;
+  const cacheWrite = (usage as { cache_creation_input_tokens?: unknown }).cache_creation_input_tokens;
+  const result: RekonLlmProviderUsage = {};
+  if (typeof input === "number") result.inputTokens = input;
+  if (typeof output === "number") result.outputTokens = output;
+  if (typeof cached === "number") result.cachedInputTokens = cached;
+  if (typeof cacheWrite === "number") result.cacheWriteInputTokens = cacheWrite;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+async function readJsonEnvelope(response: RekonHttpResponseLike): Promise<
+  | { ok: true; envelope: unknown }
+  | { ok: false; error: string; warnings: string[] }
+> {
+  let rawText: string;
+  try {
+    rawText = await response.text();
+  } catch (error) {
+    return {
+      ok: false,
+      error: "response-read-failed",
+      warnings: [error instanceof Error ? error.message : String(error)],
+    };
+  }
+  try {
+    return { ok: true, envelope: JSON.parse(rawText) };
+  } catch {
+    return { ok: false, error: "invalid-response-json", warnings: ["Provider response was not valid JSON."] };
+  }
+}
+
+async function readHttpError(response: RekonHttpResponseLike): Promise<string[]> {
+  try {
+    const detail = truncateText(await response.text(), 500);
+    return detail ? [detail] : [];
+  } catch {
+    return [];
+  }
 }
 
 export function createOpenAiLlmProvider(options: CreateOpenAiLlmProviderOptions = {}): RekonLlmProvider {
@@ -559,6 +689,217 @@ export function createOpenAiLlmProvider(options: CreateOpenAiLlmProviderOptions 
         if (timer !== undefined && typeof g.clearTimeout === "function") {
           g.clearTimeout(timer);
         }
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// OpenAI Responses provider adapter (fetch-based; no SDK dependency)
+// ---------------------------------------------------------------------------
+
+export function createOpenAiResponsesLlmProvider(
+  options: CreateOpenAiResponsesLlmProviderOptions = {},
+): RekonLlmProvider {
+  const id = options.id ?? "openai";
+  const baseUrl = (
+    typeof options.baseUrl === "string" && options.baseUrl.length > 0 ? options.baseUrl : "https://api.openai.com/v1"
+  ).replace(/\/+$/, "");
+  const apiKey = typeof options.apiKey === "string" ? options.apiKey.trim() : "";
+  const timeoutMs = typeof options.timeoutMs === "number" && options.timeoutMs > 0 ? options.timeoutMs : 30000;
+
+  return {
+    id,
+    async completeJson(input: RekonLlmProviderInput): Promise<RekonLlmProviderResult> {
+      const model = input.model ?? options.defaultModel;
+      const withModel = model ? { model } : {};
+      if (apiKey.length === 0) {
+        return {
+          ok: false,
+          provider: id,
+          ...withModel,
+          error: "missing-api-key",
+          warnings: [`No API key configured for provider "${id}"; supply it from the environment.`],
+        };
+      }
+
+      const g = globalThis as unknown as LlmGlobalLike;
+      const fetchImpl = options.fetchImpl ?? g.fetch;
+      if (typeof fetchImpl !== "function") {
+        return { ok: false, provider: id, ...withModel, error: "fetch-unavailable", warnings: ["No global fetch is available in this runtime."] };
+      }
+
+      const format = input.jsonSchema
+        ? {
+            type: "json_schema",
+            name: safeSchemaName(input.schemaName),
+            strict: true,
+            schema: input.jsonSchema,
+          }
+        : { type: "json_object" };
+      const requestBody = JSON.stringify({
+        model: model ?? "gpt-4o-mini",
+        instructions: "Return only valid JSON matching the requested output contract. Do not wrap JSON in markdown.",
+        input: input.prompt,
+        text: { format },
+        ...(input.effort ? { reasoning: { effort: input.effort } } : {}),
+        ...(typeof input.temperature === "number" ? { temperature: input.temperature } : {}),
+        ...(typeof input.maxOutputTokens === "number" ? { max_output_tokens: input.maxOutputTokens } : {}),
+      });
+
+      let controller: { signal: unknown; abort(): void } | undefined;
+      let timer: unknown;
+      try {
+        if (typeof g.AbortController === "function" && typeof g.setTimeout === "function") {
+          controller = new g.AbortController();
+          timer = g.setTimeout(() => controller?.abort(), timeoutMs);
+        }
+        const response = await fetchImpl(`${baseUrl}/responses`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+          body: requestBody,
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+        if (!response.ok) {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: `http-${response.status}`,
+            warnings: await readHttpError(response),
+          };
+        }
+        const parsed = await readJsonEnvelope(response);
+        if (!parsed.ok) return { ok: false, provider: id, ...withModel, error: parsed.error, warnings: parsed.warnings };
+        const content = extractResponsesContent(parsed.envelope);
+        if (content === null) {
+          return { ok: false, provider: id, ...withModel, error: "no-content", warnings: ["Provider response contained no output text."] };
+        }
+        let data: unknown;
+        try {
+          data = JSON.parse(content);
+        } catch {
+          return { ok: false, provider: id, ...withModel, error: "content-not-json", warnings: ["Provider output text was not valid JSON."] };
+        }
+        const resolvedModel = extractModel(parsed.envelope) ?? model;
+        const usage = extractResponsesUsage(parsed.envelope);
+        return {
+          ok: true,
+          provider: id,
+          ...(resolvedModel ? { model: resolvedModel } : {}),
+          data,
+          ...(usage ? { usage } : {}),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const aborted = error instanceof Error && (error.name === "AbortError" || message.toLowerCase().includes("abort"));
+        return { ok: false, provider: id, ...withModel, error: aborted ? "timeout" : "request-failed", warnings: [message] };
+      } finally {
+        if (timer !== undefined && typeof g.clearTimeout === "function") g.clearTimeout(timer);
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Anthropic Messages provider adapter (fetch-based; no SDK dependency)
+// ---------------------------------------------------------------------------
+
+export function createAnthropicLlmProvider(options: CreateAnthropicLlmProviderOptions = {}): RekonLlmProvider {
+  const id = options.id ?? "anthropic";
+  const baseUrl = (
+    typeof options.baseUrl === "string" && options.baseUrl.length > 0 ? options.baseUrl : "https://api.anthropic.com/v1"
+  ).replace(/\/+$/, "");
+  const apiKey = typeof options.apiKey === "string" ? options.apiKey.trim() : "";
+  const apiVersion = options.apiVersion ?? "2023-06-01";
+  const timeoutMs = typeof options.timeoutMs === "number" && options.timeoutMs > 0 ? options.timeoutMs : 30000;
+
+  return {
+    id,
+    async completeJson(input: RekonLlmProviderInput): Promise<RekonLlmProviderResult> {
+      const model = input.model ?? options.defaultModel;
+      const withModel = model ? { model } : {};
+      if (apiKey.length === 0) {
+        return {
+          ok: false,
+          provider: id,
+          ...withModel,
+          error: "missing-api-key",
+          warnings: [`No API key configured for provider "${id}"; supply it from the environment.`],
+        };
+      }
+
+      const g = globalThis as unknown as LlmGlobalLike;
+      const fetchImpl = options.fetchImpl ?? g.fetch;
+      if (typeof fetchImpl !== "function") {
+        return { ok: false, provider: id, ...withModel, error: "fetch-unavailable", warnings: ["No global fetch is available in this runtime."] };
+      }
+
+      const outputConfig = {
+        ...(input.effort && input.effort !== "none" ? { effort: input.effort } : {}),
+        ...(input.jsonSchema ? { format: { type: "json_schema", schema: input.jsonSchema } } : {}),
+      };
+      const requestBody = JSON.stringify({
+        model: model ?? "claude-haiku-4-5-20251001",
+        max_tokens: input.maxOutputTokens ?? 1200,
+        system: "Return only valid JSON matching the requested output contract. Do not wrap JSON in markdown.",
+        messages: [{ role: "user", content: input.prompt }],
+        ...(Object.keys(outputConfig).length > 0 ? { output_config: outputConfig } : {}),
+      });
+
+      let controller: { signal: unknown; abort(): void } | undefined;
+      let timer: unknown;
+      try {
+        if (typeof g.AbortController === "function" && typeof g.setTimeout === "function") {
+          controller = new g.AbortController();
+          timer = g.setTimeout(() => controller?.abort(), timeoutMs);
+        }
+        const response = await fetchImpl(`${baseUrl}/messages`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": apiVersion,
+          },
+          body: requestBody,
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+        if (!response.ok) {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: `http-${response.status}`,
+            warnings: await readHttpError(response),
+          };
+        }
+        const parsed = await readJsonEnvelope(response);
+        if (!parsed.ok) return { ok: false, provider: id, ...withModel, error: parsed.error, warnings: parsed.warnings };
+        const content = extractAnthropicContent(parsed.envelope);
+        if (content === null) {
+          return { ok: false, provider: id, ...withModel, error: "no-content", warnings: ["Provider response contained no text block."] };
+        }
+        let data: unknown;
+        try {
+          data = JSON.parse(content);
+        } catch {
+          return { ok: false, provider: id, ...withModel, error: "content-not-json", warnings: ["Provider text block was not valid JSON."] };
+        }
+        const resolvedModel = extractModel(parsed.envelope) ?? model;
+        const usage = extractAnthropicUsage(parsed.envelope);
+        return {
+          ok: true,
+          provider: id,
+          ...(resolvedModel ? { model: resolvedModel } : {}),
+          data,
+          ...(usage ? { usage } : {}),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const aborted = error instanceof Error && (error.name === "AbortError" || message.toLowerCase().includes("abort"));
+        return { ok: false, provider: id, ...withModel, error: aborted ? "timeout" : "request-failed", warnings: [message] };
+      } finally {
+        if (timer !== undefined && typeof g.clearTimeout === "function") g.clearTimeout(timer);
       }
     },
   };

@@ -39,6 +39,8 @@ function noKeyEnv(extra = {}) {
   delete env.REKON_LLM_ENABLED;
   delete env.REKON_LLM_PROVIDER;
   delete env.REKON_LLM_MODEL;
+  delete env.REKON_SEMANTIC_DEBT_MODEL;
+  delete env.REKON_SEMANTIC_DEBT_EFFORT;
   delete env.REKON_RUN_LIVE_LLM_TESTS;
   return { ...env, ...extra };
 }
@@ -87,6 +89,7 @@ function reportBase(root, over = {}) {
       mode: "auto",
       provider: "openai",
       model: "test-model",
+      effort: "low",
       promptVersion: "debt-judge-v1",
     },
     summary: { filesJudged: 1, filesWithDebt: 1, reused: 0, failed: 0, skipped: 0 },
@@ -147,6 +150,8 @@ test("1. default auto keyless scan reports no provider and writes no judgment ar
   assert.equal(json.semanticDebt.mode, "auto");
   assert.equal(json.semanticDebt.providerAvailable, false);
   assert.equal(json.semanticDebt.judged, 0);
+  assert.equal(json.semanticDebt.model, "gpt-5.6-luna");
+  assert.equal(json.semanticDebt.effort, "low");
   assert.equal(semanticDebtReports(root).length, 0);
 });
 
@@ -211,7 +216,24 @@ test("7. invalid --semantic-debt value exits non-zero", async () => {
   assert.match(result.stderr, /--semantic-debt must be one of off, auto, required/);
 });
 
-test("8. kernel factory validates and normalizes a well-formed report", async () => {
+test("8. debt-specific economy model defaults to none effort", async () => {
+  const root = await makeRepo();
+  const result = runCli(root, ["scan", "--semantic-debt-model", "gpt-5.4-nano"]);
+  assert.equal(result.status, 0, result.stderr);
+  const json = parseStdout(result);
+  assert.equal(json.semanticFiles.model, undefined);
+  assert.equal(json.semanticDebt.model, "gpt-5.4-nano");
+  assert.equal(json.semanticDebt.effort, "none");
+});
+
+test("9. invalid --semantic-debt-effort value exits non-zero", async () => {
+  const root = await makeRepo();
+  const result = runCli(root, ["scan", "--semantic-debt-effort", "turbo"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--semantic-debt-effort must be one of none, low, medium, high, xhigh, max/);
+});
+
+test("10. kernel factory validates and normalizes a well-formed report", async () => {
   const root = await makeRepo();
   const report = reportBase(root, {
     entries: [
@@ -226,10 +248,11 @@ test("8. kernel factory validates and normalizes a well-formed report", async ()
   });
   assert.equal(report.entries[0].verdict, "failed");
   assert.equal(report.entries[0].concerns[0].severity, "low");
+  assert.equal(report.policy.effort, "low");
   assert.equal(validateSemanticDebtJudgmentReport(report).ok, true);
 });
 
-test("9. validator rejects an empty policy model", async () => {
+test("11. validator rejects an empty policy model", async () => {
   const root = await makeRepo();
   const report = reportBase(root);
   const result = validateSemanticDebtJudgmentReport({ ...report, policy: { ...report.policy, model: "" } });
@@ -237,7 +260,15 @@ test("9. validator rejects an empty policy model", async () => {
   assert.ok(result.issues.some((issue) => issue.path === "$.policy.model"));
 });
 
-test("10. validator rejects duplicate entry paths", async () => {
+test("12. validator rejects an invalid policy effort", async () => {
+  const root = await makeRepo();
+  const report = reportBase(root);
+  const result = validateSemanticDebtJudgmentReport({ ...report, policy: { ...report.policy, effort: "turbo" } });
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.path === "$.policy.effort"));
+});
+
+test("13. validator rejects duplicate entry paths", async () => {
   const root = await makeRepo();
   const report = reportBase(root);
   const duplicate = {
@@ -252,7 +283,7 @@ test("10. validator rejects duplicate entry paths", async () => {
   assert.ok(result.issues.some((issue) => issue.path === "$.entries[1].path"));
 });
 
-test("11. include filter handles speculative and strong signals", () => {
+test("14. include filter handles speculative and strong signals", () => {
   assert.equal(shouldIncludeDebtConcern({ severity: "medium", description: "Consider extracting this helper." }), false);
   assert.equal(shouldIncludeDebtConcern({ severity: "high", description: "This may indicate duplication." }), false);
   assert.equal(shouldIncludeDebtConcern({ severity: "low", description: "Small helper could be nicer." }), false);
@@ -260,7 +291,7 @@ test("11. include filter handles speculative and strong signals", () => {
   assert.equal(shouldIncludeDebtConcern({ severity: "medium", description: "Missing error handling around the provider." }), true);
 });
 
-test("12. pattern tagger precedence returns expected tags and null", () => {
+test("15. pattern tagger precedence returns expected tags and null", () => {
   assert.equal(categorizeDebtPattern("Hardcoded API key and as any type assertion"), "hardcoded_values");
   assert.equal(categorizeDebtPattern("Uses as any to bypass type checking"), "type_assertion");
   assert.equal(categorizeDebtPattern("Missing error handling in catch flow"), "error_handling");
@@ -268,7 +299,7 @@ test("12. pattern tagger precedence returns expected tags and null", () => {
   assert.equal(categorizeDebtPattern("Plain refactor opportunity"), null);
 });
 
-test("13. coerceDebtConcerns keeps tech_debt concerns and applies filters/tags", () => {
+test("16. coerceDebtConcerns keeps tech_debt concerns and applies filters/tags", () => {
   const concerns = coerceDebtConcerns({
     concerns: [
       { type: "architecture", severity: "high", description: "wrong layer" },
@@ -283,7 +314,7 @@ test("13. coerceDebtConcerns keeps tech_debt concerns and applies filters/tags",
   assert.equal(concerns[1].pattern, "hardcoded_values");
 });
 
-test("14. evaluator lifts latest judgment artifact into one production debt finding", async () => {
+test("17. evaluator lifts latest judgment artifact into one production debt finding", async () => {
   const root = await makeRepo();
   let result = runCli(root, ["refresh"]);
   assert.equal(result.status, 0, result.stderr);
@@ -333,7 +364,7 @@ test("14. evaluator lifts latest judgment artifact into one production debt find
   assert.ok(!finding.description.includes("Consider a different helper"));
 });
 
-test("15. evaluator drops filtered/failed entries and rule is registered", async () => {
+test("18. evaluator drops filtered/failed entries and rule is registered", async () => {
   assert.ok(BUILT_IN_POLICY_RULES.includes(DEBT_SEMANTIC_RULE_ID));
   const findings = evaluateSemanticDebt({
     policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v1" },

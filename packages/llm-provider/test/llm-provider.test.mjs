@@ -8,7 +8,9 @@ import {
   createMockEmbeddingProvider,
   createDisabledLlmRouter,
   coercePhaseDrafts,
+  createAnthropicLlmProvider,
   createOpenAiLlmProvider,
+  createOpenAiResponsesLlmProvider,
 } from "../dist/index.js";
 
 const input = (task = "plan.semantic-normalize") => ({ task, schemaName: "Test", prompt: "x" });
@@ -192,4 +194,112 @@ test("20. keyed provider returns content-not-json when the message body is not J
   const result = await provider.completeJson(input());
   assert.equal(result.ok, false);
   assert.equal(result.error, "content-not-json");
+});
+
+test("21. OpenAI Responses adapter sends schema and effort and captures detailed usage", async () => {
+  let request;
+  const provider = createOpenAiResponsesLlmProvider({
+    apiKey: "k",
+    fetchImpl: async (url, init) => {
+      request = { url, init, body: JSON.parse(init.body) };
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            model: "gpt-5.4-nano-2026-03-17",
+            output: [{ type: "message", content: [{ type: "output_text", text: '{"concerns":[]}' }] }],
+            usage: {
+              input_tokens: 41,
+              output_tokens: 13,
+              input_tokens_details: { cached_tokens: 5, cache_write_tokens: 2 },
+              output_tokens_details: { reasoning_tokens: 7 },
+            },
+          });
+        },
+      };
+    },
+  });
+  const result = await provider.completeJson({
+    ...input("policy.debt-judgment"),
+    schemaName: "Semantic Debt Result",
+    effort: "low",
+    maxOutputTokens: 1200,
+    jsonSchema: { type: "object", properties: { concerns: { type: "array" } }, required: ["concerns"] },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(request.url, "https://api.openai.com/v1/responses");
+  assert.equal(request.body.reasoning.effort, "low");
+  assert.equal(request.body.text.format.type, "json_schema");
+  assert.equal(request.body.text.format.name, "Semantic_Debt_Result");
+  assert.equal(request.body.temperature, undefined);
+  assert.deepEqual(result.data, { concerns: [] });
+  assert.deepEqual(result.usage, {
+    inputTokens: 41,
+    outputTokens: 13,
+    reasoningTokens: 7,
+    cachedInputTokens: 5,
+    cacheWriteInputTokens: 2,
+  });
+});
+
+test("22. Anthropic adapter uses Messages structured output without temperature", async () => {
+  let request;
+  const provider = createAnthropicLlmProvider({
+    apiKey: "k",
+    fetchImpl: async (url, init) => {
+      request = { url, init, body: JSON.parse(init.body) };
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            model: "claude-sonnet-5",
+            content: [{ type: "text", text: '{"concerns":[]}' }],
+            usage: {
+              input_tokens: 53,
+              output_tokens: 11,
+              cache_read_input_tokens: 3,
+              cache_creation_input_tokens: 2,
+            },
+          });
+        },
+      };
+    },
+  });
+  const result = await provider.completeJson({
+    ...input("policy.debt-judgment"),
+    model: "claude-sonnet-5",
+    temperature: 0,
+    effort: "low",
+    maxOutputTokens: 1200,
+    jsonSchema: { type: "object", properties: { concerns: { type: "array" } }, required: ["concerns"] },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(request.url, "https://api.anthropic.com/v1/messages");
+  assert.equal(request.init.headers["anthropic-version"], "2023-06-01");
+  assert.equal(request.body.temperature, undefined);
+  assert.equal(request.body.output_config.effort, "low");
+  assert.equal(request.body.output_config.format.type, "json_schema");
+  assert.deepEqual(result.data, { concerns: [] });
+  assert.deepEqual(result.usage, {
+    inputTokens: 53,
+    outputTokens: 11,
+    cachedInputTokens: 3,
+    cacheWriteInputTokens: 2,
+  });
+});
+
+test("23. Anthropic adapter blocks cleanly without a key", async () => {
+  let called = false;
+  const provider = createAnthropicLlmProvider({
+    fetchImpl: async () => {
+      called = true;
+      throw new Error("must not call");
+    },
+  });
+  const result = await provider.completeJson(input());
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "missing-api-key");
+  assert.equal(called, false);
 });

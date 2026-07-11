@@ -7034,6 +7034,7 @@ export type SemanticDebtJudgmentPolicy = {
   mode: "auto" | "required";
   provider: string;
   model: string;
+  effort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   promptVersion: string;
 };
 
@@ -7054,6 +7055,7 @@ export type SemanticDebtJudgmentReport = {
 
 const SEMANTIC_DEBT_VERDICTS = new Set<string>(["debt", "clean", "failed"]);
 const SEMANTIC_DEBT_POLICY_MODES = new Set<string>(["auto", "required"]);
+const SEMANTIC_DEBT_EFFORTS = new Set<string>(["none", "low", "medium", "high", "xhigh", "max"]);
 
 function normalizeSemanticDebtConcern(value: unknown): SemanticDebtConcern | undefined {
   if (!isRecord(value)) return undefined;
@@ -7121,6 +7123,9 @@ export function createSemanticDebtJudgmentReport(
       mode: rawPolicy.mode === "required" ? "required" : "auto",
       provider: typeof rawPolicy.provider === "string" ? rawPolicy.provider : "",
       model: typeof rawPolicy.model === "string" ? rawPolicy.model : "",
+      ...(typeof rawPolicy.effort === "string" && SEMANTIC_DEBT_EFFORTS.has(rawPolicy.effort)
+        ? { effort: rawPolicy.effort }
+        : {}),
       promptVersion: typeof rawPolicy.promptVersion === "string" ? rawPolicy.promptVersion : "",
     },
     summary: {
@@ -7170,6 +7175,9 @@ export function validateSemanticDebtJudgmentReport(
     }
     for (const key of ["provider", "model", "promptVersion"] as const) {
       pushRequiredStringIssue(issues, policy[key], `$.policy.${key}`);
+    }
+    if (policy.effort !== undefined && (typeof policy.effort !== "string" || !SEMANTIC_DEBT_EFFORTS.has(policy.effort))) {
+      issues.push({ path: "$.policy.effort", message: "Expected one of none, low, medium, high, xhigh, or max." });
     }
   }
 

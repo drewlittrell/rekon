@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "cases": [
+    { "id": "hardcoded-origin", "file": "hardcoded-origin.ts", "expectedDebt": true, "expectedPattern": "hardcoded_values" },
+    { "id": "swallowed-error", "file": "swallowed-error.ts", "expectedDebt": true, "expectedPattern": "error_handling" },
+    { "id": "unsafe-any", "file": "unsafe-any.ts", "expectedDebt": true, "expectedPattern": "type_assertion" },
+    { "id": "deprecated-call", "file": "deprecated-call.ts", "expectedDebt": true, "expectedPattern": "deprecated" },
+    { "id": "duplicated-validation", "file": "duplicated-validation.ts", "expectedDebt": true, "expectedPattern": "duplication" },
+    { "id": "silent-config-fallback", "file": "silent-config-fallback.ts", "expectedDebt": true, "expectedPattern": "fallback_logic" },
+    { "id": "deferred-retry-loss", "file": "deferred-retry-loss.ts", "expectedDebt": true, "expectedPattern": "todo_comments" },
+    { "id": "unsafe-non-null", "file": "unsafe-non-null.ts", "expectedDebt": true, "expectedPattern": "type_assertion" },
+    { "id": "type-only", "file": "type-only.ts", "expectedDebt": false },
+    { "id": "factory-wiring", "file": "factory-wiring.ts", "expectedDebt": false },
+    { "id": "generated-client", "file": "generated-client.ts", "expectedDebt": false },
+    { "id": "exhaustive-union", "file": "exhaustive-union.ts", "expectedDebt": false },
+    { "id": "explicit-error-propagation", "file": "explicit-error-propagation.ts", "expectedDebt": false },
+    { "id": "injected-config", "file": "injected-config.ts", "expectedDebt": false },
+    { "id": "small-pure-helper", "file": "small-pure-helper.ts", "expectedDebt": false },
+    { "id": "dead-code-routing", "file": "dead-code-routing.ts", "expectedDebt": false },
+    { "id": "lint-routing", "file": "lint-routing.ts", "expectedDebt": false },
+    { "id": "architecture-routing", "file": "architecture-routing.ts", "expectedDebt": false }
+  ]
+}

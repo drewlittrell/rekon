@@ -11,7 +11,8 @@
   "scripts": {
     "typecheck": "tsc -b",
     "test": "node scripts/test.mjs",
-    "build": "npm run build --workspaces"
+    "build": "npm run build --workspaces",
+    "eval:semantic-debt": "npm run build --workspaces && node scripts/eval-semantic-debt-models.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",

@@ -1,7 +1,7 @@
 {
   "name": "@rekon/llm-provider",
   "version": "1.0.0",
-  "description": "Shared Rekon LLM provider routing foundation: provider/embedding interfaces, a task-routed RekonLlmRouter with deterministic fallback, mock providers for tests, and live OpenAI (chat) and Voyage (embedding) adapters that call the network only when constructed with an API key. Model use is on by default when keys are present, with an explicit opt-out; provider output is a proposal, not proof.",
+  "description": "Shared Rekon LLM provider routing foundation with OpenAI, Anthropic, Voyage, and mock adapters. Live adapters call the network only when constructed with an API key; provider output is a proposal, not proof.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {

@@ -155,6 +155,7 @@ import modelCapability, {
   buildSemanticFileUnderstandingReport,
   buildSemanticDebtJudgmentPrompt,
   coerceDebtConcerns,
+  SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
   SEMANTIC_DEBT_PROMPT_VERSION,
   SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
   buildCapabilityEvidenceGraph,
@@ -185,6 +186,7 @@ import {
   RekonLlmRouter,
   coercePhaseDrafts,
   createOpenAiLlmProvider,
+  createOpenAiResponsesLlmProvider,
   createVoyageEmbeddingProvider,
   VOYAGE_DEFAULT_MODEL,
   VOYAGE_DEFAULT_DIMENSIONS,
@@ -695,6 +697,13 @@ export async function main(argv: string[]): Promise<void> {
       typeof parsed.flags["llm-provider"] === "string" ? String(parsed.flags["llm-provider"]).trim() : "";
     const semanticLlmModel =
       typeof parsed.flags["llm-model"] === "string" ? String(parsed.flags["llm-model"]).trim() : "";
+    const semanticDebtLlmModel =
+      typeof parsed.flags["semantic-debt-model"] === "string"
+        ? String(parsed.flags["semantic-debt-model"]).trim()
+        : semanticLlmModel;
+    const semanticDebtEffort = parsed.flags["semantic-debt-effort"] === undefined
+      ? undefined
+      : normalizeSemanticDebtEffort(parsed.flags["semantic-debt-effort"], "rekon scan --semantic-debt-effort");
     const semanticFilePath =
       typeof parsed.flags["semantic-file-path"] === "string" ? String(parsed.flags["semantic-file-path"]).trim() : "";
     const semanticChangedOnly = parsed.flags["semantic-changed-only"] === true;
@@ -721,7 +730,8 @@ export async function main(argv: string[]): Promise<void> {
       store: semanticDebtStore,
       mode: semanticDebtMode,
       llmProvider: semanticLlmProvider,
-      llmModel: semanticLlmModel,
+      llmModel: semanticDebtLlmModel,
+      llmEffort: semanticDebtEffort,
       fileLimit: semanticDebtFileLimit,
     });
 
@@ -9381,17 +9391,19 @@ const SEMANTIC_SCAN_EXCLUDED_DIRS = new Set(["node_modules", "dist", "build", "c
 const SEMANTIC_SCAN_EXCLUDED_FILES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "npm-shrinkwrap.json"]);
 const SEMANTIC_SCAN_MAX_BYTES = 262144; // 256 KiB — skip large files conservatively.
 const SEMANTIC_SCAN_DEFAULT_FILE_LIMIT = 100;
-/**
- * Placeholder default until the operator-path eval pins the debt judge model.
- * Operators can override it with `--llm-model` or `REKON_LLM_MODEL`.
- */
-const SEMANTIC_DEBT_DEFAULT_MODEL = "gpt-4o-mini";
+const SEMANTIC_DEBT_DEFAULT_MODEL = "gpt-5.6-luna";
+const SEMANTIC_DEBT_DEFAULT_EFFORT = "low";
+const SEMANTIC_DEBT_ECONOMY_MODEL = "gpt-5.4-nano";
+const SEMANTIC_DEBT_ECONOMY_EFFORT = "none";
 const SEMANTIC_DEBT_DEFAULT_FILE_LIMIT = 200;
 const SEMANTIC_DEBT_MAX_PROMPT_CHARS = 24000;
 const SEMANTIC_DEBT_EXCLUDED_PREFIXES = [".claude/", ".codex/", ".agents/"] as const;
 const SEMANTIC_DEBT_REPORT_ARTIFACT_ID_PREFIX = "semantic-debt-judgment-report-";
 
 type SemanticLayerMode = "off" | "auto" | "required";
+type SemanticDebtEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
+
+const SEMANTIC_DEBT_EFFORTS = new Set<string>(["none", "low", "medium", "high", "xhigh", "max"]);
 
 function isSemanticLayerMode(value: string): value is SemanticLayerMode {
   return value === "off" || value === "auto" || value === "required";
@@ -9405,6 +9417,19 @@ function normalizeSemanticFlagMode(value: unknown, fallback: SemanticLayerMode):
   }
   if (value === true) return "auto";
   return fallback;
+}
+
+function normalizeSemanticDebtEffort(value: unknown, source: string): SemanticDebtEffort {
+  if (typeof value === "string" && SEMANTIC_DEBT_EFFORTS.has(value.trim())) {
+    return value.trim() as SemanticDebtEffort;
+  }
+  throw new Error(`${source} must be one of none, low, medium, high, xhigh, max.`);
+}
+
+function defaultSemanticDebtEffort(model: string): SemanticDebtEffort | undefined {
+  if (model === SEMANTIC_DEBT_DEFAULT_MODEL) return SEMANTIC_DEBT_DEFAULT_EFFORT;
+  if (model === SEMANTIC_DEBT_ECONOMY_MODEL) return SEMANTIC_DEBT_ECONOMY_EFFORT;
+  return undefined;
 }
 
 function hasUsableOpenAiKey(value: string | undefined): boolean {
@@ -9956,6 +9981,7 @@ type SemanticDebtLayerSummary = {
   skipped: number;
   provider?: string;
   model?: string;
+  effort?: SemanticDebtEffort;
   providerAvailable?: boolean;
 };
 
@@ -9994,12 +10020,15 @@ function languageForSemanticDebtPath(relPath: string): string | undefined {
 
 function semanticDebtPolicyMatches(
   report: unknown,
-  policy: { provider: string; model: string; promptVersion: string },
+  policy: { provider: string; model: string; effort?: SemanticDebtEffort; promptVersion: string },
 ): report is SemanticDebtJudgmentReport {
   if (!report || typeof report !== "object" || Array.isArray(report)) return false;
-  const candidate = report as { policy?: { provider?: unknown; model?: unknown; promptVersion?: unknown } };
+  const candidate = report as {
+    policy?: { provider?: unknown; model?: unknown; effort?: unknown; promptVersion?: unknown };
+  };
   return candidate.policy?.provider === policy.provider
     && candidate.policy?.model === policy.model
+    && candidate.policy?.effort === policy.effort
     && candidate.policy?.promptVersion === policy.promptVersion;
 }
 
@@ -10024,6 +10053,7 @@ async function runSemanticDebtLayer(input: {
   mode: SemanticLayerMode;
   llmProvider: string;
   llmModel: string;
+  llmEffort?: SemanticDebtEffort;
   fileLimit: number;
 }): Promise<SemanticDebtLayerResult> {
   const { root, store, mode } = input;
@@ -10033,14 +10063,24 @@ async function runSemanticDebtLayer(input: {
 
   const envProvider = typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
   const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
+  const envDebtModel = typeof process.env.REKON_SEMANTIC_DEBT_MODEL === "string"
+    ? process.env.REKON_SEMANTIC_DEBT_MODEL.trim()
+    : "";
+  const envEffort = typeof process.env.REKON_SEMANTIC_DEBT_EFFORT === "string"
+    ? process.env.REKON_SEMANTIC_DEBT_EFFORT.trim()
+    : "";
   const providerResolved = input.llmProvider || envProvider || "openai";
-  const modelResolved = input.llmModel || envModel || SEMANTIC_DEBT_DEFAULT_MODEL;
+  const modelResolved = input.llmModel || envDebtModel || envModel || SEMANTIC_DEBT_DEFAULT_MODEL;
+  const effortResolved = input.llmEffort
+    ?? (envEffort ? normalizeSemanticDebtEffort(envEffort, "REKON_SEMANTIC_DEBT_EFFORT") : undefined)
+    ?? defaultSemanticDebtEffort(modelResolved);
   const providerAvailable =
     hasUsableOpenAiKey(process.env.OPENAI_API_KEY)
     && !envDisablesLlm(process.env.REKON_LLM_ENABLED);
   const providerModelSummary = {
     provider: providerResolved,
     model: modelResolved,
+    ...(effortResolved ? { effort: effortResolved } : {}),
     providerAvailable,
   };
 
@@ -10058,10 +10098,11 @@ async function runSemanticDebtLayer(input: {
   }
 
   await store.init();
-  const adapter = createSemanticDebtJudgmentAdapter(mode, providerResolved, modelResolved);
+  const adapter = createSemanticDebtJudgmentAdapter(mode, providerResolved, modelResolved, effortResolved);
   const policy = {
     provider: providerResolved,
     model: modelResolved,
+    ...(effortResolved ? { effort: effortResolved } : {}),
     promptVersion: SEMANTIC_DEBT_PROMPT_VERSION,
   };
 
@@ -10216,6 +10257,7 @@ async function runSemanticDebtLayer(input: {
       skipped,
       provider: usedProvider ?? providerResolved,
       model: usedModel ?? modelResolved,
+      ...(effortResolved ? { effort: effortResolved } : {}),
       providerAvailable: true,
     },
     exitNonZero: requiredHardFail,
@@ -10320,6 +10362,7 @@ function createSemanticDebtJudgmentAdapter(
   mode: SemanticLayerMode,
   flagProvider: string,
   flagModel: string,
+  effort?: SemanticDebtEffort,
 ): SemanticDebtJudgmentAdapter {
   const envProvider =
     typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
@@ -10331,7 +10374,7 @@ function createSemanticDebtJudgmentAdapter(
     && !envDisablesLlm(process.env.REKON_LLM_ENABLED);
 
   const providers = [
-    createOpenAiLlmProvider({
+    createOpenAiResponsesLlmProvider({
       id: "openai",
       apiKey: process.env.OPENAI_API_KEY,
       ...(typeof process.env.REKON_LLM_BASE_URL === "string" && process.env.REKON_LLM_BASE_URL.length > 0
@@ -10353,8 +10396,9 @@ function createSemanticDebtJudgmentAdapter(
         task: "policy.debt-judgment",
         schemaName: "SemanticDebtJudgmentResult",
         prompt,
-        temperature: 0,
+        ...(effort ? { effort } : {}),
         maxOutputTokens: 1200,
+        jsonSchema: SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
       },
       override,
     );
@@ -14292,7 +14336,7 @@ function asStringArray(value: unknown): string[] {
 
 function usage(): string {
   return [
-    "rekon scan [--semantic-files off|auto|required] [--semantic-debt off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--semantic-debt-file-limit <n>] [--root <path>] [--json]",
+    "rekon scan [--semantic-files off|auto|required] [--semantic-debt off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-debt-model <model>] [--semantic-debt-effort none|low|medium|high|xhigh|max] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--semantic-debt-file-limit <n>] [--root <path>] [--json]",
     "rekon welcome [--json] [--no-banner]",
     "rekon setup [--root <path>] [--json] [--no-banner]",
     "rekon init [--root <path>]",

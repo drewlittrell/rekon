@@ -2,6 +2,31 @@ import type { SemanticFileUnderstandingSeverity } from "@rekon/kernel-repo-model
 
 export const SEMANTIC_DEBT_PROMPT_VERSION = "debt-judge-v1";
 
+export const SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    concerns: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          type: {
+            type: "string",
+            enum: ["architecture", "tech_debt", "dead_code", "lint", "stub"],
+          },
+          severity: { type: "string", enum: ["low", "medium", "high"] },
+          description: { type: "string" },
+          line: { type: ["integer", "null"] },
+        },
+        required: ["type", "severity", "description", "line"],
+      },
+    },
+  },
+  required: ["concerns"],
+};
+
 export type SemanticDebtAdapterConcern = {
   type?: string;
   severity?: string;

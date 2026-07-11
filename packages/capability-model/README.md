@@ -25,6 +25,8 @@ artifacts over re-deriving ownership directly from raw evidence.
 ## Public Surface
 
 The default export is a Rekon capability definition with a projector handler.
+The package also exports the semantic-debt judgment prompt, strict response
+schema, and deterministic concern coercion used by the CLI and model evaluator.
 
 ## Import Boundary
 

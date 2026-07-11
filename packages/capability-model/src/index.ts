@@ -229,6 +229,7 @@ export {
   type SemanticDebtAdapterResult,
   type SemanticDebtJudgmentAdapter,
   type SemanticDebtConcernCoerced,
+  SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
   SEMANTIC_DEBT_PROMPT_VERSION,
   buildSemanticDebtJudgmentPrompt,
   categorizeDebtPattern,

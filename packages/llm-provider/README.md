@@ -1,11 +1,9 @@
 # `@rekon/llm-provider`
 
-Shared Rekon **LLM provider routing foundation.**
+Shared Rekon LLM provider routing foundation.
 
-> **No live providers. No network calls.** This package ships the provider and
-> embedding interfaces, a task-routed `RekonLlmRouter` with deterministic
-> fallback, and a mock provider for tests. Wiring a real hosted provider is a
-> later, opt-in step.
+Live adapters call the network only when the caller supplies an API key. The
+package does not read environment variables or persist credentials.
 
 ## What it provides
 
@@ -17,6 +15,12 @@ Shared Rekon **LLM provider routing foundation.**
   fallback**, then calls the selected provider.
 - `createMockLlmProvider` / `createMockEmbeddingProvider` — deterministic test
   doubles.
+- `createOpenAiLlmProvider` — OpenAI-compatible Chat Completions.
+- `createOpenAiResponsesLlmProvider` — OpenAI Responses with structured output,
+  effort controls, and detailed usage.
+- `createAnthropicLlmProvider` — Anthropic Messages with structured output,
+  effort controls, and detailed usage.
+- `createVoyageEmbeddingProvider` — Voyage embeddings.
 - `createDisabledLlmRouter` — a router that always falls back / fails per mode.
 - `coercePhaseDrafts` — a structural schema gate for provider output.
 
@@ -41,13 +45,9 @@ proposals out.
 
 Label: `experimental, public`.
 
-The provider / embedding interfaces, `RekonLlmRouter`, the route-resolution
-order, and the mock providers are `experimental` and published so external
-callers can wire their own provider adapters against a stable shape. No live
-provider ships in this package, so there is no network surface to stabilize yet.
-Internal helpers may change without notice. The public surface (the exported
-interfaces, the router, `createMockLlmProvider` / `createMockEmbeddingProvider`,
-`createDisabledLlmRouter`, and `coercePhaseDrafts`) follows the
+The provider and embedding interfaces, router, mock providers, and live adapter
+factories are `experimental`. Internal helpers may change without notice. The
+public surface follows the
 [stability concept](../../docs/concepts/stability.md).
 
 ## Related
