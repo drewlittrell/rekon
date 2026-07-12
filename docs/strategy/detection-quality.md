@@ -41,6 +41,13 @@ Detection quality is measured per goal using:
 Historical detector output may supply test cases, but it is not a product
 specification or a target finding count.
 
+The private-corpus benchmark writes a detailed local report and a sanitized
+aggregate report. Operator adjudications remain external to the repository.
+When labels are absent, precision, usefulness, severity calibration, and
+identity stability are reported as insufficient evidence rather than inferred
+from detector volume. `tests/bench/quality-thresholds.json` defines the minimum
+evidence expected before each built-in rule is considered calibrated.
+
 ## Next Evidence Packs
 
 Coverage should expand through evidence sources with independent proof value:

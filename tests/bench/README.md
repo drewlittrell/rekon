@@ -20,12 +20,56 @@ REKON_PARITY_CORPUS=/path/to/corpus node tests/bench/classic-parity-bench.mjs
 node tests/bench/classic-parity-bench.mjs --corpus /path/to/corpus \
   [--rule-map tests/bench/rule-map.json] [--output tests/bench/output] \
   [--overruled /path/to/private-overruled.json] \
+  [--adjudications /path/to/private-quality-adjudications.json] \
+  [--quality-thresholds tests/bench/quality-thresholds.json] \
   [--repo <id>] [--skip-refresh]
 ```
 
 Without `REKON_PARITY_CORPUS` (or `--corpus`) the bench skips cleanly with
 exit 0 — the same gating pattern as the live dogfood harnesses. Reports land
-in `tests/bench/output/` (gitignored).
+in `tests/bench/output/` (gitignored). `report.json` and `report.md` are local
+operator reports and can contain private identifiers. `report.sanitized.json`
+contains aggregate counts, rule ids, and repository counts only; it excludes
+corpus roots, repository ids, finding ids, and file paths.
+
+## Quality adjudication
+
+Recall alone does not describe detection quality. An optional external
+adjudication file lets the bench report finding precision separately from the
+usefulness of risks and opportunities:
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "records": [
+    {
+      "repoId": "private-repo-id",
+      "recordType": "finding",
+      "recordId": "finding-id",
+      "ruleId": "typescript.compilerDiagnostic",
+      "judgment": "valid",
+      "severity": "accurate",
+      "identityStable": true
+    },
+    {
+      "repoId": "private-repo-id",
+      "recordType": "assessment",
+      "recordId": "assessment-id",
+      "ruleId": "typescript.functionComplexity",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true
+    }
+  ]
+}
+```
+
+Pass the file with `--adjudications` or `REKON_PARITY_ADJUDICATIONS`. It remains
+outside the repository. Missing labels are reported as `insufficient-evidence`;
+the bench does not invent precision or usefulness scores. Per-rule thresholds
+live in `tests/bench/quality-thresholds.json` and cover evidence completeness,
+duplicate remediation, identity stability, finding precision, and assessment
+usefulness. Severity calibration and law attribution are reported separately.
 
 ## Corpus manifest
 

@@ -3,10 +3,12 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { BUILT_IN_POLICY_RULES } from "../packages/capability-policy/dist/index.js";
+import { validateQualityThresholds } from "../tests/bench/quality-core.mjs";
 
 const inventoryPath = resolve("tests/evals/detection-quality/emitter-inventory.json");
 const inventory = JSON.parse(await readFile(inventoryPath, "utf8"));
 const cases = JSON.parse(await readFile(resolve("tests/evals/detection-quality/cases.json"), "utf8"));
+const thresholds = JSON.parse(await readFile(resolve("tests/bench/quality-thresholds.json"), "utf8"));
 const allowedKinds = new Set(["finding", "risk", "opportunity", "semantic_claim", "model_diagnostic"]);
 
 assert.equal(inventory.schemaVersion, "1.0.0", "unexpected emitter inventory schema");
@@ -30,6 +32,7 @@ for (const ruleId of BUILT_IN_POLICY_RULES) {
 for (const ruleId of byRule.keys()) {
   assert.ok(BUILT_IN_POLICY_RULES.includes(ruleId), `inventory contains an unknown built-in rule: ${ruleId}`);
 }
+validateQualityThresholds(thresholds, [...byRule.keys()]);
 
 assert.equal(cases.schemaVersion, "1.0.0", "unexpected detection-quality case schema");
 assert.ok(Array.isArray(cases.cases) && cases.cases.length > 0, "detection-quality cases are required");
@@ -48,4 +51,4 @@ for (const emitter of inventory.emitters) {
   for (const kind of emitter.outputKinds) counts[kind] = (counts[kind] ?? 0) + 1;
 }
 
-process.stdout.write(`${JSON.stringify({ valid: true, rules: inventory.emitters.length, cases: cases.cases.length, outputKinds: counts }, null, 2)}\n`);
+process.stdout.write(`${JSON.stringify({ valid: true, rules: inventory.emitters.length, cases: cases.cases.length, qualityThresholds: Object.keys(thresholds.rules).length, outputKinds: counts }, null, 2)}\n`);

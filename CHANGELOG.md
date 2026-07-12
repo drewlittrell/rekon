@@ -4,6 +4,10 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Hardened the parity benchmark with external-only operator adjudications,
+  per-rule quality thresholds, separate finding precision and assessment
+  usefulness, and a sanitized aggregate report that excludes corpus roots,
+  repository ids, record ids, and file paths.
 - Added repository-local SARIF 2.1 security ingestion with typed
   `SecurityScanReport` artifacts, stable scanner-result identity, outside-root
   path rejection, and current-evidence policy risks. Generic lint SARIF remains

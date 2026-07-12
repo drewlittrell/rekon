@@ -10,7 +10,8 @@
 // Usage:
 //   REKON_PARITY_CORPUS=/path/to/corpus node tests/bench/classic-parity-bench.mjs
 //   node tests/bench/classic-parity-bench.mjs --corpus <path> [--rule-map <path>]
-//     [--overruled <path>] [--output <dir>] [--repo <id> ...] [--skip-refresh]
+//     [--overruled <path>] [--adjudications <path>] [--quality-thresholds <path>]
+//     [--output <dir>] [--repo <id> ...] [--skip-refresh]
 //
 // When REKON_PARITY_CORPUS is unset and no --corpus is given, the bench skips
 // the real-corpus run cleanly (exit 0) — the same pattern as the gated
@@ -33,6 +34,12 @@ import { isAbsolute, join, resolve } from "node:path";
 
 import { loadClassicFindings, loadSuppressedFindings } from "./normalize-classic.mjs";
 import { buildBenchReport, classifyParity, renderMarkdownReport, validateOverruledList, validateRuleMap } from "./parity-core.mjs";
+import {
+  buildQualitySummary,
+  buildSanitizedBenchReport,
+  validateQualityAdjudications,
+  validateQualityThresholds,
+} from "./quality-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
@@ -51,6 +58,10 @@ function parseArgs(argv) {
       flags.output = argv[(index += 1)];
     } else if (arg === "--overruled") {
       flags.overruled = argv[(index += 1)];
+    } else if (arg === "--adjudications") {
+      flags.adjudications = argv[(index += 1)];
+    } else if (arg === "--quality-thresholds") {
+      flags.qualityThresholds = argv[(index += 1)];
     } else if (arg === "--repo") {
       flags.repos.push(argv[(index += 1)]);
     } else if (arg === "--skip-refresh") {
@@ -182,6 +193,14 @@ async function main() {
         return existsSync(candidate) ? readFileSync(candidate, "utf8") : null;
       })
     : [];
+  const adjudicationsInput = flags.adjudications ?? process.env.REKON_PARITY_ADJUDICATIONS;
+  const adjudications = adjudicationsInput
+    ? validateQualityAdjudications(JSON.parse(readFileSync(resolve(adjudicationsInput), "utf8")))
+    : [];
+  const qualityThresholdsPath = flags.qualityThresholds
+    ? resolve(flags.qualityThresholds)
+    : resolve(repoRoot, "tests/bench/quality-thresholds.json");
+  const qualityThresholds = validateQualityThresholds(JSON.parse(readFileSync(qualityThresholdsPath, "utf8")));
   const outputDir = flags.output ? resolve(flags.output) : resolve(repoRoot, "tests/bench/output");
   const selected = manifest.repos.filter((entry) => flags.repos.length === 0 || flags.repos.includes(entry.id));
 
@@ -211,6 +230,7 @@ async function main() {
     }
 
     const findingReport = latestArtifactBody(root, "FindingReport");
+    const assessmentReport = latestArtifactBody(root, "AssessmentReport");
     const filterReport = latestArtifactBody(root, "FindingFilterReport");
     const rekonFindings = findingReport?.findings ?? [];
     const filteredFindings = filterReport?.filteredFindings ?? [];
@@ -227,6 +247,8 @@ async function main() {
       coverage,
       precision,
       rekonFindingCount: rekonFindings.length,
+      rekonFindings,
+      assessments: assessmentReport?.assessments ?? [],
     });
   }
 
@@ -235,15 +257,19 @@ async function main() {
     corpusRoot: corpusAbs,
     repos: repoResults,
   });
+  const quality = buildQualitySummary({ repos: repoResults, adjudications, thresholds: qualityThresholds });
+  const detailedReport = { ...report, quality };
+  const sanitizedReport = buildSanitizedBenchReport(report, quality);
 
   mkdirSync(outputDir, { recursive: true });
-  writeFileSync(join(outputDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync(join(outputDir, "report.json"), `${JSON.stringify(detailedReport, null, 2)}\n`);
+  writeFileSync(join(outputDir, "report.sanitized.json"), `${JSON.stringify(sanitizedReport, null, 2)}\n`);
   writeFileSync(join(outputDir, "report.md"), renderMarkdownReport(report));
 
   process.stdout.write(
     `classic-parity-bench: weighted recall ${(report.aggregate.recall * 100).toFixed(1)}% ` +
       `(${report.aggregate.creditedWeight}/${report.aggregate.totalWeight} weighted) across ${repoResults.length} repo(s). ` +
-      `Report: ${join(outputDir, "report.md")}\n`,
+      `Reports: ${join(outputDir, "report.md")}, ${join(outputDir, "report.sanitized.json")}\n`,
   );
 
   return 0;

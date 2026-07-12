@@ -379,6 +379,7 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
   assert.match(result.stdout, /weighted recall/);
 
   const report = JSON.parse(readFileSync(join(outputDir, "report.json"), "utf8"));
+  const sanitized = JSON.parse(readFileSync(join(outputDir, "report.sanitized.json"), "utf8"));
   const markdown = readFileSync(join(outputDir, "report.md"), "utf8");
 
   assert.equal(report.repos.length, 1);
@@ -397,6 +398,16 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
   assert.equal(byId.get("fixture-issue-3").classification, "rejected");
   assert.equal(byId.get("fixture-issue-3").citation, "docs/strategy/detection-quality.md#naming-and-anti-patterns");
   assert.ok(["matched", "missed-gap"].includes(byId.get("fixture-issue-1").classification));
+
+  const sanitizedText = JSON.stringify(sanitized);
+  assert.equal(sanitized.repositoryCount, 1);
+  assert.equal("corpusRoot" in sanitized, false);
+  assert.equal("repos" in sanitized, false);
+  assert.equal(sanitizedText.includes("parity-fixture"), false);
+  assert.equal(sanitizedText.includes("fixture-issue-1"), false);
+  assert.equal(sanitizedText.includes("src/uses-dist.ts"), false);
+  assert.ok(sanitized.quality.findingQuality);
+  assert.ok(sanitized.quality.assessmentUtility);
 
   assert.match(markdown, /# Classic Parity Bench Report/);
   assert.match(markdown, /Gap queue \(undecided, by fireCount\)/);

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0.0",
+  "defaults": {
+    "minimumAdjudications": 5,
+    "minimumEvidenceCompleteness": 1,
+    "maximumDuplicateRemediationRate": 0,
+    "minimumIdentityStability": 1
+  },
+  "rules": {
+    "architecture.dependencyHub": { "minimumUsefulness": 0.75 },
+    "architecture.importCycle": { "minimumUsefulness": 0.75 },
+    "architecture.noUnknownSystemForSourceFile": { "minimumUsefulness": 0.75 },
+    "capability.overlap": { "minimumUsefulness": 0.75 },
+    "dead_code.unreferenced": { "minimumPrecision": 0.9, "minimumUsefulness": 0.75 },
+    "debt.markers": { "minimumUsefulness": 0.75 },
+    "debt.semantic": { "minimumUsefulness": 0.75 },
+    "files.noGeneratedAsSource": { "minimumPrecision": 0.9 },
+    "grammar.antiPattern": { "minimumPrecision": 0.9 },
+    "grammar.divergence": { "minimumPrecision": 0.9 },
+    "imports.noDistImports": { "minimumPrecision": 0.9 },
+    "imports.noNodeModulesRelativeImports": { "minimumPrecision": 0.9 },
+    "naming.contract": { "minimumPrecision": 0.9 },
+    "repository.checkFailure": { "minimumPrecision": 0.9, "minimumUsefulness": 0.75 },
+    "security.scannerResult": { "minimumUsefulness": 0.75 },
+    "similarity.duplicateCandidate": { "minimumUsefulness": 0.75 },
+    "typescript.asyncArrayCallback": { "minimumUsefulness": 0.75 },
+    "typescript.asyncPromiseExecutor": { "minimumUsefulness": 0.75 },
+    "typescript.compilerDiagnostic": { "minimumPrecision": 0.9 },
+    "typescript.errorSuppression": { "minimumUsefulness": 0.75 },
+    "typescript.functionComplexity": { "minimumUsefulness": 0.75 },
+    "typescript.placeholderImplementation": { "minimumUsefulness": 0.75 },
+    "typescript.typeEscape": { "minimumUsefulness": 0.75 }
+  }
+}
