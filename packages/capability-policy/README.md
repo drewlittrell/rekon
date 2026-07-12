@@ -19,6 +19,11 @@ Current rule families:
 - `typescript.typeEscape`
 - `typescript.errorSuppression`
 - `typescript.placeholderImplementation`
+- `typescript.asyncPromiseExecutor`
+- `typescript.asyncArrayCallback`
+- `typescript.floatingPromise`
+- `tests.focused`
+- `tests.isolation`
 - `typescript.functionComplexity`
 - `repository.checkFailure`
 - `security.scannerResult`
@@ -53,7 +58,15 @@ Function complexity is a risk only when at least two conservative AST
 thresholds are exceeded. Static complexity does not become a finding by itself.
 Async Promise executors and async callbacks on statically recognized arrays are
 also risks. Promise shadowing and unknown method receivers are excluded rather
-than guessed.
+than guessed. Bare calls are reported only for unshadowed local async
+declarations. Focused test syntax and direct `process.env` mutation inside a
+test callback are test-scoped risks. Disabled tests remain explicit debt-marker
+evidence. Style remains the responsibility of imported linter output rather
+than a parallel Rekon style detector.
+
+Error-handling assessment is intentionally narrow: empty catches, catch blocks
+that only log, and explicit placeholder throws carry concrete remediation.
+Rekon does not score broad catch-block or logging style preferences.
 Fresh isolated coverage can enrich that same risk with function-level execution
 from a bound `VerificationRun`; it does not create a second detector result. A
 passing run supports a scoped target gap only when its plan declared the source

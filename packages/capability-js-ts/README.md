@@ -26,7 +26,8 @@ The capability is authored through `@rekon/sdk` exactly like a community package
 - `typescript:function-metrics` for neutral measurements of named functions;
   classification remains a policy concern
 - `manifest` and `build_target` for package manifests and lifecycle scripts
-- `route` and `screen` for Next.js file conventions
+- `route` and `screen` for Next.js file conventions and syntax-backed Express
+  and NestJS routes
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
@@ -50,6 +51,14 @@ package-private extractor helpers from consumers.
 ## Behavior
 
 It ignores `node_modules`, `.git`, `.rekon`, `dist`, `build`, and `coverage`.
+Declared tsconfig aliases, workspace package names, package export subpaths,
+dynamic imports, and re-export targets resolve only when they map to a scanned
+repository file. Package export maps are authoritative: undeclared subpaths are
+not guessed. Express routes require a literal path on a locally constructed app
+or router; NestJS routes require imported controller and HTTP decorators. Vite
+roots require package metadata plus a conventional `src/main` or `vite.config`
+file. Unsupported framework idioms remain absent rather than inferred.
+
 Compiler evidence is limited to file-local syntax errors and a conservative set
 of stable semantic type errors. Dependency-resolution and ambient-configuration
 diagnostics are excluded. Incremental observations do not run the compiler pass.
@@ -59,3 +68,8 @@ complexity, nesting, and distinct call fan-out. They are evidence, not defects.
 Call evidence does not infer receiver types. State access requires a direct
 binding from a recognized state SDK; event flow requires a literal event name;
 error flow requires explicit throw syntax.
+Local async calls are reported only when an unshadowed, locally declared async
+function is used as a bare statement. Focused tests and direct `process.env`
+mutation inside test callbacks remain risks, not proven defects. Tests are
+included by default through the runtime and can be excluded with
+`ObserveOptions.includeTests: false`.

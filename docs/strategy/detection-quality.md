@@ -66,8 +66,21 @@ not prove runtime impact or reachability.
 Async control-flow checks are similarly conservative. Rekon reports async
 Promise executors only when `Promise` is not shadowed, and async callbacks on
 synchronous array methods only when the receiver is statically recognizable as
-an array. These are risks until execution or a repository-native check proves
-impact.
+an array. A bare call is reported only for an unshadowed local async declaration;
+imported functions and inferred promise-returning functions are not guessed.
+These are risks until execution or a repository-native check proves impact.
+
+Test hygiene follows the same rule. Explicit focused-test syntax and direct
+`process.env` mutation inside a test callback are risks. Disabled tests remain
+declared debt. Rekon does not infer broader isolation failures from naming or
+shared imports. Source style is delegated to repository-native linters, whose
+structured output can be ingested and corroborated.
+
+Framework evidence is deterministic and bounded. Next.js uses file
+conventions, Express requires a literal route on a locally constructed app or
+router, NestJS requires imported controller and HTTP decorators, and Vite roots
+require manifest evidence plus conventional files. Unsupported routing DSLs
+stay unresolved.
 
 Function complexity follows the same distinction. Rekon reports a risk only
 when at least two function-level AST measurements agree across cyclomatic

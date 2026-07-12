@@ -8,7 +8,10 @@ export type SourceQualitySignalKind =
   | "placeholder_throw"
   | "async_promise_executor"
   | "async_for_each_callback"
-  | "async_sync_array_callback";
+  | "async_sync_array_callback"
+  | "floating_local_async_call"
+  | "focused_test"
+  | "test_global_state_mutation";
 
 export type SourceQualitySignal = {
   kind: SourceQualitySignalKind;
@@ -41,7 +44,9 @@ export function analyzeSourceQuality(path: string, content: string): SourceQuali
   );
   const signals: SourceQualitySignal[] = [];
   const knownArrays = collectKnownArrayIdentifiers(sourceFile);
+  const localAsyncFunctions = collectUnshadowedLocalAsyncFunctions(sourceFile);
   const promiseIsShadowed = hasLocalPromiseBinding(sourceFile);
+  const testFile = isTestFile(path);
   let hasGovernedConsoleCall = false;
 
   const visit = (node: ts.Node, suppressConsoleFinding: boolean): void => {
@@ -72,6 +77,18 @@ export function analyzeSourceQuality(path: string, content: string): SourceQuali
       } else if (method) {
         signals.push(signal("async_sync_array_callback", node, sourceFile, method));
       }
+      if (isFloatingLocalAsyncCall(node, localAsyncFunctions)) {
+        signals.push(signal("floating_local_async_call", node, sourceFile, node.expression.getText(sourceFile)));
+      }
+      if (testFile && isFocusedTestCall(node)) {
+        signals.push(signal("focused_test", node, sourceFile, node.expression.getText(sourceFile)));
+      }
+    }
+    if (testFile && ts.isBinaryExpression(node)) {
+      const mutated = testEnvironmentMutation(node);
+      if (mutated && isInsideTestCallback(node)) {
+        signals.push(signal("test_global_state_mutation", node, sourceFile, mutated));
+      }
     }
 
     if (!suppressConsoleFinding && ts.isCallExpression(node) && isConsoleCall(node)) {
@@ -93,6 +110,100 @@ export function analyzeSourceQuality(path: string, content: string): SourceQuali
     ),
     hasGovernedConsoleCall,
   };
+}
+
+function collectUnshadowedLocalAsyncFunctions(sourceFile: ts.SourceFile): Set<string> {
+  const asyncFunctions = new Set<string>();
+  const conflictingBindings = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      (hasAsyncModifier(node) ? asyncFunctions : conflictingBindings).add(node.name.text);
+    } else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      const initializer = node.initializer && unwrapExpression(node.initializer);
+      (initializer && isAsyncFunction(initializer) ? asyncFunctions : conflictingBindings).add(node.name.text);
+    } else if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
+      conflictingBindings.add(node.name.text);
+    } else if (ts.isImportClause(node) && node.name) {
+      conflictingBindings.add(node.name.text);
+    } else if (ts.isImportSpecifier(node) || ts.isNamespaceImport(node)) {
+      conflictingBindings.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  for (const name of conflictingBindings) asyncFunctions.delete(name);
+  return asyncFunctions;
+}
+
+function hasAsyncModifier(node: ts.Node): boolean {
+  return ts.canHaveModifiers(node)
+    && Boolean(ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword));
+}
+
+function isFloatingLocalAsyncCall(call: ts.CallExpression, asyncFunctions: ReadonlySet<string>): boolean {
+  return ts.isExpressionStatement(call.parent)
+    && call.parent.expression === call
+    && ts.isIdentifier(call.expression)
+    && asyncFunctions.has(call.expression.text);
+}
+
+function isFocusedTestCall(call: ts.CallExpression): boolean {
+  if (ts.isIdentifier(call.expression)) {
+    return call.expression.text === "fit" || call.expression.text === "fdescribe";
+  }
+  return ts.isPropertyAccessExpression(call.expression)
+    && call.expression.name.text === "only"
+    && ts.isIdentifier(call.expression.expression)
+    && (call.expression.expression.text === "it"
+      || call.expression.expression.text === "test"
+      || call.expression.expression.text === "describe");
+}
+
+function testEnvironmentMutation(node: ts.BinaryExpression): string | undefined {
+  if (!isAssignmentOperator(node.operatorToken.kind)) return undefined;
+  const left = node.left;
+  if (ts.isPropertyAccessExpression(left)
+    && ts.isPropertyAccessExpression(left.expression)
+    && ts.isIdentifier(left.expression.expression)
+    && left.expression.expression.text === "process"
+    && left.expression.name.text === "env") {
+    return `process.env.${left.name.text}`;
+  }
+  if (ts.isElementAccessExpression(left)
+    && ts.isPropertyAccessExpression(left.expression)
+    && ts.isIdentifier(left.expression.expression)
+    && left.expression.expression.text === "process"
+    && left.expression.name.text === "env"
+    && left.argumentExpression
+    && ts.isStringLiteralLike(left.argumentExpression)) {
+    return `process.env.${left.argumentExpression.text}`;
+  }
+  return undefined;
+}
+
+function isAssignmentOperator(kind: ts.SyntaxKind): boolean {
+  return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
+}
+
+function isInsideTestCallback(node: ts.Node): boolean {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if ((ts.isArrowFunction(current) || ts.isFunctionExpression(current))
+      && current.parent && ts.isCallExpression(current.parent)
+      && current.parent.arguments.includes(current as ts.Expression)) {
+      const callee = current.parent.expression;
+      if (ts.isIdentifier(callee) && (callee.text === "it" || callee.text === "test")) return true;
+      if (ts.isPropertyAccessExpression(callee)
+        && ts.isIdentifier(callee.expression)
+        && (callee.expression.text === "it" || callee.expression.text === "test")) return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function isTestFile(path: string): boolean {
+  return /(^|\/)(?:__tests__|tests?|specs?)(\/|$)/i.test(path) || /\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(path);
 }
 
 function signal(

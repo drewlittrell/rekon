@@ -257,6 +257,112 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
   }
 });
 
+test("JS/TS provider resolves declared workspace exports, aliases, and re-export chains", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-workspace-exports-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, "packages", "core", "src", "features"), { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({ workspaces: ["packages/*"] }), "utf8");
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: { baseUrl: ".", paths: { "@app/*": ["src/*"] } },
+    }), "utf8");
+    await writeFile(join(root, "packages", "core", "package.json"), JSON.stringify({
+      name: "@fixture/core",
+      exports: {
+        ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+        "./features/*": { types: "./dist/features/*.d.ts", import: "./dist/features/*.js" },
+      },
+    }), "utf8");
+    await writeFile(join(root, "packages", "core", "src", "index.ts"), "export { feature } from './features/one.js';\n", "utf8");
+    await writeFile(join(root, "packages", "core", "src", "features", "one.ts"), "export const feature = 1;\n", "utf8");
+    await writeFile(join(root, "packages", "core", "src", "private.ts"), "export const privateValue = 1;\n", "utf8");
+    await writeFile(join(root, "src", "local.ts"), "export const local = true;\n", "utf8");
+    await writeFile(join(root, "src", "app.ts"), [
+      "import { feature as rootFeature } from '@fixture/core';",
+      "import { feature } from '@fixture/core/features/one';",
+      "import { privateValue } from '@fixture/core/private';",
+      "import { local } from '@app/local';",
+      "export const result = [rootFeature, feature, privateValue, local];",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const imports = facts.filter((fact) => fact.kind === "import_specifier" && fact.value.source === "src/app.ts");
+    assert.equal(imports.find((fact) => fact.value.target === "@fixture/core").value.resolvedTarget, "packages/core/src/index.ts");
+    assert.equal(imports.find((fact) => fact.value.target === "@fixture/core/features/one").value.resolvedTarget, "packages/core/src/features/one.ts");
+    assert.equal(imports.find((fact) => fact.value.target === "@fixture/core/private").value.resolvedTarget, undefined);
+    assert.equal(imports.find((fact) => fact.value.target === "@app/local").value.resolvedTarget, "src/local.ts");
+    assert.equal(facts.find((fact) => fact.kind === "reexport" && fact.value.source === "packages/core/src/index.ts").value.resolvedTarget, "packages/core/src/features/one.ts");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("JS/TS provider emits deterministic Express, Nest, and Vite framework evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-frameworks-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({
+      scripts: { dev: "vite" },
+      dependencies: { express: "*", "@nestjs/common": "*", "@nestjs/core": "*" },
+      devDependencies: { vite: "*" },
+    }), "utf8");
+    await writeFile(join(root, "src", "server.ts"), [
+      "import express, { Router } from 'express';",
+      "const app = express();",
+      "const router = Router();",
+      "app.get('/users', listUsers);",
+      "router.post('/users', handlers.create);",
+      "app.listen(3000);",
+    ].join("\n"), "utf8");
+    await writeFile(join(root, "src", "controller.ts"), [
+      "import { Controller as ApiController, Get as Read, Post } from '@nestjs/common';",
+      "@ApiController('accounts')",
+      "export class AccountsController {",
+      "  @Read(':id') read() {}",
+      "  @Post() create() {}",
+      "}",
+    ].join("\n"), "utf8");
+    await writeFile(join(root, "src", "main.ts"), [
+      "import { NestFactory as Factory } from '@nestjs/core';",
+      "async function bootstrap() { return Factory.create(class AppModule {}); }",
+      "bootstrap();",
+    ].join("\n"), "utf8");
+    await writeFile(join(root, "vite.config.ts"), "export default {};\n", "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const routes = facts.filter((fact) => fact.kind === "route");
+    const entries = facts.filter((fact) => fact.kind === "entry_point");
+    assert.ok(routes.some((fact) => fact.value.framework === "express" && fact.value.routePath === "/users" && fact.value.methods[0] === "GET" && fact.value.handler === "listUsers"));
+    assert.ok(routes.some((fact) => fact.value.framework === "express" && fact.value.methods[0] === "POST" && fact.value.handler === "handlers.create"));
+    assert.ok(routes.some((fact) => fact.value.framework === "nestjs" && fact.value.routePath === "/accounts/:id" && fact.value.handler === "AccountsController.read"));
+    assert.ok(routes.some((fact) => fact.value.framework === "nestjs" && fact.value.routePath === "/accounts" && fact.value.methods[0] === "POST"));
+    assert.ok(entries.some((fact) => fact.value.framework === "express" && fact.value.path === "src/server.ts"));
+    assert.ok(entries.some((fact) => fact.value.framework === "nestjs" && fact.value.path === "src/main.ts"));
+    assert.ok(entries.some((fact) => fact.value.framework === "vite" && fact.value.path === "src/main.ts"));
+    assert.ok(entries.some((fact) => fact.value.framework === "vite" && fact.value.path === "vite.config.ts"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("JS/TS provider honors includeTests", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-test-scope-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, "tests"), { recursive: true });
+    await writeFile(join(root, "src", "index.ts"), "export const source = true;\n", "utf8");
+    await writeFile(join(root, "tests", "index.test.ts"), "test.only('focused', () => {});\n", "utf8");
+
+    const excluded = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const included = await jsTsProvider.extract({ repoRoot: root, includeTests: true });
+    assert.equal(excluded.some((fact) => fact.subject.includes("index.test.ts")), false);
+    assert.equal(included.some((fact) => fact.kind === "test" && fact.subject === "tests/index.test.ts"), true);
+    assert.equal(included.some((fact) => fact.kind === "typescript:source-quality" && fact.value.signal === "focused_test"), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("JS/TS provider skips compiler diagnostics during incremental observe", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-diagnostics-incremental-"));
 

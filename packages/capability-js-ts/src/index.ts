@@ -22,6 +22,7 @@ import {
 import { collectTypeScriptDiagnostics, type TypeScriptDiagnosticEvidence } from "./typescript-diagnostics.js";
 import { analyzeSourceQuality, type SourceQualitySignal } from "./source-quality-signals.js";
 import { extractFunctionComplexityMetrics, type FunctionComplexityMetrics } from "./function-complexity.js";
+import { extractFrameworkConventions } from "./framework-conventions.js";
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
 const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".rekon", ".circe", "dist", ".dist", "build", "coverage"]);
@@ -311,7 +312,9 @@ async function listSourceFiles(ctx: ProviderContext): Promise<string[]> {
     scratchSegments,
   });
 
-  return files.sort();
+  return files
+    .filter((path) => ctx.includeTests || !isTestFile(path))
+    .sort();
 }
 
 async function normalizeChangedSourceFiles(
@@ -374,7 +377,9 @@ async function normalizeChangedSourceFiles(
       continue;
     }
 
-    if (!isSourcePath(relativePath) || isIgnoredPath(relativePath, scratchSegments)) {
+    if (!isSourcePath(relativePath)
+      || isIgnoredPath(relativePath, scratchSegments)
+      || (!ctx.includeTests && isTestFile(relativePath))) {
       continue;
     }
 
@@ -533,6 +538,25 @@ function extractRepositoryConventionFacts(
       .filter((item) => item.kind === "export" && typeof item.value.name === "string")
       .map((item) => item.value.name as string),
   );
+
+  for (const convention of extractFrameworkConventions(normalized, content)) {
+    if (convention.kind === "route") {
+      facts.push(fact("route", `${normalized}#${convention.framework}:${convention.methods.join(",")}:${convention.routePath}`, {
+        path: normalized,
+        framework: convention.framework,
+        routePath: convention.routePath,
+        methods: convention.methods,
+        ...(convention.handler ? { handler: convention.handler } : {}),
+      }, normalized, convention.line));
+    } else {
+      facts.push(fact("entry_point", `framework:${convention.framework}:${normalized}`, {
+        path: normalized,
+        entryKind: "framework",
+        source: "framework-syntax",
+        framework: convention.framework,
+      }, normalized, convention.line));
+    }
+  }
 
   if (/^(?:src\/)?app\/.+\/route\.[cm]?[jt]sx?$/.test(normalized) || /^(?:src\/)?app\/route\.[cm]?[jt]sx?$/.test(normalized)) {
     facts.push(fact("route", normalized, {
@@ -694,6 +718,21 @@ async function extractPackageManifestFacts(repoRoot: string, fileSet: ReadonlySe
         }, path));
       }
 
+      if (manifestUsesVite(parsed, scripts)) {
+        const directory = path === "package.json" ? "" : path.slice(0, -"/package.json".length);
+        for (const stem of ["src/main", "vite.config"]) {
+          const candidate = probeCandidates(directory ? `${directory}/${stem}` : stem, fileSet);
+          if (!candidate) continue;
+          facts.push(fact("entry_point", `framework:vite:${candidate}`, {
+            path: candidate,
+            entryKind: "framework",
+            source: "package-manifest",
+            framework: "vite",
+            manifestPath: path,
+          }, path));
+        }
+      }
+
       for (const name of Object.keys(scripts).filter((script) => /^(build|test|typecheck|lint|check|verify)(:|$)/.test(script)).sort()) {
         facts.push(fact("build_target", `${path}#${name}`, {
           path,
@@ -707,6 +746,12 @@ async function extractPackageManifestFacts(repoRoot: string, fileSet: ReadonlySe
     }
   }
   return facts;
+}
+
+function manifestUsesVite(manifest: Record<string, unknown>, scripts: Record<string, string>): boolean {
+  const dependencyFields = [manifest.dependencies, manifest.devDependencies, manifest.peerDependencies];
+  return dependencyFields.some((field) => isStringRecord(field) && typeof field.vite === "string")
+    || Object.values(scripts).some((command) => /(?:^|\s|\/|\\)vite(?:\s|$)/u.test(command));
 }
 
 function collectManifestEntries(manifest: Record<string, unknown>): Array<{ kind: "package" | "cli"; name: string; target: string }> {
@@ -1581,10 +1626,9 @@ function extractReexportFactsRegex(
 
 // ---------- WO-8: relative-target resolution -------------------------------
 //
-// Pure and deterministic: relative specifiers only, a FIXED candidate
-// order probed against the scanned file set. Non-relative (package)
-// specifiers are never resolved. A miss yields no resolvedTarget - never
-// a guess.
+// Pure and deterministic: relative paths plus declared tsconfig and workspace
+// aliases, with a fixed candidate order probed against the scanned file set.
+// A miss yields no resolvedTarget - never a guess.
 
 const RESOLUTION_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
 
@@ -1626,7 +1670,25 @@ export function resolveRelativeTarget(
         }
       } else if (specifier.startsWith(`${ws.name}/`)) {
         const sub = specifier.slice(ws.name.length + 1);
-        const resolved = probeCandidates(`${ws.dir}/${sub}`, fileSet) ?? probeCandidates(`${ws.dir}/src/${sub}`, fileSet);
+        const declaredExports = ws.exports ?? [];
+        for (const declared of declaredExports) {
+          const capture = matchWorkspaceExport(declared.subpath, `./${sub}`);
+          if (capture === undefined) continue;
+          for (const target of declared.targets) {
+            const expanded = capture === null ? target : target.replaceAll("*", capture);
+            for (const candidate of workspaceTargetCandidates(ws.dir, expanded)) {
+              const resolved = probeCandidates(candidate, fileSet) ?? (fileSet.has(candidate) ? candidate : undefined);
+              if (resolved) return resolved;
+            }
+          }
+        }
+
+        // A package exports map is authoritative. Do not invent access to a
+        // subpath that the package did not declare.
+        if (declaredExports.length > 0) continue;
+
+        const resolved = probeCandidates(`${ws.dir}/${sub}`, fileSet)
+          ?? probeCandidates(`${ws.dir}/src/${sub}`, fileSet);
 
         if (resolved) {
           return resolved;
@@ -1670,6 +1732,15 @@ export type WorkspaceAlias = {
   dir: string;
   /** Repo-relative entry candidates (manifest main/exports + src/index conventions). */
   entries: string[];
+  /** Declared package export subpaths. Targets remain manifest-relative until matched. */
+  exports?: WorkspaceExportAlias[];
+};
+
+export type WorkspaceExportAlias = {
+  /** Package export key such as ".", "./feature", or "./features/*". */
+  subpath: string;
+  /** Manifest-relative conditional target leaves for this subpath. */
+  targets: string[];
 };
 
 export async function loadWorkspaceAliases(repoRoot: string): Promise<WorkspaceAlias[]> {
@@ -1716,11 +1787,7 @@ export async function loadWorkspaceAliases(repoRoot: string): Promise<WorkspaceA
 
         const entries = new Set<string>();
         const addEntry = (rel: string) => {
-          const normalized = `${dir}/${rel.replace(/^\.\//, "")}`;
-
-          entries.add(normalized);
-          // Built entry points map back to source by convention.
-          entries.add(normalized.replace(/^((?:[^/]+\/)*[^/]+)\/dist\//, "$1/src/").replace(/\.js$/, ".ts"));
+          for (const candidate of workspaceTargetCandidates(dir, rel)) entries.add(candidate);
         };
 
         if (typeof pkg.main === "string") {
@@ -1728,22 +1795,24 @@ export async function loadWorkspaceAliases(repoRoot: string): Promise<WorkspaceA
         }
 
         const exportRoot = (pkg.exports as Record<string, unknown> | string | undefined);
+        const exportAliases = collectWorkspaceExportAliases(exportRoot);
 
         if (typeof exportRoot === "string") {
           addEntry(exportRoot);
         } else if (exportRoot && typeof exportRoot === "object") {
-          const dot = (exportRoot as Record<string, unknown>)["."];
-
-          if (typeof dot === "string") {
-            addEntry(dot);
-          }
+          for (const target of exportAliases.find((entry) => entry.subpath === ".")?.targets ?? []) addEntry(target);
         }
 
         entries.add(`${dir}/src/index.ts`);
         entries.add(`${dir}/src/index.tsx`);
         entries.add(`${dir}/index.ts`);
 
-        aliases.push({ name: pkg.name, dir, entries: [...entries] });
+        aliases.push({
+          name: pkg.name,
+          dir,
+          entries: [...entries],
+          ...(exportAliases.length > 0 ? { exports: exportAliases } : {}),
+        });
       } catch {
         // Unreadable member manifest - skip the package.
       }
@@ -1753,6 +1822,43 @@ export async function loadWorkspaceAliases(repoRoot: string): Promise<WorkspaceA
   } catch {
     return [];
   }
+}
+
+function collectWorkspaceExportAliases(value: unknown): WorkspaceExportAlias[] {
+  if (typeof value === "string") return [{ subpath: ".", targets: [value] }];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const record = value as Record<string, unknown>;
+  const subpathEntries = Object.entries(record).filter(([key]) => key === "." || key.startsWith("./"));
+  const entries = subpathEntries.length > 0 ? subpathEntries : [[".", value] as const];
+  return entries
+    .map(([subpath, target]) => ({ subpath, targets: collectStringLeaves(target) }))
+    .filter((entry) => entry.targets.length > 0)
+    .sort((left, right) => right.subpath.length - left.subpath.length || left.subpath.localeCompare(right.subpath));
+}
+
+function collectStringLeaves(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return [...new Set(value.flatMap(collectStringLeaves))];
+  if (!value || typeof value !== "object") return [];
+  return [...new Set(Object.values(value as Record<string, unknown>).flatMap(collectStringLeaves))];
+}
+
+function matchWorkspaceExport(pattern: string, requested: string): string | null | undefined {
+  if (pattern === requested) return null;
+  const star = pattern.indexOf("*");
+  if (star < 0) return undefined;
+  const prefix = pattern.slice(0, star);
+  const suffix = pattern.slice(star + 1);
+  if (!requested.startsWith(prefix) || !requested.endsWith(suffix)) return undefined;
+  return requested.slice(prefix.length, requested.length - suffix.length);
+}
+
+function workspaceTargetCandidates(dir: string, target: string): string[] {
+  const normalized = `${dir}/${target.replace(/^\.\//, "")}`;
+  const source = normalized
+    .replace(/^((?:[^/]+\/)*[^/]+)\/(?:dist|lib)\//, "$1/src/")
+    .replace(/\.(?:mjs|cjs|js|jsx)$/, ".ts");
+  return normalized === source ? [normalized] : [normalized, source];
 }
 
 // ---------- WO-8: tsconfig path-alias resolution (data read only) ---------

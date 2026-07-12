@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Expanded JS/TS resolution to honor declared workspace export subpaths,
+  including conditional and wildcard targets, without guessing undeclared
+  package internals. Added syntax-backed Express and NestJS routes and
+  manifest-backed Vite roots.
+- Added conservative risks for bare local async calls, focused tests, and
+  direct process-environment mutation inside test callbacks. Providers now
+  honor `includeTests`; runtime observation continues to include tests by
+  default. Style remains delegated to imported linter evidence.
 - Added deterministic callable, entry-point reachability, and behavior graphs.
   Dead-code reachability now includes evidence-backed roots and dynamic imports,
   while preflight exposes graph impact context without changing risk tiers.

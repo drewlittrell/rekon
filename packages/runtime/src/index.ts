@@ -1843,7 +1843,9 @@ export async function runObserve(
 ): Promise<ArtifactRef> {
   const providerContext: ProviderContext = {
     repoRoot: context.repo.root,
-    includeTests: options.includeTests ?? false,
+    // Repository intelligence includes tests by default. Providers must still
+    // honor an explicit false so focused scans can omit test-only evidence.
+    includeTests: options.includeTests ?? true,
     changedFiles: options.changedFiles,
     changedSince: options.changedSince,
     incremental: options.incremental,

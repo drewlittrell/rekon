@@ -8,6 +8,9 @@ export const ERROR_SUPPRESSION_RULE_ID = "typescript.errorSuppression";
 export const PLACEHOLDER_IMPLEMENTATION_RULE_ID = "typescript.placeholderImplementation";
 export const ASYNC_PROMISE_EXECUTOR_RULE_ID = "typescript.asyncPromiseExecutor";
 export const ASYNC_ARRAY_CALLBACK_RULE_ID = "typescript.asyncArrayCallback";
+export const FLOATING_PROMISE_RULE_ID = "typescript.floatingPromise";
+export const FOCUSED_TEST_RULE_ID = "tests.focused";
+export const TEST_ISOLATION_RULE_ID = "tests.isolation";
 
 type EvidenceFactLike = {
   kind: string;
@@ -22,6 +25,7 @@ export type SourceQualitySignalPolicy = {
   title: string;
   description: string;
   suggestedAction: string;
+  scope?: "production" | "test";
 };
 
 const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
@@ -89,6 +93,32 @@ const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
     description: "This array method consumes a synchronous callback result; a returned Promise does not provide the intended predicate or comparator value.",
     suggestedAction: "Resolve the async values first, then call the synchronous array method with concrete values.",
   },
+  floating_local_async_call: {
+    ruleId: FLOATING_PROMISE_RULE_ID,
+    type: "async_control_flow",
+    impact: "medium",
+    title: "Local async call is not observed",
+    description: "A locally declared async function is called as a standalone statement without await, return, void, or rejection handling.",
+    suggestedAction: "Await or return the call, attach explicit rejection handling, or mark intentional fire-and-forget work with void and an error boundary.",
+  },
+  focused_test: {
+    ruleId: FOCUSED_TEST_RULE_ID,
+    type: "test_hygiene",
+    impact: "high",
+    title: "Focused test can exclude the rest of the suite",
+    description: "A test file uses an explicit focused-test form such as test.only, it.only, fit, or fdescribe.",
+    suggestedAction: "Remove the focused-test modifier before relying on the suite result.",
+    scope: "test",
+  },
+  test_global_state_mutation: {
+    ruleId: TEST_ISOLATION_RULE_ID,
+    type: "test_isolation",
+    impact: "medium",
+    title: "Test mutates process environment state",
+    description: "A test callback directly mutates process.env, which can leak state into other tests when cleanup is missing or incomplete.",
+    suggestedAction: "Restore the original environment value in guaranteed cleanup or isolate the test process.",
+    scope: "test",
+  },
 };
 
 export function evaluateSourceQualitySignals(
@@ -107,7 +137,8 @@ export function evaluateSourceQualitySignals(
     const file = typeof fact.value.path === "string" ? fact.value.path : fact.subject.split(":")[0] ?? fact.subject;
     const signal = typeof fact.value.signal === "string" ? fact.value.signal : "";
     const policy = SIGNAL_POLICIES[signal];
-    if (!policy || isNonProductionPath(file)) continue;
+    if (!policy) continue;
+    if (policy.scope === "test" ? !isNonProductionPath(file) : isNonProductionPath(file)) continue;
     const key = sourceQualityRootCauseKey(policy.ruleId, file, signal);
     const group = groups.get(key) ?? { file, signal, policy, locations: [] };
     group.locations.push({

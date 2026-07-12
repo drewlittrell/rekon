@@ -31,6 +31,10 @@ The runtime executes the local lifecycle against `.rekon/`:
 
 `Observe -> Project -> Snapshot -> Evaluate -> Resolve -> Publish -> Learn -> Act`
 
+Observation includes test files by default. Call `runObserve({ includeTests:
+false })` for a source-only evidence graph; evidence providers are required to
+honor that scope.
+
 ## Public Concepts
 
 - `createRuntime()`

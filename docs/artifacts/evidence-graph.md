@@ -41,7 +41,7 @@ they may collide with built-ins.
 | `capability_hint` | capability projection input |
 | `manifest` | package metadata |
 | `build_target` | package lifecycle command |
-| `route` | framework route convention |
+| `route` | framework route convention or syntax-backed Express/NestJS route |
 | `screen` | framework screen convention |
 | `test` | test file and framework metadata |
 | `call` | syntactically resolved callable relationship |
@@ -50,7 +50,13 @@ they may collide with built-ins.
 | `state_access` | direct call through a recognized imported state SDK |
 | `error_flow` | explicit throw or rethrow inside a callable |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |
-| `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, or async-control-flow risk signal |
+| `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, async-control-flow, or test-hygiene risk signal |
 
 All facts should preserve provenance back to the extractor and source location
 where possible.
+
+Resolved module targets are declared or file-backed. Rekon follows relative
+imports, tsconfig path aliases, workspace package names, package export
+subpaths, dynamic imports, and re-exports only when the destination is present
+in the scanned file set. An exports map blocks guesses for undeclared package
+subpaths.

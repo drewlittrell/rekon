@@ -38,6 +38,24 @@
       "reason": "A statically recognized array method consumes a synchronous callback result, but runtime impact and intent remain unproven."
     },
     {
+      "id": "bare-local-async-call",
+      "ruleId": "typescript.floatingPromise",
+      "expectedKind": "risk",
+      "reason": "A local async call is not observed by await, return, void, or rejection handling, but static evidence does not prove execution or failure."
+    },
+    {
+      "id": "focused-test-call",
+      "ruleId": "tests.focused",
+      "expectedKind": "risk",
+      "reason": "Explicit focused-test syntax can exclude the rest of a suite, but repository runner configuration determines the actual effect."
+    },
+    {
+      "id": "test-process-environment-mutation",
+      "ruleId": "tests.isolation",
+      "expectedKind": "risk",
+      "reason": "A test callback mutates process environment state, but file-local syntax alone does not prove cleanup is absent at runtime."
+    },
+    {
       "id": "multi-signal-function-complexity",
       "ruleId": "typescript.functionComplexity",
       "expectedKind": "risk",

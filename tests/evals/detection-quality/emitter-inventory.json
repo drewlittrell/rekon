@@ -44,6 +44,27 @@
       "remediationUnit": "source file and async array-callback construct"
     },
     {
+      "ruleId": "typescript.floatingPromise",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed bare call to an unshadowed locally declared async function",
+      "jurisdiction": "production JavaScript and TypeScript source",
+      "remediationUnit": "source file and local async call site"
+    },
+    {
+      "ruleId": "tests.focused",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed explicit focused-test call",
+      "jurisdiction": "JavaScript and TypeScript test files",
+      "remediationUnit": "test file and focused call form"
+    },
+    {
+      "ruleId": "tests.isolation",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed process environment assignment inside a test callback",
+      "jurisdiction": "JavaScript and TypeScript test files",
+      "remediationUnit": "test file and mutated environment key"
+    },
+    {
       "ruleId": "typescript.functionComplexity",
       "outputKinds": ["risk"],
       "evidence": "at least two independent AST function metrics exceed conservative thresholds",
