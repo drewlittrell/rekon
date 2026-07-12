@@ -1,7 +1,5 @@
-// AST-backed JS/TS evidence extractor (v1).
+// AST-backed JS/TS evidence extractor.
 //
-// Implements the JS/TS AST Evidence Adapter Decision
-// (twenty-third slice on the capability-ontology track).
 // Uses the TypeScript compiler parser API
 // (`ts.createSourceFile`, `ts.forEachChild`) to walk a
 // single source file's syntactic AST and emit structured
@@ -9,10 +7,9 @@
 // `export` / `import` `EvidenceGraph` facts.
 //
 // Parser-only by design — no typechecker, no program,
-// no `tsconfig` resolution, no project graph, no call
-// graph, no cross-file resolution, no inferred return
-// types. AST stays optional enrichment, not foundational
-// truth.
+// no typechecker, no inferred receiver types, and no inferred return types.
+// Cross-file calls are emitted only when local import bindings resolve to a
+// repository file. AST stays optional enrichment, not foundational truth.
 //
 // Returns structured records (not facts) so the provider
 // stays in charge of fact construction, dedupe, and
@@ -48,6 +45,7 @@ export type AstExportKind =
 
 export type AstImportKind =
   | "value"
+  | "dynamic"
   | "type-only"
   | "namespace"
   | "side-effect";
@@ -83,6 +81,7 @@ interface AstLocation {
 
 interface AstSymbolRecord {
   name: string;
+  ownerName?: string;
   symbolKind: AstSymbolKind;
   syntaxKind: string;
   /** Original declaration keyword. Drives the legacy
@@ -148,6 +147,20 @@ interface AstReexportRecord {
   location: AstLocation;
 }
 
+interface AstCallRecord {
+  caller: string;
+  callee: string;
+  receiver?: string;
+  callKind: "call" | "construct";
+  syntaxKind: string;
+  location: AstLocation;
+}
+
+type AstFlowRecord =
+  | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
+  | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
+  | { kind: "error"; caller: string; action: "throw" | "rethrow"; errorName?: string; location: AstLocation };
+
 export interface AstExtractionResult {
   language: AstLanguage;
   symbols: AstSymbolRecord[];
@@ -155,6 +168,8 @@ export interface AstExtractionResult {
   imports: AstImportRecord[];
   importSpecifiers: AstImportSpecifierRecord[];
   reexports: AstReexportRecord[];
+  calls: AstCallRecord[];
+  flows: AstFlowRecord[];
 }
 
 interface AstExtractionInput {
@@ -193,9 +208,13 @@ export function extractAstRecords(
     imports: [],
     importSpecifiers: [],
     reexports: [],
+    calls: [],
+    flows: [],
   };
 
   visit(sourceFile, sourceFile, result);
+  result.calls.push(...extractCallRecords(sourceFile));
+  result.flows.push(...extractFlowRecords(sourceFile));
 
   return result;
 }
@@ -227,6 +246,16 @@ function visit(
         location: locationOf(node, sourceFile),
       });
     }
+  } else if (ts.isCallExpression(node)
+    && node.expression.kind === ts.SyntaxKind.ImportKeyword
+    && node.arguments.length === 1
+    && ts.isStringLiteralLike(node.arguments[0]!)) {
+    result.imports.push({
+      target: node.arguments[0].text,
+      importKind: "dynamic",
+      syntaxKind: ts.SyntaxKind[node.kind],
+      location: locationOf(node, sourceFile),
+    });
   }
 
   // ---- Top-level / member declarations ----------
@@ -279,6 +308,7 @@ function visit(
         if (memberName) {
           result.symbols.push({
             name: memberName,
+            ownerName: node.name.text,
             symbolKind: "method",
             syntaxKind: ts.SyntaxKind[member.kind],
             declarationKeyword: "function",
@@ -416,6 +446,137 @@ function visit(
   ts.forEachChild(node, (child) => {
     visit(child, sourceFile, result);
   });
+}
+
+function extractCallRecords(sourceFile: ts.SourceFile): AstCallRecord[] {
+  const records: AstCallRecord[] = [];
+
+  const visitCalls = (node: ts.Node, context: { caller: string; className?: string }): void => {
+    let childContext = context;
+    if (ts.isClassDeclaration(node) && node.name) {
+      childContext = { ...context, className: node.name.text };
+    } else if (ts.isFunctionDeclaration(node)) {
+      childContext = { ...context, caller: node.name?.text ?? "default" };
+    } else if (ts.isMethodDeclaration(node)) {
+      const name = methodNameText(node.name);
+      if (name) childContext = { ...context, caller: context.className ? `${context.className}.${name}` : name };
+    } else if (ts.isConstructorDeclaration(node)) {
+      childContext = { ...context, caller: context.className ? `${context.className}.constructor` : "constructor" };
+    } else if (ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && node.initializer
+      && (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))) {
+      childContext = { ...context, caller: node.name.text };
+    }
+
+    if (ts.isCallExpression(node) && node.expression.kind !== ts.SyntaxKind.ImportKeyword) {
+      const target = callTarget(node.expression);
+      if (target) records.push({ ...target, caller: context.caller, callKind: "call", syntaxKind: ts.SyntaxKind[node.kind], location: locationOf(node, sourceFile) });
+    } else if (ts.isNewExpression(node)) {
+      const target = callTarget(node.expression);
+      if (target) records.push({ ...target, caller: context.caller, callKind: "construct", syntaxKind: ts.SyntaxKind[node.kind], location: locationOf(node, sourceFile) });
+    }
+
+    ts.forEachChild(node, (child) => visitCalls(child, childContext));
+  };
+
+  visitCalls(sourceFile, { caller: "__module__" });
+  return records;
+}
+
+function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
+  const records: AstFlowRecord[] = [];
+
+  const visitFlows = (node: ts.Node, context: { caller: string; className?: string; caughtName?: string }): void => {
+    let childContext = context;
+    if (ts.isClassDeclaration(node) && node.name) {
+      childContext = { ...context, className: node.name.text };
+    } else if (ts.isFunctionDeclaration(node)) {
+      childContext = { ...context, caller: node.name?.text ?? "default", caughtName: undefined };
+    } else if (ts.isMethodDeclaration(node)) {
+      const name = methodNameText(node.name);
+      if (name) childContext = { ...context, caller: context.className ? `${context.className}.${name}` : name, caughtName: undefined };
+    } else if (ts.isConstructorDeclaration(node)) {
+      childContext = { ...context, caller: context.className ? `${context.className}.constructor` : "constructor", caughtName: undefined };
+    } else if (ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && node.initializer
+      && (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))) {
+      childContext = { ...context, caller: node.name.text, caughtName: undefined };
+    } else if (ts.isCatchClause(node) && node.variableDeclaration && ts.isIdentifier(node.variableDeclaration.name)) {
+      childContext = { ...context, caughtName: node.variableDeclaration.name.text };
+    }
+
+    if (ts.isCallExpression(node)) {
+      const path = memberPath(node.expression);
+      if (path && path.length >= 2) {
+        records.push({ kind: "member-call", caller: context.caller, root: path[0]!, members: path.slice(1), location: locationOf(node, sourceFile) });
+        const method = path.at(-1);
+        const firstArg = node.arguments[0];
+        const eventName = firstArg && ts.isStringLiteralLike(firstArg) ? firstArg.text : undefined;
+        const action = method === "emit" || method === "dispatchEvent"
+          ? "emit"
+          : method === "on" || method === "once" || method === "addEventListener"
+            ? "subscribe"
+            : undefined;
+        if (action && eventName) records.push({ kind: "event", caller: context.caller, action, eventName, receiver: path.slice(0, -1).join("."), location: locationOf(node, sourceFile) });
+      }
+    } else if (ts.isThrowStatement(node)) {
+      const errorName = node.expression && ts.isIdentifier(node.expression) ? node.expression.text : undefined;
+      records.push({
+        kind: "error",
+        caller: context.caller,
+        action: errorName && errorName === context.caughtName ? "rethrow" : "throw",
+        ...(errorName ? { errorName } : {}),
+        location: locationOf(node, sourceFile),
+      });
+    }
+
+    ts.forEachChild(node, (child) => visitFlows(child, childContext));
+  };
+
+  visitFlows(sourceFile, { caller: "__module__" });
+  return records;
+}
+
+function memberPath(expression: ts.Expression): string[] | undefined {
+  if (ts.isIdentifier(expression)) return [expression.text];
+  if (expression.kind === ts.SyntaxKind.ThisKeyword) return ["this"];
+  if (ts.isPropertyAccessExpression(expression)) {
+    const base = memberPath(expression.expression);
+    return base ? [...base, expression.name.text] : undefined;
+  }
+  if (ts.isElementAccessExpression(expression)
+    && expression.argumentExpression
+    && ts.isStringLiteralLike(expression.argumentExpression)) {
+    const base = memberPath(expression.expression);
+    return base ? [...base, expression.argumentExpression.text] : undefined;
+  }
+  return undefined;
+}
+
+function callTarget(expression: ts.Expression): Pick<AstCallRecord, "callee" | "receiver"> | undefined {
+  if (ts.isIdentifier(expression)) return { callee: expression.text };
+  if (expression.kind === ts.SyntaxKind.SuperKeyword) return { callee: "constructor", receiver: "super" };
+  if (ts.isPropertyAccessExpression(expression)) {
+    const receiver = expression.expression.kind === ts.SyntaxKind.ThisKeyword
+      ? "this"
+      : ts.isIdentifier(expression.expression)
+        ? expression.expression.text
+        : undefined;
+    return receiver ? { receiver, callee: expression.name.text } : undefined;
+  }
+  if (ts.isElementAccessExpression(expression)
+    && expression.argumentExpression
+    && ts.isStringLiteralLike(expression.argumentExpression)) {
+    const receiver = expression.expression.kind === ts.SyntaxKind.ThisKeyword
+      ? "this"
+      : ts.isIdentifier(expression.expression)
+        ? expression.expression.text
+        : undefined;
+    return receiver ? { receiver, callee: expression.argumentExpression.text } : undefined;
+  }
+  return undefined;
 }
 
 function collectImportSpecifiers(

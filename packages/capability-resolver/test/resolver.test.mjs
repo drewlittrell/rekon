@@ -141,6 +141,28 @@ test("preflight resolver records high risk trace for multiple owner systems", as
   });
 });
 
+test("preflight resolver explains call-graph impact without changing risk rules", async () => {
+  await withFixture({
+    ownershipEntries: [{ path: "src/index.ts", ownerSystem: "src", confidence: 0.9, evidence: [] }],
+    graphId: "call-graph-test",
+    graphEdges: [{
+      source: "callable:src/index.ts#main",
+      target: "callable:src/service.ts#run",
+      kind: "calls",
+      metadata: { sourceFile: "src/index.ts", targetFile: "src/service.ts", resolution: "import-binding" },
+      evidence: [{ confidence: 1 }],
+    }],
+  }, async ({ runtime, snapshotRef }) => {
+    const packet = await resolvePreflight(runtime, snapshotRef, "src/index.ts");
+
+    assert.ok(packet.recommendedContext.includes("Call target: src/service.ts"));
+    const trace = packet.resolutionTrace.find((entry) => entry.step === "impact.explain" && entry.status === "used");
+    assert.ok(trace);
+    assert.equal(trace.details.changesRiskTier, false);
+    assert.deepEqual(trace.details.relatedFiles, ["src/service.ts"]);
+  });
+});
+
 test("preflight resolver attaches assessments separately and uses only risks in risk evaluation", async () => {
   await withFixture({
     ownershipEntries: [
@@ -216,7 +238,7 @@ async function withFixture(input, run) {
     if (input.graphEdges) {
       refs.graphRef = await runtime.artifacts.write({
         header: {
-          ...header("GraphSlice", "ownership-graph-test", [evidenceRef]),
+          ...header("GraphSlice", input.graphId ?? "ownership-graph-test", [evidenceRef]),
           provenance: {
             confidence: 0.8,
             notes: ["ownership-graph"],

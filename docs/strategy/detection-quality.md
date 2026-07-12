@@ -115,6 +115,12 @@ radius from an import graph that cites the current evidence graph. Direct and
 transitive dependents explain potential change propagation; they do not change
 severity, prove causation, or make a failure promotion-eligible.
 
+Call and reachability graphs contain only syntax-resolved local or import-bound
+calls and manifest/convention-backed roots. Literal event flow, recognized
+state-SDK access, and explicit throw syntax are separate behavior edges. These
+graphs improve impact explanations and dead-code reachability; they do not
+raise severity or prove runtime execution.
+
 Repository-native security scanners enter through normalized SARIF 2.1
 reports. Rekon uses scanner security metadata, CWE/OWASP tags, and stable
 fingerprints; it does not treat every result from a security-capable tool as a

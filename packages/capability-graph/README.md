@@ -12,8 +12,9 @@ are `internal`. See [docs/concepts/stability.md](../../docs/concepts/stability.m
 ## Purpose
 
 The capability uses the public `@rekon/sdk` projector API. It consumes an
-`EvidenceGraph` and produces initial `GraphSlice` artifacts for imports,
-symbols, ownership, and application conventions. The application slice includes
+`EvidenceGraph` and produces `GraphSlice` artifacts for imports, symbols,
+ownership, application conventions, calls, entry reachability, and narrow
+behavior signals. The application graph includes
 routes, screens, tests, packages, and lifecycle build targets. The
 import slice connects resolved repository file paths rather than retaining raw
 module specifiers. The
@@ -23,6 +24,11 @@ static context relationships. When a `RuntimeGraphObservationReport` is
 available, the application slice also includes separate `observed` edges for
 instrumented test-to-file and test-to-route execution. None of these edges
 claims assertion coverage.
+
+The call graph contains only resolved local or import-bound calls. The
+reachability graph records manifest and convention roots, route handlers, and
+resolved import distance. The behavior graph records literal event flow,
+directly imported state-SDK access, and explicit throw/rethrow syntax.
 
 ## Lifecycle Fit
 

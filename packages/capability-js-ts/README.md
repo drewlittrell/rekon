@@ -28,6 +28,9 @@ The capability is authored through `@rekon/sdk` exactly like a community package
 - `manifest` and `build_target` for package manifests and lifecycle scripts
 - `route` and `screen` for Next.js file conventions
 - `test` for test files and recognized test frameworks
+- `call` for syntactically resolved local and imported calls
+- `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
+- `event_flow`, `state_access`, and `error_flow` for narrow deterministic behavior signals
 
 ## Lifecycle Fit
 
@@ -53,3 +56,6 @@ diagnostics are excluded. Incremental observations do not run the compiler pass.
 Package-manifest evidence is also collected on full observations only.
 Function metrics include executable statement count, physical size, cyclomatic
 complexity, nesting, and distinct call fan-out. They are evidence, not defects.
+Call evidence does not infer receiver types. State access requires a direct
+binding from a recognized state SDK; event flow requires a literal event name;
+error flow requires explicit throw syntax.

@@ -4,6 +4,9 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added deterministic callable, entry-point reachability, and behavior graphs.
+  Dead-code reachability now includes evidence-backed roots and dynamic imports,
+  while preflight exposes graph impact context without changing risk tiers.
 - Added typed JUnit XML and ESLint JSON ingestion with bounded, redacted report
   artifacts and the existing two-report reproducibility requirement. Added
   LCOV support to isolated runtime coverage observations.

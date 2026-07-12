@@ -32,7 +32,9 @@ resolvers, evaluators, publishers, and future analysis capabilities.
 
 The built-in vocabulary includes `capability` nodes, `depends_on` and
 `related_to` edges for static test context, and `observed` edges for explicit
-runtime observations. It intentionally does not define a `covers` edge:
+runtime observations. It also includes callable and entry-point nodes plus
+`calls`, `enters`, `reaches`, `handles`, `emits`, `subscribes`, `accesses`, and
+`propagates_error` edges. It intentionally does not define a `covers` edge:
 neither static relationships nor observed execution prove assertion coverage.
 
 ## Import Boundary

@@ -13,3 +13,9 @@ The built-in preflight resolver answers:
 
 Resolver packets include `resolutionTrace` so users can audit the source and
 fallback path.
+
+Preflight also checks current call and reachability graphs for directly related
+files. It adds that context to `recommendedContext` and records
+`impact.explain` trace entries. Graph context does not change the risk tier;
+risk remains governed by the resolver's explicit ownership, path, finding, and
+assessment rules.

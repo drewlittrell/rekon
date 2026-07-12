@@ -10,6 +10,10 @@ export const BUILT_IN_NODE_KINDS = {
   test: "test",
   capability: "capability",
   buildTarget: "build_target",
+  callable: "callable",
+  entryPoint: "entry_point",
+  event: "event",
+  stateResource: "state_resource",
 } as const;
 
 export const BUILT_IN_EDGE_KINDS = {
@@ -20,6 +24,14 @@ export const BUILT_IN_EDGE_KINDS = {
   dependsOn: "depends_on",
   relatedTo: "related_to",
   observed: "observed",
+  calls: "calls",
+  enters: "enters",
+  reaches: "reaches",
+  handles: "handles",
+  emits: "emits",
+  subscribes: "subscribes",
+  accesses: "accesses",
+  propagatesError: "propagates_error",
 } as const;
 
 export type GraphNode = {

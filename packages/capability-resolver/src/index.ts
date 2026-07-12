@@ -106,6 +106,7 @@ type GraphSliceLike = {
     evidence?: Array<{
       confidence?: number;
     }>;
+    metadata?: Record<string, unknown>;
   }>;
 };
 
@@ -157,6 +158,8 @@ export const preflightResolver: Resolver = {
       .filter((ref) => ref.type === "MemorySelection");
     const applicableMemory = await readMemorySelections(artifacts, memoryRefs, paths, goal);
     const memoryTrace = buildMemoryTrace(memoryRefs, applicableMemory ?? [], paths);
+    const graphSliceRefs = snapshot.projections.GraphSlice ?? [];
+    const graphImpact = await readGraphImpactContext(artifacts, graphSliceRefs, paths);
     const { risk, trace: riskTrace } = computeRisk(paths, ownerSystems, matchedScopes, relevantFindings, relevantAssessments);
     const warnings = [
       ...ownership.warnings,
@@ -169,11 +172,11 @@ export const preflightResolver: Resolver = {
       ...findingTrace,
       ...assessmentTrace,
       ...memoryTrace,
+      ...graphImpact.trace,
       ...riskTrace,
     ];
     const ownershipMapRefs = snapshot.projections.OwnershipMap ?? [];
     const observedRepoRefs = snapshot.projections.ObservedRepo ?? [];
-    const graphSliceRefs = snapshot.projections.GraphSlice ?? [];
     const evidenceRefs = snapshot.inputs.EvidenceGraph ?? [];
     const packet: PreflightPacket = {
       header: {
@@ -219,7 +222,7 @@ export const preflightResolver: Resolver = {
       requiredChecks: ["npm run typecheck", "npm run test", "npm run build"],
       relevantFindings,
       relevantAssessments,
-      recommendedContext: buildRecommendedContext(paths, ownerSystems),
+      recommendedContext: [...buildRecommendedContext(paths, ownerSystems), ...graphImpact.context],
       applicableMemory,
       warnings,
       resolutionTrace,
@@ -2895,6 +2898,48 @@ function buildRecommendedContext(paths: string[], ownerSystems: string[]): strin
     ...paths.map((path) => `Source path: ${path}`),
     ...ownerSystems.map((system) => `Owner system: ${system}`),
   ];
+}
+
+async function readGraphImpactContext(
+  artifacts: ArtifactReader,
+  refs: ArtifactRef[],
+  paths: string[],
+): Promise<{ context: string[]; trace: ResolutionTraceEntry[] }> {
+  const context = new Set<string>();
+  const trace: ResolutionTraceEntry[] = [];
+  for (const ref of refs) {
+    if (!ref.id.startsWith("call-graph-") && !ref.id.startsWith("reachability-graph-")) continue;
+    const slice = await artifacts.read(ref) as GraphSliceLike;
+    const matchedFiles = new Set<string>();
+    for (const edge of slice.edges ?? []) {
+      if (edge.kind === "calls") {
+        const sourceFile = typeof edge.metadata?.sourceFile === "string" ? edge.metadata.sourceFile : undefined;
+        const targetFile = typeof edge.metadata?.targetFile === "string" ? edge.metadata.targetFile : undefined;
+        if (sourceFile && targetFile && paths.includes(sourceFile) && targetFile !== sourceFile) {
+          matchedFiles.add(targetFile);
+          context.add(`Call target: ${targetFile}`);
+        }
+      } else if (edge.kind === "reaches") {
+        const entryPath = paths.find((path) => edge.source.endsWith(`:${path}`));
+        if (entryPath && !paths.includes(edge.target)) {
+          matchedFiles.add(edge.target);
+          context.add(`Reachable file: ${edge.target}`);
+        }
+      }
+    }
+    trace.push({
+      step: "impact.explain",
+      sourceType: "GraphSlice",
+      sourceRef: ref,
+      status: matchedFiles.size > 0 ? "used" : "checked",
+      message: matchedFiles.size > 0
+        ? `Added ${matchedFiles.size} graph-derived impact context item(s) without changing risk severity.`
+        : "Checked graph-derived impact context; no directly related files matched the requested paths.",
+      paths,
+      details: { relatedFiles: [...matchedFiles].sort(), changesRiskTier: false },
+    });
+  }
+  return { context: [...context].sort().slice(0, 20), trace };
 }
 
 function buildWarnings(paths: string[], ownerSystems: string[]): string[] {

@@ -261,7 +261,7 @@ export const jsTsProvider: EvidenceProvider = {
     }
 
     if (!ctx.incremental) {
-      appendFacts(facts, await extractPackageManifestFacts(ctx.repoRoot));
+      appendFacts(facts, await extractPackageManifestFacts(ctx.repoRoot, fileSet));
       appendFacts(facts, collectTypeScriptDiagnostics(ctx.repoRoot, files).map(createTypeScriptDiagnosticFact));
     }
 
@@ -576,6 +576,44 @@ function extractRepositoryConventionFacts(
     }, normalized));
   }
 
+  for (const observed of [...facts]) {
+    if (observed.kind !== "route" && observed.kind !== "screen" && observed.kind !== "test") continue;
+    facts.push(fact("entry_point", `${observed.kind}:${normalized}`, {
+      path: normalized,
+      entryKind: observed.kind,
+      source: "framework-convention",
+      ...(typeof observed.value.framework === "string" ? { framework: observed.value.framework } : {}),
+      ...(typeof observed.value.routePath === "string" ? { routePath: observed.value.routePath } : {}),
+      ...(Array.isArray(observed.value.methods) ? { handlers: observed.value.methods } : {}),
+    }, normalized));
+  }
+
+  const base = normalized.split("/").at(-1) ?? normalized;
+  if (/^(?:middleware|instrumentation)\.[cm]?[jt]sx?$/u.test(base)
+    || /^(?:src\/)?pages\/(?:_app|_document|_error)\.[cm]?[jt]sx?$/u.test(normalized)
+    || /^(?:src\/)?app\/layout\.[cm]?[jt]sx?$/u.test(normalized)) {
+    facts.push(fact("entry_point", `framework:${normalized}`, {
+      path: normalized,
+      entryKind: "framework",
+      source: "framework-convention",
+    }, normalized));
+  }
+  if (/(?:^|\/)(?:workers?\/[^/]+|[^/]+\.worker)\.[cm]?[jt]sx?$/u.test(normalized)) {
+    facts.push(fact("entry_point", `worker:${normalized}`, {
+      path: normalized,
+      entryKind: "worker",
+      source: "worker-convention",
+    }, normalized));
+  }
+  if (/^#!.*\bnode\b/u.test(content.split("\n", 1)[0] ?? "")
+    || /(?:^|\/)(?:bin|cli)\/[^/]+\.[cm]?[jt]s$/u.test(normalized)) {
+    facts.push(fact("entry_point", `cli:${normalized}`, {
+      path: normalized,
+      entryKind: "cli",
+      source: "cli-convention",
+    }, normalized));
+  }
+
   return facts;
 }
 
@@ -616,7 +654,7 @@ function inferTestKind(path: string): string {
   return "unit";
 }
 
-async function extractPackageManifestFacts(repoRoot: string): Promise<EvidenceFact[]> {
+async function extractPackageManifestFacts(repoRoot: string, fileSet: ReadonlySet<string>): Promise<EvidenceFact[]> {
   const scratchSegments = new Set(await loadAgentScratchSegments(repoRoot));
   const paths: string[] = [];
   await walkForPackageManifests(repoRoot, repoRoot, paths, {
@@ -641,6 +679,21 @@ async function extractPackageManifestFacts(repoRoot: string): Promise<EvidenceFa
         scripts: Object.keys(scripts).sort(),
       }, path));
 
+      const packageName = typeof parsed.name === "string" ? parsed.name : path;
+      const entries = collectManifestEntries(parsed);
+      for (const entry of entries) {
+        const target = resolveManifestEntry(path, entry.target, fileSet);
+        if (!target) continue;
+        facts.push(fact("entry_point", `manifest:${path}:${entry.kind}:${entry.name}`, {
+          path: target,
+          entryKind: entry.kind,
+          source: "package-manifest",
+          manifestPath: path,
+          packageName,
+          publicName: entry.name,
+        }, path));
+      }
+
       for (const name of Object.keys(scripts).filter((script) => /^(build|test|typecheck|lint|check|verify)(:|$)/.test(script)).sort()) {
         facts.push(fact("build_target", `${path}#${name}`, {
           path,
@@ -654,6 +707,46 @@ async function extractPackageManifestFacts(repoRoot: string): Promise<EvidenceFa
     }
   }
   return facts;
+}
+
+function collectManifestEntries(manifest: Record<string, unknown>): Array<{ kind: "package" | "cli"; name: string; target: string }> {
+  const entries: Array<{ kind: "package" | "cli"; name: string; target: string }> = [];
+  for (const field of ["source", "main", "module"] as const) {
+    if (typeof manifest[field] === "string") entries.push({ kind: "package", name: field, target: manifest[field] });
+  }
+  collectExportTargets(manifest.exports, ".", entries);
+  if (typeof manifest.bin === "string") {
+    entries.push({ kind: "cli", name: typeof manifest.name === "string" ? manifest.name : "bin", target: manifest.bin });
+  } else if (manifest.bin && typeof manifest.bin === "object" && !Array.isArray(manifest.bin)) {
+    for (const [name, target] of Object.entries(manifest.bin)) {
+      if (typeof target === "string") entries.push({ kind: "cli", name, target });
+    }
+  }
+  return entries;
+}
+
+function collectExportTargets(
+  value: unknown,
+  name: string,
+  entries: Array<{ kind: "package" | "cli"; name: string; target: string }>,
+): void {
+  if (typeof value === "string") {
+    entries.push({ kind: "package", name, target: value });
+    return;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  for (const [key, nested] of Object.entries(value)) {
+    collectExportTargets(nested, key.startsWith(".") ? key : name, entries);
+  }
+}
+
+function resolveManifestEntry(manifestPath: string, target: string, fileSet: ReadonlySet<string>): string | undefined {
+  const direct = resolveRelativeTarget(manifestPath, target, fileSet);
+  if (direct) return direct;
+  const normalized = normalizePath(join(manifestPath.split("/").slice(0, -1).join("/"), target.replace(/^\.\//u, "")));
+  const sourceCandidate = normalized.replace(/(^|\/)(?:dist|lib)\//u, "$1src/").replace(/\.(?:mjs|cjs|js|jsx)$/u, "");
+  return [sourceCandidate, ...[".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"].map((extension) => `${sourceCandidate}${extension}`)]
+    .find((candidate) => fileSet.has(candidate));
 }
 
 async function walkForPackageManifests(
@@ -712,6 +805,15 @@ function factsFromAstResult(
   resolve: (specifier: string) => string | undefined,
 ): EvidenceFact[] {
   const facts: EvidenceFact[] = [];
+  const importBindings = new Map(result.importSpecifiers.flatMap((specifier) => {
+    const targetFile = resolve(specifier.target);
+    return targetFile ? [[specifier.local, { specifier, targetFile }] as const] : [];
+  }));
+  const allImportBindings = new Map(result.importSpecifiers.map((specifier) => [specifier.local, specifier] as const));
+  const localFunctions = new Set(result.symbols
+    .filter((symbol) => symbol.symbolKind === "function" || symbol.symbolKind === "method")
+    .map((symbol) => symbol.ownerName ? `${symbol.ownerName}.${symbol.name}` : symbol.name));
+  const localClasses = new Set(result.symbols.filter((symbol) => symbol.symbolKind === "class").map((symbol) => symbol.name));
 
   // ---- imports ----
   // Imports keep `location` in `value` to mirror the
@@ -719,6 +821,7 @@ function factsFromAstResult(
   // remains a distinct fact, matching the legacy
   // multiple-imports-per-target behaviour.
   for (const importRecord of result.imports) {
+    const resolvedTarget = resolve(importRecord.target);
     facts.push(
       fact(
         "import",
@@ -733,6 +836,7 @@ function factsFromAstResult(
           importKind: importRecord.importKind,
           location: importRecord.location,
           confidence: "high" as AstConfidence,
+          ...(resolvedTarget ? { resolvedTarget } : {}),
         },
         path,
         importRecord.location.line,
@@ -816,6 +920,97 @@ function factsFromAstResult(
     facts.push(fact("reexport", `${path}:${reexport.target}:${reexport.exportedAs}`, value, path));
   }
 
+  // ---- direct calls ----
+  // Calls become graph evidence only when syntax and import bindings identify
+  // a concrete repository file and callable. Receiver type inference is out of
+  // scope; ambiguous object-property calls are intentionally omitted.
+  for (const call of result.calls) {
+    let targetFile: string | undefined;
+    let targetSymbol: string | undefined;
+    let resolution: string | undefined;
+    if (!call.receiver) {
+      const imported = importBindings.get(call.callee);
+      if (imported && imported.specifier.specifierKind !== "namespace" && imported.specifier.specifierKind !== "side-effect") {
+        targetFile = imported.targetFile;
+        targetSymbol = imported.specifier.name;
+        resolution = "import-binding";
+      } else if (localFunctions.has(call.callee)) {
+        targetFile = path;
+        targetSymbol = call.callee;
+        resolution = "local-binding";
+      }
+    } else if (call.receiver === "this") {
+      const className = call.caller.includes(".") ? call.caller.split(".")[0] : undefined;
+      const qualified = className ? `${className}.${call.callee}` : undefined;
+      if (qualified && localFunctions.has(qualified)) {
+        targetFile = path;
+        targetSymbol = qualified;
+        resolution = "this-method";
+      }
+    } else {
+      const imported = importBindings.get(call.receiver);
+      if (imported?.specifier.specifierKind === "namespace") {
+        targetFile = imported.targetFile;
+        targetSymbol = call.callee;
+        resolution = "namespace-import";
+      } else if (localClasses.has(call.receiver) && localFunctions.has(`${call.receiver}.${call.callee}`)) {
+        targetFile = path;
+        targetSymbol = `${call.receiver}.${call.callee}`;
+        resolution = "class-method";
+      }
+    }
+    if (!targetFile || !targetSymbol || !resolution) continue;
+    facts.push(fact("call", `${path}:${call.caller}->${targetFile}:${targetSymbol}`, {
+      source: path,
+      caller: call.caller,
+      targetFile,
+      targetSymbol,
+      callKind: call.callKind,
+      resolution,
+      extractionMethod: "ast" as const,
+      language: result.language,
+      confidence: "high" as AstConfidence,
+    }, path));
+  }
+
+  // ---- deterministic behavior signals ----
+  for (const flow of result.flows) {
+    if (flow.kind === "event") {
+      facts.push(fact("event_flow", `${path}:${flow.caller}:${flow.action}:${flow.eventName}`, {
+        source: path,
+        caller: flow.caller,
+        action: flow.action,
+        eventName: flow.eventName,
+        receiver: flow.receiver,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path));
+      continue;
+    }
+    if (flow.kind === "error") {
+      facts.push(fact("error_flow", `${path}:${flow.caller}:${flow.action}`, {
+        source: path,
+        caller: flow.caller,
+        action: flow.action,
+        ...(flow.errorName ? { errorName: flow.errorName } : {}),
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path));
+      continue;
+    }
+    const binding = allImportBindings.get(flow.root);
+    if (!binding || !isKnownStatePackage(binding.target)) continue;
+    facts.push(fact("state_access", `${path}:${flow.caller}:${binding.target}:${flow.members.join(".")}`, {
+      source: path,
+      caller: flow.caller,
+      package: binding.target,
+      binding: flow.root,
+      operation: flow.members.join("."),
+      extractionMethod: "ast" as const,
+      confidence: "high" as AstConfidence,
+    }, path));
+  }
+
   // ---- symbols ----
   // Symbols also OMIT `location` from `value` (legacy
   // dedupe parity). The richer AST classification rides
@@ -831,10 +1026,15 @@ function factsFromAstResult(
       symbolKind: symbolRecord.symbolKind,
       confidence: "high" as AstConfidence,
     };
+    if (symbolRecord.ownerName) value.ownerName = symbolRecord.ownerName;
     facts.push(fact("symbol", path, value, path));
   }
 
   return facts;
+}
+
+function isKnownStatePackage(target: string): boolean {
+  return /^(?:@prisma\/client|drizzle-orm(?:\/|$)|typeorm$|mongoose$|sequelize$|knex$|@supabase\/supabase-js$|firebase(?:\/|$)|ioredis$|redis$)/u.test(target);
 }
 
 // Map the AST export to the legacy `value.kind` enum

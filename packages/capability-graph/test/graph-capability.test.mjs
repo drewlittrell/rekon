@@ -42,6 +42,12 @@ test("graph capability projects structural and application-context slices", asyn
         { kind: "screen", subject: "app/users/page.tsx", value: { path: "app/users/page.tsx", framework: "nextjs-app-router", routePath: "/users" }, confidence: 1 },
         { kind: "test", subject: "tests/user.test.ts", value: { path: "tests/user.test.ts", framework: "node-test", testKind: "unit" }, confidence: 1 },
         { kind: "capability_hint", subject: "src/user-service.ts", value: { path: "src/user-service.ts", capability: "users" }, confidence: 0.9 },
+        { kind: "call", subject: "app/api/users/route.ts:GET->src/user-service.ts:listUsers", value: { source: "app/api/users/route.ts", caller: "GET", targetFile: "src/user-service.ts", targetSymbol: "listUsers", resolution: "import-binding", callKind: "call" }, confidence: 1 },
+        { kind: "entry_point", subject: "route:app/api/users/route.ts", value: { path: "app/api/users/route.ts", entryKind: "route", source: "framework-convention", routePath: "/api/users", handlers: ["GET"] }, confidence: 1 },
+        { kind: "entry_point", subject: "test:tests/user.test.ts", value: { path: "tests/user.test.ts", entryKind: "test", source: "framework-convention" }, confidence: 1 },
+        { kind: "event_flow", subject: "src/user-service.ts:listUsers:emit:user.loaded", value: { source: "src/user-service.ts", caller: "listUsers", action: "emit", eventName: "user.loaded", receiver: "events" }, confidence: 1 },
+        { kind: "state_access", subject: "src/user-service.ts:listUsers:@prisma/client:user.findMany", value: { source: "src/user-service.ts", caller: "listUsers", package: "@prisma/client", binding: "prisma", operation: "user.findMany" }, confidence: 1 },
+        { kind: "error_flow", subject: "src/user-service.ts:listUsers:rethrow", value: { source: "src/user-service.ts", caller: "listUsers", action: "rethrow", errorName: "error" }, confidence: 1 },
       ],
     });
     const runtimeObservationRef = await runtime.artifacts.write({
@@ -72,7 +78,7 @@ test("graph capability projects structural and application-context slices", asyn
       projectorId: "@rekon/capability-graph.projector",
     });
 
-    assert.deepEqual(refs.map((ref) => ref.type), ["GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice"]);
+    assert.deepEqual(refs.map((ref) => ref.type), ["GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice"]);
 
     const importGraph = await runtime.artifacts.read(refs[0]);
     assert.equal(importGraph.edges[0].kind, "imports");
@@ -100,6 +106,25 @@ test("graph capability projects structural and application-context slices", asyn
       edge.source === "test:tests/user.test.ts"
       && edge.target.startsWith("screen:")
       && edge.kind === "related_to"));
+    const callGraph = await runtime.artifacts.read(refs[4]);
+    assert.ok(callGraph.edges.some((edge) =>
+      edge.source === "callable:app/api/users/route.ts#GET"
+      && edge.target === "callable:src/user-service.ts#listUsers"
+      && edge.kind === "calls"));
+    const reachabilityGraph = await runtime.artifacts.read(refs[5]);
+    assert.ok(reachabilityGraph.edges.some((edge) =>
+      edge.source === "entry:route:app/api/users/route.ts"
+      && edge.target === "callable:app/api/users/route.ts#GET"
+      && edge.kind === "handles"));
+    assert.ok(reachabilityGraph.edges.some((edge) =>
+      edge.source === "entry:route:app/api/users/route.ts"
+      && edge.target === "src/user-service.ts"
+      && edge.kind === "reaches"
+      && edge.metadata.distance === 1));
+    const behaviorGraph = await runtime.artifacts.read(refs[6]);
+    assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "emits" && edge.target === "event:user.loaded"));
+    assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "accesses" && edge.target === "state:@prisma/client"));
+    assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "propagates_error" && edge.metadata.action === "rethrow"));
     assert.ok(applicationGraph.edges.some((edge) =>
       edge.source === "test:tests/user.test.ts"
       && edge.target === "src/user-service.ts"

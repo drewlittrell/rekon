@@ -87,3 +87,18 @@ test("FP guards: framework entries, star/namespace consumers, and non-production
   assert.equal(policy.isFrameworkEntryPath("app/api/users/route.ts"), true);
   assert.equal(policy.isFrameworkEntryPath("src/service.ts"), false);
 });
+
+test("dynamic imports participate in declared-root reachability", () => {
+  const facts = [
+    { kind: "file", subject: "src/index.ts", value: {} },
+    { kind: "file", subject: "src/lazy.ts", value: {} },
+    { kind: "file", subject: "src/orphan.ts", value: {} },
+    { kind: "export", subject: "src/lazy.ts", value: { name: "lazy", kind: "const" } },
+    { kind: "export", subject: "src/orphan.ts", value: { name: "orphan", kind: "const" } },
+    { kind: "import", subject: "src/index.ts:./lazy", value: { source: "src/index.ts", target: "./lazy", importKind: "dynamic", resolvedTarget: "src/lazy.ts" } },
+  ];
+  const findings = policy.evaluateDeadCode({ facts, roots: ["src/index.ts"] });
+
+  assert.deepEqual(findings.map((finding) => finding.files[0]), ["src/orphan.ts"]);
+  assert.equal(findings[0].payload.reachableFromRoots, false);
+});

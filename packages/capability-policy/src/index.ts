@@ -461,6 +461,10 @@ async function deadCodeFindings(
   const repo = input?.repo as { root?: string } | undefined;
   const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
   const roots = repoRoot ? await loadDeclaredRoots(repoRoot) : [];
+  for (const fact of graph.facts) {
+    if (fact.kind !== "entry_point" || typeof fact.value.path !== "string") continue;
+    if (!roots.includes(fact.value.path)) roots.push(fact.value.path);
+  }
   // WO-20 Part 3: operator-declared root globs expand against the scanned
   // file set and join the manifest/convention roots.
   const rootGlobs = repoRoot ? await loadDeclaredRootGlobs(repoRoot) : [];

@@ -143,6 +143,30 @@ export const graphProjector: Projector = {
       ],
     })));
 
+    const callProjection = callGraphProjection(graph.facts, computedAt);
+    refs.push(await artifacts.write("GraphSlice", createGraphSlice({
+      header: createHeader("call-graph", graph.header, evidenceRef),
+      producer: "@rekon/capability-graph",
+      nodes: callProjection.nodes,
+      edges: callProjection.edges,
+    })));
+
+    const reachabilityProjection = entryPointReachabilityProjection(graph.facts, importLinks, computedAt);
+    refs.push(await artifacts.write("GraphSlice", createGraphSlice({
+      header: createHeader("reachability-graph", graph.header, evidenceRef),
+      producer: "@rekon/capability-graph",
+      nodes: reachabilityProjection.nodes,
+      edges: reachabilityProjection.edges,
+    })));
+
+    const behaviorProjection = behaviorGraphProjection(graph.facts, computedAt);
+    refs.push(await artifacts.write("GraphSlice", createGraphSlice({
+      header: createHeader("behavior-graph", graph.header, evidenceRef),
+      producer: "@rekon/capability-graph",
+      nodes: behaviorProjection.nodes,
+      edges: behaviorProjection.edges,
+    })));
+
     return refs;
   },
 };
@@ -513,6 +537,161 @@ function runtimeExecutionProjection(
     }
   }
   return { nodes, edges };
+}
+
+function callGraphProjection(
+  facts: EvidenceGraphLike["facts"],
+  computedAt: string,
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  for (const fact of facts) {
+    if (fact.kind !== "call") continue;
+    const sourceFile = stringField(fact.value, "source");
+    const caller = stringField(fact.value, "caller");
+    const targetFile = stringField(fact.value, "targetFile");
+    const targetSymbol = stringField(fact.value, "targetSymbol");
+    if (!sourceFile || !caller || !targetFile || !targetSymbol) continue;
+    const sourceId = callableId(sourceFile, caller);
+    const targetId = callableId(targetFile, targetSymbol);
+    nodes.push({ id: sourceId, kind: BUILT_IN_NODE_KINDS.callable, metadata: { path: sourceFile, symbol: caller, moduleScope: caller === "__module__" } });
+    nodes.push({ id: targetId, kind: BUILT_IN_NODE_KINDS.callable, metadata: { path: targetFile, symbol: targetSymbol } });
+    edges.push({
+      source: sourceId,
+      target: targetId,
+      kind: BUILT_IN_EDGE_KINDS.calls,
+      weight: fact.confidence,
+      metadata: {
+        resolution: stringField(fact.value, "resolution") ?? "resolved",
+        callKind: stringField(fact.value, "callKind") ?? "call",
+        sourceFile,
+        targetFile,
+      },
+      evidence: [edgeEvidence(fact, computedAt)],
+    });
+  }
+  return { nodes, edges };
+}
+
+function entryPointReachabilityProjection(
+  facts: EvidenceGraphLike["facts"],
+  importLinks: ImportLink[],
+  computedAt: string,
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  const adjacency = importAdjacency(importLinks);
+  for (const fact of facts) {
+    if (fact.kind !== "entry_point") continue;
+    const path = stringField(fact.value, "path");
+    const entryKind = stringField(fact.value, "entryKind");
+    if (!path || !entryKind) continue;
+    const entryId = `entry:${entryKind}:${path}`;
+    nodes.push({ id: entryId, kind: BUILT_IN_NODE_KINDS.entryPoint, metadata: fact.value });
+    nodes.push({ id: path, kind: BUILT_IN_NODE_KINDS.file, metadata: { path } });
+    edges.push({
+      source: entryId,
+      target: path,
+      kind: BUILT_IN_EDGE_KINDS.enters,
+      weight: fact.confidence,
+      metadata: { entryKind },
+      evidence: [edgeEvidence(fact, computedAt)],
+    });
+    for (const [target, record] of reachableImports(path, adjacency, 12)) {
+      nodes.push({ id: target, kind: BUILT_IN_NODE_KINDS.file, metadata: { path: target } });
+      edges.push({
+        source: entryId,
+        target,
+        kind: BUILT_IN_EDGE_KINDS.reaches,
+        weight: confidenceForFacts(record.facts),
+        metadata: { entryKind, distance: record.distance, relationship: "resolved-import" },
+        evidence: graphEvidence([fact, ...record.facts], computedAt),
+      });
+    }
+    const handlers = Array.isArray(fact.value?.handlers)
+      ? fact.value.handlers.filter((handler): handler is string => typeof handler === "string" && handler.length > 0)
+      : [];
+    for (const handler of handlers) {
+      const handlerId = callableId(path, handler);
+      nodes.push({ id: handlerId, kind: BUILT_IN_NODE_KINDS.callable, metadata: { path, symbol: handler } });
+      edges.push({
+        source: entryId,
+        target: handlerId,
+        kind: BUILT_IN_EDGE_KINDS.handles,
+        weight: fact.confidence,
+        metadata: { entryKind, handler },
+        evidence: [edgeEvidence(fact, computedAt)],
+      });
+    }
+  }
+  return { nodes, edges };
+}
+
+function callableId(path: string, symbol: string): string {
+  return `callable:${path}#${symbol}`;
+}
+
+function behaviorGraphProjection(
+  facts: EvidenceGraphLike["facts"],
+  computedAt: string,
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  for (const fact of facts) {
+    const source = stringField(fact.value, "source");
+    const caller = stringField(fact.value, "caller");
+    if (!source || !caller) continue;
+    const sourceId = callableId(source, caller);
+    nodes.push({ id: sourceId, kind: BUILT_IN_NODE_KINDS.callable, metadata: { path: source, symbol: caller } });
+    if (fact.kind === "event_flow") {
+      const eventName = stringField(fact.value, "eventName");
+      const action = stringField(fact.value, "action");
+      if (!eventName || (action !== "emit" && action !== "subscribe")) continue;
+      const eventId = `event:${eventName}`;
+      nodes.push({ id: eventId, kind: BUILT_IN_NODE_KINDS.event, metadata: { eventName } });
+      edges.push({
+        source: sourceId,
+        target: eventId,
+        kind: action === "emit" ? BUILT_IN_EDGE_KINDS.emits : BUILT_IN_EDGE_KINDS.subscribes,
+        weight: fact.confidence,
+        metadata: { receiver: stringField(fact.value, "receiver") ?? "unknown" },
+        evidence: [edgeEvidence(fact, computedAt)],
+      });
+    } else if (fact.kind === "state_access") {
+      const packageName = stringField(fact.value, "package");
+      const operation = stringField(fact.value, "operation");
+      if (!packageName || !operation) continue;
+      const stateId = `state:${packageName}`;
+      nodes.push({ id: stateId, kind: BUILT_IN_NODE_KINDS.stateResource, metadata: { package: packageName } });
+      edges.push({
+        source: sourceId,
+        target: stateId,
+        kind: BUILT_IN_EDGE_KINDS.accesses,
+        weight: fact.confidence,
+        metadata: { operation, binding: stringField(fact.value, "binding") ?? "unknown" },
+        evidence: [edgeEvidence(fact, computedAt)],
+      });
+    } else if (fact.kind === "error_flow") {
+      const action = stringField(fact.value, "action");
+      if (action !== "throw" && action !== "rethrow") continue;
+      const errorId = `error:${source}#${caller}:${action}`;
+      nodes.push({ id: errorId, kind: "error", metadata: { action, errorName: stringField(fact.value, "errorName") ?? "unknown" } });
+      edges.push({
+        source: sourceId,
+        target: errorId,
+        kind: BUILT_IN_EDGE_KINDS.propagatesError,
+        weight: fact.confidence,
+        metadata: { action, explicit: true },
+        evidence: [edgeEvidence(fact, computedAt)],
+      });
+    }
+  }
+  return { nodes, edges };
+}
+
+function stringField(value: Record<string, unknown> | undefined, field: string): string | undefined {
+  const result = value?.[field];
+  return typeof result === "string" && result.length > 0 ? result : undefined;
 }
 
 function observedExecutionConfidence(

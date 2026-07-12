@@ -271,7 +271,8 @@ export function evaluateDeadCode(input: {
       reexportCountByFile.set(source, (reexportCountByFile.get(source) ?? 0) + 1);
     }
 
-    if (fact.kind !== "import_specifier" && fact.kind !== "reexport") {
+    const dynamicImport = fact.kind === "import" && fact.value.importKind === "dynamic";
+    if (fact.kind !== "import_specifier" && fact.kind !== "reexport" && !dynamicImport) {
       continue;
     }
 
@@ -293,7 +294,7 @@ export function evaluateDeadCode(input: {
     importEdges.set(source, edges);
     importedFiles.add(target);
 
-    const name = typeof fact.value.name === "string" ? fact.value.name : "*";
+    const name = dynamicImport ? "*" : typeof fact.value.name === "string" ? fact.value.name : "*";
     const specifierKind = typeof fact.value.specifierKind === "string" ? fact.value.specifierKind : undefined;
     const reexportKind = typeof fact.value.reexportKind === "string" ? fact.value.reexportKind : undefined;
 

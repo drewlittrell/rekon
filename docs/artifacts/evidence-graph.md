@@ -44,6 +44,11 @@ they may collide with built-ins.
 | `route` | framework route convention |
 | `screen` | framework screen convention |
 | `test` | test file and framework metadata |
+| `call` | syntactically resolved callable relationship |
+| `entry_point` | manifest or convention-backed repository root |
+| `event_flow` | literal event emission or subscription |
+| `state_access` | direct call through a recognized imported state SDK |
+| `error_flow` | explicit throw or rethrow inside a callable |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |
 | `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, or async-control-flow risk signal |
 
