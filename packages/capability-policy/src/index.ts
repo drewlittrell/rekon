@@ -31,6 +31,7 @@ import {
 } from "@rekon/capability-ontology";
 import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence, loadWorkspacePackages } from "./grammar-divergence.js";
 import { SECURITY_SCANNER_RESULT_RULE_ID, evaluateSecurityScanReports } from "./security-scans.js";
+import { DEPENDENCY_VULNERABILITY_RULE_ID, evaluateDependencyAuditReports } from "./dependency-audits.js";
 
 export * from "./grammar-divergence.js";
 
@@ -57,6 +58,7 @@ export const BUILT_IN_POLICY_RULES = [
   EMBEDDING_DUPLICATION_RULE_ID,
   REPOSITORY_CHECK_FAILURE_RULE_ID,
   SECURITY_SCANNER_RESULT_RULE_ID,
+  DEPENDENCY_VULNERABILITY_RULE_ID,
   "imports.noDistImports",
   "imports.noNodeModulesRelativeImports",
   "files.noGeneratedAsSource",
@@ -117,6 +119,7 @@ export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclared
 export type { DeadCodeStats } from "./dead-code.js";
 export { loadDistImportExemptions, loadDeclaredRootGlobs, type DistImportExemption as DistImportExemptionEntry } from "./dead-code.js";
 export { SECURITY_SCANNER_RESULT_RULE_ID, evaluateSecurityScanReports } from "./security-scans.js";
+export { DEPENDENCY_VULNERABILITY_RULE_ID, evaluateDependencyAuditReports } from "./dependency-audits.js";
 
 export const policyEvaluator: Evaluator = {
   id: "@rekon/capability-policy.evaluator",
@@ -153,6 +156,9 @@ export const policyEvaluator: Evaluator = {
       : { findings: [], assessments: [], inputRefs: [], promotedRootCauseKeys: new Set<string>(), sourceRootCauseKeys: new Set<string>() };
     const securityScans = !disabledRules.has(SECURITY_SCANNER_RESULT_RULE_ID)
       ? await evaluateSecurityScanReports(artifacts, evidenceRef)
+      : { assessments: [], inputRefs: [] as ArtifactRef[] };
+    const dependencyAudits = !disabledRules.has(DEPENDENCY_VULNERABILITY_RULE_ID)
+      ? await evaluateDependencyAuditReports(artifacts, evidenceRef)
       : { assessments: [], inputRefs: [] as ArtifactRef[] };
     const importGraph = !disabledRules.has(IMPORT_CYCLE_RULE_ID) || !disabledRules.has(DEPENDENCY_HUB_RULE_ID)
       ? await loadLatestImportGraph(artifacts)
@@ -223,6 +229,7 @@ export const policyEvaluator: Evaluator = {
       ...embeddingDuplicationOpportunities,
       ...repositoryChecks.assessments,
       ...securityScans.assessments,
+      ...dependencyAudits.assessments,
     ].filter((assessment) => !repositoryChecks.promotedRootCauseKeys.has(assessment.rootCauseKey));
     const findingInputRefs = uniqueRefs([evidenceRef, ...repositoryChecks.inputRefs]);
     const assessmentInputRefs = uniqueRefs([
@@ -232,6 +239,7 @@ export const policyEvaluator: Evaluator = {
       ...(capabilityGraphRef ? [capabilityGraphRef] : []),
       ...repositoryChecks.inputRefs,
       ...securityScans.inputRefs,
+      ...dependencyAudits.inputRefs,
       ...(importGraph ? [importGraph.ref] : []),
       ...complexityAssessments.flatMap((assessment) => assessment.evidence),
     ]);
@@ -280,7 +288,7 @@ export default defineCapability({
     name: "Policy Evaluator",
     version: "0.1.0",
     roles: ["evaluator"],
-    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport", "CapabilityEvidenceGraph", "VerificationRun", "GraphSlice", "RuntimeGraphObservationReport", "SecurityScanReport"],
+    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport", "CapabilityEvidenceGraph", "VerificationRun", "GraphSlice", "RuntimeGraphObservationReport", "SecurityScanReport", "DependencyAuditReport"],
     produces: ["FindingReport", "AssessmentReport"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -308,6 +316,11 @@ export default defineCapability({
         id: "security-scan.changed",
         description: "Security scanner assessments are invalid when normalized scanner evidence changes.",
         inputs: ["SecurityScanReport"],
+      },
+      {
+        id: "dependency-audit.changed",
+        description: "Dependency vulnerability assessments are invalid when normalized audit evidence changes.",
+        inputs: ["DependencyAuditReport"],
       },
       {
         id: "application-graph.changed",

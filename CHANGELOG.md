@@ -4,6 +4,9 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added typed npm audit v2 ingestion with lockfile-backed installed versions,
+  dependency paths, production/development scope, stable advisory identity,
+  partial-input warnings, and assessment-only dependency vulnerability policy.
 - Hardened the parity benchmark with external-only operator adjudications,
   per-rule quality thresholds, separate finding precision and assessment
   usefulness, and a sanitized aggregate report that excludes corpus roots,

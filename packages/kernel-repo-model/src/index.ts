@@ -9680,3 +9680,225 @@ export const securityScanReportSchema: ArtifactSchema<SecurityScanReport> = {
   validate: validateSecurityScanReport,
   parse: assertSecurityScanReport,
 };
+
+// -----------------------------------------------------------------
+// DependencyAuditReport (normalized package vulnerability evidence)
+// -----------------------------------------------------------------
+
+export type DependencyAuditSeverity = SecurityScanSeverity;
+export type DependencyAuditScope = "production" | "development" | "optional" | "peer" | "unknown";
+
+export type DependencyAuditAdvisory = {
+  id: string;
+  title: string;
+  url?: string;
+  cwes: string[];
+  cvss?: { score?: number; vector?: string };
+};
+
+export type DependencyAuditPath = {
+  nodePath: string;
+  dependencyPath: string[];
+  installedVersion?: string;
+  scope: DependencyAuditScope;
+  direct: boolean;
+};
+
+export type DependencyAuditVulnerability = {
+  id: string;
+  packageName: string;
+  severity: DependencyAuditSeverity;
+  affectedRange: string;
+  advisories: DependencyAuditAdvisory[];
+  paths: DependencyAuditPath[];
+  fixAvailable: boolean;
+  fixVersion?: string;
+  breakingFix?: boolean;
+};
+
+export type DependencyAuditReport = {
+  header: ArtifactHeader;
+  source: {
+    format: "npm-audit-v2";
+    path: string;
+    digest: string;
+    lockfilePath?: string;
+    lockfileDigest?: string;
+  };
+  tool: { name: "npm"; version?: string };
+  status: { complete: boolean; warnings: string[] };
+  summary: {
+    vulnerabilities: number;
+    production: number;
+    development: number;
+    unknownScope: number;
+    bySeverity: Record<DependencyAuditSeverity, number>;
+  };
+  vulnerabilities: DependencyAuditVulnerability[];
+};
+
+const DEPENDENCY_AUDIT_SCOPES = new Set<DependencyAuditScope>([
+  "production", "development", "optional", "peer", "unknown",
+]);
+
+export function createDependencyAuditReport(input: DependencyAuditReport): DependencyAuditReport {
+  const vulnerabilities = input.vulnerabilities
+    .map((vulnerability) => ({
+      ...vulnerability,
+      advisories: vulnerability.advisories
+        .map((advisory) => ({ ...advisory, cwes: uniqueSorted(advisory.cwes) }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      paths: vulnerability.paths
+        .map((path) => stripUndefinedObjectValues({ ...path, dependencyPath: [...path.dependencyPath] }))
+        .sort((left, right) => left.nodePath.localeCompare(right.nodePath)),
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const bySeverity = Object.fromEntries(
+    [...SECURITY_SCAN_SEVERITIES].map((severity) => [
+      severity,
+      vulnerabilities.filter((vulnerability) => vulnerability.severity === severity).length,
+    ]),
+  ) as Record<DependencyAuditSeverity, number>;
+  const scopes = vulnerabilities.flatMap((vulnerability) => vulnerability.paths.map((path) => path.scope));
+
+  return assertDependencyAuditReport({
+    ...input,
+    source: stripUndefinedObjectValues(input.source),
+    tool: stripUndefinedObjectValues(input.tool),
+    status: { complete: input.status.complete, warnings: uniqueSorted(input.status.warnings) },
+    summary: {
+      vulnerabilities: vulnerabilities.length,
+      production: scopes.filter((scope) => scope === "production").length,
+      development: scopes.filter((scope) => scope === "development").length,
+      unknownScope: scopes.filter((scope) => scope === "unknown").length,
+      bySeverity,
+    },
+    vulnerabilities,
+  });
+}
+
+export function validateDependencyAuditReport(value: unknown): ValidationResult<DependencyAuditReport> {
+  const issues: ValidationIssue[] = [];
+  if (!isRecord(value)) return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  validateModelHeader(value.header, "DependencyAuditReport", "$.header", issues);
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    if (value.source.format !== "npm-audit-v2") issues.push({ path: "$.source.format", message: 'Expected "npm-audit-v2".' });
+    validateSecurityScanPath(value.source.path, "$.source.path", issues);
+    for (const field of ["digest", "lockfileDigest"] as const) {
+      const digest = value.source[field];
+      if ((field === "digest" || digest !== undefined) && (typeof digest !== "string" || !/^[a-f0-9]{64}$/u.test(digest))) {
+        issues.push({ path: `$.source.${field}`, message: "Expected a lowercase SHA-256 digest." });
+      }
+    }
+    if (value.source.lockfilePath !== undefined) validateSecurityScanPath(value.source.lockfilePath, "$.source.lockfilePath", issues);
+    if ((value.source.lockfilePath === undefined) !== (value.source.lockfileDigest === undefined)) {
+      issues.push({ path: "$.source", message: "lockfilePath and lockfileDigest must be supplied together." });
+    }
+  }
+  if (!isRecord(value.tool) || value.tool.name !== "npm") {
+    issues.push({ path: "$.tool", message: "Expected npm tool metadata." });
+  } else if (value.tool.version !== undefined && (typeof value.tool.version !== "string" || value.tool.version.length === 0)) {
+    issues.push({ path: "$.tool.version", message: "Expected a non-empty string when present." });
+  }
+  if (!isRecord(value.status) || typeof value.status.complete !== "boolean" || !isStringArray(value.status.warnings)) {
+    issues.push({ path: "$.status", message: "Expected complete and warnings fields." });
+  }
+  const vulnerabilities: DependencyAuditVulnerability[] = [];
+  const ids = new Set<string>();
+  if (!Array.isArray(value.vulnerabilities)) {
+    issues.push({ path: "$.vulnerabilities", message: "Expected an array." });
+  } else {
+    value.vulnerabilities.forEach((vulnerability, index) => {
+      const path = `$.vulnerabilities[${index}]`;
+      if (!isRecord(vulnerability)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      for (const field of ["id", "packageName", "affectedRange"] as const) pushRequiredStringIssue(issues, vulnerability[field], `${path}.${field}`);
+      if (typeof vulnerability.id === "string") {
+        if (ids.has(vulnerability.id)) issues.push({ path: `${path}.id`, message: `Duplicate vulnerability id ${vulnerability.id}.` });
+        ids.add(vulnerability.id);
+      }
+      if (typeof vulnerability.severity !== "string" || !SECURITY_SCAN_SEVERITIES.has(vulnerability.severity as SecurityScanSeverity)) {
+        issues.push({ path: `${path}.severity`, message: "Expected critical, high, medium, low, or unknown." });
+      }
+      if (!Array.isArray(vulnerability.advisories)) {
+        issues.push({ path: `${path}.advisories`, message: "Expected an array." });
+      } else {
+        vulnerability.advisories.forEach((advisory, advisoryIndex) => {
+          const advisoryPath = `${path}.advisories[${advisoryIndex}]`;
+          if (!isRecord(advisory)) {
+            issues.push({ path: advisoryPath, message: "Expected an object." });
+            return;
+          }
+          pushRequiredStringIssue(issues, advisory.id, `${advisoryPath}.id`);
+          pushRequiredStringIssue(issues, advisory.title, `${advisoryPath}.title`);
+          if (!isStringArray(advisory.cwes)) issues.push({ path: `${advisoryPath}.cwes`, message: "Expected an array of strings." });
+          if (advisory.url !== undefined && (typeof advisory.url !== "string" || advisory.url.length === 0)) issues.push({ path: `${advisoryPath}.url`, message: "Expected a non-empty string when present." });
+          if (advisory.cvss !== undefined) {
+            if (!isRecord(advisory.cvss)) {
+              issues.push({ path: `${advisoryPath}.cvss`, message: "Expected an object." });
+            } else {
+              if (advisory.cvss.score !== undefined && (typeof advisory.cvss.score !== "number" || advisory.cvss.score < 0 || advisory.cvss.score > 10)) issues.push({ path: `${advisoryPath}.cvss.score`, message: "Expected a score between 0 and 10." });
+              if (advisory.cvss.vector !== undefined && (typeof advisory.cvss.vector !== "string" || advisory.cvss.vector.length === 0)) issues.push({ path: `${advisoryPath}.cvss.vector`, message: "Expected a non-empty string when present." });
+            }
+          }
+        });
+      }
+      if (!Array.isArray(vulnerability.paths)) {
+        issues.push({ path: `${path}.paths`, message: "Expected an array." });
+      } else {
+        vulnerability.paths.forEach((entry, pathIndex) => {
+          const entryPath = `${path}.paths[${pathIndex}]`;
+          if (!isRecord(entry)) {
+            issues.push({ path: entryPath, message: "Expected an object." });
+            return;
+          }
+          validateSecurityScanPath(entry.nodePath, `${entryPath}.nodePath`, issues);
+          if (!isStringArray(entry.dependencyPath) || entry.dependencyPath.length === 0) issues.push({ path: `${entryPath}.dependencyPath`, message: "Expected a non-empty package path." });
+          if (entry.installedVersion !== undefined && (typeof entry.installedVersion !== "string" || entry.installedVersion.length === 0)) issues.push({ path: `${entryPath}.installedVersion`, message: "Expected a non-empty string when present." });
+          if (typeof entry.scope !== "string" || !DEPENDENCY_AUDIT_SCOPES.has(entry.scope as DependencyAuditScope)) issues.push({ path: `${entryPath}.scope`, message: "Expected a supported dependency scope." });
+          if (typeof entry.direct !== "boolean") issues.push({ path: `${entryPath}.direct`, message: "Expected a boolean." });
+        });
+      }
+      if (typeof vulnerability.fixAvailable !== "boolean") issues.push({ path: `${path}.fixAvailable`, message: "Expected a boolean." });
+      if (vulnerability.fixVersion !== undefined && (typeof vulnerability.fixVersion !== "string" || vulnerability.fixVersion.length === 0)) issues.push({ path: `${path}.fixVersion`, message: "Expected a non-empty string when present." });
+      if (vulnerability.breakingFix !== undefined && typeof vulnerability.breakingFix !== "boolean") issues.push({ path: `${path}.breakingFix`, message: "Expected a boolean when present." });
+      vulnerabilities.push(vulnerability as DependencyAuditVulnerability);
+    });
+  }
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected a recomputable vulnerability summary." });
+  } else {
+    const paths = vulnerabilities.flatMap((vulnerability) => vulnerability.paths ?? []);
+    const expected = {
+      vulnerabilities: vulnerabilities.length,
+      production: paths.filter((entry) => entry.scope === "production").length,
+      development: paths.filter((entry) => entry.scope === "development").length,
+      unknownScope: paths.filter((entry) => entry.scope === "unknown").length,
+    };
+    for (const [field, count] of Object.entries(expected)) {
+      if (value.summary[field] !== count) issues.push({ path: `$.summary.${field}`, message: `Expected ${count} (recomputed).` });
+    }
+    if (!isRecord(value.summary.bySeverity)) {
+      issues.push({ path: "$.summary.bySeverity", message: "Expected an object." });
+    } else {
+      for (const severity of SECURITY_SCAN_SEVERITIES) {
+        const count = vulnerabilities.filter((vulnerability) => vulnerability.severity === severity).length;
+        if (value.summary.bySeverity[severity] !== count) issues.push({ path: `$.summary.bySeverity.${severity}`, message: `Expected ${count} (recomputed).` });
+      }
+    }
+  }
+  return validationResult(value as DependencyAuditReport, issues);
+}
+
+export function assertDependencyAuditReport(value: unknown): DependencyAuditReport {
+  return assertValid(validateDependencyAuditReport(value), "DependencyAuditReport");
+}
+
+export const dependencyAuditReportSchema: ArtifactSchema<DependencyAuditReport> = {
+  validate: validateDependencyAuditReport,
+  parse: assertDependencyAuditReport,
+};

@@ -35,6 +35,10 @@ verification plans.
 The pure SARIF 2.1 parser normalizes repository-native scanner output into
 `SecurityScanReport`, classifies only explicitly security-marked results, and
 rejects locations outside the repository.
+The npm audit v2 adapter normalizes package advisories into
+`DependencyAuditReport` and joins `package-lock.json` package entries to retain
+installed versions and dependency scope. Unsupported or incomplete input is
+reported explicitly; raw audit payloads are not retained.
 
 ## Import Boundary
 

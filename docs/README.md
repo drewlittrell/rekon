@@ -33,6 +33,7 @@ docs, not generated freshness reports or internal planning logs.
 - [GraphSlice](artifacts/graph-slice.md)
 - [RuntimeGraphObservationReport](artifacts/runtime-graph-observation-report.md)
 - [SecurityScanReport](artifacts/security-scan-report.md)
+- [DependencyAuditReport](artifacts/dependency-audit-report.md)
 - [FindingReport](artifacts/finding-report.md)
 - [AssessmentReport](artifacts/assessment-report.md)
 - [ResolverPacket](artifacts/resolver-packet.md)

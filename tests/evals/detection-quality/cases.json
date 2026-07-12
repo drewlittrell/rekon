@@ -80,6 +80,12 @@
       "reason": "A security-classified SARIF result is reproducible tool evidence, but one scanner report does not by itself prove exploitability or justify automatic finding promotion."
     },
     {
+      "id": "repository-dependency-advisory",
+      "ruleId": "security.dependencyVulnerability",
+      "expectedKind": "risk",
+      "reason": "A package-manager advisory identifies an affected installed dependency path, but does not by itself prove exploitability or repository impact."
+    },
+    {
       "id": "embedding-duplicate-candidate",
       "ruleId": "similarity.duplicateCandidate",
       "expectedKind": "opportunity",

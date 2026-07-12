@@ -20,6 +20,7 @@ This package owns deterministic model artifacts derived from evidence:
 - `RuntimeGraphObservationReport`
 - `SemanticDebtJudgmentReport`
 - `SecurityScanReport`
+- `DependencyAuditReport`
 
 ## Lifecycle Fit
 
@@ -40,6 +41,9 @@ joins.
 Security scan contracts retain normalized SARIF tool, rule, severity,
 fingerprint, location, and source-digest provenance without asserting
 exploitability.
+Dependency audit contracts retain normalized advisories, affected ranges,
+installed versions, dependency paths, scope, and source/lockfile digests
+without asserting exploitability.
 
 ## Import Boundary
 

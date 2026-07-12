@@ -25,6 +25,7 @@ Common references:
 - [IntelligenceSnapshot](intelligence-snapshot.md)
 - [RuntimeGraphObservationReport](runtime-graph-observation-report.md)
 - [SecurityScanReport](security-scan-report.md)
+- [DependencyAuditReport](dependency-audit-report.md)
 - [FindingReport](finding-report.md)
 - [AssessmentReport](assessment-report.md)
 - [ResolverPacket](resolver-packet.md)

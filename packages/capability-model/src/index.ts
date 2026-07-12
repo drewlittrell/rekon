@@ -128,6 +128,13 @@ export {
 } from "./sarif-security.js";
 
 export {
+  type NpmAuditIssue,
+  type ParseNpmAuditInput,
+  type ParseNpmAuditResult,
+  parseNpmAuditReport,
+} from "./npm-audit.js";
+
+export {
   type BuildRuntimeGraphDriftReportInput,
   type RuntimeGraphDriftCoverageReportLike,
   type RuntimeGraphDriftHandoffContractLike,

@@ -283,6 +283,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   SemanticFileUnderstandingReport: "actions",
   SemanticDebtJudgmentReport: "actions",
   SecurityScanReport: "actions",
+  DependencyAuditReport: "actions",
   // TaskContextReport is the first product consumer of embedding retrieval
   // (Task-Shaped Context / Embedding Retrieval Decision, slice 165). It is
   // context, not proof — an "actions" report like the intent reports above.

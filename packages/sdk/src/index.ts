@@ -280,6 +280,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "SemanticFileUnderstandingReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "SemanticDebtJudgmentReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "SecurityScanReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "DependencyAuditReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "CapabilityEvidenceGraph", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "TaskContextReport", schemaVersion: "0.1.0", stability: "experimental" },
 ];

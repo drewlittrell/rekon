@@ -65,6 +65,13 @@
       "remediationUnit": "stable SARIF fingerprint or normalized scanner rule, location, and message identity"
     },
     {
+      "ruleId": "security.dependencyVulnerability",
+      "outputKinds": ["risk"],
+      "evidence": "normalized npm audit v2 advisory joined to package-lock installed paths and scopes",
+      "jurisdiction": "explicitly ingested repository-local dependency audit output",
+      "remediationUnit": "package, affected range, and advisory identity"
+    },
+    {
       "ruleId": "similarity.duplicateCandidate",
       "outputKinds": ["opportunity"],
       "evidence": "embedding duplicate_candidate inference in CapabilityEvidenceGraph",

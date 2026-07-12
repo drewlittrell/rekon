@@ -20,6 +20,7 @@ The CLI is the user surface for the local lifecycle:
 - `rekon project`
 - `rekon evaluate`
 - `rekon security ingest --sarif <report.sarif>`
+- `rekon security ingest --npm-audit <audit.json> [--package-lock <package-lock.json>]`
 - `rekon snapshot`
 - `rekon resolve preflight`
 - `rekon publish agents`
@@ -42,12 +43,13 @@ observation:
 ```sh
 rekon observe
 rekon security ingest --sarif reports/codeql.sarif
+rekon security ingest --npm-audit reports/npm-audit.json
 rekon evaluate
 rekon assessments list --kind risk
 ```
 
-Ingestion does not execute the scanner. Results remain risks until stronger
-evidence or an operator decision justifies promotion.
+Ingestion does not execute scanners or package managers. Results remain risks
+until stronger evidence or an operator decision justifies promotion.
 
 `rekon scan` reports findings separately from risks, opportunities, semantic
 claims, and model diagnostics. Use `rekon assessments list --kind <kind>` to

@@ -78,6 +78,7 @@ import modelCapability, {
   HANDOFF_EVENT_LOG_PATH,
   buildRuntimeGraphObservationReport,
   parseIstanbulCoverage,
+  parseNpmAuditReport,
   parseSarifSecurityReport,
   buildRuntimeGraphDriftReport,
   buildIntentAssessmentReport,
@@ -274,6 +275,7 @@ import {
   type SemanticDebtJudgmentEntry,
   type SemanticDebtJudgmentReport,
   type SecurityScanReport,
+  type DependencyAuditReport,
   type StepCapabilityGraph,
 } from "@rekon/kernel-repo-model";
 import type { AssessmentReport } from "@rekon/kernel-assessments";
@@ -3583,8 +3585,9 @@ export async function main(argv: string[]): Promise<void> {
   if (command === "security" && subcommand === "ingest") {
     const commandName = "rekon security ingest";
     const sarifPath = typeof parsed.flags.sarif === "string" ? parsed.flags.sarif.trim() : "";
-    if (!sarifPath) {
-      throw new Error(`${commandName} requires --sarif <path>.`);
+    const npmAuditPath = typeof parsed.flags["npm-audit"] === "string" ? parsed.flags["npm-audit"].trim() : "";
+    if ((!sarifPath && !npmAuditPath) || (sarifPath && npmAuditPath)) {
+      throw new Error(`${commandName} requires exactly one of --sarif <path> or --npm-audit <path>.`);
     }
 
     const store = createLocalArtifactStore(root);
@@ -3597,6 +3600,80 @@ export async function main(argv: string[]): Promise<void> {
     if (!evidenceGraph.header) {
       throw new Error(`${commandName} could not read a valid EvidenceGraph header.`);
     }
+    const evidenceRef: ArtifactRef = {
+      type: evidenceEntry.type,
+      id: evidenceEntry.id,
+      path: evidenceEntry.path,
+      digest: evidenceEntry.digest,
+      schemaVersion: evidenceEntry.schemaVersion ?? "0.1.0",
+    };
+
+    if (npmAuditPath) {
+      const auditFile = await resolveReadableRepoFile(root, npmAuditPath, commandName, "npm audit file");
+      const raw = await readFile(auditFile.absolutePath, "utf8");
+      let audit: unknown;
+      try {
+        audit = JSON.parse(raw);
+      } catch {
+        throw new Error(`${commandName} requires valid npm audit JSON.`);
+      }
+      const packageLockFlag = typeof parsed.flags["package-lock"] === "string" ? parsed.flags["package-lock"].trim() : "";
+      let lockfile: { relativePath: string; absolutePath: string } | undefined;
+      if (packageLockFlag) {
+        lockfile = await resolveReadableRepoFile(root, packageLockFlag, commandName, "package lockfile");
+      } else {
+        try {
+          await access(join(root, "package-lock.json"));
+          lockfile = await resolveReadableRepoFile(root, "package-lock.json", commandName, "package lockfile");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      }
+      let packageLock: unknown;
+      let lockfileRaw: string | undefined;
+      if (lockfile) {
+        lockfileRaw = await readFile(lockfile.absolutePath, "utf8");
+        try {
+          packageLock = JSON.parse(lockfileRaw);
+        } catch {
+          throw new Error(`${commandName} requires a valid package-lock JSON file.`);
+        }
+      }
+      const digest = createHash("sha256").update(raw).digest("hex");
+      const parsedAudit = parseNpmAuditReport({
+        audit,
+        packageLock,
+        sourcePath: auditFile.relativePath,
+        sourceDigest: digest,
+        ...(lockfile && lockfileRaw
+          ? {
+              lockfilePath: lockfile.relativePath,
+              lockfileDigest: createHash("sha256").update(lockfileRaw).digest("hex"),
+            }
+          : {}),
+        header: {
+          artifactType: "DependencyAuditReport",
+          artifactId: `dependency-audit-report-${digest.slice(0, 24)}`,
+          schemaVersion: "0.1.0",
+          generatedAt: new Date().toISOString(),
+          subject: evidenceGraph.header.subject,
+          producer: { id: "@rekon/cli.security-ingest", version: "1.0.0" },
+          inputRefs: [evidenceRef],
+          freshness: { status: "fresh" },
+          provenance: {
+            confidence: lockfile ? 1 : 0.7,
+            notes: ["Normalized from repository-local npm audit v2 JSON without executing npm or persisting the raw payload."],
+          },
+        },
+      });
+      if (!parsedAudit.valid || !parsedAudit.report) {
+        throw new Error(`${commandName} rejected the report:\n${parsedAudit.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join("\n")}`);
+      }
+      const ref = await store.write(parsedAudit.report satisfies DependencyAuditReport, { category: "actions" });
+      writeOutput({ artifact: ref, summary: parsedAudit.report.summary, status: parsedAudit.report.status, issues: parsedAudit.issues }, json);
+      return;
+    }
+
     const sarifFile = await resolveReadableRepoFile(root, sarifPath, commandName, "SARIF file");
     const raw = await readFile(sarifFile.absolutePath, "utf8");
     let sarif: unknown;
@@ -3606,13 +3683,6 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error(`${commandName} requires valid JSON.`);
     }
     const digest = createHash("sha256").update(raw).digest("hex");
-    const evidenceRef: ArtifactRef = {
-      type: evidenceEntry.type,
-      id: evidenceEntry.id,
-      path: evidenceEntry.path,
-      digest: evidenceEntry.digest,
-      schemaVersion: evidenceEntry.schemaVersion ?? "0.1.0",
-    };
     const parsedSarif = parseSarifSecurityReport({
       sarif,
       repoRoot: resolve(root),
@@ -15083,7 +15153,7 @@ function usage(): string {
     "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
     "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
-    "rekon security ingest --sarif <report.sarif> [--root <path>] [--json]",
+    "rekon security ingest (--sarif <report.sarif> | --npm-audit <audit.json> [--package-lock <package-lock.json>]) [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon evaluate list [--root <path>] [--json]",
     "rekon evaluate run <evaluator-id> [--root <path>] [--input-json <json>] [--json]",

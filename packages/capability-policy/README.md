@@ -69,6 +69,11 @@ only when SARIF rule metadata identifies them as security-relevant. Generic
 lint results are ignored by this rule, and one scanner report never promotes
 automatically to a finding.
 
+`DependencyAuditReport` entries tied to current evidence become
+`security.dependencyVulnerability` risks. Complete lockfile attribution raises
+confidence, but a package advisory still does not prove exploitability or
+automatically create a finding.
+
 Diagnostic identity is structured for ESLint stylish/compact output,
 TypeScript diagnostics, Vitest/Jest-style stack locations, Node TAP failure
 blocks, and file-located build errors. Unsupported output retains the
