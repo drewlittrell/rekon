@@ -1,0 +1,77 @@
+{
+  "version": "1.0.0",
+  "pairs": [
+    {
+      "id": "duplicate-api-key-validation",
+      "expectedDuplicate": true,
+      "left": "Validate an API key by hashing the supplied token, loading the credential record, checking expiry, and comparing required scopes.",
+      "right": "Hash the incoming service token, find its API credential, reject expired records, and verify the requested permission scopes."
+    },
+    {
+      "id": "duplicate-retry-backoff",
+      "expectedDuplicate": true,
+      "left": "Retry a failed provider call with capped exponential backoff and random jitter before returning the final error.",
+      "right": "On provider failure, retry using exponential delays with jitter up to a maximum, then surface the last failure."
+    },
+    {
+      "id": "duplicate-phone-normalization",
+      "expectedDuplicate": true,
+      "left": "Normalize a phone number to E.164 by removing punctuation, applying the default country code, and validating its length.",
+      "right": "Strip formatting from a telephone number, add the configured country prefix, validate digits, and return E.164 format."
+    },
+    {
+      "id": "duplicate-env-boolean",
+      "expectedDuplicate": true,
+      "left": "Parse an environment flag by trimming and accepting true, 1, yes, false, 0, and no, otherwise use the default.",
+      "right": "Convert an environment variable to boolean from normalized true/yes/1 and false/no/0 values, falling back when unknown."
+    },
+    {
+      "id": "duplicate-unique-sort",
+      "expectedDuplicate": true,
+      "left": "Return unique strings in stable alphabetical order by removing duplicates and sorting with locale comparison.",
+      "right": "Deduplicate a list of strings, then sort the remaining values alphabetically using localeCompare."
+    },
+    {
+      "id": "duplicate-http-error-map",
+      "expectedDuplicate": true,
+      "left": "Translate provider HTTP status codes into typed retryable, unauthorized, not-found, and server error results.",
+      "right": "Map an upstream response status to typed authentication, missing-resource, retryable, or internal failure categories."
+    },
+    {
+      "id": "related-session-operations",
+      "expectedDuplicate": false,
+      "left": "Validate a signed browser session cookie and reject expired or revoked sessions.",
+      "right": "Rotate a refresh token and issue a replacement browser session while revoking the previous token."
+    },
+    {
+      "id": "inverse-codec-operations",
+      "expectedDuplicate": false,
+      "left": "Encode a domain event as compact JSON and attach a schema version before publishing.",
+      "right": "Decode versioned event JSON, validate required fields, and migrate older payload shapes."
+    },
+    {
+      "id": "related-order-operations",
+      "expectedDuplicate": false,
+      "left": "Create an order by reserving inventory, calculating totals, and committing the transaction.",
+      "right": "Refund an order by reversing payment, restoring inventory, and recording the refund reason."
+    },
+    {
+      "id": "error-observation-versus-propagation",
+      "expectedDuplicate": false,
+      "left": "Record an error with request metadata and a correlation identifier for observability.",
+      "right": "Translate a caught infrastructure error into a typed domain failure and rethrow it with cause."
+    },
+    {
+      "id": "client-versus-server-validation",
+      "expectedDuplicate": false,
+      "left": "Validate form fields in the browser and display inline messages before submission.",
+      "right": "Authorize a server request, validate the persisted command payload, and reject invalid state transitions."
+    },
+    {
+      "id": "cache-read-versus-invalidation",
+      "expectedDuplicate": false,
+      "left": "Read a cached repository snapshot by key and return it only when its freshness deadline has not passed.",
+      "right": "Invalidate cache entries by repository and dependency tag after an accepted artifact write."
+    }
+  ]
+}

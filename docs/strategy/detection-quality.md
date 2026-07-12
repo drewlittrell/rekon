@@ -167,6 +167,16 @@ pair deduplication. They remain unverified until structural, behavioral, or
 operator evidence establishes that the implementations are actually redundant
 and that consolidation has positive value.
 
+The production duplicate threshold is evaluated against labeled positive and
+hard-negative pairs, separately from retrieval ranking. Threshold quality is
+reported as precision, recall, F1, separation, stability, tokens, and cost.
+
+Operator adjudication is calibration input, not repository truth. External
+labels may change benchmark precision, recall, usefulness, thresholds, or a
+rule disposition. They do not rewrite ownership, architecture, findings, or
+canonical evidence. Operator memory remains resolver guidance unless a
+separate, explicit confirmation is attached to an assessment.
+
 ## Design Decisions
 
 ### Declared Architecture
@@ -181,6 +191,9 @@ law. Pipeline self-disagreement is a model diagnostic, not a repository issue.
 Deterministic markers and explicit placeholders provide source evidence.
 Broader maintainability judgments remain semantic claims until corroborated.
 Neither output is multiplied into separate findings for every wording variant.
+Semantic eligibility, model judgment, deterministic corroboration, and finding
+promotion are separate stages. A matching source signal can corroborate a
+claim, but does not bypass the promotion gate.
 
 ### Reachability And Overlap
 

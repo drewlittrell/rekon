@@ -26,7 +26,8 @@ artifacts over re-deriving ownership directly from raw evidence.
 
 The default export is a Rekon capability definition with a projector handler.
 The package also exports the semantic-debt judgment prompt, strict response
-schema, deterministic concern coercion, runtime observation builder, and pure
+schema, versioned eligibility decision, deterministic concern coercion,
+runtime observation builder, and pure
 Istanbul and LCOV coverage parsers used by the CLI and model evaluator. Runtime coverage
 sources can cite the exact `VerificationRun` command that produced them.
 The Istanbul parser also retains normalized function ranges and execution

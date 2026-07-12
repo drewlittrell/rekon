@@ -3,6 +3,10 @@
 Rekon evaluates embedding profiles against a checked-in repository retrieval
 corpus before changing the production default.
 
+Retrieval quality and duplicate classification are separate evaluations. A
+model that retrieves related code well does not necessarily distinguish
+duplicate implementations from merely related responsibilities.
+
 ## Decision
 
 The default profile is `voyage-4` at 512 dimensions. It retained perfect
@@ -59,6 +63,24 @@ VOYAGE_API_KEY=... npm run eval:voyage-embeddings -- --repeats 3
 
 Reports are written under ignored `.rekon-dev/evals/`. Credentials remain in
 the environment and are never written to evaluation output.
+
+Validate the production `duplicate_candidate` threshold against the balanced
+labeled pair corpus without a provider call:
+
+```sh
+npm run eval:embedding-duplicates -- --dry-run
+```
+
+Run the live repeated pair evaluation:
+
+```sh
+VOYAGE_API_KEY=... npm run eval:embedding-duplicates -- --repeats 3
+```
+
+The report records precision, recall, F1, positive/negative separation, repeat
+stability, provider tokens, and cost at the production threshold of `0.95`.
+Pairs include both paraphrased duplicate responsibilities and hard negatives
+that are related but operationally distinct.
 
 ## Migration
 

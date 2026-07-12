@@ -33,7 +33,9 @@ policy, docs, and intent/work-order generation.
 
 The package also exports validation helpers and normalization helpers for
 systems and paths. Semantic debt report policy records provider, model, effort,
-and prompt version so cached judgments retain their execution provenance.
+prompt version, and eligibility version so cached judgments retain their
+execution provenance. Reports may summarize why files were excluded before
+provider judgment.
 Runtime graph observation contracts preserve instrumented execution evidence
 without redefining it as coverage. Coverage source metadata records its format,
 digest, explicit test attribution, accepted/ignored file counts, and optional

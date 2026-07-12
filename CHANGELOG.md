@@ -4,6 +4,15 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Split semantic debt eligibility, judgment, deterministic corroboration, and
+  finding promotion into explicit stages. Generated, non-production,
+  declaration, binary, and empty files are excluded before provider calls;
+  corroborated model output remains a claim until the existing promotion gate
+  is satisfied.
+- Added external private-corpus support to the token-aware semantic debt
+  evaluator without writing corpus paths to reports. Added a balanced labeled
+  duplicate-pair evaluator for the production embedding threshold, including
+  precision, recall, separation, stability, token, and cost metrics.
 - Expanded JS/TS resolution to honor declared workspace export subpaths,
   including conditional and wildcard targets, without guessing undeclared
   package internals. Added syntax-backed Express and NestJS routes and

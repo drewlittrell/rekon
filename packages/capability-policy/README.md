@@ -87,6 +87,12 @@ automatically to a finding.
 confidence, but a package advisory still does not prove exploitability or
 automatically create a finding.
 
+Semantic debt uses separate judgment and corroboration stages. Exact
+type-assertion, error-suppression, debt-marker, deprecation, or placeholder
+signals can corroborate a matching model claim. The result remains a semantic
+claim unless applicable law, reproducibility, or operator confirmation passes
+the kernel promotion rule.
+
 Diagnostic identity is structured for ESLint stylish/compact output,
 TypeScript diagnostics, Vitest/Jest-style stack locations, Node TAP failure
 blocks, and file-located build errors. Unsupported output retains the

@@ -33,6 +33,12 @@ type SemanticDebtReportLike = {
   entries?: unknown;
 };
 
+type EvidenceFactLike = {
+  kind: string;
+  subject: string;
+  value: Record<string, unknown>;
+};
+
 const SEVERITY_RANK: Record<Severity, number> = { low: 0, medium: 1, high: 2 };
 
 function isSeverity(value: unknown): value is Severity {
@@ -181,6 +187,77 @@ export function evaluateSemanticDebtClaims(reportLike: unknown, reportRef?: Arti
   }
 
   return claims.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+/**
+ * Attach deterministic support to model claims without promoting them. This is
+ * a distinct corroboration stage: only exact, declared signal families match,
+ * and finding promotion still requires law, reproducibility, or confirmation.
+ */
+export function corroborateSemanticDebtClaims(
+  claims: readonly Assessment[],
+  facts: readonly EvidenceFactLike[],
+  evidenceRef: ArtifactRef,
+): Assessment[] {
+  return claims.map((claim) => {
+    const file = claim.files?.[0];
+    if (!file) return claim;
+    const pattern = typeof claim.details?.pattern === "string" ? claim.details.pattern : undefined;
+    const line = typeof claim.details?.line === "number" ? claim.details.line : undefined;
+    const matched = facts.filter((fact) => semanticCorroborationMatch({ fact, file, pattern, type: claim.type, line }));
+    if (matched.length === 0) return claim;
+    const signalTypes = [...new Set(matched.map((fact) => deterministicSignalType(fact)))].sort();
+    return {
+      ...claim,
+      evidence: [...claim.evidence, evidenceRef],
+      confidence: {
+        score: Math.max(claim.confidence.score, 0.8),
+        basis: "mixed",
+        verification: "corroborated",
+        rationale: "Semantic judgment is supported by a matching deterministic source signal; promotion requirements remain unchanged.",
+      },
+      supportingSignals: [
+        ...(claim.supportingSignals ?? []),
+        {
+          producer: "@rekon/capability-js-ts",
+          signalType: signalTypes.join(","),
+          evidence: [evidenceRef],
+          details: { file, signals: signalTypes },
+        },
+      ],
+      details: {
+        ...(claim.details ?? {}),
+        corroboration: { stage: "deterministic-source", signals: signalTypes },
+      },
+    };
+  });
+}
+
+function semanticCorroborationMatch(input: {
+  fact: EvidenceFactLike;
+  file: string;
+  pattern?: string;
+  type: string;
+  line?: number;
+}): boolean {
+  const factFile = typeof input.fact.value.path === "string" ? input.fact.value.path : input.fact.subject;
+  if (factFile !== input.file) return false;
+  const factLine = typeof input.fact.value.line === "number" ? input.fact.value.line : undefined;
+  if (input.line !== undefined && factLine !== undefined && input.line !== factLine) return false;
+  const signal = typeof input.fact.value.signal === "string" ? input.fact.value.signal : "";
+  const marker = typeof input.fact.value.marker === "string" ? input.fact.value.marker : "";
+  if (input.pattern === "type_assertion") return signal === "as_any_assertion" || signal === "non_null_assertion";
+  if (input.pattern === "error_handling") return signal === "empty_catch" || signal === "catch_only_logs";
+  if (input.pattern === "todo_comments") return input.fact.kind === "debt_marker" && ["todo", "fixme", "hack"].includes(marker);
+  if (input.pattern === "deprecated") return input.fact.kind === "debt_marker" && marker === "deprecated";
+  if (input.type === "stub") return signal === "placeholder_throw";
+  return false;
+}
+
+function deterministicSignalType(fact: EvidenceFactLike): string {
+  if (typeof fact.value.signal === "string") return fact.value.signal;
+  if (typeof fact.value.marker === "string") return `debt_marker:${fact.value.marker}`;
+  return fact.kind;
 }
 
 function semanticConcernLabel(type: string): string {

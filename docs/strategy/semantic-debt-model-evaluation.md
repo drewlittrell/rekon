@@ -1,6 +1,7 @@
 # Semantic Debt Model Evaluation
 
-Rekon evaluates semantic-debt models against a checked-in labeled corpus. The
+Rekon evaluates semantic-debt models against a checked-in labeled corpus and
+can run the same evaluator against an external private corpus. The
 goal is to select the least expensive configuration that preserves useful debt
 recall while routing architecture, dead-code, lint, and stub concerns to their
 own semantic-claim categories.
@@ -24,6 +25,17 @@ The report records:
 - the non-dominated cost/quality frontier.
 
 Models must complete at least 99% of requests to qualify for the frontier.
+
+Production handling is staged:
+
+1. `debt-eligibility-v1` excludes non-production, declaration, generated,
+   binary, and empty inputs before a provider call.
+2. `debt-judge-v1` records model judgment with provider, model, effort, prompt
+   version, file digest, reuse state, and fallback warnings.
+3. Policy may corroborate a claim with an exact deterministic signal family.
+   Corroboration changes evidence basis to mixed; it does not create a finding.
+4. The kernel promotion rule separately requires applicable law, reproducible
+   defect evidence, or operator confirmation.
 
 Pricing is versioned in the evaluator. Claude Sonnet 5 reports both its current
 introductory price and the price effective after August 31, 2026. Reasoning
@@ -50,6 +62,11 @@ subset. The default cost ceiling is $20 and can be changed with
 
 API keys remain environment-only. Evaluation output is local evidence, not a
 generated product artifact or canonical repository truth.
+
+Run a private corpus with the same `corpus.json` shape by passing `--corpus
+<directory>` or setting `REKON_SEMANTIC_DEBT_EVAL_CORPUS`. Case paths are
+contained to the corpus root, and reports record only `source: "external"`,
+the corpus version, and counts. The local corpus path is not written to output.
 
 ## Production profiles
 

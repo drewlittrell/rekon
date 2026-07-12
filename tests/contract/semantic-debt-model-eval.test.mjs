@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { resolve } from "node:path";
 import test from "node:test";
 
@@ -88,6 +91,33 @@ test("dry run validates the corpus and selected model without provider credentia
   assert.equal(payload.cases, 18);
   assert.equal(payload.requests, 36);
   assert.equal(payload.models[0].id, "gpt-5.4-nano@none");
+});
+
+test("dry run accepts an external labeled corpus without exposing its path", async () => {
+  const corpusRoot = await mkdtemp(join(tmpdir(), "rekon-private-semantic-eval-"));
+  try {
+    await mkdir(join(corpusRoot, "cases"), { recursive: true });
+    await writeFile(join(corpusRoot, "cases", "one.ts"), "export const one = 1;\n", "utf8");
+    await writeFile(join(corpusRoot, "corpus.json"), JSON.stringify({
+      version: "1.0.0",
+      cases: [{ id: "private-one", file: "cases/one.ts", expectedDebt: false }],
+    }), "utf8");
+    const result = spawnSync(process.execPath, [
+      "scripts/eval-semantic-debt-models.mjs",
+      "--dry-run",
+      "--corpus",
+      corpusRoot,
+      "--models",
+      "gpt-5.4-nano@none",
+    ], { cwd: root, encoding: "utf8", env: {} });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.includes(corpusRoot), false);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.corpusSource, "external");
+    assert.equal(payload.cases, 1);
+  } finally {
+    await rm(corpusRoot, { recursive: true, force: true });
+  }
 });
 
 function run(modelConfigId, caseId, expectedDebt, predictedDebt, currentCostUsd) {

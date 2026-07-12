@@ -7,7 +7,7 @@ import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capabil
 import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots, loadGeneratedGlobs, loadDistImportExemptions, globLikeToRegExp, type DistImportExemption, loadDeclaredRootGlobs } from "./dead-code.js";
 import { NAMING_CONTRACT_RULE_ID, evaluateNamingContract } from "./naming-contract.js";
 import { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
-import { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebtClaims } from "./debt-semantic.js";
+import { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebtClaims } from "./debt-semantic.js";
 import {
   ASYNC_ARRAY_CALLBACK_RULE_ID,
   ASYNC_PROMISE_EXECUTOR_RULE_ID,
@@ -90,7 +90,7 @@ export { NAMING_CONTRACT_RULE_ID, evaluateNamingContract, splitPascalTokens } fr
 export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
-export { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
+export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
 export {
   ASYNC_ARRAY_CALLBACK_RULE_ID,
   ASYNC_PROMISE_EXECUTOR_RULE_ID,
@@ -158,7 +158,11 @@ export const policyEvaluator: Evaluator = {
       : [];
     const semanticDebtClaims =
       !disabledRules.has(DEBT_SEMANTIC_RULE_ID) && semanticDebtRef
-        ? evaluateSemanticDebtClaims(await artifacts.read(semanticDebtRef), semanticDebtRef)
+        ? corroborateSemanticDebtClaims(
+            evaluateSemanticDebtClaims(await artifacts.read(semanticDebtRef), semanticDebtRef),
+            graph.facts,
+            evidenceRef,
+          )
         : [];
     const repositoryChecks = !disabledRules.has(REPOSITORY_CHECK_FAILURE_RULE_ID)
       ? await evaluateRepositoryChecks(graph, evidenceRef, artifacts)

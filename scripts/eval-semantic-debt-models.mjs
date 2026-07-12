@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 
@@ -24,10 +24,11 @@ import {
 } from "./lib/semantic-debt-eval.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const corpusRoot = join(root, "tests", "evals", "semantic-debt");
 const options = parseArgs(process.argv.slice(2));
+const corpusLocation = await resolveCorpusLocation(options.corpus ?? process.env.REKON_SEMANTIC_DEBT_EVAL_CORPUS);
+const corpusRoot = corpusLocation.root;
 const selectedConfigs = selectConfigs(options.models);
-const manifest = JSON.parse(await readFile(join(corpusRoot, "corpus.json"), "utf8"));
+const manifest = JSON.parse(await readFile(corpusLocation.manifest, "utf8"));
 const cases = manifest.cases.slice(0, options.maxCases ?? manifest.cases.length);
 
 if (options.listModels) {
@@ -38,9 +39,11 @@ if (options.listModels) {
 }
 
 validateCorpus(manifest, cases);
+await Promise.all(cases.map((item) => resolveCorpusCasePath(corpusRoot, item.file)));
 if (options.dryRun) {
   process.stdout.write(`${JSON.stringify({
     corpusVersion: manifest.version,
+    corpusSource: corpusLocation.source,
     cases: cases.length,
     repeats: options.repeats,
     requests: cases.length * options.repeats * selectedConfigs.length,
@@ -96,7 +99,7 @@ for (const config of selectedConfigs) {
         });
         continue;
       }
-      const fileText = await readFile(join(corpusRoot, item.file), "utf8");
+      const fileText = await readFile(await resolveCorpusCasePath(corpusRoot, item.file), "utf8");
       const prompt = buildSemanticDebtJudgmentPrompt({
         filePath: `eval/${item.file}`,
         fileText,
@@ -171,7 +174,7 @@ const report = {
   generatedAt: new Date().toISOString(),
   pricingAsOf: PRICING_AS_OF,
   promptVersion: SEMANTIC_DEBT_PROMPT_VERSION,
-  corpus: { version: manifest.version, cases: cases.length },
+  corpus: { version: manifest.version, cases: cases.length, source: corpusLocation.source },
   gitCommit: currentCommit(),
   options: {
     repeats: options.repeats,
@@ -206,6 +209,7 @@ function parseArgs(args) {
     repeats: 1,
     retries: 2,
     timeoutMs: 120000,
+    corpus: undefined,
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -220,9 +224,36 @@ function parseArgs(args) {
     else if (arg === "--max-output-tokens") parsed.maxOutputTokens = positiveInteger(requiredValue(args, ++index, arg), arg);
     else if (arg === "--timeout-ms") parsed.timeoutMs = positiveInteger(requiredValue(args, ++index, arg), arg);
     else if (arg === "--output") parsed.output = requiredValue(args, ++index, arg);
+    else if (arg === "--corpus") parsed.corpus = requiredValue(args, ++index, arg);
     else throw new Error(`Unknown argument: ${arg}`);
   }
   return parsed;
+}
+
+async function resolveCorpusLocation(requested) {
+  const builtIn = join(root, "tests", "evals", "semantic-debt");
+  const candidate = resolve(requested || builtIn);
+  const info = await stat(candidate);
+  const manifest = info.isDirectory() ? join(candidate, "corpus.json") : candidate;
+  const corpusRoot = info.isDirectory() ? candidate : dirname(candidate);
+  await stat(manifest);
+  return {
+    root: await realpath(corpusRoot),
+    manifest: await realpath(manifest),
+    source: requested ? "external" : "built-in",
+  };
+}
+
+async function resolveCorpusCasePath(corpusRoot, file) {
+  if (typeof file !== "string" || file.length === 0 || isAbsolute(file)) {
+    throw new Error("Semantic debt corpus case paths must be relative.");
+  }
+  const candidate = await realpath(resolve(corpusRoot, file));
+  const rel = relative(corpusRoot, candidate);
+  if (rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || isAbsolute(rel)) {
+    throw new Error(`Semantic debt corpus case escapes the corpus root: ${file}`);
+  }
+  return candidate;
 }
 
 function selectConfigs(ids) {

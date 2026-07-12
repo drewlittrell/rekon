@@ -171,6 +171,8 @@ import modelCapability, {
   coerceDebtConcerns,
   SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
   SEMANTIC_DEBT_PROMPT_VERSION,
+  SEMANTIC_DEBT_ELIGIBILITY_VERSION,
+  evaluateSemanticDebtEligibility,
   SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
   buildCapabilityEvidenceGraph,
   selectSemanticReportsForGraph,
@@ -10587,6 +10589,7 @@ type SemanticDebtLayerSummary = {
   model?: string;
   effort?: SemanticDebtEffort;
   providerAvailable?: boolean;
+  ineligibleByReason?: Record<string, number>;
 };
 
 type SemanticDebtLayerResult = {
@@ -10736,6 +10739,7 @@ async function runSemanticDebtLayer(input: {
   let requiredHardFail = false;
   let usedProvider: string | undefined;
   let usedModel: string | undefined;
+  const ineligibleByReason: Record<string, number> = {};
 
   for (let i = 0; i < candidates.length; i += 1) {
     const relPath = candidates[i] ?? "";
@@ -10755,7 +10759,11 @@ async function runSemanticDebtLayer(input: {
       continue;
     }
 
-    if (text.indexOf("\u0000") !== -1) {
+    const eligibility = evaluateSemanticDebtEligibility({ path: selectedFile.relativePath, content: text });
+    if (!eligibility.eligible) {
+      for (const reason of eligibility.reasons) {
+        ineligibleByReason[reason] = (ineligibleByReason[reason] ?? 0) + 1;
+      }
       skipped += 1;
       continue;
     }
@@ -10835,8 +10843,19 @@ async function runSemanticDebtLayer(input: {
       provenance: { confidence: 0.6 },
     },
     schemaVersion: "0.1.0",
-    policy: { mode: mode === "required" ? "required" : "auto", ...policy },
-    summary: { filesJudged: judged, filesWithDebt, reused, failed, skipped },
+    policy: {
+      mode: mode === "required" ? "required" : "auto",
+      ...policy,
+      eligibilityVersion: SEMANTIC_DEBT_ELIGIBILITY_VERSION,
+    },
+    summary: {
+      filesJudged: judged,
+      filesWithDebt,
+      reused,
+      failed,
+      skipped,
+      ...(Object.keys(ineligibleByReason).length > 0 ? { ineligibleByReason } : {}),
+    },
     entries,
     boundaries: {
       executedCommands: false,
@@ -10863,6 +10882,7 @@ async function runSemanticDebtLayer(input: {
       model: usedModel ?? modelResolved,
       ...(effortResolved ? { effort: effortResolved } : {}),
       providerAvailable: true,
+      ...(Object.keys(ineligibleByReason).length > 0 ? { ineligibleByReason } : {}),
     },
     exitNonZero: requiredHardFail,
     ...(requiredHardFail

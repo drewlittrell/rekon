@@ -36,6 +36,11 @@ Assessments may be fused by root cause. Promotion to `FindingReport` requires
 operator confirmation or corroborated evidence tied to applicable law or a
 reproducible defect.
 
+Semantic claims use an explicit intermediate state. A matching deterministic
+source signal changes `basis` to `mixed`, `verification` to `corroborated`, and
+adds the evidence graph as a supporting signal. That state is still not a
+finding by itself; corroboration and promotion are separate decisions.
+
 A single failed repository lint, test, typecheck, or build run is recorded as a
 risk. Stale, timed-out, killed, empty-output, and environment-shaped failures
 also remain risks rather than promoting automatically.

@@ -7409,6 +7409,7 @@ export type SemanticDebtJudgmentPolicy = {
   model: string;
   effort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   promptVersion: string;
+  eligibilityVersion?: string;
 };
 
 export type SemanticDebtJudgmentReport = {
@@ -7421,6 +7422,7 @@ export type SemanticDebtJudgmentReport = {
     reused: number;
     failed: number;
     skipped: number;
+    ineligibleByReason?: Record<string, number>;
   };
   entries: SemanticDebtJudgmentEntry[];
   boundaries: SemanticFileUnderstandingBoundaries;
@@ -7507,6 +7509,9 @@ export function createSemanticDebtJudgmentReport(
         ? { effort: rawPolicy.effort }
         : {}),
       promptVersion: typeof rawPolicy.promptVersion === "string" ? rawPolicy.promptVersion : "",
+      ...(typeof rawPolicy.eligibilityVersion === "string" && rawPolicy.eligibilityVersion.length > 0
+        ? { eligibilityVersion: rawPolicy.eligibilityVersion }
+        : {}),
     },
     summary: {
       filesJudged: sfuNonNegInt(rawSummary.filesJudged),
@@ -7514,6 +7519,15 @@ export function createSemanticDebtJudgmentReport(
       reused: sfuNonNegInt(rawSummary.reused),
       failed: sfuNonNegInt(rawSummary.failed),
       skipped: sfuNonNegInt(rawSummary.skipped),
+      ...(isRecord(rawSummary.ineligibleByReason)
+        ? {
+            ineligibleByReason: Object.fromEntries(
+              Object.entries(rawSummary.ineligibleByReason)
+                .filter(([, count]) => typeof count === "number" && Number.isInteger(count) && count >= 0)
+                .sort(([left], [right]) => left.localeCompare(right)),
+            ),
+          }
+        : {}),
     },
     entries,
     boundaries: {
@@ -7559,6 +7573,9 @@ export function validateSemanticDebtJudgmentReport(
     if (policy.effort !== undefined && (typeof policy.effort !== "string" || !SEMANTIC_DEBT_EFFORTS.has(policy.effort))) {
       issues.push({ path: "$.policy.effort", message: "Expected one of none, low, medium, high, xhigh, or max." });
     }
+    if (policy.eligibilityVersion !== undefined && (typeof policy.eligibilityVersion !== "string" || policy.eligibilityVersion.length === 0)) {
+      issues.push({ path: "$.policy.eligibilityVersion", message: "Expected a non-empty string when present." });
+    }
   }
 
   if (!isRecord(value.summary)) {
@@ -7569,6 +7586,12 @@ export function validateSemanticDebtJudgmentReport(
       const count = summary[key];
       if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
         issues.push({ path: `$.summary.${key}`, message: "Expected a non-negative integer." });
+      }
+    }
+    if (summary.ineligibleByReason !== undefined) {
+      if (!isRecord(summary.ineligibleByReason)
+        || Object.values(summary.ineligibleByReason).some((count) => typeof count !== "number" || !Number.isInteger(count) || count < 0)) {
+        issues.push({ path: "$.summary.ineligibleByReason", message: "Expected non-negative integer counts." });
       }
     }
   }
