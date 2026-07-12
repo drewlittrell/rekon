@@ -20,9 +20,15 @@ package does not read environment variables or persist credentials.
   effort controls, and detailed usage.
 - `createAnthropicLlmProvider` — Anthropic Messages with structured output,
   effort controls, and detailed usage.
-- `createVoyageEmbeddingProvider` — Voyage embeddings.
+- `createVoyageEmbeddingProvider` — Voyage embeddings with output-dimension
+  enforcement and token usage.
 - `createDisabledLlmRouter` — a router that always falls back / fails per mode.
 - `coercePhaseDrafts` — a structural schema gate for provider output.
+
+The default Voyage profile is `voyage-4` at 512 dimensions. The evaluated
+economy model is `voyage-4-lite`. Voyage 4 model-space compatibility is exposed
+through `areVoyageEmbeddingModelsCompatible()`; older `voyage-code-3` vectors
+are intentionally isolated.
 
 ## The boundary
 

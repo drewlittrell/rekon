@@ -17,7 +17,9 @@ This package owns deterministic model artifacts derived from evidence:
 - `ObservedSystem`
 - `OwnershipMap`
 - `CapabilityMap`
+- `RuntimeGraphObservationReport`
 - `SemanticDebtJudgmentReport`
+- `SecurityScanReport`
 
 ## Lifecycle Fit
 
@@ -29,6 +31,15 @@ policy, docs, and intent/work-order generation.
 The package also exports validation helpers and normalization helpers for
 systems and paths. Semantic debt report policy records provider, model, effort,
 and prompt version so cached judgments retain their execution provenance.
+Runtime graph observation contracts preserve instrumented execution evidence
+without redefining it as coverage. Coverage source metadata records its format,
+digest, explicit test attribution, accepted/ignored file counts, and optional
+`VerificationRun` command provenance. Isolated sources may also retain function
+ranges, execution counts, and declared source targets for downstream evidence
+joins.
+Security scan contracts retain normalized SARIF tool, rule, severity,
+fingerprint, location, and source-digest provenance without asserting
+exploitability.
 
 ## Import Boundary
 

@@ -5,6 +5,11 @@ export const BUILT_IN_NODE_KINDS = {
   symbol: "symbol",
   system: "system",
   package: "package",
+  route: "route",
+  screen: "screen",
+  test: "test",
+  capability: "capability",
+  buildTarget: "build_target",
 } as const;
 
 export const BUILT_IN_EDGE_KINDS = {
@@ -12,6 +17,9 @@ export const BUILT_IN_EDGE_KINDS = {
   exports: "exports",
   owns: "owns",
   contains: "contains",
+  dependsOn: "depends_on",
+  relatedTo: "related_to",
+  observed: "observed",
 } as const;
 
 export type GraphNode = {

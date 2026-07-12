@@ -102,13 +102,30 @@ export {
 export {
   type BuildRuntimeGraphObservationReportInput,
   type ParseRuntimeGraphObservationEventLogResult,
+  type ParsedRuntimeExecutionObservation,
   type ParsedRuntimeGraphObservationEvent,
   RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX,
+  RUNTIME_GRAPH_EXECUTION_OBSERVATION_EVENT_KIND,
   RUNTIME_GRAPH_OBSERVATION_EVENT_KIND,
   RUNTIME_GRAPH_OBSERVATION_EVENT_LOG_PATH,
   buildRuntimeGraphObservationReport,
   parseRuntimeGraphObservationEventLog,
 } from "./runtime-graph-observation-report.js";
+
+export {
+  type IstanbulCoverageIssue,
+  type IstanbulCoverageSummary,
+  type ParseIstanbulCoverageInput,
+  type ParseIstanbulCoverageResult,
+  parseIstanbulCoverage,
+} from "./istanbul-coverage.js";
+
+export {
+  type ParseSarifSecurityInput,
+  type ParseSarifSecurityResult,
+  type SarifSecurityIssue,
+  parseSarifSecurityReport,
+} from "./sarif-security.js";
 
 export {
   type BuildRuntimeGraphDriftReportInput,

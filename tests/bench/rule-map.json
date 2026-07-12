@@ -1,122 +1,122 @@
 {
   "architecture": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "citation": "docs/strategy/detection-quality.md#declared-architecture",
     "note": "Declared-vs-observed divergence detector on the ontology/CapabilityMap/contract layer, composed onto the capability lint chain. NOT mapped to architecture.noUnknownSystemForSourceFile - mapping the umbrella to one narrow built-in would inflate recall without preserving the guarantee.",
     "rekonRuleId": "grammar.divergence"
   },
   "canonical_gap": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "citation": "docs/strategy/detection-quality.md#declared-architecture",
     "note": "Merged into the cluster-A detector; a gap requires a declaration to exist (classic's inferred gaps ran 69% suppression).",
     "rekonRuleId": "grammar.divergence"
   },
   "canonical_bypass": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "citation": "docs/strategy/detection-quality.md#declared-architecture",
     "rekonRuleId": "grammar.divergence"
   },
   "canonical_misplacement": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "citation": "docs/strategy/detection-quality.md#declared-architecture",
     "rekonRuleId": "grammar.divergence"
   },
   "ownership_violation": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "citation": "docs/strategy/detection-quality.md#declared-architecture",
     "note": "Folded into the cluster-A detector; OwnershipMap is the declaration side.",
     "rekonRuleId": "grammar.divergence"
   },
   "pattern_violation": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §A; docs/work-orders/wo-9-cluster-a-divergence-detector.md (rekonRuleId mapping)",
+    "citation": "docs/strategy/detection-quality.md#declared-architecture",
     "note": "Decision: port (config-declared forbidden patterns). Row flips to ported with a rekonRuleId when the emitter lands (queue #7).",
     "rekonRuleId": "grammar.divergence"
   },
   "system_anomaly": {
     "status": "rejected",
-    "citation": "docs/strategy/detection-design-decisions.md §A4",
+    "citation": "docs/strategy/detection-quality.md#declared-architecture",
     "note": "Policed classic's own LLM-vs-signals pipeline disagreement; meaningless in Rekon's architecture."
   },
   "tech_debt": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B/§C; CHANGELOG.md Unreleased WO-25 Semantic Debt Overlay; coverage scoring per bench policy item 2 (LLM-origin baseline)",
-    "note": "WO-25 maps the LLM-origin tech_debt goal to deterministic markers plus the semantic debt overlay under the 2026-07-09 models-on-by-default operator ruling. Scores by goal-level file-set coverage.",
+    "citation": "docs/strategy/detection-quality.md#debt-and-semantic-judgment",
+    "note": "Maps the semantic debt goal to deterministic markers plus the semantic debt overlay. Scores by goal-level file-set coverage.",
     "rekonRuleId": "debt.markers",
     "rekonRuleIds": ["debt.markers", "debt.semantic"],
     "scoring": "coverage"
   },
   "stub": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B/§C; docs/work-orders/wo-14-detection-wave-1.md (sub-order A); stub folded into the tech_debt deterministic core (§B); coverage scoring per bench policy item 2",
+    "citation": "docs/strategy/detection-quality.md#debt-and-semantic-judgment",
     "note": "Folded into the tech_debt deterministic core (standalone prose-judged rule ran 92% suppression). Rekon's classic-inspired stub handling (details.stubName) remains a finding FILTER, not an emitter.",
     "rekonRuleId": "debt.markers",
     "scoring": "coverage"
   },
   "anti_pattern": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B anti_pattern row; docs/work-orders/wo-14-detection-wave-1.md (sub-order F); deterministic declared-signal share, LLM remainder stays missed-redesigned",
+    "citation": "docs/strategy/detection-quality.md#naming-and-anti-patterns",
     "note": "Deterministic sub-rules re-expressed as declared policy rules; LLM remainder to the semantic overlay.",
     "rekonRuleId": "grammar.antiPattern"
   },
   "dead_code": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §B/§C; docs/work-orders/wo-14-detection-wave-1.md (sub-order B); coverage scoring per bench policy item 2 (LLM-origin baseline)",
+    "citation": "docs/strategy/detection-quality.md#reachability-and-overlap",
     "note": "Graph reachability (unreferenced exports + GraphSlices). Classic baseline is LLM-origin: scores by goal-level file-set coverage.",
     "rekonRuleId": "dead_code.unreferenced",
     "scoring": "coverage"
   },
   "capability_overlap": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §C capability_overlap row; docs/work-orders/wo-14-detection-wave-1.md (sub-order D); coverage scoring: Step 0 found the classic baseline prose-origin (LLM-phrased capability names), per bench policy item 2",
+    "citation": "docs/strategy/detection-quality.md#reachability-and-overlap",
     "note": "Priority redesign on the capability graph; declared sharing disambiguates intentional overlap from drift.",
     "rekonRuleId": "capability.overlap",
     "scoring": "coverage"
   },
   "semantic_similarity": {
     "status": "deferred",
-    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "citation": "docs/strategy/detection-quality.md#reachability-and-overlap",
     "note": "Re-entry condition: embedding layer precision-scored against the corpus."
   },
   "duplication": {
     "status": "deferred",
-    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "citation": "docs/strategy/detection-quality.md#reachability-and-overlap",
     "note": "Same re-entry condition as semantic_similarity (file-granularity end of the same goal)."
   },
   "unification_opportunity": {
     "status": "deferred",
-    "citation": "docs/strategy/detection-design-decisions.md §C",
+    "citation": "docs/strategy/detection-quality.md#reachability-and-overlap",
     "note": "Same re-entry condition as semantic_similarity (aggregation end of the same goal)."
   },
   "naming_violation": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §D naming row; docs/work-orders/wo-14-detection-wave-1.md (sub-order E); per-finding identity (deterministic-origin)",
-    "note": "Ontology-backed {Entity}{Role} naming-contract check derived from the declared grammar WO-4 ports.",
+    "citation": "docs/strategy/detection-quality.md#naming-and-anti-patterns",
+    "note": "Ontology-backed {Entity}{Role} naming-contract check derived from the declared grammar.",
     "rekonRuleId": "naming.contract"
   },
   "lint": {
     "status": "rejected",
-    "citation": "docs/strategy/detection-design-decisions.md §D4",
+    "citation": "docs/strategy/detection-quality.md#naming-and-anti-patterns",
     "note": "Classic ran no linter; the model opined on style. Style enforcement belongs to real linters. Consuming real linter output as evidence facts is a separate future decision."
   },
   "capability_removed": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "citation": "docs/strategy/detection-quality.md#preservation-signals",
     "note": "Preservation port from classic drift-artifacts.ts (CapabilityChangeReport, outside issues.json - no corpus fire history)."
   },
   "confidence_degraded": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "citation": "docs/strategy/detection-quality.md#preservation-signals",
     "note": "Preservation port from classic drift-artifacts.ts."
   },
   "handoff_broken": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "citation": "docs/strategy/detection-quality.md#preservation-signals",
     "note": "Preservation port from classic drift-artifacts.ts."
   },
   "outcome_missing": {
     "status": "redesigned",
-    "citation": "docs/strategy/detection-design-decisions.md §5",
+    "citation": "docs/strategy/detection-quality.md#preservation-signals",
     "note": "Preservation port from classic drift-artifacts.ts."
   }
 }

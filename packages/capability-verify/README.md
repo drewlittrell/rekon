@@ -2,27 +2,29 @@
 
 Verification capability boundary for Rekon.
 
-This package declares the verification-runner capability shape without turning
-verification plans into automatic execution. The public boundary is deliberate:
-verification execution must remain opt-in, scoped to a named plan, and recorded
-as artifacts.
+This package implements Rekon's opt-in verification runner. Execution remains
+scoped to a named plan and is recorded as artifacts.
 
 ## Current Behavior
 
 - Registers the verification capability manifest.
 - Exposes verification-related types through the package surface.
-- Does not spawn processes.
-- Does not read stdout or stderr.
+- Previews commands without execution through `rekon verify run --dry-run`.
+- Executes validated commands only through `rekon verify run --execute`.
+- Uses `spawn` without a shell, a scrubbed environment, timeouts, bounded
+  redacted excerpts, and full-stream digests.
+- Writes `VerificationRun` and derives `VerificationResult` artifacts.
+- Can bind isolated Istanbul coverage to the exact passed or failed command
+  that named the test, producing a linked `RuntimeGraphObservationReport`.
+- Exposes `createIsolatedCoverageVerificationPlan()` for deterministic Vitest
+  and Jest plan construction. Plans can declare intended source targets. The
+  helper does not resolve packages or execute.
 - Does not write source files.
 - Does not auto-resolve findings.
 
-No command execution is implemented yet.
-
-Use existing recording commands to capture externally run verification results.
-
 ## Safety Contract
 
-Future execution support must:
+Execution must:
 
 - run only commands listed in a named `VerificationPlan`;
 - avoid shell interpolation by default;

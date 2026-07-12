@@ -236,6 +236,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "GraphSlice", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "Rulebook", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "AssessmentReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingFilterReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingFilterHealthReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingFilterPolicySuggestionReport", schemaVersion: "0.1.0", stability: "experimental" },
@@ -278,6 +279,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "IntentPlanActionabilityReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "SemanticFileUnderstandingReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "SemanticDebtJudgmentReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "SecurityScanReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "CapabilityEvidenceGraph", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "TaskContextReport", schemaVersion: "0.1.0", stability: "experimental" },
 ];

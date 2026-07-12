@@ -12,7 +12,10 @@
     "typecheck": "tsc -b",
     "test": "node scripts/test.mjs",
     "build": "npm run build --workspaces",
-    "eval:semantic-debt": "npm run build --workspaces && node scripts/eval-semantic-debt-models.mjs"
+    "audit:detection-quality": "npm run build --workspaces && node scripts/audit-detection-quality.mjs",
+    "report:detection-quality": "npm run build --workspaces && node scripts/report-detection-quality.mjs",
+    "eval:semantic-debt": "npm run build --workspaces && node scripts/eval-semantic-debt-models.mjs",
+    "eval:voyage-embeddings": "npm run build --workspaces && node scripts/eval-voyage-embeddings.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",

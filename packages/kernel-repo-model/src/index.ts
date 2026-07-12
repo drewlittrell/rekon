@@ -780,7 +780,7 @@ function normalizeNeighbors(
   const out: CapabilityContractNeighbor[] = [];
   for (const n of neighbors) {
     if (!n || typeof n.verb !== "string" || typeof n.noun !== "string") continue;
-    const key = `${n.verb} ${n.noun}`;
+    const key = `${n.verb}\u0000${n.noun}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push({ verb: n.verb, noun: n.noun });
@@ -3464,11 +3464,10 @@ export const handoffCoverageReportSchema: ArtifactSchema<HandoffCoverageReport> 
 
 // ---- RuntimeGraphObservationReport (v1, observed runtime graph) ----
 //
-// Observed runtime graph generated from a raw handoff event log
-// (`.rekon/handoff-events.jsonl`). It folds observed `handoff_event` rows
-// into observed **nodes** (step / feature / event / source) and **edges**
-// (handoff / emitted-by), recording observedCount + first/last timestamps
-// + line evidence. It is **observed runtime graph, not declared
+// Observed runtime graph generated from a raw runtime event log
+// (`.rekon/handoff-events.jsonl`). It folds observed handoff and execution
+// rows into evidence-bearing nodes and edges. It is **observed runtime graph,
+// not declared
 // topology**, and **not HandoffCoverageReport**: it preserves raw observed
 // graph facts. v1 evaluates **no coverage**, compares against **no**
 // declared artifact, detects **no drift**, and creates no `WorkOrder` /
@@ -3478,12 +3477,20 @@ export type RuntimeGraphObservationNodeKind =
   | "step"
   | "feature"
   | "event"
-  | "source";
+  | "source"
+  | "test"
+  | "file"
+  | "route";
 
 export type RuntimeGraphObservationEdgeKind =
   | "handoff"
   | "emitted-by"
-  | "observed-from";
+  | "observed-from"
+  | "observed-execution";
+
+export type RuntimeGraphObservationNodeSource =
+  | "handoff-event-log"
+  | "runtime-event-log";
 
 export type RuntimeGraphObservationEvidenceRef = {
   line: number;
@@ -3495,7 +3502,7 @@ export type RuntimeGraphObservationNode = {
   id: string;
   kind: RuntimeGraphObservationNodeKind;
   label: string;
-  source: "handoff-event-log";
+  source: RuntimeGraphObservationNodeSource;
   firstObservedAt?: string;
   lastObservedAt?: string;
   observedCount: number;
@@ -3519,15 +3526,54 @@ export type RuntimeGraphObservationEdge = {
 export type RuntimeGraphObservationReportSource = {
   eventLogPath?: string;
   eventLogHash?: string;
+  coverageSources?: RuntimeGraphObservationCoverageSource[];
   handoffCoverageReportRef?: ArtifactRef;
   handoffContractRef?: ArtifactRef;
   stepCapabilityGraphRef?: ArtifactRef;
+};
+
+export type RuntimeGraphObservationCoverageSource = {
+  format: "istanbul";
+  path: string;
+  digest: string;
+  testPath: string;
+  /** Source files explicitly declared as intended targets by the verification plan. */
+  targetPaths?: string[];
+  isolated?: boolean;
+  totalFiles: number;
+  observedFiles: number;
+  ignoredFiles: number;
+  fileCoverage?: RuntimeGraphObservationFileCoverage[];
+  verificationRunRef?: ArtifactRef;
+  commandId?: string;
+  commandStatus?: "passed" | "failed";
+};
+
+export type RuntimeGraphObservationCoverageCount = {
+  total: number;
+  covered: number;
+};
+
+export type RuntimeGraphObservationFunctionCoverage = {
+  name?: string;
+  startLine: number;
+  endLine: number;
+  executionCount: number;
+};
+
+export type RuntimeGraphObservationFileCoverage = {
+  path: string;
+  statements: RuntimeGraphObservationCoverageCount;
+  functions: RuntimeGraphObservationCoverageCount;
+  branches: RuntimeGraphObservationCoverageCount;
+  functionRanges: RuntimeGraphObservationFunctionCoverage[];
 };
 
 export type RuntimeGraphObservationReportSummary = {
   observedNodes: number;
   observedEdges: number;
   handoffEvents: number;
+  executionObservations?: number;
   ignoredRows: number;
   parseErrors: number;
 };
@@ -3545,13 +3591,288 @@ const RUNTIME_GRAPH_OBSERVATION_NODE_KINDS = new Set<string>([
   "feature",
   "event",
   "source",
+  "test",
+  "file",
+  "route",
 ]);
 
 const RUNTIME_GRAPH_OBSERVATION_EDGE_KINDS = new Set<string>([
   "handoff",
   "emitted-by",
   "observed-from",
+  "observed-execution",
 ]);
+
+function normalizeRuntimeGraphCoverageSources(
+  sources: RuntimeGraphObservationCoverageSource[],
+): RuntimeGraphObservationCoverageSource[] {
+  const normalized = new Map<string, RuntimeGraphObservationCoverageSource>();
+  const nonNegativeInteger = (value: unknown): number =>
+    typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+  for (const source of sources) {
+    if (!source || source.format !== "istanbul") continue;
+    if (typeof source.path !== "string" || source.path.length === 0) continue;
+    if (typeof source.digest !== "string" || source.digest.length === 0) continue;
+    if (typeof source.testPath !== "string" || source.testPath.length === 0) continue;
+    const value: RuntimeGraphObservationCoverageSource = {
+      format: "istanbul",
+      path: source.path,
+      digest: source.digest,
+      testPath: source.testPath,
+      totalFiles: nonNegativeInteger(source.totalFiles),
+      observedFiles: nonNegativeInteger(source.observedFiles),
+      ignoredFiles: nonNegativeInteger(source.ignoredFiles),
+    };
+    if (Array.isArray(source.targetPaths)) {
+      const targetPaths = [...new Set(source.targetPaths
+        .filter((targetPath): targetPath is string =>
+          typeof targetPath === "string" && isSafeRuntimeGraphRelativePath(targetPath)))]
+        .sort();
+      if (targetPaths.length > 0) value.targetPaths = targetPaths;
+    }
+    if (typeof source.isolated === "boolean") value.isolated = source.isolated;
+    if (Array.isArray(source.fileCoverage)) {
+      const fileCoverage = normalizeRuntimeGraphFileCoverage(source.fileCoverage);
+      if (fileCoverage.length > 0) value.fileCoverage = fileCoverage;
+    }
+    if (source.verificationRunRef) value.verificationRunRef = assertArtifactRef(source.verificationRunRef);
+    if (typeof source.commandId === "string" && source.commandId.length > 0) value.commandId = source.commandId;
+    if (source.commandStatus === "passed" || source.commandStatus === "failed") value.commandStatus = source.commandStatus;
+    normalized.set(
+      [
+        value.format,
+        value.path,
+        value.testPath,
+        value.digest,
+        value.verificationRunRef?.id ?? "",
+        value.commandId ?? "",
+      ].join(":"),
+      value,
+    );
+  }
+  return [...normalized.values()].sort((left, right) =>
+    `${left.path}:${left.testPath}:${left.digest}`.localeCompare(`${right.path}:${right.testPath}:${right.digest}`));
+}
+
+function normalizeRuntimeGraphFileCoverage(
+  files: RuntimeGraphObservationFileCoverage[],
+): RuntimeGraphObservationFileCoverage[] {
+  const normalized = new Map<string, RuntimeGraphObservationFileCoverage>();
+  const count = (value: RuntimeGraphObservationCoverageCount | undefined): RuntimeGraphObservationCoverageCount => ({
+    total: typeof value?.total === "number" && Number.isInteger(value.total) && value.total >= 0 ? value.total : 0,
+    covered: typeof value?.covered === "number" && Number.isInteger(value.covered) && value.covered >= 0 ? value.covered : 0,
+  });
+  for (const file of files) {
+    if (!file || typeof file.path !== "string" || file.path.length === 0) continue;
+    const ranges = new Map<string, RuntimeGraphObservationFunctionCoverage>();
+    for (const raw of file.functionRanges ?? []) {
+      if (!raw
+        || typeof raw.startLine !== "number"
+        || !Number.isInteger(raw.startLine)
+        || raw.startLine < 1
+        || typeof raw.endLine !== "number"
+        || !Number.isInteger(raw.endLine)
+        || raw.endLine < raw.startLine
+        || typeof raw.executionCount !== "number"
+        || !Number.isInteger(raw.executionCount)
+        || raw.executionCount < 0) continue;
+      const value: RuntimeGraphObservationFunctionCoverage = {
+        startLine: raw.startLine,
+        endLine: raw.endLine,
+        executionCount: raw.executionCount,
+      };
+      if (typeof raw.name === "string" && raw.name.length > 0) value.name = raw.name;
+      const key = `${value.startLine}:${value.endLine}:${value.name ?? ""}`;
+      const current = ranges.get(key);
+      if (!current || value.executionCount > current.executionCount) ranges.set(key, value);
+    }
+    normalized.set(file.path, {
+      path: file.path,
+      statements: count(file.statements),
+      functions: count(file.functions),
+      branches: count(file.branches),
+      functionRanges: [...ranges.values()].sort((left, right) =>
+        left.startLine - right.startLine
+        || left.endLine - right.endLine
+        || (left.name ?? "").localeCompare(right.name ?? "")),
+    });
+  }
+  return [...normalized.values()].sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function validateRuntimeGraphCoverageSources(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((source, index) => {
+    const sourcePath = `${path}[${index}]`;
+    if (!isRecord(source)) {
+      issues.push({ path: sourcePath, message: "Expected an object." });
+      return;
+    }
+    if (source.format !== "istanbul") {
+      issues.push({ path: `${sourcePath}.format`, message: 'Expected "istanbul".' });
+    }
+    for (const field of ["path", "digest", "testPath"] as const) {
+      if (typeof source[field] !== "string" || source[field].length === 0) {
+        issues.push({ path: `${sourcePath}.${field}`, message: "Expected a non-empty string." });
+      }
+    }
+    if (typeof source.path === "string" && !isSafeRuntimeGraphRelativePath(source.path)) {
+      issues.push({ path: `${sourcePath}.path`, message: "Expected a repository-relative path." });
+    }
+    if (typeof source.testPath === "string" && !isSafeRuntimeGraphRelativePath(source.testPath)) {
+      issues.push({ path: `${sourcePath}.testPath`, message: "Expected a repository-relative path." });
+    }
+    if (typeof source.digest === "string" && !/^[a-f0-9]{64}$/i.test(source.digest)) {
+      issues.push({ path: `${sourcePath}.digest`, message: "Expected a SHA-256 digest." });
+    }
+    if (source.verificationRunRef !== undefined) {
+      const result = validateArtifactRef(source.verificationRunRef);
+      if (!result.ok) issues.push(...prefixIssues(result.issues, `${sourcePath}.verificationRunRef`));
+      if (isRecord(source.verificationRunRef) && source.verificationRunRef.type !== "VerificationRun") {
+        issues.push({ path: `${sourcePath}.verificationRunRef.type`, message: 'Expected "VerificationRun".' });
+      }
+    }
+    if (source.commandId !== undefined && (typeof source.commandId !== "string" || source.commandId.length === 0)) {
+      issues.push({ path: `${sourcePath}.commandId`, message: "Expected a non-empty string." });
+    }
+    if (source.commandStatus !== undefined && source.commandStatus !== "passed" && source.commandStatus !== "failed") {
+      issues.push({ path: `${sourcePath}.commandStatus`, message: 'Expected "passed" or "failed".' });
+    }
+    if (source.isolated !== undefined && typeof source.isolated !== "boolean") {
+      issues.push({ path: `${sourcePath}.isolated`, message: "Expected a boolean." });
+    }
+    if (source.targetPaths !== undefined) {
+      if (!Array.isArray(source.targetPaths) || source.targetPaths.length === 0) {
+        issues.push({ path: `${sourcePath}.targetPaths`, message: "Expected a non-empty array." });
+      } else {
+        const seenTargetPaths = new Set<string>();
+        source.targetPaths.forEach((targetPath, targetIndex) => {
+          const targetPathPath = `${sourcePath}.targetPaths[${targetIndex}]`;
+          if (typeof targetPath !== "string" || !isSafeRuntimeGraphRelativePath(targetPath)) {
+            issues.push({ path: targetPathPath, message: "Expected a repository-relative path." });
+          } else if (seenTargetPaths.has(targetPath)) {
+            issues.push({ path: targetPathPath, message: `Duplicate target path ${targetPath}.` });
+          } else {
+            seenTargetPaths.add(targetPath);
+          }
+        });
+      }
+    }
+    if ((source.commandId === undefined) !== (source.verificationRunRef === undefined)
+      || (source.commandStatus === undefined) !== (source.verificationRunRef === undefined)) {
+      issues.push({
+        path: sourcePath,
+        message: "verificationRunRef, commandId, and commandStatus must be supplied together.",
+      });
+    }
+    for (const field of ["totalFiles", "observedFiles", "ignoredFiles"] as const) {
+      if (typeof source[field] !== "number" || !Number.isInteger(source[field]) || source[field] < 0) {
+        issues.push({ path: `${sourcePath}.${field}`, message: "Expected a non-negative integer." });
+      }
+    }
+    if (typeof source.totalFiles === "number"
+      && typeof source.observedFiles === "number"
+      && typeof source.ignoredFiles === "number"
+      && source.observedFiles + source.ignoredFiles > source.totalFiles) {
+      issues.push({
+        path: sourcePath,
+        message: "Observed and ignored file counts cannot exceed totalFiles.",
+      });
+    }
+    if (source.fileCoverage !== undefined) {
+      validateRuntimeGraphFileCoverage(source.fileCoverage, `${sourcePath}.fileCoverage`, issues);
+      if (Array.isArray(source.fileCoverage)
+        && typeof source.totalFiles === "number"
+        && source.fileCoverage.length > source.totalFiles) {
+        issues.push({ path: `${sourcePath}.fileCoverage`, message: "File coverage cannot exceed totalFiles." });
+      }
+    }
+  });
+}
+
+function validateRuntimeGraphFileCoverage(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  const seenPaths = new Set<string>();
+  value.forEach((file, index) => {
+    const filePath = `${path}[${index}]`;
+    if (!isRecord(file)) {
+      issues.push({ path: filePath, message: "Expected an object." });
+      return;
+    }
+    if (typeof file.path !== "string" || !isSafeRuntimeGraphRelativePath(file.path)) {
+      issues.push({ path: `${filePath}.path`, message: "Expected a repository-relative path." });
+    } else if (seenPaths.has(file.path)) {
+      issues.push({ path: `${filePath}.path`, message: `Duplicate coverage path ${file.path}.` });
+    } else {
+      seenPaths.add(file.path);
+    }
+    for (const field of ["statements", "functions", "branches"] as const) {
+      const count = file[field];
+      if (!isRecord(count)) {
+        issues.push({ path: `${filePath}.${field}`, message: "Expected a coverage count." });
+        continue;
+      }
+      for (const countField of ["total", "covered"] as const) {
+        if (typeof count[countField] !== "number" || !Number.isInteger(count[countField]) || count[countField] < 0) {
+          issues.push({ path: `${filePath}.${field}.${countField}`, message: "Expected a non-negative integer." });
+        }
+      }
+      if (typeof count.total === "number" && typeof count.covered === "number" && count.covered > count.total) {
+        issues.push({ path: `${filePath}.${field}`, message: "Covered count cannot exceed total." });
+      }
+    }
+    if (!Array.isArray(file.functionRanges)) {
+      issues.push({ path: `${filePath}.functionRanges`, message: "Expected an array." });
+      return;
+    }
+    file.functionRanges.forEach((range, rangeIndex) => {
+      const rangePath = `${filePath}.functionRanges[${rangeIndex}]`;
+      if (!isRecord(range)) {
+        issues.push({ path: rangePath, message: "Expected an object." });
+        return;
+      }
+      if (range.name !== undefined && (typeof range.name !== "string" || range.name.length === 0)) {
+        issues.push({ path: `${rangePath}.name`, message: "Expected a non-empty string." });
+      }
+      for (const field of ["startLine", "endLine"] as const) {
+        if (typeof range[field] !== "number" || !Number.isInteger(range[field]) || range[field] < 1) {
+          issues.push({ path: `${rangePath}.${field}`, message: "Expected a positive integer." });
+        }
+      }
+      if (typeof range.startLine === "number" && typeof range.endLine === "number" && range.endLine < range.startLine) {
+        issues.push({ path: rangePath, message: "endLine cannot precede startLine." });
+      }
+      if (typeof range.executionCount !== "number" || !Number.isInteger(range.executionCount) || range.executionCount < 0) {
+        issues.push({ path: `${rangePath}.executionCount`, message: "Expected a non-negative integer." });
+      }
+    });
+    if (isRecord(file.functions)
+      && typeof file.functions.total === "number"
+      && file.functionRanges.length > file.functions.total) {
+      issues.push({ path: `${filePath}.functionRanges`, message: "Function ranges cannot exceed the function total." });
+    }
+  });
+}
+
+function isSafeRuntimeGraphRelativePath(value: string): boolean {
+  if (!value || value.startsWith("/") || value.includes("\\") || value.includes("\0")) return false;
+  if (/^[a-zA-Z]:/.test(value)) return false;
+  return !value.split("/").some((part) => part === "..");
+}
 
 function normalizeRuntimeGraphEvidenceRefs(
   refs: RuntimeGraphObservationEvidenceRef[] | undefined,
@@ -3579,7 +3900,7 @@ export function createRuntimeGraphObservationReport(
       id: raw.id,
       kind: raw.kind,
       label: raw.label,
-      source: "handoff-event-log",
+      source: raw.source,
       observedCount: typeof raw.observedCount === "number" ? raw.observedCount : 0,
       evidenceRefs: normalizeRuntimeGraphEvidenceRefs(raw.evidenceRefs),
     };
@@ -3626,20 +3947,29 @@ export function createRuntimeGraphObservationReport(
   if (typeof input.source?.eventLogHash === "string" && input.source.eventLogHash.length > 0) {
     source.eventLogHash = input.source.eventLogHash;
   }
+  if (Array.isArray(input.source?.coverageSources)) {
+    const coverageSources = normalizeRuntimeGraphCoverageSources(input.source.coverageSources);
+    if (coverageSources.length > 0) source.coverageSources = coverageSources;
+  }
   if (input.source?.handoffCoverageReportRef) source.handoffCoverageReportRef = assertArtifactRef(input.source.handoffCoverageReportRef);
   if (input.source?.handoffContractRef) source.handoffContractRef = assertArtifactRef(input.source.handoffContractRef);
   if (input.source?.stepCapabilityGraphRef) source.stepCapabilityGraphRef = assertArtifactRef(input.source.stepCapabilityGraphRef);
 
+  const summary: RuntimeGraphObservationReportSummary = {
+    observedNodes: nodes.length,
+    observedEdges: edges.length,
+    handoffEvents: nonNegInt(input.summary?.handoffEvents),
+    ignoredRows: nonNegInt(input.summary?.ignoredRows),
+    parseErrors: nonNegInt(input.summary?.parseErrors),
+  };
+  if (input.summary?.executionObservations !== undefined) {
+    summary.executionObservations = nonNegInt(input.summary.executionObservations);
+  }
+
   return assertRuntimeGraphObservationReport({
     header: input.header,
     source,
-    summary: {
-      observedNodes: nodes.length,
-      observedEdges: edges.length,
-      handoffEvents: nonNegInt(input.summary?.handoffEvents),
-      ignoredRows: nonNegInt(input.summary?.ignoredRows),
-      parseErrors: nonNegInt(input.summary?.parseErrors),
-    },
+    summary,
     nodes,
     edges,
   });
@@ -3668,6 +3998,28 @@ export function validateRuntimeGraphObservationReport(value: unknown): Validatio
       if (supplied !== undefined) {
         const result = validateArtifactRef(supplied);
         if (!result.ok) issues.push(...prefixIssues(result.issues, `$.source.${field}`));
+      }
+    }
+    const coverageSources = value.source.coverageSources;
+    if (coverageSources !== undefined) {
+      validateRuntimeGraphCoverageSources(coverageSources, "$.source.coverageSources", issues);
+      const inputRefs = isRecord(value.header) && Array.isArray(value.header.inputRefs)
+        ? value.header.inputRefs
+        : [];
+      if (Array.isArray(coverageSources)) {
+        coverageSources.forEach((source, index) => {
+          if (!isRecord(source) || !isRecord(source.verificationRunRef)) return;
+          const verificationRunRef = source.verificationRunRef;
+          const linked = inputRefs.some((ref) => isRecord(ref)
+            && ref.type === verificationRunRef.type
+            && ref.id === verificationRunRef.id);
+          if (!linked) {
+            issues.push({
+              path: `$.source.coverageSources[${index}].verificationRunRef`,
+              message: "Expected the VerificationRun ref to appear in header.inputRefs.",
+            });
+          }
+        });
       }
     }
   }
@@ -3712,6 +4064,13 @@ export function validateRuntimeGraphObservationReport(value: unknown): Validatio
       if (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied < 0) {
         issues.push({ path: `$.summary.${field}`, message: "Expected a non-negative integer." });
       }
+    }
+    const executionObservations = (value.summary as Record<string, unknown>).executionObservations;
+    if (executionObservations !== undefined
+      && (typeof executionObservations !== "number"
+        || !Number.isInteger(executionObservations)
+        || executionObservations < 0)) {
+      issues.push({ path: "$.summary.executionObservations", message: "Expected a non-negative integer." });
     }
   }
 
@@ -3764,13 +4123,13 @@ function validateRuntimeGraphObservationNode(
     seenIds.add(value.id);
   }
   if (typeof value.kind !== "string" || !RUNTIME_GRAPH_OBSERVATION_NODE_KINDS.has(value.kind)) {
-    issues.push({ path: `${path}.kind`, message: "Expected one of step, feature, event, source." });
+    issues.push({ path: `${path}.kind`, message: "Expected one of step, feature, event, source, test, file, route." });
   }
   if (typeof value.label !== "string" || value.label.length === 0) {
     issues.push({ path: `${path}.label`, message: "Expected a non-empty string." });
   }
-  if (value.source !== "handoff-event-log") {
-    issues.push({ path: `${path}.source`, message: 'Expected "handoff-event-log".' });
+  if (value.source !== "handoff-event-log" && value.source !== "runtime-event-log") {
+    issues.push({ path: `${path}.source`, message: 'Expected "handoff-event-log" or "runtime-event-log".' });
   }
   for (const field of ["firstObservedAt", "lastObservedAt"] as const) {
     const supplied = value[field];
@@ -3802,7 +4161,7 @@ function validateRuntimeGraphObservationEdge(
     seenIds.add(value.id);
   }
   if (typeof value.kind !== "string" || !RUNTIME_GRAPH_OBSERVATION_EDGE_KINDS.has(value.kind)) {
-    issues.push({ path: `${path}.kind`, message: "Expected one of handoff, emitted-by, observed-from." });
+    issues.push({ path: `${path}.kind`, message: "Expected one of handoff, emitted-by, observed-from, observed-execution." });
   }
   for (const field of ["fromNodeId", "toNodeId"] as const) {
     if (typeof value[field] !== "string" || (value[field] as string).length === 0) {
@@ -7014,9 +7373,13 @@ export const semanticFileUnderstandingReportSchema: ArtifactSchema<SemanticFileU
 
 export type SemanticDebtVerdict = "debt" | "clean" | "failed";
 
+export type SemanticConcernType = "architecture" | "tech_debt" | "dead_code" | "lint" | "stub";
+
 export type SemanticDebtConcern = {
+  type: SemanticConcernType;
   severity: SemanticFileUnderstandingSeverity;
   description: string;
+  line?: number;
   pattern?: string;
   included: boolean;
 };
@@ -7056,6 +7419,7 @@ export type SemanticDebtJudgmentReport = {
 const SEMANTIC_DEBT_VERDICTS = new Set<string>(["debt", "clean", "failed"]);
 const SEMANTIC_DEBT_POLICY_MODES = new Set<string>(["auto", "required"]);
 const SEMANTIC_DEBT_EFFORTS = new Set<string>(["none", "low", "medium", "high", "xhigh", "max"]);
+const SEMANTIC_CONCERN_TYPES = new Set<string>(["architecture", "tech_debt", "dead_code", "lint", "stub"]);
 
 function normalizeSemanticDebtConcern(value: unknown): SemanticDebtConcern | undefined {
   if (!isRecord(value)) return undefined;
@@ -7065,10 +7429,16 @@ function normalizeSemanticDebtConcern(value: unknown): SemanticDebtConcern | und
       ? value.severity
       : "low";
   const concern: SemanticDebtConcern = {
+    type: typeof value.type === "string" && SEMANTIC_CONCERN_TYPES.has(value.type)
+      ? value.type as SemanticConcernType
+      : "tech_debt",
     severity,
     description,
     included: value.included === true,
   };
+  if (typeof value.line === "number" && Number.isInteger(value.line) && value.line > 0) {
+    concern.line = value.line;
+  }
   if (typeof value.pattern === "string" && value.pattern.trim().length > 0) {
     concern.pattern = value.pattern.trim();
   }
@@ -7230,6 +7600,12 @@ export function validateSemanticDebtJudgmentReport(
             return;
           }
           if (
+            concern.type !== undefined &&
+            (typeof concern.type !== "string" || !SEMANTIC_CONCERN_TYPES.has(concern.type))
+          ) {
+            issues.push({ path: `${concernPath}.type`, message: "Expected architecture, tech_debt, dead_code, lint, or stub." });
+          }
+          if (
             typeof concern.severity !== "string" ||
             !SEMANTIC_FILE_UNDERSTANDING_SEVERITIES.has(concern.severity)
           ) {
@@ -7240,6 +7616,9 @@ export function validateSemanticDebtJudgmentReport(
           }
           if (concern.pattern !== undefined && (typeof concern.pattern !== "string" || concern.pattern.length === 0)) {
             issues.push({ path: `${concernPath}.pattern`, message: "Expected a non-empty string when present." });
+          }
+          if (concern.line !== undefined && (typeof concern.line !== "number" || !Number.isInteger(concern.line) || concern.line <= 0)) {
+            issues.push({ path: `${concernPath}.line`, message: "Expected a positive integer when present." });
           }
           if (typeof concern.included !== "boolean") {
             issues.push({ path: `${concernPath}.included`, message: "Expected a boolean." });
@@ -9035,3 +9414,269 @@ async function walkRepoInner(
     results.push(relativeFromRoot);
   }
 }
+
+// --------------------------------------------------------------
+// SecurityScanReport (normalized repository-native scanner output)
+// --------------------------------------------------------------
+
+export type SecurityScanSeverity = "critical" | "high" | "medium" | "low" | "unknown";
+
+export type SecurityScanLocation = {
+  path: string;
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
+};
+
+export type SecurityScanResult = {
+  id: string;
+  ruleId: string;
+  message: string;
+  severity: SecurityScanSeverity;
+  securityRelevant: boolean;
+  precision?: string;
+  locations: SecurityScanLocation[];
+  tags: string[];
+  fingerprints: Record<string, string>;
+  helpUri?: string;
+};
+
+export type SecurityScanRun = {
+  tool: {
+    name: string;
+    version?: string;
+    semanticVersion?: string;
+  };
+  successful: boolean;
+  results: SecurityScanResult[];
+};
+
+export type SecurityScanReport = {
+  header: ArtifactHeader;
+  source: {
+    format: "sarif";
+    path: string;
+    digest: string;
+  };
+  summary: {
+    runs: number;
+    results: number;
+    securityResults: number;
+    bySeverity: Record<SecurityScanSeverity, number>;
+  };
+  runs: SecurityScanRun[];
+};
+
+const SECURITY_SCAN_SEVERITIES = new Set<SecurityScanSeverity>([
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "unknown",
+]);
+
+export function createSecurityScanReport(input: SecurityScanReport): SecurityScanReport {
+  const runs = input.runs.map((run) => ({
+    ...run,
+    tool: stripUndefinedObjectValues(run.tool),
+    results: run.results
+      .map((result) => ({
+        ...result,
+        locations: [...result.locations]
+          .map((location) => stripUndefinedObjectValues(location))
+          .sort((left, right) => `${left.path}:${left.startLine ?? 0}:${left.startColumn ?? 0}`
+            .localeCompare(`${right.path}:${right.startLine ?? 0}:${right.startColumn ?? 0}`)),
+        tags: uniqueSorted(result.tags.map((tag) => tag.toLowerCase())),
+        fingerprints: Object.fromEntries(Object.entries(result.fingerprints).sort(([left], [right]) => left.localeCompare(right))),
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  }));
+  const results = runs.flatMap((run) => run.results);
+  const bySeverity = Object.fromEntries(
+    [...SECURITY_SCAN_SEVERITIES].map((severity) => [
+      severity,
+      results.filter((result) => result.severity === severity).length,
+    ]),
+  ) as Record<SecurityScanSeverity, number>;
+
+  return assertSecurityScanReport({
+    header: input.header,
+    source: input.source,
+    summary: {
+      runs: runs.length,
+      results: results.length,
+      securityResults: results.filter((result) => result.securityRelevant).length,
+      bySeverity,
+    },
+    runs,
+  });
+}
+
+export function validateSecurityScanReport(value: unknown): ValidationResult<SecurityScanReport> {
+  const issues: ValidationIssue[] = [];
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateModelHeader(value.header, "SecurityScanReport", "$.header", issues);
+  if (!isRecord(value.source)) {
+    issues.push({ path: "$.source", message: "Expected an object." });
+  } else {
+    if (value.source.format !== "sarif") {
+      issues.push({ path: "$.source.format", message: 'Expected "sarif".' });
+    }
+    validateSecurityScanPath(value.source.path, "$.source.path", issues);
+    if (typeof value.source.digest !== "string" || !/^[a-f0-9]{64}$/u.test(value.source.digest)) {
+      issues.push({ path: "$.source.digest", message: "Expected a lowercase SHA-256 digest." });
+    }
+  }
+
+  const allResults: SecurityScanResult[] = [];
+  if (!Array.isArray(value.runs)) {
+    issues.push({ path: "$.runs", message: "Expected an array." });
+  } else {
+    value.runs.forEach((run, runIndex) => {
+      const seenResultIds = new Set<string>();
+      const path = `$.runs[${runIndex}]`;
+      if (!isRecord(run)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      if (!isRecord(run.tool)) {
+        issues.push({ path: `${path}.tool`, message: "Expected an object." });
+      } else {
+        pushRequiredStringIssue(issues, run.tool.name, `${path}.tool.name`);
+        for (const field of ["version", "semanticVersion"] as const) {
+          const supplied = run.tool[field];
+          if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
+            issues.push({ path: `${path}.tool.${field}`, message: "Expected a non-empty string when present." });
+          }
+        }
+      }
+      if (typeof run.successful !== "boolean") {
+        issues.push({ path: `${path}.successful`, message: "Expected a boolean." });
+      }
+      if (!Array.isArray(run.results)) {
+        issues.push({ path: `${path}.results`, message: "Expected an array." });
+        return;
+      }
+      run.results.forEach((result, resultIndex) => {
+        validateSecurityScanResult(result, `${path}.results[${resultIndex}]`, issues, seenResultIds);
+        if (isRecord(result)) allResults.push(result as SecurityScanResult);
+      });
+    });
+  }
+
+  if (!isRecord(value.summary)) {
+    issues.push({ path: "$.summary", message: "Expected an object." });
+  } else {
+    const expected = {
+      runs: Array.isArray(value.runs) ? value.runs.length : 0,
+      results: allResults.length,
+      securityResults: allResults.filter((result) => result.securityRelevant === true).length,
+    };
+    for (const field of ["runs", "results", "securityResults"] as const) {
+      if (value.summary[field] !== expected[field]) {
+        issues.push({ path: `$.summary.${field}`, message: `Expected ${expected[field]} (recomputed).` });
+      }
+    }
+    if (!isRecord(value.summary.bySeverity)) {
+      issues.push({ path: "$.summary.bySeverity", message: "Expected an object." });
+    } else {
+      for (const severity of SECURITY_SCAN_SEVERITIES) {
+        const expectedCount = allResults.filter((result) => result.severity === severity).length;
+        if (value.summary.bySeverity[severity] !== expectedCount) {
+          issues.push({ path: `$.summary.bySeverity.${severity}`, message: `Expected ${expectedCount} (recomputed).` });
+        }
+      }
+    }
+  }
+
+  return validationResult(value as SecurityScanReport, issues);
+}
+
+function validateSecurityScanResult(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+  seenResultIds: Set<string>,
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  for (const field of ["id", "ruleId", "message"] as const) {
+    pushRequiredStringIssue(issues, value[field], `${path}.${field}`);
+  }
+  if (typeof value.id === "string") {
+    if (seenResultIds.has(value.id)) {
+      issues.push({ path: `${path}.id`, message: `Duplicate result id ${value.id}.` });
+    } else {
+      seenResultIds.add(value.id);
+    }
+  }
+  if (typeof value.severity !== "string" || !SECURITY_SCAN_SEVERITIES.has(value.severity as SecurityScanSeverity)) {
+    issues.push({ path: `${path}.severity`, message: "Expected critical, high, medium, low, or unknown." });
+  }
+  if (typeof value.securityRelevant !== "boolean") {
+    issues.push({ path: `${path}.securityRelevant`, message: "Expected a boolean." });
+  }
+  if (value.precision !== undefined && (typeof value.precision !== "string" || value.precision.length === 0)) {
+    issues.push({ path: `${path}.precision`, message: "Expected a non-empty string when present." });
+  }
+  if (!Array.isArray(value.locations)) {
+    issues.push({ path: `${path}.locations`, message: "Expected an array." });
+  } else {
+    value.locations.forEach((location, index) => validateSecurityScanLocation(location, `${path}.locations[${index}]`, issues));
+  }
+  if (!isStringArray(value.tags)) {
+    issues.push({ path: `${path}.tags`, message: "Expected an array of strings." });
+  }
+  if (!isRecord(value.fingerprints)) {
+    issues.push({ path: `${path}.fingerprints`, message: "Expected a string record." });
+  } else {
+    for (const [key, fingerprint] of Object.entries(value.fingerprints)) {
+      if (key.length === 0 || typeof fingerprint !== "string" || fingerprint.length === 0) {
+        issues.push({ path: `${path}.fingerprints.${key}`, message: "Expected a non-empty string key and value." });
+      }
+    }
+  }
+  if (value.helpUri !== undefined && (typeof value.helpUri !== "string" || value.helpUri.length === 0)) {
+    issues.push({ path: `${path}.helpUri`, message: "Expected a non-empty string when present." });
+  }
+}
+
+function validateSecurityScanLocation(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  validateSecurityScanPath(value.path, `${path}.path`, issues);
+  for (const field of ["startLine", "startColumn", "endLine", "endColumn"] as const) {
+    const supplied = value[field];
+    if (supplied !== undefined && (typeof supplied !== "number" || !Number.isInteger(supplied) || supplied <= 0)) {
+      issues.push({ path: `${path}.${field}`, message: "Expected a positive integer when present." });
+    }
+  }
+}
+
+function validateSecurityScanPath(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (typeof value !== "string" || value.length === 0) {
+    issues.push({ path, message: "Expected a non-empty repo-relative path." });
+    return;
+  }
+  const normalized = value.replace(/\\/gu, "/");
+  if (normalized.startsWith("/") || /^[A-Za-z]:\//u.test(normalized) || normalized.split("/").includes("..")) {
+    issues.push({ path, message: "Expected a path contained within the repository." });
+  }
+}
+
+export function assertSecurityScanReport(value: unknown): SecurityScanReport {
+  return assertValid(validateSecurityScanReport(value), "SecurityScanReport");
+}
+
+export const securityScanReportSchema: ArtifactSchema<SecurityScanReport> = {
+  validate: validateSecurityScanReport,
+  parse: assertSecurityScanReport,
+};

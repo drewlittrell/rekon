@@ -52,6 +52,8 @@ validates their headers, index entries, and digests.
   produce, require, and invalidate.
 - **Resolver packets.** Task-specific answers with `resolutionTrace` entries
   explaining source precedence, fallback, and risk.
+- **Assessments.** Risks, opportunities, semantic claims, and model diagnostics
+  kept separate from proven findings.
 - **Publications.** Generated docs and guidance derived from artifacts.
 
 ## Architecture
@@ -61,7 +63,7 @@ Source repo
   -> EvidenceGraph
   -> ObservedRepo / OwnershipMap / CapabilityMap / GraphSlice
   -> IntelligenceSnapshot
-  -> FindingReport / ResolverPacket / TaskContextReport
+  -> FindingReport / AssessmentReport / ResolverPacket / TaskContextReport
   -> WorkOrder / VerificationPlan / Publication
   -> VerificationResult / ReconciliationLog
 ```
@@ -91,6 +93,7 @@ Rekon's architecture rule:
 - [Resolver packets](docs/artifacts/resolver-packet.md)
 - [North Star](docs/strategy/north-star.md)
 - [System model](docs/strategy/rekon-system-model.md)
+- [Detection quality](docs/strategy/detection-quality.md)
 
 ## Status
 

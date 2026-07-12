@@ -7,6 +7,7 @@ import {
   type ArtifactHeader,
   type ArtifactRef,
 } from "@rekon/kernel-artifacts";
+import { type Assessment } from "@rekon/kernel-assessments";
 import {
   type CoherencyDelta,
   type CoherencyDeltaItem,
@@ -37,6 +38,7 @@ export type ResolutionTraceEntry = {
     | "GraphSlice"
     | "EvidenceGraph"
     | "FindingReport"
+    | "AssessmentReport"
     | "IssueAdjudicationReport"
     | "CoherencyDelta"
     | "IssueMergeDecisionLedger"
@@ -72,6 +74,7 @@ export type PreflightPacket = {
   };
   requiredChecks: string[];
   relevantFindings: unknown[];
+  relevantAssessments: Assessment[];
   recommendedContext: string[];
   applicableMemory?: Array<{
     instruction: string;
@@ -142,15 +145,19 @@ export const preflightResolver: Resolver = {
     };
     const ownership = await resolveOwnership({ artifacts, snapshot, paths });
     const { matchedScopes, ownerSystems } = ownership;
-    const findingRefs = Object.values(snapshot.evaluations ?? {}).flat();
+    const evaluationRefs = Object.values(snapshot.evaluations ?? {}).flat();
+    const findingRefs = evaluationRefs.filter((ref) => ref.type === "FindingReport");
+    const assessmentRefs = evaluationRefs.filter((ref) => ref.type === "AssessmentReport");
     const relevantFindings = await readRelevantFindings(artifacts, findingRefs, paths);
     const findingTrace = buildFindingTrace(findingRefs, relevantFindings, paths);
+    const relevantAssessments = await readRelevantAssessments(artifacts, assessmentRefs, paths);
+    const assessmentTrace = buildAssessmentTrace(assessmentRefs, relevantAssessments, paths);
     const memoryRefs = Object.values((snapshot as { publications?: Record<string, ArtifactRef[]> }).publications ?? {})
       .flat()
       .filter((ref) => ref.type === "MemorySelection");
     const applicableMemory = await readMemorySelections(artifacts, memoryRefs, paths, goal);
     const memoryTrace = buildMemoryTrace(memoryRefs, applicableMemory ?? [], paths);
-    const { risk, trace: riskTrace } = computeRisk(paths, ownerSystems, matchedScopes, relevantFindings);
+    const { risk, trace: riskTrace } = computeRisk(paths, ownerSystems, matchedScopes, relevantFindings, relevantAssessments);
     const warnings = [
       ...ownership.warnings,
       ...buildFindingWarnings(findingRefs),
@@ -160,6 +167,7 @@ export const preflightResolver: Resolver = {
       resolverInputTrace,
       ...ownership.trace,
       ...findingTrace,
+      ...assessmentTrace,
       ...memoryTrace,
       ...riskTrace,
     ];
@@ -192,6 +200,7 @@ export const preflightResolver: Resolver = {
           ...graphSliceRefs,
           ...evidenceRefs,
           ...findingRefs,
+          ...assessmentRefs,
           ...memoryRefs,
         ],
         freshness: {
@@ -209,6 +218,7 @@ export const preflightResolver: Resolver = {
       risk,
       requiredChecks: ["npm run typecheck", "npm run test", "npm run build"],
       relevantFindings,
+      relevantAssessments,
       recommendedContext: buildRecommendedContext(paths, ownerSystems),
       applicableMemory,
       warnings,
@@ -2566,6 +2576,34 @@ async function readRelevantFindings(
   return findings;
 }
 
+async function readRelevantAssessments(
+  artifacts: { read(ref: ArtifactRef): Promise<unknown> },
+  refs: ArtifactRef[],
+  paths: string[],
+): Promise<Assessment[]> {
+  const assessments: Assessment[] = [];
+
+  for (const ref of refs) {
+    const report = await artifacts.read(ref) as { assessments?: unknown[] };
+    for (const assessment of report.assessments ?? []) {
+      if (!assessment || typeof assessment !== "object") continue;
+      const candidate = assessment as Assessment;
+      const files = Array.isArray(candidate.files) ? candidate.files : [];
+      if (files.some((file) => paths.some((path) => pathsOverlap(file, path)))) {
+        assessments.push(candidate);
+      }
+    }
+  }
+
+  return assessments.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function pathsOverlap(candidate: string, requested: string): boolean {
+  return candidate === requested
+    || candidate.startsWith(`${requested.replace(/\/$/, "")}/`)
+    || requested.startsWith(`${candidate.replace(/\/$/, "")}/`);
+}
+
 async function readMemorySelections(
   artifacts: { read(ref: ArtifactRef): Promise<unknown> },
   refs: ArtifactRef[],
@@ -2646,6 +2684,52 @@ function buildFindingTrace(
   ];
 }
 
+function buildAssessmentTrace(
+  refs: ArtifactRef[],
+  relevantAssessments: Assessment[],
+  paths: string[],
+): ResolutionTraceEntry[] {
+  if (refs.length === 0) {
+    return [{
+      step: "assessments.attach",
+      sourceType: "AssessmentReport",
+      status: "missing",
+      message: "No AssessmentReport artifacts are indexed.",
+      paths,
+    }];
+  }
+
+  return [
+    ...refs.map((ref): ResolutionTraceEntry => ({
+      step: "assessments.attach",
+      sourceType: "AssessmentReport",
+      sourceRef: ref,
+      status: "checked",
+      message: "Checked AssessmentReport for context relevant to requested paths.",
+      paths,
+    })),
+    {
+      step: "assessments.attach",
+      sourceType: "AssessmentReport",
+      status: relevantAssessments.length > 0 ? "used" : "checked",
+      message: relevantAssessments.length > 0
+        ? "Attached relevant assessments without promoting them to findings."
+        : "No relevant assessments matched requested paths.",
+      paths,
+      details: {
+        relevantAssessmentCount: relevantAssessments.length,
+        byKind: countAssessmentsByKind(relevantAssessments),
+      },
+    },
+  ];
+}
+
+function countAssessmentsByKind(assessments: Assessment[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const assessment of assessments) counts[assessment.kind] = (counts[assessment.kind] ?? 0) + 1;
+  return counts;
+}
+
 function buildMemoryTrace(
   refs: ArtifactRef[],
   applicableMemory: NonNullable<PreflightPacket["applicableMemory"]>,
@@ -2699,11 +2783,14 @@ function computeRisk(
   ownerSystems: string[],
   matchedScopes: PreflightPacket["matchedScopes"],
   relevantFindings: unknown[],
+  relevantAssessments: Assessment[],
 ): { risk: PreflightPacket["risk"]; trace: ResolutionTraceEntry[] } {
   const reasons: string[] = [];
   const trace: ResolutionTraceEntry[] = [];
   const unresolvedOwnership = matchedScopes.some((scope) => !scope.owner);
   const hasHighOrCriticalFinding = relevantFindings.some(isHighOrCriticalFinding);
+  const relevantRisks = relevantAssessments.filter((assessment) => assessment.kind === "risk");
+  const hasHighRiskAssessment = relevantRisks.some((assessment) => assessment.impact === "high" || assessment.impact === "critical");
 
   if (ownerSystems.length > 1) {
     const reason = "Requested paths span multiple owner systems.";
@@ -2723,6 +2810,12 @@ function computeRisk(
     trace.push(riskTrace("high", "high_or_critical_finding", reason, paths, ownerSystems));
   }
 
+  if (hasHighRiskAssessment) {
+    const reason = "A relevant high-impact risk assessment is attached to the requested paths.";
+    reasons.push(reason);
+    trace.push(riskTrace("high", "high_impact_risk_assessment", reason, paths, ownerSystems));
+  }
+
   if (reasons.length === 0 && unresolvedOwnership) {
     const reason = "No owner system could be resolved for at least one requested path.";
     reasons.push(reason);
@@ -2733,6 +2826,12 @@ function computeRisk(
     const reason = "Relevant findings are already attached to the requested paths.";
     reasons.push(reason);
     trace.push(riskTrace("medium", "relevant_findings", reason, paths, ownerSystems));
+  }
+
+  if (reasons.length === 0 && relevantRisks.length > 0) {
+    const reason = "Relevant risk assessments are attached to the requested paths.";
+    reasons.push(reason);
+    trace.push(riskTrace("medium", "relevant_risk_assessments", reason, paths, ownerSystems));
   }
 
   if (reasons.length === 0 && paths.length > 1) {

@@ -1,0 +1,23 @@
+{
+  "name": "@rekon/kernel-assessments",
+  "version": "1.0.0",
+  "description": "Typed risk, opportunity, semantic-claim, and model-diagnostic contracts for Rekon.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@rekon/kernel-artifacts": "1.0.0"
+  }
+}

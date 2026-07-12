@@ -31,7 +31,10 @@ docs, not generated freshness reports or internal planning logs.
 - [ObservedRepo](artifacts/observed-repo.md)
 - [IntelligenceSnapshot](artifacts/intelligence-snapshot.md)
 - [GraphSlice](artifacts/graph-slice.md)
+- [RuntimeGraphObservationReport](artifacts/runtime-graph-observation-report.md)
+- [SecurityScanReport](artifacts/security-scan-report.md)
 - [FindingReport](artifacts/finding-report.md)
+- [AssessmentReport](artifacts/assessment-report.md)
 - [ResolverPacket](artifacts/resolver-packet.md)
 - [WorkOrder](artifacts/work-order.md)
 - [VerificationPlan](artifacts/verification-plan.md)
@@ -51,6 +54,7 @@ docs, not generated freshness reports or internal planning logs.
 - [System model](strategy/rekon-system-model.md)
 - [Capability model](strategy/capability-model.md)
 - [Roadmap](strategy/roadmap.md)
+- [Detection quality](strategy/detection-quality.md)
 - [Migration model](strategy/legacy-reference-migration.md)
 
 ## Examples

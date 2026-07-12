@@ -51,7 +51,7 @@ All standard `ArtifactHeader` fields are required. `artifactType` is
   "repo": { "id": "simple-js-ts", "root": "examples/simple-js-ts" },
   "inputs": { "EvidenceGraph": [] },
   "projections": { "OwnershipMap": [] },
-  "evaluations": { "FindingReport": [] },
+  "evaluations": { "FindingReport": [], "AssessmentReport": [] },
   "publications": {},
   "actions": {},
   "status": {

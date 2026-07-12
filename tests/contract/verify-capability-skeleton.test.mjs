@@ -2,8 +2,8 @@
 // (P1.1 verification-runner-v1). Pins the manifest
 // conformance and the dangerous-boundary declarations
 // at the workspace contract layer (the package-local
-// tests already cover the unit behavior). No command
-// execution.
+// tests already cover the unit behavior). Execution remains
+// available only through the explicit CLI path.
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -73,16 +73,15 @@ test("@rekon/capability-verify produces VerificationRun and VerificationResult",
   assert.ok(produces.includes("VerificationResult"));
 });
 
-// ---------- 7: README says no command execution is implemented yet ----------
+// ---------- 7: README documents opt-in execution and safety boundaries ----------
 
-test("@rekon/capability-verify README explicitly says no command execution is implemented yet", async () => {
+test("@rekon/capability-verify README documents explicit execution and source-write denial", async () => {
   const readmePath = join(repoRoot, "packages/capability-verify/README.md");
   const text = await readFile(readmePath, "utf8");
-  assert.match(
-    text,
-    /No command execution is implemented yet/i,
-    "README must say no command execution is implemented yet",
-  );
+  assert.match(text, /rekon verify run --execute/i);
+  assert.match(text, /without a shell/i);
+  assert.match(text, /does not write source files/i);
+  assert.match(text, /does not auto-resolve findings/i);
 });
 
 // ---------- 8: skeleton runner handler throws (does not spawn) ----------

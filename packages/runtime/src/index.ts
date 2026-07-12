@@ -236,6 +236,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   CapabilityMap: "projections",
   GraphSlice: "graphs",
   FindingReport: "findings",
+  AssessmentReport: "findings",
   FindingFilterReport: "findings",
   FindingFilterHealthReport: "findings",
   FindingFilterPolicySuggestionReport: "findings",
@@ -281,6 +282,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   IntentPlanActionabilityReport: "actions",
   SemanticFileUnderstandingReport: "actions",
   SemanticDebtJudgmentReport: "actions",
+  SecurityScanReport: "actions",
   // TaskContextReport is the first product consumer of embedding retrieval
   // (Task-Shaped Context / Embedding Retrieval Decision, slice 165). It is
   // context, not proof — an "actions" report like the intent reports above.
@@ -1889,7 +1891,7 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
     repo: context.repo,
     inputs: latestEvidence ? { EvidenceGraph: [latestEvidence] } : {},
     projections: groupLatestRefsByType(artifacts, ["ObservedRepo", "OwnershipMap", "CapabilityMap", "GraphSlice"]),
-    evaluations: groupLatestRefsByType(artifacts, ["FindingReport"]),
+    evaluations: groupLatestRefsByType(artifacts, ["FindingReport", "AssessmentReport"]),
     publications: groupLatestRefsByType(artifacts, ["Publication", "MemorySelection"]),
     actions: groupLatestRefsByType(artifacts, [
       "OperatorFeedbackEntry",

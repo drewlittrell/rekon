@@ -30,6 +30,11 @@ resolvers, evaluators, publishers, and future analysis capabilities.
 - built-in node and edge kind constants
 - graph slice validation and composition helpers
 
+The built-in vocabulary includes `capability` nodes, `depends_on` and
+`related_to` edges for static test context, and `observed` edges for explicit
+runtime observations. It intentionally does not define a `covers` edge:
+neither static relationships nor observed execution prove assertion coverage.
+
 ## Import Boundary
 
 Import graph contracts from this package root. Do not place graph extraction or

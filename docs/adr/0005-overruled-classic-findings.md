@@ -5,8 +5,9 @@ scoring because Rekon has an explicit ruling that the finding is not a valid
 requirement for the current product.
 
 The overrule is per finding, not per rule. A finding leaves the denominator only
-when `tests/bench/overruled.json` cites this document with a fragment that names
-the ruling.
+when an operator-provided overrule file cites this document with a fragment that
+names the ruling. Private finding identifiers and repository paths do not belong
+in the public source tree.
 
 ## boundary-contracts
 

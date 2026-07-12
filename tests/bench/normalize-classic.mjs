@@ -82,7 +82,7 @@ export function normalizeClassicIssuesV1(document) {
  * `classicOutputDir` must contain `issues.json` in the classic-v1 shape.
  */
 /**
- * WO-14 C: the labeled-negative set. `suppressed.json` sits beside
+ * The labeled-negative set. `suppressed.json` sits beside
  * `issues.json` in the corpus (exported from classic's filtered-issues
  * filter artifacts by tests/bench/recover-suppressed.mjs). Each entry is
  * a normalized classic finding plus the recorded suppression `reason`.

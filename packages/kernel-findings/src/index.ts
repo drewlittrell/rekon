@@ -14,6 +14,8 @@ export type FindingStatus = "new" | "existing" | "resolved" | "accepted" | "igno
 
 export type Finding = {
   id: string;
+  /** Stable identity for the actionable remediation unit. Defaults to id. */
+  rootCauseKey?: string;
   type: string;
   severity: FindingSeverity;
   title: string;
@@ -35,6 +37,11 @@ export type Finding = {
    * specifically know how to interpret it.
    */
   details?: Record<string, unknown>;
+  supportingFindings?: Array<{
+    id: string;
+    ruleId?: string;
+    evidence?: ArtifactRef[];
+  }>;
 };
 
 export type FindingReport = {
@@ -50,9 +57,10 @@ export type FindingReport = {
 const SEVERITIES = new Set<FindingSeverity>(["critical", "high", "medium", "low"]);
 
 export function createFindingReport(input: { header: ArtifactHeader; findings: Finding[] }): FindingReport {
-  const findings = input.findings
+  const findings = fuseFindings(input.findings)
     .map((finding) => ({
       ...finding,
+      rootCauseKey: finding.rootCauseKey ?? finding.id,
       subjects: uniqueSorted(finding.subjects),
       files: finding.files ? uniqueSorted(finding.files) : undefined,
       evidence: finding.evidence ? normalizeRefs(finding.evidence) : undefined,
@@ -64,6 +72,43 @@ export function createFindingReport(input: { header: ArtifactHeader; findings: F
     header: input.header,
     summary: summarizeFindings(findings),
     findings,
+  });
+}
+
+/** Fuse only explicitly shared root-cause keys; legacy findings default to id. */
+export function fuseFindings(findings: Finding[]): Finding[] {
+  const groups = new Map<string, Finding[]>();
+  for (const finding of findings) {
+    const key = finding.rootCauseKey ?? finding.id;
+    const group = groups.get(key) ?? [];
+    group.push(finding);
+    groups.set(key, group);
+  }
+
+  return [...groups.entries()].map(([rootCauseKey, group]) => {
+    const ordered = group.slice().sort((left, right) => {
+      const severityDelta = findingSeverityRank(right.severity) - findingSeverityRank(left.severity);
+      return severityDelta !== 0 ? severityDelta : left.id.localeCompare(right.id);
+    });
+    const primary = ordered[0]!;
+    if (ordered.length === 1) return { ...primary, rootCauseKey };
+
+    return {
+      ...primary,
+      rootCauseKey,
+      severity: ordered.reduce<FindingSeverity>(
+        (current, finding) => findingSeverityRank(finding.severity) > findingSeverityRank(current) ? finding.severity : current,
+        primary.severity,
+      ),
+      subjects: ordered.flatMap((finding) => finding.subjects),
+      files: ordered.flatMap((finding) => finding.files ?? []),
+      evidence: ordered.flatMap((finding) => finding.evidence ?? []),
+      supportingFindings: ordered.map((finding) => ({
+        id: finding.id,
+        ...(finding.ruleId ? { ruleId: finding.ruleId } : {}),
+        ...(finding.evidence ? { evidence: finding.evidence } : {}),
+      })),
+    };
   });
 }
 
@@ -3622,6 +3667,7 @@ function validateFindingFilterPolicySuggestion(
     return;
   }
   requiredString(value.id, `${path}.id`, issues);
+  if (value.rootCauseKey !== undefined) requiredString(value.rootCauseKey, `${path}.rootCauseKey`, issues);
   requiredString(value.rationale, `${path}.rationale`, issues);
   if (
     typeof value.reason !== "string"
@@ -7170,6 +7216,10 @@ function countBy<T>(items: T[], key: (item: T) => string): Record<string, number
     counts[value] = (counts[value] ?? 0) + 1;
     return counts;
   }, {});
+}
+
+function findingSeverityRank(severity: FindingSeverity): number {
+  return severity === "critical" ? 4 : severity === "high" ? 3 : severity === "medium" ? 2 : 1;
 }
 
 function uniqueSorted(values: string[]): string[] {

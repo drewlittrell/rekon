@@ -15,6 +15,7 @@ import {
   BUILT_IN_POLICY_RULES,
   DEBT_SEMANTIC_RULE_ID,
   evaluateSemanticDebt,
+  evaluateSemanticDebtClaims,
 } from "../../packages/capability-policy/dist/index.js";
 import { digestJson } from "../../packages/kernel-artifacts/dist/index.js";
 import {
@@ -114,6 +115,16 @@ function latestFindingReport(root) {
     .filter((entry) => entry.type === "FindingReport")
     .sort((a, b) => String(a.writtenAt).localeCompare(String(b.writtenAt)));
   assert.ok(reports.length > 0, "FindingReport indexed");
+  const latest = reports.at(-1);
+  return JSON.parse(readFileSync(join(root, latest.path), "utf8"));
+}
+
+function latestAssessmentReport(root) {
+  const index = JSON.parse(readFileSync(join(root, ".rekon", "registry", "artifacts.index.json"), "utf8"));
+  const reports = index
+    .filter((entry) => entry.type === "AssessmentReport")
+    .sort((a, b) => String(a.writtenAt).localeCompare(String(b.writtenAt)));
+  assert.ok(reports.length > 0, "AssessmentReport indexed");
   const latest = reports.at(-1);
   return JSON.parse(readFileSync(join(root, latest.path), "utf8"));
 }
@@ -299,22 +310,30 @@ test("15. pattern tagger precedence returns expected tags and null", () => {
   assert.equal(categorizeDebtPattern("Plain refactor opportunity"), null);
 });
 
-test("16. coerceDebtConcerns keeps tech_debt concerns and applies filters/tags", () => {
+test("16. coerceDebtConcerns preserves supported concern categories and applies filters/tags", () => {
   const concerns = coerceDebtConcerns({
     concerns: [
-      { type: "architecture", severity: "high", description: "wrong layer" },
+      { type: "architecture", severity: "high", description: "Imports cross the declared layer boundary.", line: 12 },
       { type: "tech_debt", severity: "bogus", description: " small cleanup " },
       { type: "tech_debt", severity: "low", description: "Hardcoded API key must not ship." },
       { type: "tech_debt", severity: "medium", description: "Consider extracting this abstraction." },
+      { type: "dead_code", severity: "high", description: "This branch is unreachable after the preceding return." },
+      { type: "lint", severity: "low", description: "Whitespace could be adjusted." },
+      { type: "stub", severity: "medium", description: "This function returns placeholder data instead of using its input." },
+      { type: "unsupported", severity: "high", description: "Ignored category." },
     ],
   });
-  assert.equal(concerns.length, 3);
-  assert.deepEqual(concerns.map((concern) => concern.included), [false, true, false]);
-  assert.equal(concerns[1].severity, "low");
-  assert.equal(concerns[1].pattern, "hardcoded_values");
+  assert.equal(concerns.length, 7);
+  assert.deepEqual(concerns.map((concern) => concern.type), [
+    "architecture", "tech_debt", "tech_debt", "tech_debt", "dead_code", "lint", "stub",
+  ]);
+  assert.deepEqual(concerns.map((concern) => concern.included), [true, false, true, false, true, false, true]);
+  assert.equal(concerns[0].line, 12);
+  assert.equal(concerns[2].severity, "low");
+  assert.equal(concerns[2].pattern, "hardcoded_values");
 });
 
-test("17. evaluator lifts latest judgment artifact into one production debt finding", async () => {
+test("17. evaluator emits one semantic claim per included concern and no debt finding", async () => {
   const root = await makeRepo();
   let result = runCli(root, ["refresh"]);
   assert.equal(result.status, 0, result.stderr);
@@ -330,9 +349,12 @@ test("17. evaluator lifts latest judgment artifact into one production debt find
         verdict: "debt",
         reused: false,
         concerns: [
-          { severity: "low", description: "Consider a different helper.", included: false },
-          { severity: "high", description: "Hardcoded API key must not be committed.", pattern: "hardcoded_values", included: true },
-          { severity: "medium", description: "Missing error handling around provider call.", pattern: "error_handling", included: true },
+          { type: "tech_debt", severity: "low", description: "Consider a different helper.", included: false },
+          { type: "tech_debt", severity: "high", description: "Hardcoded API key must not be committed.", pattern: "hardcoded_values", included: true },
+          { type: "architecture", severity: "medium", description: "This import crosses the declared layer boundary.", line: 8, included: true },
+          { type: "dead_code", severity: "medium", description: "This branch is unreachable after return.", line: 12, included: true },
+          { type: "lint", severity: "low", description: "Whitespace could change.", included: false },
+          { type: "stub", severity: "medium", description: "This function returns placeholder data.", line: 20, included: true },
         ],
       },
       { path: "src/clean.ts", sha256: "b", verdict: "clean", reused: false, concerns: [] },
@@ -351,17 +373,18 @@ test("17. evaluator lifts latest judgment artifact into one production debt find
   result = runCli(root, ["refresh"]);
   assert.equal(result.status, 0, result.stderr);
   const semanticFindings = latestFindingReport(root).findings.filter((finding) => finding.ruleId === DEBT_SEMANTIC_RULE_ID);
-  assert.equal(semanticFindings.length, 1);
-  const finding = semanticFindings[0];
-  assert.equal(finding.type, "tech_debt");
-  assert.equal(finding.severity, "high");
-  assert.deepEqual(finding.files, ["src/index.ts"]);
-  assert.equal(finding.details.provenance, "semantic-llm");
-  assert.equal(finding.details.provider, "openai");
-  assert.equal(finding.details.model, "test-model");
-  assert.equal(finding.details.promptVersion, "debt-judge-v1");
-  assert.equal(finding.details.concerns.length, 2);
-  assert.ok(!finding.description.includes("Consider a different helper"));
+  assert.equal(semanticFindings.length, 0);
+  const claims = latestAssessmentReport(root).assessments.filter((assessment) => assessment.ruleId === DEBT_SEMANTIC_RULE_ID);
+  assert.equal(claims.length, 4);
+  assert.equal(claims.every((claim) => claim.kind === "semantic_claim"), true);
+  assert.equal(claims.every((claim) => claim.confidence.verification === "unverified"), true);
+  assert.deepEqual([...new Set(claims.flatMap((claim) => claim.files))], ["src/index.ts"]);
+  assert.equal(claims[0].details.provider, "openai");
+  assert.equal(claims[0].details.model, "test-model");
+  assert.equal(claims[0].details.promptVersion, "debt-judge-v1");
+  assert.equal(claims.some((claim) => claim.description.includes("Consider a different helper")), false);
+  assert.deepEqual([...new Set(claims.map((claim) => claim.type))].sort(), ["architecture", "dead_code", "stub", "tech_debt"]);
+  assert.equal(claims.find((claim) => claim.type === "architecture").details.line, 8);
 });
 
 test("18. evaluator drops filtered/failed entries and rule is registered", async () => {
@@ -382,4 +405,13 @@ test("18. evaluator drops filtered/failed entries and rule is registered", async
     ],
   });
   assert.equal(findings.length, 0);
+  const claims = evaluateSemanticDebtClaims({
+    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v1" },
+    entries: [{
+      path: "src/failed.ts",
+      verdict: "failed",
+      concerns: [{ severity: "high", description: "Hardcoded secret.", included: true }],
+    }],
+  }, { type: "SemanticDebtJudgmentReport", id: "debt", schemaVersion: "0.1.0" });
+  assert.equal(claims.length, 0);
 });

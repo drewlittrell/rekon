@@ -12,6 +12,8 @@ Symbols not re-exported from the package root are `internal`. See
 ## Purpose
 
 Finding reports are typed artifacts with summaries by severity and type.
+They contain proven defects or applicable policy violations. Other assessment
+classes live in `@rekon/kernel-assessments`.
 
 ## Lifecycle Fit
 
@@ -24,6 +26,7 @@ by publishers and work-order generation.
 - `FindingReport`
 - finding validation helpers
 - summary helpers
+- root-cause fusion helpers
 
 ## Import Boundary
 

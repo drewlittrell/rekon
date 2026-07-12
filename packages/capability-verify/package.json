@@ -1,7 +1,7 @@
 {
   "name": "@rekon/capability-verify",
   "version": "1.0.0",
-  "description": "Built-in Rekon verification runner capability. v1 ships the manifest + skeleton only; command execution is not implemented yet.",
+  "description": "Built-in Rekon verification planning, execution, and result capability.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {

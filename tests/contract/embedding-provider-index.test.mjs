@@ -32,10 +32,12 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import {
+  areVoyageEmbeddingModelsCompatible,
   createVoyageEmbeddingProvider,
   createMockEmbeddingProvider,
   VOYAGE_DEFAULT_MODEL,
   VOYAGE_DEFAULT_DIMENSIONS,
+  VOYAGE_ECONOMY_MODEL,
 } from "../../packages/llm-provider/dist/index.js";
 import {
   buildCapabilityEvidenceGraph,
@@ -80,7 +82,13 @@ function fakeFetchOk(dimensions = 4) {
   return async (_url, init) => {
     const body = JSON.parse(init.body);
     const data = body.input.map((_text, i) => ({ embedding: Array.from({ length: dimensions }, (_v, j) => (i + j) / 10) }));
-    return { ok: true, status: 200, async text() { return JSON.stringify({ data, model: body.model }); } };
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({ data, model: body.model, usage: { total_tokens: 17 } });
+      },
+    };
   };
 }
 
@@ -105,8 +113,15 @@ test("createVoyageEmbeddingProvider returns a provider with id + embed()", () =>
   const provider = createVoyageEmbeddingProvider();
   assert.equal(provider.id, "voyage");
   assert.equal(typeof provider.embed, "function");
-  assert.equal(VOYAGE_DEFAULT_MODEL, "voyage-code-3");
-  assert.equal(VOYAGE_DEFAULT_DIMENSIONS, 1024);
+  assert.equal(VOYAGE_DEFAULT_MODEL, "voyage-4");
+  assert.equal(VOYAGE_DEFAULT_DIMENSIONS, 512);
+  assert.equal(VOYAGE_ECONOMY_MODEL, "voyage-4-lite");
+});
+
+test("Voyage 4 models share a vector space while voyage-code-3 stays isolated", () => {
+  assert.equal(areVoyageEmbeddingModelsCompatible("voyage-4-large", "voyage-4-lite"), true);
+  assert.equal(areVoyageEmbeddingModelsCompatible("voyage-4", "voyage-4"), true);
+  assert.equal(areVoyageEmbeddingModelsCompatible("voyage-code-3", "voyage-4"), false);
 });
 
 // ---------- 2: missing key -> clean ok:false, no throw, no network ----------
@@ -121,11 +136,28 @@ test("Voyage with no API key returns ok:false missing-api-key and never calls fe
 
 // ---------- 3: injected fetch success ----------
 test("Voyage with injected fetch returns vectors on success", async () => {
-  const provider = createVoyageEmbeddingProvider({ apiKey: "k", fetchImpl: fakeFetchOk(4) });
+  let body;
+  const provider = createVoyageEmbeddingProvider({
+    apiKey: "k",
+    dimensions: 4,
+    fetchImpl: async (_url, init) => {
+      body = JSON.parse(init.body);
+      return fakeFetchOk(4)(_url, init);
+    },
+  });
   const result = await provider.embed({ task: "code.embedding", texts: ["a", "b"] });
   assert.equal(result.ok, true);
   assert.equal(result.vectors.length, 2);
   assert.equal(result.vectors[0].length, 4);
+  assert.equal(body.output_dimension, 4);
+  assert.deepEqual(result.usage, { totalTokens: 17 });
+});
+
+test("Voyage rejects vectors that do not match the requested dimensions", async () => {
+  const provider = createVoyageEmbeddingProvider({ apiKey: "k", dimensions: 8, fetchImpl: fakeFetchOk(4) });
+  const result = await provider.embed({ task: "code.embedding", texts: ["a"] });
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "embedding-dimension-mismatch");
 });
 
 // ---------- 4: injected fetch failure -> clean ok:false, no throw ----------

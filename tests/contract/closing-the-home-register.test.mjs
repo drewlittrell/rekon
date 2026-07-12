@@ -64,7 +64,8 @@ test("Part 1: keyless-gate globs - dist import inside silent, outside fires", as
     };
 
     await policy.policyEvaluator.evaluate({ artifacts: stubArtifacts, input: { repoRoot: tmp } });
-    const fired = written.at(-1).findings.filter((f) => f.ruleId === "imports.noDistImports");
+    const fired = written.findLast((report) => report.header.artifactType === "FindingReport")
+      .findings.filter((f) => f.ruleId === "imports.noDistImports");
 
     assert.deepEqual(fired.map((f) => (f.subjects?.[0] ?? f.files?.[0]).split(":")[0]), ["packages/a/src/main.ts"]);
   } finally {
@@ -105,7 +106,8 @@ test("Part 3: a declared root glob makes the package entry's exports API; orphan
     };
 
     await policy.policyEvaluator.evaluate({ artifacts: stubArtifacts, input: { repo: { root: tmp } } });
-    const dead = written.at(-1).findings.filter((f) => f.ruleId === "dead_code.unreferenced");
+    const dead = written.findLast((report) => report.header.artifactType === "FindingReport")
+      .findings.filter((f) => f.ruleId === "dead_code.unreferenced");
 
     // The declared-root entry's export is API (never flags); the orphan
     // survives as a finding.

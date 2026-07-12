@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { after, test } from "node:test";
@@ -124,13 +124,13 @@ test("rejected: cited rule leaves the denominator entirely", () => {
     ],
     rekonFindings: [],
     ruleMap: {
-      "classic.rejected": { status: "rejected", citation: "docs/strategy/issue-governance-architecture-decision.md" },
+      "classic.rejected": { status: "rejected", citation: "docs/strategy/detection-quality.md#naming-and-anti-patterns" },
       "classic.unported": { status: "unported" },
     },
   });
 
   assert.equal(rows[0].classification, "rejected");
-  assert.equal(rows[0].citation, "docs/strategy/issue-governance-architecture-decision.md");
+  assert.equal(rows[0].citation, "docs/strategy/detection-quality.md#naming-and-anti-patterns");
 
   const recall = computeWeightedRecall(rows);
 
@@ -144,12 +144,12 @@ test("redesigned: pinned-but-unlanded rule classifies missed-redesigned with cit
     classicFindings: [classicFinding({ ruleId: "classic.redesigned", fireCount: 5 })],
     rekonFindings: [],
     ruleMap: {
-      "classic.redesigned": { status: "redesigned", citation: "docs/strategy/detection-design-decisions.md §A" },
+      "classic.redesigned": { status: "redesigned", citation: "docs/strategy/detection-quality.md#declared-architecture" },
     },
   });
 
   assert.equal(rows[0].classification, "missed-redesigned");
-  assert.equal(rows[0].citation, "docs/strategy/detection-design-decisions.md §A");
+  assert.equal(rows[0].citation, "docs/strategy/detection-quality.md#declared-architecture");
 
   const recall = computeWeightedRecall(rows);
 
@@ -164,7 +164,7 @@ test("redesigned: with a rekonRuleId, a live match still classifies matched", ()
     ruleMap: {
       "classic.rule": {
         status: "redesigned",
-        citation: "docs/strategy/detection-design-decisions.md §A",
+        citation: "docs/strategy/detection-quality.md#declared-architecture",
         rekonRuleId: "rekon.rule",
       },
     },
@@ -178,12 +178,12 @@ test("deferred: classifies missed-deferred with citation and stays out of the ga
     classicFindings: [classicFinding({ ruleId: "classic.deferred" })],
     rekonFindings: [],
     ruleMap: {
-      "classic.deferred": { status: "deferred", citation: "docs/strategy/detection-design-decisions.md §C" },
+      "classic.deferred": { status: "deferred", citation: "docs/strategy/detection-quality.md#reachability-and-overlap" },
     },
   });
 
   assert.equal(rows[0].classification, "missed-deferred");
-  assert.equal(rows[0].citation, "docs/strategy/detection-design-decisions.md §C");
+  assert.equal(rows[0].citation, "docs/strategy/detection-quality.md#reachability-and-overlap");
 
   const report = buildBenchReport({
     generatedAt: "2026-06-10T00:00:00.000Z",
@@ -205,6 +205,22 @@ test("redesigned and deferred rows without a citation are rejected", () => {
     () => validateRuleMap({ "classic.x": { status: "deferred", citation: "" } }),
     /must carry a citation/,
   );
+});
+
+test("checked-in rule-map citations resolve to current documentation", () => {
+  const ruleMap = JSON.parse(readFileSync(join(repoRoot, "tests/bench/rule-map.json"), "utf8"));
+  for (const [ruleId, row] of Object.entries(ruleMap)) {
+    if (!row.citation) continue;
+    const [path, fragment] = row.citation.split("#", 2);
+    const absolutePath = join(repoRoot, path);
+    assert.equal(existsSync(absolutePath), true, `${ruleId} cites missing ${path}`);
+    if (!fragment) continue;
+    const anchors = readFileSync(absolutePath, "utf8")
+      .split("\n")
+      .filter((line) => /^#{1,6}\s+/u.test(line))
+      .map((line) => line.replace(/^#{1,6}\s+/u, "").trim().toLowerCase().replace(/[^a-z0-9\s-]/gu, "").replace(/\s+/gu, "-"));
+    assert.equal(anchors.includes(fragment), true, `${ruleId} cites missing #${fragment} in ${path}`);
+  }
 });
 
 test("file-less filter suppression does not credit a file-bearing classic finding", () => {
@@ -379,14 +395,14 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
   // core tests above.
   assert.equal(byId.get("fixture-issue-2").classification, "missed-gap");
   assert.equal(byId.get("fixture-issue-3").classification, "rejected");
-  assert.equal(byId.get("fixture-issue-3").citation, "docs/strategy/issue-governance-architecture-decision.md");
+  assert.equal(byId.get("fixture-issue-3").citation, "docs/strategy/detection-quality.md#naming-and-anti-patterns");
   assert.ok(["matched", "missed-gap"].includes(byId.get("fixture-issue-1").classification));
 
   assert.match(markdown, /# Classic Parity Bench Report/);
   assert.match(markdown, /Gap queue \(undecided, by fireCount\)/);
   assert.match(markdown, /Rejected \(out of denominator, with citations\)/);
   assert.match(markdown, /fixture\.unported_rule/);
-  assert.match(markdown, /docs\/strategy\/issue-governance-architecture-decision\.md/);
+  assert.match(markdown, /docs\/strategy\/detection-quality\.md#naming-and-anti-patterns/);
 
   // The bench must leave the fixture repo byte-identical outside `.rekon/`.
   const after = hashTree(fixtureRepo, { exclude: [".rekon"] });

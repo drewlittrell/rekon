@@ -20,6 +20,7 @@
   "dependencies": {
     "@rekon/kernel-artifacts": "1.0.0",
     "@rekon/kernel-graph": "1.0.0",
+    "@rekon/kernel-repo-model": "1.0.0",
     "@rekon/sdk": "1.0.0"
   },
   "devDependencies": {

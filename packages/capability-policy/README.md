@@ -12,18 +12,76 @@ Rule evaluator internals are `internal`. See
 
 ## Purpose
 
-Current rules:
+Current rule families:
 
 - `imports.noDistImports`
+- `typescript.compilerDiagnostic`
+- `typescript.typeEscape`
+- `typescript.errorSuppression`
+- `typescript.placeholderImplementation`
+- `typescript.functionComplexity`
+- `repository.checkFailure`
+- `security.scannerResult`
+- `similarity.duplicateCandidate`
 - `imports.noNodeModulesRelativeImports`
 - `files.noGeneratedAsSource`
 - `architecture.noUnknownSystemForSourceFile`
+- `architecture.importCycle`
+- `architecture.dependencyHub`
+- `grammar.divergence`
+- `debt.markers`
+- `debt.semantic`
+- `dead_code.unreferenced`
+- `capability.overlap`
+- `naming.contract`
+- `grammar.antiPattern`
 
 ## Lifecycle Fit
 
-Runs during `Evaluate`, consuming snapshots and artifacts to produce
-`FindingReport` artifacts. Resolvers and intent work orders can then attach
-relevant findings.
+Runs during `Evaluate`, producing `FindingReport` for proven violations and
+`AssessmentReport` for risks, opportunities, semantic claims, and model
+diagnostics.
+
+Completed `VerificationRun` artifacts can corroborate repository-native lint,
+test, typecheck, and build failures. A failure remains a risk until the same
+normalized diagnostic is reproduced by two distinct runs on the current
+commit. When commit metadata is unavailable, both runs must be fresh and newer
+than the current evidence graph. Timeouts, killed runs, and environment-shaped
+failures do not promote automatically.
+
+Function complexity is a risk only when at least two conservative AST
+thresholds are exceeded. Static complexity does not become a finding by itself.
+Async Promise executors and async callbacks on statically recognized arrays are
+also risks. Promise shadowing and unknown method receivers are excluded rather
+than guessed.
+Fresh isolated coverage can enrich that same risk with function-level execution
+from a bound `VerificationRun`; it does not create a second detector result. A
+passing run supports a scoped target gap only when its plan declared the source
+path and its coverage data contains the function with zero execution.
+Import cycles are grouped by strongly connected component and remain risks
+unless independent evidence proves a defect or declared architecture law is
+violated.
+Dependency hubs require both incoming and outgoing pressure, avoiding reports
+for ordinary public facades and leaf utilities.
+
+`SecurityScanReport` results tied to the current evidence graph become risks
+only when SARIF rule metadata identifies them as security-relevant. Generic
+lint results are ignored by this rule, and one scanner report never promotes
+automatically to a finding.
+
+Diagnostic identity is structured for ESLint stylish/compact output,
+TypeScript diagnostics, Vitest/Jest-style stack locations, Node TAP failure
+blocks, and file-located build errors. Unsupported output retains the
+conservative normalized-transcript fallback.
+
+Failed test diagnostics can carry related routes, screens, capability hints,
+imported source files, and separately labeled observed execution from the
+latest application `GraphSlice`. This context improves impact review but never
+satisfies the repetition requirement for promotion.
+
+File-local diagnostics can carry bounded import blast radius when the resolved
+import graph cites the same `EvidenceGraph`. Graph context is evidence for
+potential propagation only and does not alter promotion or severity.
 
 ## Public Surface
 

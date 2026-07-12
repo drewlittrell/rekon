@@ -1,0 +1,13 @@
+{
+  "findingRules": [
+    "imports.noDistImports",
+    "typescript.compilerDiagnostic"
+  ],
+  "assessmentKinds": [
+    "opportunity",
+    "risk"
+  ],
+  "minimumEvidenceCompleteness": 1,
+  "minimumRootCauseCompleteness": 1,
+  "maximumDuplicateRemediationRate": 0
+}

@@ -133,7 +133,7 @@ for (const config of selectedConfigs) {
         continue;
       }
       const concerns = coerceDebtConcerns(result.data);
-      const included = concerns.filter((concern) => concern.included);
+      const included = concerns.filter((concern) => concern.included && concern.type === "tech_debt");
       const usage = result.usage ?? {};
       const currentCostUsd = estimateUsageCost(usage, config.pricing);
       const steadyStateCostUsd = estimateUsageCost(usage, config.steadyStatePricing ?? config.pricing);
@@ -149,6 +149,11 @@ for (const config of selectedConfigs) {
         status: "ok",
         predictedDebt: included.length > 0,
         concernCount: concerns.length,
+        concernsByType: Object.fromEntries(
+          [...new Set(concerns.map((concern) => concern.type))]
+            .sort()
+            .map((type) => [type, concerns.filter((concern) => concern.type === type).length]),
+        ),
         includedConcerns: included,
         providerAttempts: completion.attempts,
         usage,

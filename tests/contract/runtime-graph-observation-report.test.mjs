@@ -59,6 +59,18 @@ function ev(overrides = {}) {
   });
 }
 
+function executionObservation(overrides = {}) {
+  return JSON.stringify({
+    kind: "execution_observation",
+    testPath: "tests/user.test.ts",
+    sourcePaths: ["src/user-service.ts"],
+    routePaths: ["/api/users"],
+    timestamp: "2026-05-30T00:00:02.000Z",
+    source: "vitest-instrumentation",
+    ...overrides,
+  });
+}
+
 function build({ eventLog, eventLogPath, eventLogHash, handoffCoverageReportRef, handoffContractRef, stepCapabilityGraphRef } = {}) {
   return buildRuntimeGraphObservationReport({
     header: header(),
@@ -203,6 +215,37 @@ test("summary counts observedNodes / observedEdges / handoffEvents / ignoredRows
   assert.equal(validateRuntimeGraphObservationReport(r).ok, true);
 });
 
+test("execution_observation creates evidence-bearing test, file, route, and observed edges", () => {
+  const r = build({ eventLog: jsonl(executionObservation()) });
+  assert.equal(validateRuntimeGraphObservationReport(r).ok, true);
+  assert.equal(r.summary.executionObservations, 1);
+  assert.equal(nodeById(r, "test:tests/user.test.ts").source, "runtime-event-log");
+  assert.equal(nodeById(r, "file:src/user-service.ts").kind, "file");
+  assert.equal(nodeById(r, "route:/api/users").kind, "route");
+  assert.equal(
+    edgeById(r, "observed-execution:test:tests/user.test.ts:file:src/user-service.ts").kind,
+    "observed-execution",
+  );
+  assert.equal(
+    edgeById(r, "observed-execution:test:tests/user.test.ts:route:/api/users").observedCount,
+    1,
+  );
+});
+
+test("execution observations dedupe targets and reject paths outside the repository", () => {
+  const r = build({
+    eventLog: jsonl(
+      executionObservation({ sourcePaths: ["src/user-service.ts", "./src/user-service.ts"] }),
+      executionObservation({ testPath: "../outside.test.ts", sourcePath: "../secret.ts", sourcePaths: [] }),
+      executionObservation({ testPath: "/tmp/outside.test.ts", routePath: "https://example.com", routePaths: [] }),
+    ),
+  });
+  assert.equal(r.summary.executionObservations, 1);
+  assert.equal(r.summary.ignoredRows, 2);
+  assert.equal(r.edges.filter((edge) => edge.kind === "observed-execution").length, 2);
+  assert.equal(r.nodes.some((node) => node.label.includes("outside")), false);
+});
+
 // ---------- 16 ----------
 test("deterministic node ordering (by kind, then id)", () => {
   const log = jsonl(ev(), ev({ fromStepId: "z.last", toStepId: "a.first" }));
@@ -340,6 +383,29 @@ test("CLI supports optional upstream refs", async () => {
   assert.equal(ws.observeJson.source.stepCapabilityGraphRef.type, "StepCapabilityGraph");
   assert.equal(ws.observeJson.source.handoffContractRef.type, "HandoffContract");
   assert.equal(ws.observeJson.source.handoffCoverageReportRef.type, "HandoffCoverageReport");
+});
+
+test("CLI accepts execution observations and writes their graph relationships", async () => {
+  const work = await mkdtemp(join(tmpdir(), "rekon-rgo-execution-"));
+  try {
+    runCli(work, ["init"]);
+    await writeFile(
+      join(work, ".rekon/handoff-events.jsonl"),
+      jsonl(executionObservation()),
+      "utf8",
+    );
+    const result = runCli(work, ["runtime", "graph", "observe", "--json"]);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.summary.executionObservations, 1);
+    assert.equal(output.summary.observedEdges, 2);
+
+    const index = JSON.parse(await readFile(join(work, ".rekon/registry/artifacts.index.json"), "utf8"));
+    const entry = index.find((candidate) => candidate.id === output.artifact.id);
+    const report = JSON.parse(await readFile(join(work, entry.path), "utf8"));
+    assert.equal(report.edges.every((edge) => edge.kind === "observed-execution"), true);
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
 });
 
 test("CLI does not mutate .rekon/handoff-events.jsonl", async () => {

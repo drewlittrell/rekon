@@ -2,7 +2,8 @@
 
 Rekon evaluates semantic-debt models against a checked-in labeled corpus. The
 goal is to select the least expensive configuration that preserves useful debt
-recall without turning clean files or other concern types into false positives.
+recall while routing architecture, dead-code, lint, and stub concerns to their
+own semantic-claim categories.
 
 ## Method
 
@@ -10,6 +11,8 @@ The corpus contains concrete debt examples, clean files, and routing cases for
 architecture, dead code, lint, and generated code. Each model receives the same
 `debt-judge-v1` prompt and JSON schema. Results pass through Rekon's production
 `coerceDebtConcerns()` filter before scoring.
+Only included `tech_debt` concerns count as a positive debt prediction; all
+preserved concern categories remain visible in the evaluation record.
 
 The report records:
 

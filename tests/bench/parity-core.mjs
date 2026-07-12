@@ -22,7 +22,7 @@
 //                          the denominator, NOT credited; cited; excluded from
 //                          the Phase 1 gap queue.
 //   rejected             - the goal is not Rekon's to serve (cited decision).
-//                          EXCLUDED from the denominator entirely - per WO-3,
+//                          EXCLUDED from the denominator entirely,
 //                          the denominator shrinks only through rejected rows
 //                          with rationale.
 //   new                  - Rekon findings classic never produced.
@@ -31,13 +31,13 @@
 // fireCount(all non-rejected classic findings). Matching is deterministic key
 // equality (no semantic / fuzzy / embedding matching), consistent with the
 // issue-governance ADR posture. Disposition semantics are authorized by
-// docs/strategy/detection-design-decisions.md (Bench scoring policy).
+// docs/strategy/detection-quality.md.
 
 import { normalizePath } from "./normalize-classic.mjs";
 
 export const RULE_STATUSES = ["ported", "unported", "rejected", "redesigned", "deferred"];
 
-/** WO-14 A (bench policy item 2): per-rule scoring mode. */
+/** Per-rule scoring mode for deterministic identities or file-set coverage. */
 export const RULE_SCORING_MODES = ["identity", "coverage"];
 
 const CITATION_REQUIRED = new Set(["rejected", "redesigned", "deferred"]);
@@ -212,7 +212,7 @@ function findFilterHit(filteredFindings, rekonRuleId, classic) {
 export function classifyParity({ classicFindings, rekonFindings = [], filteredFindings = [], ruleMap, overruled = [], suppressedFindings = [] }) {
   validateRuleMap(ruleMap);
 
-  // WO-12: per-finding operator overrules. Keyed by classic finding id;
+  // Per-finding operator overrules. Keyed by baseline finding id;
   // checked before rule-level dispositions because a ruling retires the
   // specific finding it contradicts, never the rule.
   const overruledById = new Map(overruled.map((entry) => [entry.classicId, entry]));
@@ -235,7 +235,7 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 
     if (overruling) {
       // Out of the denominator: the operator ruled classic wrong here.
-      // Citation is the rulingRef into a committed law artifact (WO-12).
+      // Citation is the rulingRef into a committed law artifact.
       return {
         classic,
         classification: "overruled",
@@ -245,7 +245,7 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
     }
 
     if (disposition.status === "rejected") {
-      // Out of the denominator entirely - per WO-3, the denominator shrinks
+      // Out of the denominator entirely; the denominator shrinks
       // only through cited rejected rows.
       return { classic, classification: "rejected", citation: disposition.citation };
     }
@@ -304,7 +304,7 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 
   const newFindings = rekonFindings.filter((_, position) => !matchedRekon.has(position));
 
-  // WO-14 A (bench policy item 2): goal-level file-set coverage for
+  // Goal-level file-set coverage for
   // LLM-origin clusters. Credit mechanics are unchanged (file overlap);
   // this measures how much of the classic goal's FILE SET the redesigned
   // detector touches, reported per coverage-scored rule.
@@ -339,7 +339,7 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
     coverage: entry.classicFiles.size === 0 ? 0 : entry.coveredFiles.size / entry.classicFiles.size,
   })).sort((a, b) => a.ruleId.localeCompare(b.ruleId));
 
-  // WO-14 C (bench policy item 3): precision against the labeled-negative
+  // Precision against the labeled-negative
   // set. Fire on kept, silent on suppressed. A suppressed finding whose
   // file also carries a KEPT classic finding of the same rule cannot
   // condemn a fire (the ambiguous-file guard, counted separately).
@@ -446,7 +446,7 @@ export function computeWeightedRecall(rows) {
 }
 
 /**
- * WO-12 guard: only operator rulings overrule. Every entry must cite a
+ * Only operator rulings overrule. Every entry must cite a
  * resolvable rulingRef of the form `<repo-path>#<fragment>` where the file
  * is a committed law artifact and the fragment appears in its content
  * (an overlay entry id or ruling memo section). Agents may not add

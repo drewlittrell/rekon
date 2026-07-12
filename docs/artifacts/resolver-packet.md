@@ -16,6 +16,7 @@ and related artifacts.
 - `matchedScopes`
 - `risk`
 - `relevantFindings`
+- `relevantAssessments`
 - `recommendedContext`
 - `warnings`
 - `nextSteps`
@@ -28,3 +29,9 @@ model projections before raw evidence:
 ```text
 OwnershipMap -> ObservedRepo -> ownership GraphSlice -> EvidenceGraph fallback
 ```
+
+`relevantFindings` contains governed defects. `relevantAssessments` keeps risks,
+opportunities, semantic claims, and model diagnostics separate. Only assessments
+whose kind is `risk` can affect preflight risk; attaching an assessment never
+promotes it to a finding. The trace records the `AssessmentReport` refs checked
+and a count by assessment kind.

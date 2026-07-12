@@ -10,7 +10,7 @@
 // Usage:
 //   REKON_PARITY_CORPUS=/path/to/corpus node tests/bench/classic-parity-bench.mjs
 //   node tests/bench/classic-parity-bench.mjs --corpus <path> [--rule-map <path>]
-//     [--output <dir>] [--repo <id> ...] [--skip-refresh]
+//     [--overruled <path>] [--output <dir>] [--repo <id> ...] [--skip-refresh]
 //
 // When REKON_PARITY_CORPUS is unset and no --corpus is given, the bench skips
 // the real-corpus run cleanly (exit 0) — the same pattern as the gated
@@ -49,6 +49,8 @@ function parseArgs(argv) {
       flags.ruleMap = argv[(index += 1)];
     } else if (arg === "--output") {
       flags.output = argv[(index += 1)];
+    } else if (arg === "--overruled") {
+      flags.overruled = argv[(index += 1)];
     } else if (arg === "--repo") {
       flags.repos.push(argv[(index += 1)]);
     } else if (arg === "--skip-refresh") {
@@ -171,8 +173,9 @@ async function main() {
     ? resolve(flags.ruleMap)
     : resolve(repoRoot, "tests/bench/rule-map.json");
   const ruleMap = validateRuleMap(JSON.parse(readFileSync(ruleMapPath, "utf8")));
-  const overruledPath = resolve(repoRoot, "tests/bench/overruled.json");
-  const overruled = existsSync(overruledPath)
+  const overruledInput = flags.overruled ?? process.env.REKON_PARITY_OVERRULED;
+  const overruledPath = overruledInput ? resolve(overruledInput) : undefined;
+  const overruled = overruledPath
     ? validateOverruledList(JSON.parse(readFileSync(overruledPath, "utf8")), (path) => {
         const candidate = resolve(repoRoot, path);
 

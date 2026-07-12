@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// WO-14 sub-order C: export classic's suppressed findings (the labeled
+// Export the legacy baseline's suppressed findings (the labeled
 // false-positive set) from a classic filter artifact into the parity
 // corpus. Reads a `filtered-issues.json` (shape: { filteredIssues:
 // [{ issue, reason, ... }] }) and writes `suppressed.json` next to the

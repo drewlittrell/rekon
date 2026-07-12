@@ -27,6 +27,10 @@ Runs during `Act` as an artifact-producing planning step after `Resolve`.
 The default export is a Rekon capability definition with an actuator handler for
 work-order generation.
 
+`VerificationPlanLike` includes optional `VerificationPlanCoverage` metadata
+for isolated Vitest and Jest plans, including source paths the test intends to
+exercise. Execution remains owned by `@rekon/capability-verify`.
+
 ## Import Boundary
 
 Do not treat work orders as source mutations. They are typed action artifacts

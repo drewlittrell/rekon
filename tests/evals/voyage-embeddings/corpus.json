@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "documents": [
+    { "id": "auth-session", "path": "src/auth/session-cookie.ts", "text": "TypeScript session service. Rotate refresh tokens, validate signed session cookies, revoke compromised browser sessions, and preserve the current device identifier." },
+    { "id": "auth-api-key", "path": "src/auth/api-key.ts", "text": "Validate API credentials from authorization headers. Hash service API keys, compare credential scopes, and reject expired machine tokens." },
+    { "id": "sms-route-inbound", "path": "src/sms/route-inbound.ts", "text": "Route inbound SMS messages by sender, destination number, and body keywords. Select the support or billing queue while preserving opt-out handling." },
+    { "id": "sms-send-outbound", "path": "src/sms/send-outbound.ts", "text": "Format and deliver outbound text messages. Normalize phone numbers, split long SMS bodies, attach delivery metadata, and call the messaging provider." },
+    { "id": "orders-create", "path": "src/orders/create-order.ts", "text": "Create a new customer order from cart lines. Validate inventory, calculate totals, reserve stock, and persist the order transaction." },
+    { "id": "orders-refund", "path": "src/orders/refund-order.ts", "text": "Refund an existing order. Check refundable balance, create a payment reversal, restore inventory, and record the refund reason." },
+    { "id": "users-profile", "path": "src/users/profile.ts", "text": "Build a user profile view from account preferences, contact details, avatar settings, locale, and display name." },
+    { "id": "users-permissions", "path": "src/users/permissions.ts", "text": "Resolve user roles and resource permissions. Evaluate organization membership, policy grants, and administrative access boundaries." },
+    { "id": "billing-webhook", "path": "src/billing/payment-webhook.ts", "text": "Verify payment webhook signatures, reject replayed events, parse processor events, and dispatch invoice or subscription updates." },
+    { "id": "billing-invoice", "path": "src/billing/invoice.ts", "text": "Generate invoices from billable usage. Apply tax rules, credits, payment terms, line-item rounding, and customer billing addresses." },
+    { "id": "runtime-artifact-store", "path": "packages/runtime/src/artifact-store.ts", "text": "Read and write typed repository artifacts under .rekon. Verify index paths, artifact headers, SHA-256 digests, containment, and symlink safety." },
+    { "id": "runtime-capability-loader", "path": "packages/runtime/src/capability-loader.ts", "text": "Load external capability packages from configuration. Validate package specifiers before dynamic import and enforce manifest compatibility and permissions." },
+    { "id": "graph-import-projector", "path": "packages/capability-graph/src/import-projector.ts", "text": "Project import evidence into graph nodes and directed import edges. Preserve evidence references and compose deterministic graph slices." },
+    { "id": "policy-dist-imports", "path": "packages/capability-policy/src/no-dist-imports.ts", "text": "Evaluate import facts and report source files that import generated dist output. Emit governed findings with rule identifiers and evidence references." },
+    { "id": "memory-select", "path": "packages/capability-memory/src/select.ts", "text": "Select applicable operator memory for a goal and path. Rank scoped instructions deterministically without rewriting ownership or architecture facts." },
+    { "id": "intent-work-order", "path": "packages/capability-intent/src/work-order.ts", "text": "Create a work order from a preflight packet. Carry risk notes, findings, required verification commands, success criteria, and anti-gaming guidance." },
+    { "id": "docs-agent-publisher", "path": "packages/capability-docs/src/agents.ts", "text": "Publish generated agent guidance from snapshot and resolver artifacts. Include provenance, freshness warnings, required checks, and repository context." },
+    { "id": "reconcile-plan", "path": "packages/capability-reconcile/src/plan.ts", "text": "Validate and dry-run reconciliation operations. Apply artifact-only updates when permitted and record applied or deferred operation logs." }
+  ],
+  "queries": [
+    { "id": "q-session-rotation", "text": "Where should I change refresh-token rotation for browser sessions?", "relevant": ["auth-session"] },
+    { "id": "q-machine-credentials", "text": "Find the code that checks scoped API credentials for service integrations.", "relevant": ["auth-api-key"] },
+    { "id": "q-inbound-routing", "text": "Modify how incoming text messages are routed to support without changing outbound formatting.", "relevant": ["sms-route-inbound"] },
+    { "id": "q-outbound-delivery", "text": "Update long-message splitting and provider delivery metadata for outgoing SMS.", "relevant": ["sms-send-outbound"] },
+    { "id": "q-refund", "text": "Which implementation reverses a payment and restores stock for a returned order?", "relevant": ["orders-refund"] },
+    { "id": "q-webhook-signature", "text": "Harden replay protection and signature verification for processor callbacks.", "relevant": ["billing-webhook"] },
+    { "id": "q-artifact-integrity", "text": "Where are artifact index containment and digest checks enforced?", "relevant": ["runtime-artifact-store"] },
+    { "id": "q-capability-import", "text": "Find the trust boundary before dynamically importing a configured extension package.", "relevant": ["runtime-capability-loader"] },
+    { "id": "q-import-graph", "text": "Project module dependency evidence into directed graph relationships.", "relevant": ["graph-import-projector"] },
+    { "id": "q-dist-policy", "text": "Which policy detects source imports that point into compiled dist directories?", "relevant": ["policy-dist-imports"] },
+    { "id": "q-memory-scope", "text": "Select path-scoped operator instructions without changing repository ownership facts.", "relevant": ["memory-select"] },
+    { "id": "q-work-order", "text": "Create an execution packet with risk, required checks, success criteria, and anti-gaming rules.", "relevant": ["intent-work-order"] },
+    { "id": "q-agent-docs", "text": "Regenerate agent guidance with freshness warnings and resolver provenance.", "relevant": ["docs-agent-publisher"] },
+    { "id": "q-reconcile-dry-run", "text": "Dry-run an artifact-only reconciliation and record deferred operations.", "relevant": ["reconcile-plan"] }
+  ]
+}

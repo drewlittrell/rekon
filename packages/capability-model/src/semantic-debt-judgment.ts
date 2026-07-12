@@ -41,6 +41,9 @@ export type SemanticDebtAdapterResult = {
   warnings?: string[];
 };
 
+export const SEMANTIC_CONCERN_TYPES = ["architecture", "tech_debt", "dead_code", "lint", "stub"] as const;
+export type SemanticConcernType = (typeof SEMANTIC_CONCERN_TYPES)[number];
+
 export type SemanticDebtJudgmentAdapter = (input: {
   filePath: string;
   fileText: string;
@@ -48,8 +51,10 @@ export type SemanticDebtJudgmentAdapter = (input: {
 }) => Promise<SemanticDebtAdapterResult>;
 
 export type SemanticDebtConcernCoerced = {
+  type: SemanticConcernType;
   severity: SemanticFileUnderstandingSeverity;
   description: string;
+  line?: number;
   pattern?: string;
   included: boolean;
 };
@@ -178,7 +183,7 @@ export function coerceDebtConcerns(adapterResult: SemanticDebtAdapterResult): Se
   const out: SemanticDebtConcernCoerced[] = [];
 
   for (const concern of adapterResult.concerns) {
-    if (!concern || concern.type !== "tech_debt") continue;
+    if (!concern || !isSemanticConcernType(concern.type)) continue;
     const description = typeof concern.description === "string" ? concern.description.trim() : "";
     if (description.length === 0) continue;
     const severity: SemanticFileUnderstandingSeverity =
@@ -187,12 +192,20 @@ export function coerceDebtConcerns(adapterResult: SemanticDebtAdapterResult): Se
         : "low";
     const pattern = categorizeDebtPattern(description);
     out.push({
+      type: concern.type,
       severity,
       description,
+      ...(typeof concern.line === "number" && Number.isInteger(concern.line) && concern.line > 0
+        ? { line: concern.line }
+        : {}),
       ...(pattern ? { pattern } : {}),
       included: shouldIncludeDebtConcern({ severity, description }),
     });
   }
 
   return out;
+}
+
+function isSemanticConcernType(value: unknown): value is SemanticConcernType {
+  return typeof value === "string" && (SEMANTIC_CONCERN_TYPES as readonly string[]).includes(value);
 }

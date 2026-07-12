@@ -51,12 +51,16 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
     assert.equal(project.status, 0, project.stderr);
     assert.deepEqual(
       JSON.parse(project.stdout).artifacts.map((artifact) => artifact.type).sort(),
-      ["CapabilityMap", "CapabilityNormalizationReport", "GraphSlice", "GraphSlice", "GraphSlice", "ObservedRepo", "OwnershipMap"],
+      ["CapabilityMap", "CapabilityNormalizationReport", "GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice", "ObservedRepo", "OwnershipMap"],
     );
 
     const evaluate = runCli(["evaluate", "--root", root, "--json"]);
     assert.equal(evaluate.status, 0, evaluate.stderr);
-    assert.deepEqual(JSON.parse(evaluate.stdout).artifacts.map((artifact) => artifact.type), ["FindingReport"]);
+    assert.deepEqual(JSON.parse(evaluate.stdout).artifacts.map((artifact) => artifact.type), ["FindingReport", "AssessmentReport"]);
+
+    const assessments = runCli(["assessments", "list", "--root", root, "--json"]);
+    assert.equal(assessments.status, 0, assessments.stderr);
+    assert.equal(JSON.parse(assessments.stdout).artifact.type, "AssessmentReport");
 
     const show = runCli(["artifacts", "show", evidenceRef.id, "--root", root, "--json"]);
     assert.equal(show.status, 0, show.stderr);

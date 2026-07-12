@@ -2,10 +2,11 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
+import { assertArtifactHeader, type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type VerificationCommandResult,
   type VerificationPlanLike,
+  type VerificationPlanCoverage,
   type VerificationResult,
   type VerificationResultStatus,
   type VerificationRun,
@@ -34,7 +35,7 @@ import {
  *
  * **Execution requires explicit operator opt-in.** The package
  * declares the `"runner"` role + `execute:verification`
- * permission, and exposes four public surfaces:
+ * permission, and exposes these public surfaces:
  *
  * - `createVerificationRunDryRun` (step 3, shipped) —
  *   planned-but-not-run preview; never spawns a process.
@@ -51,6 +52,8 @@ import {
  *   default; maps `timeout` and `killed` command statuses to
  *   `failed`; carries `stdoutDigest` / `stderrDigest` but not
  *   the redacted excerpts.
+ * - `createIsolatedCoverageVerificationPlan` — builds a shell-free,
+ *   single-test Vitest or Jest plan using a caller-resolved local binary.
  * - The capability default-exported runner handler still
  *   throws when invoked through generic dispatch — the
  *   public execute path is the CLI command
@@ -80,6 +83,7 @@ export const VERIFY_CAPABILITY_VERSION = "0.1.0";
 export {
   type VerificationCommandResult,
   type VerificationPlanLike,
+  type VerificationPlanCoverage,
   type VerificationResult,
   type VerificationResultStatus,
   type VerificationRun,
@@ -94,6 +98,138 @@ export {
   summarizeVerificationRunCommands,
   validateVerificationRun,
 };
+
+export type IsolatedCoverageFramework = VerificationPlanCoverage["framework"];
+export type IsolatedCoverageProvider = VerificationPlanCoverage["provider"];
+
+export type CreateIsolatedCoverageVerificationPlanInput = {
+  header: ArtifactHeader;
+  framework: IsolatedCoverageFramework;
+  provider: IsolatedCoverageProvider;
+  testPath: string;
+  targetPaths?: string[];
+  binaryPath: string;
+};
+
+export type IsolatedCoverageVerificationPlan = VerificationPlanLike & {
+  commands: [string];
+  successCriteria: string[];
+  source: "isolated-coverage";
+  coverage: VerificationPlanCoverage;
+};
+
+export type IsolatedCoverageVerificationPlanResult = {
+  verificationPlan: IsolatedCoverageVerificationPlan;
+  command: string;
+  coverageDirectory: string;
+  coveragePath: string;
+};
+
+export function createIsolatedCoverageVerificationPlan(
+  input: CreateIsolatedCoverageVerificationPlanInput,
+): IsolatedCoverageVerificationPlanResult {
+  const header = assertArtifactHeader(input.header);
+  if (header.artifactType !== "VerificationPlan") {
+    throw new Error('Isolated coverage plans require artifactType "VerificationPlan".');
+  }
+  if (input.framework === "vitest" && input.provider !== "v8" && input.provider !== "istanbul") {
+    throw new Error("Vitest coverage provider must be v8 or istanbul.");
+  }
+  if (input.framework === "jest" && input.provider !== "v8" && input.provider !== "babel") {
+    throw new Error("Jest coverage provider must be v8 or babel.");
+  }
+
+  const testPath = assertSafeCoveragePlanPath(input.testPath, "testPath");
+  const targetPaths = [...new Set((input.targetPaths ?? [])
+    .map((targetPath) => assertSafeCoveragePlanPath(targetPath, "targetPaths")))]
+    .sort();
+  const binaryPath = assertSafeCoveragePlanPath(input.binaryPath, "binaryPath");
+  if (testPath.startsWith("-")) {
+    throw new Error("Isolated coverage testPath cannot begin with '-'.");
+  }
+
+  const identity = createHash("sha256")
+    .update(`${input.framework}\u0000${input.provider}\u0000${testPath}\u0000${targetPaths.join("\u0000")}`)
+    .digest("hex")
+    .slice(0, 16);
+  const coverageDirectory = `.rekon/cache/coverage/${input.framework}/${identity}`;
+  const coveragePath = `${coverageDirectory}/coverage-final.json`;
+  const quotedBinary = quoteVerificationArgument(binaryPath);
+  const quotedTest = quoteVerificationArgument(testPath);
+  const command = input.framework === "vitest"
+    ? [
+        "node",
+        quotedBinary,
+        "run",
+        quotedTest,
+        "--coverage.enabled",
+        `--coverage.provider=${input.provider}`,
+        "--coverage.reporter=json",
+        `--coverage.reportsDirectory=${coverageDirectory}`,
+        "--coverage.reportOnFailure",
+      ].join(" ")
+    : [
+        "node",
+        quotedBinary,
+        "--runTestsByPath",
+        quotedTest,
+        "--runInBand",
+        "--coverage",
+        `--coverageProvider=${input.provider}`,
+        "--coverageReporters=json",
+        `--coverageDirectory=${coverageDirectory}`,
+      ].join(" ");
+
+  const validation = validateVerificationRunCommandString(command);
+  if (!validation.ok) {
+    throw new Error(`Generated isolated coverage command is unsafe: ${validation.message}`);
+  }
+
+  const coverage: VerificationPlanCoverage = {
+    format: "istanbul",
+    framework: input.framework,
+    provider: input.provider,
+    testPath,
+    ...(targetPaths.length > 0 ? { targetPaths } : {}),
+    coveragePath,
+    isolated: true,
+  };
+  const verificationPlan: IsolatedCoverageVerificationPlan = {
+    header,
+    commands: [command],
+    successCriteria: [
+      `Run only ${testPath} through ${input.framework}.`,
+      ...(targetPaths.length > 0
+        ? [`Measure whether the run exercises the declared source targets: ${targetPaths.join(", ")}.`]
+        : []),
+      `Write Istanbul JSON coverage to ${coveragePath}.`,
+      "Record the VerificationRun command and coverage digest as observation provenance.",
+    ],
+    source: "isolated-coverage",
+    coverage,
+  };
+
+  return { verificationPlan, command, coverageDirectory, coveragePath };
+}
+
+function assertSafeCoveragePlanPath(value: string, field: string): string {
+  const normalized = typeof value === "string" ? value.replace(/\\/g, "/") : "";
+  if (normalized.trim().length === 0
+    || normalized.startsWith("/")
+    || /^[A-Za-z]:/.test(normalized)
+    || normalized.includes("\0")
+    || normalized.split("/").some((part) => part === "..")) {
+    throw new Error(`Isolated coverage ${field} must be a safe repository-relative path.`);
+  }
+  return normalized;
+}
+
+function quoteVerificationArgument(value: string): string {
+  if (!/[\s'\"]/.test(value)) return value;
+  if (!value.includes('"')) return `"${value}"`;
+  if (!value.includes("'")) return `'${value}'`;
+  throw new Error("Isolated coverage paths cannot contain both single and double quotes.");
+}
 
 // ---------- Dry-run helper (P1.1 verification-run-dry-run) ----------
 //

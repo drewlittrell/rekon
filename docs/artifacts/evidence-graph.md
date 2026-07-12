@@ -39,6 +39,13 @@ they may collide with built-ins.
 | `symbol` | declared symbol evidence |
 | `ownership_hint` | ownership projection input |
 | `capability_hint` | capability projection input |
+| `manifest` | package metadata |
+| `build_target` | package lifecycle command |
+| `route` | framework route convention |
+| `screen` | framework screen convention |
+| `test` | test file and framework metadata |
+| `typescript:diagnostic` | compiler-reproduced source diagnostic |
+| `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, or async-control-flow risk signal |
 
 All facts should preserve provenance back to the extractor and source location
 where possible.

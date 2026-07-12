@@ -13,8 +13,16 @@ are `internal`. See [docs/concepts/stability.md](../../docs/concepts/stability.m
 
 The capability uses the public `@rekon/sdk` projector API. It consumes an
 `EvidenceGraph` and produces initial `GraphSlice` artifacts for imports,
-symbols, and ownership. The implementation is deterministic and deliberately
-small; richer graph slices can be added without changing the runtime.
+symbols, ownership, and application conventions. The application slice includes
+routes, screens, tests, packages, and lifecycle build targets. The
+import slice connects resolved repository file paths rather than retaining raw
+module specifiers. The
+implementation also connects tests to resolved import dependencies and to
+routes, screens, and capability hints that share those dependencies. These are
+static context relationships. When a `RuntimeGraphObservationReport` is
+available, the application slice also includes separate `observed` edges for
+instrumented test-to-file and test-to-route execution. None of these edges
+claims assertion coverage.
 
 ## Lifecycle Fit
 

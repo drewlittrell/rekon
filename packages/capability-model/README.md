@@ -26,7 +26,15 @@ artifacts over re-deriving ownership directly from raw evidence.
 
 The default export is a Rekon capability definition with a projector handler.
 The package also exports the semantic-debt judgment prompt, strict response
-schema, and deterministic concern coercion used by the CLI and model evaluator.
+schema, deterministic concern coercion, runtime observation builder, and pure
+Istanbul coverage parser used by the CLI and model evaluator. Runtime coverage
+sources can cite the exact `VerificationRun` command that produced them.
+The Istanbul parser also retains normalized function ranges and execution
+counts for explicitly isolated runs, plus source targets declared by generated
+verification plans.
+The pure SARIF 2.1 parser normalizes repository-native scanner output into
+`SecurityScanReport`, classifies only explicitly security-marked results, and
+rejects locations outside the repository.
 
 ## Import Boundary
 

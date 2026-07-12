@@ -65,6 +65,11 @@ type WorkOrderLike = {
   remediationItems?: RemediationItemLike[];
 };
 
+type ResolverPacketLike = {
+  relevantFindings?: unknown[];
+  relevantAssessments?: Array<{ kind?: string }>;
+};
+
 type ReconciliationPlanOperationLike = {
   operation?: string;
   status?: string;
@@ -256,6 +261,9 @@ export const docsPublisher: Publisher = {
     const snapshot = await artifacts.read(snapshotRef) as IntelligenceSnapshot;
     const resolverRefs = await artifacts.list("ResolverPacket");
     const latestResolverRef = latestById(resolverRefs);
+    const latestResolver = latestResolverRef
+      ? await artifacts.read(latestResolverRef) as ResolverPacketLike
+      : undefined;
     const inputRefs = latestResolverRef ? [snapshotRef, latestResolverRef] : [snapshotRef];
     const generatedAt = new Date().toISOString();
     const publications: PublicationArtifact[] = [
@@ -264,7 +272,7 @@ export const docsPublisher: Publisher = {
         kind: "agents",
         path: ".rekon/artifacts/publications/agents.md",
         format: "markdown",
-        content: renderAgentsDoc(snapshot, inputRefs, generatedAt),
+        content: renderAgentsDoc(snapshot, inputRefs, generatedAt, latestResolver),
       },
       {
         header: createPublicationHeader("repo-summary", generatedAt, snapshot, [snapshotRef]),
@@ -1327,6 +1335,7 @@ function renderAgentsDoc(
   snapshot: IntelligenceSnapshot,
   inputRefs: ArtifactRef[],
   generatedAt: string,
+  resolver?: ResolverPacketLike,
 ): string {
   const staleness = snapshot.status.freshness === "fresh"
     ? "Snapshot freshness: fresh."
@@ -1350,6 +1359,16 @@ function renderAgentsDoc(
     `- Evaluations: ${Object.keys(snapshot.evaluations).sort().join(", ") || "none"}`,
     `- Publications: ${Object.keys(snapshot.publications).sort().join(", ") || "none"}`,
     `- Actions: ${Object.keys(snapshot.actions).sort().join(", ") || "none"}`,
+    ...(resolver ? [
+      "",
+      "## Current Preflight Context",
+      "",
+      `- Governed findings: ${resolver.relevantFindings?.length ?? 0}`,
+      `- Risks: ${countResolverAssessments(resolver, "risk")}`,
+      `- Opportunities: ${countResolverAssessments(resolver, "opportunity")}`,
+      `- Semantic claims: ${countResolverAssessments(resolver, "semantic_claim")}`,
+      `- Model diagnostics: ${countResolverAssessments(resolver, "model_diagnostic")}`,
+    ] : []),
     "",
     "## Required Default Checks",
     "",
@@ -1357,6 +1376,10 @@ function renderAgentsDoc(
     "- npm run test",
     "- npm run build",
   ].join("\n");
+}
+
+function countResolverAssessments(resolver: ResolverPacketLike, kind: string): number {
+  return resolver.relevantAssessments?.filter((assessment) => assessment.kind === kind).length ?? 0;
 }
 
 function renderRepoSummary(snapshot: IntelligenceSnapshot, snapshotRef: ArtifactRef, generatedAt: string): string {

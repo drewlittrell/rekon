@@ -1,4 +1,5 @@
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
+import { type Assessment, createAssessmentReport } from "@rekon/kernel-assessments";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
 import { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
@@ -6,7 +7,21 @@ import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capabil
 import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots, loadGeneratedGlobs, loadDistImportExemptions, globLikeToRegExp, type DistImportExemption, loadDeclaredRootGlobs } from "./dead-code.js";
 import { NAMING_CONTRACT_RULE_ID, evaluateNamingContract } from "./naming-contract.js";
 import { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
-import { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebt } from "./debt-semantic.js";
+import { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebtClaims } from "./debt-semantic.js";
+import {
+  ASYNC_ARRAY_CALLBACK_RULE_ID,
+  ASYNC_PROMISE_EXECUTOR_RULE_ID,
+  ERROR_SUPPRESSION_RULE_ID,
+  PLACEHOLDER_IMPLEMENTATION_RULE_ID,
+  TYPE_ESCAPE_RULE_ID,
+  evaluateSourceQualitySignals,
+} from "./source-quality.js";
+import { EMBEDDING_DUPLICATION_RULE_ID, evaluateEmbeddingDuplicationCandidates } from "./embedding-duplication.js";
+import { REPOSITORY_CHECK_FAILURE_RULE_ID, evaluateRepositoryChecks } from "./repository-checks.js";
+import { FUNCTION_COMPLEXITY_RULE_ID, evaluateFunctionComplexity } from "./function-complexity.js";
+import { IMPORT_CYCLE_RULE_ID, evaluateImportCycleGraph, loadLatestImportGraph } from "./import-cycles.js";
+import { DEPENDENCY_HUB_RULE_ID, evaluateDependencyHubs } from "./dependency-hubs.js";
+import { loadFreshComplexityCoverage } from "./complexity-coverage.js";
 import {
   compileEffectiveCapabilityOntology,
   compileEffectiveGrammar,
@@ -15,6 +30,7 @@ import {
   loadGrammarOverrides,
 } from "@rekon/capability-ontology";
 import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence, loadWorkspacePackages } from "./grammar-divergence.js";
+import { SECURITY_SCANNER_RESULT_RULE_ID, evaluateSecurityScanReports } from "./security-scans.js";
 
 export * from "./grammar-divergence.js";
 
@@ -29,6 +45,18 @@ type EvidenceGraphLike = {
 };
 
 export const BUILT_IN_POLICY_RULES = [
+  "typescript.compilerDiagnostic",
+  TYPE_ESCAPE_RULE_ID,
+  ERROR_SUPPRESSION_RULE_ID,
+  PLACEHOLDER_IMPLEMENTATION_RULE_ID,
+  ASYNC_PROMISE_EXECUTOR_RULE_ID,
+  ASYNC_ARRAY_CALLBACK_RULE_ID,
+  FUNCTION_COMPLEXITY_RULE_ID,
+  IMPORT_CYCLE_RULE_ID,
+  DEPENDENCY_HUB_RULE_ID,
+  EMBEDDING_DUPLICATION_RULE_ID,
+  REPOSITORY_CHECK_FAILURE_RULE_ID,
+  SECURITY_SCANNER_RESULT_RULE_ID,
   "imports.noDistImports",
   "imports.noNodeModulesRelativeImports",
   "files.noGeneratedAsSource",
@@ -54,14 +82,45 @@ export { NAMING_CONTRACT_RULE_ID, evaluateNamingContract, splitPascalTokens } fr
 export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
-export { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebt } from "./debt-semantic.js";
+export { DEBT_SEMANTIC_RULE_ID, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
+export {
+  ASYNC_ARRAY_CALLBACK_RULE_ID,
+  ASYNC_PROMISE_EXECUTOR_RULE_ID,
+  ERROR_SUPPRESSION_RULE_ID,
+  PLACEHOLDER_IMPLEMENTATION_RULE_ID,
+  TYPE_ESCAPE_RULE_ID,
+  evaluateSourceQualitySignals,
+} from "./source-quality.js";
+export { EMBEDDING_DUPLICATION_RULE_ID, evaluateEmbeddingDuplicationCandidates } from "./embedding-duplication.js";
+export {
+  FUNCTION_COMPLEXITY_RULE_ID,
+  FUNCTION_COMPLEXITY_THRESHOLDS,
+  evaluateFunctionComplexity,
+  type FunctionComplexityCoverage,
+  type FunctionComplexityCoverageObservation,
+  type FunctionComplexityCoverageStatus,
+} from "./function-complexity.js";
+export { IMPORT_CYCLE_RULE_ID, evaluateImportCycleGraph, evaluateImportCycles, loadLatestImportGraph } from "./import-cycles.js";
+export {
+  DEPENDENCY_HUB_MIN_INCOMING,
+  DEPENDENCY_HUB_MIN_OUTGOING,
+  DEPENDENCY_HUB_RULE_ID,
+  evaluateDependencyHubs,
+} from "./dependency-hubs.js";
+export {
+  loadFreshComplexityCoverage,
+  type ComplexityCoverageFile,
+  type ComplexityCoverageFunction,
+  type ComplexityCoverageRun,
+} from "./complexity-coverage.js";
 export { DEAD_CODE_RULE_ID, evaluateDeadCode, isFrameworkEntryPath, loadDeclaredRoots, loadGeneratedGlobs } from "./dead-code.js";
 export type { DeadCodeStats } from "./dead-code.js";
 export { loadDistImportExemptions, loadDeclaredRootGlobs, type DistImportExemption as DistImportExemptionEntry } from "./dead-code.js";
+export { SECURITY_SCANNER_RESULT_RULE_ID, evaluateSecurityScanReports } from "./security-scans.js";
 
 export const policyEvaluator: Evaluator = {
   id: "@rekon/capability-policy.evaluator",
-  produces: ["FindingReport"],
+  produces: ["FindingReport", "AssessmentReport"],
   async evaluate({ artifacts, input }) {
     const evidenceRef = (await artifacts.list("EvidenceGraph")).at(-1);
 
@@ -79,25 +138,103 @@ export const policyEvaluator: Evaluator = {
       Array.isArray(input?.disabledRules) ? input.disabledRules.filter((rule): rule is string => typeof rule === "string") : [],
     );
     const semanticDebtRef = (await artifacts.list("SemanticDebtJudgmentReport")).at(-1);
-    const semanticDebtFindings =
+    const capabilityGraphRef = !disabledRules.has(EMBEDDING_DUPLICATION_RULE_ID)
+      ? (await artifacts.list("CapabilityEvidenceGraph")).at(-1)
+      : undefined;
+    const embeddingDuplicationOpportunities = capabilityGraphRef
+      ? evaluateEmbeddingDuplicationCandidates(await artifacts.read(capabilityGraphRef), capabilityGraphRef)
+      : [];
+    const semanticDebtClaims =
       !disabledRules.has(DEBT_SEMANTIC_RULE_ID) && semanticDebtRef
-        ? evaluateSemanticDebt(await artifacts.read(semanticDebtRef), semanticDebtRef)
+        ? evaluateSemanticDebtClaims(await artifacts.read(semanticDebtRef), semanticDebtRef)
         : [];
-    const inputRefs = semanticDebtRef ? [evidenceRef, semanticDebtRef] : [evidenceRef];
+    const repositoryChecks = !disabledRules.has(REPOSITORY_CHECK_FAILURE_RULE_ID)
+      ? await evaluateRepositoryChecks(graph, evidenceRef, artifacts)
+      : { findings: [], assessments: [], inputRefs: [], promotedRootCauseKeys: new Set<string>(), sourceRootCauseKeys: new Set<string>() };
+    const securityScans = !disabledRules.has(SECURITY_SCANNER_RESULT_RULE_ID)
+      ? await evaluateSecurityScanReports(artifacts, evidenceRef)
+      : { assessments: [], inputRefs: [] as ArtifactRef[] };
+    const importGraph = !disabledRules.has(IMPORT_CYCLE_RULE_ID) || !disabledRules.has(DEPENDENCY_HUB_RULE_ID)
+      ? await loadLatestImportGraph(artifacts)
+      : undefined;
+    const importGraphAssessments = importGraph
+      ? [
+          ...(!disabledRules.has(IMPORT_CYCLE_RULE_ID) ? evaluateImportCycleGraph(importGraph.graph, importGraph.ref) : []),
+          ...(!disabledRules.has(DEPENDENCY_HUB_RULE_ID) ? evaluateDependencyHubs(importGraph.graph, importGraph.ref) : []),
+        ]
+      : [];
+    const unknownSystemSignals = !disabledRules.has("architecture.noUnknownSystemForSourceFile")
+      ? noUnknownSystemForSourceFile(graph, evidenceRef)
+      : [];
+    const debtMarkerSignals = !disabledRules.has(DEBT_MARKERS_RULE_ID) ? evaluateDebtMarkers(graph.facts) : [];
+    const overlapResult = !disabledRules.has(CAPABILITY_OVERLAP_RULE_ID)
+      ? await capabilityOverlapFindings(graph, artifacts)
+      : { findings: [], inputRefs: [] as ArtifactRef[] };
+    const deadCodeResult = !disabledRules.has(DEAD_CODE_RULE_ID)
+      ? await deadCodeFindings(graph, input, evidenceRef)
+      : { findings: [], risks: [] };
+    const complexityCoverage = !disabledRules.has(FUNCTION_COMPLEXITY_RULE_ID)
+      ? await loadFreshComplexityCoverage(artifacts, graph.header)
+      : [];
+    const complexityAssessments = !disabledRules.has(FUNCTION_COMPLEXITY_RULE_ID)
+      ? evaluateFunctionComplexity(graph.facts, evidenceRef, complexityCoverage)
+      : [];
     const findings = [
+      ...(!disabledRules.has("typescript.compilerDiagnostic") ? typeScriptCompilerDiagnostics(graph, evidenceRef) : []),
       ...(!disabledRules.has("imports.noDistImports") ? noDistImports(graph, evidenceRef, distExemptions) : []),
       ...(!disabledRules.has("imports.noNodeModulesRelativeImports") ? noNodeModulesRelativeImports(graph, evidenceRef) : []),
       ...(!disabledRules.has("files.noGeneratedAsSource") ? noGeneratedAsSource(graph, evidenceRef) : []),
-      ...(!disabledRules.has("architecture.noUnknownSystemForSourceFile") ? noUnknownSystemForSourceFile(graph, evidenceRef) : []),
       ...(!disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID) ? await grammarDivergenceFindings(graph, input, artifacts) : []),
-      ...(!disabledRules.has(DEBT_MARKERS_RULE_ID) ? evaluateDebtMarkers(graph.facts) : []),
-      ...semanticDebtFindings,
-      ...(!disabledRules.has(DEAD_CODE_RULE_ID) ? await deadCodeFindings(graph, input) : []),
-      ...(!disabledRules.has(CAPABILITY_OVERLAP_RULE_ID) ? await capabilityOverlapFindings(graph, artifacts) : []),
+      ...deadCodeResult.findings,
       ...(!disabledRules.has(NAMING_CONTRACT_RULE_ID) || !disabledRules.has(ANTI_PATTERN_RULE_ID)
         ? await grammarFamilyFindings(graph, input, disabledRules)
         : []),
+      ...repositoryChecks.findings,
     ];
+    const assessments: Assessment[] = [
+      ...complexityAssessments,
+      ...importGraphAssessments,
+      ...evaluateSourceQualitySignals(graph.facts, evidenceRef)
+        .filter((assessment) => !assessment.ruleId || !disabledRules.has(assessment.ruleId))
+        .filter((assessment) => !repositoryChecks.sourceRootCauseKeys.has(assessment.rootCauseKey)),
+      ...unknownSystemSignals.map((finding) => assessmentFromFinding(finding, {
+        kind: "model_diagnostic",
+        verification: "verified",
+        confidence: 0.95,
+        evidence: [evidenceRef],
+        rationale: "The evidence graph contains a source file without a resolved system assignment.",
+      })),
+      ...debtMarkerSignals.map((finding) => assessmentFromFinding(finding, {
+        kind: "opportunity",
+        verification: "verified",
+        confidence: 0.95,
+        evidence: [evidenceRef],
+        rationale: "The marker is deterministic evidence of declared debt, but does not itself prove a defect.",
+      })),
+      ...overlapResult.findings.map((finding) => assessmentFromFinding(finding, {
+        kind: "opportunity",
+        verification: "unverified",
+        confidence: 0.7,
+        evidence: overlapResult.inputRefs.length > 0 ? overlapResult.inputRefs : [evidenceRef],
+        rationale: "Cross-system implementation overlap is structural evidence; consolidation value remains unverified.",
+      })),
+      ...deadCodeResult.risks,
+      ...semanticDebtClaims,
+      ...embeddingDuplicationOpportunities,
+      ...repositoryChecks.assessments,
+      ...securityScans.assessments,
+    ].filter((assessment) => !repositoryChecks.promotedRootCauseKeys.has(assessment.rootCauseKey));
+    const findingInputRefs = uniqueRefs([evidenceRef, ...repositoryChecks.inputRefs]);
+    const assessmentInputRefs = uniqueRefs([
+      evidenceRef,
+      ...overlapResult.inputRefs,
+      ...(semanticDebtRef ? [semanticDebtRef] : []),
+      ...(capabilityGraphRef ? [capabilityGraphRef] : []),
+      ...repositoryChecks.inputRefs,
+      ...securityScans.inputRefs,
+      ...(importGraph ? [importGraph.ref] : []),
+      ...complexityAssessments.flatMap((assessment) => assessment.evidence),
+    ]);
     const report = createFindingReport({
       header: {
         artifactType: "FindingReport",
@@ -109,14 +246,31 @@ export const policyEvaluator: Evaluator = {
           id: "@rekon/capability-policy",
           version: "0.1.0",
         },
-        inputRefs,
+        inputRefs: findingInputRefs,
         freshness: { status: "fresh" },
         provenance: { confidence: 0.9 },
       },
       findings,
     });
+    const assessmentReport = createAssessmentReport({
+      header: {
+        artifactType: "AssessmentReport",
+        artifactId: `assessment-report-${Date.now()}`,
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: graph.header.subject,
+        producer: { id: "@rekon/capability-policy", version: "1.0.0" },
+        inputRefs: assessmentInputRefs,
+        freshness: { status: "fresh" },
+        provenance: { confidence: assessments.length > 0 ? 0.7 : 1 },
+      },
+      assessments,
+    });
 
-    return [await artifacts.write("FindingReport", report)];
+    return [
+      await artifacts.write("FindingReport", report),
+      await artifacts.write("AssessmentReport", assessmentReport),
+    ];
   },
 };
 
@@ -126,8 +280,8 @@ export default defineCapability({
     name: "Policy Evaluator",
     version: "0.1.0",
     roles: ["evaluator"],
-    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport"],
-    produces: ["FindingReport"],
+    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport", "CapabilityEvidenceGraph", "VerificationRun", "GraphSlice", "RuntimeGraphObservationReport", "SecurityScanReport"],
+    produces: ["FindingReport", "AssessmentReport"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
       {
@@ -139,6 +293,36 @@ export default defineCapability({
         id: "semantic-debt.changed",
         description: "Semantic debt findings are invalid when the judgment report changes.",
         inputs: ["SemanticDebtJudgmentReport"],
+      },
+      {
+        id: "capability-evidence-graph.changed",
+        description: "Similarity opportunities are invalid when the capability evidence graph changes.",
+        inputs: ["CapabilityEvidenceGraph"],
+      },
+      {
+        id: "verification-run.changed",
+        description: "Repository check assessments are invalid when verification evidence changes.",
+        inputs: ["VerificationRun"],
+      },
+      {
+        id: "security-scan.changed",
+        description: "Security scanner assessments are invalid when normalized scanner evidence changes.",
+        inputs: ["SecurityScanReport"],
+      },
+      {
+        id: "application-graph.changed",
+        description: "Repository check impact context is invalid when application graph slices change.",
+        inputs: ["GraphSlice"],
+      },
+      {
+        id: "import-graph.changed",
+        description: "Import-cycle assessments are invalid when repository import edges change.",
+        inputs: ["GraphSlice"],
+      },
+      {
+        id: "isolated-coverage.changed",
+        description: "Complexity coverage context is invalid when runtime coverage observations change.",
+        inputs: ["RuntimeGraphObservationReport", "VerificationRun"],
       },
     ],
     compatibility: { rekon: "^0.1.0" },
@@ -156,7 +340,7 @@ export default defineCapability({
 async function capabilityOverlapFindings(
   graph: EvidenceGraphLike,
   artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
-): Promise<Finding[]> {
+): Promise<{ findings: Finding[]; inputRefs: ArtifactRef[] }> {
   const mapRef = (await artifacts.list("CapabilityMap")).at(-1);
   const map = mapRef ? await artifacts.read(mapRef) as { capabilities?: Array<Record<string, unknown>> } : undefined;
   const ownershipRef = (await artifacts.list("OwnershipMap")).at(-1);
@@ -164,11 +348,54 @@ async function capabilityOverlapFindings(
   const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
   const contract = contractRef ? await artifacts.read(contractRef) as { contracts?: Array<Record<string, unknown>> } : undefined;
 
-  return evaluateCapabilityOverlap({
-    capabilities: (map?.capabilities ?? []) as never,
-    ownershipEntries: ownership?.entries ?? [],
-    contractEntries: (contract?.contracts ?? []) as never,
-  });
+  return {
+    findings: evaluateCapabilityOverlap({
+      capabilities: (map?.capabilities ?? []) as never,
+      ownershipEntries: ownership?.entries ?? [],
+      contractEntries: (contract?.contracts ?? []) as never,
+    }),
+    inputRefs: uniqueRefs([...(mapRef ? [mapRef] : []), ...(ownershipRef ? [ownershipRef] : []), ...(contractRef ? [contractRef] : [])]),
+  };
+}
+
+function assessmentFromFinding(
+  finding: Finding,
+  options: {
+    kind: Assessment["kind"];
+    verification: Assessment["confidence"]["verification"];
+    confidence: number;
+    evidence: ArtifactRef[];
+    rationale: string;
+  },
+): Assessment {
+  const legacyPayload = (finding as Finding & { payload?: Record<string, unknown> }).payload;
+  return {
+    id: `assessment:${finding.id}`,
+    kind: options.kind,
+    type: finding.type,
+    impact: finding.severity,
+    title: finding.title,
+    description: finding.description,
+    subjects: finding.subjects,
+    ...(finding.files ? { files: finding.files } : {}),
+    ...(finding.ruleId ? { ruleId: finding.ruleId } : {}),
+    ...(finding.suggestedAction ? { suggestedAction: finding.suggestedAction } : {}),
+    evidence: uniqueRefs([...(finding.evidence ?? []), ...options.evidence]),
+    rootCauseKey: `${finding.type}:${finding.ruleId ?? "unruled"}:${finding.subjects.slice().sort().join("|")}`,
+    confidence: {
+      score: options.confidence,
+      basis: "deterministic",
+      verification: options.verification,
+      rationale: options.rationale,
+    },
+    ...((finding.details || legacyPayload) ? { details: { ...(finding.details ?? {}), ...(legacyPayload ?? {}) } } : {}),
+  };
+}
+
+function uniqueRefs(refs: ArtifactRef[]): ArtifactRef[] {
+  const byKey = new Map<string, ArtifactRef>();
+  for (const ref of refs) byKey.set(`${ref.type}:${ref.id}:${ref.schemaVersion}`, ref);
+  return [...byKey.values()].sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
 }
 
 // WO-14 E + F share the divergence detector's grammar + vocabulary context
@@ -216,7 +443,8 @@ async function grammarFamilyFindings(
 async function deadCodeFindings(
   graph: EvidenceGraphLike,
   input: Record<string, unknown> | undefined,
-): Promise<Finding[]> {
+  evidenceRef: ArtifactRef,
+): Promise<{ findings: Finding[]; risks: Assessment[] }> {
   const repo = input?.repo as { root?: string } | undefined;
   const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
   const roots = repoRoot ? await loadDeclaredRoots(repoRoot) : [];
@@ -242,7 +470,33 @@ async function deadCodeFindings(
     overridesPath: overrides.path,
   });
 
-  return evaluateDeadCode({ facts: graph.facts, roots, grammar, generatedGlobs });
+  const signals = evaluateDeadCode({ facts: graph.facts, roots, grammar, generatedGlobs }).map((finding) => ({
+    ...finding,
+    evidence: uniqueRefs([...(finding.evidence ?? []), evidenceRef]),
+    rootCauseKey: `dead_code:${finding.files?.[0] ?? finding.subjects[0] ?? finding.id}`,
+  }));
+  const findings: Finding[] = [];
+  const risks: Assessment[] = [];
+
+  for (const signal of signals) {
+    const payload = (signal as Finding & { payload?: { mode?: unknown; reachableFromRoots?: unknown } }).payload;
+    const provenUnreachable = payload?.mode === "reachability" && payload.reachableFromRoots === false;
+    if (provenUnreachable) {
+      findings.push(signal);
+      continue;
+    }
+    risks.push(assessmentFromFinding(signal, {
+      kind: "risk",
+      verification: "corroborated",
+      confidence: payload?.mode === "reachability" ? 0.8 : 0.65,
+      evidence: [evidenceRef],
+      rationale: payload?.mode === "reachability"
+        ? "The export has no resolved consumer, but the containing file remains reachable from a declared root."
+        : "No complete declared-root reachability proof is available; dynamic or external consumers may exist.",
+    }));
+  }
+
+  return { findings, risks };
 }
 
 async function grammarDivergenceFindings(
@@ -308,6 +562,38 @@ function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef, exemp
     .map((fact) => finding("imports.noDistImports", "import", "medium", "Import points at dist output", "Import source files instead of generated dist output.", fact, evidenceRef));
 }
 
+function typeScriptCompilerDiagnostics(graph: EvidenceGraphLike, evidenceRef: ArtifactRef): Finding[] {
+  return graph.facts
+    .filter((fact) => fact.kind === "typescript:diagnostic" && fact.value.category === "error")
+    .map((fact) => {
+      const file = typeof fact.value.path === "string" ? fact.value.path : fact.subject;
+      const code = typeof fact.value.code === "number" ? fact.value.code : 0;
+      const line = typeof fact.value.line === "number" ? fact.value.line : undefined;
+      const column = typeof fact.value.column === "number" ? fact.value.column : undefined;
+      const message = typeof fact.value.message === "string" ? fact.value.message : "TypeScript compiler error.";
+      const location = line ? `:${line}${column ? `:${column}` : ""}` : "";
+      return {
+        id: `typescript.compilerDiagnostic:${file}:${code}:${line ?? 0}:${column ?? 0}`,
+        rootCauseKey: `typescript:${file}:${code}:${line ?? 0}:${column ?? 0}`,
+        type: "type_error",
+        severity: "high" as const,
+        title: `TypeScript error TS${code} in ${file}${location}`,
+        description: message,
+        subjects: [fact.subject],
+        files: [file],
+        ruleId: "typescript.compilerDiagnostic",
+        suggestedAction: "Correct the source-level type or syntax error and rerun the repository compiler.",
+        evidence: [evidenceRef],
+        details: {
+          code,
+          phase: fact.value.phase,
+          ...(line ? { line } : {}),
+          ...(column ? { column } : {}),
+        },
+      };
+    });
+}
+
 function noNodeModulesRelativeImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef): Finding[] {
   return graph.facts
     .filter((fact) => fact.kind === "import" && typeof fact.value.target === "string" && fact.value.target.includes("node_modules"))
@@ -339,6 +625,7 @@ function finding(
 
   return {
     id: `${ruleId}:${file}:${typeof fact.value.target === "string" ? fact.value.target : ""}`,
+    rootCauseKey: `${ruleId}:${file}:${typeof fact.value.target === "string" ? fact.value.target : ""}`,
     type,
     severity,
     title,

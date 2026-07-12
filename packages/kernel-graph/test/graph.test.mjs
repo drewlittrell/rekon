@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { composeGraphSlices, createGraphSlice, validateGraphSlice } from "../dist/index.js";
+import { BUILT_IN_EDGE_KINDS, BUILT_IN_NODE_KINDS, composeGraphSlices, createGraphSlice, validateGraphSlice } from "../dist/index.js";
 
 const header = {
   artifactType: "GraphSlice",
@@ -56,4 +56,12 @@ test("graph slices compose", () => {
   });
 
   assert.equal(composed.nodes.length, 1);
+});
+
+test("built-in graph vocabulary includes test context without claiming coverage", () => {
+  assert.equal(BUILT_IN_NODE_KINDS.capability, "capability");
+  assert.equal(BUILT_IN_EDGE_KINDS.dependsOn, "depends_on");
+  assert.equal(BUILT_IN_EDGE_KINDS.relatedTo, "related_to");
+  assert.equal(BUILT_IN_EDGE_KINDS.observed, "observed");
+  assert.equal("covers" in BUILT_IN_EDGE_KINDS, false);
 });

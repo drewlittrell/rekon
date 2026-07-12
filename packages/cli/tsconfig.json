@@ -50,6 +50,9 @@
       "path": "../kernel-artifacts"
     },
     {
+      "path": "../kernel-assessments"
+    },
+    {
       "path": "../kernel-findings"
     },
     {

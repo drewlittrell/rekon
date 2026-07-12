@@ -80,13 +80,15 @@ test("dist-import exemptions: silent under examples/**, fires under src/**, conf
 
     // With the repo's config: the example is exempt, src fires.
     await policy.policyEvaluator.evaluate({ artifacts: stubArtifacts, input: { repoRoot: tmp } });
-    const fired = written.at(-1).findings.filter((f) => f.ruleId === "imports.noDistImports");
+    const fired = written.findLast((report) => report.header.artifactType === "FindingReport")
+      .findings.filter((f) => f.ruleId === "imports.noDistImports");
 
     assert.deepEqual(fired.map((f) => (f.subjects?.[0] ?? f.files?.[0]).split(":")[0]), ["src/app.ts"]);
 
     // Without repo config (the corpus posture): the base law fires on both.
     await policy.policyEvaluator.evaluate({ artifacts: stubArtifacts, input: {} });
-    const allFired = written.at(-1).findings.filter((f) => f.ruleId === "imports.noDistImports");
+    const allFired = written.findLast((report) => report.header.artifactType === "FindingReport")
+      .findings.filter((f) => f.ruleId === "imports.noDistImports");
 
     assert.equal(allFired.length, 2);
   } finally {

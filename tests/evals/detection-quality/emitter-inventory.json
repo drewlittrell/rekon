@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "1.0.0",
+  "emitters": [
+    {
+      "ruleId": "typescript.compilerDiagnostic",
+      "outputKinds": ["finding"],
+      "evidence": "file-local TypeScript syntactic or stable semantic diagnostic",
+      "jurisdiction": "full JS/TS scans with a valid repository tsconfig",
+      "remediationUnit": "compiler diagnostic location"
+    },
+    {
+      "ruleId": "typescript.typeEscape",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed any assertion or non-null assertion",
+      "jurisdiction": "production JavaScript and TypeScript source",
+      "remediationUnit": "source file and type-escape construct"
+    },
+    {
+      "ruleId": "typescript.errorSuppression",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed empty or log-only catch block",
+      "jurisdiction": "production JavaScript and TypeScript source",
+      "remediationUnit": "source file and error-suppression construct"
+    },
+    {
+      "ruleId": "typescript.placeholderImplementation",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed placeholder Error throw",
+      "jurisdiction": "production JavaScript and TypeScript source",
+      "remediationUnit": "source file and placeholder construct"
+    },
+    {
+      "ruleId": "typescript.asyncPromiseExecutor",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed async callback passed to the unshadowed global Promise constructor",
+      "jurisdiction": "production JavaScript and TypeScript source",
+      "remediationUnit": "source file and async Promise executor construct"
+    },
+    {
+      "ruleId": "typescript.asyncArrayCallback",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed async callback passed to a synchronous method on a statically recognized array",
+      "jurisdiction": "production JavaScript and TypeScript source with array-literal or explicit array-type receivers",
+      "remediationUnit": "source file and async array-callback construct"
+    },
+    {
+      "ruleId": "typescript.functionComplexity",
+      "outputKinds": ["risk"],
+      "evidence": "at least two independent AST function metrics exceed conservative thresholds",
+      "jurisdiction": "named functions in production JavaScript and TypeScript source",
+      "remediationUnit": "source file and stable function identity"
+    },
+    {
+      "ruleId": "repository.checkFailure",
+      "outputKinds": ["finding", "risk"],
+      "evidence": "completed VerificationRun command status plus structured or normalized bounded diagnostic output",
+      "jurisdiction": "repository-native lint, test, typecheck, and build commands",
+      "remediationUnit": "structured diagnostic, normalized command failure, or location-specific source signal"
+    },
+    {
+      "ruleId": "security.scannerResult",
+      "outputKinds": ["risk"],
+      "evidence": "normalized security-classified result from a repository-local SARIF 2.1 report tied to the current EvidenceGraph",
+      "jurisdiction": "explicitly ingested repository-native security scanner output",
+      "remediationUnit": "stable SARIF fingerprint or normalized scanner rule, location, and message identity"
+    },
+    {
+      "ruleId": "similarity.duplicateCandidate",
+      "outputKinds": ["opportunity"],
+      "evidence": "embedding duplicate_candidate inference in CapabilityEvidenceGraph",
+      "jurisdiction": "explicit embedding-similarity graph builds",
+      "remediationUnit": "canonical graph-reference pair"
+    },
+    {
+      "ruleId": "imports.noDistImports",
+      "outputKinds": ["finding"],
+      "evidence": "resolved import target",
+      "jurisdiction": "base source hygiene",
+      "remediationUnit": "source file and import target"
+    },
+    {
+      "ruleId": "imports.noNodeModulesRelativeImports",
+      "outputKinds": ["finding"],
+      "evidence": "resolved import target",
+      "jurisdiction": "base source hygiene",
+      "remediationUnit": "source file and import target"
+    },
+    {
+      "ruleId": "files.noGeneratedAsSource",
+      "outputKinds": ["finding"],
+      "evidence": "scanned file path",
+      "jurisdiction": "base scan contract",
+      "remediationUnit": "generated source path"
+    },
+    {
+      "ruleId": "architecture.noUnknownSystemForSourceFile",
+      "outputKinds": ["model_diagnostic"],
+      "evidence": "ownership hint",
+      "jurisdiction": "repository model completeness",
+      "remediationUnit": "unresolved source ownership"
+    },
+    {
+      "ruleId": "architecture.importCycle",
+      "outputKinds": ["risk"],
+      "evidence": "strongly connected component in the resolved repository import graph",
+      "jurisdiction": "runtime imports among production repository files",
+      "remediationUnit": "one strongly connected module component"
+    },
+    {
+      "ruleId": "architecture.dependencyHub",
+      "outputKinds": ["risk"],
+      "evidence": "resolved repository module with high incoming and outgoing dependency counts",
+      "jurisdiction": "value and type imports among production repository files",
+      "remediationUnit": "one repository module boundary"
+    },
+    {
+      "ruleId": "grammar.divergence",
+      "outputKinds": ["finding"],
+      "evidence": "declared grammar and observed structure",
+      "jurisdiction": "ratified grammar packs only",
+      "remediationUnit": "subject and violated grammar rule"
+    },
+    {
+      "ruleId": "debt.markers",
+      "outputKinds": ["opportunity"],
+      "evidence": "deterministic debt marker",
+      "jurisdiction": "production source and disabled tests",
+      "remediationUnit": "file debt-marker set"
+    },
+    {
+      "ruleId": "debt.semantic",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "semantic judgment report",
+      "jurisdiction": "production source selected for semantic analysis",
+      "remediationUnit": "file and concern pattern"
+    },
+    {
+      "ruleId": "dead_code.unreferenced",
+      "outputKinds": ["finding", "risk"],
+      "evidence": "exports, resolved consumers, and declared roots",
+      "jurisdiction": "production source with framework and generated exemptions",
+      "remediationUnit": "source file export reachability"
+    },
+    {
+      "ruleId": "capability.overlap",
+      "outputKinds": ["opportunity"],
+      "evidence": "capability, ownership, and sharing declarations",
+      "jurisdiction": "repositories with declared ownership",
+      "remediationUnit": "capability across owner systems"
+    },
+    {
+      "ruleId": "naming.contract",
+      "outputKinds": ["finding"],
+      "evidence": "declared grammar and observed symbol name",
+      "jurisdiction": "ratified grammar packs only",
+      "remediationUnit": "symbol and naming rule"
+    },
+    {
+      "ruleId": "grammar.antiPattern",
+      "outputKinds": ["finding"],
+      "evidence": "declared anti-pattern and observed structural signal",
+      "jurisdiction": "applicable grammar tier",
+      "remediationUnit": "subject and anti-pattern rule"
+    }
+  ]
+}

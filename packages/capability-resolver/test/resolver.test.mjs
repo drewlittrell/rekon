@@ -141,6 +141,34 @@ test("preflight resolver records high risk trace for multiple owner systems", as
   });
 });
 
+test("preflight resolver attaches assessments separately and uses only risks in risk evaluation", async () => {
+  await withFixture({
+    ownershipEntries: [
+      { path: "features/plain.ts", ownerSystem: "features", confidence: 0.9, evidence: [] },
+    ],
+    assessmentReport: {
+      assessments: [
+        assessment("risk-1", "risk", "medium", "features/plain.ts"),
+        assessment("opportunity-1", "opportunity", "high", "features/plain.ts"),
+        assessment("unrelated-1", "risk", "high", "other/file.ts"),
+      ],
+    },
+  }, async ({ runtime, snapshotRef }) => {
+    const packet = await resolvePreflight(runtime, snapshotRef, "features/plain.ts");
+
+    assert.deepEqual(packet.relevantAssessments.map((item) => item.id), ["opportunity-1", "risk-1"]);
+    assert.deepEqual(packet.relevantFindings, []);
+    assert.equal(packet.risk.tier, "medium");
+    assert.ok(packet.resolutionTrace.some((entry) => (
+      entry.sourceType === "AssessmentReport"
+      && entry.status === "used"
+      && entry.details?.relevantAssessmentCount === 2
+    )));
+    assert.ok(packet.resolutionTrace.some((entry) => entry.details?.rule === "relevant_risk_assessments"));
+    assert.equal(packet.header.inputRefs.some((ref) => ref.type === "AssessmentReport"), true);
+  });
+});
+
 async function withFixture(input, run) {
   const root = await mkdtemp(join(tmpdir(), "rekon-resolver-"));
 
@@ -220,6 +248,14 @@ async function withFixture(input, run) {
       }, { category: "findings" });
     }
 
+    if (input.assessmentReport) {
+      refs.assessmentReportRef = await runtime.artifacts.write({
+        header: header("AssessmentReport", "assessments-test", [evidenceRef]),
+        summary: { total: input.assessmentReport.assessments.length, byKind: {}, byImpact: {}, byType: {} },
+        assessments: input.assessmentReport.assessments,
+      }, { category: "findings" });
+    }
+
     const snapshotRef = await runtime.artifacts.write({
       header: header("IntelligenceSnapshot", "snapshot-test", Object.values(refs)),
       repo: {
@@ -236,6 +272,7 @@ async function withFixture(input, run) {
       },
       evaluations: {
         ...(refs.findingReportRef ? { FindingReport: [refs.findingReportRef] } : {}),
+        ...(refs.assessmentReportRef ? { AssessmentReport: [refs.assessmentReportRef] } : {}),
       },
       publications: {},
       actions: {},
@@ -274,6 +311,27 @@ function ownershipFact(path, system, confidence) {
       system,
     },
     confidence,
+  };
+}
+
+function assessment(id, kind, impact, path) {
+  return {
+    id,
+    kind,
+    type: kind,
+    impact,
+    title: id,
+    description: `${kind} for ${path}`,
+    subjects: [path],
+    files: [path],
+    evidence: [{ type: "EvidenceGraph", id: "evidence-test", schemaVersion: "0.1.0" }],
+    rootCauseKey: `${kind}:${path}`,
+    confidence: {
+      score: 0.8,
+      basis: "deterministic",
+      verification: "corroborated",
+      rationale: "test fixture",
+    },
   };
 }
 

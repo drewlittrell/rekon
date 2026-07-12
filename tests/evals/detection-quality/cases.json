@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "1.0.0",
+  "cases": [
+    {
+      "id": "reproducible-typescript-error",
+      "ruleId": "typescript.compilerDiagnostic",
+      "expectedKind": "finding",
+      "reason": "The repository compiler reproduces a file-local syntax or stable type contradiction."
+    },
+    {
+      "id": "as-any-without-runtime-proof",
+      "ruleId": "typescript.typeEscape",
+      "expectedKind": "risk",
+      "reason": "The AST proves a type-system escape, but not that invalid data reaches it at runtime."
+    },
+    {
+      "id": "empty-catch-without-runtime-proof",
+      "ruleId": "typescript.errorSuppression",
+      "expectedKind": "risk",
+      "reason": "The AST proves error suppression, but not whether the discarded failure affects behavior."
+    },
+    {
+      "id": "placeholder-throw-without-reachability",
+      "ruleId": "typescript.placeholderImplementation",
+      "expectedKind": "risk",
+      "reason": "The placeholder is explicit, but static evidence does not prove the path is reachable."
+    },
+    {
+      "id": "async-promise-executor-without-runtime-proof",
+      "ruleId": "typescript.asyncPromiseExecutor",
+      "expectedKind": "risk",
+      "reason": "The Promise constructor ignores the async executor's returned promise, but static evidence does not prove the path executes or loses a rejection."
+    },
+    {
+      "id": "async-synchronous-array-callback",
+      "ruleId": "typescript.asyncArrayCallback",
+      "expectedKind": "risk",
+      "reason": "A statically recognized array method consumes a synchronous callback result, but runtime impact and intent remain unproven."
+    },
+    {
+      "id": "multi-signal-function-complexity",
+      "ruleId": "typescript.functionComplexity",
+      "expectedKind": "risk",
+      "reason": "Multiple AST measurements corroborate concentrated maintenance risk, but do not prove a defect or runtime impact."
+    },
+    {
+      "id": "one-off-repository-check-failure",
+      "ruleId": "repository.checkFailure",
+      "expectedKind": "risk",
+      "reason": "One failed execution is useful evidence but does not prove the failure is reproducible on the current commit."
+    },
+    {
+      "id": "repeated-current-commit-check-failure",
+      "ruleId": "repository.checkFailure",
+      "expectedKind": "finding",
+      "reason": "Two distinct runs reproduced the same normalized repository-native check failure on the current evidence state."
+    },
+    {
+      "id": "structured-multi-diagnostic-check-failure",
+      "ruleId": "repository.checkFailure",
+      "expectedKind": "finding",
+      "reason": "Each structured diagnostic keeps an independent stable identity even when command summaries and durations change."
+    },
+    {
+      "id": "test-failure-with-application-graph-context",
+      "ruleId": "repository.checkFailure",
+      "expectedKind": "finding",
+      "reason": "Graph-backed route, screen, and capability context enriches a repeated test failure without replacing execution proof."
+    },
+    {
+      "id": "file-diagnostic-with-import-blast-radius",
+      "ruleId": "repository.checkFailure",
+      "expectedKind": "risk",
+      "reason": "A current resolved import graph explains potential propagation from a one-off file-local failure without changing promotion or claiming dependent breakage."
+    },
+    {
+      "id": "repository-native-security-scan-result",
+      "ruleId": "security.scannerResult",
+      "expectedKind": "risk",
+      "reason": "A security-classified SARIF result is reproducible tool evidence, but one scanner report does not by itself prove exploitability or justify automatic finding promotion."
+    },
+    {
+      "id": "embedding-duplicate-candidate",
+      "ruleId": "similarity.duplicateCandidate",
+      "expectedKind": "opportunity",
+      "reason": "High embedding similarity justifies comparison, not a claim of equivalent behavior or required consolidation."
+    },
+    {
+      "id": "resolved-dist-import",
+      "ruleId": "imports.noDistImports",
+      "expectedKind": "finding",
+      "reason": "A resolved source import points at generated distribution output."
+    },
+    {
+      "id": "unknown-owner",
+      "ruleId": "architecture.noUnknownSystemForSourceFile",
+      "expectedKind": "model_diagnostic",
+      "reason": "Missing ownership is a repository-model completeness problem."
+    },
+    {
+      "id": "resolved-runtime-import-cycle",
+      "ruleId": "architecture.importCycle",
+      "expectedKind": "risk",
+      "reason": "Resolved import edges prove the cycle exists, but not that it causes a runtime defect or should be removed."
+    },
+    {
+      "id": "bidirectional-dependency-pressure",
+      "ruleId": "architecture.dependencyHub",
+      "expectedKind": "risk",
+      "reason": "High incoming and outgoing coupling identifies change amplification, but an intentional stable facade may still be appropriate."
+    },
+    {
+      "id": "todo-marker",
+      "ruleId": "debt.markers",
+      "expectedKind": "opportunity",
+      "reason": "A marker declares debt but does not prove a defect."
+    },
+    {
+      "id": "semantic-debt-only",
+      "ruleId": "debt.semantic",
+      "expectedKind": "semantic_claim",
+      "reason": "Model judgment remains a claim until corroborated."
+    },
+    {
+      "id": "unreferenced-without-roots",
+      "ruleId": "dead_code.unreferenced",
+      "expectedKind": "risk",
+      "reason": "External or dynamic consumers cannot be excluded without complete roots."
+    },
+    {
+      "id": "unreachable-from-declared-roots",
+      "ruleId": "dead_code.unreferenced",
+      "expectedKind": "finding",
+      "reason": "Declared-root reachability and missing consumers corroborate dead code."
+    },
+    {
+      "id": "cross-system-capability-overlap",
+      "ruleId": "capability.overlap",
+      "expectedKind": "opportunity",
+      "reason": "Overlap is structural; consolidation value is optional until policy says otherwise."
+    },
+    {
+      "id": "ratified-grammar-violation",
+      "ruleId": "grammar.divergence",
+      "expectedKind": "finding",
+      "reason": "Observed structure violates applicable declared law."
+    }
+  ]
+}

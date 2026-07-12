@@ -78,7 +78,12 @@ export type RekonEmbeddingProviderInput = {
   task: RekonEmbeddingTask;
   texts: string[];
   model?: string;
+  dimensions?: number;
   metadata?: Record<string, unknown>;
+};
+
+export type RekonEmbeddingProviderUsage = {
+  totalTokens?: number;
 };
 
 export type RekonEmbeddingProviderResult =
@@ -87,7 +92,7 @@ export type RekonEmbeddingProviderResult =
       vectors: number[][];
       provider: string;
       model?: string;
-      usage?: unknown;
+      usage?: RekonEmbeddingProviderUsage;
       warnings?: string[];
     }
   | {
@@ -926,9 +931,9 @@ export type CreateVoyageEmbeddingProviderOptions = {
   baseUrl?: string;
   /** Provider id used for routing (defaults to "voyage"). */
   id?: string;
-  /** Model used when the input does not specify one (defaults to voyage-code-3). */
+  /** Model used when the input does not specify one (defaults to voyage-4). */
   defaultModel?: string;
-  /** Embedding dimensions hint (defaults to 1024); informational for the caller. */
+  /** Requested output dimensions (defaults to the model default). */
   dimensions?: number;
   /** Voyage `input_type` (defaults to "document"). */
   inputType?: "document" | "query";
@@ -938,8 +943,20 @@ export type CreateVoyageEmbeddingProviderOptions = {
   fetchImpl?: RekonFetchLike;
 };
 
-export const VOYAGE_DEFAULT_MODEL = "voyage-code-3";
-export const VOYAGE_DEFAULT_DIMENSIONS = 1024;
+export const VOYAGE_DEFAULT_MODEL = "voyage-4";
+export const VOYAGE_DEFAULT_DIMENSIONS = 512;
+export const VOYAGE_ECONOMY_MODEL = "voyage-4-lite";
+export const VOYAGE_4_COMPATIBLE_MODELS = Object.freeze([
+  "voyage-4-large",
+  "voyage-4",
+  "voyage-4-lite",
+] as const);
+
+export function areVoyageEmbeddingModelsCompatible(documentModel: string, queryModel: string): boolean {
+  if (documentModel === queryModel) return true;
+  const compatible = new Set<string>(VOYAGE_4_COMPATIBLE_MODELS);
+  return compatible.has(documentModel) && compatible.has(queryModel);
+}
 
 function extractEmbeddingVectors(payload: unknown): number[][] | null {
   if (!isRecord(payload)) return null;
@@ -953,6 +970,14 @@ function extractEmbeddingVectors(payload: unknown): number[][] | null {
     vectors.push(embedding as number[]);
   }
   return vectors;
+}
+
+function extractEmbeddingUsage(payload: unknown): RekonEmbeddingProviderUsage | undefined {
+  if (!isRecord(payload)) return undefined;
+  const usage = (payload as { usage?: unknown }).usage;
+  if (!isRecord(usage)) return undefined;
+  const totalTokens = (usage as { total_tokens?: unknown }).total_tokens;
+  return typeof totalTokens === "number" ? { totalTokens } : undefined;
 }
 
 export function createVoyageEmbeddingProvider(
@@ -970,6 +995,7 @@ export function createVoyageEmbeddingProvider(
     id,
     async embed(input: RekonEmbeddingProviderInput): Promise<RekonEmbeddingProviderResult> {
       const model = input.model ?? options.defaultModel ?? VOYAGE_DEFAULT_MODEL;
+      const dimensions = input.dimensions ?? options.dimensions;
       const withModel = { model };
 
       // Boundary: no key → clean refusal, and NO network call.
@@ -1002,7 +1028,12 @@ export function createVoyageEmbeddingProvider(
         };
       }
 
-      const requestBody = JSON.stringify({ model, input: texts, input_type: inputType });
+      const requestBody = JSON.stringify({
+        model,
+        input: texts,
+        input_type: inputType,
+        ...(typeof dimensions === "number" && dimensions > 0 ? { output_dimension: dimensions } : {}),
+      });
 
       let controller: { signal: unknown; abort(): void } | undefined;
       let timer: unknown;
@@ -1062,9 +1093,19 @@ export function createVoyageEmbeddingProvider(
             warnings: [`Expected ${texts.length} embeddings, received ${vectors.length}.`],
           };
         }
+        if (dimensions !== undefined && vectors.some((vector) => vector.length !== dimensions)) {
+          return {
+            ok: false,
+            provider: id,
+            ...withModel,
+            error: "embedding-dimension-mismatch",
+            warnings: [`Expected ${dimensions}-dimension embeddings.`],
+          };
+        }
 
         const resolvedModel = extractModel(envelope) ?? model;
-        return { ok: true, provider: id, model: resolvedModel, vectors };
+        const usage = extractEmbeddingUsage(envelope);
+        return { ok: true, provider: id, model: resolvedModel, vectors, ...(usage ? { usage } : {}) };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const aborted = error instanceof Error && (error.name === "AbortError" || message.toLowerCase().includes("abort"));

@@ -3,6 +3,6 @@
   "fixture.unported_rule": { "status": "unported" },
   "fixture.rejected_rule": {
     "status": "rejected",
-    "citation": "docs/strategy/issue-governance-architecture-decision.md"
+    "citation": "docs/strategy/detection-quality.md#naming-and-anti-patterns"
   }
 }

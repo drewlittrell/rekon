@@ -19,6 +19,7 @@ REKON_PARITY_CORPUS=/path/to/corpus node tests/bench/classic-parity-bench.mjs
 # or
 node tests/bench/classic-parity-bench.mjs --corpus /path/to/corpus \
   [--rule-map tests/bench/rule-map.json] [--output tests/bench/output] \
+  [--overruled /path/to/private-overruled.json] \
   [--repo <id>] [--skip-refresh]
 ```
 
@@ -56,7 +57,7 @@ repo's baseline scan (classic writes it to
 
 `tests/bench/rule-map.json` is the explicit classic-ruleId → disposition table.
 Disposition semantics are authorized by
-`docs/strategy/detection-design-decisions.md` (Bench scoring policy):
+`docs/strategy/detection-quality.md`:
 
 ```json
 { "classic.rule.id": { "status": "ported", "rekonRuleId": "..." } }
@@ -74,7 +75,7 @@ Disposition semantics are authorized by
 - `deferred` — real goal, missing substrate, named re-entry condition.
   In the denominator, uncredited, **excluded from the gap queue**.
 - `rejected` — goal not Rekon's to serve. **Excluded from the denominator**
-  with its citation; per WO-3, this is the only way the denominator shrinks.
+  with its citation; this is the only way the denominator shrinks.
 
 Every classic rule observed in the corpus must have a row; the bench fails
 loudly on unmapped rules rather than silently scoring them.
@@ -87,12 +88,13 @@ The recall number may not be improved by:
    `FindingFilterReport` suppression or a named decision-doc citation;
 2. editing `rule-map.json` dispositions without a linked decision;
 3. adding filter policies whose only effect is bench score movement;
-4. adding `overruled.json` entries on agent judgment. **Only operator
-   rulings overrule.** Every entry must cite a resolvable `rulingRef`
+4. adding private overrule entries on agent judgment. **Only operator rulings
+   overrule.** Pass them with `--overruled` or `REKON_PARITY_OVERRULED`; never
+   commit repository-specific finding IDs or paths. Every entry must cite a resolvable `rulingRef`
    into a committed law artifact (overlay entry id or ruling memo
    section), is per-finding (never per-rule), and honest losses -
    semantically wrong matches, umbrella file-overlap noise - never
-   qualify (WO-12).
+   qualify.
 
 The report renders every intentional classification with its citation so the
 operator can audit the scoreboard, not just read it.

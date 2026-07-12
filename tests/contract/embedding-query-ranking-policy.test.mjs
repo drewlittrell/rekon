@@ -71,6 +71,7 @@ async function prep() {
   runCli(["capability", "graph", "build", "--root", root, "--json"], root);
   const index = runCli(["embeddings", "index", "--root", root, "--all", ...mock, "--json"], root);
   const queryDefault = runCli(["embeddings", "query", "--root", root, "--text", "user lookup and profile data", ...mock, "--json"], root);
+  const queryIncompatible = runCli(["embeddings", "query", "--root", root, "--text", "user lookup", "--provider", "mock", "--model", "other-model", "--json"], root);
   const queryClamp = runCli(["embeddings", "query", "--root", root, "--text", "user lookup and profile data", ...mock, "--top-k", "999", "--json"], root);
   const queryZero = runCli(["embeddings", "query", "--root", root, "--text", "x", ...mock, "--top-k", "0", "--json"], root);
   const queryHuman = runCli(["embeddings", "query", "--root", root, "--text", "user lookup and profile data", ...mock], root);
@@ -79,7 +80,7 @@ async function prep() {
   const help = runCli(["--help"], root);
   const srcDiff = spawnSync("git", ["diff", "--quiet", "--", "src"], { cwd: root });
 
-  const state = { root, index, queryDefault, queryClamp, queryZero, queryHuman, simGraph, validate, help, srcDiffStatus: srcDiff.status };
+  const state = { root, index, queryDefault, queryIncompatible, queryClamp, queryZero, queryHuman, simGraph, validate, help, srcDiffStatus: srcDiff.status };
   work = { state };
   return state;
 }
@@ -98,6 +99,7 @@ function capturingFetch(captured) {
   return async (_url, init) => {
     const body = JSON.parse(String(init?.body ?? "{}"));
     captured.inputType = body.input_type;
+    captured.outputDimension = body.output_dimension;
     const n = Array.isArray(body.input) ? body.input.length : 1;
     return {
       ok: true,
@@ -126,19 +128,21 @@ async function noArtifactOfType(root, prefix) {
 // ---------- 1 ----------
 test("Voyage index path sends input_type=document", async () => {
   const captured = {};
-  const provider = createVoyageEmbeddingProvider({ apiKey: "k", inputType: "document", fetchImpl: capturingFetch(captured) });
+  const provider = createVoyageEmbeddingProvider({ apiKey: "k", inputType: "document", dimensions: 4, fetchImpl: capturingFetch(captured) });
   const res = await provider.embed({ task: "code.embedding", texts: ["chunk text"], model: "voyage-code-3" });
   assert.equal(res.ok, true, JSON.stringify(res));
   assert.equal(captured.inputType, "document");
+  assert.equal(captured.outputDimension, 4);
 });
 
 // ---------- 2 ----------
 test("Voyage query path sends input_type=query", async () => {
   const captured = {};
-  const provider = createVoyageEmbeddingProvider({ apiKey: "k", inputType: "query", fetchImpl: capturingFetch(captured) });
+  const provider = createVoyageEmbeddingProvider({ apiKey: "k", inputType: "query", dimensions: 4, fetchImpl: capturingFetch(captured) });
   const res = await provider.embed({ task: "artifact.retrieval", texts: ["query text"], model: "voyage-code-3" });
   assert.equal(res.ok, true, JSON.stringify(res));
   assert.equal(captured.inputType, "query");
+  assert.equal(captured.outputDimension, 4);
 });
 
 // ---------- 3 ----------
@@ -148,6 +152,14 @@ test("`embeddings query` default effectiveTopK is 8", async () => {
   assert.equal(payload.effectiveTopK, 8);
   assert.equal(payload.query.effectiveTopK, 8);
   assert.equal(payload.query.requestedTopK, 8);
+});
+
+test("`embeddings query` rejects an incompatible cached model space", async () => {
+  const { queryIncompatible } = await prep();
+  assert.notEqual(queryIncompatible.status, 0);
+  const payload = JSON.parse(queryIncompatible.stdout);
+  assert.equal(payload.error, "embedding-index-incompatible");
+  assert.match(payload.note, /embeddings index --all/);
 });
 
 // ---------- 4 ----------
@@ -211,6 +223,13 @@ test("query JSON includes provider/model/inputType; index reports input_type=doc
   assert.equal(q.query.inputType, "query");
   assert.equal(q.inputType, "query");
   assert.equal(parse(index).summary.inputType, "document");
+});
+
+test("query JSON includes the embedding dimensions", async () => {
+  const { queryDefault } = await prep();
+  const payload = parse(queryDefault);
+  assert.equal(payload.dimensions, 64);
+  assert.equal(payload.query.dimensions, 64);
 });
 
 // ---------- 13 ----------

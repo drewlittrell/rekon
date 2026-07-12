@@ -1,7 +1,7 @@
 // Gated live-provider contract test for the Live Voyage Embedding Dogfood (slice 162).
 //
-// This suite exercises the REAL Voyage provider (`voyage-code-3`, 1024-dim) and is
-// therefore GATED: every live assertion skips unless BOTH
+// This suite preserves the prior `voyage-code-3`, 1024-dimension baseline and
+// is therefore GATED: every live assertion skips unless BOTH
 //   - `VOYAGE_API_KEY` is set in the environment, and
 //   - `REKON_RUN_LIVE_EMBEDDING_TESTS=1`
 // are present. The committed test suite runs keyless (the project gate strips

@@ -18,6 +18,7 @@ type PreflightPacketLike = {
   };
   requiredChecks?: string[];
   relevantFindings?: unknown[];
+  relevantAssessments?: unknown[];
   applicableMemory?: unknown[];
 };
 
@@ -63,6 +64,7 @@ export type WorkOrder = {
   requiredChecks: string[];
   successCriteria: string[];
   relevantFindings: unknown[];
+  relevantAssessments?: unknown[];
   relevantMemory: unknown[];
   antiGamingInstruction: string;
   markdown: string;
@@ -139,6 +141,17 @@ export type VerificationPlanIntentHandoff = {
   };
 };
 
+export type VerificationPlanCoverage = {
+  format: "istanbul";
+  framework: "vitest" | "jest";
+  provider: "v8" | "istanbul" | "babel";
+  testPath: string;
+  /** Source files this isolated run is intended to exercise. */
+  targetPaths?: string[];
+  coveragePath: string;
+  isolated: true;
+};
+
 export type VerificationPlanLike = {
   header: ArtifactHeader;
   workOrderRef?: ArtifactRef;
@@ -147,6 +160,7 @@ export type VerificationPlanLike = {
   // `"resolver"` | `"coherency-delta"` | `"intent-handoff"` (open string).
   source?: string;
   intentHandoff?: VerificationPlanIntentHandoff;
+  coverage?: VerificationPlanCoverage;
 };
 
 export type CreateVerificationResultInput = {
@@ -1244,6 +1258,7 @@ export const intentActuator: Actuator = {
         "Verification commands pass or failures are reported with concrete evidence.",
       ],
       relevantFindings: preflight.relevantFindings ?? [],
+      relevantAssessments: preflight.relevantAssessments ?? [],
       relevantMemory: preflight.applicableMemory ?? [],
       antiGamingInstruction: "Do not bypass failing checks, delete tests, or weaken validation to make verification pass.",
       markdown: "",

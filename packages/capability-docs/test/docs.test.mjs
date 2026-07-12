@@ -15,6 +15,19 @@ test("docs publisher writes metadata-bearing publication artifacts", async () =>
       capabilities: [docsCapability],
     });
     const snapshotRef = await runtime.runSnapshot();
+    await runtime.artifacts.write({
+      header: {
+        artifactType: "ResolverPacket",
+        artifactId: "preflight-test",
+        schemaVersion: "0.1.0",
+        generatedAt: "2026-07-10T00:00:00.000Z",
+        subject: { repoId: root },
+        producer: { id: "test", version: "1.0.0" },
+        inputRefs: [snapshotRef],
+      },
+      relevantFindings: [{ id: "finding-1" }],
+      relevantAssessments: [{ kind: "risk" }, { kind: "opportunity" }, { kind: "semantic_claim" }],
+    });
     const refs = await runtime.runPublish({
       publisherId: "@rekon/capability-docs.publisher",
     });
@@ -26,6 +39,10 @@ test("docs publisher writes metadata-bearing publication artifacts", async () =>
     assert.equal(agents.header.snapshotId, snapshotRef.id);
     assert.equal(agents.kind, "agents");
     assert.match(agents.content, /Docs are publications, not canonical truth/);
+    assert.match(agents.content, /## Current Preflight Context/);
+    assert.match(agents.content, /Governed findings: 1/);
+    assert.match(agents.content, /Risks: 1/);
+    assert.match(agents.content, /Opportunities: 1/);
     assert.equal(agents.header.inputRefs[0].type, "IntelligenceSnapshot");
   } finally {
     await rm(root, { recursive: true, force: true });

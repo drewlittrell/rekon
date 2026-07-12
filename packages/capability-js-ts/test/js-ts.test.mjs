@@ -70,6 +70,163 @@ test("JS/TS provider supports changed-files incremental input", async () => {
   }
 });
 
+test("JS/TS provider emits stable compiler diagnostics and excludes dependency-resolution noise", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-diagnostics-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext" },
+      include: ["src/**/*.ts"],
+    }), "utf8");
+    await writeFile(join(root, "src", "index.ts"), [
+      "import { missing } from 'not-installed';",
+      "export const value: string = 42;",
+      "export const result = missing;",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const diagnostics = facts.filter((fact) => fact.kind === "typescript:diagnostic");
+
+    assert.equal(diagnostics.length, 1);
+    assert.equal(diagnostics[0].value.code, 2322);
+    assert.equal(diagnostics[0].value.phase, "semantic");
+    assert.equal(diagnostics[0].value.line, 2);
+    assert.equal(diagnostics[0].provenance.file, "src/index.ts");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("JS/TS provider emits AST-backed source quality signals", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-quality-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "quality.ts"), [
+      "function inspect(input?: { value: string }) {",
+      "  const unsafe = input as any;",
+      "  const required = input!.value;",
+      "  try { use(unsafe); } catch {}",
+      "  try { use(required); } catch (error) { console.error(error); }",
+      "}",
+      "function pending() { throw new Error('Not implemented'); }",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const signals = facts
+      .filter((fact) => fact.kind === "typescript:source-quality")
+      .map((fact) => fact.value.signal)
+      .sort();
+
+    assert.deepEqual(signals, [
+      "as_any_assertion",
+      "catch_only_logs",
+      "empty_catch",
+      "non_null_assertion",
+      "placeholder_throw",
+    ]);
+    assert.equal(facts.filter((fact) => fact.kind === "typescript:source-quality").every((fact) => fact.provenance.line > 0), true);
+    assert.equal(facts.some((fact) => fact.kind === "content_signal" && fact.value.signal === "consoleLogging"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("console calls outside catch blocks remain governed content signals", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-console-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "console.ts"), "console.warn('visible');\n", "utf8");
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    assert.equal(facts.some((fact) => fact.kind === "content_signal" && fact.value.signal === "consoleLogging"), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("console calls in a catch that rethrows remain governed content signals", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-console-rethrow-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "console.ts"), "try { work(); } catch (error) { console.error(error); throw error; }\n", "utf8");
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    assert.equal(facts.some((fact) => fact.kind === "content_signal" && fact.value.signal === "consoleLogging"), true);
+    assert.equal(facts.some((fact) => fact.kind === "typescript:source-quality" && fact.value.signal === "catch_only_logs"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("JS/TS provider emits package, lifecycle, route, screen, and test evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-conventions-"));
+  try {
+    await mkdir(join(root, "app", "api", "users"), { recursive: true });
+    await mkdir(join(root, "app", "(marketing)", "about"), { recursive: true });
+    await mkdir(join(root, "pages", "api"), { recursive: true });
+    await mkdir(join(root, "tests", "integration"), { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({
+      name: "convention-fixture",
+      version: "1.0.0",
+      type: "module",
+      scripts: {
+        build: "tsc",
+        dev: "next dev",
+        test: "node --test",
+        "test:integration": "node --test tests/integration",
+        typecheck: "tsc --noEmit",
+      },
+    }), "utf8");
+    await writeFile(join(root, "app", "api", "users", "route.ts"), [
+      "export function GET() { return Response.json([]); }",
+      "export function POST() { return Response.json({}); }",
+    ].join("\n"), "utf8");
+    await writeFile(join(root, "app", "(marketing)", "about", "page.tsx"), "export default function Page() { return <main>About</main>; }\n", "utf8");
+    await writeFile(join(root, "pages", "api", "legacy.ts"), "export default function handler() {}\n", "utf8");
+    await writeFile(join(root, "pages", "index.tsx"), "export default function Home() { return <main>Home</main>; }\n", "utf8");
+    await writeFile(join(root, "tests", "integration", "user.test.ts"), "import test from 'node:test'; test('works', () => {});\n", "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: true });
+    const manifest = facts.find((fact) => fact.kind === "manifest");
+    const targets = facts.filter((fact) => fact.kind === "build_target");
+    const routes = facts.filter((fact) => fact.kind === "route");
+    const screens = facts.filter((fact) => fact.kind === "screen");
+    const tests = facts.filter((fact) => fact.kind === "test");
+
+    assert.equal(manifest.value.name, "convention-fixture");
+    assert.deepEqual(targets.map((fact) => fact.value.name).sort(), ["build", "test", "test:integration", "typecheck"]);
+    assert.deepEqual(routes.map((fact) => fact.value.routePath).sort(), ["/api/legacy", "/api/users"]);
+    assert.deepEqual(routes.find((fact) => fact.value.routePath === "/api/users").value.methods, ["GET", "POST"]);
+    assert.deepEqual(screens.map((fact) => fact.value.routePath).sort(), ["/", "/about"]);
+    assert.equal(tests.length, 1);
+    assert.equal(tests[0].value.framework, "node-test");
+    assert.equal(tests[0].value.testKind, "integration");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("JS/TS provider skips compiler diagnostics during incremental observe", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-diagnostics-incremental-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({ include: ["src/**/*.ts"] }), "utf8");
+    await writeFile(join(root, "src", "index.ts"), "export const value: string = 42;\n", "utf8");
+
+    const facts = await jsTsProvider.extract({
+      repoRoot: root,
+      includeTests: false,
+      incremental: true,
+      changedFiles: ["src/index.ts"],
+    });
+
+    assert.equal(facts.some((fact) => fact.kind === "typescript:diagnostic"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("JS/TS provider rejects changed-files inputs outside the repo root", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-"));
   const outside = await mkdtemp(join(tmpdir(), "rekon-js-ts-outside-"));

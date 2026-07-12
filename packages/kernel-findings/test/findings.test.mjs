@@ -30,6 +30,40 @@ test("createFindingReport summarizes and normalizes findings", () => {
   assert.equal(validateFindingReport(report).ok, true);
   assert.deepEqual(report.summary, { total: 1, bySeverity: { medium: 1 }, byType: { import: 1 } });
   assert.equal(report.findings[0].status, "new");
+  assert.equal(report.findings[0].rootCauseKey, "finding-1");
+});
+
+test("createFindingReport fuses explicit shared root causes", () => {
+  const report = createFindingReport({
+    header,
+    findings: [
+      {
+        id: "signal-a",
+        rootCauseKey: "import:src/a.ts:dist",
+        type: "import",
+        severity: "medium",
+        title: "Bad import",
+        description: "Imports dist output.",
+        subjects: ["src/a.ts"],
+        files: ["src/a.ts"],
+      },
+      {
+        id: "signal-b",
+        rootCauseKey: "import:src/a.ts:dist",
+        type: "architecture",
+        severity: "high",
+        title: "Boundary bypass",
+        description: "The same import bypasses a boundary.",
+        subjects: ["src/a.ts"],
+        files: ["src/a.ts"],
+      },
+    ],
+  });
+
+  assert.equal(report.summary.total, 1);
+  assert.equal(report.findings[0].severity, "high");
+  assert.equal(report.findings[0].rootCauseKey, "import:src/a.ts:dist");
+  assert.equal(report.findings[0].supportingFindings.length, 2);
 });
 
 test("validateFindingReport rejects bad findings", () => {

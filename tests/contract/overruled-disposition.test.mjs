@@ -1,8 +1,6 @@
-// WO-12 behavioral tests: the overruled disposition. Only operator
-// rulings overrule (rulingRef must resolve into a committed law
-// artifact), overruling is per-finding never per-rule, overruled
-// findings leave the denominator like rejected rows, and the report
-// renders them under their own heading with citations.
+// Behavioral tests for operator overrules. A rulingRef must resolve into a
+// committed law artifact, overruling is per-finding rather than per-rule, and
+// overruled findings leave the recall denominator like rejected rows.
 
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
@@ -109,21 +107,18 @@ test("report renders the overruled heading with per-finding citations", () => {
   assert.match(markdown, /Denominator excludes operator-overruled findings: 1 weighted/);
 });
 
-test("the seeded list is valid against this repository and stays single-entry-per-citation honest", () => {
-  const overruledPath = join(repoRoot, "tests/bench/overruled.json");
-  const entries = JSON.parse(readFileSync(overruledPath, "utf8"));
+test("operator overrules validate against repository rulings without a checked-in private list", () => {
+  const defaultOverruledPath = join(repoRoot, "tests/bench/overruled.json");
+  const entries = [
+    {
+      classicId: "fixture-boundary-contract",
+      rulingRef: "docs/adr/0005-overruled-classic-findings.md#boundary-contracts",
+      note: "Synthetic contract fixture.",
+    },
+  ];
 
-  // The permanent regression seed stays first: the boundary-contracts
-  // contradiction. The list grows only by maintainer ruling: nine
-  // living-conduit entries, eighteen naming entries, and sixteen direct
-  // contradiction entries, so 1 + 9 + 18 + 16.
-  assert.equal(entries.length, 44);
-  assert.equal(entries[0].classicId, "route-complexity-4f606b38");
-  assert.equal(entries[0].rulingRef, "docs/adr/0005-overruled-classic-findings.md#boundary-contracts");
-  assert.equal(entries.filter((e) => e.note?.includes("WO-17 Part 1")).length, 18);
-  assert.equal(entries.filter((e) => e.note?.includes("WO-18 Part 4")).length, 16);
+  assert.equal(existsSync(defaultOverruledPath), false);
 
-  // It validates against the real repo files (the same check the runner runs).
   core.validateOverruledList(entries, (path) => {
     const candidate = join(repoRoot, path);
 

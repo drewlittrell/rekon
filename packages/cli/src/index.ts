@@ -40,10 +40,12 @@ import intentCapability, {
   type VerificationCommandResult,
   type VerificationEvidenceSummary,
   type VerificationPlanLike,
+  type VerificationPlanCoverage,
   type VerificationRun,
   type VerificationRunCommand,
 } from "@rekon/capability-intent";
 import verifyCapability, {
+  createIsolatedCoverageVerificationPlan,
   createVerificationRunDryRun,
   deriveVerificationResultFromRun,
   executeVerificationRun,
@@ -51,6 +53,9 @@ import verifyCapability, {
   type VerificationRunCommandValidationIssue,
   type VerificationRunDryRunResult,
   type VerificationRunSafetySummary,
+  type IsolatedCoverageFramework,
+  type IsolatedCoverageProvider,
+  validateVerificationRun,
   VERIFY_CAPABILITY_ID,
   VERIFY_CAPABILITY_VERSION,
 } from "@rekon/capability-verify";
@@ -72,6 +77,8 @@ import modelCapability, {
   HANDOFF_COVERAGE_REPORT_ARTIFACT_ID_PREFIX,
   HANDOFF_EVENT_LOG_PATH,
   buildRuntimeGraphObservationReport,
+  parseIstanbulCoverage,
+  parseSarifSecurityReport,
   buildRuntimeGraphDriftReport,
   buildIntentAssessmentReport,
   selectSemanticFileContext,
@@ -188,6 +195,7 @@ import {
   createOpenAiLlmProvider,
   createOpenAiResponsesLlmProvider,
   createVoyageEmbeddingProvider,
+  areVoyageEmbeddingModelsCompatible,
   VOYAGE_DEFAULT_MODEL,
   VOYAGE_DEFAULT_DIMENSIONS,
   type RekonEmbeddingProvider,
@@ -265,10 +273,13 @@ import {
   createSemanticDebtJudgmentReport,
   type SemanticDebtJudgmentEntry,
   type SemanticDebtJudgmentReport,
+  type SecurityScanReport,
   type StepCapabilityGraph,
 } from "@rekon/kernel-repo-model";
+import type { AssessmentReport } from "@rekon/kernel-assessments";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
+  type FindingReport,
   type FindingFilterHealthReport,
   type FindingFilterPolicyApplyPlan,
   type FindingFilterPolicyFingerprint,
@@ -775,6 +786,18 @@ export async function main(argv: string[]): Promise<void> {
     // runs before this so the policy evaluator can lift the current report.
     const refresh = await runRefresh(root, {});
 
+    const detectionStore = createLocalArtifactStore(root);
+    await detectionStore.init();
+    const latestFindingReport = await readLatestArtifactOrUndefined<FindingReport>(detectionStore, "FindingReport");
+    const latestAssessmentReport = await readLatestArtifactOrUndefined<AssessmentReport>(detectionStore, "AssessmentReport");
+    const detectionSummary = {
+      findings: latestFindingReport?.summary.total ?? 0,
+      risks: latestAssessmentReport?.summary.byKind.risk ?? 0,
+      opportunities: latestAssessmentReport?.summary.byKind.opportunity ?? 0,
+      semanticClaims: latestAssessmentReport?.summary.byKind.semantic_claim ?? 0,
+      modelDiagnostics: latestAssessmentReport?.summary.byKind.model_diagnostic ?? 0,
+    };
+
     const snapshotReady = await detectSnapshotReady();
     const stateAfter: RekonWorkspaceState = snapshotReady
       ? "snapshot_ready"
@@ -809,7 +832,7 @@ export async function main(argv: string[]): Promise<void> {
         initialized: !initializedBefore,
       },
       snapshot: { ready: snapshotReady },
-      summary: { artifacts: refresh.artifacts.length },
+      summary: { artifacts: refresh.artifacts.length, ...detectionSummary },
       nextActions,
       boundaries,
       refresh,
@@ -842,6 +865,11 @@ export async function main(argv: string[]): Promise<void> {
         `Workspace: ${initializedBefore ? "existing" : "initialized"}`,
         `Snapshot: ${snapshotReady ? "ready" : "not ready"}`,
         `Artifacts: ${refresh.artifacts.length}`,
+        `Findings: ${detectionSummary.findings}`,
+        `Risks: ${detectionSummary.risks}`,
+        `Opportunities: ${detectionSummary.opportunities}`,
+        `Semantic claims: ${detectionSummary.semanticClaims}`,
+        `Model diagnostics: ${detectionSummary.modelDiagnostics}`,
         ...semanticHumanLines,
         ...semanticDebtHumanLines,
         firstScan ? "First scan complete." : "Scan complete.",
@@ -1527,9 +1555,15 @@ export async function main(argv: string[]): Promise<void> {
     const indexedRecords: EmbeddingIndexRecord[] = [];
     let failed = 0;
     let providerError: string | undefined;
+    let providerTokens = 0;
     if (toEmbed.length > 0) {
       const provider = resolveEmbeddingProvider({ providerId, model, dimensions, inputType: "document" });
-      const result = await provider.embed({ task: "code.embedding", texts: toEmbed.map((entry) => entry.chunk.text), model });
+      const result = await provider.embed({
+        task: "code.embedding",
+        texts: toEmbed.map((entry) => entry.chunk.text),
+        model,
+        dimensions,
+      });
       if (!result.ok) {
         failed = toEmbed.length;
         providerError = result.error;
@@ -1537,6 +1571,7 @@ export async function main(argv: string[]): Promise<void> {
         failed = toEmbed.length;
         providerError = "embedding-count-mismatch";
       } else {
+        providerTokens = result.usage?.totalTokens ?? 0;
         await mkdir(join(cacheDir, "vectors"), { recursive: true });
         for (let i = 0; i < toEmbed.length; i += 1) {
           const entry = toEmbed[i];
@@ -1593,6 +1628,7 @@ export async function main(argv: string[]): Promise<void> {
       model,
       dimensions,
       inputType: "document" as const,
+      totalTokens: providerTokens,
       chunks: chunks.length,
       indexed: indexedRecords.length,
       reused: reused.length,
@@ -1698,8 +1734,33 @@ export async function main(argv: string[]): Promise<void> {
       return;
     }
 
+    const compatibleRecords = records.filter((record) =>
+      record.provider === providerId
+      && record.dimensions === dimensions
+      && (providerId === "voyage"
+        ? areVoyageEmbeddingModelsCompatible(record.model, model)
+        : record.model === model),
+    );
+    if (compatibleRecords.length === 0) {
+      process.exitCode = 1;
+      const payload = {
+        command: "embeddings query",
+        status: "failed",
+        error: "embedding-index-incompatible",
+        provider: providerId,
+        model,
+        dimensions,
+        indexedRecords: records.length,
+        compatibleRecords: 0,
+        note: "No compatible embedding index exists for this provider/model/dimension profile. Run `rekon embeddings index --all`.",
+      };
+      if (json) writeOutput(payload, true);
+      else writeOutput(`No compatible embedding index for ${providerId}/${model} at ${dimensions} dimensions. Run \`rekon embeddings index --all\`.`, false);
+      return;
+    }
+
     const provider = resolveEmbeddingProvider({ providerId, model, dimensions, inputType });
-    const result = await provider.embed({ task: "artifact.retrieval", texts: [text], model });
+    const result = await provider.embed({ task: "artifact.retrieval", texts: [text], model, dimensions });
     const queryVector = result.ok ? result.vectors[0] : undefined;
     if (!result.ok || !queryVector) {
       process.exitCode = 1;
@@ -1713,7 +1774,7 @@ export async function main(argv: string[]): Promise<void> {
     }
 
     const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
-    for (const record of records) {
+    for (const record of compatibleRecords) {
       const vector = await readEmbeddingVector(cacheDir, record.vectorRef);
       if (!vector) continue;
       scored.push({ record, score: cosineSimilarity(queryVector, vector) });
@@ -1753,10 +1814,14 @@ export async function main(argv: string[]): Promise<void> {
           status: "ok",
           provider: providerId,
           model,
-          query: { text, provider: providerId, model, requestedTopK, effectiveTopK, inputType },
+          dimensions,
+          query: { text, provider: providerId, model, dimensions, requestedTopK, effectiveTopK, inputType },
+          usage: result.usage ?? {},
           requestedTopK,
           effectiveTopK,
           inputType,
+          compatibleRecords: compatibleRecords.length,
+          ignoredIncompatibleRecords: records.length - compatibleRecords.length,
           topK: effectiveTopK,
           results,
           matches: results,
@@ -1859,14 +1924,27 @@ export async function main(argv: string[]): Promise<void> {
     let providerErrorCode = "";
     const cacheDir = embeddingCacheDir(root);
     const records = await readEmbeddingIndexRecords(cacheDir);
+    const compatibleRecords = records.filter((record) =>
+      record.provider === providerId
+      && record.dimensions === dimensions
+      && (providerId === "voyage"
+        ? areVoyageEmbeddingModelsCompatible(record.model, model)
+        : record.model === model),
+    );
     let retrievalResults: TaskContextRetrievalResultLike[] = [];
     if (records.length === 0) {
       warnings.push(
         "retrieval-unavailable: no embeddings indexed (run `rekon embeddings index`); building from graph + explicit paths only",
       );
+    } else if (compatibleRecords.length === 0) {
+      providerCallFailed = true;
+      providerErrorCode = "embedding-index-incompatible";
+      warnings.push(
+        `retrieval-unavailable: ${records.length} cached embedding record(s) are incompatible with ${providerId}/${model} at ${dimensions} dimensions; run \`rekon embeddings index --all\``,
+      );
     } else {
       const provider = resolveEmbeddingProvider({ providerId, model, dimensions, inputType: "query" });
-      const result = await provider.embed({ task: "artifact.retrieval", texts: [taskText], model });
+      const result = await provider.embed({ task: "artifact.retrieval", texts: [taskText], model, dimensions });
       const queryVector = result.ok ? result.vectors[0] : undefined;
       if (!result.ok || !queryVector) {
         providerCallFailed = true;
@@ -1876,7 +1954,7 @@ export async function main(argv: string[]): Promise<void> {
         );
       } else {
         const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
-        for (const record of records) {
+        for (const record of compatibleRecords) {
           const vector = await readEmbeddingVector(cacheDir, record.vectorRef);
           if (!vector) continue;
           scored.push({ record, score: cosineSimilarity(queryVector, vector) });
@@ -3499,6 +3577,67 @@ export async function main(argv: string[]): Promise<void> {
 
     const refs = await runtime.runProject();
     writeOutput({ artifacts: refs }, json);
+    return;
+  }
+
+  if (command === "security" && subcommand === "ingest") {
+    const commandName = "rekon security ingest";
+    const sarifPath = typeof parsed.flags.sarif === "string" ? parsed.flags.sarif.trim() : "";
+    if (!sarifPath) {
+      throw new Error(`${commandName} requires --sarif <path>.`);
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const evidenceEntry = (await store.list("EvidenceGraph")).at(-1);
+    if (!evidenceEntry) {
+      throw new Error(`${commandName} requires an EvidenceGraph. Run 'rekon observe' first.`);
+    }
+    const evidenceGraph = await store.read(evidenceEntry) as { header?: ArtifactHeader };
+    if (!evidenceGraph.header) {
+      throw new Error(`${commandName} could not read a valid EvidenceGraph header.`);
+    }
+    const sarifFile = await resolveReadableRepoFile(root, sarifPath, commandName, "SARIF file");
+    const raw = await readFile(sarifFile.absolutePath, "utf8");
+    let sarif: unknown;
+    try {
+      sarif = JSON.parse(raw);
+    } catch {
+      throw new Error(`${commandName} requires valid JSON.`);
+    }
+    const digest = createHash("sha256").update(raw).digest("hex");
+    const evidenceRef: ArtifactRef = {
+      type: evidenceEntry.type,
+      id: evidenceEntry.id,
+      path: evidenceEntry.path,
+      digest: evidenceEntry.digest,
+      schemaVersion: evidenceEntry.schemaVersion ?? "0.1.0",
+    };
+    const parsedSarif = parseSarifSecurityReport({
+      sarif,
+      repoRoot: resolve(root),
+      sourcePath: sarifFile.relativePath,
+      sourceDigest: digest,
+      header: {
+        artifactType: "SecurityScanReport",
+        artifactId: `security-scan-report-${digest.slice(0, 24)}`,
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: evidenceGraph.header.subject,
+        producer: { id: "@rekon/cli.security-ingest", version: "1.0.0" },
+        inputRefs: [evidenceRef],
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: 1,
+          notes: ["Normalized from repository-local SARIF 2.1.0 without executing the scanner."],
+        },
+      },
+    });
+    if (!parsedSarif.valid || !parsedSarif.report) {
+      throw new Error(`${commandName} rejected the report:\n${parsedSarif.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join("\n")}`);
+    }
+    const ref = await store.write(parsedSarif.report satisfies SecurityScanReport, { category: "actions" });
+    writeOutput({ artifact: ref, summary: parsedSarif.report.summary, issues: parsedSarif.issues }, json);
     return;
   }
 
@@ -5148,22 +5287,26 @@ export async function main(argv: string[]): Promise<void> {
   if (command === "runtime" && subcommand === "graph" && positional === "observe") {
     // `rekon runtime graph observe [--root <path>] [--json]
     // [--event-log <path>] [--handoff-coverage-report <ref>]
-    // [--handoff-contract <ref>] [--step-graph <ref>]` —
+    // [--handoff-contract <ref>] [--step-graph <ref>]
+    // [--istanbul-coverage <path> --test-path <path>]
+    // [--verification-run <ref>]` —
     // RuntimeGraphObservationReport v1.
     //
-    // Generates an OBSERVED runtime graph from an optional raw handoff event
-    // log (`.rekon/handoff-events.jsonl`): observed step/feature/event/source
-    // nodes + handoff/emitted-by edges. This is observed runtime graph, NOT
-    // declared topology, and NOT HandoffCoverageReport. It evaluates NO
-    // coverage, compares against NO declared artifact, detects NO drift, and
-    // creates no RuntimeGraphDriftReport / WorkOrder / VerificationPlan. It
+    // Generates an OBSERVED runtime graph from an optional raw runtime event
+    // log (`.rekon/handoff-events.jsonl`): handoff events preserve workflow
+    // flow and execution observations connect tests to source paths/routes.
+    // This is observed runtime graph, NOT
+    // declared topology, and NOT HandoffCoverageReport. Istanbul input records
+    // observed execution; it does not calculate assertion or handoff coverage,
+    // compare against declared artifacts, or detect drift. It creates no
+    // RuntimeGraphDriftReport / WorkOrder / VerificationPlan and
     // mutates nothing (the event log or upstream artifacts); optional upstream
     // refs are citation/context only. See
     // docs/artifacts/runtime-graph-observation-report.md.
     const store = createLocalArtifactStore(root);
     await store.init();
 
-    // Optional raw handoff event log. Default `.rekon/handoff-events.jsonl`
+    // Optional raw runtime event log. Default `.rekon/handoff-events.jsonl`
     // under root, or an explicit `--event-log` path. A MISSING log is valid
     // (zero nodes / zero edges); the log is never mutated.
     const eventLogFlag = typeof parsed.flags["event-log"] === "string"
@@ -5181,6 +5324,68 @@ export async function main(argv: string[]): Promise<void> {
     if (eventLog !== undefined) {
       eventLogPath = eventLogRelPath;
       eventLogHash = createHash("sha256").update(eventLog).digest("hex");
+    }
+
+    const coverageFlagValue = parsed.flags["istanbul-coverage"];
+    const testPathFlagValue = parsed.flags["test-path"];
+    const verificationRunFlagValue = parsed.flags["verification-run"];
+    if (coverageFlagValue !== undefined && typeof coverageFlagValue !== "string") {
+      throw new Error("rekon runtime graph observe requires exactly one path after --istanbul-coverage.");
+    }
+    if (testPathFlagValue !== undefined && typeof testPathFlagValue !== "string") {
+      throw new Error("rekon runtime graph observe requires exactly one path after --test-path.");
+    }
+    if (verificationRunFlagValue !== undefined && typeof verificationRunFlagValue !== "string") {
+      throw new Error("rekon runtime graph observe requires exactly one ref after --verification-run.");
+    }
+    const coverageFlag = typeof coverageFlagValue === "string"
+      ? coverageFlagValue.trim()
+      : "";
+    const testPathFlag = typeof testPathFlagValue === "string"
+      ? testPathFlagValue.trim()
+      : "";
+    if ((coverageFlag.length > 0) !== (testPathFlag.length > 0)) {
+      throw new Error(
+        "rekon runtime graph observe requires --istanbul-coverage and --test-path together. "
+        + "Istanbul coverage has no per-test identity, so Rekon requires explicit attribution.",
+      );
+    }
+    const verificationRunFlag = typeof verificationRunFlagValue === "string"
+      ? verificationRunFlagValue.trim()
+      : "";
+    if (verificationRunFlag.length > 0 && coverageFlag.length === 0) {
+      throw new Error("rekon runtime graph observe requires --istanbul-coverage when --verification-run is supplied.");
+    }
+    let coverageResult: ReturnType<typeof parseIstanbulCoverage> | undefined;
+    let coverageSource: NonNullable<ReturnType<typeof parseIstanbulCoverage>["coverageSource"]> | undefined;
+    let coverageVerificationRunRef: ArtifactRef | undefined;
+    if (coverageFlag.length > 0 && testPathFlag.length > 0) {
+      let verification: IstanbulCoverageObservationInput["verification"];
+      if (verificationRunFlag.length > 0) {
+        const { entry } = await resolveVerificationRunEntry(store, verificationRunFlag);
+        const runValue = await store.read(entry);
+        const validation = validateVerificationRun(runValue);
+        if (!validation.ok) {
+          const detail = validation.issues
+            .slice(0, 5)
+            .map((issue) => `${issue.path}: ${issue.message}`)
+            .join("; ");
+          throw new Error(
+            `rekon runtime graph observe rejected malformed VerificationRun ${entry.id}: ${detail}`,
+          );
+        }
+        const run = validation.value;
+        coverageVerificationRunRef = toArtifactRef(entry);
+        verification = { ref: coverageVerificationRunRef, run };
+      }
+      const parsedCoverage = await readIstanbulCoverageObservation({
+        root,
+        coveragePath: coverageFlag,
+        testPath: testPathFlag,
+        ...(verification ? { verification } : {}),
+      });
+      coverageResult = parsedCoverage.coverageResult;
+      coverageSource = parsedCoverage.coverageSource;
     }
 
     // Optional upstream citation refs (context only; never read or compared).
@@ -5207,6 +5412,7 @@ export async function main(argv: string[]): Promise<void> {
     if (handoffCoverageReportRef) inputRefs.push(handoffCoverageReportRef);
     if (handoffContractRef) inputRefs.push(handoffContractRef);
     if (stepCapabilityGraphRef) inputRefs.push(stepCapabilityGraphRef);
+    if (coverageVerificationRunRef) inputRefs.push(coverageVerificationRunRef);
 
     const generatedAt = new Date().toISOString();
     const header: ArtifactHeader = {
@@ -5226,6 +5432,8 @@ export async function main(argv: string[]): Promise<void> {
       eventLog,
       eventLogPath,
       eventLogHash,
+      executionObservations: coverageResult?.observation ? [coverageResult.observation] : [],
+      coverageSources: coverageSource ? [coverageSource] : [],
       handoffCoverageReportRef,
       handoffContractRef,
       stepCapabilityGraphRef,
@@ -5235,7 +5443,14 @@ export async function main(argv: string[]): Promise<void> {
 
     if (json) {
       writeOutput(
-        { artifact: { type: ref.type, id: ref.id }, summary: report.summary, source: report.source },
+        {
+          artifact: { type: ref.type, id: ref.id },
+          summary: report.summary,
+          source: report.source,
+          ...(coverageResult
+            ? { coverage: { summary: coverageResult.summary, issues: coverageResult.issues } }
+            : {}),
+        },
         true,
       );
     } else {
@@ -5245,6 +5460,15 @@ export async function main(argv: string[]): Promise<void> {
       lines.push(`Observed nodes: ${report.summary.observedNodes}`);
       lines.push(`Observed edges: ${report.summary.observedEdges}`);
       lines.push(`Handoff events: ${report.summary.handoffEvents}`);
+      if (report.summary.executionObservations !== undefined) {
+        lines.push(`Execution observations: ${report.summary.executionObservations}`);
+      }
+      if (coverageResult) {
+        lines.push(`Istanbul observed files: ${coverageResult.summary.observedFiles}`);
+        for (const issue of coverageResult.issues) {
+          lines.push(`${issue.severity === "warning" ? "Warning" : "Error"}: ${issue.message}`);
+        }
+      }
       lines.push(`Ignored rows: ${report.summary.ignoredRows}`);
       lines.push(`Parse errors: ${report.summary.parseErrors}`);
       lines.push("");
@@ -7706,6 +7930,24 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "assessments" && subcommand === "list") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const entries = await store.list("AssessmentReport");
+    const latest = entries.slice().sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+    if (!latest) {
+      writeOutput({ summary: { total: 0, byKind: {}, byImpact: {}, byType: {} }, assessments: [] }, json);
+      return;
+    }
+    const report = await store.read(latest) as AssessmentReport;
+    const kind = typeof parsed.flags.kind === "string" ? parsed.flags.kind : undefined;
+    const assessments = kind
+      ? report.assessments.filter((assessment) => assessment.kind === kind)
+      : report.assessments;
+    writeOutput({ artifact: latest, summary: report.summary, rendered: assessments.length, assessments }, json);
+    return;
+  }
+
   if (command === "findings" && subcommand === "list") {
     const store = createLocalArtifactStore(root);
     await store.init();
@@ -8565,6 +8807,103 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "verify" && subcommand === "coverage" && positional === "plan") {
+    const commandName = "rekon verify coverage plan";
+    const frameworkValue = parsed.flags.framework;
+    const testPathValue = parsed.flags["test-path"];
+    const sourcePathValues = parseRepeatableFlag(parsed.flags["source-path"]);
+    const providerValue = parsed.flags.provider;
+    if (typeof frameworkValue !== "string" || frameworkValue.trim().length === 0) {
+      throw new Error(`${commandName} requires --framework vitest|jest.`);
+    }
+    if (typeof testPathValue !== "string" || testPathValue.trim().length === 0) {
+      throw new Error(`${commandName} requires --test-path <test-file>.`);
+    }
+    if (sourcePathValues.length === 0) {
+      throw new Error(`${commandName} requires at least one --source-path <source-file>.`);
+    }
+    if (providerValue !== undefined && typeof providerValue !== "string") {
+      throw new Error(`${commandName} requires exactly one value after --provider.`);
+    }
+    const framework = frameworkValue.trim();
+    if (framework !== "vitest" && framework !== "jest") {
+      throw new Error(`${commandName} supports --framework vitest or --framework jest.`);
+    }
+    const testFile = await resolveReadableRepoFile(root, testPathValue.trim(), commandName, "test file");
+    const targetFiles = await Promise.all(sourcePathValues.map((sourcePath) =>
+      resolveReadableRepoFile(root, sourcePath.trim(), commandName, "source target")));
+    const targetPaths = [...new Set(targetFiles.map((targetFile) => targetFile.relativePath))].sort();
+    const binaryPath = await resolveInstalledTestFrameworkBinary(root, framework);
+    const provider = await resolveIsolatedCoverageProvider(
+      root,
+      framework,
+      typeof providerValue === "string" ? providerValue.trim() : undefined,
+    );
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const generatedAt = new Date().toISOString();
+    const planResult = createIsolatedCoverageVerificationPlan({
+      header: {
+        artifactType: "VerificationPlan",
+        artifactId: `verification-plan-coverage-${Date.now()}`,
+        schemaVersion: "0.1.0",
+        generatedAt,
+        subject: { repoId: subjectRepoIdFromStore(store), paths: [testFile.relativePath, ...targetPaths] },
+        producer: { id: "@rekon/cli.verify-coverage-plan", version: "1.0.0" },
+        inputRefs: [],
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: 1,
+          notes: [
+            `Resolved installed ${framework} binary at ${binaryPath}.`,
+            "Planning does not execute tests or install packages.",
+          ],
+        },
+      },
+      framework,
+      provider,
+      testPath: testFile.relativePath,
+      targetPaths,
+      binaryPath,
+    });
+    const ref = await store.write(planResult.verificationPlan, { category: "actions" });
+    const runCommand = `rekon verify run --plan ${ref.id} --execute`;
+    const output = {
+      artifact: ref,
+      framework,
+      provider,
+      testPath: testFile.relativePath,
+      targetPaths,
+      binaryPath,
+      coverageDirectory: planResult.coverageDirectory,
+      coveragePath: planResult.coveragePath,
+      command: planResult.command,
+      next: { command: runCommand },
+      boundaries: {
+        executedCommands: false,
+        installedPackages: false,
+        wroteSourceFiles: false,
+      },
+    };
+    if (json) {
+      writeOutput(output, true);
+    } else {
+      writeOutput([
+        "Isolated coverage plan",
+        "",
+        `Framework: ${framework}`,
+        `Provider: ${provider}`,
+        `Test: ${testFile.relativePath}`,
+        `Coverage: ${planResult.coveragePath}`,
+        `Artifact: ${ref.type}:${ref.id}`,
+        "",
+        "Run:",
+        `  ${runCommand}`,
+      ].join("\n"), false);
+    }
+    return;
+  }
+
   if (command === "verify" && subcommand === "run") {
     // `rekon verify run` previews or executes a VerificationPlan.
     //
@@ -8597,6 +8936,19 @@ export async function main(argv: string[]): Promise<void> {
     const maxLogBytesFlag = typeof parsed.flags["max-log-bytes"] === "string"
       ? Number(parsed.flags["max-log-bytes"])
       : undefined;
+    const coverageFlagValue = parsed.flags["istanbul-coverage"];
+    const testPathFlagValue = parsed.flags["test-path"];
+    if (coverageFlagValue !== undefined && typeof coverageFlagValue !== "string") {
+      throw new Error("rekon verify run requires exactly one path after --istanbul-coverage.");
+    }
+    if (testPathFlagValue !== undefined && typeof testPathFlagValue !== "string") {
+      throw new Error("rekon verify run requires exactly one path after --test-path.");
+    }
+    const explicitCoverageFlag = typeof coverageFlagValue === "string" ? coverageFlagValue.trim() : "";
+    const explicitTestPathFlag = typeof testPathFlagValue === "string" ? testPathFlagValue.trim() : "";
+    if ((explicitCoverageFlag.length > 0) !== (explicitTestPathFlag.length > 0)) {
+      throw new Error("rekon verify run requires --istanbul-coverage and --test-path together.");
+    }
 
     if (dryRunFlag && executeFlag) {
       throw new Error(
@@ -8616,6 +8968,9 @@ export async function main(argv: string[]): Promise<void> {
           + "or --execute (run the plan).",
       );
     }
+    if (dryRunFlag && explicitCoverageFlag.length > 0) {
+      throw new Error("rekon verify run cannot observe Istanbul coverage during --dry-run because no test executes.");
+    }
 
     const artifactRoot = resolveFlagPath(root, artifactRootFlag) ?? root;
     const execRoot = resolveFlagPath(root, execRootFlag) ?? artifactRoot;
@@ -8626,6 +8981,26 @@ export async function main(argv: string[]): Promise<void> {
       ? await readVerificationPlanFile(root, planFileFlag)
       : await readRegisteredVerificationPlan(store, planFlag);
     const { planArtifact, planRef, planFile, warnings: resolveWarnings } = planResolution;
+    const planCoverage = parseVerificationPlanCoverage(planArtifact.coverage);
+    let coverageFlag = explicitCoverageFlag;
+    let testPathFlag = explicitTestPathFlag;
+    if (executeFlag && planCoverage) {
+      if (coverageFlag.length > 0
+        && (coverageFlag !== planCoverage.coveragePath || testPathFlag !== planCoverage.testPath)) {
+        throw new Error(
+          "rekon verify run coverage flags do not match the selected VerificationPlan coverage metadata.",
+        );
+      }
+      if (coverageFlag.length === 0) {
+        coverageFlag = planCoverage.coveragePath;
+        testPathFlag = planCoverage.testPath;
+      }
+    }
+    if (coverageFlag.length > 0 && resolve(artifactRoot) !== resolve(execRoot)) {
+      throw new Error(
+        "rekon verify run requires --artifact-root and --exec-root to match when observing Istanbul coverage.",
+      );
+    }
     const workOrderRef = planArtifact.workOrderRef;
     const inputRefs: ArtifactRef[] = workOrderRef ? [planRef, workOrderRef] : [planRef];
     const generatedAt = new Date().toISOString();
@@ -8706,6 +9081,66 @@ export async function main(argv: string[]): Promise<void> {
         ? { ...executionResult.verificationRun, planFile }
         : executionResult.verificationRun;
       const ref = await store.write(verificationRun, { category: "actions" });
+      let runtimeObservation: {
+        artifact: ArtifactRef;
+        summary: RuntimeGraphObservationReport["summary"];
+        source: RuntimeGraphObservationReport["source"];
+        coverage: {
+          summary: ReturnType<typeof parseIstanbulCoverage>["summary"];
+          issues: ReturnType<typeof parseIstanbulCoverage>["issues"];
+        };
+      } | undefined;
+      let runtimeObservationError: string | undefined;
+      if (coverageFlag.length > 0 && testPathFlag.length > 0) {
+        try {
+          const parsedCoverage = await readIstanbulCoverageObservation({
+            root: execRoot,
+            coveragePath: coverageFlag,
+            testPath: testPathFlag,
+            targetPaths: planCoverage?.targetPaths,
+            isolated: planCoverage?.isolated === true,
+            verification: { ref, run: verificationRun },
+            commandName: "rekon verify run --execute",
+          });
+          const observationHeader: ArtifactHeader = {
+            artifactType: "RuntimeGraphObservationReport",
+            artifactId: `${RUNTIME_GRAPH_OBSERVATION_ARTIFACT_ID_PREFIX}${Date.now()}`,
+            schemaVersion: "0.1.0",
+            generatedAt: new Date().toISOString(),
+            snapshotId: verificationRun.header.snapshotId,
+            subject: verificationRun.header.subject,
+            producer: { id: "@rekon/cli.verify-run", version: "1.0.0" },
+            inputRefs: [ref],
+            freshness: { status: "fresh" },
+            provenance: {
+              confidence: 0.9,
+              notes: [
+                "Istanbul coverage observed after an explicitly executed VerificationRun.",
+                "Observed execution is context, not assertion coverage.",
+              ],
+            },
+          };
+          const observationReport = buildRuntimeGraphObservationReport({
+            header: observationHeader,
+            executionObservations: parsedCoverage.coverageResult.observation
+              ? [parsedCoverage.coverageResult.observation]
+              : [],
+            coverageSources: [parsedCoverage.coverageSource],
+          });
+          const observationRef = await store.write(observationReport, { category: "graphs" });
+          runtimeObservation = {
+            artifact: observationRef,
+            summary: observationReport.summary,
+            source: observationReport.source,
+            coverage: {
+              summary: parsedCoverage.coverageResult.summary,
+              issues: parsedCoverage.coverageResult.issues,
+            },
+          };
+        } catch (cause) {
+          runtimeObservationError = cause instanceof Error ? cause.message : String(cause);
+        }
+      }
       const failureExit = verificationRun.status === "failed"
         || verificationRun.status === "timeout"
         || verificationRun.status === "killed";
@@ -8744,7 +9179,13 @@ export async function main(argv: string[]): Promise<void> {
           execRoot,
         },
         safety: executionResult.safety,
-        warnings: [...resolveWarnings, ...executionResult.safety.warnings],
+        warnings: [
+          ...resolveWarnings,
+          ...executionResult.safety.warnings,
+          ...(runtimeObservationError ? [`Runtime observation failed: ${runtimeObservationError}`] : []),
+        ],
+        ...(runtimeObservation ? { runtimeObservation } : {}),
+        ...(runtimeObservationError ? { runtimeObservationError } : {}),
         message: failureExit
           ? "Verification commands executed; one or more failed/timed out/killed. No findings were auto-resolved."
           : "Verification commands executed. No findings were auto-resolved.",
@@ -8756,7 +9197,7 @@ export async function main(argv: string[]): Promise<void> {
         writeOutput(renderVerifyRunExecuteHuman(output), false);
       }
 
-      if (failureExit) {
+      if (failureExit || runtimeObservationError) {
         process.exitCode = 1;
       }
 
@@ -10491,6 +10932,54 @@ function parseStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.length > 0);
 }
 
+function parseVerificationPlanCoverage(value: unknown): VerificationPlanCoverage | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecordValue(value)
+    || value.format !== "istanbul"
+    || (value.framework !== "vitest" && value.framework !== "jest")
+    || (value.provider !== "v8" && value.provider !== "istanbul" && value.provider !== "babel")
+    || typeof value.testPath !== "string"
+    || value.testPath.length === 0
+    || typeof value.coveragePath !== "string"
+    || value.coveragePath.length === 0
+    || value.isolated !== true) {
+    throw new Error("Selected VerificationPlan has malformed isolated coverage metadata.");
+  }
+  if (value.framework === "vitest" && value.provider === "babel") {
+    throw new Error("Selected VerificationPlan uses an unsupported Vitest coverage provider.");
+  }
+  if (value.framework === "jest" && value.provider === "istanbul") {
+    throw new Error("Selected VerificationPlan uses an unsupported Jest coverage provider.");
+  }
+  let targetPaths: string[] | undefined;
+  if (value.targetPaths !== undefined) {
+    if (!Array.isArray(value.targetPaths) || value.targetPaths.length === 0
+      || value.targetPaths.some((targetPath) =>
+        typeof targetPath !== "string"
+        || targetPath.length === 0
+        || targetPath.startsWith("/")
+        || /^[A-Za-z]:/.test(targetPath)
+        || targetPath.includes("\0")
+        || targetPath.split("/").some((part) => part === ".."))) {
+      throw new Error("Selected VerificationPlan has malformed coverage target paths.");
+    }
+    targetPaths = [...new Set(value.targetPaths)].sort();
+  }
+  return {
+    format: "istanbul",
+    framework: value.framework,
+    provider: value.provider,
+    testPath: value.testPath,
+    ...(targetPaths ? { targetPaths } : {}),
+    coveragePath: value.coveragePath,
+    isolated: true,
+  };
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 async function resolveVerificationPlanEntry(
   store: ReturnType<typeof createLocalArtifactStore>,
   planFlag: string | undefined,
@@ -10676,7 +11165,9 @@ async function resolveVerificationRunEntry(
   if (!match) {
     const known = allRuns.map((candidate) => candidate.id).slice(0, 10).join(", ");
 
-    throw new Error(`VerificationRun not found for --run ${runFlag}. Known run ids: ${known || "none"}.`);
+    throw new Error(
+      `VerificationRun not found for --verification-run ${runFlag}. Known run ids: ${known || "none"}.`,
+    );
   }
 
   return { entry: match, warnings };
@@ -10690,6 +11181,7 @@ async function resolveReadableRepoFile(
   root: string,
   inputPath: string,
   commandName: string,
+  fileKind = "source file",
 ): Promise<{ absolutePath: string; relativePath: string }> {
   const repoRoot = resolve(root);
   const absolutePath = resolve(repoRoot, inputPath);
@@ -10707,7 +11199,7 @@ async function resolveReadableRepoFile(
   }
 
   if (!stats.isFile() || stats.isSymbolicLink()) {
-    throw new Error(`${commandName} requires a regular source file inside --root.`);
+    throw new Error(`${commandName} requires a regular ${fileKind} inside --root.`);
   }
 
   let repoRealpath: string;
@@ -10727,6 +11219,233 @@ async function resolveReadableRepoFile(
     absolutePath,
     relativePath: relative(repoRealpath, fileRealpath).replace(/\\/g, "/"),
   };
+}
+
+type InstalledPackageManifest = {
+  name?: unknown;
+  bin?: unknown;
+};
+
+async function readInstalledPackageManifest(
+  root: string,
+  packageName: string,
+): Promise<{ manifest: InstalledPackageManifest; manifestPath: string }> {
+  const manifestPath = `node_modules/${packageName}/package.json`;
+  const manifestFile = await resolveReadableRepoFile(
+    root,
+    manifestPath,
+    "rekon verify coverage plan",
+    `${packageName} package manifest`,
+  );
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(await readFile(manifestFile.absolutePath, "utf8"));
+  } catch {
+    throw new Error(`rekon verify coverage plan could not parse ${manifestPath}.`);
+  }
+  if (!isRecordValue(manifest) || manifest.name !== packageName) {
+    throw new Error(`rekon verify coverage plan expected ${manifestPath} to describe ${packageName}.`);
+  }
+  return { manifest, manifestPath: manifestFile.absolutePath };
+}
+
+async function resolveInstalledTestFrameworkBinary(
+  root: string,
+  framework: IsolatedCoverageFramework,
+): Promise<string> {
+  const packageName = framework;
+  let installed: { manifest: InstalledPackageManifest; manifestPath: string };
+  try {
+    installed = await readInstalledPackageManifest(root, packageName);
+  } catch {
+    throw new Error(
+      `rekon verify coverage plan requires ${packageName} to be installed in this repository. `
+      + "Rekon does not download test runners during planning or execution.",
+    );
+  }
+  const binValue = installed.manifest.bin;
+  const binPath = typeof binValue === "string"
+    ? binValue
+    : isRecordValue(binValue) && typeof binValue[framework] === "string"
+      ? binValue[framework]
+      : undefined;
+  if (!binPath || isAbsolute(binPath)) {
+    throw new Error(`${packageName} does not declare a usable repository-local ${framework} binary.`);
+  }
+  const packageDirectory = dirname(installed.manifestPath);
+  const candidate = resolve(packageDirectory, binPath);
+  const [packageRealpath, candidateRealpath] = await Promise.all([
+    realpath(packageDirectory),
+    realpath(candidate).catch(() => ""),
+  ]);
+  if (!candidateRealpath || !pathIsInside(candidateRealpath, packageRealpath)) {
+    throw new Error(`${packageName} declares a binary outside its installed package directory.`);
+  }
+  const binary = await resolveReadableRepoFile(
+    root,
+    candidate,
+    "rekon verify coverage plan",
+    `${framework} binary`,
+  );
+  return binary.relativePath;
+}
+
+async function installedPackageExists(root: string, packageName: string): Promise<boolean> {
+  try {
+    await readInstalledPackageManifest(root, packageName);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveIsolatedCoverageProvider(
+  root: string,
+  framework: IsolatedCoverageFramework,
+  requested: string | undefined,
+): Promise<IsolatedCoverageProvider> {
+  if (framework === "jest") {
+    const provider = requested || "babel";
+    if (provider !== "babel" && provider !== "v8") {
+      throw new Error("rekon verify coverage plan supports Jest providers babel or v8.");
+    }
+    return provider;
+  }
+
+  if (requested && requested !== "v8" && requested !== "istanbul") {
+    throw new Error("rekon verify coverage plan supports Vitest providers v8 or istanbul.");
+  }
+  const requestedProvider: "v8" | "istanbul" | undefined = requested === "v8" || requested === "istanbul"
+    ? requested
+    : undefined;
+  const candidates: Array<"v8" | "istanbul"> = requestedProvider
+    ? [requestedProvider]
+    : ["v8", "istanbul"];
+  for (const provider of candidates) {
+    if (await installedPackageExists(root, `@vitest/coverage-${provider}`)) {
+      return provider;
+    }
+  }
+  const expected = requested
+    ? `@vitest/coverage-${requested}`
+    : "@vitest/coverage-v8 or @vitest/coverage-istanbul";
+  throw new Error(
+    `rekon verify coverage plan requires ${expected} to be installed. `
+    + "Rekon does not accept Vitest's interactive provider installation prompt.",
+  );
+}
+
+type IstanbulCoverageObservationInput = {
+  root: string;
+  coveragePath: string;
+  testPath: string;
+  targetPaths?: string[];
+  isolated?: boolean;
+  commandName?: string;
+  verification?: {
+    ref: ArtifactRef;
+    run: VerificationRunArtifact;
+  };
+};
+
+async function readIstanbulCoverageObservation(
+  input: IstanbulCoverageObservationInput,
+): Promise<{
+  coverageResult: ReturnType<typeof parseIstanbulCoverage>;
+  coverageSource: NonNullable<ReturnType<typeof parseIstanbulCoverage>["coverageSource"]>;
+}> {
+  const commandName = input.commandName ?? "rekon runtime graph observe";
+  const coverageFile = await resolveReadableRepoFile(input.root, input.coveragePath, commandName, "coverage file");
+  const testFile = await resolveReadableRepoFile(input.root, input.testPath, commandName, "test file");
+  const repoRoot = resolve(input.root);
+  const repoRealRoot = await realpath(input.root);
+  const coverageJson = await readFile(coverageFile.absolutePath, "utf8");
+  let coverage: unknown;
+  try {
+    coverage = JSON.parse(coverageJson);
+  } catch {
+    throw new Error(`${commandName} could not parse Istanbul coverage JSON at ${coverageFile.relativePath}.`);
+  }
+  const coverageResult = parseIstanbulCoverage({
+    coverage: normalizeIstanbulCoveragePathAliases(coverage, repoRoot, repoRealRoot),
+    repoRoot,
+    coveragePath: coverageFile.relativePath,
+    coverageDigest: createHash("sha256").update(coverageJson).digest("hex"),
+    testPath: testFile.relativePath,
+    targetPaths: input.targetPaths,
+    isolated: input.isolated === true,
+  });
+  if (!coverageResult.valid || !coverageResult.coverageSource) {
+    throw new Error(coverageResult.issues
+      .filter((issue) => issue.severity === "error")
+      .map((issue) => issue.message)
+      .join(" ") || "Istanbul coverage could not be normalized.");
+  }
+
+  let coverageSource = coverageResult.coverageSource;
+  if (input.verification) {
+    const command = input.verification.run.commands.find((candidate) =>
+      (candidate.status === "passed" || candidate.status === "failed")
+      && candidate.argv.some((argument) => verificationArgumentMatchesPath(
+        input.root,
+        argument,
+        testFile.relativePath,
+      )),
+    );
+    if (!command) {
+      throw new Error(
+        `${commandName} could not bind coverage to ${input.verification.ref.type}:${input.verification.ref.id}: `
+        + `no passed or failed command explicitly named ${testFile.relativePath}.`,
+      );
+    }
+    const startedAt = Date.parse(input.verification.run.startedAt ?? "");
+    const coverageStats = await stat(coverageFile.absolutePath);
+    if (Number.isFinite(startedAt) && coverageStats.mtimeMs + 1_000 < startedAt) {
+      throw new Error(
+        `${commandName} refused stale coverage: ${coverageFile.relativePath} predates `
+        + `${input.verification.ref.type}:${input.verification.ref.id}.`,
+      );
+    }
+    coverageSource = {
+      ...coverageSource,
+      verificationRunRef: input.verification.ref,
+      commandId: command.id,
+      commandStatus: command.status === "passed" ? "passed" : "failed",
+    };
+  }
+
+  return { coverageResult, coverageSource };
+}
+
+function normalizeIstanbulCoveragePathAliases(
+  coverage: unknown,
+  repoRoot: string,
+  repoRealRoot: string,
+): unknown {
+  if (!isRecordValue(coverage) || repoRoot === repoRealRoot) return coverage;
+  const normalizePath = (value: string): string => {
+    if (!isAbsolute(value)) return value;
+    const relativePath = relative(repoRealRoot, resolve(value));
+    if (relativePath === "" || relativePath.startsWith("..") || isAbsolute(relativePath)) return value;
+    return resolve(repoRoot, relativePath);
+  };
+  const normalized: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(coverage)) {
+    const normalizedKey = normalizePath(key);
+    if (isRecordValue(entry) && typeof entry.path === "string") {
+      normalized[normalizedKey] = { ...entry, path: normalizePath(entry.path) };
+    } else {
+      normalized[normalizedKey] = entry;
+    }
+  }
+  return normalized;
+}
+
+function verificationArgumentMatchesPath(root: string, argument: string, expectedPath: string): boolean {
+  if (!argument || argument.startsWith("-")) return false;
+  const absolutePath = resolve(root, argument);
+  if (!pathIsInside(absolutePath, root)) return false;
+  return relative(resolve(root), absolutePath).replace(/\\/g, "/") === expectedPath;
 }
 
 function pathIsInside(path: string, root: string): boolean {
@@ -11113,6 +11832,7 @@ const REQUIRED_REFRESH_ARTIFACT_TYPES = [
   "CapabilityMap",
   "IntelligenceSnapshot",
   "FindingReport",
+  "AssessmentReport",
   "FindingFilterReport",
   "FindingFilterHealthReport",
   "FindingLifecycleReport",
@@ -11127,6 +11847,7 @@ const MAJOR_FRESHNESS_TYPES = [
   "CapabilityMap",
   "IntelligenceSnapshot",
   "FindingReport",
+  "AssessmentReport",
   "FindingLifecycleReport",
   "IssueAdjudicationReport",
   "CoherencyDelta",
@@ -13404,6 +14125,11 @@ function renderVerifyRunExecuteHuman(input: {
   workOrderRef?: ArtifactRef;
   safety: VerificationRunSafetySummary;
   warnings: string[];
+  runtimeObservation?: {
+    artifact: ArtifactRef;
+    summary: RuntimeGraphObservationReport["summary"];
+  };
+  runtimeObservationError?: string;
   message: string;
 }): string {
   const lines: string[] = [];
@@ -13446,6 +14172,14 @@ function renderVerifyRunExecuteHuman(input: {
 
   lines.push("");
   lines.push(input.message);
+
+  if (input.runtimeObservation) {
+    lines.push("");
+    lines.push(
+      `Runtime observation: ${input.runtimeObservation.artifact.type}:${input.runtimeObservation.artifact.id}`,
+    );
+    lines.push(`Observed execution edges: ${input.runtimeObservation.summary.executionObservations ?? 0}`);
+  }
 
   if (input.warnings.length > 0) {
     lines.push("");
@@ -14349,6 +15083,7 @@ function usage(): string {
     "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
     "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
+    "rekon security ingest --sarif <report.sarif> [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon evaluate list [--root <path>] [--json]",
     "rekon evaluate run <evaluator-id> [--root <path>] [--input-json <json>] [--json]",
@@ -14394,7 +15129,7 @@ function usage(): string {
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",
-    "rekon runtime graph observe [--root <path>] [--json]",
+    "rekon runtime graph observe [--event-log <path>] [--istanbul-coverage <coverage-final.json> --test-path <test-file>] [--verification-run <VerificationRun:id>] [--root <path>] [--json]",
     "rekon runtime graph drift [--root <path>] [--json]",
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--skip-verified] [--root <path>] [--json]",
@@ -14419,6 +15154,7 @@ function usage(): string {
     "rekon artifacts validate [--root <path>] [--json]",
     "rekon artifacts freshness [--root <path>] [--type <type>] [--id <id>] [--json]",
     "rekon artifacts latest --type <ArtifactType> [--kind <kind>] [--id-only] [--allow-missing] [--root <path>] [--json]",
+    "rekon assessments list [--kind risk|opportunity|semantic_claim|model_diagnostic] [--root <path>] [--json]",
     "rekon findings list [--root <path>] [--status <status>] [--json]",
     "rekon findings lifecycle [--root <path>] [--json]",
     "rekon findings filter [--root <path>] [--json]",
@@ -14436,9 +15172,10 @@ function usage(): string {
     "rekon issues merge candidate <candidate-id> [--root <path>] [--json]",
     "rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note> [--reason <reason>] [--decided-by <name>] [--root <path>] [--json]",
     "rekon issues merge decisions [--root <path>] [--json]",
+    "rekon verify coverage plan --framework vitest|jest --test-path <test-file> --source-path <source-file> [--source-path <source-file> ...] [--provider v8|istanbul|babel] [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id>|--plan-file <path> --dry-run|--preview [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",
-    "rekon verify run --plan <id|type:id>|--plan-file <path> --execute [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",
+    "rekon verify run --plan <id|type:id>|--plan-file <path> --execute [--istanbul-coverage <coverage-final.json> --test-path <test-file>] [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",
     "rekon verify result from-run --run <id|type:id> [--allow-not-run] [--root <path>] [--artifact-root <path>] [--json]",
     "rekon verify github-workflow validate --path <workflow.yml> [--profile read-only|github-check-send|github-pr-comment-send] [--root <path>] [--json]",
     "",
