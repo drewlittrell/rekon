@@ -21,6 +21,9 @@ The CLI is the user surface for the local lifecycle:
 - `rekon evaluate`
 - `rekon security ingest --sarif <report.sarif>`
 - `rekon security ingest --npm-audit <audit.json> [--package-lock <package-lock.json>]`
+- `rekon security ingest --pnpm-audit <audit.json>`
+- `rekon security ingest --yarn-audit <audit.ndjson>`
+- `rekon security ingest --osv <results.json>`
 - `rekon snapshot`
 - `rekon resolve preflight`
 - `rekon publish agents`
@@ -44,11 +47,16 @@ observation:
 rekon observe
 rekon security ingest --sarif reports/codeql.sarif
 rekon security ingest --npm-audit reports/npm-audit.json
+rekon security ingest --pnpm-audit reports/pnpm-audit.json
+rekon security ingest --yarn-audit reports/yarn-audit.ndjson
+rekon security ingest --osv reports/osv-scanner.json
 rekon evaluate
 rekon assessments list --kind risk
 ```
 
-Ingestion does not execute scanners or package managers. Results remain risks
+The dependency adapters normalize npm audit v2, pnpm 11 audit JSON, Yarn audit
+NDJSON, and OSV-Scanner JSON. Ingestion does not execute scanners or package
+managers. Results remain risks
 until stronger evidence or an operator decision justifies promotion.
 
 `rekon scan` reports findings separately from risks, opportunities, semantic

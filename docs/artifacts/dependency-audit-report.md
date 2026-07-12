@@ -1,19 +1,23 @@
 # DependencyAuditReport
 
 `DependencyAuditReport` is Rekon's normalized dependency-vulnerability evidence.
-The first adapter accepts npm audit report version 2 and joins it to
-`package-lock.json` so installed versions, dependency paths, and production or
-development scope remain explicit.
+Adapters accept npm audit v2, pnpm 11 audit JSON, Yarn audit NDJSON, and
+OSV-Scanner JSON. npm reports join to `package-lock.json`; other adapters retain
+the installed versions, dependency paths, and source information their native
+formats provide.
 
 ## Produced By
 
 ```sh
 rekon security ingest --npm-audit reports/npm-audit.json
+rekon security ingest --pnpm-audit reports/pnpm-audit.json
+rekon security ingest --yarn-audit reports/yarn-audit.ndjson
+rekon security ingest --osv reports/osv-scanner.json
 ```
 
 Use `--package-lock <path>` when the lockfile is not at the repository root.
-Rekon reads existing files only; it does not run npm or persist the raw audit
-payload.
+That option applies only to npm audit. Rekon reads existing files only; it does
+not run a package manager or scanner and does not persist raw audit payloads.
 
 ## Consumed By
 
@@ -25,8 +29,9 @@ corroboration or operator confirmation.
 ## Contract
 
 The header cites the current `EvidenceGraph`. `source` records digests for the
-audit report and optional lockfile. `status.complete` is false when installed
-version or scope data could not be resolved.
+audit report and optional lockfile. `status.complete` is false when the native
+report is malformed or only partly usable. Scope is `unknown` when the scanner
+does not expose enough dependency metadata to classify a path.
 
 ```json
 {

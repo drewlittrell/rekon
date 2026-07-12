@@ -4,6 +4,9 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added native pnpm 11 audit, Yarn audit NDJSON, and OSV-Scanner JSON adapters
+  to dependency-vulnerability ingestion. All adapters preserve only normalized
+  advisory, version, scope, and source-path evidence and remain assessment-only.
 - Added typed npm audit v2 ingestion with lockfile-backed installed versions,
   dependency paths, production/development scope, stable advisory identity,
   partial-input warnings, and assessment-only dependency vulnerability policy.

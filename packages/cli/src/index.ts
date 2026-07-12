@@ -79,7 +79,10 @@ import modelCapability, {
   buildRuntimeGraphObservationReport,
   parseIstanbulCoverage,
   parseNpmAuditReport,
+  parseOsvScannerReport,
+  parsePnpmAuditReport,
   parseSarifSecurityReport,
+  parseYarnAuditReport,
   buildRuntimeGraphDriftReport,
   buildIntentAssessmentReport,
   selectSemanticFileContext,
@@ -3586,9 +3589,15 @@ export async function main(argv: string[]): Promise<void> {
     const commandName = "rekon security ingest";
     const sarifPath = typeof parsed.flags.sarif === "string" ? parsed.flags.sarif.trim() : "";
     const npmAuditPath = typeof parsed.flags["npm-audit"] === "string" ? parsed.flags["npm-audit"].trim() : "";
-    if ((!sarifPath && !npmAuditPath) || (sarifPath && npmAuditPath)) {
-      throw new Error(`${commandName} requires exactly one of --sarif <path> or --npm-audit <path>.`);
+    const pnpmAuditPath = typeof parsed.flags["pnpm-audit"] === "string" ? parsed.flags["pnpm-audit"].trim() : "";
+    const yarnAuditPath = typeof parsed.flags["yarn-audit"] === "string" ? parsed.flags["yarn-audit"].trim() : "";
+    const osvPath = typeof parsed.flags.osv === "string" ? parsed.flags.osv.trim() : "";
+    const dependencyInputs = [npmAuditPath, pnpmAuditPath, yarnAuditPath, osvPath].filter(Boolean);
+    if ([sarifPath, ...dependencyInputs].filter(Boolean).length !== 1) {
+      throw new Error(`${commandName} requires exactly one of --sarif, --npm-audit, --pnpm-audit, --yarn-audit, or --osv.`);
     }
+    const packageLockFlag = typeof parsed.flags["package-lock"] === "string" ? parsed.flags["package-lock"].trim() : "";
+    if (packageLockFlag && !npmAuditPath) throw new Error(`${commandName} accepts --package-lock only with --npm-audit.`);
 
     const store = createLocalArtifactStore(root);
     await store.init();
@@ -3608,20 +3617,23 @@ export async function main(argv: string[]): Promise<void> {
       schemaVersion: evidenceEntry.schemaVersion ?? "0.1.0",
     };
 
-    if (npmAuditPath) {
-      const auditFile = await resolveReadableRepoFile(root, npmAuditPath, commandName, "npm audit file");
+    if (dependencyInputs.length === 1) {
+      const sourcePath = npmAuditPath || pnpmAuditPath || yarnAuditPath || osvPath;
+      const sourceKind = npmAuditPath ? "npm audit" : pnpmAuditPath ? "pnpm audit" : yarnAuditPath ? "Yarn audit" : "OSV-Scanner";
+      const auditFile = await resolveReadableRepoFile(root, sourcePath, commandName, `${sourceKind} file`);
       const raw = await readFile(auditFile.absolutePath, "utf8");
       let audit: unknown;
-      try {
-        audit = JSON.parse(raw);
-      } catch {
-        throw new Error(`${commandName} requires valid npm audit JSON.`);
+      if (!yarnAuditPath) {
+        try {
+          audit = JSON.parse(raw);
+        } catch {
+          throw new Error(`${commandName} requires valid ${sourceKind} JSON.`);
+        }
       }
-      const packageLockFlag = typeof parsed.flags["package-lock"] === "string" ? parsed.flags["package-lock"].trim() : "";
       let lockfile: { relativePath: string; absolutePath: string } | undefined;
-      if (packageLockFlag) {
+      if (npmAuditPath && packageLockFlag) {
         lockfile = await resolveReadableRepoFile(root, packageLockFlag, commandName, "package lockfile");
-      } else {
+      } else if (npmAuditPath) {
         try {
           await access(join(root, "package-lock.json"));
           lockfile = await resolveReadableRepoFile(root, "package-lock.json", commandName, "package lockfile");
@@ -3640,32 +3652,38 @@ export async function main(argv: string[]): Promise<void> {
         }
       }
       const digest = createHash("sha256").update(raw).digest("hex");
-      const parsedAudit = parseNpmAuditReport({
-        audit,
-        packageLock,
+      const header: ArtifactHeader = {
+        artifactType: "DependencyAuditReport",
+        artifactId: `dependency-audit-report-${digest.slice(0, 24)}`,
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: evidenceGraph.header.subject,
+        producer: { id: "@rekon/cli.security-ingest", version: "1.0.0" },
+        inputRefs: [evidenceRef],
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: npmAuditPath ? (lockfile ? 1 : 0.7) : 0.85,
+          notes: [`Normalized from repository-local ${sourceKind} output without executing the scanner or persisting the raw payload.`],
+        },
+      };
+      const commonInput = {
         sourcePath: auditFile.relativePath,
         sourceDigest: digest,
+        header,
+      };
+      const parsedAudit = npmAuditPath ? parseNpmAuditReport({
+        ...commonInput,
+        audit,
+        packageLock,
         ...(lockfile && lockfileRaw
           ? {
               lockfilePath: lockfile.relativePath,
               lockfileDigest: createHash("sha256").update(lockfileRaw).digest("hex"),
             }
           : {}),
-        header: {
-          artifactType: "DependencyAuditReport",
-          artifactId: `dependency-audit-report-${digest.slice(0, 24)}`,
-          schemaVersion: "0.1.0",
-          generatedAt: new Date().toISOString(),
-          subject: evidenceGraph.header.subject,
-          producer: { id: "@rekon/cli.security-ingest", version: "1.0.0" },
-          inputRefs: [evidenceRef],
-          freshness: { status: "fresh" },
-          provenance: {
-            confidence: lockfile ? 1 : 0.7,
-            notes: ["Normalized from repository-local npm audit v2 JSON without executing npm or persisting the raw payload."],
-          },
-        },
-      });
+      }) : pnpmAuditPath ? parsePnpmAuditReport({ ...commonInput, audit })
+        : yarnAuditPath ? parseYarnAuditReport({ ...commonInput, ndjson: raw })
+          : parseOsvScannerReport({ ...commonInput, report: audit, repoRoot: resolve(root) });
       if (!parsedAudit.valid || !parsedAudit.report) {
         throw new Error(`${commandName} rejected the report:\n${parsedAudit.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join("\n")}`);
       }
@@ -15153,7 +15171,7 @@ function usage(): string {
     "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
     "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
-    "rekon security ingest (--sarif <report.sarif> | --npm-audit <audit.json> [--package-lock <package-lock.json>]) [--root <path>] [--json]",
+    "rekon security ingest (--sarif <report.sarif> | --npm-audit <audit.json> [--package-lock <package-lock.json>] | --pnpm-audit <audit.json> | --yarn-audit <audit.ndjson> | --osv <results.json>) [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon evaluate list [--root <path>] [--json]",
     "rekon evaluate run <evaluator-id> [--root <path>] [--input-json <json>] [--json]",

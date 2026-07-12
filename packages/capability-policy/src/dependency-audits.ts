@@ -31,7 +31,7 @@ export async function evaluateDependencyAuditReports(
   const assessments = [...grouped.entries()].map(([rootKey, entries]) => {
     const ordered = entries.slice().sort((left, right) => severityRank(right.vulnerability.severity) - severityRank(left.vulnerability.severity));
     const primary = ordered[0]!;
-    const paths = unique(ordered.flatMap((entry) => entry.vulnerability.paths.map((path) => path.nodePath)));
+    const paths = unique(ordered.flatMap((entry) => entry.vulnerability.paths.map((path) => path.nodePath ?? path.dependencyPath.join(" > "))));
     const versions = unique(ordered.flatMap((entry) => entry.vulnerability.paths.map((path) => path.installedVersion).filter((value): value is string => Boolean(value))));
     const advisories = unique(ordered.flatMap((entry) => entry.vulnerability.advisories.map((advisory) => advisory.id)));
     const production = ordered.some((entry) => entry.vulnerability.paths.some((path) => path.scope === "production"));

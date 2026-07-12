@@ -135,6 +135,12 @@ export {
 } from "./npm-audit.js";
 
 export {
+  parseOsvScannerReport,
+  parsePnpmAuditReport,
+  parseYarnAuditReport,
+} from "./dependency-audit-adapters.js";
+
+export {
   type BuildRuntimeGraphDriftReportInput,
   type RuntimeGraphDriftCoverageReportLike,
   type RuntimeGraphDriftHandoffContractLike,

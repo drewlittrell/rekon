@@ -9697,7 +9697,7 @@ export type DependencyAuditAdvisory = {
 };
 
 export type DependencyAuditPath = {
-  nodePath: string;
+  nodePath?: string;
   dependencyPath: string[];
   installedVersion?: string;
   scope: DependencyAuditScope;
@@ -9719,13 +9719,13 @@ export type DependencyAuditVulnerability = {
 export type DependencyAuditReport = {
   header: ArtifactHeader;
   source: {
-    format: "npm-audit-v2";
+    format: "npm-audit-v2" | "pnpm-audit-v11" | "yarn-audit-ndjson" | "osv-scanner-json";
     path: string;
     digest: string;
     lockfilePath?: string;
     lockfileDigest?: string;
   };
-  tool: { name: "npm"; version?: string };
+  tool: { name: "npm" | "pnpm" | "yarn" | "osv-scanner"; version?: string };
   status: { complete: boolean; warnings: string[] };
   summary: {
     vulnerabilities: number;
@@ -9750,7 +9750,7 @@ export function createDependencyAuditReport(input: DependencyAuditReport): Depen
         .sort((left, right) => left.id.localeCompare(right.id)),
       paths: vulnerability.paths
         .map((path) => stripUndefinedObjectValues({ ...path, dependencyPath: [...path.dependencyPath] }))
-        .sort((left, right) => left.nodePath.localeCompare(right.nodePath)),
+        .sort((left, right) => (left.nodePath ?? left.dependencyPath.join(">")).localeCompare(right.nodePath ?? right.dependencyPath.join(">"))),
     }))
     .sort((left, right) => left.id.localeCompare(right.id));
   const bySeverity = Object.fromEntries(
@@ -9784,7 +9784,9 @@ export function validateDependencyAuditReport(value: unknown): ValidationResult<
   if (!isRecord(value.source)) {
     issues.push({ path: "$.source", message: "Expected an object." });
   } else {
-    if (value.source.format !== "npm-audit-v2") issues.push({ path: "$.source.format", message: 'Expected "npm-audit-v2".' });
+    if (!["npm-audit-v2", "pnpm-audit-v11", "yarn-audit-ndjson", "osv-scanner-json"].includes(String(value.source.format))) {
+      issues.push({ path: "$.source.format", message: "Expected a supported dependency audit format." });
+    }
     validateSecurityScanPath(value.source.path, "$.source.path", issues);
     for (const field of ["digest", "lockfileDigest"] as const) {
       const digest = value.source[field];
@@ -9797,8 +9799,8 @@ export function validateDependencyAuditReport(value: unknown): ValidationResult<
       issues.push({ path: "$.source", message: "lockfilePath and lockfileDigest must be supplied together." });
     }
   }
-  if (!isRecord(value.tool) || value.tool.name !== "npm") {
-    issues.push({ path: "$.tool", message: "Expected npm tool metadata." });
+  if (!isRecord(value.tool) || !["npm", "pnpm", "yarn", "osv-scanner"].includes(String(value.tool.name))) {
+    issues.push({ path: "$.tool", message: "Expected supported dependency audit tool metadata." });
   } else if (value.tool.version !== undefined && (typeof value.tool.version !== "string" || value.tool.version.length === 0)) {
     issues.push({ path: "$.tool.version", message: "Expected a non-empty string when present." });
   }
@@ -9856,7 +9858,7 @@ export function validateDependencyAuditReport(value: unknown): ValidationResult<
             issues.push({ path: entryPath, message: "Expected an object." });
             return;
           }
-          validateSecurityScanPath(entry.nodePath, `${entryPath}.nodePath`, issues);
+          if (entry.nodePath !== undefined) validateSecurityScanPath(entry.nodePath, `${entryPath}.nodePath`, issues);
           if (!isStringArray(entry.dependencyPath) || entry.dependencyPath.length === 0) issues.push({ path: `${entryPath}.dependencyPath`, message: "Expected a non-empty package path." });
           if (entry.installedVersion !== undefined && (typeof entry.installedVersion !== "string" || entry.installedVersion.length === 0)) issues.push({ path: `${entryPath}.installedVersion`, message: "Expected a non-empty string when present." });
           if (typeof entry.scope !== "string" || !DEPENDENCY_AUDIT_SCOPES.has(entry.scope as DependencyAuditScope)) issues.push({ path: `${entryPath}.scope`, message: "Expected a supported dependency scope." });
