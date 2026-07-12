@@ -14,7 +14,17 @@ not intended to become, a finding.
 
 Every assessment includes evidence refs, a stable `rootCauseKey`, confidence
 basis, and verification state. Reports summarize assessments by kind, impact,
-and type.
+type, and lifecycle state.
+
+Lifecycle states are derived from kind and verification evidence:
+
+- `model_proposed`: unverified semantic judgment
+- `evidence_observed`: deterministic or tool evidence observed once
+- `tool_corroborated`: a tool or deterministic signal corroborates the claim
+- `verified`: evidence satisfies the detector's verification contract
+- `operator_confirmed`: an operator explicitly confirms the assessment
+- `opportunity_only`: optional improvement, never automatic defect promotion
+- `diagnostic_only`: intelligence-model quality issue, not a repository defect
 
 ```json
 {
@@ -40,6 +50,14 @@ Semantic claims use an explicit intermediate state. A matching deterministic
 source signal changes `basis` to `mixed`, `verification` to `corroborated`, and
 adds the evidence graph as a supporting signal. That state is still not a
 finding by itself; corroboration and promotion are separate decisions.
+
+Fusion requires the same root-cause key, assessment type, and file or subject
+scope. A shared key alone cannot combine unrelated evidence. Original detector
+records remain visible through `supportingSignals`.
+
+Use `rekon assessments list --state <state> --json` to inspect one lifecycle
+state. Resolver packets carry `state` on each relevant assessment and summarize
+states in `resolutionTrace`.
 
 A single failed repository lint, test, typecheck, or build run is recorded as a
 risk. Stale, timed-out, killed, empty-output, and environment-shaped failures

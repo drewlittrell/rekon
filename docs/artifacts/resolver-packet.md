@@ -34,4 +34,6 @@ OwnershipMap -> ObservedRepo -> ownership GraphSlice -> EvidenceGraph fallback
 opportunities, semantic claims, and model diagnostics separate. Only assessments
 whose kind is `risk` can affect preflight risk; attaching an assessment never
 promotes it to a finding. The trace records the `AssessmentReport` refs checked
-and a count by assessment kind.
+and counts by assessment kind and lifecycle state. Relevant assessment objects
+carry the normalized lifecycle `state`, including when an older report omitted
+the derived field.

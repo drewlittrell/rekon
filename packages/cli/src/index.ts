@@ -288,7 +288,7 @@ import {
   type TestReport,
   type StepCapabilityGraph,
 } from "@rekon/kernel-repo-model";
-import type { AssessmentReport } from "@rekon/kernel-assessments";
+import { isAssessmentLifecycleState, type AssessmentReport } from "@rekon/kernel-assessments";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
   type FindingReport,
@@ -8100,14 +8100,18 @@ export async function main(argv: string[]): Promise<void> {
     const entries = await store.list("AssessmentReport");
     const latest = entries.slice().sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
     if (!latest) {
-      writeOutput({ summary: { total: 0, byKind: {}, byImpact: {}, byType: {} }, assessments: [] }, json);
+      writeOutput({ summary: { total: 0, byKind: {}, byImpact: {}, byType: {}, byState: {} }, assessments: [] }, json);
       return;
     }
     const report = await store.read(latest) as AssessmentReport;
     const kind = typeof parsed.flags.kind === "string" ? parsed.flags.kind : undefined;
-    const assessments = kind
-      ? report.assessments.filter((assessment) => assessment.kind === kind)
-      : report.assessments;
+    const state = typeof parsed.flags.state === "string" ? parsed.flags.state : undefined;
+    if (state && !isAssessmentLifecycleState(state)) {
+      throw new Error("--state must be one of model_proposed, evidence_observed, tool_corroborated, verified, operator_confirmed, opportunity_only, diagnostic_only.");
+    }
+    const assessments = report.assessments
+      .filter((assessment) => !kind || assessment.kind === kind)
+      .filter((assessment) => !state || assessment.state === state);
     writeOutput({ artifact: latest, summary: report.summary, rendered: assessments.length, assessments }, json);
     return;
   }
@@ -15345,7 +15349,7 @@ function usage(): string {
     "rekon artifacts validate [--root <path>] [--json]",
     "rekon artifacts freshness [--root <path>] [--type <type>] [--id <id>] [--json]",
     "rekon artifacts latest --type <ArtifactType> [--kind <kind>] [--id-only] [--allow-missing] [--root <path>] [--json]",
-    "rekon assessments list [--kind risk|opportunity|semantic_claim|model_diagnostic] [--root <path>] [--json]",
+    "rekon assessments list [--kind risk|opportunity|semantic_claim|model_diagnostic] [--state model_proposed|evidence_observed|tool_corroborated|verified|operator_confirmed|opportunity_only|diagnostic_only] [--root <path>] [--json]",
     "rekon findings list [--root <path>] [--status <status>] [--json]",
     "rekon findings lifecycle [--root <path>] [--json]",
     "rekon findings filter [--root <path>] [--json]",

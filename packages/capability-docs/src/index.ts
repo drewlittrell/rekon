@@ -67,7 +67,7 @@ type WorkOrderLike = {
 
 type ResolverPacketLike = {
   relevantFindings?: unknown[];
-  relevantAssessments?: Array<{ kind?: string }>;
+  relevantAssessments?: Array<{ kind?: string; state?: string }>;
 };
 
 type ReconciliationPlanOperationLike = {
@@ -1368,6 +1368,10 @@ function renderAgentsDoc(
       `- Opportunities: ${countResolverAssessments(resolver, "opportunity")}`,
       `- Semantic claims: ${countResolverAssessments(resolver, "semantic_claim")}`,
       `- Model diagnostics: ${countResolverAssessments(resolver, "model_diagnostic")}`,
+      `- Model-proposed: ${countResolverAssessmentStates(resolver, "model_proposed")}`,
+      `- Tool-corroborated: ${countResolverAssessmentStates(resolver, "tool_corroborated")}`,
+      `- Operator-confirmed: ${countResolverAssessmentStates(resolver, "operator_confirmed")}`,
+      `- Opportunity-only: ${countResolverAssessmentStates(resolver, "opportunity_only")}`,
     ] : []),
     "",
     "## Required Default Checks",
@@ -1380,6 +1384,10 @@ function renderAgentsDoc(
 
 function countResolverAssessments(resolver: ResolverPacketLike, kind: string): number {
   return resolver.relevantAssessments?.filter((assessment) => assessment.kind === kind).length ?? 0;
+}
+
+function countResolverAssessmentStates(resolver: ResolverPacketLike, state: string): number {
+  return resolver.relevantAssessments?.filter((assessment) => assessment.state === state).length ?? 0;
 }
 
 function renderRepoSummary(snapshot: IntelligenceSnapshot, snapshotRef: ArtifactRef, generatedAt: string): string {

@@ -12,6 +12,14 @@ export type AssessmentKind = "risk" | "opportunity" | "semantic_claim" | "model_
 export type AssessmentImpact = "critical" | "high" | "medium" | "low";
 export type AssessmentEvidenceBasis = "deterministic" | "semantic" | "mixed" | "operator";
 export type AssessmentVerification = "unverified" | "corroborated" | "verified" | "operator_confirmed";
+export type AssessmentLifecycleState =
+  | "model_proposed"
+  | "evidence_observed"
+  | "tool_corroborated"
+  | "verified"
+  | "operator_confirmed"
+  | "opportunity_only"
+  | "diagnostic_only";
 
 export type AssessmentSignal = {
   producer: string;
@@ -48,6 +56,7 @@ export type Assessment = {
   applicableLaw?: ApplicableLaw;
   supportingSignals?: AssessmentSignal[];
   details?: Record<string, unknown>;
+  state?: AssessmentLifecycleState;
 };
 
 export type AssessmentReport = {
@@ -57,6 +66,7 @@ export type AssessmentReport = {
     byKind: Record<string, number>;
     byImpact: Record<string, number>;
     byType: Record<string, number>;
+    byState: Record<string, number>;
   };
   assessments: Assessment[];
 };
@@ -91,6 +101,15 @@ const VERIFICATIONS = new Set<AssessmentVerification>([
   "verified",
   "operator_confirmed",
 ]);
+const LIFECYCLE_STATES = new Set<AssessmentLifecycleState>([
+  "model_proposed",
+  "evidence_observed",
+  "tool_corroborated",
+  "verified",
+  "operator_confirmed",
+  "opportunity_only",
+  "diagnostic_only",
+]);
 
 export function createAssessmentReport(input: {
   header: ArtifactHeader;
@@ -114,9 +133,10 @@ export function createAssessmentReport(input: {
 export function fuseAssessments(input: Assessment[]): Assessment[] {
   const byRootCause = new Map<string, Assessment[]>();
   for (const assessment of input) {
-    const group = byRootCause.get(assessment.rootCauseKey) ?? [];
+    const key = assessmentFusionKey(assessment);
+    const group = byRootCause.get(key) ?? [];
     group.push(assessment);
-    byRootCause.set(assessment.rootCauseKey, group);
+    byRootCause.set(key, group);
   }
 
   return [...byRootCause.values()].map((group) => {
@@ -240,6 +260,7 @@ export function summarizeAssessments(assessments: Assessment[]): AssessmentRepor
     byKind: countBy(assessments, (assessment) => assessment.kind),
     byImpact: countBy(assessments, (assessment) => assessment.impact),
     byType: countBy(assessments, (assessment) => assessment.type),
+    byState: countBy(assessments, assessmentLifecycleState),
   };
 }
 
@@ -295,6 +316,7 @@ export const assessmentReportSchema: ArtifactSchema<AssessmentReport> = {
 function normalizeAssessment(assessment: Assessment): Assessment {
   return {
     ...assessment,
+    state: assessmentLifecycleState(assessment),
     subjects: uniqueSorted(assessment.subjects),
     ...(assessment.files ? { files: uniqueSorted(assessment.files) } : {}),
     evidence: normalizeRefs(assessment.evidence),
@@ -315,6 +337,9 @@ function validateAssessment(value: unknown, path: string, issues: ValidationIssu
   }
   requireString(value.id, `${path}.id`, issues);
   if (!KINDS.has(value.kind as AssessmentKind)) issues.push({ path: `${path}.kind`, message: "Expected a supported assessment kind." });
+  if (value.state !== undefined && !LIFECYCLE_STATES.has(value.state as AssessmentLifecycleState)) {
+    issues.push({ path: `${path}.state`, message: "Expected a supported assessment lifecycle state." });
+  }
   requireString(value.type, `${path}.type`, issues);
   if (!IMPACTS.has(value.impact as AssessmentImpact)) issues.push({ path: `${path}.impact`, message: "Expected a supported impact." });
   requireString(value.title, `${path}.title`, issues);
@@ -347,6 +372,27 @@ function validateAssessment(value: unknown, path: string, issues: ValidationIssu
       issues.push({ path: `${path}.confidence.verification`, message: "Expected a supported verification state." });
     }
   }
+}
+
+export function assessmentLifecycleState(assessment: Pick<Assessment, "kind" | "confidence">): AssessmentLifecycleState {
+  if (assessment.confidence.verification === "operator_confirmed") return "operator_confirmed";
+  if (assessment.kind === "opportunity") return "opportunity_only";
+  if (assessment.kind === "model_diagnostic") return "diagnostic_only";
+  if (assessment.confidence.verification === "verified") return "verified";
+  if (assessment.confidence.verification === "corroborated") return "tool_corroborated";
+  if (assessment.kind === "semantic_claim" || assessment.confidence.basis === "semantic") return "model_proposed";
+  return "evidence_observed";
+}
+
+export function isAssessmentLifecycleState(value: unknown): value is AssessmentLifecycleState {
+  return typeof value === "string" && LIFECYCLE_STATES.has(value as AssessmentLifecycleState);
+}
+
+function assessmentFusionKey(assessment: Assessment): string {
+  const scope = assessment.files && assessment.files.length > 0
+    ? `files:${uniqueSorted(assessment.files).join("|")}`
+    : `subjects:${uniqueSorted(assessment.subjects).join("|")}`;
+  return `${assessment.rootCauseKey}\u0000${assessment.type}\u0000${scope}`;
 }
 
 function requireString(value: unknown, path: string, issues: ValidationIssue[]): void {

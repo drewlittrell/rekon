@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assessmentLifecycleState,
   createAssessmentReport,
   evaluateFindingPromotion,
   measureDetectionQuality,
@@ -39,6 +40,8 @@ test("creates a normalized assessment report", () => {
 
   assert.equal(report.summary.total, 1);
   assert.equal(report.summary.byKind.semantic_claim, 1);
+  assert.equal(report.summary.byState.model_proposed, 1);
+  assert.equal(report.assessments[0].state, "model_proposed");
   assert.deepEqual(report.assessments[0].subjects, ["src/b.ts"]);
   assert.equal(report.assessments[0].evidence.length, 1);
   assert.equal(validateAssessmentReport(report).ok, true);
@@ -96,6 +99,38 @@ test("fuses detector outputs by remediation root cause", () => {
   assert.equal(report.assessments[0].kind, "opportunity");
   assert.equal(report.assessments[0].confidence.basis, "mixed");
   assert.equal(report.assessments[0].supportingSignals.length, 2);
+  assert.equal(report.assessments[0].state, "opportunity_only");
+});
+
+test("does not fuse an identical root-cause string across unrelated types or files", () => {
+  const base = {
+    kind: "risk",
+    impact: "medium",
+    title: "Risk",
+    description: "Observed risk.",
+    evidence: [evidence],
+    rootCauseKey: "malformed-shared-key",
+    confidence: { score: 0.7, basis: "deterministic", verification: "unverified" },
+  };
+  const report = createAssessmentReport({
+    header,
+    assessments: [
+      { ...base, id: "a", type: "reliability", subjects: ["src/a.ts"], files: ["src/a.ts"] },
+      { ...base, id: "b", type: "security", subjects: ["src/a.ts"], files: ["src/a.ts"] },
+      { ...base, id: "c", type: "reliability", subjects: ["src/b.ts"], files: ["src/b.ts"] },
+    ],
+  });
+  assert.equal(report.assessments.length, 3);
+  assert.equal(report.assessments.every((assessment) => assessment.supportingSignals === undefined), true);
+});
+
+test("derives explicit lifecycle states from kind and verification", () => {
+  const base = { kind: "risk", confidence: { basis: "deterministic", verification: "unverified" } };
+  assert.equal(assessmentLifecycleState(base), "evidence_observed");
+  assert.equal(assessmentLifecycleState({ ...base, confidence: { basis: "deterministic", verification: "corroborated" } }), "tool_corroborated");
+  assert.equal(assessmentLifecycleState({ ...base, confidence: { basis: "operator", verification: "operator_confirmed" } }), "operator_confirmed");
+  assert.equal(assessmentLifecycleState({ ...base, kind: "semantic_claim", confidence: { basis: "semantic", verification: "unverified" } }), "model_proposed");
+  assert.equal(assessmentLifecycleState({ ...base, kind: "opportunity" }), "opportunity_only");
 });
 
 test("promotion rules reject raw claims and accept grounded corroboration", () => {

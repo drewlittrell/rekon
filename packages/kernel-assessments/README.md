@@ -17,6 +17,8 @@ rules.
 - `Assessment`
 - `AssessmentReport`
 - `createAssessmentReport()`
+- `assessmentLifecycleState()` and lifecycle state guards
+- conservative root-cause fusion and finding-promotion decisions
 - assessment validation and summary helpers
 
 Findings remain in `@rekon/kernel-findings`.

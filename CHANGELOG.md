@@ -4,6 +4,10 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added first-class assessment lifecycle states across reports, CLI filtering,
+  resolver packets, traces, and generated guidance. Tightened root-cause fusion
+  so unrelated types or file scopes cannot merge solely because they share a
+  key, while preserving original detector evidence as supporting signals.
 - Split semantic debt eligibility, judgment, deterministic corroboration, and
   finding promotion into explicit stages. Generated, non-production,
   declaration, binary, and empty files are excluded before provider calls;

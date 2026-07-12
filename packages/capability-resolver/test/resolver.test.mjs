@@ -179,12 +179,15 @@ test("preflight resolver attaches assessments separately and uses only risks in 
     const packet = await resolvePreflight(runtime, snapshotRef, "features/plain.ts");
 
     assert.deepEqual(packet.relevantAssessments.map((item) => item.id), ["opportunity-1", "risk-1"]);
+    assert.deepEqual(packet.relevantAssessments.map((item) => item.state), ["opportunity_only", "tool_corroborated"]);
     assert.deepEqual(packet.relevantFindings, []);
     assert.equal(packet.risk.tier, "medium");
     assert.ok(packet.resolutionTrace.some((entry) => (
       entry.sourceType === "AssessmentReport"
       && entry.status === "used"
       && entry.details?.relevantAssessmentCount === 2
+      && entry.details?.byState?.opportunity_only === 1
+      && entry.details?.byState?.tool_corroborated === 1
     )));
     assert.ok(packet.resolutionTrace.some((entry) => entry.details?.rule === "relevant_risk_assessments"));
     assert.equal(packet.header.inputRefs.some((ref) => ref.type === "AssessmentReport"), true);
@@ -273,7 +276,7 @@ async function withFixture(input, run) {
     if (input.assessmentReport) {
       refs.assessmentReportRef = await runtime.artifacts.write({
         header: header("AssessmentReport", "assessments-test", [evidenceRef]),
-        summary: { total: input.assessmentReport.assessments.length, byKind: {}, byImpact: {}, byType: {} },
+        summary: { total: input.assessmentReport.assessments.length, byKind: {}, byImpact: {}, byType: {}, byState: {} },
         assessments: input.assessmentReport.assessments,
       }, { category: "findings" });
     }

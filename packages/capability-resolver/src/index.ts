@@ -7,7 +7,7 @@ import {
   type ArtifactHeader,
   type ArtifactRef,
 } from "@rekon/kernel-artifacts";
-import { type Assessment } from "@rekon/kernel-assessments";
+import { assessmentLifecycleState, type Assessment } from "@rekon/kernel-assessments";
 import {
   type CoherencyDelta,
   type CoherencyDeltaItem,
@@ -2593,7 +2593,7 @@ async function readRelevantAssessments(
       const candidate = assessment as Assessment;
       const files = Array.isArray(candidate.files) ? candidate.files : [];
       if (files.some((file) => paths.some((path) => pathsOverlap(file, path)))) {
-        assessments.push(candidate);
+        assessments.push({ ...candidate, state: candidate.state ?? assessmentLifecycleState(candidate) });
       }
     }
   }
@@ -2722,6 +2722,7 @@ function buildAssessmentTrace(
       details: {
         relevantAssessmentCount: relevantAssessments.length,
         byKind: countAssessmentsByKind(relevantAssessments),
+        byState: countAssessmentsByState(relevantAssessments),
       },
     },
   ];
@@ -2730,6 +2731,15 @@ function buildAssessmentTrace(
 function countAssessmentsByKind(assessments: Assessment[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const assessment of assessments) counts[assessment.kind] = (counts[assessment.kind] ?? 0) + 1;
+  return counts;
+}
+
+function countAssessmentsByState(assessments: Assessment[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const assessment of assessments) {
+    const state = assessment.state ?? assessmentLifecycleState(assessment);
+    counts[state] = (counts[state] ?? 0) + 1;
+  }
   return counts;
 }
 

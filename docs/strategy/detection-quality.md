@@ -177,6 +177,13 @@ rule disposition. They do not rewrite ownership, architecture, findings, or
 canonical evidence. Operator memory remains resolver guidance unless a
 separate, explicit confirmation is attached to an assessment.
 
+Assessment lifecycle is visible rather than inferred by each consumer. Reports,
+CLI output, resolver packets, traces, and generated guidance distinguish model
+proposals, observed evidence, tool corroboration, verification, operator
+confirmation, optional opportunities, and model diagnostics. Fusion requires a
+shared remediation identity, type, and scope; a coincidentally reused key is
+insufficient.
+
 ## Design Decisions
 
 ### Declared Architecture
