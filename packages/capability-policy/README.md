@@ -79,6 +79,10 @@ TypeScript diagnostics, Vitest/Jest-style stack locations, Node TAP failure
 blocks, and file-located build errors. Unsupported output retains the
 conservative normalized-transcript fallback.
 
+Imported JUnit and ESLint JSON reports use the same identity and repetition
+policy. One current report produces a risk; two distinct current reports must
+reproduce the same normalized failure before automatic promotion is possible.
+
 Failed test diagnostics can carry related routes, screens, capability hints,
 imported source files, and separately labeled observed execution from the
 latest application `GraphSlice`. This context improves impact review but never

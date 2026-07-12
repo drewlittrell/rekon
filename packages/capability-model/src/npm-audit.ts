@@ -9,6 +9,7 @@ import {
   type DependencyAuditSeverity,
   type DependencyAuditVulnerability,
 } from "@rekon/kernel-repo-model";
+import { sanitizeToolMessage, sanitizeToolUrl } from "./tool-output-safety.js";
 
 export type NpmAuditIssue = {
   code: string;
@@ -136,8 +137,8 @@ function normalizeAdvisories(value: unknown, packageName: string, fallbackSeveri
       const vector = nonEmptyString(cvss.vectorString);
       return {
         id,
-        title: nonEmptyString(advisory.title) ?? nonEmptyString(advisory.name) ?? `${packageName} ${fallbackSeverity} advisory`,
-        ...(nonEmptyString(advisory.url) ? { url: nonEmptyString(advisory.url) } : {}),
+        title: sanitizeToolMessage(nonEmptyString(advisory.title) ?? nonEmptyString(advisory.name)) ?? `${packageName} ${fallbackSeverity} advisory`,
+        ...(sanitizeToolUrl(nonEmptyString(advisory.url)) ? { url: sanitizeToolUrl(nonEmptyString(advisory.url)) } : {}),
         cwes: Array.isArray(advisory.cwe) ? advisory.cwe.filter((cwe): cwe is string => typeof cwe === "string") : [],
         ...(score !== undefined || vector ? { cvss: { ...(score !== undefined ? { score } : {}), ...(vector ? { vector } : {}) } } : {}),
       };

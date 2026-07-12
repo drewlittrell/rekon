@@ -10,6 +10,7 @@ import {
   type SecurityScanRun,
   type SecurityScanSeverity,
 } from "@rekon/kernel-repo-model";
+import { sanitizeToolMessage, sanitizeToolUrl } from "./tool-output-safety.js";
 
 export type SarifSecurityIssue = {
   code: string;
@@ -71,7 +72,7 @@ export function parseSarifSecurityReport(input: ParseSarifSecurityInput): ParseS
       }
       const rule = resolveRule(resultValue, rules);
       const ruleId = nonEmptyString(resultValue.ruleId) ?? nonEmptyString(rule?.id) ?? `unknown-rule-${resultIndex}`;
-      const message = sarifMessage(resultValue.message);
+      const message = sanitizeToolMessage(sarifMessage(resultValue.message));
       if (!message) {
         issues.push({ code: "sarif.result_message_missing", severity: "warning", message: `Ignored ${ruleId} because it has no message.`, runIndex, resultIndex });
         return;
@@ -99,7 +100,7 @@ export function parseSarifSecurityReport(input: ParseSarifSecurityInput): ParseS
         locations,
         tags,
         fingerprints,
-        ...(nonEmptyString(rule?.helpUri) ? { helpUri: nonEmptyString(rule?.helpUri) } : {}),
+        ...(sanitizeToolUrl(nonEmptyString(rule?.helpUri)) ? { helpUri: sanitizeToolUrl(nonEmptyString(rule?.helpUri)) } : {}),
       };
       const existing = normalized.get(id);
       normalized.set(id, existing ? mergeResult(existing, result) : result);
@@ -380,6 +381,7 @@ function stringRecord(value: unknown): Record<string, string> {
   if (!isRecord(value)) return {};
   return Object.fromEntries(Object.entries(value)
     .filter((entry): entry is [string, string] => entry[0].length > 0 && typeof entry[1] === "string" && entry[1].length > 0)
+    .map(([key, fingerprint]): [string, string] => [key.slice(0, 200), `sha256:${createHash("sha256").update(fingerprint).digest("hex")}`])
     .sort(([left], [right]) => left.localeCompare(right)));
 }
 

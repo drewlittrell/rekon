@@ -178,6 +178,9 @@ export function parseIstanbulCoverage(
     totalFiles: summary.totalFiles,
     observedFiles: summary.observedFiles,
     ignoredFiles: summary.ignoredFiles,
+    ...(issues.some((issue) => issue.severity === "warning")
+      ? { warnings: issues.filter((issue) => issue.severity === "warning").map((issue) => issue.message) }
+      : {}),
     fileCoverage: [...fileCoverage.values()].sort((left, right) => left.path.localeCompare(right.path)),
   };
   const observation: ParsedRuntimeExecutionObservation | undefined = sourcePaths.length > 0

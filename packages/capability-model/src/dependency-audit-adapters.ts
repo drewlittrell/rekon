@@ -10,6 +10,7 @@ import {
   type DependencyAuditVulnerability,
 } from "@rekon/kernel-repo-model";
 import type { NpmAuditIssue } from "./npm-audit.js";
+import { sanitizeToolMessage, sanitizeToolUrl } from "./tool-output-safety.js";
 
 type AdapterInput = {
   sourcePath: string;
@@ -101,8 +102,8 @@ export function parseYarnAuditReport(input: AdapterInput & { ndjson: string }): 
       affectedRange: nonEmptyString(children["Vulnerable Versions"]) ?? "unknown",
       advisories: [{
         id: advisoryId,
-        title: nonEmptyString(children.Issue)!,
-        ...(nonEmptyString(children.URL) ? { url: nonEmptyString(children.URL) } : {}),
+        title: sanitizeToolMessage(nonEmptyString(children.Issue))!,
+        ...(sanitizeToolUrl(nonEmptyString(children.URL)) ? { url: sanitizeToolUrl(nonEmptyString(children.URL)) } : {}),
         cwes: [],
       }],
       paths,
@@ -153,7 +154,7 @@ export function parseOsvScannerReport(input: AdapterInput & { report: unknown; r
           affectedRange: osvAffectedRange(affected, version),
           advisories: [{
             id: advisoryId,
-            title: nonEmptyString(vulnerability.summary) ?? advisoryId,
+            title: sanitizeToolMessage(nonEmptyString(vulnerability.summary)) ?? advisoryId,
             url: osvAdvisoryUrl(vulnerability, advisoryId),
             cwes: osvCwes(vulnerability),
             ...osvCvss(vulnerability, affected),
@@ -203,8 +204,8 @@ function normalizeRegistryAdvisory(value: Record<string, unknown>, id: string, p
   const vector = nonEmptyString(cvss.vectorString);
   return {
     id,
-    title: nonEmptyString(value.title) ?? `${packageName} advisory`,
-    ...(nonEmptyString(value.url) ? { url: nonEmptyString(value.url) } : {}),
+    title: sanitizeToolMessage(nonEmptyString(value.title)) ?? `${packageName} advisory`,
+    ...(sanitizeToolUrl(nonEmptyString(value.url)) ? { url: sanitizeToolUrl(nonEmptyString(value.url)) } : {}),
     cwes: cwe,
     ...(score !== undefined || vector ? { cvss: { ...(score !== undefined ? { score } : {}), ...(vector ? { vector } : {}) } } : {}),
   };
@@ -268,7 +269,7 @@ function osvCwes(vulnerability: Record<string, unknown>): string[] {
 
 function osvAdvisoryUrl(vulnerability: Record<string, unknown>, advisoryId: string): string {
   const references = Array.isArray(vulnerability.references) ? vulnerability.references.filter(isRecord) : [];
-  return references.map((reference) => nonEmptyString(reference.url)).find((url): url is string => Boolean(url))
+  return references.map((reference) => sanitizeToolUrl(nonEmptyString(reference.url))).find((url): url is string => Boolean(url))
     ?? `https://osv.dev/vulnerability/${encodeURIComponent(advisoryId)}`;
 }
 

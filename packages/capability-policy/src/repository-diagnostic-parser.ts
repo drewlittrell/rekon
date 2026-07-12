@@ -2,6 +2,8 @@ export type RepositoryCheckCategory = "build" | "test" | "typecheck" | "lint";
 
 export type RepositoryDiagnosticParser =
   | "eslint"
+  | "eslint-json"
+  | "junit"
   | "typescript"
   | "test-runner"
   | "node-tap"

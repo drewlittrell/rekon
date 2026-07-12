@@ -10,6 +10,8 @@ import {
   validateArtifactRef,
 } from "@rekon/kernel-artifacts";
 
+export * from "./repository-check-reports.js";
+
 export type ObservedSystem = {
   id: string;
   name?: string;
@@ -3533,7 +3535,7 @@ export type RuntimeGraphObservationReportSource = {
 };
 
 export type RuntimeGraphObservationCoverageSource = {
-  format: "istanbul";
+  format: "istanbul" | "lcov";
   path: string;
   digest: string;
   testPath: string;
@@ -3543,6 +3545,7 @@ export type RuntimeGraphObservationCoverageSource = {
   totalFiles: number;
   observedFiles: number;
   ignoredFiles: number;
+  warnings?: string[];
   fileCoverage?: RuntimeGraphObservationFileCoverage[];
   verificationRunRef?: ArtifactRef;
   commandId?: string;
@@ -3610,12 +3613,12 @@ function normalizeRuntimeGraphCoverageSources(
   const nonNegativeInteger = (value: unknown): number =>
     typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
   for (const source of sources) {
-    if (!source || source.format !== "istanbul") continue;
+    if (!source || (source.format !== "istanbul" && source.format !== "lcov")) continue;
     if (typeof source.path !== "string" || source.path.length === 0) continue;
     if (typeof source.digest !== "string" || source.digest.length === 0) continue;
     if (typeof source.testPath !== "string" || source.testPath.length === 0) continue;
     const value: RuntimeGraphObservationCoverageSource = {
-      format: "istanbul",
+      format: source.format,
       path: source.path,
       digest: source.digest,
       testPath: source.testPath,
@@ -3631,6 +3634,10 @@ function normalizeRuntimeGraphCoverageSources(
       if (targetPaths.length > 0) value.targetPaths = targetPaths;
     }
     if (typeof source.isolated === "boolean") value.isolated = source.isolated;
+    if (Array.isArray(source.warnings)) {
+      const warnings = [...new Set(source.warnings.filter((warning): warning is string => typeof warning === "string" && warning.length > 0))].sort();
+      if (warnings.length > 0) value.warnings = warnings;
+    }
     if (Array.isArray(source.fileCoverage)) {
       const fileCoverage = normalizeRuntimeGraphFileCoverage(source.fileCoverage);
       if (fileCoverage.length > 0) value.fileCoverage = fileCoverage;
@@ -3715,8 +3722,8 @@ function validateRuntimeGraphCoverageSources(
       issues.push({ path: sourcePath, message: "Expected an object." });
       return;
     }
-    if (source.format !== "istanbul") {
-      issues.push({ path: `${sourcePath}.format`, message: 'Expected "istanbul".' });
+    if (source.format !== "istanbul" && source.format !== "lcov") {
+      issues.push({ path: `${sourcePath}.format`, message: 'Expected "istanbul" or "lcov".' });
     }
     for (const field of ["path", "digest", "testPath"] as const) {
       if (typeof source[field] !== "string" || source[field].length === 0) {
@@ -3747,6 +3754,9 @@ function validateRuntimeGraphCoverageSources(
     }
     if (source.isolated !== undefined && typeof source.isolated !== "boolean") {
       issues.push({ path: `${sourcePath}.isolated`, message: "Expected a boolean." });
+    }
+    if (source.warnings !== undefined && !isStringArray(source.warnings)) {
+      issues.push({ path: `${sourcePath}.warnings`, message: "Expected an array of strings." });
     }
     if (source.targetPaths !== undefined) {
       if (!Array.isArray(source.targetPaths) || source.targetPaths.length === 0) {

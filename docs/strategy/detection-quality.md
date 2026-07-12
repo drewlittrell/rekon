@@ -85,9 +85,10 @@ propagate to consumers. One-sided public facades and leaf utilities remain
 quiet. A hub is a change-amplification risk, not an instruction to split a
 deliberate stable boundary.
 
-Completed `VerificationRun` artifacts provide repository-native lint, test,
-typecheck, and build evidence. One failure remains a risk. Rekon promotes a
-failure only when two distinct runs reproduce the same normalized diagnostic on
+Completed `VerificationRun` artifacts and imported JUnit or ESLint JSON reports
+provide repository-native lint, test, typecheck, and build evidence. One
+failure remains a risk. Rekon promotes a failure only when two distinct current
+artifacts reproduce the same normalized diagnostic on
 the commit represented by the current evidence graph. If commit metadata is
 unavailable, both runs must be fresh and recorded after the current evidence
 graph. Timeouts, killed runs, empty output, stale runs, and environment-shaped
@@ -118,7 +119,10 @@ Repository-native security scanners enter through normalized SARIF 2.1
 reports. Rekon uses scanner security metadata, CWE/OWASP tags, and stable
 fingerprints; it does not treat every result from a security-capable tool as a
 security issue. A current scanner result is a risk, not an automatically
-promoted finding. Generic lint results remain provenance only.
+promoted finding. Promotion requires an operator confirmation or independent
+evidence that establishes repository applicability, applicable law, and a
+reproducible defect. A second copy of the same scanner result is not independent
+corroboration. Generic lint results remain provenance only.
 
 Runtime instrumentation can append `execution_observation` rows that identify
 the source paths and routes seen while a test ran. Rekon preserves those as
@@ -126,8 +130,8 @@ separate `observed` graph edges. This is stronger context than an import alone,
 but it still does not prove that an assertion covered the observed behavior and
 does not participate in automatic finding promotion.
 
-The first built-in adapter accepts Istanbul coverage from an isolated test run.
-Because Istanbul does not retain test identity, Rekon requires the operator to
+The built-in coverage adapters accept Istanbul JSON and LCOV from an isolated
+test run. Because neither format retains test identity, Rekon requires the operator to
 name the test path and stores that attribution with the coverage digest. It
 does not infer per-test evidence from a suite-wide report.
 

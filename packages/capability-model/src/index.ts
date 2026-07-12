@@ -121,6 +121,12 @@ export {
 } from "./istanbul-coverage.js";
 
 export {
+  type ParseLcovCoverageInput,
+  type ParseLcovCoverageResult,
+  parseLcovCoverage,
+} from "./lcov-coverage.js";
+
+export {
   type ParseSarifSecurityInput,
   type ParseSarifSecurityResult,
   type SarifSecurityIssue,
@@ -139,6 +145,12 @@ export {
   parsePnpmAuditReport,
   parseYarnAuditReport,
 } from "./dependency-audit-adapters.js";
+
+export {
+  type RepositoryToolReportIssue,
+  parseEslintJsonReport,
+  parseJUnitReport,
+} from "./repository-check-report-adapters.js";
 
 export {
   type BuildRuntimeGraphDriftReportInput,

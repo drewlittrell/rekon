@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   buildRuntimeGraphObservationReport,
   parseIstanbulCoverage,
+  parseLcovCoverage,
 } from "../../packages/capability-model/dist/index.js";
 import { validateRuntimeGraphObservationReport } from "../../packages/kernel-repo-model/dist/index.js";
 
@@ -136,6 +137,54 @@ test("runtime observation report retains Istanbul source provenance", () => {
   assert.equal(report.source.coverageSources[0].format, "istanbul");
   assert.equal(report.source.coverageSources[0].testPath, "tests/service.test.ts");
   assert.equal(report.edges[0].kind, "observed-execution");
+});
+
+test("LCOV becomes the same explicitly attributed coverage contract", () => {
+  const result = parseLcovCoverage({
+    lcov: [
+      "TN:",
+      "SF:/repo/src/service.ts",
+      "FN:2,service",
+      "FNDA:1,service",
+      "DA:2,1",
+      "DA:3,0",
+      "BRDA:3,0,0,-",
+      "BRDA:3,0,1,1",
+      "end_of_record",
+      "SF:/outside/private.ts",
+      "DA:1,1",
+      "end_of_record",
+    ].join("\n"),
+    repoRoot: "/repo",
+    coveragePath: "coverage/lcov.info",
+    coverageDigest: "b".repeat(64),
+    testPath: "tests/service.test.ts",
+    targetPaths: ["src/service.ts"],
+    isolated: true,
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(result.coverageSource.format, "lcov");
+  assert.deepEqual(result.observation.sourcePaths, ["src/service.ts"]);
+  assert.deepEqual(result.coverageSource.fileCoverage[0].statements, { total: 2, covered: 1 });
+  assert.deepEqual(result.coverageSource.fileCoverage[0].functions, { total: 1, covered: 1 });
+  assert.deepEqual(result.coverageSource.fileCoverage[0].branches, { total: 2, covered: 1 });
+  assert.equal(result.summary.ignoredFiles, 1);
+
+  const report = buildRuntimeGraphObservationReport({
+    header: {
+      artifactType: "RuntimeGraphObservationReport",
+      artifactId: "runtime-observation-lcov",
+      schemaVersion: "0.1.0",
+      generatedAt: "2026-07-11T00:00:00.000Z",
+      subject: { repoId: "repo" },
+      producer: { id: "test", version: "1.0.0" },
+      inputRefs: [],
+    },
+    executionObservations: [result.observation],
+    coverageSources: [result.coverageSource],
+  });
+  assert.equal(validateRuntimeGraphObservationReport(report).ok, true);
 });
 
 test("runtime observation validation rejects inconsistent coverage source counts", () => {
@@ -271,6 +320,31 @@ test("CLI ingests a repository-local Istanbul report with explicit test attribut
   }
 });
 
+test("CLI ingests repository-local LCOV with explicit test attribution", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-lcov-cli-"));
+  try {
+    await mkdir(join(root, "tests"), { recursive: true });
+    await mkdir(join(root, "src"), { recursive: true });
+    await mkdir(join(root, "coverage"), { recursive: true });
+    await writeFile(join(root, "tests/service.test.ts"), "export {};\n", "utf8");
+    await writeFile(join(root, "src/service.ts"), "export const value = 1;\n", "utf8");
+    await writeFile(join(root, "coverage/lcov.info"), `SF:${join(root, "src/service.ts")}\nDA:1,1\nend_of_record\n`, "utf8");
+    runCli(root, ["init"]);
+    const result = runCli(root, [
+      "runtime", "graph", "observe",
+      "--lcov-coverage", "coverage/lcov.info",
+      "--test-path", "tests/service.test.ts",
+      "--json",
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.coverage.summary.observedFiles, 1);
+    assert.equal(output.source.coverageSources[0].format, "lcov");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("CLI requires paired attribution and refuses coverage files outside the repository", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-istanbul-safe-"));
   const outside = await mkdtemp(join(tmpdir(), "rekon-istanbul-outside-"));
@@ -286,7 +360,7 @@ test("CLI requires paired attribution and refuses coverage files outside the rep
       "--json",
     ], true);
     assert.notEqual(missingAttribution.status, 0);
-    assert.match(missingAttribution.stderr, /requires --istanbul-coverage and --test-path together/);
+    assert.match(missingAttribution.stderr, /requires a coverage report and --test-path together/);
 
     const outsideRead = runCli(root, [
       "runtime", "graph", "observe",
@@ -534,10 +608,11 @@ test("coverage planner refuses missing runners and missing Vitest coverage provi
   }
 });
 
-test("CLI help documents Istanbul coverage and explicit test attribution", () => {
+test("CLI help documents supported coverage formats and explicit test attribution", () => {
   const result = spawnSync(process.execPath, [cliPath, "--help"], { encoding: "utf8" });
   assert.equal(result.status, 0);
   assert.match(result.stdout, /--istanbul-coverage <coverage-final\.json>/);
+  assert.match(result.stdout, /--lcov-coverage <lcov\.info>/);
   assert.match(result.stdout, /--test-path <test-file>/);
   assert.match(result.stdout, /--verification-run <VerificationRun:id>/);
   assert.match(result.stdout, /verify coverage plan --framework vitest\|jest/);

@@ -78,6 +78,9 @@ import modelCapability, {
   HANDOFF_EVENT_LOG_PATH,
   buildRuntimeGraphObservationReport,
   parseIstanbulCoverage,
+  parseLcovCoverage,
+  parseEslintJsonReport,
+  parseJUnitReport,
   parseNpmAuditReport,
   parseOsvScannerReport,
   parsePnpmAuditReport,
@@ -279,6 +282,8 @@ import {
   type SemanticDebtJudgmentReport,
   type SecurityScanReport,
   type DependencyAuditReport,
+  type LintReport,
+  type TestReport,
   type StepCapabilityGraph,
 } from "@rekon/kernel-repo-model";
 import type { AssessmentReport } from "@rekon/kernel-assessments";
@@ -3585,6 +3590,68 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "checks" && subcommand === "ingest") {
+    const commandName = "rekon checks ingest";
+    const junitPath = typeof parsed.flags.junit === "string" ? parsed.flags.junit.trim() : "";
+    const eslintPath = typeof parsed.flags["eslint-json"] === "string" ? parsed.flags["eslint-json"].trim() : "";
+    if ([junitPath, eslintPath].filter(Boolean).length !== 1) {
+      throw new Error(`${commandName} requires exactly one of --junit <report.xml> or --eslint-json <report.json>.`);
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const evidenceEntry = (await store.list("EvidenceGraph")).at(-1);
+    if (!evidenceEntry) throw new Error(`${commandName} requires an EvidenceGraph. Run 'rekon observe' first.`);
+    const evidenceGraph = await store.read(evidenceEntry) as { header?: ArtifactHeader };
+    if (!evidenceGraph.header) throw new Error(`${commandName} could not read a valid EvidenceGraph header.`);
+    const evidenceRef: ArtifactRef = {
+      type: evidenceEntry.type,
+      id: evidenceEntry.id,
+      path: evidenceEntry.path,
+      digest: evidenceEntry.digest,
+      schemaVersion: evidenceEntry.schemaVersion ?? "0.1.0",
+    };
+    const sourcePath = junitPath || eslintPath;
+    const sourceKind = junitPath ? "JUnit XML" : "ESLint JSON";
+    const reportFile = await resolveReadableRepoFile(root, sourcePath, commandName, `${sourceKind} report`);
+    const raw = await readFile(reportFile.absolutePath, "utf8");
+    const digest = createHash("sha256").update(raw).digest("hex");
+    const artifactType = junitPath ? "TestReport" : "LintReport";
+    const header: ArtifactHeader = {
+      artifactType,
+      artifactId: `${artifactType === "TestReport" ? "test" : "lint"}-report-${digest.slice(0, 24)}`,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: evidenceGraph.header.subject,
+      producer: { id: "@rekon/cli.checks-ingest", version: "1.0.0" },
+      inputRefs: [evidenceRef],
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: 1,
+        notes: [`Normalized from repository-local ${sourceKind} without executing the tool or persisting the raw payload.`],
+      },
+    };
+    const commonInput = { repoRoot: resolve(root), sourcePath: reportFile.relativePath, sourceDigest: digest, header };
+    if (junitPath) {
+      const result = parseJUnitReport({ ...commonInput, xml: raw });
+      if (!result.valid || !result.report) throw new Error(`${commandName} rejected the report:\n${result.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join("\n")}`);
+      const ref = await store.write(result.report satisfies TestReport, { category: "actions" });
+      writeOutput({ artifact: ref, summary: result.report.summary, status: result.report.status, issues: result.issues }, json);
+      return;
+    }
+    let eslint: unknown;
+    try {
+      eslint = JSON.parse(raw);
+    } catch {
+      throw new Error(`${commandName} requires valid ESLint JSON.`);
+    }
+    const result = parseEslintJsonReport({ ...commonInput, report: eslint });
+    if (!result.valid || !result.report) throw new Error(`${commandName} rejected the report:\n${result.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join("\n")}`);
+    const ref = await store.write(result.report satisfies LintReport, { category: "actions" });
+    writeOutput({ artifact: ref, summary: result.report.summary, status: result.report.status, issues: result.issues }, json);
+    return;
+  }
+
   if (command === "security" && subcommand === "ingest") {
     const commandName = "rekon security ingest";
     const sarifPath = typeof parsed.flags.sarif === "string" ? parsed.flags.sarif.trim() : "";
@@ -5414,11 +5481,15 @@ export async function main(argv: string[]): Promise<void> {
       eventLogHash = createHash("sha256").update(eventLog).digest("hex");
     }
 
-    const coverageFlagValue = parsed.flags["istanbul-coverage"];
+    const istanbulCoverageFlagValue = parsed.flags["istanbul-coverage"];
+    const lcovCoverageFlagValue = parsed.flags["lcov-coverage"];
     const testPathFlagValue = parsed.flags["test-path"];
     const verificationRunFlagValue = parsed.flags["verification-run"];
-    if (coverageFlagValue !== undefined && typeof coverageFlagValue !== "string") {
+    if (istanbulCoverageFlagValue !== undefined && typeof istanbulCoverageFlagValue !== "string") {
       throw new Error("rekon runtime graph observe requires exactly one path after --istanbul-coverage.");
+    }
+    if (lcovCoverageFlagValue !== undefined && typeof lcovCoverageFlagValue !== "string") {
+      throw new Error("rekon runtime graph observe requires exactly one path after --lcov-coverage.");
     }
     if (testPathFlagValue !== undefined && typeof testPathFlagValue !== "string") {
       throw new Error("rekon runtime graph observe requires exactly one path after --test-path.");
@@ -5426,29 +5497,31 @@ export async function main(argv: string[]): Promise<void> {
     if (verificationRunFlagValue !== undefined && typeof verificationRunFlagValue !== "string") {
       throw new Error("rekon runtime graph observe requires exactly one ref after --verification-run.");
     }
-    const coverageFlag = typeof coverageFlagValue === "string"
-      ? coverageFlagValue.trim()
-      : "";
+    const istanbulCoverageFlag = typeof istanbulCoverageFlagValue === "string" ? istanbulCoverageFlagValue.trim() : "";
+    const lcovCoverageFlag = typeof lcovCoverageFlagValue === "string" ? lcovCoverageFlagValue.trim() : "";
+    if (istanbulCoverageFlag && lcovCoverageFlag) throw new Error("rekon runtime graph observe accepts only one coverage format at a time.");
+    const coverageFlag = istanbulCoverageFlag || lcovCoverageFlag;
+    const coverageFormat: CoverageObservationInput["format"] = lcovCoverageFlag ? "lcov" : "istanbul";
     const testPathFlag = typeof testPathFlagValue === "string"
       ? testPathFlagValue.trim()
       : "";
     if ((coverageFlag.length > 0) !== (testPathFlag.length > 0)) {
       throw new Error(
-        "rekon runtime graph observe requires --istanbul-coverage and --test-path together. "
-        + "Istanbul coverage has no per-test identity, so Rekon requires explicit attribution.",
+        "rekon runtime graph observe requires a coverage report and --test-path together. "
+        + "Coverage reports have no per-test identity, so Rekon requires explicit attribution.",
       );
     }
     const verificationRunFlag = typeof verificationRunFlagValue === "string"
       ? verificationRunFlagValue.trim()
       : "";
     if (verificationRunFlag.length > 0 && coverageFlag.length === 0) {
-      throw new Error("rekon runtime graph observe requires --istanbul-coverage when --verification-run is supplied.");
+      throw new Error("rekon runtime graph observe requires --istanbul-coverage or --lcov-coverage when --verification-run is supplied.");
     }
     let coverageResult: ReturnType<typeof parseIstanbulCoverage> | undefined;
     let coverageSource: NonNullable<ReturnType<typeof parseIstanbulCoverage>["coverageSource"]> | undefined;
     let coverageVerificationRunRef: ArtifactRef | undefined;
     if (coverageFlag.length > 0 && testPathFlag.length > 0) {
-      let verification: IstanbulCoverageObservationInput["verification"];
+      let verification: CoverageObservationInput["verification"];
       if (verificationRunFlag.length > 0) {
         const { entry } = await resolveVerificationRunEntry(store, verificationRunFlag);
         const runValue = await store.read(entry);
@@ -5466,8 +5539,9 @@ export async function main(argv: string[]): Promise<void> {
         coverageVerificationRunRef = toArtifactRef(entry);
         verification = { ref: coverageVerificationRunRef, run };
       }
-      const parsedCoverage = await readIstanbulCoverageObservation({
+      const parsedCoverage = await readCoverageObservation({
         root,
+        format: coverageFormat,
         coveragePath: coverageFlag,
         testPath: testPathFlag,
         ...(verification ? { verification } : {}),
@@ -9181,8 +9255,9 @@ export async function main(argv: string[]): Promise<void> {
       let runtimeObservationError: string | undefined;
       if (coverageFlag.length > 0 && testPathFlag.length > 0) {
         try {
-          const parsedCoverage = await readIstanbulCoverageObservation({
+          const parsedCoverage = await readCoverageObservation({
             root: execRoot,
+            format: "istanbul",
             coveragePath: coverageFlag,
             testPath: testPathFlag,
             targetPaths: planCoverage?.targetPaths,
@@ -11423,8 +11498,11 @@ async function resolveIsolatedCoverageProvider(
   );
 }
 
-type IstanbulCoverageObservationInput = {
+type CoverageParseResult = ReturnType<typeof parseIstanbulCoverage> | ReturnType<typeof parseLcovCoverage>;
+
+type CoverageObservationInput = {
   root: string;
+  format: "istanbul" | "lcov";
   coveragePath: string;
   testPath: string;
   targetPaths?: string[];
@@ -11436,11 +11514,11 @@ type IstanbulCoverageObservationInput = {
   };
 };
 
-async function readIstanbulCoverageObservation(
-  input: IstanbulCoverageObservationInput,
+async function readCoverageObservation(
+  input: CoverageObservationInput,
 ): Promise<{
-  coverageResult: ReturnType<typeof parseIstanbulCoverage>;
-  coverageSource: NonNullable<ReturnType<typeof parseIstanbulCoverage>["coverageSource"]>;
+  coverageResult: CoverageParseResult;
+  coverageSource: NonNullable<CoverageParseResult["coverageSource"]>;
 }> {
   const commandName = input.commandName ?? "rekon runtime graph observe";
   const coverageFile = await resolveReadableRepoFile(input.root, input.coveragePath, commandName, "coverage file");
@@ -11449,20 +11527,24 @@ async function readIstanbulCoverageObservation(
   const repoRealRoot = await realpath(input.root);
   const coverageJson = await readFile(coverageFile.absolutePath, "utf8");
   let coverage: unknown;
-  try {
-    coverage = JSON.parse(coverageJson);
-  } catch {
-    throw new Error(`${commandName} could not parse Istanbul coverage JSON at ${coverageFile.relativePath}.`);
+  if (input.format === "istanbul") {
+    try {
+      coverage = JSON.parse(coverageJson);
+    } catch {
+      throw new Error(`${commandName} could not parse Istanbul coverage JSON at ${coverageFile.relativePath}.`);
+    }
   }
-  const coverageResult = parseIstanbulCoverage({
-    coverage: normalizeIstanbulCoveragePathAliases(coverage, repoRoot, repoRealRoot),
+  const common = {
     repoRoot,
     coveragePath: coverageFile.relativePath,
     coverageDigest: createHash("sha256").update(coverageJson).digest("hex"),
     testPath: testFile.relativePath,
     targetPaths: input.targetPaths,
     isolated: input.isolated === true,
-  });
+  };
+  const coverageResult: CoverageParseResult = input.format === "lcov"
+    ? parseLcovCoverage({ ...common, lcov: coverageJson })
+    : parseIstanbulCoverage({ ...common, coverage: normalizeIstanbulCoveragePathAliases(coverage, repoRoot, repoRealRoot) });
   if (!coverageResult.valid || !coverageResult.coverageSource) {
     throw new Error(coverageResult.issues
       .filter((issue) => issue.severity === "error")
@@ -15171,6 +15253,7 @@ function usage(): string {
     "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
     "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
+    "rekon checks ingest (--junit <report.xml> | --eslint-json <report.json>) [--root <path>] [--json]",
     "rekon security ingest (--sarif <report.sarif> | --npm-audit <audit.json> [--package-lock <package-lock.json>] | --pnpm-audit <audit.json> | --yarn-audit <audit.ndjson> | --osv <results.json>) [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon evaluate list [--root <path>] [--json]",
@@ -15217,7 +15300,7 @@ function usage(): string {
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",
-    "rekon runtime graph observe [--event-log <path>] [--istanbul-coverage <coverage-final.json> --test-path <test-file>] [--verification-run <VerificationRun:id>] [--root <path>] [--json]",
+    "rekon runtime graph observe [--event-log <path>] [(--istanbul-coverage <coverage-final.json> | --lcov-coverage <lcov.info>) --test-path <test-file>] [--verification-run <VerificationRun:id>] [--root <path>] [--json]",
     "rekon runtime graph drift [--root <path>] [--json]",
     "rekon intent work-order --path <path> --goal <goal> [--root <path>] [--json]",
     "rekon intent remediation [--finding <finding-id>] [--priority p0|p1|p2] [--limit <n>] [--skip-verified] [--root <path>] [--json]",

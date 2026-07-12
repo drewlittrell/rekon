@@ -4,6 +4,9 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added typed JUnit XML and ESLint JSON ingestion with bounded, redacted report
+  artifacts and the existing two-report reproducibility requirement. Added
+  LCOV support to isolated runtime coverage observations.
 - Added native pnpm 11 audit, Yarn audit NDJSON, and OSV-Scanner JSON adapters
   to dependency-vulnerability ingestion. All adapters preserve only normalized
   advisory, version, scope, and source-path evidence and remain assessment-only.

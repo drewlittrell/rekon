@@ -288,7 +288,7 @@ export default defineCapability({
     name: "Policy Evaluator",
     version: "0.1.0",
     roles: ["evaluator"],
-    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport", "CapabilityEvidenceGraph", "VerificationRun", "GraphSlice", "RuntimeGraphObservationReport", "SecurityScanReport", "DependencyAuditReport"],
+    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport", "CapabilityEvidenceGraph", "VerificationRun", "TestReport", "LintReport", "GraphSlice", "RuntimeGraphObservationReport", "SecurityScanReport", "DependencyAuditReport"],
     produces: ["FindingReport", "AssessmentReport"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -310,7 +310,7 @@ export default defineCapability({
       {
         id: "verification-run.changed",
         description: "Repository check assessments are invalid when verification evidence changes.",
-        inputs: ["VerificationRun"],
+        inputs: ["VerificationRun", "TestReport", "LintReport"],
       },
       {
         id: "security-scan.changed",

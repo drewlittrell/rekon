@@ -6,6 +6,7 @@ import {
   evaluateFindingPromotion,
 } from "@rekon/kernel-assessments";
 import type { Finding } from "@rekon/kernel-findings";
+import type { LintReport, TestReport } from "@rekon/kernel-repo-model";
 
 import {
   sourceQualityRootCauseKey,
@@ -231,6 +232,75 @@ export async function evaluateRepositoryChecks(
     if (used) inputRefs.push(ref);
   }
 
+  const testReportRefs = (await artifacts.list("TestReport")).slice(-MAX_RUNS);
+  for (const ref of testReportRefs) {
+    const report = await artifacts.read(ref) as TestReport;
+    if (!sameRepository(graph.header, report.header)) continue;
+    let used = false;
+    for (const testCase of report.cases ?? []) {
+      if (testCase.status !== "failed" && testCase.status !== "error") continue;
+      const diagnostic: ParsedRepositoryDiagnostic = {
+        parser: "junit",
+        severity: "error",
+        code: `junit:${testCase.status}`,
+        message: testCase.message ?? `${testCase.suite}: ${testCase.name}`,
+        ...(testCase.file ? { file: testCase.file } : {}),
+        ...(testCase.line ? { line: testCase.line } : {}),
+      };
+      addImportedOccurrence({
+        graph,
+        evidenceRef,
+        ref,
+        header: report.header,
+        category: "test",
+        commandText: "Imported JUnit report",
+        diagnostic,
+        sourceFiles,
+        applicationGraph,
+        importGraph,
+        occurrences,
+        inputRefs,
+      });
+      used = true;
+    }
+    if (used) inputRefs.push(ref);
+  }
+
+  const lintReportRefs = (await artifacts.list("LintReport")).slice(-MAX_RUNS);
+  for (const ref of lintReportRefs) {
+    const report = await artifacts.read(ref) as LintReport;
+    if (!sameRepository(graph.header, report.header)) continue;
+    let used = false;
+    for (const lint of report.diagnostics ?? []) {
+      if (lint.severity !== "error") continue;
+      const diagnostic: ParsedRepositoryDiagnostic = {
+        parser: "eslint-json",
+        severity: "error",
+        message: lint.message,
+        file: lint.file,
+        ...(lint.line ? { line: lint.line } : {}),
+        ...(lint.column ? { column: lint.column } : {}),
+        ...(lint.ruleId ? { code: lint.ruleId } : {}),
+      };
+      addImportedOccurrence({
+        graph,
+        evidenceRef,
+        ref,
+        header: report.header,
+        category: "lint",
+        commandText: "Imported ESLint JSON report",
+        diagnostic,
+        sourceFiles,
+        applicationGraph,
+        importGraph,
+        occurrences,
+        inputRefs,
+      });
+      used = true;
+    }
+    if (used) inputRefs.push(ref);
+  }
+
   const findings: Finding[] = [];
   const assessments: Assessment[] = [];
   const promotedRootCauseKeys = new Set<string>();
@@ -281,6 +351,58 @@ export async function evaluateRepositoryChecks(
     promotedRootCauseKeys,
     sourceRootCauseKeys,
   };
+}
+
+function addImportedOccurrence(input: {
+  graph: EvidenceGraphLike;
+  evidenceRef: ArtifactRef;
+  ref: ArtifactRef;
+  header: ArtifactHeader;
+  category: "test" | "lint";
+  commandText: string;
+  diagnostic: ParsedRepositoryDiagnostic;
+  sourceFiles: Set<string>;
+  applicationGraph: Awaited<ReturnType<typeof latestApplicationGraph>>;
+  importGraph: Awaited<ReturnType<typeof latestCurrentImportGraph>>;
+  occurrences: CheckOccurrence[];
+  inputRefs: ArtifactRef[];
+}): void {
+  const output = input.diagnostic.message;
+  const command: VerificationRunCommandLike = {
+    command: input.commandText,
+    status: "failed",
+    stdoutExcerpt: { text: output, truncated: false },
+  };
+  const run: VerificationRunLike = { header: input.header, commands: [command] };
+  const sourcePaths = input.diagnostic.file && input.sourceFiles.has(input.diagnostic.file)
+    ? [input.diagnostic.file]
+    : [];
+  const relatedContext = input.category === "test" && sourcePaths[0] && input.applicationGraph
+    ? relatedGraphContextForTest(input.applicationGraph.value, input.applicationGraph.ref, sourcePaths[0])
+    : undefined;
+  const blastRadius = sourcePaths[0] && input.importGraph
+    ? importBlastRadiusForFile(input.importGraph.value, input.importGraph.ref, sourcePaths[0])
+    : undefined;
+  const citesCurrentEvidence = input.header.inputRefs.some((ref) =>
+    ref.type === input.evidenceRef.type && ref.id === input.evidenceRef.id);
+  input.occurrences.push({
+    ref: input.ref,
+    run,
+    command,
+    category: input.category,
+    commandText: input.commandText,
+    output,
+    signature: failureSignature(input.category, input.commandText, command, output, input.diagnostic),
+    sourcePaths,
+    currentEvidence: citesCurrentEvidence && isCurrentEvidence(input.graph.header, input.header),
+    coherence: citesCurrentEvidence ? evidenceCoherence(input.graph.header, input.header) : "none",
+    environmentFailure: false,
+    diagnostic: input.diagnostic,
+    ...(relatedContext ? { relatedContext } : {}),
+    ...(blastRadius ? { blastRadius } : {}),
+  });
+  if (relatedContext) input.inputRefs.push(relatedContext.graphRef);
+  if (blastRadius) input.inputRefs.push(blastRadius.graphRef);
 }
 
 function sourceCorroborationAssessment(
@@ -575,7 +697,7 @@ function repositoryCheckSupportingSignals(
 ): NonNullable<Assessment["supportingSignals"]> {
   return [
     ...runRefs.map((ref) => ({
-      producer: "@rekon/capability-verify",
+      producer: ref.type === "VerificationRun" ? "@rekon/capability-verify" : "@rekon/cli.checks-ingest",
       signalType: "repository_check_failure",
       evidence: [ref],
       details: { category: group.category, signature: group.signature },

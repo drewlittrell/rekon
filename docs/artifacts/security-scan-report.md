@@ -51,7 +51,9 @@ locations, tags, fingerprints, and optional rule documentation.
 
 SARIF partial fingerprints own identity when present. Otherwise Rekon hashes the
 tool, rule, first location, and normalized message. External and outside-root
-locations are omitted with an ingestion warning.
+locations are omitted with an ingestion warning. Persisted messages are bounded
+and secret-redacted, help URLs drop credentials and query strings, and opaque
+fingerprint values are stored only as SHA-256 digests.
 
 One scanner report does not automatically become a finding. Exploitability,
 repository applicability, and promotion require stronger evidence or operator

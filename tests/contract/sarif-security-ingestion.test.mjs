@@ -23,6 +23,10 @@ test("SARIF 2.1 normalization retains scanner provenance and separates security 
   assert.equal(security.severity, "critical");
   assert.equal(security.precision, "high");
   assert.deepEqual(security.locations, [{ path: "src/query.ts", startLine: 8, startColumn: 3 }]);
+  assert.equal(security.message.includes("secret-value"), false);
+  assert.match(security.fingerprints["primaryLocationLineHash/v1"], /^sha256:[a-f0-9]{64}$/);
+  assert.equal(JSON.stringify(first.report).includes("stable-security-fingerprint"), false);
+  assert.equal(security.helpUri, "https://example.invalid/rules/sql-injection");
   assert.equal(lint.securityRelevant, false);
   assert.equal(first.issues.some((issue) => issue.code === "sarif.location_outside_repo"), true);
 
@@ -118,7 +122,7 @@ function sarifFixture() {
           rules: [
             {
               id: "js/sql-injection",
-              helpUri: "https://example.invalid/rules/sql-injection",
+              helpUri: "https://user:password@example.invalid/rules/sql-injection?token=secret#fragment",
               properties: {
                 tags: ["security", "external/cwe/cwe-089"],
                 "security-severity": "9.1",
@@ -135,7 +139,7 @@ function sarifFixture() {
           ruleId: "js/sql-injection",
           ruleIndex: 0,
           level: "error",
-          message: { text: "User input reaches a SQL query." },
+          message: { text: "api_key=secret-value User input reaches a SQL query." },
           partialFingerprints: { "primaryLocationLineHash/v1": "stable-security-fingerprint" },
           locations: [
             { physicalLocation: { artifactLocation: { uri: "src/query.ts" }, region: { startLine: 8, startColumn: 3 } } },

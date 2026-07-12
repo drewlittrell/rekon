@@ -20,17 +20,22 @@ The report contains `test`, `file`, and `route` nodes connected by
 application `GraphSlice` `observed` edges. Evaluators may use that information
 as impact context, but it cannot promote a risk into a finding by itself.
 
-## Istanbul Coverage
+## Coverage Reports
 
-Istanbul-compatible `coverage-final.json` can supply observed source files:
+Istanbul-compatible `coverage-final.json` or LCOV can supply observed source
+files:
 
 ```sh
 rekon runtime graph observe \
   --istanbul-coverage coverage/coverage-final.json \
   --test-path tests/user.test.ts
+
+rekon runtime graph observe \
+  --lcov-coverage coverage/lcov.info \
+  --test-path tests/user.test.ts
 ```
 
-Istanbul coverage does not contain per-test identity. `--test-path` is an
+Neither format contains per-test identity. `--test-path` is an
 explicit attribution, so use this form only when the coverage file came from an
 isolated run of that test. Suite-wide coverage must not be attributed to one
 test. Rekon records the coverage path, SHA-256 digest, file counts, and test

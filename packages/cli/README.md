@@ -19,6 +19,8 @@ The CLI is the user surface for the local lifecycle:
 - `rekon observe`
 - `rekon project`
 - `rekon evaluate`
+- `rekon checks ingest --junit <report.xml>`
+- `rekon checks ingest --eslint-json <report.json>`
 - `rekon security ingest --sarif <report.sarif>`
 - `rekon security ingest --npm-audit <audit.json> [--package-lock <package-lock.json>]`
 - `rekon security ingest --pnpm-audit <audit.json>`
@@ -82,9 +84,9 @@ record test-to-source and test-to-route execution. See the
 [artifact reference](../../docs/artifacts/runtime-graph-observation-report.md)
 for the event shape and its limits.
 
-The same command accepts isolated Istanbul coverage with
-`--istanbul-coverage <coverage-final.json> --test-path <test-file>`. The test
-path is mandatory because Istanbul reports do not carry per-test attribution.
+The same command accepts isolated Istanbul or LCOV coverage with
+`--istanbul-coverage <coverage-final.json>` or `--lcov-coverage <lcov.info>`.
+`--test-path` is mandatory because neither format carries per-test attribution.
 Add `--verification-run <VerificationRun:id>` to prove that a completed command
 explicitly named the test. Alternatively, pass the coverage flags to
 `rekon verify run --execute` to execute and bind in one flow. Dry-run coverage

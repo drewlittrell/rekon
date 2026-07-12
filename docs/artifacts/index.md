@@ -26,6 +26,7 @@ Common references:
 - [RuntimeGraphObservationReport](runtime-graph-observation-report.md)
 - [SecurityScanReport](security-scan-report.md)
 - [DependencyAuditReport](dependency-audit-report.md)
+- [TestReport and LintReport](repository-check-reports.md)
 - [FindingReport](finding-report.md)
 - [AssessmentReport](assessment-report.md)
 - [ResolverPacket](resolver-packet.md)

@@ -21,6 +21,8 @@ This package owns deterministic model artifacts derived from evidence:
 - `SemanticDebtJudgmentReport`
 - `SecurityScanReport`
 - `DependencyAuditReport`
+- `TestReport`
+- `LintReport`
 
 ## Lifecycle Fit
 
@@ -44,6 +46,8 @@ exploitability.
 Dependency audit contracts retain normalized advisories, affected ranges,
 installed versions, dependency paths, scope, and source/lockfile digests
 without asserting exploitability.
+Test and lint report contracts retain normalized JUnit cases and ESLint
+diagnostics without retaining raw tool payloads.
 
 ## Import Boundary
 

@@ -27,7 +27,7 @@ artifacts over re-deriving ownership directly from raw evidence.
 The default export is a Rekon capability definition with a projector handler.
 The package also exports the semantic-debt judgment prompt, strict response
 schema, deterministic concern coercion, runtime observation builder, and pure
-Istanbul coverage parser used by the CLI and model evaluator. Runtime coverage
+Istanbul and LCOV coverage parsers used by the CLI and model evaluator. Runtime coverage
 sources can cite the exact `VerificationRun` command that produced them.
 The Istanbul parser also retains normalized function ranges and execution
 counts for explicitly isolated runs, plus source targets declared by generated
@@ -41,6 +41,9 @@ joins `package-lock.json` package entries to retain installed versions and
 dependency scope; other adapters preserve only the metadata their native
 formats prove. Unsupported or incomplete input is reported explicitly, and raw
 audit payloads are not retained.
+The JUnit XML and ESLint JSON adapters produce typed test and lint reports from
+repository-local tool output. Only normalized cases and diagnostics are kept;
+raw logs, source excerpts, suggestions, and unknown payload fields are dropped.
 
 ## Import Boundary
 
