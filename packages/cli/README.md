@@ -30,6 +30,7 @@ The CLI is the user surface for the local lifecycle:
 - `rekon resolve preflight`
 - `rekon publish agents`
 - `rekon memory add/list/select`
+- `rekon intent status`
 - `rekon intent work-order`
 - `rekon reconcile`
 - `rekon artifacts list`
@@ -42,6 +43,10 @@ The CLI is the user surface for the local lifecycle:
 - `rekon verify coverage plan`
 
 The CLI delegates lifecycle work to `@rekon/runtime`.
+
+`rekon intent status` selects one coherent intent lineage. Pinned assessment or
+prepared-plan refs prevent proof from another intent from satisfying status.
+Use `--json` to inspect the selected and missing refs under `lineage`.
 
 `rekon artifacts freshness` prints a concise stale/partial summary by default
 and returns the complete issue structure with `--json`.

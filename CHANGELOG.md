@@ -4,6 +4,11 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Fixed `rekon intent status` provenance selection so assessment, preparation,
+  status, work, and verification proof must form one artifact lineage. JSON
+  output now identifies selected and missing refs; incompatible explicit refs
+  fail with typed lineage errors.
+
 - Added artifact invalidation baselines for tracked source/config content and
   producer versions. Freshness now reports source, configuration, artifact
   lineage, and tool-version drift; snapshots carry current evidence staleness.

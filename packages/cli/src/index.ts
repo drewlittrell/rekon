@@ -260,6 +260,10 @@ import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import { runMcpServer } from "@rekon/mcp";
 import { buildDocsFreshnessReport, renderDocsIndex } from "@rekon/capability-docs";
 import {
+  IntentArtifactLineageError,
+  resolveIntentStatusLineage,
+} from "./intent-lineage.js";
+import {
   buildSourceStateFingerprint,
   DEFAULT_SOURCE_FINGERPRINT_IGNORE,
   type BridgeFindingLifecycleIntegrationReport,
@@ -366,7 +370,15 @@ const MAX_QUERY_TOP_K = 20;
 
 if (isMainEntry()) {
   main(process.argv.slice(2)).catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error));
+    if (error instanceof IntentArtifactLineageError) {
+      if (process.argv.includes("--json")) {
+        console.error(JSON.stringify({ error: { code: error.code, message: error.message, details: error.details } }, null, 2));
+      } else {
+        console.error(`${error.code}: ${error.message}`);
+      }
+    } else {
+      console.error(error instanceof Error ? error.message : String(error));
+    }
     process.exitCode = 1;
   });
 }
@@ -7075,44 +7087,48 @@ export async function main(argv: string[]): Promise<void> {
     // See docs/artifacts/intent-status-report.md.
     const store = createLocalArtifactStore(root);
     await store.init();
-
-    const resolveRefWithValue = async <T>(flagName: string, type: string): Promise<{ ref?: ArtifactRef; value?: T }> => {
-      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
-      let entry: ArtifactIndexEntry | undefined;
-      if (flag.length > 0) {
-        entry = await findArtifactEntry(store, flag);
-        if (entry.type !== type) {
-          throw new Error(`rekon intent status --${flagName} must reference a ${type}; got ${entry.type}.`);
-        }
-      } else {
-        const entries = await store.list(type);
-        entry = entries.at(-1);
-      }
-      if (!entry) return {};
-      const ref: ArtifactRef = {
-        type: entry.type,
-        id: entry.id,
-        path: entry.path,
-        digest: entry.digest,
-        schemaVersion: entry.schemaVersion ?? "0.1.0",
-      };
-      const value = (await store.read(entry)) as T;
-      return { ref, value };
+    const flag = (name: string): string | undefined => {
+      const value = parsed.flags[name];
+      return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
     };
+    const lineage = await resolveIntentStatusLineage({
+      store,
+      requested: {
+        assessment: flag("assessment"),
+        preparedPlan: flag("prepared-plan"),
+        workOrder: flag("work-order"),
+        verificationPlan: flag("verification-plan"),
+        verificationRun: flag("verification-run"),
+        verificationResult: flag("verification-result"),
+        pathFreshness: flag("path-freshness"),
+        runtimeDrift: flag("runtime-drift"),
+        handoffCoverage: flag("handoff-coverage"),
+      },
+    });
 
-    const { ref: assessmentRef, value: assessmentValue } = await resolveRefWithValue<IntentStatusAssessmentLike>("assessment", "IntentAssessmentReport");
-    const { ref: preparedRef, value: preparedValue } = await resolveRefWithValue<IntentStatusPreparedPlanLike>("prepared-plan", "PreparedIntentPlan");
-    const { ref: workOrderRef, value: workOrderValue } = await resolveRefWithValue<IntentStatusWorkOrderLike>("work-order", "WorkOrder");
-    const { ref: planRef } = await resolveRefWithValue<unknown>("verification-plan", "VerificationPlan");
-    const { ref: runRef, value: runValue } = await resolveRefWithValue<IntentStatusVerificationRunLike>("verification-run", "VerificationRun");
-    const { ref: resultRef, value: resultValue } = await resolveRefWithValue<IntentStatusVerificationResultLike>("verification-result", "VerificationResult");
-    const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<IntentStatusPathFreshnessLike>("path-freshness", "PathFreshnessReport");
-    const { ref: driftRef, value: driftValue } = await resolveRefWithValue<IntentStatusRuntimeDriftLike>("runtime-drift", "RuntimeGraphDriftReport");
-    const { ref: coverageRef, value: coverageValue } = await resolveRefWithValue<IntentStatusHandoffCoverageLike>("handoff-coverage", "HandoffCoverageReport");
+    const assessmentRef = lineage.assessment?.ref;
+    const assessmentValue = lineage.assessment?.value as IntentStatusAssessmentLike | undefined;
+    const preparedRef = lineage.preparedPlan?.ref;
+    const preparedValue = lineage.preparedPlan?.value as IntentStatusPreparedPlanLike | undefined;
+    const intentStatusRef = lineage.intentStatus?.ref;
+    const workOrderRef = lineage.workOrder?.ref;
+    const workOrderValue = lineage.workOrder?.value as IntentStatusWorkOrderLike | undefined;
+    const planRef = lineage.verificationPlan?.ref;
+    const runRef = lineage.verificationRun?.ref;
+    const runValue = lineage.verificationRun?.value as IntentStatusVerificationRunLike | undefined;
+    const resultRef = lineage.verificationResult?.ref;
+    const resultValue = lineage.verificationResult?.value as IntentStatusVerificationResultLike | undefined;
+    const freshnessRef = lineage.pathFreshness?.ref;
+    const freshnessValue = lineage.pathFreshness?.value as IntentStatusPathFreshnessLike | undefined;
+    const driftRef = lineage.runtimeDrift?.ref;
+    const driftValue = lineage.runtimeDrift?.value as IntentStatusRuntimeDriftLike | undefined;
+    const coverageRef = lineage.handoffCoverage?.ref;
+    const coverageValue = lineage.handoffCoverage?.value as IntentStatusHandoffCoverageLike | undefined;
 
     const inputRefs = [
       assessmentRef,
       preparedRef,
+      intentStatusRef,
       workOrderRef,
       planRef,
       runRef,
@@ -7167,6 +7183,7 @@ export async function main(argv: string[]): Promise<void> {
           warnings: report.warnings.length,
           staleInputs: report.staleInputs.length,
           missingInputs: report.missingInputs.length,
+          lineage: lineage.provenance,
         },
         true,
       );
