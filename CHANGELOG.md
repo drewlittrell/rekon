@@ -15,6 +15,9 @@ All notable changes to Rekon are documented here.
 - Added `debt-eligibility-v2`. Semantic-debt scans now exclude hidden
   operational artifacts before provider judgment, and cached reports must
   match the active eligibility version before per-file judgments are reused.
+- Fixed semantic-debt file budgets so `--semantic-debt-file-limit` caps total
+  active report entries. Re-running a scan now reuses the bounded set instead
+  of silently spending the same budget on another batch.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

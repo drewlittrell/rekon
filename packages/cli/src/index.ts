@@ -10832,6 +10832,10 @@ async function runSemanticDebtLayer(input: {
     }
 
     const sha256 = createHash("sha256").update(text).digest("hex");
+    if (entries.length >= input.fileLimit) {
+      skipped += 1;
+      continue;
+    }
     const prior = priorByPath.get(selectedFile.relativePath);
     if (prior && prior.sha256 === sha256) {
       const reusedEntry: SemanticDebtJudgmentEntry = { ...prior, reused: true };
@@ -10840,11 +10844,6 @@ async function runSemanticDebtLayer(input: {
       if (reusedEntry.verdict === "debt" && reusedEntry.concerns.some((concern) => concern.included === true)) {
         filesWithDebt += 1;
       }
-      continue;
-    }
-
-    if (judged + failed >= input.fileLimit) {
-      skipped += 1;
       continue;
     }
 
