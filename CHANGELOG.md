@@ -42,6 +42,9 @@ All notable changes to Rekon are documented here.
   resolution even when `noUnusedLocals` is disabled. Policy exposes them as
   verified, low-impact `typescript.unusedImport` opportunities rather than
   compiler-error findings.
+- Semantic-debt eligibility now excludes structured data outputs and files that
+  exceed the bounded prompt. Same-prompt judgments remain reusable across
+  eligibility revisions after the current file passes the stricter gate.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

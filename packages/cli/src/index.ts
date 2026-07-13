@@ -172,6 +172,7 @@ import modelCapability, {
   SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
   SEMANTIC_DEBT_PROMPT_VERSION,
   SEMANTIC_DEBT_ELIGIBILITY_VERSION,
+  SEMANTIC_DEBT_MAX_PROMPT_CHARS,
   evaluateSemanticDebtEligibility,
   SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX,
   buildCapabilityEvidenceGraph,
@@ -10051,7 +10052,6 @@ const SEMANTIC_DEBT_DEFAULT_EFFORT = "low";
 const SEMANTIC_DEBT_ECONOMY_MODEL = "gpt-5.4-nano";
 const SEMANTIC_DEBT_ECONOMY_EFFORT = "none";
 const SEMANTIC_DEBT_DEFAULT_FILE_LIMIT = 200;
-const SEMANTIC_DEBT_MAX_PROMPT_CHARS = 24000;
 const SEMANTIC_DEBT_EXCLUDED_PREFIXES = [".claude/", ".codex/", ".agents/"] as const;
 const SEMANTIC_DEBT_REPORT_ARTIFACT_ID_PREFIX = "semantic-debt-judgment-report-";
 
@@ -10678,14 +10678,13 @@ function languageForSemanticDebtPath(relPath: string): string | undefined {
   return undefined;
 }
 
-function semanticDebtPolicyMatches(
+function semanticDebtReusePolicyMatches(
   report: unknown,
   policy: {
     provider: string;
     model: string;
     effort?: SemanticDebtEffort;
     promptVersion: string;
-    eligibilityVersion: string;
   },
 ): report is SemanticDebtJudgmentReport {
   if (!report || typeof report !== "object" || Array.isArray(report)) return false;
@@ -10701,8 +10700,7 @@ function semanticDebtPolicyMatches(
   return candidate.policy?.provider === policy.provider
     && candidate.policy?.model === policy.model
     && candidate.policy?.effort === policy.effort
-    && candidate.policy?.promptVersion === policy.promptVersion
-    && candidate.policy?.eligibilityVersion === policy.eligibilityVersion;
+    && candidate.policy?.promptVersion === policy.promptVersion;
 }
 
 function semanticDebtEntryMap(report: SemanticDebtJudgmentReport): Map<string, SemanticDebtJudgmentEntry> {
@@ -10786,7 +10784,10 @@ async function runSemanticDebtLayer(input: {
     const latest = priorRefs.at(-1);
     if (latest) {
       const prior = await store.read(latest);
-      if (semanticDebtPolicyMatches(prior, policy)) {
+      // Eligibility is re-evaluated for every current file before reuse, so a
+      // candidate judged with the same prompt/model remains reusable across a
+      // stricter eligibility revision. Excluded paths never enter `entries`.
+      if (semanticDebtReusePolicyMatches(prior, policy)) {
         priorByPath = semanticDebtEntryMap(prior);
       }
     }
@@ -10851,12 +10852,9 @@ async function runSemanticDebtLayer(input: {
       continue;
     }
 
-    const promptText = text.length > SEMANTIC_DEBT_MAX_PROMPT_CHARS
-      ? `${text.slice(0, SEMANTIC_DEBT_MAX_PROMPT_CHARS)}\n[truncated for judgment]`
-      : text;
     const result = await adapter({
       filePath: selectedFile.relativePath,
-      fileText: promptText,
+      fileText: text,
       language: languageForSemanticDebtPath(selectedFile.relativePath),
     });
 

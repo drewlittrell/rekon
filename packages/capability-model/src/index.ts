@@ -274,6 +274,7 @@ export {
   SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
   SEMANTIC_DEBT_PROMPT_VERSION,
   SEMANTIC_DEBT_ELIGIBILITY_VERSION,
+  SEMANTIC_DEBT_MAX_PROMPT_CHARS,
   type SemanticDebtEligibilityDecision,
   type SemanticDebtEligibilityReason,
   buildSemanticDebtJudgmentPrompt,

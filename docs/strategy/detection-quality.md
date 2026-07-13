@@ -209,6 +209,8 @@ Neither output is multiplied into separate findings for every wording variant.
 Semantic eligibility, model judgment, deterministic corroboration, and finding
 promotion are separate stages. A matching source signal can corroborate a
 claim, but does not bypass the promotion gate.
+Eligibility excludes generated, non-production, declaration-only, structured
+data-output, and prompt-truncated inputs before provider calls.
 
 ### Reachability And Overlap
 

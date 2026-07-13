@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 
+import { createLocalArtifactStore } from "../../packages/runtime/dist/index.js";
+
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages", "cli", "dist", "index.js");
 
@@ -58,10 +60,24 @@ test("semantic debt file limit caps the reusable report instead of expanding on 
     assert.equal(first.semanticDebt.reused, 0);
     assert.equal(requests.length, 2);
 
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const latestRef = (await store.list("SemanticDebtJudgmentReport")).at(-1);
+    const latest = await store.read(latestRef);
+    await store.write({
+      ...latest,
+      header: {
+        ...latest.header,
+        artifactId: "semantic-debt-legacy-eligibility",
+        generatedAt: new Date(Date.parse(latest.header.generatedAt) + 1).toISOString(),
+      },
+      policy: { ...latest.policy, eligibilityVersion: "debt-eligibility-v2" },
+    }, { category: "actions" });
+
     const second = JSON.parse(await runCli(args, env));
     assert.equal(second.semanticDebt.judged, 0);
     assert.equal(second.semanticDebt.reused, 2);
-    assert.equal(requests.length, 2, "retry must not spend another file-limit batch");
+    assert.equal(requests.length, 2, "a stricter eligibility revision must reuse still-eligible unchanged judgments");
   } finally {
     await new Promise((resolveClose) => server.close(() => resolveClose()));
     await rm(root, { recursive: true, force: true });

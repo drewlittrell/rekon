@@ -34,6 +34,10 @@ schema, versioned eligibility decision, deterministic concern coercion,
 runtime observation builder, and pure
 Istanbul and LCOV coverage parsers used by the CLI and model evaluator. Runtime coverage
 sources can cite the exact `VerificationRun` command that produced them.
+Semantic-debt eligibility excludes structured output data and files larger than
+the bounded prompt instead of asking a model to judge generated records or
+partial source. Unchanged judgments can be reused across eligibility revisions
+after current eligibility is rechecked.
 The Istanbul parser also retains normalized function ranges and execution
 counts for explicitly isolated runs, plus source targets declared by generated
 verification plans.

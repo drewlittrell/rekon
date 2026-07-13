@@ -1,13 +1,16 @@
 import type { SemanticFileUnderstandingSeverity } from "@rekon/kernel-repo-model";
 
 export const SEMANTIC_DEBT_PROMPT_VERSION = "debt-judge-v1";
-export const SEMANTIC_DEBT_ELIGIBILITY_VERSION = "debt-eligibility-v2";
+export const SEMANTIC_DEBT_ELIGIBILITY_VERSION = "debt-eligibility-v3";
+export const SEMANTIC_DEBT_MAX_PROMPT_CHARS = 24000;
 
 export type SemanticDebtEligibilityReason =
   | "eligible"
   | "non-production"
   | "declaration-file"
   | "generated-file"
+  | "data-artifact"
+  | "prompt-truncated"
   | "binary-content"
   | "empty-content";
 
@@ -68,6 +71,11 @@ export function evaluateSemanticDebtEligibility(input: {
     reasons.push("non-production");
   }
   if (/\.d\.[cm]?ts$/u.test(normalized)) reasons.push("declaration-file");
+  const structuredData = /\.(?:json|ya?ml)$/u.test(normalized);
+  if (structuredData && /(^|\/)(?:artifacts?|data|logs?|outputs?|recordings?|reports?|results?|snapshots?)(\/|$)/u.test(normalized)) {
+    reasons.push("data-artifact");
+  }
+  if (input.content.length > SEMANTIC_DEBT_MAX_PROMPT_CHARS) reasons.push("prompt-truncated");
   if (input.content.includes("\u0000")) reasons.push("binary-content");
   if (input.content.trim().length === 0) reasons.push("empty-content");
   const header = input.content.split("\n").slice(0, 12).join("\n");

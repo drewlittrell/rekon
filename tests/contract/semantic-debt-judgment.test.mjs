@@ -439,7 +439,23 @@ test("19. semantic debt eligibility excludes non-production and generated inputs
   );
   assert.equal(
     evaluateSemanticDebtEligibility({ path: ".github/workflows/ci.yml", content: "name: CI\n" }).version,
-    "debt-eligibility-v2",
+    "debt-eligibility-v3",
+  );
+  assert.deepEqual(
+    evaluateSemanticDebtEligibility({ path: "artifacts/runs/result.json", content: '{"status":"complete"}\n' }).reasons,
+    ["data-artifact"],
+  );
+  assert.deepEqual(
+    evaluateSemanticDebtEligibility({ path: "data/import/snapshot.yaml", content: "status: complete\n" }).reasons,
+    ["data-artifact"],
+  );
+  assert.equal(
+    evaluateSemanticDebtEligibility({ path: "src/data/loader.ts", content: "export const load = () => 1;\n" }).eligible,
+    true,
+  );
+  assert.deepEqual(
+    evaluateSemanticDebtEligibility({ path: "src/large.ts", content: "x".repeat(24001) }).reasons,
+    ["prompt-truncated"],
   );
 });
 
