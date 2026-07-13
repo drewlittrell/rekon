@@ -40,6 +40,10 @@ test("JS/TS provider emits facts with provenance and ignores generated directori
     assert.equal(kinds.has("symbol"), true);
     assert.equal(kinds.has("ownership_hint"), true);
     assert.equal(kinds.has("capability_hint"), true);
+    assert.equal(
+      facts.filter((fact) => fact.kind === "file").every((fact) => typeof fact.value.digest === "string"),
+      true,
+    );
     assert.equal(facts.some((fact) => fact.subject.includes(".rekon")), false);
     assert.equal(facts.every((fact) => fact.provenance.pack === "@rekon/capability-js-ts"), true);
     assert.equal(facts.every((fact) => fact.provenance.extractorVersion === "0.1.0"), true);
@@ -363,7 +367,7 @@ test("JS/TS provider honors includeTests", async () => {
   }
 });
 
-test("JS/TS provider skips compiler diagnostics during incremental observe", async () => {
+test("JS/TS provider refreshes repository diagnostics during incremental observe", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-diagnostics-incremental-"));
 
   try {
@@ -378,7 +382,7 @@ test("JS/TS provider skips compiler diagnostics during incremental observe", asy
       changedFiles: ["src/index.ts"],
     });
 
-    assert.equal(facts.some((fact) => fact.kind === "typescript:diagnostic"), false);
+    assert.equal(facts.some((fact) => fact.kind === "typescript:diagnostic"), true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

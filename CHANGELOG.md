@@ -4,6 +4,16 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added artifact invalidation baselines for tracked source/config content and
+  producer versions. Freshness now reports source, configuration, artifact
+  lineage, and tool-version drift; snapshots carry current evidence staleness.
+- Made incremental observation preserve a complete repository evidence graph,
+  including deletion handling and refreshed manifest/compiler evidence. Added
+  smoke, contract, live, and benchmark test lanes plus an incremental pipeline
+  benchmark.
+- Added `GraphSlice.sliceType` so freshness compares a graph input only with
+  newer generations of the same graph family.
+
 - Added first-class assessment lifecycle states across reports, CLI filtering,
   resolver packets, traces, and generated guidance. Tightened root-cause fusion
   so unrelated types or file scopes cannot merge solely because they share a

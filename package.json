@@ -11,6 +11,11 @@
   "scripts": {
     "typecheck": "tsc -b",
     "test": "node scripts/test.mjs",
+    "test:smoke": "node scripts/test.mjs --suite smoke",
+    "test:contract": "node scripts/test.mjs --suite contract",
+    "test:live": "node scripts/test.mjs --suite live",
+    "test:bench": "node scripts/test.mjs --suite bench",
+    "bench:incremental": "npm run build --workspaces && node scripts/benchmark-incremental.mjs",
     "build": "npm run build --workspaces",
     "audit:detection-quality": "npm run build --workspaces && node scripts/audit-detection-quality.mjs",
     "report:detection-quality": "npm run build --workspaces && node scripts/report-detection-quality.mjs",

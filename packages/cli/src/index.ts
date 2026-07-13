@@ -7971,7 +7971,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId,
     });
 
-    writeOutput(result, json);
+    writeOutput(json ? result : renderArtifactFreshness(result), json);
     return;
   }
 
@@ -12417,6 +12417,30 @@ function computeLatestMajorFreshness(
     id: entry.id,
     status: effectiveMajorStatus(entry),
   }));
+}
+
+function renderArtifactFreshness(result: ArtifactFreshnessResult): string {
+  const lines = [
+    `Artifact freshness: ${result.status}`,
+    `Checked: ${result.checkedAt}`,
+    `Artifacts: ${result.artifacts.length}`,
+  ];
+  const nonFresh = result.artifacts.filter((entry) => entry.status !== "fresh");
+
+  if (nonFresh.length === 0) {
+    lines.push("All selected artifacts are fresh.");
+    return lines.join("\n");
+  }
+
+  lines.push("", "Non-fresh artifacts:");
+  for (const entry of nonFresh) {
+    lines.push(`- ${entry.type}:${entry.id} (${entry.status})`);
+    for (const issue of entry.issues) {
+      lines.push(`  ${issue.code}: ${issue.message}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 // The artifact-freshness validator flags `newer-input-exists` whenever an

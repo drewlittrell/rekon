@@ -3,7 +3,13 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
-const requestedPaths = process.argv.slice(2);
+const args = process.argv.slice(2);
+const suiteIndex = args.findIndex((argument) => argument === "--suite");
+const suite = suiteIndex >= 0 ? args[suiteIndex + 1] : undefined;
+if (suiteIndex >= 0) {
+  args.splice(suiteIndex, 2);
+}
+const requestedPaths = args;
 
 const build = spawnSync("npm", ["run", "build", "--workspaces"], {
   cwd: root,
@@ -17,7 +23,9 @@ if (build.status !== 0) {
 const testFiles =
   requestedPaths.length > 0
     ? requestedPaths.flatMap((requestedPath) => collectRequestedTests(join(root, requestedPath)))
-    : collectDefaultTests();
+    : suite
+      ? collectSuiteTests(suite)
+      : collectDefaultTests();
 
 if (testFiles.length === 0) {
   console.error("No test files found.");
@@ -36,6 +44,28 @@ function collectDefaultTests() {
     ...collectTestsUnder(join(root, "tests")),
     ...collectPackageTests(),
   ];
+}
+
+function collectSuiteTests(name) {
+  const packageTests = collectPackageTests();
+  const contractTests = collectTestsUnder(join(root, "tests", "contract"));
+  const integrationTests = collectTestsUnder(join(root, "tests", "integration"));
+  const benchTests = collectTestsUnder(join(root, "tests", "bench"));
+  const optional = (path) => /(?:live|dogfood)\.test\.[cm]?js$/.test(path);
+
+  switch (name) {
+    case "smoke":
+      return [join(root, "tests", "root-smoke.test.mjs")];
+    case "contract":
+      return [...packageTests, ...contractTests, ...integrationTests].filter((path) => !optional(path));
+    case "live":
+      return [...contractTests, ...integrationTests].filter(optional);
+    case "bench":
+      return benchTests;
+    default:
+      console.error(`Unknown test suite: ${name}. Expected smoke, contract, live, or bench.`);
+      process.exit(1);
+  }
 }
 
 function collectPackageTests() {

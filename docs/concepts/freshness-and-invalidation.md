@@ -1,14 +1,29 @@
 # Freshness And Invalidation
 
-Rekon records freshness in artifact headers and validates artifact relationships
-through refs and indexes.
+`rekon artifacts freshness` checks four causes of invalidation:
 
-Freshness statuses:
+- tracked source or configuration content changed or disappeared;
+- a newer artifact exists for an `inputRef`;
+- an `inputRef` is missing;
+- a recorded capability or handler version differs from the registered version.
 
-- `fresh`
-- `stale`
-- `partial`
-- `unknown`
+Artifacts record tracked files and producer versions in
+`header.invalidation`. Derived artifacts continue to use `inputRefs` for
+artifact lineage.
 
-Capabilities declare invalidation rules so future runtimes and current tooling
-can understand which inputs should cause regeneration.
+| Status | Meaning |
+| --- | --- |
+| `fresh` | All recorded inputs and versions still match. |
+| `stale` | A tracked input, upstream artifact, or producer changed. |
+| `partial` | Required lineage is missing. |
+| `unknown` | Rekon cannot establish lineage or read the artifact. |
+
+Incremental observation writes a complete latest-state `EvidenceGraph`: it
+replaces changed or deleted file facts, retains unchanged facts, and recomputes
+repository-wide manifest and TypeScript diagnostic evidence. The prior graph is
+an `inputRef`.
+
+Freshness checks only inputs recorded by the producer. Detecting newly added
+unobserved files requires another observe run or an external changed-file list.
+A watcher remains deferred until these rules have broader large-repository
+evidence.

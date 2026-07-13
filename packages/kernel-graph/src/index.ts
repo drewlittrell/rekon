@@ -61,6 +61,7 @@ export type GraphEdge = {
 export type GraphSlice = {
   header: ArtifactHeader;
   producer: string;
+  sliceType?: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
 };
@@ -78,11 +79,13 @@ export function createGraphSlice(input: GraphSlice): GraphSlice {
 export function composeGraphSlices(input: {
   header: ArtifactHeader;
   producer: string;
+  sliceType?: string;
   slices: GraphSlice[];
 }): GraphSlice {
   return createGraphSlice({
     header: input.header,
     producer: input.producer,
+    sliceType: input.sliceType,
     nodes: input.slices.flatMap((slice) => slice.nodes),
     edges: input.slices.flatMap((slice) => slice.edges),
   });
@@ -106,6 +109,10 @@ export function assertGraphSlice(value: unknown): asserts value is GraphSlice {
 
   if (typeof slice.producer !== "string" || slice.producer.length === 0) {
     throw new TypeError("GraphSlice producer is required.");
+  }
+
+  if (slice.sliceType !== undefined && (typeof slice.sliceType !== "string" || slice.sliceType.length === 0)) {
+    throw new TypeError("GraphSlice sliceType must be a non-empty string when present.");
   }
 
   if (!Array.isArray(slice.nodes)) {

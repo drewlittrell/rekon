@@ -2,6 +2,8 @@ import { constants as fsConstants } from "node:fs";
 import { lstat, mkdir, open, readFile, readdir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
+  type ArtifactInvalidationBaseline,
+  type ArtifactInvalidationInput,
   type ArtifactHeader,
   type ArtifactRef,
   assertArtifactHeader,
@@ -11,8 +13,10 @@ import {
 } from "@rekon/kernel-artifacts";
 import {
   type EvidenceFact,
+  type EvidenceGraph,
   type ProviderContext,
   createEvidenceGraph,
+  dedupeEvidenceFacts,
 } from "@rekon/kernel-evidence";
 import {
   type IntelligenceSnapshot,
@@ -125,6 +129,9 @@ export type ArtifactFreshnessIssue = {
   path?: string;
   inputType?: string;
   inputId?: string;
+  producerId?: string;
+  recordedVersion?: string;
+  currentVersion?: string;
 };
 
 export type ArtifactFreshnessEntry = {
@@ -144,6 +151,12 @@ export type ArtifactFreshnessResult = {
 export type ArtifactFreshnessOptions = {
   artifactType?: string;
   artifactId?: string;
+};
+
+type CapabilityRegistryIndexEntry = {
+  id: string;
+  version: string;
+  handlers: string[];
 };
 
 export type ArtifactStore = {
@@ -340,6 +353,8 @@ export async function createRuntime(options: RuntimeOptions): Promise<Runtime> {
     enforceCapabilityPermissions(capability.manifest.id, capability.manifest.permissions ?? [], permissions);
     registry.use(capability);
   }
+
+  await writeCapabilityRegistryIndex(options.repoRoot, artifacts.workspaceRoot, registry.snapshot());
 
   const repo: RuntimeRepo = {
     id: options.repoId ?? basenameSafe(options.repoRoot),
@@ -706,6 +721,7 @@ export async function validateArtifactFreshness(
 ): Promise<ArtifactFreshnessResult> {
   const checkedAt = new Date().toISOString();
   const indexEntries = await store.list();
+  const currentProducerVersions = await readCurrentProducerVersions(store);
   const latestByTypeMap = new Map<string, ArtifactIndexEntry>();
 
   for (const entry of indexEntries) {
@@ -729,8 +745,7 @@ export async function validateArtifactFreshness(
   });
 
   const artifacts: ArtifactFreshnessEntry[] = [];
-  const aggregateIssues: ArtifactFreshnessIssue[] = [];
-
+  const inputRefsByKey = new Map<string, ArtifactRef[]>();
   for (const entry of filtered) {
     const entryIssues: ArtifactFreshnessIssue[] = [];
     let artifact: ArtifactWithHeader;
@@ -759,12 +774,16 @@ export async function validateArtifactFreshness(
         });
         const status: ArtifactFreshnessStatus = "unknown";
         artifacts.push({ type: entry.type, id: entry.id, status, issues: entryIssues });
-        aggregateIssues.push(...entryIssues);
         continue;
       }
     }
 
     const inputRefs = Array.isArray(artifact.header?.inputRefs) ? artifact.header.inputRefs : [];
+    inputRefsByKey.set(`${entry.type}:${entry.id}`, inputRefs);
+    const invalidationInputs = artifact.header?.invalidation?.inputs ?? [];
+    const invalidationProducers = dedupeProducerBaselines(
+      artifact.header?.invalidation?.producers ?? [],
+    );
 
     if (inputRefs.length === 0 && !CANONICAL_INPUT_TYPES.has(entry.type)) {
       entryIssues.push({
@@ -776,6 +795,8 @@ export async function validateArtifactFreshness(
         path: entry.path,
       });
     }
+
+    const newestReferencedIds = newestReferencedIdsByType(inputRefs, indexEntries);
 
     for (const ref of inputRefs) {
       const matchedInput = indexEntries.find(
@@ -796,7 +817,15 @@ export async function validateArtifactFreshness(
         continue;
       }
 
-      const newest = latestByTypeMap.get(ref.type);
+      // An artifact may intentionally consume history (for example, lifecycle
+      // compares several FindingReports). Only its newest cited generation of
+      // a type participates in supersession; older cited generations are not
+      // stale merely because the same artifact also cites a newer one.
+      if (newestReferencedIds.get(ref.type) !== ref.id) {
+        continue;
+      }
+
+      const newest = await newestCompatibleInput(store, ref, matchedInput, indexEntries, latestByTypeMap);
 
       if (newest && newest.id !== ref.id && newest.writtenAt.localeCompare(matchedInput.writtenAt) > 0) {
         entryIssues.push({
@@ -812,12 +841,38 @@ export async function validateArtifactFreshness(
       }
     }
 
+    for (const input of invalidationInputs) {
+      const issue = await validateTrackedInput(store.root, entry, input);
+      if (issue) {
+        entryIssues.push(issue);
+      }
+    }
+
+    for (const producer of invalidationProducers) {
+      const currentVersion = currentProducerVersions.get(producer.id);
+      if (currentVersion && currentVersion !== producer.version) {
+        entryIssues.push({
+          code: "producer.version_changed",
+          severity: "warning",
+          message: `${entry.type}:${entry.id} was produced with ${producer.id}@${producer.version}, but ${currentVersion} is currently registered.`,
+          artifactType: entry.type,
+          artifactId: entry.id,
+          path: entry.path,
+          producerId: producer.id,
+          recordedVersion: producer.version,
+          currentVersion,
+        });
+      }
+    }
+
     const status = freshnessStatusForIssues(entryIssues);
     artifacts.push({ type: entry.type, id: entry.id, status, issues: entryIssues });
-    aggregateIssues.push(...entryIssues);
   }
 
+  propagateInputFreshness(artifacts, indexEntries, inputRefsByKey);
+
   const aggregateStatus = aggregateFreshnessStatus(artifacts);
+  const aggregateIssues = artifacts.flatMap((entry) => entry.issues);
 
   return {
     status: aggregateStatus,
@@ -827,16 +882,74 @@ export async function validateArtifactFreshness(
   };
 }
 
+function newestReferencedIdsByType(
+  refs: ArtifactRef[],
+  indexEntries: ArtifactIndexEntry[],
+): Map<string, string> {
+  const newest = new Map<string, ArtifactIndexEntry>();
+  for (const ref of refs) {
+    const entry = indexEntries.find((candidate) => candidate.type === ref.type && candidate.id === ref.id);
+    if (!entry) {
+      continue;
+    }
+    const current = newest.get(ref.type);
+    if (!current || current.writtenAt.localeCompare(entry.writtenAt) < 0) {
+      newest.set(ref.type, entry);
+    }
+  }
+  return new Map([...newest].map(([type, entry]) => [type, entry.id]));
+}
+
+async function newestCompatibleInput(
+  store: ArtifactStore,
+  ref: ArtifactRef,
+  matchedInput: ArtifactIndexEntry,
+  indexEntries: ArtifactIndexEntry[],
+  latestByTypeMap: ReadonlyMap<string, ArtifactIndexEntry>,
+): Promise<ArtifactIndexEntry | undefined> {
+  if (ref.type !== "GraphSlice") {
+    return latestByTypeMap.get(ref.type);
+  }
+
+  const matchedGraph = await store.read(matchedInput) as { sliceType?: unknown };
+  const sliceType = isNonEmptyString(matchedGraph.sliceType) ? matchedGraph.sliceType : undefined;
+  if (!sliceType) {
+    return undefined;
+  }
+
+  const compatible: ArtifactIndexEntry[] = [];
+  for (const candidate of indexEntries.filter((entry) => entry.type === ref.type)) {
+    try {
+      const graph = await store.read(candidate) as { sliceType?: unknown };
+      if (graph.sliceType === sliceType) {
+        compatible.push(candidate);
+      }
+    } catch {
+      // Integrity failures are reported on the candidate's own freshness row.
+    }
+  }
+
+  return compatible.sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+}
+
 function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFreshnessStatus {
-  if (issues.some((issue) => issue.code === "artifact.unreadable")) {
+  if (issues.some((issue) => issue.code === "artifact.unreadable" || issue.code === "input.unknown")) {
     return "unknown";
   }
 
-  if (issues.some((issue) => issue.code === "input.missing")) {
+  if (issues.some((issue) => issue.code === "input.missing" || issue.code === "input.partial")) {
     return "partial";
   }
 
-  if (issues.some((issue) => issue.code === "newer-input-exists")) {
+  if (issues.some((issue) =>
+    issue.code === "newer-input-exists"
+    || issue.code === "source.changed"
+    || issue.code === "source.missing"
+    || issue.code === "config.changed"
+    || issue.code === "config.missing"
+    || issue.code === "producer.version_changed"
+    || issue.code === "input.stale"
+  )) {
     return "stale";
   }
 
@@ -845,6 +958,181 @@ function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFre
   }
 
   return "fresh";
+}
+
+function propagateInputFreshness(
+  artifacts: ArtifactFreshnessEntry[],
+  indexEntries: ArtifactIndexEntry[],
+  inputRefsByKey: ReadonlyMap<string, ArtifactRef[]>,
+): void {
+  const freshnessByKey = new Map(artifacts.map((entry) => [`${entry.type}:${entry.id}`, entry]));
+  const indexByKey = new Map(indexEntries.map((entry) => [`${entry.type}:${entry.id}`, entry]));
+
+  for (let pass = 0; pass < artifacts.length; pass += 1) {
+    let changed = false;
+    for (const artifact of artifacts) {
+      const indexEntry = indexByKey.get(`${artifact.type}:${artifact.id}`);
+      if (!indexEntry) {
+        continue;
+      }
+      // Inputs outside a filtered query are not present in freshnessByKey. A
+      // filtered result therefore reports only direct checks, while an
+      // index-wide check can propagate stale lineage across every generation.
+      const inputRefs = inputRefsByKey.get(`${artifact.type}:${artifact.id}`) ?? [];
+      const newestReferencedIds = newestReferencedIdsByType(inputRefs, indexEntries);
+      for (const ref of inputRefs) {
+        if (ref.type !== "GraphSlice" && newestReferencedIds.get(ref.type) !== ref.id) {
+          continue;
+        }
+        const input = freshnessByKey.get(`${ref.type}:${ref.id}`);
+        if (!input || input.status === "fresh" || !shouldPropagateInputStatus(input)) {
+          continue;
+        }
+        const code = `input.${input.status}`;
+        if (!artifact.issues.some((issue) => issue.code === code && issue.inputType === ref.type && issue.inputId === ref.id)) {
+          artifact.issues.push({
+            code,
+            severity: "warning",
+            message: `${artifact.type}:${artifact.id} depends on ${input.status} input ${ref.type}:${ref.id}.`,
+            artifactType: artifact.type,
+            artifactId: artifact.id,
+            path: indexEntry.path,
+            inputType: ref.type,
+            inputId: ref.id,
+          });
+          const nextStatus = freshnessStatusForIssues(artifact.issues);
+          if (nextStatus !== artifact.status) {
+            artifact.status = nextStatus;
+            changed = true;
+          }
+        }
+      }
+    }
+    if (!changed) {
+      break;
+    }
+  }
+}
+
+function shouldPropagateInputStatus(input: ArtifactFreshnessEntry): boolean {
+  if (input.status === "partial") {
+    return input.issues.some((issue) => issue.code === "input.missing" || issue.code === "input.partial");
+  }
+
+  if (input.status === "unknown") {
+    return input.issues.some((issue) => issue.code === "artifact.unreadable" || issue.code === "input.unknown");
+  }
+
+  return input.issues.some((issue) =>
+    issue.code === "source.changed"
+    || issue.code === "source.missing"
+    || issue.code === "config.changed"
+    || issue.code === "config.missing"
+    || issue.code === "producer.version_changed"
+    || issue.code === "input.stale"
+  );
+}
+
+async function readCurrentProducerVersions(store: ArtifactStore): Promise<Map<string, string>> {
+  const versions = new Map<string, string>([
+    ["@rekon/runtime.observe", "0.1.0"],
+    ["@rekon/runtime.snapshot", "0.1.0"],
+    ["@rekon/runtime.findings", "0.1.0"],
+    ["@rekon/runtime.coherency", "0.1.0"],
+    ["@rekon/runtime.issues", "0.1.0"],
+  ]);
+  const indexPath = join(store.workspaceRoot, "registry", "capabilities.index.json");
+
+  try {
+    const raw = await readJsonFileSafely(store.root, indexPath);
+    if (!Array.isArray(raw)) {
+      return versions;
+    }
+
+    for (const entry of raw) {
+      if (!isRecord(entry) || !isNonEmptyString(entry.id) || !isNonEmptyString(entry.version)) {
+        continue;
+      }
+      versions.set(entry.id, entry.version);
+      if (Array.isArray(entry.handlers)) {
+        for (const handler of entry.handlers) {
+          if (isNonEmptyString(handler)) {
+            versions.set(handler, entry.version);
+          }
+        }
+      }
+    }
+  } catch {
+    // Repositories initialized before producer indexing remain readable. Their
+    // producer freshness is unknown until a runtime command refreshes the index.
+  }
+
+  return versions;
+}
+
+function dedupeProducerBaselines(
+  producers: Array<{ id: string; version: string }>,
+): Array<{ id: string; version: string }> {
+  const byId = new Map<string, { id: string; version: string }>();
+  for (const producer of producers) {
+    if (isNonEmptyString(producer.id) && isNonEmptyString(producer.version)) {
+      byId.set(producer.id, producer);
+    }
+  }
+  return [...byId.values()];
+}
+
+async function validateTrackedInput(
+  repoRoot: string,
+  entry: ArtifactIndexEntry,
+  input: ArtifactInvalidationInput,
+): Promise<ArtifactFreshnessIssue | undefined> {
+  const codePrefix = input.kind === "config" ? "config" : "source";
+  const absolutePath = resolve(repoRoot, input.path);
+
+  if (!isPathInside(absolutePath, repoRoot)) {
+    return {
+      code: `${codePrefix}.missing`,
+      severity: "warning",
+      message: `Tracked ${input.kind} input ${input.path} is outside the repository root.`,
+      artifactType: entry.type,
+      artifactId: entry.id,
+      path: input.path,
+    };
+  }
+
+  try {
+    const stats = await lstat(absolutePath);
+    if (!stats.isFile() || stats.isSymbolicLink()) {
+      throw new Error("tracked input is not a regular file");
+    }
+    const [realRepoRoot, realInputPath] = await Promise.all([realpath(repoRoot), realpath(absolutePath)]);
+    if (!isPathInside(realInputPath, realRepoRoot)) {
+      throw new Error("tracked input resolves outside the repository root");
+    }
+    const currentDigest = digestJson(await readFile(realInputPath, "utf8"));
+    if (currentDigest !== input.digest) {
+      return {
+        code: `${codePrefix}.changed`,
+        severity: "warning",
+        message: `Tracked ${input.kind} input ${input.path} changed after ${entry.type}:${entry.id} was written.`,
+        artifactType: entry.type,
+        artifactId: entry.id,
+        path: input.path,
+      };
+    }
+  } catch {
+    return {
+      code: `${codePrefix}.missing`,
+      severity: "warning",
+      message: `Tracked ${input.kind} input ${input.path} is missing or unreadable.`,
+      artifactType: entry.type,
+      artifactId: entry.id,
+      path: input.path,
+    };
+  }
+
+  return undefined;
 }
 
 export type BuildFindingFilterReportOptions = {
@@ -1863,26 +2151,178 @@ export async function runObserve(
     }
   }
 
+  const previousEvidence = options.incremental
+    ? await readLatestEvidenceGraph(context.artifacts)
+    : undefined;
+  const changedPaths = normalizeChangedPaths(context.repo.root, options.changedFiles ?? []);
+  const mergedFacts = previousEvidence
+    ? mergeIncrementalEvidenceFacts(previousEvidence.graph.facts, facts, changedPaths)
+    : facts;
+  const inputRefs = previousEvidence
+    ? [previousEvidence.ref]
+    : [];
+  const invalidation = await createObserveInvalidationBaseline(
+    context.repo.root,
+    mergedFacts,
+    registry,
+    activeProviders.map((provider) => provider.id),
+  );
+
   const header = createRuntimeArtifactHeader({
     artifactType: "EvidenceGraph",
     artifactId: `evidence-${Date.now()}`,
     repo: context.repo,
     producerId: "@rekon/runtime.observe",
-    inputRefs: [],
+    inputRefs,
     paths: options.changedFiles,
+    invalidation,
+    freshnessStatus: options.incremental && !previousEvidence ? "partial" : "fresh",
   });
   const graph = createEvidenceGraph({
     header,
-    facts,
+    facts: mergedFacts,
   });
 
   return context.artifacts.write(graph, { category: "evidence" });
 }
 
+async function readLatestEvidenceGraph(
+  store: ArtifactStore,
+): Promise<{ graph: EvidenceGraph; ref: ArtifactRef } | undefined> {
+  const entries = (await store.list("EvidenceGraph"))
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+  const latest = entries[0];
+  if (!latest) {
+    return undefined;
+  }
+
+  return {
+    graph: (await store.read(latest)) as EvidenceGraph,
+    ref: indexEntryToRef(latest),
+  };
+}
+
+function mergeIncrementalEvidenceFacts(
+  previousFacts: EvidenceFact[],
+  observedFacts: EvidenceFact[],
+  changedPaths: Set<string>,
+): EvidenceFact[] {
+  const retained = previousFacts.filter((fact) => {
+    if (fact.kind === "typescript:diagnostic" || fact.provenance.file?.endsWith("package.json")) {
+      return false;
+    }
+
+    const paths = factPaths(fact);
+    return !paths.some((path) => changedPaths.has(path));
+  });
+
+  return dedupeEvidenceFacts([...retained, ...observedFacts]);
+}
+
+function factPaths(fact: EvidenceFact): string[] {
+  const paths = new Set<string>();
+  if (isNonEmptyString(fact.provenance.file)) {
+    paths.add(normalizeRepoPath(fact.provenance.file));
+  }
+  if (isNonEmptyString(fact.value.path)) {
+    paths.add(normalizeRepoPath(fact.value.path));
+  }
+  if (isNonEmptyString(fact.value.source)) {
+    paths.add(normalizeRepoPath(fact.value.source));
+  }
+  if (isNonEmptyString(fact.subject)) {
+    const subjectPath = fact.subject.split(":", 1)[0];
+    if (subjectPath) {
+      paths.add(normalizeRepoPath(subjectPath));
+    }
+  }
+  return [...paths];
+}
+
+function normalizeChangedPaths(repoRoot: string, paths: string[]): Set<string> {
+  const normalized = new Set<string>();
+  for (const path of paths) {
+    if (!isNonEmptyString(path)) {
+      continue;
+    }
+    const absolutePath = resolve(repoRoot, path);
+    if (!isPathInside(absolutePath, repoRoot)) {
+      continue;
+    }
+    const relativePath = relative(repoRoot, absolutePath);
+    if (relativePath && relativePath !== ".") {
+      normalized.add(normalizeRepoPath(relativePath));
+    }
+  }
+  return normalized;
+}
+
+function normalizeRepoPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+async function createObserveInvalidationBaseline(
+  repoRoot: string,
+  facts: EvidenceFact[],
+  registry: CapabilityRegistrySnapshot,
+  activeProviderIds: string[],
+): Promise<ArtifactInvalidationBaseline> {
+  const inputs = new Map<string, ArtifactInvalidationInput>();
+
+  for (const fact of facts) {
+    const kind = fact.kind === "file" ? "source" : fact.kind === "manifest" ? "config" : undefined;
+    const path = isNonEmptyString(fact.value.path) ? normalizeRepoPath(fact.value.path) : undefined;
+    const digest = isNonEmptyString(fact.value.digest) ? fact.value.digest : undefined;
+    if (kind && path && digest) {
+      inputs.set(`${kind}:${path}`, { kind, path, digest });
+    }
+  }
+
+  for (const path of ["rekon.config.json", ".rekon/config.json", ".rekon/scan-scope.json", "tsconfig.json"]) {
+    const absolutePath = resolve(repoRoot, path);
+    try {
+      const stats = await lstat(absolutePath);
+      if (!stats.isFile() || stats.isSymbolicLink()) {
+        continue;
+      }
+      const [realRepoRoot, realInputPath] = await Promise.all([realpath(repoRoot), realpath(absolutePath)]);
+      if (!isPathInside(realInputPath, realRepoRoot)) {
+        continue;
+      }
+      inputs.set(`config:${path}`, {
+        kind: "config",
+        path,
+        digest: digestJson(await readFile(realInputPath, "utf8")),
+      });
+    } catch {
+      // Optional configuration that does not exist is not a tracked input.
+    }
+  }
+
+  const providerIds = new Set(activeProviderIds);
+  const producers = registry.capabilities
+    .filter((capability) => capability.evidenceProviders.some((provider) => providerIds.has(provider.id)))
+    .flatMap((capability) => [
+      { id: capability.manifest.id, version: capability.manifest.version },
+      ...capability.evidenceProviders
+        .filter((provider) => providerIds.has(provider.id))
+        .map((provider) => ({ id: provider.id, version: capability.manifest.version })),
+    ])
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  return {
+    inputs: [...inputs.values()].sort((left, right) => `${left.kind}:${left.path}`.localeCompare(`${right.kind}:${right.path}`)),
+    producers,
+  };
+}
+
 export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef> {
   const artifacts = await context.artifacts.list();
   const indexValidation = await validateArtifactIndex(context.artifacts);
-  const status = createSnapshotStatus(artifacts, indexValidation);
+  const freshnessValidation = await validateArtifactFreshness(context.artifacts, {
+    artifactType: "EvidenceGraph",
+  });
+  const status = createSnapshotStatus(artifacts, indexValidation, freshnessValidation);
   const latestEvidence = latestByType(artifacts, "EvidenceGraph");
   const inputRefs = latestEvidence ? [latestEvidence] : [];
   const snapshot: IntelligenceSnapshot = createIntelligenceSnapshot({
@@ -2178,6 +2618,8 @@ function createRuntimeArtifactHeader(input: {
   producerId: string;
   inputRefs: ArtifactRef[];
   paths?: string[];
+  invalidation?: ArtifactInvalidationBaseline;
+  freshnessStatus?: ArtifactFreshnessStatus;
 }): ArtifactHeader {
   return {
     artifactType: input.artifactType,
@@ -2195,8 +2637,9 @@ function createRuntimeArtifactHeader(input: {
       version: "0.1.0",
     },
     inputRefs: input.inputRefs,
+    invalidation: input.invalidation,
     freshness: {
-      status: "fresh",
+      status: input.freshnessStatus ?? "fresh",
     },
     provenance: {
       confidence: 1,
@@ -2225,6 +2668,35 @@ class ArtifactAccessError extends Error {
     super(message);
     this.name = "ArtifactAccessError";
   }
+}
+
+async function writeCapabilityRegistryIndex(
+  repoRoot: string,
+  workspaceRoot: string,
+  registry: CapabilityRegistrySnapshot,
+): Promise<void> {
+  const entries: CapabilityRegistryIndexEntry[] = registry.capabilities
+    .map((capability) => ({
+      id: capability.manifest.id,
+      version: capability.manifest.version,
+      handlers: [
+        ...capability.evidenceProviders,
+        ...capability.projectors,
+        ...capability.evaluators,
+        ...capability.resolvers,
+        ...capability.publishers,
+        ...capability.actuators,
+        ...capability.learners,
+        ...capability.runners,
+      ].map((handler) => handler.id).sort(),
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  await writeGeneratedFileSafely(
+    repoRoot,
+    join(workspaceRoot, "registry", "capabilities.index.json"),
+    `${JSON.stringify(entries, null, 2)}\n`,
+  );
 }
 
 async function ensureJsonFile(repoRoot: string, path: string, value: unknown): Promise<void> {
@@ -2709,12 +3181,23 @@ function groupLatestRefsByType(entries: ArtifactIndexEntry[], types: string[]): 
 function createSnapshotStatus(
   artifacts: ArtifactIndexEntry[],
   validation: ArtifactIndexValidationResult,
+  freshness: ArtifactFreshnessResult,
 ): IntelligenceSnapshot["status"] {
   const warnings = validation.issues.map((issue) => `${issue.code}: ${issue.message}`);
   const types = new Set(artifacts.map((artifact) => artifact.type).filter(Boolean));
 
   if (!types.has("EvidenceGraph")) {
     warnings.push("No EvidenceGraph artifacts are indexed.");
+  } else {
+    const latestEvidence = latestByType(artifacts, "EvidenceGraph");
+    const latestFreshness = latestEvidence
+      ? freshness.artifacts.find((entry) => entry.id === latestEvidence.id)
+      : undefined;
+    if (latestFreshness && latestFreshness.status !== "fresh") {
+      for (const issue of latestFreshness.issues) {
+        warnings.push(`EvidenceGraph ${latestFreshness.status}: ${issue.code}: ${issue.message}`);
+      }
+    }
   }
 
   for (const warning of missingExpectedProjectionWarnings(types)) {
@@ -2722,7 +3205,7 @@ function createSnapshotStatus(
   }
 
   return {
-    freshness: snapshotFreshness(types, warnings),
+    freshness: snapshotFreshness(types, warnings, freshness),
     warnings,
     blockedReasons: [],
   };
@@ -2741,9 +3224,17 @@ function missingExpectedProjectionWarnings(types: Set<string>): string[] {
     .map((type) => `Missing expected projection artifact ${type} after projection started.`);
 }
 
-function snapshotFreshness(types: Set<string>, warnings: string[]): IntelligenceSnapshot["status"]["freshness"] {
+function snapshotFreshness(
+  types: Set<string>,
+  warnings: string[],
+  freshness: ArtifactFreshnessResult,
+): IntelligenceSnapshot["status"]["freshness"] {
   if (!types.has("EvidenceGraph")) {
     return "unknown";
+  }
+
+  if (freshness.artifacts.some((entry) => entry.status === "stale")) {
+    return "stale";
   }
 
   if (warnings.length > 0) {

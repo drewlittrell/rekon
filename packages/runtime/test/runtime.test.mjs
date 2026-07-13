@@ -10,6 +10,7 @@ import {
   createLocalArtifactStore,
   createRuntime,
   validateArtifactIndex,
+  validateArtifactFreshness,
 } from "../dist/index.js";
 
 const silentLogger = {
@@ -160,6 +161,7 @@ test("runtime runs evidence providers and creates a snapshot", async () => {
 
   try {
     await writeFile(join(root, "index.ts"), "export const value = 1;\n", "utf8");
+    await writeFile(join(root, "tool.config.json"), "{\"mode\":\"one\"}\n", "utf8");
     const capability = defineCapability({
       manifest: {
         id: "@rekon/capability-test",
@@ -221,6 +223,118 @@ test("runtime runs evidence providers and creates a snapshot", async () => {
   }
 });
 
+test("incremental observe retains unchanged facts and replaces changed or deleted file facts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-incremental-"));
+
+  try {
+    await writeFile(join(root, "one.ts"), "export const one = 1;\n", "utf8");
+    await writeFile(join(root, "two.ts"), "export const two = 2;\n", "utf8");
+    const capability = defineCapability({
+      manifest: {
+        id: "@rekon/capability-incremental-test",
+        name: "Incremental Test",
+        version: "1.0.0",
+        roles: ["evidence-provider"],
+        consumes: ["SourceFile"],
+        produces: ["EvidenceGraph"],
+        permissions: ["read:source", "write:artifacts"],
+        compatibility: { rekon: "^1.0.0" },
+      },
+      register(registry) {
+        registry.evidenceProvider({
+          id: "incremental-test.provider",
+          kind: "repo",
+          supports() { return true; },
+          async extract(ctx) {
+            const paths = ctx.incremental ? (ctx.changedFiles ?? []) : ["one.ts", "two.ts"];
+            const facts = [];
+            for (const path of paths) {
+              try {
+                const content = await readFile(join(root, path), "utf8");
+                facts.push({
+                  id: `file-${path}-${content.trim()}`,
+                  kind: "file",
+                  subject: path,
+                  value: { path, digest: digestJson(content) },
+                  confidence: 1,
+                  provenance: {
+                    source: "repo",
+                    pack: "@rekon/capability-incremental-test",
+                    file: path,
+                    extractorVersion: "1.0.0",
+                  },
+                });
+              } catch {
+                // A deleted changed file contributes no replacement fact.
+              }
+            }
+            return facts;
+          },
+        });
+      },
+    });
+    const runtime = await createRuntime({ repoRoot: root, capabilities: [capability], logger: silentLogger });
+    const firstRef = await runtime.runObserve();
+
+    await writeFile(join(root, "two.ts"), "export const two = 3;\n", "utf8");
+    const changedRef = await runtime.runObserve({ incremental: true, changedFiles: ["two.ts"] });
+    const changed = await runtime.artifacts.read(changedRef);
+
+    assert.equal(changed.facts.some((fact) => fact.subject === "one.ts"), true);
+    assert.equal(changed.facts.some((fact) => fact.id.includes("two = 2")), false);
+    assert.equal(changed.facts.some((fact) => fact.id.includes("two = 3")), true);
+    assert.equal(changed.header.inputRefs[0].id, firstRef.id);
+
+    await rm(join(root, "one.ts"));
+    const deletedRef = await runtime.runObserve({ incremental: true, changedFiles: ["one.ts"] });
+    const deleted = await runtime.artifacts.read(deletedRef);
+    assert.equal(deleted.facts.some((fact) => fact.subject === "one.ts"), false);
+    assert.equal(deleted.facts.some((fact) => fact.subject === "two.ts"), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("freshness detects tracked input and producer version changes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-freshness-inputs-"));
+
+  try {
+    await writeFile(join(root, "index.ts"), "export const value = 1;\n", "utf8");
+    const runtime = await createRuntime({
+      repoRoot: root,
+      capabilities: [evidenceCapability()],
+      logger: silentLogger,
+    });
+    const evidenceRef = await runtime.runObserve();
+    const evidence = await runtime.artifacts.read(evidenceRef);
+    evidence.header.invalidation = {
+      inputs: [
+        { kind: "source", path: "index.ts", digest: digestJson("export const value = 1;\n") },
+        { kind: "config", path: "tool.config.json", digest: digestJson("{\"mode\":\"one\"}\n") },
+      ],
+      producers: [{ id: "runtime-test.provider", version: "0.1.0" }],
+    };
+    const replacement = { ...evidence, header: { ...evidence.header, artifactId: "evidence-input-baseline" } };
+    const baselineRef = await runtime.artifacts.write(replacement);
+
+    await writeFile(join(root, "index.ts"), "export const value = 2;\n", "utf8");
+    await writeFile(join(root, "tool.config.json"), "{\"mode\":\"two\"}\n", "utf8");
+    const capabilityIndexPath = join(root, ".rekon/registry/capabilities.index.json");
+    const capabilityIndex = JSON.parse(await readFile(capabilityIndexPath, "utf8"));
+    capabilityIndex[0].version = "2.0.0";
+    await writeFile(capabilityIndexPath, `${JSON.stringify(capabilityIndex, null, 2)}\n`, "utf8");
+
+    const result = await validateArtifactFreshness(runtime.artifacts, { artifactId: baselineRef.id });
+    const entry = result.artifacts[0];
+    assert.equal(entry.status, "stale");
+    assert.ok(entry.issues.some((issue) => issue.code === "source.changed"));
+    assert.ok(entry.issues.some((issue) => issue.code === "config.changed"));
+    assert.ok(entry.issues.some((issue) => issue.code === "producer.version_changed"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("snapshot status is unknown when no evidence is indexed", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
 
@@ -257,6 +371,34 @@ test("snapshot status is fresh after observe only", async () => {
 
     assert.equal(snapshot.status.freshness, "fresh");
     assert.deepEqual(snapshot.status.warnings, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("snapshot status is stale when the latest evidence has a changed tracked source", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-snapshot-stale-"));
+
+  try {
+    const source = "export const value = 1;\n";
+    await writeFile(join(root, "index.ts"), source, "utf8");
+    const runtime = await createRuntime({ repoRoot: root, repoId: "fixture", logger: silentLogger });
+    await runtime.artifacts.write({
+      header: {
+        ...testHeader("EvidenceGraph", "evidence-source-baseline", []),
+        invalidation: {
+          inputs: [{ kind: "source", path: "index.ts", digest: digestJson(source) }],
+        },
+      },
+      facts: [],
+    });
+    await writeFile(join(root, "index.ts"), "export const value = 2;\n", "utf8");
+
+    const snapshotRef = await runtime.runSnapshot();
+    const snapshot = await runtime.artifacts.read(snapshotRef);
+
+    assert.equal(snapshot.status.freshness, "stale");
+    assert.ok(snapshot.status.warnings.some((warning) => warning.includes("source.changed")));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -32,6 +32,8 @@ tests, and users inspecting `.rekon/artifacts`.
 - `subject.systems`
 - `freshness.status`
 - `freshness.invalidatedBy`
+- `invalidation.inputs`
+- `invalidation.producers`
 - `provenance.confidence`
 - `provenance.notes`
 
@@ -55,6 +57,14 @@ tests, and users inspecting `.rekon/artifacts`.
   "inputRefs": [
     { "type": "IntelligenceSnapshot", "id": "snapshot-123", "schemaVersion": "0.1.0" }
   ],
+  "invalidation": {
+    "inputs": [
+      { "kind": "source", "path": "src/index.ts", "digest": "sha256" }
+    ],
+    "producers": [
+      { "id": "@rekon/capability-resolver", "version": "1.0.0" }
+    ]
+  },
   "freshness": { "status": "fresh" },
   "provenance": { "confidence": 0.8 }
 }
@@ -65,6 +75,11 @@ tests, and users inspecting `.rekon/artifacts`.
 Freshness describes whether an artifact is current relative to its declared
 inputs. Provenance explains who produced the artifact and how much confidence
 the producer has in the output.
+
+`invalidation.inputs` binds an artifact to source or configuration content.
+`invalidation.producers` binds it to capability or handler versions. Both are
+optional because some canonical operator inputs have no repository file
+dependency.
 
 `freshness.status` is a per-artifact declaration set by the producer at
 write time. It is not a runtime evaluation. Today's runtime evaluates

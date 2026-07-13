@@ -38,6 +38,13 @@ const validHeader = {
     version: "0.1.0",
   },
   inputRefs: [validRef],
+  invalidation: {
+    inputs: [
+      { kind: "source", path: "src/index.ts", digest: "source-digest" },
+      { kind: "config", path: "package.json", digest: "config-digest" },
+    ],
+    producers: [{ id: "@rekon/capability-test.provider", version: "1.0.0" }],
+  },
   freshness: {
     status: "fresh",
   },
@@ -118,6 +125,28 @@ test("ArtifactHeader validates optional freshness and provenance contracts", () 
       "$.freshness.invalidatedBy",
       "$.provenance.confidence",
       "$.provenance.notes",
+    ],
+  );
+});
+
+test("ArtifactHeader validates optional invalidation baselines", () => {
+  const result = validateArtifactHeader({
+    ...validHeader,
+    invalidation: {
+      inputs: [{ kind: "other", path: "", digest: "" }],
+      producers: [{ id: "", version: 1 }],
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(
+    result.issues.map((issue) => issue.path),
+    [
+      "$.invalidation.inputs[0].kind",
+      "$.invalidation.inputs[0].path",
+      "$.invalidation.inputs[0].digest",
+      "$.invalidation.producers[0].id",
+      "$.invalidation.producers[0].version",
     ],
   );
 });

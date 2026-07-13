@@ -8,6 +8,22 @@ export type ArtifactRef = {
   schemaVersion: string;
 };
 
+export type ArtifactInvalidationInput = {
+  kind: "source" | "config";
+  path: string;
+  digest: string;
+};
+
+export type ArtifactInvalidationProducer = {
+  id: string;
+  version: string;
+};
+
+export type ArtifactInvalidationBaseline = {
+  inputs?: ArtifactInvalidationInput[];
+  producers?: ArtifactInvalidationProducer[];
+};
+
 export type ArtifactHeader = {
   artifactType: string;
   artifactId: string;
@@ -26,6 +42,7 @@ export type ArtifactHeader = {
     version: string;
   };
   inputRefs: ArtifactRef[];
+  invalidation?: ArtifactInvalidationBaseline;
   freshness?: {
     status: "fresh" | "stale" | "partial" | "unknown";
     invalidatedBy?: string[];
@@ -212,6 +229,47 @@ export function validateArtifactHeader(value: unknown): ValidationResult<Artifac
     });
   }
 
+  if (value.invalidation !== undefined) {
+    if (!isRecord(value.invalidation)) {
+      issues.push({ path: "$.invalidation", message: "Expected an object when present." });
+    } else {
+      if (value.invalidation.inputs !== undefined) {
+        if (!Array.isArray(value.invalidation.inputs)) {
+          issues.push({ path: "$.invalidation.inputs", message: "Expected an array when present." });
+        } else {
+          value.invalidation.inputs.forEach((input, index) => {
+            const path = `$.invalidation.inputs[${index}]`;
+            if (!isRecord(input)) {
+              issues.push({ path, message: "Expected an object." });
+              return;
+            }
+            if (input.kind !== "source" && input.kind !== "config") {
+              issues.push({ path: `${path}.kind`, message: "Expected source or config." });
+            }
+            pushRequiredStringIssue(issues, input.path, `${path}.path`);
+            pushRequiredStringIssue(issues, input.digest, `${path}.digest`);
+          });
+        }
+      }
+
+      if (value.invalidation.producers !== undefined) {
+        if (!Array.isArray(value.invalidation.producers)) {
+          issues.push({ path: "$.invalidation.producers", message: "Expected an array when present." });
+        } else {
+          value.invalidation.producers.forEach((producer, index) => {
+            const path = `$.invalidation.producers[${index}]`;
+            if (!isRecord(producer)) {
+              issues.push({ path, message: "Expected an object." });
+              return;
+            }
+            pushRequiredStringIssue(issues, producer.id, `${path}.id`);
+            pushRequiredStringIssue(issues, producer.version, `${path}.version`);
+          });
+        }
+      }
+    }
+  }
+
   if (value.freshness !== undefined) {
     if (!isRecord(value.freshness)) {
       issues.push({ path: "$.freshness", message: "Expected an object when present." });
@@ -334,6 +392,12 @@ export function createArtifactHeader(input: ArtifactHeader): ArtifactHeader {
     subject: { ...input.subject },
     producer: { ...input.producer },
     inputRefs: input.inputRefs.map((inputRef) => ({ ...inputRef })),
+    invalidation: input.invalidation
+      ? {
+          inputs: input.invalidation.inputs?.map((entry) => ({ ...entry })),
+          producers: input.invalidation.producers?.map((entry) => ({ ...entry })),
+        }
+      : undefined,
     freshness: input.freshness
       ? {
           ...input.freshness,

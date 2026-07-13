@@ -226,6 +226,74 @@ test("rekon artifacts freshness CLI returns the documented JSON shape", async ()
   });
 });
 
+test("rekon artifacts freshness renders non-fresh reasons for people", async () => {
+  await withFixture(async (root) => {
+    runCli(["init", "--root", root, "--json"]);
+    runCli(["observe", "--root", root, "--json"]);
+    await writeFile(join(root, "src", "index.ts"), "export const changed = true;\n", "utf8");
+
+    const result = runCli(["artifacts", "freshness", "--root", root, "--type", "EvidenceGraph"]);
+    assert.match(result.stdout, /Artifact freshness: stale/);
+    assert.match(result.stdout, /source\.changed:/);
+    assert.match(result.stdout, /EvidenceGraph:/);
+  });
+});
+
+test("source drift propagates through artifact lineage", async () => {
+  await withFixture(async (root) => {
+    await goldenFlow(root);
+    await writeFile(join(root, "src", "index.ts"), "export const changed = true;\n", "utf8");
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const result = await validateArtifactFreshness(store);
+
+    const latestOwnership = (await store.list("OwnershipMap"))
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+    const ownershipFreshness = result.artifacts.find(
+      (entry) => entry.type === "OwnershipMap" && entry.id === latestOwnership.id,
+    );
+    assert.equal(ownershipFreshness.status, "stale");
+    assert.ok(ownershipFreshness.issues.some((issue) => issue.code === "input.stale"));
+  });
+});
+
+test("incremental CLI flow keeps full evidence for downstream project and evaluate", async () => {
+  await withFixture(async (root) => {
+    await writeFile(join(root, "src", "unchanged.ts"), "export const unchanged = true;\n", "utf8");
+    runCli(["init", "--root", root, "--json"]);
+    runCli(["observe", "--root", root, "--json"]);
+
+    await writeFile(join(root, "src", "index.ts"), "export function greet() { return 'changed'; }\n", "utf8");
+    runCli([
+      "observe", "--root", root, "--changed-file", "src/index.ts", "--json",
+    ]);
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const evidenceEntries = (await store.list("EvidenceGraph"))
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+    const latestEvidence = await store.read(evidenceEntries[0]);
+    const filePaths = latestEvidence.facts
+      .filter((fact) => fact.kind === "file")
+      .map((fact) => fact.value.path);
+    assert.deepEqual(filePaths.sort(), ["src/index.ts", "src/unchanged.ts"]);
+    assert.equal(latestEvidence.header.inputRefs[0].type, "EvidenceGraph");
+
+    runCli(["project", "--root", root, "--json"]);
+    runCli(["evaluate", "--root", root, "--json"]);
+    const ownershipEntry = (await store.list("OwnershipMap"))
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+    const ownership = await store.read(ownershipEntry);
+    assert.ok(ownership.entries.some((entry) => entry.path === "src/unchanged.ts"));
+    assert.ok(ownership.header.inputRefs.some((ref) => ref.id === evidenceEntries[0].id));
+
+    const findingEntry = (await store.list("FindingReport"))
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+    const findings = await store.read(findingEntry);
+    assert.ok(findings.header.inputRefs.some((ref) => ref.id === evidenceEntries[0].id));
+  });
+});
+
 async function withFixture(callback) {
   const root = await mkdtemp(join(tmpdir(), "rekon-freshness-"));
 

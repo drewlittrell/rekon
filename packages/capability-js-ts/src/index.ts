@@ -198,12 +198,15 @@ export const jsTsProvider: EvidenceProvider = {
   },
   async extract(ctx) {
     const files = await listSourceFiles(ctx);
+    const repositoryFiles = ctx.incremental
+      ? await listSourceFiles({ ...ctx, changedFiles: undefined, changedSince: undefined, incremental: false })
+      : files;
     const facts: EvidenceFact[] = [];
     // WO-8: relative and tsconfig-alias import specifiers resolve against
     // the scanned file set so symbol-level edges become repo-path edges.
     // Incremental runs see a partial set; resolution simply finds fewer
     // targets (no false resolution, never an error).
-    const fileSet = new Set(files);
+    const fileSet = new Set(repositoryFiles);
     const aliases = await loadTsconfigPathAliases(ctx.repoRoot);
     const workspaces = await loadWorkspaceAliases(ctx.repoRoot);
 
@@ -212,7 +215,7 @@ export const jsTsProvider: EvidenceProvider = {
         const absolutePath = join(ctx.repoRoot, path);
         const content = await readFile(absolutePath, "utf8");
 
-        facts.push(createFileFact(path));
+        facts.push(createFileFact(path, content));
         const sourceQuality = analyzeSourceQuality(path, content);
         appendFacts(facts, extractDebtMarkerFacts(path, content));
         appendFacts(facts, extractContentSignalFacts(path, content, sourceQuality.hasGovernedConsoleCall));
@@ -261,10 +264,11 @@ export const jsTsProvider: EvidenceProvider = {
       }
     }
 
-    if (!ctx.incremental) {
-      appendFacts(facts, await extractPackageManifestFacts(ctx.repoRoot, fileSet));
-      appendFacts(facts, collectTypeScriptDiagnostics(ctx.repoRoot, files).map(createTypeScriptDiagnosticFact));
-    }
+    // Repository-wide facts are recomputed even for an incremental observe.
+    // The runtime replaces their previous versions while retaining unchanged
+    // per-file facts, which keeps the resulting graph complete and current.
+    appendFacts(facts, await extractPackageManifestFacts(ctx.repoRoot, fileSet));
+    appendFacts(facts, collectTypeScriptDiagnostics(ctx.repoRoot, repositoryFiles).map(createTypeScriptDiagnosticFact));
 
     return dedupeEvidenceFacts(facts);
   },
@@ -468,11 +472,12 @@ function appendFacts(target: EvidenceFact[], items: EvidenceFact[]): void {
   }
 }
 
-function createFileFact(path: string): EvidenceFact {
+function createFileFact(path: string, content: string): EvidenceFact {
   return fact("file", path, {
     path,
     extension: extensionForPath(path),
     language: languageForPath(path),
+    digest: digestJson(content),
   }, path);
 }
 
@@ -696,6 +701,7 @@ async function extractPackageManifestFacts(repoRoot: string, fileSet: ReadonlySe
       facts.push(fact("manifest", path, {
         path,
         format: "package.json",
+        digest: digestJson(raw),
         ...(typeof parsed.name === "string" ? { name: parsed.name } : {}),
         ...(typeof parsed.version === "string" ? { version: parsed.version } : {}),
         ...(typeof parsed.private === "boolean" ? { private: parsed.private } : {}),

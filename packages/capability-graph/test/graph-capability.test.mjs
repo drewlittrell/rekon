@@ -81,6 +81,7 @@ test("graph capability projects structural and application-context slices", asyn
     assert.deepEqual(refs.map((ref) => ref.type), ["GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice", "GraphSlice"]);
 
     const importGraph = await runtime.artifacts.read(refs[0]);
+    assert.equal(importGraph.sliceType, "import-graph");
     assert.equal(importGraph.edges[0].kind, "imports");
     assert.ok(importGraph.edges.some((edge) =>
       edge.source === "tests/user.test.ts"
@@ -88,6 +89,7 @@ test("graph capability projects structural and application-context slices", asyn
       && edge.metadata.resolved === true));
     assert.equal(importGraph.edges.some((edge) => edge.source.includes(":")), false);
     const applicationGraph = await runtime.artifacts.read(refs[3]);
+    assert.equal(applicationGraph.sliceType, "application-graph");
     assert.ok(applicationGraph.nodes.some((node) => node.kind === "route" && node.metadata.routePath === "/api/users"));
     assert.ok(applicationGraph.nodes.some((node) => node.kind === "screen"));
     assert.ok(applicationGraph.nodes.some((node) => node.kind === "test"));

@@ -51,6 +51,7 @@ export const graphProjector: Projector = {
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("import-graph", graph.header, evidenceRef),
       producer: "@rekon/capability-graph",
+      sliceType: "import-graph",
       nodes: [...repositoryFiles].sort().map((id) => ({ id, kind: BUILT_IN_NODE_KINDS.file })),
       edges: importLinks.map((link) => ({
           source: link.source,
@@ -68,6 +69,7 @@ export const graphProjector: Projector = {
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("symbol-graph", graph.header, evidenceRef),
       producer: "@rekon/capability-graph",
+      sliceType: "symbol-graph",
       nodes: graph.facts
         .filter((fact) => fact.kind === "symbol" || fact.kind === "export")
         .map((fact) => ({
@@ -88,6 +90,7 @@ export const graphProjector: Projector = {
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("ownership-graph", graph.header, evidenceRef),
       producer: "@rekon/capability-graph",
+      sliceType: "ownership-graph",
       nodes: graph.facts
         .filter((fact) => fact.kind === "ownership_hint")
         .flatMap((fact) => [
@@ -131,6 +134,7 @@ export const graphProjector: Projector = {
         runtimeObservationRef ? [runtimeObservationRef] : [],
       ),
       producer: "@rekon/capability-graph",
+      sliceType: "application-graph",
       nodes: [
         ...applicationFacts.flatMap((fact) => applicationNodes(fact, packageIds)),
         ...testContext.nodes,
@@ -147,6 +151,7 @@ export const graphProjector: Projector = {
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("call-graph", graph.header, evidenceRef),
       producer: "@rekon/capability-graph",
+      sliceType: "call-graph",
       nodes: callProjection.nodes,
       edges: callProjection.edges,
     })));
@@ -155,6 +160,7 @@ export const graphProjector: Projector = {
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("reachability-graph", graph.header, evidenceRef),
       producer: "@rekon/capability-graph",
+      sliceType: "reachability-graph",
       nodes: reachabilityProjection.nodes,
       edges: reachabilityProjection.edges,
     })));
@@ -163,6 +169,7 @@ export const graphProjector: Projector = {
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("behavior-graph", graph.header, evidenceRef),
       producer: "@rekon/capability-graph",
+      sliceType: "behavior-graph",
       nodes: behaviorProjection.nodes,
       edges: behaviorProjection.edges,
     })));

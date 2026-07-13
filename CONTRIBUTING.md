@@ -32,6 +32,19 @@ git diff --check
 
 Run `npm run lint` when linting is configured.
 
+Focused lanes are available while iterating:
+
+```sh
+npm run test:smoke
+npm run test:contract
+npm run test:live   # provider/private-corpus tests; environment gated
+npm run test:bench
+```
+
+`npm run bench:incremental` measures the generated-repository incremental
+pipeline without enforcing machine-dependent timing thresholds. `npm test`
+remains the release gate.
+
 ## Ground Rules
 
 - Use Rekon naming consistently: `Rekon`, `rekon`, `.rekon/`, `REKON_`, and

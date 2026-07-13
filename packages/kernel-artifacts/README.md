@@ -18,6 +18,7 @@ and consumer:
 
 - `ArtifactRef`
 - `ArtifactHeader`
+- `ArtifactInvalidationBaseline`
 - `JsonArtifact`
 - validation and parsing helpers
 - deterministic JSON digest helpers
@@ -38,7 +39,7 @@ Every generated Rekon artifact must include:
 - subject repository metadata
 - producer id and version
 - input artifact refs
-- optional freshness and provenance metadata
+- optional freshness, invalidation, and provenance metadata
 
 ## Import Boundary
 

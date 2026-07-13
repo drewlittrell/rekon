@@ -17,6 +17,7 @@ as imports, symbols, ownership, or runtime relationships.
 
 - `header`
 - `producer`
+- `sliceType`: stable graph-family identity, such as `import-graph`
 - `nodes`
 - `edges`
 

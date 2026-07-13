@@ -16,6 +16,7 @@ Current responsibilities:
 - write and read typed JSON artifacts
 - maintain `.rekon/registry/artifacts.index.json`
 - validate artifact index entries, headers, paths, and digests
+- validate source, config, artifact-lineage, and producer-version freshness
 - load built-in capability objects directly
 - enforce manifest-requested permissions
 - run evidence providers
@@ -41,8 +42,13 @@ honor that scope.
 - `createLocalArtifactStore()`
 - `ArtifactStore`
 - `validateArtifactIndex()`
+- `validateArtifactFreshness()`
 - `PermissionPolicy`
 - lifecycle run methods
+
+Incremental observe retains unchanged evidence, replaces changed or deleted
+file evidence, refreshes repository-wide facts, and records the prior graph as
+lineage.
 
 ## Import Boundary
 

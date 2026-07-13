@@ -35,12 +35,16 @@ The CLI is the user surface for the local lifecycle:
 - `rekon artifacts list`
 - `rekon artifacts show <id>`
 - `rekon artifacts validate`
+- `rekon artifacts freshness`
 - `rekon findings list`
 - `rekon assessments list`
 - `rekon runtime graph observe`
 - `rekon verify coverage plan`
 
 The CLI delegates lifecycle work to `@rekon/runtime`.
+
+`rekon artifacts freshness` prints a concise stale/partial summary by default
+and returns the complete issue structure with `--json`.
 
 Security reports can be ingested from a repository-local SARIF 2.1 file after
 observation:
