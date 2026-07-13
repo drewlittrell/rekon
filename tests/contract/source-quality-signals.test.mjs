@@ -71,6 +71,54 @@ test("source quality signals become fused risks rather than findings", async () 
   }
 });
 
+test("compiler-proven unused imports become verified opportunities rather than type errors", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-unused-import-opportunity-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext" },
+      include: ["src/**/*.ts"],
+    }), "utf8");
+    await writeFile(join(root, "src", "values.ts"), "export const used = 1;\nexport const unused = 2;\n", "utf8");
+    await writeFile(join(root, "src", "index.ts"), [
+      'import { used, unused } from "./values.js";',
+      "export const value = used;",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const runtime = await createRuntime({ repoRoot: root, repoId: "unused-import-fixture", capabilities: [policyCapability], logger });
+    await runtime.artifacts.write({
+      header: {
+        artifactType: "EvidenceGraph",
+        artifactId: "unused-import-evidence",
+        schemaVersion: "0.1.0",
+        generatedAt: "2026-07-13T00:00:00.000Z",
+        subject: { repoId: "unused-import-fixture" },
+        producer: { id: "@rekon/capability-js-ts", version: "1.0.0" },
+        inputRefs: [],
+        freshness: { status: "fresh" },
+        provenance: { confidence: 0.9 },
+      },
+      facts,
+    });
+
+    const refs = await runtime.runEvaluate();
+    const findings = await runtime.artifacts.read(refs.find((ref) => ref.type === "FindingReport"));
+    const report = await runtime.artifacts.read(refs.find((ref) => ref.type === "AssessmentReport"));
+    const opportunities = report.assessments.filter((assessment) => assessment.ruleId === "typescript.unusedImport");
+
+    assert.equal(findings.findings.some((finding) => finding.ruleId === "typescript.compilerDiagnostic"), false);
+    assert.equal(opportunities.length, 1);
+    assert.equal(opportunities[0].kind, "opportunity");
+    assert.equal(opportunities[0].type, "dead_code");
+    assert.equal(opportunities[0].confidence.verification, "verified");
+    assert.equal(opportunities[0].details.occurrenceCount, 1);
+    assert.match(opportunities[0].details.locations[0].detail, /unused.*never read/i);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("async control-flow signals require known language semantics and remain risks", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-async-control-flow-"));
   try {

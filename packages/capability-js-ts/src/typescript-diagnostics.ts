@@ -6,6 +6,7 @@ export type TypeScriptDiagnosticEvidence = {
   code: number;
   category: "error";
   phase: "syntactic" | "semantic";
+  purpose?: "compiler-error" | "unused-import";
   message: string;
   line: number;
   column: number;
@@ -17,6 +18,7 @@ export type TypeScriptDiagnosticEvidence = {
 const STABLE_SEMANTIC_DIAGNOSTIC_CODES = new Set([
   2322, 2339, 2345, 2362, 2363, 2365, 2554, 2741, 2769, 18047, 18048,
 ]);
+const UNUSED_DECLARATION_DIAGNOSTIC_CODES = new Set([6133, 6192, 6196]);
 
 export function collectTypeScriptDiagnostics(
   repoRoot: string,
@@ -40,20 +42,29 @@ export function collectTypeScriptDiagnostics(
   try {
     program = ts.createProgram({
       rootNames,
-      options: { ...parsed.options, noEmit: true },
+      options: { ...parsed.options, noEmit: true, noUnusedLocals: true, noUnusedParameters: false },
       projectReferences: parsed.projectReferences,
     });
   } catch {
     return [];
   }
 
-  return [
-    ...program.getSyntacticDiagnostics().map((diagnostic) => ({ diagnostic, phase: "syntactic" as const })),
-    ...program.getSemanticDiagnostics()
-      .filter((diagnostic) => STABLE_SEMANTIC_DIAGNOSTIC_CODES.has(diagnostic.code))
-      .map((diagnostic) => ({ diagnostic, phase: "semantic" as const })),
-  ]
-    .map(({ diagnostic, phase }) => normalizeDiagnostic(root, scanned, diagnostic, phase))
+  const selected: Array<{
+    diagnostic: ts.Diagnostic;
+    phase: TypeScriptDiagnosticEvidence["phase"];
+    purpose: NonNullable<TypeScriptDiagnosticEvidence["purpose"]>;
+  }> = program.getSyntacticDiagnostics()
+    .map((diagnostic) => ({ diagnostic, phase: "syntactic", purpose: "compiler-error" }));
+  for (const diagnostic of program.getSemanticDiagnostics()) {
+    if (STABLE_SEMANTIC_DIAGNOSTIC_CODES.has(diagnostic.code)) {
+      selected.push({ diagnostic, phase: "semantic", purpose: "compiler-error" });
+    } else if (UNUSED_DECLARATION_DIAGNOSTIC_CODES.has(diagnostic.code) && diagnosticTargetsImport(diagnostic)) {
+      selected.push({ diagnostic, phase: "semantic", purpose: "unused-import" });
+    }
+  }
+
+  return selected
+    .map(({ diagnostic, phase, purpose }) => normalizeDiagnostic(root, scanned, diagnostic, phase, purpose))
     .filter((diagnostic): diagnostic is TypeScriptDiagnosticEvidence => Boolean(diagnostic))
     .sort((left, right) =>
       left.path.localeCompare(right.path)
@@ -68,6 +79,7 @@ function normalizeDiagnostic(
   scannedFiles: ReadonlySet<string>,
   diagnostic: ts.Diagnostic,
   phase: TypeScriptDiagnosticEvidence["phase"],
+  purpose: NonNullable<TypeScriptDiagnosticEvidence["purpose"]>,
 ): TypeScriptDiagnosticEvidence | undefined {
   if (!diagnostic.file || diagnostic.start === undefined || diagnostic.category !== ts.DiagnosticCategory.Error) {
     return undefined;
@@ -82,10 +94,32 @@ function normalizeDiagnostic(
     code: diagnostic.code,
     category: "error",
     phase,
+    purpose,
     message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
     line: position.line + 1,
     column: position.character + 1,
   };
+}
+
+function diagnosticTargetsImport(diagnostic: ts.Diagnostic): boolean {
+  if (!diagnostic.file || diagnostic.start === undefined) return false;
+  let node = deepestNodeAt(diagnostic.file, diagnostic.start);
+  while (node) {
+    if (ts.isImportDeclaration(node) || ts.isImportEqualsDeclaration(node)) return true;
+    node = node.parent;
+  }
+  return false;
+}
+
+function deepestNodeAt(root: ts.Node, position: number): ts.Node {
+  let deepest = root;
+  const visit = (node: ts.Node): void => {
+    if (position < node.getFullStart() || position >= node.getEnd()) return;
+    deepest = node;
+    node.forEachChild(visit);
+  };
+  visit(root);
+  return deepest;
 }
 
 function relativeToRoot(repoRoot: string, fileName: string): string {

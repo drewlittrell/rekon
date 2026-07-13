@@ -38,6 +38,10 @@ All notable changes to Rekon are documented here.
   grouping. Capability-overlap policy ignores explicitly inferred entries, and
   the universal capability ontology no longer aliases filesystem `path` to web
   `route`; URL operations now retain their own canonical noun.
+- JS/TS evidence now identifies unused import bindings through TypeScript name
+  resolution even when `noUnusedLocals` is disabled. Policy exposes them as
+  verified, low-impact `typescript.unusedImport` opportunities rather than
+  compiler-error findings.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

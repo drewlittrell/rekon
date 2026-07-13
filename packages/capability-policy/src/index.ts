@@ -18,6 +18,7 @@ import {
   PLACEHOLDER_IMPLEMENTATION_RULE_ID,
   TEST_ISOLATION_RULE_ID,
   TYPE_ESCAPE_RULE_ID,
+  UNUSED_IMPORT_RULE_ID,
   evaluateSourceQualitySignals,
 } from "./source-quality.js";
 import { EMBEDDING_DUPLICATION_RULE_ID, evaluateEmbeddingDuplicationCandidates } from "./embedding-duplication.js";
@@ -51,6 +52,7 @@ type EvidenceGraphLike = {
 
 export const BUILT_IN_POLICY_RULES = [
   "typescript.compilerDiagnostic",
+  UNUSED_IMPORT_RULE_ID,
   TYPE_ESCAPE_RULE_ID,
   ERROR_SUPPRESSION_RULE_ID,
   PLACEHOLDER_IMPLEMENTATION_RULE_ID,
@@ -100,6 +102,7 @@ export {
   FOCUSED_TEST_RULE_ID,
   PLACEHOLDER_IMPLEMENTATION_RULE_ID,
   TEST_ISOLATION_RULE_ID,
+  UNUSED_IMPORT_RULE_ID,
   TYPE_ESCAPE_RULE_ID,
   evaluateSourceQualitySignals,
 } from "./source-quality.js";
@@ -676,7 +679,7 @@ function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef, exemp
 
 function typeScriptCompilerDiagnostics(graph: EvidenceGraphLike, evidenceRef: ArtifactRef): Finding[] {
   return graph.facts
-    .filter((fact) => fact.kind === "typescript:diagnostic" && fact.value.category === "error")
+    .filter((fact) => fact.kind === "typescript:diagnostic" && fact.value.category === "error" && fact.value.purpose !== "unused-import")
     .map((fact) => {
       const file = typeof fact.value.path === "string" ? fact.value.path : fact.subject;
       const code = typeof fact.value.code === "number" ? fact.value.code : 0;

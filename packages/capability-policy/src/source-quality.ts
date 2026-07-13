@@ -11,6 +11,7 @@ export const ASYNC_ARRAY_CALLBACK_RULE_ID = "typescript.asyncArrayCallback";
 export const FLOATING_PROMISE_RULE_ID = "typescript.floatingPromise";
 export const FOCUSED_TEST_RULE_ID = "tests.focused";
 export const TEST_ISOLATION_RULE_ID = "tests.isolation";
+export const UNUSED_IMPORT_RULE_ID = "typescript.unusedImport";
 
 type EvidenceFactLike = {
   kind: string;
@@ -26,6 +27,9 @@ export type SourceQualitySignalPolicy = {
   description: string;
   suggestedAction: string;
   scope?: "production" | "test";
+  kind?: "risk" | "opportunity";
+  verification?: "corroborated" | "verified";
+  rationale?: string;
 };
 
 const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
@@ -119,6 +123,17 @@ const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
     suggestedAction: "Restore the original environment value in guaranteed cleanup or isolate the test process.",
     scope: "test",
   },
+  unused_import: {
+    ruleId: UNUSED_IMPORT_RULE_ID,
+    type: "dead_code",
+    impact: "low",
+    title: "Imported binding is unused",
+    description: "The TypeScript compiler found an imported binding with no source reference.",
+    suggestedAction: "Remove the unused import or connect it to the behavior it was intended to provide.",
+    kind: "opportunity",
+    verification: "verified",
+    rationale: "TypeScript name resolution verifies that the import binding has no source reference.",
+  },
 };
 
 export function evaluateSourceQualitySignals(
@@ -133,9 +148,11 @@ export function evaluateSourceQualitySignals(
   }>();
 
   for (const fact of facts) {
-    if (fact.kind !== "typescript:source-quality") continue;
+    const isSourceSignal = fact.kind === "typescript:source-quality";
+    const isUnusedImport = fact.kind === "typescript:diagnostic" && fact.value.purpose === "unused-import";
+    if (!isSourceSignal && !isUnusedImport) continue;
     const file = typeof fact.value.path === "string" ? fact.value.path : fact.subject.split(":")[0] ?? fact.subject;
-    const signal = typeof fact.value.signal === "string" ? fact.value.signal : "";
+    const signal = isUnusedImport ? "unused_import" : typeof fact.value.signal === "string" ? fact.value.signal : "";
     const policy = SIGNAL_POLICIES[signal];
     if (!policy) continue;
     if (policy.scope === "test" ? !isNonProductionPath(file) : isNonProductionPath(file)) continue;
@@ -144,7 +161,11 @@ export function evaluateSourceQualitySignals(
     group.locations.push({
       ...(typeof fact.value.line === "number" ? { line: fact.value.line } : {}),
       ...(typeof fact.value.column === "number" ? { column: fact.value.column } : {}),
-      ...(typeof fact.value.detail === "string" ? { detail: fact.value.detail } : {}),
+      ...(typeof fact.value.detail === "string"
+        ? { detail: fact.value.detail }
+        : typeof fact.value.message === "string"
+          ? { detail: fact.value.message }
+          : {}),
     });
     groups.set(key, group);
   }
@@ -153,7 +174,7 @@ export function evaluateSourceQualitySignals(
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([rootCauseKey, group]) => ({
       id: `assessment:${rootCauseKey}`,
-      kind: "risk" as const,
+      kind: group.policy.kind ?? "risk",
       type: group.policy.type,
       impact: group.policy.impact,
       title: group.policy.title,
@@ -167,8 +188,8 @@ export function evaluateSourceQualitySignals(
       confidence: {
         score: 0.85,
         basis: "deterministic" as const,
-        verification: "corroborated" as const,
-        rationale: "AST evidence verifies the source construct; runtime impact and reachability remain unproven.",
+        verification: group.policy.verification ?? "corroborated",
+        rationale: group.policy.rationale ?? "AST evidence verifies the source construct; runtime impact and reachability remain unproven.",
       },
       details: {
         signal: group.signal,

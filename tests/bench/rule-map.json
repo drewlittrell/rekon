@@ -62,8 +62,9 @@
   "dead_code": {
     "status": "redesigned",
     "citation": "docs/strategy/detection-quality.md#reachability-and-overlap",
-    "note": "Graph reachability (unreferenced exports + GraphSlices). Classic baseline is LLM-origin: scores by goal-level file-set coverage.",
+    "note": "Graph reachability plus compiler-proven unused imports. Classic baseline is LLM-origin: scores by goal-level file-set coverage while rejecting speculative, truncation-derived, and re-export-wrapper claims.",
     "rekonRuleId": "dead_code.unreferenced",
+    "rekonRuleIds": ["dead_code.unreferenced", "typescript.unusedImport"],
     "scoring": "coverage"
   },
   "capability_overlap": {

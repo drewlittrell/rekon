@@ -85,6 +85,10 @@ for repositories that have no normalization report. Ownership entries marked
 `inferred` cannot establish this rule; path-prefix grouping alone is not an
 architecture declaration.
 
+Compiler-proven unused imports become low-impact, verified opportunities under
+`typescript.unusedImport`. They are kept separate from high-severity TypeScript
+compiler-error findings and from speculative dead-code judgment.
+
 `SecurityScanReport` results tied to the current evidence graph become risks
 only when SARIF rule metadata identifies them as security-relevant. Generic
 lint results are ignored by this rule, and one scanner report never promotes

@@ -221,6 +221,11 @@ cannot establish this rule. Data declarations, types, and embedding-near but
 semantically distinct capability names do not enter it. Universal ontology
 aliases also keep filesystem paths and URLs distinct from web routes.
 
+Unused imports enter the same goal only when TypeScript name resolution proves
+that an imported binding has no source reference. Scanner-truncated snippets,
+negative "no dead code" observations, speculative "may be unused" prose, and
+public re-export wrappers do not establish dead code.
+
 ### Naming And Anti-Patterns
 
 Naming and structural anti-pattern findings require an applicable grammar or

@@ -106,6 +106,35 @@ test("JS/TS provider emits stable compiler diagnostics and excludes dependency-r
   }
 });
 
+test("JS/TS provider identifies compiler-proven unused imports even when repo config does not enable noUnusedLocals", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-unused-import-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", noUnusedLocals: false },
+      include: ["src/**/*.ts"],
+    }), "utf8");
+    await writeFile(join(root, "src", "values.ts"), "export const used = 1;\nexport const unused = 2;\n", "utf8");
+    await writeFile(join(root, "src", "index.ts"), [
+      'import { used, unused } from "./values.js";',
+      "export const value = used;",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const diagnostics = facts.filter((fact) => fact.kind === "typescript:diagnostic");
+    const unused = diagnostics.filter((fact) => fact.value.purpose === "unused-import");
+
+    assert.equal(unused.length, 1);
+    assert.equal(unused[0].value.code, 6133);
+    assert.equal(unused[0].value.line, 1);
+    assert.match(unused[0].value.message, /unused.*never read/i);
+    assert.equal(diagnostics.some((fact) => fact.value.purpose === "compiler-error"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("JS/TS provider emits AST-backed source quality signals", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-quality-"));
 

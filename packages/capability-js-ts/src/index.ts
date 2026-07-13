@@ -490,6 +490,7 @@ function createTypeScriptDiagnosticFact(diagnostic: TypeScriptDiagnosticEvidence
       code: diagnostic.code,
       category: diagnostic.category,
       phase: diagnostic.phase,
+      ...(diagnostic.purpose ? { purpose: diagnostic.purpose } : {}),
       message: diagnostic.message,
       line: diagnostic.line,
       column: diagnostic.column,
