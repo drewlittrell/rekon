@@ -12199,16 +12199,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // 5. snapshot
-  try {
-    const ref = await runtime.runSnapshot();
-    steps.push({ id: "snapshot", status: "passed", artifacts: recordArtifacts(ref) });
-  } catch (error) {
-    steps.push({ id: "snapshot", status: "failed", message: messageOf(error) });
-    return finalize("failed");
-  }
-
-  // 6. evaluate
+  // 5. evaluate
   try {
     const refs = await runtime.runEvaluate();
     steps.push({ id: "evaluate", status: "passed", artifacts: recordArtifacts(refs) });
@@ -12229,7 +12220,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   const findingFilterPolicies = await loadFindingFilterPolicies(root);
   const findingResultFilters = await loadFindingResultFilters(root);
 
-  // 7a. findings filter — system / policy / content / result false-
+  // 6a. findings filter — system / policy / content / result false-
   // positive audit. The raw FindingReport is never mutated; every
   // filtered finding stays auditable in
   // FindingFilterReport.filteredFindings. See
@@ -12251,7 +12242,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // 7b. findings filter health — high-filter-rate /
+  // 6b. findings filter health — high-filter-rate /
   // low-confidence-filtered + policy-aware diagnostics over the
   // latest filter report. Result filters ride through so the
   // `content-filter-high-volume` and `result-filter-over-filtering`
@@ -12335,7 +12326,18 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // 9. publish architecture (optional)
+  // 10. snapshot. Build it after governance so its lower-layer index and
+  // lineage are current, and before publication so publishers can consume it
+  // without a newer snapshot immediately superseding their input.
+  try {
+    const ref = await runtime.runSnapshot();
+    steps.push({ id: "snapshot", status: "passed", artifacts: recordArtifacts(ref) });
+  } catch (error) {
+    steps.push({ id: "snapshot", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 11. publish architecture (optional)
   let publishStatus: RefreshStep["status"] = "skipped";
 
   if (options.skipPublish) {
@@ -12384,7 +12386,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
 
   result.missing = missing;
 
-  // 10. artifacts validate
+  // 12. artifacts validate
   const validation = await validateArtifactIndex(store);
   steps.push({
     id: "artifacts.validate",
@@ -12393,7 +12395,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   });
   result.validation = { valid: validation.valid, issues: validation.issues };
 
-  // 11. artifacts freshness (optional)
+  // 13. artifacts freshness (optional)
   if (options.skipFreshness) {
     steps.push({ id: "artifacts.freshness", status: "skipped", message: "--skip-freshness" });
   } else {

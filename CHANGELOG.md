@@ -8,6 +8,12 @@ All notable changes to Rekon are documented here.
   independent graph, publication, resolver, source-report, memory-query, path,
   intent, and verification streams without treating an unrelated artifact of
   the same type as a replacement.
+- Intelligence snapshots now retain the latest artifact in every supersession
+  family, include community artifact types, and declare every selected member
+  from inputs, projections, and evaluations in canonical header lineage.
+  Publications and actions remain indexed without creating circular
+  dependencies. Snapshot status now reflects stale selected lower-layer members
+  rather than evidence freshness alone.
 
 - Fixed `rekon intent status` provenance selection so assessment, preparation,
   status, work, and verification proof must form one artifact lineage. JSON

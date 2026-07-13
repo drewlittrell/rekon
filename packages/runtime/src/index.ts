@@ -20,6 +20,7 @@ import {
 } from "@rekon/kernel-evidence";
 import {
   type IntelligenceSnapshot,
+  type SnapshotCategory,
   createIntelligenceSnapshot,
 } from "@rekon/kernel-snapshot";
 import {
@@ -719,6 +720,25 @@ export async function validateArtifactFreshness(
   store: ArtifactStore,
   options: ArtifactFreshnessOptions = {},
 ): Promise<ArtifactFreshnessResult> {
+  return validateArtifactFreshnessInternal(store, options);
+}
+
+async function validateArtifactFreshnessForRefs(
+  store: ArtifactStore,
+  refs: ArtifactRef[],
+): Promise<ArtifactFreshnessResult> {
+  return validateArtifactFreshnessInternal(
+    store,
+    {},
+    new Set(refs.map((ref) => `${ref.type}:${ref.id}`)),
+  );
+}
+
+async function validateArtifactFreshnessInternal(
+  store: ArtifactStore,
+  options: ArtifactFreshnessOptions,
+  selectedKeys?: ReadonlySet<string>,
+): Promise<ArtifactFreshnessResult> {
   const checkedAt = new Date().toISOString();
   const indexEntries = await store.list();
   const currentProducerVersions = await readCurrentProducerVersions(store);
@@ -734,6 +754,10 @@ export async function validateArtifactFreshness(
   }
 
   const filtered = indexEntries.filter((entry) => {
+    if (selectedKeys && !selectedKeys.has(`${entry.type}:${entry.id}`)) {
+      return false;
+    }
+
     if (options.artifactType && entry.type !== options.artifactType) {
       return false;
     }
@@ -2152,6 +2176,7 @@ function indexEntryToRef(entry: ArtifactIndexEntry): ArtifactRef {
     id: entry.id,
     schemaVersion: entry.schemaVersion,
     path: entry.path,
+    digest: entry.digest,
   };
 }
 
@@ -2370,12 +2395,10 @@ async function createObserveInvalidationBaseline(
 export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef> {
   const artifacts = await context.artifacts.list();
   const indexValidation = await validateArtifactIndex(context.artifacts);
-  const freshnessValidation = await validateArtifactFreshness(context.artifacts, {
-    artifactType: "EvidenceGraph",
-  });
-  const status = createSnapshotStatus(artifacts, indexValidation, freshnessValidation);
-  const latestEvidence = latestByType(artifacts, "EvidenceGraph");
-  const inputRefs = latestEvidence ? [latestEvidence] : [];
+  const members = await groupCurrentSnapshotRefs(context.artifacts, artifacts);
+  const inputRefs = snapshotLineageRefs(members);
+  const freshnessValidation = await validateArtifactFreshnessForRefs(context.artifacts, inputRefs);
+  const status = createSnapshotStatus(artifacts, indexValidation, freshnessValidation, inputRefs);
   const snapshot: IntelligenceSnapshot = createIntelligenceSnapshot({
     header: createRuntimeArtifactHeader({
       artifactType: "IntelligenceSnapshot",
@@ -2385,23 +2408,7 @@ export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef>
       inputRefs,
     }),
     repo: context.repo,
-    inputs: latestEvidence ? { EvidenceGraph: [latestEvidence] } : {},
-    projections: groupLatestRefsByType(artifacts, ["ObservedRepo", "OwnershipMap", "CapabilityMap", "GraphSlice"]),
-    evaluations: groupLatestRefsByType(artifacts, ["FindingReport", "AssessmentReport"]),
-    publications: groupLatestRefsByType(artifacts, ["Publication", "MemorySelection"]),
-    actions: groupLatestRefsByType(artifacts, [
-      "OperatorFeedbackEntry",
-      "MemoryEvent",
-      "ContextUsageEvent",
-      "OutcomeEvent",
-      "IntentMap",
-      "WorkOrder",
-      "VerificationPlan",
-      "VerificationResult",
-      "ReconciliationPlan",
-      "ReconciliationLog",
-      "ActionLog",
-    ]),
+    ...members,
     status,
   });
 
@@ -3205,49 +3212,135 @@ function latestByType(entries: ArtifactIndexEntry[], type: string): ArtifactInde
     .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
 }
 
-function groupRefsByType(entries: ArtifactIndexEntry[], types: string[]): Record<string, ArtifactRef[]> {
-  return types.reduce<Record<string, ArtifactRef[]>>((grouped, type) => {
-    const refs = entries.filter((entry) => entry.type === type);
+type SnapshotMembers = Pick<
+  IntelligenceSnapshot,
+  "inputs" | "projections" | "evaluations" | "publications" | "actions"
+>;
 
-    if (refs.length > 0) {
-      grouped[type] = refs;
+async function groupCurrentSnapshotRefs(
+  store: ArtifactStore,
+  entries: ArtifactIndexEntry[],
+): Promise<SnapshotMembers> {
+  const members: SnapshotMembers = {
+    inputs: {},
+    projections: {},
+    evaluations: {},
+    publications: {},
+    actions: {},
+  };
+  const byCategory = new Map<SnapshotCategory, Map<string, ArtifactIndexEntry[]>>();
+
+  for (const entry of entries) {
+    const category = snapshotCategoryForArtifactType(entry.type);
+    if (!category) continue;
+    const byType = byCategory.get(category) ?? new Map<string, ArtifactIndexEntry[]>();
+    const current = byType.get(entry.type) ?? [];
+    current.push(entry);
+    byType.set(entry.type, current);
+    byCategory.set(category, byType);
+  }
+
+  const supersessionKeyCache = new Map<string, string | undefined>();
+  for (const category of ["inputs", "projections", "evaluations", "publications", "actions"] as const) {
+    const byType = byCategory.get(category);
+    if (!byType) continue;
+    for (const [type, candidates] of [...byType].sort(([left], [right]) => left.localeCompare(right))) {
+      members[category][type] = await latestSnapshotRefsByFamily(
+        store,
+        candidates,
+        supersessionKeyCache,
+      );
     }
+  }
 
-    return grouped;
-  }, {});
+  return members;
 }
 
-function groupLatestRefsByType(entries: ArtifactIndexEntry[], types: string[]): Record<string, ArtifactRef[]> {
-  return types.reduce<Record<string, ArtifactRef[]>>((grouped, type) => {
-    const latest = latestByType(entries, type);
+async function latestSnapshotRefsByFamily(
+  store: ArtifactStore,
+  entries: ArtifactIndexEntry[],
+  supersessionKeyCache: Map<string, string | undefined>,
+): Promise<ArtifactRef[]> {
+  const latestKeyed = new Map<string, ArtifactIndexEntry>();
+  let latestUnkeyed: ArtifactIndexEntry | undefined;
+  let latestOverall: ArtifactIndexEntry | undefined;
 
-    if (latest) {
-      grouped[type] = [latest];
+  for (const entry of entries) {
+    if (!latestOverall || compareIndexRecency(entry, latestOverall) > 0) latestOverall = entry;
+    const key = await readSupersessionKey(store, entry, supersessionKeyCache);
+    if (!key) {
+      if (!latestUnkeyed || compareIndexRecency(entry, latestUnkeyed) > 0) latestUnkeyed = entry;
+      continue;
     }
+    const current = latestKeyed.get(key);
+    if (!current || compareIndexRecency(entry, current) > 0) latestKeyed.set(key, entry);
+  }
 
-    return grouped;
-  }, {});
+  const selected = [...latestKeyed.values()];
+  // Legacy unkeyed artifacts use type-wide supersession. Keep that stream only
+  // when it is the newest generation of the type; once keyed producers have
+  // replaced it, retaining it would pin obsolete pre-migration state forever.
+  if (latestUnkeyed && (latestKeyed.size === 0 || latestUnkeyed === latestOverall)) {
+    selected.push(latestUnkeyed);
+  }
+
+  return selected
+    .sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`))
+    .map(indexEntryToRef);
+}
+
+function compareIndexRecency(left: ArtifactIndexEntry, right: ArtifactIndexEntry): number {
+  const writtenAt = left.writtenAt.localeCompare(right.writtenAt);
+  return writtenAt !== 0 ? writtenAt : left.id.localeCompare(right.id);
+}
+
+function snapshotCategoryForArtifactType(type: string): SnapshotCategory | undefined {
+  const storageCategory = ARTIFACT_CATEGORY_BY_TYPE[type] ?? "actions";
+  switch (storageCategory) {
+    case "evidence": return "inputs";
+    case "projections":
+    case "graphs": return "projections";
+    case "findings": return "evaluations";
+    case "publications": return "publications";
+    case "resolver-packets":
+    case "actions": return "actions";
+    case "snapshots": return undefined;
+  }
+}
+
+function snapshotLineageRefs(members: SnapshotMembers): ArtifactRef[] {
+  const byKey = new Map<string, ArtifactRef>();
+  for (const category of ["inputs", "projections", "evaluations"] as const) {
+    for (const refs of Object.values(members[category])) {
+      for (const ref of refs) byKey.set(`${ref.type}:${ref.id}`, ref);
+    }
+  }
+  return [...byKey.values()].sort((left, right) =>
+    `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`),
+  );
 }
 
 function createSnapshotStatus(
   artifacts: ArtifactIndexEntry[],
   validation: ArtifactIndexValidationResult,
   freshness: ArtifactFreshnessResult,
+  memberRefs: ArtifactRef[],
 ): IntelligenceSnapshot["status"] {
   const warnings = validation.issues.map((issue) => `${issue.code}: ${issue.message}`);
   const types = new Set(artifacts.map((artifact) => artifact.type).filter(Boolean));
+  const memberKeys = new Set(memberRefs.map((ref) => `${ref.type}:${ref.id}`));
+  const memberFreshness = freshness.artifacts.filter((entry) =>
+    memberKeys.has(`${entry.type}:${entry.id}`),
+  );
 
   if (!types.has("EvidenceGraph")) {
     warnings.push("No EvidenceGraph artifacts are indexed.");
-  } else {
-    const latestEvidence = latestByType(artifacts, "EvidenceGraph");
-    const latestFreshness = latestEvidence
-      ? freshness.artifacts.find((entry) => entry.id === latestEvidence.id)
-      : undefined;
-    if (latestFreshness && latestFreshness.status !== "fresh") {
-      for (const issue of latestFreshness.issues) {
-        warnings.push(`EvidenceGraph ${latestFreshness.status}: ${issue.code}: ${issue.message}`);
-      }
+  }
+
+  for (const member of memberFreshness) {
+    if (member.status === "fresh") continue;
+    for (const issue of member.issues) {
+      warnings.push(`${member.type} ${member.status}: ${issue.code}: ${issue.message}`);
     }
   }
 
@@ -3256,8 +3349,8 @@ function createSnapshotStatus(
   }
 
   return {
-    freshness: snapshotFreshness(types, warnings, freshness),
-    warnings,
+    freshness: snapshotFreshness(types, warnings, memberFreshness),
+    warnings: [...new Set(warnings)],
     blockedReasons: [],
   };
 }
@@ -3278,13 +3371,13 @@ function missingExpectedProjectionWarnings(types: Set<string>): string[] {
 function snapshotFreshness(
   types: Set<string>,
   warnings: string[],
-  freshness: ArtifactFreshnessResult,
+  memberFreshness: ArtifactFreshnessEntry[],
 ): IntelligenceSnapshot["status"]["freshness"] {
   if (!types.has("EvidenceGraph")) {
     return "unknown";
   }
 
-  if (freshness.artifacts.some((entry) => entry.status === "stale")) {
+  if (memberFreshness.some((entry) => entry.status === "stale")) {
     return "stale";
   }
 

@@ -50,6 +50,13 @@ Incremental observe retains unchanged evidence, replaces changed or deleted
 file evidence, refreshes repository-wide facts, and records the prior graph as
 lineage.
 
+Snapshots retain the newest artifact in each declared supersession family,
+rather than one artifact per type. This keeps independent graph slices,
+resolver queries, publications, and community artifact streams available at the
+same time. Snapshot header lineage contains the selected inputs, projections,
+and evaluations. Publications and actions are indexed for discoverability but
+remain upper-layer outputs, not snapshot dependencies.
+
 ## Import Boundary
 
 Use runtime APIs for local artifact execution. Do not import package-private

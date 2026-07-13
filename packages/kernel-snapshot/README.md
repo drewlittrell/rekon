@@ -20,6 +20,11 @@ The snapshot is the central index of repository intelligence. It does not contai
 - publications
 - actions
 
+Each type may contain more than one ref when the artifacts declare independent
+`header.supersession.key` streams. The runtime retains the newest generation of
+each stream. Inputs, projections, and evaluations enter snapshot header
+lineage; publications and actions remain indexed upper-layer outputs.
+
 ## Lifecycle Fit
 
 Snapshots are written after `Observe`, `Project`, `Evaluate`, `Publish`,

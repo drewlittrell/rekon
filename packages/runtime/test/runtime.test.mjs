@@ -376,6 +376,105 @@ test("snapshot status is fresh after observe only", async () => {
   }
 });
 
+test("snapshot retains the latest member of every supersession family and declares complete lineage", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-snapshot-families-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [evidenceCapability()],
+      logger: silentLogger,
+    });
+
+    const evidenceRef = await runtime.runObserve();
+    const writeGraph = (id, sliceType) => runtime.artifacts.write({
+      header: {
+        ...testHeader("GraphSlice", id, [evidenceRef]),
+        supersession: { key: sliceType },
+      },
+      sliceType,
+      producer: "runtime-test",
+      nodes: [],
+      edges: [],
+    }, { category: "graphs" });
+
+    await writeGraph("graph-import-1", "import-graph");
+    await writeGraph("graph-ownership-1", "ownership-graph");
+    await writeGraph("graph-import-2", "import-graph");
+    await runtime.artifacts.write({
+      header: testHeader("ResolverPacket", "resolver-one", [evidenceRef]),
+      resolver: "test",
+    });
+    await runtime.artifacts.write({
+      header: testHeader("CommunityReport", "community-one", [evidenceRef]),
+      value: true,
+    });
+    await runtime.artifacts.write({
+      header: testHeader("Publication", "publication-0-legacy", [evidenceRef]),
+      kind: "legacy",
+      content: "legacy",
+    });
+    for (const [id, kind] of [["publication-1-agents", "agents"], ["publication-2-summary", "summary"]]) {
+      await runtime.artifacts.write({
+        header: {
+          ...testHeader("Publication", id, [evidenceRef]),
+          supersession: { key: kind },
+        },
+        kind,
+        content: kind,
+      });
+    }
+
+    const firstSnapshotRef = await runtime.runSnapshot();
+    const firstSnapshot = await runtime.artifacts.read(firstSnapshotRef);
+    assert.deepEqual(
+      firstSnapshot.projections.GraphSlice.map((ref) => ref.id),
+      ["graph-import-2", "graph-ownership-1"],
+    );
+    assert.equal(firstSnapshot.actions.ResolverPacket[0].id, "resolver-one");
+    assert.equal(firstSnapshot.actions.CommunityReport[0].id, "community-one");
+    assert.deepEqual(
+      firstSnapshot.publications.Publication.map((ref) => ref.id),
+      ["publication-1-agents", "publication-2-summary"],
+    );
+
+    const lineageRefs = [
+      ...Object.values(firstSnapshot.inputs).flat(),
+      ...Object.values(firstSnapshot.projections).flat(),
+      ...Object.values(firstSnapshot.evaluations).flat(),
+    ];
+    assert.deepEqual(
+      firstSnapshot.header.inputRefs.map((ref) => `${ref.type}:${ref.id}`).sort(),
+      lineageRefs.map((ref) => `${ref.type}:${ref.id}`).sort(),
+    );
+    assert.equal(
+      firstSnapshot.header.inputRefs.some((ref) =>
+        ref.type === "Publication" || ref.type === "ResolverPacket" || ref.type === "CommunityReport"),
+      false,
+    );
+    for (const ref of firstSnapshot.header.inputRefs) {
+      assert.equal(typeof ref.digest, "string");
+      assert.equal("artifactType" in ref, false);
+      assert.equal("writtenAt" in ref, false);
+    }
+
+    await writeGraph("graph-import-3", "import-graph");
+    const secondSnapshotRef = await runtime.runSnapshot();
+    const secondSnapshot = await runtime.artifacts.read(secondSnapshotRef);
+    assert.deepEqual(
+      secondSnapshot.projections.GraphSlice.map((ref) => ref.id),
+      ["graph-import-3", "graph-ownership-1"],
+    );
+    assert.equal(
+      secondSnapshot.header.inputRefs.some((ref) => ref.type === "IntelligenceSnapshot"),
+      false,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("snapshot status is stale when the latest evidence has a changed tracked source", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-runtime-snapshot-stale-"));
 
@@ -399,6 +498,38 @@ test("snapshot status is stale when the latest evidence has a changed tracked so
 
     assert.equal(snapshot.status.freshness, "stale");
     assert.ok(snapshot.status.warnings.some((warning) => warning.includes("source.changed")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("snapshot status is stale when a selected projection is stale", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-snapshot-projection-stale-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [evidenceCapability()],
+      logger: silentLogger,
+    });
+    const firstEvidence = await runtime.runObserve();
+    await runtime.artifacts.write({
+      header: testHeader("ObservedRepo", "observed-stale", [firstEvidence]),
+      repository: { id: "fixture", root },
+      systems: [],
+      layers: [],
+      capabilities: [],
+    }, { category: "projections" });
+    await runtime.runObserve();
+
+    const snapshotRef = await runtime.runSnapshot();
+    const snapshot = await runtime.artifacts.read(snapshotRef);
+
+    assert.equal(snapshot.status.freshness, "stale");
+    assert.ok(snapshot.status.warnings.some((warning) =>
+      warning.includes("ObservedRepo stale: newer-input-exists"),
+    ));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

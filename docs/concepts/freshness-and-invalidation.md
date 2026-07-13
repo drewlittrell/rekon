@@ -14,6 +14,14 @@ types, publication kinds, resolver requests, source-report paths, memory
 queries, and intent lineages. Repository-wide models and append-only ledgers
 remain type-wide.
 
+Snapshot construction applies the same identity rule: it retains the newest
+artifact in every keyed stream and one newest generation for an unkeyed,
+type-wide stream. This prevents a new import graph, resolver query, or
+publication from evicting an unrelated stream of the same artifact type.
+Only snapshot inputs, projections, and evaluations participate in snapshot
+lineage and freshness. Publications and actions are upper-layer outputs and
+cannot silently become lower-layer dependencies.
+
 Artifacts record tracked files and producer versions in
 `header.invalidation`. Derived artifacts continue to use `inputRefs` for
 artifact lineage.
