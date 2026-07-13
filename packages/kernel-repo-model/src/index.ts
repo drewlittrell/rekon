@@ -529,9 +529,33 @@ export function createOwnershipMap(input: OwnershipMap): OwnershipMap {
 }
 
 export function createCapabilityMap(input: CapabilityMap): CapabilityMap {
+  const entriesByCapability = new Map<string, CapabilityMap["entries"][number]>();
+
+  for (const entry of input.entries) {
+    const existing = entriesByCapability.get(entry.capability);
+
+    if (!existing) {
+      entriesByCapability.set(entry.capability, {
+        ...entry,
+        subjects: [...entry.subjects],
+        systems: [...entry.systems],
+        evidence: [...entry.evidence],
+      });
+      continue;
+    }
+
+    entriesByCapability.set(entry.capability, {
+      capability: entry.capability,
+      subjects: [...existing.subjects, ...entry.subjects],
+      systems: [...existing.systems, ...entry.systems],
+      confidence: Math.max(existing.confidence, entry.confidence),
+      evidence: [...existing.evidence, ...entry.evidence],
+    });
+  }
+
   const normalized: CapabilityMap = {
     header: input.header,
-    entries: [...dedupeBy(input.entries, (entry) => entry.capability).values()]
+    entries: [...entriesByCapability.values()]
       .map((entry) => ({
         ...entry,
         subjects: uniqueSorted(entry.subjects),

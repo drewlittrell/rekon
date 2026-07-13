@@ -8,6 +8,10 @@ All notable changes to Rekon are documented here.
   and opportunities now contribute to a separate observable-signal metric
   without inflating weighted finding recall, and coverage tables split finding
   matches from assessment matches.
+- Fixed capability-overlap evaluation to consume the public
+  `CapabilityMap.entries` contract. Repeated capability projections now merge
+  their subjects, systems, and evidence, and the policy manifest declares its
+  model-artifact dependencies and invalidation rules.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

@@ -1,6 +1,7 @@
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import { type Assessment, createAssessmentReport } from "@rekon/kernel-assessments";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
+import type { CapabilityContract, CapabilityMap, OwnershipMap } from "@rekon/kernel-repo-model";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
 import { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
@@ -301,7 +302,21 @@ export default defineCapability({
     name: "Policy Evaluator",
     version: "0.1.0",
     roles: ["evaluator"],
-    consumes: ["EvidenceGraph", "SemanticDebtJudgmentReport", "CapabilityEvidenceGraph", "VerificationRun", "TestReport", "LintReport", "GraphSlice", "RuntimeGraphObservationReport", "SecurityScanReport", "DependencyAuditReport"],
+    consumes: [
+      "EvidenceGraph",
+      "SemanticDebtJudgmentReport",
+      "CapabilityEvidenceGraph",
+      "CapabilityMap",
+      "OwnershipMap",
+      "CapabilityContract",
+      "VerificationRun",
+      "TestReport",
+      "LintReport",
+      "GraphSlice",
+      "RuntimeGraphObservationReport",
+      "SecurityScanReport",
+      "DependencyAuditReport",
+    ],
     produces: ["FindingReport", "AssessmentReport"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -319,6 +334,11 @@ export default defineCapability({
         id: "capability-evidence-graph.changed",
         description: "Similarity opportunities are invalid when the capability evidence graph changes.",
         inputs: ["CapabilityEvidenceGraph"],
+      },
+      {
+        id: "capability-model.changed",
+        description: "Capability overlap assessments are invalid when capability, ownership, or sharing declarations change.",
+        inputs: ["CapabilityMap", "OwnershipMap", "CapabilityContract"],
       },
       {
         id: "verification-run.changed",
@@ -368,17 +388,22 @@ async function capabilityOverlapFindings(
   artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
 ): Promise<{ findings: Finding[]; inputRefs: ArtifactRef[] }> {
   const mapRef = (await artifacts.list("CapabilityMap")).at(-1);
-  const map = mapRef ? await artifacts.read(mapRef) as { capabilities?: Array<Record<string, unknown>> } : undefined;
+  const map = mapRef ? await artifacts.read(mapRef) as CapabilityMap : undefined;
   const ownershipRef = (await artifacts.list("OwnershipMap")).at(-1);
-  const ownership = ownershipRef ? await artifacts.read(ownershipRef) as { entries?: Array<{ path: string; ownerSystem: string }> } : undefined;
+  const ownership = ownershipRef ? await artifacts.read(ownershipRef) as OwnershipMap : undefined;
   const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
-  const contract = contractRef ? await artifacts.read(contractRef) as { contracts?: Array<Record<string, unknown>> } : undefined;
+  const contract = contractRef ? await artifacts.read(contractRef) as CapabilityContract : undefined;
+  const capabilities = (map?.entries ?? []).map((entry) => ({
+    id: entry.capability,
+    name: entry.capability,
+    subjects: entry.subjects,
+  }));
 
   return {
     findings: evaluateCapabilityOverlap({
-      capabilities: (map?.capabilities ?? []) as never,
+      capabilities,
       ownershipEntries: ownership?.entries ?? [],
-      contractEntries: (contract?.contracts ?? []) as never,
+      contractEntries: contract?.contracts ?? [],
     }),
     inputRefs: uniqueRefs([...(mapRef ? [mapRef] : []), ...(ownershipRef ? [ownershipRef] : []), ...(contractRef ? [contractRef] : [])]),
   };

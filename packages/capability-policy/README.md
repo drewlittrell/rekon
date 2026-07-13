@@ -76,6 +76,10 @@ unless independent evidence proves a defect or declared architecture law is
 violated.
 Dependency hubs require both incoming and outgoing pressure, avoiding reports
 for ordinary public facades and leaf utilities.
+Capability overlap consumes public `CapabilityMap.entries` together with
+`OwnershipMap` and optional `CapabilityContract` declarations. It emits an
+opportunity only when one normalized capability spans multiple declared owner
+systems and no contract declares that sharing.
 
 `SecurityScanReport` results tied to the current evidence graph become risks
 only when SARIF rule metadata identifies them as security-relevant. Generic

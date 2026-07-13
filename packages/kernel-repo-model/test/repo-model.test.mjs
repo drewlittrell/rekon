@@ -103,6 +103,41 @@ test("ownership and capability maps normalize entries", () => {
   assert.deepEqual(capability.entries[0].subjects, ["src/index.ts"]);
 });
 
+test("capability maps merge repeated capability evidence instead of dropping subjects", () => {
+  const secondEvidenceRef = {
+    type: "EvidenceGraph",
+    id: "evidence-2",
+    schemaVersion: "0.1.0",
+  };
+  const capability = createCapabilityMap({
+    header: header("CapabilityMap"),
+    entries: [
+      {
+        capability: "send notifications",
+        subjects: ["identity/notify.ts"],
+        systems: ["identity"],
+        confidence: 0.8,
+        evidence: [secondEvidenceRef],
+      },
+      {
+        capability: "send notifications",
+        subjects: ["billing/notify.ts"],
+        systems: ["billing"],
+        confidence: 0.9,
+        evidence: [evidenceRef],
+      },
+    ],
+  });
+
+  assert.deepEqual(capability.entries, [{
+    capability: "send notifications",
+    subjects: ["billing/notify.ts", "identity/notify.ts"],
+    systems: ["billing", "identity"],
+    confidence: 0.9,
+    evidence: [evidenceRef, secondEvidenceRef],
+  }]);
+});
+
 test("validation rejects wrong artifact types and invalid confidence", () => {
   const result = validateObservedRepo({
     header: header("EvidenceGraph"),

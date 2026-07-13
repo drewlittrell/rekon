@@ -36,6 +36,9 @@ systems and paths. Semantic debt report policy records provider, model, effort,
 prompt version, and eligibility version so cached judgments retain their
 execution provenance. Reports may summarize why files were excluded before
 provider judgment.
+`createCapabilityMap()` merges repeated entries for the same capability,
+preserving all normalized subjects, systems, and evidence references instead
+of dropping later or earlier observations.
 Runtime graph observation contracts preserve instrumented execution evidence
 without redefining it as coverage. Coverage source metadata records its format,
 digest, explicit test attribution, accepted/ignored file counts, and optional

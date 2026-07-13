@@ -53,6 +53,62 @@ test("D: no OwnershipMap means no overlap law (inert, honestly)", () => {
   );
 });
 
+test("D: policy evaluator consumes public CapabilityMap.entries and declares model inputs", async () => {
+  const ref = (type, id) => ({ type, id, schemaVersion: "0.1.0" });
+  const evidenceRef = ref("EvidenceGraph", "evidence-1");
+  const capabilityRef = ref("CapabilityMap", "capability-map-1");
+  const ownershipRef = ref("OwnershipMap", "ownership-map-1");
+  const header = (artifactType, artifactId) => ({
+    artifactType,
+    artifactId,
+    schemaVersion: "0.1.0",
+    generatedAt: "2026-07-13T00:00:00.000Z",
+    subject: { repoId: "fixture" },
+    producer: { id: "@rekon/test", version: "1.0.0" },
+    inputRefs: artifactType === "EvidenceGraph" ? [] : [evidenceRef],
+  });
+  const bodies = new Map([
+    [evidenceRef.id, { header: header("EvidenceGraph", evidenceRef.id), facts: [] }],
+    [capabilityRef.id, {
+      header: header("CapabilityMap", capabilityRef.id),
+      entries: [{
+        capability: "send notifications",
+        subjects: ["billing/notify.ts", "identity/notify.ts"],
+        systems: ["billing", "identity"],
+        confidence: 0.9,
+        evidence: [evidenceRef],
+      }],
+    }],
+    [ownershipRef.id, {
+      header: header("OwnershipMap", ownershipRef.id),
+      entries: [
+        { path: "billing", ownerSystem: "billing", confidence: 0.9, evidence: [evidenceRef] },
+        { path: "identity", ownerSystem: "identity", confidence: 0.9, evidence: [evidenceRef] },
+      ],
+    }],
+  ]);
+  const refs = [evidenceRef, capabilityRef, ownershipRef];
+  const written = [];
+  const artifacts = {
+    list: async (type) => refs.filter((entry) => entry.type === type),
+    read: async (artifactRef) => bodies.get(artifactRef.id),
+    write: async (_type, report) => {
+      written.push(report);
+      return ref(report.header.artifactType, report.header.artifactId);
+    },
+  };
+
+  await policy.policyEvaluator.evaluate({ artifacts, input: {} });
+
+  const assessmentReport = written.find((report) => report.header.artifactType === "AssessmentReport");
+  const overlap = assessmentReport.assessments.filter((assessment) => assessment.ruleId === "capability.overlap");
+  assert.equal(overlap.length, 1);
+  assert.deepEqual(overlap[0].files, ["billing/notify.ts", "identity/notify.ts"]);
+  for (const type of ["CapabilityMap", "OwnershipMap", "CapabilityContract"]) {
+    assert.ok(policy.default.manifest.consumes.includes(type), `manifest must declare ${type}`);
+  }
+});
+
 // ---- E: naming contract ---------------------------------------------------
 
 const ratifiedGrammar = ontology.compileEffectiveGrammar({

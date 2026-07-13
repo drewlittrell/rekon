@@ -26,7 +26,13 @@ type ContractLike = {
   id?: string;
   status?: string;
   allowedSystems?: string[];
-  capabilityRef?: { id?: string; name?: string; subjects?: string[] };
+  capabilityRef?: {
+    id?: string;
+    name?: string;
+    subjects?: string[];
+    phraseCapabilityId?: string;
+  };
+  match?: { verb?: string; noun?: string };
 };
 
 export function evaluateCapabilityOverlap(input: {
@@ -90,7 +96,13 @@ export function evaluateCapabilityOverlap(input: {
     const sharing = (input.contractEntries ?? []).find((contract) => {
       const ref = contract.capabilityRef;
       const matches = ref?.id === capability.id
+        || ref?.phraseCapabilityId === capability.id
         || (typeof ref?.name === "string" && ref.name.toLowerCase().trim() === name)
+        || [contract.match?.verb, contract.match?.noun]
+          .filter((part): part is string => typeof part === "string" && part.length > 0)
+          .join(" ")
+          .toLowerCase()
+          .trim() === name
         || (ref?.subjects ?? []).some((subject) => files.includes(subject));
       const allowed = contract.allowedSystems ?? [];
 
