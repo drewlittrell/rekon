@@ -9,6 +9,7 @@ import { digestJson } from "@rekon/kernel-artifacts";
 import {
   createLocalArtifactStore,
   createRuntime,
+  runSnapshot,
   validateArtifactIndex,
   validateArtifactFreshness,
 } from "../dist/index.js";
@@ -95,6 +96,58 @@ test("artifact index validation checks paths, headers, digests, and duplicates",
     assert.ok(result.issues.some((issue) => issue.code === "artifact.header.schema_version_mismatch"));
     assert.ok(result.issues.some((issue) => issue.code === "artifact.digest_mismatch"));
     assert.equal(ref.type, "EvidenceGraph");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("artifact index records and validates supersession identity with legacy compatibility", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-index-supersession-"));
+
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const artifact = {
+      header: {
+        ...testHeader("GraphSlice", "graph-import", []),
+        supersession: { key: "import-graph" },
+      },
+      sliceType: "import-graph",
+      producer: "runtime-test",
+      nodes: [],
+      edges: [],
+    };
+    const ref = await store.write(artifact, { category: "graphs" });
+    const indexPath = join(root, ".rekon/registry/artifacts.index.json");
+    const index = JSON.parse(await readFile(indexPath, "utf8"));
+
+    assert.equal(index[0].supersessionKey, "import-graph");
+    assert.deepEqual(await validateArtifactIndex(store), { valid: true, issues: [] });
+
+    index[0].supersessionKey = "ownership-graph";
+    await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+    const mismatch = await validateArtifactIndex(store);
+    assert.equal(mismatch.valid, false);
+    assert.ok(mismatch.issues.some((issue) =>
+      issue.code === "artifact.header.supersession_key_mismatch"),
+    );
+    await assert.rejects(
+      () => store.read(ref),
+      (error) => error?.code === "artifact.header.supersession_key_mismatch",
+    );
+
+    delete index[0].supersessionKey;
+    await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+    const legacy = await validateArtifactIndex(store);
+    assert.equal(legacy.valid, true);
+    assert.ok(legacy.issues.some((issue) => issue.code === "index.entry.supersession_key_missing"));
+    assert.deepEqual(await store.read(ref), artifact);
+
+    const migratedStore = createLocalArtifactStore(root);
+    await migratedStore.init();
+    const migratedIndex = JSON.parse(await readFile(indexPath, "utf8"));
+    assert.equal(migratedIndex[0].supersessionKey, "import-graph");
+    assert.deepEqual(await validateArtifactIndex(migratedStore), { valid: true, issues: [] });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -470,6 +523,45 @@ test("snapshot retains the latest member of every supersession family and declar
       secondSnapshot.header.inputRefs.some((ref) => ref.type === "IntelligenceSnapshot"),
       false,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("snapshot selection uses indexed supersession keys without reading keyed upper-layer history", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-snapshot-index-keys-"));
+
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const evidenceRef = await store.write(evidenceArtifact("evidence-current"));
+    for (let index = 0; index < 32; index += 1) {
+      await store.write({
+        header: {
+          ...testHeader("Publication", `publication-${index}`, [evidenceRef]),
+          supersession: { key: `publication-kind-${index}` },
+        },
+        kind: `publication-kind-${index}`,
+        content: "test",
+      }, { category: "publications" });
+    }
+
+    let reads = 0;
+    const instrumentedStore = {
+      ...store,
+      async read(ref) {
+        reads += 1;
+        return store.read(ref);
+      },
+    };
+    await runSnapshot({
+      repo: { id: "fixture", root },
+      artifacts: instrumentedStore,
+      permissions: { allowed: () => true },
+      logger: silentLogger,
+    });
+
+    assert.equal(reads, 1, "only selected-lineage validation should read an indexed body");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

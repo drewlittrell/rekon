@@ -15,7 +15,8 @@ Current responsibilities:
 - initialize `.rekon/`
 - write and read typed JSON artifacts
 - maintain `.rekon/registry/artifacts.index.json`
-- validate artifact index entries, headers, paths, and digests
+- validate artifact index entries, headers, paths, digests, and supersession
+  identities
 - validate source, config, artifact-lineage, and producer-version freshness
 - load built-in capability objects directly
 - enforce manifest-requested permissions
@@ -56,6 +57,11 @@ resolver queries, publications, and community artifact streams available at the
 same time. Snapshot header lineage contains the selected inputs, projections,
 and evaluations. Publications and actions are indexed for discoverability but
 remain upper-layer outputs, not snapshot dependencies.
+
+New index entries cache `header.supersession.key` as `supersessionKey` and use
+`null` for type-wide streams. Header/index agreement is validated. Store
+initialization backfills valid legacy entries; unreadable entries remain
+untouched for normal integrity validation to report.
 
 ## Import Boundary
 

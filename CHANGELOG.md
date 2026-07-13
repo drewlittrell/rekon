@@ -14,6 +14,10 @@ All notable changes to Rekon are documented here.
   Publications and actions remain indexed without creating circular
   dependencies. Snapshot status now reflects stale selected lower-layer members
   rather than evidence freshness alone.
+- Artifact index entries now record and validate `supersessionKey` metadata,
+  using `null` for type-wide streams. Valid legacy entries are backfilled during
+  store initialization, while conflicting index/header identities fail strict
+  artifact reads.
 
 - Fixed `rekon intent status` provenance selection so assessment, preparation,
   status, work, and verification proof must form one artifact lineage. JSON

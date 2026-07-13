@@ -102,6 +102,7 @@ export type RuntimeContext = {
 export type ArtifactIndexEntry = ArtifactRef & {
   artifactType: string;
   artifactId: string;
+  supersessionKey?: string | null;
   writtenAt: string;
 };
 
@@ -402,6 +403,7 @@ export async function createRuntime(options: RuntimeOptions): Promise<Runtime> {
 export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
   const workspaceRoot = join(repoRoot, ".rekon");
   const indexPath = join(workspaceRoot, "registry", "artifacts.index.json");
+  let supersessionIndexBackfilled = false;
 
   return {
     root: repoRoot,
@@ -428,6 +430,10 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
         join(workspaceRoot, "config.json"),
         { capabilities: [], permissions: {} },
       );
+      if (!supersessionIndexBackfilled) {
+        await backfillArtifactIndexSupersessionKeys(repoRoot, indexPath);
+        supersessionIndexBackfilled = true;
+      }
     },
     async write(artifact, options = {}) {
       const header = assertArtifactHeader(artifact.header);
@@ -448,6 +454,7 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
         ...ref,
         artifactType: ref.type,
         artifactId: ref.id,
+        supersessionKey: header.supersession?.key ?? null,
         writtenAt: new Date().toISOString(),
       });
 
@@ -547,6 +554,19 @@ export async function validateArtifactIndex(
         code: "index.entry.artifact_id_mismatch",
         severity: "error",
         message: "Index artifactId must match id.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    if (entry.supersessionKey !== undefined
+      && entry.supersessionKey !== null
+      && !isNonEmptyString(entry.supersessionKey)) {
+      issues.push({
+        code: "index.entry.invalid_supersession_key",
+        severity: "error",
+        message: "Index supersessionKey must be a non-empty string when present.",
         artifactId,
         artifactType,
         path,
@@ -684,6 +704,36 @@ export async function validateArtifactIndex(
         code: "artifact.header.schema_version_mismatch",
         severity: "error",
         message: "Artifact header schemaVersion must match index schemaVersion.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    }
+
+    const headerSupersessionKey = header.supersession?.key;
+    if (isNonEmptyString(entry.supersessionKey) && entry.supersessionKey !== headerSupersessionKey) {
+      issues.push({
+        code: "artifact.header.supersession_key_mismatch",
+        severity: "error",
+        message: "Artifact header supersession key must match index supersessionKey.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    } else if (entry.supersessionKey === null && headerSupersessionKey) {
+      issues.push({
+        code: "artifact.header.supersession_key_mismatch",
+        severity: "error",
+        message: "Artifact header declares a supersession key but the index marks the artifact type-wide.",
+        artifactId,
+        artifactType,
+        path,
+      });
+    } else if (headerSupersessionKey && entry.supersessionKey === undefined) {
+      issues.push({
+        code: "index.entry.supersession_key_missing",
+        severity: "warning",
+        message: "Legacy index entry does not record the artifact header supersession key.",
         artifactId,
         artifactType,
         path,
@@ -980,6 +1030,15 @@ async function readSupersessionKey(
 ): Promise<string | undefined> {
   const cacheKey = `${entry.type}:${entry.id}`;
   if (supersessionKeyCache.has(cacheKey)) return supersessionKeyCache.get(cacheKey);
+
+  if (isNonEmptyString(entry.supersessionKey)) {
+    supersessionKeyCache.set(cacheKey, entry.supersessionKey);
+    return entry.supersessionKey;
+  }
+  if (entry.supersessionKey === null) {
+    supersessionKeyCache.set(cacheKey, undefined);
+    return undefined;
+  }
 
   let supersessionKey: string | undefined;
   try {
@@ -2973,6 +3032,25 @@ async function readIndexedArtifactBody(
     );
   }
 
+  if (entry.supersessionKey !== undefined
+    && entry.supersessionKey !== null
+    && !isNonEmptyString(entry.supersessionKey)) {
+    throw new ArtifactAccessError(
+      "index.entry.invalid_supersession_key",
+      "Artifact index supersessionKey must be a non-empty string or null.",
+      entry.path,
+    );
+  }
+
+  if ((isNonEmptyString(entry.supersessionKey) && entry.supersessionKey !== header.supersession?.key)
+    || (entry.supersessionKey === null && header.supersession?.key !== undefined)) {
+    throw new ArtifactAccessError(
+      "artifact.header.supersession_key_mismatch",
+      "Artifact header supersession key does not match the requested index entry.",
+      entry.path,
+    );
+  }
+
   return { artifact, raw, digest: actualDigest, absolutePath };
 }
 
@@ -2980,6 +3058,41 @@ async function readArtifactBodyForValidation(repoRoot: string, entry: ArtifactIn
   const absolutePath = await resolveArtifactReadPath(repoRoot, entry);
 
   return JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
+}
+
+async function backfillArtifactIndexSupersessionKeys(
+  repoRoot: string,
+  indexPath: string,
+): Promise<void> {
+  let index: ArtifactIndexEntry[];
+  try {
+    index = await readArtifactIndex(repoRoot, indexPath);
+  } catch (error) {
+    if (error instanceof ArtifactAccessError
+      && (error.code === "index.invalid_shape" || error.code === "generated_file.invalid_json")) {
+      return;
+    }
+    throw error;
+  }
+  let changed = false;
+
+  for (const entry of index) {
+    if (entry.supersessionKey !== undefined) continue;
+    try {
+      const { artifact } = await readIndexedArtifactBody(repoRoot, entry);
+      const record = isRecord(artifact) ? artifact : undefined;
+      const header = assertArtifactHeader(record?.header);
+      entry.supersessionKey = header.supersession?.key ?? null;
+      changed = true;
+    } catch {
+      // Leave malformed legacy entries untouched so normal index validation
+      // reports their integrity problem without making initialization fail.
+    }
+  }
+
+  if (changed) {
+    await writeGeneratedFileSafely(repoRoot, indexPath, `${JSON.stringify(index, null, 2)}\n`);
+  }
 }
 
 async function resolveArtifactReadPath(repoRoot: string, entry: Pick<ArtifactIndexEntry, "path">): Promise<string> {

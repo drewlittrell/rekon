@@ -110,7 +110,8 @@ different questions:
 
 The artifact header is cross-checked against
 `.rekon/registry/artifacts.index.json`. The index entry type, id, schema
-version, path, and digest must match the artifact on disk. Run:
+version, path, digest, and optional supersession key must match the artifact on
+disk. Run:
 
 ```sh
 node packages/cli/dist/index.js artifacts validate --root examples/simple-js-ts --json
