@@ -7,7 +7,8 @@ import test from "node:test";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
-const dogfoodRoot = process.env.REKON_DOGFOOD_CLASSIC_ROOT;
+const summaryPath = join(repoRoot, "tests/fixtures/dogfood/external-reference-summary.json");
+const dogfoodRoot = process.env.REKON_DOGFOOD_REFERENCE_ROOT;
 const representativePaths = [
   "services/AnalysisService.ts",
   "services/FullScanHandler.ts",
@@ -19,14 +20,16 @@ const representativePaths = [
   "src/index.ts",
 ];
 
-test("optional legacy-reference dogfood regression", async (t) => {
+test("optional external-reference dogfood regression", async (t) => {
   if (!dogfoodRoot) {
-    t.skip("Set REKON_DOGFOOD_CLASSIC_ROOT to run the optional dogfood regression.");
+    t.skip("Set REKON_DOGFOOD_REFERENCE_ROOT to run the optional dogfood regression.");
     return;
   }
 
   const root = resolve(dogfoodRoot);
   const preflightPath = representativePaths.find((path) => existsSync(join(root, path))) ?? representativePaths[0];
+  const previousIndex = await readArtifactIndex(root);
+  const previousEntries = new Set(previousIndex.map(artifactIdentity));
 
   runCli(["init", "--root", root, "--json"]);
   runCli(["observe", "--root", root, "--json"]);
@@ -46,7 +49,8 @@ test("optional legacy-reference dogfood regression", async (t) => {
   ]).stdout);
 
   const index = JSON.parse(await readFile(join(root, ".rekon/registry/artifacts.index.json"), "utf8"));
-  const counts = countByType(index);
+  const currentRunEntries = index.filter((entry) => !previousEntries.has(artifactIdentity(entry)));
+  const counts = countByType(currentRunEntries);
 
   assert.ok((counts.EvidenceGraph ?? 0) > 0, "dogfood should emit EvidenceGraph");
   assert.ok((counts.ObservedRepo ?? 0) > 0 || (counts.OwnershipMap ?? 0) > 0, "dogfood should emit model projections");
@@ -60,19 +64,33 @@ test("optional legacy-reference dogfood regression", async (t) => {
   );
 
   const summary = {
-    generatedAt: new Date().toISOString(),
-    root,
-    preflightPath,
-    counts,
-    resolverPacket: preflight.artifact,
-    ownerSystems: preflight.packet.ownerSystems,
-    warnings: preflight.packet.warnings,
-    resolutionTraceEntries: preflight.packet.resolutionTrace.length,
+    target: "external-reference",
+    currentRunArtifactCounts: counts,
+    preflight: {
+      ownershipResolution: preflight.packet.ownerSystems.length > 0 ? "resolved" : "explicitly-unresolved",
+      ownerSystemCount: preflight.packet.ownerSystems.length,
+      warningCount: preflight.packet.warnings.length,
+      resolutionTraceEntries: preflight.packet.resolutionTrace.length,
+    },
   };
-  const summaryPath = join(repoRoot, "tests/fixtures/dogfood/legacy-reference-summary.json");
+  const serialized = `${JSON.stringify(summary, null, 2)}\n`;
+
+  assert.equal(serialized.includes(root), false, "dogfood summary must not include the external root");
+  assert.equal(serialized.includes(".rekon/artifacts"), false, "dogfood summary must not include artifact paths");
 
   await mkdir(join(repoRoot, "tests/fixtures/dogfood"), { recursive: true });
-  await writeFile(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+  await writeFile(summaryPath, serialized, "utf8");
+});
+
+test("checked-in external-reference dogfood summary is sanitized", async () => {
+  const serialized = await readFile(summaryPath, "utf8");
+  const summary = JSON.parse(serialized);
+
+  assert.equal(Object.hasOwn(summary, "root"), false);
+  assert.equal(Object.hasOwn(summary, "generatedAt"), false);
+  assert.equal(serialized.includes(".rekon/artifacts"), false);
+  assert.equal(/\/(?:Users|home|private|tmp)\//.test(serialized), false);
+  assert.equal(/[A-Za-z]:\\/.test(serialized), false);
 });
 
 function runCli(args) {
@@ -88,8 +106,20 @@ function runCli(args) {
 }
 
 function countByType(index) {
-  return index.reduce((counts, entry) => {
-    counts[entry.type] = (counts[entry.type] ?? 0) + 1;
-    return counts;
+  const counts = index.reduce((result, entry) => {
+    result[entry.type] = (result[entry.type] ?? 0) + 1;
+    return result;
   }, {});
+  return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function artifactIdentity(entry) {
+  return `${entry.type}:${entry.id}`;
+}
+
+async function readArtifactIndex(root) {
+  const indexPath = join(root, ".rekon/registry/artifacts.index.json");
+  if (!existsSync(indexPath)) return [];
+  const parsed = JSON.parse(await readFile(indexPath, "utf8"));
+  return Array.isArray(parsed) ? parsed : [];
 }

@@ -4,6 +4,8 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- External-reference dogfood summaries now count only artifacts emitted by the
+  current run and omit local roots, timestamps, artifact refs, and paths.
 - Capability normalization now fuses symbol and export evidence for the same
   executable declaration into one candidate while retaining all supporting
   fact ids and kinds in report provenance.

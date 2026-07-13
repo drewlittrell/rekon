@@ -1,0 +1,21 @@
+{
+  "target": "external-reference",
+  "currentRunArtifactCounts": {
+    "AssessmentReport": 1,
+    "CapabilityMap": 1,
+    "CapabilityNormalizationReport": 1,
+    "EvidenceGraph": 1,
+    "FindingReport": 1,
+    "GraphSlice": 7,
+    "IntelligenceSnapshot": 2,
+    "ObservedRepo": 1,
+    "OwnershipMap": 1,
+    "ResolverPacket": 1
+  },
+  "preflight": {
+    "ownershipResolution": "resolved",
+    "ownerSystemCount": 1,
+    "warningCount": 0,
+    "resolutionTraceEntries": 14
+  }
+}
