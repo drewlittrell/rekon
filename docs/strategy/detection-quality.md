@@ -167,10 +167,13 @@ Generated plans also declare intended source paths. Only a passing run that
 instruments a declared hotspot with zero execution supports a scoped target-gap
 statement; arbitrary zero counts remain context.
 
-Embedding `duplicate_candidate` claims become opportunities after reciprocal
-pair deduplication. They remain unverified until structural, behavioral, or
-operator evidence establishes that the implementations are actually redundant
-and that consolidation has positive value.
+Embedding `duplicate_candidate` claims become opportunities only for reciprocal
+neighbors built from comparable file or capability representations. Declaration
+signatures and cross-representation similarity remain context, not duplication.
+Non-production paths stay out of the candidate set. Candidates remain
+unverified until structural, behavioral, or operator evidence establishes that
+the implementations are actually redundant and that consolidation has positive
+value.
 
 The production duplicate threshold is evaluated against labeled positive and
 hard-negative pairs, separately from retrieval ranking. Threshold quality is

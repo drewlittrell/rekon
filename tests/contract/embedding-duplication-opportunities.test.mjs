@@ -62,11 +62,79 @@ test("reciprocal embedding duplicate claims become one opportunity and no findin
   }
 });
 
+test("one-way embedding neighbors remain context and do not become duplicate opportunities", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-embedding-one-way-"));
+  try {
+    const runtime = await createRuntime({ repoRoot: root, repoId: "similarity-fixture", capabilities: [policyCapability], logger });
+    const evidenceRef = await runtime.artifacts.write({
+      header: header("EvidenceGraph", "evidence", []),
+      facts: [],
+    });
+    await runtime.artifacts.write({
+      header: header("CapabilityEvidenceGraph", "capability-graph", [evidenceRef]),
+      schemaVersion: "0.1.0",
+      status: { value: "built", reason: "fixture" },
+      nodes: [],
+      evidence: [{ id: "embed-a", source: "embedding_similarity", path: "src/a.ts", excerpt: "fixture" }],
+      claims: [claim("a-to-b", "src/a.ts#loadUser", "src/b.ts#fetchUser", 0.97, "embed-a")],
+      capabilities: [],
+      summary: {},
+      boundaries: {},
+    }, { category: "graphs" });
+
+    const refs = await runtime.runEvaluate();
+    const assessmentReport = await runtime.artifacts.read(refs.find((ref) => ref.type === "AssessmentReport"));
+    assert.equal(
+      assessmentReport.assessments.filter((assessment) => assessment.ruleId === "similarity.duplicateCandidate").length,
+      0,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("embedding duplicates in non-production paths remain silent", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-embedding-non-production-"));
+  try {
+    const runtime = await createRuntime({ repoRoot: root, repoId: "similarity-fixture", capabilities: [policyCapability], logger });
+    const evidenceRef = await runtime.artifacts.write({
+      header: header("EvidenceGraph", "evidence", []),
+      facts: [],
+    });
+    await runtime.artifacts.write({
+      header: header("CapabilityEvidenceGraph", "capability-graph", [evidenceRef]),
+      schemaVersion: "0.1.0",
+      status: { value: "built", reason: "fixture" },
+      nodes: [],
+      evidence: [{ id: "embed-a", source: "embedding_similarity", path: "tools/a.ts", excerpt: "fixture" }],
+      claims: [
+        claim("a-to-b", "tools/a.ts#loadUser", "tools/b.ts#fetchUser", 0.97, "embed-a"),
+        claim("b-to-a", "tools/b.ts#fetchUser", "tools/a.ts#loadUser", 0.97, "embed-a"),
+      ],
+      capabilities: [],
+      summary: {},
+      boundaries: {},
+    }, { category: "graphs" });
+
+    const refs = await runtime.runEvaluate();
+    const assessmentReport = await runtime.artifacts.read(refs.find((ref) => ref.type === "AssessmentReport"));
+    assert.equal(
+      assessmentReport.assessments.filter((assessment) => assessment.ruleId === "similarity.duplicateCandidate").length,
+      0,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("CLI embedding graph flow exposes duplicate candidates through assessments", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-embedding-duplication-cli-"));
   try {
     await mkdir(join(root, "src"), { recursive: true });
-    const implementation = "export function normalizeUser(value: string): string { return value.trim().toLowerCase(); }\n";
+    const implementation = Array.from(
+      { length: 20 },
+      (_, index) => `export function normalizeUser${index}(value: string): string { return value.trim().toLowerCase(); }`,
+    ).join("\n");
     await writeFile(join(root, "src", "a.ts"), implementation, "utf8");
     await writeFile(join(root, "src", "b.ts"), implementation, "utf8");
     await writeFile(join(root, "package.json"), JSON.stringify({ name: "duplication-fixture", type: "module" }), "utf8");

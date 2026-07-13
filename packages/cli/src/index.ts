@@ -10321,6 +10321,10 @@ async function computeEmbeddingSimilaritiesFromCache(
     const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
     for (const candidate of loaded) {
       if (candidate.record.chunk.id === source.record.chunk.id) continue;
+      // Compare like representations. A file summary and a structural feature
+      // bag can be close because both name the same path, but that is not
+      // evidence that two implementations overlap.
+      if (candidate.record.chunk.kind !== source.record.chunk.kind) continue;
       const score = cosineSimilarity(source.vector, candidate.vector);
       if (score >= options.floor) scored.push({ record: candidate.record, score });
     }

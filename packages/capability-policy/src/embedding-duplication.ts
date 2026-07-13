@@ -1,6 +1,8 @@
 import { digestJson, type ArtifactRef } from "@rekon/kernel-artifacts";
 import type { Assessment } from "@rekon/kernel-assessments";
 
+import { isNonProductionPath } from "./grammar-divergence.js";
+
 export const EMBEDDING_DUPLICATION_RULE_ID = "similarity.duplicateCandidate";
 
 type GraphRefLike = { kind?: unknown; id?: unknown };
@@ -58,11 +60,13 @@ export function evaluateEmbeddingDuplicationCandidates(
   }
 
   return [...pairs.entries()]
+    .filter(([, pair]) => pair.claimIds.length >= 2)
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([pairKey, pair]) => {
+    .flatMap(([pairKey, pair]) => {
       const files = [...new Set([fileForRef(pair.left), fileForRef(pair.right)].filter((file): file is string => Boolean(file)))].sort();
+      if (files.some(isNonProductionPath)) return [];
       const fingerprint = digestJson(pairKey).slice(0, 16);
-      return {
+      return [{
         id: `${EMBEDDING_DUPLICATION_RULE_ID}:${fingerprint}`,
         kind: "opportunity" as const,
         type: "duplication",
@@ -89,7 +93,7 @@ export function evaluateEmbeddingDuplicationCandidates(
           graphEvidenceRefs: pair.graphEvidenceRefs.sort(),
           reciprocalClaims: pair.claimIds.length,
         },
-      } satisfies Assessment;
+      } satisfies Assessment];
     });
 }
 

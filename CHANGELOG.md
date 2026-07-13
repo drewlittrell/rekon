@@ -18,6 +18,13 @@ All notable changes to Rekon are documented here.
 - Fixed semantic-debt file budgets so `--semantic-debt-file-limit` caps total
   active report entries. Re-running a scan now reuses the bounded set instead
   of silently spending the same budget on another batch.
+- Fixed Voyage embedding indexing for real repositories by batching provider
+  requests within item and conservative aggregate-token limits. Multi-batch
+  calls preserve input order, sum usage, and return no partial vector result
+  when a later batch fails.
+- Reduced embedding-duplication noise by comparing only like chunk
+  representations, keeping declaration signatures contextual, and requiring
+  reciprocal duplicate evidence before emitting an opportunity.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

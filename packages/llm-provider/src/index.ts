@@ -946,6 +946,11 @@ export type CreateVoyageEmbeddingProviderOptions = {
 export const VOYAGE_DEFAULT_MODEL = "voyage-4";
 export const VOYAGE_DEFAULT_DIMENSIONS = 512;
 export const VOYAGE_ECONOMY_MODEL = "voyage-4-lite";
+const VOYAGE_EMBEDDING_MAX_BATCH_ITEMS = 1_000;
+// Every current Voyage text embedding model accepts at least 120K aggregate
+// tokens per request. UTF-8 bytes are a conservative upper bound on BPE token
+// count, so this limit leaves headroom without adding a tokenizer dependency.
+const VOYAGE_EMBEDDING_MAX_BATCH_BYTES = 100_000;
 export const VOYAGE_4_COMPATIBLE_MODELS = Object.freeze([
   "voyage-4-large",
   "voyage-4",
@@ -978,6 +983,33 @@ function extractEmbeddingUsage(payload: unknown): RekonEmbeddingProviderUsage | 
   if (!isRecord(usage)) return undefined;
   const totalTokens = (usage as { total_tokens?: unknown }).total_tokens;
   return typeof totalTokens === "number" ? { totalTokens } : undefined;
+}
+
+function partitionVoyageEmbeddingTexts(texts: string[]): string[][] {
+  const batches: string[][] = [];
+  let batch: string[] = [];
+  let batchBytes = 0;
+
+  for (const text of texts) {
+    const textBytes = Buffer.byteLength(text, "utf8");
+    if (
+      batch.length > 0
+      && (
+        batch.length >= VOYAGE_EMBEDDING_MAX_BATCH_ITEMS
+        || batchBytes + textBytes > VOYAGE_EMBEDDING_MAX_BATCH_BYTES
+      )
+    ) {
+      batches.push(batch);
+      batch = [];
+      batchBytes = 0;
+    }
+
+    batch.push(text);
+    batchBytes += textBytes;
+  }
+
+  if (batch.length > 0) batches.push(batch);
+  return batches;
 }
 
 export function createVoyageEmbeddingProvider(
@@ -1028,93 +1060,148 @@ export function createVoyageEmbeddingProvider(
         };
       }
 
-      const requestBody = JSON.stringify({
-        model,
-        input: texts,
-        input_type: inputType,
-        ...(typeof dimensions === "number" && dimensions > 0 ? { output_dimension: dimensions } : {}),
-      });
+      const batches = partitionVoyageEmbeddingTexts(texts);
+      const vectors: number[][] = [];
+      const warnings: string[] = [];
+      let totalTokens = 0;
+      let hasUsage = false;
+      let resolvedModel = model;
 
-      let controller: { signal: unknown; abort(): void } | undefined;
-      let timer: unknown;
-      try {
-        if (typeof g.AbortController === "function" && typeof g.setTimeout === "function") {
-          controller = new g.AbortController();
-          timer = g.setTimeout(() => controller?.abort(), timeoutMs);
-        }
-
-        const response = await fetchImpl(`${baseUrl}/embeddings`, {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-          body: requestBody,
-          ...(controller ? { signal: controller.signal } : {}),
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+        const batch = batches[batchIndex]!;
+        const requestBody = JSON.stringify({
+          model,
+          input: batch,
+          input_type: inputType,
+          ...(typeof dimensions === "number" && dimensions > 0 ? { output_dimension: dimensions } : {}),
         });
 
-        if (!response.ok) {
-          let detail = "";
-          try {
-            detail = truncateText(await response.text(), 500);
-          } catch {
-            detail = "";
+        let controller: { signal: unknown; abort(): void } | undefined;
+        let timer: unknown;
+        try {
+          if (typeof g.AbortController === "function" && typeof g.setTimeout === "function") {
+            controller = new g.AbortController();
+            timer = g.setTimeout(() => controller?.abort(), timeoutMs);
           }
-          return { ok: false, provider: id, ...withModel, error: `http-${response.status}`, warnings: detail ? [detail] : [] };
-        }
 
-        let rawText: string;
-        try {
-          rawText = await response.text();
+          const response = await fetchImpl(`${baseUrl}/embeddings`, {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+            body: requestBody,
+            ...(controller ? { signal: controller.signal } : {}),
+          });
+
+          if (!response.ok) {
+            let detail = "";
+            try {
+              detail = truncateText(await response.text(), 500);
+            } catch {
+              detail = "";
+            }
+            return {
+              ok: false,
+              provider: id,
+              ...withModel,
+              error: `http-${response.status}`,
+              warnings: [
+                `Embedding batch ${batchIndex + 1}/${batches.length} failed.`,
+                ...(detail ? [detail] : []),
+              ],
+            };
+          }
+
+          let rawText: string;
+          try {
+            rawText = await response.text();
+          } catch (error) {
+            return {
+              ok: false,
+              provider: id,
+              ...withModel,
+              error: "response-read-failed",
+              warnings: [
+                `Embedding batch ${batchIndex + 1}/${batches.length} could not be read.`,
+                error instanceof Error ? error.message : String(error),
+              ],
+            };
+          }
+
+          let envelope: unknown;
+          try {
+            envelope = JSON.parse(rawText);
+          } catch {
+            return {
+              ok: false,
+              provider: id,
+              ...withModel,
+              error: "invalid-response-json",
+              warnings: [`Embedding batch ${batchIndex + 1}/${batches.length} returned invalid JSON.`],
+            };
+          }
+
+          const batchVectors = extractEmbeddingVectors(envelope);
+          if (batchVectors === null) {
+            return {
+              ok: false,
+              provider: id,
+              ...withModel,
+              error: "no-embeddings",
+              warnings: [`Embedding batch ${batchIndex + 1}/${batches.length} contained no usable embeddings.`],
+            };
+          }
+          if (batchVectors.length !== batch.length) {
+            return {
+              ok: false,
+              provider: id,
+              ...withModel,
+              error: "embedding-count-mismatch",
+              warnings: [
+                `Embedding batch ${batchIndex + 1}/${batches.length} expected ${batch.length} embeddings, received ${batchVectors.length}.`,
+              ],
+            };
+          }
+          if (dimensions !== undefined && batchVectors.some((vector) => vector.length !== dimensions)) {
+            return {
+              ok: false,
+              provider: id,
+              ...withModel,
+              error: "embedding-dimension-mismatch",
+              warnings: [`Embedding batch ${batchIndex + 1}/${batches.length} did not return ${dimensions}-dimension embeddings.`],
+            };
+          }
+
+          resolvedModel = extractModel(envelope) ?? resolvedModel;
+          const usage = extractEmbeddingUsage(envelope);
+          if (typeof usage?.totalTokens === "number") {
+            totalTokens += usage.totalTokens;
+            hasUsage = true;
+          }
+          vectors.push(...batchVectors);
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const aborted = error instanceof Error && (error.name === "AbortError" || message.toLowerCase().includes("abort"));
           return {
             ok: false,
             provider: id,
             ...withModel,
-            error: "response-read-failed",
-            warnings: [error instanceof Error ? error.message : String(error)],
+            error: aborted ? "timeout" : "request-failed",
+            warnings: [`Embedding batch ${batchIndex + 1}/${batches.length} failed: ${message}`],
           };
-        }
-
-        let envelope: unknown;
-        try {
-          envelope = JSON.parse(rawText);
-        } catch {
-          return { ok: false, provider: id, ...withModel, error: "invalid-response-json", warnings: ["Provider response was not valid JSON."] };
-        }
-
-        const vectors = extractEmbeddingVectors(envelope);
-        if (vectors === null) {
-          return { ok: false, provider: id, ...withModel, error: "no-embeddings", warnings: ["Provider response contained no usable embeddings."] };
-        }
-        if (vectors.length !== texts.length) {
-          return {
-            ok: false,
-            provider: id,
-            ...withModel,
-            error: "embedding-count-mismatch",
-            warnings: [`Expected ${texts.length} embeddings, received ${vectors.length}.`],
-          };
-        }
-        if (dimensions !== undefined && vectors.some((vector) => vector.length !== dimensions)) {
-          return {
-            ok: false,
-            provider: id,
-            ...withModel,
-            error: "embedding-dimension-mismatch",
-            warnings: [`Expected ${dimensions}-dimension embeddings.`],
-          };
-        }
-
-        const resolvedModel = extractModel(envelope) ?? model;
-        const usage = extractEmbeddingUsage(envelope);
-        return { ok: true, provider: id, model: resolvedModel, vectors, ...(usage ? { usage } : {}) };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const aborted = error instanceof Error && (error.name === "AbortError" || message.toLowerCase().includes("abort"));
-        return { ok: false, provider: id, ...withModel, error: aborted ? "timeout" : "request-failed", warnings: [message] };
-      } finally {
-        if (timer !== undefined && typeof g.clearTimeout === "function") {
-          g.clearTimeout(timer);
+        } finally {
+          if (timer !== undefined && typeof g.clearTimeout === "function") {
+            g.clearTimeout(timer);
+          }
         }
       }
+
+      return {
+        ok: true,
+        provider: id,
+        model: resolvedModel,
+        vectors,
+        ...(hasUsage ? { usage: { totalTokens } } : {}),
+        ...(warnings.length > 0 ? { warnings } : {}),
+      };
     },
   };
 }

@@ -77,6 +77,16 @@ const SEMANTIC_LOW_CONFIDENCE = 0.25;
 // so similarity can never outrank a deterministic claim.
 const EMBEDDING_DUPLICATE_THRESHOLD = 0.95;
 const EMBEDDING_MAX_CONFIDENCE = 0.99;
+const EMBEDDING_DUPLICATE_CHUNK_KINDS = new Set([
+  "file_summary",
+  "structural_feature_bag",
+  "capability_text",
+]);
+
+function embeddingChunkKind(chunkId: string): string {
+  const separator = chunkId.indexOf(":");
+  return separator >= 0 ? chunkId.slice(0, separator) : "";
+}
 
 function confidenceFromEnum(value: unknown): number {
   if (typeof value === "string" && value in SEMANTIC_CONFIDENCE_BY_ENUM) {
@@ -714,9 +724,14 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
       const rawScore = typeof neighbor.score === "number" && Number.isFinite(neighbor.score) ? neighbor.score : 0;
       const confidence = Math.min(Math.max(rawScore, 0), EMBEDDING_MAX_CONFIDENCE);
       const objectRef: CapabilityGraphRef = { kind: neighborRef.kind, id: neighborRef.id };
-      const predicate = rawScore >= EMBEDDING_DUPLICATE_THRESHOLD ? "duplicate_candidate" : "similar_to";
       const neighborChunkId =
         typeof neighbor.chunkId === "string" && neighbor.chunkId.length > 0 ? neighbor.chunkId : `n-${neighborIndex}`;
+      const sourceKind = embeddingChunkKind(sourceChunkId);
+      const neighborKind = embeddingChunkKind(neighborChunkId);
+      const duplicateEligible = sourceKind === neighborKind && EMBEDDING_DUPLICATE_CHUNK_KINDS.has(sourceKind);
+      const predicate = duplicateEligible && rawScore >= EMBEDDING_DUPLICATE_THRESHOLD
+        ? "duplicate_candidate"
+        : "similar_to";
       claims.push({
         id: `claim:embedding:${predicate}:${simIndex}:${sourceChunkId}:${neighborChunkId}`.replace(/[^A-Za-z0-9_.:-]+/g, "-"),
         subject: subjectRef,

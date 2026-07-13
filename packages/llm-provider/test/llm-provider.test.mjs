@@ -11,6 +11,7 @@ import {
   createAnthropicLlmProvider,
   createOpenAiLlmProvider,
   createOpenAiResponsesLlmProvider,
+  createVoyageEmbeddingProvider,
 } from "../dist/index.js";
 
 const input = (task = "plan.semantic-normalize") => ({ task, schemaName: "Test", prompt: "x" });
@@ -302,4 +303,103 @@ test("23. Anthropic adapter blocks cleanly without a key", async () => {
   assert.equal(result.ok, false);
   assert.equal(result.error, "missing-api-key");
   assert.equal(called, false);
+});
+
+test("24. Voyage adapter batches large embedding inputs and preserves vector order", async () => {
+  const requestSizes = [];
+  const provider = createVoyageEmbeddingProvider({
+    apiKey: "k",
+    dimensions: 2,
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      requestSizes.push(body.input.length);
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            model: "voyage-4",
+            data: body.input.map((text, index) => ({
+              embedding: [Number(text.slice(1)), index],
+            })),
+            usage: { total_tokens: body.input.length },
+          });
+        },
+      };
+    },
+  });
+  const texts = Array.from({ length: 1_001 }, (_, index) => `t${index}`);
+
+  const result = await provider.embed({ task: "code.embedding", texts, dimensions: 2 });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(requestSizes, [1_000, 1]);
+  assert.equal(result.vectors.length, texts.length);
+  assert.equal(result.vectors[0][0], 0);
+  assert.equal(result.vectors.at(-1)[0], 1_000);
+  assert.deepEqual(result.usage, { totalTokens: 1_001 });
+});
+
+test("25. Voyage adapter also bounds aggregate UTF-8 payload size", async () => {
+  const requestSizes = [];
+  const provider = createVoyageEmbeddingProvider({
+    apiKey: "k",
+    dimensions: 1,
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      requestSizes.push(body.input.length);
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            data: body.input.map(() => ({ embedding: [1] })),
+          });
+        },
+      };
+    },
+  });
+
+  const result = await provider.embed({
+    task: "code.embedding",
+    texts: ["a".repeat(60_000), "b".repeat(60_000)],
+    dimensions: 1,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(requestSizes, [1, 1]);
+  assert.deepEqual(result.vectors, [[1], [1]]);
+});
+
+test("26. Voyage adapter returns no partial vectors when a later batch fails", async () => {
+  let calls = 0;
+  const provider = createVoyageEmbeddingProvider({
+    apiKey: "k",
+    dimensions: 1,
+    fetchImpl: async (_url, init) => {
+      calls += 1;
+      const body = JSON.parse(init.body);
+      if (calls === 2) {
+        return { ok: false, status: 429, async text() { return "rate limited"; } };
+      }
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ data: body.input.map(() => ({ embedding: [1] })) });
+        },
+      };
+    },
+  });
+
+  const result = await provider.embed({
+    task: "code.embedding",
+    texts: Array.from({ length: 1_001 }, (_, index) => `t${index}`),
+    dimensions: 1,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "http-429");
+  assert.equal(calls, 2);
+  assert.match(result.warnings[0], /batch 2\/2 failed/i);
 });

@@ -105,6 +105,7 @@ async function setupRepo() {
   await mkdir(join(work, "src"), { recursive: true });
   await writeFile(join(work, "package.json"), `${JSON.stringify({ name: "embed-fixture", version: "0.0.0", type: "module" }, null, 2)}\n`, "utf8");
   await writeFile(join(work, "src", "index.js"), SAMPLE_SOURCE, "utf8");
+  await writeFile(join(work, "src", "duplicate.js"), SAMPLE_SOURCE, "utf8");
   return work;
 }
 
@@ -286,6 +287,53 @@ test("cosineSimilarity is correct for aligned vectors and 0 for degenerate", () 
   assert.ok(Math.abs(cosineSimilarity([1, 0], [0, 1])) < 1e-9);
   assert.equal(cosineSimilarity([0, 0], [1, 1]), 0);
   assert.equal(cosineSimilarity([1, 2, 3], [1, 2]), 0);
+});
+
+test("embedding graph promotes only comparable file and capability representations", () => {
+  const graph = buildCapabilityEvidenceGraph({
+    root: "fixture-root",
+    generatedAt: "2026-01-02T03:04:05.000Z",
+    files: [
+      { path: "src/a.ts", text: "export const runtime = 'node';" },
+      { path: "src/b.ts", text: "export const runtime = 'edge';" },
+    ],
+    embeddingSimilarities: [
+      {
+        source: { chunkId: "signature:src/a.ts#runtime", ref: { kind: "symbol", id: "src/a.ts#runtime" } },
+        neighbors: [{ chunkId: "signature:src/b.ts#runtime", ref: { kind: "symbol", id: "src/b.ts#runtime" }, score: 0.99 }],
+        provider: "test",
+        model: "test",
+      },
+      {
+        source: { chunkId: "file_summary:src/a.ts", ref: { kind: "file", id: "src/a.ts" } },
+        neighbors: [{ chunkId: "file_summary:src/b.ts", ref: { kind: "file", id: "src/b.ts" }, score: 0.96 }],
+        provider: "test",
+        model: "test",
+      },
+      {
+        source: { chunkId: "file_summary:src/a.ts", ref: { kind: "file", id: "src/a.ts" } },
+        neighbors: [{ chunkId: "structural_feature_bag:src/b.ts", ref: { kind: "file", id: "src/b.ts" }, score: 0.99 }],
+        provider: "test",
+        model: "test",
+      },
+    ],
+  });
+  const embeddingClaims = graph.claims.filter((claim) => claim.source === "embedding");
+  const signatureClaim = embeddingClaims.find((claim) => claim.subject.id === "src/a.ts#runtime");
+  const comparableFileClaim = embeddingClaims.find((claim) => (
+    claim.subject.id === "src/a.ts"
+    && claim.object?.id === "src/b.ts"
+    && claim.predicate === "duplicate_candidate"
+  ));
+  const crossRepresentationClaim = embeddingClaims.find((claim) => (
+    claim.subject.id === "src/a.ts"
+    && claim.object?.id === "src/b.ts"
+    && claim.predicate === "similar_to"
+  ));
+
+  assert.equal(signatureClaim?.predicate, "similar_to", "matching signatures are too shallow for duplication");
+  assert.ok(comparableFileClaim, "same-representation file similarity should remain duplicate-eligible");
+  assert.ok(crossRepresentationClaim, "different representations must remain contextual similarity");
 });
 
 // ---------- 16: CLI index writes only under .rekon/cache/embeddings, source untouched ----------
