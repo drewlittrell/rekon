@@ -15,6 +15,7 @@
     "test:contract": "node scripts/test.mjs --suite contract",
     "test:live": "node scripts/test.mjs --suite live",
     "test:bench": "node scripts/test.mjs --suite bench",
+    "test:install": "node scripts/install-smoke.mjs",
     "bench:incremental": "npm run build --workspaces && node scripts/benchmark-incremental.mjs",
     "build": "npm run build --workspaces",
     "audit:detection-quality": "npm run build --workspaces && node scripts/audit-detection-quality.mjs",

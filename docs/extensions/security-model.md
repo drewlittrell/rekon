@@ -2,7 +2,7 @@
 
 Rekon capabilities request permissions in their manifests.
 
-The security model is intentionally conservative in alpha. Capabilities should
+The security model is intentionally conservative. Capabilities should
 write artifacts first and leave source changes or command execution to explicit
 future policy.
 

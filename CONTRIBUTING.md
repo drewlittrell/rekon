@@ -39,11 +39,16 @@ npm run test:smoke
 npm run test:contract
 npm run test:live   # provider/private-corpus tests; environment gated
 npm run test:bench
+npm run test:install # packs all workspaces and runs the installed CLI
 ```
 
 `npm run bench:incremental` measures the generated-repository incremental
 pipeline without enforcing machine-dependent timing thresholds. `npm test`
 remains the release gate.
+
+Run `npm run test:install` after `npm run build` when package exports,
+dependencies, CLI wiring, or distribution metadata changes. It installs local
+tarballs into a temporary consumer project and does not publish anything.
 
 ## Ground Rules
 

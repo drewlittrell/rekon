@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import {
   cp,
-  mkdir,
   mkdtemp,
   readFile,
   readdir,
@@ -11,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const packagesDir = join(repoRoot, "packages");
@@ -132,14 +131,37 @@ async function main() {
       projectDir,
       "node_modules/@rekon/cli/dist/index.js",
     );
+    const installedBinPath = join(projectDir, "node_modules/.bin/rekon");
 
-    if (!existsSync(installedCliPath)) {
+    if (!existsSync(installedCliPath) || !existsSync(installedBinPath)) {
       throw new Error(
-        `Installed CLI not found at ${installedCliPath} after tarball install`,
+        `Installed CLI or bin link missing after tarball install: ${installedCliPath}, ${installedBinPath}`,
       );
     }
 
     installedCli = true;
+
+    const importSmokePath = join(projectDir, "import-smoke.mjs");
+    const importPackages = tarballRecords
+      .map((record) => record.name)
+      .filter((name) => name !== "@rekon/cli");
+    await writeFile(
+      importSmokePath,
+      `await Promise.all(${JSON.stringify(importPackages)}.map(async (name) => {\n`
+        + "  const exports = await import(name);\n"
+        + "  if (Object.keys(exports).length === 0) throw new Error(`${name} has no public exports`);\n"
+        + "}));\n",
+      "utf8",
+    );
+    const importResult = spawnSync(process.execPath, [importSmokePath], {
+      cwd: projectDir,
+      encoding: "utf8",
+    });
+    if (importResult.status !== 0) {
+      throw new Error(
+        `Installed package import smoke failed:\n${importResult.stderr || importResult.stdout}`,
+      );
+    }
 
     const fixtureRoot = join(projectDir, "fixture");
 
@@ -152,32 +174,33 @@ async function main() {
 
     const steps = [];
 
-    runStep(installedCliPath, steps, "init", ["init", "--root", fixtureRoot, "--json"]);
-    runStep(installedCliPath, steps, "observe", [
+    runStep(installedBinPath, steps, "help", ["--help"]);
+    runStep(installedBinPath, steps, "init", ["init", "--root", fixtureRoot, "--json"]);
+    runStep(installedBinPath, steps, "observe", [
       "observe",
       "--root",
       fixtureRoot,
       "--json",
     ]);
-    runStep(installedCliPath, steps, "project", [
+    runStep(installedBinPath, steps, "project", [
       "project",
       "--root",
       fixtureRoot,
       "--json",
     ]);
-    runStep(installedCliPath, steps, "snapshot", [
+    runStep(installedBinPath, steps, "snapshot", [
       "snapshot",
       "--root",
       fixtureRoot,
       "--json",
     ]);
-    runStep(installedCliPath, steps, "evaluate", [
+    runStep(installedBinPath, steps, "evaluate", [
       "evaluate",
       "--root",
       fixtureRoot,
       "--json",
     ]);
-    runStep(installedCliPath, steps, "resolve-preflight", [
+    runStep(installedBinPath, steps, "resolve-preflight", [
       "resolve",
       "preflight",
       "--root",
@@ -188,7 +211,7 @@ async function main() {
       "modify bootstrap",
       "--json",
     ]);
-    runStep(installedCliPath, steps, "publish-agents", [
+    runStep(installedBinPath, steps, "publish-agents", [
       "publish",
       "agents",
       "--root",
@@ -196,7 +219,7 @@ async function main() {
       "--json",
     ]);
     const validateResult = runStep(
-      installedCliPath,
+      installedBinPath,
       steps,
       "artifacts-validate",
       ["artifacts", "validate", "--root", fixtureRoot, "--json"],
@@ -240,6 +263,8 @@ async function main() {
       projectDir,
       fixtureRoot,
       installedCli,
+      installedBin: installedBinPath,
+      packagesImported: importPackages,
       packagesPacked: tarballRecords.map((record) => ({
         name: record.name,
         version: record.version,
@@ -267,7 +292,7 @@ async function main() {
 }
 
 function runStep(cliPath, steps, id, args) {
-  const result = spawnSync(process.execPath, [cliPath, ...args], {
+  const result = spawnSync(cliPath, args, {
     encoding: "utf8",
   });
 

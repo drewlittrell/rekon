@@ -7,7 +7,7 @@ Pure TypeScript contracts and helpers for Rekon evidence.
 Label: `experimental, public`.
 
 The core `EvidenceFact`, `EvidenceGraph`, and `EvidenceProvider` contracts are
-the alpha public surface and are scheduled to harden toward `stable`. Symbols
+the current public surface and are scheduled to harden toward `stable`. Symbols
 not re-exported from the package root are `internal`. See
 [docs/concepts/stability.md](../../docs/concepts/stability.md).
 

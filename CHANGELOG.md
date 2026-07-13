@@ -4,6 +4,11 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Made local-tarball installation the canonical distribution smoke. CI now
+  installs all 24 workspace packages in a temporary consumer, imports their
+  public exports, runs the installed `rekon` bin, and validates emitted
+  artifacts without publishing anything.
+
 - Added structured artifact supersession identities. Freshness now compares
   independent graph, publication, resolver, source-report, memory-query, path,
   intent, and verification streams without treating an unrelated artifact of

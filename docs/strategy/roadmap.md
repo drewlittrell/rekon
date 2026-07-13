@@ -11,11 +11,11 @@ verification recording, reconciliation planning, and artifact validation.
 - Tighten artifact integrity and installability.
 - Keep package exports and docs aligned with actual CLI behavior.
 - Make extension authoring straightforward through examples and conformance.
+- Keep the local-tarball consumer smoke green across every public package.
 
 ## Near-Term Hardening
 
 - Publish/distribution preparation for selected public packages.
-- Additional install-from-tarball smoke tests.
 - More focused examples for custom capabilities.
 - Better freshness reporting without turning docs into canonical truth.
 - Clearer release notes and migration notes for users moving between versions.
