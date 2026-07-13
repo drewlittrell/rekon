@@ -48,6 +48,11 @@ The CLI delegates lifecycle work to `@rekon/runtime`.
 prepared-plan refs prevent proof from another intent from satisfying status.
 Use `--json` to inspect the selected and missing refs under `lineage`.
 
+Intent assessment accepts `bug`, `feature`, `refactor`, `investigation`,
+`migration`, and `documentation`. Verification proof is opt-in through the
+`--verification-plan`, `--verification-run`, and `--verification-result`
+flags; unrelated historical proof is not selected automatically.
+
 `rekon artifacts freshness` prints a concise stale/partial summary by default
 and returns the complete issue structure with `--json`.
 

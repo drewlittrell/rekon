@@ -82,6 +82,7 @@ export type IntentVerificationPlanHandoffBlocker = {
     | "verification-plan-not-allowed"
     | "source-write-boundary"
     | "unsafe-command"
+    | "unsupported-command"
     | "ambiguous-requirement";
   severity: "medium" | "high";
   message: string;
@@ -112,6 +113,7 @@ export type IntentGeneratedVerificationPlan = {
   successCriteria: string[];
   source: "intent-handoff";
   intentHandoff: {
+    requestKind: string;
     preparedIntentPlanRef: ArtifactRef;
     intentAssessmentReportRef?: ArtifactRef;
     intentStatusReportRef?: ArtifactRef;
@@ -159,32 +161,75 @@ export type BuildIntentVerificationPlanHandoffInput = {
 
 // Command-safety classifier. Commands are never executed — this only decides
 // whether a requirement's command string is safe to copy into the plan verbatim.
-const SAFE_COMMAND_PATTERNS: RegExp[] = [
-  /^npm run [a-z][a-z0-9:_-]*$/,
-  /^npm test$/,
-  /^node scripts\/[A-Za-z0-9._-]+\.mjs$/,
-  /^rekon [a-z][a-z0-9 _-]*--json$/,
-  /^rekon artifacts (validate|freshness)( --json)?$/,
-];
-
 const REJECT_TOKENS = [
   ";", "&&", "||", "|", ">", "<", "`", "$(", "${",
   "rm ", "mv ", "cp ", "chmod", "chown", "curl", "wget", "ssh", "scp", "sudo",
   "git push", "npm publish",
 ];
 
-export function classifyVerificationCommand(command: string | undefined, reason: string | undefined): IntentVerificationPlanCommandSafety {
+type VerificationCommandInspection = {
+  safety: IntentVerificationPlanCommandSafety;
+  reason: string;
+};
+
+const SAFE_COMMAND_ARGUMENT = /^(?:--?|[A-Za-z0-9])[A-Za-z0-9._:/@%+=,-]*$/;
+
+function hasSafeArguments(values: readonly string[]): boolean {
+  return values.every((value) => SAFE_COMMAND_ARGUMENT.test(value));
+}
+
+function isSupportedVerificationCommand(command: string): boolean {
+  const argv = command.split(/\s+/);
+  if (argv[0] === "npm" && argv[1] === "run" && /^[a-z][a-z0-9:_-]*$/.test(argv[2] ?? "")) {
+    const args = argv.slice(3);
+    return args.length === 0 || (args[0] === "--" && hasSafeArguments(args.slice(1)));
+  }
+  if (argv[0] === "npm" && argv[1] === "test") {
+    const args = argv.slice(2);
+    return args.length === 0 || (args[0] === "--" && hasSafeArguments(args.slice(1)));
+  }
+  if (argv[0] === "node" && /^scripts\/[A-Za-z0-9._-]+\.mjs$/.test(argv[1] ?? "")) {
+    return hasSafeArguments(argv.slice(2));
+  }
+  if (argv[0] === "rekon" && hasSafeArguments(argv.slice(1))) {
+    return command.endsWith(" --json")
+      || /^rekon artifacts (validate|freshness)$/.test(command);
+  }
+  return false;
+}
+
+function inspectVerificationCommand(
+  command: string | undefined,
+  reason: string | undefined,
+): VerificationCommandInspection {
   const hasReason = typeof reason === "string" && reason.trim().length > 0;
   const trimmed = typeof command === "string" ? command.trim() : "";
   if (trimmed.length === 0) {
-    // Commandless requirement: a clear reason → manual/needs-review check; no
-    // reason → ambiguous and rejected.
-    return hasReason ? "needs-review" : "rejected";
+    return hasReason
+      ? { safety: "needs-review", reason: "Manual verification requirement has no executable command." }
+      : { safety: "rejected", reason: "Requirement has neither a command nor a reason." };
   }
-  if (!hasReason) return "rejected";
-  if (REJECT_TOKENS.some((token) => trimmed.includes(token))) return "rejected";
-  if (SAFE_COMMAND_PATTERNS.some((pattern) => pattern.test(trimmed))) return "safe";
-  return "needs-review";
+  if (!hasReason) {
+    return { safety: "rejected", reason: "Command requirements must include a non-empty reason." };
+  }
+  if (trimmed.includes("\n") || trimmed.includes("\r")) {
+    return { safety: "rejected", reason: "Multi-line commands are not supported." };
+  }
+  const rejectedToken = REJECT_TOKENS.find((token) => trimmed.includes(token));
+  if (rejectedToken) {
+    return { safety: "rejected", reason: `Command contains prohibited token ${JSON.stringify(rejectedToken)}.` };
+  }
+  if (isSupportedVerificationCommand(trimmed)) {
+    return { safety: "safe", reason: "Command matches a supported non-shell verification form." };
+  }
+  return {
+    safety: "needs-review",
+    reason: "Command is outside the supported npm, node-script, and Rekon verification forms.",
+  };
+}
+
+export function classifyVerificationCommand(command: string | undefined, reason: string | undefined): IntentVerificationPlanCommandSafety {
+  return inspectVerificationCommand(command, reason).safety;
 }
 
 function freshnessIsStale(report: IntentVerificationPlanPathFreshnessLike | undefined): boolean {
@@ -242,14 +287,17 @@ export function buildIntentVerificationPlanHandoff(
   const requirements = Array.isArray(plan?.verificationRequirements)
     ? plan.verificationRequirements.filter((r): r is NonNullable<typeof r> => Boolean(r))
     : [];
+  const commandInspections = new Map<string, VerificationCommandInspection>();
   const mappings: IntentVerificationPlanRequirementMapping[] = requirements.map((requirement) => {
+    const requirementId = String(requirement.id ?? "");
     const command = typeof requirement.command === "string" && requirement.command.trim().length > 0 ? requirement.command.trim() : undefined;
     const reason = typeof requirement.reason === "string" && requirement.reason.trim().length > 0 ? requirement.reason.trim() : "Verify the change.";
-    const safety = classifyVerificationCommand(requirement.command, requirement.reason);
+    const inspection = inspectVerificationCommand(requirement.command, requirement.reason);
+    commandInspections.set(requirementId, inspection);
     const mapping: IntentVerificationPlanRequirementMapping = {
-      requirementId: String(requirement.id ?? ""),
+      requirementId,
       reason,
-      safety,
+      safety: inspection.safety,
       ...(command ? { command } : {}),
       ...(command ? {} : { check: reason }),
       ...(Array.isArray(requirement.sourceRefs) && requirement.sourceRefs.length > 0 ? { sourceRefs: requirement.sourceRefs } : {}),
@@ -310,21 +358,37 @@ export function buildIntentVerificationPlanHandoff(
     push("drift-changed", "drift-changed", `RuntimeGraphDriftReport has ${driftHigh} unresolved high-severity row(s) at handoff time.`, driftRefs);
   }
 
-  // Command safety: any rejected requirement blocks generation.
+  // Command safety: every command must either be copied verbatim or produce an
+  // explicit blocker. Commandless requirements remain manual checks.
   for (const mapping of mappings) {
-    if (mapping.safety !== "rejected") continue;
     if (mapping.command) {
       const circeOperatorCommand = findCirceOperatorCockpitCommand(mapping.command);
       const placement = circeOperatorCommand ? buildCirceOperatorCommandPlacement(circeOperatorCommand) : null;
-      push(
-        `unsafe-command:${mapping.requirementId}`,
-        "unsafe-command",
-        placement
-          ? `Verification requirement ${mapping.requirementId} has a Circe operator cockpit command in a worker verification gate: ${placement.message} ${placement.suggestedFix}`
-          : `Verification requirement ${mapping.requirementId} has an unsafe command and cannot be planned.`,
-        planRefs,
-      );
-    } else {
+      const inspection = commandInspections.get(mapping.requirementId)
+        ?? inspectVerificationCommand(mapping.command, mapping.reason);
+      if (placement) {
+        push(
+          `unsafe-command:${mapping.requirementId}`,
+          "unsafe-command",
+          `Verification requirement ${mapping.requirementId} has a Circe operator cockpit command in a worker verification gate: ${placement.message} ${placement.suggestedFix}`,
+          planRefs,
+        );
+      } else if (mapping.safety === "rejected") {
+        push(
+          `unsafe-command:${mapping.requirementId}`,
+          "unsafe-command",
+          `Verification requirement ${mapping.requirementId} has unsafe command ${JSON.stringify(mapping.command)}: ${inspection.reason}`,
+          planRefs,
+        );
+      } else if (mapping.safety === "needs-review") {
+        push(
+          `unsupported-command:${mapping.requirementId}`,
+          "unsupported-command",
+          `Verification requirement ${mapping.requirementId} has unsupported command ${JSON.stringify(mapping.command)}: ${inspection.reason}`,
+          planRefs,
+        );
+      }
+    } else if (mapping.safety === "rejected") {
       push(`ambiguous-requirement:${mapping.requirementId}`, "ambiguous-requirement", `Verification requirement ${mapping.requirementId} is ambiguous (no command and no reason).`, planRefs);
     }
   }
@@ -336,6 +400,9 @@ export function buildIntentVerificationPlanHandoff(
   // ---- Generate exactly one VerificationPlan ----
   const commands = mappings.filter((m) => m.safety === "safe" && m.command).map((m) => m.command as string);
   const goal = typeof plan.request?.goal === "string" && plan.request.goal.length > 0 ? plan.request.goal : "Prove the prepared intent";
+  const requestKind = typeof plan.request?.kind === "string" && plan.request.kind.length > 0
+    ? plan.request.kind
+    : "unknown";
   const successCriteria = uniqueNonEmpty([
     `Prove: ${goal}`,
     ...mappings.map((m) => m.reason),
@@ -376,6 +443,7 @@ export function buildIntentVerificationPlanHandoff(
     successCriteria,
     source: "intent-handoff",
     intentHandoff: {
+      requestKind,
       preparedIntentPlanRef: planRef,
       ...(assessmentRef ? { intentAssessmentReportRef: assessmentRef } : {}),
       ...(statusRef ? { intentStatusReportRef: statusRef } : {}),

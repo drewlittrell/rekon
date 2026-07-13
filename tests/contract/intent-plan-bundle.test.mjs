@@ -355,8 +355,8 @@ function validationPreparedIntentPlan(requestKind, phaseKinds) {
   };
 }
 
-test("prepared-plan validation: bug/feature/migration accept the implementation-bearing phase kind class", () => {
-  for (const requestKind of ["bug", "feature", "migration"]) {
+test("prepared-plan validation: implementation task kinds accept the implementation-bearing phase kind class", () => {
+  for (const requestKind of ["bug", "feature", "migration", "documentation"]) {
     for (const phaseKind of IMPLEMENTATION_PHASE_KINDS) {
       const result = validatePreparedIntentPlan(validationPreparedIntentPlan(requestKind, [phaseKind, "verify"]));
       assert.equal(result.ok, true, `${requestKind}/${phaseKind}: ${JSON.stringify(result.issues)}`);
@@ -364,8 +364,8 @@ test("prepared-plan validation: bug/feature/migration accept the implementation-
   }
 });
 
-test("prepared-plan validation: bug/feature/migration without an implementation-bearing phase names the accepted class", () => {
-  for (const requestKind of ["bug", "feature", "migration"]) {
+test("prepared-plan validation: implementation task kinds require an implementation-bearing phase", () => {
+  for (const requestKind of ["bug", "feature", "migration", "documentation"]) {
     const result = validatePreparedIntentPlan(validationPreparedIntentPlan(requestKind, ["investigate", "verify"]));
     assert.equal(result.ok, false, `${requestKind}: expected validation to fail`);
     const phaseIssue = result.issues.find((issue) => issue.path === "$.phases");

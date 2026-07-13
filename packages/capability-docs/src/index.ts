@@ -297,6 +297,7 @@ export const architectureSummaryPublisher: Publisher = {
   id: "@rekon/capability-docs.architecture-summary",
   produces: ["Publication"],
   async publish({ artifacts, input }) {
+    const includeIntentLineage = input?.includeIntentLineage !== false;
     const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
 
     if (!snapshotRef) {
@@ -407,13 +408,17 @@ export const architectureSummaryPublisher: Publisher = {
       currentFingerprint: currentPolicies?.fingerprint,
       filterReport: findingFilterReport,
     });
-    const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
+    const workOrders = includeIntentLineage
+      ? await readLatestWorkOrdersByFlavor(artifacts, inputRefs)
+      : {};
     const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
       artifacts,
       "ReconciliationPlan",
       inputRefs,
     );
-    const latestVerificationPlanRef = await latestRef(artifacts, "VerificationPlan");
+    const latestVerificationPlanRef = includeIntentLineage
+      ? await latestRef(artifacts, "VerificationPlan")
+      : undefined;
     const verificationPlan = latestVerificationPlanRef
       ? (await artifacts.read(latestVerificationPlanRef)) as VerificationPlanLike
       : undefined;
@@ -422,7 +427,9 @@ export const architectureSummaryPublisher: Publisher = {
       inputRefs.push(latestVerificationPlanRef);
     }
 
-    const verificationResultRef = await latestRef(artifacts, "VerificationResult");
+    const verificationResultRef = includeIntentLineage
+      ? await latestRef(artifacts, "VerificationResult")
+      : undefined;
     const verificationResult = verificationResultRef
       ? (await artifacts.read(verificationResultRef)) as VerificationResultLike
       : undefined;

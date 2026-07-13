@@ -41,6 +41,7 @@ import {
   type PreparedIntentSeverity,
   type PreparedIntentVerificationRequirement,
   createPreparedIntentPlan,
+  isIntentImplementationTaskKind,
 } from "@rekon/kernel-repo-model";
 
 /** Stable header `artifactId` prefix; the timestamp piece varies. */
@@ -185,9 +186,8 @@ const OBLIGATION_MESSAGE: Record<PreparedIntentObligationCategory, string> = {
 };
 
 const SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
-const MODIFY_KINDS = new Set<string>(["bug", "feature", "migration"]);
-const VERIFY_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
-const IMPLEMENTATION_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
+const MODIFY_KINDS = new Set<string>(["bug", "feature", "migration", "documentation"]);
+const VERIFY_KINDS = new Set<string>(["bug", "feature", "refactor", "migration", "documentation"]);
 
 // Safe default verification requirements for an implementation-bearing DRAFT
 // plan (a needs-review plan with no hard blockers). Derived from repository
@@ -418,7 +418,7 @@ export function buildPreparedIntentPlan(input: BuildPreparedIntentPlanInput): Pr
   const coverageNotEvaluated = nonNegInt(input.handoffCoverageReport?.summary?.notEvaluated);
   const freshnessStale = freshnessIsStale(input.pathFreshnessReport);
   const verificationProofPresent = Boolean(input.verificationResultRef);
-  const implementationBearing = IMPLEMENTATION_KINDS.has(kind);
+  const implementationBearing = isIntentImplementationTaskKind(kind);
 
   // ---- Approval status + reasons ----
   const reasons: PreparedIntentPlanApprovalReason[] = [];

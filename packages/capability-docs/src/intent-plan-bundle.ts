@@ -223,6 +223,7 @@ type RenderCirceProjectionInput = {
   generatedAt: string;
   repoRoot: string;
   goal: string;
+  requestKind: string;
   planRef?: ArtifactRef;
   producerVersion: string | null;
   phases: Record<string, unknown>[];
@@ -418,6 +419,7 @@ function renderCirceActorContractFiles(): IntentPlanBundleFile[] {
 type CircePhaseGate = {
   phaseId: string;
   title: string;
+  requestKind: string;
   kind: string;
   sourceChange: string;
   classificationSource: string | null;
@@ -455,13 +457,25 @@ function isSafeExecutableVerificationCommand(command: string): boolean {
   const trimmed = command.trim();
   if (trimmed.length === 0) return false;
   if ([";", "&&", "||", "|", ">", "<", "`", "$(", "${"].some((token) => trimmed.includes(token))) return false;
-  return [
-    /^npm run [a-z][a-z0-9:_-]*$/,
-    /^npm test$/,
-    /^node scripts\/[A-Za-z0-9._-]+\.mjs$/,
-    /^rekon [a-z][a-z0-9 _-]*--json$/,
-    /^rekon artifacts (validate|freshness)( --json)?$/,
-  ].some((pattern) => pattern.test(trimmed));
+  const argv = trimmed.split(/\s+/);
+  const safeArgument = (value: string): boolean => /^(?:--?|[A-Za-z0-9])[A-Za-z0-9._:/@%+=,-]*$/.test(value);
+  const safeArguments = (values: string[]): boolean => values.every(safeArgument);
+  if (argv[0] === "npm" && argv[1] === "run" && /^[a-z][a-z0-9:_-]*$/.test(argv[2] ?? "")) {
+    const args = argv.slice(3);
+    return args.length === 0 || (args[0] === "--" && safeArguments(args.slice(1)));
+  }
+  if (argv[0] === "npm" && argv[1] === "test") {
+    const args = argv.slice(2);
+    return args.length === 0 || (args[0] === "--" && safeArguments(args.slice(1)));
+  }
+  if (argv[0] === "node" && /^scripts\/[A-Za-z0-9._-]+\.mjs$/.test(argv[1] ?? "")) {
+    return safeArguments(argv.slice(2));
+  }
+  if (argv[0] === "rekon" && safeArguments(argv.slice(1))) {
+    return trimmed.endsWith(" --json")
+      || /^rekon artifacts (validate|freshness)$/.test(trimmed);
+  }
+  return false;
 }
 
 /** Slug-safe, de-duplicated phase id (Circe rejects duplicate phaseIds). */
@@ -671,6 +685,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       // Proof/gate traceability (slice 101). Additive; Circe's normalizeRekonWorkOrder
       // ignores unknown fields, so this stays schema-valid.
       intentHandoff: {
+        requestKind: input.requestKind,
         preparedIntentPlanRef: planRefStr,
         phaseId,
         phaseKind,
@@ -710,6 +725,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
         // Proof/gate traceability (slice 101). Additive; Circe's
         // normalizeRekonVerificationPlan ignores unknown fields.
         intentHandoff: {
+          requestKind: input.requestKind,
           preparedIntentPlanRef: planRefStr,
           phaseId,
           phaseKind,
@@ -755,6 +771,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
     phaseGates.push({
       phaseId,
       title,
+      requestKind: input.requestKind,
       kind: phaseKind,
       sourceChange,
       classificationSource,
@@ -783,6 +800,7 @@ function renderCirceProjection(input: RenderCirceProjectionInput): CirceProjecti
       // Proof/gate metadata (slice 101). Additive; Circe's normalizePhasePlan ignores
       // unknown phase fields, so this stays schema-valid.
       rekon: {
+        requestKind: input.requestKind,
         phaseKind,
         sourceChange,
         classificationSource,
@@ -1158,6 +1176,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
   const approval = asRecord(plan.approval);
   const goal =
     asString(request.goal) || asString(asRecord(assessment.request).goal) || asString(asRecord(workOrder).goal, "(unknown goal)");
+  const requestKind = asString(request.kind) || asString(asRecord(assessment.request).kind, "unknown");
   const statusValue = asString(asRecord(status.status).value) || asString(planStatus.value, "unknown");
 
   // ---- source artifacts (only present ones) ----
@@ -1273,6 +1292,7 @@ export function buildIntentPlanBundle(input: BuildIntentPlanBundleInput): Intent
         generatedAt,
         repoRoot: circeRepoRoot,
         goal,
+        requestKind,
         planRef: source.preparedIntentPlanRef,
         producerVersion,
         phases,

@@ -4,6 +4,16 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Prevented refresh publications and new intent assessments from implicitly
+  selecting WorkOrder or verification proof from an earlier intent. Historical
+  artifacts remain inspectable, and explicit refs remain authoritative.
+- Added `documentation` to the shared intent task-kind contract and preserved
+  it through assessment, preparation, status, WorkOrder, VerificationPlan, and
+  generated phase bundles.
+- VerificationPlan handoff generation now preserves supported command flags
+  and npm separators verbatim. Unsafe or unsupported commands block generation
+  with a typed issue instead of being omitted. Mixed plan answers keep prose as
+  manual evidence and normalize sentence punctuation on command entries.
 - External-reference dogfood summaries now count only artifacts emitted by the
   current run and omit local roots, timestamps, artifact refs, and paths.
 - Capability normalization now fuses symbol and export evidence for the same

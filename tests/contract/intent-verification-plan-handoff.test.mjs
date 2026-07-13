@@ -155,9 +155,13 @@ test("helper blocks on high-severity drift recheck", () => {
 
 // ---------- 14 ----------
 test("helper blocks unsafe commands", () => {
-  const result = gen({ preparedIntentPlan: approvedPlan({ verificationRequirements: [{ id: "verify:danger", command: "rm -rf dist && npm run build", reason: "Clean build." }] }) });
+  const command = "rm -rf dist && npm run build";
+  const result = gen({ preparedIntentPlan: approvedPlan({ verificationRequirements: [{ id: "verify:danger", command, reason: "Clean build." }] }) });
   assert.equal(result.status, "blocked");
-  assert.ok(hasBlocker(result, "unsafe-command"));
+  const blocker = result.blockers.find((entry) => entry.category === "unsafe-command");
+  assert.ok(blocker);
+  assert.match(blocker.message, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(blocker.message, /prohibited token/);
 });
 
 // ---------- 14b ----------
@@ -188,6 +192,59 @@ test("helper maps command requirements into VerificationPlan.commands", () => {
   assert.equal(result.status, "generated");
   assert.ok(result.verificationPlan.commands.includes("npm run typecheck"));
   assert.ok(result.verificationPlan.commands.includes("npm test"));
+});
+
+test("helper preserves npm separators, ordinary flags, and command order verbatim", () => {
+  const commands = [
+    "npm run typecheck",
+    "npm run cli -- --help",
+    "npm run lint -- --max-warnings 0",
+    "node scripts/audit-package-exports.mjs --strict",
+  ];
+  const result = gen({
+    preparedIntentPlan: approvedPlan({
+      verificationRequirements: commands.map((command, index) => ({
+        id: `verify:ordered-${index + 1}`,
+        command,
+        reason: `Run check ${index + 1}.`,
+      })),
+    }),
+  });
+
+  assert.equal(result.status, "generated");
+  assert.deepEqual(result.verificationPlan.commands, commands);
+  assert.deepEqual(result.mappings.map((mapping) => mapping.command), commands);
+  assert.equal(result.mappings.every((mapping) => mapping.safety === "safe"), true);
+});
+
+test("helper blocks unsupported commands instead of silently omitting them", () => {
+  const command = "python -m pytest";
+  const result = gen({
+    preparedIntentPlan: approvedPlan({
+      verificationRequirements: [{ id: "verify:unsupported", command, reason: "Run Python tests." }],
+    }),
+  });
+
+  assert.equal(result.status, "blocked");
+  const blocker = result.blockers.find((entry) => entry.category === "unsupported-command");
+  assert.ok(blocker);
+  assert.match(blocker.message, /python -m pytest/);
+  assert.match(blocker.message, /outside the supported/);
+});
+
+test("helper names a malformed command requirement and its reason", () => {
+  const command = "npm run test";
+  const result = gen({
+    preparedIntentPlan: approvedPlan({
+      verificationRequirements: [{ id: "verify:missing-reason", command }],
+    }),
+  });
+
+  assert.equal(result.status, "blocked");
+  const blocker = result.blockers.find((entry) => entry.category === "unsafe-command");
+  assert.ok(blocker);
+  assert.match(blocker.message, /npm run test/);
+  assert.match(blocker.message, /non-empty reason/);
 });
 
 // ---------- 16 ----------

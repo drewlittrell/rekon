@@ -15,6 +15,15 @@
 
 Plans describe verification. They do not prove that commands have run.
 
+Intent handoff generation preserves supported commands verbatim and in plan
+order, including npm argument separators and flags such as
+`npm run cli -- --help`. A command that is unsafe or outside the supported
+command policy blocks generation with a typed issue naming the command and the
+reason. It is never silently omitted.
+
+Generated intent plans also record `intentHandoff.requestKind`, including the
+`documentation` kind, so downstream bundles retain the request classification.
+
 ## Isolated Coverage Plans
 
 ```sh

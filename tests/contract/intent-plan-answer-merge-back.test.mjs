@@ -173,6 +173,29 @@ test("merge fills objective / deliverables / scope / verification fields", async
   assert.ok(phase.verificationCommands.length > 0);
 });
 
+test("command-or-artifact answers keep prose as evidence and normalize command punctuation", async () => {
+  const { report, ref } = await buildSource();
+  const verificationQuestion = report.elicitationQuestions.find(
+    (question) => question.requirement === "verification-evidence",
+  );
+  const result = buildAnsweredIntentPlanActionabilityReport({
+    report,
+    reportRef: ref,
+    answers: [{
+      questionId: verificationQuestion.id,
+      answer: "npm run typecheck; npm run build.; Typecheck and tests pass for src/index.ts.",
+    }],
+  });
+  assert.equal(result.status, "merged");
+  assert.deepEqual(result.report.normalizedPhases[0].verificationCommands, [
+    "npm run typecheck",
+    "npm run build",
+  ]);
+  assert.ok(result.report.normalizedPhases[0].evidenceArtifacts.includes(
+    "Typecheck and tests pass for src/index.ts.",
+  ));
+});
+
 test("an ambiguity-clearance answer clears the ambiguity finding", async () => {
   const { report, ref } = await buildSource();
   const ambQ = report.elicitationQuestions.find((q) => q.requirement === "ambiguity-clearance");

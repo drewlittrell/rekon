@@ -4967,13 +4967,38 @@ export type IntentAssessmentReadiness =
   | "insufficient-context"
   | "stale-context";
 
-export type IntentAssessmentIntentKind =
-  | "bug"
-  | "feature"
-  | "refactor"
-  | "investigation"
-  | "migration"
-  | "unknown";
+export const INTENT_TASK_KINDS = [
+  "bug",
+  "feature",
+  "refactor",
+  "investigation",
+  "migration",
+  "documentation",
+  "unknown",
+] as const;
+
+export type IntentTaskKind = (typeof INTENT_TASK_KINDS)[number];
+export type IntentAssessmentIntentKind = IntentTaskKind;
+
+export const INTENT_IMPLEMENTATION_TASK_KINDS = [
+  "bug",
+  "feature",
+  "refactor",
+  "migration",
+  "documentation",
+] as const satisfies readonly IntentTaskKind[];
+
+export function isIntentTaskKind(value: unknown): value is IntentTaskKind {
+  return typeof value === "string"
+    && (INTENT_TASK_KINDS as readonly string[]).includes(value);
+}
+
+export function isIntentImplementationTaskKind(
+  value: unknown,
+): value is (typeof INTENT_IMPLEMENTATION_TASK_KINDS)[number] {
+  return typeof value === "string"
+    && (INTENT_IMPLEMENTATION_TASK_KINDS as readonly string[]).includes(value);
+}
 
 export type IntentAssessmentRecommendedNextAction =
   | "prepare-intent"
@@ -5067,14 +5092,7 @@ const INTENT_ASSESSMENT_READINESS_STATUSES = new Set<string>([
   "stale-context",
 ]);
 
-const INTENT_ASSESSMENT_INTENT_KINDS = new Set<string>([
-  "bug",
-  "feature",
-  "refactor",
-  "investigation",
-  "migration",
-  "unknown",
-]);
+const INTENT_ASSESSMENT_INTENT_KINDS = new Set<string>(INTENT_TASK_KINDS);
 
 const INTENT_ASSESSMENT_NEXT_ACTIONS = new Set<string>([
   "prepare-intent",
@@ -5294,7 +5312,7 @@ export function validateIntentAssessmentReport(value: unknown): ValidationResult
       issues.push({ path: "$.request.goal", message: "Expected a non-empty string." });
     }
     if (typeof request.kind !== "string" || !INTENT_ASSESSMENT_INTENT_KINDS.has(request.kind)) {
-      issues.push({ path: "$.request.kind", message: "Expected one of bug, feature, refactor, investigation, migration, unknown." });
+      issues.push({ path: "$.request.kind", message: `Expected one of ${INTENT_TASK_KINDS.join(", ")}.` });
     }
     if (request.scope !== undefined) {
       if (!isRecord(request.scope)) {
@@ -5635,7 +5653,7 @@ const PREPARED_INTENT_APPROVAL_REASONS = new Set<string>([
   "verification-proof-missing",
 ]);
 
-const PREPARED_INTENT_IMPLEMENTATION_KINDS = new Set<string>(["bug", "feature", "refactor", "migration"]);
+const PREPARED_INTENT_IMPLEMENTATION_KINDS = new Set<string>(INTENT_IMPLEMENTATION_TASK_KINDS);
 
 const PREPARED_INTENT_EXPLICIT_APPROVAL_REASONS = new Set<string>([
   "explicit-operator-approval",
@@ -6385,8 +6403,14 @@ export function validatePreparedIntentPlan(value: unknown): ValidationResult<Pre
     if (requestKind === "refactor" && !phaseKinds.has("refactor")) {
       issues.push({ path: "$.phases", message: "A prepared refactor plan must include a refactor phase." });
     }
-    if ((requestKind === "bug" || requestKind === "feature" || requestKind === "migration") && !hasImplementationPhase) {
-      issues.push({ path: "$.phases", message: `A prepared bug/feature/migration plan must include a ${PREPARED_INTENT_IMPLEMENTATION_PHASE_KIND_MESSAGE} phase.` });
+    if (
+      (requestKind === "bug"
+        || requestKind === "feature"
+        || requestKind === "migration"
+        || requestKind === "documentation")
+      && !hasImplementationPhase
+    ) {
+      issues.push({ path: "$.phases", message: `A prepared bug/feature/migration/documentation plan must include a ${PREPARED_INTENT_IMPLEMENTATION_PHASE_KIND_MESSAGE} phase.` });
     }
     if (requestKind === "unknown" && !approvalReasons.some((reason) => typeof reason === "string" && PREPARED_INTENT_EXPLICIT_APPROVAL_REASONS.has(reason))) {
       issues.push({ path: "$.status.value", message: "A prepared unknown-kind plan requires an explicit approval reason." });

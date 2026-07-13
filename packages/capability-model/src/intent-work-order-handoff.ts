@@ -104,6 +104,7 @@ export type IntentGeneratedWorkOrder = {
   markdown: string;
   source: "intent-handoff";
   intentHandoff: {
+    requestKind: string;
     preparedIntentPlanRef: ArtifactRef;
     intentAssessmentReportRef?: ArtifactRef;
     intentStatusReportRef?: ArtifactRef;
@@ -258,6 +259,9 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
 
   // ---- Generate exactly one WorkOrder ----
   const goal = typeof plan.request?.goal === "string" && plan.request.goal.length > 0 ? plan.request.goal : "Implement prepared intent";
+  const requestKind = typeof plan.request?.kind === "string" && plan.request.kind.length > 0
+    ? plan.request.kind
+    : "unknown";
   const paths = uniqueSorted(phases.flatMap((p) => (Array.isArray(p.paths) ? p.paths : [])));
   const ownerSystems = uniqueSorted(phases.flatMap((p) => (Array.isArray(p.systems) ? p.systems : [])));
   const obligations = Array.isArray(plan.obligations) ? plan.obligations.filter((o): o is NonNullable<typeof o> => Boolean(o)) : [];
@@ -355,6 +359,7 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
     markdown,
     source: "intent-handoff",
     intentHandoff: {
+      requestKind,
       preparedIntentPlanRef: planRef,
       ...(assessmentRef ? { intentAssessmentReportRef: assessmentRef } : {}),
       ...(statusRef ? { intentStatusReportRef: statusRef } : {}),

@@ -294,6 +294,8 @@ import {
   type LintReport,
   type TestReport,
   type StepCapabilityGraph,
+  INTENT_TASK_KINDS,
+  isIntentTaskKind,
 } from "@rekon/kernel-repo-model";
 import { isAssessmentLifecycleState, type AssessmentReport } from "@rekon/kernel-assessments";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
@@ -5837,9 +5839,11 @@ export async function main(argv: string[]): Promise<void> {
 
   if (command === "intent" && subcommand === "assess") {
     // `rekon intent assess --goal <text> [--root <path>] [--json]
-    // [--kind <bug|feature|refactor|investigation|migration|unknown>]
+    // [--kind <bug|feature|refactor|investigation|migration|documentation|unknown>]
     // [--path <p>] [--system <s>] [--capability <c>] [--step <s>]
-    // [--constraint <c>] [--non-goal <n>]` — IntentAssessmentReport v1.
+    // [--constraint <c>] [--non-goal <n>]
+    // [--verification-result <ref>] [--verification-run <ref>]
+    // [--verification-plan <ref>]` — IntentAssessmentReport v1.
     //
     // A read-only readiness assessment of the requested intent against the
     // latest available context artifacts (CapabilityMap, StepCapabilityGraph,
@@ -5854,16 +5858,13 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error("rekon intent assess requires --goal <text>.");
     }
 
-    const VALID_INTENT_KINDS = new Set([
-      "bug",
-      "feature",
-      "refactor",
-      "investigation",
-      "migration",
-      "unknown",
-    ]);
     const kindFlag = typeof parsed.flags.kind === "string" ? parsed.flags.kind.trim() : "unknown";
-    const kind = (VALID_INTENT_KINDS.has(kindFlag) ? kindFlag : "unknown") as IntentAssessmentIntentKind;
+    if (!isIntentTaskKind(kindFlag)) {
+      throw new Error(
+        `rekon intent assess --kind must be one of ${INTENT_TASK_KINDS.join(", ")}; got ${kindFlag}.`,
+      );
+    }
+    const kind: IntentAssessmentIntentKind = kindFlag;
 
     const listFlag = (name: string): string[] =>
       parseRepeatableFlag(parsed.flags[name])
@@ -5906,6 +5907,32 @@ export async function main(argv: string[]): Promise<void> {
       return { value, ref };
     };
 
+    const selectedArtifact = async <T>(
+      flagName: string,
+      type: string,
+    ): Promise<{ value: T | undefined; ref: ArtifactRef | undefined }> => {
+      const flag = typeof parsed.flags[flagName] === "string"
+        ? parsed.flags[flagName].trim()
+        : "";
+      if (flag.length === 0) return { value: undefined, ref: undefined };
+      const entry = await findArtifactEntry(store, flag);
+      if (entry.type !== type) {
+        throw new Error(
+          `rekon intent assess --${flagName} must reference a ${type}; got ${entry.type}.`,
+        );
+      }
+      return {
+        value: (await store.read(entry)) as T,
+        ref: {
+          type: entry.type,
+          id: entry.id,
+          path: entry.path,
+          digest: entry.digest,
+          schemaVersion: entry.schemaVersion ?? "0.1.0",
+        },
+      };
+    };
+
     const capabilityMap = await latestArtifact<IntentAssessmentCapabilityMapLike>("CapabilityMap");
     const capabilityContract = await latestArtifact<unknown>("CapabilityContract");
     const stepGraph = await latestArtifact<IntentAssessmentStepGraphLike>("StepCapabilityGraph");
@@ -5915,9 +5942,15 @@ export async function main(argv: string[]): Promise<void> {
     const drift = await latestArtifact<IntentAssessmentRuntimeDriftReportLike>("RuntimeGraphDriftReport");
     const findingReport = await latestArtifact<unknown>("FindingReport");
     const freshness = await latestArtifact<IntentAssessmentPathFreshnessReportLike>("PathFreshnessReport");
-    const proof = await latestArtifact<IntentAssessmentVerificationResultLike>("VerificationResult");
-    const verificationRun = await latestArtifact<unknown>("VerificationRun");
-    const verificationPlan = await latestArtifact<unknown>("VerificationPlan");
+    // Verification artifacts are intent-specific proof. They are consumed only
+    // when the operator selects them; an unrelated prior intent must not become
+    // an implicit prerequisite for a new assessment.
+    const proof = await selectedArtifact<IntentAssessmentVerificationResultLike>(
+      "verification-result",
+      "VerificationResult",
+    );
+    const verificationRun = await selectedArtifact<unknown>("verification-run", "VerificationRun");
+    const verificationPlan = await selectedArtifact<unknown>("verification-plan", "VerificationPlan");
 
     const inputRefs = [
       capabilityMap.ref,
@@ -6078,7 +6111,13 @@ export async function main(argv: string[]): Promise<void> {
     }
     const reviewTarget: "generic" | "circe" = targetFlag === "circe" ? "circe" : "generic";
     const goal = typeof parsed.flags.goal === "string" ? parsed.flags.goal : undefined;
-    const kind = typeof parsed.flags.kind === "string" ? parsed.flags.kind : undefined;
+    const kindFlag = typeof parsed.flags.kind === "string" ? parsed.flags.kind.trim() : "";
+    if (kindFlag.length > 0 && !isIntentTaskKind(kindFlag)) {
+      throw new Error(
+        `rekon intent plan review --kind must be one of ${INTENT_TASK_KINDS.join(", ")}; got ${kindFlag}.`,
+      );
+    }
+    const kind = kindFlag.length > 0 ? kindFlag : undefined;
 
     const resolvedPlanPath = resolve(root, planFlag);
     let planText: string;
@@ -12375,15 +12414,18 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   }
 
   // 11. publish architecture (optional)
-  let publishStatus: RefreshStep["status"] = "skipped";
+  let currentPublicationRefs: ArtifactRef[] = [];
 
   if (options.skipPublish) {
     steps.push({ id: "publish.architecture", status: "skipped", message: "--skip-publish" });
   } else {
     try {
-      const refs = await runtime.runPublish({ publisherId: "@rekon/capability-docs.architecture-summary" });
-      steps.push({ id: "publish.architecture", status: "passed", artifacts: recordArtifacts(refs) });
-      publishStatus = "passed";
+      const refs = await runtime.runPublish({
+        publisherId: "@rekon/capability-docs.architecture-summary",
+        input: { includeIntentLineage: false },
+      });
+      currentPublicationRefs = recordArtifacts(refs);
+      steps.push({ id: "publish.architecture", status: "passed", artifacts: currentPublicationRefs });
     } catch (error) {
       steps.push({ id: "publish.architecture", status: "failed", message: messageOf(error) });
       return finalize("failed");
@@ -12393,17 +12435,17 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   // Check required artifact families before validation/freshness.
   const missing: string[] = [];
 
+  const currentArtifactTypes = new Set(allArtifacts.map((ref) => ref.type));
   for (const type of REQUIRED_REFRESH_ARTIFACT_TYPES) {
-    if ((await store.list(type)).length === 0) {
+    if (!currentArtifactTypes.has(type)) {
       missing.push(type);
     }
   }
 
   if (!options.skipPublish) {
-    const publicationRefs = await store.list("Publication");
     let foundArchitectureSummary = false;
 
-    for (const ref of publicationRefs) {
+    for (const ref of currentPublicationRefs) {
       const publication = await store.read(ref) as { kind?: string };
 
       if (publication?.kind === "architecture-summary") {
@@ -12440,7 +12482,8 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     const majorTypes = options.skipPublish
       ? MAJOR_FRESHNESS_TYPES.filter((type) => type !== "Publication")
       : MAJOR_FRESHNESS_TYPES;
-    const latestMajor = computeLatestMajorFreshness(freshness, majorTypes);
+    const latestMajor = computeCurrentRunMajorFreshness(freshness, allArtifacts, majorTypes);
+    const currentFreshnessStatus = aggregateCurrentRunFreshnessStatus(latestMajor);
     const allMajorFresh = latestMajor.every((entry) => entry.status === "fresh");
     const anyMajorStale = latestMajor.some((entry) => entry.status === "stale");
     const anyMajorUnknown = latestMajor.some((entry) => entry.status === "unknown");
@@ -12456,7 +12499,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
       id: "artifacts.freshness",
       status: stepStatus,
       issues: majorIssues,
-      summary: { status: freshness.status, latestMajor },
+      summary: { status: currentFreshnessStatus, latestMajor },
       message: allMajorFresh
         ? undefined
         : anyMajorStale
@@ -12466,7 +12509,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
             : "Latest major artifacts have non-fresh freshness.",
     });
     result.freshness = {
-      status: freshness.status,
+      status: currentFreshnessStatus,
       issues: majorIssues,
       latestMajor,
     };
@@ -12486,29 +12529,34 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   return finalize("passed");
 }
 
-function computeLatestMajorFreshness(
+function computeCurrentRunMajorFreshness(
   freshness: ArtifactFreshnessResult,
+  currentRefs: readonly ArtifactRef[],
   majorTypes: readonly string[] = MAJOR_FRESHNESS_TYPES,
 ): Array<{ type: string; id: string; status: ArtifactFreshnessStatus }> {
-  const byType = new Map<string, ArtifactFreshnessEntry>();
+  const freshnessByKey = new Map(
+    freshness.artifacts.map((entry) => [`${entry.type}:${entry.id}`, entry]),
+  );
 
-  for (const entry of freshness.artifacts) {
-    if (!majorTypes.includes(entry.type)) {
-      continue;
-    }
+  return currentRefs
+    .filter((ref) => majorTypes.includes(ref.type))
+    .map((ref) => freshnessByKey.get(`${ref.type}:${ref.id}`))
+    .filter((entry): entry is ArtifactFreshnessEntry => Boolean(entry))
+    .map((entry) => ({
+      type: entry.type,
+      id: entry.id,
+      status: effectiveMajorStatus(entry),
+    }))
+    .sort((left, right) => left.type.localeCompare(right.type) || left.id.localeCompare(right.id));
+}
 
-    const existing = byType.get(entry.type);
-
-    if (!existing || existing.id.localeCompare(entry.id) < 0) {
-      byType.set(entry.type, entry);
-    }
-  }
-
-  return Array.from(byType.values()).map((entry) => ({
-    type: entry.type,
-    id: entry.id,
-    status: effectiveMajorStatus(entry),
-  }));
+function aggregateCurrentRunFreshnessStatus(
+  entries: Array<{ status: ArtifactFreshnessStatus }>,
+): ArtifactFreshnessStatus {
+  if (entries.length === 0 || entries.some((entry) => entry.status === "unknown")) return "unknown";
+  if (entries.some((entry) => entry.status === "partial")) return "partial";
+  if (entries.some((entry) => entry.status === "stale")) return "stale";
+  return "fresh";
 }
 
 function renderArtifactFreshness(result: ArtifactFreshnessResult): string {
@@ -15422,10 +15470,10 @@ function usage(): string {
     "rekon resolve issue --issue <id-or-fragment> [--root <path>] [--json]",
     "rekon resolve list [--root <path>] [--json]",
     "rekon resolve run <resolver-id> [--root <path>] [--input-json <json>] [--json]",
-    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|migration|documentation|unknown>] [--target generic|circe] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...] [--root <path>] [--json]",
+    "rekon intent plan review --plan <path> [--goal <text>] [--kind <bug|feature|refactor|investigation|migration|documentation|unknown>] [--target generic|circe] [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--path <file> ...] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...] [--root <path>] [--json]",
     "rekon intent plan answer --report <IntentPlanActionabilityReport:id|type:id> --answer <question-id>=<answer> [--answer ...] [--answers <path-to-json>] [--answered-by <name>] [--root <path>] [--json]",
     "rekon semantic file understand --path <file> [--semantic off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--root <path>] [--json]",
-    "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...]",
+    "rekon intent assess --goal <text> [--root <path>] [--json] [--kind <bug|feature|refactor|investigation|migration|documentation|unknown>] [--path <p>] [--system <s>] [--capability <c>] [--step <s>] [--constraint <c>] [--non-goal <n>] [--verification-result <VerificationResult ref>] [--verification-run <VerificationRun ref>] [--verification-plan <VerificationPlan ref>] [--semantic-context latest] [--semantic-context-ref <SemanticFileUnderstandingReport:id> ...] [--task-context latest] [--task-context-ref <TaskContextReport:id> ...]",
     "rekon intent prepare --assessment <IntentAssessmentReport:id|type:id> [--actionability-report <IntentPlanActionabilityReport:id|type:id>] [--root <path>] [--json] [--capability-map <ref>] [--step-graph <ref>] [--handoff-coverage-report <ref>] [--runtime-observation-report <ref>] [--runtime-drift-report <ref>] [--path-freshness-report <ref>] [--verification-result <ref>]",
     "rekon intent status [--root <path>] [--json] [--assessment <ref>] [--prepared-plan <ref>] [--work-order <ref>] [--verification-plan <ref>] [--verification-run <ref>] [--verification-result <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--handoff-coverage <ref>]",
     "rekon intent approve --prepared-plan <PreparedIntentPlan:id|type:id> [--intent-status <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] --accept <gap> [--accept <gap>...] --reason <text> [--accepted-by <name>] [--root <path>] [--json]",

@@ -1459,6 +1459,13 @@ function parsePathItems(answer: string): string[] {
     .filter((t) => looksPathLike(t));
 }
 
+const ANSWER_COMMAND_PREFIX = /^(?:npm|npx|pnpm|yarn|bun|node|deno|rekon|python3?|pytest|cargo|go|make|bash|sh)\s|^\.\//;
+
+function normalizeAnsweredCommand(value: string): string | undefined {
+  if (!ANSWER_COMMAND_PREFIX.test(value)) return undefined;
+  return value.endsWith(".") ? value.slice(0, -1).trimEnd() : value;
+}
+
 function parseCommandOrArtifactItems(answer: string): { commands: string[]; artifacts: string[] } {
   const lines = answer
     .split(/\r?\n|;/)
@@ -1467,8 +1474,9 @@ function parseCommandOrArtifactItems(answer: string): { commands: string[]; arti
   const commands: string[] = [];
   const artifacts: string[] = [];
   for (const line of lines) {
-    if (looksPathLike(line)) artifacts.push(line);
-    else commands.push(line);
+    const command = normalizeAnsweredCommand(line);
+    if (command) commands.push(command);
+    else artifacts.push(line);
   }
   return { commands, artifacts };
 }

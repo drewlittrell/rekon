@@ -212,6 +212,125 @@ test("rekon refresh twice does not fail because historical FindingReports remain
   });
 });
 
+test("a new intent ignores stale publication and proof lineage from a prior intent", async () => {
+  await withFixture(exampleRoot, async (root) => {
+    const firstRefresh = JSON.parse(runCli(["refresh", "--root", root, "--json"]).stdout);
+    assert.equal(firstRefresh.status, "passed");
+
+    const firstIntent = JSON.parse(runCli([
+      "intent", "work-order",
+      "--root", root,
+      "--path", "src/index.ts",
+      "--goal", "Complete the first intent",
+      "--json",
+    ]).stdout);
+    const firstPlan = firstIntent.artifacts.find((ref) => ref.type === "VerificationPlan");
+    assert.ok(firstPlan);
+
+    const partialResult = JSON.parse(runCli([
+      "verify", "record",
+      "--root", root,
+      "--plan", firstPlan.id,
+      "--result-json", JSON.stringify({
+        commands: [{ command: "npm run typecheck", status: "passed", exitCode: 0 }],
+        recordedBy: "contract-test",
+      }),
+      "--json",
+    ]).stdout);
+    assert.equal(partialResult.status, "partial");
+
+    const proof = JSON.parse(runCli(["publish", "proof", "--root", root, "--json"]).stdout);
+    const historicalProofRef = proof.artifacts.find((ref) => ref.type === "Publication");
+    assert.ok(historicalProofRef);
+
+    const sourcePath = join(root, "src", "index.ts");
+    const sourceBeforeSecondIntent = await readFile(sourcePath, "utf8");
+    await writeFile(
+      sourcePath,
+      `${sourceBeforeSecondIntent}\nexport const secondIntentMarker = true;\n`,
+      "utf8",
+    );
+
+    const secondRefresh = JSON.parse(runCli(["refresh", "--root", root, "--json"]).stdout);
+    assert.equal(secondRefresh.status, "passed");
+    assert.equal(secondRefresh.freshness.status, "fresh");
+    const publicationFreshness = secondRefresh.freshness.latestMajor.filter(
+      (entry) => entry.type === "Publication",
+    );
+    assert.equal(publicationFreshness.length, 1);
+    assert.match(publicationFreshness[0].id, /^architecture-summary-/);
+    assert.notEqual(publicationFreshness[0].id, historicalProofRef.id);
+
+    const publications = JSON.parse(
+      runCli(["artifacts", "list", "--root", root, "--type", "Publication", "--json"]).stdout,
+    );
+    assert.ok(
+      publications.artifacts.some((ref) => ref.id === historicalProofRef.id),
+      "the prior publication should remain inspectable",
+    );
+    const historicalProof = JSON.parse(
+      runCli([
+        "artifacts", "show", `Publication:${historicalProofRef.id}`,
+        "--root", root,
+        "--json",
+      ]).stdout,
+    );
+    assert.equal(historicalProof.artifact.kind, "proof-report");
+
+    runCli(["intent", "context", "prepare", "--root", root, "--json"]);
+    const secondIntent = JSON.parse(runCli([
+      "intent", "assess",
+      "--root", root,
+      "--goal", "Start an unrelated second intent",
+      "--kind", "feature",
+      "--path", "src/index.ts",
+      "--json",
+    ]).stdout);
+    const secondAssessment = JSON.parse(runCli([
+      "artifacts", "show", `IntentAssessmentReport:${secondIntent.artifact.id}`,
+      "--root", root,
+      "--json",
+    ]).stdout).artifact;
+    const unrelatedTypes = new Set([
+      "Publication",
+      "WorkOrder",
+      "VerificationPlan",
+      "VerificationRun",
+      "VerificationResult",
+    ]);
+    assert.equal(
+      secondAssessment.header.inputRefs.some((ref) => unrelatedTypes.has(ref.type)),
+      false,
+      "the second assessment must not inherit first-intent proof lineage",
+    );
+    assert.ok(secondAssessment.warnings.some((warning) => warning.id === "proof:missing"));
+    assert.equal(secondAssessment.warnings.some((warning) => warning.id === "proof:incomplete"), false);
+
+    const explicitIntent = JSON.parse(runCli([
+      "intent", "assess",
+      "--root", root,
+      "--goal", "Reassess the explicitly selected first intent proof",
+      "--kind", "feature",
+      "--path", "src/index.ts",
+      "--verification-result", partialResult.artifact.id,
+      "--verification-plan", firstPlan.id,
+      "--json",
+    ]).stdout);
+    const explicitAssessment = JSON.parse(runCli([
+      "artifacts", "show", `IntentAssessmentReport:${explicitIntent.artifact.id}`,
+      "--root", root,
+      "--json",
+    ]).stdout).artifact;
+    assert.ok(explicitAssessment.header.inputRefs.some(
+      (ref) => ref.type === "VerificationResult" && ref.id === partialResult.artifact.id,
+    ));
+    assert.ok(explicitAssessment.header.inputRefs.some(
+      (ref) => ref.type === "VerificationPlan" && ref.id === firstPlan.id,
+    ));
+    assert.ok(explicitAssessment.warnings.some((warning) => warning.id === "proof:incomplete"));
+  });
+});
+
 test("existing rekon commands still work after refresh", async () => {
   await withFixture(exampleRoot, async (root) => {
     runCli(["refresh", "--root", root, "--json"]);

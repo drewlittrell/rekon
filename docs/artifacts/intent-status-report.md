@@ -26,6 +26,11 @@ Explicit incompatible references fail with one of these codes:
 Compatibility is established from structured artifact refs and digests, not
 timestamps, filenames, repository roots, or goal text.
 
+`rekon intent assess` follows the same rule for verification proof. Pass
+`--verification-plan`, `--verification-run`, or `--verification-result` to
+select proof for the assessment. Unselected historical proof remains available
+through the artifact registry but is not attached automatically.
+
 ## Produced By
 
 - `rekon intent status`

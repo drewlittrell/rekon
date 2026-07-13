@@ -22,6 +22,12 @@ Only snapshot inputs, projections, and evaluations participate in snapshot
 lineage and freshness. Publications and actions are upper-layer outputs and
 cannot silently become lower-layer dependencies.
 
+`rekon refresh` judges the artifacts emitted by that refresh. Its architecture
+publication does not automatically attach WorkOrder or verification artifacts
+from an earlier intent. Those artifacts remain indexed and inspectable, but a
+new intent consumes proof only when the operator selects that lineage
+explicitly.
+
 Artifacts record tracked files and producer versions in
 `header.invalidation`. Derived artifacts continue to use `inputRefs` for
 artifact lineage.
