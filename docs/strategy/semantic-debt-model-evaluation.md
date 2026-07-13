@@ -28,8 +28,9 @@ Models must complete at least 99% of requests to qualify for the frontier.
 
 Production handling is staged:
 
-1. `debt-eligibility-v1` excludes non-production, declaration, generated,
-   binary, and empty inputs before a provider call.
+1. `debt-eligibility-v2` excludes tests, documentation, declarations,
+   generated files, binary or empty content, and hidden operational inputs
+   before a provider call.
 2. `debt-judge-v1` records model judgment with provider, model, effort, prompt
    version, file digest, reuse state, and fallback warnings.
 3. Policy may corroborate a claim with an exact deterministic signal family.

@@ -12,6 +12,9 @@ All notable changes to Rekon are documented here.
   `CapabilityMap.entries` contract. Repeated capability projections now merge
   their subjects, systems, and evidence, and the policy manifest declares its
   model-artifact dependencies and invalidation rules.
+- Added `debt-eligibility-v2`. Semantic-debt scans now exclude hidden
+  operational artifacts before provider judgment, and cached reports must
+  match the active eligibility version before per-file judgments are reused.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

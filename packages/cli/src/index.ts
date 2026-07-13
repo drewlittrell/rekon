@@ -10676,16 +10676,29 @@ function languageForSemanticDebtPath(relPath: string): string | undefined {
 
 function semanticDebtPolicyMatches(
   report: unknown,
-  policy: { provider: string; model: string; effort?: SemanticDebtEffort; promptVersion: string },
+  policy: {
+    provider: string;
+    model: string;
+    effort?: SemanticDebtEffort;
+    promptVersion: string;
+    eligibilityVersion: string;
+  },
 ): report is SemanticDebtJudgmentReport {
   if (!report || typeof report !== "object" || Array.isArray(report)) return false;
   const candidate = report as {
-    policy?: { provider?: unknown; model?: unknown; effort?: unknown; promptVersion?: unknown };
+    policy?: {
+      provider?: unknown;
+      model?: unknown;
+      effort?: unknown;
+      promptVersion?: unknown;
+      eligibilityVersion?: unknown;
+    };
   };
   return candidate.policy?.provider === policy.provider
     && candidate.policy?.model === policy.model
     && candidate.policy?.effort === policy.effort
-    && candidate.policy?.promptVersion === policy.promptVersion;
+    && candidate.policy?.promptVersion === policy.promptVersion
+    && candidate.policy?.eligibilityVersion === policy.eligibilityVersion;
 }
 
 function semanticDebtEntryMap(report: SemanticDebtJudgmentReport): Map<string, SemanticDebtJudgmentEntry> {
@@ -10760,6 +10773,7 @@ async function runSemanticDebtLayer(input: {
     model: modelResolved,
     ...(effortResolved ? { effort: effortResolved } : {}),
     promptVersion: SEMANTIC_DEBT_PROMPT_VERSION,
+    eligibilityVersion: SEMANTIC_DEBT_ELIGIBILITY_VERSION,
   };
 
   let priorByPath = new Map<string, SemanticDebtJudgmentEntry>();
@@ -10895,7 +10909,6 @@ async function runSemanticDebtLayer(input: {
     policy: {
       mode: mode === "required" ? "required" : "auto",
       ...policy,
-      eligibilityVersion: SEMANTIC_DEBT_ELIGIBILITY_VERSION,
     },
     summary: {
       filesJudged: judged,
