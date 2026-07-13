@@ -922,6 +922,8 @@ export type CapabilityCandidateKind =
 export type CapabilityCandidateSource = {
   factId?: string;
   factKind?: string;
+  factIds?: string[];
+  factKinds?: string[];
   path?: string;
   symbol?: string;
   exportName?: string;
@@ -950,19 +952,56 @@ export type CapabilityCandidate = {
 export function extractCapabilityCandidates(graph: EvidenceGraph): CapabilityCandidate[] {
   const collected: CapabilityCandidate[] = [];
   let counter = 0;
-  const seen = new Set<string>();
+  const seen = new Map<string, number>();
 
   for (const fact of graph.facts ?? []) {
     const candidate = candidateFromFact(fact, counter);
     if (!candidate) continue;
-    const dedupeKey = `${candidate.source.kind}:${candidate.raw.name}:${candidate.source.path ?? ""}`;
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
+    const declaration = candidate.source.kind === "symbol" || candidate.source.kind === "export";
+    const dedupeKey = `${declaration ? "declaration" : candidate.source.kind}:${candidate.raw.name}:${candidate.source.path ?? ""}`;
+    const existingIndex = seen.get(dedupeKey);
+    if (existingIndex !== undefined) {
+      const existing = collected[existingIndex];
+      if (existing) collected[existingIndex] = mergeCapabilityCandidateSources(existing, candidate);
+      continue;
+    }
+    seen.set(dedupeKey, collected.length);
     collected.push(candidate);
     counter += 1;
   }
 
   return collected;
+}
+
+function mergeCapabilityCandidateSources(
+  existing: CapabilityCandidate,
+  incoming: CapabilityCandidate,
+): CapabilityCandidate {
+  const canonical = incoming.source.kind === "symbol" && existing.source.kind === "export"
+    ? incoming.source
+    : existing.source;
+  const factIds = [...new Set([
+    ...(existing.source.factIds ?? (existing.source.factId ? [existing.source.factId] : [])),
+    ...(incoming.source.factIds ?? (incoming.source.factId ? [incoming.source.factId] : [])),
+  ])].sort();
+  const factKinds = [...new Set([
+    ...(existing.source.factKinds ?? (existing.source.factKind ? [existing.source.factKind] : [])),
+    ...(incoming.source.factKinds ?? (incoming.source.factKind ? [incoming.source.factKind] : [])),
+  ])].sort();
+  return {
+    ...existing,
+    source: {
+      ...canonical,
+      ...(existing.source.symbol || incoming.source.symbol
+        ? { symbol: existing.source.symbol ?? incoming.source.symbol }
+        : {}),
+      ...(existing.source.exportName || incoming.source.exportName
+        ? { exportName: existing.source.exportName ?? incoming.source.exportName }
+        : {}),
+      ...(factIds.length > 0 ? { factIds } : {}),
+      ...(factKinds.length > 0 ? { factKinds } : {}),
+    },
+  };
 }
 
 function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandidate | null {
@@ -985,7 +1024,15 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         splitConfidence: split.confidence,
         splitKind: split.kind,
       },
-      source: { factId: fact.id, factKind: fact.kind, path, symbol, kind: "symbol" },
+      source: {
+        factId: fact.id,
+        factKind: fact.kind,
+        factIds: [fact.id],
+        factKinds: [fact.kind],
+        path,
+        symbol,
+        kind: "symbol",
+      },
     };
   }
 
@@ -1004,7 +1051,15 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         splitConfidence: split.confidence,
         splitKind: split.kind,
       },
-      source: { factId: fact.id, factKind: fact.kind, path, exportName, kind: "export" },
+      source: {
+        factId: fact.id,
+        factKind: fact.kind,
+        factIds: [fact.id],
+        factKinds: [fact.kind],
+        path,
+        exportName,
+        kind: "export",
+      },
     };
   }
 
@@ -1020,7 +1075,14 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         splitConfidence: split.confidence,
         splitKind: split.kind,
       },
-      source: { factId: fact.id, factKind: fact.kind, path, kind: "capability_hint" },
+      source: {
+        factId: fact.id,
+        factKind: fact.kind,
+        factIds: [fact.id],
+        factKinds: [fact.kind],
+        path,
+        kind: "capability_hint",
+      },
     };
   }
 
@@ -1036,7 +1098,14 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
         splitConfidence: split.confidence,
         splitKind: split.kind,
       },
-      source: { factId: fact.id, factKind: fact.kind, path, kind: "ownership_hint" },
+      source: {
+        factId: fact.id,
+        factKind: fact.kind,
+        factIds: [fact.id],
+        factKinds: [fact.kind],
+        path,
+        kind: "ownership_hint",
+      },
     };
   }
 
@@ -1248,6 +1317,8 @@ export type CapabilityNormalizationReportCandidate = {
   source: {
     artifactRef?: ArtifactRef;
     factId?: string;
+    factIds?: string[];
+    factKinds?: string[];
     path?: string;
     symbol?: string;
     exportName?: string;
@@ -1334,6 +1405,12 @@ export function buildCapabilityNormalizationReport(
     source: {
       ...(input.graphRef ? { artifactRef: input.graphRef } : {}),
       factId: outcome.candidate.source.factId,
+      ...(outcome.candidate.source.factIds
+        ? { factIds: [...outcome.candidate.source.factIds] }
+        : {}),
+      ...(outcome.candidate.source.factKinds
+        ? { factKinds: [...outcome.candidate.source.factKinds] }
+        : {}),
       path: outcome.candidate.source.path,
       symbol: outcome.candidate.source.symbol,
       exportName: outcome.candidate.source.exportName,

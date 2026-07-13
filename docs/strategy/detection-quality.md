@@ -27,6 +27,10 @@ The unit of reporting is one actionable remediation, represented by a stable
 `rootCauseKey`. Multiple detectors strengthen that record through supporting
 signals; they do not create duplicate top-level results.
 
+Capability normalization applies the same rule before evaluation. A symbol and
+an export that identify the same executable declaration become one candidate,
+with both evidence facts retained as provenance.
+
 ## Quality Measures
 
 Detection quality is measured per goal using:

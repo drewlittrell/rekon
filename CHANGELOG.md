@@ -4,6 +4,9 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Capability normalization now fuses symbol and export evidence for the same
+  executable declaration into one candidate while retaining all supporting
+  fact ids and kinds in report provenance.
 - Corrected parity benchmarking for redesigned output classes. Matching risks
   and opportunities now contribute to a separate observable-signal metric
   without inflating weighted finding recall, and coverage tables split finding

@@ -14,6 +14,11 @@ artifact-first.
 - deterministic name splitter
 - normalization report builder
 
+Executable declarations are candidate identities, not individual evidence
+facts. When symbol and export facts describe the same declaration, Rekon emits
+one candidate and retains every supporting fact id and kind in its source
+provenance.
+
 ## Boundary
 
 This package does not mutate `EvidenceGraph`, resolve findings, write source

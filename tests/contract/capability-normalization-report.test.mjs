@@ -147,6 +147,28 @@ test("extractCapabilityCandidates reads symbol, export, and capability_hint fact
   assert.deepEqual(kinds, ["symbol", "export", "capability_hint"]);
 });
 
+test("symbol and export facts for one declaration become one candidate with both provenance ids", () => {
+  const symbol = fact("symbol", "src/users.ts", { name: "getUser", symbolKind: "function" });
+  const exported = fact("export", "src/users.ts", { name: "getUser", kind: "function" });
+  const graph = makeGraph([exported, symbol]);
+  const candidates = extractCapabilityCandidates(graph);
+
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].source.kind, "symbol");
+  assert.equal(candidates[0].source.symbol, "getUser");
+  assert.equal(candidates[0].source.exportName, "getUser");
+  assert.deepEqual(candidates[0].source.factIds, [exported.id, symbol.id].sort());
+  assert.deepEqual(candidates[0].source.factKinds, ["export", "symbol"]);
+
+  const report = buildCapabilityNormalizationReport({
+    header: makeHeader(),
+    ontology: compileEffectiveCapabilityOntology(),
+    graph,
+  });
+  assert.deepEqual(report.candidates[0].source.factIds, candidates[0].source.factIds);
+  assert.deepEqual(report.candidates[0].source.factKinds, ["export", "symbol"]);
+});
+
 // ---------- 7: ownership_hint candidates are classified ignored ----------
 
 test("ownership_hint candidates are extracted but classified ignored", () => {
