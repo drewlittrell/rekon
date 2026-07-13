@@ -257,6 +257,33 @@ test("source drift propagates through artifact lineage", async () => {
   });
 });
 
+test("supersession keys isolate independent artifact streams", async () => {
+  await withFixture(async (root) => {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const streamA = await writeSyntheticArtifact(store, "StreamArtifact", "stream-a-1", "stream-a");
+    const consumer = await writeSyntheticArtifact(store, "StreamConsumer", "consumer-a", undefined, [streamA]);
+
+    await delayForIndexOrdering();
+    await writeSyntheticArtifact(store, "StreamArtifact", "stream-b-1", "stream-b");
+    const unrelatedResult = await validateArtifactFreshness(store, {
+      artifactType: consumer.type,
+      artifactId: consumer.id,
+    });
+    assert.equal(unrelatedResult.artifacts[0].status, "fresh");
+
+    await delayForIndexOrdering();
+    await writeSyntheticArtifact(store, "StreamArtifact", "stream-a-2", "stream-a");
+    const replacementResult = await validateArtifactFreshness(store, {
+      artifactType: consumer.type,
+      artifactId: consumer.id,
+    });
+    assert.equal(replacementResult.artifacts[0].status, "stale");
+    assert.ok(replacementResult.artifacts[0].issues.some((issue) =>
+      issue.code === "newer-input-exists" && issue.inputId === streamA.id));
+  });
+});
+
 test("incremental CLI flow keeps full evidence for downstream project and evaluate", async () => {
   await withFixture(async (root) => {
     await writeFile(join(root, "src", "unchanged.ts"), "export const unchanged = true;\n", "utf8");
@@ -328,6 +355,27 @@ async function goldenFlow(root) {
     "--json",
   ]);
   runCli(["publish", "agents", "--root", root, "--json"]);
+}
+
+async function writeSyntheticArtifact(store, type, id, supersessionKey, inputRefs = []) {
+  return store.write({
+    header: {
+      artifactType: type,
+      artifactId: id,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: "freshness-supersession-test" },
+      producer: { id: "@rekon/test.supersession", version: "1.0.0" },
+      inputRefs,
+      ...(supersessionKey ? { supersession: { key: supersessionKey } } : {}),
+      freshness: { status: "fresh" },
+      provenance: { confidence: 1 },
+    },
+  });
+}
+
+async function delayForIndexOrdering() {
+  await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
 }
 
 async function latestArtifactId(root, type) {

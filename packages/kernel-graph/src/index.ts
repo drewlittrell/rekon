@@ -69,8 +69,15 @@ export type GraphSlice = {
 export function createGraphSlice(input: GraphSlice): GraphSlice {
   assertGraphSlice(input);
 
+  if (input.sliceType && input.header.supersession && input.header.supersession.key !== input.sliceType) {
+    throw new TypeError("GraphSlice supersession key must match sliceType when both are present.");
+  }
+
   return {
     ...input,
+    header: input.sliceType && !input.header.supersession
+      ? { ...input.header, supersession: { key: input.sliceType } }
+      : input.header,
     nodes: dedupeNodes(input.nodes),
     edges: dedupeEdges(input.edges),
   };

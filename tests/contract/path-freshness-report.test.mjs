@@ -221,6 +221,24 @@ test("second `paths freshness` run with no changes reports `fresh`", async () =>
   }
 });
 
+test("path-scoped freshness ignores a newer baseline for a different path", async () => {
+  const { root, cleanup } = await makeRepo();
+  try {
+    await writeFile(join(root, "src", "other.ts"), "export const other = true;\n");
+    runCli(["init"], root);
+    runCli(["paths", "freshness", "--path", "src/index.ts"], root);
+    runCli(["paths", "freshness", "--path", "src/other.ts"], root);
+    await writeFile(join(root, "src", "index.ts"), "export const changed = true;\n");
+
+    const result = runCli(["paths", "freshness", "--path", "src/index.ts"], root);
+    assert.equal(result.status, "stale");
+    assert.equal(result.summary.changed, 1);
+    assert.equal(result.summary.new, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
 // ---------- 6: changed tracked file is stale/changed ----------
 
 test("changed tracked file reports `stale` and `changed`", async () => {

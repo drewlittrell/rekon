@@ -45,6 +45,9 @@ const validHeader = {
     ],
     producers: [{ id: "@rekon/capability-test.provider", version: "1.0.0" }],
   },
+  supersession: {
+    key: "finding-report:repository",
+  },
   freshness: {
     status: "fresh",
   },
@@ -149,6 +152,18 @@ test("ArtifactHeader validates optional invalidation baselines", () => {
       "$.invalidation.producers[0].version",
     ],
   );
+});
+
+test("ArtifactHeader validates optional supersession identity", () => {
+  const result = validateArtifactHeader({
+    ...validHeader,
+    supersession: { key: "" },
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.issues, [
+    { path: "$.supersession.key", message: "Expected a non-empty string." },
+  ]);
 });
 
 test("JSON artifact helper validates header and data wrapper", () => {

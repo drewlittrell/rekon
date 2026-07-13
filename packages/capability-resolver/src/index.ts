@@ -6,6 +6,7 @@ import {
 import {
   type ArtifactHeader,
   type ArtifactRef,
+  digestJson,
 } from "@rekon/kernel-artifacts";
 import { assessmentLifecycleState, type Assessment } from "@rekon/kernel-assessments";
 import {
@@ -184,6 +185,7 @@ export const preflightResolver: Resolver = {
         artifactId: `preflight-${Date.now()}`,
         schemaVersion: "0.1.0",
         generatedAt: new Date().toISOString(),
+        supersession: { key: resolverSupersessionKey("resolve.preflight", { goal, paths }) },
         snapshotId: snapshot.header.artifactId,
         subject: {
           repoId: snapshot.repo.id,
@@ -475,6 +477,7 @@ export const routeResolver: Resolver = {
         artifactId: `route-${Date.now()}`,
         schemaVersion: "0.1.0",
         generatedAt: new Date().toISOString(),
+        supersession: { key: resolverSupersessionKey("resolve.route", { goal, concern, paths }) },
         snapshotId: snapshot.header.artifactId,
         subject: {
           repoId: snapshot.repo.id,
@@ -639,6 +642,7 @@ export const seamResolver: Resolver = {
         artifactId: `seam-${Date.now()}`,
         schemaVersion: "0.1.0",
         generatedAt: new Date().toISOString(),
+        supersession: { key: resolverSupersessionKey("resolve.seam", { goal, paths, requestedPrimaryOwner }) },
         snapshotId: snapshot.header.artifactId,
         subject: {
           repoId: snapshot.repo.id,
@@ -966,6 +970,7 @@ export const issueResolver: Resolver = {
         artifactId: `issue-${Date.now()}`,
         schemaVersion: "0.1.0",
         generatedAt: new Date().toISOString(),
+        supersession: { key: resolverSupersessionKey("resolve.issue", { query }) },
         snapshotId: snapshot.header.artifactId,
         subject: {
           repoId: snapshot.repo.id,
@@ -1746,6 +1751,7 @@ async function buildGroupIssuePacket(args: {
       artifactId: `issue-${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: resolverSupersessionKey("resolve.issue", { query }) },
       snapshotId: snapshot.header.artifactId,
       subject: {
         repoId: snapshot.repo.id,
@@ -1846,6 +1852,7 @@ async function buildAmbiguousGroupIssuePacket(args: {
       artifactId: `issue-${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: resolverSupersessionKey("resolve.issue", { query }) },
       snapshotId: snapshot.header.artifactId,
       subject: {
         repoId: snapshot.repo.id,
@@ -2174,6 +2181,17 @@ function parseArtifactRef(value: unknown): ArtifactRef | null {
   }
 
   return null;
+}
+
+function resolverSupersessionKey(
+  resolverId: string,
+  request: Record<string, unknown>,
+): string {
+  const normalized = Object.fromEntries(Object.entries(request).map(([key, value]) => [
+    key,
+    Array.isArray(value) ? [...value].sort() : value,
+  ]));
+  return `${resolverId}:${digestJson(normalized)}`;
 }
 
 function parsePaths(value: unknown): string[] {

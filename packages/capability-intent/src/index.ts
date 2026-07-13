@@ -829,6 +829,9 @@ export function createVerificationResult(input: CreateVerificationResultInput): 
       artifactId: `verification-result-${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt,
+      supersession: {
+        key: `verification-result:${input.verificationPlanRef.id}`,
+      },
       snapshotId: input.verificationPlan.header.snapshotId,
       subject: {
         repoId: subject.repoId,
@@ -1359,6 +1362,7 @@ export async function runRemediation(
       paths,
       generatedAt,
       "Remediation intent derived from CoherencyDelta remediation queue.",
+      `remediation:${deltaRef.id}`,
     ),
     goal,
     paths,
@@ -1384,6 +1388,7 @@ export async function runRemediation(
       paths,
       generatedAt,
       "Remediation work order generated from CoherencyDelta. Work orders are plans, not source changes.",
+      `remediation:${deltaRef.id}`,
     ),
     goal,
     paths,
@@ -1421,6 +1426,7 @@ export async function runRemediation(
       paths,
       generatedAt,
       "Verification plan for a remediation work order. Commands are not executed by the actuator.",
+      `remediation:${deltaRef.id}`,
     ),
     workOrderRef,
     commands: REMEDIATION_REQUIRED_CHECKS,
@@ -1484,6 +1490,9 @@ function createHeader(
     artifactId,
     schemaVersion: "0.1.0",
     generatedAt: new Date().toISOString(),
+    supersession: {
+      key: `${artifactType}:${preflightHeader.supersession?.key ?? preflightHeader.artifactId}`,
+    },
     snapshotId: preflightHeader.snapshotId,
     subject: {
       repoId: preflightHeader.subject.repoId,
@@ -1517,12 +1526,14 @@ function createHeaderFromSubject(
   paths: string[],
   generatedAt: string,
   provenanceNote: string,
+  supersessionKey: string,
 ): ArtifactHeader {
   return {
     artifactType,
     artifactId,
     schemaVersion: "0.1.0",
     generatedAt,
+    supersession: { key: `${artifactType}:${supersessionKey}` },
     snapshotId,
     subject: {
       repoId: subject.repoId,

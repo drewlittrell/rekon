@@ -333,6 +333,7 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
     artifactId: `${INTENT_WORK_ORDER_ARTIFACT_ID_PREFIX}${typeof input.generatedAt === "string" ? input.generatedAt : "0"}`,
     schemaVersion: "0.1.0",
     generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "1970-01-01T00:00:00.000Z",
+    supersession: { key: `intent-work-order:${plan.header?.supersession?.key ?? planRef.id}` },
     subject: { repoId: typeof input.repoId === "string" ? input.repoId : "." },
     producer: { id: "@rekon/capability-model.intent-work-order-handoff", version: "0.1.0-beta.0" },
     inputRefs: sourceRefs,

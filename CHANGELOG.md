@@ -4,6 +4,11 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added structured artifact supersession identities. Freshness now compares
+  independent graph, publication, resolver, source-report, memory-query, path,
+  intent, and verification streams without treating an unrelated artifact of
+  the same type as a replacement.
+
 - Fixed `rekon intent status` provenance selection so assessment, preparation,
   status, work, and verification proof must form one artifact lineage. JSON
   output now identifies selected and missing refs; incompatible explicit refs

@@ -22,6 +22,7 @@ test("npm audit v2 normalization joins advisories to installed versions and scop
   assert.equal(parsed.valid, true);
   assert.equal(validateDependencyAuditReport(parsed.report).ok, true);
   assert.equal(parsed.report.summary.vulnerabilities, 1);
+  assert.equal(parsed.report.header.supersession.key, "dependency-audit:npm");
   assert.equal(parsed.report.summary.production, 1);
   const vulnerability = parsed.report.vulnerabilities[0];
   assert.equal(vulnerability.packageName, "lodash");
@@ -79,6 +80,7 @@ test("pnpm audit normalization preserves logical scoped-package paths and native
   assert.equal(validateDependencyAuditReport(first.report).ok, true);
   assert.equal(first.report.source.format, "pnpm-audit-v11");
   assert.equal(first.report.tool.name, "pnpm");
+  assert.equal(first.report.header.supersession.key, "dependency-audit:pnpm");
   assert.equal(first.report.vulnerabilities[0].packageName, "@scope/example");
   assert.deepEqual(first.report.vulnerabilities[0].paths[0].dependencyPath, ["fixture", "@scope/example"]);
   assert.equal(first.report.vulnerabilities[0].paths[0].installedVersion, "1.2.3");
@@ -108,6 +110,7 @@ test("Yarn audit normalization consumes native NDJSON without inventing dependen
   assert.equal(validateDependencyAuditReport(parsed.report).ok, true);
   assert.equal(parsed.report.source.format, "yarn-audit-ndjson");
   assert.equal(parsed.report.status.complete, true);
+  assert.equal(parsed.report.header.supersession.key, "dependency-audit:yarn");
   assert.equal(parsed.report.vulnerabilities[0].paths.length, 2);
   assert.equal(parsed.report.vulnerabilities[0].paths.every((path) => path.scope === "unknown"), true);
   assert.deepEqual(parsed.report.vulnerabilities[0].paths.map((path) => path.dependencyPath[0]), ["fixture@workspace:.", "tools@workspace:packages/tools"]);
@@ -127,6 +130,7 @@ test("OSV-Scanner normalization keeps advisory evidence and rejects outside-root
   assert.equal(validateDependencyAuditReport(first.report).ok, true);
   assert.equal(first.report.source.format, "osv-scanner-json");
   assert.equal(first.report.tool.name, "osv-scanner");
+  assert.equal(first.report.header.supersession.key, "dependency-audit:osv-scanner");
   assert.equal(first.report.vulnerabilities[0].severity, "high");
   assert.equal(first.report.vulnerabilities[0].paths[0].nodePath, "package-lock.json");
   assert.equal(first.report.vulnerabilities[0].fixVersion, "4.17.21");

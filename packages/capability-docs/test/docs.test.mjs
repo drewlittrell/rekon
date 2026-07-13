@@ -38,6 +38,7 @@ test("docs publisher writes metadata-bearing publication artifacts", async () =>
     assert.equal(agents.header.artifactType, "Publication");
     assert.equal(agents.header.snapshotId, snapshotRef.id);
     assert.equal(agents.kind, "agents");
+    assert.equal(agents.header.supersession.key, "agents");
     assert.match(agents.content, /Docs are publications, not canonical truth/);
     assert.match(agents.content, /## Current Preflight Context/);
     assert.match(agents.content, /Governed findings: 1/);
@@ -67,6 +68,7 @@ test("architecture summary publisher writes a Publication with the documented se
 
     const publication = await runtime.artifacts.read(refs[0]);
     assert.equal(publication.kind, "architecture-summary");
+    assert.equal(publication.header.supersession.key, "architecture-summary");
     assert.equal(publication.title, "Rekon Architecture Summary");
     assert.match(publication.content, /# Rekon Architecture Summary/);
     assert.match(publication.content, /## Repository Overview/);

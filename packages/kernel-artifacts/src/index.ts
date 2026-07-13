@@ -24,6 +24,10 @@ export type ArtifactInvalidationBaseline = {
   producers?: ArtifactInvalidationProducer[];
 };
 
+export type ArtifactSupersessionIdentity = {
+  key: string;
+};
+
 export type ArtifactHeader = {
   artifactType: string;
   artifactId: string;
@@ -43,6 +47,7 @@ export type ArtifactHeader = {
   };
   inputRefs: ArtifactRef[];
   invalidation?: ArtifactInvalidationBaseline;
+  supersession?: ArtifactSupersessionIdentity;
   freshness?: {
     status: "fresh" | "stale" | "partial" | "unknown";
     invalidatedBy?: string[];
@@ -270,6 +275,14 @@ export function validateArtifactHeader(value: unknown): ValidationResult<Artifac
     }
   }
 
+  if (value.supersession !== undefined) {
+    if (!isRecord(value.supersession)) {
+      issues.push({ path: "$.supersession", message: "Expected an object when present." });
+    } else {
+      pushRequiredStringIssue(issues, value.supersession.key, "$.supersession.key");
+    }
+  }
+
   if (value.freshness !== undefined) {
     if (!isRecord(value.freshness)) {
       issues.push({ path: "$.freshness", message: "Expected an object when present." });
@@ -398,6 +411,7 @@ export function createArtifactHeader(input: ArtifactHeader): ArtifactHeader {
           producers: input.invalidation.producers?.map((entry) => ({ ...entry })),
         }
       : undefined,
+    supersession: input.supersession ? { ...input.supersession } : undefined,
     freshness: input.freshness
       ? {
           ...input.freshness,

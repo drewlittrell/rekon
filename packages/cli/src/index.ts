@@ -992,6 +992,15 @@ export async function main(argv: string[]): Promise<void> {
     // docs/strategy/watcher-path-freshness-policy-decision.md
     // and docs/strategy/post-beta-dogfood-evidence-triage.md.
     const requestedPaths = parseRepeatableFlag(parsed.flags.path);
+    const normalizedRequestedPaths = [...new Set(requestedPaths
+      .map((entry) => entry.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\.\//, "").replace(/^\//, "")))]
+      .sort();
+    const pathFreshnessSupersessionKey = `path-freshness:${createHash("sha256")
+      .update(normalizedRequestedPaths.length > 0 ? normalizedRequestedPaths.join("\n") : "<all-paths>")
+      .digest("hex")}`;
+    const allPathsSupersessionKey = `path-freshness:${createHash("sha256")
+      .update("<all-paths>")
+      .digest("hex")}`;
     const store = createLocalArtifactStore(root);
     await store.init();
 
@@ -1004,30 +1013,33 @@ export async function main(argv: string[]): Promise<void> {
     });
 
     const priorReports = await store.list("PathFreshnessReport");
-    // Index entries are appended in write order; the latest
-    // entry is the most recent baseline.
-    const latestPriorEntry = priorReports.at(-1);
+    // A path-scoped baseline can only be compared with a prior report for the
+    // same path set. Older unkeyed artifacts remain compatible with full-repo
+    // checks only.
     let baselineSourceState: SourceStateFingerprint | undefined;
     let baselineRef: ArtifactRef | undefined;
     let baselineGeneratedAt: string | undefined;
 
-    if (latestPriorEntry) {
+    for (const candidate of [...priorReports].reverse()) {
       try {
-        const baselineReport = await store.read(latestPriorEntry) as PathFreshnessReport;
-        if (baselineReport?.currentSourceState) {
+        const baselineReport = await store.read(candidate) as PathFreshnessReport;
+        const candidateKey = baselineReport.header?.supersession?.key;
+        const compatible = candidateKey === pathFreshnessSupersessionKey
+          || (normalizedRequestedPaths.length > 0 && candidateKey === allPathsSupersessionKey)
+          || (!candidateKey && !baselineReport.header?.subject?.paths?.length);
+        if (compatible && baselineReport?.currentSourceState) {
           baselineSourceState = baselineReport.currentSourceState as SourceStateFingerprint;
           baselineRef = {
-            type: latestPriorEntry.type,
-            id: latestPriorEntry.id,
-            schemaVersion: latestPriorEntry.schemaVersion,
+            type: candidate.type,
+            id: candidate.id,
+            schemaVersion: candidate.schemaVersion,
           };
           baselineGeneratedAt = baselineReport.header?.generatedAt;
+          break;
         }
       } catch {
-        // Treat unreadable baseline like a missing one;
-        // status will be "unknown" and the operator will
-        // be told to re-run after changes.
-        baselineSourceState = undefined;
+        // Continue to an older compatible baseline. Integrity diagnostics are
+        // reported by artifact validation/freshness.
       }
     }
 
@@ -1058,6 +1070,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId,
       schemaVersion: "0.1.0",
       generatedAt,
+      supersession: { key: pathFreshnessSupersessionKey },
       subject: {
         repoId: root,
         ...(requestedPaths.length > 0 ? { paths: [...requestedPaths] } : {}),
@@ -5912,11 +5925,13 @@ export async function main(argv: string[]): Promise<void> {
       verificationPlan.ref,
     ].filter((ref): ref is ArtifactRef => !!ref);
 
+    const assessmentArtifactId = `${INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`;
     const header: ArtifactHeader = {
       artifactType: "IntentAssessmentReport",
-      artifactId: `${INTENT_ASSESSMENT_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
+      artifactId: assessmentArtifactId,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: `intent:${assessmentArtifactId}` },
       subject: { repoId: root },
       producer: { id: "@rekon/cli.intent-assess", version: "0.1.0-beta.0" },
       inputRefs,
@@ -6674,6 +6689,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId: `${PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX}${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: `intent-plan:${assessmentRef.id}` },
       subject: { repoId: root },
       producer: { id: "@rekon/cli.intent-prepare", version: "0.1.0-beta.0" },
       inputRefs,
@@ -6827,6 +6843,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId: `${PREPARED_INTENT_PLAN_ARTIFACT_ID_PREFIX}${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: artifactSupersessionKey(planValue, `intent-plan:${planRef.id}`) },
       subject: { repoId: root },
       producer: { id: "@rekon/cli.intent-approve", version: "0.1.0-beta.0" },
       inputRefs,
@@ -6994,6 +7011,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId: `${INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: `intent-status:${artifactSupersessionKey(planValue, planRef.id)}` },
       subject: { repoId: root },
       producer: { id: "@rekon/cli.intent-status-transition", version: "0.1.0-beta.0" },
       inputRefs,
@@ -7143,6 +7161,9 @@ export async function main(argv: string[]): Promise<void> {
       artifactId: `${INTENT_STATUS_REPORT_ARTIFACT_ID_PREFIX}${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: {
+        key: `intent-status:${artifactSupersessionKey(preparedValue, preparedRef?.id ?? assessmentRef?.id ?? "unbound")}`,
+      },
       subject: { repoId: root },
       producer: { id: "@rekon/cli.intent-status", version: "0.1.0-beta.0" },
       inputRefs,
@@ -7275,6 +7296,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId: `${INTENT_WORK_ORDER_ARTIFACT_ID_PREFIX}${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: `intent-work-order:${artifactSupersessionKey(planValue, planRef.id)}` },
       subject: { repoId: root },
       producer: { id: "@rekon/cli.intent-work-order-generate", version: "0.1.0-beta.0" },
       inputRefs,
@@ -7418,6 +7440,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId: `${INTENT_VERIFICATION_PLAN_ARTIFACT_ID_PREFIX}${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
+      supersession: { key: `intent-verification-plan:${artifactSupersessionKey(planValue, planRef.id)}` },
       subject: { repoId: root },
       producer: { id: "@rekon/cli.intent-verification-plan-generate", version: "0.1.0-beta.0" },
       inputRefs,
@@ -9033,6 +9056,9 @@ export async function main(argv: string[]): Promise<void> {
         artifactId: `verification-plan-coverage-${Date.now()}`,
         schemaVersion: "0.1.0",
         generatedAt,
+        supersession: {
+          key: `coverage-plan:${createHash("sha256").update(`${framework}\n${provider}\n${testFile.relativePath}\n${targetPaths.join(",")}`).digest("hex")}`,
+        },
         subject: { repoId: subjectRepoIdFromStore(store), paths: [testFile.relativePath, ...targetPaths] },
         producer: { id: "@rekon/cli.verify-coverage-plan", version: "1.0.0" },
         inputRefs: [],
@@ -9197,6 +9223,7 @@ export async function main(argv: string[]): Promise<void> {
         artifactId: `verification-run-${Date.now()}`,
         schemaVersion: "0.1.0",
         generatedAt,
+        supersession: { key: `verification-run:${planRef.id}` },
         snapshotId: planArtifact.header?.snapshotId,
         subject: {
           repoId,
@@ -9396,6 +9423,7 @@ export async function main(argv: string[]): Promise<void> {
       artifactId: `verification-run-${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt,
+      supersession: { key: `verification-run:${planRef.id}` },
       snapshotId: planArtifact.header?.snapshotId,
       subject: {
         repoId,
@@ -11182,6 +11210,14 @@ function parseVerificationPlanCoverage(value: unknown): VerificationPlanCoverage
 
 function isRecordValue(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function artifactSupersessionKey(value: unknown, fallback: string): string {
+  if (!isRecordValue(value) || !isRecordValue(value.header) || !isRecordValue(value.header.supersession)) {
+    return fallback;
+  }
+  const key = value.header.supersession.key;
+  return typeof key === "string" && key.length > 0 ? key : fallback;
 }
 
 async function resolveVerificationPlanEntry(

@@ -1275,6 +1275,9 @@ export async function buildIntentPlanActionabilityReport(
     artifactId,
     schemaVersion: "0.1.0",
     generatedAt,
+    supersession: {
+      key: `intent-plan-review:${input.planPath ?? input.planSha256 ?? artifactId}`,
+    },
     subject: { repoId: input.root ?? "." },
     producer: { id: "@rekon/capability-model.intent-plan-actionability", version: "0.1.0-beta.0" },
     inputRefs: [],
@@ -1648,6 +1651,10 @@ export function buildAnsweredIntentPlanActionabilityReport(
     artifactId,
     schemaVersion: "0.1.0",
     generatedAt,
+    supersession: {
+      key: report.header.supersession?.key
+        ?? `intent-plan-review:${report.sourcePlan.path ?? report.header.artifactId}`,
+    },
     subject: { repoId: input.root ?? report.header.subject?.repoId ?? "." },
     producer: { id: "@rekon/capability-model.intent-plan-answer", version: "0.1.0-beta.0" },
     inputRefs: [reportRef],

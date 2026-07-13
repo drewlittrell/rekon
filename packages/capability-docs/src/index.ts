@@ -750,6 +750,7 @@ export const proofReportPublisher: Publisher = {
       artifactId: `proof-report-${Date.now()}`,
       schemaVersion: "0.1.0",
       generatedAt,
+      supersession: { key: "proof-report" },
       snapshotId: snapshot?.header.artifactId,
       subject,
       producer: {
@@ -1309,6 +1310,7 @@ function createPublicationHeader(
     artifactId: `${kind}-${Date.now()}`,
     schemaVersion: "0.1.0",
     generatedAt,
+    supersession: { key: kind },
     snapshotId: snapshot.header.artifactId,
     subject: {
       repoId: snapshot.repo.id,

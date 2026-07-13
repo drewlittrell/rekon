@@ -41,6 +41,7 @@ test("createVerificationResult marks all-passed as passed", () => {
   });
 
   assert.equal(result.status, "passed");
+  assert.equal(result.header.supersession.key, `verification-result:${planRef.id}`);
   assert.equal(result.summary.passed, 3);
   assert.equal(result.summary.failed, 0);
   assert.equal(result.summary.notRun, 0);

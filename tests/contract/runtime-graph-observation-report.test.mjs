@@ -90,6 +90,7 @@ const edgeById = (r, id) => r.edges.find((e) => e.id === id);
 test("RuntimeGraphObservationReport validates", () => {
   const r = build({ eventLog: jsonl(ev()), eventLogPath: ".rekon/handoff-events.jsonl", eventLogHash: "deadbeef" });
   assert.equal(validateRuntimeGraphObservationReport(r).ok, true);
+  assert.match(r.header.supersession.key, /^runtime-observation:[a-f0-9]{64}$/);
 });
 
 // ---------- 2 ----------

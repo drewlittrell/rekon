@@ -20,6 +20,7 @@ test("preflight resolver writes a typed resolver packet with trace", async () =>
     const packet = await resolvePreflight(runtime, snapshotRef, "src/index.ts");
 
     assert.equal(packet.header.artifactType, "ResolverPacket");
+    assert.match(packet.header.supersession.key, /^resolve\.preflight:[a-f0-9]{64}$/);
     assert.equal(packet.goal, "modify bootstrap");
     assert.deepEqual(packet.ownerSystems, ["src"]);
     assert.equal(packet.risk.tier, "high");

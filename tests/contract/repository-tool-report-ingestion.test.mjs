@@ -23,6 +23,7 @@ test("JUnit XML normalization preserves test identity and redacts failure messag
 
   assert.equal(parsed.valid, true);
   assert.equal(validateTestReport(parsed.report).ok, true);
+  assert.equal(parsed.report.header.supersession.key, "junit:reports/junit.xml");
   assert.deepEqual(parsed.report.summary, { tests: 3, passed: 1, failures: 1, errors: 0, skipped: 1 });
   assert.equal(parsed.report.cases.find((entry) => entry.name === "passes").durationMs, 12);
   assert.equal(parsed.report.cases.find((entry) => entry.name === "fails").message.includes("hunter2"), false);
@@ -64,6 +65,7 @@ test("ESLint JSON normalization retains native diagnostics without raw payload f
 
   assert.equal(first.valid, true);
   assert.equal(validateLintReport(first.report).ok, true);
+  assert.equal(first.report.header.supersession.key, "eslint:reports/eslint.json");
   assert.deepEqual(first.report.summary, { files: 1, diagnostics: 1, errors: 1, warnings: 0, suppressed: 1 });
   assert.equal(first.report.diagnostics[0].message.includes("secret-value"), false);
   assert.equal(first.report.diagnostics[0].id, second.report.diagnostics[0].id);

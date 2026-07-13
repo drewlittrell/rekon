@@ -48,6 +48,7 @@ const garbageAdapter = async () => ({ nonsense: true, capabilitySignals: "not-an
 test("1. deterministic helper creates a SemanticFileUnderstandingReport", async () => {
   const r = await buildSemanticFileUnderstandingReport(base());
   assert.equal(r.header.artifactType, "SemanticFileUnderstandingReport");
+  assert.equal(r.header.supersession.key, `file:${FILE}`);
   assert.equal(r.schemaVersion, "0.1.0");
   assert.equal(r.normalizationTrace.method, "deterministic");
   assert.equal(r.status.value, "understood");

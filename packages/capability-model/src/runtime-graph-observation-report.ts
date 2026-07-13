@@ -20,7 +20,7 @@
 // See:
 // - docs/artifacts/runtime-graph-observation-report.md
 
-import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
+import { digestJson, type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type RuntimeGraphObservationEdge,
   type RuntimeGraphObservationCoverageSource,
@@ -256,8 +256,24 @@ export function buildRuntimeGraphObservationReport(
     }
   }
 
+  const header = input.header.supersession
+    ? input.header
+    : {
+        ...input.header,
+        supersession: {
+          key: `runtime-observation:${digestJson({
+            eventLogPath: source.eventLogPath,
+            coverage: (source.coverageSources ?? []).map((coverage) => ({
+              format: coverage.format,
+              testPath: coverage.testPath,
+              targetPaths: [...(coverage.targetPaths ?? [])].sort(),
+            })),
+          })}`,
+        },
+      };
+
   return finalize(
-    input.header,
+    header,
     source,
     [...nodeMap.values()],
     [...edgeMap.values()],

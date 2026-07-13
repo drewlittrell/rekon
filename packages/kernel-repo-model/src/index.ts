@@ -9532,9 +9532,17 @@ export function createSecurityScanReport(input: SecurityScanReport): SecuritySca
       results.filter((result) => result.severity === severity).length,
     ]),
   ) as Record<SecurityScanSeverity, number>;
+  const header = input.header.supersession
+    ? input.header
+    : {
+        ...input.header,
+        supersession: {
+          key: `security-scan:${uniqueSorted(runs.map((run) => run.tool.name)).join("+") || "unknown"}`,
+        },
+      };
 
   return assertSecurityScanReport({
-    header: input.header,
+    header,
     source: input.source,
     summary: {
       runs: runs.length,
@@ -9794,8 +9802,13 @@ export function createDependencyAuditReport(input: DependencyAuditReport): Depen
   ) as Record<DependencyAuditSeverity, number>;
   const scopes = vulnerabilities.flatMap((vulnerability) => vulnerability.paths.map((path) => path.scope));
 
+  const header = input.header.supersession
+    ? input.header
+    : { ...input.header, supersession: { key: `dependency-audit:${input.tool.name}` } };
+
   return assertDependencyAuditReport({
     ...input,
+    header,
     source: stripUndefinedObjectValues(input.source),
     tool: stripUndefinedObjectValues(input.tool),
     status: { complete: input.status.complete, warnings: uniqueSorted(input.status.warnings) },

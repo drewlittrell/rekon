@@ -469,6 +469,7 @@ export async function buildSemanticFileUnderstandingReport(
     artifactId,
     schemaVersion: "0.1.0",
     generatedAt,
+    supersession: { key: `file:${filePath}` },
     subject: { repoId: input.root ?? ".", paths: [filePath] },
     producer: { id: "@rekon/capability-model.semantic-file-understanding", version: "0.1.0-beta.0" },
     inputRefs: [],

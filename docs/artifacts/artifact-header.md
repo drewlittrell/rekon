@@ -88,6 +88,10 @@ freshness after the fact, against the artifact index, via
 `status` field reflects what the producer thought was true when it wrote
 the artifact; the index-wide check tells you what is still true now.
 
+`supersession.key` identifies the logical stream an artifact belongs to. A
+newer artifact supersedes only older artifacts with the same type and key.
+Types without a key retain type-wide supersession behavior.
+
 See [docs/concepts/freshness-and-invalidation.md](../concepts/freshness-and-invalidation.md)
 for the full statuses, checks, and CLI surface.
 

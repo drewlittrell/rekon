@@ -1,4 +1,4 @@
-import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import { digestJson, type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import { type ArtifactReader, type Learner, defineCapability } from "@rekon/sdk";
 
 export type OperatorMemoryPriority = "low" | "normal" | "high";
@@ -318,8 +318,15 @@ async function runSelect(
   }
 
   const inputRefs = await artifacts.list("OperatorFeedbackEntry");
+  const selectionKey = `memory-selection:${digestJson({
+    path,
+    goal,
+    system,
+    capability,
+    tags: [...tags].sort(),
+  })}`;
   const selection: MemorySelection = {
-    header: createHeader("MemorySelection", `memory-selection-${Date.now()}`, repo.id, inputRefs, [path]),
+    header: createHeader("MemorySelection", `memory-selection-${Date.now()}`, repo.id, inputRefs, [path], selectionKey),
     path,
     goal,
     selections: selectedItems,
@@ -1006,12 +1013,14 @@ function createHeader(
   repoId: string,
   inputRefs: ArtifactRef[],
   paths?: string[],
+  supersessionKey?: string,
 ): ArtifactHeader {
   return {
     artifactType,
     artifactId,
     schemaVersion: "0.1.0",
     generatedAt: new Date().toISOString(),
+    ...(supersessionKey ? { supersession: { key: supersessionKey } } : {}),
     subject: {
       repoId,
       paths,

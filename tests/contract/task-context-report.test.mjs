@@ -95,6 +95,7 @@ test("builder creates a TaskContextReport", () => {
   assert.equal(baseReport.header.artifactType, "TaskContextReport");
   assert.equal(baseReport.schemaVersion, "0.1.0");
   assert.ok(baseReport.header.artifactId.startsWith(TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX));
+  assert.match(baseReport.header.supersession.key, /^task:[a-f0-9]{64}$/);
 });
 
 // 2

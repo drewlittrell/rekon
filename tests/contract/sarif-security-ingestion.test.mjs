@@ -16,6 +16,7 @@ test("SARIF 2.1 normalization retains scanner provenance and separates security 
   assert.equal(first.valid, true);
   assert.equal(validateSecurityScanReport(first.report).ok, true);
   assert.equal(first.report.summary.results, 2);
+  assert.equal(first.report.header.supersession.key, "security-scan:CodeQL");
   assert.equal(first.report.summary.securityResults, 1);
   const security = first.report.runs[0].results.find((result) => result.ruleId === "js/sql-injection");
   const lint = first.report.runs[0].results.find((result) => result.ruleId === "no-unused-vars");

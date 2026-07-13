@@ -291,12 +291,16 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     .update(`${taskText}\n${paths.join(",")}\n${generatedAt}`)
     .digest("hex")
     .slice(0, 16)}`;
+  const supersessionKey = `task:${createHash("sha256")
+    .update(`${taskText}\n${[...paths].sort().join(",")}`)
+    .digest("hex")}`;
 
   const header: ArtifactHeader = {
     artifactType: "TaskContextReport",
     artifactId,
     schemaVersion: "0.1.0",
     generatedAt,
+    supersession: { key: supersessionKey },
     subject: { repoId: input.repoId ?? ".", ...(paths.length > 0 ? { paths } : {}) },
     producer: { id: "@rekon/capability-model.task-context-report", version: "0.1.0-beta.0" },
     inputRefs: [],

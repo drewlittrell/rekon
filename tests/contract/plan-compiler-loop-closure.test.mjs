@@ -63,12 +63,14 @@ const ctx = await (async () => {
 
   cli(["intent", "assess", "--goal", GOAL, "--kind", "feature", "--path", "src/index.ts"]);
   const assessRef = latest("IntentAssessmentReport");
+  const assessment = body(assessRef);
   const prepare = cli(["intent", "prepare", "--assessment", assessRef, "--actionability-report", answeredRef]);
   const planRef = latest("PreparedIntentPlan");
   const plan = body(planRef);
 
   cli(["intent", "status"]);
   const statusRef = latest("IntentStatusReport");
+  const status = body(statusRef);
   const requiredGaps = (plan.approval?.reasons ?? []).filter((r) => ["verification-proof-missing", "runtime-drift-unresolved"].includes(r));
   const acc = requiredGaps.flatMap((g) => ["--accept", g]);
   const approve = cli(["intent", "approve", "--prepared-plan", planRef, "--intent-status", statusRef, ...acc, "--reason", "Operator reviewed the answered plan and accepts these proof gaps for handoff generation.", "--accepted-by", "closure-smoke"]);
@@ -77,9 +79,12 @@ const ctx = await (async () => {
 
   const transition = cli(["intent", "status", "transition", "--prepared-plan", approvedPlanRef, "--previous-status", statusRef, "--to", "work-ready", "--reason", "Operator approved work-ready transition after answered plan review and approval."]);
   const workReadyRef = latest("IntentStatusReport");
+  const workReady = body(workReadyRef);
 
   const workOrder = cli(["intent", "work-order", "generate", "--prepared-plan", approvedPlanRef, "--intent-status", workReadyRef]);
+  const workOrderArtifact = body(latest("WorkOrder"));
   const verificationPlan = cli(["intent", "verification-plan", "generate", "--prepared-plan", approvedPlanRef, "--intent-status", workReadyRef]);
+  const verificationPlanArtifact = body(latest("VerificationPlan"));
   const bundle = cli(["intent", "bundle", "write", "--prepared-plan", approvedPlanRef, "--intent-status", workReadyRef]);
   const bundleJson = jsonOf(bundle);
   const intentId = bundleJson?.intentId ?? bundleJson?.bundle?.intentId ?? bundleJson?.intent?.id;
@@ -88,8 +93,8 @@ const ctx = await (async () => {
 
   return {
     ROOT, review, reportRef, report, answer, answeredRef, answered, reportBefore, reportAfter,
-    prepare, planRef, plan, statusRef, requiredGaps, approve, approvedPlanRef, approvedPlan,
-    transition, workReadyRef, workOrder, verificationPlan, bundle, bundleJson, bdir, validate,
+    prepare, assessRef, assessment, planRef, plan, statusRef, status, requiredGaps, approve, approvedPlanRef, approvedPlan,
+    transition, workReadyRef, workReady, workOrder, workOrderArtifact, verificationPlan, verificationPlanArtifact, bundle, bundleJson, bdir, validate,
     srcAfter: readFileSync(join(ROOT, "src/index.ts"), "utf8"),
     planAfter: readFileSync(join(ROOT, "plans/rough.md"), "utf8"),
     verificationRunCount: listTypeCount("VerificationRun"),
@@ -179,4 +184,12 @@ test("21. no source file or plan file was written", () => {
 test("22. Rekon executed nothing: no VerificationRun / VerificationResult artifacts exist", () => {
   assert.equal(ctx.verificationRunCount, 0);
   assert.equal(ctx.verificationResultCount, 0);
+});
+test("23. intent and handoff artifacts preserve one supersession lineage", () => {
+  assert.equal(ctx.answered.header.supersession.key, ctx.report.header.supersession.key);
+  assert.equal(ctx.assessment.header.supersession.key, `intent:${ctx.assessRef.split(":").at(-1)}`);
+  assert.equal(ctx.approvedPlan.header.supersession.key, ctx.plan.header.supersession.key);
+  assert.equal(ctx.workReady.header.supersession.key, ctx.status.header.supersession.key);
+  assert.equal(ctx.workOrderArtifact.header.supersession.key, `intent-work-order:${ctx.plan.header.supersession.key}`);
+  assert.equal(ctx.verificationPlanArtifact.header.supersession.key, `intent-verification-plan:${ctx.plan.header.supersession.key}`);
 });

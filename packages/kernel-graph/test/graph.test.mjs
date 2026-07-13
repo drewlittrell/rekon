@@ -58,6 +58,25 @@ test("graph slices compose", () => {
   assert.equal(composed.nodes.length, 1);
 });
 
+test("graph slice type becomes its supersession identity", () => {
+  const slice = createGraphSlice({
+    header,
+    producer: "test",
+    sliceType: "imports",
+    nodes: [],
+    edges: [],
+  });
+
+  assert.equal(slice.header.supersession.key, "imports");
+  assert.throws(() => createGraphSlice({
+    header: { ...header, supersession: { key: "ownership" } },
+    producer: "test",
+    sliceType: "imports",
+    nodes: [],
+    edges: [],
+  }), /must match sliceType/);
+});
+
 test("built-in graph vocabulary includes test context without claiming coverage", () => {
   assert.equal(BUILT_IN_NODE_KINDS.capability, "capability");
   assert.equal(BUILT_IN_EDGE_KINDS.dependsOn, "depends_on");

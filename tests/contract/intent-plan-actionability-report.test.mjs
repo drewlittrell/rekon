@@ -83,6 +83,7 @@ test("structured plan builds an actionable, schema-valid report", async () => {
   const report = await build(STRUCTURED_PLAN, { goal: "Rate limit", kind: "feature" });
   assert.equal(report.header.artifactType, "IntentPlanActionabilityReport");
   assert.ok(report.header.artifactId.startsWith(INTENT_PLAN_ACTIONABILITY_REPORT_ARTIFACT_ID_PREFIX));
+  assert.equal(report.header.supersession.key, "intent-plan-review:plans/plan.md");
   const v = validateIntentPlanActionabilityReport(report);
   assert.equal(v.ok, true);
   assert.equal(report.status.value, "actionable");

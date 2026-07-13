@@ -76,6 +76,9 @@ export function createTestReport(input: TestReport): TestReport {
     .sort((left, right) => left.id.localeCompare(right.id));
   return assertTestReport({
     ...input,
+    header: input.header.supersession
+      ? input.header
+      : { ...input.header, supersession: { key: `junit:${input.source.path}` } },
     status: { complete: input.status.complete, warnings: unique(input.status.warnings) },
     summary: summarizeTests(cases),
     cases,
@@ -88,6 +91,9 @@ export function createLintReport(input: LintReport): LintReport {
     .sort((left, right) => left.id.localeCompare(right.id));
   return assertLintReport({
     ...input,
+    header: input.header.supersession
+      ? input.header
+      : { ...input.header, supersession: { key: `eslint:${input.source.path}` } },
     status: { complete: input.status.complete, warnings: unique(input.status.warnings) },
     summary: {
       files: new Set(diagnostics.map((entry) => entry.file)).size,

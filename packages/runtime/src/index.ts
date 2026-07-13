@@ -723,6 +723,7 @@ export async function validateArtifactFreshness(
   const indexEntries = await store.list();
   const currentProducerVersions = await readCurrentProducerVersions(store);
   const latestByTypeMap = new Map<string, ArtifactIndexEntry>();
+  const supersessionKeyCache = new Map<string, string | undefined>();
 
   for (const entry of indexEntries) {
     const current = latestByTypeMap.get(entry.type);
@@ -796,7 +797,12 @@ export async function validateArtifactFreshness(
       });
     }
 
-    const newestReferencedIds = newestReferencedIdsByType(inputRefs, indexEntries);
+    const newestReferencedIds = await newestReferencedIdsByFamily(
+      store,
+      inputRefs,
+      indexEntries,
+      supersessionKeyCache,
+    );
 
     for (const ref of inputRefs) {
       const matchedInput = indexEntries.find(
@@ -821,11 +827,19 @@ export async function validateArtifactFreshness(
       // compares several FindingReports). Only its newest cited generation of
       // a type participates in supersession; older cited generations are not
       // stale merely because the same artifact also cites a newer one.
-      if (newestReferencedIds.get(ref.type) !== ref.id) {
+      const family = await supersessionFamilyKey(store, matchedInput, supersessionKeyCache);
+      if (newestReferencedIds.get(family) !== ref.id) {
         continue;
       }
 
-      const newest = await newestCompatibleInput(store, ref, matchedInput, indexEntries, latestByTypeMap);
+      const newest = await newestCompatibleInput(
+        store,
+        ref,
+        matchedInput,
+        indexEntries,
+        latestByTypeMap,
+        supersessionKeyCache,
+      );
 
       if (newest && newest.id !== ref.id && newest.writtenAt.localeCompare(matchedInput.writtenAt) > 0) {
         entryIssues.push({
@@ -869,7 +883,7 @@ export async function validateArtifactFreshness(
     artifacts.push({ type: entry.type, id: entry.id, status, issues: entryIssues });
   }
 
-  propagateInputFreshness(artifacts, indexEntries, inputRefsByKey);
+  await propagateInputFreshness(store, artifacts, indexEntries, inputRefsByKey, supersessionKeyCache);
 
   const aggregateStatus = aggregateFreshnessStatus(artifacts);
   const aggregateIssues = artifacts.flatMap((entry) => entry.issues);
@@ -882,22 +896,25 @@ export async function validateArtifactFreshness(
   };
 }
 
-function newestReferencedIdsByType(
+async function newestReferencedIdsByFamily(
+  store: ArtifactStore,
   refs: ArtifactRef[],
   indexEntries: ArtifactIndexEntry[],
-): Map<string, string> {
+  supersessionKeyCache: Map<string, string | undefined>,
+): Promise<Map<string, string>> {
   const newest = new Map<string, ArtifactIndexEntry>();
   for (const ref of refs) {
     const entry = indexEntries.find((candidate) => candidate.type === ref.type && candidate.id === ref.id);
     if (!entry) {
       continue;
     }
-    const current = newest.get(ref.type);
+    const family = await supersessionFamilyKey(store, entry, supersessionKeyCache);
+    const current = newest.get(family);
     if (!current || current.writtenAt.localeCompare(entry.writtenAt) < 0) {
-      newest.set(ref.type, entry);
+      newest.set(family, entry);
     }
   }
-  return new Map([...newest].map(([type, entry]) => [type, entry.id]));
+  return new Map([...newest].map(([family, entry]) => [family, entry.id]));
 }
 
 async function newestCompatibleInput(
@@ -906,30 +923,54 @@ async function newestCompatibleInput(
   matchedInput: ArtifactIndexEntry,
   indexEntries: ArtifactIndexEntry[],
   latestByTypeMap: ReadonlyMap<string, ArtifactIndexEntry>,
+  supersessionKeyCache: Map<string, string | undefined>,
 ): Promise<ArtifactIndexEntry | undefined> {
-  if (ref.type !== "GraphSlice") {
+  const supersessionKey = await readSupersessionKey(store, matchedInput, supersessionKeyCache);
+  if (!supersessionKey) {
+    if (ref.type === "GraphSlice") return undefined;
     return latestByTypeMap.get(ref.type);
-  }
-
-  const matchedGraph = await store.read(matchedInput) as { sliceType?: unknown };
-  const sliceType = isNonEmptyString(matchedGraph.sliceType) ? matchedGraph.sliceType : undefined;
-  if (!sliceType) {
-    return undefined;
   }
 
   const compatible: ArtifactIndexEntry[] = [];
   for (const candidate of indexEntries.filter((entry) => entry.type === ref.type)) {
-    try {
-      const graph = await store.read(candidate) as { sliceType?: unknown };
-      if (graph.sliceType === sliceType) {
-        compatible.push(candidate);
-      }
-    } catch {
-      // Integrity failures are reported on the candidate's own freshness row.
-    }
+    const candidateKey = await readSupersessionKey(store, candidate, supersessionKeyCache);
+    if (candidateKey === supersessionKey) compatible.push(candidate);
   }
 
   return compatible.sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+}
+
+async function supersessionFamilyKey(
+  store: ArtifactStore,
+  entry: ArtifactIndexEntry,
+  supersessionKeyCache: Map<string, string | undefined>,
+): Promise<string> {
+  const supersessionKey = await readSupersessionKey(store, entry, supersessionKeyCache);
+  return supersessionKey ? `${entry.type}\u0000${supersessionKey}` : entry.type;
+}
+
+async function readSupersessionKey(
+  store: ArtifactStore,
+  entry: ArtifactIndexEntry,
+  supersessionKeyCache: Map<string, string | undefined>,
+): Promise<string | undefined> {
+  const cacheKey = `${entry.type}:${entry.id}`;
+  if (supersessionKeyCache.has(cacheKey)) return supersessionKeyCache.get(cacheKey);
+
+  let supersessionKey: string | undefined;
+  try {
+    const artifact = await store.read(entry) as ArtifactWithHeader & { sliceType?: unknown };
+    const declared = artifact.header?.supersession?.key;
+    supersessionKey = isNonEmptyString(declared)
+      ? declared
+      : entry.type === "GraphSlice" && isNonEmptyString(artifact.sliceType)
+        ? artifact.sliceType
+        : undefined;
+  } catch {
+    // Integrity failures are reported on the artifact's own freshness row.
+  }
+  supersessionKeyCache.set(cacheKey, supersessionKey);
+  return supersessionKey;
 }
 
 function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFreshnessStatus {
@@ -960,11 +1001,13 @@ function freshnessStatusForIssues(issues: ArtifactFreshnessIssue[]): ArtifactFre
   return "fresh";
 }
 
-function propagateInputFreshness(
+async function propagateInputFreshness(
+  store: ArtifactStore,
   artifacts: ArtifactFreshnessEntry[],
   indexEntries: ArtifactIndexEntry[],
   inputRefsByKey: ReadonlyMap<string, ArtifactRef[]>,
-): void {
+  supersessionKeyCache: Map<string, string | undefined>,
+): Promise<void> {
   const freshnessByKey = new Map(artifacts.map((entry) => [`${entry.type}:${entry.id}`, entry]));
   const indexByKey = new Map(indexEntries.map((entry) => [`${entry.type}:${entry.id}`, entry]));
 
@@ -979,9 +1022,17 @@ function propagateInputFreshness(
       // filtered result therefore reports only direct checks, while an
       // index-wide check can propagate stale lineage across every generation.
       const inputRefs = inputRefsByKey.get(`${artifact.type}:${artifact.id}`) ?? [];
-      const newestReferencedIds = newestReferencedIdsByType(inputRefs, indexEntries);
+      const newestReferencedIds = await newestReferencedIdsByFamily(
+        store,
+        inputRefs,
+        indexEntries,
+        supersessionKeyCache,
+      );
       for (const ref of inputRefs) {
-        if (ref.type !== "GraphSlice" && newestReferencedIds.get(ref.type) !== ref.id) {
+        const indexEntryForRef = indexByKey.get(`${ref.type}:${ref.id}`);
+        if (!indexEntryForRef) continue;
+        const family = await supersessionFamilyKey(store, indexEntryForRef, supersessionKeyCache);
+        if (newestReferencedIds.get(family) !== ref.id) {
           continue;
         }
         const input = freshnessByKey.get(`${ref.type}:${ref.id}`);

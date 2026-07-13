@@ -33,6 +33,7 @@ test("memory learner writes feedback and deterministic selections", async () => 
     const selection = await runtime.artifacts.read(selected[0]);
 
     assert.equal(selection.header.artifactType, "MemorySelection");
+    assert.match(selection.header.supersession.key, /^memory-selection:[a-f0-9]{64}$/);
     assert.equal(selection.selections[0].instruction, "Preserve public API compatibility.");
     assert.equal(selection.selections[0].reason, "scope prefix match");
   } finally {
