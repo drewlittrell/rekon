@@ -1361,6 +1361,7 @@ function createOwnershipHintFact(path: string): EvidenceFact {
     path,
     system: owner,
     layer: inferLayer(path),
+    basis: "inferred",
   }, path);
 }
 

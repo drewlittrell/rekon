@@ -19,6 +19,10 @@ The capability is authored through `@rekon/sdk` exactly like a community package
 - `symbol`
 - `ownership_hint`
 - `capability_hint`
+
+`ownership_hint` facts emitted by this package carry `basis: "inferred"`.
+They describe path-derived grouping and do not establish declared ownership
+policy.
 - `typescript:diagnostic` on full scans with a valid `tsconfig.json`
 - `typescript:source-quality` for AST-backed type escapes, error suppression,
   explicit placeholder implementations, and conservative async-control-flow

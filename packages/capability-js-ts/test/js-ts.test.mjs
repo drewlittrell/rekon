@@ -41,6 +41,10 @@ test("JS/TS provider emits facts with provenance and ignores generated directori
     assert.equal(kinds.has("ownership_hint"), true);
     assert.equal(kinds.has("capability_hint"), true);
     assert.equal(
+      facts.filter((fact) => fact.kind === "ownership_hint").every((fact) => fact.value.basis === "inferred"),
+      true,
+    );
+    assert.equal(
       facts.filter((fact) => fact.kind === "file").every((fact) => typeof fact.value.digest === "string"),
       true,
     );

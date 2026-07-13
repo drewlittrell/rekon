@@ -81,6 +81,7 @@ test("ownership and capability maps normalize entries", () => {
         path: "src/index.ts",
         ownerSystem: "src",
         layer: "source",
+        basis: "inferred",
         confidence: 0.9,
         evidence: [evidenceRef],
       },
@@ -100,7 +101,24 @@ test("ownership and capability maps normalize entries", () => {
   });
 
   assert.equal(validateOwnershipMap(ownership).ok, true);
+  assert.equal(ownership.entries[0].basis, "inferred");
   assert.deepEqual(capability.entries[0].subjects, ["src/index.ts"]);
+});
+
+test("ownership basis rejects unknown provenance labels", () => {
+  const result = validateOwnershipMap({
+    header: header("OwnershipMap"),
+    entries: [{
+      path: "src/index.ts",
+      ownerSystem: "src",
+      basis: "guessed",
+      confidence: 0.9,
+      evidence: [evidenceRef],
+    }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.path === "$.entries[0].basis"));
 });
 
 test("capability maps merge repeated capability evidence instead of dropping subjects", () => {

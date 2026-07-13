@@ -409,6 +409,7 @@ export const modelProjector: Projector = {
         path: typeof fact.value.path === "string" ? fact.value.path : fact.subject,
         ownerSystem: typeof fact.value.system === "string" ? fact.value.system : ownerFromPath(fact.subject),
         layer: typeof fact.value.layer === "string" ? fact.value.layer : undefined,
+        basis: fact.value.basis === "declared" ? "declared" as const : "inferred" as const,
         confidence: fact.confidence,
         evidence: [evidenceRef],
       }));
@@ -564,7 +565,7 @@ async function latestPhraseReportRef(artifacts: {
 }
 
 function buildSystems(
-  ownershipEntries: Array<{ path: string; ownerSystem: string; layer?: string; confidence: number; evidence: ArtifactRef[] }>,
+  ownershipEntries: Array<{ path: string; ownerSystem: string; layer?: string; basis?: "declared" | "inferred"; confidence: number; evidence: ArtifactRef[] }>,
   capabilityEntries: Array<{ capability: string; subjects: string[]; systems: string[]; confidence: number; evidence: ArtifactRef[] }>,
   evidenceRef: ArtifactRef,
 ) {

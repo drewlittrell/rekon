@@ -17,6 +17,10 @@ Consumes `EvidenceGraph` and produces:
 - `OwnershipMap`
 - `CapabilityMap`
 
+The built-in JS/TS ownership projection is explicitly marked `inferred`: its
+system labels come from observed path prefixes. It is useful for navigation and
+resolver fallback, but it is not an operator declaration.
+
 ## Lifecycle Fit
 
 Runs during `Project`. Resolvers and publishers should prefer these projection

@@ -59,12 +59,15 @@ export type ObservedRepo = {
   files?: string[];
 };
 
+export type OwnershipBasis = "declared" | "inferred";
+
 export type OwnershipMap = {
   header: ArtifactHeader;
   entries: Array<{
     path: string;
     ownerSystem: string;
     layer?: string;
+    basis?: OwnershipBasis;
     confidence: number;
     evidence: ArtifactRef[];
   }>;
@@ -519,7 +522,7 @@ export function createObservedRepo(input: ObservedRepo): ObservedRepo {
 export function createOwnershipMap(input: OwnershipMap): OwnershipMap {
   return assertOwnershipMap({
     header: input.header,
-    entries: [...dedupeBy(input.entries, (entry) => `${entry.path}:${entry.ownerSystem}:${entry.layer ?? ""}`).values()]
+    entries: [...dedupeBy(input.entries, (entry) => `${entry.path}:${entry.ownerSystem}:${entry.layer ?? ""}:${entry.basis ?? "unknown"}`).values()]
       .map((entry) => ({
         ...entry,
         evidence: normalizeRefs(entry.evidence),
@@ -8980,6 +8983,9 @@ function validateOwnershipEntry(value: unknown, path: string, issues: Validation
 
   pushRequiredStringIssue(issues, value.path, `${path}.path`);
   pushRequiredStringIssue(issues, value.ownerSystem, `${path}.ownerSystem`);
+  if (value.basis !== undefined && value.basis !== "declared" && value.basis !== "inferred") {
+    issues.push({ path: `${path}.basis`, message: 'Expected "declared" or "inferred" when present.' });
+  }
   validateConfidence(value.confidence, `${path}.confidence`, issues);
   validateRefs(value.evidence, `${path}.evidence`, issues);
 }

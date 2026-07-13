@@ -2,9 +2,9 @@
 //
 // Two systems implementing the same declared capability is drift UNLESS a
 // CapabilityContract declares the sharing (the declaration is cited in the
-// exemption). Systems come from the OwnershipMap's declared ownerSystem -
-// never from directory heuristics; with no OwnershipMap the axis is inert
-// (the WO-9 ownership precedent: no declared layer, no law). Step 0 found
+// exemption). Systems come only from non-inferred OwnershipMap entries; with
+// no declared ownership the axis is inert (the WO-9 ownership precedent: no
+// declared layer, no law). Step 0 found
 // no existing overlap logic in the suggestion/phrase machinery - built,
 // not composed. Citation: detection-design-decisions.md §C
 // capability_overlap row (priority redesign).
@@ -37,11 +37,11 @@ type ContractLike = {
 
 export function evaluateCapabilityOverlap(input: {
   capabilities: ReadonlyArray<CapabilityLike>;
-  /** OwnershipMap entries: declared path -> ownerSystem. */
-  ownershipEntries?: ReadonlyArray<{ path: string; ownerSystem: string }>;
+  /** OwnershipMap entries. Explicitly inferred entries cannot establish overlap law. */
+  ownershipEntries?: ReadonlyArray<{ path: string; ownerSystem: string; basis?: "declared" | "inferred" }>;
   contractEntries?: ReadonlyArray<ContractLike>;
 }): Finding[] {
-  const ownership = input.ownershipEntries ?? [];
+  const ownership = (input.ownershipEntries ?? []).filter((entry) => entry.basis !== "inferred");
 
   if (ownership.length === 0) {
     // No declared system layer -> no overlap law. Inert, honestly.

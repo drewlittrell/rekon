@@ -33,7 +33,7 @@ import {
   loadCapabilityOntologyConfig,
   loadGrammarOverrides,
 } from "@rekon/capability-ontology";
-import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence, loadWorkspacePackages } from "./grammar-divergence.js";
+import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence, isNonProductionPath, loadWorkspacePackages } from "./grammar-divergence.js";
 import { SECURITY_SCANNER_RESULT_RULE_ID, evaluateSecurityScanReports } from "./security-scans.js";
 import { DEPENDENCY_VULNERABILITY_RULE_ID, evaluateDependencyAuditReports } from "./dependency-audits.js";
 
@@ -306,6 +306,7 @@ export default defineCapability({
       "EvidenceGraph",
       "SemanticDebtJudgmentReport",
       "CapabilityEvidenceGraph",
+      "CapabilityNormalizationReport",
       "CapabilityMap",
       "OwnershipMap",
       "CapabilityContract",
@@ -337,8 +338,8 @@ export default defineCapability({
       },
       {
         id: "capability-model.changed",
-        description: "Capability overlap assessments are invalid when capability, ownership, or sharing declarations change.",
-        inputs: ["CapabilityMap", "OwnershipMap", "CapabilityContract"],
+        description: "Capability overlap assessments are invalid when normalized capabilities, fallback models, ownership, or sharing declarations change.",
+        inputs: ["CapabilityNormalizationReport", "CapabilityMap", "OwnershipMap", "CapabilityContract"],
       },
       {
         id: "verification-run.changed",
@@ -387,17 +388,24 @@ async function capabilityOverlapFindings(
   graph: EvidenceGraphLike,
   artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
 ): Promise<{ findings: Finding[]; inputRefs: ArtifactRef[] }> {
-  const mapRef = (await artifacts.list("CapabilityMap")).at(-1);
+  const normalizationRef = (await artifacts.list("CapabilityNormalizationReport")).at(-1);
+  const normalization = normalizationRef
+    ? await artifacts.read(normalizationRef) as CapabilityNormalizationReportLike
+    : undefined;
+  const normalizedCapabilities = normalization ? stableNormalizedCapabilities(normalization) : [];
+  const mapRef = normalizationRef ? undefined : (await artifacts.list("CapabilityMap")).at(-1);
   const map = mapRef ? await artifacts.read(mapRef) as CapabilityMap : undefined;
   const ownershipRef = (await artifacts.list("OwnershipMap")).at(-1);
   const ownership = ownershipRef ? await artifacts.read(ownershipRef) as OwnershipMap : undefined;
   const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
   const contract = contractRef ? await artifacts.read(contractRef) as CapabilityContract : undefined;
-  const capabilities = (map?.entries ?? []).map((entry) => ({
-    id: entry.capability,
-    name: entry.capability,
-    subjects: entry.subjects,
-  }));
+  const capabilities = normalizationRef
+    ? normalizedCapabilities
+    : (map?.entries ?? []).map((entry) => ({
+        id: entry.capability,
+        name: entry.capability,
+        subjects: entry.subjects,
+      }));
 
   return {
     findings: evaluateCapabilityOverlap({
@@ -405,8 +413,57 @@ async function capabilityOverlapFindings(
       ownershipEntries: ownership?.entries ?? [],
       contractEntries: contract?.contracts ?? [],
     }),
-    inputRefs: uniqueRefs([...(mapRef ? [mapRef] : []), ...(ownershipRef ? [ownershipRef] : []), ...(contractRef ? [contractRef] : [])]),
+    inputRefs: uniqueRefs([
+      ...(normalizationRef ? [normalizationRef] : []),
+      ...(mapRef ? [mapRef] : []),
+      ...(ownershipRef ? [ownershipRef] : []),
+      ...(contractRef ? [contractRef] : []),
+    ]),
   };
+}
+
+type CapabilityNormalizationReportLike = {
+  candidates?: Array<{
+    source?: { kind?: string; path?: string };
+    raw?: { splitConfidence?: string };
+    normalized?: { verb?: string; noun?: string };
+    confidence?: string;
+    status?: string;
+  }>;
+};
+
+function stableNormalizedCapabilities(report: CapabilityNormalizationReportLike): Array<{
+  id: string;
+  name: string;
+  subjects: string[];
+}> {
+  const byCapability = new Map<string, Set<string>>();
+  for (const candidate of report.candidates ?? []) {
+    if (candidate.status !== "normalized" || candidate.confidence !== "high") continue;
+    if (candidate.raw?.splitConfidence !== "high") continue;
+    if (candidate.source?.kind !== "symbol" && candidate.source?.kind !== "export") continue;
+    const path = candidate.source.path;
+    const verb = candidate.normalized?.verb;
+    const noun = candidate.normalized?.noun;
+    if (!path || !verb || !noun || isNonProductionPath(path)) continue;
+    const key = `${verb}:${noun}`;
+    const paths = byCapability.get(key) ?? new Set<string>();
+    paths.add(path);
+    byCapability.set(key, paths);
+  }
+
+  return [...byCapability.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, paths]) => {
+      const separator = key.indexOf(":");
+      const verb = key.slice(0, separator);
+      const noun = key.slice(separator + 1);
+      return {
+        id: `normalized:${key}`,
+        name: `${verb} ${noun}`,
+        subjects: [...paths].sort(),
+      };
+    });
 }
 
 function assessmentFromFinding(

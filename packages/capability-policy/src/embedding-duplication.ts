@@ -16,13 +16,27 @@ type EmbeddingClaimLike = {
   evidenceRefs?: unknown;
 };
 
+type CapabilityNodeLike = {
+  id?: unknown;
+  verb?: unknown;
+  noun?: unknown;
+  implementedBy?: unknown;
+};
+
 export function evaluateEmbeddingDuplicationCandidates(
   graphLike: unknown,
   graphRef: ArtifactRef,
 ): Assessment[] {
   if (!graphLike || typeof graphLike !== "object" || Array.isArray(graphLike)) return [];
-  const claims = (graphLike as { claims?: unknown }).claims;
+  const graph = graphLike as { claims?: unknown; capabilities?: unknown };
+  const claims = graph.claims;
   if (!Array.isArray(claims)) return [];
+  const capabilities = new Map<string, CapabilityNodeLike>();
+  if (Array.isArray(graph.capabilities)) {
+    for (const raw of graph.capabilities as CapabilityNodeLike[]) {
+      if (typeof raw?.id === "string" && raw.id.length > 0) capabilities.set(raw.id, raw);
+    }
+  }
 
   const pairs = new Map<string, {
     left: { kind: string; id: string };
@@ -62,8 +76,11 @@ export function evaluateEmbeddingDuplicationCandidates(
   return [...pairs.entries()]
     .filter(([, pair]) => pair.claimIds.length >= 2)
     .sort(([left], [right]) => left.localeCompare(right))
-    .flatMap(([pairKey, pair]) => {
-      const files = [...new Set([fileForRef(pair.left), fileForRef(pair.right)].filter((file): file is string => Boolean(file)))].sort();
+    .flatMap(([pairKey, pair]): Assessment[] => {
+      const files = [...new Set([
+        ...filesForRef(pair.left, capabilities),
+        ...filesForRef(pair.right, capabilities),
+      ])].sort();
       if (files.some(isNonProductionPath)) return [];
       const fingerprint = digestJson(pairKey).slice(0, 16);
       return [{
@@ -112,8 +129,15 @@ function displayRef(ref: { kind: string; id: string }): string {
   return `${ref.kind}:${ref.id}`;
 }
 
-function fileForRef(ref: { kind: string; id: string }): string | undefined {
-  if (ref.kind === "file") return ref.id;
-  if (ref.kind === "symbol" && ref.id.includes("#")) return ref.id.slice(0, ref.id.indexOf("#"));
-  return undefined;
+function filesForRef(ref: { kind: string; id: string }, capabilities: Map<string, CapabilityNodeLike>): string[] {
+  if (ref.kind === "file") return [ref.id];
+  if (ref.kind === "symbol" && ref.id.includes("#")) return [ref.id.slice(0, ref.id.indexOf("#"))];
+  if (ref.kind !== "capability") return [];
+  const capability = capabilities.get(ref.id);
+  if (!Array.isArray(capability?.implementedBy)) return [];
+  return capability.implementedBy.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const id = (raw as { id?: unknown }).id;
+    return typeof id === "string" && id.includes("#") ? [id.slice(0, id.indexOf("#"))] : [];
+  });
 }

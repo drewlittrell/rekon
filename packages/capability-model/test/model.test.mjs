@@ -70,6 +70,9 @@ test("model capability projects EvidenceGraph into repo model artifacts", async 
     assert.equal(snapshot.projections.ObservedRepo.length, 1);
     assert.equal(snapshot.projections.OwnershipMap.length, 1);
     assert.equal(snapshot.projections.CapabilityMap.length, 1);
+    const ownershipRef = refs.find((ref) => ref.type === "OwnershipMap");
+    const ownership = await runtime.artifacts.read(ownershipRef);
+    assert.equal(ownership.entries[0].basis, "inferred");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -214,7 +214,12 @@ claim, but does not bypass the promotion gate.
 
 Dead-code conclusions require graph reachability and declared roots. Capability
 overlap and implementation similarity are opportunities until sharing intent,
-behavioral equivalence, and consolidation value are established.
+behavioral equivalence, and consolidation value are established. Overlap uses
+only stable normalized function and method identities, then requires their
+implementation paths to span declared owners. Inferred path-prefix ownership
+cannot establish this rule. Data declarations, types, and embedding-near but
+semantically distinct capability names do not enter it. Universal ontology
+aliases also keep filesystem paths and URLs distinct from web routes.
 
 ### Naming And Anti-Patterns
 

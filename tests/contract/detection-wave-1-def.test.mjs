@@ -51,6 +51,13 @@ test("D: no OwnershipMap means no overlap law (inert, honestly)", () => {
     }),
     [],
   );
+  assert.deepEqual(
+    policy.evaluateCapabilityOverlap({
+      capabilities: CAPS,
+      ownershipEntries: OWNERSHIP.map((entry) => ({ ...entry, basis: "inferred" })),
+    }),
+    [],
+  );
 });
 
 test("D: policy evaluator consumes public CapabilityMap.entries and declares model inputs", async () => {
@@ -104,10 +111,120 @@ test("D: policy evaluator consumes public CapabilityMap.entries and declares mod
   const overlap = assessmentReport.assessments.filter((assessment) => assessment.ruleId === "capability.overlap");
   assert.equal(overlap.length, 1);
   assert.deepEqual(overlap[0].files, ["billing/notify.ts", "identity/notify.ts"]);
-  for (const type of ["CapabilityMap", "OwnershipMap", "CapabilityContract"]) {
+  for (const type of ["CapabilityNormalizationReport", "CapabilityMap", "OwnershipMap", "CapabilityContract"]) {
     assert.ok(policy.default.manifest.consumes.includes(type), `manifest must declare ${type}`);
   }
 });
+
+test("D: policy overlap prefers stable normalized executable capabilities over CapabilityMap", async () => {
+  const result = await evaluatePolicyOverlapArtifacts({
+    normalizationCandidates: [
+      normalizedCandidate("getUser", "get", "user", "alpha/get.ts"),
+      normalizedCandidate("retrieveUser", "get", "user", "beta/get.ts"),
+    ],
+    mapEntries: [{
+      capability: "noisy map capability",
+      subjects: ["legacy/one.ts", "legacy/two.ts"],
+      systems: ["legacy-one", "legacy-two"],
+      confidence: 0.9,
+      evidence: [],
+    }],
+    ownershipEntries: [
+      { path: "alpha", ownerSystem: "alpha", basis: "declared", confidence: 0.9, evidence: [] },
+      { path: "beta", ownerSystem: "beta", basis: "declared", confidence: 0.9, evidence: [] },
+      { path: "legacy/one.ts", ownerSystem: "legacy-one", basis: "declared", confidence: 0.9, evidence: [] },
+      { path: "legacy/two.ts", ownerSystem: "legacy-two", basis: "declared", confidence: 0.9, evidence: [] },
+    ],
+  });
+
+  const overlap = result.assessments.filter((assessment) => assessment.ruleId === "capability.overlap");
+  assert.equal(overlap.length, 1);
+  assert.deepEqual(overlap[0].files, ["alpha/get.ts", "beta/get.ts"]);
+  assert.ok(result.header.inputRefs.some((entry) => entry.type === "CapabilityNormalizationReport"));
+  assert.equal(result.header.inputRefs.some((entry) => entry.type === "CapabilityMap"), false);
+});
+
+test("D: an available normalization report with no stable overlap does not fall back to CapabilityMap", async () => {
+  const result = await evaluatePolicyOverlapArtifacts({
+    normalizationCandidates: [
+      normalizedCandidate("getUser", "get", "user", "alpha/get.ts", { confidence: "medium" }),
+    ],
+    mapEntries: [{
+      capability: "noisy map capability",
+      subjects: ["legacy/one.ts", "legacy/two.ts"],
+      systems: ["legacy-one", "legacy-two"],
+      confidence: 0.9,
+      evidence: [],
+    }],
+    ownershipEntries: [
+      { path: "legacy/one.ts", ownerSystem: "legacy-one", confidence: 0.9, evidence: [] },
+      { path: "legacy/two.ts", ownerSystem: "legacy-two", confidence: 0.9, evidence: [] },
+    ],
+  });
+
+  assert.equal(result.assessments.some((assessment) => assessment.ruleId === "capability.overlap"), false);
+  assert.ok(result.header.inputRefs.some((entry) => entry.type === "CapabilityNormalizationReport"));
+  assert.equal(result.header.inputRefs.some((entry) => entry.type === "CapabilityMap"), false);
+});
+
+async function evaluatePolicyOverlapArtifacts({ normalizationCandidates, mapEntries, ownershipEntries }) {
+  const artifactRef = (type, id) => ({ type, id, schemaVersion: "0.1.0" });
+  const evidenceRef = artifactRef("EvidenceGraph", "evidence-normalized");
+  const normalizationRef = artifactRef("CapabilityNormalizationReport", "normalization-1");
+  const capabilityRef = artifactRef("CapabilityMap", "capability-map-noisy");
+  const ownershipRef = artifactRef("OwnershipMap", "ownership-normalized");
+  const artifactHeader = (artifactType, artifactId) => ({
+    artifactType,
+    artifactId,
+    schemaVersion: "0.1.0",
+    generatedAt: "2026-07-13T00:00:00.000Z",
+    subject: { repoId: "fixture" },
+    producer: { id: "@rekon/test", version: "1.0.0" },
+    inputRefs: artifactType === "EvidenceGraph" ? [] : [evidenceRef],
+  });
+  const bodies = new Map([
+    [evidenceRef.id, { header: artifactHeader("EvidenceGraph", evidenceRef.id), facts: [] }],
+    [normalizationRef.id, {
+      header: artifactHeader("CapabilityNormalizationReport", normalizationRef.id),
+      candidates: normalizationCandidates,
+    }],
+    [capabilityRef.id, {
+      header: artifactHeader("CapabilityMap", capabilityRef.id),
+      entries: mapEntries,
+    }],
+    [ownershipRef.id, {
+      header: artifactHeader("OwnershipMap", ownershipRef.id),
+      entries: ownershipEntries,
+    }],
+  ]);
+  const refs = [evidenceRef, normalizationRef, capabilityRef, ownershipRef];
+  const written = [];
+
+  await policy.policyEvaluator.evaluate({
+    artifacts: {
+      list: async (type) => refs.filter((entry) => entry.type === type),
+      read: async (ref) => bodies.get(ref.id),
+      write: async (_type, report) => {
+        written.push(report);
+        return artifactRef(report.header.artifactType, report.header.artifactId);
+      },
+    },
+    input: {},
+  });
+
+  return written.find((report) => report.header.artifactType === "AssessmentReport");
+}
+
+function normalizedCandidate(name, verb, noun, path, overrides = {}) {
+  return {
+    source: { kind: "symbol", path },
+    raw: { name, splitConfidence: "high" },
+    normalized: { verb, noun },
+    confidence: "high",
+    status: "normalized",
+    ...overrides,
+  };
+}
 
 // ---- E: naming contract ---------------------------------------------------
 

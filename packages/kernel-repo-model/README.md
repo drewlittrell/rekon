@@ -36,6 +36,9 @@ systems and paths. Semantic debt report policy records provider, model, effort,
 prompt version, and eligibility version so cached judgments retain their
 execution provenance. Reports may summarize why files were excluded before
 provider judgment.
+`OwnershipMap` entries may identify their `basis` as `declared` or `inferred`.
+Consumers that enforce repository law must not silently treat inferred path
+grouping as an operator declaration.
 `createCapabilityMap()` merges repeated entries for the same capability,
 preserving all normalized subjects, systems, and evidence references instead
 of dropping later or earlier observations.

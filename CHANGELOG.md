@@ -25,6 +25,19 @@ All notable changes to Rekon are documented here.
 - Reduced embedding-duplication noise by comparing only like chunk
   representations, keeping declaration signatures contextual, and requiring
   reciprocal duplicate evidence before emitting an opportunity.
+- Capability-node duplicate opportunities now cite their graph-resolved
+  implementation paths while remaining unverified comparison candidates.
+- Capability ontology extraction now uses JS/TS declaration metadata to keep
+  executable functions and methods while excluding known classes, schemas,
+  types, interfaces, constants, and re-export-only declarations from semantic
+  capability normalization.
+- Capability overlap now prefers stable canonical function/method groups from
+  `CapabilityNormalizationReport`; `CapabilityMap.entries` is used only when a
+  normalization report is unavailable.
+- Ownership projections now distinguish declared ownership from inferred path
+  grouping. Capability-overlap policy ignores explicitly inferred entries, and
+  the universal capability ontology no longer aliases filesystem `path` to web
+  `route`; URL operations now retain their own canonical noun.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

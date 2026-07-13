@@ -127,6 +127,46 @@ test("embedding duplicates in non-production paths remain silent", async () => {
   }
 });
 
+test("reciprocal capability similarity cites implementation files without claiming ownership overlap", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-embedding-capability-paths-"));
+  try {
+    const runtime = await createRuntime({ repoRoot: root, repoId: "similarity-fixture", capabilities: [policyCapability], logger });
+    const evidenceRef = await runtime.artifacts.write({
+      header: header("EvidenceGraph", "evidence", []),
+      facts: [],
+    });
+    await runtime.artifacts.write({
+      header: header("CapabilityEvidenceGraph", "capability-graph", [evidenceRef]),
+      schemaVersion: "0.1.0",
+      status: { value: "built", reason: "fixture" },
+      nodes: [],
+      evidence: [{ id: "embed-a", source: "embedding_similarity", path: "src/alpha/load.ts", excerpt: "fixture" }],
+      claims: [
+        capabilityClaim("a-to-b", "cap:get:user", "cap:fetch:user", 0.97, "embed-a"),
+        capabilityClaim("b-to-a", "cap:fetch:user", "cap:get:user", 0.96, "embed-a"),
+      ],
+      capabilities: [
+        { id: "cap:get:user", verb: "get", noun: "user", implementedBy: [{ kind: "symbol", id: "src/alpha/load.ts#getUser" }] },
+        { id: "cap:fetch:user", verb: "fetch", noun: "user", implementedBy: [{ kind: "symbol", id: "src/beta/fetch.ts#fetchUser" }] },
+      ],
+      summary: {},
+      boundaries: {},
+    }, { category: "graphs" });
+
+    const refs = await runtime.runEvaluate();
+    const assessmentReport = await runtime.artifacts.read(refs.find((ref) => ref.type === "AssessmentReport"));
+    const candidates = assessmentReport.assessments.filter((assessment) => assessment.ruleId === "similarity.duplicateCandidate");
+
+    assert.equal(candidates.length, 1);
+    assert.deepEqual(candidates[0].files, ["src/alpha/load.ts", "src/beta/fetch.ts"]);
+    assert.equal(candidates[0].confidence.basis, "semantic");
+    assert.equal(candidates[0].confidence.verification, "unverified");
+    assert.equal(assessmentReport.assessments.some((assessment) => assessment.ruleId === "capability.overlap"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("CLI embedding graph flow exposes duplicate candidates through assessments", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-embedding-duplication-cli-"));
   try {
@@ -168,6 +208,14 @@ function claim(id, source, target, confidence, evidenceRef) {
     confidence,
     evidenceRefs: [evidenceRef],
     status: "accepted",
+  };
+}
+
+function capabilityClaim(id, source, target, confidence, evidenceRef) {
+  return {
+    ...claim(id, source, target, confidence, evidenceRef),
+    subject: { kind: "capability", id: source },
+    object: { kind: "capability", id: target },
   };
 }
 

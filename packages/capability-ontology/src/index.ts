@@ -971,6 +971,8 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
   const baseId = `candidate-${index.toString(10).padStart(4, "0")}`;
 
   if (fact.kind === "symbol") {
+    const symbolKind = stringFrom(value.symbolKind);
+    if (symbolKind && symbolKind !== "function" && symbolKind !== "method") return null;
     const symbol = stringFrom(value.name);
     if (!symbol) return null;
     const split = splitCapabilityName(symbol);
@@ -988,6 +990,8 @@ function candidateFromFact(fact: EvidenceFact, index: number): CapabilityCandida
   }
 
   if (fact.kind === "export") {
+    const exportKind = stringFrom(value.kind);
+    if (exportKind && exportKind !== "function") return null;
     const exportName = stringFrom(value.name);
     if (!exportName || exportName === "default") return null;
     const split = splitCapabilityName(exportName);

@@ -76,10 +76,14 @@ unless independent evidence proves a defect or declared architecture law is
 violated.
 Dependency hubs require both incoming and outgoing pressure, avoiding reports
 for ordinary public facades and leaf utilities.
-Capability overlap consumes public `CapabilityMap.entries` together with
-`OwnershipMap` and optional `CapabilityContract` declarations. It emits an
-opportunity only when one normalized capability spans multiple declared owner
-systems and no contract declares that sharing.
+Capability overlap prefers stable, high-confidence function and method groups
+from `CapabilityNormalizationReport`, joined with `OwnershipMap` and optional
+`CapabilityContract` declarations. It emits an opportunity only when one
+canonical capability spans multiple declared owner systems and no contract
+declares that sharing. `CapabilityMap.entries` remains a compatibility fallback
+for repositories that have no normalization report. Ownership entries marked
+`inferred` cannot establish this rule; path-prefix grouping alone is not an
+architecture declaration.
 
 `SecurityScanReport` results tied to the current evidence graph become risks
 only when SARIF rule metadata identifies them as security-relevant. Generic

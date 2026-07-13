@@ -16,12 +16,28 @@ import {
   basePack,
   buildCapabilityPhraseReport,
   compileEffectiveCapabilityOntology,
+  extractCapabilityCandidates,
   monorepoPack,
   nextjsAppPack,
   libraryPackagePack,
   normalizeCapabilityCandidates,
   splitCapabilityName,
 } from "../../packages/capability-ontology/dist/index.js";
+
+function evidenceFact(kind, subject, value) {
+  return {
+    id: `${kind}:${subject}:${value.name ?? "fact"}`,
+    kind,
+    subject,
+    value,
+    confidence: 1,
+    provenance: {
+      source: "test",
+      pack: "test",
+      extractorVersion: "1.0.0",
+    },
+  };
+}
 
 const ALL_PACKS = [basePack, nextjsAppPack, libraryPackagePack, monorepoPack];
 
@@ -161,6 +177,73 @@ test("stable phrase threshold remains unchanged (status=normalized + confidence=
   assert.equal(outcome.status, "normalized");
   assert.equal(outcome.confidence, "high");
   assert.equal(outcome.candidate.raw.splitConfidence, "high");
+});
+
+test("filesystem path is not a universal alias for route", () => {
+  const outcome = normalize("normalizePath");
+
+  assert.equal(outcome.status, "unknown-noun");
+  assert.equal(outcome.normalized.noun, "path");
+});
+
+test("URL normalization remains distinct from route normalization", () => {
+  const outcome = normalize("normalizeUrl");
+
+  assert.equal(outcome.status, "normalized");
+  assert.equal(outcome.normalized.noun, "url");
+  assert.equal(outcome.normalized.nounAliasApplied, undefined);
+});
+
+test("candidate extraction keeps executable declarations and drops classified data/type declarations", () => {
+  const graph = {
+    header: {
+      artifactType: "EvidenceGraph",
+      artifactId: "candidate-quality",
+      schemaVersion: "0.1.0",
+      generatedAt: "2026-07-13T00:00:00.000Z",
+      subject: { repoId: "candidate-quality" },
+      producer: { id: "test", version: "1.0.0" },
+      inputRefs: [],
+    },
+    facts: [
+      evidenceFact("symbol", "src/service.ts", { name: "getUser", symbolKind: "function" }),
+      evidenceFact("symbol", "src/service.ts", { name: "saveUser", symbolKind: "method" }),
+      evidenceFact("symbol", "src/types.ts", { name: "RequestContext", symbolKind: "class" }),
+      evidenceFact("symbol", "src/types.ts", { name: "RequestSchema", symbolKind: "const" }),
+      evidenceFact("symbol", "src/types.ts", { name: "RenderContext", symbolKind: "interface" }),
+      evidenceFact("export", "src/service.ts", { name: "createUser", kind: "function" }),
+      evidenceFact("export", "src/types.ts", { name: "ResponseSchema", kind: "const" }),
+      evidenceFact("export", "src/types.ts", { name: "UserRecord", kind: "type" }),
+    ],
+  };
+
+  assert.deepEqual(
+    extractCapabilityCandidates(graph).map((entry) => entry.raw.name),
+    ["getUser", "saveUser", "createUser"],
+  );
+});
+
+test("candidate extraction keeps unclassified community symbol/export facts for compatibility", () => {
+  const graph = {
+    header: {
+      artifactType: "EvidenceGraph",
+      artifactId: "candidate-compatibility",
+      schemaVersion: "0.1.0",
+      generatedAt: "2026-07-13T00:00:00.000Z",
+      subject: { repoId: "candidate-quality" },
+      producer: { id: "test", version: "1.0.0" },
+      inputRefs: [],
+    },
+    facts: [
+      evidenceFact("symbol", "src/community.ts", { name: "getAccount" }),
+      evidenceFact("export", "src/community.ts", { name: "saveAccount" }),
+    ],
+  };
+
+  assert.deepEqual(
+    extractCapabilityCandidates(graph).map((entry) => entry.raw.name),
+    ["getAccount", "saveAccount"],
+  );
 });
 
 // ---------- 13: CapabilityPhraseReport emits stable only for high-confidence normalized candidates ----------
