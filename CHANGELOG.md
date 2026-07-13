@@ -45,6 +45,13 @@ All notable changes to Rekon are documented here.
 - Semantic-debt eligibility now excludes structured data outputs and files that
   exceed the bounded prompt. Same-prompt judgments remain reusable across
   eligibility revisions after the current file passes the stricter gate.
+- Embedding similarity now uses exact search for small comparable groups and a
+  deterministic bounded candidate search for large groups. Search output
+  reports comparisons against possible pairs and never compares mixed model
+  spaces.
+- Capability graph discovery now applies the configured agent-scratch scope,
+  and full embedding indexes prune chunks that disappeared from the graph.
+  Path-scoped index updates continue to preserve records outside their scope.
 
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their

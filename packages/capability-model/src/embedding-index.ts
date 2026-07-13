@@ -55,6 +55,29 @@ export type EmbeddingSimilarityForGraph = {
   model: string;
 };
 
+export type EmbeddingNeighborVector = {
+  id: string;
+  /** Only vectors in the same group are comparable. */
+  group: string;
+  vector: number[];
+};
+
+export type EmbeddingNeighborSearchStats = {
+  strategy: "exact" | "hybrid";
+  groups: number;
+  approximateGroups: number;
+  comparisons: number;
+  possiblePairs: number;
+};
+
+export type EmbeddingNeighborSearchResult = {
+  neighbors: Array<{
+    id: string;
+    neighbors: Array<{ id: string; score: number }>;
+  }>;
+  stats: EmbeddingNeighborSearchStats;
+};
+
 function sha256Hex(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
@@ -263,7 +286,10 @@ export function classifyEmbeddingChunks(input: {
     ) {
       toEmbed.push({ chunk, reason: "policy-changed" });
     } else {
-      reused.push(existing);
+      // The vector remains valid when id, content, and policy are unchanged,
+      // but path/symbol/line metadata can move between graph builds. Refresh
+      // that metadata instead of retaining a stale cache record.
+      reused.push({ ...existing, chunk });
     }
   }
   return { toEmbed, reused };
@@ -284,6 +310,194 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   }
   if (normA === 0 || normB === 0) return 0;
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+const DEFAULT_EXACT_NEIGHBOR_GROUP_LIMIT = 1500;
+const DEFAULT_APPROXIMATE_CANDIDATE_LIMIT = 96;
+const LSH_TABLES = 6;
+const LSH_BITS = 16;
+const LSH_PROJECTION_TERMS = 16;
+
+function deterministicProjectionTerm(
+  table: number,
+  bit: number,
+  term: number,
+  dimensions: number,
+): { index: number; sign: number } {
+  let value = (
+    Math.imul(table + 1, 0x9e3779b1)
+    ^ Math.imul(bit + 1, 0x85ebca6b)
+    ^ Math.imul(term + 1, 0xc2b2ae35)
+  ) >>> 0;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d) >>> 0;
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b) >>> 0;
+  value ^= value >>> 16;
+  return { index: value % dimensions, sign: (value & 1) === 0 ? 1 : -1 };
+}
+
+function lshSignature(vector: number[], table: number): number {
+  let signature = 0;
+  for (let bit = 0; bit < LSH_BITS; bit += 1) {
+    let projection = 0;
+    for (let term = 0; term < LSH_PROJECTION_TERMS; term += 1) {
+      const selected = deterministicProjectionTerm(table, bit, term, vector.length);
+      projection += (vector[selected.index] ?? 0) * selected.sign;
+    }
+    if (projection >= 0) signature |= (1 << bit);
+  }
+  return signature;
+}
+
+function lshProbeMasks(): number[] {
+  const masks = [0];
+  for (let first = 0; first < LSH_BITS; first += 1) {
+    masks.push(1 << first);
+    for (let second = first + 1; second < LSH_BITS; second += 1) {
+      masks.push((1 << first) | (1 << second));
+    }
+  }
+  return masks;
+}
+
+function approximateCandidatePairs(
+  entries: EmbeddingNeighborVector[],
+  candidateLimit: number,
+): Set<number> {
+  const tables: Array<{ signatures: number[]; buckets: Map<number, number[]> }> = [];
+  for (let table = 0; table < LSH_TABLES; table += 1) {
+    const signatures = entries.map((entry) => lshSignature(entry.vector, table));
+    const buckets = new Map<number, number[]>();
+    for (let index = 0; index < signatures.length; index += 1) {
+      const signature = signatures[index] ?? 0;
+      const bucket = buckets.get(signature) ?? [];
+      bucket.push(index);
+      buckets.set(signature, bucket);
+    }
+    tables.push({ signatures, buckets });
+  }
+
+  const masks = lshProbeMasks();
+  const pairs = new Set<number>();
+  for (let source = 0; source < entries.length; source += 1) {
+    const candidates = new Set<number>();
+    search: for (const table of tables) {
+      const signature = table.signatures[source] ?? 0;
+      for (const mask of masks) {
+        for (const candidate of table.buckets.get(signature ^ mask) ?? []) {
+          if (candidate === source) continue;
+          candidates.add(candidate);
+          if (candidates.size >= candidateLimit) break search;
+        }
+      }
+    }
+    for (const candidate of candidates) {
+      const first = Math.min(source, candidate);
+      const second = Math.max(source, candidate);
+      pairs.add(first * entries.length + second);
+    }
+  }
+  return pairs;
+}
+
+/**
+ * Find top embedding neighbors without allowing large repositories to trigger
+ * unbounded all-pairs work. Small comparable groups remain exact. Larger groups
+ * use deterministic sparse-hyperplane LSH to select a bounded candidate set,
+ * then rank those candidates with exact cosine similarity.
+ */
+export function findEmbeddingNeighbors(input: {
+  entries: EmbeddingNeighborVector[];
+  topK: number;
+  floor: number;
+  exactGroupLimit?: number;
+  approximateCandidateLimit?: number;
+}): EmbeddingNeighborSearchResult {
+  const topK = Number.isFinite(input.topK) ? Math.max(0, Math.floor(input.topK)) : 0;
+  const requestedExactLimit = input.exactGroupLimit ?? DEFAULT_EXACT_NEIGHBOR_GROUP_LIMIT;
+  const exactGroupLimit = Number.isFinite(requestedExactLimit)
+    ? Math.max(2, Math.floor(requestedExactLimit))
+    : DEFAULT_EXACT_NEIGHBOR_GROUP_LIMIT;
+  const requestedCandidateLimit = input.approximateCandidateLimit ?? DEFAULT_APPROXIMATE_CANDIDATE_LIMIT;
+  const approximateCandidateLimit = Math.max(
+    topK,
+    Number.isFinite(requestedCandidateLimit)
+      ? Math.max(1, Math.floor(requestedCandidateLimit))
+      : DEFAULT_APPROXIMATE_CANDIDATE_LIMIT,
+  );
+  const floor = Number.isFinite(input.floor) ? Math.min(Math.max(input.floor, -1), 1) : 0;
+  const groups = new Map<string, EmbeddingNeighborVector[]>();
+  for (const entry of input.entries ?? []) {
+    if (
+      !entry
+      || typeof entry.id !== "string"
+      || typeof entry.group !== "string"
+      || entry.vector.length === 0
+      || !entry.vector.every(Number.isFinite)
+    ) continue;
+    const group = groups.get(entry.group) ?? [];
+    group.push(entry);
+    groups.set(entry.group, group);
+  }
+
+  const scored = new Map<string, Array<{ id: string; score: number }>>();
+  let comparisons = 0;
+  let possiblePairs = 0;
+  let approximateGroups = 0;
+  for (const group of [...groups.values()]) {
+    group.sort((a, b) => a.id.localeCompare(b.id));
+    possiblePairs += (group.length * (group.length - 1)) / 2;
+    const pairs = new Set<number>();
+    if (group.length <= exactGroupLimit) {
+      for (let first = 0; first < group.length; first += 1) {
+        for (let second = first + 1; second < group.length; second += 1) {
+          pairs.add(first * group.length + second);
+        }
+      }
+    } else {
+      approximateGroups += 1;
+      for (const pair of approximateCandidatePairs(group, approximateCandidateLimit)) pairs.add(pair);
+    }
+
+    for (const pair of pairs) {
+      const first = Math.floor(pair / group.length);
+      const second = pair % group.length;
+      const left = group[first];
+      const right = group[second];
+      if (!left || !right) continue;
+      comparisons += 1;
+      const score = cosineSimilarity(left.vector, right.vector);
+      if (score < floor) continue;
+      const leftNeighbors = scored.get(left.id) ?? [];
+      leftNeighbors.push({ id: right.id, score });
+      scored.set(left.id, leftNeighbors);
+      const rightNeighbors = scored.get(right.id) ?? [];
+      rightNeighbors.push({ id: left.id, score });
+      scored.set(right.id, rightNeighbors);
+    }
+  }
+
+  const neighbors = [...scored.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([id, candidates]) => ({
+      id,
+      neighbors: candidates
+        .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))
+        .slice(0, topK),
+    }))
+    .filter((entry) => entry.neighbors.length > 0);
+
+  return {
+    neighbors,
+    stats: {
+      strategy: approximateGroups > 0 ? "hybrid" : "exact",
+      groups: groups.size,
+      approximateGroups,
+      comparisons,
+      possiblePairs,
+    },
+  };
 }
 
 /**

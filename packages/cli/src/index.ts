@@ -59,7 +59,7 @@ import verifyCapability, {
   VERIFY_CAPABILITY_ID,
   VERIFY_CAPABILITY_VERSION,
 } from "@rekon/capability-verify";
-import jsTsCapability from "@rekon/capability-js-ts";
+import jsTsCapability, { loadAgentScratchSegments } from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability, {
   buildBridgeFindingLifecycleIntegrationReport,
@@ -184,11 +184,13 @@ import modelCapability, {
   embeddingVectorRef,
   embeddingChunkGraphRef,
   cosineSimilarity,
+  findEmbeddingNeighbors,
   classifyEmbeddingSimilarityScore,
   EMBEDDING_POLICY_VERSION,
   type EmbeddingChunkRef,
   type EmbeddingIndexRecord,
   type EmbeddingSimilarityForGraph,
+  type EmbeddingNeighborSearchStats,
   type EvidenceGraphForChunks,
   buildTaskContextReport,
   selectLexicalGraphContextPaths,
@@ -1311,13 +1313,13 @@ export async function main(argv: string[]): Promise<void> {
         throw new Error(`rekon capability graph build: --path not found: ${pathFlag}`);
       }
       if (stats.isDirectory()) {
-        candidates = await collectCapabilityGraphCandidates(root, abs);
+        candidates = await collectCapabilityGraphCandidates(root, await loadAgentScratchSegments(root), abs);
       } else {
         // Explicit single file bypasses the extension allow-list / size filter.
         candidates = [relative(root, abs).replace(/\\/g, "/")];
       }
     } else {
-      candidates = await collectCapabilityGraphCandidates(root);
+      candidates = await collectCapabilityGraphCandidates(root, await loadAgentScratchSegments(root));
     }
 
     const files: Array<{ path: string; sha256: string; text: string }> = [];
@@ -1404,13 +1406,16 @@ export async function main(argv: string[]): Promise<void> {
     const embeddingSimilarityMode = String(parsed.flags["embedding-similarity"] ?? "").trim();
     const wantEmbeddingSimilarity = embeddingSimilarityMode === "latest";
     let embeddingSimilarities: EmbeddingSimilarityForGraph[] = [];
+    let embeddingSearch: EmbeddingNeighborSearchStats | undefined;
     if (wantEmbeddingSimilarity) {
       const cacheDir = embeddingCacheDir(root);
       const records = await readEmbeddingIndexRecords(cacheDir);
-      embeddingSimilarities = await computeEmbeddingSimilaritiesFromCache(cacheDir, records, {
+      const search = await computeEmbeddingSimilaritiesFromCache(cacheDir, records, {
         topK: GRAPH_EMBEDDING_NEIGHBOR_TOP_K,
         floor: GRAPH_EMBEDDING_NEIGHBOR_FLOOR,
       });
+      embeddingSimilarities = search.similarities;
+      embeddingSearch = search.stats;
     }
 
     const generatedAt = new Date().toISOString();
@@ -1427,6 +1432,7 @@ export async function main(argv: string[]): Promise<void> {
       ? {
           sources: embeddingSimilarities.length,
           pairs: embeddingSimilarities.reduce((total, similarity) => total + similarity.neighbors.length, 0),
+          ...(embeddingSearch ? { search: embeddingSearch } : {}),
         }
       : undefined;
 
@@ -1645,8 +1651,10 @@ export async function main(argv: string[]): Promise<void> {
     const mergedById = new Map<string, EmbeddingIndexRecord>();
     for (const record of reused) mergedById.set(record.chunk.id, record);
     const scopedIds = new Set(chunks.map((chunk) => chunk.id));
-    for (const record of existing) {
-      if (!scopedIds.has(record.chunk.id)) mergedById.set(record.chunk.id, record);
+    if (pathScope.length > 0) {
+      for (const record of existing) {
+        if (!scopedIds.has(record.chunk.id)) mergedById.set(record.chunk.id, record);
+      }
     }
     for (const record of indexedRecords) mergedById.set(record.chunk.id, record);
     const merged = [...mergedById.values()].sort((a, b) => a.chunk.id.localeCompare(b.chunk.id));
@@ -10146,14 +10154,23 @@ const CAPABILITY_GRAPH_SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"
  * `startDir` lets `--path <dir>` narrow the walk while node ids stay relative to
  * `root` for stable, deterministic identifiers. Read-only; performs no writes.
  */
-async function collectCapabilityGraphCandidates(root: string, startDir?: string): Promise<string[]> {
+async function collectCapabilityGraphCandidates(
+  root: string,
+  agentScratchSegments: ReadonlyArray<string>,
+  startDir?: string,
+): Promise<string[]> {
   const out: string[] = [];
+  const scratchSegments = new Set(agentScratchSegments);
+  if (startDir) {
+    const requestedSegments = relative(root, startDir).replace(/\\/g, "/").split("/").filter(Boolean);
+    if (requestedSegments.some((segment) => scratchSegments.has(segment))) return out;
+  }
   async function walk(absDir: string): Promise<void> {
     const entries = await readdir(absDir, { withFileTypes: true }).catch(() => []);
     for (const ent of entries) {
       const abs = join(absDir, ent.name);
       if (ent.isDirectory()) {
-        if (SEMANTIC_SCAN_EXCLUDED_DIRS.has(ent.name)) continue;
+        if (SEMANTIC_SCAN_EXCLUDED_DIRS.has(ent.name) || scratchSegments.has(ent.name)) continue;
         await walk(abs);
       } else if (ent.isFile()) {
         if (SEMANTIC_SCAN_EXCLUDED_FILES.has(ent.name)) continue;
@@ -10309,33 +10326,39 @@ async function computeEmbeddingSimilaritiesFromCache(
   cacheDir: string,
   records: EmbeddingIndexRecord[],
   options: { topK: number; floor: number },
-): Promise<EmbeddingSimilarityForGraph[]> {
+): Promise<{ similarities: EmbeddingSimilarityForGraph[]; stats: EmbeddingNeighborSearchStats }> {
   const loaded: Array<{ record: EmbeddingIndexRecord; vector: number[] }> = [];
   for (const record of records) {
     const vector = await readEmbeddingVector(cacheDir, record.vectorRef);
     if (vector && vector.length > 0) loaded.push({ record, vector });
   }
   loaded.sort((a, b) => a.record.chunk.id.localeCompare(b.record.chunk.id));
-  const out: EmbeddingSimilarityForGraph[] = [];
-  for (const source of loaded) {
-    const scored: Array<{ record: EmbeddingIndexRecord; score: number }> = [];
-    for (const candidate of loaded) {
-      if (candidate.record.chunk.id === source.record.chunk.id) continue;
-      // Compare like representations. A file summary and a structural feature
-      // bag can be close because both name the same path, but that is not
-      // evidence that two implementations overlap.
-      if (candidate.record.chunk.kind !== source.record.chunk.kind) continue;
-      const score = cosineSimilarity(source.vector, candidate.vector);
-      if (score >= options.floor) scored.push({ record: candidate.record, score });
-    }
-    scored.sort((a, b) => b.score - a.score || a.record.chunk.id.localeCompare(b.record.chunk.id));
-    const neighbors = scored.slice(0, options.topK).map((entry) => ({
-      chunkId: entry.record.chunk.id,
-      ref: embeddingChunkGraphRef(entry.record.chunk),
-      score: entry.score,
-    }));
+  const loadedById = new Map(loaded.map((entry) => [entry.record.chunk.id, entry]));
+  const search = findEmbeddingNeighbors({
+    entries: loaded.map(({ record, vector }) => ({
+      id: record.chunk.id,
+      group: [record.provider, record.model, String(record.dimensions), record.chunk.kind].join("\u0000"),
+      vector,
+    })),
+    topK: options.topK,
+    floor: options.floor,
+  });
+  const similarities: EmbeddingSimilarityForGraph[] = [];
+  for (const row of search.neighbors) {
+    const source = loadedById.get(row.id);
+    if (!source) continue;
+    const neighbors = row.neighbors.flatMap((entry) => {
+      const candidate = loadedById.get(entry.id);
+      return candidate
+        ? [{
+            chunkId: candidate.record.chunk.id,
+            ref: embeddingChunkGraphRef(candidate.record.chunk),
+            score: entry.score,
+          }]
+        : [];
+    });
     if (neighbors.length === 0) continue;
-    out.push({
+    similarities.push({
       source: {
         chunkId: source.record.chunk.id,
         ref: embeddingChunkGraphRef(source.record.chunk),
@@ -10346,7 +10369,7 @@ async function computeEmbeddingSimilaritiesFromCache(
       model: source.record.model,
     });
   }
-  return out;
+  return { similarities, stats: search.stats };
 }
 
 /** First 16 hex of sha256(path) — keeps per-file batch artifact ids unique. */

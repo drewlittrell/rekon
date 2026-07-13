@@ -263,6 +263,17 @@ test("classifyEmbeddingChunks reuses unchanged chunks (no re-embed)", () => {
   assert.equal(result.reused.length, chunks.length);
 });
 
+test("classifyEmbeddingChunks refreshes current chunk metadata when a vector is reusable", () => {
+  const chunks = buildEmbeddingChunks({ graph: sampleGraph() });
+  const existing = recordsFor(chunks).map((record, index) => (
+    index === 0 ? { ...record, chunk: { ...record.chunk, path: "stale/path.ts" } } : record
+  ));
+  const result = classifyEmbeddingChunks({ chunks, existing, provider: "mock", model: "m", dimensions: 8, policyVersion: EMBEDDING_POLICY_VERSION });
+
+  assert.equal(result.toEmbed.length, 0);
+  assert.equal(result.reused[0].chunk.path, chunks[0].path);
+});
+
 // ---------- 13: sha change -> stale ----------
 test("classifyEmbeddingChunks marks a chunk stale when its sha256 changes", () => {
   const chunks = buildEmbeddingChunks({ graph: sampleGraph() });
@@ -397,6 +408,31 @@ test("re-running `embeddings index` reuses unchanged chunks", async () => {
   }
 });
 
+test("full embedding index prunes removed chunks while path-scoped updates preserve other records", async () => {
+  const work = await setupRepo();
+  try {
+    assert.equal(runCli(["capability", "graph", "build", "--root", work, "--json"], work).status, 0);
+    assert.equal(runCli(["embeddings", "index", "--all", "--provider", "mock", "--root", work, "--json"], work).status, 0);
+
+    assert.equal(
+      runCli(["embeddings", "index", "--path", "src/index.js", "--provider", "mock", "--root", work, "--json"], work).status,
+      0,
+    );
+    const indexPath = join(work, ".rekon", "cache", "embeddings", "index.json");
+    const scoped = JSON.parse(await readFile(indexPath, "utf8"));
+    assert.ok(scoped.records.some((record) => record.chunk.path === "src/duplicate.js"));
+
+    await rm(join(work, "src", "duplicate.js"));
+    assert.equal(runCli(["capability", "graph", "build", "--root", work, "--json"], work).status, 0);
+    const full = runCli(["embeddings", "index", "--provider", "mock", "--root", work, "--json"], work);
+    assert.equal(full.status, 0, full.stderr || full.stdout);
+    const pruned = JSON.parse(await readFile(indexPath, "utf8"));
+    assert.equal(pruned.records.some((record) => record.chunk.path === "src/duplicate.js"), false);
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+});
+
 // ---------- 19: query returns nearest as proposal/context ----------
 test("`embeddings query` returns nearest cached chunks as proposal/context", async () => {
   const work = await setupRepo();
@@ -442,6 +478,8 @@ test("`capability graph build --embedding-similarity latest` folds in embedding 
     assert.equal(res.status, 0, res.stderr || res.stdout);
     const payload = JSON.parse(res.stdout);
     assert.ok(payload.embeddingSimilarity && payload.embeddingSimilarity.pairs > 0, "expected embedding similarity pairs");
+    assert.equal(payload.embeddingSimilarity.search.strategy, "exact");
+    assert.ok(payload.embeddingSimilarity.search.comparisons <= payload.embeddingSimilarity.search.possiblePairs);
     assert.equal(payload.boundaries.generatedEmbeddings, false);
     assert.equal(payload.boundaries.usedLlm, false);
     // Read the written graph and confirm an embedding_similarity evidence row + embedding claim.

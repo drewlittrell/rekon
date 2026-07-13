@@ -178,6 +178,11 @@ value.
 The production duplicate threshold is evaluated against labeled positive and
 hard-negative pairs, separately from retrieval ranking. Threshold quality is
 reported as precision, recall, F1, separation, stability, tokens, and cost.
+Large indexes use bounded deterministic candidate generation before exact
+cosine ranking; small comparable groups remain exact. Search statistics expose
+the number of scored pairs against the all-pairs ceiling. Agent scratch trees
+are excluded before graph and embedding construction unless the repository
+explicitly overrides its scan scope.
 
 Operator adjudication is calibration input, not repository truth. External
 labels may change benchmark precision, recall, usefulness, thresholds, or a

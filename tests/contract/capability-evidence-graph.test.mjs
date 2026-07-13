@@ -18,7 +18,7 @@
 //   - registers cleanly in the runtime registry under the
 //     `graphs` category,
 //   - exposes itself via `rekon capability graph build`,
-//     excludes node_modules/dist, honors --path, validates
+//     excludes generated and agent-scratch trees, honors --path, validates
 //     clean, and leaves source files untouched.
 
 import assert from "node:assert/strict";
@@ -308,9 +308,15 @@ async function setupCliRepo() {
   await mkdir(join(work, "src"), { recursive: true });
   await mkdir(join(work, "node_modules", "pkg"), { recursive: true });
   await mkdir(join(work, "dist"), { recursive: true });
+  await mkdir(join(work, ".claude", "worktrees", "agent"), { recursive: true });
+  await mkdir(join(work, ".codex", "scratch"), { recursive: true });
+  await mkdir(join(work, ".agents", "worker"), { recursive: true });
   await writeFile(join(work, "src", "index.ts"), SAMPLE_SOURCE, "utf8");
   await writeFile(join(work, "node_modules", "pkg", "ignored.ts"), "export const ignored = 1;\n", "utf8");
   await writeFile(join(work, "dist", "ignored.js"), "export const ignoredDist = 2;\n", "utf8");
+  await writeFile(join(work, ".claude", "worktrees", "agent", "ignored.ts"), "export const ignoredClaude = 3;\n", "utf8");
+  await writeFile(join(work, ".codex", "scratch", "ignored.ts"), "export const ignoredCodex = 4;\n", "utf8");
+  await writeFile(join(work, ".agents", "worker", "ignored.ts"), "export const ignoredAgent = 5;\n", "utf8");
   return work;
 }
 
@@ -342,16 +348,33 @@ test("CLI `capability graph build` writes one CapabilityEvidenceGraph", async ()
   }
 });
 
-// ---------- 19: CLI excludes node_modules and dist ----------
+// ---------- 19: CLI excludes generated and agent-scratch trees ----------
 
-test("CLI excludes node_modules and dist from the scan", async () => {
+test("CLI excludes generated and agent-scratch trees from the scan", async () => {
   const work = await setupCliRepo();
   try {
     const res = runCli(["capability", "graph", "build", "--root", work, "--json"], work);
     assert.equal(res.status, 0, res.stderr || res.stdout);
     const payload = JSON.parse(res.stdout);
-    // Only src/index.ts should be scanned (node_modules + dist excluded).
+    // Only src/index.ts should be scanned.
     assert.equal(payload.summary.files, 1);
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+});
+
+test("CLI capability graph honors the explicit agent-scratch scope override", async () => {
+  const work = await setupCliRepo();
+  try {
+    await mkdir(join(work, ".rekon"), { recursive: true });
+    await writeFile(
+      join(work, ".rekon", "scan-scope.json"),
+      `${JSON.stringify({ agentScratchSegments: [] })}\n`,
+      "utf8",
+    );
+    const res = runCli(["capability", "graph", "build", "--root", work, "--json"], work);
+    assert.equal(res.status, 0, res.stderr || res.stdout);
+    assert.equal(JSON.parse(res.stdout).summary.files, 4);
   } finally {
     await rm(work, { recursive: true, force: true });
   }

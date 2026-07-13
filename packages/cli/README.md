@@ -86,6 +86,9 @@ rekon assessments list --kind opportunity
 ```
 
 These results are comparison candidates, not findings or merge instructions.
+The graph command reports how many vector pairs it scored versus the all-pairs
+ceiling. Large indexes use bounded candidate generation; small representation
+groups remain exact.
 
 `rekon runtime graph observe` reads `.rekon/handoff-events.jsonl`. In addition
 to handoff events, instrumentation can append `execution_observation` rows to
@@ -145,6 +148,8 @@ rekon embeddings index --all --model voyage-4-lite --dimensions 512
 After upgrading from `voyage-code-3`, rebuild once with
 `rekon embeddings index --all`. Rekon rejects incompatible cached vector spaces
 instead of returning zero-score or mixed-model results.
+A full index drops chunks no longer present in the latest capability graph.
+`--path` updates retain cached records outside the requested path.
 
 ## Public Surface
 

@@ -31,9 +31,12 @@ artifacts over re-deriving ownership directly from raw evidence.
 The default export is a Rekon capability definition with a projector handler.
 The package also exports the semantic-debt judgment prompt, strict response
 schema, versioned eligibility decision, deterministic concern coercion,
-runtime observation builder, and pure
+runtime observation builder, bounded embedding-neighbor search, and pure
 Istanbul and LCOV coverage parsers used by the CLI and model evaluator. Runtime coverage
 sources can cite the exact `VerificationRun` command that produced them.
+`findEmbeddingNeighbors()` keeps small groups exact and uses deterministic
+candidate generation for large groups before exact cosine ranking. Callers must
+group vectors by provider, model, dimensions, and representation kind.
 Semantic-debt eligibility excludes structured output data and files larger than
 the bounded prompt instead of asking a model to judge generated records or
 partial source. Unchanged judgments can be reused across eligibility revisions
