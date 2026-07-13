@@ -12,6 +12,8 @@ export const FLOATING_PROMISE_RULE_ID = "typescript.floatingPromise";
 export const FOCUSED_TEST_RULE_ID = "tests.focused";
 export const TEST_ISOLATION_RULE_ID = "tests.isolation";
 export const UNUSED_IMPORT_RULE_ID = "typescript.unusedImport";
+export const UNUSED_PRIVATE_MEMBER_RULE_ID = "typescript.unusedPrivateMember";
+export const UNREACHABLE_CODE_RULE_ID = "typescript.unreachableCode";
 
 type EvidenceFactLike = {
   kind: string;
@@ -134,6 +136,28 @@ const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
     verification: "verified",
     rationale: "TypeScript name resolution verifies that the import binding has no source reference.",
   },
+  unused_private_member: {
+    ruleId: UNUSED_PRIVATE_MEMBER_RULE_ID,
+    type: "dead_code",
+    impact: "low",
+    title: "Private class member is unused",
+    description: "The TypeScript compiler found a private class member with no source reference.",
+    suggestedAction: "Remove the private member or connect it to the behavior it was intended to provide.",
+    kind: "opportunity",
+    verification: "verified",
+    rationale: "TypeScript name resolution verifies that the private member has no source reference.",
+  },
+  unreachable_code: {
+    ruleId: UNREACHABLE_CODE_RULE_ID,
+    type: "dead_code",
+    impact: "low",
+    title: "Code is unreachable",
+    description: "The TypeScript compiler proved that control flow cannot reach this statement.",
+    suggestedAction: "Remove the unreachable statement or correct the earlier control flow if the path should execute.",
+    kind: "opportunity",
+    verification: "verified",
+    rationale: "TypeScript control-flow analysis verifies that the statement is unreachable.",
+  },
 };
 
 export function evaluateSourceQualitySignals(
@@ -149,10 +173,18 @@ export function evaluateSourceQualitySignals(
 
   for (const fact of facts) {
     const isSourceSignal = fact.kind === "typescript:source-quality";
-    const isUnusedImport = fact.kind === "typescript:diagnostic" && fact.value.purpose === "unused-import";
-    if (!isSourceSignal && !isUnusedImport) continue;
+    const diagnosticSignal = fact.kind === "typescript:diagnostic"
+      ? fact.value.purpose === "unused-import"
+        ? "unused_import"
+        : fact.value.purpose === "unused-private-member"
+          ? "unused_private_member"
+          : fact.value.purpose === "unreachable-code"
+            ? "unreachable_code"
+            : undefined
+      : undefined;
+    if (!isSourceSignal && !diagnosticSignal) continue;
     const file = typeof fact.value.path === "string" ? fact.value.path : fact.subject.split(":")[0] ?? fact.subject;
-    const signal = isUnusedImport ? "unused_import" : typeof fact.value.signal === "string" ? fact.value.signal : "";
+    const signal = diagnosticSignal ?? (typeof fact.value.signal === "string" ? fact.value.signal : "");
     const policy = SIGNAL_POLICIES[signal];
     if (!policy) continue;
     if (policy.scope === "test" ? !isNonProductionPath(file) : isNonProductionPath(file)) continue;

@@ -135,6 +135,41 @@ test("JS/TS provider identifies compiler-proven unused imports even when repo co
   }
 });
 
+test("JS/TS provider identifies compiler-proven unused private members and unreachable code only", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-private-dead-code-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext" },
+      include: ["src/**/*.ts"],
+    }), "utf8");
+    await writeFile(join(root, "src", "index.ts"), [
+      "export class Example {",
+      "  private unusedMethod() { return 1; }",
+      "  private usedMethod() { return 2; }",
+      "  #unusedField = 3;",
+      "  run() { return this.usedMethod(); }",
+      "}",
+      "export function demo() {",
+      "  const ordinaryUnusedLocal = 1;",
+      "  return 2;",
+      "  console.log('unreachable');",
+      "}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const diagnostics = facts.filter((fact) => fact.kind === "typescript:diagnostic");
+    const purposes = diagnostics.map((fact) => fact.value.purpose).sort();
+
+    assert.deepEqual(purposes, ["unreachable-code", "unused-private-member", "unused-private-member"]);
+    assert.equal(diagnostics.some((fact) => /ordinaryUnusedLocal/.test(String(fact.value.message))), false);
+    assert.equal(diagnostics.filter((fact) => fact.value.purpose === "unreachable-code")[0].value.code, 7027);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("JS/TS provider emits AST-backed source quality signals", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-quality-"));
 

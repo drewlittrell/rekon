@@ -64,7 +64,12 @@
     "citation": "docs/strategy/detection-quality.md#reachability-and-overlap",
     "note": "Graph reachability plus compiler-proven unused imports. Classic baseline is LLM-origin: scores by goal-level file-set coverage while rejecting speculative, truncation-derived, and re-export-wrapper claims.",
     "rekonRuleId": "dead_code.unreferenced",
-    "rekonRuleIds": ["dead_code.unreferenced", "typescript.unusedImport"],
+    "rekonRuleIds": [
+      "dead_code.unreferenced",
+      "typescript.unusedImport",
+      "typescript.unusedPrivateMember",
+      "typescript.unreachableCode"
+    ],
     "scoring": "coverage"
   },
   "capability_overlap": {

@@ -229,7 +229,9 @@ semantically distinct capability names do not enter it. Universal ontology
 aliases also keep filesystem paths and URLs distinct from web routes.
 
 Unused imports enter the same goal only when TypeScript name resolution proves
-that an imported binding has no source reference. Scanner-truncated snippets,
+that an imported binding has no source reference. Unused private members and
+unreachable statements also qualify when TypeScript name resolution or control
+flow proves the condition. Ordinary unused locals, scanner-truncated snippets,
 negative "no dead code" observations, speculative "may be unused" prose, and
 public re-export wrappers do not establish dead code.
 

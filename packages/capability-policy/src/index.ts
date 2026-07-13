@@ -679,7 +679,11 @@ function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef, exemp
 
 function typeScriptCompilerDiagnostics(graph: EvidenceGraphLike, evidenceRef: ArtifactRef): Finding[] {
   return graph.facts
-    .filter((fact) => fact.kind === "typescript:diagnostic" && fact.value.category === "error" && fact.value.purpose !== "unused-import")
+    .filter((fact) => (
+      fact.kind === "typescript:diagnostic"
+      && fact.value.category === "error"
+      && (fact.value.purpose === undefined || fact.value.purpose === "compiler-error")
+    ))
     .map((fact) => {
       const file = typeof fact.value.path === "string" ? fact.value.path : fact.subject;
       const code = typeof fact.value.code === "number" ? fact.value.code : 0;

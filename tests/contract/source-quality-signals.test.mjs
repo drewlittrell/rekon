@@ -119,6 +119,65 @@ test("compiler-proven unused imports become verified opportunities rather than t
   }
 });
 
+test("compiler-proven unused private members and unreachable code become verified opportunities", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-private-dead-code-opportunity-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext" },
+      include: ["src/**/*.ts"],
+    }), "utf8");
+    await writeFile(join(root, "src", "index.ts"), [
+      "export class Example {",
+      "  private unusedMethod() { return 1; }",
+      "  #unusedField = 2;",
+      "}",
+      "export function value() {",
+      "  return 1;",
+      "  console.log('unreachable');",
+      "}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const runtime = await createRuntime({ repoRoot: root, repoId: "private-dead-code-fixture", capabilities: [policyCapability], logger });
+    await runtime.artifacts.write({
+      header: {
+        artifactType: "EvidenceGraph",
+        artifactId: "private-dead-code-evidence",
+        schemaVersion: "0.1.0",
+        generatedAt: "2026-07-13T00:00:00.000Z",
+        subject: { repoId: "private-dead-code-fixture" },
+        producer: { id: "@rekon/capability-js-ts", version: "1.0.0" },
+        inputRefs: [],
+        freshness: { status: "fresh" },
+        provenance: { confidence: 0.9 },
+      },
+      facts,
+    });
+
+    const refs = await runtime.runEvaluate();
+    const findings = await runtime.artifacts.read(refs.find((ref) => ref.type === "FindingReport"));
+    const report = await runtime.artifacts.read(refs.find((ref) => ref.type === "AssessmentReport"));
+    const opportunities = report.assessments
+      .filter((assessment) => ["typescript.unusedPrivateMember", "typescript.unreachableCode"].includes(assessment.ruleId))
+      .sort((left, right) => left.ruleId.localeCompare(right.ruleId));
+
+    assert.equal(findings.findings.some((finding) => finding.ruleId === "typescript.compilerDiagnostic"), false);
+    assert.deepEqual(opportunities.map((assessment) => assessment.ruleId), [
+      "typescript.unreachableCode",
+      "typescript.unusedPrivateMember",
+    ]);
+    assert.equal(opportunities.every((assessment) => assessment.kind === "opportunity"), true);
+    assert.equal(opportunities.every((assessment) => assessment.confidence.verification === "verified"), true);
+    assert.equal(
+      opportunities.find((assessment) => assessment.ruleId === "typescript.unusedPrivateMember").details.occurrenceCount,
+      2,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("async control-flow signals require known language semantics and remain risks", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-async-control-flow-"));
   try {

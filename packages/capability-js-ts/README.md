@@ -25,9 +25,10 @@ They describe path-derived grouping and do not establish declared ownership
 policy.
 
 When a TypeScript project is available, diagnostics also distinguish stable
-compiler errors from compiler-proven unused import bindings. Rekon requests
-unused-local analysis for this evidence even when the repository does not use
-`noUnusedLocals`; unrelated unused declarations remain outside this signal.
+compiler errors from compiler-proven unused imports, unused private members,
+and unreachable statements. Rekon requests unused-local and unreachable-code
+analysis for this evidence even when the repository does not enable it.
+Ordinary unused locals and public declarations remain outside this signal.
 - `typescript:diagnostic` on full scans with a valid `tsconfig.json`
 - `typescript:source-quality` for AST-backed type escapes, error suppression,
   explicit placeholder implementations, and conservative async-control-flow

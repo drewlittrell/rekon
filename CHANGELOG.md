@@ -42,6 +42,9 @@ All notable changes to Rekon are documented here.
   resolution even when `noUnusedLocals` is disabled. Policy exposes them as
   verified, low-impact `typescript.unusedImport` opportunities rather than
   compiler-error findings.
+- JS/TS evidence now exposes compiler-proven unused private members and
+  unreachable statements as verified, low-impact dead-code opportunities.
+  Ordinary unused locals and public declarations remain excluded.
 - Semantic-debt eligibility now excludes structured data outputs and files that
   exceed the bounded prompt. Same-prompt judgments remain reusable across
   eligibility revisions after the current file passes the stricter gate.

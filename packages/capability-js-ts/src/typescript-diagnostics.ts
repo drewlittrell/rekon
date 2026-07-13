@@ -6,7 +6,7 @@ export type TypeScriptDiagnosticEvidence = {
   code: number;
   category: "error";
   phase: "syntactic" | "semantic";
-  purpose?: "compiler-error" | "unused-import";
+  purpose?: "compiler-error" | "unused-import" | "unused-private-member" | "unreachable-code";
   message: string;
   line: number;
   column: number;
@@ -18,7 +18,8 @@ export type TypeScriptDiagnosticEvidence = {
 const STABLE_SEMANTIC_DIAGNOSTIC_CODES = new Set([
   2322, 2339, 2345, 2362, 2363, 2365, 2554, 2741, 2769, 18047, 18048,
 ]);
-const UNUSED_DECLARATION_DIAGNOSTIC_CODES = new Set([6133, 6192, 6196]);
+const UNUSED_DECLARATION_DIAGNOSTIC_CODES = new Set([6133, 6138, 6192, 6196]);
+const UNREACHABLE_CODE_DIAGNOSTIC = 7027;
 
 export function collectTypeScriptDiagnostics(
   repoRoot: string,
@@ -42,7 +43,13 @@ export function collectTypeScriptDiagnostics(
   try {
     program = ts.createProgram({
       rootNames,
-      options: { ...parsed.options, noEmit: true, noUnusedLocals: true, noUnusedParameters: false },
+      options: {
+        ...parsed.options,
+        noEmit: true,
+        noUnusedLocals: true,
+        noUnusedParameters: false,
+        allowUnreachableCode: false,
+      },
       projectReferences: parsed.projectReferences,
     });
   } catch {
@@ -60,6 +67,10 @@ export function collectTypeScriptDiagnostics(
       selected.push({ diagnostic, phase: "semantic", purpose: "compiler-error" });
     } else if (UNUSED_DECLARATION_DIAGNOSTIC_CODES.has(diagnostic.code) && diagnosticTargetsImport(diagnostic)) {
       selected.push({ diagnostic, phase: "semantic", purpose: "unused-import" });
+    } else if (UNUSED_DECLARATION_DIAGNOSTIC_CODES.has(diagnostic.code) && diagnosticTargetsPrivateMember(diagnostic)) {
+      selected.push({ diagnostic, phase: "semantic", purpose: "unused-private-member" });
+    } else if (diagnostic.code === UNREACHABLE_CODE_DIAGNOSTIC) {
+      selected.push({ diagnostic, phase: "semantic", purpose: "unreachable-code" });
     }
   }
 
@@ -106,6 +117,25 @@ function diagnosticTargetsImport(diagnostic: ts.Diagnostic): boolean {
   let node = deepestNodeAt(diagnostic.file, diagnostic.start);
   while (node) {
     if (ts.isImportDeclaration(node) || ts.isImportEqualsDeclaration(node)) return true;
+    node = node.parent;
+  }
+  return false;
+}
+
+function diagnosticTargetsPrivateMember(diagnostic: ts.Diagnostic): boolean {
+  if (!diagnostic.file || diagnostic.start === undefined) return false;
+  let node = deepestNodeAt(diagnostic.file, diagnostic.start);
+  while (node) {
+    if (
+      ts.isMethodDeclaration(node)
+      || ts.isPropertyDeclaration(node)
+      || ts.isGetAccessorDeclaration(node)
+      || ts.isSetAccessorDeclaration(node)
+      || ts.isParameter(node)
+    ) {
+      if (node.name && ts.isPrivateIdentifier(node.name)) return true;
+      return ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.PrivateKeyword) ?? false;
+    }
     node = node.parent;
   }
   return false;
