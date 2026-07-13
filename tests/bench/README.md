@@ -6,11 +6,17 @@ common shape, and emits a bench report (JSON + Markdown) classifying every
 classic finding as `matched`, `missed-gap`, `missed-intentional` (with a
 citation), or flagging Rekon findings classic never produced as `new`.
 
-The headline metric is **weighted recall**: the share of classic's historically
-surfaced findings (weighted by how often each rule fired across the corpus)
-that Rekon either reproduces or intentionally diverges from with a citable
-justification. The bench is the instrument; the baseline number is expected to
-be low. Every Phase 1 emission-gap slice measures itself against this bench.
+The report keeps two headline metrics separate:
+
+- **weighted finding recall**: the share of historically surfaced findings
+  that Rekon reproduces as findings or intentionally suppresses with a citable
+  policy;
+- **weighted observable signal coverage**: finding recall plus matching risks
+  or opportunities emitted by coverage-scored redesigns.
+
+An assessment can improve signal coverage but never finding recall. Both
+metrics weight rows by historical fire count. The bench is the instrument; a
+high count is not a substitute for precision or usefulness adjudication.
 
 ## Run
 
@@ -34,9 +40,9 @@ corpus roots, repository ids, finding ids, and file paths.
 
 ## Quality adjudication
 
-Recall alone does not describe detection quality. An optional external
-adjudication file lets the bench report finding precision separately from the
-usefulness of risks and opportunities:
+Finding recall and signal coverage do not describe detection quality. An
+optional external adjudication file lets the bench report finding precision
+separately from the usefulness of risks and opportunities:
 
 ```json
 {

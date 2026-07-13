@@ -4,6 +4,11 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Corrected parity benchmarking for redesigned output classes. Matching risks
+  and opportunities now contribute to a separate observable-signal metric
+  without inflating weighted finding recall, and coverage tables split finding
+  matches from assessment matches.
+
 - Made local-tarball installation the canonical distribution smoke. CI now
   installs all 24 workspace packages in a temporary consumer, imports their
   public exports, runs the installed `rekon` bin, and validates emitted

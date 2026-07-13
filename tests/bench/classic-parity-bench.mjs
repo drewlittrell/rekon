@@ -236,8 +236,17 @@ async function main() {
     const filteredFindings = filterReport?.filteredFindings ?? [];
     const classicFindings = loadClassicFindings({ classicOutputDir, classicFormat: entry.classicFormat });
     const suppressedFindings = loadSuppressedFindings({ classicOutputDir });
+    const assessments = assessmentReport?.assessments ?? [];
 
-    const { rows, newFindings, coverage, precision } = classifyParity({ classicFindings, rekonFindings, filteredFindings, ruleMap, overruled, suppressedFindings });
+    const { rows, newFindings, coverage, precision } = classifyParity({
+      classicFindings,
+      rekonFindings,
+      rekonAssessments: assessments,
+      filteredFindings,
+      ruleMap,
+      overruled,
+      suppressedFindings,
+    });
 
     repoResults.push({
       id: entry.id,
@@ -248,7 +257,7 @@ async function main() {
       precision,
       rekonFindingCount: rekonFindings.length,
       rekonFindings,
-      assessments: assessmentReport?.assessments ?? [],
+      assessments,
     });
   }
 
@@ -267,8 +276,11 @@ async function main() {
   writeFileSync(join(outputDir, "report.md"), renderMarkdownReport(report));
 
   process.stdout.write(
-    `classic-parity-bench: weighted recall ${(report.aggregate.recall * 100).toFixed(1)}% ` +
-      `(${report.aggregate.creditedWeight}/${report.aggregate.totalWeight} weighted) across ${repoResults.length} repo(s). ` +
+    `classic-parity-bench: weighted finding recall ${(report.aggregate.recall * 100).toFixed(1)}% ` +
+      `(${report.aggregate.creditedWeight}/${report.aggregate.totalWeight} weighted); observable signal coverage ` +
+      `${(report.aggregate.signalCoverage.recall * 100).toFixed(1)}% ` +
+      `(${report.aggregate.signalCoverage.creditedWeight}/${report.aggregate.signalCoverage.totalWeight} weighted) ` +
+      `across ${repoResults.length} repo(s). ` +
       `Reports: ${join(outputDir, "report.md")}, ${join(outputDir, "report.sanitized.json")}\n`,
   );
 

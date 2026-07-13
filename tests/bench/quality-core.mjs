@@ -237,6 +237,12 @@ export function buildSanitizedBenchReport(report, quality) {
       creditedWeight: report.aggregate.creditedWeight,
       totalWeight: report.aggregate.totalWeight,
     },
+    observableSignalCoverage: {
+      weighted: report.aggregate.signalCoverage.recall,
+      creditedWeight: report.aggregate.signalCoverage.creditedWeight,
+      assessmentWeight: report.aggregate.signalCoverage.assessmentWeight,
+      totalWeight: report.aggregate.signalCoverage.totalWeight,
+    },
     quality: sanitizedQuality,
     gapQueue: summarizeQueue(report.gapQueue),
     redesignQueue: summarizeQueue(report.redesignQueue),
@@ -245,6 +251,8 @@ export function buildSanitizedBenchReport(report, quality) {
     coverage: {
       rules: report.coverage.length,
       classicFiles: report.coverage.reduce((sum, entry) => sum + entry.classicFiles, 0),
+      findingCoveredFiles: report.coverage.reduce((sum, entry) => sum + entry.findingCoveredFiles, 0),
+      assessmentCoveredFiles: report.coverage.reduce((sum, entry) => sum + entry.assessmentCoveredFiles, 0),
       coveredFiles: report.coverage.reduce((sum, entry) => sum + entry.coveredFiles, 0),
     },
     precisionAgainstSuppressed: {

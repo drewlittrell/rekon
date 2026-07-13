@@ -12,7 +12,13 @@ import { join, relative, resolve } from "node:path";
 import { after, test } from "node:test";
 
 import { loadClassicFindings, normalizeClassicIssuesV1, normalizePath } from "./normalize-classic.mjs";
-import { buildBenchReport, classifyParity, computeWeightedRecall, validateRuleMap } from "./parity-core.mjs";
+import {
+  buildBenchReport,
+  classifyParity,
+  computeWeightedRecall,
+  computeWeightedSignalCoverage,
+  validateRuleMap,
+} from "./parity-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const benchPath = join(repoRoot, "tests/bench/classic-parity-bench.mjs");
@@ -47,6 +53,18 @@ function rekonFinding(overrides = {}) {
     severity: "medium",
     title: "rekon finding",
     description: "rekon finding",
+    subjects: ["src/a.ts"],
+    files: ["src/a.ts"],
+    ruleId: "rekon.rule",
+    ...overrides,
+  };
+}
+
+function rekonAssessment(overrides = {}) {
+  return {
+    id: "assessment-1",
+    kind: "risk",
+    type: "tech_debt",
     subjects: ["src/a.ts"],
     files: ["src/a.ts"],
     ruleId: "rekon.rule",
@@ -171,6 +189,39 @@ test("redesigned: with a rekonRuleId, a live match still classifies matched", ()
   });
 
   assert.equal(rows[0].classification, "matched");
+});
+
+test("coverage-scored redesign reports assessment visibility without inflating finding recall", () => {
+  const { rows, coverage } = classifyParity({
+    classicFindings: [classicFinding({ fireCount: 5 })],
+    rekonAssessments: [rekonAssessment()],
+    ruleMap: {
+      "classic.rule": {
+        status: "redesigned",
+        citation: "docs/strategy/detection-quality.md#debt-and-semantic-judgment",
+        rekonRuleId: "rekon.rule",
+        scoring: "coverage",
+      },
+    },
+  });
+
+  assert.equal(rows[0].classification, "matched-assessment");
+  assert.deepEqual(rows[0].matchedRekonAssessmentIds, ["assessment-1"]);
+  assert.equal(computeWeightedRecall(rows).creditedWeight, 0);
+  assert.equal(computeWeightedSignalCoverage(rows).creditedWeight, 5);
+  assert.equal(coverage[0].findingCoveredFiles, 0);
+  assert.equal(coverage[0].assessmentCoveredFiles, 1);
+  assert.equal(coverage[0].coveredFiles, 1);
+});
+
+test("ported finding contracts are not satisfied by assessments", () => {
+  const { rows } = classifyParity({
+    classicFindings: [classicFinding()],
+    rekonAssessments: [rekonAssessment()],
+    ruleMap: { "classic.rule": { status: "ported", rekonRuleId: "rekon.rule" } },
+  });
+
+  assert.equal(rows[0].classification, "missed-gap");
 });
 
 test("deferred: classifies missed-deferred with citation and stays out of the gap queue", () => {
@@ -376,7 +427,8 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
   );
 
   assert.equal(result.status, 0, `bench failed:\n${result.stdout}\n${result.stderr}`);
-  assert.match(result.stdout, /weighted recall/);
+  assert.match(result.stdout, /weighted finding recall/);
+  assert.match(result.stdout, /observable signal coverage/);
 
   const report = JSON.parse(readFileSync(join(outputDir, "report.json"), "utf8"));
   const sanitized = JSON.parse(readFileSync(join(outputDir, "report.sanitized.json"), "utf8"));

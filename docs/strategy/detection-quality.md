@@ -41,6 +41,11 @@ Detection quality is measured per goal using:
 Historical detector output may supply test cases, but it is not a product
 specification or a target finding count.
 
+Parity reporting separates finding recall from observable signal coverage. A
+risk or opportunity may demonstrate that Rekon preserved a historical signal,
+but it does not count as a finding. Assessment usefulness and finding precision
+remain separately adjudicated quality measures.
+
 The private-corpus benchmark writes a detailed local report and a sanitized
 aggregate report. Operator adjudications remain external to the repository.
 When labels are absent, precision, usefulness, severity calibration, and

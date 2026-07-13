@@ -1,12 +1,16 @@
 // Pure classification core for the classic-parity-bench (Phase 0). No I/O.
 //
-// Classifies every normalized classic finding against Rekon's FindingReport /
-// FindingFilterReport for the same repo:
+// Classifies every normalized classic finding against Rekon's FindingReport,
+// AssessmentReport, and FindingFilterReport for the same repo:
 //
 //   matched              - a ported (or redesigned-with-rekonRuleId) rule's
 //                          Rekon finding matches on (rekonRuleId, normalized
 //                          file), falling back to (rekonRuleId, subject) when
 //                          classic carries no file.
+//   matched-assessment   - a coverage-scored redesign emitted the same signal
+//                          as a risk or opportunity rather than a finding.
+//                          Reported separately and never counted as finding
+//                          recall.
 //   missed-gap           - no match and no citable justification. This is the
 //                          undecided queue (empty once every rule carries a
 //                          pinned disposition).
@@ -27,8 +31,9 @@
 //                          with rationale.
 //   new                  - Rekon findings classic never produced.
 //
-// Weighted recall = sum fireCount(matched + missed-intentional) / sum
-// fireCount(all non-rejected classic findings). Matching is deterministic key
+// Weighted finding recall = sum fireCount(matched + missed-intentional) / sum
+// fireCount(all non-rejected classic findings). Weighted observable coverage
+// additionally credits matched-assessment. Matching is deterministic key
 // equality (no semantic / fuzzy / embedding matching), consistent with the
 // issue-governance ADR posture. Disposition semantics are authorized by
 // docs/strategy/detection-quality.md.
@@ -134,12 +139,12 @@ function pushKey(index, key, value) {
   }
 }
 
-function buildRekonIndex(rekonFindings) {
+function buildRekonIndex(records) {
   const index = new Map();
 
-  rekonFindings.forEach((finding, position) => {
-    for (const rule of rekonRuleKeys(finding)) {
-      for (const file of finding.files ?? []) {
+  records.forEach((record, position) => {
+    for (const rule of rekonRuleKeys(record)) {
+      for (const file of record.files ?? []) {
         const normalized = normalizePath(file);
 
         if (normalized) {
@@ -147,7 +152,7 @@ function buildRekonIndex(rekonFindings) {
         }
       }
 
-      for (const subject of finding.subjects ?? []) {
+      for (const subject of record.subjects ?? []) {
         if (typeof subject === "string" && subject.length > 0) {
           pushKey(index, subjectKey(rule, subject), position);
         }
@@ -209,7 +214,15 @@ function findFilterHit(filteredFindings, rekonRuleId, classic) {
  * Throws when the corpus observes a classic rule id with no rule-map row -
  * the bench fails loudly rather than silently scoring unmapped rules.
  */
-export function classifyParity({ classicFindings, rekonFindings = [], filteredFindings = [], ruleMap, overruled = [], suppressedFindings = [] }) {
+export function classifyParity({
+  classicFindings,
+  rekonFindings = [],
+  rekonAssessments = [],
+  filteredFindings = [],
+  ruleMap,
+  overruled = [],
+  suppressedFindings = [],
+}) {
   validateRuleMap(ruleMap);
 
   // Per-finding operator overrules. Keyed by baseline finding id;
@@ -227,6 +240,7 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
   }
 
   const index = buildRekonIndex(rekonFindings);
+  const assessmentIndex = buildRekonIndex(rekonAssessments);
   const matchedRekon = new Set();
 
   const rows = classicFindings.map((classic) => {
@@ -280,6 +294,25 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
         }
       }
 
+      // Coverage-scored redesigns may intentionally preserve a historical
+      // signal as a risk or opportunity. Keep that visible without treating
+      // the assessment as a finding match.
+      if (disposition.status === "redesigned" && disposition.scoring === "coverage") {
+        for (const rekonRuleId of effectiveIds) {
+          for (const key of classicMatchKeys(rekonRuleId, classic)) {
+            const hits = assessmentIndex.get(key);
+
+            if (hits && hits.length > 0) {
+              return {
+                classic,
+                classification: "matched-assessment",
+                matchedRekonAssessmentIds: hits.map((position) => rekonAssessments[position].id),
+              };
+            }
+          }
+        }
+      }
+
       let filterHit;
       for (const rekonRuleId of effectiveIds) {
         filterHit = findFilterHit(filteredFindings, rekonRuleId, classic);
@@ -318,26 +351,38 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
       continue;
     }
 
-    const entry = coverageByRule.get(row.classic.ruleId) ?? { classicFiles: new Set(), coveredFiles: new Set() };
+    const entry = coverageByRule.get(row.classic.ruleId) ?? {
+      classicFiles: new Set(),
+      findingCoveredFiles: new Set(),
+      assessmentCoveredFiles: new Set(),
+    };
 
     for (const file of row.classic.files ?? []) {
       entry.classicFiles.add(file);
 
       if (row.classification === "matched") {
-        entry.coveredFiles.add(file);
+        entry.findingCoveredFiles.add(file);
+      } else if (row.classification === "matched-assessment") {
+        entry.assessmentCoveredFiles.add(file);
       }
     }
 
     coverageByRule.set(row.classic.ruleId, entry);
   }
 
-  const coverage = [...coverageByRule.entries()].map(([ruleId, entry]) => ({
-    ruleId,
-    rekonRuleId: effectiveRekonRuleIds(ruleMap[ruleId]).join("+") || null,
-    classicFiles: entry.classicFiles.size,
-    coveredFiles: entry.coveredFiles.size,
-    coverage: entry.classicFiles.size === 0 ? 0 : entry.coveredFiles.size / entry.classicFiles.size,
-  })).sort((a, b) => a.ruleId.localeCompare(b.ruleId));
+  const coverage = [...coverageByRule.entries()].map(([ruleId, entry]) => {
+    const coveredFiles = new Set([...entry.findingCoveredFiles, ...entry.assessmentCoveredFiles]);
+
+    return {
+      ruleId,
+      rekonRuleId: effectiveRekonRuleIds(ruleMap[ruleId]).join("+") || null,
+      classicFiles: entry.classicFiles.size,
+      findingCoveredFiles: entry.findingCoveredFiles.size,
+      assessmentCoveredFiles: entry.assessmentCoveredFiles.size,
+      coveredFiles: coveredFiles.size,
+      coverage: entry.classicFiles.size === 0 ? 0 : coveredFiles.size / entry.classicFiles.size,
+    };
+  }).sort((a, b) => a.ruleId.localeCompare(b.ruleId));
 
   // Precision against the labeled-negative
   // set. Fire on kept, silent on suppressed. A suppressed finding whose
@@ -405,7 +450,8 @@ export function classifyParity({ classicFindings, rekonFindings = [], filteredFi
 }
 
 /**
- * Weighted recall over classification rows. Empty input scores 1 (vacuous).
+ * Weighted finding recall over classification rows. Empty input scores 1
+ * (vacuous).
  * Rejected rows are excluded from the denominator (and reported in
  * rejectedWeight); redesigned/deferred misses stay in the denominator,
  * uncredited.
@@ -442,6 +488,32 @@ export function computeWeightedRecall(rows) {
     rejectedWeight,
     overruledWeight,
     recall: totalWeight === 0 ? 1 : creditedWeight / totalWeight,
+  };
+}
+
+/**
+ * Weighted visibility of a historical signal across findings, intentional
+ * finding suppressions, and coverage-scored assessments.
+ */
+export function computeWeightedSignalCoverage(rows) {
+  const findingRecall = computeWeightedRecall(rows);
+  let assessmentWeight = 0;
+
+  for (const row of rows) {
+    if (row.classification === "matched-assessment") {
+      assessmentWeight += Number.isFinite(row.classic.fireCount) && row.classic.fireCount > 0
+        ? row.classic.fireCount
+        : 1;
+    }
+  }
+
+  const creditedWeight = findingRecall.creditedWeight + assessmentWeight;
+
+  return {
+    ...findingRecall,
+    assessmentWeight,
+    creditedWeight,
+    recall: findingRecall.totalWeight === 0 ? 1 : creditedWeight / findingRecall.totalWeight,
   };
 }
 
@@ -517,6 +589,7 @@ function countBy(rows, classify) {
 export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
   const allRows = repos.flatMap((repo) => repo.rows);
   const aggregate = computeWeightedRecall(allRows);
+  const signalCoverage = computeWeightedSignalCoverage(allRows);
   const gapByRule = new Map();
   const redesignedByRule = new Map();
   const deferredByRule = new Map();
@@ -586,6 +659,7 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
     corpusRoot,
     aggregate: {
       ...aggregate,
+      signalCoverage,
       classified: Object.fromEntries(countBy(allRows, (row) => row.classification)),
       newFindings: repos.reduce((sum, repo) => sum + repo.newFindings.length, 0),
     },
@@ -599,6 +673,8 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
       ruleId: entry.ruleId,
       rekonRuleId: entry.rekonRuleId,
       classicFiles: (acc?.classicFiles ?? 0) + entry.classicFiles,
+      findingCoveredFiles: (acc?.findingCoveredFiles ?? 0) + entry.findingCoveredFiles,
+      assessmentCoveredFiles: (acc?.assessmentCoveredFiles ?? 0) + entry.assessmentCoveredFiles,
       coveredFiles: (acc?.coveredFiles ?? 0) + entry.coveredFiles,
     })).map((entry) => ({
       ...entry,
@@ -619,6 +695,7 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
       classicFindings: repo.rows.length,
       rekonFindings: repo.rekonFindingCount,
       recall: computeWeightedRecall(repo.rows),
+      signalCoverage: computeWeightedSignalCoverage(repo.rows),
       classified: Object.fromEntries(countBy(repo.rows, (row) => row.classification)),
       newFindings: repo.newFindings.length,
       rows: repo.rows.map((row) => ({
@@ -629,6 +706,7 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
         classification: row.classification,
         ...(row.citation ? { citation: row.citation } : {}),
         ...(row.matchedRekonIds ? { matchedRekonIds: row.matchedRekonIds } : {}),
+        ...(row.matchedRekonAssessmentIds ? { matchedRekonAssessmentIds: row.matchedRekonAssessmentIds } : {}),
       })),
     })),
   };
@@ -646,7 +724,9 @@ export function renderMarkdownReport(report) {
   lines.push("");
   lines.push(`Generated: ${report.generatedAt} - Corpus: ${report.corpusRoot} - Repos: ${report.repos.length}`);
   lines.push("");
-  lines.push(`## Weighted recall: ${formatRecall(report.aggregate)}`);
+  lines.push(`## Weighted finding recall: ${formatRecall(report.aggregate)}`);
+  lines.push("");
+  lines.push(`## Weighted observable signal coverage: ${formatRecall(report.aggregate.signalCoverage)}`);
   lines.push("");
 
   if (report.aggregate.rejectedWeight > 0) {
@@ -752,12 +832,12 @@ export function renderMarkdownReport(report) {
   if ((report.coverage ?? []).length === 0) {
     lines.push("None.");
   } else {
-    lines.push("| Classic rule | Rekon rule | Classic files | Covered | Coverage |");
-    lines.push("| --- | --- | --- | --- | --- |");
+    lines.push("| Classic rule | Rekon rule | Classic files | Finding-covered | Assessment-covered | Covered | Coverage |");
+    lines.push("| --- | --- | --- | --- | --- | --- | --- |");
 
     for (const entry of report.coverage) {
       lines.push(
-        `| ${entry.ruleId} | ${entry.rekonRuleId ?? "-"} | ${entry.classicFiles} | ${entry.coveredFiles} | ${(entry.coverage * 100).toFixed(1)}% |`,
+        `| ${entry.ruleId} | ${entry.rekonRuleId ?? "-"} | ${entry.classicFiles} | ${entry.findingCoveredFiles} | ${entry.assessmentCoveredFiles} | ${entry.coveredFiles} | ${(entry.coverage * 100).toFixed(1)}% |`,
       );
     }
   }
@@ -797,12 +877,12 @@ export function renderMarkdownReport(report) {
   lines.push("");
   lines.push("## Per-repo");
   lines.push("");
-  lines.push("| Repo | Classic findings | Rekon findings | Recall | New |");
-  lines.push("| --- | --- | --- | --- | --- |");
+  lines.push("| Repo | Classic findings | Rekon findings | Finding recall | Signal coverage | New |");
+  lines.push("| --- | --- | --- | --- | --- | --- |");
 
   for (const repo of report.repos) {
     lines.push(
-      `| ${repo.id} | ${repo.classicFindings} | ${repo.rekonFindings} | ${formatRecall(repo.recall)} | ${repo.newFindings} |`,
+      `| ${repo.id} | ${repo.classicFindings} | ${repo.rekonFindings} | ${formatRecall(repo.recall)} | ${formatRecall(repo.signalCoverage)} | ${repo.newFindings} |`,
     );
   }
 
