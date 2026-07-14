@@ -52,6 +52,9 @@ Intent assessment accepts `bug`, `feature`, `refactor`, `investigation`,
 `migration`, and `documentation`. Verification proof is opt-in through the
 `--verification-plan`, `--verification-run`, and `--verification-result`
 flags; unrelated historical proof is not selected automatically.
+`intent prepare` preserves that boundary: it accepts an explicit
+`--verification-result` or a result already cited by the selected assessment,
+never the unrelated latest result in the store.
 
 `rekon artifacts freshness` prints a concise stale/partial summary by default
 and returns the complete issue structure with `--json`.

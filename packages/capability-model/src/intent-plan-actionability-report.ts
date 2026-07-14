@@ -175,7 +175,7 @@ const REFACTOR_SIGNAL_RE = /\brefactor\b/i;
 const INVESTIGATE_SIGNAL_RE = /\b(investigate|research|explore|audit|analy[sz]e|inspect)\b/i;
 const REVIEW_SIGNAL_RE = /\breview\b/i;
 const VERIFY_SIGNAL_RE = /\b(verify|verification|validate|final verify|final verification)\b/i;
-const READ_ONLY_SOURCE_RE = /\b(no source changes? (?:are )?expected|do not change source(?: files?)?(?: unless verification finds a real issue)?|do not modify source(?: files?)?|read[- ]only|inspect only|verify final tree|final source tree)\b/i;
+const READ_ONLY_SOURCE_RE = /\b(no source changes? (?:are )?expected|do not change (?:source )?files?(?: unless (?:verification )?finds? (?:a )?real (?:documentation )?(?:defect|issue))?|do not modify (?:source )?files?|read[- ]only|inspect only|verify final tree|final source tree)\b/i;
 
 function normalizePhaseKindValue(value: string): IntentPlanPhaseDraftKind | null {
   const normalized = value.trim().toLowerCase().replace(/[_\s-]+/g, "-");
@@ -240,11 +240,12 @@ function touchedPathCoversToken(path: string, token: string): boolean {
 
 function stripReadOnlySourcePhrases(text: string): string {
   return text
+    .replace(/\bdo not (?:change|modify)\b[^,.;!?]*/gi, " ")
     .replace(/\bverify final tree\b/gi, " ")
     .replace(/\bfinal source tree\b/gi, " ")
     .replace(/\bno source changes? (?:are )?expected\b/gi, " ")
-    .replace(/\bdo not change source(?: files?)?(?: unless verification finds a real issue)?\b/gi, " ")
-    .replace(/\bdo not modify source(?: files?)?\b/gi, " ")
+    .replace(/\bdo not change (?:source )?files?(?: unless (?:verification )?finds? (?:a )?real (?:documentation )?(?:defect|issue))?\b/gi, " ")
+    .replace(/\bdo not modify (?:source )?files?\b/gi, " ")
     .replace(/\bread[- ]only\b/gi, " ")
     .replace(/\binspect only\b/gi, " ");
 }
@@ -445,6 +446,7 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
   const verificationCommands: string[] = [];
   const evidenceArtifacts: string[] = [];
   const constraints: string[] = [];
+  const inlinePathLines: string[] = [];
   const metadata: PhaseMetadata = { invalid: [] };
   let currentField: FieldKey | null = null;
   const listContinuationState: { target: ListContinuationTarget | null } = { target: null };
@@ -530,6 +532,9 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
       }
       currentField = classifyFieldHeading(headingText);
       continue;
+    }
+    if (currentField !== "operator-inspection") {
+      inlinePathLines.push(line);
     }
     const bulletMatch = BULLET_RE.exec(line);
     const content = bulletMatch ? bulletMatch[1] ?? "" : line.trim();
@@ -624,11 +629,13 @@ function parsePhaseRegion(region: ParsedPhaseRegion, order: number): IntentPlanP
 
   // Inline path extraction: literal path-like tokens that actually appear in the
   // region. This extracts, never invents.
-  const regionText = region.lines.join("\n");
-  const inlinePaths = regionText.match(PATH_TOKEN_RE) ?? [];
-  for (const token of inlinePaths) {
-    if (!/\.(md|txt)$/i.test(token) && !touchedPaths.some((path) => touchedPathCoversToken(path, token))) {
-      touchedPaths.push(token);
+  const regionText = inlinePathLines.join("\n");
+  if (touchedPaths.length === 0) {
+    const inlinePaths = regionText.match(PATH_TOKEN_RE) ?? [];
+    for (const token of inlinePaths) {
+      if (!/\.(md|txt)$/i.test(token) && !touchedPaths.some((path) => touchedPathCoversToken(path, token))) {
+        touchedPaths.push(token);
+      }
     }
   }
 

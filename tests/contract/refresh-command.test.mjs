@@ -243,6 +243,19 @@ test("a new intent ignores stale publication and proof lineage from a prior inte
     const historicalProofRef = proof.artifacts.find((ref) => ref.type === "Publication");
     assert.ok(historicalProofRef);
 
+    const firstContext = JSON.parse(
+      runCli(["intent", "context", "prepare", "--root", root, "--json"]).stdout,
+    );
+    assert.ok(firstContext.steps.every((step) => step.status === "passed"));
+    const historicalStepGraphRef = runCli([
+      "artifacts", "latest",
+      "--root", root,
+      "--type", "StepCapabilityGraph",
+      "--id-only",
+    ]).stdout.trim();
+    assert.match(historicalStepGraphRef, /^StepCapabilityGraph:step-capability-graph-/);
+    const historicalStepGraphId = historicalStepGraphRef.slice("StepCapabilityGraph:".length);
+
     const sourcePath = join(root, "src", "index.ts");
     const sourceBeforeSecondIntent = await readFile(sourcePath, "utf8");
     await writeFile(
@@ -260,6 +273,23 @@ test("a new intent ignores stale publication and proof lineage from a prior inte
     assert.equal(publicationFreshness.length, 1);
     assert.match(publicationFreshness[0].id, /^architecture-summary-/);
     assert.notEqual(publicationFreshness[0].id, historicalProofRef.id);
+
+    const secondSnapshotRef = secondRefresh.artifacts.find(
+      (ref) => ref.type === "IntelligenceSnapshot",
+    );
+    assert.ok(secondSnapshotRef);
+    const secondSnapshot = JSON.parse(runCli([
+      "artifacts", "show", `IntelligenceSnapshot:${secondSnapshotRef.id}`,
+      "--root", root,
+      "--json",
+    ]).stdout).artifact;
+    assert.equal(
+      secondSnapshot.header.inputRefs.some(
+        (ref) => ref.type === "StepCapabilityGraph" && ref.id === historicalStepGraphId,
+      ),
+      false,
+      "the second scan snapshot must not inherit the prior intent context graph",
+    );
 
     const publications = JSON.parse(
       runCli(["artifacts", "list", "--root", root, "--type", "Publication", "--json"]).stdout,
@@ -306,6 +336,24 @@ test("a new intent ignores stale publication and proof lineage from a prior inte
     assert.ok(secondAssessment.warnings.some((warning) => warning.id === "proof:missing"));
     assert.equal(secondAssessment.warnings.some((warning) => warning.id === "proof:incomplete"), false);
 
+    const secondPreparedOutput = JSON.parse(runCli([
+      "intent", "prepare",
+      "--root", root,
+      "--assessment", `IntentAssessmentReport:${secondIntent.artifact.id}`,
+      "--json",
+    ]).stdout);
+    const secondPrepared = JSON.parse(runCli([
+      "artifacts", "show", `PreparedIntentPlan:${secondPreparedOutput.artifact.id}`,
+      "--root", root,
+      "--json",
+    ]).stdout).artifact;
+    assert.equal(
+      secondPrepared.header.inputRefs.some((ref) => ref.type === "VerificationResult"),
+      false,
+      "prepare must not select unrelated historical proof",
+    );
+    assert.deepEqual(secondPrepared.approval.proof.verification.verificationRefs, []);
+
     const explicitIntent = JSON.parse(runCli([
       "intent", "assess",
       "--root", root,
@@ -328,6 +376,24 @@ test("a new intent ignores stale publication and proof lineage from a prior inte
       (ref) => ref.type === "VerificationPlan" && ref.id === firstPlan.id,
     ));
     assert.ok(explicitAssessment.warnings.some((warning) => warning.id === "proof:incomplete"));
+
+    const explicitPreparedOutput = JSON.parse(runCli([
+      "intent", "prepare",
+      "--root", root,
+      "--assessment", `IntentAssessmentReport:${explicitIntent.artifact.id}`,
+      "--json",
+    ]).stdout);
+    const explicitPrepared = JSON.parse(runCli([
+      "artifacts", "show", `PreparedIntentPlan:${explicitPreparedOutput.artifact.id}`,
+      "--root", root,
+      "--json",
+    ]).stdout).artifact;
+    assert.ok(explicitPrepared.header.inputRefs.some(
+      (ref) => ref.type === "VerificationResult" && ref.id === partialResult.artifact.id,
+    ));
+    assert.ok(explicitPrepared.approval.proof.verification.verificationRefs.some(
+      (ref) => ref.type === "VerificationResult" && ref.id === partialResult.artifact.id,
+    ));
   });
 });
 

@@ -31,6 +31,10 @@ timestamps, filenames, repository roots, or goal text.
 select proof for the assessment. Unselected historical proof remains available
 through the artifact registry but is not attached automatically.
 
+`rekon intent prepare` may consume an explicit `--verification-result` or the
+result already cited by its selected assessment. It does not fall back to the
+store's latest unrelated result.
+
 ## Produced By
 
 - `rekon intent status`

@@ -528,6 +528,39 @@ test("snapshot retains the latest member of every supersession family and declar
   }
 });
 
+test("snapshot explicit members exclude historical optional projections", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-snapshot-explicit-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [evidenceCapability()],
+      logger: silentLogger,
+    });
+    const firstEvidence = await runtime.runObserve();
+    const historicalGraphRef = await runtime.artifacts.write({
+      header: testHeader("StepCapabilityGraph", "step-graph-historical", [firstEvidence]),
+      steps: [],
+      edges: [],
+    }, { category: "graphs" });
+    const currentEvidence = await runtime.runObserve();
+
+    const snapshotRef = await runtime.runSnapshot({ artifactRefs: [currentEvidence] });
+    const snapshot = await runtime.artifacts.read(snapshotRef);
+
+    assert.equal(snapshot.projections.StepCapabilityGraph, undefined);
+    assert.equal(
+      snapshot.header.inputRefs.some((ref) => ref.id === historicalGraphRef.id),
+      false,
+    );
+    assert.equal(snapshot.status.freshness, "fresh");
+    assert.equal((await runtime.artifacts.read(historicalGraphRef)).header.artifactId, historicalGraphRef.id);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("snapshot selection uses indexed supersession keys without reading keyed upper-layer history", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-runtime-snapshot-index-keys-"));
 

@@ -7,9 +7,23 @@ All notable changes to Rekon are documented here.
 - Prevented refresh publications and new intent assessments from implicitly
   selecting WorkOrder or verification proof from an earlier intent. Historical
   artifacts remain inspectable, and explicit refs remain authoritative.
+- Prevented intent preparation from selecting the latest unrelated
+  VerificationResult. Prepare now uses only explicit proof or proof already
+  cited by its selected assessment.
+- Restricted scan/refresh snapshots to artifacts produced by the current run,
+  preventing stale optional context graphs from an earlier intent from making
+  a new repository scan stale. Direct snapshot calls retain store-wide family
+  selection unless they pass explicit artifact refs.
 - Added `documentation` to the shared intent task-kind contract and preserved
   it through assessment, preparation, status, WorkOrder, VerificationPlan, and
   generated phase bundles.
+- Documentation verification phases now recognize conditional read-only
+  language such as "do not change files unless a real documentation defect is
+  found" and retain a forbidden source-change policy.
+- Post-run operator inspection commands no longer contribute path tokens to a
+  plan phase's worker scope.
+- Explicit phase scope and Expected Changed Files now take precedence over
+  reference-only paths mentioned in evidence text.
 - VerificationPlan handoff generation now preserves supported command flags
   and npm separators verbatim. Unsafe or unsupported commands block generation
   with a typed issue instead of being omitted. Mixed plan answers keep prose as

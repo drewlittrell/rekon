@@ -432,6 +432,85 @@ test("phase classification: final verify with no source changes is verify/forbid
   assert.equal(phase.classification.source, "objective");
 });
 
+test("phase classification: documentation verification with conditional defect language is verify/forbidden", async () => {
+  const report = await build(PLAN_WITH({
+    title: "Verify documentation accuracy",
+    body: `Objective: Verify the documentation against the current CLI source and command help. Do not change files unless a real documentation defect is found, and do not change runtime behavior.
+
+### Deliverables
+- Documentation review notes
+
+### Acceptance Criteria
+- Documentation matches the current CLI
+
+### Scope
+- docs/cli-reference.md
+
+### Verification Commands
+- npm run cli -- --help
+`,
+  }));
+  const phase = report.normalizedPhases[0];
+  assert.equal(phase.kind, "verify");
+  assert.equal(phase.sourceChange, "forbidden");
+  assert.equal(phase.classification.source, "objective");
+});
+
+test("operator inspection commands do not become phase touched paths", async () => {
+  const report = await build(`# Documentation plan
+
+## Phase 1: Verify documentation accuracy
+
+### Objective
+Verify the documentation without changing tracked files.
+
+### Deliverables
+- Documentation review notes
+
+### Acceptance Criteria
+- Documentation matches the CLI
+
+### Scope
+- docs/cli-reference.md
+
+### Verification Commands
+- npm run cli -- --help
+
+## Operator Inspection After Run
+- circe plans report documentation-plan --workflow WORKFLOW.local.md --json
+`);
+  const phase = report.normalizedPhases[0];
+  assert.ok(phase.touchedPaths.includes("docs/cli-reference.md"));
+  assert.equal(phase.touchedPaths.some((path) => path.includes("WORKFLOW.local")), false);
+});
+
+test("explicit changed-file scope excludes reference-only evidence paths", async () => {
+  const report = await build(`# Documentation plan
+
+## Phase 1: Document CLI behavior
+
+### Objective
+Document the CLI behavior without changing runtime behavior.
+
+### Deliverables
+- CLI reference
+
+### Acceptance Criteria
+- Documentation matches the implementation
+
+### Expected Changed Files
+- README.md
+- docs/cli-reference.md
+
+### Evidence Gate
+- Command names and defaults match src/cli.ts
+`);
+  const phase = report.normalizedPhases[0];
+  assert.ok(phase.touchedPaths.includes("README.md"));
+  assert.ok(phase.touchedPaths.includes("docs/cli-reference.md"));
+  assert.equal(phase.touchedPaths.includes("src/cli.ts"), false);
+});
+
 // --- 25. explicit Source Change required overrides verify/test wording ---
 test("phase classification: explicit Source Change required overrides verify wording", async () => {
   const report = await build(PLAN_WITH({

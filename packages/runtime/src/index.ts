@@ -216,6 +216,10 @@ export type EvaluateOptions = {
   input?: Record<string, unknown>;
 };
 
+export type SnapshotOptions = {
+  artifactRefs?: readonly ArtifactRef[];
+};
+
 export type PublishOptions = {
   publisherId?: string;
   input?: Record<string, unknown>;
@@ -236,7 +240,7 @@ export type Runtime = RuntimeContext & {
   runObserve(options?: ObserveOptions): Promise<ArtifactRef>;
   runProject(options?: ProjectOptions): Promise<ArtifactRef[]>;
   runEvaluate(options?: EvaluateOptions): Promise<ArtifactRef[]>;
-  runSnapshot(): Promise<ArtifactRef>;
+  runSnapshot(options?: SnapshotOptions): Promise<ArtifactRef>;
   runResolve(options?: ResolveOptions): Promise<ArtifactRef[]>;
   runPublish(options?: PublishOptions): Promise<ArtifactRef[]>;
   runLearn(options?: LearnOptions): Promise<ArtifactRef[]>;
@@ -382,8 +386,8 @@ export async function createRuntime(options: RuntimeOptions): Promise<Runtime> {
     async runEvaluate(evaluateOptions = {}) {
       return runEvaluate(context, registry.snapshot(), evaluateOptions);
     },
-    async runSnapshot() {
-      return runSnapshot(context);
+    async runSnapshot(snapshotOptions = {}) {
+      return runSnapshot(context, snapshotOptions);
     },
     async runResolve(resolveOptions = {}) {
       return runResolve(context, registry.snapshot(), resolveOptions);
@@ -2451,8 +2455,12 @@ async function createObserveInvalidationBaseline(
   };
 }
 
-export async function runSnapshot(context: RuntimeContext): Promise<ArtifactRef> {
-  const artifacts = await context.artifacts.list();
+export async function runSnapshot(
+  context: RuntimeContext,
+  options: SnapshotOptions = {},
+): Promise<ArtifactRef> {
+  const indexedArtifacts = await context.artifacts.list();
+  const artifacts = selectSnapshotEntries(indexedArtifacts, options.artifactRefs);
   const indexValidation = await validateArtifactIndex(context.artifacts);
   const members = await groupCurrentSnapshotRefs(context.artifacts, artifacts);
   const inputRefs = snapshotLineageRefs(members);
@@ -3329,6 +3337,29 @@ type SnapshotMembers = Pick<
   IntelligenceSnapshot,
   "inputs" | "projections" | "evaluations" | "publications" | "actions"
 >;
+
+function selectSnapshotEntries(
+  entries: ArtifactIndexEntry[],
+  refs: readonly ArtifactRef[] | undefined,
+): ArtifactIndexEntry[] {
+  if (!refs) return entries;
+
+  const entriesByKey = new Map(
+    entries.map((entry) => [`${entry.type}:${entry.id}`, entry]),
+  );
+  const selected = new Map<string, ArtifactIndexEntry>();
+
+  for (const ref of refs) {
+    const key = `${ref.type}:${ref.id}`;
+    const entry = entriesByKey.get(key);
+    if (!entry) {
+      throw new Error(`Snapshot member ${key} is not indexed.`);
+    }
+    selected.set(key, entry);
+  }
+
+  return [...selected.values()];
+}
 
 async function groupCurrentSnapshotRefs(
   store: ArtifactStore,

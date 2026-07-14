@@ -6634,6 +6634,38 @@ export async function main(argv: string[]): Promise<void> {
       return { ref, value };
     };
 
+    const resolveAssessmentProofWithValue = async <T>(
+      flagName: string,
+      type: string,
+    ): Promise<{ ref?: ArtifactRef; value?: T }> => {
+      const flag = typeof parsed.flags[flagName] === "string" ? parsed.flags[flagName].trim() : "";
+      let entry: ArtifactIndexEntry | undefined;
+
+      if (flag.length > 0) {
+        entry = await findArtifactEntry(store, flag);
+        if (entry.type !== type) {
+          throw new Error(`rekon intent prepare --${flagName} must reference a ${type}; got ${entry.type}.`);
+        }
+      } else {
+        const cited = [...(assessmentValue.header?.inputRefs ?? [])]
+          .reverse()
+          .find((ref) => ref.type === type);
+        if (cited) {
+          entry = await findArtifactEntry(store, `${type}:${cited.id}`);
+        }
+      }
+
+      if (!entry) return {};
+      const ref: ArtifactRef = {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion ?? "0.1.0",
+      };
+      return { ref, value: (await store.read(entry)) as T };
+    };
+
     const capabilityMapRef = await resolveRef("capability-map", "CapabilityMap");
     const capabilityContractRef = await resolveRef("capability-contract", "CapabilityContract");
     const stepGraphRef = await resolveRef("step-graph", "StepCapabilityGraph");
@@ -6641,7 +6673,7 @@ export async function main(argv: string[]): Promise<void> {
     const { ref: handoffCoverageRef, value: handoffCoverageValue } = await resolveRefWithValue<PreparedIntentHandoffCoverageReportLike>("handoff-coverage-report", "HandoffCoverageReport");
     const { ref: driftRef, value: driftValue } = await resolveRefWithValue<PreparedIntentRuntimeDriftReportLike>("runtime-drift-report", "RuntimeGraphDriftReport");
     const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<PreparedIntentPathFreshnessReportLike>("path-freshness-report", "PathFreshnessReport");
-    const { ref: proofRef, value: proofValue } = await resolveRefWithValue<PreparedIntentVerificationResultLike>("verification-result", "VerificationResult");
+    const { ref: proofRef, value: proofValue } = await resolveAssessmentProofWithValue<PreparedIntentVerificationResultLike>("verification-result", "VerificationResult");
 
     // Optional plan-review gate (slice 131). When an IntentPlanActionabilityReport
     // is supplied, prepare RESPECTS it: a non-actionable report BLOCKS preparation
@@ -12406,7 +12438,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   // lineage are current, and before publication so publishers can consume it
   // without a newer snapshot immediately superseding their input.
   try {
-    const ref = await runtime.runSnapshot();
+    const ref = await runtime.runSnapshot({ artifactRefs: [...allArtifacts] });
     steps.push({ id: "snapshot", status: "passed", artifacts: recordArtifacts(ref) });
   } catch (error) {
     steps.push({ id: "snapshot", status: "failed", message: messageOf(error) });

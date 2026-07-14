@@ -58,6 +58,12 @@ same time. Snapshot header lineage contains the selected inputs, projections,
 and evaluations. Publications and actions are indexed for discoverability but
 remain upper-layer outputs, not snapshot dependencies.
 
+`runSnapshot({ artifactRefs })` restricts membership to an explicit candidate
+set. The scan/refresh lifecycle uses this form so a current repository scan
+does not inherit optional context or intent artifacts from an earlier run.
+Omitting the option preserves the store-wide latest-family behavior for direct
+snapshot callers.
+
 New index entries cache `header.supersession.key` as `supersessionKey` and use
 `null` for type-wide streams. Header/index agreement is validated. Store
 initialization backfills valid legacy entries; unreadable entries remain
