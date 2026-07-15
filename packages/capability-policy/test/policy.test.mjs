@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
-import policyCapability, { evaluateDependencyAuditReports } from "../dist/index.js";
+import policyCapability, {
+  applyAssessmentJudgments,
+  evaluateDependencyAuditReports,
+  evaluateSemanticFileCandidates,
+} from "../dist/index.js";
+import {
+  assessmentJudgmentSignature,
+  createAssessmentJudgmentReport,
+} from "@rekon/kernel-assessments";
 import { createRuntime } from "@rekon/runtime";
 
 const silentLogger = { info() {}, warn() {}, error() {} };
@@ -151,4 +160,128 @@ test("dependency advisory impact preserves scanner severity while accounting for
   assert.equal(byPackage.get("package-dev-transitive").details.developmentOnly, true);
   assert.match(byPackage.get("package-dev-transitive").confidence.rationale, /caps repository impact at medium/);
   assert.equal(byPackage.has("package-umbrella"), false, "an umbrella row without its own advisory is evidence, not another risk");
+});
+
+test("semantic file findings become candidates only when their digest and excerpts match current source", () => {
+  const text = "export function valid(value) {\n  return value.length > 0;\n}\n";
+  const source = {
+    path: "src/valid.ts",
+    text,
+    sha256: createHash("sha256").update(text).digest("hex"),
+  };
+  const ref = { type: "SemanticFileUnderstandingReport", id: "semantic-current", schemaVersion: "0.1.0" };
+  const report = {
+    header: { generatedAt: "2026-07-15T00:00:00.000Z" },
+    file: { path: source.path, sha256: source.sha256 },
+    normalizationTrace: { method: "semantic-llm", provider: "mock", model: "mock-model" },
+    findings: [{
+      id: "possible-empty-input",
+      severity: "medium",
+      message: "The function assumes value has a length property.",
+      sourceEvidence: ["return value.length > 0;"],
+      suggestedFollowUp: "Verify the caller contract.",
+    }],
+  };
+
+  const assessments = evaluateSemanticFileCandidates(report, ref, source);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].kind, "semantic_claim");
+  assert.equal(assessments[0].details.sourceEvidence[0].lineStart, 2);
+  assert.equal(evaluateSemanticFileCandidates({ ...report, file: { ...report.file, sha256: "stale" } }, ref, source).length, 0);
+  assert.equal(evaluateSemanticFileCandidates({
+    ...report,
+    findings: [{ ...report.findings[0], sourceEvidence: ["invented source"] }],
+  }, ref, source).length, 0);
+});
+
+test("current high-confidence judgments confirm or reject matching candidates without mutating unrelated assessments", () => {
+  const evidence = { type: "EvidenceGraph", id: "evidence-1", schemaVersion: "0.1.0" };
+  const sourceAssessmentRef = { type: "AssessmentReport", id: "assessment-source", schemaVersion: "0.1.0" };
+  const judgmentRef = { type: "AssessmentJudgmentReport", id: "judgment-1", schemaVersion: "0.1.0" };
+  const base = {
+    kind: "risk",
+    type: "events.inverseListenerDelegation",
+    impact: "high",
+    title: "Cleanup registers another listener",
+    description: "The cleanup wrapper calls the registration API.",
+    subjects: ["src/listener.ts"],
+    files: ["src/listener.ts"],
+    evidence: [evidence],
+    confidence: { score: 0.8, basis: "deterministic", verification: "unverified" },
+  };
+  const confirmed = { ...base, id: "risk:confirmed", rootCauseKey: "events:confirmed" };
+  const rejected = { ...base, id: "risk:rejected", rootCauseKey: "events:rejected" };
+  const unrelated = { ...base, id: "risk:unrelated", rootCauseKey: "events:unrelated" };
+  const sourceEvidence = {
+    path: "src/listener.ts",
+    sha256: "abc123",
+    lineStart: 4,
+    lineEnd: 4,
+    excerpt: "target.addEventListener(type, listener);",
+  };
+  const report = createAssessmentJudgmentReport({
+    header: {
+      artifactType: "AssessmentJudgmentReport",
+      artifactId: judgmentRef.id,
+      schemaVersion: "0.1.0",
+      generatedAt: "2026-07-15T00:00:00.000Z",
+      subject: { repoId: "fixture" },
+      producer: { id: "mock.judge", version: "1.0.0" },
+      inputRefs: [sourceAssessmentRef, evidence],
+      freshness: { status: "fresh" },
+      provenance: { confidence: 0.9 },
+    },
+    sourceAssessmentRef,
+    policy: {
+      mode: "auto",
+      provider: "mock",
+      model: "mock-model",
+      promptVersion: "assessment-judge-v1",
+      coercionVersion: "assessment-judgment-v1",
+      maxCandidates: 3,
+      maxSourceChars: 24000,
+    },
+    summary: {
+      candidates: 3,
+      selected: 2,
+      confirmed: 1,
+      rejected: 1,
+      insufficientEvidence: 0,
+      verificationRequired: 0,
+      failed: 0,
+      skipped: 1,
+    },
+    judgments: [
+      {
+        assessmentId: confirmed.id,
+        assessmentSignature: assessmentJudgmentSignature(confirmed),
+        rootCauseKey: confirmed.rootCauseKey,
+        verdict: "confirmed",
+        rationale: "The inverse operation calls addEventListener.",
+        confidence: 0.96,
+        evidence: [sourceEvidence],
+      },
+      {
+        assessmentId: rejected.id,
+        assessmentSignature: assessmentJudgmentSignature(rejected),
+        rootCauseKey: rejected.rootCauseKey,
+        verdict: "rejected",
+        rationale: "The wrapper is a registration helper, not cleanup.",
+        confidence: 0.92,
+        evidence: [sourceEvidence],
+      },
+    ],
+  });
+
+  const applied = applyAssessmentJudgments([confirmed, rejected, unrelated], report, judgmentRef);
+  assert.deepEqual(applied.applied, [confirmed.id]);
+  assert.deepEqual(applied.rejected, [rejected.id]);
+  assert.equal(applied.assessments.length, 2);
+  assert.equal(applied.assessments.find((entry) => entry.id === confirmed.id).confidence.verification, "independently_confirmed");
+  assert.equal(applied.assessments.find((entry) => entry.id === unrelated.id).confidence.verification, "unverified");
+
+  const changed = { ...confirmed, description: "Changed candidate meaning." };
+  const stale = applyAssessmentJudgments([changed], report, judgmentRef);
+  assert.equal(stale.assessments[0].confidence.verification, "unverified");
+  assert.deepEqual(stale.ignored, [confirmed.id]);
 });

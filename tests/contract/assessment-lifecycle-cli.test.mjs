@@ -30,6 +30,7 @@ test("assessments list exposes and filters lifecycle state", async () => {
       assessments: [
         assessment("model", "semantic_claim", "semantic", "unverified"),
         assessment("tool", "risk", "mixed", "corroborated"),
+        assessment("independent", "risk", "mixed", "independently_confirmed"),
       ],
     }), { category: "findings" });
 
@@ -38,7 +39,7 @@ test("assessments list exposes and filters lifecycle state", async () => {
       "assessments",
       "list",
       "--state",
-      "tool_corroborated",
+      "independently_confirmed",
       "--root",
       root,
       "--json",
@@ -47,9 +48,10 @@ test("assessments list exposes and filters lifecycle state", async () => {
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.summary.byState.model_proposed, 1);
     assert.equal(payload.summary.byState.tool_corroborated, 1);
+    assert.equal(payload.summary.byState.independently_confirmed, 1);
     assert.equal(payload.rendered, 1);
-    assert.equal(payload.assessments[0].id, "tool");
-    assert.equal(payload.assessments[0].state, "tool_corroborated");
+    assert.equal(payload.assessments[0].id, "independent");
+    assert.equal(payload.assessments[0].state, "independently_confirmed");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

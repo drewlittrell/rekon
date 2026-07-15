@@ -257,6 +257,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   GraphSlice: "graphs",
   FindingReport: "findings",
   AssessmentReport: "findings",
+  AssessmentJudgmentReport: "findings",
   FindingFilterReport: "findings",
   FindingFilterHealthReport: "findings",
   FindingFilterPolicySuggestionReport: "findings",

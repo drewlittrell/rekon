@@ -205,6 +205,7 @@ import modelCapability, {
 import {
   RekonLlmRouter,
   coercePhaseDrafts,
+  createAnthropicLlmProvider,
   createOpenAiLlmProvider,
   createOpenAiResponsesLlmProvider,
   createVoyageEmbeddingProvider,
@@ -213,7 +214,11 @@ import {
   VOYAGE_DEFAULT_DIMENSIONS,
   type RekonEmbeddingProvider,
 } from "@rekon/llm-provider";
-import policyCapability from "@rekon/capability-policy";
+import policyCapability, {
+  ASSESSMENT_JUDGMENT_COERCION_VERSION,
+  ASSESSMENT_JUDGMENT_PROMPT_VERSION,
+  readCurrentRepoSource,
+} from "@rekon/capability-policy";
 import reconcileCapability, {
   buildReconciliationPreview,
   type ReconciliationPlan,
@@ -304,7 +309,14 @@ import {
   INTENT_TASK_KINDS,
   isIntentTaskKind,
 } from "@rekon/kernel-repo-model";
-import { isAssessmentLifecycleState, type AssessmentReport } from "@rekon/kernel-assessments";
+import {
+  createAssessmentJudgmentReport,
+  isAssessmentLifecycleState,
+  type Assessment,
+  type AssessmentJudgment,
+  type AssessmentJudgmentReport,
+  type AssessmentReport,
+} from "@rekon/kernel-assessments";
 import { type CapabilityDefinition, type CapabilityPermission } from "@rekon/sdk";
 import {
   type FindingReport,
@@ -339,6 +351,15 @@ import {
   createFindingStatusLedger,
   createFindingReport,
 } from "@rekon/kernel-findings";
+import {
+  ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+  buildAssessmentJudgmentPrompt,
+  coerceAssessmentJudgment,
+  judgmentWithoutSource,
+  selectAssessmentJudgmentCandidates,
+  type AssessmentJudgmentAdapterResult,
+  type AssessmentJudgmentSourceContext,
+} from "./assessment-judgment.js";
 
 // Protected agent-instruction filenames. Declared at the top of the module so
 // they are initialized before `main()` runs synchronously during module
@@ -847,9 +868,30 @@ export async function main(argv: string[]): Promise<void> {
     }
 
     // Run the shared substrate pipeline. Model-layer artifacts produced or
-    // reused above are explicit members of this scan's snapshot lineage.
+    // reused above are explicit members of this scan's snapshot lineage. The
+    // independent judge runs after the first policy pass and, when it writes a
+    // judgment report, policy runs once more so current dispositions govern the
+    // final AssessmentReport used by downstream refresh stages.
+    let assessmentJudgmentLayer: AssessmentJudgmentLayerResult | undefined;
     const refresh = await runRefresh(root, {
       seedArtifactRefs: [...semanticDebtLayer.artifacts, ...semanticLayer.artifacts],
+      afterEvaluate: async () => {
+        const judgmentStore = createLocalArtifactStore(root);
+        assessmentJudgmentLayer = await runAssessmentJudgmentLayer({
+          root,
+          store: judgmentStore,
+          mode: semanticDebtMode,
+          llmProvider: semanticLlmProvider,
+          llmModel: semanticDebtLlmModel,
+          llmEffort: semanticDebtEffort,
+        });
+        return {
+          status: assessmentJudgmentLayer.status,
+          artifacts: assessmentJudgmentLayer.artifacts,
+          summary: assessmentJudgmentLayer.summary,
+          ...(assessmentJudgmentLayer.message ? { message: assessmentJudgmentLayer.message } : {}),
+        };
+      },
     });
 
     const detectionStore = createLocalArtifactStore(root);
@@ -884,6 +926,17 @@ export async function main(argv: string[]): Promise<void> {
       refresh,
       semanticFiles: semanticLayer.summary,
       semanticDebt: semanticDebtLayer.summary,
+      assessmentJudgment: assessmentJudgmentLayer?.summary ?? {
+        mode: semanticDebtMode,
+        candidates: 0,
+        selected: 0,
+        confirmed: 0,
+        rejected: 0,
+        insufficientEvidence: 0,
+        verificationRequired: 0,
+        failed: 0,
+        skipped: 0,
+      },
     };
 
     if (json) {
@@ -905,6 +958,16 @@ export async function main(argv: string[]): Promise<void> {
             : `Semantic debt: ${semanticDebtLayer.summary.mode} — ${semanticDebtLayer.summary.judged} judged, ${semanticDebtLayer.summary.filesWithDebt} with debt, ${semanticDebtLayer.summary.reused} reused, ${semanticDebtLayer.summary.skipped} skipped, ${semanticDebtLayer.summary.failed} failed`,
         ...(semanticDebtLayer.message ? [semanticDebtLayer.message] : []),
       ];
+      const assessmentJudgmentHumanLines: string[] = assessmentJudgmentLayer
+        ? [
+            assessmentJudgmentLayer.summary.mode === "off"
+              ? "Assessment judgment: off"
+              : assessmentJudgmentLayer.summary.providerAvailable === false
+                ? `Assessment judgment: ${assessmentJudgmentLayer.summary.mode} — no usable provider/key; candidates remain unjudged`
+                : `Assessment judgment: ${assessmentJudgmentLayer.summary.mode} — ${assessmentJudgmentLayer.summary.confirmed} confirmed, ${assessmentJudgmentLayer.summary.rejected} rejected, ${assessmentJudgmentLayer.summary.verificationRequired} need verification, ${assessmentJudgmentLayer.summary.insufficientEvidence} insufficient`,
+            ...(assessmentJudgmentLayer.message ? [assessmentJudgmentLayer.message] : []),
+          ]
+        : [];
       const scanLines = [
         "Rekon scan",
         "",
@@ -918,6 +981,7 @@ export async function main(argv: string[]): Promise<void> {
         `Model diagnostics: ${detectionSummary.modelDiagnostics}`,
         ...semanticHumanLines,
         ...semanticDebtHumanLines,
+        ...assessmentJudgmentHumanLines,
         firstScan ? "First scan complete." : "Scan complete.",
         "",
         "Next:",
@@ -8284,7 +8348,7 @@ export async function main(argv: string[]): Promise<void> {
     const kind = typeof parsed.flags.kind === "string" ? parsed.flags.kind : undefined;
     const state = typeof parsed.flags.state === "string" ? parsed.flags.state : undefined;
     if (state && !isAssessmentLifecycleState(state)) {
-      throw new Error("--state must be one of model_proposed, evidence_observed, tool_corroborated, verified, operator_confirmed, opportunity_only, diagnostic_only.");
+      throw new Error("--state must be one of model_proposed, evidence_observed, tool_corroborated, independently_confirmed, verified, operator_confirmed, opportunity_only, diagnostic_only.");
     }
     const assessments = report.assessments
       .filter((assessment) => !kind || assessment.kind === kind)
@@ -10208,6 +10272,9 @@ const SEMANTIC_DEBT_ECONOMY_EFFORT = "none";
 const SEMANTIC_DEBT_DEFAULT_FILE_LIMIT = 200;
 const SEMANTIC_DEBT_EXCLUDED_PREFIXES = [".claude/", ".codex/", ".agents/"] as const;
 const SEMANTIC_DEBT_REPORT_ARTIFACT_ID_PREFIX = "semantic-debt-judgment-report-";
+const ASSESSMENT_JUDGMENT_DEFAULT_CANDIDATE_LIMIT = 12;
+const ASSESSMENT_JUDGMENT_MAX_SOURCE_CHARS = 24000;
+const ASSESSMENT_JUDGMENT_REPORT_ARTIFACT_ID_PREFIX = "assessment-judgment-report-";
 
 type SemanticLayerMode = "off" | "auto" | "required";
 type SemanticDebtEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -11235,6 +11302,243 @@ async function runSemanticDebtLayer(input: {
     ...(requiredHardFail
       ? { message: "Semantic debt required, but a provider call returned no usable result; not all files were judged." }
       : {}),
+  };
+}
+
+type AssessmentJudgmentLayerSummary = {
+  mode: SemanticLayerMode;
+  candidates: number;
+  selected: number;
+  confirmed: number;
+  rejected: number;
+  insufficientEvidence: number;
+  verificationRequired: number;
+  failed: number;
+  skipped: number;
+  provider?: string;
+  model?: string;
+  providerAvailable?: boolean;
+  inputTokens?: number;
+  outputTokens?: number;
+  reasoningTokens?: number;
+};
+
+type AssessmentJudgmentLayerResult = {
+  status: "passed" | "failed" | "skipped";
+  summary: AssessmentJudgmentLayerSummary;
+  exitNonZero: boolean;
+  artifacts: ArtifactRef[];
+  message?: string;
+};
+
+async function runAssessmentJudgmentLayer(input: {
+  root: string;
+  store: ReturnType<typeof createLocalArtifactStore>;
+  mode: SemanticLayerMode;
+  llmProvider: string;
+  llmModel: string;
+  llmEffort?: SemanticDebtEffort;
+  maxCandidates?: number;
+  maxSourceChars?: number;
+}): Promise<AssessmentJudgmentLayerResult> {
+  const maxCandidates = input.maxCandidates ?? ASSESSMENT_JUDGMENT_DEFAULT_CANDIDATE_LIMIT;
+  const maxSourceChars = input.maxSourceChars ?? ASSESSMENT_JUDGMENT_MAX_SOURCE_CHARS;
+  const emptySummary = (extra: Partial<AssessmentJudgmentLayerSummary> = {}): AssessmentJudgmentLayerSummary => ({
+    mode: input.mode,
+    candidates: 0,
+    selected: 0,
+    confirmed: 0,
+    rejected: 0,
+    insufficientEvidence: 0,
+    verificationRequired: 0,
+    failed: 0,
+    skipped: 0,
+    ...extra,
+  });
+  if (input.mode === "off") {
+    return { status: "skipped", summary: emptySummary(), exitNonZero: false, artifacts: [] };
+  }
+
+  await input.store.init();
+  const assessmentEntries = (await input.store.list("AssessmentReport"))
+    .slice()
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+  const sourceEntry = assessmentEntries[0];
+  if (!sourceEntry) {
+    return {
+      status: "skipped",
+      summary: emptySummary(),
+      exitNonZero: false,
+      artifacts: [],
+      message: "No AssessmentReport was available for independent judgment.",
+    };
+  }
+
+  const sourceAssessmentRef = toArtifactRef(sourceEntry);
+  const sourceReport = await input.store.read(sourceEntry) as AssessmentReport;
+  const candidates = sourceReport.assessments.filter((assessment): assessment is Assessment => Boolean(assessment));
+  const selected = selectAssessmentJudgmentCandidates(candidates, maxCandidates);
+
+  const envProvider = typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
+  const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
+  const provider = input.llmProvider || envProvider || "openai";
+  const model = input.llmModel || envModel || (provider === "openai" ? SEMANTIC_DEBT_DEFAULT_MODEL : "");
+  const providerAvailable = !envDisablesLlm(process.env.REKON_LLM_ENABLED)
+    && ((provider === "openai" && hasUsableOpenAiKey(process.env.OPENAI_API_KEY))
+      || (provider === "anthropic" && hasUsableOpenAiKey(process.env.ANTHROPIC_API_KEY) && model.length > 0));
+  const providerSummary = {
+    provider,
+    ...(model ? { model } : {}),
+    providerAvailable,
+  };
+
+  if (!providerAvailable) {
+    const message = provider === "anthropic" && !model
+      ? "Assessment judgment requires an explicit Anthropic model via --llm-model or REKON_LLM_MODEL."
+      : `No usable ${provider} provider/key is available for assessment judgment.`;
+    return {
+      status: input.mode === "required" ? "failed" : "skipped",
+      summary: emptySummary({
+        candidates: candidates.length,
+        selected: selected.length,
+        skipped: candidates.length,
+        ...providerSummary,
+      }),
+      exitNonZero: input.mode === "required",
+      artifacts: [],
+      message,
+    };
+  }
+
+  const providers = provider === "anthropic"
+    ? [createAnthropicLlmProvider({
+        id: "anthropic",
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        ...(typeof process.env.REKON_ANTHROPIC_BASE_URL === "string" && process.env.REKON_ANTHROPIC_BASE_URL.length > 0
+          ? { baseUrl: process.env.REKON_ANTHROPIC_BASE_URL }
+          : {}),
+        defaultModel: model,
+      })]
+    : [createOpenAiResponsesLlmProvider({
+        id: "openai",
+        apiKey: process.env.OPENAI_API_KEY,
+        ...(typeof process.env.REKON_LLM_BASE_URL === "string" && process.env.REKON_LLM_BASE_URL.length > 0
+          ? { baseUrl: process.env.REKON_LLM_BASE_URL }
+          : {}),
+        defaultModel: model,
+      })];
+  const router = new RekonLlmRouter({ config: { enabled: true }, providers });
+  const judgments: AssessmentJudgment[] = [];
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let reasoningTokens = 0;
+  let hardFailure = false;
+
+  for (let index = 0; index < selected.length; index += 1) {
+    const assessment = selected[index]!;
+    const sources: AssessmentJudgmentSourceContext[] = [];
+    for (const path of [...new Set(assessment.files ?? [])].slice(0, 2)) {
+      const source = await readCurrentRepoSource(input.root, path);
+      if (source) sources.push(source);
+    }
+    if (sources.length === 0) {
+      judgments.push(judgmentWithoutSource(assessment));
+      continue;
+    }
+
+    const routed = await router.completeJson({
+      task: "policy.assessment-judgment",
+      schemaName: "AssessmentJudgmentResult",
+      prompt: buildAssessmentJudgmentPrompt({ assessment, sources, maxSourceChars }),
+      ...(input.llmEffort ? { effort: input.llmEffort } : {}),
+      maxOutputTokens: 1200,
+      jsonSchema: ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+      metadata: { assessmentId: assessment.id, rootCauseKey: assessment.rootCauseKey },
+    }, { provider, model, mode: input.mode });
+
+    if (!routed.ok) {
+      judgments.push(coerceAssessmentJudgment({
+        assessment,
+        sources,
+        result: { warnings: [`provider-unavailable:${routed.error}`, ...routed.warnings] },
+      }));
+      if (input.mode === "required") {
+        hardFailure = true;
+        break;
+      }
+      continue;
+    }
+
+    inputTokens += routed.result.usage?.inputTokens ?? 0;
+    outputTokens += routed.result.usage?.outputTokens ?? 0;
+    reasoningTokens += routed.result.usage?.reasoningTokens ?? 0;
+    const value = routed.result.data;
+    const result: AssessmentJudgmentAdapterResult = value && typeof value === "object" && !Array.isArray(value)
+      ? { ...(value as AssessmentJudgmentAdapterResult), warnings: routed.result.warnings }
+      : { warnings: ["provider-result-not-an-object", ...(routed.result.warnings ?? [])] };
+    const judgment = coerceAssessmentJudgment({ assessment, sources, result });
+    judgments.push(judgment);
+    if (input.mode === "required" && judgment.verdict === "failed") {
+      hardFailure = true;
+      break;
+    }
+  }
+
+  const count = (verdict: AssessmentJudgment["verdict"]): number =>
+    judgments.filter((judgment) => judgment.verdict === verdict).length;
+  const summary: AssessmentJudgmentLayerSummary = {
+    mode: input.mode,
+    candidates: candidates.length,
+    selected: selected.length,
+    confirmed: count("confirmed"),
+    rejected: count("rejected"),
+    insufficientEvidence: count("insufficient_evidence"),
+    verificationRequired: count("verification_required"),
+    failed: count("failed"),
+    skipped: Math.max(0, candidates.length - judgments.length),
+    ...providerSummary,
+    ...(inputTokens > 0 ? { inputTokens } : {}),
+    ...(outputTokens > 0 ? { outputTokens } : {}),
+    ...(reasoningTokens > 0 ? { reasoningTokens } : {}),
+  };
+  const generatedAt = new Date().toISOString();
+  const inputRefsByKey = new Map<string, ArtifactRef>();
+  for (const ref of [sourceAssessmentRef, ...selected.flatMap((assessment) => assessment.evidence)]) {
+    inputRefsByKey.set(`${ref.type}:${ref.id}:${ref.schemaVersion}`, ref);
+  }
+  const report: AssessmentJudgmentReport = createAssessmentJudgmentReport({
+    header: {
+      artifactType: "AssessmentJudgmentReport",
+      artifactId: `${ASSESSMENT_JUDGMENT_REPORT_ARTIFACT_ID_PREFIX}${Date.parse(generatedAt) || Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: sourceReport.header.subject,
+      producer: { id: "@rekon/cli.assessment-judgment", version: "1.0.0" },
+      inputRefs: [...inputRefsByKey.values()],
+      freshness: { status: hardFailure ? "partial" : "fresh" },
+      provenance: { confidence: judgments.length > 0 ? 0.8 : 1 },
+    },
+    sourceAssessmentRef,
+    policy: {
+      mode: input.mode === "required" ? "required" : "auto",
+      provider,
+      model,
+      promptVersion: ASSESSMENT_JUDGMENT_PROMPT_VERSION,
+      coercionVersion: ASSESSMENT_JUDGMENT_COERCION_VERSION,
+      maxCandidates,
+      maxSourceChars,
+    },
+    summary,
+    judgments,
+  });
+  const reportRef = await input.store.write(report, { category: "findings" });
+
+  return {
+    status: hardFailure ? "failed" : "passed",
+    summary,
+    exitNonZero: hardFailure,
+    artifacts: [reportRef],
+    ...(hardFailure ? { message: "Assessment judgment required, but at least one selected candidate could not be judged." } : {}),
   };
 }
 
@@ -12500,6 +12804,8 @@ type RefreshStepId =
   | "rulebook"
   | "snapshot"
   | "evaluate"
+  | "assessments.judge"
+  | "evaluate.finalize"
   | "findings.filter"
   | "findings.filter-health"
   | "findings.lifecycle"
@@ -12539,6 +12845,12 @@ type RefreshOptions = {
   skipFreshness?: boolean;
   changedFiles?: string[];
   seedArtifactRefs?: ArtifactRef[];
+  afterEvaluate?: () => Promise<{
+    status: "passed" | "failed" | "skipped";
+    artifacts?: ArtifactRef[];
+    summary?: unknown;
+    message?: string;
+  }>;
 };
 
 const REQUIRED_REFRESH_ARTIFACT_TYPES = [
@@ -12715,6 +13027,36 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   } catch (error) {
     steps.push({ id: "evaluate", status: "failed", message: messageOf(error) });
     return finalize("failed");
+  }
+
+  if (options.afterEvaluate) {
+    let postEvaluate: Awaited<ReturnType<NonNullable<RefreshOptions["afterEvaluate"]>>>;
+    try {
+      postEvaluate = await options.afterEvaluate();
+      steps.push({
+        id: "assessments.judge",
+        status: postEvaluate.status,
+        ...(postEvaluate.artifacts ? { artifacts: recordArtifacts(postEvaluate.artifacts) } : {}),
+        ...(postEvaluate.summary !== undefined ? { summary: postEvaluate.summary } : {}),
+        ...(postEvaluate.message ? { message: postEvaluate.message } : {}),
+      });
+    } catch (error) {
+      steps.push({ id: "assessments.judge", status: "failed", message: messageOf(error) });
+      return finalize("failed");
+    }
+
+    if (postEvaluate.status === "failed") return finalize("failed");
+    if (postEvaluate.artifacts?.some((ref) => ref.type === "AssessmentJudgmentReport")) {
+      try {
+        const refs = await runtime.runEvaluate({ evaluatorId: "@rekon/capability-policy.evaluator" });
+        steps.push({ id: "evaluate.finalize", status: "passed", artifacts: recordArtifacts(refs) });
+      } catch (error) {
+        steps.push({ id: "evaluate.finalize", status: "failed", message: messageOf(error) });
+        return finalize("failed");
+      }
+    } else {
+      steps.push({ id: "evaluate.finalize", status: "skipped", message: "No assessment judgment artifact was produced." });
+    }
   }
 
   const store = createLocalArtifactStore(root);
@@ -16015,7 +16357,7 @@ function usage(): string {
     "rekon artifacts validate [--root <path>] [--json]",
     "rekon artifacts freshness [--root <path>] [--type <type>] [--id <id>] [--json]",
     "rekon artifacts latest --type <ArtifactType> [--kind <kind>] [--id-only] [--allow-missing] [--root <path>] [--json]",
-    "rekon assessments list [--kind risk|opportunity|semantic_claim|model_diagnostic] [--state model_proposed|evidence_observed|tool_corroborated|verified|operator_confirmed|opportunity_only|diagnostic_only] [--root <path>] [--json]",
+    "rekon assessments list [--kind risk|opportunity|semantic_claim|model_diagnostic] [--state model_proposed|evidence_observed|tool_corroborated|independently_confirmed|verified|operator_confirmed|opportunity_only|diagnostic_only] [--root <path>] [--json]",
     "rekon findings list [--root <path>] [--status <status>] [--json]",
     "rekon findings lifecycle [--root <path>] [--json]",
     "rekon findings filter [--root <path>] [--json]",

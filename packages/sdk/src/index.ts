@@ -237,6 +237,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "Rulebook", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "AssessmentReport", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "AssessmentJudgmentReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingFilterReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingFilterHealthReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "FindingFilterPolicySuggestionReport", schemaVersion: "0.1.0", stability: "experimental" },

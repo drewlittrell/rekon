@@ -96,6 +96,15 @@ Semantic file analysis uses OpenAI Responses with `gpt-5.6-luna` at `low`
 effort by default. `--llm-model` and `REKON_LLM_MODEL` can select another model;
 older OpenAI models continue to use Chat Completions when required.
 
+After the first policy pass, `scan` independently judges a bounded set of
+unresolved risks and semantic claims using the same semantic mode and shared
+provider/model settings. Decisive judgments require an exact excerpt from a
+current, repository-contained source file. Rekon then evaluates policy again:
+confirmed candidates gain an `independently_confirmed` lifecycle state,
+rejected candidates leave the current assessment report, and uncertain
+candidates remain visible with the judgment attached. Judgment never writes
+source or promotes a finding without applicable law or reproducible proof.
+
 ## Repository law
 
 Repository-specific law can be declared in `.rekon/config.json`. Rekon

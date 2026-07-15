@@ -16,11 +16,19 @@ Only findings belong in `FindingReport`. The other classes use
 
 ## Promotion
 
-An assessment can become a finding when an independent judge confirms it
-against cited repository evidence, or when corroborated evidence ties it to
-applicable law or a reproducible defect.
+An assessment can become a finding when confirmed or corroborated evidence is
+tied to applicable law or a reproducible defect. Independent judgment alone
+does not promote a finding.
 Opportunities and model diagnostics do not promote automatically. Semantic
 confidence alone is insufficient.
+
+`rekon scan` runs a bounded judgment pass after its first policy evaluation.
+The judge receives current source for selected unresolved candidates. Decisive
+verdicts require exact source excerpts, current file digests, and the current
+assessment signature. Policy then performs a final evaluation: confirmation
+strengthens the assessment, rejection removes it from the current report, and
+uncertain verdicts remain attached as audit evidence. Judgment cannot mutate
+evidence, repository models, declared law, or source.
 
 ## Identity
 

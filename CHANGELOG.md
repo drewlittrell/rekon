@@ -4,6 +4,15 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added a source-grounded assessment judgment pass to `rekon scan`. The typed
+  `AssessmentJudgmentReport` records confirmed, rejected, deferred, and failed
+  decisions with current source digests and stable assessment signatures.
+- Added the `independently_confirmed` assessment lifecycle state. Independent
+  confirmation strengthens an assessment but still requires applicable law or
+  reproducible proof before finding promotion.
+- Added open-world semantic problem candidates from current semantic file
+  reports and a final policy evaluation that applies current judgments without
+  mutating source, evidence, models, or law.
 - Made public quality and defect-pair corpus runs ephemeral by default. Pinned
   source coordinates, public agent adjudications, and identifier-free aggregate
   calibration history remain durable while cloned repositories, source excerpts,

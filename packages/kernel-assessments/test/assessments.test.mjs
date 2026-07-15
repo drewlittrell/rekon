@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assessmentJudgmentSignature,
   assessmentLifecycleState,
+  createAssessmentJudgmentReport,
   createAssessmentReport,
   evaluateFindingPromotion,
   measureDetectionQuality,
+  validateAssessmentJudgmentReport,
   validateAssessmentReport,
 } from "../dist/index.js";
 
@@ -128,6 +131,7 @@ test("derives explicit lifecycle states from kind and verification", () => {
   const base = { kind: "risk", confidence: { basis: "deterministic", verification: "unverified" } };
   assert.equal(assessmentLifecycleState(base), "evidence_observed");
   assert.equal(assessmentLifecycleState({ ...base, confidence: { basis: "deterministic", verification: "corroborated" } }), "tool_corroborated");
+  assert.equal(assessmentLifecycleState({ ...base, confidence: { basis: "mixed", verification: "independently_confirmed" } }), "independently_confirmed");
   assert.equal(assessmentLifecycleState({ ...base, confidence: { basis: "operator", verification: "operator_confirmed" } }), "operator_confirmed");
   assert.equal(assessmentLifecycleState({ ...base, kind: "semantic_claim", confidence: { basis: "semantic", verification: "unverified" } }), "model_proposed");
   assert.equal(assessmentLifecycleState({ ...base, kind: "opportunity" }), "opportunity_only");
@@ -152,6 +156,155 @@ test("promotion rules reject raw claims and accept grounded corroboration", () =
     applicableLaw: { id: "architecture.boundary" },
     confidence: { score: 0.9, basis: "mixed", verification: "corroborated" },
   }).eligible, true);
+  assert.equal(evaluateFindingPromotion({
+    ...claim,
+    confidence: { score: 0.95, basis: "mixed", verification: "independently_confirmed" },
+  }).eligible, false, "independent model confirmation without law or reproducible proof remains an assessment");
+  assert.equal(evaluateFindingPromotion({
+    ...claim,
+    applicableLaw: { id: "architecture.boundary" },
+    confidence: { score: 0.95, basis: "mixed", verification: "independently_confirmed" },
+  }).eligible, true);
+});
+
+test("creates a source-grounded assessment judgment report with stable signatures", () => {
+  const assessment = createAssessmentReport({
+    header,
+    assessments: [{
+      id: "risk:listener",
+      kind: "risk",
+      type: "events.inverseListenerDelegation",
+      impact: "high",
+      title: "Listener cleanup registers another listener",
+      description: "The cleanup wrapper delegates to addEventListener.",
+      subjects: ["src/listener.ts"],
+      files: ["src/listener.ts"],
+      evidence: [evidence],
+      rootCauseKey: "events:src/listener.ts:cleanup",
+      confidence: { score: 0.8, basis: "deterministic", verification: "unverified" },
+    }],
+  }).assessments[0];
+  const sourceAssessmentRef = { type: "AssessmentReport", id: "assessment-report-1", schemaVersion: "0.1.0" };
+  const judgmentHeader = {
+    artifactType: "AssessmentJudgmentReport",
+    artifactId: "assessment-judgment-1",
+    schemaVersion: "0.1.0",
+    generatedAt: "2026-07-15T00:00:00.000Z",
+    subject: { repoId: "fixture" },
+    producer: { id: "test.judge", version: "1.0.0" },
+    inputRefs: [sourceAssessmentRef, evidence],
+    freshness: { status: "fresh" },
+    provenance: { confidence: 0.9 },
+  };
+  const report = createAssessmentJudgmentReport({
+    header: judgmentHeader,
+    sourceAssessmentRef,
+    policy: {
+      mode: "auto",
+      provider: "mock",
+      model: "mock-judge",
+      promptVersion: "assessment-judge-v1",
+      coercionVersion: "assessment-judgment-v1",
+      maxCandidates: 12,
+      maxSourceChars: 24000,
+    },
+    summary: {
+      candidates: 1,
+      selected: 1,
+      confirmed: 1,
+      rejected: 0,
+      insufficientEvidence: 0,
+      verificationRequired: 0,
+      failed: 0,
+      skipped: 0,
+      inputTokens: 120,
+      outputTokens: 40,
+    },
+    judgments: [{
+      assessmentId: assessment.id,
+      assessmentSignature: assessmentJudgmentSignature(assessment),
+      rootCauseKey: assessment.rootCauseKey,
+      verdict: "confirmed",
+      rationale: "The cleanup function calls the registration API instead of the removal API.",
+      confidence: 0.97,
+      evidence: [{
+        path: "src/listener.ts",
+        sha256: "abc123",
+        lineStart: 4,
+        lineEnd: 4,
+        excerpt: "target.addEventListener(type, listener);",
+      }],
+    }],
+  });
+
+  assert.equal(validateAssessmentJudgmentReport(report).ok, true);
+  assert.equal(report.judgments[0].assessmentSignature, assessmentJudgmentSignature(assessment));
+  assert.deepEqual(report.boundaries, {
+    executedCommands: false,
+    wroteSourceFiles: false,
+    mutatedEvidence: false,
+    promotedFindings: false,
+  });
+
+  const tampered = structuredClone(report);
+  tampered.summary.confirmed = 0;
+  const tamperedValidation = validateAssessmentJudgmentReport(tampered);
+  assert.equal(tamperedValidation.ok, false);
+  assert.ok(tamperedValidation.issues.some((issue) => issue.path === "$.summary.confirmed"));
+});
+
+test("rejects decisive judgments without source evidence or source-report lineage", () => {
+  const sourceAssessmentRef = { type: "AssessmentReport", id: "assessment-report-1", schemaVersion: "0.1.0" };
+  const result = validateAssessmentJudgmentReport({
+    header: {
+      artifactType: "AssessmentJudgmentReport",
+      artifactId: "assessment-judgment-bad",
+      schemaVersion: "0.1.0",
+      generatedAt: "2026-07-15T00:00:00.000Z",
+      subject: { repoId: "fixture" },
+      producer: { id: "test.judge", version: "1.0.0" },
+      inputRefs: [],
+    },
+    sourceAssessmentRef,
+    policy: {
+      mode: "auto",
+      provider: "mock",
+      model: "mock-judge",
+      promptVersion: "assessment-judge-v1",
+      coercionVersion: "assessment-judgment-v1",
+      maxCandidates: 1,
+      maxSourceChars: 1000,
+    },
+    summary: {
+      candidates: 1,
+      selected: 1,
+      confirmed: 1,
+      rejected: 0,
+      insufficientEvidence: 0,
+      verificationRequired: 0,
+      failed: 0,
+      skipped: 0,
+    },
+    judgments: [{
+      assessmentId: "risk:x",
+      assessmentSignature: "signature",
+      rootCauseKey: "risk:x",
+      verdict: "confirmed",
+      rationale: "Confirmed without proof.",
+      confidence: 0.9,
+      evidence: [],
+    }],
+    boundaries: {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      mutatedEvidence: false,
+      promotedFindings: false,
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.path === "$.header.inputRefs"));
+  assert.ok(result.issues.some((issue) => issue.path.endsWith(".evidence")));
 });
 
 test("quality metrics expose missing evidence and duplicate remediation units", () => {

@@ -24,6 +24,7 @@ export type RekonLlmTask =
   | "plan.revision-prompt"
   | "artifact.summary"
   | "policy.debt-judgment"
+  | "policy.assessment-judgment"
   | "intent.classify";
 
 export type RekonLlmProviderInput = {

@@ -4,6 +4,7 @@ import {
   type ArtifactSchema,
   type ValidationIssue,
   type ValidationResult,
+  digestJson,
   validateArtifactHeader,
   validateArtifactRef,
 } from "@rekon/kernel-artifacts";
@@ -11,11 +12,17 @@ import {
 export type AssessmentKind = "risk" | "opportunity" | "semantic_claim" | "model_diagnostic";
 export type AssessmentImpact = "critical" | "high" | "medium" | "low";
 export type AssessmentEvidenceBasis = "deterministic" | "semantic" | "mixed" | "operator";
-export type AssessmentVerification = "unverified" | "corroborated" | "verified" | "operator_confirmed";
+export type AssessmentVerification =
+  | "unverified"
+  | "corroborated"
+  | "independently_confirmed"
+  | "verified"
+  | "operator_confirmed";
 export type AssessmentLifecycleState =
   | "model_proposed"
   | "evidence_observed"
   | "tool_corroborated"
+  | "independently_confirmed"
   | "verified"
   | "operator_confirmed"
   | "opportunity_only"
@@ -71,6 +78,67 @@ export type AssessmentReport = {
   assessments: Assessment[];
 };
 
+export type AssessmentJudgmentVerdict =
+  | "confirmed"
+  | "rejected"
+  | "insufficient_evidence"
+  | "verification_required"
+  | "failed";
+
+export type AssessmentJudgmentEvidence = {
+  path: string;
+  sha256: string;
+  lineStart: number;
+  lineEnd: number;
+  excerpt: string;
+};
+
+export type AssessmentJudgment = {
+  assessmentId: string;
+  assessmentSignature: string;
+  rootCauseKey: string;
+  verdict: AssessmentJudgmentVerdict;
+  rationale: string;
+  confidence: number;
+  evidence: AssessmentJudgmentEvidence[];
+  recommendedVerification?: string[];
+  warnings?: string[];
+};
+
+export type AssessmentJudgmentReport = {
+  header: ArtifactHeader;
+  sourceAssessmentRef: ArtifactRef;
+  policy: {
+    mode: "auto" | "required";
+    provider: string;
+    model: string;
+    promptVersion: string;
+    coercionVersion: string;
+    maxCandidates: number;
+    maxSourceChars: number;
+  };
+  summary: {
+    candidates: number;
+    selected: number;
+    confirmed: number;
+    rejected: number;
+    insufficientEvidence: number;
+    verificationRequired: number;
+    failed: number;
+    skipped: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    reasoningTokens?: number;
+  };
+  judgments: AssessmentJudgment[];
+  boundaries: {
+    executedCommands: false;
+    wroteSourceFiles: false;
+    mutatedEvidence: false;
+    promotedFindings: false;
+  };
+};
+
 export type FindingPromotionDecision = {
   eligible: boolean;
   reasons: string[];
@@ -98,6 +166,7 @@ const BASES = new Set<AssessmentEvidenceBasis>(["deterministic", "semantic", "mi
 const VERIFICATIONS = new Set<AssessmentVerification>([
   "unverified",
   "corroborated",
+  "independently_confirmed",
   "verified",
   "operator_confirmed",
 ]);
@@ -105,10 +174,18 @@ const LIFECYCLE_STATES = new Set<AssessmentLifecycleState>([
   "model_proposed",
   "evidence_observed",
   "tool_corroborated",
+  "independently_confirmed",
   "verified",
   "operator_confirmed",
   "opportunity_only",
   "diagnostic_only",
+]);
+const JUDGMENT_VERDICTS = new Set<AssessmentJudgmentVerdict>([
+  "confirmed",
+  "rejected",
+  "insufficient_evidence",
+  "verification_required",
+  "failed",
 ]);
 
 export function createAssessmentReport(input: {
@@ -204,11 +281,12 @@ export function evaluateFindingPromotion(assessment: Assessment): FindingPromoti
   const reproducible = assessment.details?.reproducible === true;
   const hasGround = Boolean(assessment.applicableLaw) || reproducible;
   const verified = assessment.confidence.verification === "verified";
+  const independentlyConfirmed = assessment.confidence.verification === "independently_confirmed";
   const corroboratedSemantic = assessment.kind === "semantic_claim"
     && assessment.confidence.verification === "corroborated"
     && assessment.confidence.basis === "mixed";
 
-  if (hasGround && (verified || corroboratedSemantic)) {
+  if (hasGround && (verified || independentlyConfirmed || corroboratedSemantic)) {
     return {
       eligible: true,
       reasons: [assessment.applicableLaw ? "Applicable law is cited." : "Reproducible defect evidence is attached."],
@@ -313,6 +391,133 @@ export const assessmentReportSchema: ArtifactSchema<AssessmentReport> = {
   parse: assertAssessmentReport,
 };
 
+export function assessmentJudgmentSignature(assessment: Assessment): string {
+  return digestJson({
+    id: assessment.id,
+    kind: assessment.kind,
+    type: assessment.type,
+    impact: assessment.impact,
+    title: assessment.title,
+    description: assessment.description,
+    subjects: uniqueSorted(assessment.subjects),
+    files: uniqueSorted(assessment.files ?? []),
+    ruleId: assessment.ruleId,
+    suggestedAction: assessment.suggestedAction,
+    evidence: normalizeRefs(assessment.evidence),
+    rootCauseKey: assessment.rootCauseKey,
+    confidence: assessment.confidence,
+    applicableLaw: assessment.applicableLaw,
+    supportingSignals: assessment.supportingSignals,
+    details: assessment.details,
+  });
+}
+
+export function createAssessmentJudgmentReport(
+  input: Omit<AssessmentJudgmentReport, "boundaries"> & {
+    boundaries?: AssessmentJudgmentReport["boundaries"];
+  },
+): AssessmentJudgmentReport {
+  const judgments = input.judgments
+    .map((judgment) => ({
+      ...judgment,
+      evidence: judgment.evidence
+        .map((entry) => ({ ...entry }))
+        .sort((left, right) => `${left.path}:${left.lineStart}:${left.lineEnd}`.localeCompare(`${right.path}:${right.lineStart}:${right.lineEnd}`)),
+      ...(judgment.recommendedVerification
+        ? { recommendedVerification: uniqueSorted(judgment.recommendedVerification) }
+        : {}),
+      ...(judgment.warnings ? { warnings: uniqueSorted(judgment.warnings) } : {}),
+    }))
+    .sort((left, right) => left.assessmentId.localeCompare(right.assessmentId));
+
+  return assertAssessmentJudgmentReport({
+    ...input,
+    judgments,
+    boundaries: {
+      executedCommands: false,
+      wroteSourceFiles: false,
+      mutatedEvidence: false,
+      promotedFindings: false,
+    },
+  });
+}
+
+export function validateAssessmentJudgmentReport(
+  value: unknown,
+): ValidationResult<AssessmentJudgmentReport> {
+  const issues: ValidationIssue[] = [];
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  const header = validateArtifactHeader(value.header);
+  if (!header.ok) {
+    issues.push(...header.issues.map((issue) => ({ ...issue, path: `$.header${issue.path === "$" ? "" : issue.path.slice(1)}` })));
+  } else if (header.value.artifactType !== "AssessmentJudgmentReport") {
+    issues.push({ path: "$.header.artifactType", message: "Expected artifactType to be AssessmentJudgmentReport." });
+  }
+
+  const sourceRef = validateArtifactRef(value.sourceAssessmentRef);
+  if (!sourceRef.ok) {
+    issues.push(...sourceRef.issues.map((issue) => ({ ...issue, path: `$.sourceAssessmentRef${issue.path === "$" ? "" : issue.path.slice(1)}` })));
+  } else if (sourceRef.value.type !== "AssessmentReport") {
+    issues.push({ path: "$.sourceAssessmentRef.type", message: "Expected an AssessmentReport reference." });
+  } else if (
+    header.ok
+    && !header.value.inputRefs.some((ref) =>
+      ref.type === sourceRef.value.type
+      && ref.id === sourceRef.value.id
+      && ref.schemaVersion === sourceRef.value.schemaVersion)
+  ) {
+    issues.push({ path: "$.header.inputRefs", message: "Expected the source AssessmentReport reference in header inputRefs." });
+  }
+
+  validateJudgmentPolicy(value.policy, issues);
+  validateJudgmentSummary(value.summary, value.judgments, value.policy, issues);
+
+  if (!Array.isArray(value.judgments)) {
+    issues.push({ path: "$.judgments", message: "Expected an array." });
+  } else {
+    const ids = new Set<string>();
+    value.judgments.forEach((judgment, index) => {
+      validateAssessmentJudgment(judgment, `$.judgments[${index}]`, issues);
+      if (isRecord(judgment) && typeof judgment.assessmentId === "string") {
+        if (ids.has(judgment.assessmentId)) {
+          issues.push({ path: `$.judgments[${index}].assessmentId`, message: "Assessment judgments must be unique per assessment id." });
+        }
+        ids.add(judgment.assessmentId);
+      }
+    });
+  }
+
+  if (!isRecord(value.boundaries)) {
+    issues.push({ path: "$.boundaries", message: "Expected boundary declarations." });
+  } else {
+    for (const key of ["executedCommands", "wroteSourceFiles", "mutatedEvidence", "promotedFindings"] as const) {
+      if (value.boundaries[key] !== false) {
+        issues.push({ path: `$.boundaries.${key}`, message: "Assessment judgment cannot cross this boundary." });
+      }
+    }
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as AssessmentJudgmentReport, issues: [] };
+}
+
+export function assertAssessmentJudgmentReport(value: unknown): AssessmentJudgmentReport {
+  const result = validateAssessmentJudgmentReport(value);
+  if (!result.ok) {
+    throw new TypeError(`AssessmentJudgmentReport validation failed: ${result.issues.map((issue) => `${issue.path} ${issue.message}`).join("; ")}`);
+  }
+  return result.value;
+}
+
+export const assessmentJudgmentReportSchema: ArtifactSchema<AssessmentJudgmentReport> = {
+  validate: validateAssessmentJudgmentReport,
+  parse: assertAssessmentJudgmentReport,
+};
+
 function normalizeAssessment(assessment: Assessment): Assessment {
   return {
     ...assessment,
@@ -379,6 +584,7 @@ export function assessmentLifecycleState(assessment: Pick<Assessment, "kind" | "
   if (assessment.kind === "opportunity") return "opportunity_only";
   if (assessment.kind === "model_diagnostic") return "diagnostic_only";
   if (assessment.confidence.verification === "verified") return "verified";
+  if (assessment.confidence.verification === "independently_confirmed") return "independently_confirmed";
   if (assessment.confidence.verification === "corroborated") return "tool_corroborated";
   if (assessment.kind === "semantic_claim" || assessment.confidence.basis === "semantic") return "model_proposed";
   return "evidence_observed";
@@ -433,7 +639,157 @@ function impactRank(impact: AssessmentImpact): number {
 }
 
 function verificationRank(verification: AssessmentVerification): number {
-  return verification === "operator_confirmed" ? 4 : verification === "verified" ? 3 : verification === "corroborated" ? 2 : 1;
+  return verification === "operator_confirmed"
+    ? 5
+    : verification === "verified"
+      ? 4
+      : verification === "independently_confirmed"
+        ? 3
+        : verification === "corroborated"
+          ? 2
+          : 1;
+}
+
+function validateJudgmentPolicy(value: unknown, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path: "$.policy", message: "Expected judgment policy metadata." });
+    return;
+  }
+  if (value.mode !== "auto" && value.mode !== "required") {
+    issues.push({ path: "$.policy.mode", message: "Expected auto or required." });
+  }
+  for (const key of ["provider", "model", "promptVersion", "coercionVersion"] as const) {
+    requireString(value[key], `$.policy.${key}`, issues);
+  }
+  for (const key of ["maxCandidates", "maxSourceChars"] as const) {
+    if (typeof value[key] !== "number" || !Number.isInteger(value[key]) || value[key] < 0) {
+      issues.push({ path: `$.policy.${key}`, message: "Expected a non-negative integer." });
+    }
+  }
+}
+
+function validateJudgmentSummary(
+  value: unknown,
+  judgments: unknown,
+  policy: unknown,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path: "$.summary", message: "Expected a judgment summary." });
+    return;
+  }
+  for (const key of [
+    "candidates",
+    "selected",
+    "confirmed",
+    "rejected",
+    "insufficientEvidence",
+    "verificationRequired",
+    "failed",
+    "skipped",
+  ] as const) {
+    if (typeof value[key] !== "number" || !Number.isInteger(value[key]) || value[key] < 0) {
+      issues.push({ path: `$.summary.${key}`, message: "Expected a non-negative integer." });
+    }
+  }
+  for (const key of ["inputTokens", "outputTokens", "reasoningTokens"] as const) {
+    if (value[key] !== undefined && (typeof value[key] !== "number" || !Number.isInteger(value[key]) || value[key] < 0)) {
+      issues.push({ path: `$.summary.${key}`, message: "Expected a non-negative integer when present." });
+    }
+  }
+  if (!Array.isArray(judgments)) return;
+  const candidates = value.candidates;
+  const selected = value.selected;
+  const skipped = value.skipped;
+  if (typeof candidates === "number" && typeof selected === "number" && selected > candidates) {
+    issues.push({ path: "$.summary.selected", message: "Selected candidates cannot exceed candidate count." });
+  }
+  if (typeof selected === "number" && selected < judgments.length) {
+    issues.push({ path: "$.summary.selected", message: "Selected candidates cannot be fewer than recorded judgments." });
+  }
+  if (
+    isRecord(policy)
+    && typeof policy.maxCandidates === "number"
+    && typeof selected === "number"
+    && selected > policy.maxCandidates
+  ) {
+    issues.push({ path: "$.summary.selected", message: "Selected candidates exceed the declared policy limit." });
+  }
+  if (
+    typeof candidates === "number"
+    && typeof skipped === "number"
+    && skipped !== candidates - judgments.length
+  ) {
+    issues.push({ path: "$.summary.skipped", message: "Skipped count must equal candidates without recorded judgments." });
+  }
+
+  const expectedCounts = {
+    confirmed: 0,
+    rejected: 0,
+    insufficientEvidence: 0,
+    verificationRequired: 0,
+    failed: 0,
+  };
+  for (const judgment of judgments) {
+    if (!isRecord(judgment)) continue;
+    if (judgment.verdict === "confirmed") expectedCounts.confirmed += 1;
+    if (judgment.verdict === "rejected") expectedCounts.rejected += 1;
+    if (judgment.verdict === "insufficient_evidence") expectedCounts.insufficientEvidence += 1;
+    if (judgment.verdict === "verification_required") expectedCounts.verificationRequired += 1;
+    if (judgment.verdict === "failed") expectedCounts.failed += 1;
+  }
+  for (const [key, expected] of Object.entries(expectedCounts)) {
+    if (value[key] !== expected) {
+      issues.push({ path: `$.summary.${key}`, message: `Expected ${expected} from recorded judgments.` });
+    }
+  }
+}
+
+function validateAssessmentJudgment(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  requireString(value.assessmentId, `${path}.assessmentId`, issues);
+  requireString(value.assessmentSignature, `${path}.assessmentSignature`, issues);
+  requireString(value.rootCauseKey, `${path}.rootCauseKey`, issues);
+  if (!JUDGMENT_VERDICTS.has(value.verdict as AssessmentJudgmentVerdict)) {
+    issues.push({ path: `${path}.verdict`, message: "Expected a supported judgment verdict." });
+  }
+  requireString(value.rationale, `${path}.rationale`, issues);
+  if (typeof value.confidence !== "number" || value.confidence < 0 || value.confidence > 1) {
+    issues.push({ path: `${path}.confidence`, message: "Expected a score between 0 and 1." });
+  }
+  if (!Array.isArray(value.evidence)) {
+    issues.push({ path: `${path}.evidence`, message: "Expected an array." });
+  } else {
+    value.evidence.forEach((entry, index) => validateJudgmentEvidence(entry, `${path}.evidence[${index}]`, issues));
+    if ((value.verdict === "confirmed" || value.verdict === "rejected") && value.evidence.length === 0) {
+      issues.push({ path: `${path}.evidence`, message: "Confirmed and rejected judgments require current source evidence." });
+    }
+  }
+  if (value.recommendedVerification !== undefined) {
+    validateStringArray(value.recommendedVerification, `${path}.recommendedVerification`, issues, false);
+  }
+  if (value.warnings !== undefined) validateStringArray(value.warnings, `${path}.warnings`, issues, false);
+}
+
+function validateJudgmentEvidence(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  requireString(value.path, `${path}.path`, issues);
+  requireString(value.sha256, `${path}.sha256`, issues);
+  requireString(value.excerpt, `${path}.excerpt`, issues);
+  for (const key of ["lineStart", "lineEnd"] as const) {
+    if (typeof value[key] !== "number" || !Number.isInteger(value[key]) || value[key] < 1) {
+      issues.push({ path: `${path}.${key}`, message: "Expected a positive integer." });
+    }
+  }
+  if (typeof value.lineStart === "number" && typeof value.lineEnd === "number" && value.lineEnd < value.lineStart) {
+    issues.push({ path: `${path}.lineEnd`, message: "Expected lineEnd to be at or after lineStart." });
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -29,6 +29,7 @@ Common references:
 - [TestReport and LintReport](repository-check-reports.md)
 - [FindingReport](finding-report.md)
 - [AssessmentReport](assessment-report.md)
+- [AssessmentJudgmentReport](assessment-judgment-report.md)
 - [ResolverPacket](resolver-packet.md)
 - [Memory artifacts](memory-artifacts.md)
 - [ReconciliationLog](reconciliation-log.md)

@@ -18,14 +18,15 @@ test("semantic debt file limit caps the reusable report instead of expanding on 
     let body = "";
     request.on("data", (chunk) => { body += chunk; });
     request.on("end", () => {
-      requests.push(JSON.parse(body));
+      const parsed = JSON.parse(body);
+      requests.push(parsed);
       response.statusCode = 200;
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({
         model: "budget-test-model",
         output: [{
           type: "message",
-          content: [{ type: "output_text", text: '{"concerns":[]}' }],
+          content: [{ type: "output_text", text: providerResult(parsed) }],
         }],
         usage: { input_tokens: 10, output_tokens: 2 },
       }));
@@ -58,7 +59,7 @@ test("semantic debt file limit caps the reusable report instead of expanding on 
     const first = JSON.parse(await runCli(args, env));
     assert.equal(first.semanticDebt.judged, 2);
     assert.equal(first.semanticDebt.reused, 0);
-    assert.equal(requests.length, 2);
+    assert.equal(semanticDebtRequestCount(requests), 2);
 
     const store = createLocalArtifactStore(root);
     await store.init();
@@ -77,7 +78,7 @@ test("semantic debt file limit caps the reusable report instead of expanding on 
     const second = JSON.parse(await runCli(args, env));
     assert.equal(second.semanticDebt.judged, 0);
     assert.equal(second.semanticDebt.reused, 2);
-    assert.equal(requests.length, 2, "a stricter eligibility revision must reuse still-eligible unchanged judgments");
+    assert.equal(semanticDebtRequestCount(requests), 2, "a stricter eligibility revision must reuse still-eligible unchanged judgments");
   } finally {
     await new Promise((resolveClose) => server.close(() => resolveClose()));
     await rm(root, { recursive: true, force: true });
@@ -91,14 +92,15 @@ test("repeatable semantic debt file paths target only the requested eligible fil
     let body = "";
     request.on("data", (chunk) => { body += chunk; });
     request.on("end", () => {
-      requests.push(JSON.parse(body));
+      const parsed = JSON.parse(body);
+      requests.push(parsed);
       response.statusCode = 200;
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({
         model: "target-test-model",
         output: [{
           type: "message",
-          content: [{ type: "output_text", text: '{"concerns":[]}' }],
+          content: [{ type: "output_text", text: providerResult(parsed) }],
         }],
         usage: { input_tokens: 10, output_tokens: 2 },
       }));
@@ -133,7 +135,7 @@ test("repeatable semantic debt file paths target only the requested eligible fil
 
     const output = JSON.parse(await runCli(args, env));
     assert.equal(output.semanticDebt.judged, 2);
-    assert.equal(requests.length, 2);
+    assert.equal(semanticDebtRequestCount(requests), 2);
 
     const store = createLocalArtifactStore(root);
     await store.init();
@@ -155,6 +157,23 @@ function listen(server) {
       resolveListen(`http://127.0.0.1:${port}`);
     });
   });
+}
+
+function semanticDebtRequestCount(requests) {
+  return requests.filter((request) => request?.text?.format?.name === "SemanticDebtJudgmentResult").length;
+}
+
+function providerResult(request) {
+  if (request?.text?.format?.name === "AssessmentJudgmentResult") {
+    return JSON.stringify({
+      verdict: "insufficient_evidence",
+      rationale: "The budget fixture does not provide evidence for a decisive judgment.",
+      confidence: 0.4,
+      evidence: [],
+      recommendedVerification: [],
+    });
+  }
+  return JSON.stringify({ concerns: [] });
 }
 
 function runCli(args, env) {

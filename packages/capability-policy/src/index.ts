@@ -3,7 +3,12 @@ import { readFile, realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
-import { type Assessment, createAssessmentReport } from "@rekon/kernel-assessments";
+import {
+  type Assessment,
+  type AssessmentJudgmentReport,
+  createAssessmentReport,
+  validateAssessmentJudgmentReport,
+} from "@rekon/kernel-assessments";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import type { CapabilityContract, CapabilityMap, OwnershipMap } from "@rekon/kernel-repo-model";
 import { assertRulebook, type Rulebook } from "@rekon/kernel-rulebook";
@@ -51,8 +56,16 @@ import {
   OWNERSHIP_DOES_NOT_OWN_EVALUATOR_ID,
   evaluateDeclaredOwnershipRules,
 } from "./declared-ownership.js";
+import {
+  applyAssessmentJudgments,
+  evaluateSemanticFileCandidates,
+  readCurrentRepoSource,
+  retainCurrentAssessmentJudgments,
+  type SemanticFileReportLike,
+} from "./assessment-judgment.js";
 
 export * from "./grammar-divergence.js";
+export * from "./assessment-judgment.js";
 
 type EvidenceGraphLike = {
   header: ArtifactHeader;
@@ -244,6 +257,9 @@ export const policyEvaluator: Evaluator = {
             evidenceRef,
           )
         : [];
+    const semanticFileCandidates = evaluateRepoRoot
+      ? await loadCurrentSemanticFileCandidates(artifacts, evaluateRepoRoot)
+      : { assessments: [] as Assessment[], inputRefs: [] as ArtifactRef[] };
     const repositoryChecks = !disabledRules.has(REPOSITORY_CHECK_FAILURE_RULE_ID)
       ? await evaluateRepositoryChecks(graph, evidenceRef, artifacts)
       : { findings: [], assessments: [], inputRefs: [], promotedRootCauseKeys: new Set<string>(), sourceRootCauseKeys: new Set<string>() };
@@ -296,7 +312,7 @@ export const policyEvaluator: Evaluator = {
       ...repositoryChecks.findings,
       ...declaredOwnership.findings,
     ];
-    const assessments: Assessment[] = [
+    const rawAssessments: Assessment[] = [
       ...complexityAssessments,
       ...importGraphAssessments,
       ...evaluateSourceQualitySignals(graph.facts, evidenceRef)
@@ -325,6 +341,7 @@ export const policyEvaluator: Evaluator = {
       })),
       ...deadCodeResult.risks,
       ...semanticDebtClaims,
+      ...semanticFileCandidates.assessments,
       ...embeddingDuplicationOpportunities,
       ...repositoryChecks.assessments,
       ...securityScans.assessments,
@@ -332,6 +349,10 @@ export const policyEvaluator: Evaluator = {
       ...grammarDivergence.assessments,
       ...grammarFamily.assessments,
     ].filter((assessment) => !repositoryChecks.promotedRootCauseKeys.has(assessment.rootCauseKey));
+    const judgmentApplication = evaluateRepoRoot
+      ? await applyCurrentAssessmentJudgments(artifacts, evaluateRepoRoot, rawAssessments)
+      : { assessments: rawAssessments, inputRefs: [] as ArtifactRef[] };
+    const assessments = judgmentApplication.assessments;
     const findingInputRefs = uniqueRefs([
       evidenceRef,
       ...repositoryChecks.inputRefs,
@@ -341,6 +362,8 @@ export const policyEvaluator: Evaluator = {
       evidenceRef,
       ...overlapResult.inputRefs,
       ...(semanticDebtClaims.length > 0 && semanticDebtRef ? [semanticDebtRef] : []),
+      ...semanticFileCandidates.inputRefs,
+      ...judgmentApplication.inputRefs,
       ...(capabilityGraphRef ? [capabilityGraphRef] : []),
       ...repositoryChecks.inputRefs,
       ...securityScans.inputRefs,
@@ -396,6 +419,8 @@ export default defineCapability({
     consumes: [
       "EvidenceGraph",
       "SemanticDebtJudgmentReport",
+      "SemanticFileUnderstandingReport",
+      "AssessmentJudgmentReport",
       "CapabilityEvidenceGraph",
       "CapabilityNormalizationReport",
       "CapabilityMap",
@@ -422,6 +447,16 @@ export default defineCapability({
         id: "semantic-debt.changed",
         description: "Semantic debt findings are invalid when the judgment report changes.",
         inputs: ["SemanticDebtJudgmentReport"],
+      },
+      {
+        id: "semantic-file-understanding.changed",
+        description: "Open-world semantic candidates are invalid when current source understanding changes.",
+        inputs: ["SemanticFileUnderstandingReport"],
+      },
+      {
+        id: "assessment-judgment.changed",
+        description: "Assessment disposition is invalid when independent judgment changes.",
+        inputs: ["AssessmentJudgmentReport"],
       },
       {
         id: "capability-evidence-graph.changed",
@@ -475,6 +510,76 @@ export default defineCapability({
     registry.evaluator(policyEvaluator);
   },
 });
+
+type PolicyArtifactReader = {
+  list(type?: string): Promise<ArtifactRef[]>;
+  read(ref: ArtifactRef): Promise<unknown>;
+};
+
+async function loadCurrentSemanticFileCandidates(
+  artifacts: PolicyArtifactReader,
+  repoRoot: string,
+): Promise<{ assessments: Assessment[]; inputRefs: ArtifactRef[] }> {
+  const refs = await artifacts.list("SemanticFileUnderstandingReport");
+  const latestByPath = new Map<string, {
+    ref: ArtifactRef;
+    report: SemanticFileReportLike;
+    generatedAt: string;
+  }>();
+
+  for (const ref of refs) {
+    const value = await artifacts.read(ref);
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const report = value as SemanticFileReportLike;
+    const path = typeof report.file?.path === "string" ? report.file.path : "";
+    const generatedAt = typeof report.header?.generatedAt === "string" ? report.header.generatedAt : "";
+    if (!path) continue;
+    const previous = latestByPath.get(path);
+    if (!previous || previous.generatedAt.localeCompare(generatedAt) < 0) {
+      latestByPath.set(path, { ref, report, generatedAt });
+    }
+  }
+
+  const assessments: Assessment[] = [];
+  const inputRefs: ArtifactRef[] = [];
+  for (const path of [...latestByPath.keys()].sort()) {
+    const candidate = latestByPath.get(path)!;
+    const source = await readCurrentRepoSource(repoRoot, path);
+    if (!source) continue;
+    const produced = evaluateSemanticFileCandidates(candidate.report, candidate.ref, source);
+    if (produced.length === 0) continue;
+    assessments.push(...produced);
+    inputRefs.push(candidate.ref);
+  }
+
+  return { assessments, inputRefs: uniqueRefs(inputRefs) };
+}
+
+async function applyCurrentAssessmentJudgments(
+  artifacts: PolicyArtifactReader,
+  repoRoot: string,
+  assessments: Assessment[],
+): Promise<{ assessments: Assessment[]; inputRefs: ArtifactRef[] }> {
+  const refs = (await artifacts.list("AssessmentJudgmentReport")).slice().reverse().slice(0, 20);
+  let current = assessments;
+  const inputRefs: ArtifactRef[] = [];
+
+  for (const ref of refs) {
+    const value = await artifacts.read(ref);
+    const validation = validateAssessmentJudgmentReport(value);
+    if (!validation.ok) continue;
+    const report = await retainCurrentAssessmentJudgments(
+      validation.value as AssessmentJudgmentReport,
+      repoRoot,
+    );
+    const result = applyAssessmentJudgments(current, report, ref);
+    if (result.applied.length === 0 && result.rejected.length === 0) continue;
+    current = result.assessments;
+    inputRefs.push(ref);
+  }
+
+  return { assessments: current, inputRefs: uniqueRefs(inputRefs) };
+}
 
 async function declaredOwnershipFindings(
   artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },

@@ -36,6 +36,7 @@ docs, not generated freshness reports or internal planning logs.
 - [DependencyAuditReport](artifacts/dependency-audit-report.md)
 - [FindingReport](artifacts/finding-report.md)
 - [AssessmentReport](artifacts/assessment-report.md)
+- [AssessmentJudgmentReport](artifacts/assessment-judgment-report.md)
 - [ResolverPacket](artifacts/resolver-packet.md)
 - [WorkOrder](artifacts/work-order.md)
 - [VerificationPlan](artifacts/verification-plan.md)

@@ -54,6 +54,14 @@ Runs during `Evaluate`, producing `FindingReport` for proven violations and
 `AssessmentReport` for risks, opportunities, semantic claims, and model
 diagnostics.
 
+Current semantic file reports can contribute open-world problem candidates
+when their source excerpts and digests match the repository. During `scan`, a
+bounded judgment pass may confirm, reject, or defer those and other unresolved
+assessments. Policy applies only current judgments whose assessment signature,
+root cause, prompt contract, source digest, and quoted evidence still match.
+Independent confirmation remains an assessment unless applicable law or
+reproducible proof also satisfies the finding-promotion contract.
+
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same
 normalized diagnostic is reproduced by two distinct runs on the current

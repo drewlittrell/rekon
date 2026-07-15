@@ -21,6 +21,8 @@ Lifecycle states are derived from kind and verification evidence:
 - `model_proposed`: unverified semantic judgment
 - `evidence_observed`: deterministic or tool evidence observed once
 - `tool_corroborated`: a tool or deterministic signal corroborates the claim
+- `independently_confirmed`: a separate judgment pass confirmed the claim
+  against current source
 - `verified`: evidence satisfies the detector's verification contract
 - `operator_confirmed`: an operator explicitly confirms the assessment
 - `opportunity_only`: optional improvement, never automatic defect promotion
@@ -43,8 +45,9 @@ Lifecycle states are derived from kind and verification evidence:
 ```
 
 Assessments may be fused by root cause. Promotion to `FindingReport` requires
-operator confirmation or corroborated evidence tied to applicable law or a
-reproducible defect.
+operator confirmation, or confirmed/corroborated evidence tied to applicable
+law or a reproducible defect. Independent model confirmation alone remains an
+assessment.
 
 Semantic claims use an explicit intermediate state. A matching deterministic
 source signal changes `basis` to `mixed`, `verification` to `corroborated`, and
@@ -58,6 +61,12 @@ records remain visible through `supportingSignals`.
 Use `rekon assessments list --state <state> --json` to inspect one lifecycle
 state. Resolver packets carry `state` on each relevant assessment and summarize
 states in `resolutionTrace`.
+
+During `rekon scan`, unresolved risks and semantic claims may be evaluated into
+an [AssessmentJudgmentReport](assessment-judgment-report.md). Current,
+source-grounded confirmation updates the lifecycle state. Current,
+source-grounded rejection removes the candidate from the latest
+`AssessmentReport`; the judgment report remains available for audit.
 
 A single failed repository lint, test, typecheck, or build run is recorded as a
 risk. Stale, timed-out, killed, empty-output, and environment-shaped failures

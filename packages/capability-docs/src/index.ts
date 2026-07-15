@@ -1379,6 +1379,7 @@ function renderAgentsDoc(
       `- Model diagnostics: ${countResolverAssessments(resolver, "model_diagnostic")}`,
       `- Model-proposed: ${countResolverAssessmentStates(resolver, "model_proposed")}`,
       `- Tool-corroborated: ${countResolverAssessmentStates(resolver, "tool_corroborated")}`,
+      `- Independently confirmed: ${countResolverAssessmentStates(resolver, "independently_confirmed")}`,
       `- Operator-confirmed: ${countResolverAssessmentStates(resolver, "operator_confirmed")}`,
       `- Opportunity-only: ${countResolverAssessmentStates(resolver, "opportunity_only")}`,
     ] : []),
