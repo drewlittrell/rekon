@@ -7,6 +7,7 @@ import test from "node:test";
 import capability, {
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
+  extractResourceLifetimeEvidence,
   jsTsProvider,
 } from "../dist/index.js";
 
@@ -375,6 +376,62 @@ test("option-flow evidence distinguishes destructive overrides from spread-prese
     assert.equal(facts[0].value.callbackOwner, "withOtpHandling");
     assert.equal(facts[0].value.preservesSpreadValue, false);
     assert.equal(facts[0].provenance.line, facts[0].value.line);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("resource-flow evidence links request retention to an explicit connection release", async () => {
+  const retainSource = [
+    "export function attach(request, reply, context) {",
+    "  request.raw.socket._meta = { context, request, reply };",
+    "}",
+  ].join("\n");
+  const releaseSource = [
+    "export function finish(reply) {",
+    "  const socket = reply.request.raw.socket;",
+    "  socket._meta = null;",
+    "}",
+  ].join("\n");
+
+  assert.deepEqual(extractResourceLifetimeEvidence({ path: "src/route.ts", content: retainSource }), [{
+    kind: "resource-lifetime",
+    action: "retain",
+    caller: "attach",
+    resource: "socket._meta",
+    target: "request.raw.socket._meta",
+    ownerKind: "socket",
+    retainedNames: ["reply", "request"],
+    location: { line: 2, column: 3 },
+  }]);
+  assert.deepEqual(extractResourceLifetimeEvidence({ path: "src/reply.ts", content: releaseSource }), [{
+    kind: "resource-lifetime",
+    action: "release",
+    caller: "finish",
+    resource: "socket._meta",
+    target: "socket._meta",
+    ownerKind: "socket",
+    location: { line: 3, column: 3 },
+  }]);
+  assert.deepEqual(extractResourceLifetimeEvidence({
+    path: "src/ordinary.ts",
+    content: "request.state.meta = { request, reply }; server.metrics = { count: 1 };",
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-resource-flow-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "route.ts"), retainSource, "utf8");
+    await writeFile(join(root, "src", "reply.ts"), releaseSource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "resource_flow")
+      .sort((left, right) => left.value.action.localeCompare(right.value.action));
+    assert.equal(facts.length, 2);
+    assert.deepEqual(facts.map((fact) => [fact.value.action, fact.value.resource]), [
+      ["release", "socket._meta"],
+      ["retain", "socket._meta"],
+    ]);
+    assert.ok(facts.every((fact) => fact.provenance.line === fact.value.line));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

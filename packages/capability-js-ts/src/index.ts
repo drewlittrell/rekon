@@ -76,8 +76,10 @@ export {
   type ErrorControlFlowGuard,
   type ErrorControlFlowEvidence,
   type OptionPropagationEvidence,
+  type ResourceLifetimeEvidence,
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
+  extractResourceLifetimeEvidence,
 } from "./ast-extractor.js";
 export { collectTypeScriptDiagnostics, type TypeScriptDiagnosticEvidence } from "./typescript-diagnostics.js";
 export {
@@ -1210,6 +1212,22 @@ function factsFromAstResult(
         ...(flow.callbackParameter ? { callbackParameter: flow.callbackParameter } : {}),
         ...(flow.callbackProperty ? { callbackProperty: flow.callbackProperty } : {}),
         ...(flow.callbackOwner ? { callbackOwner: flow.callbackOwner } : {}),
+        line: flow.location.line,
+        column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "resource-lifetime") {
+      facts.push(fact("resource_flow", `${path}:${flow.resource}:${flow.action}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        action: flow.action,
+        resource: flow.resource,
+        target: flow.target,
+        ownerKind: flow.ownerKind,
+        ...(flow.retainedNames ? { retainedNames: flow.retainedNames } : {}),
         line: flow.location.line,
         column: flow.location.column,
         extractionMethod: "ast" as const,

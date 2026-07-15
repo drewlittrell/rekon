@@ -134,6 +134,7 @@
         "summary": "Request-scoped objects leaked through socket metadata after a response completed."
       },
       "affectedPaths": ["lib/reply.js"],
+      "evidencePaths": ["lib/route.js"],
       "testPaths": ["test/hooks.test.js"]
     },
     {

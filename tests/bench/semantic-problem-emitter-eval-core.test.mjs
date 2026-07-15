@@ -129,6 +129,27 @@ test("error-propagation defect identity accepts a cited changed compound guard w
   }), false);
 });
 
+test("resource-lifetime defect identity accepts structured cross-file retention when the fix only adds release code", () => {
+  const assessment = {
+    details: {
+      problemClass: "resource-lifetime",
+      retentionEvidence: [{ path: "lib/route.js", line: 589, resource: "socket._meta" }],
+      sourceEvidence: [{ path: "lib/route.js", lineStart: 589, lineEnd: 589 }],
+    },
+  };
+  assert.equal(assessmentChangedLineCoverage(assessment, new Set()), 0);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "resource-lifetime",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: { details: { problemClass: "resource-lifetime", retentionEvidence: [] } },
+    changedLines: new Set(),
+    problemClass: "resource-lifetime",
+  }), false);
+});
+
 test("paired emission requires defect evidence in every affected buggy path", () => {
   const pair = {
     id: "cleanup-pair",

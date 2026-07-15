@@ -33,6 +33,7 @@ Current rule families:
 - `typescript.functionComplexity`
 - `repository.checkFailure`
 - `security.scannerResult`
+- `semantic.resourceLifetime`
 - `similarity.duplicateCandidate`
 - `imports.noNodeModulesRelativeImports`
 - `files.noGeneratedAsSource`
@@ -61,6 +62,12 @@ assessments. Policy applies only current judgments whose assessment signature,
 root cause, prompt contract, source digest, and quoted evidence still match.
 Independent confirmation remains an assessment unless applicable law or
 reproducible proof also satisfies the finding-promotion contract.
+
+Resource-lifetime policy joins deterministic `resource_flow` facts across a
+fresh EvidenceGraph. It emits one semantic claim when request/reply objects are
+stored on connection-owned state and no matching explicit release exists.
+Partial evidence graphs remain silent, and the claim still requires autonomous
+judgment or runtime verification before it can be treated as a defect.
 
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same
@@ -200,7 +207,9 @@ potential propagation only and does not alter promotion or severity.
 The default export is a Rekon capability definition with evaluator handlers and
 built-in rule metadata. The package also exports
 `evaluateDeclaredOwnershipRules` and
-`OWNERSHIP_DOES_NOT_OWN_EVALUATOR_ID` for rulebook-aware integrations.
+`OWNERSHIP_DOES_NOT_OWN_EVALUATOR_ID` for rulebook-aware integrations, plus
+`evaluateResourceLifetimeSignals` and `SEMANTIC_RESOURCE_LIFETIME_RULE_ID` for
+cross-file lifetime evaluation.
 
 ## Import Boundary
 

@@ -240,6 +240,13 @@
       "remediationUnit": "source file and option-precedence handoff"
     },
     {
+      "ruleId": "semantic.resourceLifetime",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "cross-file resource_flow facts identify request-scoped values retained on connection-owned state without a matching release in a fresh EvidenceGraph",
+      "jurisdiction": "production JavaScript and TypeScript source where socket, connection, or server state retains visible request/reply objects",
+      "remediationUnit": "connection-owned resource key and its request lifecycle boundary"
+    },
+    {
       "ruleId": "dead_code.unreferenced",
       "outputKinds": ["risk"],
       "evidence": "exports, resolved consumers, and declared roots",

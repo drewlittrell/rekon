@@ -82,6 +82,7 @@ export function validateDefectPairCatalog(catalog) {
       );
     }
     requirePathList(pair.affectedPaths, `pair ${pair.id} affectedPaths`, { allowEmpty: false });
+    requirePathList(pair.evidencePaths ?? [], `pair ${pair.id} evidencePaths`, { allowEmpty: true });
     requirePathList(pair.testPaths ?? [], `pair ${pair.id} testPaths`, { allowEmpty: true });
   }
 

@@ -104,6 +104,23 @@ test("judgment prompt distinguishes absent option overrides from preserving fall
   assert.match(prompt, /nullish fallback preserves it/);
 });
 
+test("judgment prompt keeps resource retention autonomous without inventing runtime proof", () => {
+  const resourceAssessment = {
+    ...assessment,
+    ruleId: "semantic.resourceLifetime",
+    type: "semantic.resourceLifetime",
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: resourceAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /complete graph with no matching explicit release/);
+  assert.match(prompt, /Use verification_required/);
+  assert.match(prompt, /lifecycle or heap-retention check rather than human inspection/);
+});
+
 test("coercion accepts exact source evidence and derives canonical line coordinates", () => {
   const judgment = coerceAssessmentJudgment({
     assessment,

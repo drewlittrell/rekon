@@ -197,6 +197,16 @@ judgment keeps external callback or option contracts explicit as verification
 requirements. Both buggy pnpm publish paths are retained while both fixed
 fallback paths remain clean.
 
+The fifth batch closes the resource-lifetime gap with cross-file evidence rather
+than a generic assignment detector. Deterministic `resource_flow` facts record
+request/reply objects retained on socket, connection, or server-owned state and
+explicit releases normalized to the same resource key. Policy emits
+`semantic.resourceLifetime` only from a fresh, complete EvidenceGraph when a
+retention has no matching release. Independent judgment keeps runtime
+reachability explicit. The buggy Fastify keep-alive revision is retained as a
+verification requirement, while the fixed response-boundary release suppresses
+the candidate.
+
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,
 thresholds, and regression tests are the durable record. Corpus commands use
@@ -217,8 +227,8 @@ outcomes, and cost $0.098537. `claude-sonnet-5` at low effort accepted 13 of 18,
 incorrectly rejected one buggy case, and cost $0.285882 at its introductory
 rate. This is a task-specific nine-pair result, not a general model ranking.
 At the time of that judgment-model run, seven candidate classes were emitter
-gaps. The calibrated semantic emitters reduce the current gap to two: resource
-lifetime and scope resolution. The
+gaps. The calibrated problem emitters reduce the current gap to one: scope
+resolution. The
 durable aggregate is
 `tests/bench/calibration/assessment-judgment-model-baseline.json`.
 

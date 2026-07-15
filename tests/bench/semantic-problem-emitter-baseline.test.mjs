@@ -15,11 +15,11 @@ test("semantic problem emitter baseline retains paired outcomes without source p
   assert.equal(baseline.corpus.sourceRetention, "none");
   assert.equal(baseline.corpus.minimumChangedLineCoverage, 0.2);
   assert.equal(baseline.corpus.semanticPromptVersion, "semantic-file-understanding-v3");
-  assert.equal(baseline.corpus.judgmentPromptVersion, "assessment-judge-v4");
+  assert.equal(baseline.corpus.judgmentPromptVersion, "assessment-judge-v5");
   assert.equal(baseline.corpus.judgmentCoercionVersion, "assessment-judgment-v2");
-  assert.equal(baseline.corpus.pairCount, 5);
-  assert.equal(baseline.corpus.caseCount, 16);
-  assert.equal(baseline.summary.passedPairs, 5);
+  assert.equal(baseline.corpus.pairCount, 6);
+  assert.equal(baseline.corpus.caseCount, 18);
+  assert.equal(baseline.summary.passedPairs, 6);
   assert.equal(baseline.summary.failedPairs, 0);
   assert.deepEqual(baseline.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
@@ -27,6 +27,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     "dependency-resolution",
     "error-propagation",
     "option-propagation",
+    "resource-lifetime",
   ]);
   assert.ok(baseline.pairs.every((pair) =>
     pair.buggyDefectPaths === pair.requiredBuggyPaths
@@ -47,7 +48,7 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
   ], { cwd: root, encoding: "utf8", env: {} });
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.requests, 16);
+  assert.equal(payload.requests, 18);
   assert.equal(payload.sourceRetention, "none");
   assert.deepEqual(payload.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
@@ -55,6 +56,7 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
     "dependency-resolution",
     "error-propagation",
     "option-propagation",
+    "resource-lifetime",
   ]);
 });
 

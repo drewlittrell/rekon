@@ -25,9 +25,9 @@
     {
       "pairId": "fastify-keep-alive-meta-leak",
       "claimVerdict": "valid",
-      "coverage": "unrelated-signal",
-      "recommendedAction": "evidence-source",
-      "rationale": "The persistent debt and complexity assessments do not identify retained request objects. A generic property-assignment rule would be noisy; runtime heap, lifecycle, or ownership evidence is needed to prove retention beyond response completion."
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now joins structured request/reply retention on connection-owned state with explicit releases across a complete EvidenceGraph. The buggy Fastify revision retains the cross-file resource-lifetime claim for autonomous verification, while the response-boundary release makes the fixed revision clean."
     },
     {
       "pairId": "vitest-typecheck-worker-off",

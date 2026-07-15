@@ -11,10 +11,12 @@ import policyCapability, {
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
   SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   applyAssessmentJudgments,
   evaluateDependencyAuditReports,
   evaluateSemanticFileCandidates,
+  evaluateResourceLifetimeSignals,
 } from "../dist/index.js";
 import {
   assessmentJudgmentSignature,
@@ -113,6 +115,51 @@ test("policy evaluator emits a FindingReport from EvidenceGraph", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("policy evaluator gates cross-file resource lifetime on EvidenceGraph completeness", async () => {
+  const resourceFact = {
+    kind: "resource_flow",
+    subject: "lib/route.js:socket._meta:retain",
+    value: {
+      source: "lib/route.js",
+      caller: "routeHandler",
+      action: "retain",
+      resource: "socket._meta",
+      target: "request.raw.socket._meta",
+      ownerKind: "socket",
+      retainedNames: ["request", "reply"],
+      line: 589,
+    },
+    confidence: 1,
+  };
+  const evaluateStatus = async (status) => {
+    const root = await mkdtemp(join(tmpdir(), `rekon-policy-resource-lifetime-${status}-`));
+    try {
+      const runtime = await createRuntime({ repoRoot: root, repoId: "fixture", capabilities: [policyCapability], logger: silentLogger });
+      await runtime.artifacts.write({
+        header: {
+          artifactType: "EvidenceGraph",
+          artifactId: `evidence-${status}`,
+          schemaVersion: "0.1.0",
+          generatedAt: "2026-07-15T17:00:00.000Z",
+          subject: { repoId: "fixture" },
+          producer: { id: "test", version: "0.1.0" },
+          inputRefs: [],
+          freshness: { status },
+        },
+        facts: [resourceFact],
+      });
+      const refs = await runtime.runEvaluate();
+      const report = await runtime.artifacts.read(refs.find((ref) => ref.type === "AssessmentReport"));
+      return report.assessments.some((entry) => entry.ruleId === SEMANTIC_RESOURCE_LIFETIME_RULE_ID);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  };
+
+  assert.equal(await evaluateStatus("partial"), false);
+  assert.equal(await evaluateStatus("fresh"), true);
 });
 
 test("dependency advisory impact preserves scanner severity while accounting for repository exposure", async () => {
@@ -296,6 +343,59 @@ test("semantic problem classes map to stable assessment rules without changing g
   );
 });
 
+test("resource lifetime requires complete cross-file retention evidence without a matching release", () => {
+  const ref = { type: "EvidenceGraph", id: "resource-evidence", schemaVersion: "0.1.0" };
+  const retain = {
+    kind: "resource_flow",
+    subject: "lib/route.js:socket._meta:retain",
+    value: {
+      source: "lib/route.js",
+      caller: "routeHandler",
+      action: "retain",
+      resource: "socket._meta",
+      target: "request.raw.socket._meta",
+      ownerKind: "socket",
+      retainedNames: ["request", "reply"],
+      line: 589,
+    },
+  };
+  const release = {
+    kind: "resource_flow",
+    subject: "lib/reply.js:socket._meta:release",
+    value: {
+      source: "lib/reply.js",
+      caller: "onResFinished",
+      action: "release",
+      resource: "socket._meta",
+      target: "socket._meta",
+      ownerKind: "socket",
+      line: 968,
+    },
+  };
+
+  const buggy = evaluateResourceLifetimeSignals([retain], ref, { evidenceComplete: true });
+  assert.equal(buggy.length, 1);
+  assert.equal(buggy[0].ruleId, SEMANTIC_RESOURCE_LIFETIME_RULE_ID);
+  assert.equal(buggy[0].kind, "semantic_claim");
+  assert.deepEqual(buggy[0].files, ["lib/route.js"]);
+  assert.equal(buggy[0].details.releaseMatch, "absent-in-complete-evidence");
+  assert.deepEqual(buggy[0].details.retainedNames, ["reply", "request"]);
+
+  assert.equal(evaluateResourceLifetimeSignals([retain, release], ref, { evidenceComplete: true }).length, 0);
+  assert.equal(evaluateResourceLifetimeSignals([{
+    ...retain,
+    value: { ...retain.value, source: "packages/api/lib/route.js" },
+  }, {
+    ...release,
+    value: { ...release.value, source: "packages/worker/lib/reply.js" },
+  }], ref, { evidenceComplete: true }).length, 1);
+  assert.equal(evaluateResourceLifetimeSignals([retain], ref, { evidenceComplete: false }).length, 0);
+  assert.equal(evaluateResourceLifetimeSignals([{
+    ...retain,
+    value: { ...retain.value, source: "test/route.test.js" },
+  }], ref, { evidenceComplete: true }).length, 0);
+});
+
 test("current high-confidence judgments confirm or reject matching candidates without mutating unrelated assessments", () => {
   const evidence = { type: "EvidenceGraph", id: "evidence-1", schemaVersion: "0.1.0" };
   const sourceAssessmentRef = { type: "AssessmentReport", id: "assessment-source", schemaVersion: "0.1.0" };
@@ -338,7 +438,7 @@ test("current high-confidence judgments confirm or reject matching candidates wi
       mode: "auto",
       provider: "mock",
       model: "mock-model",
-      promptVersion: "assessment-judge-v4",
+      promptVersion: "assessment-judge-v5",
       coercionVersion: "assessment-judgment-v2",
       maxCandidates: 3,
       maxSourceChars: 24000,

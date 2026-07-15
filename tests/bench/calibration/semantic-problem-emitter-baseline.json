@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-07-15T20:14:21.677Z",
+  "generatedAt": "2026-07-15T21:16:30.019Z",
   "pricingAsOf": "2026-07-15",
   "corpus": {
     "catalogVersion": "1.0.0",
-    "pairCount": 5,
-    "caseCount": 16,
+    "pairCount": 6,
+    "caseCount": 18,
     "sourceRetention": "none",
-    "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1",
+    "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+resource-flow-anchor-v1",
     "minimumChangedLineCoverage": 0.2,
     "semanticPromptVersion": "semantic-file-understanding-v3",
-    "judgmentPromptVersion": "assessment-judge-v4",
+    "judgmentPromptVersion": "assessment-judge-v5",
     "judgmentCoercionVersion": "assessment-judgment-v2"
   },
   "model": {
@@ -20,17 +20,17 @@
     "effort": "low"
   },
   "summary": {
-    "passedPairs": 5,
+    "passedPairs": 6,
     "failedPairs": 0,
     "errors": 0,
     "usage": {
-      "inputTokens": 84693,
-      "cachedInputTokens": 11624,
-      "cacheWriteInputTokens": 72997,
-      "outputTokens": 14754,
-      "reasoningTokens": 2498
+      "inputTokens": 91242,
+      "cachedInputTokens": 6630,
+      "cacheWriteInputTokens": 84537,
+      "outputTokens": 14933,
+      "reasoningTokens": 2349
     },
-    "currentCostUsd": 0.181005
+    "currentCostUsd": 0.196007
   },
   "pairs": [
     {
@@ -48,6 +48,18 @@
     {
       "pairId": "nest-import-first-match",
       "problemClass": "dependency-resolution",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "fastify-keep-alive-meta-leak",
+      "problemClass": "resource-lifetime",
       "requiredBuggyPaths": 1,
       "buggyDefectPaths": 1,
       "buggyRetainedPaths": 1,

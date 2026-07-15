@@ -194,11 +194,23 @@ export type OptionPropagationEvidence = {
   objectLocation: AstLocation;
 };
 
+export type ResourceLifetimeEvidence = {
+  kind: "resource-lifetime";
+  action: "retain" | "release";
+  caller: string;
+  resource: string;
+  target: string;
+  ownerKind: "socket" | "connection" | "server";
+  retainedNames?: string[];
+  location: AstLocation;
+};
+
 type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
   | ErrorControlFlowEvidence
-  | OptionPropagationEvidence;
+  | OptionPropagationEvidence
+  | ResourceLifetimeEvidence;
 
 export interface AstExtractionResult {
   language: AstLanguage;
@@ -269,6 +281,13 @@ export function extractOptionPropagationEvidence(input: AstExtractionInput): Opt
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is OptionPropagationEvidence => record.kind === "option-override",
+  );
+}
+
+export function extractResourceLifetimeEvidence(input: AstExtractionInput): ResourceLifetimeEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is ResourceLifetimeEvidence => record.kind === "resource-lifetime",
   );
 }
 
@@ -564,6 +583,14 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
       records.push(...optionPropagationRecords(node, sourceFile, context.caller));
     }
 
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      const resource = resourceLifetimeAssignment(node, sourceFile, context.caller);
+      if (resource) records.push(resource);
+    } else if (ts.isDeleteExpression(node)) {
+      const resource = resourceLifetimeDelete(node, sourceFile, context.caller);
+      if (resource) records.push(resource);
+    }
+
     if (ts.isCallExpression(node)) {
       const path = memberPath(node.expression);
       if (path && path.length >= 2) {
@@ -597,6 +624,88 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
 
   visitFlows(sourceFile, { caller: "__module__" });
   return records;
+}
+
+const RESOURCE_OWNER_KINDS = new Set(["socket", "connection", "server"] as const);
+
+function resourceLifetimeAssignment(
+  assignment: ts.BinaryExpression,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): ResourceLifetimeEvidence | undefined {
+  const target = resourceTarget(unwrapParenthesized(assignment.left));
+  if (!target) return undefined;
+  const value = unwrapParenthesized(assignment.right);
+  const base = {
+    kind: "resource-lifetime" as const,
+    caller,
+    resource: target.resource,
+    target: target.target,
+    ownerKind: target.ownerKind,
+    location: locationOf(assignment.left, sourceFile),
+  };
+  if (isReleaseValue(value)) return { ...base, action: "release" };
+  if (!ts.isObjectLiteralExpression(value)) return undefined;
+  const retainedNames = requestScopedNames(value);
+  if (retainedNames.length === 0) return undefined;
+  return { ...base, action: "retain", retainedNames };
+}
+
+function resourceLifetimeDelete(
+  expression: ts.DeleteExpression,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): ResourceLifetimeEvidence | undefined {
+  const target = resourceTarget(unwrapParenthesized(expression.expression));
+  if (!target) return undefined;
+  return {
+    kind: "resource-lifetime",
+    action: "release",
+    caller,
+    resource: target.resource,
+    target: target.target,
+    ownerKind: target.ownerKind,
+    location: locationOf(expression.expression, sourceFile),
+  };
+}
+
+function resourceTarget(expression: ts.Expression): {
+  resource: string;
+  target: string;
+  ownerKind: ResourceLifetimeEvidence["ownerKind"];
+} | undefined {
+  const path = memberPath(expression);
+  if (!path || path.length < 2) return undefined;
+  const ownerIndex = path.findIndex((part) => RESOURCE_OWNER_KINDS.has(part as ResourceLifetimeEvidence["ownerKind"]));
+  if (ownerIndex < 0 || ownerIndex === path.length - 1) return undefined;
+  const ownerKind = path[ownerIndex] as ResourceLifetimeEvidence["ownerKind"];
+  return {
+    resource: path.slice(ownerIndex).join("."),
+    target: path.join("."),
+    ownerKind,
+  };
+}
+
+function isReleaseValue(expression: ts.Expression): boolean {
+  return expression.kind === ts.SyntaxKind.NullKeyword
+    || (ts.isIdentifier(expression) && expression.text === "undefined")
+    || (ts.isVoidExpression(expression) && expression.expression.kind === ts.SyntaxKind.NumericLiteral);
+}
+
+function requestScopedNames(object: ts.ObjectLiteralExpression): string[] {
+  const names = new Set<string>();
+  const collect = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && /^(?:req|request|reply|res|response)$/iu.test(node.text)) {
+      names.add(node.text);
+    }
+    ts.forEachChild(node, collect);
+  };
+  for (const property of object.properties) {
+    if (ts.isShorthandPropertyAssignment(property)) collect(property.name);
+    else if (ts.isPropertyAssignment(property)) collect(property.initializer);
+    else if (ts.isSpreadAssignment(property)) collect(property.expression);
+  }
+  return [...names].sort();
 }
 
 function optionPropagationRecords(

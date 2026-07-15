@@ -64,6 +64,11 @@ export function assessmentMatchesDefectEvidence(input) {
     >= MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE) {
     return true;
   }
+  if (input.problemClass === "resource-lifetime") {
+    return input.assessment?.details?.problemClass === "resource-lifetime"
+      && Array.isArray(input.assessment?.details?.retentionEvidence)
+      && input.assessment.details.retentionEvidence.length > 0;
+  }
   if (input.problemClass !== "error-propagation") return false;
   const anchorLines = new Set(
     (input.errorControlFlow ?? [])

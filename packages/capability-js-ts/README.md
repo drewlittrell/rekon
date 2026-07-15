@@ -51,9 +51,11 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
-- `event_flow`, `state_access`, `error_flow`, and `option_flow` for narrow
+- `event_flow`, `state_access`, `error_flow`, `option_flow`, and `resource_flow` for narrow
   deterministic behavior signals; option-flow facts preserve spread sources,
-  overrides, fallbacks, and callback context without classifying them as defects
+  overrides, fallbacks, and callback context without classifying them as defects.
+  Resource-flow facts identify request/reply objects stored on connection-owned
+  state and matching explicit releases; they do not claim runtime reachability
 
 ## Lifecycle Fit
 
@@ -65,7 +67,9 @@ projection, evaluation, resolver fallback, and docs.
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
 `extractErrorControlFlowEvidence()` and `extractOptionPropagationEvidence()`
-expose the structured observations used by Rekon's semantic prompt pipeline.
+expose structured observations used by Rekon's semantic prompt pipeline.
+`extractResourceLifetimeEvidence()` exposes the retain/release observations
+joined by policy across a complete EvidenceGraph.
 
 ## Import Boundary
 
@@ -94,7 +98,9 @@ Call evidence does not infer receiver types. State access requires a direct
 binding from a recognized state SDK; event flow requires a literal event name;
 error flow requires explicit throw syntax. Option flow records only same-name
 property overrides after a spread and leaves optionality and materiality to
-semantic judgment.
+semantic judgment. Resource flow is limited to visible request/reply values on
+socket, connection, or server-owned properties and explicit null, undefined,
+or delete releases. Cross-file completeness remains a policy concern.
 Local async calls are reported only when an unshadowed, locally declared async
 function is used as a bare statement. Focused tests and direct `process.env`
 mutation inside test callbacks remain risks, not proven defects. Tests are

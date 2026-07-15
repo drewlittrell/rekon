@@ -11,6 +11,7 @@ import { buildSemanticFileUnderstandingReport } from "../packages/capability-mod
 import {
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
+  extractResourceLifetimeEvidence,
 } from "../packages/capability-js-ts/dist/index.js";
 import {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
@@ -18,6 +19,8 @@ import {
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+  evaluateResourceLifetimeSignals,
   evaluateSemanticFileCandidates,
 } from "../packages/capability-policy/dist/index.js";
 import {
@@ -56,6 +59,7 @@ const problemRules = new Map([
   ["cleanup-completeness", SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID],
   ["error-propagation", SEMANTIC_ERROR_PROPAGATION_RULE_ID],
   ["option-propagation", SEMANTIC_OPTION_PROPAGATION_RULE_ID],
+  ["resource-lifetime", SEMANTIC_RESOURCE_LIFETIME_RULE_ID],
 ]);
 const requestedPairs = new Set(options.pairs);
 const selectedPairs = catalog.pairs.filter((pair) =>
@@ -87,6 +91,10 @@ const runs = [];
 for (const pair of selectedPairs) {
   const repository = repositories.get(pair.repository);
   if (!repository) throw new Error(`Unknown repository ${pair.repository} for ${pair.id}.`);
+  if (pair.claim.category === "resource-lifetime") {
+    runs.push(...await evaluateResourceLifetimePair(pair, repository));
+    continue;
+  }
   for (const revision of ["buggy", "fixed"]) {
     const commit = revision === "buggy" ? pair.buggyCommit : pair.fixedCommit;
     const counterpartCommit = revision === "buggy" ? pair.fixedCommit : pair.buggyCommit;
@@ -298,6 +306,155 @@ else {
   process.stdout.write(`Report: ${outputPath}\n`);
 }
 if (report.summary.failed > 0 || report.summary.errors > 0) process.exitCode = 1;
+
+async function evaluateResourceLifetimePair(pair, repository) {
+  if (pair.affectedPaths.length !== 1) {
+    throw new Error(`${pair.id}: resource-lifetime calibration requires exactly one fix path.`);
+  }
+  const pairRuns = [];
+  const sourcePaths = [...new Set([...pair.affectedPaths, ...(pair.evidencePaths ?? [])])];
+  const primaryPath = pair.affectedPaths[0];
+  const evidenceRef = { type: "EvidenceGraph", id: `eval-${pair.id}`, schemaVersion: "0.1.0" };
+
+  for (const revision of ["buggy", "fixed"]) {
+    process.stderr.write(`[semantic-problem-emitter-eval] ${pair.id}:${revision}:${sourcePaths.join(",")}\n`);
+    const commit = revision === "buggy" ? pair.buggyCommit : pair.fixedCommit;
+    const counterpartCommit = revision === "buggy" ? pair.fixedCommit : pair.buggyCommit;
+    const sourceRows = await Promise.all(sourcePaths.map(async (path) => {
+      const [text, counterpartText] = await Promise.all([
+        fetchText(rawGitHubUrl(repository.url, commit, path), options.timeoutMs),
+        fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
+      ]);
+      return {
+        path,
+        text,
+        counterpartText,
+        sha256: createHash("sha256").update(text).digest("hex"),
+      };
+    }));
+    const sourceByPath = new Map(sourceRows.map((source) => [source.path, source]));
+    const primary = sourceByPath.get(primaryPath);
+    if (!primary) throw new Error(`${pair.id}: missing primary source ${primaryPath}.`);
+    const facts = sourceRows.flatMap((source) =>
+      extractResourceLifetimeEvidence({ path: source.path, content: source.text }).map((entry) => ({
+        kind: "resource_flow",
+        subject: `${source.path}:${entry.resource}:${entry.action}:${entry.location.line}`,
+        value: {
+          source: source.path,
+          caller: entry.caller,
+          action: entry.action,
+          resource: entry.resource,
+          target: entry.target,
+          ownerKind: entry.ownerKind,
+          ...(entry.retainedNames ? { retainedNames: entry.retainedNames } : {}),
+          line: entry.location.line,
+        },
+      })));
+    const matching = evaluateResourceLifetimeSignals(facts, evidenceRef, { evidenceComplete: true });
+    const changedLines = changedLineNumbers(primary.text, primary.counterpartText);
+    const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
+      assessment,
+      changedLines,
+      problemClass: pair.claim.category,
+    }));
+    const judgmentResults = [];
+    for (const assessment of defectMatching) {
+      const judgmentSources = (assessment.files ?? [])
+        .map((path) => sourceByPath.get(path))
+        .filter((source) => source !== undefined)
+        .map((source) => ({ path: source.path, text: source.text, sha256: source.sha256 }));
+      const judgmentCompletion = await provider.completeJson({
+        task: "policy.assessment-judgment",
+        schemaName: "AssessmentJudgmentResult",
+        prompt: buildAssessmentJudgmentPrompt({
+          assessment,
+          sources: judgmentSources,
+          maxSourceChars: 24000,
+        }),
+        model: config.model,
+        ...(config.effort ? { effort: config.effort } : {}),
+        maxOutputTokens: Math.min(options.maxOutputTokens, 1200),
+        jsonSchema: ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+      });
+      if (!judgmentCompletion.ok) {
+        judgmentResults.push({
+          verdict: "failed",
+          confidence: 0,
+          evidenceCount: 0,
+          usage: {},
+          error: judgmentCompletion.error,
+        });
+        continue;
+      }
+      const judgment = coerceAssessmentJudgment({
+        assessment,
+        sources: judgmentSources,
+        result: judgmentCompletion.data && typeof judgmentCompletion.data === "object"
+          ? judgmentCompletion.data
+          : undefined,
+      });
+      judgmentResults.push({
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+        evidenceCount: judgment.evidence.length,
+        usage: judgmentCompletion.usage ?? {},
+      });
+    }
+    const usage = sumUsage(judgmentResults.map((entry) => entry.usage));
+    const defectRetained = judgmentResults.some(
+      (entry) => entry.verdict === "confirmed" || entry.verdict === "verification_required",
+    );
+    const defectCleared = defectMatching.length === 0
+      || (judgmentResults.length === defectMatching.length
+        && judgmentResults.every((entry) => entry.verdict === "rejected"));
+    pairRuns.push({
+      pairId: pair.id,
+      revision,
+      path: primaryPath,
+      problemClass: pair.claim.category,
+      status: "ok",
+      classCandidateEmitted: matching.length > 0,
+      defectEmitted: defectMatching.length > 0,
+      matchingAssessments: matching.length,
+      defectMatchingAssessments: defectMatching.length,
+      defectRetained,
+      defectCleared,
+      judgments: judgmentResults.map(({ verdict, confidence, evidenceCount, error }) => ({
+        verdict,
+        confidence,
+        evidenceCount,
+        ...(error ? { error } : {}),
+      })),
+      changedLineCount: changedLines.size,
+      sourceEvidenceCount: matching.reduce(
+        (total, assessment) => total + (Array.isArray(assessment.details?.sourceEvidence) ? assessment.details.sourceEvidence.length : 0),
+        0,
+      ),
+      candidateMetadata: matching.map((assessment) => ({
+        findingId: assessment.id,
+        changedLineCoverage: assessmentChangedLineCoverage(assessment, changedLines),
+        structuredAnchorMatch: assessmentMatchesDefectEvidence({
+          assessment,
+          changedLines,
+          problemClass: pair.claim.category,
+        }),
+        evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
+          ? assessment.details.sourceEvidence.map((entry) => ({
+              path: entry.path,
+              lineStart: entry.lineStart,
+              lineEnd: entry.lineEnd,
+              changedLineOverlap: false,
+            }))
+          : [],
+      })),
+      provider: config.provider,
+      model: config.model,
+      usage,
+      currentCostUsd: estimateUsageCost(usage, config.pricing),
+    });
+  }
+  return pairRuns;
+}
 
 async function fetchText(url, timeoutMs) {
   const controller = new AbortController();

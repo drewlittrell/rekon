@@ -13,7 +13,7 @@ import {
 
 import { isNonProductionPath } from "./grammar-divergence.js";
 
-export const ASSESSMENT_JUDGMENT_PROMPT_VERSION = "assessment-judge-v4";
+export const ASSESSMENT_JUDGMENT_PROMPT_VERSION = "assessment-judge-v5";
 export const ASSESSMENT_JUDGMENT_COERCION_VERSION = "assessment-judgment-v2";
 export const ASSESSMENT_JUDGMENT_MIN_DECISIVE_CONFIDENCE = 0.75;
 export const SEMANTIC_PROBLEM_CANDIDATE_RULE_ID = "semantic.problemCandidate";

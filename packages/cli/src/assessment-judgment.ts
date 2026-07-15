@@ -151,6 +151,13 @@ function assessmentSpecificRules(assessment: Assessment): string[] {
       "- Reject the claim only when current source establishes that the override deliberately takes precedence and cannot be absent, that the spread source cannot carry the same configured option, or that a nullish fallback preserves it.",
     ];
   }
+  if (assessment.ruleId === "semantic.resourceLifetime") {
+    return [
+      "- For resource lifetime, retain the claim only when current source visibly stores request-scoped objects on socket, connection, or server-owned state and the assessment came from a complete graph with no matching explicit release.",
+      "- Use verification_required when the ownership mismatch is visible but runtime reachability beyond request completion is not proven; recommend a focused lifecycle or heap-retention check rather than human inspection.",
+      "- Reject the claim when current source shows the owner is request-scoped, the retained value cannot include the named request objects, or a matching release is visible.",
+    ];
+  }
   return [];
 }
 

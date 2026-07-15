@@ -9,6 +9,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "playwright-compilation-cache-integrity": "semantic.cacheIntegrity",
   "redux-toolkit-pre-pending-abort": "semantic.errorPropagation",
   "pnpm-publish-otp-propagation": "semantic.optionPropagation",
+  "fastify-keep-alive-meta-leak": "semantic.resourceLifetime",
   "vitest-typecheck-worker-off": "events.inverseListenerDelegation",
   "nextjs-cache-handler-name-validation": "validation.partialAllowlistMatch",
 });
@@ -34,6 +35,7 @@ export function buildAssessmentJudgmentEvalCases(catalog, adjudications, selecte
 
     const ruleId = EMITTER_BACKED_RULES[pair.id] ?? "semantic.problemCandidate";
     const emitterCoverage = adjudication.coverage === "captured" ? "detector-backed" : "emitter-gap";
+    const sourcePaths = [...new Set([...pair.affectedPaths, ...(pair.evidencePaths ?? [])])].slice(0, 2);
     const assessment = {
       id: `assessment-judgment-eval:${pair.id}`,
       kind: emitterCoverage === "detector-backed" ? "risk" : "semantic_claim",
@@ -41,8 +43,8 @@ export function buildAssessmentJudgmentEvalCases(catalog, adjudications, selecte
       impact: "high",
       title: pair.claim.summary,
       description: pair.upstream.summary,
-      subjects: pair.affectedPaths,
-      files: pair.affectedPaths,
+      subjects: sourcePaths,
+      files: sourcePaths,
       ruleId,
       suggestedAction: "Determine whether the cited source still exhibits the upstream defect.",
       evidence: [{ type: "DefectPairClaim", id: pair.id, schemaVersion: catalog.version }],
@@ -69,7 +71,7 @@ export function buildAssessmentJudgmentEvalCases(catalog, adjudications, selecte
         id: repository.id,
         url: repository.url,
       },
-      paths: pair.affectedPaths.slice(0, 2),
+      paths: sourcePaths,
       assessment,
     };
     return [

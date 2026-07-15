@@ -41,6 +41,7 @@ import { REPOSITORY_CHECK_FAILURE_RULE_ID, evaluateRepositoryChecks } from "./re
 import { FUNCTION_COMPLEXITY_RULE_ID, evaluateFunctionComplexity } from "./function-complexity.js";
 import { IMPORT_CYCLE_RULE_ID, evaluateImportCycleGraph, loadLatestImportGraph } from "./import-cycles.js";
 import { DEPENDENCY_HUB_RULE_ID, evaluateDependencyHubs } from "./dependency-hubs.js";
+import { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } from "./resource-lifetime.js";
 import { loadFreshComplexityCoverage } from "./complexity-coverage.js";
 import {
   compileEffectiveCapabilityOntology,
@@ -148,6 +149,7 @@ export const BUILT_IN_POLICY_RULES = [
   SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
   "imports.noDistImports",
   "imports.noNodeModulesRelativeImports",
   "files.noGeneratedAsSource",
@@ -171,6 +173,7 @@ export const BUILT_IN_POLICY_RULES = [
 export { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
 export { NAMING_CONTRACT_RULE_ID, evaluateNamingContract, splitPascalTokens } from "./naming-contract.js";
 export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
+export { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } from "./resource-lifetime.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
@@ -305,6 +308,11 @@ export const policyEvaluator: Evaluator = {
     const complexityAssessments = !disabledRules.has(FUNCTION_COMPLEXITY_RULE_ID)
       ? evaluateFunctionComplexity(graph.facts, evidenceRef, complexityCoverage)
       : [];
+    const resourceLifetimeAssessments = !disabledRules.has(SEMANTIC_RESOURCE_LIFETIME_RULE_ID)
+      ? evaluateResourceLifetimeSignals(graph.facts, evidenceRef, {
+          evidenceComplete: graph.header.freshness?.status === "fresh",
+        })
+      : [];
     const grammarDivergence = !disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID)
       ? await grammarDivergenceSignals(graph, input, artifacts, evidenceRef)
       : { findings: [], assessments: [] };
@@ -324,6 +332,7 @@ export const policyEvaluator: Evaluator = {
     ];
     const rawAssessments: Assessment[] = [
       ...complexityAssessments,
+      ...resourceLifetimeAssessments,
       ...importGraphAssessments,
       ...evaluateSourceQualitySignals(graph.facts, evidenceRef)
         .filter((assessment) => !assessment.ruleId || !disabledRules.has(assessment.ruleId))
