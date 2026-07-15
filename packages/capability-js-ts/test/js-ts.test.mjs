@@ -4,7 +4,11 @@ import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
-import capability, { extractErrorControlFlowEvidence, jsTsProvider } from "../dist/index.js";
+import capability, {
+  extractErrorControlFlowEvidence,
+  extractOptionPropagationEvidence,
+  jsTsProvider,
+} from "../dist/index.js";
 
 test("built-in capability uses defineCapability-compatible manifest", () => {
   assert.equal(capability.manifest.id, "@rekon/capability-js-ts");
@@ -309,6 +313,68 @@ test("error-control-flow evidence distinguishes merged and identity-specific gua
     assert.equal(new Set(facts.map((fact) => fact.subject)).size, 2);
     assert.deepEqual(facts.map((fact) => fact.value.errorIdentity).sort(), ["AbortError", "ConditionError"]);
     assert.ok(facts.every((fact) => fact.provenance.line === fact.value.line));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("option-flow evidence distinguishes destructive overrides from spread-preserving fallbacks", async () => {
+  const buggySource = [
+    "export function publishWithOtp(publishOptions: object) {",
+    "  return withOtpHandling({",
+    "    operation: otp => publish({ ...publishOptions, otp }),",
+    "  });",
+    "}",
+  ].join("\n");
+  const fixedSource = [
+    "export function publishWithOtp(publishOptions: object) {",
+    "  return withOtpHandling({",
+    "    operation: otp => publish({ ...publishOptions, otp: otp ?? publishOptions.otp }),",
+    "  });",
+    "}",
+  ].join("\n");
+
+  const buggy = extractOptionPropagationEvidence({ path: "src/buggy.ts", content: buggySource });
+  assert.deepEqual(buggy, [{
+    kind: "option-override",
+    caller: "publishWithOtp",
+    property: "otp",
+    spreadSource: "publishOptions",
+    overrideSource: "otp",
+    overrideExpression: "otp",
+    overrideKind: "shorthand",
+    preservesSpreadValue: false,
+    callbackParameter: "otp",
+    callbackProperty: "operation",
+    callbackOwner: "withOtpHandling",
+    location: { line: 3, column: 52 },
+    objectLocation: { line: 3, column: 31 },
+  }]);
+
+  const fixed = extractOptionPropagationEvidence({ path: "src/fixed.ts", content: fixedSource });
+  assert.equal(fixed.length, 1);
+  assert.deepEqual({
+    overrideKind: fixed[0].overrideKind,
+    fallbackOperator: fixed[0].fallbackOperator,
+    fallbackTarget: fixed[0].fallbackTarget,
+    preservesSpreadValue: fixed[0].preservesSpreadValue,
+  }, {
+    overrideKind: "fallback",
+    fallbackOperator: "nullish",
+    fallbackTarget: "publishOptions.otp",
+    preservesSpreadValue: true,
+  });
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-option-flow-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "buggy.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "option_flow");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.callbackOwner, "withOtpHandling");
+    assert.equal(facts[0].value.preservesSpreadValue, false);
+    assert.equal(facts[0].provenance.line, facts[0].value.line);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

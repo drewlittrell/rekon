@@ -176,10 +176,29 @@ export type ErrorControlFlowEvidence = {
   location: AstLocation;
 };
 
+export type OptionPropagationEvidence = {
+  kind: "option-override";
+  caller: string;
+  property: string;
+  spreadSource: string;
+  overrideSource: string;
+  overrideExpression: string;
+  overrideKind: "shorthand" | "direct" | "fallback";
+  fallbackOperator?: "nullish" | "logical-or";
+  fallbackTarget?: string;
+  preservesSpreadValue: boolean;
+  callbackParameter?: string;
+  callbackProperty?: string;
+  callbackOwner?: string;
+  location: AstLocation;
+  objectLocation: AstLocation;
+};
+
 type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
-  | ErrorControlFlowEvidence;
+  | ErrorControlFlowEvidence
+  | OptionPropagationEvidence;
 
 export interface AstExtractionResult {
   language: AstLanguage;
@@ -243,6 +262,13 @@ export function extractErrorControlFlowEvidence(input: AstExtractionInput): Erro
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ErrorControlFlowEvidence => record.kind === "error",
+  );
+}
+
+export function extractOptionPropagationEvidence(input: AstExtractionInput): OptionPropagationEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is OptionPropagationEvidence => record.kind === "option-override",
   );
 }
 
@@ -534,6 +560,10 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
       childContext = { ...context, caughtName: node.variableDeclaration.name.text };
     }
 
+    if (ts.isObjectLiteralExpression(node)) {
+      records.push(...optionPropagationRecords(node, sourceFile, context.caller));
+    }
+
     if (ts.isCallExpression(node)) {
       const path = memberPath(node.expression);
       if (path && path.length >= 2) {
@@ -567,6 +597,123 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
 
   visitFlows(sourceFile, { caller: "__module__" });
   return records;
+}
+
+function optionPropagationRecords(
+  object: ts.ObjectLiteralExpression,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): OptionPropagationEvidence[] {
+  const records: OptionPropagationEvidence[] = [];
+  const spreadSources: string[] = [];
+
+  for (const property of object.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      const source = memberPath(unwrapParenthesized(property.expression))?.join(".");
+      if (source) spreadSources.push(source);
+      continue;
+    }
+    if (spreadSources.length === 0) continue;
+
+    const override = optionOverride(property, sourceFile);
+    if (!override) continue;
+    const spreadSource = spreadSources.at(-1)!;
+    const callback = optionCallbackContext(object, override.overrideSource, sourceFile);
+    records.push({
+      kind: "option-override",
+      caller,
+      property: override.property,
+      spreadSource,
+      overrideSource: override.overrideSource,
+      overrideExpression: override.overrideExpression,
+      overrideKind: override.overrideKind,
+      ...(override.fallbackOperator ? { fallbackOperator: override.fallbackOperator } : {}),
+      ...(override.fallbackTarget ? { fallbackTarget: override.fallbackTarget } : {}),
+      preservesSpreadValue: override.fallbackTarget === `${spreadSource}.${override.property}`,
+      ...callback,
+      location: locationOf(property, sourceFile),
+      objectLocation: locationOf(object, sourceFile),
+    });
+  }
+  return records;
+}
+
+function optionOverride(
+  property: ts.ObjectLiteralElementLike,
+  sourceFile: ts.SourceFile,
+): Pick<
+  OptionPropagationEvidence,
+  "property" | "overrideSource" | "overrideExpression" | "overrideKind" | "fallbackOperator" | "fallbackTarget"
+> | undefined {
+  if (ts.isShorthandPropertyAssignment(property)) {
+    return {
+      property: property.name.text,
+      overrideSource: property.name.text,
+      overrideExpression: property.name.text,
+      overrideKind: "shorthand",
+    };
+  }
+  if (!ts.isPropertyAssignment(property)) return undefined;
+  const propertyName = methodNameText(property.name);
+  if (!propertyName) return undefined;
+  const initializer = unwrapParenthesized(property.initializer);
+  if (ts.isIdentifier(initializer) && initializer.text === propertyName) {
+    return {
+      property: propertyName,
+      overrideSource: initializer.text,
+      overrideExpression: boundedNodeText(initializer, sourceFile),
+      overrideKind: "direct",
+    };
+  }
+  if (!ts.isBinaryExpression(initializer)) return undefined;
+  const operator = initializer.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+    ? "nullish"
+    : initializer.operatorToken.kind === ts.SyntaxKind.BarBarToken
+      ? "logical-or"
+      : undefined;
+  if (!operator) return undefined;
+  const left = unwrapParenthesized(initializer.left);
+  if (!ts.isIdentifier(left) || left.text !== propertyName) return undefined;
+  return {
+    property: propertyName,
+    overrideSource: left.text,
+    overrideExpression: boundedNodeText(initializer, sourceFile),
+    overrideKind: "fallback",
+    fallbackOperator: operator,
+    fallbackTarget: memberPath(unwrapParenthesized(initializer.right))?.join("."),
+  };
+}
+
+function optionCallbackContext(
+  object: ts.ObjectLiteralExpression,
+  overrideSource: string,
+  sourceFile: ts.SourceFile,
+): Pick<OptionPropagationEvidence, "callbackParameter" | "callbackProperty" | "callbackOwner"> {
+  let current: ts.Node | undefined = object.parent;
+  while (current) {
+    if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
+      const parameter = current.parameters.find(
+        (entry) => ts.isIdentifier(entry.name) && entry.name.text === overrideSource,
+      );
+      if (!parameter || !ts.isIdentifier(parameter.name)) return {};
+      const result: Pick<OptionPropagationEvidence, "callbackParameter" | "callbackProperty" | "callbackOwner"> = {
+        callbackParameter: parameter.name.text,
+      };
+      const property = current.parent;
+      if (!ts.isPropertyAssignment(property) || property.initializer !== current) return result;
+      const callbackProperty = methodNameText(property.name);
+      if (callbackProperty) result.callbackProperty = callbackProperty;
+      const container = property.parent;
+      const call = ts.isObjectLiteralExpression(container) ? container.parent : undefined;
+      if (call && ts.isCallExpression(call) && call.arguments.includes(container)) {
+        result.callbackOwner = boundedNodeText(call.expression, sourceFile);
+      }
+      return result;
+    }
+    if (isFunctionBoundary(current)) return {};
+    current = current.parent;
+  }
+  return {};
 }
 
 function classifyThrownExpression(expression: ts.Expression | undefined): {

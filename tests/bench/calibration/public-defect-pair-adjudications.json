@@ -46,9 +46,9 @@
     {
       "pairId": "pnpm-publish-otp-propagation",
       "claimVerdict": "valid",
-      "coverage": "unrelated-signal",
-      "recommendedAction": "semantic-analysis",
-      "rationale": "The dead-code assessments are unrelated. Spread-then-override is ordinarily intentional; this bug depends on contextual optionality and fallback precedence across withOtpHandling, so source-local syntax does not establish the defect."
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits semantic.optionPropagation from source-matched callback-backed overrides informed by structured spread, override, fallback, and callback context. Independent judgment retains both buggy publish paths as verification-required when imported contracts remain external, while both fixed nullish-fallback paths remain clean."
     },
     {
       "pairId": "nextjs-cache-handler-name-validation",

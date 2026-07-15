@@ -29,6 +29,7 @@
     "semantic.cleanupCompleteness": { "minimumUsefulness": 0.75 },
     "semantic.dependencyResolution": { "minimumUsefulness": 0.75 },
     "semantic.errorPropagation": { "minimumUsefulness": 0.75 },
+    "semantic.optionPropagation": { "minimumUsefulness": 0.75 },
     "similarity.duplicateCandidate": { "minimumUsefulness": 0.75 },
     "typescript.asyncArrayCallback": { "minimumUsefulness": 0.75 },
     "typescript.asyncPromiseExecutor": { "minimumUsefulness": 0.75 },

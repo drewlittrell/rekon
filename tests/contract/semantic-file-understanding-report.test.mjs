@@ -291,6 +291,13 @@ test("25. semantic problem classes survive coercion while unknown classes remain
         sourceEvidence: ["export const existing = \"ok\";"],
       },
       {
+        id: "dropped-configured-option",
+        problemClass: "option-propagation",
+        severity: "high",
+        message: "An absent callback option replaces the configured option.",
+        sourceEvidence: ["export const existing = \"ok\";"],
+      },
+      {
         id: "unknown-class",
         problemClass: "invented-class",
         severity: "low",
@@ -304,7 +311,8 @@ test("25. semantic problem classes survive coercion while unknown classes remain
   assert.equal(report.findings[0].problemClass, "dependency-resolution");
   assert.equal(report.findings[1].problemClass, "cleanup-completeness");
   assert.equal(report.findings[2].problemClass, "error-propagation");
-  assert.equal(report.findings[3].problemClass, undefined);
+  assert.equal(report.findings[3].problemClass, "option-propagation");
+  assert.equal(report.findings[4].problemClass, undefined);
   assert.equal(validateSemanticFileUnderstandingReport(report).ok, true);
   const tampered = {
     ...report,
@@ -334,14 +342,33 @@ test("26. production semantic prompt and schema define bounded problem classes",
         location: { line: 3, column: 1 },
       }],
     }],
+    optionPropagation: [{
+      kind: "option-override",
+      caller: "publishWithOtp",
+      property: "otp",
+      spreadSource: "publishOptions",
+      overrideSource: "otp",
+      overrideExpression: "otp",
+      overrideKind: "shorthand",
+      preservesSpreadValue: false,
+      callbackParameter: "otp",
+      callbackProperty: "operation",
+      callbackOwner: "withOtpHandling",
+      location: { line: 5, column: 52 },
+      objectLocation: { line: 5, column: 31 },
+    }],
   });
   assert.match(prompt, /dependency-resolution/);
   assert.match(prompt, /cache-integrity/);
   assert.match(prompt, /cleanup-completeness/);
   assert.match(prompt, /error-propagation/);
+  assert.match(prompt, /option-propagation/);
   assert.match(prompt, /Deterministic error-control-flow evidence/);
   assert.match(prompt, /conditionFailed \|\| signal\.aborted/);
-  assert.equal(SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION, "semantic-file-understanding-v2");
+  assert.match(prompt, /Deterministic option-flow evidence/);
+  assert.match(prompt, /publishOptions/);
+  assert.match(prompt, /medium verification candidate/);
+  assert.equal(SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION, "semantic-file-understanding-v3");
   assert.match(prompt, /not proven defects/);
   const findingSchema = SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA.properties.findings.items;
   assert.deepEqual(findingSchema.properties.problemClass.enum, [
@@ -349,6 +376,7 @@ test("26. production semantic prompt and schema define bounded problem classes",
     "cache-integrity",
     "cleanup-completeness",
     "error-propagation",
+    "option-propagation",
     "other",
   ]);
   assert.ok(findingSchema.required.includes("problemClass"));

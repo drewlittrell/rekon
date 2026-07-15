@@ -229,8 +229,9 @@ judgments needed to interpret them live under `tests/bench/calibration/`.
 
 ### Semantic problem emitters
 
-The dependency-resolution, cache-integrity, cleanup-completeness, and
-error-propagation semantic emitters have a bounded live paired check:
+The dependency-resolution, cache-integrity, cleanup-completeness,
+error-propagation, and option-propagation semantic emitters have a bounded live
+paired check:
 
 ```bash
 npm run eval:semantic-problem-emitters

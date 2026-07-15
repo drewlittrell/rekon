@@ -233,6 +233,13 @@
       "remediationUnit": "source file and error-routing control flow"
     },
     {
+      "ruleId": "semantic.optionPropagation",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "current source-matched semantic finding classified as option-propagation, informed by deterministic spread, override, fallback, and callback context",
+      "jurisdiction": "production JavaScript and TypeScript source selected for semantic file understanding where an existing option and a potentially absent override can be compared",
+      "remediationUnit": "source file and option-precedence handoff"
+    },
+    {
       "ruleId": "dead_code.unreferenced",
       "outputKinds": ["risk"],
       "evidence": "exports, resolved consumers, and declared roots",

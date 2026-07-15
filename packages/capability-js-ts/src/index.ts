@@ -75,7 +75,9 @@ export {
   type AstSymbolKind,
   type ErrorControlFlowGuard,
   type ErrorControlFlowEvidence,
+  type OptionPropagationEvidence,
   extractErrorControlFlowEvidence,
+  extractOptionPropagationEvidence,
 } from "./ast-extractor.js";
 export { collectTypeScriptDiagnostics, type TypeScriptDiagnosticEvidence } from "./typescript-diagnostics.js";
 export {
@@ -1186,6 +1188,28 @@ function factsFromAstResult(
         ...(flow.errorIdentity ? { errorIdentity: flow.errorIdentity } : {}),
         expressionKind: flow.expressionKind,
         guards: flow.guards,
+        line: flow.location.line,
+        column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "option-override") {
+      facts.push(fact("option_flow", `${path}:${flow.caller}:${flow.property}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        property: flow.property,
+        spreadSource: flow.spreadSource,
+        overrideSource: flow.overrideSource,
+        overrideExpression: flow.overrideExpression,
+        overrideKind: flow.overrideKind,
+        ...(flow.fallbackOperator ? { fallbackOperator: flow.fallbackOperator } : {}),
+        ...(flow.fallbackTarget ? { fallbackTarget: flow.fallbackTarget } : {}),
+        preservesSpreadValue: flow.preservesSpreadValue,
+        ...(flow.callbackParameter ? { callbackParameter: flow.callbackParameter } : {}),
+        ...(flow.callbackProperty ? { callbackProperty: flow.callbackProperty } : {}),
+        ...(flow.callbackOwner ? { callbackOwner: flow.callbackOwner } : {}),
         line: flow.location.line,
         column: flow.location.column,
         extractionMethod: "ast" as const,

@@ -5,12 +5,13 @@ All notable changes to Rekon are documented here.
 ## Unreleased
 
 - Added source-grounded semantic emitters for dependency-resolution,
-  cache-integrity, cleanup-completeness, and error-propagation candidates. The
-  JS/TS evidence pack now preserves throw locations, identities, and enclosing
-  guards so semantic analysis can distinguish merged failure causes from
-  separate error paths.
-- Updated semantic file understanding to `semantic-file-understanding-v2` and
-  assessment judgment to `assessment-judge-v3` with error-routing guidance.
+  cache-integrity, cleanup-completeness, error-propagation, and
+  option-propagation candidates. The JS/TS evidence pack now preserves throw
+  locations, identities, and enclosing guards plus option spread, override,
+  fallback, and callback context.
+- Updated semantic file understanding to `semantic-file-understanding-v3` and
+  assessment judgment to `assessment-judge-v4` with error-routing and
+  option-precedence guidance.
   The paired benchmark applies independent judgment, requires every affected
   buggy path, and uses changed-line evidence density plus a structured
   compound-guard anchor without suppressing unrelated same-class candidates.
@@ -43,8 +44,9 @@ All notable changes to Rekon are documented here.
   agent adjudication. Two narrow AST risks now distinguish the buggy and fixed
   revisions for inverse listener delegation and partial-match allowlist
   validation; lifecycle cleanup, option propagation, cache integrity, runtime
-  retention, transform scope, dependency precedence, and abort semantics remain
-  evidence or semantic-analysis work rather than broad syntax detectors.
+  retention, transform scope, dependency precedence, and abort semantics
+  initially remained evidence or semantic-analysis work rather than broad
+  syntax detectors.
 - Added nine pinned quality-only public repositories to the detection
   benchmark contract, including Vitest, Playwright, pnpm, and Next.js for
   independent test-isolation, incomplete-capability, migration-tooling, and

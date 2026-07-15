@@ -86,6 +86,24 @@ test("judgment prompt requires both merged identity and downstream handling for 
   assert.match(prompt, /separate guards preserve separate error identities/);
 });
 
+test("judgment prompt distinguishes absent option overrides from preserving fallbacks", () => {
+  const optionAssessment = {
+    ...assessment,
+    ruleId: "semantic.optionPropagation",
+    type: "semantic.optionPropagation",
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: optionAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /confirm only when current source establishes/);
+  assert.match(prompt, /spread configuration type is external/);
+  assert.match(prompt, /use verification_required rather than confirmed or rejected/);
+  assert.match(prompt, /nullish fallback preserves it/);
+});
+
 test("coercion accepts exact source evidence and derives canonical line coordinates", () => {
   const judgment = coerceAssessmentJudgment({
     assessment,

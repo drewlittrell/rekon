@@ -6,8 +6,9 @@ Built-in Rekon JavaScript and TypeScript evidence capability.
 
 Label: `experimental, public`.
 
-The default capability export is the public surface. Extractor internals are
-`internal`. See [docs/concepts/stability.md](../../docs/concepts/stability.md).
+The default capability export and root-level evidence extraction helpers are
+the public surface. Other extractor internals are `internal`. See
+[docs/concepts/stability.md](../../docs/concepts/stability.md).
 
 ## Purpose
 
@@ -50,9 +51,9 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
-- `event_flow`, `state_access`, and `error_flow` for narrow deterministic
-  behavior signals; error-flow facts preserve distinct throws, identities, and
-  enclosing guards
+- `event_flow`, `state_access`, `error_flow`, and `option_flow` for narrow
+  deterministic behavior signals; option-flow facts preserve spread sources,
+  overrides, fallbacks, and callback context without classifying them as defects
 
 ## Lifecycle Fit
 
@@ -63,6 +64,8 @@ projection, evaluation, resolver fallback, and docs.
 
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
+`extractErrorControlFlowEvidence()` and `extractOptionPropagationEvidence()`
+expose the structured observations used by Rekon's semantic prompt pipeline.
 
 ## Import Boundary
 
@@ -89,7 +92,9 @@ Function metrics include executable statement count, physical size, cyclomatic
 complexity, nesting, and distinct call fan-out. They are evidence, not defects.
 Call evidence does not infer receiver types. State access requires a direct
 binding from a recognized state SDK; event flow requires a literal event name;
-error flow requires explicit throw syntax.
+error flow requires explicit throw syntax. Option flow records only same-name
+property overrides after a spread and leaves optionality and materiality to
+semantic judgment.
 Local async calls are reported only when an unshadowed, locally declared async
 function is used as a bare statement. Focused tests and direct `process.env`
 mutation inside test callbacks remain risks, not proven defects. Tests are

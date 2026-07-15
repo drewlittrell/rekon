@@ -8,12 +8,16 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 
 import { buildSemanticFileUnderstandingReport } from "../packages/capability-model/dist/index.js";
-import { extractErrorControlFlowEvidence } from "../packages/capability-js-ts/dist/index.js";
+import {
+  extractErrorControlFlowEvidence,
+  extractOptionPropagationEvidence,
+} from "../packages/capability-js-ts/dist/index.js";
 import {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
   SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+  SEMANTIC_OPTION_PROPAGATION_RULE_ID,
   evaluateSemanticFileCandidates,
 } from "../packages/capability-policy/dist/index.js";
 import {
@@ -51,6 +55,7 @@ const problemRules = new Map([
   ["cache-integrity", SEMANTIC_CACHE_INTEGRITY_RULE_ID],
   ["cleanup-completeness", SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID],
   ["error-propagation", SEMANTIC_ERROR_PROPAGATION_RULE_ID],
+  ["option-propagation", SEMANTIC_OPTION_PROPAGATION_RULE_ID],
 ]);
 const requestedPairs = new Set(options.pairs);
 const selectedPairs = catalog.pairs.filter((pair) =>
@@ -94,11 +99,13 @@ for (const pair of selectedPairs) {
       const changedLines = changedLineNumbers(text, counterpartText);
       const sha256 = createHash("sha256").update(text).digest("hex");
       const errorControlFlow = extractErrorControlFlowEvidence({ path, content: text });
+      const optionPropagation = extractOptionPropagationEvidence({ path, content: text });
       const prompt = buildSemanticFileUnderstandingPrompt({
         filePath: path,
         fileText: text,
         language: "typescript",
         errorControlFlow,
+        optionPropagation,
       });
       const startedAt = performance.now();
       const result = await provider.completeJson({

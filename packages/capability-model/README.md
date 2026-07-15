@@ -35,7 +35,7 @@ capability evidence.
 
 Semantic findings may declare the built-in problem classes
 `dependency-resolution`, `cache-integrity`, `cleanup-completeness`,
-`error-propagation`, or `other`. The first four become class-specific semantic
+`error-propagation`, `option-propagation`, or `other`. The first five become class-specific semantic
 assessments only after their excerpts match current source. They remain
 candidates for independent judgment, not findings.
 

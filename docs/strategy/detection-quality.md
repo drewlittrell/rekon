@@ -189,6 +189,14 @@ handling, allowing the Redux abort pair to identify the merged failure identity
 on the buggy revision while leaving the separate fixed branches clean. A
 compound guard alone remains insufficient production evidence.
 
+The fourth batch adds `option-propagation`. Deterministic JS/TS evidence records
+same-name overrides after option spreads, including callback ownership and
+whether a nullish fallback preserves the spread value. Semantic analysis emits
+only callback-backed destructive precedence candidates, and independent
+judgment keeps external callback or option contracts explicit as verification
+requirements. Both buggy pnpm publish paths are retained while both fixed
+fallback paths remain clean.
+
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,
 thresholds, and regression tests are the durable record. Corpus commands use
@@ -209,8 +217,8 @@ outcomes, and cost $0.098537. `claude-sonnet-5` at low effort accepted 13 of 18,
 incorrectly rejected one buggy case, and cost $0.285882 at its introductory
 rate. This is a task-specific nine-pair result, not a general model ranking.
 At the time of that judgment-model run, seven candidate classes were emitter
-gaps. The calibrated semantic emitters reduce the current gap to three: option
-propagation, resource lifetime, and scope resolution. The
+gaps. The calibrated semantic emitters reduce the current gap to two: resource
+lifetime and scope resolution. The
 durable aggregate is
 `tests/bench/calibration/assessment-judgment-model-baseline.json`.
 

@@ -144,6 +144,13 @@ function assessmentSpecificRules(assessment: Assessment): string[] {
       "- Reject the claim when separate guards preserve separate error identities or when the cited downstream source does not distinguish those identities.",
     ];
   }
+  if (assessment.ruleId === "semantic.optionPropagation") {
+    return [
+      "- For option propagation, confirm only when current source establishes that an existing configured option can be replaced by an absent callback or override value before the receiving operation.",
+      "- When either the callback contract or the spread configuration type is external or otherwise not present in current source, but a callback parameter visibly replaces the same property from that spread object, use verification_required rather than confirmed or rejected; recommend checking the callback parameter type, configured property, and first-invocation behavior.",
+      "- Reject the claim only when current source establishes that the override deliberately takes precedence and cannot be absent, that the spread source cannot carry the same configured option, or that a nullish fallback preserves it.",
+    ];
+  }
   return [];
 }
 
