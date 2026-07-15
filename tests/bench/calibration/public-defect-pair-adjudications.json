@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0.0",
+  "records": [
+    {
+      "pairId": "vite-ssr-switch-scope",
+      "claimVerdict": "valid",
+      "coverage": "unrelated-signal",
+      "recommendedAction": "evidence-source",
+      "rationale": "The persistent dead-code, complexity, and type-escape assessments do not describe the transform's incorrect scope model. Proving this defect requires transform-specific output or regression-test evidence; a generic switch-scope rule would accuse ordinary correct code."
+    },
+    {
+      "pairId": "nest-shutdown-cleanup-completeness",
+      "claimVerdict": "valid",
+      "coverage": "unrelated-signal",
+      "recommendedAction": "semantic-analysis",
+      "rationale": "The type-escape assessments are unrelated. Promise.all is common and correct in cleanup code; deciding whether one rejection may abort required later lifecycle work needs control-flow plus lifecycle-contract evidence rather than a generic syntax rule."
+    },
+    {
+      "pairId": "nest-import-first-match",
+      "claimVerdict": "valid",
+      "coverage": "unrelated-signal",
+      "recommendedAction": "no-general-detector",
+      "rationale": "The persistent dead-code and type-escape assessments do not cover provider selection. First-match precedence depends on Nest's module registration order and injector contract; syntax alone does not establish which match is authoritative."
+    },
+    {
+      "pairId": "fastify-keep-alive-meta-leak",
+      "claimVerdict": "valid",
+      "coverage": "unrelated-signal",
+      "recommendedAction": "evidence-source",
+      "rationale": "The persistent debt and complexity assessments do not identify retained request objects. A generic property-assignment rule would be noisy; runtime heap, lifecycle, or ownership evidence is needed to prove retention beyond response completion."
+    },
+    {
+      "pairId": "vitest-typecheck-worker-off",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits events.inverseListenerDelegation only on the buggy revision. The assessment identifies the off-to-on contract mismatch directly and remains silent after the upstream fix."
+    },
+    {
+      "pairId": "playwright-compilation-cache-integrity",
+      "claimVerdict": "valid",
+      "coverage": "unrelated-signal",
+      "recommendedAction": "evidence-source",
+      "rationale": "The persistent dead-code and type-escape assessments do not cover cache integrity. Not every file cache requires an embedded digest, so promotion needs declared cache law, observed partial writes, or repository-native failure evidence."
+    },
+    {
+      "pairId": "pnpm-publish-otp-propagation",
+      "claimVerdict": "valid",
+      "coverage": "unrelated-signal",
+      "recommendedAction": "semantic-analysis",
+      "rationale": "The dead-code assessments are unrelated. Spread-then-override is ordinarily intentional; this bug depends on contextual optionality and fallback precedence across withOtpHandling, so source-local syntax does not establish the defect."
+    },
+    {
+      "pairId": "nextjs-cache-handler-name-validation",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits validation.partialAllowlistMatch only on the buggy revision. The assessment is constrained to a named allowlist used in an explicit whole-value rejection branch and remains silent once the regex is anchored."
+    },
+    {
+      "pairId": "redux-toolkit-pre-pending-abort",
+      "claimVerdict": "valid",
+      "coverage": "unrelated-signal",
+      "recommendedAction": "semantic-analysis",
+      "rationale": "The persistent type-escape assessments are unrelated. Detecting that two conditions were collapsed into the wrong error identity requires relating branch meaning, error metadata, and downstream dispatch behavior; a generic boolean-expression rule would be noisy."
+    }
+  ]
+}

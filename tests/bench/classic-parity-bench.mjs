@@ -60,6 +60,7 @@ import {
   snapshotProtectedCorpusTree,
   validateCorpusEvidenceCapture,
 } from "./corpus-evidence-capture.mjs";
+import { scopeQualityAdjudicationsToPinnedSources } from "./corpus-retention-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
@@ -358,10 +359,27 @@ async function main() {
         return existsSync(candidate) ? readFileSync(candidate, "utf8") : null;
       })
     : [];
-  const adjudicationsInput = flags.adjudications ?? process.env.REKON_PARITY_ADJUDICATIONS;
-  const adjudications = adjudicationsInput
+  const defaultPublicAdjudications = resolve(
+    repoRoot,
+    "tests/bench/calibration/public-quality-adjudications.json",
+  );
+  const explicitAdjudications = flags.adjudications ?? process.env.REKON_PARITY_ADJUDICATIONS;
+  const adjudicationsInput = explicitAdjudications
+    ?? (existsSync(defaultPublicAdjudications) ? defaultPublicAdjudications : undefined);
+  const loadedAdjudications = adjudicationsInput
     ? validateQualityAdjudications(JSON.parse(readFileSync(resolve(adjudicationsInput), "utf8")))
     : [];
+  const publicCatalog = JSON.parse(readFileSync(
+    resolve(repoRoot, "tests/bench/public-corpus.sources.json"),
+    "utf8",
+  ));
+  const adjudications = explicitAdjudications
+    ? loadedAdjudications
+    : scopeQualityAdjudicationsToPinnedSources(
+        loadedAdjudications,
+        manifest.repos,
+        publicCatalog.repositories,
+      );
   const equivalencesInput = flags.equivalences ?? process.env.REKON_PARITY_EQUIVALENCES;
   const equivalencesPath = equivalencesInput ? resolve(equivalencesInput) : undefined;
   const equivalences = equivalencesPath

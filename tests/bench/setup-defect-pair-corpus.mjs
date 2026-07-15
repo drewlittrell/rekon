@@ -5,20 +5,27 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { selectCatalogEntries } from "./corpus-retention-core.mjs";
 import { validateDefectPairCatalog } from "./defect-pair-core.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const catalogPath = join(repoRoot, "tests/bench/public-defect-pairs.sources.json");
 
-function parseRoot(argv) {
-  const index = argv.indexOf("--root");
-  const value = index >= 0 ? argv[index + 1] : process.env.REKON_DEFECT_PAIR_CORPUS_ROOT;
-  if (!value) {
+function parseArgs(argv) {
+  const flags = { pairs: [] };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--root") flags.root = argv[(index += 1)];
+    else if (arg === "--pair") flags.pairs.push(argv[(index += 1)]);
+    else throw new Error(`setup-defect-pair-corpus: unknown argument "${arg}".`);
+  }
+  const root = flags.root ?? process.env.REKON_DEFECT_PAIR_CORPUS_ROOT;
+  if (!root) {
     throw new Error(
       "setup-defect-pair-corpus: pass --root <path> or set REKON_DEFECT_PAIR_CORPUS_ROOT.",
     );
   }
-  return resolve(value);
+  return { root: resolve(root), pairs: flags.pairs };
 }
 
 function git(args, cwd) {
@@ -80,18 +87,22 @@ function ensureWorktree(sourceRoot, worktreeRoot, commit, label) {
   }
 }
 
-const root = parseRoot(process.argv.slice(2));
+const flags = parseArgs(process.argv.slice(2));
+const root = flags.root;
 const catalog = validateDefectPairCatalog(JSON.parse(readFileSync(catalogPath, "utf8")));
+const selectedPairs = selectCatalogEntries(catalog.pairs, flags.pairs, "setup-defect-pair-corpus");
+const selectedRepositoryIds = new Set(selectedPairs.map((pair) => pair.repository));
+const selectedRepositories = catalog.repositories.filter((repository) => selectedRepositoryIds.has(repository.id));
 mkdirSync(root, { recursive: true });
 
 const repositories = new Map(catalog.repositories.map((repository) => [repository.id, repository]));
 const sourceRoots = new Map();
-for (const repository of catalog.repositories) {
+for (const repository of selectedRepositories) {
   sourceRoots.set(repository.id, ensureSource(root, repository));
 }
 
 const pairs = [];
-for (const pair of catalog.pairs) {
+for (const pair of selectedPairs) {
   const repository = repositories.get(pair.repository);
   const sourceRoot = sourceRoots.get(pair.repository);
   if (!repository || !sourceRoot) throw new Error(`setup-defect-pair-corpus: missing source for ${pair.id}.`);
@@ -112,11 +123,11 @@ for (const pair of catalog.pairs) {
 const manifest = {
   version: catalog.version,
   generatedFrom: "tests/bench/public-defect-pairs.sources.json",
-  repositories: catalog.repositories,
+  repositories: selectedRepositories,
   pairs,
 };
 const output = join(root, "defect-pairs.json");
 writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 process.stdout.write(
-  `setup-defect-pair-corpus: verified ${pairs.length} pairs across ${catalog.repositories.length} repositories and wrote ${relative(process.cwd(), output)}.\n`,
+  `setup-defect-pair-corpus: verified ${pairs.length} pairs across ${selectedRepositories.length} repositories and wrote ${relative(process.cwd(), output)}.\n`,
 );

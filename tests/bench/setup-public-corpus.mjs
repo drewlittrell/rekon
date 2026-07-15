@@ -5,25 +5,35 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { selectCatalogEntries } from "./corpus-retention-core.mjs";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const catalogPath = join(repoRoot, "tests/bench/public-corpus.sources.json");
 
-function parseRoot(argv) {
-  const index = argv.indexOf("--root");
-  const value = index >= 0 ? argv[index + 1] : process.env.REKON_PUBLIC_CORPUS_ROOT;
-  if (!value) throw new Error("setup-public-corpus: pass --root <path> or set REKON_PUBLIC_CORPUS_ROOT.");
-  return resolve(value);
+function parseArgs(argv) {
+  const flags = { repos: [] };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--root") flags.root = argv[(index += 1)];
+    else if (arg === "--repo") flags.repos.push(argv[(index += 1)]);
+    else throw new Error(`setup-public-corpus: unknown argument "${arg}".`);
+  }
+  const root = flags.root ?? process.env.REKON_PUBLIC_CORPUS_ROOT;
+  if (!root) throw new Error("setup-public-corpus: pass --root <path> or set REKON_PUBLIC_CORPUS_ROOT.");
+  return { root: resolve(root), repos: flags.repos };
 }
 
 function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] }).trim();
 }
 
-const root = parseRoot(process.argv.slice(2));
+const flags = parseArgs(process.argv.slice(2));
+const root = flags.root;
 const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
+const selected = selectCatalogEntries(catalog.repositories, flags.repos, "setup-public-corpus");
 mkdirSync(join(root, "repos"), { recursive: true });
 
-for (const source of catalog.repositories) {
+for (const source of selected) {
   const checkout = join(root, "repos", source.directory);
   if (!existsSync(checkout)) {
     git(["clone", "--depth", "1", "--filter=blob:none", "--no-checkout", source.url, checkout], root);
@@ -37,7 +47,7 @@ for (const source of catalog.repositories) {
 }
 
 const manifest = {
-  repos: catalog.repositories.map((source) => ({
+  repos: selected.map((source) => ({
     id: source.id,
     root: `./repos/${source.directory}`,
     benchmarkMode: "quality-only",

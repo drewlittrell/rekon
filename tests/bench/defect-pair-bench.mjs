@@ -11,6 +11,7 @@ import {
   validateDefectPairAdjudications,
   validateDefectPairCatalog,
 } from "./defect-pair-core.mjs";
+import { scopeDefectAdjudicationsToPinnedPairs } from "./corpus-retention-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
@@ -189,9 +190,34 @@ for (const pair of selected) {
   process.stdout.write(`defect-pair-bench: ${pair.id} -> ${rows.at(-1).status}.\n`);
 }
 
-const adjudications = flags.adjudications
+const defaultAdjudications = join(
+  repoRoot,
+  "tests/bench/calibration/public-defect-pair-adjudications.json",
+);
+const adjudicationsPath = flags.adjudications
+  ? resolve(flags.adjudications)
+  : existsSync(defaultAdjudications)
+    ? defaultAdjudications
+    : undefined;
+const adjudicationsInput = adjudicationsPath
+  ? JSON.parse(readFileSync(adjudicationsPath, "utf8"))
+  : undefined;
+const scopedAdjudications = adjudicationsInput && !flags.adjudications
+  ? {
+      ...adjudicationsInput,
+      records: scopeDefectAdjudicationsToPinnedPairs(
+        adjudicationsInput.records,
+        manifest.pairs,
+        validateDefectPairCatalog(JSON.parse(readFileSync(
+          join(repoRoot, "tests/bench/public-defect-pairs.sources.json"),
+          "utf8",
+        ))).pairs,
+      ),
+    }
+  : adjudicationsInput;
+const adjudications = adjudicationsPath
   ? validateDefectPairAdjudications(
-    JSON.parse(readFileSync(resolve(flags.adjudications), "utf8")),
+    scopedAdjudications,
     manifest,
   )
   : undefined;

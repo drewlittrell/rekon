@@ -154,6 +154,12 @@ common correct code with transform scope, lifecycle obligations, resource
 retention, cache integrity, option precedence, dependency precedence, or abort
 semantics.
 
+Corpus checkouts and generated artifact bodies are disposable. Public source
+coordinates, source-grounded adjudications, aggregate calibration history,
+thresholds, and regression tests are the durable record. Corpus commands use
+temporary checkouts by default and remove them after reports are written, so
+calibration does not require retaining multi-gigabyte repository copies.
+
 Repository-check evaluation ignores runs that are not coherent with the active
 evidence state. Missing dependency cascades remain one operational assessment,
 and a missing dependency proven by one command keeps sibling test or build

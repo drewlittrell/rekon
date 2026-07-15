@@ -1,0 +1,268 @@
+{
+  "schemaVersion": "1.0.0",
+  "sourceRecords": 70,
+  "rules": {
+    "architecture.dependencyHub": {
+      "records": 5,
+      "byRecordType": {
+        "assessment": 5
+      },
+      "byJudgment": {
+        "useful": 5
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "architecture.importCycle": {
+      "records": 2,
+      "byRecordType": {
+        "assessment": 2
+      },
+      "byJudgment": {
+        "useful": 2
+      },
+      "bySeverity": {
+        "accurate": 2
+      },
+      "identityStable": {
+        "true": 2,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "dead_code.emptySourceFile": {
+      "records": 1,
+      "byRecordType": {
+        "assessment": 1
+      },
+      "byJudgment": {
+        "useful": 1
+      },
+      "bySeverity": {
+        "accurate": 1
+      },
+      "identityStable": {
+        "true": 1,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "dead_code.unreferenced": {
+      "records": 10,
+      "byRecordType": {
+        "assessment": 5,
+        "finding": 5
+      },
+      "byJudgment": {
+        "useful": 5,
+        "valid": 3,
+        "invalid": 2
+      },
+      "bySeverity": {
+        "accurate": 10
+      },
+      "identityStable": {
+        "true": 10,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "debt.markers": {
+      "records": 5,
+      "byRecordType": {
+        "assessment": 5
+      },
+      "byJudgment": {
+        "useful": 5
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "debt.semantic": {
+      "records": 5,
+      "byRecordType": {
+        "assessment": 5
+      },
+      "byJudgment": {
+        "useful": 2,
+        "not_useful": 3
+      },
+      "bySeverity": {
+        "accurate": 1,
+        "overstated": 4
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "grammar.antiPattern": {
+      "records": 5,
+      "byRecordType": {
+        "finding": 5
+      },
+      "byJudgment": {
+        "valid": 5
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "grammar.divergence": {
+      "records": 5,
+      "byRecordType": {
+        "finding": 5
+      },
+      "byJudgment": {
+        "valid": 5
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "naming.contract": {
+      "records": 5,
+      "byRecordType": {
+        "finding": 5
+      },
+      "byJudgment": {
+        "invalid": 5
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "tests.isolation": {
+      "records": 5,
+      "byRecordType": {
+        "assessment": 5
+      },
+      "byJudgment": {
+        "not_useful": 4,
+        "useful": 1
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "typescript.errorSuppression": {
+      "records": 5,
+      "byRecordType": {
+        "assessment": 5
+      },
+      "byJudgment": {
+        "not_useful": 4,
+        "useful": 1
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "typescript.functionComplexity": {
+      "records": 5,
+      "byRecordType": {
+        "assessment": 5
+      },
+      "byJudgment": {
+        "useful": 5
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "typescript.placeholderImplementation": {
+      "records": 3,
+      "byRecordType": {
+        "assessment": 3
+      },
+      "byJudgment": {
+        "useful": 3
+      },
+      "bySeverity": {
+        "accurate": 3
+      },
+      "identityStable": {
+        "true": 3,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "typescript.typeEscape": {
+      "records": 5,
+      "byRecordType": {
+        "assessment": 5
+      },
+      "byJudgment": {
+        "useful": 5
+      },
+      "bySeverity": {
+        "accurate": 5
+      },
+      "identityStable": {
+        "true": 5,
+        "false": 0,
+        "unspecified": 0
+      }
+    },
+    "typescript.unusedPrivateMember": {
+      "records": 4,
+      "byRecordType": {
+        "assessment": 4
+      },
+      "byJudgment": {
+        "useful": 4
+      },
+      "bySeverity": {
+        "accurate": 4
+      },
+      "identityStable": {
+        "true": 4,
+        "false": 0,
+        "unspecified": 0
+      }
+    }
+  }
+}

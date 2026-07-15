@@ -1,0 +1,566 @@
+{
+  "schemaVersion": "1.0.0",
+  "judge": "codex-agent-source-review",
+  "records": [
+    {
+      "repoId": "public-eslint",
+      "recordType": "assessment",
+      "recordId": "assessment:debt.markers:lib/eslint/eslint.js",
+      "ruleId": "debt.markers",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The source contains the reported TODO or disabled test marker; treating it as a low-impact backlog opportunity is useful and proportionate."
+    },
+    {
+      "repoId": "public-eslint",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.functionComplexity:lib/cli.js:execute",
+      "ruleId": "typescript.functionComplexity",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited function and deterministic metrics corroborate multiple independent complexity signals; review is useful even where complexity is domain-driven."
+    },
+    {
+      "repoId": "public-eslint",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.functionComplexity:lib/eslint/eslint-helpers.js:processOptions",
+      "ruleId": "typescript.functionComplexity",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited function and deterministic metrics corroborate multiple independent complexity signals; review is useful even where complexity is domain-driven."
+    },
+    {
+      "repoId": "public-fastify",
+      "recordType": "assessment",
+      "recordId": "assessment:debt.markers:lib/promise.js",
+      "ruleId": "debt.markers",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The source contains the reported TODO or disabled test marker; treating it as a low-impact backlog opportunity is useful and proportionate."
+    },
+    {
+      "repoId": "public-fastify",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.functionComplexity:lib/reply.js:onSendEnd",
+      "ruleId": "typescript.functionComplexity",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited function and deterministic metrics corroborate multiple independent complexity signals; review is useful even where complexity is domain-driven."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.dependencyHub:packages/core/injector/container.ts",
+      "ruleId": "architecture.dependencyHub",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved import evidence confirms fan-in and fan-out above the declared thresholds; the assessment presents change leverage for review without asserting a defect."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.dependencyHub:packages/core/injector/injector.ts",
+      "ruleId": "architecture.dependencyHub",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved import evidence confirms fan-in and fan-out above the declared thresholds; the assessment presents change leverage for review without asserting a defect."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.importCycle:packages/common/interfaces/middleware/middleware-config-proxy.interface.ts|packages/common/interfaces/middleware/middleware-consumer.interface.ts",
+      "ruleId": "architecture.importCycle",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved repository edges form the reported strongly connected component; the assessment accurately exposes coupling without promoting it to a policy violation."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.importCycle:packages/core/application-config.ts|packages/core/discovery/discoverable-meta-host-collection.ts|packages/core/errors/exceptions/invalid-class-module.exception.ts|packages/core/errors/exceptions/invalid-exception-filter.exception.ts|packages/core/errors/exceptions/invalid-module.exception.ts|packages/core/errors/exceptions/undefined-dependency.exception.ts|packages/core/errors/exceptions/undefined-module.exception.ts|packages/core/errors/exceptions/unknown-dependencies.exception.ts|packages/core/errors/messages.ts|packages/core/exceptions/base-exception-filter-context.ts|packages/core/exceptions/exceptions-handler.ts|packages/core/exceptions/external-exception-filter-context.ts|packages/core/exceptions/external-exceptions-handler.ts|packages/core/helpers/context-creator.ts|packages/core/helpers/context-id-factory.ts|packages/core/helpers/external-context-creator.ts|packages/core/helpers/external-proxy.ts|packages/core/helpers/handler-metadata-storage.ts|packages/core/injector/abstract-instance-resolver.ts|packages/core/injector/constants.ts|packages/core/injector/container.ts|packages/core/injector/injector.ts|packages/core/injector/instance-links-host.ts|packages/core/injector/instance-loader.ts|packages/core/injector/instance-wrapper.ts|packages/core/injector/internal-core-module/internal-core-module-factory.ts|packages/core/injector/lazy-module-loader/lazy-module-loader.ts|packages/core/injector/module-ref.ts|packages/core/injector/module.ts|packages/core/injector/modules-container.ts|packages/core/injector/topology-tree/topology-tree.ts|packages/core/inspector/graph-inspector.ts|packages/core/inspector/interfaces/enhancer-metadata-cache-entry.interface.ts|packages/core/inspector/interfaces/serialized-graph-json.interface.ts|packages/core/inspector/interfaces/serialized-graph-metadata.interface.ts|packages/core/inspector/partial-graph.host.ts|packages/core/inspector/serialized-graph.ts|packages/core/router/router-proxy.ts|packages/core/scanner.ts",
+      "ruleId": "architecture.importCycle",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved repository edges form the reported strongly connected component; the assessment accurately exposes coupling without promoting it to a policy violation."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:dead_code.unreferenced:packages/common/interfaces/controllers/index.ts",
+      "ruleId": "dead_code.unreferenced",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Repository source and resolved edges show the named export is not consumed through a known import, re-export, framework root, or declared public root; low-impact review is appropriate."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:dead_code.unreferenced:packages/common/utils/merge-with-values.util.ts",
+      "ruleId": "dead_code.unreferenced",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Repository source and resolved edges show the named export is not consumed through a known import, re-export, framework root, or declared public root; low-impact review is appropriate."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:dead_code.unreferenced:packages/core/errors/exceptions/invalid-middleware-configuration.exception.ts",
+      "ruleId": "dead_code.unreferenced",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Repository source and resolved edges show the named export is not consumed through a known import, re-export, framework root, or declared public root; low-impact review is appropriate."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:debt.markers:integration/cors/e2e/fastify.spec.ts",
+      "ruleId": "debt.markers",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The source contains the reported TODO or disabled test marker; treating it as a low-impact backlog opportunity is useful and proportionate."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.placeholderImplementation:packages/microservices/client/client-proxy.ts:placeholder_throw",
+      "ruleId": "typescript.placeholderImplementation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The source deliberately throws for an unsupported or unimplemented surface; exposing that behavioral limitation as an assessment is useful."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.typeEscape:packages/common/decorators/core/bind.decorator.ts:explicit_any_annotation",
+      "ruleId": "typescript.typeEscape",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited any boundary is real; low impact correctly frames it as a targeted type-safety opportunity rather than a defect."
+    },
+    {
+      "repoId": "public-nest",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.typeEscape:packages/common/decorators/core/exception-filters.decorator.ts:explicit_any_annotation",
+      "ruleId": "typescript.typeEscape",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited any boundary is real; low impact correctly frames it as a targeted type-safety opportunity rather than a defect."
+    },
+    {
+      "repoId": "public-nextjs",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.errorSuppression:.github/actions/next-integration-stat/src/index.ts:catch_only_logs",
+      "ruleId": "typescript.errorSuppression",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "A malformed result block is logged and omitted from the manifest without an incomplete-data status, so downstream integration statistics can look complete while silently missing one job result."
+    },
+    {
+      "repoId": "public-nextjs",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.errorSuppression:.github/actions/upload-turboyet-data/src/main.js:catch_only_logs",
+      "ruleId": "typescript.errorSuppression",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The action catches any upload failure, logs it, and lets main resolve, so CI can report success after failing to publish either data set."
+    },
+    {
+      "repoId": "public-nextjs",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.errorSuppression:packages/create-next-app/helpers/is-folder-empty.ts:catch_only_logs",
+      "ruleId": "typescript.errorSuppression",
+      "judgment": "not_useful",
+      "severity": "overstated",
+      "identityStable": true,
+      "rationale": "The catch is a local display fallback: when lstat fails it prints the same conflict without directory styling, and the function still returns false for the already-established conflict. No operation failure is hidden from the caller."
+    },
+    {
+      "repoId": "public-nextjs",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.errorSuppression:packages/next-codemod/transforms/next-lint-to-eslint-cli.ts:catch_only_logs",
+      "ruleId": "typescript.errorSuppression",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Several migration write and install failures are logged while the transform continues to print a completion message, making a partially migrated project possible even though some backup and cleanup catches are individually best effort."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:tests.isolation:tests/library/browser-server.spec.ts:test_global_state_mutation",
+      "ruleId": "tests.isolation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The file-level beforeEach overwrites process.env without restoring its prior value, so the registry path can persist beyond the scoped tests; a medium isolation risk is proportionate."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:tests.isolation:tests/library/chromium/chromium.spec.ts:test_global_state_mutation",
+      "ruleId": "tests.isolation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The test deletes the variable only on the success path after multiple awaits and assertions; failure can bypass cleanup, so guaranteed restoration is absent."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.errorSuppression:utils/roll_browser.js:catch_only_logs",
+      "ruleId": "typescript.errorSuppression",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The browser-roll utility logs a failed documentation build and still announces a successful roll, so the medium control-flow risk is concrete even if continuing was intentional."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.placeholderImplementation:packages/playwright-core/src/server/bidi/bidiPage.ts:placeholder_throw",
+      "ruleId": "typescript.placeholderImplementation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The BiDi page delegate accepts a background-color contract but throws whenever a color is supplied, exposing a concrete unsupported capability path."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.placeholderImplementation:packages/playwright-core/src/server/firefox/ffPage.ts:placeholder_throw",
+      "ruleId": "typescript.placeholderImplementation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The Firefox page delegate accepts a background-color contract but throws whenever a color is supplied, exposing a concrete unsupported capability path."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.unusedPrivateMember:packages/playwright-core/src/server/bidi/bidiBrowser.ts:unused_private_member",
+      "ruleId": "typescript.unusedPrivateMember",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The event-listener collection is assigned during construction but never read or disposed; a low-impact opportunity accurately surfaces either removable storage or missing cleanup."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.unusedPrivateMember:packages/playwright-core/src/server/bidi/bidiInput.ts:unused_private_member",
+      "ruleId": "typescript.unusedPrivateMember",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "RawTouchscreenImpl stores the BiDi session while its tap implementation is empty and never reads the field, making the incomplete wiring a valid low-impact opportunity."
+    },
+    {
+      "repoId": "public-playwright",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.unusedPrivateMember:packages/playwright-core/src/server/chromium/crInput.ts:unused_private_member",
+      "ruleId": "typescript.unusedPrivateMember",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "RawMouseImpl retains the CRPage constructor argument but all behavior uses the client and drag manager instead, making _page a verified low-impact removal opportunity."
+    },
+    {
+      "repoId": "public-pnpm",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.errorSuppression:pnpm11/fix-duplicates.mjs:catch_only_logs",
+      "ruleId": "typescript.errorSuppression",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The migration script catches each package rewrite failure and continues, allowing a partially rewritten workspace to finish without a failing process status or aggregate failure result."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.dependencyHub:packages/toolkit/src/query/core/buildThunks.ts",
+      "ruleId": "architecture.dependencyHub",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved import evidence confirms fan-in and fan-out above the declared thresholds; the assessment presents change leverage for review without asserting a defect."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.dependencyHub:packages/toolkit/src/query/core/module.ts",
+      "ruleId": "architecture.dependencyHub",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved import evidence confirms fan-in and fan-out above the declared thresholds; the assessment presents change leverage for review without asserting a defect."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.importCycle:packages/rtk-query-codegen-openapi/src/generate.ts|packages/rtk-query-codegen-openapi/src/generators/react-hooks.ts",
+      "ruleId": "architecture.importCycle",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved repository edges form the reported strongly connected component; the assessment accurately exposes coupling without promoting it to a policy violation."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:debt.markers:packages/rtk-query-codegen-openapi/src/generate.ts",
+      "ruleId": "debt.markers",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The source contains the reported TODO or disabled test marker; treating it as a low-impact backlog opportunity is useful and proportionate."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.floatingPromise:packages/rtk-query-codegen-openapi/src/bin/cli.ts:floating_local_async_call",
+      "ruleId": "typescript.floatingPromise",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The call is intentionally background-oriented in context, but making fire-and-forget intent and rejection handling explicit remains useful."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.floatingPromise:packages/toolkit/src/listenerMiddleware/index.ts:floating_local_async_call",
+      "ruleId": "typescript.floatingPromise",
+      "judgment": "useful",
+      "severity": "overstated",
+      "identityStable": true,
+      "rationale": "The call is intentionally background-oriented in context, but making fire-and-forget intent and rejection handling explicit remains useful."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.functionComplexity:packages/rtk-codemods/transforms/createSliceReducerBuilder/index.ts:reducerPropsToBuilderExpression",
+      "ruleId": "typescript.functionComplexity",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited function and deterministic metrics corroborate multiple independent complexity signals; review is useful even where complexity is domain-driven."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.typeEscape:packages/rtk-query-codegen-openapi/src/generate.ts:as_any_assertion",
+      "ruleId": "typescript.typeEscape",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited any boundary is real; low impact correctly frames it as a targeted type-safety opportunity rather than a defect."
+    },
+    {
+      "repoId": "public-redux-toolkit",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.typeEscape:packages/rtk-query-codegen-openapi/src/utils/getOperationDefinitions.ts:as_any_assertion",
+      "ruleId": "typescript.typeEscape",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited any boundary is real; low impact correctly frames it as a targeted type-safety opportunity rather than a defect."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.dependencyHub:packages/vite/src/node/build.ts",
+      "ruleId": "architecture.dependencyHub",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved import evidence confirms fan-in and fan-out above the declared thresholds; the assessment presents change leverage for review without asserting a defect."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.importCycle:packages/vite/src/node/build.ts|packages/vite/src/node/optimizer/index.ts|packages/vite/src/node/optimizer/rolldownDepPlugin.ts|packages/vite/src/node/plugins/asset.ts|packages/vite/src/node/plugins/assetImportMetaUrl.ts|packages/vite/src/node/plugins/clientInjections.ts|packages/vite/src/node/plugins/css.ts|packages/vite/src/node/plugins/define.ts|packages/vite/src/node/plugins/dynamicImportVars.ts|packages/vite/src/node/plugins/html.ts|packages/vite/src/node/plugins/importAnalysis.ts|packages/vite/src/node/plugins/importAnalysisBuild.ts|packages/vite/src/node/plugins/index.ts|packages/vite/src/node/plugins/manifest.ts|packages/vite/src/node/plugins/optimizedDeps.ts|packages/vite/src/node/plugins/preAlias.ts|packages/vite/src/node/plugins/wasm.ts|packages/vite/src/node/plugins/worker.ts|packages/vite/src/node/plugins/workerImportMetaUrl.ts|packages/vite/src/node/server/hmr.ts|packages/vite/src/node/server/pluginContainer.ts|packages/vite/src/node/ssr/ssrManifestPlugin.ts",
+      "ruleId": "architecture.importCycle",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved repository edges form the reported strongly connected component; the assessment accurately exposes coupling without promoting it to a policy violation."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:architecture.importCycle:packages/vite/src/node/config.ts|packages/vite/src/node/ssr/runnerImport.ts",
+      "ruleId": "architecture.importCycle",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Resolved repository edges form the reported strongly connected component; the assessment accurately exposes coupling without promoting it to a policy violation."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:dead_code.unreferenced:packages/vite/src/module-runner/importMetaResolver.ts",
+      "ruleId": "dead_code.unreferenced",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Repository source and resolved edges show the named export is not consumed through a known import, re-export, framework root, or declared public root; low-impact review is appropriate."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:dead_code.unreferenced:packages/vite/src/module-runner/types.ts",
+      "ruleId": "dead_code.unreferenced",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Repository source and resolved edges show the named export is not consumed through a known import, re-export, framework root, or declared public root; low-impact review is appropriate."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:debt.markers:eslint.config.js",
+      "ruleId": "debt.markers",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The source contains the reported TODO or disabled test marker; treating it as a low-impact backlog opportunity is useful and proportionate."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:tests.isolation:packages/vite/src/node/__tests__/env.spec.ts:test_global_state_mutation",
+      "ruleId": "tests.isolation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The test mutates process.env without restoring the two reported keys, leaving a credible cross-test isolation risk."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.floatingPromise:packages/vite/src/node/optimizer/optimizer.ts:floating_local_async_call",
+      "ruleId": "typescript.floatingPromise",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The call is intentionally background-oriented in context, but making fire-and-forget intent and rejection handling explicit remains useful."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.floatingPromise:packages/vite/src/node/server/openBrowser.ts:floating_local_async_call",
+      "ruleId": "typescript.floatingPromise",
+      "judgment": "useful",
+      "severity": "overstated",
+      "identityStable": true,
+      "rationale": "The call is intentionally background-oriented in context, but making fire-and-forget intent and rejection handling explicit remains useful."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.floatingPromise:packages/vite/src/node/server/warmup.ts:floating_local_async_call",
+      "ruleId": "typescript.floatingPromise",
+      "judgment": "useful",
+      "severity": "overstated",
+      "identityStable": true,
+      "rationale": "The call is intentionally background-oriented in context, but making fire-and-forget intent and rejection handling explicit remains useful."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.functionComplexity:packages/create-vite/src/index.ts:init",
+      "ruleId": "typescript.functionComplexity",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited function and deterministic metrics corroborate multiple independent complexity signals; review is useful even where complexity is domain-driven."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.placeholderImplementation:packages/vite/src/node/optimizer/pluginConverter.ts:placeholder_throw",
+      "ruleId": "typescript.placeholderImplementation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The source deliberately throws for an unsupported or unimplemented surface; exposing that behavioral limitation as an assessment is useful."
+    },
+    {
+      "repoId": "public-vite",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.typeEscape:packages/plugin-legacy/src/index.ts:explicit_any_annotation",
+      "ruleId": "typescript.typeEscape",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The cited any boundary is real; low impact correctly frames it as a targeted type-safety opportunity rather than a defect."
+    },
+    {
+      "repoId": "public-vitest",
+      "recordType": "assessment",
+      "recordId": "assessment:tests.isolation:test/e2e/test/browser-persistent-context.test.ts:test_global_state_mutation",
+      "ruleId": "tests.isolation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "The test writes TEST_EXPECTED_VALUE twice and never restores the original environment, leaving a direct cross-test state leak."
+    },
+    {
+      "repoId": "public-vitest",
+      "recordType": "assessment",
+      "recordId": "assessment:tests.isolation:test/e2e/test/caching.test.ts:test_global_state_mutation",
+      "ruleId": "tests.isolation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Three tests repeatedly overwrite REPLACED without saving or restoring the original value, providing a clear cross-test isolation risk."
+    },
+    {
+      "repoId": "public-vitest",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.placeholderImplementation:packages/vitest/src/runtime/moduleRunner/bareModuleMocker.ts:placeholder_throw",
+      "ruleId": "typescript.placeholderImplementation",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "Two public module-mocker methods unconditionally throw not-implemented errors; the assessment accurately exposes the intentionally incomplete behavior for review."
+    },
+    {
+      "repoId": "public-vitest",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.unusedPrivateMember:packages/vitest/src/integrations/mock/timers.ts:unused_private_member",
+      "ruleId": "typescript.unusedPrivateMember",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "FakeTimers stores the supplied global object in _global but never reads it; the low-impact removal opportunity is directly supported by the class source."
+    },
+    {
+      "repoId": "public-vitest",
+      "recordType": "assessment",
+      "recordId": "assessment:typescript.unusedPrivateMember:packages/vitest/src/node/reporters/junit.ts:unused_private_member",
+      "ruleId": "typescript.unusedPrivateMember",
+      "judgment": "useful",
+      "severity": "accurate",
+      "identityStable": true,
+      "rationale": "JUnitReporter initializes and later resets _timeStart without reading it, so the assessment identifies a concrete stale field at an appropriate low impact."
+    }
+  ]
+}

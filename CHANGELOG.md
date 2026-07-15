@@ -4,6 +4,10 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Made public quality and defect-pair corpus runs ephemeral by default. Pinned
+  source coordinates, public agent adjudications, and identifier-free aggregate
+  calibration history remain durable while cloned repositories, source excerpts,
+  and generated artifact bodies are deleted after each run.
 - Added a pinned nine-case public defect-pair benchmark with source-grounded
   agent adjudication. Two narrow AST risks now distinguish the buggy and fixed
   revisions for inverse listener delegation and partial-match allowlist

@@ -122,15 +122,18 @@ files up to 2 MB, so the judgment remains grounded in the cited implementation.
 }
 ```
 
-Pass the file with `--adjudications` or `REKON_PARITY_ADJUDICATIONS`. It remains
-outside the repository. When a finding judged invalid or an assessment judged
-not useful disappears, the bench retains that verdict as resolved calibration
-history. A missing record previously judged valid or useful fails loudly as a
-possible regression. Missing labels are reported as `insufficient-evidence`;
-the bench does not invent precision or usefulness scores. Per-rule thresholds
-live in `tests/bench/quality-thresholds.json` and cover evidence completeness,
-duplicate remediation, identity stability, finding precision, and assessment
-usefulness. Severity calibration and law attribution are reported separately.
+Pass a different file with `--adjudications` or `REKON_PARITY_ADJUDICATIONS`.
+Public-corpus runs default to the checked-in source-grounded judgments under
+`tests/bench/calibration/`. Private adjudications remain local; only their
+identifier-free per-rule aggregate is retained. When a finding judged invalid
+or an assessment judged not useful disappears, the bench retains that verdict
+as resolved calibration history. A missing record previously judged valid or
+useful fails loudly as a possible regression. Missing labels are reported as
+`insufficient-evidence`; the bench does not invent precision or usefulness
+scores. Per-rule thresholds live in `tests/bench/quality-thresholds.json` and
+cover evidence completeness, duplicate remediation, identity stability,
+finding precision, and assessment usefulness. Severity calibration and law
+attribution are reported separately.
 
 ## Corpus manifest
 
@@ -187,20 +190,19 @@ monorepo, a decorator-based server framework, a JavaScript plugin framework,
 an AST rule engine, a TypeScript library monorepo, a test runner, and a browser
 automation engine. pnpm adds package-manager and migration-tooling behavior;
 Next.js adds a large framework monorepo that exercises source-quality
-jurisdiction and bounded graph projection. Create a separate local corpus
-without installing dependencies or running repository scripts:
+jurisdiction and bounded graph projection. The default command uses an OS
+temporary directory and removes every checkout and `.rekon/` artifact after
+the report is written:
 
 ```bash
-npm run bench:public-corpus:setup -- --root /path/to/rekon-public-corpus
-node tests/bench/classic-parity-bench.mjs \
-  --corpus /path/to/rekon-public-corpus \
-  --output tests/bench/output/public-corpus
+npm run bench:public-corpus
+npm run bench:public-corpus -- --repo public-vite
 ```
 
-The setup command shallow-clones the pinned revisions, verifies each checkout,
-and writes a quality-only `corpus.json`. Refresh runs Rekon itself; it does not
-execute the target repositories' scripts unless evidence capture is separately
-declared and explicitly enabled.
+Use `bench:public-corpus:setup` only when a persistent checkout is explicitly
+needed. It accepts repeatable `--repo <id>` selectors. Refresh runs Rekon itself;
+it does not execute target repository scripts unless evidence capture is
+separately declared and explicitly enabled.
 
 ## Public defect pairs
 
@@ -209,19 +211,45 @@ and disappears on its upstream fix. It is separate from parity scoring and
 does not use finding volume as a target.
 
 ```bash
-npm run bench:defect-pairs:setup -- --root /path/to/rekon-defect-pairs
-npm run bench:defect-pairs -- --corpus /path/to/rekon-defect-pairs \
-  --adjudications /path/to/defect-pair-adjudications.json
+npm run bench:defect-pairs
+npm run bench:defect-pairs -- --pair vitest-typecheck-worker-off
 ```
 
 Focused mode scans only each pair's affected production and regression-test
-paths. Pass `--full` for a complete repository scan or `--skip-refresh` to
-rescore existing artifacts. `--pair <id>` is repeatable.
+paths. Pass `--full` for a complete repository scan. `--pair <id>` is
+repeatable. The default command deletes its temporary checkouts even when the
+benchmark fails. Persistent setup and rescoring remain available through
+`bench:defect-pairs:setup` and `bench:defect-pairs:existing`.
 
 The pinned catalog is `tests/bench/public-defect-pairs.sources.json`. Setup
-creates detached before/after worktrees outside Rekon, verifies commit ancestry,
-and does not install dependencies or execute target scripts. Reports are local
-and gitignored under `tests/bench/output/public-defect-pairs/`.
+creates detached before/after worktrees, verifies commit ancestry, and does not
+install dependencies or execute target scripts. Reports are local and
+gitignored under `tests/bench/output/public-defect-pairs/`; the public agent
+judgments needed to interpret them live under `tests/bench/calibration/`.
+
+## Corpus retention
+
+Repository checkouts, generated `.rekon/` directories, detailed reports, and
+source excerpts are reproducible evidence caches, not durable project state.
+Delete them after calibration. Rekon retains only:
+
+- pinned public source URLs and commits;
+- source-grounded public adjudications;
+- identifier-free aggregate quality history;
+- detector fixtures, thresholds, and implementation tests;
+- documented decisions about which signals should or should not become rules.
+
+`npm run bench:retain-calibration` validates and extracts those records before
+a manual cache cleanup. It rejects non-public repository IDs and local absolute
+paths in checked-in public judgments. The ephemeral commands are preferred so
+cleanup is automatic.
+
+```bash
+npm run bench:retain-calibration -- \
+  --quality /path/to/public-quality-adjudications.json \
+  --defects /path/to/public-defect-pair-adjudications.json \
+  --aggregate /path/to/broader-local-adjudications.json
+```
 
 Statuses describe emitted differences: `finding-captured`,
 `assessment-captured`, `signal-persistent`, `introduced-after`, or `uncaptured`.
