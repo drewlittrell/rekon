@@ -18,6 +18,8 @@
     "bench:gap-review": "node tests/bench/redesign-gap-review.mjs",
     "bench:quality-review": "node tests/bench/emission-quality-review.mjs",
     "bench:public-corpus:setup": "node tests/bench/setup-public-corpus.mjs",
+    "bench:defect-pairs:setup": "node tests/bench/setup-defect-pair-corpus.mjs",
+    "bench:defect-pairs": "node tests/bench/defect-pair-bench.mjs",
     "test:install": "node scripts/install-smoke.mjs",
     "bench:incremental": "npm run build --workspaces && node scripts/benchmark-incremental.mjs",
     "build": "npm run build --workspaces",

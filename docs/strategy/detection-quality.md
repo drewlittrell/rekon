@@ -143,6 +143,17 @@ evidence rather than source-quality policy, and exposed test-only relative
 New emitters are justified only by source-grounded missed signals. A zero count
 for a rule is not itself a defect.
 
+The public defect-pair corpus adds a stricter test: a useful signal must appear
+on a pinned buggy revision, describe the upstream defect, and stay quiet after
+the fix. The initial nine cases produced two source-local assessments:
+`events.inverseListenerDelegation` and
+`validation.partialAllowlistMatch`. Each has one positive pair and remains
+under the five-case usefulness threshold. The other seven cases stay in the
+evidence or semantic-analysis queue because generic syntax rules would confuse
+common correct code with transform scope, lifecycle obligations, resource
+retention, cache integrity, option precedence, dependency precedence, or abort
+semantics.
+
 Repository-check evaluation ignores runs that are not coherent with the active
 evidence state. Missing dependency cascades remain one operational assessment,
 and a missing dependency proven by one command keeps sibling test or build

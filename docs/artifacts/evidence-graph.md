@@ -50,7 +50,7 @@ they may collide with built-ins.
 | `state_access` | direct call through a recognized imported state SDK |
 | `error_flow` | explicit throw or rethrow inside a callable |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |
-| `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, async-control-flow, or test-hygiene risk signal |
+| `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, validation, listener-lifecycle, async-control-flow, or test-hygiene risk signal |
 
 All facts should preserve provenance back to the extractor and source location
 where possible.

@@ -1,0 +1,234 @@
+{
+  "version": "1.0.0",
+  "repositories": [
+    {
+      "id": "vite",
+      "directory": "vite",
+      "url": "https://github.com/vitejs/vite.git",
+      "license": "MIT"
+    },
+    {
+      "id": "nest",
+      "directory": "nest",
+      "url": "https://github.com/nestjs/nest.git",
+      "license": "MIT"
+    },
+    {
+      "id": "fastify",
+      "directory": "fastify",
+      "url": "https://github.com/fastify/fastify.git",
+      "license": "MIT"
+    },
+    {
+      "id": "vitest",
+      "directory": "vitest",
+      "url": "https://github.com/vitest-dev/vitest.git",
+      "license": "MIT"
+    },
+    {
+      "id": "playwright",
+      "directory": "playwright",
+      "url": "https://github.com/microsoft/playwright.git",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "pnpm",
+      "directory": "pnpm",
+      "url": "https://github.com/pnpm/pnpm.git",
+      "license": "MIT"
+    },
+    {
+      "id": "nextjs",
+      "directory": "nextjs",
+      "url": "https://github.com/vercel/next.js.git",
+      "license": "MIT"
+    },
+    {
+      "id": "redux-toolkit",
+      "directory": "redux-toolkit",
+      "url": "https://github.com/reduxjs/redux-toolkit.git",
+      "license": "MIT"
+    }
+  ],
+  "pairs": [
+    {
+      "id": "vite-ssr-switch-scope",
+      "repository": "vite",
+      "buggyCommit": "a9539d69efc7a4ccf988bbf5da31c2b416ba990e",
+      "fixedCommit": "d2e29a7697dbde1e24a3d1322270d6987df8c5d2",
+      "upstream": {
+        "fixUrl": "https://github.com/vitejs/vite/pull/22893",
+        "proofUrls": ["https://github.com/oxc-project/monitor-oxc/pull/191"],
+        "summary": "The SSR scope walker treated switch-case declarations as function-scoped and left rewritten imports unbound at runtime."
+      },
+      "claim": {
+        "category": "scope-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "A case-local declaration could cause imported references to throw ReferenceError after SSR transformation."
+      },
+      "affectedPaths": ["packages/vite/src/node/ssr/ssrTransform.ts"],
+      "testPaths": ["packages/vite/src/node/ssr/__tests__/ssrTransform.spec.ts"]
+    },
+    {
+      "id": "nest-shutdown-cleanup-completeness",
+      "repository": "nest",
+      "buggyCommit": "cc6f43bfd052c771e2cecd6ae2616cd50c92bc03",
+      "fixedCommit": "2ea28d0db9170b45dc79ebdb18d5662a2214b752",
+      "upstream": {
+        "fixUrl": "https://github.com/nestjs/nest/pull/17040",
+        "proofUrls": ["https://github.com/nestjs/nest/issues/17039"],
+        "summary": "A rejected shutdown hook aborted cleanup for sibling providers and later modules."
+      },
+      "claim": {
+        "category": "cleanup-completeness",
+        "proof": "upstream-regression-test",
+        "summary": "Fail-fast shutdown aggregation silently skipped remaining resource cleanup after one rejection."
+      },
+      "affectedPaths": [
+        "packages/core/hooks/before-app-shutdown.hook.ts",
+        "packages/core/hooks/on-app-shutdown.hook.ts",
+        "packages/core/hooks/on-module-destroy.hook.ts"
+      ],
+      "testPaths": [
+        "packages/core/test/hooks/before-app-shutdown.hook.spec.ts",
+        "packages/core/test/hooks/on-app-shutdown.hook.spec.ts",
+        "packages/core/test/hooks/on-module-destroy.hook.spec.ts"
+      ]
+    },
+    {
+      "id": "nest-import-first-match",
+      "repository": "nest",
+      "buggyCommit": "c721cd7b19a085383ed751f1b5a9af207576c8fb",
+      "fixedCommit": "b76c889e67d6755ad06b68ed76ff6886e8867c1a",
+      "upstream": {
+        "fixUrl": "https://github.com/nestjs/nest/pull/17141",
+        "proofUrls": [
+          "https://github.com/nestjs/nest/issues/17136",
+          "https://github.com/malekelkssas/nestjs-forroot-forfeature-di-repro"
+        ],
+        "summary": "Import lookup could overwrite an explicit feature provider with a later global provider after the first provider resolved."
+      },
+      "claim": {
+        "category": "dependency-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "Controllers and providers in one module could receive different instances for the same token."
+      },
+      "affectedPaths": ["packages/core/injector/injector.ts"],
+      "testPaths": [
+        "packages/core/test/injector/injector.spec.ts",
+        "integration/injector/e2e/for-root-for-feature-resolution.spec.ts"
+      ]
+    },
+    {
+      "id": "fastify-keep-alive-meta-leak",
+      "repository": "fastify",
+      "buggyCommit": "9d2914857906a98b6366266417d6527ab8e5e06f",
+      "fixedCommit": "c5ecfb6733c73cdabde9057952f006e800664570",
+      "upstream": {
+        "fixUrl": "https://github.com/fastify/fastify/pull/6799",
+        "summary": "Socket metadata retained request and reply objects for the full keep-alive connection lifetime."
+      },
+      "claim": {
+        "category": "resource-lifetime",
+        "proof": "upstream-regression-test",
+        "summary": "Request-scoped objects leaked through socket metadata after a response completed."
+      },
+      "affectedPaths": ["lib/reply.js"],
+      "testPaths": ["test/hooks.test.js"]
+    },
+    {
+      "id": "vitest-typecheck-worker-off",
+      "repository": "vitest",
+      "buggyCommit": "96fa6d73d8db734fd647edb1d7a896e573ef81eb",
+      "fixedCommit": "e19e783989a50c77526ffa8b00fc2e2299d21ed5",
+      "upstream": {
+        "fixUrl": "https://github.com/vitest-dev/vitest/pull/10741",
+        "summary": "The worker off method called emitter.on and accumulated stale listeners across watch-mode restarts."
+      },
+      "claim": {
+        "category": "listener-lifecycle",
+        "proof": "upstream-reproduction",
+        "summary": "A teardown API added listeners instead of removing them."
+      },
+      "affectedPaths": ["packages/vitest/src/node/pools/workers/typecheckWorker.ts"],
+      "testPaths": []
+    },
+    {
+      "id": "playwright-compilation-cache-integrity",
+      "repository": "playwright",
+      "buggyCommit": "fa5191f5394f13e1d1e688de7d02ea6ddb315cad",
+      "fixedCommit": "bab26a6814921ce0bc6240403667ec761f27ea54",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/playwright/pull/41739",
+        "proofUrls": ["https://github.com/microsoft/playwright/issues/41726"],
+        "summary": "Partially written or corrupted transpilation cache entries were accepted without integrity verification."
+      },
+      "claim": {
+        "category": "cache-integrity",
+        "proof": "upstream-issue",
+        "summary": "A partial cache write could be consumed as valid compiled code."
+      },
+      "affectedPaths": ["packages/playwright/src/transform/compilationCache.ts"],
+      "testPaths": []
+    },
+    {
+      "id": "pnpm-publish-otp-propagation",
+      "repository": "pnpm",
+      "buggyCommit": "bcedb9518ba8b4fce9232f99585d83baa04103f3",
+      "fixedCommit": "12acbb836438056fda9a54454b8388555223454c",
+      "upstream": {
+        "fixUrl": "https://github.com/pnpm/pnpm/pull/12957",
+        "summary": "The first publish operation overwrote a configured OTP with undefined instead of forwarding it to the registry."
+      },
+      "claim": {
+        "category": "option-propagation",
+        "proof": "upstream-regression-test",
+        "summary": "A security-sensitive command option was silently dropped before the registry request."
+      },
+      "affectedPaths": [
+        "pnpm11/releasing/commands/src/publish/batchPublish.ts",
+        "pnpm11/releasing/commands/src/publish/otp.ts"
+      ],
+      "testPaths": [
+        "pnpm11/releasing/commands/test/publish/batchPublish.test.ts",
+        "pnpm11/releasing/commands/test/publish/otp.test.ts",
+        "pnpm/crates/publish/src/publish_packed_pkg/tests.rs"
+      ]
+    },
+    {
+      "id": "nextjs-cache-handler-name-validation",
+      "repository": "nextjs",
+      "buggyCommit": "c66662b93264a376a0072afe826e9885dbe3388d",
+      "fixedCommit": "78277a4c6d010188728c4d5ce80b1beea52d4284",
+      "upstream": {
+        "fixUrl": "https://github.com/vercel/next.js/pull/95358",
+        "summary": "An unanchored regular expression accepted cache-handler names containing undocumented characters."
+      },
+      "claim": {
+        "category": "input-validation",
+        "proof": "upstream-regression-test",
+        "summary": "Validation checked for one allowed character instead of validating the complete name."
+      },
+      "affectedPaths": ["packages/next/src/server/config.ts"],
+      "testPaths": ["packages/next/src/server/config.test.ts"]
+    },
+    {
+      "id": "redux-toolkit-pre-pending-abort",
+      "repository": "redux-toolkit",
+      "buggyCommit": "8d525e5dd7b6114312aabc849563e0f88cb5e811",
+      "fixedCommit": "42e83ce0aa2e20aa1ec399899a65c3ef1fb6d1cf",
+      "upstream": {
+        "fixUrl": "https://github.com/reduxjs/redux-toolkit/pull/5314",
+        "proofUrls": ["https://github.com/reduxjs/redux-toolkit/issues/3826"],
+        "summary": "An abort before pending was mislabeled as a condition failure and the rejected action was skipped."
+      },
+      "claim": {
+        "category": "error-propagation",
+        "proof": "upstream-regression-test",
+        "summary": "A valid abort path was silently swallowed and reported under the wrong error identity."
+      },
+      "affectedPaths": ["packages/toolkit/src/createAsyncThunk.ts"],
+      "testPaths": ["packages/toolkit/src/tests/createAsyncThunk.test.ts"]
+    }
+  ]
+}

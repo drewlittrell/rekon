@@ -4,6 +4,12 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added a pinned nine-case public defect-pair benchmark with source-grounded
+  agent adjudication. Two narrow AST risks now distinguish the buggy and fixed
+  revisions for inverse listener delegation and partial-match allowlist
+  validation; lifecycle cleanup, option propagation, cache integrity, runtime
+  retention, transform scope, dependency precedence, and abort semantics remain
+  evidence or semantic-analysis work rather than broad syntax detectors.
 - Added nine pinned quality-only public repositories to the detection
   benchmark contract, including Vitest, Playwright, pnpm, and Next.js for
   independent test-isolation, incomplete-capability, migration-tooling, and

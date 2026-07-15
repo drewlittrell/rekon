@@ -33,7 +33,9 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `typescript:source-quality` for AST-backed type escapes, error suppression,
   explicit placeholder implementations, whitespace-only production source,
   source-local unused private fields, and conservative async-control-flow
-  hazards. Private-field evidence remains available when project imports do
+  hazards. It also recognizes exact inverse listener delegation and explicit
+  whole-value allowlist validation implemented with a partial-match regex.
+  Private-field evidence remains available when project imports do
   not resolve; consumed updates, operational reads, and dynamic property
   access suppress it. Commented intentional catches, logged listener and
   `onEvent` handler isolation, named hook callbacks, nested recovery, explicit

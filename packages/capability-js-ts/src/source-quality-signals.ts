@@ -15,6 +15,8 @@ export type SourceQualitySignalKind =
   | "async_for_each_callback"
   | "async_sync_array_callback"
   | "floating_local_async_call"
+  | "inverse_listener_delegation"
+  | "unanchored_whole_value_allowlist"
   | "focused_test"
   | "test_global_state_mutation";
 
@@ -107,6 +109,16 @@ export function analyzeSourceQuality(path: string, content: string): SourceQuali
       signals.push(signal("explicit_noop_contract", node, sourceFile, node.name?.text));
     } else if (ts.isMethodDeclaration(node) && isConstantEmptyQueryMethod(node)) {
       signals.push(signal("constant_empty_query_method", node, sourceFile, node.name.getText(sourceFile)));
+    } else if (ts.isMethodDeclaration(node)) {
+      const delegation = inverseListenerDelegation(node, sourceFile);
+      if (delegation) {
+        signals.push(signal("inverse_listener_delegation", node, sourceFile, delegation));
+      }
+    } else if (ts.isVariableDeclaration(node)) {
+      const allowlist = unanchoredWholeValueAllowlist(node, sourceFile);
+      if (allowlist) {
+        signals.push(signal("unanchored_whole_value_allowlist", node, sourceFile, allowlist));
+      }
     }
 
     if (!promiseIsShadowed
@@ -362,6 +374,99 @@ function isConstantEmptyQueryMethod(node: ts.MethodDeclaration): boolean {
     && Boolean(owner.name)
     && !INTENTIONAL_EMPTY_CLASS.test(owner.name!.text)
     && hasModifier(owner, ts.SyntaxKind.ExportKeyword);
+}
+
+const INVERSE_LISTENER_METHODS: Readonly<Record<string, readonly string[]>> = {
+  off: ["on"],
+  removeEventListener: ["addEventListener"],
+  removeListener: ["addListener", "on"],
+  unsubscribe: ["subscribe"],
+};
+
+function inverseListenerDelegation(node: ts.MethodDeclaration, sourceFile: ts.SourceFile): string | undefined {
+  if (!node.body || !ts.isIdentifier(node.name) || node.body.statements.length !== 1) return undefined;
+  const inverseMethods = INVERSE_LISTENER_METHODS[node.name.text];
+  if (!inverseMethods) return undefined;
+
+  const statement = node.body.statements[0];
+  const expression = statement && ts.isExpressionStatement(statement)
+    ? statement.expression
+    : statement && ts.isReturnStatement(statement)
+      ? statement.expression
+      : undefined;
+  const call = expression && unwrapExpression(expression);
+  if (!call || !ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression)) return undefined;
+  if (!inverseMethods.includes(call.expression.name.text)) return undefined;
+  if (node.parameters.length !== call.arguments.length) return undefined;
+
+  const delegatesSameArguments = node.parameters.every((parameter, index) => {
+    if (!ts.isIdentifier(parameter.name)) return false;
+    const argument = call.arguments[index];
+    return Boolean(argument) && unwrapExpression(argument!).getText(sourceFile) === parameter.name.text;
+  });
+  return delegatesSameArguments ? `${node.name.text}->${call.expression.name.text}` : undefined;
+}
+
+const ALLOWLIST_PATTERN_NAME = /^(?:(?:allowed|permitted|safe|valid).*(?:pattern|regex)|(?:pattern|regex).*(?:allowed|permitted|safe|valid))$/i;
+
+function unanchoredWholeValueAllowlist(
+  node: ts.VariableDeclaration,
+  sourceFile: ts.SourceFile,
+): string | undefined {
+  if (!ts.isIdentifier(node.name)
+    || !node.initializer
+    || node.initializer.kind !== ts.SyntaxKind.RegularExpressionLiteral
+    || !ALLOWLIST_PATTERN_NAME.test(node.name.text)) return undefined;
+
+  const patternName = node.name.text;
+  const pattern = regularExpressionPattern(node.initializer.getText(sourceFile));
+  if (!pattern
+    || pattern.startsWith("^")
+    || pattern.endsWith("$")
+    || !/^\[(?:\\.|[^\]])+\](?:[+*?]|\{\d+(?:,\d*)?\})?$/.test(pattern)) return undefined;
+
+  let rejectsPartialMatch = false;
+  const visit = (candidate: ts.Node): void => {
+    if (rejectsPartialMatch) return;
+    if (ts.isCallExpression(candidate)
+      && ts.isPropertyAccessExpression(candidate.expression)
+      && candidate.expression.name.text === "test"
+      && ts.isIdentifier(candidate.expression.expression)
+      && candidate.expression.expression.text === patternName
+      && ts.isPrefixUnaryExpression(candidate.parent)
+      && candidate.parent.operator === ts.SyntaxKind.ExclamationToken) {
+      const branch = enclosingIfBranch(candidate.parent);
+      if (branch && /\b(?:error|invalid|must|only|reason|reject)\b/i.test(branch.getText(sourceFile))) {
+        rejectsPartialMatch = true;
+        return;
+      }
+    }
+    ts.forEachChild(candidate, visit);
+  };
+  visit(sourceFile);
+  return rejectsPartialMatch ? patternName : undefined;
+}
+
+function regularExpressionPattern(literal: string): string | undefined {
+  if (!literal.startsWith("/")) return undefined;
+  for (let index = literal.length - 1; index > 0; index -= 1) {
+    if (literal[index] !== "/") continue;
+    let backslashes = 0;
+    for (let cursor = index - 1; cursor >= 0 && literal[cursor] === "\\"; cursor -= 1) backslashes += 1;
+    if (backslashes % 2 === 0) return literal.slice(1, index);
+  }
+  return undefined;
+}
+
+function enclosingIfBranch(node: ts.Node): ts.Statement | undefined {
+  let current: ts.Node | undefined = node;
+  while (current?.parent) {
+    const parent: ts.Node = current.parent;
+    if (ts.isIfStatement(parent) && containsNode(parent.expression, node)) return parent.thenStatement;
+    if (ts.isFunctionLike(parent)) return undefined;
+    current = parent;
+  }
+  return undefined;
 }
 
 function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {

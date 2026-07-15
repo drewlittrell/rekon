@@ -218,6 +218,45 @@ test("JS/TS provider emits AST-backed source quality signals", async () => {
   }
 });
 
+test("JS/TS provider detects inverse listener delegation and partial allowlist validation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-defect-pairs-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "validation.ts"), [
+      "export class Worker {",
+      "  constructor(private emitter: { on(event: string, callback: () => void): void; off(event: string, callback: () => void): void }) {}",
+      "  off(event: string, callback: () => void): void {",
+      "    this.emitter.on(event, callback);",
+      "  }",
+      "  removeCorrectly(event: string, callback: () => void): void {",
+      "    this.emitter.off(event, callback);",
+      "  }",
+      "}",
+      "const allowedHandlerNameRegex = /[a-z-]/;",
+      "export function validateHandlerName(key: string): void {",
+      "  if (!allowedHandlerNameRegex.test(key)) throw new Error('key must only use a-z and -');",
+      "}",
+      "const validExtensionFileRegex = /\\.[a-z]+$/;",
+      "export function hasValidExtension(path: string): boolean {",
+      "  return validExtensionFileRegex.test(path);",
+      "}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const signals = facts
+      .filter((fact) => fact.kind === "typescript:source-quality")
+      .map((fact) => ({ signal: fact.value.signal, detail: fact.value.detail }));
+
+    assert.deepEqual(signals, [
+      { signal: "inverse_listener_delegation", detail: "off->on" },
+      { signal: "unanchored_whole_value_allowlist", detail: "allowedHandlerNameRegex" },
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("source-local private member evidence survives an unresolved TypeScript project", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-private-source-evidence-"));
 

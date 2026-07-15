@@ -22,6 +22,8 @@ Current rule families:
 - `typescript.asyncPromiseExecutor`
 - `typescript.asyncArrayCallback`
 - `typescript.floatingPromise`
+- `events.inverseListenerDelegation`
+- `validation.partialAllowlistMatch`
 - `tests.focused`
 - `tests.isolation`
 - `typescript.unusedImport`
@@ -68,10 +70,14 @@ thresholds are exceeded. Static complexity does not become a finding by itself.
 Async Promise executors and async callbacks on statically recognized arrays are
 also risks. Promise shadowing and unknown method receivers are excluded rather
 than guessed. Bare calls are reported only for unshadowed local async
-declarations. Focused test syntax and direct `process.env` mutation inside a
-test callback are test-scoped risks. Fixture/example trees and test-framework
-self-tests stay quiet when focused syntax is the behavior under test. Disabled
-tests remain explicit debt-marker evidence. Style remains the responsibility of
+declarations. Listener-removal wrappers are reported only when their entire
+implementation forwards the same parameters to the inverse registration API.
+Partial allowlist matching requires an allowlist-named regex, an unanchored
+character class, and an explicit invalid-value branch. Focused test syntax and
+direct `process.env` mutation inside a test callback are test-scoped risks.
+Fixture/example trees and test-framework self-tests stay quiet when focused
+syntax is the behavior under test. Disabled tests remain explicit debt-marker
+evidence. Style remains the responsibility of
 imported linter output rather than a parallel Rekon style detector.
 
 `imports.noDistImports` applies to repository-local relative imports of generated

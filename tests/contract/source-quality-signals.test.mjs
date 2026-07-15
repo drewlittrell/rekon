@@ -92,6 +92,56 @@ test("source quality signals become fused risks rather than findings", async () 
   }
 });
 
+test("defect-pair source signals remain risks with stable remediation identities", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-defect-pair-signals-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "worker.ts"), [
+      "export class Worker {",
+      "  constructor(private emitter: { on(event: string, callback: () => void): void }) {}",
+      "  off(event: string, callback: () => void): void { this.emitter.on(event, callback); }",
+      "}",
+      "const allowedNameRegex = /[a-z-]/;",
+      "export function validateName(name: string): void {",
+      "  if (!allowedNameRegex.test(name)) throw new Error('invalid name: only a-z and - are allowed');",
+      "}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const runtime = await createRuntime({ repoRoot: root, repoId: "defect-pair-signals", capabilities: [policyCapability], logger });
+    await runtime.artifacts.write({
+      header: {
+        artifactType: "EvidenceGraph",
+        artifactId: "defect-pair-evidence",
+        schemaVersion: "0.1.0",
+        generatedAt: "2026-07-14T00:00:00.000Z",
+        subject: { repoId: "defect-pair-signals" },
+        producer: { id: "@rekon/capability-js-ts", version: "1.0.0" },
+        inputRefs: [],
+        freshness: { status: "fresh" },
+        provenance: { confidence: 0.9 },
+      },
+      facts,
+    });
+
+    const refs = await runtime.runEvaluate();
+    const report = await runtime.artifacts.read(refs.find((ref) => ref.type === "AssessmentReport"));
+    const assessments = report.assessments.filter((assessment) => [
+      "events.inverseListenerDelegation",
+      "validation.partialAllowlistMatch",
+    ].includes(assessment.ruleId));
+
+    assert.deepEqual(assessments.map((assessment) => assessment.ruleId).sort(), [
+      "events.inverseListenerDelegation",
+      "validation.partialAllowlistMatch",
+    ]);
+    assert.equal(assessments.every((assessment) => assessment.kind === "risk"), true);
+    assert.equal(assessments.every((assessment) => assessment.rootCauseKey.includes("src/worker.ts")), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("generated and vendored source retains evidence without entering source-quality policy", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-generated-source-quality-"));
   try {

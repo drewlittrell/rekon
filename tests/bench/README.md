@@ -202,6 +202,34 @@ and writes a quality-only `corpus.json`. Refresh runs Rekon itself; it does not
 execute the target repositories' scripts unless evidence capture is separately
 declared and explicitly enabled.
 
+## Public defect pairs
+
+The defect-pair corpus checks whether a signal exists on a pinned buggy commit
+and disappears on its upstream fix. It is separate from parity scoring and
+does not use finding volume as a target.
+
+```bash
+npm run bench:defect-pairs:setup -- --root /path/to/rekon-defect-pairs
+npm run bench:defect-pairs -- --corpus /path/to/rekon-defect-pairs \
+  --adjudications /path/to/defect-pair-adjudications.json
+```
+
+Focused mode scans only each pair's affected production and regression-test
+paths. Pass `--full` for a complete repository scan or `--skip-refresh` to
+rescore existing artifacts. `--pair <id>` is repeatable.
+
+The pinned catalog is `tests/bench/public-defect-pairs.sources.json`. Setup
+creates detached before/after worktrees outside Rekon, verifies commit ancestry,
+and does not install dependencies or execute target scripts. Reports are local
+and gitignored under `tests/bench/output/public-defect-pairs/`.
+
+Statuses describe emitted differences: `finding-captured`,
+`assessment-captured`, `signal-persistent`, `introduced-after`, or `uncaptured`.
+They are not judgments. An agent adjudication separately records whether the
+upstream claim is valid, whether the signal captures that claim, and whether
+the next step is a new emitter, more emitter calibration, another evidence
+source, semantic analysis, or no general detector.
+
 `root` points at a **copy** of the target repo (the bench writes standard
 `.rekon/` output there during `rekon refresh`; it mutates nothing else).
 `classicOutput` is a directory containing classic's `issues.json` for that

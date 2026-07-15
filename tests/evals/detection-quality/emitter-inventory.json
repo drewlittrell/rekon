@@ -58,6 +58,20 @@
       "remediationUnit": "source file and local async call site"
     },
     {
+      "ruleId": "events.inverseListenerDelegation",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed removal wrapper that forwards the same arguments to the inverse registration method",
+      "jurisdiction": "single-statement listener lifecycle wrappers in production JavaScript and TypeScript source",
+      "remediationUnit": "source file and removal wrapper"
+    },
+    {
+      "ruleId": "validation.partialAllowlistMatch",
+      "outputKinds": ["risk"],
+      "evidence": "AST-backed unanchored character-class regex used by a named allowlist in an explicit invalid-value branch",
+      "jurisdiction": "whole-value validation in production JavaScript and TypeScript source",
+      "remediationUnit": "source file and allowlist declaration"
+    },
+    {
       "ruleId": "tests.focused",
       "outputKinds": ["risk"],
       "evidence": "AST-backed explicit focused-test call",

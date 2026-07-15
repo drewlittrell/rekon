@@ -10,6 +10,8 @@ export const EMPTY_SOURCE_FILE_RULE_ID = "dead_code.emptySourceFile";
 export const ASYNC_PROMISE_EXECUTOR_RULE_ID = "typescript.asyncPromiseExecutor";
 export const ASYNC_ARRAY_CALLBACK_RULE_ID = "typescript.asyncArrayCallback";
 export const FLOATING_PROMISE_RULE_ID = "typescript.floatingPromise";
+export const INVERSE_LISTENER_DELEGATION_RULE_ID = "events.inverseListenerDelegation";
+export const PARTIAL_ALLOWLIST_MATCH_RULE_ID = "validation.partialAllowlistMatch";
 export const FOCUSED_TEST_RULE_ID = "tests.focused";
 export const TEST_ISOLATION_RULE_ID = "tests.isolation";
 export const UNUSED_IMPORT_RULE_ID = "typescript.unusedImport";
@@ -126,6 +128,22 @@ const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
     title: "Local async call is not observed",
     description: "A locally declared async function is called as a standalone statement without await, return, void, or rejection handling.",
     suggestedAction: "Await or return the call, attach explicit rejection handling, or mark intentional fire-and-forget work with void and an error boundary.",
+  },
+  inverse_listener_delegation: {
+    ruleId: INVERSE_LISTENER_DELEGATION_RULE_ID,
+    type: "listener_lifecycle",
+    impact: "medium",
+    title: "Listener removal delegates to registration",
+    description: "A removal-named wrapper delegates the same arguments to the inverse listener registration method.",
+    suggestedAction: "Delegate to the matching removal API and add a regression test that proves the listener is no longer invoked.",
+  },
+  unanchored_whole_value_allowlist: {
+    ruleId: PARTIAL_ALLOWLIST_MATCH_RULE_ID,
+    type: "input_validation",
+    impact: "medium",
+    title: "Allowlist validation accepts partial matches",
+    description: "A named allowlist regex is used to reject invalid whole values but is not anchored, so one allowed character can admit an otherwise invalid value.",
+    suggestedAction: "Anchor and quantify the allowlist for the complete value, then add accepted and rejected boundary cases.",
   },
   focused_test: {
     ruleId: FOCUSED_TEST_RULE_ID,

@@ -15,6 +15,7 @@
     "dead_code.unreferenced": { "minimumUsefulness": 0.75 },
     "debt.markers": { "minimumUsefulness": 0.75 },
     "debt.semantic": { "minimumUsefulness": 0.75 },
+    "events.inverseListenerDelegation": { "minimumUsefulness": 0.75 },
     "files.noGeneratedAsSource": { "minimumPrecision": 0.9 },
     "grammar.antiPattern": { "minimumPrecision": 0.9 },
     "grammar.divergence": { "minimumPrecision": 0.9 },
@@ -37,6 +38,7 @@
     "typescript.typeEscape": { "minimumUsefulness": 0.75 },
     "typescript.unreachableCode": { "minimumUsefulness": 0.75 },
     "typescript.unusedImport": { "minimumUsefulness": 0.75 },
-    "typescript.unusedPrivateMember": { "minimumUsefulness": 0.75 }
+    "typescript.unusedPrivateMember": { "minimumUsefulness": 0.75 },
+    "validation.partialAllowlistMatch": { "minimumUsefulness": 0.75 }
   }
 }
