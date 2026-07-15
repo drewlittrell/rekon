@@ -1,0 +1,77 @@
+{
+  "version": "1.0.0",
+  "repositories": [
+    {
+      "id": "public-vite",
+      "directory": "vite",
+      "url": "https://github.com/vitejs/vite.git",
+      "commit": "b59a73f76f5557492d83d097bb33b3dd02f27d51",
+      "license": "MIT",
+      "role": "typescript-pnpm-build-tool-monorepo"
+    },
+    {
+      "id": "public-nest",
+      "directory": "nest",
+      "url": "https://github.com/nestjs/nest.git",
+      "commit": "0a368c136b3d39360390b0b06f3c9cdf68fc08fb",
+      "license": "MIT",
+      "role": "typescript-decorator-server-framework"
+    },
+    {
+      "id": "public-fastify",
+      "directory": "fastify",
+      "url": "https://github.com/fastify/fastify.git",
+      "commit": "de3752df84bb8dd35a8226bb467f05862f4da57c",
+      "license": "MIT",
+      "role": "javascript-plugin-server-framework"
+    },
+    {
+      "id": "public-eslint",
+      "directory": "eslint",
+      "url": "https://github.com/eslint/eslint.git",
+      "commit": "c5963f74bfa82a5b7ccc0607dcdcc695b8c97a31",
+      "license": "MIT",
+      "role": "javascript-ast-rule-engine"
+    },
+    {
+      "id": "public-redux-toolkit",
+      "directory": "redux-toolkit",
+      "url": "https://github.com/reduxjs/redux-toolkit.git",
+      "commit": "58e8cfe26000a2b651f497ab7c33dbf01a106fea",
+      "license": "MIT",
+      "role": "typescript-yarn-library-monorepo"
+    },
+    {
+      "id": "public-vitest",
+      "directory": "vitest",
+      "url": "https://github.com/vitest-dev/vitest.git",
+      "commit": "3e3e85285fb1256ff49dd5f4ef1ca4ebffe60a17",
+      "license": "MIT",
+      "role": "typescript-test-runner-monorepo"
+    },
+    {
+      "id": "public-playwright",
+      "directory": "playwright",
+      "url": "https://github.com/microsoft/playwright.git",
+      "commit": "b2743b2247edbe2324c7d0893dcd4b4f347e766e",
+      "license": "Apache-2.0",
+      "role": "typescript-browser-automation-monorepo"
+    },
+    {
+      "id": "public-pnpm",
+      "directory": "pnpm",
+      "url": "https://github.com/pnpm/pnpm.git",
+      "commit": "30a59d0209a8b2db40a064a6434d62dae7f30526",
+      "license": "MIT",
+      "role": "typescript-package-manager-monorepo"
+    },
+    {
+      "id": "public-nextjs",
+      "directory": "nextjs",
+      "url": "https://github.com/vercel/next.js.git",
+      "commit": "ca414736ba2f97cb17b656a2acc8fc849c131487",
+      "license": "MIT",
+      "role": "typescript-full-stack-framework-monorepo"
+    }
+  ]
+}

@@ -29,7 +29,8 @@ work-order generation.
 
 `VerificationPlanLike` includes optional `VerificationPlanCoverage` metadata
 for isolated Vitest and Jest plans, including source paths the test intends to
-exercise. Execution remains owned by `@rekon/capability-verify`.
+exercise and an optional repository-local runner config. Execution remains
+owned by `@rekon/capability-verify`.
 
 ## Import Boundary
 

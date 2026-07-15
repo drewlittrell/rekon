@@ -31,8 +31,15 @@ analysis for this evidence even when the repository does not enable it.
 Ordinary unused locals and public declarations remain outside this signal.
 - `typescript:diagnostic` on full scans with a valid `tsconfig.json`
 - `typescript:source-quality` for AST-backed type escapes, error suppression,
-  explicit placeholder implementations, and conservative async-control-flow
-  hazards
+  explicit placeholder implementations, whitespace-only production source,
+  source-local unused private fields, and conservative async-control-flow
+  hazards. Private-field evidence remains available when project imports do
+  not resolve; consumed updates, operational reads, and dynamic property
+  access suppress it. Commented intentional catches, logged listener and
+  `onEvent` handler isolation, named hook callbacks, nested recovery, explicit
+  failure returns, documented retries, and loop-local presentation fallbacks
+  stay quiet. Focused-test syntax with a deliberate lint suppression remains
+  framework plumbing rather than a test-hygiene signal.
 - `typescript:function-metrics` for neutral measurements of named functions;
   classification remains a policy concern
 - `manifest` and `build_target` for package manifests and lifecycle scripts
@@ -60,7 +67,8 @@ package-private extractor helpers from consumers.
 
 ## Behavior
 
-It ignores `node_modules`, `.git`, `.rekon`, `dist`, `build`, and `coverage`.
+It ignores `node_modules`, `.git`, `.rekon`, `.next`, `dist`, `build`, and
+`coverage`.
 Declared tsconfig aliases, workspace package names, package export subpaths,
 dynamic imports, and re-export targets resolve only when they map to a scanned
 repository file. Package export maps are authoritative: undeclared subpaths are
@@ -83,3 +91,7 @@ function is used as a bare statement. Focused tests and direct `process.env`
 mutation inside test callbacks remain risks, not proven defects. Tests are
 included by default through the runtime and can be excluded with
 `ObserveOptions.includeTests: false`.
+Documented best-effort empty catches stay silent and are never reclassified as
+logging-only catches. Test environment mutations also stay silent when a later
+`finally` restores the affected keys or `afterEach` restores the complete
+environment object.

@@ -24,7 +24,7 @@ const MAX_RUNS = 20;
 const MAX_DIRECT_IMPORT_CONTEXT = 25;
 const MAX_TRANSITIVE_IMPORT_CONTEXT = 50;
 const FAILURE_STATUSES = new Set(["failed", "timeout", "killed"]);
-const ENVIRONMENT_FAILURE = /\b(?:command not found|enoent|eai_again|enotfound|econnrefused|could not determine executable|not recognized as an internal or external command)\b/i;
+const ENVIRONMENT_FAILURE = /\b(?:command not found|enoent|eai_again|enotfound|econnrefused|could not determine executable|not recognized as an internal or external command|cannot find module|cannot find type definition file)\b/i;
 
 type EvidenceGraphLike = {
   header: ArtifactHeader;
@@ -67,6 +67,7 @@ type CheckOccurrence = {
   commandText: string;
   output: string;
   signature: string;
+  observationSignature: string;
   sourcePaths: string[];
   currentEvidence: boolean;
   coherence: "commit" | "observed_after_evidence" | "none";
@@ -185,6 +186,7 @@ export async function evaluateRepositoryChecks(
     const run = await artifacts.read(ref) as VerificationRunLike;
     if (!sameRepository(graph.header, run.header)) continue;
     let used = false;
+    const environmentFailedCommands = commandsWithEnvironmentFailure(run, sourceFiles);
 
     for (const command of run.commands ?? []) {
       if (!FAILURE_STATUSES.has(command.status ?? "")) continue;
@@ -197,8 +199,21 @@ export async function evaluateRepositoryChecks(
         output,
         sourcePaths: [...sourceFiles],
       });
+      const environmentAffectedFiles = new Set(
+        parsedDiagnostics
+          .filter(isDirectEnvironmentDiagnostic)
+          .flatMap((diagnostic) => diagnostic.file ? [diagnostic.file] : []),
+      );
+      const genericEnvironmentFailure = parsedDiagnostics.length === 0 && ENVIRONMENT_FAILURE.test(output);
+      const siblingEnvironmentFailure = [...environmentFailedCommands].some(
+        (environmentCommand) => environmentCommand !== command,
+      );
       const diagnostics = parsedDiagnostics.length > 0 ? parsedDiagnostics : [undefined];
       for (const diagnostic of diagnostics) {
+        const environmentFailure = genericEnvironmentFailure
+          || isDirectEnvironmentDiagnostic(diagnostic)
+          || Boolean(diagnostic?.file && environmentAffectedFiles.has(diagnostic.file))
+          || siblingEnvironmentFailure;
         const matchedPaths = diagnostic?.file
           ? [diagnostic.file]
           : [...sourceFiles].filter((path) => output.includes(path)).sort();
@@ -208,6 +223,7 @@ export async function evaluateRepositoryChecks(
         const blastRadius = diagnostic?.file && importGraph
           ? importBlastRadiusForFile(importGraph.value, importGraph.ref, diagnostic.file)
           : undefined;
+        const observationSignature = failureSignature(category, commandText, command, output, diagnostic);
         occurrences.push({
           ref,
           run,
@@ -215,11 +231,16 @@ export async function evaluateRepositoryChecks(
           category,
           commandText,
           output,
-          signature: failureSignature(category, commandText, command, output, diagnostic),
+          signature: environmentFailure
+            ? failureSignature(category, commandText, command, "environment-or-dependency-failure")
+            : diagnostic
+              ? observationSignature
+              : aggregateFailureSignature(category, commandText),
+          observationSignature,
           sourcePaths: matchedPaths,
           currentEvidence: isCurrentEvidence(graph.header, run.header),
           coherence: evidenceCoherence(graph.header, run.header),
-          environmentFailure: ENVIRONMENT_FAILURE.test(output),
+          environmentFailure,
           ...(diagnostic ? { diagnostic } : {}),
           ...(relatedContext ? { relatedContext } : {}),
           ...(blastRadius ? { blastRadius } : {}),
@@ -307,21 +328,26 @@ export async function evaluateRepositoryChecks(
   const sourceRootCauseKeys = new Set<string>();
 
   for (const group of groupOccurrences(occurrences)) {
-    const uniqueRuns = uniqueRefs(group.occurrences.map((occurrence) => occurrence.ref));
     const currentOccurrences = group.occurrences.filter((occurrence) => occurrence.currentEvidence);
+    if (currentOccurrences.length === 0) continue;
+    const currentGroup = groupForOccurrences(group, currentOccurrences);
     const currentRunRefs = uniqueRefs(currentOccurrences.map((occurrence) => occurrence.ref));
+    const distinctObservedFailures = new Set(
+      currentOccurrences.map((occurrence) => occurrence.observationSignature),
+    ).size;
     const repeatable = currentRunRefs.length >= 2
       && currentOccurrences.every((occurrence) => occurrence.command.status === "failed")
       && currentOccurrences.every((occurrence) => !occurrence.environmentFailure)
-      && currentOccurrences.every((occurrence) => occurrence.output.trim().length > 0);
-    const supportingRunRefs = repeatable ? currentRunRefs : uniqueRuns;
+      && currentOccurrences.every((occurrence) => occurrence.output.trim().length > 0)
+      && distinctObservedFailures === 1;
+    const supportingRunRefs = currentRunRefs;
     const matchedSourceFacts = sourceQualityFacts.filter((fact) =>
-      group.occurrences.some((occurrence) => diagnosticCorroboratesSignal(occurrence, fact)),
+      currentOccurrences.some((occurrence) => diagnosticCorroboratesSignal(occurrence, fact)),
     );
 
     if (matchedSourceFacts.length > 0) {
       for (const fact of matchedSourceFacts) {
-        const assessment = sourceCorroborationAssessment(group, fact, evidenceRef, supportingRunRefs, repeatable);
+        const assessment = sourceCorroborationAssessment(currentGroup, fact, evidenceRef, supportingRunRefs, repeatable);
         sourceRootCauseKeys.add(assessment.rootCauseKey);
         const promotion = evaluateFindingPromotion(assessment);
         if (promotion.eligible) {
@@ -334,7 +360,12 @@ export async function evaluateRepositoryChecks(
       continue;
     }
 
-    const assessment = repositoryCheckAssessment(group, supportingRunRefs, repeatable);
+    const assessment = repositoryCheckAssessment(
+      currentGroup,
+      supportingRunRefs,
+      repeatable,
+      distinctObservedFailures,
+    );
     const promotion = evaluateFindingPromotion(assessment);
     if (promotion.eligible) {
       findings.push(findingFromAssessment(assessment, promotion.reasons));
@@ -350,6 +381,22 @@ export async function evaluateRepositoryChecks(
     inputRefs: uniqueRefs(inputRefs),
     promotedRootCauseKeys,
     sourceRootCauseKeys,
+  };
+}
+
+function groupForOccurrences(group: CheckGroup, occurrences: CheckOccurrence[]): CheckGroup {
+  const representative = occurrences[0];
+  return {
+    key: group.key,
+    category: group.category,
+    commandText: group.commandText,
+    signature: group.signature,
+    occurrences,
+    ...(representative?.diagnostic && !representative.environmentFailure
+      ? { diagnostic: representative.diagnostic }
+      : {}),
+    ...(representative?.relatedContext ? { relatedContext: representative.relatedContext } : {}),
+    ...(representative?.blastRadius ? { blastRadius: representative.blastRadius } : {}),
   };
 }
 
@@ -393,6 +440,7 @@ function addImportedOccurrence(input: {
     commandText: input.commandText,
     output,
     signature: failureSignature(input.category, input.commandText, command, output, input.diagnostic),
+    observationSignature: failureSignature(input.category, input.commandText, command, output, input.diagnostic),
     sourcePaths,
     currentEvidence: citesCurrentEvidence && isCurrentEvidence(input.graph.header, input.header),
     coherence: citesCurrentEvidence ? evidenceCoherence(input.graph.header, input.header) : "none",
@@ -471,6 +519,7 @@ function repositoryCheckAssessment(
   group: CheckGroup,
   runRefs: ArtifactRef[],
   repeatable: boolean,
+  distinctObservedFailures: number,
 ): Assessment {
   const rootCauseKey = `repository-check:${group.category}:${group.signature}`;
   const sourcePaths = [...new Set(group.occurrences.flatMap((occurrence) => occurrence.sourcePaths))].sort();
@@ -482,14 +531,20 @@ function repositoryCheckAssessment(
     kind: "risk",
     type: "repository_check_failure",
     impact: group.category === "test" || group.category === "build" ? "high" : "medium",
-    title: `Repository ${group.category} check failed`,
-    description: repeatable
-      ? `The repository-native command \`${group.commandText}\` reproduced the same failure on the current evidence state.`
-      : `The repository-native command \`${group.commandText}\` failed, but the failure is not yet reproducible on the current evidence state.`,
+    title: hasEnvironmentFailure
+      ? `Repository ${group.category} environment failed`
+      : `Repository ${group.category} check failed`,
+    description: hasEnvironmentFailure
+      ? `The repository-native command \`${group.commandText}\` encountered missing toolchain or dependency context; Rekon retained one operational risk instead of treating the diagnostic cascade as source defects.`
+      : repeatable
+        ? `The repository-native command \`${group.commandText}\` reproduced the same failure on the current evidence state.`
+        : `The repository-native command \`${group.commandText}\` failed, but the failure is not yet reproducible on the current evidence state.`,
     subjects: sourcePaths.length > 0 ? sourcePaths : [group.commandText],
     ...(sourcePaths.length > 0 ? { files: sourcePaths } : {}),
     ruleId: REPOSITORY_CHECK_FAILURE_RULE_ID,
-    suggestedAction: `Inspect the recorded ${group.category} output, correct the root cause, and rerun the same command.`,
+    suggestedAction: hasEnvironmentFailure
+      ? `Restore the repository's declared toolchain and dependencies, then rerun the same ${group.category} command before judging source defects.`
+      : `Inspect the recorded ${group.category} output, correct the root cause, and rerun the same command.`,
     evidence: uniqueRefs([
       ...runRefs,
       ...(group.relatedContext ? [group.relatedContext.graphRef] : []),
@@ -521,6 +576,7 @@ function repositoryCheckAssessment(
       reproducible: repeatable,
       environmentFailure: hasEnvironmentFailure,
       diagnosticSignature: group.signature,
+      distinctObservedFailures,
       sourcePaths,
       ...(group.diagnostic ? { diagnostic: group.diagnostic } : {}),
       ...(group.relatedContext ? { relatedContext: group.relatedContext } : {}),
@@ -568,6 +624,7 @@ function readSourceQualityFacts(graph: EvidenceGraphLike): SourceQualityFact[] {
 }
 
 function diagnosticCorroboratesSignal(occurrence: CheckOccurrence, fact: SourceQualityFact): boolean {
+  if (occurrence.environmentFailure) return false;
   const output = occurrence.output;
   const diagnostic = occurrence.diagnostic;
   const signalPattern = sourceDiagnosticPattern(fact.signal);
@@ -603,6 +660,8 @@ function sourceDiagnosticPattern(signal: string): RegExp | undefined {
       return /(?:error\s+suppression|swallowed\s+error|catch\s+only\s+logs)/i;
     case "placeholder_throw":
       return /(?:not implemented|todo|placeholder|implement me)/i;
+    case "explicit_noop_contract":
+      return /(?:no-empty-function|no[- ]?op|empty function)/i;
     case "async_promise_executor":
       return /(?:no-async-promise-executor|async\s+promise\s+executor)/i;
     case "async_for_each_callback":
@@ -661,6 +720,12 @@ function failureSignature(
     .digest("hex");
 }
 
+function aggregateFailureSignature(category: RepositoryCheckCategory, commandText: string): string {
+  return createHash("sha256")
+    .update(`${category}\n${commandText}\naggregate-command-failure`)
+    .digest("hex");
+}
+
 function normalizeDiagnosticOutput(output: string): string {
   return output
     .replace(/\u001b\[[0-9;]*m/g, "")
@@ -681,7 +746,7 @@ function groupOccurrences(occurrences: CheckOccurrence[]): CheckGroup[] {
       commandText: occurrence.commandText,
       signature: occurrence.signature,
       occurrences: [],
-      ...(occurrence.diagnostic ? { diagnostic: occurrence.diagnostic } : {}),
+      ...(occurrence.diagnostic && !occurrence.environmentFailure ? { diagnostic: occurrence.diagnostic } : {}),
       ...(occurrence.relatedContext ? { relatedContext: occurrence.relatedContext } : {}),
       ...(occurrence.blastRadius ? { blastRadius: occurrence.blastRadius } : {}),
     };
@@ -689,6 +754,41 @@ function groupOccurrences(occurrences: CheckOccurrence[]): CheckGroup[] {
     groups.set(key, group);
   }
   return [...groups.values()].sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function isDirectEnvironmentDiagnostic(
+  diagnostic: ParsedRepositoryDiagnostic | undefined,
+): boolean {
+  if (!diagnostic) return false;
+  if (diagnostic.parser !== "typescript") return ENVIRONMENT_FAILURE.test(diagnostic.message);
+  return diagnostic.code === "TS2307"
+    || diagnostic.code === "TS2688"
+    || diagnostic.code === "TS2875"
+    || ENVIRONMENT_FAILURE.test(diagnostic.message);
+}
+
+function commandsWithEnvironmentFailure(
+  run: VerificationRunLike,
+  sourceFiles: Set<string>,
+): Set<VerificationRunCommandLike> {
+  const commands = new Set<VerificationRunCommandLike>();
+  for (const command of run.commands ?? []) {
+    if (!FAILURE_STATUSES.has(command.status ?? "")) continue;
+    const category = classifyRepositoryCheck(commandTextFor(command));
+    if (!category) continue;
+    const output = commandOutput(command);
+    if (ENVIRONMENT_FAILURE.test(output)) {
+      commands.add(command);
+      continue;
+    }
+    const diagnostics = parseRepositoryDiagnostics({
+      category,
+      output,
+      sourcePaths: [...sourceFiles],
+    });
+    if (diagnostics.some(isDirectEnvironmentDiagnostic)) commands.add(command);
+  }
+  return commands;
 }
 
 function repositoryCheckSupportingSignals(

@@ -21,6 +21,7 @@ test("marker extraction: every marker family, id-stable, identical lines dedupe"
     "it.skip(\"flaky\", () => {});",
     "describe.skip(\"suite\", () => {});",
     "xit(\"old\", () => {});",
+    "'deprecated_file', // Files with an @deprecated marker",
     "// TODO: wire the cache", // identical line - dedupes at graph level
     "const todo = computeTodoList();", // not a comment marker
   ].join("\n");

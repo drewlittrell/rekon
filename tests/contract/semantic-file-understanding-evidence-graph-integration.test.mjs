@@ -51,6 +51,15 @@ const FILES = [
     text: `import { join } from "node:path";
 export function getUser(id) { return id; }
 export const createOrder = (order) => order;
+function deleteAccount() { return "deleted"; }
+function loadSession() { return "loaded"; }
+function findToken() { return "found"; }
+function ingestTurnEvidence() {}
+function commitAssistantPlan() {}
+function recordTrajectoryStep() {}
+function deliverChannelMessage() {}
+function watchFlowDefinitions() {}
+function orchestrateDeliveryChannel() {}
 `,
   },
 ];
@@ -87,10 +96,10 @@ function richReport(overrides = {}) {
       touchedConcepts: ["users", "orders"],
     },
     capabilitySignals: [
-      { id: "sig-high", label: "delete account", confidence: "high", sourceEvidence: [{ lineStart: 2, lineEnd: 2, excerpt: "delete" }] },
-      { id: "sig-medium", label: "load session", confidence: "medium", sourceEvidence: [{ lineStart: 3, excerpt: "load" }] },
-      { id: "sig-low", label: "find token", confidence: "low", sourceEvidence: [{ excerpt: "find" }] },
-      { id: "sig-noverb", label: "User Authentication", confidence: "high", sourceEvidence: [{ excerpt: "auth" }] },
+      { id: "sig-high", label: "delete account", confidence: "high", sourceEvidence: [{ excerpt: "function deleteAccount()" }] },
+      { id: "sig-medium", label: "load session", confidence: "medium", sourceEvidence: [{ excerpt: "function loadSession()" }] },
+      { id: "sig-low", label: "find token", confidence: "low", sourceEvidence: [{ excerpt: "function findToken()" }] },
+      { id: "sig-noverb", label: "User Authentication", confidence: "high", sourceEvidence: [{ excerpt: "function getUser(id)" }] },
       { id: "sig-noevidence", label: "save record", confidence: "high", sourceEvidence: [] },
     ],
     findings: [
@@ -193,12 +202,87 @@ test("capabilitySignal without sourceEvidence becomes a needs-review claim, not 
   assert.equal(claim.status, "needs-review");
 });
 
+test("capabilitySignal with a citation absent from current source does not become a node", () => {
+  const report = richReport({
+    capabilitySignals: [{
+      id: "delete:account",
+      label: "delete account",
+      confidence: "high",
+      sourceEvidence: [{ excerpt: "accountRepository.delete(accountId)" }],
+    }],
+  });
+  const graph = build([{ report, ref: REF }]);
+
+  assert.equal(graph.capabilities.some((capability) => capability.id === "cap:delete:account"), false);
+  const claim = graph.claims.find((candidate) => (
+    candidate.predicate === "has_capability_signal" && candidate.object === "delete account"
+  ));
+  assert.ok(claim);
+  assert.equal(claim.status, "needs-review");
+});
+
+test("source-backed capability citations use canonical source lines instead of model line guesses", () => {
+  const report = richReport({
+    capabilitySignals: [{
+      id: "delete:account",
+      label: "delete account",
+      confidence: "high",
+      sourceEvidence: [{ excerpt: "function deleteAccount()", lineStart: 99, lineEnd: 99 }],
+    }],
+  });
+  const graph = build([{ report, ref: REF }]);
+
+  assert.equal(graph.capabilities.some((capability) => capability.id === "cap:delete:account"), true);
+  const claim = graph.claims.find((candidate) => (
+    candidate.predicate === "implements_capability" && candidate.object?.id === "cap:delete:account"
+  ));
+  assert.ok(claim);
+  const evidence = graph.evidence.find((candidate) => candidate.id === claim.evidenceRefs[0]);
+  assert.equal(evidence.lineStart, 4);
+  assert.equal(evidence.lineEnd, 4);
+});
+
 test("capabilitySignal with no derivable verb/noun becomes a needs-review claim, not a node", () => {
   const graph = build([{ report: richReport(), ref: REF }]);
   const claim = graph.claims.find((c) => c.predicate === "has_capability_signal" && c.object === "User Authentication");
   assert.ok(claim, "needs-review claim for the non-derivable signal");
   assert.equal(claim.status, "needs-review");
   assert.equal(graph.capabilities.some((c) => c.noun === "authentication"), false, "no node for non-derivable signal");
+});
+
+test("source-backed operational verbs become capability nodes", () => {
+  const labels = [
+    "ingest turn evidence",
+    "commit assistant plan",
+    "record trajectory step",
+    "deliver channel message",
+    "watch flow definitions",
+    "orchestrate delivery channel",
+  ];
+  const excerpts = [
+    "function ingestTurnEvidence()",
+    "function commitAssistantPlan()",
+    "function recordTrajectoryStep()",
+    "function deliverChannelMessage()",
+    "function watchFlowDefinitions()",
+    "function orchestrateDeliveryChannel()",
+  ];
+  const report = richReport({
+    capabilitySignals: labels.map((label, index) => ({
+      id: label.replace(" ", ":"),
+      label,
+      confidence: "high",
+      sourceEvidence: [{ excerpt: excerpts[index] }],
+    })),
+  });
+  const graph = build([{ report, ref: REF }]);
+
+  for (const label of labels) {
+    const [verb, ...noun] = label.split(" ");
+    assert.ok(graph.capabilities.some((capability) => (
+      capability.verb === verb && capability.noun === noun.join(" ")
+    )), `expected capability for ${label}`);
+  }
 });
 
 test("findings map to has_semantic_finding needs-review claims", () => {

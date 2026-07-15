@@ -1,7 +1,8 @@
 // CapabilityEvidenceGraph v1 builder (capability-evidence-graph-v1).
 //
-// Pure, deterministic-only construction of the CapabilityEvidenceGraph substrate
-// from supplied source files. v1 extracts file nodes, symbol nodes, import +
+// Pure construction of the CapabilityEvidenceGraph substrate from supplied
+// source files and optional already-produced semantic evidence. v1 extracts
+// file nodes, symbol nodes, import +
 // exposes FACTS (confidence 1.0), and heuristic capability INFERENCES (verb:noun
 // from exported symbol names, confidence <= 0.5) from exported symbols. It uses
 // NO LLM, generates NO embeddings, executes NO commands, writes NO source, and
@@ -195,16 +196,79 @@ function deriveSignalVerbNoun(signal: { id?: string; label?: string }): { verb: 
 // overclaiming (e.g. `joinName` → `join` is not a verb here, so no capability).
 const KNOWN_VERBS = new Set<string>([
   "get", "fetch", "load", "read", "list", "find", "search", "query",
-  "create", "add", "insert", "build", "make", "generate",
+  "create", "add", "insert", "build", "make", "generate", "assemble", "discover",
   "update", "edit", "modify", "set", "save", "write", "persist", "store",
   "delete", "remove", "destroy", "clear", "drop",
-  "validate", "verify", "check", "ensure", "assert",
-  "parse", "normalize", "transform", "convert", "format", "serialize", "deserialize",
+  "validate", "verify", "check", "ensure", "assert", "authorize",
+  "parse", "normalize", "transform", "convert", "format", "serialize", "deserialize", "extract",
   "render", "compute", "calculate", "resolve", "derive", "map", "filter", "reduce", "sort",
-  "handle", "process", "run", "execute", "dispatch", "route",
+  "handle", "process", "run", "execute", "dispatch", "route", "suppress", "enqueue",
   "send", "emit", "publish", "notify", "broadcast",
-  "register", "configure", "init", "initialize", "connect", "open", "close", "start", "stop", "sync",
+  "ingest", "commit", "record", "apply", "select", "delegate", "deliver", "aggregate", "orchestrate", "fingerprint", "retrieve",
+  "register", "configure", "init", "initialize", "connect", "open", "close", "start", "stop", "end", "watch", "sync",
 ]);
+
+function normalizedEvidenceText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizedSourceWithOffsets(sourceText: string): { text: string; offsets: number[] } {
+  let text = "";
+  const offsets: number[] = [];
+  let pendingWhitespaceOffset: number | undefined;
+
+  for (let index = 0; index < sourceText.length; index += 1) {
+    const character = sourceText[index] ?? "";
+    if (/\s/.test(character)) {
+      if (text.length > 0 && pendingWhitespaceOffset === undefined) pendingWhitespaceOffset = index;
+      continue;
+    }
+
+    if (pendingWhitespaceOffset !== undefined) {
+      text += " ";
+      offsets.push(pendingWhitespaceOffset);
+      pendingWhitespaceOffset = undefined;
+    }
+    text += character;
+    offsets.push(index);
+  }
+
+  return { text, offsets };
+}
+
+function lineForOffset(sourceText: string, offset: number): number {
+  let line = 1;
+  for (let index = 0; index < offset; index += 1) {
+    if (sourceText[index] === "\n") line += 1;
+  }
+  return line;
+}
+
+function sourceBackedSemanticEvidence(
+  evidence: Array<{ lineStart?: number; lineEnd?: number; excerpt?: string }>,
+  sourceText: string,
+): Array<{ lineStart?: number; lineEnd?: number; excerpt?: string }> {
+  if (sourceText.length === 0) return [];
+  const normalizedSourceText = sourceText.replace(/\r\n?/g, "\n");
+  const normalizedSource = normalizedSourceWithOffsets(normalizedSourceText);
+
+  return evidence.flatMap((item) => {
+    const excerpt = typeof item.excerpt === "string" ? normalizedEvidenceText(item.excerpt) : "";
+    if (excerpt.length < 8) return [];
+
+    const matchIndex = normalizedSource.text.indexOf(excerpt);
+    if (matchIndex < 0) return [];
+    const startOffset = normalizedSource.offsets[matchIndex];
+    const endOffset = normalizedSource.offsets[matchIndex + excerpt.length - 1];
+    if (startOffset === undefined || endOffset === undefined) return [];
+
+    return [{
+      excerpt: item.excerpt,
+      lineStart: lineForOffset(normalizedSourceText, startOffset),
+      lineEnd: lineForOffset(normalizedSourceText, endOffset),
+    }];
+  });
+}
 
 function normalizePath(path: string): string {
   return String(path).replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
@@ -278,7 +342,9 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
     generatedAt,
     subject: { repoId: input.root ?? "." },
     producer: { id: "@rekon/capability-model.capability-evidence-graph", version: "0.1.0-beta.0" },
-    inputRefs: [],
+    inputRefs: uniqueArtifactRefs(
+      (input.semanticFileUnderstandingReports ?? []).flatMap((entry) => entry.ref ? [entry.ref] : []),
+    ),
     freshness: { status: "fresh" },
     provenance: { confidence: 1 },
   };
@@ -300,6 +366,7 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
   // claims are reconciled against (deterministic facts win).
   const deterministicExportsByFile = new Map<string, Set<string>>();
   const deterministicImportsByFile = new Map<string, Set<string>>();
+  const sourceTextByFile = new Map<string, string>();
 
   for (const rawFile of input.files ?? []) {
     if (!rawFile || typeof rawFile.path !== "string" || rawFile.path.length === 0) continue;
@@ -308,6 +375,7 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
     addNode(fileRef);
 
     const text = typeof rawFile.text === "string" ? rawFile.text : "";
+    sourceTextByFile.set(filePath, text);
     const { imports, symbols } = extractFile(text);
     deterministicImportsByFile.set(filePath, new Set(imports.map((imp) => imp.module)));
     deterministicExportsByFile.set(filePath, new Set(symbols.map((symbol) => symbol.name)));
@@ -530,9 +598,13 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
       capabilitySignals.forEach((signal, signalIndex) => {
         if (!signal || typeof signal !== "object") return;
         const confidence = confidenceFromEnum(signal.confidence);
-        const sourceEvidence = Array.isArray(signal.sourceEvidence)
+        const proposedSourceEvidence = Array.isArray(signal.sourceEvidence)
           ? signal.sourceEvidence.filter((item): item is { lineStart?: number; lineEnd?: number; excerpt?: string } => Boolean(item))
           : [];
+        const sourceEvidence = sourceBackedSemanticEvidence(
+          proposedSourceEvidence,
+          sourceTextByFile.get(path) ?? "",
+        );
         const hasEvidence = sourceEvidence.length > 0;
         let signalEvidenceId = baseEvidenceId;
         if (hasEvidence) {
@@ -751,7 +823,7 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
   const reason =
     fileCount === 0
       ? "No source files supplied."
-      : `Built deterministic capability evidence graph from ${fileCount} file(s).`;
+      : `Built capability evidence graph from ${fileCount} file(s).`;
 
   return createCapabilityEvidenceGraph({
     header,
@@ -783,4 +855,10 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
       implementedIntentGo: false,
     },
   });
+}
+
+function uniqueArtifactRefs(refs: ArtifactRef[]): ArtifactRef[] {
+  const byKey = new Map<string, ArtifactRef>();
+  for (const ref of refs) byKey.set(`${ref.type}:${ref.id}:${ref.schemaVersion}`, ref);
+  return [...byKey.values()].sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
 }

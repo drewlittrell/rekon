@@ -11,7 +11,8 @@
     "architecture.importCycle": { "minimumUsefulness": 0.75 },
     "architecture.noUnknownSystemForSourceFile": { "minimumUsefulness": 0.75 },
     "capability.overlap": { "minimumUsefulness": 0.75 },
-    "dead_code.unreferenced": { "minimumPrecision": 0.9, "minimumUsefulness": 0.75 },
+    "dead_code.emptySourceFile": { "minimumUsefulness": 0.75 },
+    "dead_code.unreferenced": { "minimumUsefulness": 0.75 },
     "debt.markers": { "minimumUsefulness": 0.75 },
     "debt.semantic": { "minimumUsefulness": 0.75 },
     "files.noGeneratedAsSource": { "minimumPrecision": 0.9 },
@@ -33,6 +34,9 @@
     "typescript.errorSuppression": { "minimumUsefulness": 0.75 },
     "typescript.functionComplexity": { "minimumUsefulness": 0.75 },
     "typescript.placeholderImplementation": { "minimumUsefulness": 0.75 },
-    "typescript.typeEscape": { "minimumUsefulness": 0.75 }
+    "typescript.typeEscape": { "minimumUsefulness": 0.75 },
+    "typescript.unreachableCode": { "minimumUsefulness": 0.75 },
+    "typescript.unusedImport": { "minimumUsefulness": 0.75 },
+    "typescript.unusedPrivateMember": { "minimumUsefulness": 0.75 }
   }
 }

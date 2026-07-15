@@ -33,6 +33,8 @@ test("requires multiple complexity signals and excludes non-production paths", (
     metricsFact("src/hotspot.ts", "hotspot", { lines: 90, statements: 55, cyclomatic: 24, maxNesting: 6, fanOut: 18, line: 5, endLine: 94 }),
     metricsFact("src/hotspot.ts", "hotspot", { lines: 88, statements: 52, cyclomatic: 23, maxNesting: 6, fanOut: 16, line: 5, endLine: 92 }),
     metricsFact("tests/hotspot.test.ts", "testHotspot", { lines: 200, statements: 100, cyclomatic: 30, maxNesting: 8, fanOut: 20 }),
+    { kind: "content_signal", subject: "src/generated.ts", value: { signal: "generatedFile" } },
+    metricsFact("src/generated.ts", "generatedHotspot", { lines: 200, statements: 100, cyclomatic: 30, maxNesting: 8, fanOut: 20 }),
   ], evidenceRef);
 
   assert.equal(assessments.length, 1);

@@ -24,7 +24,12 @@ not run a package manager or scanner and does not persist raw audit payloads.
 The policy evaluator emits one `security.dependencyVulnerability` risk per
 stable package, affected-range, and advisory root cause. Audit output never
 becomes a finding automatically. Exploitability and repository impact require
-corroboration or operator confirmation.
+corroboration or operator confirmation. Assessments retain the package
+manager's advisory severity in `details.advisorySeverity`; Rekon caps impact
+for development-only exposure instead of presenting scanner severity as proven
+repository impact. npm umbrella rows with no advisory identity remain
+available as dependency-path evidence but do not emit a second assessment over
+their leaf advisories.
 
 ## Contract
 

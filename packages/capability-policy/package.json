@@ -22,6 +22,7 @@
     "@rekon/kernel-assessments": "1.0.0",
     "@rekon/kernel-findings": "1.0.0",
     "@rekon/kernel-repo-model": "1.0.0",
+    "@rekon/kernel-rulebook": "1.0.0",
     "@rekon/sdk": "1.0.0",
     "@rekon/capability-ontology": "1.0.0"
   },

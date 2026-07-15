@@ -70,11 +70,17 @@ test("absent roots: unreferenced-exports mode only, and the payload says so", ()
 test("FP guards: framework entries, star/namespace consumers, and non-production files stay silent", () => {
   const facts = [
     { kind: "file", subject: "app/api/users/route.ts", value: {} },
+    { kind: "file", subject: "app/opengraph-image.tsx", value: {} },
+    { kind: "file", subject: "app/robots.ts", value: {} },
+    { kind: "file", subject: "src/lib/robots.ts", value: {} },
     { kind: "file", subject: "src/star.ts", value: {} },
     { kind: "file", subject: "src/barrel.ts", value: {} },
     { kind: "file", subject: "tests/util.ts", value: {} },
     // Framework entry: exports are framework-consumed.
     { kind: "export", subject: "app/api/users/route.ts", value: { name: "GET", kind: "function" } },
+    { kind: "export", subject: "app/opengraph-image.tsx", value: { name: "default", kind: "default" } },
+    { kind: "export", subject: "app/robots.ts", value: { name: "default", kind: "default" } },
+    { kind: "export", subject: "src/lib/robots.ts", value: { name: "buildRobots", kind: "function" } },
     // Star re-export marks the whole target referenced.
     { kind: "export", subject: "src/star.ts", value: { name: "anything", kind: "const" } },
     { kind: "reexport", subject: "src/barrel.ts:src/star.ts:*", value: { source: "src/barrel.ts", target: "./star", name: "*", exportedAs: "*", reexportKind: "star", resolvedTarget: "src/star.ts" } },
@@ -83,8 +89,11 @@ test("FP guards: framework entries, star/namespace consumers, and non-production
   ];
   const findings = policy.evaluateDeadCode({ facts, roots: [] });
 
-  assert.deepEqual(findings, []);
+  assert.deepEqual(findings.map((finding) => finding.files[0]), ["src/lib/robots.ts"]);
   assert.equal(policy.isFrameworkEntryPath("app/api/users/route.ts"), true);
+  assert.equal(policy.isFrameworkEntryPath("app/opengraph-image.tsx"), true);
+  assert.equal(policy.isFrameworkEntryPath("app/robots.ts"), true);
+  assert.equal(policy.isFrameworkEntryPath("src/lib/robots.ts"), false);
   assert.equal(policy.isFrameworkEntryPath("src/service.ts"), false);
 });
 
@@ -101,4 +110,30 @@ test("dynamic imports participate in declared-root reachability", () => {
 
   assert.deepEqual(findings.map((finding) => finding.files[0]), ["src/orphan.ts"]);
   assert.equal(findings[0].payload.reachableFromRoots, false);
+});
+
+test("provider declares Next metadata and configured Vercel functions as framework roots", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rekon-framework-roots-"));
+
+  try {
+    mkdirSync(join(root, "app"), { recursive: true });
+    mkdirSync(join(root, "api"), { recursive: true });
+    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "fixture" }));
+    writeFileSync(join(root, "vercel.json"), "{}\n");
+    writeFileSync(join(root, "app/robots.ts"), "export default function robots() { return { rules: [] }; }\n");
+    writeFileSync(join(root, "app/opengraph-image.tsx"), "export default function Image() { return null; }\n");
+    writeFileSync(join(root, "api/health.ts"), "export default function health() { return { ok: true }; }\n");
+
+    const facts = await jsts.jsTsProvider.extract({ repoRoot: root, includeTests: true });
+    const roots = facts
+      .filter((fact) => fact.kind === "entry_point" && typeof fact.value.path === "string")
+      .map((fact) => fact.value.path);
+
+    assert.ok(roots.includes("app/robots.ts"));
+    assert.ok(roots.includes("app/opengraph-image.tsx"));
+    assert.ok(roots.includes("api/health.ts"));
+    assert.deepEqual(policy.evaluateDeadCode({ facts, roots }), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

@@ -17,6 +17,7 @@ export type ParsedRepositoryDiagnostic = {
   column?: number;
   code?: string;
   severity?: "error" | "warning";
+  failureCount?: number;
 };
 
 export function parseRepositoryDiagnostics(input: {
@@ -40,7 +41,10 @@ export function parseRepositoryDiagnostics(input: {
     const tapDiagnostics = parseNodeTap(output, input.sourcePaths);
     diagnostics.push(...(tapDiagnostics.length > 0
       ? tapDiagnostics
-      : parseTestRunnerLocations(output, input.sourcePaths)));
+      : [
+          ...parseVitestFileFailures(output, input.sourcePaths),
+          ...parseTestRunnerLocations(output, input.sourcePaths),
+        ]));
   }
 
   if (input.category === "build") {
@@ -48,6 +52,33 @@ export function parseRepositoryDiagnostics(input: {
   }
 
   return dedupeDiagnostics(diagnostics);
+}
+
+function parseVitestFileFailures(
+  output: string,
+  sourcePaths: readonly string[],
+): ParsedRepositoryDiagnostic[] {
+  if (!/\bvitest\s+run\b/i.test(output) && !/\bRUN\s+v\d+/i.test(output)) return [];
+  const diagnostics: ParsedRepositoryDiagnostic[] = [];
+
+  for (const line of output.split(/\r?\n/)) {
+    const file = knownPathOnLine(line, sourcePaths);
+    if (!file) continue;
+    const failed = /\b(\d+)\s+failed\b/i.exec(line);
+    if (!failed) continue;
+    const failedCount = Number(failed[1]);
+    if (!Number.isSafeInteger(failedCount) || failedCount < 1) continue;
+    diagnostics.push({
+      parser: "test-runner",
+      file,
+      code: "vitest:file-failures",
+      severity: "error",
+      message: "Vitest reported failed tests in this file",
+      failureCount: failedCount,
+    });
+  }
+
+  return diagnostics;
 }
 
 function parseEslintStylish(

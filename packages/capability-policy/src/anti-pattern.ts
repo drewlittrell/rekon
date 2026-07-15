@@ -52,6 +52,22 @@ export function evaluateAntiPatterns(input: {
   const grammar = input.grammar;
   const eligible = new Set(grammar.findingsEligiblePackIds ?? []);
   const findings: Finding[] = [];
+  const cliEntryPaths = new Set(
+    input.facts
+      .filter((fact) => fact.kind === "entry_point" && fact.value.entryKind === "cli" && typeof fact.value.path === "string")
+      .map((fact) => fact.value.path as string),
+  );
+  const directCliCommandSurfaces = new Set(
+    input.facts
+      .filter((fact) =>
+        fact.kind === "import_specifier"
+        && fact.value.typeOnly !== true
+        && typeof fact.value.source === "string"
+        && cliEntryPaths.has(fact.value.source)
+        && typeof fact.value.resolvedTarget === "string",
+      )
+      .map((fact) => fact.value.resolvedTarget as string),
+  );
 
   // Signal facts grouped by file + signal id.
   const signals = new Map<string, Set<string>>();
@@ -113,6 +129,21 @@ export function evaluateAntiPatterns(input: {
       const requiredLayer = SIGNAL_LAYER[anti.id];
 
       if (requiredLayer && assignGrammarLayer(grammar, file) !== requiredLayer) {
+        continue;
+      }
+
+      // Console output in a module imported directly by a declared CLI entry
+      // is command UX, not production observability. The direct edge keeps the
+      // exemption at the command boundary instead of suppressing every module
+      // transitively reachable from a CLI.
+      if (
+        anti.id === "consoleLogging"
+        && (
+          cliEntryPaths.has(file)
+          || directCliCommandSurfaces.has(file)
+          || /(^|\/)[^/]*(?:logger|logging)[^/]*\.[cm]?[jt]sx?$/iu.test(file)
+        )
+      ) {
         continue;
       }
 

@@ -1,3 +1,5 @@
+import { posix } from "node:path";
+
 import { digestJson, type ArtifactRef } from "@rekon/kernel-artifacts";
 import type { Assessment } from "@rekon/kernel-assessments";
 
@@ -81,7 +83,9 @@ export function evaluateEmbeddingDuplicationCandidates(
         ...filesForRef(pair.left, capabilities),
         ...filesForRef(pair.right, capabilities),
       ])].sort();
-      if (files.some(isNonProductionPath)) return [];
+      if (files.length < 2 || files.some(isNonProductionPath) || filesDirectlyLinked(files, graph.claims as EmbeddingClaimLike[])) {
+        return [];
+      }
       const fingerprint = digestJson(pairKey).slice(0, 16);
       return [{
         id: `${EMBEDDING_DUPLICATION_RULE_ID}:${fingerprint}`,
@@ -112,6 +116,35 @@ export function evaluateEmbeddingDuplicationCandidates(
         },
       } satisfies Assessment];
     });
+}
+
+function filesDirectlyLinked(files: string[], claims: EmbeddingClaimLike[]): boolean {
+  if (files.length !== 2) return false;
+  const left = files[0]!;
+  const right = files[1]!;
+
+  return claims.some((claim) => {
+    if (claim?.predicate !== "imports" || claim.subject?.kind !== "file" || typeof claim.subject.id !== "string") {
+      return false;
+    }
+    if (typeof claim.object !== "string") return false;
+
+    return (claim.subject.id === left && importSpecifierMatchesFile(claim.object, right, left))
+      || (claim.subject.id === right && importSpecifierMatchesFile(claim.object, left, right));
+  });
+}
+
+function importSpecifierMatchesFile(specifier: string, targetFile: string, sourceFile: string): boolean {
+  const resolvedSpecifier = specifier.startsWith("@/")
+    ? specifier.slice(2)
+    : specifier.startsWith(".")
+      ? posix.normalize(posix.join(posix.dirname(sourceFile), specifier))
+      : specifier;
+  const normalizedSpecifier = resolvedSpecifier
+    .replace(/\.(?:[cm]?[jt]sx?)$/u, "");
+  const normalizedTarget = targetFile.replace(/\.(?:[cm]?[jt]sx?)$/u, "");
+
+  return normalizedTarget === normalizedSpecifier || normalizedTarget.endsWith(`/${normalizedSpecifier}`);
 }
 
 function parseGraphRef(value: unknown): { kind: string; id: string } | undefined {

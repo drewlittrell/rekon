@@ -233,6 +233,7 @@ const ratifiedGrammar = ontology.compileEffectiveGrammar({
 });
 const unratifiedGrammar = ontology.compileEffectiveGrammar({});
 const file = (path) => ({ kind: "file", subject: path, value: {} });
+const symbol = (path, name) => ({ kind: "symbol", subject: path, value: { name, exported: true, symbolKind: "class" } });
 
 test("E: jurisdiction is structural - zero declared roles on unratified repos means silence", () => {
   const findings = policy.evaluateNamingContract({
@@ -243,12 +244,21 @@ test("E: jurisdiction is structural - zero declared roles on unratified repos me
   assert.deepEqual(findings, []);
 });
 
-test("E: undeclared role fires; declared role satisfies; vocabulary nouns exempt entity-only names (counted)", () => {
+test("E: exported role mismatch fires; declared file shapes and vocabulary nouns stay silent", () => {
   const stats = { vocabularyExemptions: 0 };
   const findings = policy.evaluateNamingContract({
     facts: [
-      file("src/AdminNav.tsx"), // "Nav" is not a declared role -> fires
+      file("app/_components/AdminNav.tsx"), // Component file type declares .tsx -> satisfies
       file("src/UserService.ts"), // "Service" is a declared role -> satisfies
+      file("services/User.ts"),
+      symbol("services/User.ts", "UserService"), // exported role evidence + mismatched module -> fires
+      file("domain/Ontology.ts"),
+      { kind: "symbol", subject: "domain/Ontology.ts", value: { name: "clearOntologyCache", exported: true, symbolKind: "function" } },
+      file("domain/ConductorRuntime.ts"),
+      symbol("domain/ConductorRuntime.ts", "Logger"),
+      symbol("domain/ConductorRuntime.ts", "ConductorRuntime"),
+      file("infra/Client.ts"),
+      symbol("infra/Client.ts", "HttpClientProvider"),
       file("src/User.ts"), // entity-only, "user" is a canonical noun -> exempt
       file("src/helpers.ts"), // camelCase: not an {Entity}{Role} declaration
       file("tests/FooBar.test.ts"), // non-production
@@ -258,10 +268,36 @@ test("E: undeclared role fires; declared role satisfies; vocabulary nouns exempt
     stats,
   });
 
-  assert.deepEqual(findings.map((f) => f.files[0]), ["src/AdminNav.tsx"]);
+  assert.deepEqual(findings.map((f) => f.files[0]), ["services/User.ts"]);
   assert.equal(findings[0].ruleId, "naming.contract");
   assert.equal(findings[0].payload.law.tier, "archetype");
+  assert.deepEqual(findings[0].payload.declaredRoles, ["Service"]);
   assert.equal(stats.vocabularyExemptions, 1);
+});
+
+test("E: secondary role helpers do not redefine a module's primary declaration", () => {
+  const findings = policy.evaluateNamingContract({
+    facts: [
+      file("infra/FooRuntime.ts"),
+      symbol("infra/FooRuntime.ts", "FooRuntime"),
+      symbol("infra/FooRuntime.ts", "FooRuntimeLogger"),
+      file("infra/WidgetRepositoryTurso.ts"),
+      symbol("infra/WidgetRepositoryTurso.ts", "WidgetRepositoryTurso"),
+      symbol("infra/WidgetRepositoryTurso.ts", "WidgetRepositoryTursoConfig"),
+      file("domain/MatchAttribution.ts"),
+      { kind: "symbol", subject: "domain/MatchAttribution.ts", value: { name: "MatchAttributionEvidence", exported: true, symbolKind: "interface" } },
+      { kind: "symbol", subject: "domain/MatchAttribution.ts", value: { name: "MatchAttributionContext", exported: true, symbolKind: "interface" } },
+      file("domain/Billing.ts"),
+      symbol("domain/Billing.ts", "BillingService"),
+      { kind: "symbol", subject: "domain/Billing.ts", value: { name: "BillingContext", exported: true, symbolKind: "interface" } },
+      file("infra/HalfDuplex.ts"),
+      symbol("infra/HalfDuplex.ts", "HalfDuplexService"),
+    ],
+    grammar: ratifiedGrammar,
+  });
+
+  assert.deepEqual(findings.map((finding) => finding.files[0]), ["domain/Billing.ts", "infra/HalfDuplex.ts"]);
+  assert.deepEqual(findings.map((finding) => finding.payload.declaredRoles), [["Service"], ["Service"]]);
 });
 
 // ---- F: anti-pattern pack ---------------------------------------------------
@@ -269,8 +305,14 @@ test("E: undeclared role fires; declared role satisfies; vocabulary nouns exempt
 test("F: declared signals fire with correction pairs; grammar exceptions honored; non-prod silent", () => {
   const facts = [
     { kind: "content_signal", subject: "src/app.ts", value: { signal: "consoleLogging" } },
+    { kind: "content_signal", subject: "handlers/render.ts", value: { signal: "consoleLogging" } },
+    { kind: "entry_point", subject: "cli:commands/cli.ts", value: { path: "commands/cli.ts", entryKind: "cli" } },
+    { kind: "content_signal", subject: "commands/cli.ts", value: { signal: "consoleLogging" } },
+    { kind: "import_specifier", subject: "commands/cli.ts:handlers/render.ts:render", value: { source: "commands/cli.ts", resolvedTarget: "handlers/render.ts", name: "render" } },
+    { kind: "content_signal", subject: "infra/logging/AppLogger.ts", value: { signal: "consoleLogging" } },
     { kind: "content_signal", subject: "tools/cli.ts", value: { signal: "consoleLogging" } }, // declared exception
     { kind: "content_signal", subject: "tests/x.test.ts", value: { signal: "consoleLogging" } }, // non-prod
+    { kind: "content_signal", subject: "history/20260423.snapshot.mjs", value: { signal: "consoleLogging" } }, // archived source
   ];
   const findings = policy.evaluateAntiPatterns({ facts, grammar: unratifiedGrammar });
 

@@ -3,6 +3,7 @@ import {
   type ArtifactRef,
 } from "@rekon/kernel-artifacts";
 import {
+  type CapabilityEvidenceGraph,
   createCapabilityMap,
   createObservedRepo,
   createOwnershipMap,
@@ -273,6 +274,7 @@ export {
   type SemanticDebtConcernCoerced,
   SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
   SEMANTIC_DEBT_PROMPT_VERSION,
+  SEMANTIC_DEBT_COERCION_VERSION,
   SEMANTIC_DEBT_ELIGIBILITY_VERSION,
   SEMANTIC_DEBT_MAX_PROMPT_CHARS,
   type SemanticDebtEligibilityDecision,
@@ -408,6 +410,10 @@ export const modelProjector: Projector = {
     const phraseReport = phraseReportRef
       ? (await artifacts.read(phraseReportRef) as PhraseReportLike)
       : undefined;
+    const capabilityEvidenceGraphRef = await latestCapabilityEvidenceGraphRef(artifacts);
+    const capabilityEvidenceGraph = capabilityEvidenceGraphRef
+      ? await artifacts.read(capabilityEvidenceGraphRef) as CapabilityEvidenceGraph
+      : undefined;
     const ownershipEntries = graph.facts
       .filter((fact) => fact.kind === "ownership_hint")
       .map((fact) => ({
@@ -418,7 +424,7 @@ export const modelProjector: Projector = {
         confidence: fact.confidence,
         evidence: [evidenceRef],
       }));
-    const capabilityEntries = graph.facts
+    const deterministicCapabilityEntries = graph.facts
       .filter((fact) => fact.kind === "capability_hint")
       .map((fact) => ({
         capability: typeof fact.value.capability === "string" ? fact.value.capability : "unknown",
@@ -427,6 +433,10 @@ export const modelProjector: Projector = {
         confidence: fact.confidence,
         evidence: [evidenceRef],
       }));
+    const semanticCapabilityEntries = capabilityEvidenceGraph && capabilityEvidenceGraphRef
+      ? projectHighConfidenceSemanticCapabilities(capabilityEvidenceGraph, capabilityEvidenceGraphRef, ownershipEntries)
+      : [];
+    const capabilityEntries = [...deterministicCapabilityEntries, ...semanticCapabilityEntries];
     const systems = buildSystems(ownershipEntries, capabilityEntries, evidenceRef);
     // Flat file index for graph-aware filters. Sourced from
     // `kind: "file"` evidence facts. `createObservedRepo` will
@@ -441,9 +451,9 @@ export const modelProjector: Projector = {
         return fromValue ?? fact.subject;
       })
       .filter((path): path is string => typeof path === "string" && path.length > 0);
-    // CapabilityMap inputRefs include the optional
-    // CapabilityPhraseReport when it is consumed; the
-    // ObservedRepo / OwnershipMap headers stay v1-only.
+    // Model headers cite every projection input they consume. OwnershipMap
+    // remains evidence-only; ObservedRepo and CapabilityMap may additionally
+    // consume high-confidence semantic capability evidence.
     const baseHeader = {
       schemaVersion: "0.1.0",
       generatedAt: new Date().toISOString(),
@@ -460,14 +470,20 @@ export const modelProjector: Projector = {
         confidence: 0.85,
       },
     };
-    const capabilityMapInputRefs = phraseReportRef
-      ? [evidenceRef, phraseReportRef]
-      : [evidenceRef];
+    const modelInputRefs = [
+      evidenceRef,
+      ...(capabilityEvidenceGraphRef ? [capabilityEvidenceGraphRef] : []),
+    ];
+    const capabilityMapInputRefs = [
+      ...modelInputRefs,
+      ...(phraseReportRef ? [phraseReportRef] : []),
+    ];
     const observedRepo = createObservedRepo({
       header: {
         ...baseHeader,
         artifactType: "ObservedRepo",
         artifactId: `observed-repo-${Date.now()}`,
+        inputRefs: modelInputRefs,
       },
       repository: {
         id: graph.header.subject.repoId,
@@ -517,7 +533,7 @@ export default defineCapability({
     name: "Repository Model Projection",
     version: "0.1.0",
     roles: ["projector"],
-    consumes: ["EvidenceGraph", "CapabilityPhraseReport"],
+    consumes: ["EvidenceGraph", "CapabilityEvidenceGraph", "CapabilityPhraseReport"],
     produces: ["ObservedRepo", "OwnershipMap", "CapabilityMap"],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -525,6 +541,11 @@ export default defineCapability({
         id: "evidence.changed",
         description: "Repository model projections are invalid when the evidence graph changes.",
         inputs: ["EvidenceGraph"],
+      },
+      {
+        id: "capability-evidence.changed",
+        description: "Semantic capability projections are invalid when the capability evidence graph changes.",
+        inputs: ["CapabilityEvidenceGraph"],
       },
       {
         id: "capability-phrases.changed",
@@ -567,6 +588,61 @@ async function latestPhraseReportRef(artifacts: {
     // type. Absence is benign — v2 fields stay omitted.
     return undefined;
   }
+}
+
+async function latestCapabilityEvidenceGraphRef(artifacts: {
+  list?: (type?: string) => Promise<ArtifactRef[]>;
+} & { read(ref: ArtifactRef): Promise<unknown> }): Promise<ArtifactRef | undefined> {
+  if (!artifacts.list) return undefined;
+  try {
+    return (await artifacts.list("CapabilityEvidenceGraph")).at(-1);
+  } catch {
+    return undefined;
+  }
+}
+
+function projectHighConfidenceSemanticCapabilities(
+  graph: CapabilityEvidenceGraph,
+  graphRef: ArtifactRef,
+  ownershipEntries: Array<{ path: string; ownerSystem: string }>,
+): Array<{ capability: string; subjects: string[]; systems: string[]; confidence: number; evidence: ArtifactRef[] }> {
+  const semanticEvidence = new Map(
+    graph.evidence.flatMap((entry): Array<[string, ArtifactRef]> => (
+      entry.source === "llm_extraction" && entry.artifactRef?.type === "SemanticFileUnderstandingReport"
+        ? [[entry.id, entry.artifactRef]]
+        : []
+    )),
+  );
+
+  return graph.capabilities.flatMap((capability) => {
+    if (capability.confidence < 0.75 || !capability.verb.trim() || !capability.noun.trim()) return [];
+    const reportRefs = capability.evidenceRefs.flatMap((id) => {
+      const ref = semanticEvidence.get(id);
+      return ref ? [ref] : [];
+    });
+    if (reportRefs.length === 0) return [];
+    const subjects = capability.implementedBy
+      .filter((entry) => entry.kind === "file")
+      .map((entry) => entry.id);
+    if (subjects.length === 0) return [];
+
+    return [{
+      capability: `${capability.verb}:${capability.noun}`,
+      subjects,
+      systems: capability.ownerSystem
+        ? [capability.ownerSystem]
+        : subjects.map((subject) => ownerForSubject(subject, ownershipEntries)),
+      confidence: capability.confidence,
+      evidence: [graphRef, ...reportRefs],
+    }];
+  });
+}
+
+function ownerForSubject(subject: string, ownershipEntries: Array<{ path: string; ownerSystem: string }>): string {
+  const matching = ownershipEntries
+    .filter((entry) => subject === entry.path || subject.startsWith(`${entry.path.replace(/\/$/, "")}/`))
+    .sort((left, right) => right.path.length - left.path.length || left.ownerSystem.localeCompare(right.ownerSystem));
+  return matching[0]?.ownerSystem ?? ownerFromPath(subject);
 }
 
 function buildSystems(

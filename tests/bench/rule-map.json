@@ -41,7 +41,7 @@
   "tech_debt": {
     "status": "redesigned",
     "citation": "docs/strategy/detection-quality.md#debt-and-semantic-judgment",
-    "note": "Maps the semantic debt goal to deterministic markers plus the semantic debt overlay. Scores by goal-level file-set coverage.",
+    "note": "Maps the semantic debt goal to deterministic markers and semantic judgment. Scores by goal-level file-set coverage; unrelated assessment kinds do not satisfy the historical concern merely because they name the same file.",
     "rekonRuleId": "debt.markers",
     "rekonRuleIds": ["debt.markers", "debt.semantic"],
     "scoring": "coverage"
@@ -49,8 +49,9 @@
   "stub": {
     "status": "redesigned",
     "citation": "docs/strategy/detection-quality.md#debt-and-semantic-judgment",
-    "note": "Folded into the tech_debt deterministic core (standalone prose-judged rule ran 92% suppression). Rekon's classic-inspired stub handling (details.stubName) remains a finding FILTER, not an emitter.",
+    "note": "Explicit source-backed placeholders map to the placeholder risk; general debt markers remain coverage evidence. Standalone prose-judged stub output is not restored.",
     "rekonRuleId": "debt.markers",
+    "rekonRuleIds": ["debt.markers", "typescript.placeholderImplementation"],
     "scoring": "coverage"
   },
   "anti_pattern": {
@@ -66,6 +67,7 @@
     "rekonRuleId": "dead_code.unreferenced",
     "rekonRuleIds": [
       "dead_code.unreferenced",
+      "dead_code.emptySourceFile",
       "typescript.unusedImport",
       "typescript.unusedPrivateMember",
       "typescript.unreachableCode"

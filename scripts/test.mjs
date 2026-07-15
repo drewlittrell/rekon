@@ -40,8 +40,9 @@ const test = spawnSync(process.execPath, ["--test", ...testFiles], {
 process.exit(test.status ?? 1);
 
 function collectDefaultTests() {
+  const testsRoot = join(root, "tests");
   return [
-    ...collectTestsUnder(join(root, "tests")),
+    ...collectTestsUnder(testsRoot, new Set([join(testsRoot, "fixtures")])),
     ...collectPackageTests(),
   ];
 }
@@ -90,7 +91,7 @@ function collectRequestedTests(requestedPath) {
   return [requestedPath];
 }
 
-function collectTestsUnder(directory) {
+function collectTestsUnder(directory, excludedDirectories = new Set()) {
   if (!exists(directory)) {
     return [];
   }
@@ -102,7 +103,9 @@ function collectTestsUnder(directory) {
     const entryPath = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      files.push(...collectTestsUnder(entryPath));
+      if (!excludedDirectories.has(entryPath)) {
+        files.push(...collectTestsUnder(entryPath, excludedDirectories));
+      }
     } else if (entry.isFile() && /\.test\.[cm]?js$/.test(entry.name)) {
       files.push(entryPath);
     }

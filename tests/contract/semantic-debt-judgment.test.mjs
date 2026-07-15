@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,6 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 
 import {
+  buildSemanticDebtJudgmentPrompt,
   coerceDebtConcerns,
   categorizeDebtPattern,
   evaluateSemanticDebtEligibility,
@@ -94,7 +96,8 @@ function reportBase(root, over = {}) {
       provider: "openai",
       model: "test-model",
       effort: "low",
-      promptVersion: "debt-judge-v1",
+      promptVersion: "debt-judge-v3",
+      coercionVersion: "debt-coercion-v3",
     },
     summary: { filesJudged: 1, filesWithDebt: 1, reused: 0, failed: 0, skipped: 0 },
     entries: [],
@@ -247,6 +250,32 @@ test("9. invalid --semantic-debt-effort value exits non-zero", async () => {
   assert.match(result.stderr, /--semantic-debt-effort must be one of none, low, medium, high, xhigh, max/);
 });
 
+test("9a. --semantic-debt-file-path rejects paths outside the repository before provider work", async () => {
+  const root = await makeRepo();
+  const result = runCli(root, [
+    "scan",
+    "--semantic-files", "off",
+    "--semantic-debt", "required",
+    "--semantic-debt-file-path", "../outside.ts",
+  ], noKeyEnv({ OPENAI_API_KEY: "test-key", REKON_LLM_ENABLED: "true" }));
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /rekon scan --semantic-debt refuses to read paths outside --root/);
+  assert.equal(semanticDebtReports(root).length, 0);
+});
+
+test("9b. semantic debt prompts number source lines and constrain unseen validation claims", () => {
+  const prompt = buildSemanticDebtJudgmentPrompt({
+    filePath: "src/example.ts",
+    fileText: "export function parse(value: unknown) {\n  return value;\n}\n",
+    language: "typescript",
+  });
+  assert.match(prompt, /Numbered file contents/);
+  assert.match(prompt, /1 \| export function parse\(value: unknown\)/);
+  assert.match(prompt, /2 \|   return value;/);
+  assert.match(prompt, /typed database, repository, framework, or provider values/);
+  assert.match(prompt, /copying its numeric prefix/);
+});
+
 test("10. kernel factory validates and normalizes a well-formed report", async () => {
   const root = await makeRepo();
   const report = reportBase(root, {
@@ -282,6 +311,26 @@ test("12. validator rejects an invalid policy effort", async () => {
   assert.ok(result.issues.some((issue) => issue.path === "$.policy.effort"));
 });
 
+test("12a. validator preserves historical reports without a coercion version", async () => {
+  const root = await makeRepo();
+  const report = reportBase(root);
+  const policy = { ...report.policy };
+  delete policy.coercionVersion;
+  const result = validateSemanticDebtJudgmentReport({ ...report, policy });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.policy.coercionVersion, undefined);
+  const claims = evaluateSemanticDebtClaims({
+    ...report,
+    policy,
+    entries: [{
+      path: "src/index.ts",
+      verdict: "debt",
+      concerns: [{ severity: "high", description: "Hardcoded secret.", included: true }],
+    }],
+  }, { type: "SemanticDebtJudgmentReport", id: "historical", schemaVersion: "0.1.0" });
+  assert.deepEqual(claims, []);
+});
+
 test("13. validator rejects duplicate entry paths", async () => {
   const root = await makeRepo();
   const report = reportBase(root);
@@ -303,11 +352,17 @@ test("14. include filter handles speculative and strong signals", () => {
   assert.equal(shouldIncludeDebtConcern({ severity: "low", description: "Small helper could be nicer." }), false);
   assert.equal(shouldIncludeDebtConcern({ severity: "low", description: "TODO must not ship." }), true);
   assert.equal(shouldIncludeDebtConcern({ severity: "medium", description: "Missing error handling around the provider." }), true);
+  assert.equal(shouldIncludeDebtConcern({
+    severity: "medium",
+    description: "The database value is force-cast instead of being narrowed or validated.",
+  }), false);
 });
 
 test("15. pattern tagger precedence returns expected tags and null", () => {
   assert.equal(categorizeDebtPattern("Hardcoded API key and as any type assertion"), "hardcoded_values");
   assert.equal(categorizeDebtPattern("Uses as any to bypass type checking"), "type_assertion");
+  assert.equal(categorizeDebtPattern("The catch binding uses `any` for failures."), "type_assertion");
+  assert.equal(categorizeDebtPattern("The throttle begins before any repository work."), null);
   assert.equal(categorizeDebtPattern("Missing error handling in catch flow"), "error_handling");
   assert.equal(categorizeDebtPattern("A comment says TODO later"), "todo_comments");
   assert.equal(categorizeDebtPattern("Plain refactor opportunity"), null);
@@ -348,7 +403,7 @@ test("17. evaluator emits one semantic claim per included concern and no debt fi
     entries: [
       {
         path: "src/index.ts",
-        sha256: "a",
+        sha256: createHash("sha256").update(SRC).digest("hex"),
         verdict: "debt",
         reused: false,
         concerns: [
@@ -356,7 +411,7 @@ test("17. evaluator emits one semantic claim per included concern and no debt fi
           { type: "tech_debt", severity: "high", description: "Hardcoded API key must not be committed.", pattern: "hardcoded_values", included: true },
           { type: "architecture", severity: "medium", description: "This import crosses the declared layer boundary.", line: 8, included: true },
           { type: "dead_code", severity: "medium", description: "This branch is unreachable after return.", line: 12, included: true },
-          { type: "lint", severity: "low", description: "Whitespace could change.", included: false },
+          { type: "lint", severity: "medium", description: "Unused import: Link is not referenced.", line: 2, included: true },
           { type: "stub", severity: "medium", description: "This function returns placeholder data.", line: 20, included: true },
         ],
       },
@@ -384,16 +439,36 @@ test("17. evaluator emits one semantic claim per included concern and no debt fi
   assert.deepEqual([...new Set(claims.flatMap((claim) => claim.files))], ["src/index.ts"]);
   assert.equal(claims[0].details.provider, "openai");
   assert.equal(claims[0].details.model, "test-model");
-  assert.equal(claims[0].details.promptVersion, "debt-judge-v1");
+  assert.equal(claims[0].details.promptVersion, "debt-judge-v3");
   assert.equal(claims.some((claim) => claim.description.includes("Consider a different helper")), false);
   assert.deepEqual([...new Set(claims.map((claim) => claim.type))].sort(), ["architecture", "dead_code", "stub", "tech_debt"]);
   assert.equal(claims.find((claim) => claim.type === "architecture").details.line, 8);
+
+  writeFileSync(join(root, "src/index.ts"), `${SRC}// source changed after semantic judgment\n`);
+  result = runCli(root, ["refresh"]);
+  assert.equal(result.status, 0, result.stderr);
+  const staleClaims = latestAssessmentReport(root).assessments
+    .filter((assessment) => assessment.ruleId === DEBT_SEMANTIC_RULE_ID);
+  assert.deepEqual(staleClaims, []);
+  assert.equal(
+    latestAssessmentReport(root).header.inputRefs.some((ref) => ref.type === "SemanticDebtJudgmentReport"),
+    false,
+  );
 });
 
 test("18. evaluator drops filtered/failed entries and rule is registered", async () => {
   assert.ok(BUILT_IN_POLICY_RULES.includes(DEBT_SEMANTIC_RULE_ID));
+  const obsolete = evaluateSemanticDebtClaims({
+    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v2", coercionVersion: "debt-coercion-v1" },
+    entries: [{
+      path: "src/stale.ts",
+      verdict: "debt",
+      concerns: [{ severity: "high", description: "Hardcoded secret.", included: true }],
+    }],
+  }, { type: "SemanticDebtJudgmentReport", id: "obsolete", schemaVersion: "0.1.0" });
+  assert.deepEqual(obsolete, []);
   const findings = evaluateSemanticDebt({
-    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v1" },
+    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v3", coercionVersion: "debt-coercion-v3" },
     entries: [
       {
         path: "src/filtered.ts",
@@ -409,7 +484,7 @@ test("18. evaluator drops filtered/failed entries and rule is registered", async
   });
   assert.equal(findings.length, 0);
   const claims = evaluateSemanticDebtClaims({
-    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v1" },
+    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v3", coercionVersion: "debt-coercion-v3" },
     entries: [{
       path: "src/failed.ts",
       verdict: "failed",
@@ -463,7 +538,7 @@ test("20. deterministic source evidence corroborates a semantic claim without pr
   const reportRef = { type: "SemanticDebtJudgmentReport", id: "debt", schemaVersion: "0.1.0" };
   const evidenceRef = { type: "EvidenceGraph", id: "evidence", schemaVersion: "0.1.0" };
   const claims = evaluateSemanticDebtClaims({
-    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v1" },
+    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v3", coercionVersion: "debt-coercion-v3" },
     entries: [{
       path: "src/unsafe.ts",
       verdict: "debt",
@@ -486,4 +561,25 @@ test("20. deterministic source evidence corroborates a semantic claim without pr
   assert.equal(corroborated[0].confidence.verification, "corroborated");
   assert.equal(corroborated[0].supportingSignals[0].signalType, "as_any_assertion");
   assert.equal(evaluateFindingPromotion(corroborated[0]).eligible, false);
+});
+
+test("21. semantic claim identity is anchored to source evidence rather than model wording", () => {
+  const reportRef = { type: "SemanticDebtJudgmentReport", id: "debt", schemaVersion: "0.1.0" };
+  const report = (description, line = 14) => ({
+    policy: { provider: "openai", model: "m", promptVersion: "debt-judge-v3", coercionVersion: "debt-coercion-v3" },
+    entries: [{
+      path: "src/handler.ts",
+      verdict: "debt",
+      concerns: [{ type: "architecture", severity: "medium", description, line, included: true }],
+    }],
+  });
+
+  const first = evaluateSemanticDebtClaims(report("The handler owns provider-specific work."), reportRef)[0];
+  const reworded = evaluateSemanticDebtClaims(report("Provider-specific behavior is coupled to this handler."), reportRef)[0];
+  const moved = evaluateSemanticDebtClaims(report("The handler owns provider-specific work.", 15), reportRef)[0];
+
+  assert.equal(first.id, reworded.id);
+  assert.equal(first.rootCauseKey, reworded.rootCauseKey);
+  assert.equal(first.details.identityVersion, "semantic-claim-v2");
+  assert.notEqual(first.id, moved.id);
 });

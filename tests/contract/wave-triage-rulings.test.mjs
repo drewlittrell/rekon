@@ -32,12 +32,12 @@ function grammarWithExceptions(extraExceptions) {
 
 test("row-scoped exceptions: silent inside the seam, fires outside, glob-capable", () => {
   const grammar = grammarWithExceptions([
-    { path: "infra/logging/**", reason: "the seam" },
+    { path: "infra/console-seam/**", reason: "the seam" },
     { path: "run-*.ts", reason: "command surface" },
   ]);
   const findings = policy.evaluateAntiPatterns({
     facts: [
-      signal("infra/logging/LoggingService.ts"), // seam: silent
+      signal("infra/console-seam/ConsoleWriter.ts"), // seam: silent
       signal("run-bench.ts"), // mid-wildcard glob: silent
       signal("core/services/chat.ts"), // outside: fires
     ],
@@ -51,7 +51,7 @@ test("row-scoped exceptions: silent inside the seam, fires outside, glob-capable
 test("per-repo jurisdiction: a repo without the overlay exception keeps firing on the same path", () => {
   const bare = ontology.compileEffectiveGrammar({});
   const findings = policy.evaluateAntiPatterns({
-    facts: [signal("infra/logging/LoggingService.ts")],
+    facts: [signal("infra/console-seam/ConsoleWriter.ts")],
     grammar: bare,
   });
 

@@ -14,6 +14,12 @@
       "reason": "The AST proves a type-system escape, but not that invalid data reaches it at runtime."
     },
     {
+      "id": "explicit-any-annotation-without-runtime-proof",
+      "ruleId": "typescript.typeEscape",
+      "expectedKind": "risk",
+      "reason": "The AST proves an explicit any annotation disables checking at the declared boundary, but not that invalid data reaches it at runtime."
+    },
+    {
       "id": "empty-catch-without-runtime-proof",
       "ruleId": "typescript.errorSuppression",
       "expectedKind": "risk",
@@ -24,6 +30,24 @@
       "ruleId": "typescript.placeholderImplementation",
       "expectedKind": "risk",
       "reason": "The placeholder is explicit, but static evidence does not prove the path is reachable."
+    },
+    {
+      "id": "exported-action-contract-is-explicit-noop",
+      "ruleId": "typescript.placeholderImplementation",
+      "expectedKind": "risk",
+      "reason": "The exported function name promises an action while its empty body explicitly documents that no action occurs, but static evidence does not prove reachability."
+    },
+    {
+      "id": "concrete-query-contract-returns-constant-empty-result",
+      "ruleId": "typescript.placeholderImplementation",
+      "expectedKind": "risk",
+      "reason": "A public query on a concrete exported class ignores all inputs and returns only null or an empty array, but static evidence does not prove reachability or runtime impact."
+    },
+    {
+      "id": "whitespace-only-production-source-file",
+      "ruleId": "dead_code.emptySourceFile",
+      "expectedKind": "opportunity",
+      "reason": "The source read proves the production file contains no code or comments, while removal or implementation remains an engineering choice."
     },
     {
       "id": "async-promise-executor-without-runtime-proof",
@@ -60,6 +84,24 @@
       "ruleId": "typescript.functionComplexity",
       "expectedKind": "risk",
       "reason": "Multiple AST measurements corroborate concentrated maintenance risk, but do not prove a defect or runtime impact."
+    },
+    {
+      "id": "compiler-proven-unused-import",
+      "ruleId": "typescript.unusedImport",
+      "expectedKind": "opportunity",
+      "reason": "Name resolution proves that the imported binding is unused, but removal remains an optional cleanup rather than a defect."
+    },
+    {
+      "id": "compiler-proven-unused-private-member",
+      "ruleId": "typescript.unusedPrivateMember",
+      "expectedKind": "opportunity",
+      "reason": "The compiler proves that the private member is unused within its class, but removal remains an optional cleanup rather than a defect."
+    },
+    {
+      "id": "compiler-proven-unreachable-statement",
+      "ruleId": "typescript.unreachableCode",
+      "expectedKind": "opportunity",
+      "reason": "The compiler proves that control flow cannot reach the statement, but cleanup remains optional without evidence of behavioral impact."
     },
     {
       "id": "one-off-repository-check-failure",
@@ -154,8 +196,8 @@
     {
       "id": "unreachable-from-declared-roots",
       "ruleId": "dead_code.unreferenced",
-      "expectedKind": "finding",
-      "reason": "Declared-root reachability and missing consumers corroborate dead code."
+      "expectedKind": "risk",
+      "reason": "Declared-root reachability is strong review evidence, but static roots cannot exclude dynamic registries or external package consumers."
     },
     {
       "id": "cross-system-capability-overlap",

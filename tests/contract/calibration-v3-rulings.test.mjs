@@ -54,12 +54,14 @@ test("naming batch semantics: a bare declared-role name satisfies the contract, 
     facts: [
       file("domain/core/Registry.ts"), // bare ported role: satisfies (WO-16 semantics)
       file("src/UserService.ts"), // suffixed role: satisfies
-      file("src/AdminNav.tsx"), // no role: fires
+      file("app/components/AdminNav.tsx"), // .tsx satisfies Component file type
+      file("services/Admin.ts"),
+      { kind: "symbol", subject: "services/Admin.ts", value: { name: "AdminService", exported: true, symbolKind: "class" } },
     ],
     grammar,
     stats,
   });
 
-  assert.deepEqual(findings.map((f) => f.files[0]), ["src/AdminNav.tsx"]);
-  assert.equal(stats.roleSatisfactions, 2);
+  assert.deepEqual(findings.map((f) => f.files[0]), ["services/Admin.ts"]);
+  assert.equal(stats.roleSatisfactions, 3);
 });

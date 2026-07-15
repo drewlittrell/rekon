@@ -6,6 +6,7 @@ import { isNonProductionPath } from "./grammar-divergence.js";
 export const TYPE_ESCAPE_RULE_ID = "typescript.typeEscape";
 export const ERROR_SUPPRESSION_RULE_ID = "typescript.errorSuppression";
 export const PLACEHOLDER_IMPLEMENTATION_RULE_ID = "typescript.placeholderImplementation";
+export const EMPTY_SOURCE_FILE_RULE_ID = "dead_code.emptySourceFile";
 export const ASYNC_PROMISE_EXECUTOR_RULE_ID = "typescript.asyncPromiseExecutor";
 export const ASYNC_ARRAY_CALLBACK_RULE_ID = "typescript.asyncArrayCallback";
 export const FLOATING_PROMISE_RULE_ID = "typescript.floatingPromise";
@@ -38,26 +39,18 @@ const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
   as_any_assertion: {
     ruleId: TYPE_ESCAPE_RULE_ID,
     type: "type_safety",
-    impact: "medium",
+    impact: "low",
     title: "Type safety bypassed with an any assertion",
     description: "An any assertion disables type checking at this boundary.",
     suggestedAction: "Replace the assertion with a validated type, type guard, or narrower adapter boundary.",
   },
-  non_null_assertion: {
+  explicit_any_annotation: {
     ruleId: TYPE_ESCAPE_RULE_ID,
     type: "type_safety",
     impact: "low",
-    title: "Nullability bypassed with a non-null assertion",
-    description: "A non-null assertion suppresses a possible null or undefined state.",
-    suggestedAction: "Prove the invariant locally or handle the nullable state explicitly.",
-  },
-  empty_catch: {
-    ruleId: ERROR_SUPPRESSION_RULE_ID,
-    type: "error_handling",
-    impact: "medium",
-    title: "Error discarded by an empty catch block",
-    description: "An empty catch block removes failure information and may hide broken behavior.",
-    suggestedAction: "Handle, translate, or explicitly document and instrument the ignored failure.",
+    title: "Explicit any annotation bypasses type safety",
+    description: "An explicit any annotation disables type checking at this boundary.",
+    suggestedAction: "Use unknown and narrow it, or replace the annotation with a validated domain type.",
   },
   catch_only_logs: {
     ruleId: ERROR_SUPPRESSION_RULE_ID,
@@ -74,6 +67,33 @@ const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
     title: "Explicit placeholder implementation",
     description: "The implementation throws a placeholder error instead of providing behavior.",
     suggestedAction: "Implement the behavior or prove the path is intentionally unsupported and encode that contract.",
+  },
+  explicit_noop_contract: {
+    ruleId: PLACEHOLDER_IMPLEMENTATION_RULE_ID,
+    type: "stub",
+    impact: "medium",
+    title: "Exported action contract is a no-op",
+    description: "An exported action-named function explicitly documents that its empty implementation does nothing.",
+    suggestedAction: "Implement the declared action, remove the misleading API, or encode an explicit unsupported contract.",
+  },
+  constant_empty_query_method: {
+    ruleId: PLACEHOLDER_IMPLEMENTATION_RULE_ID,
+    type: "stub",
+    impact: "medium",
+    title: "Public query contract returns a constant empty result",
+    description: "A public query method on a concrete exported class ignores every input and returns only null or an empty array.",
+    suggestedAction: "Implement the query, remove the misleading contract, or move intentional empty behavior into an explicitly named null-object adapter.",
+  },
+  empty_source_file: {
+    ruleId: EMPTY_SOURCE_FILE_RULE_ID,
+    type: "dead_code",
+    impact: "low",
+    title: "Production source file is empty",
+    description: "A JavaScript or TypeScript production source file contains only whitespace and therefore exports or executes no behavior.",
+    suggestedAction: "Remove the empty file or add the source contract it is intended to provide.",
+    kind: "opportunity",
+    verification: "verified",
+    rationale: "The source read verifies that the production file contains no code or comments.",
   },
   async_promise_executor: {
     ruleId: ASYNC_PROMISE_EXECUTOR_RULE_ID,
@@ -141,11 +161,11 @@ const SIGNAL_POLICIES: Record<string, SourceQualitySignalPolicy> = {
     type: "dead_code",
     impact: "low",
     title: "Private class member is unused",
-    description: "The TypeScript compiler found a private class member with no source reference.",
+    description: "A private class member has no source read.",
     suggestedAction: "Remove the private member or connect it to the behavior it was intended to provide.",
     kind: "opportunity",
     verification: "verified",
-    rationale: "TypeScript name resolution verifies that the private member has no source reference.",
+    rationale: "TypeScript name resolution or source-local class analysis verifies that the private member has no source read.",
   },
   unreachable_code: {
     ruleId: UNREACHABLE_CODE_RULE_ID,
@@ -164,6 +184,12 @@ export function evaluateSourceQualitySignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
 ): Assessment[] {
+  const generatedFiles = new Set(facts
+    .filter((fact) => fact.kind === "content_signal" && fact.value.signal === "generatedFile")
+    .map((fact) => sourceFactPath(fact)));
+  const declaredEntryPoints = new Set(facts
+    .filter((fact) => fact.kind === "entry_point" && typeof fact.value.path === "string")
+    .map((fact) => fact.value.path as string));
   const groups = new Map<string, {
     file: string;
     signal: string;
@@ -187,18 +213,24 @@ export function evaluateSourceQualitySignals(
     const signal = diagnosticSignal ?? (typeof fact.value.signal === "string" ? fact.value.signal : "");
     const policy = SIGNAL_POLICIES[signal];
     if (!policy) continue;
+    if (generatedFiles.has(file) || isGeneratedOrVendoredSourcePath(file)) continue;
     if (policy.scope === "test" ? !isNonProductionPath(file) : isNonProductionPath(file)) continue;
+    if (signal === "focused_test" && isFocusedTestFrameworkFixture(file)) continue;
+    if (signal === "empty_source_file" && declaredEntryPoints.has(file)) continue;
     const key = sourceQualityRootCauseKey(policy.ruleId, file, signal);
     const group = groups.get(key) ?? { file, signal, policy, locations: [] };
-    group.locations.push({
+    const location = {
       ...(typeof fact.value.line === "number" ? { line: fact.value.line } : {}),
       ...(typeof fact.value.column === "number" ? { column: fact.value.column } : {}),
       ...(typeof fact.value.detail === "string"
-        ? { detail: fact.value.detail }
+        ? { detail: normalizeSignalDetail(signal, fact.value.detail) }
         : typeof fact.value.message === "string"
-          ? { detail: fact.value.message }
+          ? { detail: normalizeSignalDetail(signal, fact.value.message) }
           : {}),
-    });
+    };
+    const duplicatePrivateMember = signal === "unused_private_member"
+      && group.locations.some((existing) => existing.line === location.line && existing.detail === location.detail);
+    if (!duplicatePrivateMember) group.locations.push(location);
     groups.set(key, group);
   }
 
@@ -232,6 +264,28 @@ export function evaluateSourceQualitySignals(
           || (left.detail ?? "").localeCompare(right.detail ?? "")),
       },
     }));
+}
+
+function sourceFactPath(fact: EvidenceFactLike): string {
+  return typeof fact.value.path === "string" ? fact.value.path : fact.subject.split(":")[0] ?? fact.subject;
+}
+
+function isGeneratedOrVendoredSourcePath(file: string): boolean {
+  const parts = file.replaceAll("\\", "/").toLowerCase().split("/").filter(Boolean);
+  return parts.includes("compiled") || parts.includes("vendor") || parts.includes("vendored");
+}
+
+function isFocusedTestFrameworkFixture(file: string): boolean {
+  const normalized = file.replaceAll("\\", "/");
+  return /(^|\/)(?:fixtures?|examples?|samples?|playground)(\/|$)/i.test(normalized)
+    || /(^|\/)(?:test|tests)\/unit\/test(\/|$)/i.test(normalized)
+    || /(^|\/)(?:nested-|retry-)?only\.test(?:[-.]|$)/i.test(normalized);
+}
+
+function normalizeSignalDetail(signal: string, detail: string): string {
+  if (signal !== "unused_private_member") return detail;
+  const declaredName = detail.match(/^["'`]?#?([^"'`\s]+)["'`]?[\s]+is declared\b/i)?.[1];
+  return (declaredName ?? detail).replace(/^#/u, "");
 }
 
 export function sourceQualitySignalPolicy(signal: string): SourceQualitySignalPolicy | undefined {

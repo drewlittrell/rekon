@@ -29,6 +29,7 @@ Generated intent plans also record `intentHandoff.requestKind`, including the
 ```sh
 rekon verify coverage plan \
   --framework vitest \
+  --config tests/vitest.config.ts \
   --test-path tests/user.test.ts \
   --source-path src/user.ts
 ```
@@ -40,12 +41,17 @@ one or more source files the test is intended to exercise. Repeat
 - `source: "isolated-coverage"`
 - `coverage.format: "istanbul"`
 - `coverage.framework` and `coverage.provider`
-- `coverage.testPath`, `coverage.targetPaths`, and `coverage.coveragePath`
+- `coverage.testPath`, optional `coverage.configPath`,
+  `coverage.targetPaths`, and `coverage.coveragePath`
 - `coverage.isolated: true`
 
 The planner does not execute or install anything. `rekon verify run --execute`
 reads this metadata, runs the named plan through the normal safety policy, and
 binds the resulting coverage to the recorded command automatically.
+
+Vitest plans limit collection to the declared targets and exclude nested
+repository worktrees. `configPath` is optional, repository-relative, and
+validated before it is passed to the installed runner.
 
 Target paths express verification intent. If a passing isolated run includes a
 target function in its coverage data with an execution count of zero, policy

@@ -36,9 +36,16 @@ routes seen while a test executed.
 
 The call graph includes only local and import-bound calls that syntax can
 resolve without receiver-type inference. The reachability graph records roots,
-route handlers, and resolved import distance. The behavior graph records
+route handlers, and resolved import distance. It bounds non-test roots to 100
+transitive imports and delegates test dependency context to the application
+graph. Entry-node `metadata.reachabilityProjection` and header provenance make
+truncation explicit, while `header.inputRefs` cites the complete import graph.
+The behavior graph records
 literal events, directly imported state-SDK calls, and explicit throws. These
 edges explain impact; they do not alter severity by themselves.
 
 `related_to` and `observed` are context, not assertion coverage. Rekon does not
 emit a `covers` edge from imports, shared dependencies, or execution alone.
+Application context is intentionally bounded per test. Its test nodes expose
+`metadata.contextProjection` counts and a `truncated` flag, while the slice
+header cites the complete import graph used to derive those contextual edges.

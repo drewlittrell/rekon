@@ -21,6 +21,10 @@ export async function evaluateDependencyAuditReports(
   const grouped = new Map<string, Array<{ ref: ArtifactRef; report: DependencyAuditReport; vulnerability: DependencyAuditVulnerability }>>();
   for (const entry of current) {
     for (const vulnerability of entry.report.vulnerabilities) {
+      // npm audit includes umbrella rows whose `via` entries only name other
+      // vulnerable packages. Retain them in the normalized report as path
+      // evidence, but do not invent an advisory assessment without an ID.
+      if (vulnerability.advisories.length === 0) continue;
       const key = `${vulnerability.packageName}:${vulnerability.affectedRange}:${vulnerability.advisories.map((advisory) => advisory.id).sort().join("+")}`;
       const group = grouped.get(key) ?? [];
       group.push({ ...entry, vulnerability });
@@ -35,14 +39,19 @@ export async function evaluateDependencyAuditReports(
     const versions = unique(ordered.flatMap((entry) => entry.vulnerability.paths.map((path) => path.installedVersion).filter((value): value is string => Boolean(value))));
     const advisories = unique(ordered.flatMap((entry) => entry.vulnerability.advisories.map((advisory) => advisory.id)));
     const production = ordered.some((entry) => entry.vulnerability.paths.some((path) => path.scope === "production"));
+    const developmentOnly = ordered.every((entry) =>
+      entry.vulnerability.paths.length > 0
+      && entry.vulnerability.paths.every((path) => path.scope === "development"));
+    const direct = ordered.some((entry) => entry.vulnerability.paths.some((path) => path.direct));
     const complete = ordered.every((entry) => entry.report.status.complete);
     const refs = uniqueRefs(ordered.map((entry) => entry.ref));
+    const advisorySeverity = primary.vulnerability.severity;
 
     return {
       id: `dependency-risk-${primary.vulnerability.id.replace(/^dependency-vulnerability-/u, "")}`,
       kind: "risk" as const,
       type: "dependency_vulnerability",
-      impact: impactForSeverity(primary.vulnerability.severity),
+      impact: impactForExposure(advisorySeverity, { production, developmentOnly, direct }),
       title: `Dependency advisory affects ${primary.vulnerability.packageName}`,
       description: `${primary.vulnerability.packageName} ${primary.vulnerability.affectedRange} is covered by ${advisories.length} normalized advisory record(s).`,
       subjects: [primary.vulnerability.packageName, ...paths],
@@ -55,7 +64,7 @@ export async function evaluateDependencyAuditReports(
         basis: "deterministic" as const,
         verification: complete ? "corroborated" as const : "unverified" as const,
         rationale: complete
-          ? "npm audit evidence was normalized with installed lockfile paths. Advisory output alone does not prove exploitability."
+          ? `${exposureRationale({ production, developmentOnly, direct })} Advisory output alone does not prove exploitability.`
           : "The audit report was partial; installed version or dependency scope evidence is incomplete.",
       },
       applicableLaw: {
@@ -69,16 +78,22 @@ export async function evaluateDependencyAuditReports(
         details: {
           packageName: entry.vulnerability.packageName,
           affectedRange: entry.vulnerability.affectedRange,
+          advisorySeverity: entry.vulnerability.severity,
           installedVersions: unique(entry.vulnerability.paths.map((path) => path.installedVersion).filter((value): value is string => Boolean(value))),
           dependencyPaths: entry.vulnerability.paths.map((path) => path.dependencyPath),
+          direct: entry.vulnerability.paths.some((path) => path.direct),
+          production: entry.vulnerability.paths.some((path) => path.scope === "production"),
         },
       })),
       details: {
         packageName: primary.vulnerability.packageName,
         affectedRange: primary.vulnerability.affectedRange,
+        advisorySeverity,
         installedVersions: versions,
         dependencyPaths: ordered.flatMap((entry) => entry.vulnerability.paths.map((path) => path.dependencyPath)),
         production,
+        developmentOnly,
+        direct,
         complete,
         advisories,
         fixAvailable: ordered.some((entry) => entry.vulnerability.fixAvailable),
@@ -90,8 +105,31 @@ export async function evaluateDependencyAuditReports(
   return { assessments, inputRefs: uniqueRefs(current.map((entry) => entry.ref)) };
 }
 
-function impactForSeverity(severity: DependencyAuditSeverity): AssessmentImpact {
-  return severity === "unknown" ? "low" : severity;
+function impactForExposure(
+  severity: DependencyAuditSeverity,
+  exposure: { production: boolean; developmentOnly: boolean; direct: boolean },
+): AssessmentImpact {
+  const normalized = severity === "unknown" ? "low" : severity;
+  if (exposure.production) return normalized;
+  if (exposure.developmentOnly && !exposure.direct) return capImpact(normalized, "medium");
+  return capImpact(normalized, "high");
+}
+
+function exposureRationale(exposure: { production: boolean; developmentOnly: boolean; direct: boolean }): string {
+  if (exposure.production) {
+    return "The audit was normalized with a lockfile-backed production dependency path.";
+  }
+  if (exposure.developmentOnly && !exposure.direct) {
+    return "The audit was normalized with a development-only transitive path, so Rekon caps repository impact at medium.";
+  }
+  if (exposure.developmentOnly) {
+    return "The audit was normalized with a development-only path, so Rekon caps repository impact at high.";
+  }
+  return "The audit was normalized with installed lockfile paths, but production scope was not established, so Rekon caps repository impact at high.";
+}
+
+function capImpact(impact: AssessmentImpact, cap: AssessmentImpact): AssessmentImpact {
+  return severityRank(impact) > severityRank(cap) ? cap : impact;
 }
 
 function severityRank(severity: DependencyAuditSeverity): number {

@@ -39,6 +39,7 @@
 // docs/strategy/detection-quality.md.
 
 import { normalizePath } from "./normalize-classic.mjs";
+import { gapReviewId } from "./gap-judge-core.mjs";
 
 export const RULE_STATUSES = ["ported", "unported", "rejected", "redesigned", "deferred"];
 
@@ -215,12 +216,14 @@ function findFilterHit(filteredFindings, rekonRuleId, classic) {
  * the bench fails loudly rather than silently scoring unmapped rules.
  */
 export function classifyParity({
+  repoId,
   classicFindings,
   rekonFindings = [],
   rekonAssessments = [],
   filteredFindings = [],
   ruleMap,
   overruled = [],
+  equivalences = [],
   suppressedFindings = [],
 }) {
   validateRuleMap(ruleMap);
@@ -229,6 +232,16 @@ export function classifyParity({
   // checked before rule-level dispositions because a ruling retires the
   // specific finding it contradicts, never the rule.
   const overruledById = new Map(overruled.map((entry) => [entry.classicId, entry]));
+  const scopedEquivalences = equivalences.filter((entry) => entry.repoId === repoId);
+  const equivalenceByClassicId = new Map(scopedEquivalences.map((entry) => [entry.classicId, entry]));
+  const classicIds = new Set(classicFindings.map((finding) => finding.id));
+  for (const equivalence of scopedEquivalences) {
+    if (!classicIds.has(equivalence.classicId)) {
+      throw new Error(
+        `classic-parity-bench: equivalence references missing classic finding ${repoId}:${equivalence.classicId}.`,
+      );
+    }
+  }
 
   const unmapped = [...new Set(classicFindings.map((finding) => finding.ruleId).filter((ruleId) => !(ruleId in ruleMap)))];
 
@@ -262,6 +275,33 @@ export function classifyParity({
       // Out of the denominator entirely; the denominator shrinks
       // only through cited rejected rows.
       return { classic, classification: "rejected", citation: disposition.citation };
+    }
+
+    const equivalence = equivalenceByClassicId.get(classic.id);
+    if (equivalence) {
+      const records = equivalence.recordType === "finding" ? rekonFindings : rekonAssessments;
+      const position = records.findIndex((record) => record.id === equivalence.recordId);
+      if (position < 0) {
+        throw new Error(
+          `classic-parity-bench: equivalence target ${equivalence.recordType}:${equivalence.recordId} ` +
+          `is missing for ${repoId}:${classic.id}.`,
+        );
+      }
+      if (equivalence.recordType === "finding") {
+        matchedRekon.add(position);
+        return {
+          classic,
+          classification: "matched",
+          matchedRekonIds: [equivalence.recordId],
+          equivalenceRef: equivalence.judgmentRef,
+        };
+      }
+      return {
+        classic,
+        classification: "matched-assessment",
+        matchedRekonAssessmentIds: [equivalence.recordId],
+        equivalenceRef: equivalence.judgmentRef,
+      };
     }
 
     if (disposition.status === "unported") {
@@ -561,6 +601,64 @@ export function validateOverruledList(entries, readFileOrNull) {
   return entries;
 }
 
+/**
+ * Validate explicit per-finding equivalences produced by the redesign-gap
+ * judge. Equivalences can change matching, but never suppress a historical
+ * finding or broaden a whole rule's match surface.
+ */
+export function validateParityEquivalences(value, readJudgmentFileOrNull) {
+  if (!value || value.schemaVersion !== "1.0.0" || !Array.isArray(value.records)) {
+    throw new Error(
+      "classic-parity-bench: equivalences must use schemaVersion 1.0.0 and contain a records array.",
+    );
+  }
+  const keys = new Set();
+  for (const [index, entry] of value.records.entries()) {
+    const label = `classic-parity-bench: equivalence records[${index}]`;
+    for (const field of ["repoId", "classicId", "recordId", "judgmentRef"]) {
+      if (typeof entry?.[field] !== "string" || entry[field].length === 0) {
+        throw new Error(`${label} is missing ${field}.`);
+      }
+    }
+    if (entry.recordType !== "finding" && entry.recordType !== "assessment") {
+      throw new Error(`${label} has unsupported recordType ${entry.recordType}.`);
+    }
+    const key = `${entry.repoId}:${entry.classicId}`;
+    if (keys.has(key)) throw new Error(`${label} duplicates ${key}.`);
+    keys.add(key);
+
+    const separator = entry.judgmentRef.indexOf("#");
+    if (separator <= 0 || separator === entry.judgmentRef.length - 1) {
+      throw new Error(`${label}.judgmentRef must use <path>#<reviewId>.`);
+    }
+    const path = entry.judgmentRef.slice(0, separator);
+    const reviewId = entry.judgmentRef.slice(separator + 1);
+    const expectedReviewId = gapReviewId(entry.repoId, entry.classicId);
+    if (reviewId !== expectedReviewId) {
+      throw new Error(`${label} must cite the stable review id ${expectedReviewId}.`);
+    }
+    const judgmentFile = readJudgmentFileOrNull(path);
+    if (judgmentFile === null) {
+      throw new Error(`${label} cites missing judgment file ${path}.`);
+    }
+    let judgments;
+    try {
+      judgments = JSON.parse(judgmentFile);
+    } catch {
+      throw new Error(`${label} cites invalid JSON in ${path}.`);
+    }
+    const judgment = judgments?.records?.find((record) => record.reviewId === reviewId);
+    if (!judgment
+      || judgment.verdict !== "covered-different-identity"
+      || judgment.action !== "matching-gap") {
+      throw new Error(
+        `${label} requires a covered-different-identity judgment with action matching-gap.`,
+      );
+    }
+  }
+  return value.records;
+}
+
 /** Merge per-repo keyed entries (coverage / precision rows) into one list. */
 function aggregateKeyed(repos, field, keyOf, merge) {
   const byKey = new Map();
@@ -662,6 +760,8 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
       signalCoverage,
       classified: Object.fromEntries(countBy(allRows, (row) => row.classification)),
       newFindings: repos.reduce((sum, repo) => sum + repo.newFindings.length, 0),
+      parityRepositories: repos.filter((repo) => repo.benchmarkMode !== "quality-only").length,
+      qualityOnlyRepositories: repos.filter((repo) => repo.benchmarkMode === "quality-only").length,
     },
     gapQueue,
     redesignQueue,
@@ -691,13 +791,15 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
     })),
     repos: repos.map((repo) => ({
       id: repo.id,
+      benchmarkMode: repo.benchmarkMode ?? "parity",
+      ...(repo.source ? { source: repo.source } : {}),
       refresh: repo.refresh,
-      classicFindings: repo.rows.length,
+      classicFindings: repo.benchmarkMode === "quality-only" ? null : repo.rows.length,
       rekonFindings: repo.rekonFindingCount,
-      recall: computeWeightedRecall(repo.rows),
-      signalCoverage: computeWeightedSignalCoverage(repo.rows),
+      recall: repo.benchmarkMode === "quality-only" ? null : computeWeightedRecall(repo.rows),
+      signalCoverage: repo.benchmarkMode === "quality-only" ? null : computeWeightedSignalCoverage(repo.rows),
       classified: Object.fromEntries(countBy(repo.rows, (row) => row.classification)),
-      newFindings: repo.newFindings.length,
+      newFindings: repo.benchmarkMode === "quality-only" ? null : repo.newFindings.length,
       rows: repo.rows.map((row) => ({
         classicId: row.classic.id,
         ruleId: row.classic.ruleId,
@@ -707,6 +809,7 @@ export function buildBenchReport({ generatedAt, corpusRoot, repos }) {
         ...(row.citation ? { citation: row.citation } : {}),
         ...(row.matchedRekonIds ? { matchedRekonIds: row.matchedRekonIds } : {}),
         ...(row.matchedRekonAssessmentIds ? { matchedRekonAssessmentIds: row.matchedRekonAssessmentIds } : {}),
+        ...(row.equivalenceRef ? { equivalenceRef: row.equivalenceRef } : {}),
       })),
     })),
   };
@@ -724,6 +827,13 @@ export function renderMarkdownReport(report) {
   lines.push("");
   lines.push(`Generated: ${report.generatedAt} - Corpus: ${report.corpusRoot} - Repos: ${report.repos.length}`);
   lines.push("");
+  if (report.aggregate.qualityOnlyRepositories > 0) {
+    lines.push(
+      `Parity repositories: ${report.aggregate.parityRepositories} - quality-only repositories: ${report.aggregate.qualityOnlyRepositories}. `
+        + "Quality-only repositories contribute current emissions to adjudication but never affect historical recall.",
+    );
+    lines.push("");
+  }
   lines.push(`## Weighted finding recall: ${formatRecall(report.aggregate)}`);
   lines.push("");
   lines.push(`## Weighted observable signal coverage: ${formatRecall(report.aggregate.signalCoverage)}`);
@@ -877,12 +987,15 @@ export function renderMarkdownReport(report) {
   lines.push("");
   lines.push("## Per-repo");
   lines.push("");
-  lines.push("| Repo | Classic findings | Rekon findings | Finding recall | Signal coverage | New |");
-  lines.push("| --- | --- | --- | --- | --- | --- |");
+  lines.push("| Repo | Mode | Classic findings | Rekon findings | Finding recall | Signal coverage | New |");
+  lines.push("| --- | --- | --- | --- | --- | --- | --- |");
 
   for (const repo of report.repos) {
+    const qualityOnly = repo.benchmarkMode === "quality-only";
     lines.push(
-      `| ${repo.id} | ${repo.classicFindings} | ${repo.rekonFindings} | ${formatRecall(repo.recall)} | ${formatRecall(repo.signalCoverage)} | ${repo.newFindings} |`,
+      `| ${repo.id} | ${repo.benchmarkMode} | ${qualityOnly ? "n/a" : repo.classicFindings} | ${repo.rekonFindings} | `
+        + `${qualityOnly ? "n/a" : formatRecall(repo.recall)} | ${qualityOnly ? "n/a" : formatRecall(repo.signalCoverage)} | `
+        + `${qualityOnly ? "n/a" : repo.newFindings} |`,
     );
   }
 

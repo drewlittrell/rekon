@@ -107,6 +107,7 @@ export type CreateIsolatedCoverageVerificationPlanInput = {
   framework: IsolatedCoverageFramework;
   provider: IsolatedCoverageProvider;
   testPath: string;
+  configPath?: string;
   targetPaths?: string[];
   binaryPath: string;
 };
@@ -140,6 +141,9 @@ export function createIsolatedCoverageVerificationPlan(
   }
 
   const testPath = assertSafeCoveragePlanPath(input.testPath, "testPath");
+  const configPath = input.configPath === undefined
+    ? undefined
+    : assertSafeCoveragePlanPath(input.configPath, "configPath");
   const targetPaths = [...new Set((input.targetPaths ?? [])
     .map((targetPath) => assertSafeCoveragePlanPath(targetPath, "targetPaths")))]
     .sort();
@@ -149,21 +153,32 @@ export function createIsolatedCoverageVerificationPlan(
   }
 
   const identity = createHash("sha256")
-    .update(`${input.framework}\u0000${input.provider}\u0000${testPath}\u0000${targetPaths.join("\u0000")}`)
+    .update(`${input.framework}\u0000${input.provider}\u0000${testPath}\u0000${configPath ?? ""}\u0000${targetPaths.join("\u0000")}`)
     .digest("hex")
     .slice(0, 16);
   const coverageDirectory = `.rekon/cache/coverage/${input.framework}/${identity}`;
   const coveragePath = `${coverageDirectory}/coverage-final.json`;
   const quotedBinary = quoteVerificationArgument(binaryPath);
   const quotedTest = quoteVerificationArgument(testPath);
+  const configArgs = configPath ? ["--config", quoteVerificationArgument(configPath)] : [];
+  const vitestTargetArgs = targetPaths.map((targetPath) =>
+    quoteVerificationArgument(`--coverage.include=${targetPath}`));
+  const vitestExcludes = [
+    "**/.git/**",
+    "**/.rekon/**",
+    "**/.claude/worktrees/**",
+  ].map((pattern) => quoteVerificationArgument(`--exclude=${pattern}`));
   const command = input.framework === "vitest"
     ? [
         "node",
         quotedBinary,
         "run",
         quotedTest,
+        ...configArgs,
+        ...vitestExcludes,
         "--coverage.enabled",
         `--coverage.provider=${input.provider}`,
+        ...vitestTargetArgs,
         "--coverage.reporter=json",
         `--coverage.reportsDirectory=${coverageDirectory}`,
         "--coverage.reportOnFailure",
@@ -173,6 +188,7 @@ export function createIsolatedCoverageVerificationPlan(
         quotedBinary,
         "--runTestsByPath",
         quotedTest,
+        ...configArgs,
         "--runInBand",
         "--coverage",
         `--coverageProvider=${input.provider}`,
@@ -190,6 +206,7 @@ export function createIsolatedCoverageVerificationPlan(
     framework: input.framework,
     provider: input.provider,
     testPath,
+    ...(configPath ? { configPath } : {}),
     ...(targetPaths.length > 0 ? { targetPaths } : {}),
     coveragePath,
     isolated: true,

@@ -6,6 +6,9 @@ import { digestJson } from "@rekon/kernel-artifacts";
 import { isNonProductionPath } from "./grammar-divergence.js";
 
 export const DEBT_SEMANTIC_RULE_ID = "debt.semantic";
+const SEMANTIC_CLAIM_IDENTITY_VERSION = "semantic-claim-v2";
+const SUPPORTED_SEMANTIC_DEBT_PROMPT_VERSIONS = new Set(["debt-judge-v3"]);
+const SUPPORTED_SEMANTIC_DEBT_COERCION_VERSIONS = new Set(["debt-coercion-v3"]);
 
 type Severity = "low" | "medium" | "high";
 
@@ -29,6 +32,7 @@ type SemanticDebtReportLike = {
     provider?: unknown;
     model?: unknown;
     promptVersion?: unknown;
+    coercionVersion?: unknown;
   };
   entries?: unknown;
 };
@@ -64,6 +68,7 @@ function includedConcerns(entry: SemanticDebtEntryLike): Array<{
 
   for (const concern of entry.concerns as SemanticDebtConcernLike[]) {
     if (!concern || concern.included !== true || !isSeverity(concern.severity)) continue;
+    if (concern.type === "lint") continue;
     const description = typeof concern.description === "string" ? concern.description.trim() : "";
     if (description.length === 0) continue;
     out.push({
@@ -84,6 +89,8 @@ export function evaluateSemanticDebt(reportLike: unknown, reportRef?: ArtifactRe
   if (!reportLike || typeof reportLike !== "object" || Array.isArray(reportLike)) return [];
   const report = reportLike as SemanticDebtReportLike;
   if (!Array.isArray(report.entries)) return [];
+  if (!SUPPORTED_SEMANTIC_DEBT_PROMPT_VERSIONS.has(String(report.policy?.promptVersion ?? ""))) return [];
+  if (!SUPPORTED_SEMANTIC_DEBT_COERCION_VERSIONS.has(String(report.policy?.coercionVersion ?? ""))) return [];
 
   const provider = typeof report.policy?.provider === "string" ? report.policy.provider : "";
   const model = typeof report.policy?.model === "string" ? report.policy.model : "";
@@ -132,6 +139,8 @@ export function evaluateSemanticDebtClaims(reportLike: unknown, reportRef?: Arti
   if (!reportLike || typeof reportLike !== "object" || Array.isArray(reportLike) || !reportRef) return [];
   const report = reportLike as SemanticDebtReportLike;
   if (!Array.isArray(report.entries)) return [];
+  if (!SUPPORTED_SEMANTIC_DEBT_PROMPT_VERSIONS.has(String(report.policy?.promptVersion ?? ""))) return [];
+  if (!SUPPORTED_SEMANTIC_DEBT_COERCION_VERSIONS.has(String(report.policy?.coercionVersion ?? ""))) return [];
 
   const provider = typeof report.policy?.provider === "string" ? report.policy.provider : "";
   const model = typeof report.policy?.model === "string" ? report.policy.model : "";
@@ -147,14 +156,17 @@ export function evaluateSemanticDebtClaims(reportLike: unknown, reportRef?: Arti
     if (entry.verdict !== "debt" || file.length === 0 || isNonProductionPath(file)) continue;
 
     for (const concern of includedConcerns(entry)) {
+      const identityAnchor = concern.pattern
+        ? { pattern: concern.pattern, line: concern.line }
+        : concern.line
+          ? { line: concern.line }
+          : { description: concern.description };
       const fingerprint = digestJson({
         file,
         type: concern.type,
-        description: concern.description,
-        line: concern.line,
-        pattern: concern.pattern,
+        ...identityAnchor,
       }).slice(0, 12);
-      const rootCause = concern.pattern ?? fingerprint;
+      const rootCause = concern.pattern ?? (concern.line ? `line:${concern.line}` : fingerprint);
       claims.push({
         id: `${DEBT_SEMANTIC_RULE_ID}:${file}:${fingerprint}`,
         kind: "semantic_claim",
@@ -178,6 +190,7 @@ export function evaluateSemanticDebtClaims(reportLike: unknown, reportRef?: Arti
           provider,
           model,
           promptVersion,
+          identityVersion: SEMANTIC_CLAIM_IDENTITY_VERSION,
           concernType: concern.type,
           ...(concern.line ? { line: concern.line } : {}),
           ...(concern.pattern ? { pattern: concern.pattern } : {}),
@@ -246,11 +259,15 @@ function semanticCorroborationMatch(input: {
   if (input.line !== undefined && factLine !== undefined && input.line !== factLine) return false;
   const signal = typeof input.fact.value.signal === "string" ? input.fact.value.signal : "";
   const marker = typeof input.fact.value.marker === "string" ? input.fact.value.marker : "";
-  if (input.pattern === "type_assertion") return signal === "as_any_assertion" || signal === "non_null_assertion";
+  if (input.pattern === "type_assertion") {
+    return signal === "as_any_assertion"
+      || signal === "explicit_any_annotation"
+      || signal === "non_null_assertion";
+  }
   if (input.pattern === "error_handling") return signal === "empty_catch" || signal === "catch_only_logs";
   if (input.pattern === "todo_comments") return input.fact.kind === "debt_marker" && ["todo", "fixme", "hack"].includes(marker);
   if (input.pattern === "deprecated") return input.fact.kind === "debt_marker" && marker === "deprecated";
-  if (input.type === "stub") return signal === "placeholder_throw";
+  if (input.type === "stub") return signal === "placeholder_throw" || signal === "explicit_noop_contract";
   return false;
 }
 

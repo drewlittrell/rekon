@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
-import modelCapability from "../dist/index.js";
+import modelCapability, { buildCapabilityEvidenceGraph } from "../dist/index.js";
 import { createRuntime } from "@rekon/runtime";
 
 const silentLogger = {
@@ -73,6 +73,96 @@ test("model capability projects EvidenceGraph into repo model artifacts", async 
     const ownershipRef = refs.find((ref) => ref.type === "OwnershipMap");
     const ownership = await runtime.artifacts.read(ownershipRef);
     assert.equal(ownership.entries[0].basis, "inferred");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("model capability projects only high-confidence semantic capabilities with artifact evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-model-semantic-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [modelCapability],
+      logger: silentLogger,
+    });
+    const evidenceRef = await runtime.artifacts.write({
+      header: {
+        artifactType: "EvidenceGraph",
+        artifactId: "evidence-semantic",
+        schemaVersion: "0.1.0",
+        generatedAt: "2026-07-13T00:00:00.000Z",
+        subject: { repoId: "fixture" },
+        producer: { id: "test", version: "1.0.0" },
+        inputRefs: [],
+      },
+      facts: [{
+        kind: "ownership_hint",
+        subject: "src/billing/service.ts",
+        value: { path: "src/billing/service.ts", system: "billing", basis: "declared" },
+        confidence: 1,
+      }],
+    });
+    const semanticRef = await runtime.artifacts.write({
+      header: {
+        artifactType: "SemanticFileUnderstandingReport",
+        artifactId: "semantic-billing",
+        schemaVersion: "0.1.0",
+        generatedAt: "2026-07-13T00:00:00.000Z",
+        subject: { repoId: "fixture", paths: ["src/billing/service.ts"] },
+        producer: { id: "test", version: "1.0.0" },
+        inputRefs: [],
+      },
+      file: { path: "src/billing/service.ts", sha256: "sha", lineCount: 1, byteLength: 30 },
+      normalizationTrace: { method: "semantic-llm", invokedSemanticUnderstanding: true, provenance: "semantic-llm", warnings: [] },
+      summary: { purpose: "Billing", responsibilities: [], publicExports: [], imports: [], touchedConcepts: [] },
+      capabilitySignals: [
+        { id: "calculate:invoice-total", label: "calculate invoice total", confidence: "high", sourceEvidence: [{ excerpt: "calculateInvoiceTotal" }] },
+        { id: "send:receipt", label: "send receipt", confidence: "medium", sourceEvidence: [{ excerpt: "receipt" }] },
+      ],
+      findings: [],
+      boundaries: {
+        executedCommands: false,
+        wroteSourceFiles: false,
+        createdPreparedIntentPlan: false,
+        createdWorkOrder: false,
+        createdVerificationPlan: false,
+        generatedEmbeddings: false,
+        ranCirce: false,
+        implementedIntentGo: false,
+      },
+    });
+    const capabilityGraph = buildCapabilityEvidenceGraph({
+      root,
+      files: [{
+        path: "src/billing/service.ts",
+        text: "export class InvoiceService { calculateInvoiceTotal() { return 0; } }",
+        sha256: "sha",
+      }],
+      generatedAt: "2026-07-13T00:00:01.000Z",
+      semanticFileUnderstandingReports: [{
+        ref: semanticRef,
+        report: await runtime.artifacts.read(semanticRef),
+      }],
+    });
+    assert.deepEqual(capabilityGraph.header.inputRefs, [semanticRef]);
+    const graphRef = await runtime.artifacts.write(capabilityGraph);
+
+    const refs = await runtime.runProject();
+    const capabilityMap = await runtime.artifacts.read(refs.find((ref) => ref.type === "CapabilityMap"));
+    const observedRepo = await runtime.artifacts.read(refs.find((ref) => ref.type === "ObservedRepo"));
+
+    assert.equal(capabilityMap.entries.some((entry) => entry.capability === "calculate:invoice total"), true);
+    assert.equal(capabilityMap.entries.some((entry) => entry.capability === "send:receipt"), false);
+    const semanticEntry = capabilityMap.entries.find((entry) => entry.capability === "calculate:invoice total");
+    assert.deepEqual(semanticEntry.systems, ["billing"]);
+    assert.equal(semanticEntry.evidence.some((ref) => ref.type === "CapabilityEvidenceGraph" && ref.id === graphRef.id), true);
+    assert.equal(semanticEntry.evidence.some((ref) => ref.type === "SemanticFileUnderstandingReport" && ref.id === semanticRef.id), true);
+    assert.equal(capabilityMap.header.inputRefs.some((ref) => ref.type === "EvidenceGraph" && ref.id === evidenceRef.id), true);
+    assert.equal(capabilityMap.header.inputRefs.some((ref) => ref.type === "CapabilityEvidenceGraph" && ref.id === graphRef.id), true);
+    assert.equal(observedRepo.header.inputRefs.some((ref) => ref.type === "CapabilityEvidenceGraph"), true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

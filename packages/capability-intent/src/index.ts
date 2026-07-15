@@ -146,6 +146,8 @@ export type VerificationPlanCoverage = {
   framework: "vitest" | "jest";
   provider: "v8" | "istanbul" | "babel";
   testPath: string;
+  /** Optional repository-local test-runner configuration used by the plan. */
+  configPath?: string;
   /** Source files this isolated run is intended to exercise. */
   targetPaths?: string[];
   coveragePath: string;

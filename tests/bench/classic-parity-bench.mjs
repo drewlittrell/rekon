@@ -10,8 +10,9 @@
 // Usage:
 //   REKON_PARITY_CORPUS=/path/to/corpus node tests/bench/classic-parity-bench.mjs
 //   node tests/bench/classic-parity-bench.mjs --corpus <path> [--rule-map <path>]
-//     [--overruled <path>] [--adjudications <path>] [--quality-thresholds <path>]
-//     [--output <dir>] [--repo <id> ...] [--skip-refresh]
+//     [--overruled <path>] [--equivalences <path>] [--adjudications <path>]
+//     [--quality-thresholds <path>]
+//     [--output <dir>] [--repo <id> ...] [--capture-evidence] [--skip-refresh]
 //
 // When REKON_PARITY_CORPUS is unset and no --corpus is given, the bench skips
 // the real-corpus run cleanly (exit 0) — the same pattern as the gated
@@ -30,22 +31,41 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { loadClassicFindings, loadSuppressedFindings } from "./normalize-classic.mjs";
-import { buildBenchReport, classifyParity, renderMarkdownReport, validateOverruledList, validateRuleMap } from "./parity-core.mjs";
+import {
+  buildBenchReport,
+  classifyParity,
+  renderMarkdownReport,
+  validateOverruledList,
+  validateParityEquivalences,
+  validateRuleMap,
+} from "./parity-core.mjs";
 import {
   buildQualitySummary,
   buildSanitizedBenchReport,
   validateQualityAdjudications,
   validateQualityThresholds,
 } from "./quality-core.mjs";
+import {
+  evidenceInputArtifactType,
+  evidenceInputCliArgs,
+  validateCorpusEvidenceInputs,
+} from "./corpus-evidence-inputs.mjs";
+import {
+  createCorpusEvidenceVerificationPlan,
+  diffProtectedCorpusTrees,
+  isAcceptablePartialRefresh,
+  snapshotProtectedCorpusTree,
+  validateCorpusEvidenceCapture,
+} from "./corpus-evidence-capture.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
 
 function parseArgs(argv) {
-  const flags = { repos: [], skipRefresh: false };
+  const flags = { repos: [], skipRefresh: false, captureEvidence: false };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -58,6 +78,8 @@ function parseArgs(argv) {
       flags.output = argv[(index += 1)];
     } else if (arg === "--overruled") {
       flags.overruled = argv[(index += 1)];
+    } else if (arg === "--equivalences") {
+      flags.equivalences = argv[(index += 1)];
     } else if (arg === "--adjudications") {
       flags.adjudications = argv[(index += 1)];
     } else if (arg === "--quality-thresholds") {
@@ -66,6 +88,8 @@ function parseArgs(argv) {
       flags.repos.push(argv[(index += 1)]);
     } else if (arg === "--skip-refresh") {
       flags.skipRefresh = true;
+    } else if (arg === "--capture-evidence") {
+      flags.captureEvidence = true;
     } else {
       throw new Error(`classic-parity-bench: unknown argument "${arg}".`);
     }
@@ -88,6 +112,108 @@ function runCli(args, label) {
   }
 
   return result.stdout;
+}
+
+function runRefresh(root, label) {
+  const result = spawnSync(process.execPath, [cliPath, "refresh", "--root", root, "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const parsed = parseJsonOutput(result.stdout, label);
+
+  if (result.status === 0) return parsed;
+  if (isAcceptablePartialRefresh(parsed)) {
+    return { ...parsed, status: "partial" };
+  }
+
+  throw new Error(
+    `classic-parity-bench: ${label} failed (exit ${result.status}).\n${(result.stderr || result.stdout || "").slice(-2000)}`,
+  );
+}
+
+function runEvidenceCapture({ entry, root }) {
+  const capture = entry.evidenceCapture;
+  if (!capture) return { status: "not-declared" };
+
+  const snapshotOptions = {
+    evidenceInputs: entry.evidenceInputs,
+    allowedWrites: capture.allowedWrites,
+  };
+  const before = snapshotProtectedCorpusTree(root, snapshotOptions);
+  const generatedAt = new Date().toISOString();
+  const plan = createCorpusEvidenceVerificationPlan({ repoId: entry.id, capture, generatedAt });
+  const cacheDirectory = join(root, ".rekon/cache/parity-bench");
+  const planPath = join(cacheDirectory, `${plan.header.artifactId}.json`);
+  mkdirSync(cacheDirectory, { recursive: true });
+  writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}\n`);
+
+  const args = [
+    "verify", "run",
+    "--plan-file", planPath,
+    "--execute",
+    "--root", root,
+    "--json",
+  ];
+  if (capture.commandTimeoutMs) args.push("--command-timeout-ms", String(capture.commandTimeoutMs));
+  if (capture.timeoutMs) args.push("--timeout-ms", String(capture.timeoutMs));
+  if (capture.maxLogBytes) args.push("--max-log-bytes", String(capture.maxLogBytes));
+
+  const executions = [];
+  let after = before;
+  for (let repetition = 0; repetition < capture.repetitions; repetition += 1) {
+    const result = spawnSync(process.execPath, [cliPath, ...args], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    let parsed;
+    try {
+      parsed = parseJsonOutput(result.stdout, `evidence capture for ${entry.id}`);
+    } catch (error) {
+      throw new Error(
+        `classic-parity-bench: evidence capture for ${entry.id} did not return a VerificationRun `
+          + `(exit ${result.status}).\n${(result.stderr || result.stdout || String(error)).slice(-2000)}`,
+      );
+    }
+
+    if (
+      parsed.executed !== true
+      || parsed.artifact?.type !== "VerificationRun"
+      || typeof parsed.artifact.id !== "string"
+      || typeof parsed.verificationRun?.status !== "string"
+    ) {
+      throw new Error(`classic-parity-bench: evidence capture for ${entry.id} returned an invalid execution result.`);
+    }
+    executions.push(parsed);
+
+    after = snapshotProtectedCorpusTree(root, snapshotOptions);
+    const changes = diffProtectedCorpusTrees(before, after);
+    if (changes.length > 0) {
+      const detail = changes.slice(0, 20).map((change) => `${change.change}: ${change.path}`).join("; ");
+      throw new Error(
+        `classic-parity-bench: evidence capture for ${entry.id} modified protected repository files: ${detail}`,
+      );
+    }
+  }
+
+  const latest = executions.at(-1);
+  const artifacts = executions.map((execution) => ({
+    type: execution.artifact.type,
+    id: execution.artifact.id,
+  }));
+
+  return {
+    status: "captured",
+    commands: capture.commands.length,
+    executions: executions.length,
+    verificationStatus: latest.verificationRun.status,
+    verificationStatuses: executions.map((execution) => execution.verificationRun.status),
+    artifact: artifacts.at(-1),
+    artifacts,
+    protectedSourceDigest: after.digest,
+    protectedFiles: after.entries.size,
+  };
 }
 
 function parseJsonOutput(stdout, label) {
@@ -152,11 +278,46 @@ function loadCorpus(corpusRoot) {
   }
 
   for (const entry of manifest.repos) {
-    for (const field of ["id", "root", "classicOutput", "classicFormat"]) {
+    for (const field of ["id", "root"]) {
       if (typeof entry[field] !== "string" || entry[field].length === 0) {
         throw new Error(`classic-parity-bench: corpus repo entry is missing "${field}".`);
       }
     }
+
+    entry.benchmarkMode ??= "parity";
+    if (entry.benchmarkMode !== "parity" && entry.benchmarkMode !== "quality-only") {
+      throw new Error(
+        `classic-parity-bench: corpus repo "${entry.id}" has unsupported benchmarkMode "${entry.benchmarkMode}".`,
+      );
+    }
+
+    if (entry.benchmarkMode === "parity") {
+      for (const field of ["classicOutput", "classicFormat"]) {
+        if (typeof entry[field] !== "string" || entry[field].length === 0) {
+          throw new Error(`classic-parity-bench: parity repo "${entry.id}" is missing "${field}".`);
+        }
+      }
+    } else {
+      if (
+        typeof entry.source?.url !== "string"
+        || entry.source.url.length === 0
+        || typeof entry.source?.commit !== "string"
+        || !/^[a-f0-9]{40}$/u.test(entry.source.commit)
+      ) {
+        throw new Error(
+          `classic-parity-bench: quality-only repo "${entry.id}" must declare source.url and a full source.commit SHA.`,
+        );
+      }
+    }
+
+    entry.evidenceInputs = validateCorpusEvidenceInputs(
+      entry.evidenceInputs,
+      `corpus repo "${entry.id}" evidenceInputs`,
+    );
+    entry.evidenceCapture = validateCorpusEvidenceCapture(
+      entry.evidenceCapture,
+      `corpus repo "${entry.id}" evidenceCapture`,
+    );
   }
 
   return manifest;
@@ -172,6 +333,10 @@ async function main() {
         "Set REKON_PARITY_CORPUS=/path/to/corpus (with a corpus.json) to score parity.\n",
     );
     return 0;
+  }
+
+  if (flags.captureEvidence && flags.skipRefresh) {
+    throw new Error("classic-parity-bench: --capture-evidence cannot be combined with --skip-refresh.");
   }
 
   if (!existsSync(cliPath)) {
@@ -197,6 +362,17 @@ async function main() {
   const adjudications = adjudicationsInput
     ? validateQualityAdjudications(JSON.parse(readFileSync(resolve(adjudicationsInput), "utf8")))
     : [];
+  const equivalencesInput = flags.equivalences ?? process.env.REKON_PARITY_EQUIVALENCES;
+  const equivalencesPath = equivalencesInput ? resolve(equivalencesInput) : undefined;
+  const equivalences = equivalencesPath
+    ? validateParityEquivalences(
+        JSON.parse(readFileSync(equivalencesPath, "utf8")),
+        (path) => {
+          const candidate = resolve(dirname(equivalencesPath), path);
+          return existsSync(candidate) ? readFileSync(candidate, "utf8") : null;
+        },
+      )
+    : [];
   const qualityThresholdsPath = flags.qualityThresholds
     ? resolve(flags.qualityThresholds)
     : resolve(repoRoot, "tests/bench/quality-thresholds.json");
@@ -212,20 +388,66 @@ async function main() {
 
   for (const entry of selected) {
     const root = resolve(corpusAbs, entry.root);
-    const classicOutputDir = resolve(corpusAbs, entry.classicOutput);
+    const classicOutputDir = entry.benchmarkMode === "parity"
+      ? resolve(corpusAbs, entry.classicOutput)
+      : undefined;
 
     process.stdout.write(`classic-parity-bench: ${entry.id} — ${flags.skipRefresh ? "scoring (refresh skipped)" : "refreshing"}…\n`);
 
-    let refresh = { status: "skipped" };
+    let refresh = {
+      status: "skipped",
+      evidenceCapture: {
+        status: entry.evidenceCapture ? "skipped" : "not-declared",
+      },
+      evidenceInputs: {
+        status: entry.evidenceInputs.length > 0 ? "skipped" : "not-declared",
+        count: entry.evidenceInputs.length,
+        artifacts: [],
+      },
+    };
 
     if (!flags.skipRefresh) {
-      const stdout = runCli(["refresh", "--root", root, "--json"], `rekon refresh --root ${entry.id}`);
-      const parsed = parseJsonOutput(stdout, "rekon refresh");
+      const parsed = runRefresh(root, `rekon refresh --root ${entry.id}`);
 
-      refresh = { status: typeof parsed.status === "string" ? parsed.status : "unknown" };
+      refresh = {
+        status: typeof parsed.status === "string" ? parsed.status : "unknown",
+        evidenceCapture: {
+          status: entry.evidenceCapture ? "skipped" : "not-declared",
+        },
+        evidenceInputs: { status: "not-declared", count: 0, artifacts: [] },
+      };
 
       if (refresh.status === "failed") {
         throw new Error(`classic-parity-bench: rekon refresh reported status "failed" for ${entry.id}.`);
+      }
+
+      if (flags.captureEvidence && entry.evidenceCapture) {
+        refresh.evidenceCapture = runEvidenceCapture({ entry, root });
+      }
+
+      const captureVerificationRun = refresh.evidenceCapture.status === "captured"
+        ? `${refresh.evidenceCapture.artifact.type}:${refresh.evidenceCapture.artifact.id}`
+        : undefined;
+
+      if (entry.evidenceInputs.length > 0) {
+        const artifacts = entry.evidenceInputs.map((input) => {
+          const label = `${entry.id} evidence input ${input.kind}:${input.path}`;
+          const output = runCli(evidenceInputCliArgs(input, root, { captureVerificationRun }), label);
+          const parsedInput = parseJsonOutput(output, label);
+          const artifact = parsedInput.artifact;
+          const expectedType = evidenceInputArtifactType(input.kind);
+
+          if (!artifact || artifact.type !== expectedType || typeof artifact.id !== "string") {
+            throw new Error(
+              `classic-parity-bench: ${label} did not return the expected ${expectedType} artifact ref.`,
+            );
+          }
+
+          return { kind: input.kind, type: artifact.type, id: artifact.id };
+        });
+
+        runCli(["evaluate", "--root", root, "--json"], `rekon evaluate after evidence ingestion for ${entry.id}`);
+        refresh.evidenceInputs = { status: "ingested", count: artifacts.length, artifacts };
       }
     }
 
@@ -234,27 +456,27 @@ async function main() {
     const filterReport = latestArtifactBody(root, "FindingFilterReport");
     const rekonFindings = findingReport?.findings ?? [];
     const filteredFindings = filterReport?.filteredFindings ?? [];
-    const classicFindings = loadClassicFindings({ classicOutputDir, classicFormat: entry.classicFormat });
-    const suppressedFindings = loadSuppressedFindings({ classicOutputDir });
     const assessments = assessmentReport?.assessments ?? [];
-
-    const { rows, newFindings, coverage, precision } = classifyParity({
-      classicFindings,
-      rekonFindings,
-      rekonAssessments: assessments,
-      filteredFindings,
-      ruleMap,
-      overruled,
-      suppressedFindings,
-    });
+    const parity = entry.benchmarkMode === "parity"
+      ? classifyParity({
+          repoId: entry.id,
+          classicFindings: loadClassicFindings({ classicOutputDir, classicFormat: entry.classicFormat }),
+          rekonFindings,
+          rekonAssessments: assessments,
+          filteredFindings,
+          ruleMap,
+          overruled,
+          equivalences,
+          suppressedFindings: loadSuppressedFindings({ classicOutputDir }),
+        })
+      : { rows: [], newFindings: [], coverage: [], precision: [] };
 
     repoResults.push({
       id: entry.id,
+      benchmarkMode: entry.benchmarkMode,
+      ...(entry.source ? { source: entry.source } : {}),
       refresh,
-      rows,
-      newFindings,
-      coverage,
-      precision,
+      ...parity,
       rekonFindingCount: rekonFindings.length,
       rekonFindings,
       assessments,
@@ -275,12 +497,14 @@ async function main() {
   writeFileSync(join(outputDir, "report.sanitized.json"), `${JSON.stringify(sanitizedReport, null, 2)}\n`);
   writeFileSync(join(outputDir, "report.md"), renderMarkdownReport(report));
 
+  const parityRepos = repoResults.filter((repo) => repo.benchmarkMode === "parity").length;
+  const qualityOnlyRepos = repoResults.length - parityRepos;
   process.stdout.write(
     `classic-parity-bench: weighted finding recall ${(report.aggregate.recall * 100).toFixed(1)}% ` +
       `(${report.aggregate.creditedWeight}/${report.aggregate.totalWeight} weighted); observable signal coverage ` +
       `${(report.aggregate.signalCoverage.recall * 100).toFixed(1)}% ` +
       `(${report.aggregate.signalCoverage.creditedWeight}/${report.aggregate.signalCoverage.totalWeight} weighted) ` +
-      `across ${repoResults.length} repo(s). ` +
+      `across ${parityRepos} parity and ${qualityOnlyRepos} quality-only repo(s). ` +
       `Reports: ${join(outputDir, "report.md")}, ${join(outputDir, "report.sanitized.json")}\n`,
   );
 

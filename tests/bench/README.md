@@ -18,6 +18,41 @@ An assessment can improve signal coverage but never finding recall. Both
 metrics weight rows by historical fire count. The bench is the instrument; a
 high count is not a substitute for precision or usefulness adjudication.
 
+## Agent review of redesign gaps
+
+The parity report identifies unmatched historical cases, but a miss does not
+prove that Rekon needs another emitter. Build a deterministic, stratified local
+review packet before changing detector behavior:
+
+```bash
+npm run bench:gap-review -- --per-rule 3
+```
+
+The command reads the detailed local parity report and its external corpus,
+then writes `tests/bench/output/redesign-gap-review.json`. Each record contains
+the historical claim, bounded source excerpts, the mapped redesign, and any
+current Rekon output on the same files. The output is gitignored because it can
+contain private source and repository identifiers.
+
+An independent model or coding agent should inspect the cited source and label
+each record in a separate local file. Supported verdicts distinguish a valid
+missed signal, a valid signal that belongs in another output class, output
+covered under another identity, historical noise, and insufficient evidence.
+Recommended actions separately identify emitter, evidence, matching, and
+classification gaps. This prevents a historical finding count from becoming a
+detector backlog by default.
+
+Summarize labels by passing the local judgment file:
+
+```bash
+npm run bench:gap-review -- --per-rule 3 \
+  --judgments tests/bench/output/redesign-gap-judgments.json
+```
+
+Agent judgments guide calibration and implementation. They do not overrule a
+historical case, remove it from the parity denominator, rewrite repository
+truth, or promote an assessment automatically.
+
 ## Run
 
 ```bash
@@ -26,9 +61,10 @@ REKON_PARITY_CORPUS=/path/to/corpus node tests/bench/classic-parity-bench.mjs
 node tests/bench/classic-parity-bench.mjs --corpus /path/to/corpus \
   [--rule-map tests/bench/rule-map.json] [--output tests/bench/output] \
   [--overruled /path/to/private-overruled.json] \
+  [--equivalences /path/to/private-equivalences.json] \
   [--adjudications /path/to/private-quality-adjudications.json] \
   [--quality-thresholds tests/bench/quality-thresholds.json] \
-  [--repo <id>] [--skip-refresh]
+  [--repo <id>] [--capture-evidence] [--skip-refresh]
 ```
 
 Without `REKON_PARITY_CORPUS` (or `--corpus`) the bench skips cleanly with
@@ -42,7 +78,23 @@ corpus roots, repository ids, finding ids, and file paths.
 
 Finding recall and signal coverage do not describe detection quality. An
 optional external adjudication file lets the bench report finding precision
-separately from the usefulness of risks and opportunities:
+separately from the usefulness of risks and opportunities. The judge can be an
+independent model or agent that checks each record against source and artifact
+evidence; the benchmark does not require human approval:
+
+Build a deterministic local packet of current Rekon emissions before judging:
+
+```bash
+npm run bench:quality-review -- --per-rule 5
+```
+
+The command samples findings and assessments independently for each active
+rule, round-robins across corpus repositories, and includes bounded source
+excerpts plus relevant cited-artifact rows. It writes the private packet to
+`tests/bench/output/emission-quality-review.json`. The reviewing agent records
+its verdicts in the adjudication shape below; no human approval step is implied.
+Excerpts center on the emitted location when available, including in source
+files up to 2 MB, so the judgment remains grounded in the cited implementation.
 
 ```json
 {
@@ -71,7 +123,10 @@ separately from the usefulness of risks and opportunities:
 ```
 
 Pass the file with `--adjudications` or `REKON_PARITY_ADJUDICATIONS`. It remains
-outside the repository. Missing labels are reported as `insufficient-evidence`;
+outside the repository. When a finding judged invalid or an assessment judged
+not useful disappears, the bench retains that verdict as resolved calibration
+history. A missing record previously judged valid or useful fails loudly as a
+possible regression. Missing labels are reported as `insufficient-evidence`;
 the bench does not invent precision or usefulness scores. Per-rule thresholds
 live in `tests/bench/quality-thresholds.json` and cover evidence completeness,
 duplicate remediation, identity stability, finding precision, and assessment
@@ -89,12 +144,63 @@ corpus root carries a hand-authored `corpus.json`:
     {
       "id": "repo-slug",
       "root": "./repos/repo-slug",
+      "benchmarkMode": "parity",
       "classicOutput": "./classic/repo-slug",
-      "classicFormat": "classic-v1"
+      "classicFormat": "classic-v1",
+      "evidenceCapture": {
+        "commands": ["npm run lint", "npm run test"],
+        "allowedWrites": ["reports/junit.xml"],
+        "repetitions": 2
+      },
+      "evidenceInputs": [
+        { "kind": "junit", "path": "reports/junit.xml", "verificationRun": "$capture" },
+        { "kind": "eslint-json", "path": "reports/eslint.json" },
+        { "kind": "sarif", "path": "reports/codeql.sarif" },
+        { "kind": "npm-audit", "path": "reports/npm-audit.json", "packageLock": "package-lock.json" }
+      ]
     }
   ]
 }
 ```
+
+Public repositories without historical baseline output use
+`"benchmarkMode": "quality-only"`. They participate in current finding and
+assessment adjudication, but never enter historical recall, signal coverage, or
+the "new finding" count. Quality-only entries omit `classicOutput` and
+`classicFormat` and must pin their provenance:
+
+```json
+{
+  "id": "public-repo",
+  "root": "./repos/public-repo",
+  "benchmarkMode": "quality-only",
+  "source": {
+    "url": "https://github.com/example/public-repo",
+    "commit": "0123456789abcdef0123456789abcdef01234567"
+  }
+}
+```
+
+Rekon keeps a pinned nine-repository quality catalog in
+`tests/bench/public-corpus.sources.json`. It covers a TypeScript build-tool
+monorepo, a decorator-based server framework, a JavaScript plugin framework,
+an AST rule engine, a TypeScript library monorepo, a test runner, and a browser
+automation engine. pnpm adds package-manager and migration-tooling behavior;
+Next.js adds a large framework monorepo that exercises source-quality
+jurisdiction and bounded graph projection. Create a separate local corpus
+without installing dependencies or running repository scripts:
+
+```bash
+npm run bench:public-corpus:setup -- --root /path/to/rekon-public-corpus
+node tests/bench/classic-parity-bench.mjs \
+  --corpus /path/to/rekon-public-corpus \
+  --output tests/bench/output/public-corpus
+```
+
+The setup command shallow-clones the pinned revisions, verifies each checkout,
+and writes a quality-only `corpus.json`. Refresh runs Rekon itself; it does not
+execute the target repositories' scripts unless evidence capture is separately
+declared and explicitly enabled.
 
 `root` points at a **copy** of the target repo (the bench writes standard
 `.rekon/` output there during `rekon refresh`; it mutates nothing else).
@@ -102,6 +208,36 @@ corpus root carries a hand-authored `corpus.json`:
 repo's baseline scan (classic writes it to
 `<repo>/reports/issues.json`; copy it into the corpus).
 `classic-v1` is the only supported format in bench v1.
+
+`evidenceInputs` is optional. It connects repository-native reports to the
+existing Rekon ingestion commands after `refresh`, then reruns `evaluate` so
+the resulting `FindingReport` and `AssessmentReport` cite the current
+`EvidenceGraph`. Supported kinds are `junit`, `eslint-json`, `sarif`,
+`npm-audit`, `pnpm-audit`, `yarn-audit`, `osv`, `istanbul-coverage`, and
+`lcov-coverage`. Paths must be repository-relative.
+
+Normal bench runs never execute repository tools. `--capture-evidence` opts
+into the manifest's `evidenceCapture` commands through Rekon's no-shell
+verification runner. The bench hashes protected repository files after every
+execution and rejects undeclared writes. `repetitions` is bounded from one to
+three; the last `VerificationRun` is available to an evidence input as
+`$capture`. `--capture-evidence` cannot be combined with `--skip-refresh`.
+
+Coverage entries also require `testPath` and an explicit
+`verificationRun` value such as `VerificationRun:verification-run-1`:
+
+```json
+{
+  "kind": "lcov-coverage",
+  "path": "coverage/lcov.info",
+  "testPath": "tests/unit/example.test.ts",
+  "verificationRun": "VerificationRun:verification-run-1"
+}
+```
+
+That requirement prevents aggregate coverage from being treated as isolated,
+test-attributed runtime proof. When `--skip-refresh` is set, evidence ingestion
+is skipped as well and the bench only scores artifacts already in `.rekon/`.
 
 ## Rule map
 
@@ -130,6 +266,14 @@ Disposition semantics are authorized by
 Every classic rule observed in the corpus must have a row; the bench fails
 loudly on unmapped rules rather than silently scoring them.
 
+An external equivalence file can resolve a per-finding `matching-gap` without
+broadening a whole rule's match surface. Each entry names one classic finding,
+one exact current finding or assessment id, and a `judgmentRef` to a local gap
+judgment whose verdict is `covered-different-identity` and action is
+`matching-gap`. The bench rejects missing or stale targets. Pass the file with
+`--equivalences` or `REKON_PARITY_EQUIVALENCES`; do not commit private corpus
+ids or paths.
+
 ## Anti-gaming rules
 
 The recall number may not be improved by:
@@ -145,6 +289,8 @@ The recall number may not be improved by:
    section), is per-finding (never per-rule), and honest losses -
    semantically wrong matches, umbrella file-overlap noise - never
    qualify.
+5. adding per-finding equivalences without an agent judgment that cites source
+   and explicitly concludes `covered-different-identity` / `matching-gap`.
 
 The report renders every intentional classification with its citation so the
 operator can audit the scoreboard, not just read it.

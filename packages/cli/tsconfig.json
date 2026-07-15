@@ -59,6 +59,9 @@
       "path": "../kernel-repo-model"
     },
     {
+      "path": "../kernel-rulebook"
+    },
+    {
       "path": "../runtime"
     },
     {

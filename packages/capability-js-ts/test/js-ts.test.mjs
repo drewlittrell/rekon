@@ -18,6 +18,7 @@ test("JS/TS provider emits facts with provenance and ignores generated directori
   try {
     await mkdir(join(root, "src"), { recursive: true });
     await mkdir(join(root, ".rekon"), { recursive: true });
+    await mkdir(join(root, ".next", "server"), { recursive: true });
     await writeFile(join(root, "src", "index.ts"), [
       "import { helper } from './helper';",
       "export function greet(name: string) {",
@@ -27,6 +28,7 @@ test("JS/TS provider emits facts with provenance and ignores generated directori
     ].join("\n"), "utf8");
     await writeFile(join(root, "src", "helper.ts"), "export const helper = (value: string) => value;\n", "utf8");
     await writeFile(join(root, ".rekon", "ignored.ts"), "export const ignored = true;\n", "utf8");
+    await writeFile(join(root, ".next", "server", "ignored.js"), "export const generated = true;\n", "utf8");
 
     const facts = await jsTsProvider.extract({
       repoRoot: root,
@@ -49,6 +51,7 @@ test("JS/TS provider emits facts with provenance and ignores generated directori
       true,
     );
     assert.equal(facts.some((fact) => fact.subject.includes(".rekon")), false);
+    assert.equal(facts.some((fact) => fact.subject.includes(".next")), false);
     assert.equal(facts.every((fact) => fact.provenance.pack === "@rekon/capability-js-ts"), true);
     assert.equal(facts.every((fact) => fact.provenance.extractorVersion === "0.1.0"), true);
   } finally {
@@ -178,11 +181,19 @@ test("JS/TS provider emits AST-backed source quality signals", async () => {
     await writeFile(join(root, "src", "quality.ts"), [
       "function inspect(input?: { value: string }) {",
       "  const unsafe = input as any;",
+      "  try { use(unsafe); } catch (error: any) { use(error); }",
       "  const required = input!.value;",
       "  try { use(unsafe); } catch {}",
       "  try { use(required); } catch (error) { console.error(error); }",
       "}",
       "function pending() { throw new Error('Not implemented'); }",
+      "export function clearValidationCache(): void {",
+      "  // This is a no-op but provided for API completeness.",
+      "}",
+      "export function _resetOntologyCache(): void {",
+      "  // no-op: ontology is read on demand",
+      "}",
+      "function ActionSheetCancel() { return null; }",
     ].join("\n"), "utf8");
 
     const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
@@ -195,11 +206,265 @@ test("JS/TS provider emits AST-backed source quality signals", async () => {
       "as_any_assertion",
       "catch_only_logs",
       "empty_catch",
+      "explicit_any_annotation",
+      "explicit_noop_contract",
       "non_null_assertion",
       "placeholder_throw",
     ]);
     assert.equal(facts.filter((fact) => fact.kind === "typescript:source-quality").every((fact) => fact.provenance.line > 0), true);
     assert.equal(facts.some((fact) => fact.kind === "content_signal" && fact.value.signal === "consoleLogging"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("source-local private member evidence survives an unresolved TypeScript project", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-private-source-evidence-"));
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: { strict: true, noEmit: true, target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext" },
+      include: ["src/**/*.ts"],
+    }), "utf8");
+    await writeFile(join(root, "src", "client.ts"), [
+      "import { Missing } from './missing.js';",
+      "export class Client {",
+      "  private sessionCreated = false;",
+      "  private conversationBound = false;",
+      "  private accumulator = '';",
+      "  private readLater = false;",
+      "  private dynamic = false;",
+      "  public visible = false;",
+      "  connect(_value: Missing) {",
+      "    this.sessionCreated = true;",
+      "    this.conversationBound = true;",
+      "    this.accumulator += 'connected';",
+      "    this.accumulator = 'ready' ?? this.accumulator;",
+      "    this.readLater = true;",
+      "    this.dynamic = true;",
+      "    return this.readLater || this['dynamic'];",
+      "  }",
+      "}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const sourceSignals = facts
+      .filter((fact) => fact.kind === "typescript:source-quality" && fact.value.signal === "unused_private_member")
+      .map((fact) => fact.value.detail)
+      .sort();
+    const diagnosticSignals = facts.filter(
+      (fact) => fact.kind === "typescript:diagnostic" && fact.value.purpose === "unused-private-member",
+    );
+
+    assert.deepEqual(sourceSignals, ["accumulator", "conversationBound", "sessionCreated"]);
+    assert.equal(diagnosticSignals.length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("documented intentional catch suppression is not emitted as a risk", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-intentional-catch-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "cleanup.ts"), [
+      "try { closeResource(); } catch {",
+      "  // Ignore cleanup failure so the original error remains authoritative.",
+      "}",
+      "try { finishCommand(); } catch {",
+      "  // Keep command completion resilient when optional recording fails.",
+      "}",
+      "try { notifyListeners(); } catch {",
+      "  // Listener errors are isolated so one broken stream does not affect others.",
+      "}",
+      "try { runRequiredWork(); } catch {}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const catchSignals = facts.filter((fact) =>
+      fact.kind === "typescript:source-quality"
+      && (fact.value.signal === "empty_catch" || fact.value.signal === "catch_only_logs"));
+    const emptyCatches = catchSignals.filter((fact) => fact.value.signal === "empty_catch");
+    assert.equal(catchSignals.length, 1);
+    assert.equal(emptyCatches.length, 1);
+    assert.equal(emptyCatches[0].provenance.line, 10);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("forced removal cleanup and nested error recovery are not emitted as suppression risks", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-structural-catch-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "cleanup.ts"), [
+      "try { fs.rmSync(tempPath, { force: true }); } catch {}",
+      "try { runPrimaryWork(); } catch (primaryError) {",
+      "  try { deriveDiagnostic(primaryError); } catch {}",
+      "  throw primaryError;",
+      "}",
+      "try { runRequiredWork(); } catch {}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const emptyCatches = facts.filter((fact) => (
+      fact.kind === "typescript:source-quality" && fact.value.signal === "empty_catch"
+    ));
+
+    assert.equal(emptyCatches.length, 1);
+    assert.equal(emptyCatches[0].provenance.line, 6);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("logged listener isolation is not emitted as error suppression", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-listener-catch-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "listeners.ts"), [
+      "declare const listener: (event: unknown) => void;",
+      "declare const collector: { _onChannelRedirect(event: unknown): void };",
+      "declare const events: { on(name: string, callback: () => void): void };",
+      "declare const event: unknown;",
+      "try { listener(event); } catch (error) { console.error('listener failed', error); }",
+      "try { collector._onChannelRedirect(event); } catch (error) { console.error('collector failed', error); }",
+      "function callHooks(invoke: (hook: unknown) => void, hooks: unknown[]) {",
+      "  for (const hook of hooks) { try { invoke(hook); } catch (error) { console.error('hook failed', error); } }",
+      "}",
+      "events.on('change', () => { try { runEvent(); } catch (error) { console.error('event failed', error); } });",
+      "try { runRequiredWork(); } catch (error) { console.error('required work failed', error); }",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const catchSignals = facts.filter((fact) =>
+      fact.kind === "typescript:source-quality"
+      && fact.value.signal === "catch_only_logs");
+
+    assert.equal(catchSignals.length, 1);
+    assert.equal(catchSignals[0].provenance.line, 11);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("best-effort observability boundaries are not emitted as error suppression", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-observability-catch-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "trace.ts"), [
+      "export async function persistTraceEvent(): Promise<void> {",
+      "  try { await sendTraceEvent(); } catch (error) { console.warn('trace failed', error); }",
+      "}",
+      "export class Logger {",
+      "  packet(payload: unknown) {",
+      "    try { console.warn(safeClone(payload)); } catch (error) { console.warn(payload, error); }",
+      "  }",
+      "}",
+      "export function clientDebugLog() {",
+      "  if (!enabled()) return;",
+      "  try { sendDebugLog(); } catch (error) { console.warn('debug failed', error); }",
+      "}",
+      "export async function superviseWorker(): Promise<void> {",
+      "  while (running()) {",
+      "    try { await drain(); } catch (error) { console.warn('drain failed', error); }",
+      "    await sleep(1000);",
+      "  }",
+      "}",
+      "export function documentedFallback(): void {",
+      "  try { optionalWork(); } catch (error) {",
+      "    // Optional work must not break the caller.",
+      "    console.warn('optional work failed', error);",
+      "  }",
+      "}",
+      "export async function startRequiredWork(): Promise<void> {",
+      "  try { await connect(); } catch (error) { console.warn('start failed', error); }",
+      "}",
+      "export function explicitFailure(): [boolean, string] {",
+      "  try { requiredWrite(); return [true, 'written']; } catch (error) { console.error(error); }",
+      "  return [false, 'not written'];",
+      "}",
+      "export function nestedRecovery(): void {",
+      "  try { primary(); } catch {",
+      "    try { recover(); } catch (error) { console.error('recovery failed', error); }",
+      "  }",
+      "}",
+      "export function documentedRetry(): void {",
+      "  try { refresh(); } catch (error) { console.error('will retry on the next event', error); }",
+      "}",
+    ].join("\n"), "utf8");
+    await writeFile(join(root, "src", "ServerLogger.ts"), [
+      "export async function flushSummaries(): Promise<void> {",
+      "  for (const summary of pendingSummaries()) {",
+      "    try { await writeSummary(summary); }",
+      "    catch (error) { console.warn('summary failed', error); }",
+      "  }",
+      "}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const catchSignals = facts.filter((fact) =>
+      fact.kind === "typescript:source-quality"
+      && fact.value.signal === "catch_only_logs");
+
+    assert.equal(catchSignals.length, 1);
+    assert.equal(catchSignals[0].provenance.line, 26);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("best-effort cache writes are distinct from required persistence failures", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-cache-catch-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "cache.ts"), [
+      "export async function setCachedValue(value: string): Promise<void> {",
+      "  try { await redis.setex('key', CACHE_CONFIGS.value.ttlSeconds, value); }",
+      "  catch (error) { console.error('Cache write failed', error); }",
+      "}",
+      "export async function persistRequired(value: string): Promise<void> {",
+      "  try { await repository.save(value); }",
+      "  catch (error) { console.error('Persistence failed', error); }",
+      "}",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const catches = facts.filter((fact) => (
+      fact.kind === "typescript:source-quality" && fact.value.signal === "catch_only_logs"
+    ));
+
+    assert.equal(catches.length, 1);
+    assert.equal(catches[0].provenance.line, 7);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("loop-local presentation fallbacks are distinct from suppressed writes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-presentation-fallback-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "render.ts"), [
+      "for (const file of files) {",
+      "  try {",
+      "    const stats = lstatSync(file);",
+      "    if (stats.isDirectory()) console.log(file + '/');",
+      "    else console.log(file);",
+      "  } catch { console.log(file); }",
+      "}",
+      "try { writeRequiredFile(); console.log('wrote file'); }",
+      "catch (error) { console.error('write failed', error); }",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const catches = facts.filter((fact) => (
+      fact.kind === "typescript:source-quality" && fact.value.signal === "catch_only_logs"
+    ));
+
+    assert.equal(catches.length, 1);
+    assert.equal(catches[0].provenance.line, 9);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -282,13 +547,18 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-call-graph-"));
   try {
     await mkdir(join(root, "src", "workers"), { recursive: true });
+    await mkdir(join(root, "src", "plugins", "published"), { recursive: true });
     await mkdir(join(root, "app", "api", "users"), { recursive: true });
+    await mkdir(join(root, "hooks"), { recursive: true });
     await mkdir(join(root, "tests"), { recursive: true });
     await writeFile(join(root, "package.json"), JSON.stringify({
       name: "call-fixture",
       main: "./dist/index.js",
       exports: { ".": "./dist/index.js" },
+      imports: { "#feature": { default: "./src/feature-flag.ts" } },
       bin: { fixture: "./dist/cli.js" },
+      files: ["src/plugins/**/index.ts"],
+      mocha: { require: ["./hooks/mocha-init-hook.ts", "ts-node/register"] },
     }), "utf8");
     await writeFile(join(root, "src", "index.ts"), [
       "import { serve } from './service.js';",
@@ -303,7 +573,12 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
       "export class Service { load() { return this.read(); } read() { return 1; } }",
     ].join("\n"), "utf8");
     await writeFile(join(root, "src", "lazy.ts"), "export const lazy = true;\n", "utf8");
+    await writeFile(join(root, "src", "feature-flag.ts"), "export default false;\n", "utf8");
+    await writeFile(join(root, "src", "browser-client.ts"), "export const client = true;\n", "utf8");
+    await writeFile(join(root, "src", "plugins", "published", "index.ts"), "export const plugin = true;\n", "utf8");
     await writeFile(join(root, "src", "workers", "mail.worker.ts"), "export function run() {}\n", "utf8");
+    await writeFile(join(root, "hooks", "mocha-init-hook.ts"), "export const mochaHooks = {};\n", "utf8");
+    await writeFile(join(root, "rollup.config.ts"), "export default { input: path.resolve(dirname, 'src/browser-client.ts') };\n", "utf8");
     await writeFile(join(root, "app", "api", "users", "route.ts"), "import { serve } from '../../../src/service.js'; export function GET() { return serve(); }\n", "utf8");
     await writeFile(join(root, "tests", "service.test.ts"), "import { serve } from '../src/service.js'; serve();\n", "utf8");
 
@@ -324,6 +599,10 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
     assert.ok(entries.some((fact) => fact.value.entryKind === "route" && fact.value.path === "app/api/users/route.ts"));
     assert.ok(entries.some((fact) => fact.value.entryKind === "worker" && fact.value.path === "src/workers/mail.worker.ts"));
     assert.ok(entries.some((fact) => fact.value.entryKind === "test" && fact.value.path === "tests/service.test.ts"));
+    assert.ok(entries.some((fact) => fact.value.source === "package-manifest" && fact.value.path === "src/feature-flag.ts"));
+    assert.ok(entries.some((fact) => fact.value.source === "package-files" && fact.value.path === "src/plugins/published/index.ts"));
+    assert.ok(entries.some((fact) => fact.value.source === "package-tool-config" && fact.value.path === "hooks/mocha-init-hook.ts"));
+    assert.ok(entries.some((fact) => fact.value.source === "build-config" && fact.value.path === "src/browser-client.ts"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -424,12 +703,20 @@ test("JS/TS provider honors includeTests", async () => {
     await mkdir(join(root, "tests"), { recursive: true });
     await writeFile(join(root, "src", "index.ts"), "export const source = true;\n", "utf8");
     await writeFile(join(root, "tests", "index.test.ts"), "test.only('focused', () => {});\n", "utf8");
+    await writeFile(join(root, "tests", "focused-helper.test.ts"), [
+      "// eslint-disable-next-line jest/no-focused-tests -- deliberate framework plumbing",
+      "it.only('framework sentinel', () => {});",
+    ].join("\n"), "utf8");
 
     const excluded = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
     const included = await jsTsProvider.extract({ repoRoot: root, includeTests: true });
     assert.equal(excluded.some((fact) => fact.subject.includes("index.test.ts")), false);
     assert.equal(included.some((fact) => fact.kind === "test" && fact.subject === "tests/index.test.ts"), true);
-    assert.equal(included.some((fact) => fact.kind === "typescript:source-quality" && fact.value.signal === "focused_test"), true);
+    const focused = included.filter(
+      (fact) => fact.kind === "typescript:source-quality" && fact.value.signal === "focused_test",
+    );
+    assert.equal(focused.length, 1);
+    assert.equal(focused[0].value.path, "tests/index.test.ts");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

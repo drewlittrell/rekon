@@ -64,15 +64,60 @@ test("quality summary reports insufficient evidence instead of inventing precisi
   assert.equal(quality.rules["rule.risk"].thresholdStatus, "insufficient-evidence");
 });
 
-test("quality adjudications reject unknown records", () => {
+test("quality adjudications retain removed false positives as resolved calibration history", () => {
+  const quality = buildQualitySummary({
+    repos,
+    thresholds,
+    adjudications: [
+      { repoId: "private-repo", recordType: "finding", recordId: "removed-false-positive", ruleId: "rule.finding", judgment: "invalid" },
+      { repoId: "private-repo", recordType: "assessment", recordId: "removed-noise", ruleId: "rule.risk", judgment: "not_useful" },
+    ],
+  });
+
+  assert.equal(quality.findingQuality.resolvedInvalid, 1);
+  assert.equal(quality.assessmentUtility.resolvedNotUseful, 1);
+  assert.equal(quality.rules["rule.finding"].resolvedInvalidFindings, 1);
+  assert.equal(quality.rules["rule.risk"].resolvedNotUsefulAssessments, 1);
+});
+
+test("quality adjudications reject missing records previously judged valid or useful", () => {
   assert.throws(
     () => buildQualitySummary({
       repos,
       thresholds,
       adjudications: [{ repoId: "private-repo", recordType: "finding", recordId: "missing", ruleId: "rule.finding", judgment: "valid" }],
     }),
-    /unknown record/,
+    /missing expected record/,
   );
+});
+
+test("quality adjudications ignore repositories outside a subset run", () => {
+  const quality = buildQualitySummary({
+    repos,
+    thresholds,
+    adjudications: [
+      { repoId: "not-selected", recordType: "finding", recordId: "missing-valid", ruleId: "rule.finding", judgment: "valid" },
+      { repoId: "not-selected", recordType: "finding", recordId: "missing-invalid", ruleId: "rule.finding", judgment: "invalid" },
+    ],
+  });
+
+  assert.equal(quality.findingQuality.adjudicated, 0);
+  assert.equal(quality.findingQuality.resolvedInvalid, 0);
+  assert.equal(quality.rules["rule.finding"].thresholdStatus, "insufficient-evidence");
+});
+
+test("duplicate remediation identity is scoped to its repository", () => {
+  const quality = buildQualitySummary({
+    repos: [
+      { id: "one", rekonFindings: [{ id: "a", ruleId: "rule.finding", evidence: [ref], rootCauseKey: "shared-path" }], assessments: [] },
+      { id: "two", rekonFindings: [{ id: "b", ruleId: "rule.finding", evidence: [ref], rootCauseKey: "shared-path" }], assessments: [] },
+    ],
+    adjudications: [],
+    thresholds,
+  });
+
+  assert.equal(quality.rules["rule.finding"].duplicateRemediationCount, 0);
+  assert.equal(quality.duplicateRemediationRate, 0);
 });
 
 test("sanitized report excludes repository ids, roots, finding ids, and paths", () => {

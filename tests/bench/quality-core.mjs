@@ -76,7 +76,9 @@ export function validateQualityThresholds(value, ruleIds = []) {
 }
 
 export function buildQualitySummary({ repos, adjudications = [], thresholds }) {
-  const adjudicationByRecord = new Map(adjudications.map((record) => [
+  const selectedRepoIds = new Set(repos.map((repo) => repo.id));
+  const scopedAdjudications = adjudications.filter((record) => selectedRepoIds.has(record.repoId));
+  const adjudicationByRecord = new Map(scopedAdjudications.map((record) => [
     `${record.repoId}:${record.recordType}:${record.recordId}`,
     record,
   ]));
@@ -109,9 +111,16 @@ export function buildQualitySummary({ repos, adjudications = [], thresholds }) {
   }
 
   const recordKeys = new Set(records.map((record) => `${record.repoId}:${record.recordType}:${record.recordId}`));
-  for (const record of adjudications) {
+  const resolvedAdjudications = [];
+  for (const record of scopedAdjudications) {
     const key = `${record.repoId}:${record.recordType}:${record.recordId}`;
-    if (!recordKeys.has(key)) throw new Error(`quality adjudication references unknown record ${key}.`);
+    if (recordKeys.has(key)) continue;
+
+    const successfullyRemoved = record.judgment === "invalid" || record.judgment === "not_useful";
+    if (!successfullyRemoved) {
+      throw new Error(`quality adjudication references missing expected record ${key}.`);
+    }
+    resolvedAdjudications.push(record);
   }
 
   const rules = {};
@@ -129,12 +138,21 @@ export function buildQualitySummary({ repos, adjudications = [], thresholds }) {
       .filter(Boolean);
     const findingLabels = labels.filter((record) => record.recordType === "finding");
     const assessmentLabels = labels.filter((record) => record.recordType === "assessment");
+    const resolvedLabels = resolvedAdjudications.filter((record) => record.ruleId === ruleId);
+    const resolvedFindingLabels = resolvedLabels.filter((record) => record.recordType === "finding");
+    const resolvedAssessmentLabels = resolvedLabels.filter((record) => record.recordType === "assessment");
     const severityLabels = labels.filter((record) => record.severity !== undefined);
-    const identityLabels = labels.filter((record) => record.identityStable !== undefined);
-    const roots = ruleRecords.map((record) => record.rootCauseKey).filter((key) => typeof key === "string" && key.length > 0);
+    const identityLabels = [...labels, ...resolvedLabels].filter((record) => record.identityStable !== undefined);
+    const roots = ruleRecords
+      .filter((record) => typeof record.rootCauseKey === "string" && record.rootCauseKey.length > 0)
+      .map((record) => `${record.repoId}:${record.rootCauseKey}`);
     const duplicateCount = roots.length - new Set(roots).size;
-    const precision = ratio(findingLabels.filter((record) => record.judgment === "valid").length, findingLabels.length);
-    const usefulness = ratio(assessmentLabels.filter((record) => record.judgment === "useful").length, assessmentLabels.length);
+    const precision = findingLabels.length === 0 && resolvedFindingLabels.length > 0
+      ? 1
+      : ratio(findingLabels.filter((record) => record.judgment === "valid").length, findingLabels.length);
+    const usefulness = assessmentLabels.length === 0 && resolvedAssessmentLabels.length > 0
+      ? 1
+      : ratio(assessmentLabels.filter((record) => record.judgment === "useful").length, assessmentLabels.length);
     const evidenceCompleteness = ratio(ruleRecords.filter((record) => record.hasEvidence).length, ruleRecords.length) ?? 1;
     const identityStability = ratio(identityLabels.filter((record) => record.identityStable).length, identityLabels.length);
     const threshold = thresholds?.rules?.[ruleId]
@@ -144,11 +162,11 @@ export function buildQualitySummary({ repos, adjudications = [], thresholds }) {
     const minimum = threshold?.minimumAdjudications ?? 1;
 
     if (threshold?.minimumPrecision !== undefined) {
-      if (findingLabels.length < minimum) failures.push("finding-precision-insufficient-evidence");
+      if (findingLabels.length + resolvedFindingLabels.length < minimum) failures.push("finding-precision-insufficient-evidence");
       else if (precision < threshold.minimumPrecision) failures.push("finding-precision-below-threshold");
     }
     if (threshold?.minimumUsefulness !== undefined) {
-      if (assessmentLabels.length < minimum) failures.push("assessment-usefulness-insufficient-evidence");
+      if (assessmentLabels.length + resolvedAssessmentLabels.length < minimum) failures.push("assessment-usefulness-insufficient-evidence");
       else if (usefulness < threshold.minimumUsefulness) failures.push("assessment-usefulness-below-threshold");
     }
     if (threshold?.minimumEvidenceCompleteness !== undefined && evidenceCompleteness < threshold.minimumEvidenceCompleteness) {
@@ -168,9 +186,13 @@ export function buildQualitySummary({ repos, adjudications = [], thresholds }) {
       records: ruleRecords.length,
       findings: findingRecords.length,
       assessments: assessmentRecords.length,
-      findingAdjudications: findingLabels.length,
+      findingAdjudications: findingLabels.length + resolvedFindingLabels.length,
+      activeFindingAdjudications: findingLabels.length,
+      resolvedInvalidFindings: resolvedFindingLabels.length,
       findingPrecision: precision,
-      assessmentAdjudications: assessmentLabels.length,
+      assessmentAdjudications: assessmentLabels.length + resolvedAssessmentLabels.length,
+      activeAssessmentAdjudications: assessmentLabels.length,
+      resolvedNotUsefulAssessments: resolvedAssessmentLabels.length,
       assessmentUsefulness: usefulness,
       evidenceCompleteness,
       lawAttributionCompleteness: ratio(ruleRecords.filter((record) => record.hasLaw).length, ruleRecords.length) ?? 1,
@@ -188,22 +210,36 @@ export function buildQualitySummary({ repos, adjudications = [], thresholds }) {
 
   const findings = records.filter((record) => record.recordType === "finding");
   const assessments = records.filter((record) => record.recordType === "assessment");
-  const findingLabels = adjudications.filter((record) => record.recordType === "finding");
-  const assessmentLabels = adjudications.filter((record) => record.recordType === "assessment");
-  const roots = records.map((record) => record.rootCauseKey).filter((key) => typeof key === "string" && key.length > 0);
+  const findingLabels = scopedAdjudications.filter((record) => record.recordType === "finding");
+  const assessmentLabels = scopedAdjudications.filter((record) => record.recordType === "assessment");
+  const activeFindingLabels = findingLabels.filter((record) => recordKeys.has(`${record.repoId}:${record.recordType}:${record.recordId}`));
+  const activeAssessmentLabels = assessmentLabels.filter((record) => recordKeys.has(`${record.repoId}:${record.recordType}:${record.recordId}`));
+  const resolvedFindingLabels = resolvedAdjudications.filter((record) => record.recordType === "finding");
+  const resolvedAssessmentLabels = resolvedAdjudications.filter((record) => record.recordType === "assessment");
+  const roots = records
+    .filter((record) => typeof record.rootCauseKey === "string" && record.rootCauseKey.length > 0)
+    .map((record) => `${record.repoId}:${record.rootCauseKey}`);
 
   return {
     records: records.length,
     findingQuality: {
       emitted: findings.length,
       adjudicated: findingLabels.length,
-      precision: ratio(findingLabels.filter((record) => record.judgment === "valid").length, findingLabels.length),
+      activeAdjudications: activeFindingLabels.length,
+      resolvedInvalid: resolvedFindingLabels.length,
+      precision: activeFindingLabels.length === 0 && resolvedFindingLabels.length > 0
+        ? 1
+        : ratio(activeFindingLabels.filter((record) => record.judgment === "valid").length, activeFindingLabels.length),
     },
     assessmentUtility: {
       emitted: assessments.length,
       byKind: countBy(assessments, (record) => record.kind),
       adjudicated: assessmentLabels.length,
-      usefulness: ratio(assessmentLabels.filter((record) => record.judgment === "useful").length, assessmentLabels.length),
+      activeAdjudications: activeAssessmentLabels.length,
+      resolvedNotUseful: resolvedAssessmentLabels.length,
+      usefulness: activeAssessmentLabels.length === 0 && resolvedAssessmentLabels.length > 0
+        ? 1
+        : ratio(activeAssessmentLabels.filter((record) => record.judgment === "useful").length, activeAssessmentLabels.length),
     },
     evidenceCompleteness: ratio(records.filter((record) => record.hasEvidence).length, records.length) ?? 1,
     lawAttributionCompleteness: ratio(records.filter((record) => record.hasLaw).length, records.length) ?? 1,
@@ -231,6 +267,8 @@ export function buildSanitizedBenchReport(report, quality) {
     version: report.version,
     generatedAt: report.generatedAt,
     repositoryCount: report.repos.length,
+    parityRepositoryCount: report.aggregate.parityRepositories,
+    qualityOnlyRepositoryCount: report.aggregate.qualityOnlyRepositories,
     aggregate: report.aggregate,
     findingRecall: {
       weighted: report.aggregate.recall,

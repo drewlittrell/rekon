@@ -48,14 +48,14 @@ test("contract layer: sdk->kernel silent, contract->capability fires, capability
   assert.match(findings[0].payload.law.declaration, /operator:wo-18#package-platform/);
 });
 
-test("dist-import exemptions: silent under examples/**, fires under src/**, config is repo-jurisdiction", async () => {
+test("dist-import exemptions and declared entrypoints keep intentional built bootstraps quiet", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "rekon-wo19-dist-"));
 
   try {
     mkdirSync(join(tmp, ".rekon"), { recursive: true });
     writeFileSync(join(tmp, ".rekon", "scan-scope.json"), JSON.stringify({
       distImportExemptions: [
-        { glob: "examples/**", reason: "Examples demonstrate consuming the built package (operator:wo-19#dist-scope)." },
+        { glob: "vendor/**", reason: "Vendored adapters consume the built package (operator:wo-19#dist-scope)." },
       ],
     }));
 
@@ -67,8 +67,11 @@ test("dist-import exemptions: silent under examples/**, fires under src/**, conf
     const graph = {
       header: { subject: { repoId: "fixture" } },
       facts: [
-        { kind: "import", subject: "examples/demo/run.ts:../../dist/index.js", value: { source: "examples/demo/run.ts", target: "../../dist/index.js" } },
+        { kind: "import", subject: "vendor/adapter.ts:../../dist/index.js", value: { source: "vendor/adapter.ts", target: "../../dist/index.js" } },
         { kind: "import", subject: "src/app.ts:../dist/index.js", value: { source: "src/app.ts", target: "../dist/index.js" } },
+        { kind: "import", subject: "src/vendor.ts:dependency/dist/index.js", value: { source: "src/vendor.ts", target: "dependency/dist/index.js" } },
+        { kind: "entry_point", subject: "cli:bin/tool.js", value: { path: "bin/tool.js", entryKind: "cli" } },
+        { kind: "import", subject: "bin/tool.js:../dist/cli.js", value: { source: "bin/tool.js", target: "../dist/cli.js" } },
       ],
     };
     const written = [];
@@ -78,19 +81,22 @@ test("dist-import exemptions: silent under examples/**, fires under src/**, conf
       write: async (_type, report) => { written.push(report); return { type: "FindingReport", id: report.header.artifactId, schemaVersion: "0.1.0" }; },
     };
 
-    // With the repo's config: the example is exempt, src fires.
+    // With the repo's config: vendor and the declared entrypoint are exempt; src fires.
     await policy.policyEvaluator.evaluate({ artifacts: stubArtifacts, input: { repoRoot: tmp } });
     const fired = written.findLast((report) => report.header.artifactType === "FindingReport")
       .findings.filter((f) => f.ruleId === "imports.noDistImports");
 
     assert.deepEqual(fired.map((f) => (f.subjects?.[0] ?? f.files?.[0]).split(":")[0]), ["src/app.ts"]);
 
-    // Without repo config (the corpus posture): the base law fires on both.
+    // Without repo config: vendor fires, the declared entrypoint remains quiet.
     await policy.policyEvaluator.evaluate({ artifacts: stubArtifacts, input: {} });
     const allFired = written.findLast((report) => report.header.artifactType === "FindingReport")
       .findings.filter((f) => f.ruleId === "imports.noDistImports");
 
-    assert.equal(allFired.length, 2);
+    assert.deepEqual(
+      allFired.map((f) => (f.subjects?.[0] ?? f.files?.[0]).split(":")[0]).sort(),
+      ["src/app.ts", "vendor/adapter.ts"],
+    );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

@@ -125,13 +125,23 @@ type FactLike = {
  * also reachability roots when present.
  */
 export function isFrameworkEntryPath(path: string): boolean {
+  const normalized = path.replace(/^\.\//u, "");
   const base = path.split("/").at(-1) ?? "";
 
-  if (/^(?:page|route|layout|loading|error|not-found|template|default|middleware|instrumentation)\.[jt]sx?$/.test(base)) {
+  if (/^(?:page|route|layout|loading|error|not-found|template|default|middleware|instrumentation)\.[cm]?[jt]sx?$/.test(base)) {
     return true;
   }
 
-  if (/(^|\/)pages\//.test(path)) {
+  if (/^(?:src\/)?app\//u.test(normalized)
+    && /^(?:robots|sitemap|manifest|icon|apple-icon|opengraph-image|twitter-image)\.[cm]?[jt]sx?$/u.test(base)) {
+    return true;
+  }
+
+  if (/(^|\/)pages\//.test(normalized)) {
+    return true;
+  }
+
+  if (/(^|\/)src\/theme\//.test(normalized) || /(^|\/)sidebars\.[cm]?[jt]s$/u.test(normalized)) {
     return true;
   }
 
@@ -254,6 +264,7 @@ export function evaluateDeadCode(input: {
   const reexportCountByFile = new Map<string, number>();
   const exportCountByFile = new Map<string, number>();
   const generatedSignalFiles = new Set<string>();
+  const declaredPublicApiFiles = new Set<string>();
   const importedFiles = new Set<string>();
 
   for (const fact of facts) {
@@ -263,6 +274,9 @@ export function evaluateDeadCode(input: {
 
     if (fact.kind === "content_signal" && fact.value.signal === "generatedFile") {
       generatedSignalFiles.add(fact.subject);
+    }
+    if (fact.kind === "content_signal" && fact.value.signal === "declaredPublicApi") {
+      declaredPublicApiFiles.add(fact.subject);
     }
 
     if (fact.kind === "reexport") {
@@ -388,6 +402,7 @@ export function evaluateDeadCode(input: {
       || isFrameworkEntryPath(file)
       || declaredRoots.includes(file)
       || wholeFileReferenced.has(file)
+      || declaredPublicApiFiles.has(file)
     ) {
       continue;
     }

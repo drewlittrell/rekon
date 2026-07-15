@@ -1,6 +1,7 @@
 import type { SemanticFileUnderstandingSeverity } from "@rekon/kernel-repo-model";
 
-export const SEMANTIC_DEBT_PROMPT_VERSION = "debt-judge-v1";
+export const SEMANTIC_DEBT_PROMPT_VERSION = "debt-judge-v3";
+export const SEMANTIC_DEBT_COERCION_VERSION = "debt-coercion-v3";
 export const SEMANTIC_DEBT_ELIGIBILITY_VERSION = "debt-eligibility-v3";
 export const SEMANTIC_DEBT_MAX_PROMPT_CHARS = 24000;
 
@@ -114,6 +115,11 @@ export function buildSemanticDebtJudgmentPrompt(input: {
   language?: string;
 }): string {
   const languageLine = input.language ? `Language: ${input.language}` : "";
+  const sourceLines = input.fileText.split(/\r?\n/u);
+  const lineNumberWidth = String(Math.max(1, sourceLines.length)).length;
+  const numberedSource = sourceLines
+    .map((line, index) => `${String(index + 1).padStart(lineNumberWidth, " ")} | ${line}`)
+    .join("\n");
   return [
     "Review this source file for repository intelligence concerns.",
     "",
@@ -130,7 +136,7 @@ export function buildSemanticDebtJudgmentPrompt(input: {
     "- low: small but concrete cleanup with direct evidence in the file.",
     "",
     "Common tech_debt patterns:",
-    "- Unused imports, unused exports, unreachable branches, or stale code paths.",
+    "- Unreachable branches or stale code paths whose lack of use is visible in this file.",
     '- Type-safety gaps such as "as any", non-null assertions, weak unknown handling, or string values where a union belongs.',
     "- Missing error handling, catch blocks that hide failures, or fallback behavior that masks broken states.",
     "- Hardcoded values such as tokens, keys, origins, URLs, feature names, or configuration constants.",
@@ -141,6 +147,11 @@ export function buildSemanticDebtJudgmentPrompt(input: {
     "Rules:",
     "- Judge only what is visible in this file.",
     "- Do not infer runtime behavior, hidden call sites, or external configuration.",
+    "- Do not report lint concerns. Repository-native static checks own unused imports, formatting, and similar diagnostics.",
+    "- Do not report missing runtime validation for typed database, repository, framework, or provider values unless this file visibly accepts an untrusted value at that boundary.",
+    "- Verify every named symbol against the complete file before claiming it is unused or missing.",
+    "- Security or credential-exposure concerns require a visible exposure path such as logging, persistence, serialization, or URL construction; handling a token is not itself exposure.",
+    "- Give the exact numbered line containing the evidence by copying its numeric prefix. If no exact evidence line exists, return no concern.",
     "- Do not report concerns for type-only files, generated files, factory wiring, or simple dependency composition unless there is concrete debt in the file.",
     "- Keep architecture concerns labeled architecture, dead-code concerns labeled dead_code, lint concerns labeled lint, and placeholder concerns labeled stub.",
     "- Use tech_debt only for concrete debt in the file, not for speculative redesign ideas.",
@@ -152,8 +163,8 @@ export function buildSemanticDebtJudgmentPrompt(input: {
     "",
     languageLine,
     `File path: ${input.filePath}`,
-    "File contents:",
-    input.fileText,
+    "Numbered file contents (line prefixes are metadata, not source):",
+    numberedSource,
   ]
     .filter((line) => line.length > 0)
     .join("\n");
@@ -162,7 +173,15 @@ export function buildSemanticDebtJudgmentPrompt(input: {
 export function categorizeDebtPattern(description: string): string | null {
   const text = description.toLowerCase();
   if (text.includes("hardcoded") || text.includes("hard-coded")) return "hardcoded_values";
-  if (text.includes("type assertion") || text.includes("as any") || text.includes(" any ")) return "type_assertion";
+  if (
+    text.includes("type assertion")
+    || text.includes("as any")
+    || text.includes("typed as any")
+    || text.includes("any annotation")
+    || text.includes("explicit any")
+    || text.includes("uses `any`")
+    || text.includes("using `any`")
+  ) return "type_assertion";
   if (text.includes("error handling") || text.includes("catch") || text.includes("try/catch")) return "error_handling";
   if (text.includes("magic number") || text.includes("magic string")) return "magic_values";
   if (text.includes("inline css") || text.includes("inline style")) return "inline_styles";
@@ -221,6 +240,18 @@ export function shouldIncludeDebtConcern(input: {
 }): boolean {
   const text = input.description.toLowerCase();
   const strong = hasStrongDebtSignal(input.description);
+  const assumesUnseenValidation = (
+    text.includes("database value")
+    || text.includes("persisted value")
+    || text.includes("repository value")
+    || text.includes("provider value")
+  ) && (
+    text.includes("without runtime validation")
+    || text.includes("instead of being narrowed or validated")
+    || text.includes("invalid or newly introduced persisted value")
+    || text.includes("unexpected persisted")
+  );
+  if (assumesUnseenValidation) return false;
   if (text.includes("may indicate") || text.includes("might indicate")) return false;
   if (input.severity === "low" && !strong) return false;
   if (hasSpeculativeDebtSignal(input.description) && !strong) return false;
@@ -248,7 +279,7 @@ export function coerceDebtConcerns(adapterResult: SemanticDebtAdapterResult): Se
         ? { line: concern.line }
         : {}),
       ...(pattern ? { pattern } : {}),
-      included: shouldIncludeDebtConcern({ severity, description }),
+      included: concern.type !== "lint" && shouldIncludeDebtConcern({ severity, description }),
     });
   }
 

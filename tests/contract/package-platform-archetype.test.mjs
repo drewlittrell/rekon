@@ -90,11 +90,16 @@ test("generated layer: exempt from naming and placement law; config stays in sco
 
   // Naming: the generated file never fires; the equivalent source file does.
   const naming = policy.evaluateNamingContract({
-    facts: [file("generated/api/PaymentsClient.ts"), file("core/payments/PaymentsClient.ts")],
+    facts: [
+      file("generated/api/Payments.ts"),
+      { kind: "symbol", subject: "generated/api/Payments.ts", value: { name: "PaymentsService", exported: true, symbolKind: "class" } },
+      file("core/payments/Payments.ts"),
+      { kind: "symbol", subject: "core/payments/Payments.ts", value: { name: "PaymentsService", exported: true, symbolKind: "class" } },
+    ],
     grammar,
   });
 
-  assert.deepEqual(naming.map((f) => f.files[0]), ["core/payments/PaymentsClient.ts"]);
+  assert.deepEqual(naming.map((f) => f.files[0]), ["core/payments/Payments.ts"]);
 
   // Placement: the forbidden suffix is skipped inside generated/.
   const placement = policy.evaluateGrammarDivergence({

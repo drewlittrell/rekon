@@ -20,6 +20,9 @@ const STABLE_SEMANTIC_DIAGNOSTIC_CODES = new Set([
 ]);
 const UNUSED_DECLARATION_DIAGNOSTIC_CODES = new Set([6133, 6138, 6192, 6196]);
 const UNREACHABLE_CODE_DIAGNOSTIC = 7027;
+const UNRESOLVED_ENVIRONMENT_DIAGNOSTIC_CODES = new Set([
+  2304, 2307, 2318, 2503, 2550, 2580, 2583, 2591, 2688, 2705, 2792, 2875, 7016, 7026,
+]);
 
 export function collectTypeScriptDiagnostics(
   repoRoot: string,
@@ -62,14 +65,36 @@ export function collectTypeScriptDiagnostics(
     purpose: NonNullable<TypeScriptDiagnosticEvidence["purpose"]>;
   }> = program.getSyntacticDiagnostics()
     .map((diagnostic) => ({ diagnostic, phase: "syntactic", purpose: "compiler-error" }));
-  for (const diagnostic of program.getSemanticDiagnostics()) {
+  const semanticDiagnostics = program.getSemanticDiagnostics();
+  const unresolvedFiles = new Set(
+    semanticDiagnostics
+      .filter((diagnostic) => UNRESOLVED_ENVIRONMENT_DIAGNOSTIC_CODES.has(diagnostic.code) && diagnostic.file)
+      .map((diagnostic) => resolve(diagnostic.file!.fileName)),
+  );
+  const projectEnvironmentResolved = program.getGlobalDiagnostics().length === 0 && unresolvedFiles.size === 0;
+
+  for (const diagnostic of semanticDiagnostics) {
+    const selfContainedLiteralAssignment = isSelfContainedLiteralAssignment(diagnostic);
+    if (diagnostic.file
+      && unresolvedFiles.has(resolve(diagnostic.file.fileName))
+      && !selfContainedLiteralAssignment) continue;
     if (STABLE_SEMANTIC_DIAGNOSTIC_CODES.has(diagnostic.code)) {
+      if (!projectEnvironmentResolved && !selfContainedLiteralAssignment) continue;
       selected.push({ diagnostic, phase: "semantic", purpose: "compiler-error" });
-    } else if (UNUSED_DECLARATION_DIAGNOSTIC_CODES.has(diagnostic.code) && diagnosticTargetsImport(diagnostic)) {
+    } else if (
+      projectEnvironmentResolved
+      && UNUSED_DECLARATION_DIAGNOSTIC_CODES.has(diagnostic.code)
+      && diagnosticTargetsImport(diagnostic)
+    ) {
       selected.push({ diagnostic, phase: "semantic", purpose: "unused-import" });
-    } else if (UNUSED_DECLARATION_DIAGNOSTIC_CODES.has(diagnostic.code) && diagnosticTargetsPrivateMember(diagnostic)) {
+    } else if (
+      projectEnvironmentResolved
+      && UNUSED_DECLARATION_DIAGNOSTIC_CODES.has(diagnostic.code)
+      && diagnosticTargetsPrivateMember(diagnostic)
+      && !diagnosticTargetsTypeBrand(diagnostic)
+    ) {
       selected.push({ diagnostic, phase: "semantic", purpose: "unused-private-member" });
-    } else if (diagnostic.code === UNREACHABLE_CODE_DIAGNOSTIC) {
+    } else if (projectEnvironmentResolved && diagnostic.code === UNREACHABLE_CODE_DIAGNOSTIC) {
       selected.push({ diagnostic, phase: "semantic", purpose: "unreachable-code" });
     }
   }
@@ -83,6 +108,35 @@ export function collectTypeScriptDiagnostics(
       || left.column - right.column
       || left.code - right.code,
     );
+}
+
+function isSelfContainedLiteralAssignment(diagnostic: ts.Diagnostic): boolean {
+  if (diagnostic.code !== 2322 || !diagnostic.file || diagnostic.start === undefined) return false;
+
+  let node: ts.Node | undefined = deepestNodeAt(diagnostic.file, diagnostic.start);
+  while (node && !ts.isVariableDeclaration(node) && !ts.isPropertyDeclaration(node)) {
+    node = node.parent;
+  }
+  if (!node?.type || !node.initializer) return false;
+
+  if (node.type.kind === ts.SyntaxKind.StringKeyword) {
+    return !ts.isStringLiteral(node.initializer) && !ts.isNoSubstitutionTemplateLiteral(node.initializer);
+  }
+  if (node.type.kind === ts.SyntaxKind.NumberKeyword) {
+    return !isNumericLiteral(node.initializer);
+  }
+  if (node.type.kind === ts.SyntaxKind.BooleanKeyword) {
+    return node.initializer.kind !== ts.SyntaxKind.TrueKeyword && node.initializer.kind !== ts.SyntaxKind.FalseKeyword;
+  }
+  if (node.type.kind === ts.SyntaxKind.BigIntKeyword) {
+    return !ts.isBigIntLiteral(node.initializer);
+  }
+  return false;
+}
+
+function isNumericLiteral(node: ts.Expression): boolean {
+  return ts.isNumericLiteral(node)
+    || (ts.isPrefixUnaryExpression(node) && ts.isNumericLiteral(node.operand));
 }
 
 function normalizeDiagnostic(
@@ -136,6 +190,19 @@ function diagnosticTargetsPrivateMember(diagnostic: ts.Diagnostic): boolean {
       if (node.name && ts.isPrivateIdentifier(node.name)) return true;
       return ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.PrivateKeyword) ?? false;
     }
+    node = node.parent;
+  }
+  return false;
+}
+
+function diagnosticTargetsTypeBrand(diagnostic: ts.Diagnostic): boolean {
+  if (!diagnostic.file || diagnostic.start === undefined) return false;
+  let node = deepestNodeAt(diagnostic.file, diagnostic.start);
+  while (node) {
+    if (ts.isPropertyDeclaration(node)) {
+      return !node.initializer && Boolean(node.exclamationToken) && Boolean(node.type);
+    }
+    if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) break;
     node = node.parent;
   }
   return false;

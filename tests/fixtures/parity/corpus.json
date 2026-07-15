@@ -4,7 +4,19 @@
       "id": "parity-fixture",
       "root": "./repos/parity-fixture",
       "classicOutput": "./classic/parity-fixture",
-      "classicFormat": "classic-v1"
+      "classicFormat": "classic-v1",
+      "evidenceCapture": {
+        "commands": [
+          "node --test --test-reporter=junit --test-reporter-destination=reports/junit.xml tests/native-check.test.mjs"
+        ],
+        "commandTimeoutMs": 30000,
+        "timeoutMs": 60000
+      },
+      "evidenceInputs": [
+        { "kind": "junit", "path": "reports/junit.xml", "verificationRun": "$capture" },
+        { "kind": "sarif", "path": "reports/security.sarif" },
+        { "kind": "osv", "path": "reports/osv.json" }
+      ]
     }
   ]
 }

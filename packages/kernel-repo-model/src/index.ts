@@ -7460,6 +7460,7 @@ export type SemanticDebtJudgmentPolicy = {
   model: string;
   effort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   promptVersion: string;
+  coercionVersion?: string;
   eligibilityVersion?: string;
 };
 
@@ -7560,6 +7561,9 @@ export function createSemanticDebtJudgmentReport(
         ? { effort: rawPolicy.effort }
         : {}),
       promptVersion: typeof rawPolicy.promptVersion === "string" ? rawPolicy.promptVersion : "",
+      ...(typeof rawPolicy.coercionVersion === "string" && rawPolicy.coercionVersion.length > 0
+        ? { coercionVersion: rawPolicy.coercionVersion }
+        : {}),
       ...(typeof rawPolicy.eligibilityVersion === "string" && rawPolicy.eligibilityVersion.length > 0
         ? { eligibilityVersion: rawPolicy.eligibilityVersion }
         : {}),
@@ -7620,6 +7624,9 @@ export function validateSemanticDebtJudgmentReport(
     }
     for (const key of ["provider", "model", "promptVersion"] as const) {
       pushRequiredStringIssue(issues, policy[key], `$.policy.${key}`);
+    }
+    if (policy.coercionVersion !== undefined && (typeof policy.coercionVersion !== "string" || policy.coercionVersion.length === 0)) {
+      issues.push({ path: "$.policy.coercionVersion", message: "Expected a non-empty string when present." });
     }
     if (policy.effort !== undefined && (typeof policy.effort !== "string" || !SEMANTIC_DEBT_EFFORTS.has(policy.effort))) {
       issues.push({ path: "$.policy.effort", message: "Expected one of none, low, medium, high, xhigh, or max." });

@@ -33,7 +33,16 @@ test("createRulebook normalizes rules", () => {
 test("validateRulebook rejects bad rules", () => {
   const result = validateRulebook({
     header: { ...header, artifactType: "EvidenceGraph" },
-    rules: [{ id: "", severity: "bad", message: "", source: "", appliesTo: [1] }],
+    rules: [{
+      id: "",
+      severity: "bad",
+      message: "",
+      source: "",
+      appliesTo: [1],
+      evaluator: "",
+      enabled: "yes",
+      options: [],
+    }],
   });
 
   assert.equal(result.ok, false);
@@ -44,5 +53,8 @@ test("validateRulebook rejects bad rules", () => {
     "$.rules[0].source",
     "$.rules[0].severity",
     "$.rules[0].appliesTo",
+    "$.rules[0].evaluator",
+    "$.rules[0].enabled",
+    "$.rules[0].options",
   ]);
 });

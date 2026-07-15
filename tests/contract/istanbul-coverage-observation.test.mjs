@@ -480,11 +480,14 @@ test("Vitest coverage planner executes through VerificationRun and binds automat
       "--framework", "vitest",
       "--test-path", "tests/service.test.ts",
       "--source-path", "src/service.ts",
+      "--config", "vitest.config.ts",
       "--json",
     ]).stdout);
     assert.equal(plan.framework, "vitest");
     assert.equal(plan.provider, "v8");
     assert.deepEqual(plan.targetPaths, ["src/service.ts"]);
+    assert.equal(plan.configPath, "vitest.config.ts");
+    assert.match(plan.command, /--config vitest\.config\.ts/);
     assert.equal(plan.boundaries.executedCommands, false);
     assert.equal(plan.boundaries.installedPackages, false);
     assert.match(plan.coveragePath, /^\.rekon\/cache\/coverage\/vitest\//);
@@ -624,6 +627,9 @@ async function writeFrameworkCoverageFixture(root, framework) {
   await mkdir(join(root, "src"), { recursive: true });
   await writeFile(join(root, "tests/service.test.ts"), "export {};\n", "utf8");
   await writeFile(join(root, "src/service.ts"), "export function service() { return 1; }\n", "utf8");
+  if (framework === "vitest") {
+    await writeFile(join(root, "vitest.config.ts"), "export default {};\n", "utf8");
+  }
   await writeFakeFrameworkPackage(root, framework, true);
 }
 

@@ -35,8 +35,8 @@ The package also exports validation helpers and normalization helpers for
 systems and paths. Intent consumers share `INTENT_TASK_KINDS`,
 `INTENT_IMPLEMENTATION_TASK_KINDS`, and their type guards so request kinds do
 not drift between assessment, preparation, and handoff generation.
-Semantic debt report policy records provider, model, effort,
-prompt version, and eligibility version so cached judgments retain their
+Semantic debt report policy records provider, model, effort, prompt version,
+coercion version, and eligibility version so cached judgments retain their
 execution provenance. Reports may summarize why files were excluded before
 provider judgment.
 `OwnershipMap` entries may identify their `basis` as `declared` or `inferred`.

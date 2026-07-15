@@ -23,12 +23,14 @@ const TEST_ARCHETYPE = {
   topology: {
     archetype: "test_layered",
     description: "route -> service -> domain",
-    requiredLayers: ["route", "service", "domain"],
+    requiredLayers: ["route", "service", "domain", "infra"],
     layerEdges: [
       { fromLayer: "route", toLayer: "service", required: true, forbidden: false },
       { fromLayer: "service", toLayer: "domain", required: true, forbidden: false },
       { fromLayer: "route", toLayer: "domain", required: false, forbidden: true },
       { fromLayer: "domain", toLayer: "service", required: false, forbidden: true },
+      { fromLayer: "service", toLayer: "infra", required: true, forbidden: false },
+      { fromLayer: "route", toLayer: "infra", required: false, forbidden: true },
     ],
     source: "topology-contract-inference.ts#test",
   },
@@ -36,6 +38,7 @@ const TEST_ARCHETYPE = {
     { id: "route", name: "Route", description: "", position: 0, paths: ["app/api/**"], source: "layers.ontology.yaml#layers.route" },
     { id: "service", name: "Service", description: "", position: 1, paths: ["services/**"], source: "layers.ontology.yaml#layers.service" },
     { id: "domain", name: "Domain", description: "", position: 2, paths: ["domain/**"], cannotImport: ["service"], source: "layers.ontology.yaml#layers.domain" },
+    { id: "infra", name: "Infra", description: "", position: 3, paths: ["infra/**"], source: "layers.ontology.yaml#layers.infra" },
   ],
 };
 
@@ -44,6 +47,11 @@ const edge = (source, resolvedTarget, extra = {}) => ({
   kind: "import_specifier",
   subject: `${source}:${resolvedTarget}:x`,
   value: { source, target: resolvedTarget, name: "x", local: "x", specifierKind: "named", resolvedTarget, ...extra },
+});
+const call = (source, targetFile, targetSymbol) => ({
+  kind: "call",
+  subject: `${source}:${targetFile}:${targetSymbol}`,
+  value: { source, targetFile, targetSymbol, callKind: "call", resolution: "import-binding" },
 });
 
 function grammarWith(ratified) {
@@ -153,6 +161,48 @@ test("gauntlet empty_constructor_stub: file shape alone never fires", () => {
   assert.deepEqual(findings, []);
 });
 
+test("composition seams do not count as route-to-infra bypasses", () => {
+  const route = "app/api/users/route.ts";
+  const builder = "app/api/users/buildProviders.ts";
+  const facts = [
+    ...BASE_FACTS,
+    file("infra/http/withRequestContext.ts"),
+    edge(route, "infra/http/withRequestContext.ts", { name: "withRequestContext" }),
+    call(route, "infra/http/withRequestContext.ts", "withRequestContext"),
+    file("infra/assemblies/main.ts"),
+    edge(route, "infra/assemblies/main.ts", { name: "getUserService" }),
+    call(route, "infra/assemblies/main.ts", "getUserService"),
+    file(builder),
+    { kind: "symbol", subject: builder, value: { name: "buildProviders", exported: true } },
+    file("infra/capabilities/buildBindings.ts"),
+    edge(builder, "infra/capabilities/buildBindings.ts", { name: "buildBindings" }),
+    call(builder, "infra/capabilities/buildBindings.ts", "buildBindings"),
+  ];
+
+  const bypasses = policy.evaluateGrammarDivergence({ facts, grammar: grammarWith(true) })
+    .filter((finding) => finding.payload.law.axis === "canonical_bypass");
+
+  assert.deepEqual(bypasses, []);
+});
+
+test("direct repository construction remains a route-to-infra bypass", () => {
+  const source = "app/api/users/auth.ts";
+  const target = "infra/repositories/UserRepository.ts";
+  const facts = [
+    ...BASE_FACTS,
+    file(source),
+    file(target),
+    edge(source, target, { name: "UserRepository" }),
+    { ...call(source, target, "UserRepository"), value: { ...call(source, target, "UserRepository").value, callKind: "construct" } },
+  ];
+
+  const bypasses = policy.evaluateGrammarDivergence({ facts, grammar: grammarWith(true) })
+    .filter((finding) => finding.payload.law.axis === "canonical_bypass");
+
+  assert.equal(bypasses.length, 1);
+  assert.deepEqual(bypasses[0].files, [source]);
+});
+
 test("non-production scope: the same violation in a test tree is excluded (classic parity)", () => {
   const facts = [
     ...BASE_FACTS,
@@ -175,15 +225,33 @@ test("non-production scope: the same violation in a test tree is excluded (class
     "src/devtools/d.ts",
     "src/dev/d.ts",
     "tests/fixtures/f.ts",
+    "packages/tool/__testfixtures__/input.ts",
+    "packages/tool/__tests_dts__/public-api.ts",
+    "packages/tool/testfixtures/output.ts",
+    "packages/tool/test-d/public-api.ts",
+    "packages/tool/type-tests/public-api.ts",
     "examples/e.ts",
     // WO-12: a top-level tests/ tree is non-production; the prior list
     // only matched the slash-prefixed "/tests/" form.
     "tests/visual/framework/VisualTestBase.ts",
+    "test/types/api.tst.ts",
+    "integration/http/server.ts",
+    "sample/01-app/src/main.ts",
+    "packages/create/template-react/src/main.tsx",
+    "templates/service/src/index.ts",
+    "playground/hmr/main.ts",
+    "docs/examples/config.js",
+    "bench/parser/index.ts",
+    "benchmarks/parser/index.ts",
+    ".yarn/releases/yarn.cjs",
   ]) {
     assert.equal(policy.isNonProductionPath(nonProd), true, `${nonProd} must be non-production`);
   }
 
   assert.equal(policy.isNonProductionPath("services/userService.ts"), false);
+  assert.equal(policy.isNonProductionPath("src/template-engine.ts"), false);
+  assert.equal(policy.isFrameworkEntryPath("website/sidebars.ts"), true);
+  assert.equal(policy.isFrameworkEntryPath("website/src/theme/DocPage/index.tsx"), true);
 });
 
 test("placement axis: base forbidden-type law fires on production files, not test files", () => {

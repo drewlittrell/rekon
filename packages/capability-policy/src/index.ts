@@ -1,7 +1,12 @@
+import { createHash } from "node:crypto";
+import { readFile, realpath } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
+
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import { type Assessment, createAssessmentReport } from "@rekon/kernel-assessments";
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import type { CapabilityContract, CapabilityMap, OwnershipMap } from "@rekon/kernel-repo-model";
+import { assertRulebook, type Rulebook } from "@rekon/kernel-rulebook";
 import { type Evaluator, defineCapability } from "@rekon/sdk";
 import { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
@@ -12,6 +17,7 @@ import { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticD
 import {
   ASYNC_ARRAY_CALLBACK_RULE_ID,
   ASYNC_PROMISE_EXECUTOR_RULE_ID,
+  EMPTY_SOURCE_FILE_RULE_ID,
   ERROR_SUPPRESSION_RULE_ID,
   FLOATING_PROMISE_RULE_ID,
   FOCUSED_TEST_RULE_ID,
@@ -19,6 +25,8 @@ import {
   TEST_ISOLATION_RULE_ID,
   TYPE_ESCAPE_RULE_ID,
   UNUSED_IMPORT_RULE_ID,
+  UNUSED_PRIVATE_MEMBER_RULE_ID,
+  UNREACHABLE_CODE_RULE_ID,
   evaluateSourceQualitySignals,
 } from "./source-quality.js";
 import { EMBEDDING_DUPLICATION_RULE_ID, evaluateEmbeddingDuplicationCandidates } from "./embedding-duplication.js";
@@ -37,6 +45,10 @@ import {
 import { GRAMMAR_DIVERGENCE_RULE_ID, evaluateGrammarDivergence, isNonProductionPath, loadWorkspacePackages } from "./grammar-divergence.js";
 import { SECURITY_SCANNER_RESULT_RULE_ID, evaluateSecurityScanReports } from "./security-scans.js";
 import { DEPENDENCY_VULNERABILITY_RULE_ID, evaluateDependencyAuditReports } from "./dependency-audits.js";
+import {
+  OWNERSHIP_DOES_NOT_OWN_EVALUATOR_ID,
+  evaluateDeclaredOwnershipRules,
+} from "./declared-ownership.js";
 
 export * from "./grammar-divergence.js";
 
@@ -50,9 +62,50 @@ type EvidenceGraphLike = {
   }>;
 };
 
+async function retainCurrentSemanticDebtEntries(reportLike: unknown, repoRoot: string): Promise<unknown> {
+  if (!reportLike || typeof reportLike !== "object" || Array.isArray(reportLike)) return reportLike;
+  const report = reportLike as { entries?: unknown };
+  if (!Array.isArray(report.entries)) return reportLike;
+
+  let physicalRoot: string;
+  try {
+    physicalRoot = await realpath(resolve(repoRoot));
+  } catch {
+    return { ...report, entries: [] };
+  }
+
+  const entries: unknown[] = [];
+  for (const entryLike of report.entries) {
+    if (!entryLike || typeof entryLike !== "object" || Array.isArray(entryLike)) continue;
+    const entry = entryLike as { path?: unknown; sha256?: unknown };
+    if (typeof entry.path !== "string" || entry.path.length === 0 || isAbsolute(entry.path)) continue;
+    if (typeof entry.sha256 !== "string" || entry.sha256.length === 0) continue;
+
+    const candidate = resolve(physicalRoot, entry.path);
+    const lexical = relative(physicalRoot, candidate);
+    if (lexical === ".." || lexical.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) continue;
+
+    try {
+      const physicalCandidate = await realpath(candidate);
+      const physical = relative(physicalRoot, physicalCandidate);
+      if (physical === ".." || physical.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) continue;
+      const content = await readFile(physicalCandidate);
+      const digest = createHash("sha256").update(content).digest("hex");
+      if (digest === entry.sha256) entries.push(entryLike);
+    } catch {
+      // Missing, unreadable, or replaced source cannot support a current claim.
+    }
+  }
+
+  return { ...report, entries };
+}
+
 export const BUILT_IN_POLICY_RULES = [
   "typescript.compilerDiagnostic",
   UNUSED_IMPORT_RULE_ID,
+  UNUSED_PRIVATE_MEMBER_RULE_ID,
+  UNREACHABLE_CODE_RULE_ID,
+  EMPTY_SOURCE_FILE_RULE_ID,
   TYPE_ESCAPE_RULE_ID,
   ERROR_SUPPRESSION_RULE_ID,
   PLACEHOLDER_IMPLEMENTATION_RULE_ID,
@@ -97,12 +150,15 @@ export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticD
 export {
   ASYNC_ARRAY_CALLBACK_RULE_ID,
   ASYNC_PROMISE_EXECUTOR_RULE_ID,
+  EMPTY_SOURCE_FILE_RULE_ID,
   ERROR_SUPPRESSION_RULE_ID,
   FLOATING_PROMISE_RULE_ID,
   FOCUSED_TEST_RULE_ID,
   PLACEHOLDER_IMPLEMENTATION_RULE_ID,
   TEST_ISOLATION_RULE_ID,
   UNUSED_IMPORT_RULE_ID,
+  UNUSED_PRIVATE_MEMBER_RULE_ID,
+  UNREACHABLE_CODE_RULE_ID,
   TYPE_ESCAPE_RULE_ID,
   evaluateSourceQualitySignals,
 } from "./source-quality.js";
@@ -133,6 +189,14 @@ export type { DeadCodeStats } from "./dead-code.js";
 export { loadDistImportExemptions, loadDeclaredRootGlobs, type DistImportExemption as DistImportExemptionEntry } from "./dead-code.js";
 export { SECURITY_SCANNER_RESULT_RULE_ID, evaluateSecurityScanReports } from "./security-scans.js";
 export { DEPENDENCY_VULNERABILITY_RULE_ID, evaluateDependencyAuditReports } from "./dependency-audits.js";
+export {
+  OWNERSHIP_DOES_NOT_OWN_EVALUATOR_ID,
+  evaluateDeclaredOwnershipRules,
+  type DeclaredOwnershipEvaluationInput,
+  type DeclaredOwnershipEvaluationResult,
+  type DeclaredOwnershipRuleOptions,
+  type DeclaredOwnershipRulebook,
+} from "./declared-ownership.js";
 
 export const policyEvaluator: Evaluator = {
   id: "@rekon/capability-policy.evaluator",
@@ -154,6 +218,12 @@ export const policyEvaluator: Evaluator = {
       Array.isArray(input?.disabledRules) ? input.disabledRules.filter((rule): rule is string => typeof rule === "string") : [],
     );
     const semanticDebtRef = (await artifacts.list("SemanticDebtJudgmentReport")).at(-1);
+    const semanticDebtReport = semanticDebtRef
+      ? await artifacts.read(semanticDebtRef)
+      : undefined;
+    const currentSemanticDebtReport = semanticDebtReport && evaluateRepoRoot
+      ? await retainCurrentSemanticDebtEntries(semanticDebtReport, evaluateRepoRoot)
+      : semanticDebtReport;
     const capabilityGraphRef = !disabledRules.has(EMBEDDING_DUPLICATION_RULE_ID)
       ? (await artifacts.list("CapabilityEvidenceGraph")).at(-1)
       : undefined;
@@ -161,9 +231,9 @@ export const policyEvaluator: Evaluator = {
       ? evaluateEmbeddingDuplicationCandidates(await artifacts.read(capabilityGraphRef), capabilityGraphRef)
       : [];
     const semanticDebtClaims =
-      !disabledRules.has(DEBT_SEMANTIC_RULE_ID) && semanticDebtRef
+      !disabledRules.has(DEBT_SEMANTIC_RULE_ID) && semanticDebtRef && currentSemanticDebtReport
         ? corroborateSemanticDebtClaims(
-            evaluateSemanticDebtClaims(await artifacts.read(semanticDebtRef), semanticDebtRef),
+            evaluateSemanticDebtClaims(currentSemanticDebtReport, semanticDebtRef),
             graph.facts,
             evidenceRef,
           )
@@ -177,6 +247,7 @@ export const policyEvaluator: Evaluator = {
     const dependencyAudits = !disabledRules.has(DEPENDENCY_VULNERABILITY_RULE_ID)
       ? await evaluateDependencyAuditReports(artifacts, evidenceRef)
       : { assessments: [], inputRefs: [] as ArtifactRef[] };
+    const declaredOwnership = await declaredOwnershipFindings(artifacts, disabledRules);
     const importGraph = !disabledRules.has(IMPORT_CYCLE_RULE_ID) || !disabledRules.has(DEPENDENCY_HUB_RULE_ID)
       ? await loadLatestImportGraph(artifacts)
       : undefined;
@@ -202,17 +273,22 @@ export const policyEvaluator: Evaluator = {
     const complexityAssessments = !disabledRules.has(FUNCTION_COMPLEXITY_RULE_ID)
       ? evaluateFunctionComplexity(graph.facts, evidenceRef, complexityCoverage)
       : [];
+    const grammarDivergence = !disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID)
+      ? await grammarDivergenceSignals(graph, input, artifacts, evidenceRef)
+      : { findings: [], assessments: [] };
+    const grammarFamily = !disabledRules.has(NAMING_CONTRACT_RULE_ID) || !disabledRules.has(ANTI_PATTERN_RULE_ID)
+      ? await grammarFamilySignals(graph, input, disabledRules, evidenceRef)
+      : { findings: [], assessments: [] };
     const findings = [
       ...(!disabledRules.has("typescript.compilerDiagnostic") ? typeScriptCompilerDiagnostics(graph, evidenceRef) : []),
       ...(!disabledRules.has("imports.noDistImports") ? noDistImports(graph, evidenceRef, distExemptions) : []),
       ...(!disabledRules.has("imports.noNodeModulesRelativeImports") ? noNodeModulesRelativeImports(graph, evidenceRef) : []),
       ...(!disabledRules.has("files.noGeneratedAsSource") ? noGeneratedAsSource(graph, evidenceRef) : []),
-      ...(!disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID) ? await grammarDivergenceFindings(graph, input, artifacts) : []),
+      ...grammarDivergence.findings,
       ...deadCodeResult.findings,
-      ...(!disabledRules.has(NAMING_CONTRACT_RULE_ID) || !disabledRules.has(ANTI_PATTERN_RULE_ID)
-        ? await grammarFamilyFindings(graph, input, disabledRules)
-        : []),
+      ...grammarFamily.findings,
       ...repositoryChecks.findings,
+      ...declaredOwnership.findings,
     ];
     const assessments: Assessment[] = [
       ...complexityAssessments,
@@ -247,12 +323,18 @@ export const policyEvaluator: Evaluator = {
       ...repositoryChecks.assessments,
       ...securityScans.assessments,
       ...dependencyAudits.assessments,
+      ...grammarDivergence.assessments,
+      ...grammarFamily.assessments,
     ].filter((assessment) => !repositoryChecks.promotedRootCauseKeys.has(assessment.rootCauseKey));
-    const findingInputRefs = uniqueRefs([evidenceRef, ...repositoryChecks.inputRefs]);
+    const findingInputRefs = uniqueRefs([
+      evidenceRef,
+      ...repositoryChecks.inputRefs,
+      ...declaredOwnership.inputRefs,
+    ]);
     const assessmentInputRefs = uniqueRefs([
       evidenceRef,
       ...overlapResult.inputRefs,
-      ...(semanticDebtRef ? [semanticDebtRef] : []),
+      ...(semanticDebtClaims.length > 0 && semanticDebtRef ? [semanticDebtRef] : []),
       ...(capabilityGraphRef ? [capabilityGraphRef] : []),
       ...repositoryChecks.inputRefs,
       ...securityScans.inputRefs,
@@ -312,6 +394,7 @@ export default defineCapability({
       "CapabilityNormalizationReport",
       "CapabilityMap",
       "OwnershipMap",
+      "Rulebook",
       "CapabilityContract",
       "VerificationRun",
       "TestReport",
@@ -343,6 +426,11 @@ export default defineCapability({
         id: "capability-model.changed",
         description: "Capability overlap assessments are invalid when normalized capabilities, fallback models, ownership, or sharing declarations change.",
         inputs: ["CapabilityNormalizationReport", "CapabilityMap", "OwnershipMap", "CapabilityContract"],
+      },
+      {
+        id: "rulebook.changed",
+        description: "Declared ownership findings are invalid when repository law or its projected capability and ownership inputs change.",
+        inputs: ["Rulebook", "CapabilityMap", "OwnershipMap"],
       },
       {
         id: "verification-run.changed",
@@ -381,6 +469,48 @@ export default defineCapability({
     registry.evaluator(policyEvaluator);
   },
 });
+
+async function declaredOwnershipFindings(
+  artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
+  disabledRules: ReadonlySet<string>,
+): Promise<{ findings: Finding[]; inputRefs: ArtifactRef[] }> {
+  const rulebookRefs = await artifacts.list("Rulebook");
+  const capabilityMapRef = (await artifacts.list("CapabilityMap")).at(-1);
+  if (rulebookRefs.length === 0 || !capabilityMapRef) return { findings: [], inputRefs: [] };
+
+  const selectedBySupersession = new Map<string, { ref: ArtifactRef; rulebook: Rulebook }>();
+  const unsuperseded: Array<{ ref: ArtifactRef; rulebook: Rulebook }> = [];
+  for (const ref of rulebookRefs) {
+    const rulebook = assertRulebook(await artifacts.read(ref));
+    const supersessionKey = rulebook.header.supersession?.key;
+    if (!supersessionKey) {
+      unsuperseded.push({ ref, rulebook });
+      continue;
+    }
+    const previous = selectedBySupersession.get(supersessionKey);
+    if (!previous || previous.rulebook.header.generatedAt.localeCompare(rulebook.header.generatedAt) < 0) {
+      selectedBySupersession.set(supersessionKey, { ref, rulebook });
+    }
+  }
+  const rulebooks = [
+    ...unsuperseded,
+    ...selectedBySupersession.values(),
+  ];
+
+  const ownershipMapRef = (await artifacts.list("OwnershipMap")).at(-1);
+  return evaluateDeclaredOwnershipRules({
+    rulebooks,
+    capabilityMap: await artifacts.read(capabilityMapRef) as CapabilityMap,
+    capabilityMapRef,
+    ...(ownershipMapRef
+      ? {
+          ownershipMap: await artifacts.read(ownershipMapRef) as OwnershipMap,
+          ownershipMapRef,
+        }
+      : {}),
+    disabledRules,
+  });
+}
 
 // WO-9: compile the repo's effective grammar (ratification decided by the
 // repo's own overrides config - jurisdiction is the repo's, never ours),
@@ -511,11 +641,27 @@ function uniqueRefs(refs: ArtifactRef[]): ArtifactRef[] {
 
 // WO-14 E + F share the divergence detector's grammar + vocabulary context
 // (one compile per evaluation, the WO-13 single-path discipline).
-async function grammarFamilyFindings(
+type GrammarPolicySignals = { findings: Finding[]; assessments: Assessment[] };
+
+function classifyGrammarSignals(findings: Finding[], evidenceRef: ArtifactRef): GrammarPolicySignals {
+  const result: GrammarPolicySignals = { findings: [], assessments: [] };
+  for (const finding of findings) {
+    const payload = (finding as Finding & { payload?: { law?: { packId?: unknown; axis?: unknown } } }).payload;
+    // Base grammar is vocabulary for declared packs, not repository law by
+    // itself. Emitting generic naming or console opinions without a local or
+    // ratified declaration creates noise in established repositories.
+    if (payload?.law?.packId === "grammar-base") continue;
+    result.findings.push(finding);
+  }
+  return result;
+}
+
+async function grammarFamilySignals(
   graph: EvidenceGraphLike,
   input: Record<string, unknown> | undefined,
   disabledRules: Set<string>,
-): Promise<Finding[]> {
+  evidenceRef: ArtifactRef,
+): Promise<GrammarPolicySignals> {
   const repo = input?.repo as { root?: string } | undefined;
   const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
   const overrides = repoRoot ? loadGrammarOverrides(repoRoot) : { overrides: null, path: null };
@@ -541,14 +687,15 @@ async function grammarFamilyFindings(
     }
   }
 
-  return [
+  const findings = [
     ...(!disabledRules.has(NAMING_CONTRACT_RULE_ID)
       ? evaluateNamingContract({ facts: graph.facts, grammar, vocabularyNouns })
       : []),
     ...(!disabledRules.has(ANTI_PATTERN_RULE_ID)
       ? evaluateAntiPatterns({ facts: graph.facts, grammar })
       : []),
-  ];
+  ].map((finding) => ({ ...finding, evidence: uniqueRefs([...(finding.evidence ?? []), evidenceRef]) }));
+  return classifyGrammarSignals(findings, evidenceRef);
 }
 
 async function deadCodeFindings(
@@ -595,18 +742,13 @@ async function deadCodeFindings(
 
   for (const signal of signals) {
     const payload = (signal as Finding & { payload?: { mode?: unknown; reachableFromRoots?: unknown } }).payload;
-    const provenUnreachable = payload?.mode === "reachability" && payload.reachableFromRoots === false;
-    if (provenUnreachable) {
-      findings.push(signal);
-      continue;
-    }
     risks.push(assessmentFromFinding(signal, {
       kind: "risk",
-      verification: "corroborated",
-      confidence: payload?.mode === "reachability" ? 0.8 : 0.65,
+      verification: payload?.mode === "reachability" ? "corroborated" : "unverified",
+      confidence: payload?.mode === "reachability" ? 0.75 : 0.65,
       evidence: [evidenceRef],
       rationale: payload?.mode === "reachability"
-        ? "The export has no resolved consumer, but the containing file remains reachable from a declared root."
+        ? "The export has no resolved consumer and the file is outside the declared root graph, but dynamic or external entry points may be incomplete."
         : "No complete declared-root reachability proof is available; dynamic or external consumers may exist.",
     }));
   }
@@ -614,11 +756,12 @@ async function deadCodeFindings(
   return { findings, risks };
 }
 
-async function grammarDivergenceFindings(
+async function grammarDivergenceSignals(
   graph: EvidenceGraphLike,
   input: Record<string, unknown> | undefined,
   artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
-): Promise<Finding[]> {
+  evidenceRef: ArtifactRef,
+): Promise<GrammarPolicySignals> {
   const repo = input?.repo as { root?: string } | undefined;
   const repoRoot = typeof repo?.root === "string" ? repo.root : undefined;
   const overrides = repoRoot ? loadGrammarOverrides(repoRoot) : { overrides: null, path: null };
@@ -652,7 +795,7 @@ async function grammarDivergenceFindings(
     }
   }
 
-  return evaluateGrammarDivergence({
+  const findings = evaluateGrammarDivergence({
     facts: graph.facts,
     grammar,
     ownershipEntries: ownership?.entries ?? [],
@@ -661,7 +804,8 @@ async function grammarDivergenceFindings(
     // WO-18: the package-boundary axis reads the workspace package table
     // (inert unless the package-platform archetype is findings-eligible).
     workspacePackages: repoRoot ? await loadWorkspacePackages(repoRoot) : undefined,
-  });
+  }).map((finding) => ({ ...finding, evidence: uniqueRefs([...(finding.evidence ?? []), evidenceRef]) }));
+  return classifyGrammarSignals(findings, evidenceRef);
 }
 
 function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef, exemptions: ReadonlyArray<DistImportExemption> = []): Finding[] {
@@ -670,10 +814,22 @@ function noDistImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef, exemp
   // fixtures simulate violations by design). Repo-jurisdiction config.
   const exemptMatchers = exemptions.map((e) => globLikeToRegExp(e.glob));
   const exempt = (fact: { subject: string }) => exemptMatchers.some((re) => re.test(fact.subject.split(":")[0] ?? ""));
+  const entryPoints = new Set(
+    graph.facts
+      .filter((fact) => fact.kind === "entry_point" && typeof fact.value.path === "string")
+      .map((fact) => fact.value.path as string),
+  );
 
   return graph.facts
-    .filter((fact) => fact.kind === "import" && typeof fact.value.target === "string" && /(^|\/)dist(\/|$)/.test(fact.value.target))
+    .filter((fact) => fact.kind === "import"
+      && typeof fact.value.target === "string"
+      && /^\.\.?\//.test(fact.value.target)
+      && /(^|\/)dist(\/|$)/.test(fact.value.target))
     .filter((fact) => !exempt(fact))
+    .filter((fact) => {
+      const source = typeof fact.value.source === "string" ? fact.value.source : fact.subject.split(":")[0] ?? "";
+      return !isNonProductionPath(source) && !entryPoints.has(source);
+    })
     .map((fact) => finding("imports.noDistImports", "import", "medium", "Import points at dist output", "Import source files instead of generated dist output.", fact, evidenceRef));
 }
 
@@ -715,7 +871,14 @@ function typeScriptCompilerDiagnostics(graph: EvidenceGraphLike, evidenceRef: Ar
 
 function noNodeModulesRelativeImports(graph: EvidenceGraphLike, evidenceRef: ArtifactRef): Finding[] {
   return graph.facts
-    .filter((fact) => fact.kind === "import" && typeof fact.value.target === "string" && fact.value.target.includes("node_modules"))
+    .filter((fact) => fact.kind === "import"
+      && typeof fact.value.target === "string"
+      && /^\.\.?\//.test(fact.value.target)
+      && /(^|\/)node_modules(\/|$)/.test(fact.value.target))
+    .filter((fact) => {
+      const source = typeof fact.value.source === "string" ? fact.value.source : fact.subject.split(":")[0] ?? "";
+      return !isNonProductionPath(source);
+    })
     .map((fact) => finding("imports.noNodeModulesRelativeImports", "import", "medium", "Import reaches into node_modules by path", "Use package imports instead of relative node_modules paths.", fact, evidenceRef));
 }
 

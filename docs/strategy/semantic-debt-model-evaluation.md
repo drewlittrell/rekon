@@ -10,7 +10,7 @@ own semantic-claim categories.
 
 The corpus contains concrete debt examples, clean files, and routing cases for
 architecture, dead code, lint, and generated code. Each model receives the same
-`debt-judge-v1` prompt and JSON schema. Results pass through Rekon's production
+`debt-judge-v3` prompt and JSON schema. Results pass through Rekon's production
 `coerceDebtConcerns()` filter before scoring.
 Only included `tech_debt` concerns count as a positive debt prediction; all
 preserved concern categories remain visible in the evaluation record.
@@ -34,8 +34,12 @@ Production handling is staged:
    Unchanged judgments remain reusable across eligibility revisions when the
    provider, model, effort, and prompt contract are unchanged and the file is
    still eligible.
-2. `debt-judge-v1` records model judgment with provider, model, effort, prompt
-   version, file digest, reuse state, and fallback warnings.
+2. `debt-judge-v3` records model judgment with provider, model, effort, prompt
+   version, coercion version, file digest, reuse state, and fallback warnings.
+   Source is line numbered for exact evidence attribution, and
+   missing-validation claims must show the untrusted boundary in the judged
+   file. Coercion versioning invalidates reused entries when deterministic
+   filtering or pattern tagging changes without changing the model prompt.
 3. Policy may corroborate a claim with an exact deterministic signal family.
    Corroboration changes evidence basis to mixed; it does not create a finding.
 4. The kernel promotion rule separately requires applicable law, reproducible
@@ -74,12 +78,19 @@ the corpus version, and counts. The local corpus path is not written to output.
 
 ## Production profiles
 
-The three-repeat evaluation selected two OpenAI Responses profiles:
+The three-repeat `debt-judge-v3` evaluation selected two OpenAI Responses
+profiles:
 
 - Default: `gpt-5.6-luna` with `low` effort. It had the strongest qualifying
   quality result and stable predictions across all repeated cases.
 - Economy: `gpt-5.4-nano` with `none` effort. It retained materially better
   debt recall than the prior small-model baseline at lower cost than Luna.
+
+Across 54 attempts per profile, Luna reached 1.00 precision, 0.875 recall, and
+0.933 F1 with a 1.00 stable-case rate. Nano reached 1.00 precision, 0.75 recall,
+and 0.857 F1 with a 1.00 stable-case rate. `gpt-5.4-mini` was dominated by both.
+A one-repeat cross-provider pass found no quality gain from Claude Haiku 4.5 or
+Claude Sonnet 5 at their higher measured cost, so neither replaced the default.
 
 `rekon scan` uses the default profile for semantic-debt judgment. Select the
 economy profile explicitly:
@@ -92,3 +103,19 @@ The overrides are also available as `REKON_SEMANTIC_DEBT_MODEL` and
 `REKON_SEMANTIC_DEBT_EFFORT`. Model and effort are recorded in
 `SemanticDebtJudgmentReport.policy` and participate in report reuse. The
 semantic-debt-specific options do not alter other LLM callers.
+
+For source-grounded calibration, repeat `--semantic-debt-file-path` to judge
+specific repository files without spending the file budget on lexicographically
+earlier candidates:
+
+```sh
+rekon scan \
+  --semantic-files off \
+  --semantic-debt required \
+  --semantic-debt-file-limit 2 \
+  --semantic-debt-file-path src/service.ts \
+  --semantic-debt-file-path src/adapter.ts
+```
+
+Targeted paths do not bypass repository containment, semantic-debt eligibility,
+digest-based reuse, or artifact validation.

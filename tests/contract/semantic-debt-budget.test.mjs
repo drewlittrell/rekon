@@ -84,6 +84,68 @@ test("semantic debt file limit caps the reusable report instead of expanding on 
   }
 });
 
+test("repeatable semantic debt file paths target only the requested eligible files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-semantic-targets-"));
+  const requests = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => { body += chunk; });
+    request.on("end", () => {
+      requests.push(JSON.parse(body));
+      response.statusCode = 200;
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({
+        model: "target-test-model",
+        output: [{
+          type: "message",
+          content: [{ type: "output_text", text: '{"concerns":[]}' }],
+        }],
+        usage: { input_tokens: 10, output_tokens: 2 },
+      }));
+    });
+  });
+
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    for (const name of ["a.ts", "b.ts", "c.ts"]) {
+      await writeFile(join(root, "src", name), `export const ${name[0]} = ${JSON.stringify(name)};\n`);
+    }
+    const baseUrl = await listen(server);
+    const args = [
+      "scan",
+      "--root", root,
+      "--json",
+      "--semantic-files", "off",
+      "--semantic-debt", "required",
+      "--semantic-debt-model", "target-test-model",
+      "--semantic-debt-file-limit", "2",
+      "--semantic-debt-file-path", "src/c.ts",
+      "--semantic-debt-file-path", "src/a.ts",
+      "--semantic-debt-file-path", "src/c.ts",
+    ];
+    const env = {
+      ...process.env,
+      OPENAI_API_KEY: "test-key",
+      REKON_LLM_BASE_URL: `${baseUrl}/v1`,
+      REKON_LLM_ENABLED: "true",
+      REKON_SEMANTIC: "auto",
+    };
+
+    const output = JSON.parse(await runCli(args, env));
+    assert.equal(output.semanticDebt.judged, 2);
+    assert.equal(requests.length, 2);
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const latestRef = (await store.list("SemanticDebtJudgmentReport")).at(-1);
+    const latest = await store.read(latestRef);
+    assert.deepEqual(latest.entries.map((entry) => entry.path), ["src/a.ts", "src/c.ts"]);
+  } finally {
+    await new Promise((resolveClose) => server.close(() => resolveClose()));
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 function listen(server) {
   return new Promise((resolveListen, rejectListen) => {
     server.once("error", rejectListen);

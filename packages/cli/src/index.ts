@@ -171,6 +171,7 @@ import modelCapability, {
   coerceDebtConcerns,
   SEMANTIC_DEBT_JUDGMENT_JSON_SCHEMA,
   SEMANTIC_DEBT_PROMPT_VERSION,
+  SEMANTIC_DEBT_COERCION_VERSION,
   SEMANTIC_DEBT_ELIGIBILITY_VERSION,
   SEMANTIC_DEBT_MAX_PROMPT_CHARS,
   evaluateSemanticDebtEligibility,
@@ -260,6 +261,12 @@ import {
   validateArtifactIndex,
 } from "@rekon/runtime";
 import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  createRulebook,
+  validateRulebook,
+  type Rule,
+  type Rulebook,
+} from "@rekon/kernel-rulebook";
 import { runMcpServer } from "@rekon/mcp";
 import { buildDocsFreshnessReport, renderDocsIndex } from "@rekon/capability-docs";
 import {
@@ -744,6 +751,9 @@ export async function main(argv: string[]): Promise<void> {
     const semanticDebtEffort = parsed.flags["semantic-debt-effort"] === undefined
       ? undefined
       : normalizeSemanticDebtEffort(parsed.flags["semantic-debt-effort"], "rekon scan --semantic-debt-effort");
+    const semanticDebtFilePaths = parseRepeatableFlag(parsed.flags["semantic-debt-file-path"])
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
     const semanticFilePath =
       typeof parsed.flags["semantic-file-path"] === "string" ? String(parsed.flags["semantic-file-path"]).trim() : "";
     const semanticChangedOnly = parsed.flags["semantic-changed-only"] === true;
@@ -773,6 +783,7 @@ export async function main(argv: string[]): Promise<void> {
       llmModel: semanticDebtLlmModel,
       llmEffort: semanticDebtEffort,
       fileLimit: semanticDebtFileLimit,
+      filePaths: semanticDebtFilePaths,
     });
 
     if (semanticDebtLayer.exitNonZero && semanticDebtLayer.summary.providerAvailable === false) {
@@ -810,10 +821,36 @@ export async function main(argv: string[]): Promise<void> {
       return;
     }
 
-    // Run the shared substrate pipeline — identical to `rekon refresh` with no
-    // skips, so scan produces the same substrate refresh produces. Semantic debt
-    // runs before this so the policy evaluator can lift the current report.
-    const refresh = await runRefresh(root, {});
+    // Produce semantic file evidence before the substrate pipeline so the
+    // current scan's capability graph and model projections can consume it.
+    // Required-mode failures still leave the deterministic refresh available,
+    // but the command exits non-zero and reports the incomplete semantic layer.
+    let semanticLayer: SemanticScanLayerResult = {
+      summary: { mode: "off", selected: 0, written: 0, reused: 0, skipped: 0, failed: 0 },
+      exitNonZero: false,
+      artifacts: [],
+    };
+    if (semanticFilesMode !== "off") {
+      const semanticStore = createLocalArtifactStore(root);
+      await semanticStore.init();
+      semanticLayer = await runSemanticScanLayer({
+        root,
+        store: semanticStore,
+        mode: semanticFilesMode,
+        llmProvider: semanticLlmProvider,
+        llmModel: semanticLlmModel,
+        fileLimit: semanticFileLimit,
+        filePath: semanticFilePath,
+        changedOnly: semanticChangedOnly,
+        explicitlyRequested: semanticFilesFlagRaw !== undefined,
+      });
+    }
+
+    // Run the shared substrate pipeline. Model-layer artifacts produced or
+    // reused above are explicit members of this scan's snapshot lineage.
+    const refresh = await runRefresh(root, {
+      seedArtifactRefs: [...semanticDebtLayer.artifacts, ...semanticLayer.artifacts],
+    });
 
     const detectionStore = createLocalArtifactStore(root);
     await detectionStore.init();
@@ -831,26 +868,6 @@ export async function main(argv: string[]): Promise<void> {
     const stateAfter: RekonWorkspaceState = snapshotReady
       ? "snapshot_ready"
       : "initialized_without_snapshot";
-
-    let semanticLayer: SemanticScanLayerResult = {
-      summary: { mode: "off", selected: 0, written: 0, reused: 0, skipped: 0, failed: 0 },
-      exitNonZero: false,
-    };
-    if (semanticFilesMode !== "off") {
-      const semanticStore = createLocalArtifactStore(root);
-      await semanticStore.init();
-      semanticLayer = await runSemanticScanLayer({
-        root,
-        store: semanticStore,
-        mode: semanticFilesMode,
-        llmProvider: semanticLlmProvider,
-        llmModel: semanticLlmModel,
-        fileLimit: semanticFileLimit,
-        filePath: semanticFilePath,
-        changedOnly: semanticChangedOnly,
-        explicitlyRequested: semanticFilesFlagRaw !== undefined,
-      });
-    }
 
     const scanOutput = {
       command: "scan" as const,
@@ -3632,6 +3649,10 @@ export async function main(argv: string[]): Promise<void> {
     const commandName = "rekon checks ingest";
     const junitPath = typeof parsed.flags.junit === "string" ? parsed.flags.junit.trim() : "";
     const eslintPath = typeof parsed.flags["eslint-json"] === "string" ? parsed.flags["eslint-json"].trim() : "";
+    const verificationRunFlag = parsed.flags["verification-run"];
+    if (verificationRunFlag !== undefined && typeof verificationRunFlag !== "string") {
+      throw new Error(`${commandName} requires exactly one ref after --verification-run.`);
+    }
     if ([junitPath, eslintPath].filter(Boolean).length !== 1) {
       throw new Error(`${commandName} requires exactly one of --junit <report.xml> or --eslint-json <report.json>.`);
     }
@@ -3649,6 +3670,13 @@ export async function main(argv: string[]): Promise<void> {
       digest: evidenceEntry.digest,
       schemaVersion: evidenceEntry.schemaVersion ?? "0.1.0",
     };
+    const linkedVerificationRun = await resolveOptionalIngestionVerificationRun(
+      store,
+      verificationRunFlag,
+      commandName,
+      evidenceGraph.header.subject.repoId,
+    );
+    const inputRefs = linkedVerificationRun ? [evidenceRef, linkedVerificationRun.ref] : [evidenceRef];
     const sourcePath = junitPath || eslintPath;
     const sourceKind = junitPath ? "JUnit XML" : "ESLint JSON";
     const reportFile = await resolveReadableRepoFile(root, sourcePath, commandName, `${sourceKind} report`);
@@ -3662,11 +3690,16 @@ export async function main(argv: string[]): Promise<void> {
       generatedAt: new Date().toISOString(),
       subject: evidenceGraph.header.subject,
       producer: { id: "@rekon/cli.checks-ingest", version: "1.0.0" },
-      inputRefs: [evidenceRef],
+      inputRefs,
       freshness: { status: "fresh" },
       provenance: {
         confidence: 1,
-        notes: [`Normalized from repository-local ${sourceKind} without executing the tool or persisting the raw payload.`],
+        notes: [
+          `Normalized from repository-local ${sourceKind} without executing the tool or persisting the raw payload.`,
+          ...(linkedVerificationRun
+            ? [`Associated with explicitly selected ${linkedVerificationRun.ref.type}:${linkedVerificationRun.ref.id}.`]
+            : []),
+        ],
       },
     };
     const commonInput = { repoRoot: resolve(root), sourcePath: reportFile.relativePath, sourceDigest: digest, header };
@@ -3703,6 +3736,10 @@ export async function main(argv: string[]): Promise<void> {
     }
     const packageLockFlag = typeof parsed.flags["package-lock"] === "string" ? parsed.flags["package-lock"].trim() : "";
     if (packageLockFlag && !npmAuditPath) throw new Error(`${commandName} accepts --package-lock only with --npm-audit.`);
+    const verificationRunFlag = parsed.flags["verification-run"];
+    if (verificationRunFlag !== undefined && typeof verificationRunFlag !== "string") {
+      throw new Error(`${commandName} requires exactly one ref after --verification-run.`);
+    }
 
     const store = createLocalArtifactStore(root);
     await store.init();
@@ -3721,6 +3758,13 @@ export async function main(argv: string[]): Promise<void> {
       digest: evidenceEntry.digest,
       schemaVersion: evidenceEntry.schemaVersion ?? "0.1.0",
     };
+    const linkedVerificationRun = await resolveOptionalIngestionVerificationRun(
+      store,
+      verificationRunFlag,
+      commandName,
+      evidenceGraph.header.subject.repoId,
+    );
+    const inputRefs = linkedVerificationRun ? [evidenceRef, linkedVerificationRun.ref] : [evidenceRef];
 
     if (dependencyInputs.length === 1) {
       const sourcePath = npmAuditPath || pnpmAuditPath || yarnAuditPath || osvPath;
@@ -3764,11 +3808,16 @@ export async function main(argv: string[]): Promise<void> {
         generatedAt: new Date().toISOString(),
         subject: evidenceGraph.header.subject,
         producer: { id: "@rekon/cli.security-ingest", version: "1.0.0" },
-        inputRefs: [evidenceRef],
+        inputRefs,
         freshness: { status: "fresh" },
         provenance: {
           confidence: npmAuditPath ? (lockfile ? 1 : 0.7) : 0.85,
-          notes: [`Normalized from repository-local ${sourceKind} output without executing the scanner or persisting the raw payload.`],
+          notes: [
+            `Normalized from repository-local ${sourceKind} output without executing the scanner or persisting the raw payload.`,
+            ...(linkedVerificationRun
+              ? [`Associated with explicitly selected ${linkedVerificationRun.ref.type}:${linkedVerificationRun.ref.id}.`]
+              : []),
+          ],
         },
       };
       const commonInput = {
@@ -3818,11 +3867,16 @@ export async function main(argv: string[]): Promise<void> {
         generatedAt: new Date().toISOString(),
         subject: evidenceGraph.header.subject,
         producer: { id: "@rekon/cli.security-ingest", version: "1.0.0" },
-        inputRefs: [evidenceRef],
+        inputRefs,
         freshness: { status: "fresh" },
         provenance: {
           confidence: 1,
-          notes: ["Normalized from repository-local SARIF 2.1.0 without executing the scanner."],
+          notes: [
+            "Normalized from repository-local SARIF 2.1.0 without executing the scanner.",
+            ...(linkedVerificationRun
+              ? [`Associated with explicitly selected ${linkedVerificationRun.ref.type}:${linkedVerificationRun.ref.id}.`]
+              : []),
+          ],
         },
       },
     });
@@ -3861,6 +3915,7 @@ export async function main(argv: string[]): Promise<void> {
       await runtime.runObserve();
     }
 
+    await syncConfiguredRulebook(root, runtime.artifacts);
     const refs = await runtime.runEvaluate({
       evaluatorId,
       input: parseInputJsonFlag(parsed.flags["input-json"]),
@@ -3877,6 +3932,7 @@ export async function main(argv: string[]): Promise<void> {
       await runtime.runObserve();
     }
 
+    await syncConfiguredRulebook(root, runtime.artifacts);
     const refs = await runtime.runEvaluate();
     writeOutput({ artifacts: refs }, json);
     return;
@@ -4914,8 +4970,9 @@ export async function main(argv: string[]): Promise<void> {
     }
 
     const existingFindings = await runtime.artifacts.list("FindingReport");
+    const rulebookSync = await syncConfiguredRulebook(root, runtime.artifacts);
 
-    if (existingFindings.length === 0) {
+    if (existingFindings.length === 0 || rulebookSync.changed) {
       await runtime.runEvaluate();
     }
 
@@ -9101,6 +9158,7 @@ export async function main(argv: string[]): Promise<void> {
     const testPathValue = parsed.flags["test-path"];
     const sourcePathValues = parseRepeatableFlag(parsed.flags["source-path"]);
     const providerValue = parsed.flags.provider;
+    const configValue = parsed.flags.config;
     if (typeof frameworkValue !== "string" || frameworkValue.trim().length === 0) {
       throw new Error(`${commandName} requires --framework vitest|jest.`);
     }
@@ -9113,11 +9171,17 @@ export async function main(argv: string[]): Promise<void> {
     if (providerValue !== undefined && typeof providerValue !== "string") {
       throw new Error(`${commandName} requires exactly one value after --provider.`);
     }
+    if (configValue !== undefined && typeof configValue !== "string") {
+      throw new Error(`${commandName} requires exactly one value after --config.`);
+    }
     const framework = frameworkValue.trim();
     if (framework !== "vitest" && framework !== "jest") {
       throw new Error(`${commandName} supports --framework vitest or --framework jest.`);
     }
     const testFile = await resolveReadableRepoFile(root, testPathValue.trim(), commandName, "test file");
+    const configFile = typeof configValue === "string"
+      ? await resolveReadableRepoFile(root, configValue.trim(), commandName, "test-runner config")
+      : undefined;
     const targetFiles = await Promise.all(sourcePathValues.map((sourcePath) =>
       resolveReadableRepoFile(root, sourcePath.trim(), commandName, "source target")));
     const targetPaths = [...new Set(targetFiles.map((targetFile) => targetFile.relativePath))].sort();
@@ -9137,7 +9201,7 @@ export async function main(argv: string[]): Promise<void> {
         schemaVersion: "0.1.0",
         generatedAt,
         supersession: {
-          key: `coverage-plan:${createHash("sha256").update(`${framework}\n${provider}\n${testFile.relativePath}\n${targetPaths.join(",")}`).digest("hex")}`,
+          key: `coverage-plan:${createHash("sha256").update(`${framework}\n${provider}\n${testFile.relativePath}\n${configFile?.relativePath ?? ""}\n${targetPaths.join(",")}`).digest("hex")}`,
         },
         subject: { repoId: subjectRepoIdFromStore(store), paths: [testFile.relativePath, ...targetPaths] },
         producer: { id: "@rekon/cli.verify-coverage-plan", version: "1.0.0" },
@@ -9154,6 +9218,7 @@ export async function main(argv: string[]): Promise<void> {
       framework,
       provider,
       testPath: testFile.relativePath,
+      ...(configFile ? { configPath: configFile.relativePath } : {}),
       targetPaths,
       binaryPath,
     });
@@ -9164,6 +9229,7 @@ export async function main(argv: string[]): Promise<void> {
       framework,
       provider,
       testPath: testFile.relativePath,
+      ...(configFile ? { configPath: configFile.relativePath } : {}),
       targetPaths,
       binaryPath,
       coverageDirectory: planResult.coverageDirectory,
@@ -10100,12 +10166,11 @@ function createPlanSemanticNormalizationAdapter(
 }
 
 // ---------------------------------------------------------------------------
-// Semantic File Understanding scan layer (slice 147).
+// Semantic File Understanding scan layer.
 //
-// `rekon scan --semantic-files auto|required` integrates Semantic File
-// Understanding into the normal scan path as an EXPLICIT opt-in layer. Plain
-// `rekon scan` (and `--semantic-files off`) remain purely deterministic and
-// never call a provider. The layer reuses the shipped single-file builder and
+// `rekon scan` integrates Semantic File Understanding in auto mode when a
+// provider is available; `--semantic-files off` is deterministic and never
+// calls a provider. The layer reuses the shipped single-file builder and
 // router-bound adapter; it executes no commands, writes no source files, and
 // generates no embeddings. See docs/strategy/semantic-file-understanding-scan-integration.md.
 // ---------------------------------------------------------------------------
@@ -10122,10 +10187,20 @@ const SEMANTIC_SCAN_FILE_EXTENSIONS = new Set([
   ".yml",
   ".yaml",
 ]);
-const SEMANTIC_SCAN_EXCLUDED_DIRS = new Set(["node_modules", "dist", "build", "coverage", ".git", ".rekon"]);
+const SEMANTIC_SCAN_EXCLUDED_DIRS = new Set([
+  "node_modules",
+  ".next",
+  "dist",
+  "build",
+  "coverage",
+  ".git",
+  ".rekon",
+]);
 const SEMANTIC_SCAN_EXCLUDED_FILES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "npm-shrinkwrap.json"]);
 const SEMANTIC_SCAN_MAX_BYTES = 262144; // 256 KiB — skip large files conservatively.
 const SEMANTIC_SCAN_DEFAULT_FILE_LIMIT = 100;
+const SEMANTIC_FILE_DEFAULT_PROVIDER = "openai";
+const SEMANTIC_FILE_DEFAULT_MODEL = "gpt-5.6-luna";
 const SEMANTIC_DEBT_DEFAULT_MODEL = "gpt-5.6-luna";
 const SEMANTIC_DEBT_DEFAULT_EFFORT = "low";
 const SEMANTIC_DEBT_ECONOMY_MODEL = "gpt-5.4-nano";
@@ -10263,6 +10338,83 @@ async function collectCapabilityGraphCandidates(
   await walk(startDir ?? root);
   out.sort();
   return out;
+}
+
+async function buildRefreshCapabilityEvidenceGraph(
+  root: string,
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<{
+  ref: ArtifactRef;
+  inputRefs: ArtifactRef[];
+  summary: Record<string, number>;
+}> {
+  await store.init();
+  const candidates = await collectCapabilityGraphCandidates(root, await loadAgentScratchSegments(root));
+  const files: Array<{ path: string; sha256: string; text: string }> = [];
+
+  for (const candidate of candidates) {
+    let selected: { absolutePath: string; relativePath: string };
+    try {
+      selected = await resolveReadableRepoFile(root, candidate, "rekon refresh capability graph");
+    } catch {
+      continue;
+    }
+    let text: string;
+    try {
+      text = await readFile(selected.absolutePath, "utf8");
+    } catch {
+      continue;
+    }
+    if (text.includes("\u0000")) continue;
+    files.push({
+      path: selected.relativePath,
+      sha256: createHash("sha256").update(text).digest("hex"),
+      text,
+    });
+  }
+
+  const currentPaths = new Set(files.map((file) => file.path));
+  const latestSemanticByPath = new Map<string, SemanticReportForGraph>();
+  const semanticEntries = (await store.list("SemanticFileUnderstandingReport"))
+    .sort((left, right) => left.writtenAt.localeCompare(right.writtenAt));
+  for (const entry of semanticEntries) {
+    const report = await store.read(entry) as SemanticFileUnderstandingReportLike;
+    const path = typeof report.file?.path === "string"
+      ? report.file.path.replace(/\\/g, "/").replace(/^\.\//, "")
+      : "";
+    if (
+      !path
+      || !currentPaths.has(path)
+      || report.normalizationTrace?.provenance !== "semantic-llm"
+    ) continue;
+    latestSemanticByPath.set(path, {
+      report,
+      ref: {
+        type: entry.type,
+        id: entry.id,
+        path: entry.path,
+        digest: entry.digest,
+        schemaVersion: entry.schemaVersion,
+      },
+    });
+  }
+
+  const semanticReports = [...latestSemanticByPath.values()];
+  const graph = buildCapabilityEvidenceGraph({
+    root,
+    files,
+    generatedAt: new Date().toISOString(),
+    ...(semanticReports.length > 0 ? { semanticFileUnderstandingReports: semanticReports } : {}),
+  });
+  const ref = await store.write(graph, { category: "graphs" });
+  return {
+    ref,
+    inputRefs: graph.header.inputRefs,
+    summary: {
+      ...graph.summary,
+      semanticFileReports: semanticReports.length,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -10493,6 +10645,7 @@ type SemanticScanLayerSummary = {
 type SemanticScanLayerResult = {
   summary: SemanticScanLayerSummary;
   exitNonZero: boolean;
+  artifacts: ArtifactRef[];
   message?: string;
 };
 
@@ -10526,6 +10679,7 @@ async function runSemanticScanLayer(input: {
     return {
       summary: { mode: "off", selected: 0, written: 0, reused: 0, skipped: 0, failed: 0 },
       exitNonZero: false,
+      artifacts: [],
     };
   }
 
@@ -10534,8 +10688,8 @@ async function runSemanticScanLayer(input: {
   // fresh reports.
   const envProvider = typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
   const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
-  const providerResolved = input.llmProvider || envProvider;
-  const modelResolved = input.llmModel || envModel;
+  const providerResolved = input.llmProvider || envProvider || SEMANTIC_FILE_DEFAULT_PROVIDER;
+  const modelResolved = input.llmModel || envModel || SEMANTIC_FILE_DEFAULT_MODEL;
   // Enablement is opt-OUT (operator ruling, 2026-07-09): a present key means
   // enabled unless REKON_LLM_ENABLED explicitly disables it.
   const providerAvailable =
@@ -10559,6 +10713,7 @@ async function runSemanticScanLayer(input: {
         providerAvailable: false,
       },
       exitNonZero: false,
+      artifacts: [],
     };
   }
 
@@ -10577,6 +10732,7 @@ async function runSemanticScanLayer(input: {
         ...(modelResolved ? { model: modelResolved } : {}),
       },
       exitNonZero: true,
+      artifacts: [],
       message:
         "Semantic files required, but no LLM provider/key is available; wrote no SemanticFileUnderstandingReport.",
     };
@@ -10596,7 +10752,7 @@ async function runSemanticScanLayer(input: {
   }
 
   // Prior reports → latest-by-path for hash-based reuse.
-  const latestByPath = new Map<string, { sha256: string; id: string }>();
+  const latestByPath = new Map<string, { sha256: string; id: string; ref: ArtifactRef }>();
   try {
     const priorEntries = await store.list("SemanticFileUnderstandingReport");
     for (const entry of priorEntries) {
@@ -10612,7 +10768,19 @@ async function runSemanticScanLayer(input: {
           : undefined;
       const p = file && typeof file.path === "string" ? file.path : undefined;
       const s = file && typeof file.sha256 === "string" ? file.sha256 : undefined;
-      if (p && s) latestByPath.set(p, { sha256: s, id: typeof entry.id === "string" ? entry.id : "" });
+      if (p && s) {
+        latestByPath.set(p, {
+          sha256: s,
+          id: typeof entry.id === "string" ? entry.id : "",
+          ref: {
+            type: entry.type,
+            id: entry.id,
+            path: entry.path,
+            digest: entry.digest,
+            schemaVersion: entry.schemaVersion,
+          },
+        });
+      }
     }
   } catch {
     // No prior reports — every selected file is new.
@@ -10632,6 +10800,7 @@ async function runSemanticScanLayer(input: {
   let usedProvider: string | undefined;
   let usedModel: string | undefined;
   let requiredHardFail = false;
+  const artifactRefs: ArtifactRef[] = [];
 
   for (let i = 0; i < candidates.length; i++) {
     const budgetUsed = input.changedOnly ? written + failed : written + reused + failed;
@@ -10670,13 +10839,14 @@ async function runSemanticScanLayer(input: {
       prior !== undefined && prior.sha256 === sha && semanticScanPolicyHashFromArtifactId(prior.id) === policyHash;
     if (fresh) {
       reused += 1;
+      artifactRefs.push(prior.ref);
       continue;
     }
     const artifactId = `${SEMANTIC_FILE_UNDERSTANDING_REPORT_ARTIFACT_ID_PREFIX}${semanticScanPathHashSegment(
       relPath,
     )}-${policyHash}-${idStamp}`;
     try {
-      const { report } = await produceSemanticFileUnderstandingReport(store, {
+      const { report, ref } = await produceSemanticFileUnderstandingReport(store, {
         filePath: relPath,
         fileText: text,
         fileSha256: sha,
@@ -10687,6 +10857,7 @@ async function runSemanticScanLayer(input: {
         ...(adapter ? { semanticUnderstanding: adapter } : {}),
       });
       written += 1;
+      artifactRefs.push(ref);
       if (!usedProvider && typeof report.normalizationTrace.provider === "string") {
         usedProvider = report.normalizationTrace.provider;
       }
@@ -10719,6 +10890,7 @@ async function runSemanticScanLayer(input: {
       ...(model ? { model } : {}),
     },
     exitNonZero: requiredHardFail,
+    artifacts: artifactRefs,
     ...(requiredHardFail
       ? { message: "Semantic files required, but a provider call returned no usable result; not all files were analyzed." }
       : {}),
@@ -10742,6 +10914,7 @@ type SemanticDebtLayerSummary = {
 type SemanticDebtLayerResult = {
   summary: SemanticDebtLayerSummary;
   exitNonZero: boolean;
+  artifacts: ArtifactRef[];
   message?: string;
 };
 
@@ -10779,6 +10952,7 @@ function semanticDebtReusePolicyMatches(
     model: string;
     effort?: SemanticDebtEffort;
     promptVersion: string;
+    coercionVersion: string;
   },
 ): report is SemanticDebtJudgmentReport {
   if (!report || typeof report !== "object" || Array.isArray(report)) return false;
@@ -10788,13 +10962,15 @@ function semanticDebtReusePolicyMatches(
       model?: unknown;
       effort?: unknown;
       promptVersion?: unknown;
+      coercionVersion?: unknown;
       eligibilityVersion?: unknown;
     };
   };
   return candidate.policy?.provider === policy.provider
     && candidate.policy?.model === policy.model
     && candidate.policy?.effort === policy.effort
-    && candidate.policy?.promptVersion === policy.promptVersion;
+    && candidate.policy?.promptVersion === policy.promptVersion
+    && candidate.policy?.coercionVersion === policy.coercionVersion;
 }
 
 function semanticDebtEntryMap(report: SemanticDebtJudgmentReport): Map<string, SemanticDebtJudgmentEntry> {
@@ -10820,10 +10996,11 @@ async function runSemanticDebtLayer(input: {
   llmModel: string;
   llmEffort?: SemanticDebtEffort;
   fileLimit: number;
+  filePaths?: string[];
 }): Promise<SemanticDebtLayerResult> {
   const { root, store, mode } = input;
   if (mode === "off") {
-    return { summary: semanticDebtZeroSummary("off"), exitNonZero: false };
+    return { summary: semanticDebtZeroSummary("off"), exitNonZero: false, artifacts: [] };
   }
 
   const envProvider = typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
@@ -10855,11 +11032,12 @@ async function runSemanticDebtLayer(input: {
       return {
         summary,
         exitNonZero: true,
+        artifacts: [],
         message:
           "Semantic debt required, but no LLM provider/key is available; wrote no SemanticDebtJudgmentReport.",
       };
     }
-    return { summary, exitNonZero: false };
+    return { summary, exitNonZero: false, artifacts: [] };
   }
 
   await store.init();
@@ -10869,6 +11047,7 @@ async function runSemanticDebtLayer(input: {
     model: modelResolved,
     ...(effortResolved ? { effort: effortResolved } : {}),
     promptVersion: SEMANTIC_DEBT_PROMPT_VERSION,
+    coercionVersion: SEMANTIC_DEBT_COERCION_VERSION,
     eligibilityVersion: SEMANTIC_DEBT_ELIGIBILITY_VERSION,
   };
 
@@ -10889,7 +11068,17 @@ async function runSemanticDebtLayer(input: {
     priorByPath = new Map();
   }
 
-  const candidates = (await collectSemanticScanCandidates(root)).filter(
+  let candidates: string[];
+  if (input.filePaths && input.filePaths.length > 0) {
+    const resolvedPaths = await Promise.all(
+      input.filePaths.map((filePath) =>
+        resolveReadableRepoFile(root, filePath, "rekon scan --semantic-debt")),
+    );
+    candidates = [...new Set(resolvedPaths.map((file) => file.relativePath))].sort();
+  } else {
+    candidates = await collectSemanticScanCandidates(root);
+  }
+  candidates = candidates.filter(
     (relPath) => !SEMANTIC_DEBT_EXCLUDED_PREFIXES.some((prefix) => relPath.startsWith(prefix)),
   );
   const entries: SemanticDebtJudgmentEntry[] = [];
@@ -11025,7 +11214,7 @@ async function runSemanticDebtLayer(input: {
       implementedIntentGo: false,
     },
   });
-  await store.write(report, { category: "actions" });
+  const reportRef = await store.write(report, { category: "actions" });
 
   return {
     summary: {
@@ -11042,6 +11231,7 @@ async function runSemanticDebtLayer(input: {
       ...(Object.keys(ineligibleByReason).length > 0 ? { ineligibleByReason } : {}),
     },
     exitNonZero: requiredHardFail,
+    artifacts: [reportRef],
     ...(requiredHardFail
       ? { message: "Semantic debt required, but a provider call returned no usable result; not all files were judged." }
       : {}),
@@ -11073,24 +11263,25 @@ function createSemanticFileUnderstandingAdapter(
   const envProvider =
     typeof process.env.REKON_LLM_PROVIDER === "string" ? process.env.REKON_LLM_PROVIDER.trim() : "";
   const envModel = typeof process.env.REKON_LLM_MODEL === "string" ? process.env.REKON_LLM_MODEL.trim() : "";
-  const provider = flagProvider || envProvider;
-  const model = flagModel || envModel;
+  const provider = flagProvider || envProvider || SEMANTIC_FILE_DEFAULT_PROVIDER;
+  const model = flagModel || envModel || SEMANTIC_FILE_DEFAULT_MODEL;
   // Opt-out enablement (operator ruling, 2026-07-09): enabled when a key is
   // present and REKON_LLM_ENABLED is not explicitly off.
   const enabled =
     hasUsableOpenAiKey(process.env.OPENAI_API_KEY)
     && !envDisablesLlm(process.env.REKON_LLM_ENABLED);
 
-  const providers = [
-    createOpenAiLlmProvider({
+  const providerOptions = {
       id: "openai",
       apiKey: process.env.OPENAI_API_KEY,
       ...(typeof process.env.REKON_LLM_BASE_URL === "string" && process.env.REKON_LLM_BASE_URL.length > 0
         ? { baseUrl: process.env.REKON_LLM_BASE_URL }
         : {}),
       ...(model ? { defaultModel: model } : {}),
-    }),
-  ];
+  };
+  const providers = [semanticFileUsesResponsesApi(model)
+    ? createOpenAiResponsesLlmProvider(providerOptions)
+    : createOpenAiLlmProvider(providerOptions)];
 
   const router = new RekonLlmRouter({ config: { enabled }, providers });
   const override: { provider?: string; model?: string; mode: "off" | "auto" | "required" } = { mode };
@@ -11102,6 +11293,8 @@ function createSemanticFileUnderstandingAdapter(
       "Summarize the following source file for codebase intelligence.",
       'Return ONE JSON object of the shape { "summary": { "purpose": string, "responsibilities": string[], "touchedConcepts": string[] }, "capabilitySignals": [ ... ], "findings": [ ... ] }.',
       "Each capabilitySignal has: id, label, confidence (low|medium|high), sourceEvidence[] (each { excerpt, lineStart?, lineEnd? }).",
+      "- Set each capabilitySignal id to a lower-case verb:noun phrase (for example ingest:turn evidence or deliver:channel message).",
+      "- Include direct side effects and coordination visible in the source, such as persistence, calculation, delivery, or orchestration; do not infer hidden behavior.",
       "Each finding has: id, severity (low|medium|high), message, sourceEvidence[] (strings), suggestedFollowUp?.",
       "Rules (a deterministic reviewer re-checks every field against the source; imports and public exports are extracted deterministically and your values for them are ignored):",
       "- Summarize this file's purpose in one sentence.",
@@ -11119,12 +11312,22 @@ function createSemanticFileUnderstandingAdapter(
       .join("\n");
 
     const routed = await router.completeJson(
-      { task: "artifact.summary", schemaName: "SemanticFileUnderstandingResult", prompt },
+      {
+        task: "artifact.summary",
+        schemaName: "SemanticFileUnderstandingResult",
+        prompt,
+        maxOutputTokens: 2000,
+        ...(semanticFileUsesResponsesApi(model) ? { effort: "low" as const } : {}),
+      },
       override,
     );
 
     if (!routed.ok) {
-      return {};
+      return {
+        provider: routed.route.provider,
+        model: routed.route.model,
+        warnings: [`${routed.error}`, ...routed.warnings],
+      };
     }
 
     const data = routed.result.data;
@@ -11137,6 +11340,10 @@ function createSemanticFileUnderstandingAdapter(
     if (routed.result.model) result.model = routed.result.model;
     return result;
   };
+}
+
+function semanticFileUsesResponsesApi(model: string): boolean {
+  return /^gpt-5(?:[.\-]|$)/i.test(model);
 }
 
 function createSemanticDebtJudgmentAdapter(
@@ -11305,11 +11512,24 @@ function parseVerificationPlanCoverage(value: unknown): VerificationPlanCoverage
     }
     targetPaths = [...new Set(value.targetPaths)].sort();
   }
+  let configPath: string | undefined;
+  if (value.configPath !== undefined) {
+    if (typeof value.configPath !== "string"
+      || value.configPath.length === 0
+      || value.configPath.startsWith("/")
+      || /^[A-Za-z]:/.test(value.configPath)
+      || value.configPath.includes("\0")
+      || value.configPath.split("/").some((part) => part === "..")) {
+      throw new Error("Selected VerificationPlan has malformed coverage config path.");
+    }
+    configPath = value.configPath;
+  }
   return {
     format: "istanbul",
     framework: value.framework,
     provider: value.provider,
     testPath: value.testPath,
+    ...(configPath ? { configPath } : {}),
     ...(targetPaths ? { targetPaths } : {}),
     coveragePath: value.coveragePath,
     isolated: true,
@@ -11519,6 +11739,34 @@ async function resolveVerificationRunEntry(
   }
 
   return { entry: match, warnings };
+}
+
+async function resolveOptionalIngestionVerificationRun(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  flagValue: string | undefined,
+  commandName: string,
+  expectedRepoId: string,
+): Promise<{ ref: ArtifactRef; run: VerificationRunArtifact } | undefined> {
+  const value = flagValue?.trim();
+  if (!value) return undefined;
+
+  const { entry } = await resolveVerificationRunEntry(store, value);
+  const candidate = await store.read(entry);
+  const validation = validateVerificationRun(candidate);
+  if (!validation.ok) {
+    const detail = validation.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ");
+    throw new Error(`${commandName} rejected malformed VerificationRun ${entry.id}: ${detail}`);
+  }
+
+  const run = candidate as VerificationRunArtifact;
+  if (run.header.subject.repoId !== expectedRepoId) {
+    throw new Error(
+      `${commandName} rejected VerificationRun ${entry.id}: repository subject ${run.header.subject.repoId} `
+        + `does not match current EvidenceGraph subject ${expectedRepoId}.`,
+    );
+  }
+
+  return { ref: toArtifactRef(entry), run };
 }
 
 function sortByWrittenAtDesc<T extends { writtenAt: string }>(entries: T[]): T[] {
@@ -11812,10 +12060,16 @@ function pathIsInside(path: string, root: string): boolean {
 type RekonConfig = {
   capabilities?: Array<{ package: string }>;
   permissions?: Record<string, CapabilityPermission[]>;
+  rulebook?: {
+    rules: Rule[];
+  };
   semantic?: {
     mode?: "off" | "auto" | "required";
   };
 };
+
+const CONFIG_RULEBOOK_PRODUCER_ID = "@rekon/cli.config-rulebook";
+const CONFIG_RULEBOOK_SUPERSESSION_KEY = "config:.rekon/config.json:rulebook";
 
 const BUILT_IN_CAPABILITIES: Record<string, CapabilityDefinition> = {
   "@rekon/capability-docs": docsCapability,
@@ -12050,6 +12304,110 @@ async function readConfig(root: string): Promise<RekonConfig> {
   }
 }
 
+type ConfigRulebookSyncResult = {
+  configured: boolean;
+  changed: boolean;
+  ruleCount: number;
+  ref?: ArtifactRef;
+};
+
+async function syncConfiguredRulebook(
+  root: string,
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<ConfigRulebookSyncResult> {
+  const configPath = resolve(root, ".rekon", "config.json");
+  let parsed: Record<string, unknown> | undefined;
+  try {
+    const value = JSON.parse(await readFile(configPath, "utf8")) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(`${configPath} must be a JSON object.`);
+    }
+    parsed = value as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      parsed = undefined;
+    } else {
+      throw error;
+    }
+  }
+
+  const configured = parsed ? Object.prototype.hasOwnProperty.call(parsed, "rulebook") : false;
+  const validation = validateConfiguredRulebook(parsed?.rulebook);
+  if (validation.issues.length > 0) {
+    throw new Error(
+      `Invalid .rekon/config.json rulebook: ${validation.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ")}`,
+    );
+  }
+
+  await store.init();
+  const priorEntry = (await store.list("Rulebook"))
+    .filter((entry) => entry.supersessionKey === CONFIG_RULEBOOK_SUPERSESSION_KEY)
+    .sort((left, right) => left.writtenAt.localeCompare(right.writtenAt))
+    .at(-1);
+
+  if (!configured && !priorEntry) {
+    return { configured: false, changed: false, ruleCount: 0 };
+  }
+
+  const normalizationHeader: ArtifactHeader = {
+    artifactType: "Rulebook",
+    artifactId: "configured-rulebook-normalization",
+    schemaVersion: "0.1.0",
+    generatedAt: "1970-01-01T00:00:00.000Z",
+    subject: { repoId: root },
+    producer: { id: CONFIG_RULEBOOK_PRODUCER_ID, version: "1.0.0" },
+    inputRefs: [],
+  };
+  const rules = createRulebook({
+    header: normalizationHeader,
+    rules: validation.rules ?? [],
+  }).rules;
+  const rulesDigest = createHash("sha256").update(JSON.stringify(rules)).digest("hex");
+
+  if (priorEntry) {
+    const priorValidation = validateRulebook(await store.read(priorEntry));
+    if (priorValidation.ok && JSON.stringify(priorValidation.value.rules) === JSON.stringify(rules)) {
+      return {
+        configured,
+        changed: false,
+        ruleCount: rules.length,
+        ref: {
+          type: priorEntry.type,
+          id: priorEntry.id,
+          path: priorEntry.path,
+          digest: priorEntry.digest,
+          schemaVersion: priorEntry.schemaVersion,
+        },
+      };
+    }
+  }
+
+  const generatedAt = new Date().toISOString();
+  const rulebook: Rulebook = createRulebook({
+    header: {
+      artifactType: "Rulebook",
+      artifactId: `configured-rulebook-${Date.now()}-${rulesDigest.slice(0, 12)}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      supersession: { key: CONFIG_RULEBOOK_SUPERSESSION_KEY },
+      subject: { repoId: root },
+      producer: { id: CONFIG_RULEBOOK_PRODUCER_ID, version: "1.0.0" },
+      inputRefs: [],
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: 1,
+        notes: [
+          "Projected from .rekon/config.json rulebook; repository config remains the declared-law source.",
+          `rules-sha256:${rulesDigest}`,
+        ],
+      },
+    },
+    rules,
+  });
+  const ref = await store.write(rulebook);
+  return { configured, changed: true, ruleCount: rules.length, ref };
+}
+
 async function resolveScanSemanticFilesMode(
   root: string,
   flags: Record<string, string | boolean | string[]>,
@@ -12137,7 +12495,9 @@ type RefreshStepId =
   | "init"
   | "config.validate"
   | "observe"
+  | "capability.graph"
   | "project"
+  | "rulebook"
   | "snapshot"
   | "evaluate"
   | "findings.filter"
@@ -12178,10 +12538,12 @@ type RefreshOptions = {
   skipPublish?: boolean;
   skipFreshness?: boolean;
   changedFiles?: string[];
+  seedArtifactRefs?: ArtifactRef[];
 };
 
 const REQUIRED_REFRESH_ARTIFACT_TYPES = [
   "EvidenceGraph",
+  "CapabilityEvidenceGraph",
   "ObservedRepo",
   "OwnershipMap",
   "CapabilityMap",
@@ -12245,6 +12607,8 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return result;
   }
 
+  recordArtifacts(options.seedArtifactRefs);
+
   // 1. init (write .rekon/ + default config if missing; never overwrite a
   //    malformed existing config — let config.validate report it explicitly)
   try {
@@ -12298,7 +12662,24 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // 4. project
+  // 4. capability evidence graph. This is built from current source and any
+  // current semantic file reports before model projection, so one scan has a
+  // coherent model lineage instead of requiring a second refresh.
+  try {
+    const capabilityGraph = await buildRefreshCapabilityEvidenceGraph(root, createLocalArtifactStore(root));
+    recordArtifacts(capabilityGraph.inputRefs);
+    steps.push({
+      id: "capability.graph",
+      status: "passed",
+      artifacts: recordArtifacts(capabilityGraph.ref),
+      summary: capabilityGraph.summary,
+    });
+  } catch (error) {
+    steps.push({ id: "capability.graph", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 5. project
   try {
     const refs = await runtime.runProject();
     steps.push({ id: "project", status: "passed", artifacts: recordArtifacts(refs) });
@@ -12307,7 +12688,27 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // 5. evaluate
+  // 6. project configured repository law into a typed Rulebook before policy
+  // evaluation. An absent rulebook stays silent; removing configured rules
+  // writes an empty superseding artifact so prior law cannot remain active.
+  try {
+    const rulebook = await syncConfiguredRulebook(root, runtime.artifacts);
+    steps.push({
+      id: "rulebook",
+      status: "passed",
+      ...(rulebook.ref ? { artifacts: recordArtifacts(rulebook.ref) } : {}),
+      summary: {
+        configured: rulebook.configured,
+        changed: rulebook.changed,
+        rules: rulebook.ruleCount,
+      },
+    });
+  } catch (error) {
+    steps.push({ id: "rulebook", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // 7. evaluate
   try {
     const refs = await runtime.runEvaluate();
     steps.push({ id: "evaluate", status: "passed", artifacts: recordArtifacts(refs) });
@@ -12814,7 +13215,8 @@ async function ensureSnapshotReady(runtime: Awaited<ReturnType<typeof createDefa
     await runtime.runProject();
   }
 
-  if ((await runtime.artifacts.list("FindingReport")).length === 0) {
+  const rulebookSync = await syncConfiguredRulebook(runtime.repo.root, runtime.artifacts);
+  if ((await runtime.artifacts.list("FindingReport")).length === 0 || rulebookSync.changed) {
     await runtime.runEvaluate();
   }
 
@@ -13329,7 +13731,8 @@ async function ensureSnapshotForResolver(
     await runtime.runProject();
   }
 
-  if ((await runtime.artifacts.list("FindingReport")).length === 0) {
+  const rulebookSync = await syncConfiguredRulebook(runtime.repo.root, runtime.artifacts);
+  if ((await runtime.artifacts.list("FindingReport")).length === 0 || rulebookSync.changed) {
     await runtime.runEvaluate();
   }
 
@@ -13422,7 +13825,8 @@ async function ensurePreflight(
     await runtime.runProject();
   }
 
-  if ((await runtime.artifacts.list("FindingReport")).length === 0) {
+  const rulebookSync = await syncConfiguredRulebook(runtime.repo.root, runtime.artifacts);
+  if ((await runtime.artifacts.list("FindingReport")).length === 0 || rulebookSync.changed) {
     await runtime.runEvaluate();
   }
 
@@ -13710,6 +14114,68 @@ async function loadFindingResultFilters(
   return hasAny ? options : undefined;
 }
 
+function validateConfiguredRulebook(value: unknown): {
+  rules?: Rule[];
+  issues: ConfigValidationIssue[];
+} {
+  if (value === undefined) return { issues: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      issues: [{
+        code: "rulebook-not-object",
+        severity: "error",
+        message: "config.rulebook must be an object with a rules array.",
+        path: "rulebook",
+      }],
+    };
+  }
+
+  const record = value as Record<string, unknown>;
+  const candidate = {
+    header: {
+      artifactType: "Rulebook",
+      artifactId: "config-validation",
+      schemaVersion: "0.1.0",
+      generatedAt: "1970-01-01T00:00:00.000Z",
+      subject: { repoId: "config-validation" },
+      producer: { id: CONFIG_RULEBOOK_PRODUCER_ID, version: "1.0.0" },
+      inputRefs: [],
+    },
+    rules: record.rules,
+  };
+  const validation = validateRulebook(candidate);
+  const issues: ConfigValidationIssue[] = validation.issues.map((issue) => ({
+    code: "rulebook-invalid",
+    severity: "error",
+    message: issue.message,
+    path: issue.path.replace(/^\$\./, "rulebook."),
+  }));
+
+  if (Array.isArray(record.rules)) {
+    const seen = new Set<string>();
+    for (let index = 0; index < record.rules.length; index += 1) {
+      const rule = record.rules[index];
+      const id = rule && typeof rule === "object" && !Array.isArray(rule)
+        ? (rule as Record<string, unknown>).id
+        : undefined;
+      if (typeof id !== "string" || id.length === 0) continue;
+      if (seen.has(id)) {
+        issues.push({
+          code: "rulebook-rule-duplicate",
+          severity: "error",
+          message: `config.rulebook contains duplicate rule id '${id}'.`,
+          path: `rulebook.rules[${index}].id`,
+        });
+      }
+      seen.add(id);
+    }
+  }
+
+  return validation.ok && issues.length === 0
+    ? { rules: validation.value.rules, issues: [] }
+    : { issues };
+}
+
 async function validateConfig(root: string): Promise<ConfigValidationResult> {
   const configPath = resolve(root, ".rekon", "config.json");
   const issues: ConfigValidationIssue[] = [];
@@ -13928,6 +14394,10 @@ async function validateConfig(root: string): Promise<ConfigValidationResult> {
         path: issue.path,
       });
     }
+  }
+
+  if ("rulebook" in config) {
+    issues.push(...validateConfiguredRulebook(config.rulebook).issues);
   }
 
   const valid = issues.every((issue) => issue.severity !== "error");
@@ -15460,7 +15930,7 @@ function asStringArray(value: unknown): string[] {
 
 function usage(): string {
   return [
-    "rekon scan [--semantic-files off|auto|required] [--semantic-debt off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-debt-model <model>] [--semantic-debt-effort none|low|medium|high|xhigh|max] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--semantic-debt-file-limit <n>] [--root <path>] [--json]",
+    "rekon scan [--semantic-files off|auto|required] [--semantic-debt off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-debt-model <model>] [--semantic-debt-effort none|low|medium|high|xhigh|max] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--semantic-debt-file-limit <n>] [--semantic-debt-file-path <path> ...] [--root <path>] [--json]",
     "rekon welcome [--json] [--no-banner]",
     "rekon setup [--root <path>] [--json] [--no-banner]",
     "rekon init [--root <path>]",
@@ -15473,8 +15943,8 @@ function usage(): string {
     "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
     "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
-    "rekon checks ingest (--junit <report.xml> | --eslint-json <report.json>) [--root <path>] [--json]",
-    "rekon security ingest (--sarif <report.sarif> | --npm-audit <audit.json> [--package-lock <package-lock.json>] | --pnpm-audit <audit.json> | --yarn-audit <audit.ndjson> | --osv <results.json>) [--root <path>] [--json]",
+    "rekon checks ingest (--junit <report.xml> | --eslint-json <report.json>) [--verification-run <VerificationRun:id>] [--root <path>] [--json]",
+    "rekon security ingest (--sarif <report.sarif> | --npm-audit <audit.json> [--package-lock <package-lock.json>] | --pnpm-audit <audit.json> | --yarn-audit <audit.ndjson> | --osv <results.json>) [--verification-run <VerificationRun:id>] [--root <path>] [--json]",
     "rekon evaluate [--root <path>] [--json]",
     "rekon evaluate list [--root <path>] [--json]",
     "rekon evaluate run <evaluator-id> [--root <path>] [--input-json <json>] [--json]",
@@ -15563,7 +16033,7 @@ function usage(): string {
     "rekon issues merge candidate <candidate-id> [--root <path>] [--json]",
     "rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note> [--reason <reason>] [--decided-by <name>] [--root <path>] [--json]",
     "rekon issues merge decisions [--root <path>] [--json]",
-    "rekon verify coverage plan --framework vitest|jest --test-path <test-file> --source-path <source-file> [--source-path <source-file> ...] [--provider v8|istanbul|babel] [--root <path>] [--json]",
+    "rekon verify coverage plan --framework vitest|jest --test-path <test-file> --source-path <source-file> [--source-path <source-file> ...] [--config <runner-config>] [--provider v8|istanbul|babel] [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id>|--plan-file <path> --dry-run|--preview [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",
     "rekon verify run --plan <id|type:id>|--plan-file <path> --execute [--istanbul-coverage <coverage-final.json> --test-path <test-file>] [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",

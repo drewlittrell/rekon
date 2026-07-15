@@ -157,6 +157,7 @@ export function isNonProductionPath(filePath: string): boolean {
   if (
     lower.includes("/generated/")
     || lower.includes(".generated.")
+    || lower.includes(".snapshot.")
     || lower.includes(".g.ts")
     || lower.endsWith(".d.ts")
   ) {
@@ -167,6 +168,21 @@ export function isNonProductionPath(filePath: string): boolean {
   // list carried only the slash-prefixed form ("/tests/"), which a
   // repo-root tests/ tree never matches.
   if (lower.startsWith("tests/")) {
+    return true;
+  }
+
+  if (
+    lower.startsWith("test/")
+    || lower.startsWith("integration/")
+    || lower.startsWith("sample/")
+    || lower.startsWith("samples/")
+    || lower.startsWith("playground/")
+    || lower.startsWith("docs/")
+    || lower.startsWith("bench/")
+    || lower.startsWith("benchmark/")
+    || lower.startsWith("benchmarks/")
+    || lower.startsWith(".yarn/")
+  ) {
     return true;
   }
 
@@ -186,7 +202,20 @@ export function isNonProductionPath(filePath: string): boolean {
 
   // Rekon additions in the same spirit: fixtures and example trees are
   // not production surfaces either.
-  if (parts.includes("fixtures") || parts.includes("examples") || parts.includes("scripts")) {
+  if (
+    parts.includes("fixtures")
+    || parts.includes("fixture")
+    || parts.includes("__fixtures__")
+    || parts.includes("__testfixtures__")
+    || parts.includes("__tests_dts__")
+    || parts.includes("testfixtures")
+    || parts.includes("test-d")
+    || parts.includes("type-tests")
+    || parts.includes("examples")
+    || parts.includes("scripts")
+    || parts.includes("templates")
+    || parts.slice(0, -1).some((part) => part.startsWith("template-"))
+  ) {
     return true;
   }
 
@@ -243,6 +272,44 @@ function finding(args: {
     subjects: args.subjects,
     payload: { law: args.law },
   } as unknown as Finding;
+}
+
+function isCompositionSeamCall(
+  facts: ReadonlyArray<FactLike>,
+  source: string,
+  resolvedTarget: string,
+): boolean {
+  const calls = facts.filter((fact) =>
+    fact.kind === "call"
+    && fact.value.source === source
+    && fact.value.targetFile === resolvedTarget
+    && fact.value.resolution === "import-binding"
+    && typeof fact.value.targetSymbol === "string",
+  );
+
+  if (calls.length === 0) {
+    return false;
+  }
+
+  const targetSymbols = calls.map((fact) => fact.value.targetSymbol as string);
+  if (/(^|\/)infra\/(?:http|middleware|telemetry)(\/|$)/u.test(resolvedTarget)
+    && targetSymbols.some((symbol) => /^with[A-Z]/u.test(symbol))) {
+    return true;
+  }
+
+  if (/(^|\/)(?:assemblies|composition)(\/|$)/u.test(resolvedTarget)
+    && targetSymbols.some((symbol) => /^(?:get|create|build)[A-Z].*(?:Service|Handler|Resolver)$/u.test(symbol))) {
+    return true;
+  }
+
+  const sourceBuilds = facts.some((fact) =>
+    fact.kind === "symbol"
+    && fact.subject === source
+    && fact.value.exported === true
+    && typeof fact.value.name === "string"
+    && /^build[A-Z]/u.test(fact.value.name),
+  );
+  return sourceBuilds && targetSymbols.every((symbol) => /^build[A-Z]/u.test(symbol));
 }
 
 /**
@@ -354,6 +421,10 @@ export function evaluateGrammarDivergence(input: GrammarDivergenceInput): Findin
     const cannotImport = fromDefinition?.cannotImport.includes(toLayer) === true;
 
     if (!forbidden && !cannotImport) {
+      continue;
+    }
+
+    if (isCompositionSeamCall(facts, source, resolvedTarget)) {
       continue;
     }
 

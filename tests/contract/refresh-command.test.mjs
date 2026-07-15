@@ -18,7 +18,9 @@ const EXPECTED_STEP_ORDER = [
   "init",
   "config.validate",
   "observe",
+  "capability.graph",
   "project",
+  "rulebook",
   "evaluate",
   "findings.filter",
   "findings.filter-health",
@@ -33,6 +35,7 @@ const EXPECTED_STEP_ORDER = [
 
 const REQUIRED_ARTIFACT_TYPES = [
   "EvidenceGraph",
+  "CapabilityEvidenceGraph",
   "ObservedRepo",
   "OwnershipMap",
   "CapabilityMap",

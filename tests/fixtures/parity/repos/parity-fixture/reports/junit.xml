@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="parity" tests="1" failures="1">
+  <testcase name="returns the expected value" classname="parity" file="src/index.ts" line="3">
+    <failure message="Expected the current implementation to satisfy the repository test." />
+  </testcase>
+</testsuite>

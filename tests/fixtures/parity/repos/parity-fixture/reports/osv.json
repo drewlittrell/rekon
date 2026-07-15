@@ -1,0 +1,30 @@
+{
+  "results": [
+    {
+      "source": { "path": "package.json", "type": "lockfile" },
+      "packages": [
+        {
+          "package": { "name": "fixture-dependency", "version": "1.0.0", "ecosystem": "npm" },
+          "vulnerabilities": [
+            {
+              "id": "GHSA-fixture-example",
+              "summary": "Fixture dependency advisory",
+              "database_specific": { "severity": "HIGH", "cwe_ids": ["CWE-20"] },
+              "severity": [{ "type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L" }],
+              "affected": [
+                {
+                  "ranges": [
+                    { "type": "SEMVER", "events": [{ "introduced": "0" }, { "fixed": "1.0.1" }] }
+                  ]
+                }
+              ],
+              "references": [
+                { "type": "ADVISORY", "url": "https://example.invalid/advisories/GHSA-fixture-example" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -107,7 +107,9 @@ test("isolated Vitest coverage plan uses the local binary and deterministic outp
   });
 
   assert.match(result.command, /^node node_modules\/vitest\/vitest\.mjs run tests\/service\.test\.ts /);
+  assert.match(result.command, /--exclude=\*\*\/\.claude\/worktrees\/\*\*/);
   assert.match(result.command, /--coverage\.provider=v8/);
+  assert.match(result.command, /--coverage\.include=src\/service\.ts/);
   assert.match(result.command, /--coverage\.reportOnFailure/);
   assert.equal(result.verificationPlan.source, "isolated-coverage");
   assert.equal(result.verificationPlan.coverage.isolated, true);
@@ -145,6 +147,34 @@ test("isolated coverage plans preserve and quote repository paths with spaces", 
   assert.equal(result.verificationPlan.coverage.testPath, "tests/user flow.test.ts");
   assert.match(result.command, /--runTestsByPath "tests\/user flow\.test\.ts"/);
   assert.deepEqual(result.verificationPlan.coverage.targetPaths, ["src/user flow.ts"]);
+});
+
+test("isolated Vitest coverage quotes source targets with spaces", () => {
+  const result = createIsolatedCoverageVerificationPlan({
+    header: coveragePlanHeader("verification-plan-vitest-spaces"),
+    framework: "vitest",
+    provider: "v8",
+    testPath: "tests/user flow.test.ts",
+    targetPaths: ["src/user flow.ts"],
+    binaryPath: "node_modules/vitest/vitest.mjs",
+  });
+
+  assert.match(result.command, /"--coverage\.include=src\/user flow\.ts"/);
+});
+
+test("isolated coverage plans preserve an explicit runner config", () => {
+  const result = createIsolatedCoverageVerificationPlan({
+    header: coveragePlanHeader("verification-plan-vitest-config"),
+    framework: "vitest",
+    provider: "v8",
+    testPath: "tests/service.test.ts",
+    configPath: "tests/vitest.config.ts",
+    targetPaths: ["src/service.ts"],
+    binaryPath: "node_modules/vitest/vitest.mjs",
+  });
+
+  assert.equal(result.verificationPlan.coverage.configPath, "tests/vitest.config.ts");
+  assert.match(result.command, /tests\/service\.test\.ts --config tests\/vitest\.config\.ts/);
 });
 
 test("isolated coverage plans reject unsafe paths and framework/provider mismatches", () => {

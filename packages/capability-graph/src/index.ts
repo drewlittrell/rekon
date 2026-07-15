@@ -4,6 +4,7 @@ import {
   BUILT_IN_EDGE_KINDS,
   BUILT_IN_NODE_KINDS,
   createGraphSlice,
+  type EdgeEvidence,
   type GraphEdge,
   type GraphNode,
 } from "@rekon/kernel-graph";
@@ -48,7 +49,7 @@ export const graphProjector: Projector = {
     );
     const importLinks = resolvedImportLinks(graph.facts, repositoryFiles);
 
-    refs.push(await artifacts.write("GraphSlice", createGraphSlice({
+    const importGraphRef = await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("import-graph", graph.header, evidenceRef),
       producer: "@rekon/capability-graph",
       sliceType: "import-graph",
@@ -64,7 +65,8 @@ export const graphProjector: Projector = {
           },
           evidence: [edgeEvidence(link.fact, computedAt)],
         })),
-    })));
+    }));
+    refs.push(importGraphRef);
 
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
       header: createHeader("symbol-graph", graph.header, evidenceRef),
@@ -122,7 +124,7 @@ export const graphProjector: Projector = {
       || fact.kind === "manifest"
       || fact.kind === "build_target"
     ));
-    const testContext = testContextProjection(graph.facts, computedAt);
+    const testContext = testContextProjection(graph.facts, computedAt, importGraphRef);
     const runtimeContext = runtimeObservation && runtimeObservationRef
       ? runtimeExecutionProjection(runtimeObservation, runtimeObservationRef, applicationFacts, computedAt)
       : { nodes: [], edges: [] };
@@ -131,7 +133,7 @@ export const graphProjector: Projector = {
         "application-graph",
         graph.header,
         evidenceRef,
-        runtimeObservationRef ? [runtimeObservationRef] : [],
+        [importGraphRef, ...(runtimeObservationRef ? [runtimeObservationRef] : [])],
       ),
       producer: "@rekon/capability-graph",
       sliceType: "application-graph",
@@ -156,9 +158,18 @@ export const graphProjector: Projector = {
       edges: callProjection.edges,
     })));
 
-    const reachabilityProjection = entryPointReachabilityProjection(graph.facts, importLinks, computedAt);
+    const reachabilityProjection = entryPointReachabilityProjection(
+      graph.facts,
+      importLinks,
+      computedAt,
+      importGraphRef,
+    );
     refs.push(await artifacts.write("GraphSlice", createGraphSlice({
-      header: createHeader("reachability-graph", graph.header, evidenceRef),
+      header: createHeader("reachability-graph", graph.header, evidenceRef, [importGraphRef], [
+        `max-imports-per-non-test-root:${MAX_REACHABILITY_DEPENDENCIES}`,
+        `test-roots-delegated-to-application-graph:${reachabilityProjection.delegatedTestRoots}`,
+        `truncated-non-test-roots:${reachabilityProjection.truncatedRoots}`,
+      ]),
       producer: "@rekon/capability-graph",
       sliceType: "reachability-graph",
       nodes: reachabilityProjection.nodes,
@@ -213,6 +224,7 @@ function createHeader(
   evidenceHeader: ArtifactHeader,
   evidenceRef: ArtifactRef,
   additionalInputRefs: ArtifactRef[] = [],
+  notes: string[] = [],
 ): ArtifactHeader {
   return {
     artifactType: "GraphSlice",
@@ -230,7 +242,7 @@ function createHeader(
     },
     provenance: {
       confidence: 0.8,
-      notes: [sliceId],
+      notes: [sliceId, ...notes],
     },
   };
 }
@@ -249,7 +261,7 @@ async function latestRef(
 function edgeEvidence(
   fact: EvidenceGraphLike["facts"][number],
   computedAt: string,
-) {
+): EdgeEvidence {
   return {
     source: fact.provenance?.source ?? "@rekon/capability-graph",
     extractorVersion: fact.provenance?.extractorVersion ?? "0.1.0",
@@ -332,9 +344,16 @@ type ReachabilityRecord = {
   facts: EvidenceGraphLike["facts"];
 };
 
+const MAX_TEST_DEPENDENCIES = 100;
+const MAX_TEST_RELATED_ENTRYPOINTS = 25;
+const MAX_TEST_RELATED_CAPABILITIES = 25;
+const MAX_TEST_CAPABILITY_SOURCE_PATHS = 20;
+const MAX_REACHABILITY_DEPENDENCIES = 100;
+
 function testContextProjection(
   facts: EvidenceGraphLike["facts"],
   computedAt: string,
+  importGraphRef: ArtifactRef,
 ): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const filePaths = new Set(
     facts
@@ -373,8 +392,25 @@ function testContextProjection(
   for (const testFact of testFacts) {
     const testPath = String(testFact.value?.path);
     const testNodeId = applicationNodeId("test", testFact.value);
-    const reachable = reachableImports(testPath, adjacency);
-    nodes.push({ id: testNodeId, kind: BUILT_IN_NODE_KINDS.test, metadata: testFact.value });
+    const allReachable = reachableImports(testPath, adjacency);
+    const selectedReachable = [...allReachable.entries()]
+      .sort(([leftPath, left], [rightPath, right]) => (
+        left.distance - right.distance || leftPath.localeCompare(rightPath)
+      ))
+      .slice(0, MAX_TEST_DEPENDENCIES);
+    const reachable = new Map(selectedReachable);
+    nodes.push({
+      id: testNodeId,
+      kind: BUILT_IN_NODE_KINDS.test,
+      metadata: {
+        ...testFact.value,
+        contextProjection: {
+          reachableFiles: allReachable.size,
+          projectedFiles: reachable.size,
+          truncated: allReachable.size > reachable.size,
+        },
+      },
+    });
 
     for (const [target, record] of reachable) {
       nodes.push({ id: target, kind: BUILT_IN_NODE_KINDS.file });
@@ -387,7 +423,7 @@ function testContextProjection(
           relationship: "test-import",
           distance: record.distance,
         },
-        evidence: graphEvidence(record.facts, computedAt),
+        evidence: contextGraphEvidence(record.facts, computedAt, importGraphRef),
       });
     }
 
@@ -400,7 +436,9 @@ function testContextProjection(
         relatedEntries.set(entryPath, relation);
       }
     }
-    for (const { fact: entryFact, sharedFiles: sharedSet } of relatedEntries.values()) {
+    for (const { fact: entryFact, sharedFiles: sharedSet } of [...relatedEntries.values()]
+      .sort((left, right) => String(left.fact.value?.path).localeCompare(String(right.fact.value?.path)))
+      .slice(0, MAX_TEST_RELATED_ENTRYPOINTS)) {
       const entryPath = String(entryFact.value?.path);
       const direct = reachable.get(entryPath);
       const entryReachable = entryReachability.get(entryPath) ?? new Map<string, ReachabilityRecord>();
@@ -428,7 +466,7 @@ function testContextProjection(
           relationship,
           sharedFiles: sharedFiles.slice(0, 20),
         },
-        evidence: graphEvidence(uniqueFacts([...relationFacts, entryFact]), computedAt),
+        evidence: contextGraphEvidence([...relationFacts, entryFact], computedAt, importGraphRef),
       });
     }
 
@@ -443,13 +481,21 @@ function testContextProjection(
       group.facts.push(...record.facts, capabilityFact);
       capabilities.set(capability, group);
     }
-    for (const [capability, group] of capabilities) {
+    for (const [capability, group] of [...capabilities.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .slice(0, MAX_TEST_RELATED_CAPABILITIES)) {
       const capabilityNodeId = `capability:${capability}`;
-      const sourcePaths = [...new Set(group.paths)].sort();
+      const allSourcePaths = [...new Set(group.paths)].sort();
+      const sourcePaths = allSourcePaths.slice(0, MAX_TEST_CAPABILITY_SOURCE_PATHS);
       nodes.push({
         id: capabilityNodeId,
         kind: BUILT_IN_NODE_KINDS.capability,
-        metadata: { capability, sourcePaths },
+        metadata: {
+          capability,
+          sourcePaths,
+          totalSourcePaths: allSourcePaths.length,
+          truncated: allSourcePaths.length > sourcePaths.length,
+        },
       });
       edges.push({
         source: testNodeId,
@@ -460,7 +506,7 @@ function testContextProjection(
           relationship: "imported-capability-subject",
           sourcePaths,
         },
-        evidence: graphEvidence(uniqueFacts(group.facts), computedAt),
+        evidence: contextGraphEvidence(group.facts, computedAt, importGraphRef),
       });
     }
   }
@@ -584,17 +630,38 @@ function entryPointReachabilityProjection(
   facts: EvidenceGraphLike["facts"],
   importLinks: ImportLink[],
   computedAt: string,
-): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  importGraphRef: ArtifactRef,
+): { nodes: GraphNode[]; edges: GraphEdge[]; delegatedTestRoots: number; truncatedRoots: number } {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const adjacency = importAdjacency(importLinks);
+  let delegatedTestRoots = 0;
+  let truncatedRoots = 0;
   for (const fact of facts) {
     if (fact.kind !== "entry_point") continue;
     const path = stringField(fact.value, "path");
     const entryKind = stringField(fact.value, "entryKind");
     if (!path || !entryKind) continue;
     const entryId = `entry:${entryKind}:${path}`;
-    nodes.push({ id: entryId, kind: BUILT_IN_NODE_KINDS.entryPoint, metadata: fact.value });
+    const isTestRoot = entryKind === "test";
+    const projection = isTestRoot
+      ? { records: new Map<string, ReachabilityRecord>(), truncated: (adjacency.get(path)?.length ?? 0) > 0 }
+      : boundedReachableImports(path, adjacency, 12, MAX_REACHABILITY_DEPENDENCIES);
+    if (isTestRoot) delegatedTestRoots += 1;
+    else if (projection.truncated) truncatedRoots += 1;
+    nodes.push({
+      id: entryId,
+      kind: BUILT_IN_NODE_KINDS.entryPoint,
+      metadata: {
+        ...fact.value,
+        reachabilityProjection: {
+          projectedFiles: projection.records.size,
+          limit: isTestRoot ? 0 : MAX_REACHABILITY_DEPENDENCIES,
+          truncated: projection.truncated,
+          ...(isTestRoot ? { delegatedTo: "application-graph" } : {}),
+        },
+      },
+    });
     nodes.push({ id: path, kind: BUILT_IN_NODE_KINDS.file, metadata: { path } });
     edges.push({
       source: entryId,
@@ -604,7 +671,7 @@ function entryPointReachabilityProjection(
       metadata: { entryKind },
       evidence: [edgeEvidence(fact, computedAt)],
     });
-    for (const [target, record] of reachableImports(path, adjacency, 12)) {
+    for (const [target, record] of projection.records) {
       nodes.push({ id: target, kind: BUILT_IN_NODE_KINDS.file, metadata: { path: target } });
       edges.push({
         source: entryId,
@@ -612,7 +679,7 @@ function entryPointReachabilityProjection(
         kind: BUILT_IN_EDGE_KINDS.reaches,
         weight: confidenceForFacts(record.facts),
         metadata: { entryKind, distance: record.distance, relationship: "resolved-import" },
-        evidence: graphEvidence([fact, ...record.facts], computedAt),
+        evidence: contextGraphEvidence([fact, ...record.facts], computedAt, importGraphRef),
       });
     }
     const handlers = Array.isArray(fact.value?.handlers)
@@ -631,7 +698,7 @@ function entryPointReachabilityProjection(
       });
     }
   }
-  return { nodes, edges };
+  return { nodes, edges, delegatedTestRoots, truncatedRoots };
 }
 
 function callableId(path: string, symbol: string): string {
@@ -801,19 +868,46 @@ function reachableImports(
   return reached;
 }
 
-function graphEvidence(
-  facts: EvidenceGraphLike["facts"],
-  computedAt: string,
-): ReturnType<typeof edgeEvidence>[] {
-  return uniqueFacts(facts).map((fact) => edgeEvidence(fact, computedAt));
+function boundedReachableImports(
+  start: string,
+  adjacency: ReadonlyMap<string, ImportLink[]>,
+  maxDepth: number,
+  maxResults: number,
+): { records: Map<string, ReachabilityRecord>; truncated: boolean } {
+  const reached = new Map<string, ReachabilityRecord>();
+  const distances = new Map<string, number>([[start, 0]]);
+  const queue: Array<{ path: string; distance: number; facts: EvidenceGraphLike["facts"] }> = [
+    { path: start, distance: 0, facts: [] },
+  ];
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index]!;
+    if (current.distance >= maxDepth) continue;
+    for (const link of adjacency.get(current.path) ?? []) {
+      const distance = current.distance + 1;
+      const existingDistance = distances.get(link.target);
+      if (existingDistance !== undefined && existingDistance <= distance) continue;
+      if (reached.size >= maxResults) return { records: reached, truncated: true };
+      const record = { distance, facts: [...current.facts, link.fact] };
+      distances.set(link.target, distance);
+      reached.set(link.target, record);
+      queue.push({ path: link.target, ...record });
+    }
+  }
+  return { records: reached, truncated: false };
 }
 
-function uniqueFacts(facts: EvidenceGraphLike["facts"]): EvidenceGraphLike["facts"] {
-  const byKey = new Map<string, EvidenceGraphLike["facts"][number]>();
-  for (const fact of facts) {
-    byKey.set(`${fact.kind}:${fact.subject}:${JSON.stringify(fact.value ?? {})}`, fact);
-  }
-  return [...byKey.values()];
+function contextGraphEvidence(
+  facts: EvidenceGraphLike["facts"],
+  computedAt: string,
+  importGraphRef: ArtifactRef,
+): EdgeEvidence[] {
+  return [{
+    source: "@rekon/capability-graph",
+    extractorVersion: "0.1.0",
+    computedAt,
+    confidence: confidenceForFacts(facts),
+    payloadRef: `${importGraphRef.type}:${importGraphRef.id}`,
+  }];
 }
 
 function confidenceForFacts(facts: EvidenceGraphLike["facts"]): number {

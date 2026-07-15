@@ -18,7 +18,9 @@ scoped to a named plan and is recorded as artifacts.
   that named the test, producing a linked `RuntimeGraphObservationReport`.
 - Exposes `createIsolatedCoverageVerificationPlan()` for deterministic Vitest
   and Jest plan construction. Plans can declare intended source targets. The
-  helper does not resolve packages or execute.
+  helper does not resolve packages or execute. Vitest plans scope collection
+  to those targets and exclude nested repository worktrees. Callers can bind a
+  repository-local runner config explicitly.
 - Does not write source files.
 - Does not auto-resolve findings.
 

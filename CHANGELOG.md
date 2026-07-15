@@ -4,6 +4,159 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added nine pinned quality-only public repositories to the detection
+  benchmark contract, including Vitest, Playwright, pnpm, and Next.js for
+  independent test-isolation, incomplete-capability, migration-tooling, and
+  large-framework cases. Their current emissions can be adjudicated without
+  fabricating a historical parity baseline or changing recall metrics.
+- Public-corpus calibration now keeps generic base-grammar opinions silent
+  until repository-specific or ratified law activates them. Conventional
+  fixture, scaffold, sample, playground, integration-test, documentation,
+  benchmark, package-manager, CLI, and logging surfaces no longer create
+  production policy output, and declared entrypoints may intentionally
+  bootstrap built `dist` output.
+- Expanded package-manifest evidence with package imports, published-file
+  patterns, and declared test-tool hooks so dynamic and externally consumed
+  modules remain reachability roots. Generated files no longer become
+  complexity hotspots.
+- Tightened source-quality calibration: generic type arguments are no longer
+  reported as direct `any` annotations, type-brand fields and safely bridged
+  async Promise executors remain silent, direct environment restoration is
+  recognized, implicit abstract base contracts and downstream operation
+  failures do not become placeholder claims, focused-test framework fixtures
+  stay quiet, consumed private-field updates and operational self-reads are
+  recognized, listener-style `onEvent` callbacks remain isolated, and
+  ambiguous empty catches remain evidence rather than risks.
+- Excluded generated, compiled, and vendored source from source-quality policy
+  while retaining raw evidence. Deliberate focused-test plumbing, named
+  hook/listener isolation, nested recovery, explicit failure returns, and
+  documented retries no longer become suppression assessments. Loop-local
+  display fallbacks remain quiet when both branches preserve the same visible
+  item and no write operation is attempted.
+- Bounded reachability projection to 100 transitive imports per non-test root
+  and delegated test dependency context to the application graph. Projection
+  metadata reports truncation and cites the complete import graph, allowing a
+  21,000-file framework repository to project without unbounded artifact growth.
+- Restricted `imports.noDistImports` to repository-local relative imports so
+  documented third-party package entrypoints containing `dist` do not become
+  repository findings.
+- Restricted `imports.noNodeModulesRelativeImports` to relative imports in
+  production source, excluding test fixtures and declaration-only harnesses
+  from raw finding output.
+- Excluded package-declared empty entrypoint shims from empty-source
+  opportunities while retaining undeclared whitespace-only production files.
+- Calibrated `typescript.unusedPrivateMember` against five independent public
+  source cases at full adjudicated usefulness and stable identity. The public
+  corpus retains one useful error-suppression case and no legitimate empty-file
+  case, so those rules remain explicitly under-evidenced rather than being fed
+  synthetic positives.
+
+- Prevented repository test and build failures from promoting when a sibling
+  command in the same verification run proves missing toolchain or dependency
+  context. Independent diagnostics inside the affected command remain eligible
+  for normal evaluation.
+- Added strict per-finding parity equivalences for source-adjudicated
+  `covered-different-identity` cases, avoiding broad rule-map matches that would
+  credit unrelated assessments.
+- Excluded catch-and-log boundaries inside logger modules from error-suppression
+  risks while retaining application and primary-persistence failures.
+- Excluded fixture repositories from default test discovery so intentionally
+  failing native-report fixtures run only through their explicit bench plans.
+
+- Added a deterministic, source-grounded emission quality review packet so an
+  independent agent can calibrate finding precision and assessment usefulness
+  without treating historical detector volume or human review as authority.
+- Added optional parity-corpus ingestion for repository-native test, lint,
+  security, dependency-audit, and verification-bound coverage reports. The
+  bench reuses Rekon's existing CLI normalization and policy paths rather than
+  creating benchmark-only emitters. Opt-in evidence capture now runs declared
+  commands through the verification runner, protects repository files, and can
+  repeat a plan against one evidence state.
+- Linked imported check and security reports to an explicitly selected
+  `VerificationRun`, rejected cross-repository lineage, and restricted current
+  check evaluation to runs coherent with the active evidence state.
+- Added stable Vitest file-failure parsing, collapsed missing-dependency
+  diagnostic cascades, and kept transcript variance, timeouts, and environment
+  failures below automatic promotion.
+- Added repository-local Vitest/Jest config selection to isolated coverage
+  plans. Vitest plans now bound collection to declared source targets and
+  exclude nested worktrees, allowing runtime evidence to enrich the exact
+  current assessment without suite-wide coverage noise.
+- Bounded per-test application-graph context and made it cite the complete
+  import graph, preventing large repositories from amplifying transitive paths
+  into unwriteable graph artifacts while retaining explicit truncation counts.
+- Excluded Next.js `.next` build output from JS/TS evidence collection so
+  generated bundles cannot pollute repository models or graph projections.
+- Removed error-suppression noise from forced file cleanup and nested error
+  recovery, and excluded archived source snapshots from production grammar
+  enforcement.
+- Distinguished explicit fail-open cache writes from required persistence so
+  logged cache failures do not become error-suppression risks.
+- Routed GPT-5 semantic file understanding through the OpenAI Responses API,
+  requested source-cited `verb:noun` capability IDs, and admitted additional
+  explicit operational verbs without promoting evidence-free signals.
+- Made `gpt-5.6-luna` at low effort the semantic-file default after a bounded
+  source-grounded comparison, and required capability citations to match the
+  current source text before they can enter `CapabilityMap`. Verified excerpts
+  now receive canonical source line coordinates instead of trusting model line
+  estimates.
+- Calibrated dependency-advisory impact against lockfile exposure. Native
+  severity remains explicit, while development-only direct and transitive
+  paths are capped below unproven production impact. npm umbrella dependency
+  rows without their own advisory identity no longer duplicate leaf risks.
+- Corrected emitter-quality failures found by that review: secondary
+  helper names no longer create naming violations, incomplete root graphs no
+  longer prove dead code, documented empty catches, logged listener isolation,
+  and restored test state stay quiet, and obsolete or source-stale semantic
+  reports cannot emit claims.
+- Added repeatable `rekon scan --semantic-debt-file-path` targeting for bounded,
+  source-grounded model calibration without bypassing containment, eligibility,
+  reuse, or file-budget controls.
+- Versioned semantic-debt judgment to `debt-judge-v3`, with numbered source
+  evidence and a stricter boundary rule for missing-validation claims. V2
+  reports remain historical artifacts and no longer emit current claims.
+- Added deterministic `typescript.typeEscape` evidence for explicit `any`
+  annotations, including catch variables, under the existing assessment rule.
+- Added semantic-debt coercion versioning to report policy and reuse checks, and
+  stopped ordinary prose such as "before any repository work" from being
+  mislabeled as a type assertion.
+
+- Added a local, agent-driven review workflow for unmatched redesign cases that
+  separates emitter gaps from evidence, matching, classification, and noisy
+  historical signals without changing parity scores automatically.
+- Expanded the source-backed redesign review to 102 cases and added narrow
+  evidence for whitespace-only production files, explicitly future empty action APIs,
+  and constant-empty public query methods on concrete exported classes.
+- Extended placeholder-risk evidence to exported action contracts whose empty
+  implementation explicitly documents itself as a no-op, while excluding
+  internal reset shims and intentional component slot markers.
+- Mapped source-backed placeholder assessments to the corresponding historical
+  redesign goal without promoting them to findings. Same-file complexity risks
+  remain separate when they do not establish the same remediation.
+- Completed the built-in policy registry, public rule-ID exports, quality
+  inventory, and eval declarations for compiler-proven unused imports, unused
+  private members, and unreachable statements.
+- Preserved unused-private-field opportunities through unresolved TypeScript
+  project environments with source-local read analysis, including write-only
+  self-updates, while deduplicating overlapping compiler evidence.
+- Added repository-declared `ownership.doesNotOwn` Rulebook evaluation. The
+  policy joins explicit law to capability and ownership projections, rejects
+  malformed or duplicate active rules, and carries law and model provenance
+  into the resulting finding report.
+- Added `.rekon/config.json` Rulebook ingestion to the normal evaluation and
+  refresh path. Configured law is validated, materialized as a typed canonical
+  input, reused when unchanged, and explicitly superseded when removed.
+- Integrated semantic file evidence into the current scan lineage. Scan now
+  produces model reports before refresh, refresh builds a current
+  `CapabilityEvidenceGraph`, and model projection accepts only high-confidence
+  semantic capabilities with artifact evidence.
+- Fixed semantic file analysis with a configured OpenAI key by defaulting its
+  router to the built-in `openai` provider and retaining provider failures in
+  report warnings instead of silently degrading.
+- Calibrated dead-code roots for Next.js metadata and Vercel filesystem functions, made naming findings require exported role evidence, distinguished composition seams and CLI output from policy violations, tightened semantic-debt judgment against lint and speculative exposure claims, and documented source-grounded agent adjudication as the quality loop.
+- Prevented unresolved TypeScript environments from manufacturing structural compiler findings, removed non-null assertions as standalone risks, excluded intentional catch suppression and internally handled effect promises, recognized guaranteed test environment cleanup, and narrowed deprecated-debt evidence to actual tags.
+- Hardened quality benchmarking so resolved invalid or unhelpful labels remain calibration history, expected valid records cannot disappear silently, duplicate identity is repository-scoped, and subset runs use only their selected repositories' adjudications.
+
 - Prevented refresh publications and new intent assessments from implicitly
   selecting WorkOrder or verification proof from an earlier intent. Historical
   artifacts remain inspectable, and explicit refs remain authoritative.

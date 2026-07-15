@@ -85,6 +85,14 @@ test("class 3: generated files exempt by header signal or declared glob, counted
   assert.equal(stats.generatedExemptions, 2);
 });
 
+test("declared public API annotations produce reachability evidence", () => {
+  const facts = jsts.extractContentSignalFacts(
+    "src/public.ts",
+    "/** @publicApi */\nexport interface PublicContract {}\n",
+  );
+  assert.equal(facts.some((fact) => fact.kind === "content_signal" && fact.value.signal === "declaredPublicApi"), true);
+});
+
 test("class 4: factory exemption ONLY via the grammar's declared Factory role; unsuffixed stays residual", () => {
   const ratified = ontology.compileEffectiveGrammar({
     ratifiedArchetypeIds: ontology.BUILTIN_GRAMMAR_ARCHETYPE_PACKS.map((p) => p.id),

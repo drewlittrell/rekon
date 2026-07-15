@@ -249,6 +249,7 @@ export type Runtime = RuntimeContext & {
 
 const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   EvidenceGraph: "evidence",
+  Rulebook: "evidence",
   IntelligenceSnapshot: "snapshots",
   ObservedRepo: "projections",
   OwnershipMap: "projections",

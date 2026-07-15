@@ -9,8 +9,9 @@
 // authoritative for imports/exports (the hallucination guard).
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, appendFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -52,8 +53,10 @@ function makeRepo({ richIgnored = false, extraSources = [] } = {}) {
   }
   if (richIgnored) {
     mkdirSync(join(ROOT, "node_modules", "pkg"), { recursive: true });
+    mkdirSync(join(ROOT, ".next", "server"), { recursive: true });
     mkdirSync(join(ROOT, "dist"), { recursive: true });
     writeFileSync(join(ROOT, "node_modules/pkg/ignored.ts"), "export const ignored = true;\n");
+    writeFileSync(join(ROOT, ".next/server/ignored.js"), "export const generated = true;\n");
     writeFileSync(join(ROOT, "dist/ignored.js"), "export const ignored = true;\n");
   }
   return ROOT;
@@ -64,6 +67,23 @@ const scan = (ROOT, extra = []) =>
     encoding: "utf8",
     env: noKeyEnv(),
   });
+
+function scanAsync(ROOT, extra, env) {
+  return new Promise((resolveResult, reject) => {
+    const child = spawn(process.execPath, [cliPath, "scan", "--root", ROOT, ...extra, "--json"], {
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (status) => resolveResult({ status, stdout, stderr }));
+  });
+}
 const autoArgs = (model = "test-model") => ["--semantic-files", "auto", "--llm-provider", "openai", "--llm-model", model];
 
 function readReports(ROOT) {
@@ -136,6 +156,138 @@ test("5. scan help lists --llm-model", () => {
   assert.match(scanLine, /--llm-model/);
 });
 
+test("5a. default semantic route uses OpenAI when a key is present and provider flags are omitted", async () => {
+  const requests = [];
+  const paths = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => { body += chunk; });
+    request.on("end", () => {
+      paths.push(request.url);
+      requests.push(JSON.parse(body));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        model: "gpt-5.6-luna-test",
+        output: [{
+          type: "message",
+          content: [{
+            type: "output_text",
+            text: JSON.stringify({
+              summary: {
+                purpose: "Exports greeting utilities.",
+                responsibilities: ["Format a greeting"],
+                touchedConcepts: ["greeting"],
+              },
+              capabilitySignals: [],
+              findings: [],
+            }),
+          }],
+        }],
+      }));
+    });
+  });
+  await new Promise((resolveListen, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolveListen);
+  });
+
+  const ROOT = makeRepo();
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const env = noKeyEnv();
+  env.OPENAI_API_KEY = "test-key";
+  env.REKON_LLM_BASE_URL = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const res = await scanAsync(
+      ROOT,
+      ["--semantic-file-limit", "1", "--semantic-file-path", "src/index.ts", "--semantic-debt", "off"],
+      env,
+    );
+    assert.equal(res.status, 0, res.stderr);
+    const json = parse(res);
+    assert.equal(json.semanticFiles.provider, "openai");
+    assert.equal(json.semanticFiles.model, "gpt-5.6-luna-test");
+    assert.equal(json.semanticFiles.written, 1);
+    assert.equal(requests.length, 1);
+    assert.deepEqual(paths, ["/responses"]);
+    assert.equal(requests[0].model, "gpt-5.6-luna");
+    assert.equal(requests[0].reasoning.effort, "low");
+    const [report] = readReports(ROOT);
+    assert.equal(report.normalizationTrace.method, "semantic-llm");
+    assert.equal(report.normalizationTrace.provider, "openai");
+    assert.equal(report.normalizationTrace.model, "gpt-5.6-luna-test");
+  } finally {
+    await new Promise((resolveClose) => server.close(resolveClose));
+  }
+});
+
+test("5b. GPT-5 semantic routes use the OpenAI Responses API", async () => {
+  const requests = [];
+  const paths = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => { body += chunk; });
+    request.on("end", () => {
+      paths.push(request.url);
+      requests.push(JSON.parse(body));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        model: "gpt-5.6-luna-test",
+        output: [{
+          type: "message",
+          content: [{
+            type: "output_text",
+            text: JSON.stringify({
+              summary: {
+                purpose: "Exports greeting utilities.",
+                responsibilities: ["Format a greeting"],
+                touchedConcepts: ["greeting"],
+              },
+              capabilitySignals: [],
+              findings: [],
+            }),
+          }],
+        }],
+      }));
+    });
+  });
+  await new Promise((resolveListen, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolveListen);
+  });
+
+  const ROOT = makeRepo();
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const env = noKeyEnv();
+  env.OPENAI_API_KEY = "test-key";
+  env.REKON_LLM_BASE_URL = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const res = await scanAsync(
+      ROOT,
+      [
+        "--semantic-files", "required",
+        "--semantic-file-limit", "1",
+        "--semantic-file-path", "src/index.ts",
+        "--semantic-debt", "off",
+        "--llm-model", "gpt-5.6-luna",
+      ],
+      env,
+    );
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual(paths, ["/responses"]);
+    assert.equal(requests[0].model, "gpt-5.6-luna");
+    assert.equal(requests[0].reasoning.effort, "low");
+    assert.equal(parse(res).semanticFiles.written, 1);
+  } finally {
+    await new Promise((resolveClose) => server.close(resolveClose));
+  }
+});
+
 // --- 6: off is an explicit no-op -------------------------------------------
 
 test("6. `rekon scan --semantic-files off` writes no SemanticFileUnderstandingReport", () => {
@@ -190,15 +342,19 @@ test("11. semantic scan writes reports only for selected source files", () => {
   assert.ok(paths.includes("src/util.ts"));
   for (const p of paths) {
     assert.ok(!p.includes("node_modules/"), `no node_modules path: ${p}`);
+    assert.ok(!p.startsWith(".next/"), `no .next path: ${p}`);
     assert.ok(!p.startsWith("dist/"), `no dist path: ${p}`);
     assert.ok(!p.startsWith(".rekon/"), `no .rekon path: ${p}`);
   }
 });
 
-test("12. semantic scan skips node_modules / dist / .rekon", () => {
+test("12. semantic scan skips node_modules / .next / dist / .rekon", () => {
   const { reports } = autoFixture();
   const offenders = reports.filter(
-    (r) => r.file.path.includes("node_modules/") || r.file.path.startsWith("dist/") || r.file.path.startsWith(".rekon/"),
+    (r) => r.file.path.includes("node_modules/")
+      || r.file.path.startsWith(".next/")
+      || r.file.path.startsWith("dist/")
+      || r.file.path.startsWith(".rekon/"),
   );
   assert.equal(offenders.length, 0);
 });

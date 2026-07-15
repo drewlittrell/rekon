@@ -8,7 +8,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -370,6 +370,83 @@ test("provider extraction does not produce CapabilityMap facts (CapabilityMap re
     const json = JSON.stringify(fact.value);
     assert.equal(json.includes("CapabilityMap"), false,
       "AST provider must never emit CapabilityMap-referencing values");
+  }
+});
+
+test("unresolved compiler environments do not promote derived semantic errors", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-unresolved-types-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({
+      name: "missing-react-types",
+      type: "module",
+      dependencies: { react: "latest" },
+    }), "utf8");
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        noEmit: true,
+        target: "ES2022",
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        jsx: "react-jsx",
+      },
+      include: ["src/**/*.tsx"],
+    }), "utf8");
+    await writeFile(join(root, "src/component.tsx"), [
+      'import type React from "react";',
+      "function Panel({ children }: { children: React.ReactNode }) { return <div>{children}</div>; }",
+      "export const view = <Panel><span>content</span></Panel>;",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: true });
+    assert.equal(
+      facts.some((fact) => fact.kind === "typescript:diagnostic" && fact.value.purpose === "compiler-error"),
+      false,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("unresolved projects retain only self-contained literal assignment errors", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-partial-types-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({
+      name: "partial-types",
+      type: "module",
+    }), "utf8");
+    await writeFile(join(root, "tsconfig.json"), JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        noEmit: true,
+        target: "ES2022",
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+      },
+      include: ["src/**/*.ts"],
+    }), "utf8");
+    await writeFile(
+      join(root, "src/environment.ts"),
+      'import { missing } from "missing-package";\nexport const unresolved = missing;\n',
+      "utf8",
+    );
+    await writeFile(join(root, "src/structural.ts"), [
+      "type ExternalShape = {};",
+      "declare const value: ExternalShape;",
+      "export const property = value.missing;",
+    ].join("\n"), "utf8");
+    await writeFile(join(root, "src/literal.ts"), 'export const broken: string = 42;\n', "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: true });
+    const diagnostics = facts.filter(
+      (fact) => fact.kind === "typescript:diagnostic" && fact.value.purpose === "compiler-error",
+    );
+    assert.ok(diagnostics.some((fact) => fact.value.code === 2322 && fact.value.path === "src/literal.ts"));
+    assert.equal(diagnostics.some((fact) => fact.value.code === 2339), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

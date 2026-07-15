@@ -5,12 +5,49 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
-import policyCapability from "../../packages/capability-policy/dist/index.js";
+import policyCapability, {
+  evaluateEmbeddingDuplicationCandidates,
+} from "../../packages/capability-policy/dist/index.js";
 import { createRuntime } from "../../packages/runtime/dist/index.js";
 
 const logger = { info() {}, warn() {}, error() {} };
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
+const graphRef = { type: "CapabilityEvidenceGraph", id: "graph", schemaVersion: "0.1.0" };
+
+test("same-file capability candidates remain silent", () => {
+  const assessments = evaluateEmbeddingDuplicationCandidates({
+    claims: [
+      capabilityClaim("left-right", "cap:load:file", "cap:load:directory", 0.97, "embed"),
+      capabilityClaim("right-left", "cap:load:directory", "cap:load:file", 0.97, "embed"),
+    ],
+    capabilities: [
+      { id: "cap:load:file", implementedBy: [{ kind: "symbol", id: "src/load.ts#loadFile" }] },
+      { id: "cap:load:directory", implementedBy: [{ kind: "symbol", id: "src/load.ts#loadDirectory" }] },
+    ],
+  }, graphRef);
+
+  assert.deepEqual(assessments, []);
+});
+
+test("directly linked modules remain silent", () => {
+  const assessments = evaluateEmbeddingDuplicationCandidates({
+    claims: [
+      claim("left-right", "src/a.ts#run", "src/b.ts#runInternal", 0.97, "embed"),
+      claim("right-left", "src/b.ts#runInternal", "src/a.ts#run", 0.97, "embed"),
+      {
+        id: "imports",
+        subject: { kind: "file", id: "src/a.ts" },
+        predicate: "imports",
+        object: "./b.js",
+        source: "deterministic",
+      },
+    ],
+    capabilities: [],
+  }, graphRef);
+
+  assert.deepEqual(assessments, []);
+});
 
 test("reciprocal embedding duplicate claims become one opportunity and no finding", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-embedding-duplication-"));

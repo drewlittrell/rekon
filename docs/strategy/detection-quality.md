@@ -16,8 +16,9 @@ Only findings belong in `FindingReport`. The other classes use
 
 ## Promotion
 
-An assessment can become a finding when an operator confirms it, or when
-corroborated evidence ties it to applicable law or a reproducible defect.
+An assessment can become a finding when an independent judge confirms it
+against cited repository evidence, or when corroborated evidence ties it to
+applicable law or a reproducible defect.
 Opportunities and model diagnostics do not promote automatically. Semantic
 confidence alone is insufficient.
 
@@ -40,7 +41,7 @@ Detection quality is measured per goal using:
 - duplicate remediation rate;
 - severity calibration;
 - identity stability across scans;
-- operator usefulness for risks and opportunities.
+- adjudicated usefulness for risks and opportunities.
 
 Historical detector output may supply test cases, but it is not a product
 specification or a target finding count.
@@ -51,7 +52,24 @@ but it does not count as a finding. Assessment usefulness and finding precision
 remain separately adjudicated quality measures.
 
 The private-corpus benchmark writes a detailed local report and a sanitized
-aggregate report. Operator adjudications remain external to the repository.
+aggregate report. Independent adjudications remain external to the repository.
+The judge may be a model or agent that inspects source and artifact evidence;
+human approval is not required for the calibration loop.
+Unmatched redesign cases are sampled across repositories and inspected against
+bounded source excerpts before they become engineering work. The judge records
+the claim verdict separately from the recommended action so a matching gap,
+missing evidence source, or noisy historical claim does not automatically
+become a new emitter. These judgments remain calibration input; they do not
+remove cases from the parity denominator or rewrite canonical repository facts.
+Model-backed file understanding follows the same boundary. A current report is
+first recorded as semantic evidence in `CapabilityEvidenceGraph`; only
+high-confidence capability signals with artifact citations enter
+`CapabilityMap`. Lower-confidence signals remain graph context, and no semantic
+signal creates ownership or declared law.
+Artifact citation alone is insufficient: the cited excerpt must also match the
+current source text. Rekon derives canonical line coordinates from the matched
+excerpt because model-provided line numbers are advisory. Invalid excerpts
+remain review context and cannot create capability nodes.
 When labels are absent, precision, usefulness, severity calibration, and
 identity stability are reported as insufficient evidence rather than inferred
 from detector volume. `tests/bench/quality-thresholds.json` defines the minimum
@@ -61,16 +79,125 @@ evidence expected before each built-in rule is considered calibrated.
 
 Coverage should expand through evidence sources with independent proof value:
 
+- repository-native test, lint, scanner, and dependency-audit reports;
 - runtime truth for exercised paths and failures;
 - graph corroboration for architecture, reachability, and ownership claims.
 
 Each addition needs adjudicated corpus cases, a declared output class, stable
 root-cause identity, and a measured precision/recall or usefulness target.
+The parity corpus can declare repository-local native reports through optional
+`evidenceInputs`. Rekon normalizes those reports with its existing CLI
+ingestion commands and evaluates them against the current evidence graph.
+Execution remains opt-in: `--capture-evidence` uses Rekon's no-shell
+verification runner, bounds repetitions, and rejects writes outside declared
+report or cache paths. Coverage requires an explicit `VerificationRun` and
+test path before it can contribute isolated runtime context.
 
-The JS/TS pack currently treats compiler-reproduced syntax and stable type
-errors as findings. AST-observed type escapes, error suppression, and explicit
-placeholder implementations remain risks because source structure alone does
-not prove runtime impact or reachability.
+## Calibration Queue
+
+The current private corpus has calibrated architecture dependency hubs,
+unreferenced-export opportunities, declared debt, semantic debt, grammar and
+naming rules, dependency advisories, test isolation, error suppression,
+function complexity, explicit type escapes, unused imports, and unused private
+members.
+
+The remaining queue is evidence work, not a detector-count target:
+
+- the public quality corpus now meets the five-case usefulness threshold for
+  test isolation, placeholder implementations, unused private members, and
+  error suppression. Error suppression has five active useful cases, while one
+  not-useful display-only fallback is retained as resolved calibration history.
+  Empty source files and genuine focused-test mistakes have no current positive
+  case;
+- repository checks now have current failing-run evidence, including repeated
+  incomplete-environment cases, but still need independent complete-environment
+  source failures before finding precision is calibrated; scanner results need
+  repository-native reports from the same source snapshot;
+- isolated runtime corroboration is proven on one real complexity assessment,
+  but needs independent cases before it is considered calibrated;
+- rules with no current positive corpus case remain uncalibrated rather than
+  being fed synthetic production evidence.
+
+A separate pinned public corpus broadens quality calibration without pretending
+to have a historical baseline. Those repositories run in `quality-only` mode:
+their findings and assessments can be judged against source, but they cannot
+change parity recall or create historical gap credit. Public-corpus calibration
+has already established three jurisdiction rules: fixture and scaffold trees
+are not production, generated source is not a complexity hotspot, and generic
+base grammar is not repository law. Package manifests also contribute declared
+imports, published files, and tool hooks as reachability roots.
+
+Vitest and Playwright extend this corpus with test-runner and browser-automation
+code so test-isolation, incomplete-capability, and unused-private-member
+assessments have enough independent source examples for usefulness
+calibration. Their addition also proved that third-party package `dist`
+entrypoints are outside the local-output import rule and that tests of
+focused-test behavior are not focused-test risks.
+
+pnpm and Next.js extend the same catalog with package-manager migration tooling
+and a 21,000-file framework monorepo. They supplied independent partial-work
+error paths, established that generated, compiled, and vendored source remains
+evidence rather than source-quality policy, and exposed test-only relative
+`node_modules` imports that do not belong in raw finding output.
+
+New emitters are justified only by source-grounded missed signals. A zero count
+for a rule is not itself a defect.
+
+Repository-check evaluation ignores runs that are not coherent with the active
+evidence state. Missing dependency cascades remain one operational assessment,
+and a missing dependency proven by one command keeps sibling test or build
+failures from promoting out of the same compromised run. Independent source
+diagnostics inside the environment-failing command remain separately
+evaluated. Vitest summaries use file-level identity so parallel output ordering
+or a changed failure count does not create a new remediation. Two coherent
+runs from a complete environment are still required for promotion.
+
+The JS/TS pack treats compiler-reproduced syntax and stable type errors as
+findings only when the relevant compiler environment resolves. When project
+dependencies or ambient types are unresolved, Rekon retains syntax errors and
+self-contained literal assignment contradictions but does not promote derived
+structural type errors. Explicit `any` assertions and annotations, undocumented error
+suppression, and explicit placeholder implementations remain risks because
+source structure alone does not prove runtime impact or reachability. Non-null
+assertions remain evidence, not standalone risks, because local control flow
+often proves them safe.
+Forced file removal and diagnostics attempted inside an existing error handler
+are cleanup/recovery mechanics, not suppressed primary failures. Archived
+source snapshots are also outside production grammar enforcement.
+Void cache-write helpers with explicit cache semantics may fail open after
+logging; repository or primary persistence writes do not inherit that exemption.
+Logger modules may also isolate failures while writing derived telemetry output;
+ordinary application modules do not inherit that exemption.
+Private fields with no meaningful source read remain verified opportunities
+even when unresolved imports prevent project-wide compiler diagnostics. Reads
+used only to assign a value back to the same field do not establish downstream
+use; consumed updates, method calls or dereferences on stored state, returns,
+conditions, and dynamic property access do. When compiler and source-local
+evidence identify the same field, policy fusion counts one occurrence.
+An exported action-named function with an empty body is considered an explicit
+placeholder only when the implementation documents that it is a no-op or a
+future implementation. A public query method on a concrete exported class is
+also a placeholder risk when every input is deliberately ignored and the body
+returns only `null` or an empty array. Explicit null-object adapters, internal
+test shims whose action is already satisfied without mutable state, and React
+compound-component slot markers remain quiet. A whitespace-only production
+source file is a verified low-impact opportunity rather than a defect.
+
+Error and async-control-flow evidence accounts for visible ownership of the
+failure path. An empty catch with an explicit best-effort or recovery contract
+does not become an error-suppression risk. Logged failure isolation around a
+callback explicitly named as a listener, hook, or `onEvent`/`_onEvent` handler
+is also treated as a boundary, not suppressed application work. Nested
+recovery, explicit failure returns, and documented retries retain their own
+control-flow result. Loop-local presentation fallbacks also stay quiet when
+both branches preserve the same visible item without attempting a write. A
+detached React effect loader does not become a floating-promise risk when the
+loader catches its own rejection.
+Test environment mutation is suppressed when a guaranteed `finally` or
+`afterEach` cleanup restores the environment. Assigning a value captured from
+the same environment key back to that key is restoration, not a mutation.
+Setup-only restoration remains a risk because the final test may leak state
+beyond the suite.
 
 Async control-flow checks are similarly conservative. Rekon reports async
 Promise executors only when `Promise` is not shadowed, and async callbacks on
@@ -143,11 +270,19 @@ state-SDK access, and explicit throw syntax are separate behavior edges. These
 graphs improve impact explanations and dead-code reachability; they do not
 raise severity or prove runtime execution.
 
+Reachability projection is bounded independently from the complete import
+graph. Non-test roots retain at most 100 transitive imports; test roots delegate
+dependency context to the application graph. Entry metadata and provenance
+report truncation and cite the import graph. This keeps large framework scans
+finite without pretending omitted reachability edges do not exist. Application
+graph artifact size remains a profiling target on very large test suites, not
+a reason to drop evidence or manufacture a detector gap.
+
 Repository-native security scanners enter through normalized SARIF 2.1
 reports. Rekon uses scanner security metadata, CWE/OWASP tags, and stable
 fingerprints; it does not treat every result from a security-capable tool as a
 security issue. A current scanner result is a risk, not an automatically
-promoted finding. Promotion requires an operator confirmation or independent
+promoted finding. Promotion requires independent source-grounded judgment or
 evidence that establishes repository applicability, applicable law, and a
 reproducible defect. A second copy of the same scanner result is not independent
 corroboration. Generic lint results remain provenance only.
@@ -159,8 +294,8 @@ but it still does not prove that an assertion covered the observed behavior and
 does not participate in automatic finding promotion.
 
 The built-in coverage adapters accept Istanbul JSON and LCOV from an isolated
-test run. Because neither format retains test identity, Rekon requires the operator to
-name the test path and stores that attribution with the coverage digest. It
+test run. Because neither format retains test identity, Rekon requires the
+caller to name the test path and stores that attribution with the coverage digest. It
 does not infer per-test evidence from a suite-wide report.
 
 Coverage produced by a generated isolated plan retains function ranges and the
@@ -175,7 +310,7 @@ Embedding `duplicate_candidate` claims become opportunities only for reciprocal
 neighbors built from comparable file or capability representations. Declaration
 signatures and cross-representation similarity remain context, not duplication.
 Non-production paths stay out of the candidate set. Candidates remain
-unverified until structural, behavioral, or operator evidence establishes that
+unverified until structural, behavioral, or independently judged evidence establishes that
 the implementations are actually redundant and that consolidation has positive
 value.
 
@@ -188,15 +323,17 @@ the number of scored pairs against the all-pairs ceiling. Agent scratch trees
 are excluded before graph and embedding construction unless the repository
 explicitly overrides its scan scope.
 
-Operator adjudication is calibration input, not repository truth. External
-labels may change benchmark precision, recall, usefulness, thresholds, or a
-rule disposition. They do not rewrite ownership, architecture, findings, or
-canonical evidence. Operator memory remains resolver guidance unless a
-separate, explicit confirmation is attached to an assessment.
+Independent adjudication is calibration input, not repository truth. The judge
+must inspect cited artifacts and relevant source before labeling correctness,
+usefulness, severity, or identity stability. External labels may change
+benchmark precision, recall, usefulness, thresholds, or a rule disposition.
+They do not rewrite ownership, architecture, findings, or canonical evidence.
+Memory remains resolver guidance unless a separate, evidence-backed
+confirmation is attached to an assessment.
 
 Assessment lifecycle is visible rather than inferred by each consumer. Reports,
 CLI output, resolver packets, traces, and generated guidance distinguish model
-proposals, observed evidence, tool corroboration, verification, operator
+proposals, observed evidence, tool corroboration, verification, independent
 confirmation, optional opportunities, and model diagnostics. Fusion requires a
 shared remediation identity, type, and scope; a coincidentally reused key is
 insufficient.
@@ -210,21 +347,46 @@ evaluated as declared-law divergence. Rekon does not recreate inferred
 architecture opinions when a repository has not declared the corresponding
 law. Pipeline self-disagreement is a model diagnostic, not a repository issue.
 
+Repository ownership law enters through typed `Rulebook` artifacts. The
+`ownership.doesNotOwn` evaluator joins an explicit system and capability
+pattern to `CapabilityMap`, using `OwnershipMap` attribution when available.
+Findings cite the law and model inputs. Missing law remains silent, and coarse
+capability or ownership projections remain an evidence gap rather than a
+guessed violation.
+The local CLI accepts repository law under `.rekon/config.json`
+`rulebook.rules`, validates it before refresh, and writes a typed `Rulebook`
+with config provenance. A removed rulebook is represented by an empty
+superseding artifact so historical law cannot remain silently active.
+
 ### Debt And Semantic Judgment
 
 Deterministic markers and explicit placeholders provide source evidence.
 Broader maintainability judgments remain semantic claims until corroborated.
 Neither output is multiplied into separate findings for every wording variant.
+Independent function-complexity measurements remain separate assessments. A
+same-file complexity risk does not satisfy an unrelated historical debt concern
+without construct-level evidence that both describe the same remediation.
 Semantic eligibility, model judgment, deterministic corroboration, and finding
 promotion are separate stages. A matching source signal can corroborate a
 claim, but does not bypass the promotion gate.
 Eligibility excludes generated, non-production, declaration-only, structured
 data-output, and prompt-truncated inputs before provider calls.
+Policy rejects semantic reports from obsolete prompt contracts and drops any
+entry whose recorded source digest no longer matches the current file. The
+historical artifact remains available for audit but cannot silently re-enter a
+new assessment report.
+
+Declared-root reachability is evidence, not proof that a file is dead. Dynamic
+registries and external package consumers can be absent from the observed
+graph, so unreferenced exports remain assessments until independent evidence
+establishes removal is safe. Naming findings require a role-bearing declaration
+for the same module entity; helper names do not redefine a module's role.
 
 ### Reachability And Overlap
 
-Dead-code conclusions require graph reachability and declared roots. Capability
-overlap and implementation similarity are opportunities until sharing intent,
+Dead-code assessments require graph reachability and declared roots; promotion
+still requires independent evidence that removal is safe. Capability overlap
+and implementation similarity are opportunities until sharing intent,
 behavioral equivalence, and consolidation value are established. Overlap uses
 only stable normalized function and method identities, then requires their
 implementation paths to span declared owners. Inferred path-prefix ownership
@@ -242,7 +404,7 @@ public re-export wrappers do not establish dead code.
 ### Naming And Anti-Patterns
 
 Naming and structural anti-pattern findings require an applicable grammar or
-operator policy. Style opinions without declared law belong in repository-native
+declared policy. Style opinions without declared law belong in repository-native
 linters, whose output Rekon may consume as evidence.
 
 ### Preservation Signals

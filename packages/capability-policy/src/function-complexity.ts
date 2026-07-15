@@ -38,11 +38,14 @@ export function evaluateFunctionComplexity(
   coverageRuns: readonly ComplexityCoverageRun[] = [],
 ): Assessment[] {
   const candidates = new Map<string, FunctionMetrics>();
+  const generatedFiles = new Set(facts
+    .filter((fact) => fact.kind === "content_signal" && fact.value.signal === "generatedFile")
+    .map((fact) => fact.subject));
 
   for (const fact of facts) {
     if (fact.kind !== "typescript:function-metrics") continue;
     const metrics = parseMetrics(fact);
-    if (!metrics || isNonProductionPath(metrics.path)) continue;
+    if (!metrics || isNonProductionPath(metrics.path) || generatedFiles.has(metrics.path)) continue;
     const key = `${metrics.path}:${metrics.functionId}`;
     const current = candidates.get(key);
     if (!current || metricTotal(metrics) > metricTotal(current)) candidates.set(key, metrics);

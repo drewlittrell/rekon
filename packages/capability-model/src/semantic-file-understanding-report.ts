@@ -403,12 +403,15 @@ export async function buildSemanticFileUnderstandingReport(
         );
       }
       if (!threw) {
+        if (raw && typeof raw.provider === "string" && raw.provider.length > 0) provider = raw.provider;
+        if (raw && typeof raw.model === "string" && raw.model.length > 0) model = raw.model;
         const coerced = coerceSemanticUnderstanding(raw ?? null);
         if (!coerced) {
           if (mode === "required") {
             throw new Error("Semantic file understanding is required but the provider returned no usable understanding.");
           }
           method = "deterministic-fallback";
+          for (const warning of normalizeStringArray(raw?.warnings)) warnings.push(warning);
           warnings.push(
             "Semantic understanding provider returned no usable result; reported deterministic structural understanding only.",
           );
@@ -417,8 +420,6 @@ export async function buildSemanticFileUnderstandingReport(
           provenance = "semantic-llm";
           semantic = coerced;
           for (const w of coerced.warnings) warnings.push(w);
-          if (raw && typeof raw.provider === "string" && raw.provider.length > 0) provider = raw.provider;
-          if (raw && typeof raw.model === "string" && raw.model.length > 0) model = raw.model;
         }
       }
     }

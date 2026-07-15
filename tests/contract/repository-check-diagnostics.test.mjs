@@ -51,7 +51,7 @@ test("the same location-specific failure on the current commit promotes source r
   });
 });
 
-test("stale and environment-shaped failures remain assessments", async () => {
+test("stale failures are omitted while current environment failures remain assessments", async () => {
   await withPolicyRuntime(async ({ runtime }) => {
     await writeEvidence(runtime, { commit: COMMIT, sourceQuality: false });
     await writeRun(runtime, {
@@ -81,9 +81,39 @@ test("stale and environment-shaped failures remain assessments", async () => {
 
     const { findings, assessments } = await evaluate(runtime);
     assert.equal(findings.findings.length, 0);
-    assert.equal(assessments.assessments.length, 2);
+    assert.equal(assessments.assessments.length, 1);
     assert.equal(assessments.assessments.every((assessment) => assessment.ruleId === "repository.checkFailure"), true);
     assert.equal(assessments.assessments.every((assessment) => assessment.details.reproducible === false), true);
+    assert.equal(assessments.assessments[0].details.checkCategory, "test");
+    assert.equal(assessments.assessments[0].details.environmentFailure, true);
+    assert.equal(assessments.assessments[0].evidence.some((ref) => ref.id.startsWith("build-stale")), false);
+  });
+});
+
+test("missing dependency cascades collapse without hiding independent source diagnostics", async () => {
+  await withPolicyRuntime(async ({ runtime }) => {
+    await writeEvidence(runtime, {
+      commit: COMMIT,
+      sourceQuality: false,
+      extraFiles: ["src/missing.tsx", "src/real.ts"],
+    });
+    const output = [
+      "src/missing.tsx(1,20): error TS2307: Cannot find module 'react' or its corresponding type declarations.",
+      "src/missing.tsx(4,3): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.",
+      "src/real.ts(8,7): error TS2322: Type 'string' is not assignable to type 'number'.",
+    ].join("\n");
+    await writeRun(runtime, { id: "typecheck-first", commit: COMMIT, command: "npm run typecheck", output });
+    await writeRun(runtime, { id: "typecheck-second", commit: COMMIT, command: "npm run typecheck", output });
+
+    const { findings, assessments } = await evaluate(runtime);
+    assert.equal(findings.findings.length, 1);
+    assert.equal(findings.findings[0].details.diagnostic.code, "TS2322");
+    assert.equal(findings.findings[0].details.environmentFailure, false);
+    assert.equal(assessments.assessments.length, 1);
+    assert.equal(assessments.assessments[0].details.environmentFailure, true);
+    assert.deepEqual(assessments.assessments[0].files, ["src/missing.tsx"]);
+    assert.equal(assessments.assessments[0].details.diagnostic, undefined);
+    assert.match(assessments.assessments[0].title, /environment failed/);
   });
 });
 
@@ -104,6 +134,111 @@ test("a repeated generic repository test failure becomes one governed finding", 
   });
 });
 
+test("different bounded transcripts remain one aggregate risk without false reproducibility", async () => {
+  await withPolicyRuntime(async ({ runtime }) => {
+    await writeEvidence(runtime, { commit: COMMIT, sourceQuality: false });
+    await writeRun(runtime, {
+      id: "test-transcript-first",
+      commit: COMMIT,
+      command: "npm test",
+      output: "FAIL first suite without a source location",
+    });
+    await writeRun(runtime, {
+      id: "test-transcript-second",
+      commit: COMMIT,
+      command: "npm test",
+      output: "FAIL second suite after bounded log truncation",
+    });
+
+    const { findings, assessments } = await evaluate(runtime);
+    assert.equal(findings.findings.length, 0);
+    assert.equal(assessments.assessments.length, 1);
+    assert.equal(assessments.assessments[0].details.reproducible, false);
+    assert.equal(assessments.assessments[0].details.runCount, 2);
+    assert.equal(assessments.assessments[0].details.distinctObservedFailures, 2);
+  });
+});
+
+test("Vitest file summaries reproduce across output ordering and failure-count changes", async () => {
+  await withPolicyRuntime(async ({ runtime }) => {
+    await writeEvidence(runtime, {
+      commit: COMMIT,
+      sourceQuality: false,
+      extraFiles: ["tests/alpha.test.ts", "tests/beta.test.ts"],
+    });
+    await writeRun(runtime, {
+      id: "vitest-first",
+      commit: COMMIT,
+      command: "npm run test",
+      output: vitestOutput([
+        ["tests/alpha.test.ts", 2, "12ms"],
+        ["tests/beta.test.ts", 1, "48ms"],
+      ]),
+    });
+    await writeRun(runtime, {
+      id: "vitest-second",
+      commit: COMMIT,
+      command: "npm run test",
+      output: vitestOutput([
+        ["tests/beta.test.ts", 1, "9ms"],
+        ["tests/alpha.test.ts", 3, "71ms"],
+      ]),
+    });
+
+    const { findings, assessments } = await evaluate(runtime);
+    assert.equal(findings.findings.length, 2);
+    assert.deepEqual(
+      findings.findings.map((finding) => finding.files[0]).sort(),
+      ["tests/alpha.test.ts", "tests/beta.test.ts"],
+    );
+    assert.equal(findings.findings.every((finding) => finding.details.reproducible === true), true);
+    assert.equal(findings.findings.every((finding) => finding.details.diagnostic.code === "vitest:file-failures"), true);
+    assert.deepEqual(
+      findings.findings.map((finding) => finding.details.diagnostic.failureCount).sort((left, right) => left - right),
+      [1, 2],
+    );
+    assert.equal(assessments.assessments.length, 0);
+  });
+});
+
+test("a sibling missing-dependency failure prevents test summaries from promoting", async () => {
+  await withPolicyRuntime(async ({ runtime }) => {
+    await writeEvidence(runtime, {
+      commit: COMMIT,
+      sourceQuality: false,
+      extraFiles: ["src/missing.tsx", "tests/alpha.test.ts", "tests/beta.test.ts"],
+    });
+    const commands = [
+      {
+        command: "npm run typecheck",
+        output: "src/missing.tsx(1,20): error TS2307: Cannot find module 'react' or its corresponding type declarations.",
+      },
+      {
+        command: "npm run test",
+        output: vitestOutput([
+          ["tests/alpha.test.ts", 2, "12ms"],
+          ["tests/beta.test.ts", 1, "48ms"],
+        ]),
+      },
+    ];
+    await writeRunWithCommands(runtime, { id: "environment-first", commit: COMMIT, commands });
+    await writeRunWithCommands(runtime, { id: "environment-second", commit: COMMIT, commands });
+
+    const { findings, assessments } = await evaluate(runtime);
+    assert.equal(findings.findings.length, 0);
+    assert.equal(assessments.assessments.length, 2);
+    const testRisk = assessments.assessments.find(
+      (assessment) => assessment.details.checkCategory === "test",
+    );
+    assert.ok(testRisk);
+    assert.equal(testRisk.details.environmentFailure, true);
+    assert.equal(testRisk.details.reproducible, false);
+    assert.equal(testRisk.details.runCount, 2);
+    assert.deepEqual(testRisk.files, ["tests/alpha.test.ts", "tests/beta.test.ts"]);
+    assert.match(testRisk.title, /environment failed/);
+  });
+});
+
 test("fresh runs after an evidence observation can promote when commit metadata is unavailable", async () => {
   await withPolicyRuntime(async ({ runtime }) => {
     await writeEvidence(runtime, { commit: undefined, sourceQuality: false });
@@ -116,6 +251,35 @@ test("fresh runs after an evidence observation can promote when commit metadata 
     assert.equal(findings.findings[0].ruleId, "repository.checkFailure");
     assert.deepEqual(findings.findings[0].details.coherence, ["observed_after_evidence"]);
     assert.equal(assessments.assessments.length, 0);
+  });
+});
+
+test("current check assessments exclude stale runs with the same identity", async () => {
+  await withPolicyRuntime(async ({ runtime }) => {
+    const output = "FAIL current suite without a source location";
+    await writeRun(runtime, {
+      id: "same-check-stale",
+      commit: "older-commit",
+      command: "npm test",
+      output,
+    });
+    await writeEvidence(runtime, { commit: COMMIT, sourceQuality: false });
+    await writeRun(runtime, {
+      id: "same-check-current",
+      commit: COMMIT,
+      command: "npm test",
+      output,
+    });
+
+    const { findings, assessments } = await evaluate(runtime);
+    assert.equal(findings.findings.length, 0);
+    assert.equal(assessments.assessments.length, 1);
+    const risk = assessments.assessments[0];
+    assert.equal(risk.details.runCount, 1);
+    assert.deepEqual(risk.details.coherence, ["commit"]);
+    assert.deepEqual(risk.evidence.filter((ref) => ref.type === "VerificationRun").map((ref) => ref.id), [
+      "same-check-current",
+    ]);
   });
 });
 
@@ -363,23 +527,31 @@ async function writeImportGraph(runtime, evidenceRef, { directFiles = [], transi
 }
 
 async function writeRun(runtime, { id, commit, command, output }) {
+  return writeRunWithCommands(runtime, {
+    id,
+    commit,
+    commands: [{ command, output }],
+  });
+}
+
+async function writeRunWithCommands(runtime, { id, commit, commands }) {
   const planRef = { type: "VerificationPlan", id: `plan-${id}`, schemaVersion: "0.1.0" };
   await runtime.artifacts.write({
     header: header("VerificationRun", id, commit, [planRef]),
     status: "failed",
     verificationPlanRef: planRef,
-    commands: [{
-      id: "cmd-1",
+    commands: commands.map(({ command, output }, index) => ({
+      id: `cmd-${index + 1}`,
       command,
       argv: command.split(" "),
       status: "failed",
       exitCode: 1,
-      stdoutDigest: `stdout-${id}`,
-      stderrDigest: `stderr-${id}`,
+      stdoutDigest: `stdout-${id}-${index + 1}`,
+      stderrDigest: `stderr-${id}-${index + 1}`,
       stdoutExcerpt: { text: "", redacted: false, truncated: false },
       stderrExcerpt: { text: output, redacted: false, truncated: false },
-    }],
-    summary: { total: 1, passed: 0, failed: 1, skipped: 0, notRun: 0, timeout: 0, killed: 0 },
+    })),
+    summary: { total: commands.length, passed: 0, failed: commands.length, skipped: 0, notRun: 0, timeout: 0, killed: 0 },
     runner: { id: "test", capabilityId: "@rekon/capability-verify" },
   });
 }
@@ -444,5 +616,16 @@ function multiLintOutput(duration, summary) {
     "src/other.ts",
     "  8:2  error  'unused' is assigned but never used  @typescript-eslint/no-unused-vars",
     `${summary} in ${duration}`,
+  ].join("\n");
+}
+
+function vitestOutput(rows) {
+  return [
+    "> fixture@1.0.0 test",
+    "> vitest run",
+    "",
+    " RUN  v4.1.1 /repo",
+    ...rows.map(([file, failed, duration]) =>
+      ` ❯ ${file} (10 tests | ${failed} failed) ${duration}`),
   ].join("\n");
 }

@@ -11,7 +11,8 @@ The default capability export is the public surface. Projector internals are
 
 ## Purpose
 
-Consumes `EvidenceGraph` and produces:
+Consumes `EvidenceGraph`, optional `CapabilityEvidenceGraph`, and optional
+`CapabilityPhraseReport` inputs, then produces:
 
 - `ObservedRepo`
 - `OwnershipMap`
@@ -20,6 +21,17 @@ Consumes `EvidenceGraph` and produces:
 The built-in JS/TS ownership projection is explicitly marked `inferred`: its
 system labels come from observed path prefixes. It is useful for navigation and
 resolver fallback, but it is not an operator declaration.
+
+High-confidence semantic capabilities enter `CapabilityMap` only when a
+`CapabilityEvidenceGraph` traces them to a
+`SemanticFileUnderstandingReport`. Medium- and low-confidence model signals
+remain graph context. Semantic capability evidence does not create ownership;
+the projection uses existing ownership entries or path fallback.
+The graph also verifies each accepted capability citation against the current
+source text and derives canonical line coordinates from the verified match.
+Model-provided line coordinates are advisory. A matching report digest with an
+absent or invalid excerpt remains review context rather than accepted
+capability evidence.
 
 ## Lifecycle Fit
 

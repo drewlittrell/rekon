@@ -95,6 +95,18 @@ function validateRule(value: unknown, path: string, issues: ValidationIssue[]): 
   if (!Array.isArray(value.appliesTo) || !value.appliesTo.every((item) => typeof item === "string")) {
     issues.push({ path: `${path}.appliesTo`, message: "Expected an array of strings." });
   }
+
+  if (value.evaluator !== undefined && (typeof value.evaluator !== "string" || value.evaluator.trim().length === 0)) {
+    issues.push({ path: `${path}.evaluator`, message: "Expected a non-empty string when present." });
+  }
+
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
+    issues.push({ path: `${path}.enabled`, message: "Expected a boolean when present." });
+  }
+
+  if (value.options !== undefined && !isRecord(value.options)) {
+    issues.push({ path: `${path}.options`, message: "Expected an object when present." });
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

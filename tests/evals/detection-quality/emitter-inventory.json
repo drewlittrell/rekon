@@ -11,7 +11,7 @@
     {
       "ruleId": "typescript.typeEscape",
       "outputKinds": ["risk"],
-      "evidence": "AST-backed any assertion or non-null assertion",
+      "evidence": "AST-backed any assertion, explicit any annotation, or non-null assertion",
       "jurisdiction": "production JavaScript and TypeScript source",
       "remediationUnit": "source file and type-escape construct"
     },
@@ -25,9 +25,16 @@
     {
       "ruleId": "typescript.placeholderImplementation",
       "outputKinds": ["risk"],
-      "evidence": "AST-backed placeholder Error throw",
+      "evidence": "AST-backed placeholder Error throw, exported action contract with an explicit empty or future implementation, or public query method on a concrete class that ignores all inputs and returns only a constant empty result",
       "jurisdiction": "production JavaScript and TypeScript source",
       "remediationUnit": "source file and placeholder construct"
+    },
+    {
+      "ruleId": "dead_code.emptySourceFile",
+      "outputKinds": ["opportunity"],
+      "evidence": "source read proves a production JavaScript or TypeScript file contains only whitespace",
+      "jurisdiction": "production JavaScript and TypeScript source",
+      "remediationUnit": "empty source file"
     },
     {
       "ruleId": "typescript.asyncPromiseExecutor",
@@ -70,6 +77,27 @@
       "evidence": "at least two independent AST function metrics exceed conservative thresholds",
       "jurisdiction": "named functions in production JavaScript and TypeScript source",
       "remediationUnit": "source file and stable function identity"
+    },
+    {
+      "ruleId": "typescript.unusedImport",
+      "outputKinds": ["opportunity"],
+      "evidence": "TypeScript name resolution proves that an imported binding has no references",
+      "jurisdiction": "resolved imports in JavaScript and TypeScript source with a valid compiler environment",
+      "remediationUnit": "source file and imported binding"
+    },
+    {
+      "ruleId": "typescript.unusedPrivateMember",
+      "outputKinds": ["opportunity"],
+      "evidence": "TypeScript compiler diagnostic proves that a private class member is unused",
+      "jurisdiction": "private members in JavaScript and TypeScript source with a valid compiler environment",
+      "remediationUnit": "source file and private member"
+    },
+    {
+      "ruleId": "typescript.unreachableCode",
+      "outputKinds": ["opportunity"],
+      "evidence": "TypeScript compiler diagnostic proves that a statement is unreachable",
+      "jurisdiction": "JavaScript and TypeScript source with a valid compiler environment",
+      "remediationUnit": "source file and unreachable statement"
     },
     {
       "ruleId": "repository.checkFailure",
@@ -164,7 +192,7 @@
     },
     {
       "ruleId": "dead_code.unreferenced",
-      "outputKinds": ["finding", "risk"],
+      "outputKinds": ["risk"],
       "evidence": "exports, resolved consumers, and declared roots",
       "jurisdiction": "production source with framework and generated exemptions",
       "remediationUnit": "source file export reachability"

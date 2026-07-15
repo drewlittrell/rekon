@@ -90,6 +90,7 @@ test("graph capability projects structural and application-context slices", asyn
     assert.equal(importGraph.edges.some((edge) => edge.source.includes(":")), false);
     const applicationGraph = await runtime.artifacts.read(refs[3]);
     assert.equal(applicationGraph.sliceType, "application-graph");
+    assert.equal(applicationGraph.header.inputRefs.some((ref) => ref.id === refs[0].id), true);
     assert.ok(applicationGraph.nodes.some((node) => node.kind === "route" && node.metadata.routePath === "/api/users"));
     assert.ok(applicationGraph.nodes.some((node) => node.kind === "screen"));
     assert.ok(applicationGraph.nodes.some((node) => node.kind === "test"));
@@ -141,6 +142,133 @@ test("graph capability projects structural and application-context slices", asyn
       edge.source === "test:tests/user.test.ts"
       && edge.target === "capability:users"
       && edge.kind === "related_to"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("application context bounds transitive dependencies per test", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-graph-bounded-"));
+
+  try {
+    const runtime = await createRuntime({ repoRoot: root, capabilities: [graphCapability] });
+    const dependencyCount = 140;
+    const facts = [
+      { kind: "file", subject: "tests/broad.test.ts", value: { path: "tests/broad.test.ts" }, confidence: 1 },
+      { kind: "test", subject: "tests/broad.test.ts", value: { path: "tests/broad.test.ts", framework: "node-test", testKind: "unit" }, confidence: 1 },
+    ];
+    for (let index = 0; index < dependencyCount; index += 1) {
+      const target = `src/dependency-${String(index).padStart(3, "0")}.ts`;
+      facts.push({ kind: "file", subject: target, value: { path: target }, confidence: 1 });
+      facts.push({
+        kind: "import",
+        subject: `tests/broad.test.ts:${target}`,
+        value: { source: "tests/broad.test.ts", target },
+        confidence: 1,
+      });
+    }
+    await runtime.artifacts.write({
+      header: {
+        artifactType: "EvidenceGraph",
+        artifactId: "evidence-bounded",
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: "repo" },
+        producer: { id: "test", version: "1.0.0" },
+        inputRefs: [],
+      },
+      facts,
+    });
+
+    const refs = await runtime.runProject({ projectorId: "@rekon/capability-graph.projector" });
+    const applicationGraph = await runtime.artifacts.read(refs[3]);
+    const dependencyEdges = applicationGraph.edges.filter((edge) => (
+      edge.source === "test:tests/broad.test.ts" && edge.kind === "depends_on"
+    ));
+    const testNode = applicationGraph.nodes.find((node) => node.id === "test:tests/broad.test.ts");
+
+    assert.equal(dependencyEdges.length, 100);
+    assert.deepEqual(testNode.metadata.contextProjection, {
+      reachableFiles: dependencyCount,
+      projectedFiles: 100,
+      truncated: true,
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("reachability bounds non-test roots and delegates test dependency context", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-graph-reachability-bounded-"));
+
+  try {
+    const runtime = await createRuntime({ repoRoot: root, capabilities: [graphCapability] });
+    const dependencyCount = 140;
+    const facts = [
+      { kind: "file", subject: "src/cli.ts", value: { path: "src/cli.ts" }, confidence: 1 },
+      { kind: "file", subject: "tests/cli.test.ts", value: { path: "tests/cli.test.ts" }, confidence: 1 },
+      { kind: "test", subject: "tests/cli.test.ts", value: { path: "tests/cli.test.ts", framework: "node-test", testKind: "unit" }, confidence: 1 },
+      { kind: "entry_point", subject: "cli:src/cli.ts", value: { path: "src/cli.ts", entryKind: "cli" }, confidence: 1 },
+      { kind: "entry_point", subject: "test:tests/cli.test.ts", value: { path: "tests/cli.test.ts", entryKind: "test" }, confidence: 1 },
+    ];
+    for (let index = 0; index < dependencyCount; index += 1) {
+      const target = `src/dependency-${String(index).padStart(3, "0")}.ts`;
+      facts.push({ kind: "file", subject: target, value: { path: target }, confidence: 1 });
+      facts.push({
+        kind: "import",
+        subject: `src/cli.ts:${target}`,
+        value: { source: "src/cli.ts", target },
+        confidence: 1,
+      });
+      facts.push({
+        kind: "import",
+        subject: `tests/cli.test.ts:${target}`,
+        value: { source: "tests/cli.test.ts", target },
+        confidence: 1,
+      });
+    }
+    await runtime.artifacts.write({
+      header: {
+        artifactType: "EvidenceGraph",
+        artifactId: "evidence-reachability-bounded",
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: "repo" },
+        producer: { id: "test", version: "1.0.0" },
+        inputRefs: [],
+      },
+      facts,
+    });
+
+    const refs = await runtime.runProject({ projectorId: "@rekon/capability-graph.projector" });
+    const reachabilityGraph = await runtime.artifacts.read(refs[5]);
+    const cliEntryId = "entry:cli:src/cli.ts";
+    const testEntryId = "entry:test:tests/cli.test.ts";
+    const cliReachability = reachabilityGraph.edges.filter((edge) => (
+      edge.source === cliEntryId && edge.kind === "reaches"
+    ));
+    const testReachability = reachabilityGraph.edges.filter((edge) => (
+      edge.source === testEntryId && edge.kind === "reaches"
+    ));
+    const cliNode = reachabilityGraph.nodes.find((node) => node.id === cliEntryId);
+    const testNode = reachabilityGraph.nodes.find((node) => node.id === testEntryId);
+
+    assert.equal(cliReachability.length, 100);
+    assert.equal(testReachability.length, 0);
+    assert.deepEqual(cliNode.metadata.reachabilityProjection, {
+      projectedFiles: 100,
+      limit: 100,
+      truncated: true,
+    });
+    assert.deepEqual(testNode.metadata.reachabilityProjection, {
+      projectedFiles: 0,
+      limit: 0,
+      truncated: true,
+      delegatedTo: "application-graph",
+    });
+    assert.equal(reachabilityGraph.header.inputRefs.some((ref) => ref.id === refs[0].id), true);
+    assert.ok(reachabilityGraph.header.provenance.notes.includes("truncated-non-test-roots:1"));
+    assert.ok(reachabilityGraph.header.provenance.notes.includes("test-roots-delegated-to-application-graph:1"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

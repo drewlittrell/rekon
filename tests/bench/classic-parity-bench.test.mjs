@@ -6,23 +6,38 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { after, test } from "node:test";
 
 import { loadClassicFindings, normalizeClassicIssuesV1, normalizePath } from "./normalize-classic.mjs";
 import {
+  evidenceInputArtifactType,
+  evidenceInputCliArgs,
+  validateCorpusEvidenceInputs,
+} from "./corpus-evidence-inputs.mjs";
+import {
+  createCorpusEvidenceVerificationPlan,
+  diffProtectedCorpusTrees,
+  isAcceptablePartialRefresh,
+  snapshotProtectedCorpusTree,
+  validateCorpusEvidenceCapture,
+} from "./corpus-evidence-capture.mjs";
+import {
   buildBenchReport,
   classifyParity,
   computeWeightedRecall,
   computeWeightedSignalCoverage,
+  validateParityEquivalences,
   validateRuleMap,
 } from "./parity-core.mjs";
+import { gapReviewId } from "./gap-judge-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const benchPath = join(repoRoot, "tests/bench/classic-parity-bench.mjs");
 const fixtureCorpus = join(repoRoot, "tests/fixtures/parity");
+const publicCorpusCatalog = JSON.parse(readFileSync(join(repoRoot, "tests/bench/public-corpus.sources.json"), "utf8"));
 
 const tempRoots = [];
 
@@ -71,6 +86,31 @@ function rekonAssessment(overrides = {}) {
     ...overrides,
   };
 }
+
+test("quality-only public corpus catalog pins reproducible source provenance", () => {
+  assert.equal(publicCorpusCatalog.version, "1.0.0");
+  assert.equal(publicCorpusCatalog.repositories.length, 9);
+  assert.equal(new Set(publicCorpusCatalog.repositories.map((repo) => repo.id)).size, 9);
+  const expectedLicenses = new Map([
+    ["public-eslint", "MIT"],
+    ["public-fastify", "MIT"],
+    ["public-nest", "MIT"],
+    ["public-nextjs", "MIT"],
+    ["public-playwright", "Apache-2.0"],
+    ["public-pnpm", "MIT"],
+    ["public-redux-toolkit", "MIT"],
+    ["public-vite", "MIT"],
+    ["public-vitest", "MIT"],
+  ]);
+  for (const repo of publicCorpusCatalog.repositories) {
+    assert.match(repo.id, /^public-/);
+    assert.match(repo.url, /^https:\/\/github\.com\//);
+    assert.match(repo.commit, /^[0-9a-f]{40}$/);
+    assert.equal(repo.license, expectedLicenses.get(repo.id));
+    assert.equal(typeof repo.role, "string");
+    assert.ok(repo.role.length > 0);
+  }
+});
 
 test("matched: ported rule with same rekon rule + normalized file", () => {
   const { rows, newFindings } = classifyParity({
@@ -212,6 +252,93 @@ test("coverage-scored redesign reports assessment visibility without inflating f
   assert.equal(coverage[0].findingCoveredFiles, 0);
   assert.equal(coverage[0].assessmentCoveredFiles, 1);
   assert.equal(coverage[0].coveredFiles, 1);
+});
+
+test("coverage-scored redesign accepts an adjudicated alternate assessment rule", () => {
+  const { rows } = classifyParity({
+    classicFindings: [classicFinding()],
+    rekonAssessments: [rekonAssessment({ ruleId: "typescript.placeholderImplementation" })],
+    ruleMap: {
+      "classic.rule": {
+        status: "redesigned",
+        citation: "docs/strategy/detection-quality.md#debt-and-semantic-judgment",
+        rekonRuleId: "debt.markers",
+        rekonRuleIds: ["debt.markers", "typescript.placeholderImplementation"],
+        scoring: "coverage",
+      },
+    },
+  });
+
+  assert.equal(rows[0].classification, "matched-assessment");
+  assert.deepEqual(rows[0].matchedRekonAssessmentIds, ["assessment-1"]);
+});
+
+test("a per-finding adjudicated equivalence matches a different assessment identity", () => {
+  const repoId = "fixture-repo";
+  const classic = classicFinding({ id: "classic-complexity" });
+  const assessment = rekonAssessment({
+    id: "assessment:typescript.functionComplexity:src/a.ts:work",
+    ruleId: "typescript.functionComplexity",
+  });
+  const reviewId = gapReviewId(repoId, classic.id);
+  const equivalences = validateParityEquivalences({
+    schemaVersion: "1.0.0",
+    records: [{
+      repoId,
+      classicId: classic.id,
+      recordType: "assessment",
+      recordId: assessment.id,
+      judgmentRef: `judgments.json#${reviewId}`,
+    }],
+  }, (path) => path === "judgments.json"
+    ? JSON.stringify({
+        schemaVersion: "1.0.0",
+        records: [{
+          reviewId,
+          verdict: "covered-different-identity",
+          action: "matching-gap",
+        }],
+      })
+    : null);
+
+  const { rows } = classifyParity({
+    repoId,
+    classicFindings: [classic],
+    rekonAssessments: [assessment],
+    ruleMap: {
+      "classic.rule": {
+        status: "redesigned",
+        citation: "docs/strategy/detection-quality.md#debt-and-semantic-judgment",
+        rekonRuleId: "debt.semantic",
+        scoring: "coverage",
+      },
+    },
+    equivalences,
+  });
+
+  assert.equal(rows[0].classification, "matched-assessment");
+  assert.deepEqual(rows[0].matchedRekonAssessmentIds, [assessment.id]);
+  assert.equal(rows[0].equivalenceRef, `judgments.json#${reviewId}`);
+});
+
+test("equivalences reject judgments that did not identify a matching gap", () => {
+  const reviewId = gapReviewId("fixture-repo", "classic-1");
+  assert.throws(
+    () => validateParityEquivalences({
+      schemaVersion: "1.0.0",
+      records: [{
+        repoId: "fixture-repo",
+        classicId: "classic-1",
+        recordType: "assessment",
+        recordId: "assessment-1",
+        judgmentRef: `judgments.json#${reviewId}`,
+      }],
+    }, () => JSON.stringify({
+      schemaVersion: "1.0.0",
+      records: [{ reviewId, verdict: "classic-noise", action: "no-change" }],
+    })),
+    /requires a covered-different-identity judgment/,
+  );
 });
 
 test("ported finding contracts are not satisfied by assessments", () => {
@@ -377,6 +504,193 @@ test("missing REKON_PARITY_CORPUS skips the real-corpus run cleanly", () => {
   assert.match(result.stdout, /skipping the real-corpus run/);
 });
 
+test("quality-only corpus entries contribute emissions without requiring or changing a parity baseline", () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "rekon-quality-corpus-"));
+  tempRoots.push(tempRoot);
+  const corpusCopy = join(tempRoot, "corpus");
+  cpSync(fixtureCorpus, corpusCopy, { recursive: true });
+  writeFileSync(join(corpusCopy, "corpus.json"), `${JSON.stringify({
+    repos: [{
+      id: "public-quality-fixture",
+      root: "./repos/parity-fixture",
+      benchmarkMode: "quality-only",
+      source: {
+        url: "https://github.com/example/public-quality-fixture",
+        commit: "0123456789abcdef0123456789abcdef01234567",
+      },
+    }],
+  }, null, 2)}\n`);
+  const outputDir = join(tempRoot, "output");
+  const result = spawnSync(process.execPath, [
+    benchPath,
+    "--corpus", corpusCopy,
+    "--rule-map", join(corpusCopy, "rule-map.fixture.json"),
+    "--output", outputDir,
+  ], { encoding: "utf8", env: { ...process.env, REKON_PARITY_CORPUS: "" } });
+
+  assert.equal(result.status, 0, `quality-only bench failed:\n${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /0 parity and 1 quality-only repo/);
+  const report = JSON.parse(readFileSync(join(outputDir, "report.json"), "utf8"));
+  const sanitized = JSON.parse(readFileSync(join(outputDir, "report.sanitized.json"), "utf8"));
+  assert.equal(report.aggregate.totalWeight, 0);
+  assert.equal(report.aggregate.newFindings, 0);
+  assert.equal(report.aggregate.qualityOnlyRepositories, 1);
+  assert.equal(report.repos[0].benchmarkMode, "quality-only");
+  assert.equal(report.repos[0].classicFindings, null);
+  assert.equal(report.repos[0].recall, null);
+  assert.equal(report.repos[0].newFindings, null);
+  assert.equal(report.quality.records > 0, true);
+  assert.equal(sanitized.parityRepositoryCount, 0);
+  assert.equal(sanitized.qualityOnlyRepositoryCount, 1);
+});
+
+test("corpus evidence inputs map supported native reports to existing CLI ingestion commands", () => {
+  const inputs = validateCorpusEvidenceInputs([
+    { kind: "junit", path: "./reports/junit.xml" },
+    { kind: "npm-audit", path: "reports/npm-audit.json", packageLock: "package-lock.json" },
+    {
+      kind: "istanbul-coverage",
+      path: "coverage/coverage-final.json",
+      testPath: "tests/index.test.ts",
+      verificationRun: "VerificationRun:verification-run-1",
+    },
+  ]);
+
+  assert.deepEqual(inputs[0], { kind: "junit", path: "reports/junit.xml" });
+  assert.deepEqual(evidenceInputCliArgs(inputs[0], "/repo"), [
+    "checks", "ingest", "--junit", "reports/junit.xml", "--root", "/repo", "--json",
+  ]);
+  assert.deepEqual(evidenceInputCliArgs(inputs[1], "/repo"), [
+    "security", "ingest", "--npm-audit", "reports/npm-audit.json",
+    "--package-lock", "package-lock.json", "--root", "/repo", "--json",
+  ]);
+  assert.deepEqual(evidenceInputCliArgs(inputs[2], "/repo"), [
+    "runtime", "graph", "observe", "--istanbul-coverage", "coverage/coverage-final.json",
+    "--test-path", "tests/index.test.ts", "--verification-run", "VerificationRun:verification-run-1",
+    "--root", "/repo", "--json",
+  ]);
+  assert.equal(evidenceInputArtifactType("junit"), "TestReport");
+  assert.equal(evidenceInputArtifactType("sarif"), "SecurityScanReport");
+  assert.equal(evidenceInputArtifactType("osv"), "DependencyAuditReport");
+  assert.equal(evidenceInputArtifactType("lcov-coverage"), "RuntimeGraphObservationReport");
+
+  const captured = validateCorpusEvidenceInputs([
+    { kind: "junit", path: "reports/junit.xml", verificationRun: "$capture" },
+  ])[0];
+  assert.deepEqual(evidenceInputCliArgs(captured, "/repo", {
+    captureVerificationRun: "VerificationRun:verification-run-capture",
+  }), [
+    "checks", "ingest", "--junit", "reports/junit.xml",
+    "--verification-run", "VerificationRun:verification-run-capture",
+    "--root", "/repo", "--json",
+  ]);
+});
+
+test("corpus evidence inputs reject ambiguous, unsafe, and unverified report declarations", () => {
+  assert.throws(
+    () => validateCorpusEvidenceInputs([{ kind: "junit", path: "../outside.xml" }]),
+    /must stay inside the corpus repository/,
+  );
+  assert.throws(
+    () => validateCorpusEvidenceInputs([{ kind: "sarif", path: "/tmp/report.sarif" }]),
+    /must stay inside the corpus repository/,
+  );
+  assert.throws(
+    () => validateCorpusEvidenceInputs([{ kind: "junit", path: "reports/junit.xml", packageLock: "package-lock.json" }]),
+    /unknown field\(s\): packageLock/,
+  );
+  assert.throws(
+    () => validateCorpusEvidenceInputs([{
+      kind: "lcov-coverage",
+      path: "coverage/lcov.info",
+      testPath: "tests/index.test.ts",
+    }]),
+    /explicit VerificationRun:<id> ref/,
+  );
+  assert.throws(
+    () => validateCorpusEvidenceInputs([
+      { kind: "osv", path: "reports/osv.json" },
+      { kind: "osv", path: "reports/osv.json" },
+    ]),
+    /duplicates an earlier evidence input/,
+  );
+  assert.throws(
+    () => evidenceInputCliArgs(
+      validateCorpusEvidenceInputs([{ kind: "junit", path: "reports/junit.xml", verificationRun: "$capture" }])[0],
+      "/repo",
+    ),
+    /requires --capture-evidence/,
+  );
+});
+
+test("corpus evidence capture validates plans and protects source snapshots", () => {
+  const capture = validateCorpusEvidenceCapture({
+    commands: ["node --test tests/native-check.test.mjs"],
+    allowedWrites: ["reports/junit.xml"],
+    repetitions: 2,
+    commandTimeoutMs: 30_000,
+  });
+  const plan = createCorpusEvidenceVerificationPlan({
+    repoId: "fixture",
+    capture,
+    generatedAt: "2026-07-14T00:00:00.000Z",
+  });
+
+  assert.deepEqual(plan.commands, ["node --test tests/native-check.test.mjs"]);
+  assert.equal(capture.repetitions, 2);
+  assert.equal(plan.header.artifactType, "VerificationPlan");
+  assert.equal(plan.source, "detection-quality-calibration");
+  assert.throws(
+    () => validateCorpusEvidenceCapture({ commands: [] }),
+    /commands must be a non-empty array/,
+  );
+  assert.throws(
+    () => validateCorpusEvidenceCapture({ commands: ["node --test"], allowedWrites: ["../src"] }),
+    /must stay inside the corpus repository/,
+  );
+  assert.throws(
+    () => validateCorpusEvidenceCapture({ commands: ["node --test"], repetitions: 0 }),
+    /integer from 1 through 3/,
+  );
+  assert.throws(
+    () => validateCorpusEvidenceCapture({ commands: ["node --test"], repetitions: 4 }),
+    /integer from 1 through 3/,
+  );
+
+  const before = snapshotProtectedCorpusTree(join(fixtureCorpus, "repos/parity-fixture"), {
+    evidenceInputs: [{ path: "reports/junit.xml" }],
+  });
+  const after = snapshotProtectedCorpusTree(join(fixtureCorpus, "repos/parity-fixture"), {
+    evidenceInputs: [{ path: "reports/junit.xml" }],
+  });
+  assert.equal(before.digest, after.digest);
+  assert.deepEqual(diffProtectedCorpusTrees(before, after), []);
+
+  assert.equal(isAcceptablePartialRefresh({
+    validation: { valid: true, issues: [] },
+    freshness: { status: "partial" },
+    steps: [{ id: "observe", status: "passed" }, {
+      id: "artifacts.freshness",
+      status: "failed",
+      summary: { status: "partial" },
+    }],
+  }), true);
+  assert.equal(isAcceptablePartialRefresh({
+    validation: { valid: false },
+    freshness: { status: "partial" },
+    steps: [{ id: "artifacts.freshness", status: "failed", summary: { status: "partial" } }],
+  }), false);
+  assert.equal(isAcceptablePartialRefresh({
+    validation: { valid: true },
+    freshness: { status: "partial" },
+    steps: [{ id: "evaluate", status: "failed" }, {
+      id: "artifacts.freshness",
+      status: "failed",
+      summary: { status: "partial" },
+    }],
+  }), false);
+});
+
 function hashTree(root, { exclude = [] } = {}) {
   const hashes = new Map();
 
@@ -401,7 +715,7 @@ function hashTree(root, { exclude = [] } = {}) {
   return hashes;
 }
 
-test("end-to-end: bench run on the fixture corpus emits a report and mutates nothing outside .rekon/", () => {
+test("end-to-end: bench capture emits a report and preserves protected repository files", () => {
   const tempRoot = mkdtempSync(join(tmpdir(), "rekon-parity-bench-"));
   tempRoots.push(tempRoot);
 
@@ -409,7 +723,7 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
   cpSync(fixtureCorpus, corpusCopy, { recursive: true });
 
   const fixtureRepo = join(corpusCopy, "repos/parity-fixture");
-  const before = hashTree(fixtureRepo, { exclude: [".rekon"] });
+  const before = hashTree(fixtureRepo, { exclude: [".rekon", "reports/junit.xml"] });
 
   const outputDir = join(tempRoot, "output");
   const result = spawnSync(
@@ -422,6 +736,7 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
       join(corpusCopy, "rule-map.fixture.json"),
       "--output",
       outputDir,
+      "--capture-evidence",
     ],
     { encoding: "utf8", env: { ...process.env, REKON_PARITY_CORPUS: "" } },
   );
@@ -437,7 +752,54 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
   assert.equal(report.repos.length, 1);
   assert.equal(report.repos[0].id, "parity-fixture");
   assert.equal(report.repos[0].classicFindings, 3);
+  assert.equal(report.repos[0].refresh.evidenceCapture.status, "captured");
+  assert.equal(report.repos[0].refresh.evidenceCapture.verificationStatus, "failed");
+  assert.equal(report.repos[0].refresh.evidenceCapture.artifact.type, "VerificationRun");
+  assert.equal(report.repos[0].refresh.evidenceCapture.commands, 1);
+  assert.equal(report.repos[0].refresh.evidenceCapture.executions, 1);
+  assert.equal(report.repos[0].refresh.evidenceCapture.artifacts.length, 1);
+  assert.match(report.repos[0].refresh.evidenceCapture.protectedSourceDigest, /^[a-f0-9]{64}$/u);
+  assert.equal(report.repos[0].refresh.evidenceInputs.status, "ingested");
+  assert.equal(report.repos[0].refresh.evidenceInputs.count, 3);
+  assert.deepEqual(
+    report.repos[0].refresh.evidenceInputs.artifacts.map(({ kind, type }) => ({ kind, type })),
+    [
+      { kind: "junit", type: "TestReport" },
+      { kind: "sarif", type: "SecurityScanReport" },
+      { kind: "osv", type: "DependencyAuditReport" },
+    ],
+  );
+  assert.equal(
+    report.repos[0].refresh.evidenceInputs.artifacts.every((artifact) => typeof artifact.id === "string" && artifact.id.length > 0),
+    true,
+  );
   assert.ok(["completed", "ok", "fresh", "unknown", "succeeded", "partial"].includes(report.repos[0].refresh.status) || report.repos[0].refresh.status !== "failed");
+
+  const index = JSON.parse(readFileSync(join(fixtureRepo, ".rekon/registry/artifacts.index.json"), "utf8"));
+  const assessmentEntry = index
+    .filter((entry) => entry.type === "AssessmentReport")
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+  const findingEntry = index
+    .filter((entry) => entry.type === "FindingReport")
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+  const assessmentReport = JSON.parse(readFileSync(join(fixtureRepo, assessmentEntry.path), "utf8"));
+  const findingReport = JSON.parse(readFileSync(join(fixtureRepo, findingEntry.path), "utf8"));
+  const testReportEntry = index
+    .filter((entry) => entry.type === "TestReport")
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+  const testReport = JSON.parse(readFileSync(join(fixtureRepo, testReportEntry.path), "utf8"));
+  const assessmentRules = new Set(assessmentReport.assessments.map((assessment) => assessment.ruleId));
+
+  assert.equal(assessmentRules.has("repository.checkFailure"), true);
+  assert.equal(assessmentRules.has("security.scannerResult"), true);
+  assert.equal(assessmentRules.has("security.dependencyVulnerability"), true);
+  assert.equal(testReport.header.inputRefs.some((ref) => ref.type === "VerificationRun"), true);
+  assert.equal(
+    findingReport.findings.some((finding) =>
+      finding.ruleId === "security.scannerResult" || finding.ruleId === "security.dependencyVulnerability"),
+    false,
+    "scanner and advisory evidence must remain assessments rather than automatic findings",
+  );
 
   const byId = new Map(report.repos[0].rows.map((row) => [row.classicId, row]));
 
@@ -467,9 +829,36 @@ test("end-to-end: bench run on the fixture corpus emits a report and mutates not
   assert.match(markdown, /fixture\.unported_rule/);
   assert.match(markdown, /docs\/strategy\/detection-quality\.md#naming-and-anti-patterns/);
 
-  // The bench must leave the fixture repo byte-identical outside `.rekon/`.
-  const after = hashTree(fixtureRepo, { exclude: [".rekon"] });
+  // The bench may replace declared native reports, but protected repository
+  // files must remain byte-identical.
+  const after = hashTree(fixtureRepo, { exclude: [".rekon", "reports/junit.xml"] });
 
   assert.deepEqual([...after.entries()].sort(), [...before.entries()].sort());
   assert.ok(statSync(join(fixtureRepo, ".rekon")).isDirectory(), "refresh should have produced .rekon/ in the corpus copy");
+
+  const artifactIndexPath = join(fixtureRepo, ".rekon/registry/artifacts.index.json");
+  const artifactIndexBeforeSkip = readFileSync(artifactIndexPath, "utf8");
+  const skipOutputDir = join(tempRoot, "skip-output");
+  const skipped = spawnSync(
+    process.execPath,
+    [
+      benchPath,
+      "--corpus",
+      corpusCopy,
+      "--rule-map",
+      join(corpusCopy, "rule-map.fixture.json"),
+      "--output",
+      skipOutputDir,
+      "--skip-refresh",
+    ],
+    { encoding: "utf8", env: { ...process.env, REKON_PARITY_CORPUS: "" } },
+  );
+
+  assert.equal(skipped.status, 0, `skip-refresh bench failed:\n${skipped.stdout}\n${skipped.stderr}`);
+  const skippedReport = JSON.parse(readFileSync(join(skipOutputDir, "report.json"), "utf8"));
+  assert.equal(skippedReport.repos[0].refresh.status, "skipped");
+  assert.equal(skippedReport.repos[0].refresh.evidenceCapture.status, "skipped");
+  assert.equal(skippedReport.repos[0].refresh.evidenceInputs.status, "skipped");
+  assert.equal(skippedReport.repos[0].refresh.evidenceInputs.count, 3);
+  assert.equal(readFileSync(artifactIndexPath, "utf8"), artifactIndexBeforeSkip);
 });

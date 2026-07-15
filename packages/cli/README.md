@@ -78,9 +78,54 @@ NDJSON, and OSV-Scanner JSON. Ingestion does not execute scanners or package
 managers. Results remain risks
 until stronger evidence or an operator decision justifies promotion.
 
+`checks ingest` and `security ingest` accept
+`--verification-run <VerificationRun:id>`. The selected run must belong to the
+same repository and becomes an explicit input ref on the imported report.
+
 `rekon scan` reports findings separately from risks, opportunities, semantic
 claims, and model diagnostics. Use `rekon assessments list --kind <kind>` to
 inspect a class without treating it as a finding.
+
+When semantic file analysis is enabled, scan writes those reports before
+projection. The same run builds `CapabilityEvidenceGraph`, projects only
+high-confidence artifact-backed capability signals, evaluates policy, and
+records the model inputs in snapshot lineage. `rekon refresh` also rebuilds the
+capability graph from current source and any current semantic reports already
+in the workspace.
+Semantic file analysis uses OpenAI Responses with `gpt-5.6-luna` at `low`
+effort by default. `--llm-model` and `REKON_LLM_MODEL` can select another model;
+older OpenAI models continue to use Chat Completions when required.
+
+## Repository law
+
+Repository-specific law can be declared in `.rekon/config.json`. Rekon
+validates the rules, projects them into a typed `Rulebook`, and evaluates that
+artifact with the rest of the current model:
+
+```json
+{
+  "rulebook": {
+    "rules": [
+      {
+        "id": "architecture.ui-does-not-own-persistence",
+        "severity": "high",
+        "message": "The ui system may not own persistence capabilities.",
+        "source": ".rekon/config.json",
+        "appliesTo": ["CapabilityMap"],
+        "evaluator": "ownership.doesNotOwn",
+        "options": {
+          "system": "ui",
+          "capability": "persist:*"
+        }
+      }
+    ]
+  }
+}
+```
+
+Run `rekon config validate` before `rekon refresh`. Removing the `rulebook`
+block writes an empty superseding artifact during the next evaluation, so old
+configured law does not remain active.
 
 Embedding-backed duplication opportunities use the existing graph and
 evaluation flow:
@@ -117,6 +162,7 @@ For an installed Vitest or Jest project, Rekon can build the isolated plan:
 ```sh
 rekon verify coverage plan \
   --framework vitest \
+  --config tests/vitest.config.ts \
   --test-path tests/user.test.ts \
   --source-path src/user.ts
 rekon verify run --plan <VerificationPlan-id> --execute
@@ -127,8 +173,10 @@ downloads nothing, and stores coverage under `.rekon/cache/coverage/`. Vitest
 also requires an installed `@vitest/coverage-v8` or
 `@vitest/coverage-istanbul` package. Jest supports `babel` and `v8` providers.
 Repeat `--source-path` when the test is intended to exercise multiple source
-files. Rekon records those targets so zero execution can be distinguished from
-an unrelated coverage counter.
+files. Pass `--config` when the repository's tests depend on a non-default
+Vitest or Jest config. Rekon records the config and targets, limits Vitest
+collection to those targets, and excludes nested worktrees so zero execution
+can be distinguished from an unrelated coverage counter.
 
 ## Semantic debt profiles
 
@@ -143,6 +191,18 @@ rekon scan --semantic-debt-model gpt-5.4-nano --semantic-debt-effort none
 environment overrides. The shared `--llm-model` and `REKON_LLM_MODEL` settings
 remain fallback inputs. Provider output still passes through deterministic
 artifact and policy gates.
+
+Use repeatable `--semantic-debt-file-path` flags to judge a bounded, explicit
+set of repository files. Explicit paths remain subject to repository
+containment, eligibility, reuse, and `--semantic-debt-file-limit` checks:
+
+```sh
+rekon scan \
+  --semantic-files off \
+  --semantic-debt required \
+  --semantic-debt-file-path src/service.ts \
+  --semantic-debt-file-path src/adapter.ts
+```
 
 ## Embedding profile
 

@@ -106,13 +106,15 @@ test("Part 3: a declared root glob makes the package entry's exports API; orphan
     };
 
     await policy.policyEvaluator.evaluate({ artifacts: stubArtifacts, input: { repo: { root: tmp } } });
-    const dead = written.findLast((report) => report.header.artifactType === "FindingReport")
-      .findings.filter((f) => f.ruleId === "dead_code.unreferenced");
+    const dead = written.findLast((report) => report.header.artifactType === "AssessmentReport")
+      .assessments.filter((assessment) => assessment.ruleId === "dead_code.unreferenced");
 
     // The declared-root entry's export is API (never flags); the orphan
-    // survives as a finding.
+    // survives as a risk because the declared root graph may omit dynamic or
+    // externally consumed entry points.
     assert.deepEqual(dead.map((f) => f.files[0]), ["packages/a/src/orphan.ts"]);
-    assert.equal(dead[0].payload.mode, "reachability");
+    assert.equal(dead[0].kind, "risk");
+    assert.match(dead[0].confidence.rationale, /entry points may be incomplete/);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

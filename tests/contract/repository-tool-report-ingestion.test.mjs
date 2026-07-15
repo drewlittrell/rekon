@@ -86,10 +86,32 @@ test("CLI ingests structured reports and requires repeated current evidence befo
     await writeFile(join(root, "reports/eslint-1.json"), JSON.stringify(eslint));
     await writeFile(join(root, "reports/eslint-2.json"), JSON.stringify([{ ...eslint[0], usedDeprecatedRules: ["changed-source-digest"] }]));
     await writeFile(join(root, "reports/junit.xml"), `<testsuite name="index"><testcase name="fails" file="tests/index.test.ts" line="1"><failure message="Expected one value" /></testcase></testsuite>`);
+    await writeFile(join(root, "verification-plan.json"), JSON.stringify({
+      header: {
+        artifactType: "VerificationPlan",
+        artifactId: "verification-plan-report-ingestion",
+        schemaVersion: "0.1.0",
+        generatedAt: "2026-07-14T00:00:00.000Z",
+        subject: { repoId: "tool-report-fixture" },
+        producer: { id: "test", version: "1.0.0" },
+        inputRefs: [],
+      },
+      commands: ["node -e \"process.exit(0)\""],
+      successCriteria: ["The repository-native check command completes."],
+    }));
 
     runCli(root, ["init"]);
     runCli(root, ["observe", "--json"]);
-    const junit = runCli(root, ["checks", "ingest", "--junit", "reports/junit.xml", "--json"]);
+    const verification = runCli(root, [
+      "verify", "run", "--plan-file", "verification-plan.json", "--execute", "--json",
+    ]);
+    assert.equal(verification.status, 0, verification.stderr);
+    const verificationRef = JSON.parse(verification.stdout).artifact;
+    const junit = runCli(root, [
+      "checks", "ingest", "--junit", "reports/junit.xml",
+      "--verification-run", `${verificationRef.type}:${verificationRef.id}`,
+      "--json",
+    ]);
     assert.equal(junit.status, 0, junit.stderr);
     assert.equal(JSON.parse(junit.stdout).summary.failures, 1);
     const lint = runCli(root, ["checks", "ingest", "--eslint-json", "reports/eslint-1.json", "--json"]);
@@ -98,6 +120,8 @@ test("CLI ingests structured reports and requires repeated current evidence befo
     let index = JSON.parse(await readFile(join(root, ".rekon/registry/artifacts.index.json"), "utf8"));
     let assessments = await latestArtifact(root, index, "AssessmentReport");
     let findings = await latestArtifact(root, index, "FindingReport");
+    const testReport = await latestArtifact(root, index, "TestReport");
+    assert.equal(testReport.header.inputRefs.some((ref) => ref.type === "VerificationRun" && ref.id === verificationRef.id), true);
     assert.equal(assessments.assessments.some((entry) => entry.details?.diagnostic?.parser === "junit"), true);
     assert.equal(assessments.assessments.some((entry) => entry.details?.diagnostic?.parser === "eslint-json"), true);
     assert.equal(findings.findings.some((entry) => entry.details?.diagnostic?.parser === "eslint-json"), false);

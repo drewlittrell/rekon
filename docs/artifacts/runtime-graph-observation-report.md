@@ -80,13 +80,17 @@ Vitest and Jest users can generate the plan instead of assembling flags:
 ```sh
 rekon verify coverage plan \
   --framework vitest \
+  --config tests/vitest.config.ts \
   --test-path tests/user.test.ts \
   --source-path src/user.ts
 rekon verify run --plan <VerificationPlan-id> --execute
 ```
 
 The planner uses an already-installed local binary and writes no files outside
-`.rekon/`. It never downloads a runner or coverage provider.
+`.rekon/`. It never downloads a runner or coverage provider. Vitest collection
+is bounded to declared source targets and excludes nested repository
+worktrees. `--config` selects an existing repository-local runner config when
+the default config is insufficient.
 
 Positive statement, function, or branch counters count as observed execution.
 Zero-count files, files outside the repository, malformed entries, and the test

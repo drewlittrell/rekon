@@ -27,6 +27,7 @@ Current rule families:
 - `typescript.unusedImport`
 - `typescript.unusedPrivateMember`
 - `typescript.unreachableCode`
+- `dead_code.emptySourceFile`
 - `typescript.functionComplexity`
 - `repository.checkFailure`
 - `security.scannerResult`
@@ -36,6 +37,7 @@ Current rule families:
 - `architecture.noUnknownSystemForSourceFile`
 - `architecture.importCycle`
 - `architecture.dependencyHub`
+- repository-declared rules using evaluator `ownership.doesNotOwn`
 - `grammar.divergence`
 - `debt.markers`
 - `debt.semantic`
@@ -55,7 +57,11 @@ test, typecheck, and build failures. A failure remains a risk until the same
 normalized diagnostic is reproduced by two distinct runs on the current
 commit. When commit metadata is unavailable, both runs must be fresh and newer
 than the current evidence graph. Timeouts, killed runs, and environment-shaped
-failures do not promote automatically.
+failures do not promote automatically. Runs outside the active evidence state
+remain auditable but do not enter the current evaluation. Missing-dependency
+cascades collapse into one operational assessment. Vitest file summaries use
+file-level identity so parallel output order and failure-count changes do not
+split one remediation.
 
 Function complexity is a risk only when at least two conservative AST
 thresholds are exceeded. Static complexity does not become a finding by itself.
@@ -63,13 +69,27 @@ Async Promise executors and async callbacks on statically recognized arrays are
 also risks. Promise shadowing and unknown method receivers are excluded rather
 than guessed. Bare calls are reported only for unshadowed local async
 declarations. Focused test syntax and direct `process.env` mutation inside a
-test callback are test-scoped risks. Disabled tests remain explicit debt-marker
-evidence. Style remains the responsibility of imported linter output rather
-than a parallel Rekon style detector.
+test callback are test-scoped risks. Fixture/example trees and test-framework
+self-tests stay quiet when focused syntax is the behavior under test. Disabled
+tests remain explicit debt-marker evidence. Style remains the responsibility of
+imported linter output rather than a parallel Rekon style detector.
+
+`imports.noDistImports` applies to repository-local relative imports of generated
+`dist` output. Third-party package entrypoints that include `dist` are package
+contracts, not proof that the repository imported its own generated output.
+`imports.noNodeModulesRelativeImports` likewise applies only to relative imports
+in production source. Test fixtures and declaration-only harnesses do not
+create raw findings.
 
 Error-handling assessment is intentionally narrow: empty catches, catch blocks
 that only log, and explicit placeholder throws carry concrete remediation.
 Rekon does not score broad catch-block or logging style preferences.
+Generated-file evidence and conventional `compiled`, `vendor`, or `vendored`
+trees remain visible in the evidence graph but do not enter source-quality
+policy.
+Whitespace-only production files are opportunities unless a package manifest
+declares the file as an entrypoint, where emptiness can be the public shim
+contract rather than abandoned code.
 Fresh isolated coverage can enrich that same risk with function-level execution
 from a bound `VerificationRun`; it does not create a second detector result. A
 passing run supports a scoped target gap only when its plan declared the source
@@ -88,12 +108,29 @@ for repositories that have no normalization report. Ownership entries marked
 `inferred` cannot establish this rule; path-prefix grouping alone is not an
 architecture declaration.
 
+Declared ownership law is separate from built-in policy. A `Rulebook` rule
+using evaluator `ownership.doesNotOwn` must apply to `CapabilityMap` and provide
+`options.system` plus a glob-like `options.capability`. Rekon emits nothing when
+that law is absent. A violation cites the rulebook and capability projection;
+matching ownership evidence is cited when available.
+The CLI materializes `.rekon/config.json` `rulebook.rules` before evaluation.
+Supersession keeps only the current configured law active while preserving old
+artifacts for audit.
+
 Compiler-proven unused imports become low-impact, verified opportunities under
 `typescript.unusedImport`. They are kept separate from high-severity TypeScript
 compiler-error findings and from speculative dead-code judgment.
 The same boundary applies to `typescript.unusedPrivateMember` and
 `typescript.unreachableCode`: compiler proof produces an opportunity, while
-ordinary unused locals and public API declarations remain silent.
+ordinary unused locals and public API declarations remain silent. Source-local
+class analysis also preserves unused-private-field opportunities when the
+project compiler environment is unresolved. Compiler and source-local evidence
+for the same member are fused rather than counted twice.
+Whitespace-only production source is a separate verified opportunity under
+`dead_code.emptySourceFile`. Constant-empty query methods on concrete exported
+classes and explicitly future empty action APIs remain placeholder risks;
+named null-object adapters and intentional callback or component-slot no-ops
+remain quiet.
 
 `SecurityScanReport` results tied to the current evidence graph become risks
 only when SARIF rule metadata identifies them as security-relevant. Generic
@@ -103,13 +140,28 @@ automatically to a finding.
 `DependencyAuditReport` entries tied to current evidence become
 `security.dependencyVulnerability` risks. Complete lockfile attribution raises
 confidence, but a package advisory still does not prove exploitability or
-automatically create a finding.
+automatically create a finding. The assessment retains native advisory
+severity separately from Rekon impact: production paths keep advisory
+severity, development-only direct paths cap impact at high, and
+development-only transitive paths cap impact at medium. Package-manager
+umbrella rows that only point to other vulnerable packages remain in the
+normalized audit report but do not become duplicate advisory risks.
 
 Semantic debt uses separate judgment and corroboration stages. Exact
 type-assertion, error-suppression, debt-marker, deprecation, or placeholder
 signals can corroborate a matching model claim. The result remains a semantic
 claim unless applicable law, reproducibility, or operator confirmation passes
 the kernel promotion rule.
+Policy consumes only reports from the active semantic prompt and coercion
+contract whose recorded source digest still matches the repository. Obsolete or
+source-stale reports remain auditable artifacts but do not produce claims.
+
+Unreferenced exports and declared-root reachability remain risks. A root graph
+can omit dynamic command registration or an externally consumed package entry,
+so graph absence alone does not promote dead-code evidence to a finding.
+Naming law likewise requires a role-bearing class, interface, type, or enum
+whose entity matches the module stem; suffixes on secondary helpers do not
+establish the module's role.
 
 Diagnostic identity is structured for ESLint stylish/compact output,
 TypeScript diagnostics, Vitest/Jest-style stack locations, Node TAP failure
@@ -132,7 +184,9 @@ potential propagation only and does not alter promotion or severity.
 ## Public Surface
 
 The default export is a Rekon capability definition with evaluator handlers and
-built-in rule metadata.
+built-in rule metadata. The package also exports
+`evaluateDeclaredOwnershipRules` and
+`OWNERSHIP_DOES_NOT_OWN_EVALUATOR_ID` for rulebook-aware integrations.
 
 ## Import Boundary
 
