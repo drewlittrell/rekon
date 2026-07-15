@@ -47,7 +47,8 @@ test("graph capability projects structural and application-context slices", asyn
         { kind: "entry_point", subject: "test:tests/user.test.ts", value: { path: "tests/user.test.ts", entryKind: "test", source: "framework-convention" }, confidence: 1 },
         { kind: "event_flow", subject: "src/user-service.ts:listUsers:emit:user.loaded", value: { source: "src/user-service.ts", caller: "listUsers", action: "emit", eventName: "user.loaded", receiver: "events" }, confidence: 1 },
         { kind: "state_access", subject: "src/user-service.ts:listUsers:@prisma/client:user.findMany", value: { source: "src/user-service.ts", caller: "listUsers", package: "@prisma/client", binding: "prisma", operation: "user.findMany" }, confidence: 1 },
-        { kind: "error_flow", subject: "src/user-service.ts:listUsers:rethrow", value: { source: "src/user-service.ts", caller: "listUsers", action: "rethrow", errorName: "error" }, confidence: 1 },
+        { kind: "error_flow", subject: "src/user-service.ts:listUsers:rethrow:20:3", value: { source: "src/user-service.ts", caller: "listUsers", action: "rethrow", errorName: "error", errorIdentity: "error", line: 20 }, confidence: 1 },
+        { kind: "error_flow", subject: "src/user-service.ts:listUsers:throw:24:3", value: { source: "src/user-service.ts", caller: "listUsers", action: "throw", errorIdentity: "AbortError", line: 24 }, confidence: 1 },
       ],
     });
     const runtimeObservationRef = await runtime.artifacts.write({
@@ -128,6 +129,13 @@ test("graph capability projects structural and application-context slices", asyn
     assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "emits" && edge.target === "event:user.loaded"));
     assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "accesses" && edge.target === "state:@prisma/client"));
     assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "propagates_error" && edge.metadata.action === "rethrow"));
+    assert.deepEqual(
+      behaviorGraph.nodes
+        .filter((node) => node.kind === "error")
+        .map((node) => node.metadata.errorIdentity)
+        .sort(),
+      ["AbortError", "error"],
+    );
     assert.ok(applicationGraph.edges.some((edge) =>
       edge.source === "test:tests/user.test.ts"
       && edge.target === "src/user-service.ts"

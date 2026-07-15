@@ -229,8 +229,8 @@ judgments needed to interpret them live under `tests/bench/calibration/`.
 
 ### Semantic problem emitters
 
-The dependency-resolution, cache-integrity, and cleanup-completeness semantic
-emitters have a bounded live paired check:
+The dependency-resolution, cache-integrity, cleanup-completeness, and
+error-propagation semantic emitters have a bounded live paired check:
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -241,9 +241,11 @@ The runner fetches affected files directly from pinned public revisions and
 retains no source, prompts, excerpts, or model prose. It sends fix-related
 candidates through the production assessment judge, requires every affected
 buggy path to be retained, and requires fixed defects to be cleared. Defect
-identity uses changed-line evidence density so one contextual citation cannot
-turn an unrelated same-class candidate into the repaired defect. The durable
-aggregate is
+identity normally uses changed-line evidence density so one contextual citation
+cannot turn an unrelated same-class candidate into the repaired defect. The
+error-propagation pair additionally accepts a changed compound throw guard
+backed by deterministic guard and error-identity evidence because its downstream
+handling evidence is necessarily distributed. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 
 ## Corpus retention

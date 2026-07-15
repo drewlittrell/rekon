@@ -7,6 +7,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "nest-shutdown-cleanup-completeness": "semantic.cleanupCompleteness",
   "nest-import-first-match": "semantic.dependencyResolution",
   "playwright-compilation-cache-integrity": "semantic.cacheIntegrity",
+  "redux-toolkit-pre-pending-abort": "semantic.errorPropagation",
   "vitest-typecheck-worker-off": "events.inverseListenerDelegation",
   "nextjs-cache-handler-name-validation": "validation.partialAllowlistMatch",
 });

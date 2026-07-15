@@ -182,11 +182,12 @@ judgment and requires coverage of every affected buggy path. It uses
 changed-line evidence density for defect identity, so contextual citations do
 not make an unrelated same-class candidate count as the upstream defect.
 
-`error-propagation` remains an emitter gap. Repeated file-level semantic trials
-recognized the collapsed Redux abort branch but could also confirm the repaired
-separate branches. The next attempt must supply structured control-flow facts
-for guards, thrown error identity, and downstream suppression before semantic
-judgment; another prompt-only rule is not sufficient.
+The third batch adds `error-propagation`. Deterministic JS/TS evidence now
+records throw locations, enclosing branch guards, and thrown identities. The
+semantic pass combines those observations with source-matched downstream
+handling, allowing the Redux abort pair to identify the merged failure identity
+on the buggy revision while leaving the separate fixed branches clean. A
+compound guard alone remains insufficient production evidence.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,
@@ -208,8 +209,8 @@ outcomes, and cost $0.098537. `claude-sonnet-5` at low effort accepted 13 of 18,
 incorrectly rejected one buggy case, and cost $0.285882 at its introductory
 rate. This is a task-specific nine-pair result, not a general model ranking.
 At the time of that judgment-model run, seven candidate classes were emitter
-gaps. The calibrated semantic emitters reduce the current gap to four: error
-propagation, option propagation, resource lifetime, and scope resolution. The
+gaps. The calibrated semantic emitters reduce the current gap to three: option
+propagation, resource lifetime, and scope resolution. The
 durable aggregate is
 `tests/bench/calibration/assessment-judgment-model-baseline.json`.
 

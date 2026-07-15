@@ -13,13 +13,14 @@ import {
 
 import { isNonProductionPath } from "./grammar-divergence.js";
 
-export const ASSESSMENT_JUDGMENT_PROMPT_VERSION = "assessment-judge-v2";
+export const ASSESSMENT_JUDGMENT_PROMPT_VERSION = "assessment-judge-v3";
 export const ASSESSMENT_JUDGMENT_COERCION_VERSION = "assessment-judgment-v2";
 export const ASSESSMENT_JUDGMENT_MIN_DECISIVE_CONFIDENCE = 0.75;
 export const SEMANTIC_PROBLEM_CANDIDATE_RULE_ID = "semantic.problemCandidate";
 export const SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID = "semantic.dependencyResolution";
 export const SEMANTIC_CACHE_INTEGRITY_RULE_ID = "semantic.cacheIntegrity";
 export const SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID = "semantic.cleanupCompleteness";
+export const SEMANTIC_ERROR_PROPAGATION_RULE_ID = "semantic.errorPropagation";
 
 const SEMANTIC_PROBLEM_CLASS_RULES = {
   "dependency-resolution": {
@@ -33,6 +34,10 @@ const SEMANTIC_PROBLEM_CLASS_RULES = {
   "cleanup-completeness": {
     ruleId: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
     title: "Possible incomplete cleanup",
+  },
+  "error-propagation": {
+    ruleId: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    title: "Possible error propagation issue",
   },
 } as const;
 
@@ -111,6 +116,7 @@ export function evaluateSemanticFileCandidates(
     const specializedRule = problemClass === "dependency-resolution"
       || problemClass === "cache-integrity"
       || problemClass === "cleanup-completeness"
+      || problemClass === "error-propagation"
       ? SEMANTIC_PROBLEM_CLASS_RULES[problemClass]
       : undefined;
     const ruleId = specializedRule?.ruleId ?? SEMANTIC_PROBLEM_CANDIDATE_RULE_ID;

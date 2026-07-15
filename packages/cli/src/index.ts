@@ -59,7 +59,10 @@ import verifyCapability, {
   VERIFY_CAPABILITY_ID,
   VERIFY_CAPABILITY_VERSION,
 } from "@rekon/capability-verify";
-import jsTsCapability, { loadAgentScratchSegments } from "@rekon/capability-js-ts";
+import jsTsCapability, {
+  extractErrorControlFlowEvidence,
+  loadAgentScratchSegments,
+} from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability, {
   buildBridgeFindingLifecycleIntegrationReport,
@@ -362,6 +365,7 @@ import {
 } from "./assessment-judgment.js";
 import {
   SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA,
+  SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION,
   buildSemanticFileUnderstandingPrompt,
 } from "./semantic-file-understanding.js";
 
@@ -10860,7 +10864,7 @@ async function runSemanticScanLayer(input: {
   const semanticGeneratedAt = new Date().toISOString();
   const idStamp = String(Date.parse(semanticGeneratedAt) || Date.now());
   const policyHash = createHash("sha256")
-    .update(`${mode}\u0000${providerResolved}\u0000${modelResolved}`)
+    .update(`${mode}\u0000${providerResolved}\u0000${modelResolved}\u0000${SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION}`)
     .digest("hex")
     .slice(0, 16);
 
@@ -11597,7 +11601,12 @@ function createSemanticFileUnderstandingAdapter(
   if (model) override.model = model;
 
   return async ({ filePath, fileText, language }) => {
-    const prompt = buildSemanticFileUnderstandingPrompt({ filePath, fileText, language });
+    const prompt = buildSemanticFileUnderstandingPrompt({
+      filePath,
+      fileText,
+      language,
+      errorControlFlow: extractErrorControlFlowEvidence({ path: filePath, content: fileText }),
+    });
 
     const routed = await router.completeJson(
       {

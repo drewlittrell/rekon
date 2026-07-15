@@ -48,7 +48,7 @@ they may collide with built-ins.
 | `entry_point` | manifest or convention-backed repository root |
 | `event_flow` | literal event emission or subscription |
 | `state_access` | direct call through a recognized imported state SDK |
-| `error_flow` | explicit throw or rethrow inside a callable |
+| `error_flow` | explicit throw or rethrow with source location, thrown identity, and enclosing branch guards where available |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |
 | `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, validation, listener-lifecycle, async-control-flow, or test-hygiene risk signal |
 

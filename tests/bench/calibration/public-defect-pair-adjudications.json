@@ -60,9 +60,9 @@
     {
       "pairId": "redux-toolkit-pre-pending-abort",
       "claimVerdict": "valid",
-      "coverage": "unrelated-signal",
-      "recommendedAction": "evidence-source",
-      "rationale": "Direct file-level semantic trials were not stable: the model could identify the collapsed buggy branch but also confirmed repaired code with separate condition and abort identities. Keep this as an emitter gap until structured control-flow evidence represents guards, thrown identity, and downstream handling without relying on a generic boolean-expression rule."
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits semantic.errorPropagation from structured throw guards and error identities plus source-matched downstream handling. Independent judgment retains the merged condition/abort identity on the buggy revision, while the fixed revision with separate ConditionError and AbortError branches remains clean."
     }
   ]
 }

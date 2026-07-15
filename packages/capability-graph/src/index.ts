@@ -748,14 +748,26 @@ function behaviorGraphProjection(
     } else if (fact.kind === "error_flow") {
       const action = stringField(fact.value, "action");
       if (action !== "throw" && action !== "rethrow") continue;
-      const errorId = `error:${source}#${caller}:${action}`;
-      nodes.push({ id: errorId, kind: "error", metadata: { action, errorName: stringField(fact.value, "errorName") ?? "unknown" } });
+      const errorIdentity = stringField(fact.value, "errorIdentity")
+        ?? stringField(fact.value, "errorName")
+        ?? "unknown";
+      const errorId = `error:${fact.subject}`;
+      nodes.push({
+        id: errorId,
+        kind: "error",
+        metadata: {
+          action,
+          errorIdentity,
+          errorName: stringField(fact.value, "errorName") ?? "unknown",
+          ...(typeof fact.value?.line === "number" ? { line: fact.value.line } : {}),
+        },
+      });
       edges.push({
         source: sourceId,
         target: errorId,
         kind: BUILT_IN_EDGE_KINDS.propagatesError,
         weight: fact.confidence,
-        metadata: { action, explicit: true },
+        metadata: { action, errorIdentity, explicit: true },
         evidence: [edgeEvidence(fact, computedAt)],
       });
     }

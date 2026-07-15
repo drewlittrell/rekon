@@ -59,6 +59,23 @@ export function assessmentChangedLineCoverage(assessment, changedLines) {
   return changedCitations / citedLines.size;
 }
 
+export function assessmentMatchesDefectEvidence(input) {
+  if (assessmentChangedLineCoverage(input.assessment, input.changedLines)
+    >= MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE) {
+    return true;
+  }
+  if (input.problemClass !== "error-propagation") return false;
+  const anchorLines = new Set(
+    (input.errorControlFlow ?? [])
+      .filter((entry) => entry.errorIdentity && entry.guards.some((guard) => guard.terms.length > 1))
+      .flatMap((entry) => entry.guards)
+      .filter((guard) => guard.terms.length > 1)
+      .map((guard) => guard.location.line)
+      .filter((line) => input.changedLines.has(line)),
+  );
+  return anchorLines.size > 0 && assessmentOverlapsChangedLines(input.assessment, anchorLines);
+}
+
 export function summarizePairEmission(pair, runs) {
   const pairRuns = runs.filter((run) => run.pairId === pair.id && run.status === "ok");
   const requiredPaths = new Set(pair.affectedPaths);

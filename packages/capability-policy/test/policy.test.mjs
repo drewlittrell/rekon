@@ -9,6 +9,7 @@ import policyCapability, {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
   SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+  SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   applyAssessmentJudgments,
   evaluateDependencyAuditReports,
@@ -205,6 +206,7 @@ test("semantic problem classes map to stable assessment rules without changing g
     "}",
     "const cachedCode = readFileSync(codePath, 'utf8');",
     "await Promise.all(cleanupHandlers);",
+    "if (conditionFailed || signal.aborted) throw { name: 'ConditionError' };",
     "return cachedCode;",
   ].join("\n");
   const source = {
@@ -242,6 +244,12 @@ test("semantic problem classes map to stable assessment rules without changing g
       },
       {
         ...baseFinding,
+        id: "merged-error-identity",
+        problemClass: "error-propagation",
+        sourceEvidence: ["if (conditionFailed || signal.aborted) throw { name: 'ConditionError' };"],
+      },
+      {
+        ...baseFinding,
         id: "other",
         problemClass: "other",
         sourceEvidence: ["return cachedCode;"],
@@ -254,6 +262,7 @@ test("semantic problem classes map to stable assessment rules without changing g
     SEMANTIC_CACHE_INTEGRITY_RULE_ID,
     SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
     SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    SEMANTIC_ERROR_PROPAGATION_RULE_ID,
     SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   ].sort());
   assert.equal(
@@ -267,6 +276,10 @@ test("semantic problem classes map to stable assessment rules without changing g
   assert.equal(
     assessments.find((assessment) => assessment.ruleId === SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID).type,
     SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+  );
+  assert.equal(
+    assessments.find((assessment) => assessment.ruleId === SEMANTIC_ERROR_PROPAGATION_RULE_ID).type,
+    SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   );
 });
 
@@ -312,7 +325,7 @@ test("current high-confidence judgments confirm or reject matching candidates wi
       mode: "auto",
       provider: "mock",
       model: "mock-model",
-      promptVersion: "assessment-judge-v2",
+      promptVersion: "assessment-judge-v3",
       coercionVersion: "assessment-judgment-v2",
       maxCandidates: 3,
       maxSourceChars: 24000,

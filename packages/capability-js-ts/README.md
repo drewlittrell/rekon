@@ -50,7 +50,9 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
-- `event_flow`, `state_access`, and `error_flow` for narrow deterministic behavior signals
+- `event_flow`, `state_access`, and `error_flow` for narrow deterministic
+  behavior signals; error-flow facts preserve distinct throws, identities, and
+  enclosing guards
 
 ## Lifecycle Fit
 

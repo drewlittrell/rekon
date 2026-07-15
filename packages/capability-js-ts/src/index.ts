@@ -73,6 +73,9 @@ export {
   type AstImportKind,
   type AstLanguage,
   type AstSymbolKind,
+  type ErrorControlFlowGuard,
+  type ErrorControlFlowEvidence,
+  extractErrorControlFlowEvidence,
 } from "./ast-extractor.js";
 export { collectTypeScriptDiagnostics, type TypeScriptDiagnosticEvidence } from "./typescript-diagnostics.js";
 export {
@@ -1175,14 +1178,19 @@ function factsFromAstResult(
       continue;
     }
     if (flow.kind === "error") {
-      facts.push(fact("error_flow", `${path}:${flow.caller}:${flow.action}`, {
+      facts.push(fact("error_flow", `${path}:${flow.caller}:${flow.action}:${flow.location.line}:${flow.location.column}`, {
         source: path,
         caller: flow.caller,
         action: flow.action,
         ...(flow.errorName ? { errorName: flow.errorName } : {}),
+        ...(flow.errorIdentity ? { errorIdentity: flow.errorIdentity } : {}),
+        expressionKind: flow.expressionKind,
+        guards: flow.guards,
+        line: flow.location.line,
+        column: flow.location.column,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
-      }, path));
+      }, path, flow.location.line));
       continue;
     }
     const binding = allImportBindings.get(flow.root);

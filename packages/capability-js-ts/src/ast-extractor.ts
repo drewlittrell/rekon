@@ -72,7 +72,7 @@ type AstDeclarationKeyword =
   | "default"
   | "unknown";
 
-interface AstLocation {
+export interface AstLocation {
   /** 1-based line. */
   line: number;
   /** 1-based column. */
@@ -156,10 +156,30 @@ interface AstCallRecord {
   location: AstLocation;
 }
 
+export type ErrorControlFlowGuard = {
+  kind: "if";
+  expression: string;
+  operator: "and" | "or" | "single";
+  terms: string[];
+  polarity: "when-true" | "when-false";
+  location: AstLocation;
+};
+
+export type ErrorControlFlowEvidence = {
+  kind: "error";
+  caller: string;
+  action: "throw" | "rethrow";
+  errorName?: string;
+  errorIdentity?: string;
+  expressionKind: "identifier" | "object" | "constructor" | "other";
+  guards: ErrorControlFlowGuard[];
+  location: AstLocation;
+};
+
 type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
-  | { kind: "error"; caller: string; action: "throw" | "rethrow"; errorName?: string; location: AstLocation };
+  | ErrorControlFlowEvidence;
 
 export interface AstExtractionResult {
   language: AstLanguage;
@@ -217,6 +237,13 @@ export function extractAstRecords(
   result.flows.push(...extractFlowRecords(sourceFile));
 
   return result;
+}
+
+export function extractErrorControlFlowEvidence(input: AstExtractionInput): ErrorControlFlowEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is ErrorControlFlowEvidence => record.kind === "error",
+  );
 }
 
 function visit(
@@ -522,12 +549,15 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
         if (action && eventName) records.push({ kind: "event", caller: context.caller, action, eventName, receiver: path.slice(0, -1).join("."), location: locationOf(node, sourceFile) });
       }
     } else if (ts.isThrowStatement(node)) {
-      const errorName = node.expression && ts.isIdentifier(node.expression) ? node.expression.text : undefined;
+      const error = classifyThrownExpression(node.expression);
       records.push({
         kind: "error",
         caller: context.caller,
-        action: errorName && errorName === context.caughtName ? "rethrow" : "throw",
-        ...(errorName ? { errorName } : {}),
+        action: error.errorName && error.errorName === context.caughtName ? "rethrow" : "throw",
+        ...(error.errorName ? { errorName: error.errorName } : {}),
+        ...(error.errorIdentity ? { errorIdentity: error.errorIdentity } : {}),
+        expressionKind: error.expressionKind,
+        guards: enclosingErrorGuards(node, sourceFile),
         location: locationOf(node, sourceFile),
       });
     }
@@ -537,6 +567,114 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
 
   visitFlows(sourceFile, { caller: "__module__" });
   return records;
+}
+
+function classifyThrownExpression(expression: ts.Expression | undefined): {
+  errorName?: string;
+  errorIdentity?: string;
+  expressionKind: ErrorControlFlowEvidence["expressionKind"];
+} {
+  if (!expression) return { expressionKind: "other" };
+  if (ts.isIdentifier(expression)) {
+    return { errorName: expression.text, errorIdentity: expression.text, expressionKind: "identifier" };
+  }
+  if (ts.isNewExpression(expression)) {
+    const errorIdentity = expression.expression.getText().trim();
+    return { ...(errorIdentity ? { errorIdentity } : {}), expressionKind: "constructor" };
+  }
+  if (ts.isObjectLiteralExpression(expression)) {
+    const errorIdentity = stringPropertyValue(expression, "name");
+    return { ...(errorIdentity ? { errorIdentity } : {}), expressionKind: "object" };
+  }
+  return { expressionKind: "other" };
+}
+
+function stringPropertyValue(object: ts.ObjectLiteralExpression, propertyName: string): string | undefined {
+  for (const property of object.properties) {
+    if (!ts.isPropertyAssignment(property) || methodNameText(property.name) !== propertyName) continue;
+    if (ts.isStringLiteralLike(property.initializer)) return property.initializer.text;
+  }
+  return undefined;
+}
+
+function enclosingErrorGuards(node: ts.ThrowStatement, sourceFile: ts.SourceFile): ErrorControlFlowGuard[] {
+  const guards: ErrorControlFlowGuard[] = [];
+  let current: ts.Node = node;
+  while (current.parent) {
+    const parent = current.parent;
+    if (isFunctionBoundary(parent)) break;
+    if (ts.isIfStatement(parent)) {
+      const branch = branchContainingNode(parent, node);
+      if (branch) {
+        const expression = unwrapParenthesized(parent.expression);
+        const operator = booleanOperator(expression);
+        guards.push({
+          kind: "if",
+          expression: boundedNodeText(expression, sourceFile),
+          operator,
+          terms: booleanTerms(expression, operator).map((term) => boundedNodeText(term, sourceFile)),
+          polarity: branch,
+          location: locationOf(parent, sourceFile),
+        });
+      }
+    }
+    current = parent;
+  }
+  return guards.reverse();
+}
+
+function branchContainingNode(
+  statement: ts.IfStatement,
+  node: ts.Node,
+): ErrorControlFlowGuard["polarity"] | undefined {
+  if (containsPosition(statement.thenStatement, node)) return "when-true";
+  if (statement.elseStatement && containsPosition(statement.elseStatement, node)) return "when-false";
+  return undefined;
+}
+
+function containsPosition(container: ts.Node, node: ts.Node): boolean {
+  return container.getFullStart() <= node.getFullStart() && container.getEnd() >= node.getEnd();
+}
+
+function isFunctionBoundary(node: ts.Node): boolean {
+  return ts.isFunctionDeclaration(node)
+    || ts.isFunctionExpression(node)
+    || ts.isArrowFunction(node)
+    || ts.isMethodDeclaration(node)
+    || ts.isConstructorDeclaration(node)
+    || ts.isGetAccessorDeclaration(node)
+    || ts.isSetAccessorDeclaration(node);
+}
+
+function unwrapParenthesized(expression: ts.Expression): ts.Expression {
+  let current = expression;
+  while (ts.isParenthesizedExpression(current)) current = current.expression;
+  return current;
+}
+
+function booleanOperator(expression: ts.Expression): ErrorControlFlowGuard["operator"] {
+  if (!ts.isBinaryExpression(expression)) return "single";
+  if (expression.operatorToken.kind === ts.SyntaxKind.BarBarToken) return "or";
+  if (expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return "and";
+  return "single";
+}
+
+function booleanTerms(
+  expression: ts.Expression,
+  operator: ErrorControlFlowGuard["operator"],
+): ts.Expression[] {
+  if (operator === "single") return [expression];
+  const token = operator === "or" ? ts.SyntaxKind.BarBarToken : ts.SyntaxKind.AmpersandAmpersandToken;
+  if (!ts.isBinaryExpression(expression) || expression.operatorToken.kind !== token) return [expression];
+  return [
+    ...booleanTerms(unwrapParenthesized(expression.left), operator),
+    ...booleanTerms(unwrapParenthesized(expression.right), operator),
+  ];
+}
+
+function boundedNodeText(node: ts.Node, sourceFile: ts.SourceFile): string {
+  const text = node.getText(sourceFile).replace(/\s+/gu, " ").trim();
+  return text.length <= 320 ? text : `${text.slice(0, 317)}...`;
 }
 
 function memberPath(expression: ts.Expression): string[] | undefined {

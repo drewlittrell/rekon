@@ -18,6 +18,7 @@ import { buildSemanticFileUnderstandingReport } from "../../packages/capability-
 import { validateSemanticFileUnderstandingReport } from "../../packages/kernel-repo-model/dist/index.js";
 import {
   SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA,
+  SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION,
   buildSemanticFileUnderstandingPrompt,
 } from "../../packages/cli/dist/semantic-file-understanding.js";
 
@@ -283,6 +284,13 @@ test("25. semantic problem classes survive coercion while unknown classes remain
         sourceEvidence: ["export const existing = \"ok\";"],
       },
       {
+        id: "merged-error-identity",
+        problemClass: "error-propagation",
+        severity: "high",
+        message: "Distinct failure causes share one error identity.",
+        sourceEvidence: ["export const existing = \"ok\";"],
+      },
+      {
         id: "unknown-class",
         problemClass: "invented-class",
         severity: "low",
@@ -295,7 +303,8 @@ test("25. semantic problem classes survive coercion while unknown classes remain
 
   assert.equal(report.findings[0].problemClass, "dependency-resolution");
   assert.equal(report.findings[1].problemClass, "cleanup-completeness");
-  assert.equal(report.findings[2].problemClass, undefined);
+  assert.equal(report.findings[2].problemClass, "error-propagation");
+  assert.equal(report.findings[3].problemClass, undefined);
   assert.equal(validateSemanticFileUnderstandingReport(report).ok, true);
   const tampered = {
     ...report,
@@ -305,16 +314,41 @@ test("25. semantic problem classes survive coercion while unknown classes remain
 });
 
 test("26. production semantic prompt and schema define bounded problem classes", () => {
-  const prompt = buildSemanticFileUnderstandingPrompt({ filePath: FILE, fileText: TS_SRC, language: "typescript" });
+  const prompt = buildSemanticFileUnderstandingPrompt({
+    filePath: FILE,
+    fileText: TS_SRC,
+    language: "typescript",
+    errorControlFlow: [{
+      kind: "error",
+      caller: "run",
+      action: "throw",
+      errorIdentity: "ConditionError",
+      expressionKind: "object",
+      location: { line: 4, column: 3 },
+      guards: [{
+        kind: "if",
+        expression: "conditionFailed || signal.aborted",
+        operator: "or",
+        terms: ["conditionFailed", "signal.aborted"],
+        polarity: "when-true",
+        location: { line: 3, column: 1 },
+      }],
+    }],
+  });
   assert.match(prompt, /dependency-resolution/);
   assert.match(prompt, /cache-integrity/);
   assert.match(prompt, /cleanup-completeness/);
+  assert.match(prompt, /error-propagation/);
+  assert.match(prompt, /Deterministic error-control-flow evidence/);
+  assert.match(prompt, /conditionFailed \|\| signal\.aborted/);
+  assert.equal(SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION, "semantic-file-understanding-v2");
   assert.match(prompt, /not proven defects/);
   const findingSchema = SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA.properties.findings.items;
   assert.deepEqual(findingSchema.properties.problemClass.enum, [
     "dependency-resolution",
     "cache-integrity",
     "cleanup-completeness",
+    "error-propagation",
     "other",
   ]);
   assert.ok(findingSchema.required.includes("problemClass"));

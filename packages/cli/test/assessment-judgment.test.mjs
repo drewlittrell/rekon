@@ -69,6 +69,23 @@ test("judgment prompt distinguishes fail-fast cleanup from all-settled cleanup",
   assert.match(prompt, /all-settled behavior/);
 });
 
+test("judgment prompt requires both merged identity and downstream handling for error propagation", () => {
+  const errorAssessment = {
+    ...assessment,
+    ruleId: "semantic.errorPropagation",
+    type: "semantic.errorPropagation",
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: errorAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /distinct visible failure causes share the wrong error identity/);
+  assert.match(prompt, /downstream source/);
+  assert.match(prompt, /separate guards preserve separate error identities/);
+});
+
 test("coercion accepts exact source evidence and derives canonical line coordinates", () => {
   const judgment = coerceAssessmentJudgment({
     assessment,

@@ -226,6 +226,13 @@
       "remediationUnit": "source file and lifecycle cleanup sequence"
     },
     {
+      "ruleId": "semantic.errorPropagation",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "current source-matched semantic finding classified as error-propagation, informed by deterministic throw guards and identities",
+      "jurisdiction": "production JavaScript and TypeScript source selected for semantic file understanding where visible failure causes and downstream identity handling can be compared",
+      "remediationUnit": "source file and error-routing control flow"
+    },
+    {
       "ruleId": "dead_code.unreferenced",
       "outputKinds": ["risk"],
       "evidence": "exports, resolved consumers, and declared roots",

@@ -138,6 +138,12 @@ function assessmentSpecificRules(assessment: Assessment): string[] {
       "- Reject the claim when peer cleanup uses all-settled behavior and later cleanup calls are insulated so each visible obligation is still attempted.",
     ];
   }
+  if (assessment.ruleId === "semantic.errorPropagation") {
+    return [
+      "- For error propagation, retain only when distinct visible failure causes share the wrong error identity and downstream source treats that identity differently enough to mislabel, suppress, or skip a valid failure path.",
+      "- Reject the claim when separate guards preserve separate error identities or when the cited downstream source does not distinguish those identities.",
+    ];
+  }
   return [];
 }
 

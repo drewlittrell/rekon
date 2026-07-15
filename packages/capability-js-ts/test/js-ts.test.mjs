@@ -4,7 +4,7 @@ import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
-import capability, { jsTsProvider } from "../dist/index.js";
+import capability, { extractErrorControlFlowEvidence, jsTsProvider } from "../dist/index.js";
 
 test("built-in capability uses defineCapability-compatible manifest", () => {
   assert.equal(capability.manifest.id, "@rekon/capability-js-ts");
@@ -252,6 +252,63 @@ test("JS/TS provider detects inverse listener delegation and partial allowlist v
       { signal: "inverse_listener_delegation", detail: "off->on" },
       { signal: "unanchored_whole_value_allowlist", detail: "allowedHandlerNameRegex" },
     ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("error-control-flow evidence distinguishes merged and identity-specific guards", async () => {
+  const buggySource = [
+    "export function run(conditionResult: boolean, signal: AbortSignal) {",
+    "  if (conditionResult === false || signal.aborted) {",
+    "    throw { name: 'ConditionError', message: 'condition failed' };",
+    "  }",
+    "}",
+  ].join("\n");
+  const fixedSource = [
+    "export function run(conditionResult: boolean, signal: AbortSignal) {",
+    "  if (conditionResult === false) {",
+    "    throw { name: 'ConditionError', message: 'condition failed' };",
+    "  }",
+    "  if (signal.aborted) {",
+    "    throw { name: 'AbortError', message: 'aborted' };",
+    "  }",
+    "}",
+  ].join("\n");
+
+  const buggy = extractErrorControlFlowEvidence({ path: "src/buggy.ts", content: buggySource });
+  assert.equal(buggy.length, 1);
+  assert.equal(buggy[0].errorIdentity, "ConditionError");
+  assert.equal(buggy[0].expressionKind, "object");
+  assert.deepEqual(buggy[0].guards[0], {
+    kind: "if",
+    expression: "conditionResult === false || signal.aborted",
+    operator: "or",
+    terms: ["conditionResult === false", "signal.aborted"],
+    polarity: "when-true",
+    location: { line: 2, column: 3 },
+  });
+
+  const fixed = extractErrorControlFlowEvidence({ path: "src/fixed.ts", content: fixedSource });
+  assert.deepEqual(fixed.map((entry) => ({
+    identity: entry.errorIdentity,
+    guard: entry.guards[0]?.expression,
+    operator: entry.guards[0]?.operator,
+  })), [
+    { identity: "ConditionError", guard: "conditionResult === false", operator: "single" },
+    { identity: "AbortError", guard: "signal.aborted", operator: "single" },
+  ]);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-error-flow-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "fixed.ts"), fixedSource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "error_flow");
+    assert.equal(facts.length, 2);
+    assert.equal(new Set(facts.map((fact) => fact.subject)).size, 2);
+    assert.deepEqual(facts.map((fact) => fact.value.errorIdentity).sort(), ["AbortError", "ConditionError"]);
+    assert.ok(facts.every((fact) => fact.provenance.line === fact.value.line));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE,
   assessmentChangedLineCoverage,
+  assessmentMatchesDefectEvidence,
   assessmentOverlapsChangedLines,
   changedLineNumbers,
   summarizePairEmission,
@@ -87,6 +88,45 @@ test("defect identity requires changed lines to be material rather than incident
     assessmentChangedLineCoverage(cleanupCandidate, new Set([57, 61]))
       >= MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE,
   );
+});
+
+test("error-propagation defect identity accepts a cited changed compound guard without lowering the generic threshold", () => {
+  const assessment = {
+    details: {
+      sourceEvidence: [
+        { lineStart: 10, lineEnd: 10 },
+        { lineStart: 20, lineEnd: 24 },
+      ],
+    },
+  };
+  const changedLines = new Set([10]);
+  const compoundFlow = [{
+    errorIdentity: "ConditionError",
+    guards: [{ terms: ["conditionFailed", "signal.aborted"], location: { line: 10 } }],
+  }];
+
+  assert.ok(assessmentChangedLineCoverage(assessment, changedLines) < MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines,
+    problemClass: "error-propagation",
+    errorControlFlow: compoundFlow,
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines,
+    problemClass: "cache-integrity",
+    errorControlFlow: compoundFlow,
+  }), false);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines,
+    problemClass: "error-propagation",
+    errorControlFlow: [{
+      errorIdentity: "ConditionError",
+      guards: [{ terms: ["conditionFailed"], location: { line: 10 } }],
+    }],
+  }), false);
 });
 
 test("paired emission requires defect evidence in every affected buggy path", () => {
