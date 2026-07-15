@@ -7011,6 +7011,14 @@ export type SemanticFileUnderstandingConfidence = "low" | "medium" | "high";
 
 export type SemanticFileUnderstandingSeverity = "low" | "medium" | "high";
 
+export const SEMANTIC_FILE_PROBLEM_CLASSES = [
+  "dependency-resolution",
+  "cache-integrity",
+  "other",
+] as const;
+
+export type SemanticFileProblemClass = (typeof SEMANTIC_FILE_PROBLEM_CLASSES)[number];
+
 export type SemanticFileSourceEvidence = {
   lineStart?: number;
   lineEnd?: number;
@@ -7026,6 +7034,7 @@ export type SemanticFileCapabilitySignal = {
 
 export type SemanticFileUnderstandingFinding = {
   id: string;
+  problemClass?: SemanticFileProblemClass;
   severity: SemanticFileUnderstandingSeverity;
   message: string;
   sourceEvidence: string[];
@@ -7087,6 +7096,7 @@ const SEMANTIC_FILE_UNDERSTANDING_METHODS = new Set<string>(["deterministic", "s
 const SEMANTIC_FILE_UNDERSTANDING_PROVENANCES = new Set<string>(["source-only", "semantic-llm"]);
 const SEMANTIC_FILE_UNDERSTANDING_CONFIDENCES = new Set<string>(["low", "medium", "high"]);
 const SEMANTIC_FILE_UNDERSTANDING_SEVERITIES = new Set<string>(["low", "medium", "high"]);
+const SEMANTIC_FILE_PROBLEM_CLASS_VALUES = new Set<string>(SEMANTIC_FILE_PROBLEM_CLASSES);
 const SEMANTIC_FILE_UNDERSTANDING_BOUNDARY_KEYS = [
   "executedCommands",
   "wroteSourceFiles",
@@ -7164,6 +7174,9 @@ function sfuNormalizeFindings(value: unknown): SemanticFileUnderstandingFinding[
       message: typeof raw.message === "string" ? raw.message : "",
       sourceEvidence: sfuStringList(raw.sourceEvidence),
     };
+    if (typeof raw.problemClass === "string" && SEMANTIC_FILE_PROBLEM_CLASS_VALUES.has(raw.problemClass)) {
+      finding.problemClass = raw.problemClass as SemanticFileProblemClass;
+    }
     if (typeof raw.suggestedFollowUp === "string" && raw.suggestedFollowUp.length > 0) {
       finding.suggestedFollowUp = raw.suggestedFollowUp;
     }
@@ -7387,6 +7400,15 @@ export function validateSemanticFileUnderstandingReport(
       }
       if (typeof finding.severity !== "string" || !SEMANTIC_FILE_UNDERSTANDING_SEVERITIES.has(finding.severity)) {
         issues.push({ path: `${path}.severity`, message: "Expected one of low, medium, high." });
+      }
+      if (
+        finding.problemClass !== undefined
+        && (typeof finding.problemClass !== "string" || !SEMANTIC_FILE_PROBLEM_CLASS_VALUES.has(finding.problemClass))
+      ) {
+        issues.push({
+          path: `${path}.problemClass`,
+          message: "Expected dependency-resolution, cache-integrity, or other when present.",
+        });
       }
       if (typeof finding.message !== "string") issues.push({ path: `${path}.message`, message: "Expected a string." });
       if (!isStringArray(finding.sourceEvidence)) {

@@ -3,7 +3,9 @@ export const DEFAULT_ASSESSMENT_JUDGMENT_MODEL_IDS = Object.freeze([
   "claude-sonnet-5@low",
 ]);
 
-const DETECTOR_BACKED_RULES = Object.freeze({
+const EMITTER_BACKED_RULES = Object.freeze({
+  "nest-import-first-match": "semantic.dependencyResolution",
+  "playwright-compilation-cache-integrity": "semantic.cacheIntegrity",
   "vitest-typecheck-worker-off": "events.inverseListenerDelegation",
   "nextjs-cache-handler-name-validation": "validation.partialAllowlistMatch",
 });
@@ -27,7 +29,7 @@ export function buildAssessmentJudgmentEvalCases(catalog, adjudications, selecte
     if (!adjudication) throw new Error(`Defect pair ${pair.id} has no adjudication.`);
     if (adjudication.claimVerdict !== "valid") return [];
 
-    const ruleId = DETECTOR_BACKED_RULES[pair.id] ?? "semantic.problemCandidate";
+    const ruleId = EMITTER_BACKED_RULES[pair.id] ?? "semantic.problemCandidate";
     const emitterCoverage = adjudication.coverage === "captured" ? "detector-backed" : "emitter-gap";
     const assessment = {
       id: `assessment-judgment-eval:${pair.id}`,

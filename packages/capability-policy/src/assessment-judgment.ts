@@ -17,9 +17,23 @@ export const ASSESSMENT_JUDGMENT_PROMPT_VERSION = "assessment-judge-v1";
 export const ASSESSMENT_JUDGMENT_COERCION_VERSION = "assessment-judgment-v1";
 export const ASSESSMENT_JUDGMENT_MIN_DECISIVE_CONFIDENCE = 0.75;
 export const SEMANTIC_PROBLEM_CANDIDATE_RULE_ID = "semantic.problemCandidate";
+export const SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID = "semantic.dependencyResolution";
+export const SEMANTIC_CACHE_INTEGRITY_RULE_ID = "semantic.cacheIntegrity";
+
+const SEMANTIC_PROBLEM_CLASS_RULES = {
+  "dependency-resolution": {
+    ruleId: SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    title: "Possible dependency resolution issue",
+  },
+  "cache-integrity": {
+    ruleId: SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+    title: "Possible cache integrity issue",
+  },
+} as const;
 
 type SemanticFileFindingLike = {
   id?: unknown;
+  problemClass?: unknown;
   severity?: unknown;
   message?: unknown;
   sourceEvidence?: unknown;
@@ -88,6 +102,12 @@ export function evaluateSemanticFileCandidates(
       : undefined;
     if (!findingId || !message || !impact || !Array.isArray(findingLike.sourceEvidence)) continue;
 
+    const problemClass = typeof findingLike.problemClass === "string" ? findingLike.problemClass : undefined;
+    const specializedRule = problemClass === "dependency-resolution" || problemClass === "cache-integrity"
+      ? SEMANTIC_PROBLEM_CLASS_RULES[problemClass]
+      : undefined;
+    const ruleId = specializedRule?.ruleId ?? SEMANTIC_PROBLEM_CANDIDATE_RULE_ID;
+
     const evidence = findingLike.sourceEvidence
       .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
       .map((entry) => canonicalSourceExcerpt(source.text, entry))
@@ -97,23 +117,24 @@ export function evaluateSemanticFileCandidates(
     const fingerprint = digestJson({
       path,
       findingId,
+      ruleId,
       evidence: evidence.map((entry) => ({ lineStart: entry.lineStart, lineEnd: entry.lineEnd, excerpt: entry.excerpt })),
     }).slice(0, 16);
     assessments.push({
-      id: `${SEMANTIC_PROBLEM_CANDIDATE_RULE_ID}:${path}:${fingerprint}`,
+      id: `${ruleId}:${path}:${fingerprint}`,
       kind: "semantic_claim",
-      type: SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
+      type: ruleId,
       impact,
-      title: `Possible issue in ${path}`,
+      title: `${specializedRule?.title ?? "Possible issue"} in ${path}`,
       description: message,
       subjects: [path],
       files: [path],
-      ruleId: SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
+      ruleId,
       ...(typeof findingLike.suggestedFollowUp === "string" && findingLike.suggestedFollowUp.trim().length > 0
         ? { suggestedAction: findingLike.suggestedFollowUp.trim() }
         : {}),
       evidence: [reportRef],
-      rootCauseKey: `${SEMANTIC_PROBLEM_CANDIDATE_RULE_ID}:${path}:${fingerprint}`,
+      rootCauseKey: `${ruleId}:${path}:${fingerprint}`,
       confidence: {
         score: impact === "high" ? 0.65 : impact === "medium" ? 0.58 : 0.5,
         basis: "semantic",
@@ -124,6 +145,7 @@ export function evaluateSemanticFileCandidates(
         provider,
         model,
         reportFindingId: findingId,
+        ...(problemClass ? { problemClass } : {}),
         sourceDigest: source.sha256,
         sourceEvidence: evidence,
       },

@@ -4,6 +4,12 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added source-grounded semantic emitters for dependency-resolution and
+  cache-integrity candidates. The production prompt now uses a strict response
+  schema, report artifacts retain a bounded problem class, and policy emits
+  class-specific assessments for independent judgment. A no-source-retention
+  paired baseline distinguishes both pinned buggy revisions from their fixes
+  without suppressing unrelated same-class candidates.
 - Added a token- and cost-aware assessment-judgment model evaluation over
   pinned buggy/fixed source pairs. The runner fetches only affected files and
   retains no source, prompts, excerpts, or model rationales. The first paired

@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import type { ArtifactHeader } from "@rekon/kernel-artifacts";
 import {
   type SemanticFileCapabilitySignal,
+  type SemanticFileProblemClass,
   type SemanticFileSourceEvidence,
   type SemanticFileUnderstandingConfidence,
   type SemanticFileUnderstandingFinding,
@@ -57,6 +58,7 @@ export type SemanticFileUnderstandingAdapterResult = {
   }>;
   findings?: Array<{
     id?: string;
+    problemClass?: SemanticFileProblemClass;
     severity?: SemanticFileUnderstandingSeverity;
     message?: string;
     sourceEvidence?: string[];
@@ -328,6 +330,13 @@ function coerceSemanticUnderstanding(
         message: typeof f.message === "string" ? f.message : "",
         sourceEvidence: normalizeStringArray(f.sourceEvidence),
       };
+      if (
+        f.problemClass === "dependency-resolution"
+        || f.problemClass === "cache-integrity"
+        || f.problemClass === "other"
+      ) {
+        finding.problemClass = f.problemClass;
+      }
       if (typeof f.suggestedFollowUp === "string" && f.suggestedFollowUp.length > 0) {
         finding.suggestedFollowUp = f.suggestedFollowUp;
       }

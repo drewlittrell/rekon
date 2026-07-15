@@ -30,6 +30,7 @@
     "report:detection-quality": "npm run build --workspaces && node scripts/report-detection-quality.mjs",
     "eval:semantic-debt": "npm run build --workspaces && node scripts/eval-semantic-debt-models.mjs",
     "eval:assessment-judgment": "npm run build --workspaces && node scripts/eval-assessment-judgment-models.mjs",
+    "eval:semantic-problem-emitters": "npm run build --workspaces && node scripts/eval-semantic-problem-emitters.mjs",
     "eval:voyage-embeddings": "npm run build --workspaces && node scripts/eval-voyage-embeddings.mjs",
     "eval:embedding-duplicates": "npm run build --workspaces && node scripts/eval-embedding-duplicates.mjs"
   },

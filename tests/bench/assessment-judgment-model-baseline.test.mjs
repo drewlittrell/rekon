@@ -49,7 +49,7 @@ test("assessment-judgment eval dry run exposes cost and coverage without credent
     "gpt-5.6-luna@low",
     "claude-sonnet-5@low",
   ]);
-  assert.equal(payload.emitterGapClasses.length, 7);
+  assert.equal(payload.emitterGapClasses.length, 5);
 });
 
 function visit(value, inspect) {

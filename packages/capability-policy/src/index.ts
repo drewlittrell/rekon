@@ -57,6 +57,8 @@ import {
   evaluateDeclaredOwnershipRules,
 } from "./declared-ownership.js";
 import {
+  SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+  SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   applyAssessmentJudgments,
   evaluateSemanticFileCandidates,
   readCurrentRepoSource,
@@ -138,6 +140,8 @@ export const BUILT_IN_POLICY_RULES = [
   REPOSITORY_CHECK_FAILURE_RULE_ID,
   SECURITY_SCANNER_RESULT_RULE_ID,
   DEPENDENCY_VULNERABILITY_RULE_ID,
+  SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+  SEMANTIC_CACHE_INTEGRITY_RULE_ID,
   "imports.noDistImports",
   "imports.noNodeModulesRelativeImports",
   "files.noGeneratedAsSource",

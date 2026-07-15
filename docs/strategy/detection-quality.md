@@ -152,15 +152,27 @@ New emitters are justified only by source-grounded missed signals. A zero count
 for a rule is not itself a defect.
 
 The public defect-pair corpus adds a stricter test: a useful signal must appear
-on a pinned buggy revision, describe the upstream defect, and stay quiet after
-the fix. The initial nine cases produced two source-local assessments:
+on a pinned buggy revision, describe the upstream defect, and stay quiet on the
+lines changed by the fix. The initial nine cases produced two source-local
+assessments:
 `events.inverseListenerDelegation` and
 `validation.partialAllowlistMatch`. Each has one positive pair and remains
-under the five-case usefulness threshold. The other seven cases stay in the
+under the five-case usefulness threshold. Seven cases initially stayed in the
 evidence or semantic-analysis queue because generic syntax rules would confuse
 common correct code with transform scope, lifecycle obligations, resource
 retention, cache integrity, option precedence, dependency precedence, or abort
 semantics.
+
+The first semantic emitter batch adds bounded `dependency-resolution` and
+`cache-integrity` problem classes to current, source-cited semantic file
+reports. Policy preserves them as `semantic.dependencyResolution` and
+`semantic.cacheIntegrity` assessments for independent judgment. A paired live
+baseline emits both upstream defects on the buggy revisions and no matching
+assessment on fix-related lines. The fixed Playwright revision still surfaces
+a separate cache-sidecar candidate; the benchmark reports that same-class
+candidate rather than suppressing it. Changed-line overlap is an evaluation
+identity check only and does not gate production assessments. The compact
+baseline is `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,
@@ -181,7 +193,10 @@ judgment pass. It produced no unsafe decisions, accepted 15 of 18 expected
 outcomes, and cost $0.098537. `claude-sonnet-5` at low effort accepted 13 of 18,
 incorrectly rejected one buggy case, and cost $0.285882 at its introductory
 rate. This is a task-specific nine-pair result, not a general model ranking.
-Seven candidate classes remain emitter gaps regardless of judge quality. The
+At the time of that judgment-model run, seven candidate classes were emitter
+gaps. The dependency-resolution and cache-integrity emitter batch reduces the
+current gap to five: cleanup completeness, error propagation, option
+propagation, resource lifetime, and scope resolution. The
 durable aggregate is
 `tests/bench/calibration/assessment-judgment-model-baseline.json`.
 

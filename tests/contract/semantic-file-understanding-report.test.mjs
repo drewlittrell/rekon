@@ -16,6 +16,10 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 import { buildSemanticFileUnderstandingReport } from "../../packages/capability-model/dist/index.js";
 import { validateSemanticFileUnderstandingReport } from "../../packages/kernel-repo-model/dist/index.js";
+import {
+  SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA,
+  buildSemanticFileUnderstandingPrompt,
+} from "../../packages/cli/dist/semantic-file-understanding.js";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
@@ -258,4 +262,46 @@ test("24. CLI refuses semantic file paths outside --root before reading", () => 
   assert.notEqual(res.status, 0);
   assert.match(res.stderr, /outside --root/);
   assert.equal(countReports(ROOT), 0);
+});
+
+test("25. semantic problem classes survive coercion while unknown classes remain generic", async () => {
+  const adapter = async () => ({
+    summary: { purpose: "P" },
+    findings: [
+      {
+        id: "dependency-precedence",
+        problemClass: "dependency-resolution",
+        severity: "high",
+        message: "A later match can replace an earlier match.",
+        sourceEvidence: ["export const existing = \"ok\";"],
+      },
+      {
+        id: "unknown-class",
+        problemClass: "invented-class",
+        severity: "low",
+        message: "Unknown classes must not acquire built-in meaning.",
+        sourceEvidence: ["export const existing = \"ok\";"],
+      },
+    ],
+  });
+  const report = await buildSemanticFileUnderstandingReport(base({ semanticMode: "auto", semanticUnderstanding: adapter }));
+
+  assert.equal(report.findings[0].problemClass, "dependency-resolution");
+  assert.equal(report.findings[1].problemClass, undefined);
+  assert.equal(validateSemanticFileUnderstandingReport(report).ok, true);
+  const tampered = {
+    ...report,
+    findings: [{ ...report.findings[0], problemClass: "invented-class" }],
+  };
+  assert.equal(validateSemanticFileUnderstandingReport(tampered).ok, false);
+});
+
+test("26. production semantic prompt and schema define bounded problem classes", () => {
+  const prompt = buildSemanticFileUnderstandingPrompt({ filePath: FILE, fileText: TS_SRC, language: "typescript" });
+  assert.match(prompt, /dependency-resolution/);
+  assert.match(prompt, /cache-integrity/);
+  assert.match(prompt, /not proven defects/);
+  const findingSchema = SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA.properties.findings.items;
+  assert.deepEqual(findingSchema.properties.problemClass.enum, ["dependency-resolution", "cache-integrity", "other"]);
+  assert.ok(findingSchema.required.includes("problemClass"));
 });

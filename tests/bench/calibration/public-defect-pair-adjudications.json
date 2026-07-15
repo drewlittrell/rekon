@@ -18,9 +18,9 @@
     {
       "pairId": "nest-import-first-match",
       "claimVerdict": "valid",
-      "coverage": "unrelated-signal",
-      "recommendedAction": "no-general-detector",
-      "rationale": "The persistent dead-code and type-escape assessments do not cover provider selection. First-match precedence depends on Nest's module registration order and injector contract; syntax alone does not establish which match is authoritative."
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits semantic.dependencyResolution from current source-matched evidence on the buggy revision. The candidate identifies the later-match overwrite path, remains a semantic claim pending independent judgment, and is silent after the first-match fix."
     },
     {
       "pairId": "fastify-keep-alive-meta-leak",
@@ -39,9 +39,9 @@
     {
       "pairId": "playwright-compilation-cache-integrity",
       "claimVerdict": "valid",
-      "coverage": "unrelated-signal",
-      "recommendedAction": "evidence-source",
-      "rationale": "The persistent dead-code and type-escape assessments do not cover cache integrity. Not every file cache requires an embedded digest, so promotion needs declared cache law, observed partial writes, or repository-native failure evidence."
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits semantic.cacheIntegrity from current source-matched evidence on the buggy compiled-code read/write path. The upstream defect is absent from fix-related lines after integrity verification is added; a separate JSON sidecar candidate remains an independent assessment rather than being hidden by the benchmark."
     },
     {
       "pairId": "pnpm-publish-otp-propagation",

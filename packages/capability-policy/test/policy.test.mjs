@@ -6,6 +6,9 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 
 import policyCapability, {
+  SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+  SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+  SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   applyAssessmentJudgments,
   evaluateDependencyAuditReports,
   evaluateSemanticFileCandidates,
@@ -192,6 +195,66 @@ test("semantic file findings become candidates only when their digest and excerp
     ...report,
     findings: [{ ...report.findings[0], sourceEvidence: ["invented source"] }],
   }, ref, source).length, 0);
+});
+
+test("semantic problem classes map to stable assessment rules without changing generic fallback", () => {
+  const text = [
+    "for (const provider of providers) {",
+    "  selected = provider;",
+    "}",
+    "const cachedCode = readFileSync(codePath, 'utf8');",
+    "return cachedCode;",
+  ].join("\n");
+  const source = {
+    path: "src/resolution.ts",
+    text,
+    sha256: createHash("sha256").update(text).digest("hex"),
+  };
+  const ref = { type: "SemanticFileUnderstandingReport", id: "semantic-classes", schemaVersion: "0.1.0" };
+  const baseFinding = {
+    severity: "high",
+    message: "Candidate requires independent judgment.",
+  };
+  const report = {
+    header: { generatedAt: "2026-07-15T00:00:00.000Z" },
+    file: { path: source.path, sha256: source.sha256 },
+    normalizationTrace: { method: "semantic-llm", provider: "mock", model: "mock-model" },
+    findings: [
+      {
+        ...baseFinding,
+        id: "dependency-precedence",
+        problemClass: "dependency-resolution",
+        sourceEvidence: ["selected = provider;"],
+      },
+      {
+        ...baseFinding,
+        id: "cache-read",
+        problemClass: "cache-integrity",
+        sourceEvidence: ["const cachedCode = readFileSync(codePath, 'utf8');"],
+      },
+      {
+        ...baseFinding,
+        id: "other",
+        problemClass: "other",
+        sourceEvidence: ["return cachedCode;"],
+      },
+    ],
+  };
+
+  const assessments = evaluateSemanticFileCandidates(report, ref, source);
+  assert.deepEqual(assessments.map((assessment) => assessment.ruleId).sort(), [
+    SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+    SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
+  ].sort());
+  assert.equal(
+    assessments.find((assessment) => assessment.ruleId === SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID).details.problemClass,
+    "dependency-resolution",
+  );
+  assert.equal(
+    assessments.find((assessment) => assessment.ruleId === SEMANTIC_CACHE_INTEGRITY_RULE_ID).type,
+    SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+  );
 });
 
 test("current high-confidence judgments confirm or reject matching candidates without mutating unrelated assessments", () => {

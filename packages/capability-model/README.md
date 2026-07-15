@@ -33,6 +33,11 @@ Model-provided line coordinates are advisory. A matching report digest with an
 absent or invalid excerpt remains review context rather than accepted
 capability evidence.
 
+Semantic findings may declare the built-in problem classes
+`dependency-resolution`, `cache-integrity`, or `other`. The first two become
+class-specific semantic assessments only after their excerpts match current
+source. They remain candidates for independent judgment, not findings.
+
 ## Lifecycle Fit
 
 Runs during `Project`. Resolvers and publishers should prefer these projection

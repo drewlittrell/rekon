@@ -227,6 +227,24 @@ install dependencies or execute target scripts. Reports are local and
 gitignored under `tests/bench/output/public-defect-pairs/`; the public agent
 judgments needed to interpret them live under `tests/bench/calibration/`.
 
+### Semantic problem emitters
+
+The dependency-resolution and cache-integrity semantic emitters have a bounded
+live paired check:
+
+```bash
+npm run eval:semantic-problem-emitters
+npm run eval:semantic-problem-emitters -- --pair nest-import-first-match
+```
+
+The runner fetches affected files directly from pinned public revisions and
+retains no source, prompts, excerpts, or model prose. It reports broad
+same-class candidates separately from candidates whose verified source
+evidence overlaps the upstream fix. This prevents an unrelated concern in a
+fixed file from hiding a regression or being suppressed to satisfy the pair.
+The durable aggregate is
+`tests/bench/calibration/semantic-problem-emitter-baseline.json`.
+
 ## Corpus retention
 
 Repository checkouts, generated `.rekon/` directories, detailed reports, and

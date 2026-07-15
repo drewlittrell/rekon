@@ -360,6 +360,10 @@ import {
   type AssessmentJudgmentAdapterResult,
   type AssessmentJudgmentSourceContext,
 } from "./assessment-judgment.js";
+import {
+  SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA,
+  buildSemanticFileUnderstandingPrompt,
+} from "./semantic-file-understanding.js";
 
 // Protected agent-instruction filenames. Declared at the top of the module so
 // they are initialized before `main()` runs synchronously during module
@@ -11593,27 +11597,7 @@ function createSemanticFileUnderstandingAdapter(
   if (model) override.model = model;
 
   return async ({ filePath, fileText, language }) => {
-    const prompt = [
-      "Summarize the following source file for codebase intelligence.",
-      'Return ONE JSON object of the shape { "summary": { "purpose": string, "responsibilities": string[], "touchedConcepts": string[] }, "capabilitySignals": [ ... ], "findings": [ ... ] }.',
-      "Each capabilitySignal has: id, label, confidence (low|medium|high), sourceEvidence[] (each { excerpt, lineStart?, lineEnd? }).",
-      "- Set each capabilitySignal id to a lower-case verb:noun phrase (for example ingest:turn evidence or deliver:channel message).",
-      "- Include direct side effects and coordination visible in the source, such as persistence, calculation, delivery, or orchestration; do not infer hidden behavior.",
-      "Each finding has: id, severity (low|medium|high), message, sourceEvidence[] (strings), suggestedFollowUp?.",
-      "Rules (a deterministic reviewer re-checks every field against the source; imports and public exports are extracted deterministically and your values for them are ignored):",
-      "- Summarize this file's purpose in one sentence.",
-      "- List the concrete responsibilities you can see in the file.",
-      "- List capability signals with source evidence; do NOT invent capabilities the source does not support.",
-      "- Do NOT claim any command ran, any test passed, or any behavior not visible in this file.",
-      "- Do NOT infer runtime behavior you cannot see; leave unknown fields empty.",
-      "- Return only source-supported content.",
-      language ? `Language: ${language}` : "",
-      `File path: ${filePath}`,
-      "File contents:",
-      fileText,
-    ]
-      .filter((line) => line.length > 0)
-      .join("\n");
+    const prompt = buildSemanticFileUnderstandingPrompt({ filePath, fileText, language });
 
     const routed = await router.completeJson(
       {
@@ -11621,6 +11605,7 @@ function createSemanticFileUnderstandingAdapter(
         schemaName: "SemanticFileUnderstandingResult",
         prompt,
         maxOutputTokens: 2000,
+        jsonSchema: SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA,
         ...(semanticFileUsesResponsesApi(model) ? { effort: "low" as const } : {}),
       },
       override,

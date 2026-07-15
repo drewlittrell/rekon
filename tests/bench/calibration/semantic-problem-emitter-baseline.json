@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-15T18:17:41.891Z",
+  "pricingAsOf": "2026-07-15",
+  "corpus": {
+    "catalogVersion": "1.0.0",
+    "pairCount": 2,
+    "caseCount": 4,
+    "sourceRetention": "none",
+    "fixLineIdentity": "lcs-v1"
+  },
+  "model": {
+    "id": "gpt-5.6-luna@low",
+    "provider": "openai",
+    "model": "gpt-5.6-luna",
+    "effort": "low"
+  },
+  "summary": {
+    "passedPairs": 2,
+    "failedPairs": 0,
+    "errors": 0,
+    "usage": {
+      "inputTokens": 24414,
+      "cachedInputTokens": 24402,
+      "cacheWriteInputTokens": 0,
+      "outputTokens": 3831,
+      "reasoningTokens": 453
+    },
+    "currentCostUsd": 0.025438
+  },
+  "pairs": [
+    {
+      "pairId": "nest-import-first-match",
+      "problemClass": "dependency-resolution",
+      "buggyDefectEmitted": true,
+      "fixedDefectEmitted": false,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "playwright-compilation-cache-integrity",
+      "problemClass": "cache-integrity",
+      "buggyDefectEmitted": true,
+      "fixedDefectEmitted": false,
+      "fixedSameClassCandidate": true,
+      "passed": true
+    }
+  ]
+}

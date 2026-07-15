@@ -205,6 +205,20 @@
       "remediationUnit": "file and concern pattern"
     },
     {
+      "ruleId": "semantic.dependencyResolution",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "current source-matched semantic finding classified as dependency-resolution",
+      "jurisdiction": "production source selected for semantic file understanding where multiple visible candidates have precedence or overwrite semantics",
+      "remediationUnit": "source file and dependency-selection control flow"
+    },
+    {
+      "ruleId": "semantic.cacheIntegrity",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "current source-matched semantic finding classified as cache-integrity",
+      "jurisdiction": "production source selected for semantic file understanding where cached derived output is visibly read and written",
+      "remediationUnit": "source file and cache-entry integrity boundary"
+    },
+    {
       "ruleId": "dead_code.unreferenced",
       "outputKinds": ["risk"],
       "evidence": "exports, resolved consumers, and declared roots",
