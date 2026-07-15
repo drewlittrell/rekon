@@ -7,6 +7,7 @@ import test from "node:test";
 
 import policyCapability, {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+  SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   applyAssessmentJudgments,
@@ -203,6 +204,7 @@ test("semantic problem classes map to stable assessment rules without changing g
     "  selected = provider;",
     "}",
     "const cachedCode = readFileSync(codePath, 'utf8');",
+    "await Promise.all(cleanupHandlers);",
     "return cachedCode;",
   ].join("\n");
   const source = {
@@ -234,6 +236,12 @@ test("semantic problem classes map to stable assessment rules without changing g
       },
       {
         ...baseFinding,
+        id: "cleanup-fail-fast",
+        problemClass: "cleanup-completeness",
+        sourceEvidence: ["await Promise.all(cleanupHandlers);"],
+      },
+      {
+        ...baseFinding,
         id: "other",
         problemClass: "other",
         sourceEvidence: ["return cachedCode;"],
@@ -244,6 +252,7 @@ test("semantic problem classes map to stable assessment rules without changing g
   const assessments = evaluateSemanticFileCandidates(report, ref, source);
   assert.deepEqual(assessments.map((assessment) => assessment.ruleId).sort(), [
     SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+    SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
     SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
     SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   ].sort());
@@ -254,6 +263,10 @@ test("semantic problem classes map to stable assessment rules without changing g
   assert.equal(
     assessments.find((assessment) => assessment.ruleId === SEMANTIC_CACHE_INTEGRITY_RULE_ID).type,
     SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+  );
+  assert.equal(
+    assessments.find((assessment) => assessment.ruleId === SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID).type,
+    SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
   );
 });
 
@@ -299,8 +312,8 @@ test("current high-confidence judgments confirm or reject matching candidates wi
       mode: "auto",
       provider: "mock",
       model: "mock-model",
-      promptVersion: "assessment-judge-v1",
-      coercionVersion: "assessment-judgment-v1",
+      promptVersion: "assessment-judge-v2",
+      coercionVersion: "assessment-judgment-v2",
       maxCandidates: 3,
       maxSourceChars: 24000,
     },

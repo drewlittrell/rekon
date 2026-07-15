@@ -219,6 +219,13 @@
       "remediationUnit": "source file and cache-entry integrity boundary"
     },
     {
+      "ruleId": "semantic.cleanupCompleteness",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "current source-matched semantic finding classified as cleanup-completeness",
+      "jurisdiction": "production source selected for semantic file understanding where visible lifecycle cleanup obligations can be skipped after an earlier failure",
+      "remediationUnit": "source file and lifecycle cleanup sequence"
+    },
+    {
       "ruleId": "dead_code.unreferenced",
       "outputKinds": ["risk"],
       "evidence": "exports, resolved consumers, and declared roots",

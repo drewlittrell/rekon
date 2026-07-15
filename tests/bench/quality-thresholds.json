@@ -26,6 +26,7 @@
     "security.scannerResult": { "minimumUsefulness": 0.75 },
     "security.dependencyVulnerability": { "minimumUsefulness": 0.75 },
     "semantic.cacheIntegrity": { "minimumUsefulness": 0.75 },
+    "semantic.cleanupCompleteness": { "minimumUsefulness": 0.75 },
     "semantic.dependencyResolution": { "minimumUsefulness": 0.75 },
     "similarity.duplicateCandidate": { "minimumUsefulness": 0.75 },
     "typescript.asyncArrayCallback": { "minimumUsefulness": 0.75 },

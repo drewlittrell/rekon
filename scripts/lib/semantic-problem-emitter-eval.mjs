@@ -1,3 +1,5 @@
+export const MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE = 0.2;
+
 export function changedLineNumbers(currentText, counterpartText) {
   const current = currentText.split(/\r?\n/u);
   const counterpart = counterpartText.split(/\r?\n/u);
@@ -38,17 +40,79 @@ export function changedLineNumbers(currentText, counterpartText) {
 }
 
 export function assessmentOverlapsChangedLines(assessment, changedLines) {
+  return assessmentChangedLineCoverage(assessment, changedLines) > 0;
+}
+
+export function assessmentChangedLineCoverage(assessment, changedLines) {
   const evidence = assessment?.details?.sourceEvidence;
-  if (!Array.isArray(evidence) || changedLines.size === 0) return false;
-  return evidence.some((entry) => {
-    if (!entry || typeof entry.lineStart !== "number") return false;
+  if (!Array.isArray(evidence) || changedLines.size === 0) return 0;
+  const citedLines = new Set();
+  for (const entry of evidence) {
+    if (!entry || typeof entry.lineStart !== "number") continue;
     const start = entry.lineStart;
     const end = typeof entry.lineEnd === "number" ? entry.lineEnd : start;
-    for (let line = start; line <= end; line += 1) {
-      if (changedLines.has(line)) return true;
-    }
-    return false;
-  });
+    for (let line = start; line <= end; line += 1) citedLines.add(line);
+  }
+  if (citedLines.size === 0) return 0;
+  let changedCitations = 0;
+  for (const line of citedLines) if (changedLines.has(line)) changedCitations += 1;
+  return changedCitations / citedLines.size;
+}
+
+export function summarizePairEmission(pair, runs) {
+  const pairRuns = runs.filter((run) => run.pairId === pair.id && run.status === "ok");
+  const requiredPaths = new Set(pair.affectedPaths);
+  const buggyDefectPaths = new Set(
+    pairRuns
+      .filter((run) => run.revision === "buggy" && run.defectEmitted)
+      .map((run) => run.path),
+  );
+  const fixedDefectPaths = new Set(
+    pairRuns
+      .filter((run) => run.revision === "fixed" && run.defectEmitted)
+      .map((run) => run.path),
+  );
+  const fixedEvaluatedPaths = new Set(
+    pairRuns
+      .filter((run) => run.revision === "fixed")
+      .map((run) => run.path),
+  );
+  const buggyRetainedPaths = new Set(
+    pairRuns
+      .filter((run) => run.revision === "buggy" && run.defectRetained)
+      .map((run) => run.path),
+  );
+  const fixedUnclearedPaths = new Set(
+    pairRuns
+      .filter((run) => run.revision === "fixed" && !run.defectCleared)
+      .map((run) => run.path),
+  );
+  const buggyEmitted = requiredPaths.size > 0
+    && [...requiredPaths].every((path) => buggyDefectPaths.has(path));
+  const fixedEmitted = fixedDefectPaths.size > 0;
+  const buggyRetained = requiredPaths.size > 0
+    && [...requiredPaths].every((path) => buggyRetainedPaths.has(path));
+  const fixedCleared = requiredPaths.size > 0
+    && [...requiredPaths].every((path) => fixedEvaluatedPaths.has(path))
+    && fixedUnclearedPaths.size === 0;
+  return {
+    pairId: pair.id,
+    problemClass: pair.claim.category,
+    requiredBuggyPaths: requiredPaths.size,
+    buggyDefectPaths: buggyDefectPaths.size,
+    buggyRetainedPaths: buggyRetainedPaths.size,
+    fixedEvaluatedPaths: fixedEvaluatedPaths.size,
+    fixedDefectPaths: fixedDefectPaths.size,
+    fixedUnclearedPaths: fixedUnclearedPaths.size,
+    fixedSameClassCandidate: pairRuns.some(
+      (run) => run.revision === "fixed" && run.classCandidateEmitted,
+    ),
+    buggyEmitted,
+    fixedEmitted,
+    buggyRetained,
+    fixedCleared,
+    passed: buggyEmitted && buggyRetained && fixedCleared,
+  };
 }
 
 function boundedChangedLineFallback(current, counterpart) {

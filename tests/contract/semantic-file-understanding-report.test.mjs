@@ -276,6 +276,13 @@ test("25. semantic problem classes survive coercion while unknown classes remain
         sourceEvidence: ["export const existing = \"ok\";"],
       },
       {
+        id: "cleanup-fail-fast",
+        problemClass: "cleanup-completeness",
+        severity: "high",
+        message: "A rejected cleanup can prevent later cleanup.",
+        sourceEvidence: ["export const existing = \"ok\";"],
+      },
+      {
         id: "unknown-class",
         problemClass: "invented-class",
         severity: "low",
@@ -287,7 +294,8 @@ test("25. semantic problem classes survive coercion while unknown classes remain
   const report = await buildSemanticFileUnderstandingReport(base({ semanticMode: "auto", semanticUnderstanding: adapter }));
 
   assert.equal(report.findings[0].problemClass, "dependency-resolution");
-  assert.equal(report.findings[1].problemClass, undefined);
+  assert.equal(report.findings[1].problemClass, "cleanup-completeness");
+  assert.equal(report.findings[2].problemClass, undefined);
   assert.equal(validateSemanticFileUnderstandingReport(report).ok, true);
   const tampered = {
     ...report,
@@ -300,8 +308,14 @@ test("26. production semantic prompt and schema define bounded problem classes",
   const prompt = buildSemanticFileUnderstandingPrompt({ filePath: FILE, fileText: TS_SRC, language: "typescript" });
   assert.match(prompt, /dependency-resolution/);
   assert.match(prompt, /cache-integrity/);
+  assert.match(prompt, /cleanup-completeness/);
   assert.match(prompt, /not proven defects/);
   const findingSchema = SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA.properties.findings.items;
-  assert.deepEqual(findingSchema.properties.problemClass.enum, ["dependency-resolution", "cache-integrity", "other"]);
+  assert.deepEqual(findingSchema.properties.problemClass.enum, [
+    "dependency-resolution",
+    "cache-integrity",
+    "cleanup-completeness",
+    "other",
+  ]);
   assert.ok(findingSchema.required.includes("problemClass"));
 });

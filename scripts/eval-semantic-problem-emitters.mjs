@@ -10,6 +10,7 @@ import { performance } from "node:perf_hooks";
 import { buildSemanticFileUnderstandingReport } from "../packages/capability-model/dist/index.js";
 import {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+  SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   evaluateSemanticFileCandidates,
 } from "../packages/capability-policy/dist/index.js";
@@ -17,6 +18,11 @@ import {
   SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA,
   buildSemanticFileUnderstandingPrompt,
 } from "../packages/cli/dist/semantic-file-understanding.js";
+import {
+  ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+  buildAssessmentJudgmentPrompt,
+  coerceAssessmentJudgment,
+} from "../packages/cli/dist/assessment-judgment.js";
 import {
   createAnthropicLlmProvider,
   createOpenAiResponsesLlmProvider,
@@ -27,8 +33,11 @@ import {
   SEMANTIC_DEBT_MODEL_CONFIGS,
 } from "./lib/semantic-debt-eval.mjs";
 import {
+  MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE,
+  assessmentChangedLineCoverage,
   assessmentOverlapsChangedLines,
   changedLineNumbers,
+  summarizePairEmission,
 } from "./lib/semantic-problem-emitter-eval.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,6 +46,7 @@ const catalog = JSON.parse(await readFile(join(root, "tests/bench/public-defect-
 const problemRules = new Map([
   ["dependency-resolution", SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID],
   ["cache-integrity", SEMANTIC_CACHE_INTEGRITY_RULE_ID],
+  ["cleanup-completeness", SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID],
 ]);
 const requestedPairs = new Set(options.pairs);
 const selectedPairs = catalog.pairs.filter((pair) =>
@@ -126,8 +136,57 @@ for (const pair of selectedPairs) {
       const assessments = evaluateSemanticFileCandidates(report, reportRef, { path, text, sha256 });
       const ruleId = problemRules.get(pair.claim.category);
       const matching = assessments.filter((assessment) => assessment.ruleId === ruleId);
-      const defectMatching = matching.filter((assessment) => assessmentOverlapsChangedLines(assessment, changedLines));
-      const usage = result.usage ?? {};
+      const defectMatching = matching.filter((assessment) =>
+        assessmentChangedLineCoverage(assessment, changedLines)
+          >= MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE);
+      const judgmentResults = [];
+      for (const assessment of defectMatching) {
+        const judgmentCompletion = await provider.completeJson({
+          task: "policy.assessment-judgment",
+          schemaName: "AssessmentJudgmentResult",
+          prompt: buildAssessmentJudgmentPrompt({
+            assessment,
+            sources: [{ path, text, sha256 }],
+            maxSourceChars: 24000,
+          }),
+          model: config.model,
+          ...(config.effort ? { effort: config.effort } : {}),
+          maxOutputTokens: Math.min(options.maxOutputTokens, 1200),
+          jsonSchema: ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+        });
+        if (!judgmentCompletion.ok) {
+          judgmentResults.push({
+            verdict: "failed",
+            confidence: 0,
+            evidenceCount: 0,
+            usage: {},
+            error: judgmentCompletion.error,
+          });
+          continue;
+        }
+        const judgment = coerceAssessmentJudgment({
+          assessment,
+          sources: [{ path, text, sha256 }],
+          result: judgmentCompletion.data && typeof judgmentCompletion.data === "object"
+            ? judgmentCompletion.data
+            : undefined,
+        });
+        judgmentResults.push({
+          verdict: judgment.verdict,
+          confidence: judgment.confidence,
+          evidenceCount: judgment.evidence.length,
+          usage: judgmentCompletion.usage ?? {},
+        });
+      }
+      const emitterUsage = result.usage ?? {};
+      const judgmentUsage = sumUsage(judgmentResults.map((entry) => entry.usage));
+      const usage = sumUsage([emitterUsage, judgmentUsage]);
+      const defectRetained = judgmentResults.some(
+        (entry) => entry.verdict === "confirmed" || entry.verdict === "verification_required",
+      );
+      const defectCleared = defectMatching.length === 0
+        || (judgmentResults.length === defectMatching.length
+          && judgmentResults.every((entry) => entry.verdict === "rejected"));
       runs.push({
         pairId: pair.id,
         revision,
@@ -138,11 +197,33 @@ for (const pair of selectedPairs) {
         defectEmitted: defectMatching.length > 0,
         matchingAssessments: matching.length,
         defectMatchingAssessments: defectMatching.length,
+        defectRetained,
+        defectCleared,
+        judgments: judgmentResults.map(({ verdict, confidence, evidenceCount, error }) => ({
+          verdict,
+          confidence,
+          evidenceCount,
+          ...(error ? { error } : {}),
+        })),
         changedLineCount: changedLines.size,
         sourceEvidenceCount: matching.reduce(
           (total, assessment) => total + (Array.isArray(assessment.details?.sourceEvidence) ? assessment.details.sourceEvidence.length : 0),
           0,
         ),
+        candidateMetadata: matching.map((assessment) => ({
+          findingId: assessment.details?.reportFindingId,
+          changedLineCoverage: assessmentChangedLineCoverage(assessment, changedLines),
+          evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
+            ? assessment.details.sourceEvidence.map((entry) => ({
+              lineStart: entry.lineStart,
+              lineEnd: entry.lineEnd,
+              changedLineOverlap: assessmentOverlapsChangedLines(
+                { details: { sourceEvidence: [entry] } },
+                changedLines,
+              ),
+            }))
+            : [],
+        })),
         provider: result.provider,
         model: result.model ?? config.model,
         usage,
@@ -153,18 +234,7 @@ for (const pair of selectedPairs) {
   }
 }
 
-const pairs = selectedPairs.map((pair) => {
-  const pairRuns = runs.filter((run) => run.pairId === pair.id && run.status === "ok");
-  const buggyEmitted = pairRuns.some((run) => run.revision === "buggy" && run.defectEmitted);
-  const fixedEmitted = pairRuns.some((run) => run.revision === "fixed" && run.defectEmitted);
-  return {
-    pairId: pair.id,
-    problemClass: pair.claim.category,
-    buggyEmitted,
-    fixedEmitted,
-    passed: buggyEmitted && !fixedEmitted,
-  };
-});
+const pairs = selectedPairs.map((pair) => summarizePairEmission(pair, runs));
 const report = {
   schemaVersion: "1.0.0",
   generatedAt: new Date().toISOString(),
@@ -176,7 +246,8 @@ const report = {
     pairs: pairs.length,
     passed: pairs.filter((pair) => pair.passed).length,
     failed: pairs.filter((pair) => !pair.passed).length,
-    errors: runs.filter((run) => run.status === "error").length,
+    errors: runs.filter((run) =>
+      run.status === "error" || run.judgments?.some((judgment) => judgment.verdict === "failed")).length,
     currentCostUsd: round(runs.reduce((total, run) => total + (run.currentCostUsd ?? 0), 0)),
   },
   pairs,
@@ -189,7 +260,11 @@ await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`);
 if (options.json) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 else {
   for (const pair of pairs) {
-    process.stdout.write(`${pair.problemClass}: buggy=${pair.buggyEmitted} fixed=${pair.fixedEmitted} passed=${pair.passed}\n`);
+    process.stdout.write(
+      `${pair.problemClass}: buggy=${pair.buggyEmitted} retained=${pair.buggyRetained} `
+      + `fixedDefect=${pair.fixedEmitted} fixedSameClass=${pair.fixedSameClassCandidate} `
+      + `fixedCleared=${pair.fixedCleared} passed=${pair.passed}\n`,
+    );
   }
   process.stdout.write(`Cost: $${report.summary.currentCostUsd.toFixed(6)}\n`);
   process.stdout.write(`Source retention: ${report.sourceRetention}\n`);
@@ -274,4 +349,14 @@ function defaultOutputPath(generatedAt) {
 
 function round(value) {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function sumUsage(entries) {
+  return entries.reduce((total, usage) => ({
+    inputTokens: (total.inputTokens ?? 0) + (usage.inputTokens ?? 0),
+    cachedInputTokens: (total.cachedInputTokens ?? 0) + (usage.cachedInputTokens ?? 0),
+    cacheWriteInputTokens: (total.cacheWriteInputTokens ?? 0) + (usage.cacheWriteInputTokens ?? 0),
+    outputTokens: (total.outputTokens ?? 0) + (usage.outputTokens ?? 0),
+    reasoningTokens: (total.reasoningTokens ?? 0) + (usage.reasoningTokens ?? 0),
+  }), {});
 }

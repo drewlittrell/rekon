@@ -13,12 +13,13 @@ import {
 
 import { isNonProductionPath } from "./grammar-divergence.js";
 
-export const ASSESSMENT_JUDGMENT_PROMPT_VERSION = "assessment-judge-v1";
-export const ASSESSMENT_JUDGMENT_COERCION_VERSION = "assessment-judgment-v1";
+export const ASSESSMENT_JUDGMENT_PROMPT_VERSION = "assessment-judge-v2";
+export const ASSESSMENT_JUDGMENT_COERCION_VERSION = "assessment-judgment-v2";
 export const ASSESSMENT_JUDGMENT_MIN_DECISIVE_CONFIDENCE = 0.75;
 export const SEMANTIC_PROBLEM_CANDIDATE_RULE_ID = "semantic.problemCandidate";
 export const SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID = "semantic.dependencyResolution";
 export const SEMANTIC_CACHE_INTEGRITY_RULE_ID = "semantic.cacheIntegrity";
+export const SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID = "semantic.cleanupCompleteness";
 
 const SEMANTIC_PROBLEM_CLASS_RULES = {
   "dependency-resolution": {
@@ -28,6 +29,10 @@ const SEMANTIC_PROBLEM_CLASS_RULES = {
   "cache-integrity": {
     ruleId: SEMANTIC_CACHE_INTEGRITY_RULE_ID,
     title: "Possible cache integrity issue",
+  },
+  "cleanup-completeness": {
+    ruleId: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+    title: "Possible incomplete cleanup",
   },
 } as const;
 
@@ -103,7 +108,9 @@ export function evaluateSemanticFileCandidates(
     if (!findingId || !message || !impact || !Array.isArray(findingLike.sourceEvidence)) continue;
 
     const problemClass = typeof findingLike.problemClass === "string" ? findingLike.problemClass : undefined;
-    const specializedRule = problemClass === "dependency-resolution" || problemClass === "cache-integrity"
+    const specializedRule = problemClass === "dependency-resolution"
+      || problemClass === "cache-integrity"
+      || problemClass === "cleanup-completeness"
       ? SEMANTIC_PROBLEM_CLASS_RULES[problemClass]
       : undefined;
     const ruleId = specializedRule?.ruleId ?? SEMANTIC_PROBLEM_CANDIDATE_RULE_ID;

@@ -4,12 +4,16 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
-- Added source-grounded semantic emitters for dependency-resolution and
-  cache-integrity candidates. The production prompt now uses a strict response
-  schema, report artifacts retain a bounded problem class, and policy emits
-  class-specific assessments for independent judgment. A no-source-retention
-  paired baseline distinguishes both pinned buggy revisions from their fixes
-  without suppressing unrelated same-class candidates.
+- Added source-grounded semantic emitters for dependency-resolution,
+  cache-integrity, and cleanup-completeness candidates. The paired benchmark
+  now applies independent judgment, requires every affected buggy path, and
+  uses changed-line evidence density without suppressing unrelated same-class
+  candidates.
+- Updated assessment judgment to version `assessment-judge-v2` with
+  cleanup-specific guidance. Evidence coercion version
+  `assessment-judgment-v2` accepts uniquely matched indentation-normalized
+  blocks while preserving canonical source text and rejecting ambiguous
+  matches.
 - Added a token- and cost-aware assessment-judgment model evaluation over
   pinned buggy/fixed source pairs. The runner fetches only affected files and
   retains no source, prompts, excerpts, or model rationales. The first paired

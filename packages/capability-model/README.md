@@ -34,9 +34,10 @@ absent or invalid excerpt remains review context rather than accepted
 capability evidence.
 
 Semantic findings may declare the built-in problem classes
-`dependency-resolution`, `cache-integrity`, or `other`. The first two become
-class-specific semantic assessments only after their excerpts match current
-source. They remain candidates for independent judgment, not findings.
+`dependency-resolution`, `cache-integrity`, `cleanup-completeness`, or `other`.
+The first three become class-specific semantic assessments only after their
+excerpts match current source. They remain candidates for independent
+judgment, not findings.
 
 ## Lifecycle Fit
 

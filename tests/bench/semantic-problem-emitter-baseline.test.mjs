@@ -13,14 +13,23 @@ const baseline = JSON.parse(await readFile(
 test("semantic problem emitter baseline retains paired outcomes without source payloads", () => {
   assert.equal(baseline.schemaVersion, "1.0.0");
   assert.equal(baseline.corpus.sourceRetention, "none");
-  assert.equal(baseline.corpus.pairCount, 2);
-  assert.equal(baseline.summary.passedPairs, 2);
+  assert.equal(baseline.corpus.minimumChangedLineCoverage, 0.2);
+  assert.equal(baseline.corpus.judgmentPromptVersion, "assessment-judge-v2");
+  assert.equal(baseline.corpus.judgmentCoercionVersion, "assessment-judgment-v2");
+  assert.equal(baseline.corpus.pairCount, 3);
+  assert.equal(baseline.summary.passedPairs, 3);
   assert.equal(baseline.summary.failedPairs, 0);
   assert.deepEqual(baseline.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
+    "cleanup-completeness",
     "dependency-resolution",
   ]);
-  assert.ok(baseline.pairs.every((pair) => pair.buggyDefectEmitted && !pair.fixedDefectEmitted && pair.passed));
+  assert.ok(baseline.pairs.every((pair) =>
+    pair.buggyDefectPaths === pair.requiredBuggyPaths
+      && pair.buggyRetainedPaths === pair.requiredBuggyPaths
+      && pair.fixedEvaluatedPaths === pair.requiredBuggyPaths
+      && pair.fixedUnclearedPaths === 0
+      && pair.passed));
   assert.equal(
     baseline.pairs.find((pair) => pair.problemClass === "cache-integrity").fixedSameClassCandidate,
     true,
@@ -37,10 +46,11 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
   ], { cwd: root, encoding: "utf8", env: {} });
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.requests, 4);
+  assert.equal(payload.requests, 10);
   assert.equal(payload.sourceRetention, "none");
   assert.deepEqual(payload.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
+    "cleanup-completeness",
     "dependency-resolution",
   ]);
 });

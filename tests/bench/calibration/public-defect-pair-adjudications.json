@@ -11,9 +11,9 @@
     {
       "pairId": "nest-shutdown-cleanup-completeness",
       "claimVerdict": "valid",
-      "coverage": "unrelated-signal",
-      "recommendedAction": "semantic-analysis",
-      "rationale": "The type-escape assessments are unrelated. Promise.all is common and correct in cleanup code; deciding whether one rejection may abort required later lifecycle work needs control-flow plus lifecycle-contract evidence rather than a generic syntax rule."
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits semantic.cleanupCompleteness from source-matched fail-fast lifecycle evidence in all three affected shutdown-hook implementations. Independent judgment retains every buggy path, while the all-settled and guarded fixed implementations remain clean."
     },
     {
       "pairId": "nest-import-first-match",
@@ -61,8 +61,8 @@
       "pairId": "redux-toolkit-pre-pending-abort",
       "claimVerdict": "valid",
       "coverage": "unrelated-signal",
-      "recommendedAction": "semantic-analysis",
-      "rationale": "The persistent type-escape assessments are unrelated. Detecting that two conditions were collapsed into the wrong error identity requires relating branch meaning, error metadata, and downstream dispatch behavior; a generic boolean-expression rule would be noisy."
+      "recommendedAction": "evidence-source",
+      "rationale": "Direct file-level semantic trials were not stable: the model could identify the collapsed buggy branch but also confirmed repaired code with separate condition and abort identities. Keep this as an emitter gap until structured control-flow evidence represents guards, thrown identity, and downstream handling without relying on a generic boolean-expression rule."
     }
   ]
 }

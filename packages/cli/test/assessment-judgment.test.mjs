@@ -53,6 +53,22 @@ test("judgment prompt is bounded, source-numbered, and explicit about non-specul
   assert.ok(prompt.length < 5000);
 });
 
+test("judgment prompt distinguishes fail-fast cleanup from all-settled cleanup", () => {
+  const cleanupAssessment = {
+    ...assessment,
+    ruleId: "semantic.cleanupCompleteness",
+    type: "semantic.cleanupCompleteness",
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: cleanupAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /fail-fast aggregation/);
+  assert.match(prompt, /all-settled behavior/);
+});
+
 test("coercion accepts exact source evidence and derives canonical line coordinates", () => {
   const judgment = coerceAssessmentJudgment({
     assessment,
@@ -87,6 +103,78 @@ test("coercion removes prompt line labels only when the resulting excerpt exactl
   assert.equal(judgment.verdict, "confirmed");
   assert.equal(judgment.evidence[0].excerpt, "target.addEventListener(type, listener);");
   assert.equal(judgment.evidence[0].lineStart, 2);
+});
+
+test("coercion canonicalizes a uniquely matching block when only indentation differs", () => {
+  const text = [
+    "export function run(condition) {",
+    "  if (condition) {",
+    "    throw new Error('blocked');",
+    "  }",
+    "}",
+  ].join("\n");
+  const nestedSource = {
+    path: "src/nested.ts",
+    text,
+    sha256: createHash("sha256").update(text).digest("hex"),
+  };
+  const nestedAssessment = {
+    ...assessment,
+    files: [nestedSource.path],
+    subjects: [nestedSource.path],
+  };
+  const judgment = coerceAssessmentJudgment({
+    assessment: nestedAssessment,
+    sources: [nestedSource],
+    result: {
+      verdict: "rejected",
+      rationale: "The source handles the branch explicitly.",
+      confidence: 0.99,
+      evidence: [{
+        path: nestedSource.path,
+        excerpt: "if (condition) {\n  throw new Error('blocked');\n}",
+      }],
+      recommendedVerification: [],
+    },
+  });
+
+  assert.equal(judgment.verdict, "rejected");
+  assert.equal(judgment.evidence[0].lineStart, 2);
+  assert.equal(judgment.evidence[0].excerpt, [
+    "  if (condition) {",
+    "    throw new Error('blocked');",
+    "  }",
+  ].join("\n"));
+});
+
+test("coercion rejects indentation-normalized evidence when the block is ambiguous", () => {
+  const text = [
+    "if (condition) {",
+    "  run();",
+    "}",
+    "if (condition) {",
+    "  run();",
+    "}",
+  ].join("\n");
+  const repeatedSource = {
+    path: "src/repeated.ts",
+    text,
+    sha256: createHash("sha256").update(text).digest("hex"),
+  };
+  const judgment = coerceAssessmentJudgment({
+    assessment: { ...assessment, files: [repeatedSource.path], subjects: [repeatedSource.path] },
+    sources: [repeatedSource],
+    result: {
+      verdict: "confirmed",
+      rationale: "The repeated block is risky.",
+      confidence: 0.99,
+      evidence: [{ path: repeatedSource.path, excerpt: "if (condition) {\nrun();\n}" }],
+      recommendedVerification: [],
+    },
+  });
+
+  assert.equal(judgment.verdict, "insufficient_evidence");
+  assert.deepEqual(judgment.evidence, []);
 });
 
 test("coercion downgrades invented evidence and low-confidence decisive verdicts", () => {

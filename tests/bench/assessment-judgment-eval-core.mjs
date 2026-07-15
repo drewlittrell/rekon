@@ -4,6 +4,7 @@ export const DEFAULT_ASSESSMENT_JUDGMENT_MODEL_IDS = Object.freeze([
 ]);
 
 const EMITTER_BACKED_RULES = Object.freeze({
+  "nest-shutdown-cleanup-completeness": "semantic.cleanupCompleteness",
   "nest-import-first-match": "semantic.dependencyResolution",
   "playwright-compilation-cache-integrity": "semantic.cacheIntegrity",
   "vitest-typecheck-worker-off": "events.inverseListenerDelegation",

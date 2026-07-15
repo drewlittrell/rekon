@@ -90,6 +90,7 @@ export function buildAssessmentJudgmentPrompt(input: {
     input.assessment,
     perSourceBudget,
   ));
+  const specializedRules = assessmentSpecificRules(input.assessment);
 
   return [
     "Judge one Rekon assessment against the supplied current repository source.",
@@ -108,6 +109,7 @@ export function buildAssessmentJudgmentPrompt(input: {
     "- Evidence excerpts must copy the underlying source and omit the displayed '<line> | ' prefix.",
     "- Prefer verification_required when observable behavior is needed.",
     "- Prefer insufficient_evidence when relevant context is absent.",
+    ...specializedRules,
     "- Return only one JSON object matching the schema.",
     "",
     `Assessment: ${JSON.stringify({
@@ -127,6 +129,16 @@ export function buildAssessmentJudgmentPrompt(input: {
     "",
     ...renderedSources,
   ].join("\n");
+}
+
+function assessmentSpecificRules(assessment: Assessment): string[] {
+  if (assessment.ruleId === "semantic.cleanupCompleteness") {
+    return [
+      "- For cleanup completeness, visible fail-fast aggregation before later lifecycle cleanup can support retention even when runtime proof is still required.",
+      "- Reject the claim when peer cleanup uses all-settled behavior and later cleanup calls are insulated so each visible obligation is still attempted.",
+    ];
+  }
+  return [];
 }
 
 export function coerceAssessmentJudgment(input: {
@@ -233,7 +245,27 @@ function exactSourceExcerpt(sourceText: string, suppliedExcerpt: string): string
     .map((line) => line.replace(/^\s*\d+\s*\| ?/u, ""))
     .join("\n")
     .trim();
-  return withoutLineLabels && sourceText.includes(withoutLineLabels) ? withoutLineLabels : undefined;
+  if (!withoutLineLabels) return undefined;
+  if (sourceText.includes(withoutLineLabels)) return withoutLineLabels;
+  return uniquelyMatchIndentNormalizedExcerpt(sourceText, withoutLineLabels);
+}
+
+function uniquelyMatchIndentNormalizedExcerpt(sourceText: string, suppliedExcerpt: string): string | undefined {
+  const sourceLines = sourceText.split(/\r?\n/u);
+  const suppliedLines = suppliedExcerpt.split(/\r?\n/u);
+  if (suppliedLines.length === 0 || suppliedLines.length > sourceLines.length) return undefined;
+
+  const matches: number[] = [];
+  for (let start = 0; start <= sourceLines.length - suppliedLines.length; start += 1) {
+    const matchesAtStart = suppliedLines.every(
+      (line, offset) => sourceLines[start + offset]!.trim() === line.trim(),
+    );
+    if (matchesAtStart) matches.push(start);
+    if (matches.length > 1) return undefined;
+  }
+  if (matches.length !== 1) return undefined;
+  const start = matches[0]!;
+  return sourceLines.slice(start, start + suppliedLines.length).join("\n");
 }
 
 function renderBoundedSource(

@@ -174,6 +174,20 @@ candidate rather than suppressing it. Changed-line overlap is an evaluation
 identity check only and does not gate production assessments. The compact
 baseline is `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 
+The second batch adds `cleanup-completeness`. All three affected Nest shutdown
+hook implementations emit source-matched candidates on the buggy revision and
+remain clean after all-settled cleanup and guarded module hooks are introduced.
+The paired benchmark now runs fix-related candidates through independent
+judgment and requires coverage of every affected buggy path. It uses
+changed-line evidence density for defect identity, so contextual citations do
+not make an unrelated same-class candidate count as the upstream defect.
+
+`error-propagation` remains an emitter gap. Repeated file-level semantic trials
+recognized the collapsed Redux abort branch but could also confirm the repaired
+separate branches. The next attempt must supply structured control-flow facts
+for guards, thrown error identity, and downstream suppression before semantic
+judgment; another prompt-only rule is not sufficient.
+
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,
 thresholds, and regression tests are the durable record. Corpus commands use
@@ -194,9 +208,8 @@ outcomes, and cost $0.098537. `claude-sonnet-5` at low effort accepted 13 of 18,
 incorrectly rejected one buggy case, and cost $0.285882 at its introductory
 rate. This is a task-specific nine-pair result, not a general model ranking.
 At the time of that judgment-model run, seven candidate classes were emitter
-gaps. The dependency-resolution and cache-integrity emitter batch reduces the
-current gap to five: cleanup completeness, error propagation, option
-propagation, resource lifetime, and scope resolution. The
+gaps. The calibrated semantic emitters reduce the current gap to four: error
+propagation, option propagation, resource lifetime, and scope resolution. The
 durable aggregate is
 `tests/bench/calibration/assessment-judgment-model-baseline.json`.
 
