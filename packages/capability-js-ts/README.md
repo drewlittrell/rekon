@@ -59,7 +59,8 @@ Ordinary unused locals and public declarations remain outside this signal.
   describe identifier-rewriting classifiers and lexical boundaries rather than
   treating ordinary language constructs as defects.
   Resource-flow facts identify request/reply objects stored on connection-owned
-  state and matching explicit releases; they do not claim runtime reachability
+  state, request-scoped closures attached to connection sockets, and matching
+  explicit releases; they do not claim runtime reachability
 
 ## Lifecycle Fit
 
@@ -105,8 +106,10 @@ binding from a recognized state SDK; event flow requires a literal event name;
 error flow requires explicit throw syntax. Option flow records only same-name
 property overrides after a spread and leaves optionality and materiality to
 semantic judgment. Resource flow is limited to visible request/reply values on
-socket, connection, or server-owned properties and explicit null, undefined,
-or delete releases. Cross-file completeness remains a policy concern.
+socket, connection, or server-owned properties; request-scoped closures
+attached to sockets inside request socket callbacks; and explicit null,
+undefined, or delete releases. Cross-file completeness remains a policy
+concern.
 Local async calls are reported only when an unshadowed, locally declared async
 function is used as a bare statement. Focused tests and direct `process.env`
 mutation inside test callbacks remain risks, not proven defects. Tests are

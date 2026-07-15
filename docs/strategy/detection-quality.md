@@ -223,6 +223,18 @@ identifiers. The buggy Vite revision identifies `SwitchStatement` as an
 unmodeled boundary, while the fixed classifier includes it and keeps the switch
 discriminant outside the switch scope.
 
+Resource-lifetime coverage also includes request-scoped closures attached to
+reusable socket listeners from inside request socket callbacks. The
+docker-modem buggy revision is retained by independent judgment, while moving
+the timeout listener to the request clears the fixed revision. Resource
+lifetime now has two independent positive pairs; every other semantic class has
+one. All seven remain below the five-adjudication usefulness minimum, which is
+recorded in the compact baseline rather than reduced to fit the available data.
+
+Cross-call cache contracts remain unmodeled. File-local semantic analysis does
+not yet distinguish partial-disk and complete-network cache guarantees, and
+prompt wording without paired capture is not treated as coverage.
+
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,
 thresholds, and regression tests are the durable record. Corpus commands use

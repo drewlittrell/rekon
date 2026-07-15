@@ -48,6 +48,12 @@
       "directory": "redux-toolkit",
       "url": "https://github.com/reduxjs/redux-toolkit.git",
       "license": "MIT"
+    },
+    {
+      "id": "docker-modem",
+      "directory": "docker-modem",
+      "url": "https://github.com/apocas/docker-modem.git",
+      "license": "Apache-2.0"
     }
   ],
   "pairs": [
@@ -230,6 +236,23 @@
       },
       "affectedPaths": ["packages/toolkit/src/createAsyncThunk.ts"],
       "testPaths": ["packages/toolkit/src/tests/createAsyncThunk.test.ts"]
+    },
+    {
+      "id": "docker-modem-request-timeout-listener-leak",
+      "repository": "docker-modem",
+      "buggyCommit": "aadd5d8e8994fdd8851920e7ee629e0e0b649029",
+      "fixedCommit": "15a8059571f59d435f930662efc92cf6b3165bf9",
+      "upstream": {
+        "fixUrl": "https://github.com/apocas/docker-modem/pull/178",
+        "summary": "Each request attached a timeout listener to its reusable socket and the listener closure retained the request until the socket was destroyed."
+      },
+      "claim": {
+        "category": "resource-lifetime",
+        "proof": "upstream-reproduction",
+        "summary": "Per-request timeout listeners accumulated on keep-alive sockets and retained completed request objects."
+      },
+      "affectedPaths": ["lib/modem.js"],
+      "testPaths": []
     }
   ]
 }

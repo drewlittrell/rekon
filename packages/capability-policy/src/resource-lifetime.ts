@@ -69,12 +69,12 @@ function resourceLifetimeAssessment(
     impact: "medium",
     title: `Possible request-scoped retention on ${resource}`,
     description:
-      `A fresh repository evidence graph shows ${retainedNames.join(", ")} retained on connection-lifetime ${ownerKinds.join("/")} state without a matching explicit release. The structure establishes a lifetime mismatch candidate; runtime retention beyond request completion remains to be verified.`,
+      `A fresh repository evidence graph shows ${retainedNames.join(", ")} retained by a connection-lifetime ${ownerKinds.join("/")} owner without a matching explicit release. The structure establishes a lifetime mismatch candidate; runtime retention beyond request completion remains to be verified.`,
     subjects: [resource, ...files],
     files,
     ruleId: SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
     suggestedAction:
-      "Verify the owner lifetime across response completion and clear the retained request-scoped value at the matching lifecycle boundary when the owner outlives the request.",
+      "Verify the owner lifetime across response completion and remove the listener or clear the retained request-scoped value at the matching lifecycle boundary when the owner outlives the request.",
     evidence: [evidenceRef],
     rootCauseKey,
     confidence: {
@@ -82,7 +82,7 @@ function resourceLifetimeAssessment(
       basis: "deterministic",
       verification: "unverified",
       rationale:
-        "AST evidence identifies request-scoped values stored on a longer-lived owner and a complete current evidence graph contains no matching release; runtime reachability is not inferred.",
+        "AST evidence identifies request-scoped values retained by a longer-lived owner and a complete current evidence graph contains no matching release; runtime reachability is not inferred.",
     },
     details: {
       problemClass: "resource-lifetime",

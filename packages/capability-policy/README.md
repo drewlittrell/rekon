@@ -65,7 +65,7 @@ reproducible proof also satisfies the finding-promotion contract.
 
 Resource-lifetime policy joins deterministic `resource_flow` facts across a
 fresh EvidenceGraph. It emits one semantic claim when request/reply objects are
-stored on connection-owned state and no matching explicit release exists.
+retained by a connection-owned value and no matching explicit release exists.
 Partial evidence graphs remain silent, and the claim still requires autonomous
 judgment or runtime verification before it can be treated as a defect.
 

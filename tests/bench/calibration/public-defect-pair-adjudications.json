@@ -63,6 +63,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Rekon now emits semantic.errorPropagation from structured throw guards and error identities plus source-matched downstream handling. Independent judgment retains the merged condition/abort identity on the buggy revision, while the fixed revision with separate ConditionError and AbortError branches remains clean."
+    },
+    {
+      "pairId": "docker-modem-request-timeout-listener-leak",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon emits semantic.resourceLifetime from structured evidence that a request-scoped closure is attached to a connection-lived socket inside the request's socket callback. Moving the timeout listener to the request removes the cross-lifetime retention evidence in the fixed revision."
     }
   ]
 }

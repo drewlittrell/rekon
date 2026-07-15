@@ -489,6 +489,60 @@ test("resource-flow evidence links request retention to an explicit connection r
   }
 });
 
+test("resource-flow evidence captures request closures attached to connection sockets", async () => {
+  const buggySource = [
+    "function buildRequest(req) {",
+    "  req.on('socket', function (socket) {",
+    "    socket.on('timeout', function () {",
+    "      req.destroy();",
+    "    });",
+    "  });",
+    "}",
+  ].join("\n");
+  const fixedSource = [
+    "function buildRequest(req) {",
+    "  req.on('timeout', function () {",
+    "    req.destroy();",
+    "  });",
+    "}",
+  ].join("\n");
+  const propertyOnlySource = [
+    "function buildRequest(req, metrics) {",
+    "  req.on('socket', function (socket) {",
+    "    socket.on('timeout', function () {",
+    "      metrics.request += 1;",
+    "    });",
+    "  });",
+    "}",
+  ].join("\n");
+
+  assert.deepEqual(extractResourceLifetimeEvidence({ path: "lib/modem.js", content: buggySource }), [{
+    kind: "resource-lifetime",
+    action: "retain",
+    caller: "buildRequest",
+    resource: "socket:timeout",
+    target: "socket.on",
+    ownerKind: "socket",
+    retainedNames: ["req"],
+    location: { line: 3, column: 5 },
+  }]);
+  assert.deepEqual(extractResourceLifetimeEvidence({ path: "lib/modem.js", content: fixedSource }), []);
+  assert.deepEqual(extractResourceLifetimeEvidence({ path: "lib/modem.js", content: propertyOnlySource }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-socket-retention-"));
+  try {
+    await mkdir(join(root, "lib"), { recursive: true });
+    await writeFile(join(root, "lib", "modem.js"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "resource_flow");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.resource, "socket:timeout");
+    assert.deepEqual(facts[0].value.retainedNames, ["req"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("scope-model evidence records lexical boundaries used by identifier rewriting", async () => {
   const buggySource = [
     "const blockNodeTypeRE = /^BlockStatement$|^For(?:In|Of)?Statement$/;",

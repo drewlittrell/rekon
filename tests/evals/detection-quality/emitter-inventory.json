@@ -242,9 +242,9 @@
     {
       "ruleId": "semantic.resourceLifetime",
       "outputKinds": ["semantic_claim"],
-      "evidence": "cross-file resource_flow facts identify request-scoped values retained on connection-owned state without a matching release in a fresh EvidenceGraph",
-      "jurisdiction": "production JavaScript and TypeScript source where socket, connection, or server state retains visible request/reply objects",
-      "remediationUnit": "connection-owned resource key and its request lifecycle boundary"
+      "evidence": "resource_flow facts identify request-scoped values retained on connection-owned state or by reusable socket listeners without a matching release in a fresh EvidenceGraph",
+      "jurisdiction": "production JavaScript and TypeScript source where socket, connection, or server owners retain visible request/reply objects",
+      "remediationUnit": "connection-owned resource or listener and its request lifecycle boundary"
     },
     {
       "ruleId": "semantic.scopeResolution",

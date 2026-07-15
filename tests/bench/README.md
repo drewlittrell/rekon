@@ -230,8 +230,10 @@ judgments needed to interpret them live under `tests/bench/calibration/`.
 ### Semantic problem emitters
 
 The dependency-resolution, cache-integrity, cleanup-completeness,
-error-propagation, option-propagation, scope-resolution, and cross-file resource-lifetime
-emitters have a bounded live paired check:
+error-propagation, option-propagation, scope-resolution, and resource-lifetime
+emitters have a bounded live paired check. Resource-lifetime coverage includes
+both retained connection state and request closures attached to reusable socket
+listeners.
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -249,6 +251,9 @@ identity-mapping evidence before autonomous judgment. The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
+That aggregate also records positive-pair counts against the five-adjudication
+minimum. Resource lifetime currently has two independent positive pairs; the
+other semantic classes have one each, so all remain `insufficient-evidence`.
 
 ## Corpus retention
 

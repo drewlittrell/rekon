@@ -647,6 +647,8 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
       const path = memberPath(node.expression);
       if (path && path.length >= 2) {
         records.push({ kind: "member-call", caller: context.caller, root: path[0]!, members: path.slice(1), location: locationOf(node, sourceFile) });
+        const listenerRetention = resourceLifetimeListener(node, sourceFile, context.caller);
+        if (listenerRetention) records.push(listenerRetention);
         const method = path.at(-1);
         const firstArg = node.arguments[0];
         const eventName = firstArg && ts.isStringLiteralLike(firstArg) ? firstArg.text : undefined;
@@ -992,7 +994,9 @@ function isReleaseValue(expression: ts.Expression): boolean {
 function requestScopedNames(object: ts.ObjectLiteralExpression): string[] {
   const names = new Set<string>();
   const collect = (node: ts.Node): void => {
-    if (ts.isIdentifier(node) && /^(?:req|request|reply|res|response)$/iu.test(node.text)) {
+    if (ts.isIdentifier(node)
+      && isValueIdentifierReference(node)
+      && /^(?:req|request|reply|res|response)$/iu.test(node.text)) {
       names.add(node.text);
     }
     ts.forEachChild(node, collect);
@@ -1003,6 +1007,112 @@ function requestScopedNames(object: ts.ObjectLiteralExpression): string[] {
     else if (ts.isSpreadAssignment(property)) collect(property.expression);
   }
   return [...names].sort();
+}
+
+function resourceLifetimeListener(
+  call: ts.CallExpression,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): ResourceLifetimeEvidence | undefined {
+  const path = memberPath(call.expression);
+  if (!path || path.at(-1) !== "on") return undefined;
+  const ownerIndex = path.findIndex((part) => part === "socket");
+  if (ownerIndex < 0 || ownerIndex !== path.length - 2) return undefined;
+
+  const event = call.arguments[0];
+  const handler = call.arguments[1];
+  if (!event || !ts.isStringLiteralLike(event)
+    || !handler || (!ts.isArrowFunction(handler) && !ts.isFunctionExpression(handler))) {
+    return undefined;
+  }
+
+  const retainedNames = capturedRequestScopedNames(handler);
+  const socketName = path[ownerIndex]!;
+  if (retainedNames.length === 0 || !hasEnclosingRequestSocketRegistration(call, socketName)) {
+    return undefined;
+  }
+
+  return {
+    kind: "resource-lifetime",
+    action: "retain",
+    caller,
+    resource: `${path.slice(ownerIndex, -1).join(".")}:${event.text}`,
+    target: path.join("."),
+    ownerKind: "socket",
+    retainedNames,
+    location: locationOf(call, sourceFile),
+  };
+}
+
+function capturedRequestScopedNames(handler: ts.ArrowFunction | ts.FunctionExpression): string[] {
+  const declared = new Set<string>();
+  for (const parameter of handler.parameters) collectBindingNames(parameter.name, declared);
+
+  const names = new Set<string>();
+  const collect = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node)) collectBindingNames(node.name, declared);
+    if (ts.isIdentifier(node)
+      && isValueIdentifierReference(node)
+      && /^(?:req|request|reply|res|response)$/iu.test(node.text)) {
+      names.add(node.text);
+    }
+    ts.forEachChild(node, collect);
+  };
+  collect(handler.body);
+  for (const name of declared) names.delete(name);
+  return [...names].sort();
+}
+
+function isValueIdentifierReference(node: ts.Identifier): boolean {
+  const parent = node.parent;
+  if (ts.isPropertyAccessExpression(parent) && parent.name === node) return false;
+  if (ts.isPropertyAssignment(parent) && parent.name === node) return false;
+  if ((ts.isVariableDeclaration(parent)
+    || ts.isParameter(parent)
+    || ts.isBindingElement(parent)
+    || ts.isFunctionDeclaration(parent)
+    || ts.isFunctionExpression(parent)
+    || ts.isMethodDeclaration(parent)
+    || ts.isPropertyDeclaration(parent)
+    || ts.isClassDeclaration(parent))
+    && parent.name === node) {
+    return false;
+  }
+  return true;
+}
+
+function collectBindingNames(name: ts.BindingName, target: Set<string>): void {
+  if (ts.isIdentifier(name)) {
+    target.add(name.text);
+    return;
+  }
+  for (const element of name.elements) {
+    if (!ts.isOmittedExpression(element)) collectBindingNames(element.name, target);
+  }
+}
+
+function hasEnclosingRequestSocketRegistration(call: ts.CallExpression, socketName: string): boolean {
+  let current: ts.Node | undefined = call.parent;
+  while (current) {
+    if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
+      const parent: ts.Node = current.parent;
+      if (ts.isCallExpression(parent) && parent.arguments.includes(current)) {
+        const path = memberPath(parent.expression);
+        const event = parent.arguments[0];
+        const hasSocketParameter = current.parameters.some(
+          (parameter) => ts.isIdentifier(parameter.name) && parameter.name.text === socketName,
+        );
+        if (path && path.at(-1) === "on"
+          && /^(?:req|request)$/iu.test(path[0] ?? "")
+          && event && ts.isStringLiteralLike(event) && event.text === "socket"
+          && hasSocketParameter) {
+          return true;
+        }
+      }
+    }
+    current = current.parent;
+  }
+  return false;
 }
 
 function optionPropagationRecords(

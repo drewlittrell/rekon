@@ -13,6 +13,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "fastify-keep-alive-meta-leak": "semantic.resourceLifetime",
   "vitest-typecheck-worker-off": "events.inverseListenerDelegation",
   "nextjs-cache-handler-name-validation": "validation.partialAllowlistMatch",
+  "docker-modem-request-timeout-listener-leak": "semantic.resourceLifetime",
 });
 
 export function buildAssessmentJudgmentEvalCases(catalog, adjudications, selectedPairIds = []) {

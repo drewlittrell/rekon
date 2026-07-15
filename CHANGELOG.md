@@ -16,6 +16,11 @@ All notable changes to Rekon are documented here.
   Dependency-flow evidence records lookup selection, conditional loop exit, and
   post-loop return behavior so first-match resolution defects do not depend on
   semantic-emitter sampling.
+- Expanded resource-lifetime evidence to recognize request-scoped closures
+  attached to reusable socket listeners. A tenth pinned public defect pair
+  validates the docker-modem listener-retention mechanism before and after its
+  upstream fix. The source-free semantic baseline now records eight passing
+  pairs and per-class coverage against the unchanged five-adjudication minimum.
 - Updated semantic file understanding to `semantic-file-understanding-v4` and
   assessment judgment to `assessment-judge-v6` with error-routing,
   option-precedence, scope-resolution, and autonomous resource-lifetime
@@ -48,7 +53,7 @@ All notable changes to Rekon are documented here.
   source coordinates, public agent adjudications, and identifier-free aggregate
   calibration history remain durable while cloned repositories, source excerpts,
   and generated artifact bodies are deleted after each run.
-- Added a pinned nine-case public defect-pair benchmark with source-grounded
+- Added an initial pinned nine-case public defect-pair benchmark with source-grounded
   agent adjudication. Two narrow AST risks now distinguish the buggy and fixed
   revisions for inverse listener delegation and partial-match allowlist
   validation; lifecycle cleanup, option propagation, cache integrity, runtime
