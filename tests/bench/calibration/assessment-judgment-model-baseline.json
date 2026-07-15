@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-15T17:49:55.102Z",
+  "pricingAsOf": "2026-07-15",
+  "corpus": {
+    "catalogVersion": "1.0.0",
+    "adjudicationVersion": "1.0.0",
+    "pairCount": 9,
+    "caseCount": 18,
+    "sourceRetention": "none"
+  },
+  "selection": {
+    "modelConfigId": "gpt-5.6-luna@low",
+    "criteriaOrder": [
+      "unsafeDecisionRate",
+      "expectationAccuracy",
+      "currentCostUsd",
+      "latencyMs"
+    ]
+  },
+  "models": [
+    {
+      "id": "gpt-5.6-luna@low",
+      "provider": "openai",
+      "model": "gpt-5.6-luna",
+      "effort": "low",
+      "cases": 18,
+      "failures": 0,
+      "expectationAccuracy": 0.8333,
+      "decisiveAccuracy": 1,
+      "unsafeDecisionRate": 0,
+      "buggyConfirmationRate": 0.4444,
+      "buggySafeDeferralRate": 0.4444,
+      "fixedRejectionRate": 0.7778,
+      "usage": {
+        "inputTokens": 57523,
+        "cachedInputTokens": 10366,
+        "cacheWriteInputTokens": 47103,
+        "outputTokens": 6428,
+        "reasoningTokens": 1282
+      },
+      "latencyMs": {
+        "p50": 3304.7,
+        "p95": 6177.7
+      },
+      "currentCostUsd": 0.098537,
+      "steadyStateCostUsd": 0.098537,
+      "classOutcomes": {
+        "cache-integrity": ["confirmed", "rejected"],
+        "cleanup-completeness": ["verification_required", "rejected"],
+        "dependency-resolution": ["confirmed", "rejected"],
+        "error-propagation": ["verification_required", "insufficient_evidence"],
+        "input-validation": ["confirmed", "rejected"],
+        "listener-lifecycle": ["confirmed", "rejected"],
+        "option-propagation": ["verification_required", "rejected"],
+        "resource-lifetime": ["verification_required", "rejected"],
+        "scope-resolution": ["insufficient_evidence", "insufficient_evidence"]
+      }
+    },
+    {
+      "id": "claude-sonnet-5@low",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "cases": 18,
+      "failures": 0,
+      "expectationAccuracy": 0.7222,
+      "decisiveAccuracy": 0.9167,
+      "unsafeDecisionRate": 0.0556,
+      "buggyConfirmationRate": 0.3333,
+      "buggySafeDeferralRate": 0.2222,
+      "fixedRejectionRate": 0.8889,
+      "usage": {
+        "inputTokens": 103301,
+        "cachedInputTokens": 0,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 7928,
+        "reasoningTokens": 0
+      },
+      "latencyMs": {
+        "p50": 9160.1,
+        "p95": 15591.4
+      },
+      "currentCostUsd": 0.285882,
+      "steadyStateCostUsd": 0.428823,
+      "classOutcomes": {
+        "cache-integrity": ["verification_required", "rejected"],
+        "cleanup-completeness": ["verification_required", "rejected"],
+        "dependency-resolution": ["insufficient_evidence", "rejected"],
+        "error-propagation": ["confirmed", "rejected"],
+        "input-validation": ["confirmed", "rejected"],
+        "listener-lifecycle": ["confirmed", "rejected"],
+        "option-propagation": ["rejected", "rejected"],
+        "resource-lifetime": ["insufficient_evidence", "rejected"],
+        "scope-resolution": ["insufficient_evidence", "insufficient_evidence"]
+      }
+    }
+  ],
+  "emitterCoverage": {
+    "detectorBackedClasses": [
+      "input-validation",
+      "listener-lifecycle"
+    ],
+    "emitterGapClasses": [
+      "cache-integrity",
+      "cleanup-completeness",
+      "dependency-resolution",
+      "error-propagation",
+      "option-propagation",
+      "resource-lifetime",
+      "scope-resolution"
+    ]
+  }
+}

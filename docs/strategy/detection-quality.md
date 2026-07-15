@@ -168,6 +168,23 @@ thresholds, and regression tests are the durable record. Corpus commands use
 temporary checkouts by default and remove them after reports are written, so
 calibration does not require retaining multi-gigabyte repository copies.
 
+Assessment-judgment model calibration uses the pinned defect pairs without
+cloning repositories. It fetches only the affected files at the buggy and fixed
+commits, runs the production prompt and coercion contract, and retains only
+verdict, token, cost, latency, candidate-class, and emitter-coverage summaries.
+Prompts, source text, excerpts, and model rationales are not written to the
+report. Buggy revisions measure confirmation or safe deferral; fixed revisions
+measure rejection and unsafe confirmation.
+
+The July 2026 paired calibration selects `gpt-5.6-luna` at low effort for this
+judgment pass. It produced no unsafe decisions, accepted 15 of 18 expected
+outcomes, and cost $0.098537. `claude-sonnet-5` at low effort accepted 13 of 18,
+incorrectly rejected one buggy case, and cost $0.285882 at its introductory
+rate. This is a task-specific nine-pair result, not a general model ranking.
+Seven candidate classes remain emitter gaps regardless of judge quality. The
+durable aggregate is
+`tests/bench/calibration/assessment-judgment-model-baseline.json`.
+
 Repository-check evaluation ignores runs that are not coherent with the active
 evidence state. Missing dependency cascades remain one operational assessment,
 and a missing dependency proven by one command keeps sibling test or build

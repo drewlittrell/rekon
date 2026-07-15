@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added a token- and cost-aware assessment-judgment model evaluation over
+  pinned buggy/fixed source pairs. The runner fetches only affected files and
+  retains no source, prompts, excerpts, or model rationales. The first paired
+  baseline selects `gpt-5.6-luna` at low effort over `claude-sonnet-5` for this
+  task, and prices GPT-5.6 cache writes at the current 1.25x input rate.
+- Normalized Anthropic structured-output schemas to its supported numeric
+  subset and accepted source citations copied from numbered judgment prompts
+  only when their unnumbered text matches current source exactly.
 - Added a source-grounded assessment judgment pass to `rekon scan`. The typed
   `AssessmentJudgmentReport` records confirmed, rejected, deferred, and failed
   decisions with current source digests and stable assessment signatures.

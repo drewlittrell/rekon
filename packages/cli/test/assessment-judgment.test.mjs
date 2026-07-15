@@ -71,6 +71,24 @@ test("coercion accepts exact source evidence and derives canonical line coordina
   assert.equal(judgment.evidence[0].sha256, source.sha256);
 });
 
+test("coercion removes prompt line labels only when the resulting excerpt exactly matches source", () => {
+  const judgment = coerceAssessmentJudgment({
+    assessment,
+    sources: [source],
+    result: {
+      verdict: "confirmed",
+      rationale: "The removal wrapper calls the registration API.",
+      confidence: 0.96,
+      evidence: [{ path: source.path, excerpt: "2 |   target.addEventListener(type, listener);" }],
+      recommendedVerification: [],
+    },
+  });
+
+  assert.equal(judgment.verdict, "confirmed");
+  assert.equal(judgment.evidence[0].excerpt, "target.addEventListener(type, listener);");
+  assert.equal(judgment.evidence[0].lineStart, 2);
+});
+
 test("coercion downgrades invented evidence and low-confidence decisive verdicts", () => {
   const invented = coerceAssessmentJudgment({
     assessment,

@@ -436,6 +436,16 @@ function safeSchemaName(value: string): string {
   return normalized.length > 0 ? normalized : "rekon_result";
 }
 
+function anthropicJsonSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(anthropicJsonSchema);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "minimum" && key !== "maximum")
+      .map(([key, entry]) => [key, anthropicJsonSchema(entry)]),
+  );
+}
+
 function extractResponsesContent(payload: unknown): string | null {
   if (!isRecord(payload)) return null;
   const output = (payload as { output?: unknown }).output;
@@ -843,7 +853,9 @@ export function createAnthropicLlmProvider(options: CreateAnthropicLlmProviderOp
 
       const outputConfig = {
         ...(input.effort && input.effort !== "none" ? { effort: input.effort } : {}),
-        ...(input.jsonSchema ? { format: { type: "json_schema", schema: input.jsonSchema } } : {}),
+        ...(input.jsonSchema
+          ? { format: { type: "json_schema", schema: anthropicJsonSchema(input.jsonSchema) } }
+          : {}),
       };
       const requestBody = JSON.stringify({
         model: model ?? "claude-haiku-4-5-20251001",

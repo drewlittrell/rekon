@@ -35,6 +35,12 @@ test("OpenAI token cost separates cache classes included in total input", () => 
   assert.equal(cost, 0.00438);
 });
 
+test("GPT-5.6 Luna prices cache writes at 1.25 times uncached input", () => {
+  const luna = SEMANTIC_DEBT_MODEL_CONFIGS.find((config) => config.id === "gpt-5.6-luna@low");
+  assert.equal(luna.pricing.input, 1);
+  assert.equal(luna.pricing.cacheWriteInput, 1.25);
+});
+
 test("Anthropic token cost adds separately reported cache classes", () => {
   const cost = estimateUsageCost(
     {

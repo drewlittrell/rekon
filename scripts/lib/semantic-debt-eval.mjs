@@ -1,11 +1,11 @@
-export const PRICING_AS_OF = "2026-07-10";
+export const PRICING_AS_OF = "2026-07-15";
 export const MIN_FRONTIER_PARSE_SUCCESS = 0.99;
 
-const openAi = (input, cachedInput, output) => ({
+const openAi = (input, cachedInput, output, cacheWriteInput = input) => ({
   input,
   cachedInput,
   output,
-  cacheWriteInput: input,
+  cacheWriteInput,
   inputIncludesCacheTokens: true,
 });
 const anthropic = (input, cachedInput, cacheWriteInput, output) => ({
@@ -49,7 +49,7 @@ export const SEMANTIC_DEBT_MODEL_CONFIGS = Object.freeze([
     provider: "openai",
     model: "gpt-5.6-luna",
     effort: "low",
-    pricing: openAi(1, 0.1, 6),
+    pricing: openAi(1, 0.1, 6, 1.25),
   },
   {
     id: "gpt-5.6-terra@low",

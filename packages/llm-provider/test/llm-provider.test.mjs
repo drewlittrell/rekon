@@ -268,13 +268,21 @@ test("22. Anthropic adapter uses Messages structured output without temperature"
       };
     },
   });
+  const jsonSchema = {
+    type: "object",
+    properties: {
+      concerns: { type: "array" },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+    },
+    required: ["concerns"],
+  };
   const result = await provider.completeJson({
     ...input("policy.debt-judgment"),
     model: "claude-sonnet-5",
     temperature: 0,
     effort: "low",
     maxOutputTokens: 1200,
-    jsonSchema: { type: "object", properties: { concerns: { type: "array" } }, required: ["concerns"] },
+    jsonSchema,
   });
   assert.equal(result.ok, true);
   assert.equal(request.url, "https://api.anthropic.com/v1/messages");
@@ -282,6 +290,8 @@ test("22. Anthropic adapter uses Messages structured output without temperature"
   assert.equal(request.body.temperature, undefined);
   assert.equal(request.body.output_config.effort, "low");
   assert.equal(request.body.output_config.format.type, "json_schema");
+  assert.deepEqual(request.body.output_config.format.schema.properties.confidence, { type: "number" });
+  assert.deepEqual(jsonSchema.properties.confidence, { type: "number", minimum: 0, maximum: 1 });
   assert.deepEqual(result.data, { concerns: [] });
   assert.deepEqual(result.usage, {
     inputTokens: 53,

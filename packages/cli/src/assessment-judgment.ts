@@ -105,6 +105,7 @@ export function buildAssessmentJudgmentPrompt(input: {
     "- Do not infer hidden callers, runtime state, configuration, or intent.",
     "- A risk can be real without being a proven defect.",
     "- Confirm or reject only with at least one exact source excerpt from the supplied text.",
+    "- Evidence excerpts must copy the underlying source and omit the displayed '<line> | ' prefix.",
     "- Prefer verification_required when observable behavior is needed.",
     "- Prefer insufficient_evidence when relevant context is absent.",
     "- Return only one JSON object matching the schema.",
@@ -203,8 +204,10 @@ function coerceEvidence(
   for (const raw of value) {
     if (!isRecord(raw) || typeof raw.path !== "string" || typeof raw.excerpt !== "string") continue;
     const source = byPath.get(raw.path);
-    const excerpt = raw.excerpt.trim();
-    if (!source || !excerpt) continue;
+    const suppliedExcerpt = raw.excerpt.trim();
+    if (!source || !suppliedExcerpt) continue;
+    const excerpt = exactSourceExcerpt(source.text, suppliedExcerpt);
+    if (!excerpt) continue;
     const offset = source.text.indexOf(excerpt);
     if (offset < 0) continue;
     const key = `${source.path}\u0000${excerpt}`;
@@ -221,6 +224,16 @@ function coerceEvidence(
   }
 
   return evidence.sort((left, right) => `${left.path}:${left.lineStart}`.localeCompare(`${right.path}:${right.lineStart}`));
+}
+
+function exactSourceExcerpt(sourceText: string, suppliedExcerpt: string): string | undefined {
+  if (sourceText.includes(suppliedExcerpt)) return suppliedExcerpt;
+  const withoutLineLabels = suppliedExcerpt
+    .split(/\r?\n/u)
+    .map((line) => line.replace(/^\s*\d+\s*\| ?/u, ""))
+    .join("\n")
+    .trim();
+  return withoutLineLabels && sourceText.includes(withoutLineLabels) ? withoutLineLabels : undefined;
 }
 
 function renderBoundedSource(
