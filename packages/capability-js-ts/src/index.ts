@@ -76,11 +76,13 @@ export {
   type ErrorControlFlowGuard,
   type ErrorControlFlowEvidence,
   type ErrorIdentityMapping,
+  type CacheContractEvidence,
   type DependencyResolutionEvidence,
   type OptionPropagationEvidence,
   type ResourceLifetimeEvidence,
   type ScopeResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractCacheContractEvidence,
   extractDependencyResolutionEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
@@ -1236,6 +1238,26 @@ function factsFromAstResult(
         ...(flow.retainedNames ? { retainedNames: flow.retainedNames } : {}),
         line: flow.location.line,
         column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "cache-contract") {
+      facts.push(fact("cache_flow", `${path}:${flow.caller}:${flow.cacheBinding}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        factory: flow.factory,
+        cacheBinding: flow.cacheBinding,
+        keyExpression: flow.keyExpression,
+        keyParameters: flow.keyParameters,
+        omittedResultParameters: flow.omittedResultParameters,
+        guardExpression: flow.guardExpression,
+        guardedReturnExpression: flow.guardedReturnExpression,
+        fallbackReturnExpression: flow.fallbackReturnExpression,
+        location: flow.location,
+        guardLocation: flow.guardLocation,
+        fallbackLocation: flow.fallbackLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

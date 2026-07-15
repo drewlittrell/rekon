@@ -15,6 +15,7 @@ import policyCapability, {
   SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
   SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   applyAssessmentJudgments,
+  evaluateCacheIntegritySignals,
   evaluateDependencyAuditReports,
   evaluateDependencyResolutionSignals,
   evaluateErrorPropagationSignals,
@@ -479,6 +480,46 @@ test("structured dependency resolution requires conditional exit and post-loop s
   assert.deepEqual(evaluateDependencyResolutionSignals([{
     ...fact,
     value: { ...fact.value, returnedAfterLoop: false },
+  }], ref), []);
+});
+
+test("cache integrity requires a result parameter omitted from the cache key", () => {
+  const ref = { type: "EvidenceGraph", id: "evidence-cache", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "cache_flow",
+    value: {
+      source: "src/metadata.ts",
+      caller: "loadMetadata",
+      factory: "miscUtils.getFactoryWithDefault",
+      cacheBinding: "METADATA_CACHE",
+      keyExpression: "ident.hash",
+      keyParameters: ["ident"],
+      omittedResultParameters: ["version"],
+      guardExpression: "cached && version && cached.versions[version]",
+      guardedReturnExpression: "cached",
+      fallbackReturnExpression: "await readNetwork(ident)",
+      location: { line: 3, column: 16 },
+      guardLocation: { line: 5, column: 9 },
+      fallbackLocation: { line: 7, column: 5 },
+    },
+  };
+
+  const assessments = evaluateCacheIntegritySignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_CACHE_INTEGRITY_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "result-parameter-omitted-from-cache-key");
+  assert.deepEqual(assessments[0].details.sourceEvidence.map((entry) => entry.lineStart), [3, 5, 7]);
+  assert.deepEqual(evaluateCacheIntegritySignals([{
+    ...fact,
+    value: { ...fact.value, keyParameters: ["ident", "version"] },
+  }], ref), []);
+  assert.equal(evaluateCacheIntegritySignals([{
+    ...fact,
+    value: { ...fact.value, factory: "getFactoryWithDefault" },
+  }], ref).length, 1);
+  assert.deepEqual(evaluateCacheIntegritySignals([{
+    ...fact,
+    value: { ...fact.value, factory: "unrelated.callback" },
   }], ref), []);
 });
 

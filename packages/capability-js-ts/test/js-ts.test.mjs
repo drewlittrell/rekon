@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 
 import capability, {
+  extractCacheContractEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
@@ -538,6 +539,72 @@ test("resource-flow evidence captures request closures attached to connection so
     assert.equal(facts.length, 1);
     assert.equal(facts[0].value.resource, "socket:timeout");
     assert.deepEqual(facts[0].value.retainedNames, ["req"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("cache-contract evidence identifies result parameters omitted from a memoization key", async () => {
+  const buggySource = [
+    "const METADATA_CACHE = new Map();",
+    "export async function loadMetadata(ident, {version}) {",
+    "  return await miscUtils.getFactoryWithDefault(METADATA_CACHE, ident.hash, async () => {",
+    "    const cached = await readDisk(ident);",
+    "    if (cached && version && cached.versions[version])",
+    "      return cached;",
+    "    return await readNetwork(ident);",
+    "  });",
+    "}",
+  ].join("\n");
+  const fixedSource = [
+    "const DISK_CACHE = new Map();",
+    "const NETWORK_CACHE = new Map();",
+    "const readDiskCached = (path) => miscUtils.getFactoryWithDefault(DISK_CACHE, path, () => readDisk(path));",
+    "const readNetworkCached = (path) => miscUtils.getFactoryWithDefault(NETWORK_CACHE, path, () => readNetwork(path));",
+    "export async function loadMetadata(ident, {version}) {",
+    "  const cached = await readDiskCached(ident.hash);",
+    "  if (cached && version && cached.versions[version]) return cached;",
+    "  return await readNetworkCached(ident.hash);",
+    "}",
+  ].join("\n");
+  const completeKeySource = buggySource.replace("ident.hash, async", "`${ident.hash}:${version}`, async");
+  const shadowedParameterSource = buggySource.replace("async () =>", "async (version) =>");
+  const noFallbackSource = buggySource.replace(
+    "    return await readNetwork(ident);",
+    "    throw new Error('missing');",
+  );
+
+  assert.deepEqual(extractCacheContractEvidence({ path: "src/metadata.ts", content: buggySource }), [{
+    kind: "cache-contract",
+    caller: "loadMetadata",
+    factory: "miscUtils.getFactoryWithDefault",
+    cacheBinding: "METADATA_CACHE",
+    keyExpression: "ident.hash",
+    keyParameters: ["ident"],
+    omittedResultParameters: ["version"],
+    guardExpression: "cached && version && cached.versions[version]",
+    guardedReturnExpression: "cached",
+    fallbackReturnExpression: "await readNetwork(ident)",
+    location: { line: 3, column: 16 },
+    guardLocation: { line: 5, column: 9 },
+    fallbackLocation: { line: 7, column: 5 },
+  }]);
+  assert.deepEqual(extractCacheContractEvidence({ path: "src/metadata.ts", content: fixedSource }), []);
+  assert.deepEqual(extractCacheContractEvidence({ path: "src/metadata.ts", content: completeKeySource }), []);
+  assert.deepEqual(extractCacheContractEvidence({ path: "src/metadata.ts", content: shadowedParameterSource }), []);
+  assert.deepEqual(extractCacheContractEvidence({ path: "src/metadata.ts", content: noFallbackSource }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-cache-contract-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "metadata.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "cache_flow");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.cacheBinding, "METADATA_CACHE");
+    assert.deepEqual(facts[0].value.omittedResultParameters, ["version"]);
+    assert.deepEqual(facts[0].value.guardLocation, { line: 5, column: 9 });
+    assert.equal(facts[0].provenance.line, 3);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

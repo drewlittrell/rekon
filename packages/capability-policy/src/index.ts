@@ -44,6 +44,7 @@ import { DEPENDENCY_HUB_RULE_ID, evaluateDependencyHubs } from "./dependency-hub
 import { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } from "./resource-lifetime.js";
 import { evaluateErrorPropagationSignals } from "./error-propagation.js";
 import { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
+import { evaluateCacheIntegritySignals } from "./cache-integrity.js";
 import { loadFreshComplexityCoverage } from "./complexity-coverage.js";
 import {
   compileEffectiveCapabilityOntology,
@@ -210,6 +211,7 @@ export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 export { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } from "./resource-lifetime.js";
 export { evaluateErrorPropagationSignals } from "./error-propagation.js";
 export { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
+export { evaluateCacheIntegritySignals } from "./cache-integrity.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
@@ -355,7 +357,11 @@ export const policyEvaluator: Evaluator = {
     const dependencyResolutionAssessments = !disabledRules.has(SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID)
       ? evaluateDependencyResolutionSignals(graph.facts, evidenceRef)
       : [];
+    const cacheIntegrityAssessments = !disabledRules.has(SEMANTIC_CACHE_INTEGRITY_RULE_ID)
+      ? evaluateCacheIntegritySignals(graph.facts, evidenceRef)
+      : [];
     const structuredSemanticAssessments = [
+      ...cacheIntegrityAssessments,
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
     ];
@@ -379,6 +385,7 @@ export const policyEvaluator: Evaluator = {
     const rawAssessments: Assessment[] = [
       ...complexityAssessments,
       ...resourceLifetimeAssessments,
+      ...cacheIntegrityAssessments,
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
       ...importGraphAssessments,

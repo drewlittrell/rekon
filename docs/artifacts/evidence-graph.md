@@ -48,6 +48,7 @@ they may collide with built-ins.
 | `entry_point` | manifest or convention-backed repository root |
 | `event_flow` | literal event emission or subscription |
 | `state_access` | direct call through a recognized imported state SDK |
+| `cache_flow` | memoized callback result whose branch depends on an outer parameter omitted from the cache key |
 | `dependency_flow` | candidate selected from a lookup inside iteration, including exit condition and post-loop return behavior |
 | `error_flow` | explicit throw or rethrow with source location, thrown identity, enclosing branch guards, and visible downstream identity mappings where available |
 | `option_flow` | same-name option override after an object spread, including fallback and callback context where available |

@@ -240,6 +240,22 @@ export type DependencyResolutionEvidence = {
   location: AstLocation;
 };
 
+export type CacheContractEvidence = {
+  kind: "cache-contract";
+  caller: string;
+  factory: string;
+  cacheBinding: string;
+  keyExpression: string;
+  keyParameters: string[];
+  omittedResultParameters: string[];
+  guardExpression: string;
+  guardedReturnExpression: string;
+  fallbackReturnExpression: string;
+  location: AstLocation;
+  guardLocation: AstLocation;
+  fallbackLocation: AstLocation;
+};
+
 type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
@@ -247,7 +263,8 @@ type AstFlowRecord =
   | OptionPropagationEvidence
   | ResourceLifetimeEvidence
   | ScopeResolutionEvidence
-  | DependencyResolutionEvidence;
+  | DependencyResolutionEvidence
+  | CacheContractEvidence;
 
 export interface AstExtractionResult {
   language: AstLanguage;
@@ -339,6 +356,13 @@ export function extractDependencyResolutionEvidence(input: AstExtractionInput): 
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is DependencyResolutionEvidence => record.kind === "dependency-selection",
+  );
+}
+
+export function extractCacheContractEvidence(input: AstExtractionInput): CacheContractEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is CacheContractEvidence => record.kind === "cache-contract",
   );
 }
 
@@ -678,9 +702,147 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   };
 
   visitFlows(sourceFile, { caller: "__module__" });
+  records.push(...cacheContractRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   return records;
+}
+
+function cacheContractRecords(sourceFile: ts.SourceFile): CacheContractEvidence[] {
+  const records: CacheContractEvidence[] = [];
+  const visitReturns = (node: ts.Node): void => {
+    if (ts.isReturnStatement(node) && node.expression) {
+      const call = returnedCallExpression(node.expression);
+      const factoryPath = call ? memberPath(call.expression) : undefined;
+      if (call && factoryPath?.at(-1) === "getFactoryWithDefault") {
+        const record = cacheContractRecord(node, call, factoryPath.join("."), sourceFile);
+        if (record) records.push(record);
+      }
+    }
+    ts.forEachChild(node, visitReturns);
+  };
+  visitReturns(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line || left.caller.localeCompare(right.caller));
+}
+
+function cacheContractRecord(
+  returned: ts.ReturnStatement,
+  call: ts.CallExpression,
+  factory: string,
+  sourceFile: ts.SourceFile,
+): CacheContractEvidence | undefined {
+  const owner = enclosingFunction(returned);
+  const cache = call.arguments[0];
+  const key = call.arguments[1];
+  const callback = call.arguments[2];
+  if (!owner || !cache || !key || !callback
+    || (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback))) {
+    return undefined;
+  }
+
+  const parameterNames = new Set<string>();
+  for (const parameter of owner.parameters) collectBindingNames(parameter.name, parameterNames);
+  const keyParameters = referencedNames(key, parameterNames);
+  if (keyParameters.length === 0) return undefined;
+  const callbackParameters = new Set<string>();
+  for (const parameter of callback.parameters) collectBindingNames(parameter.name, callbackParameters);
+  const resultParameters = new Set([...parameterNames].filter((name) => !callbackParameters.has(name)));
+
+  const callbackReturns = directFunctionReturns(callback);
+  for (const guarded of callbackReturns) {
+    if (!guarded.expression) continue;
+    for (const guard of enclosingIfsWithin(guarded, callback)) {
+      const guardParameters = referencedNames(guard.expression, resultParameters);
+      const omittedResultParameters = guardParameters
+        .filter((name) => !keyParameters.includes(name));
+      if (omittedResultParameters.length === 0) continue;
+
+      const fallback = callbackReturns.find((candidate) =>
+        candidate !== guarded
+        && candidate.expression
+        && candidate.getStart(sourceFile) > guarded.getEnd()
+        && !containsPosition(guard, candidate)
+        && boundedNodeText(candidate.expression, sourceFile)
+          !== boundedNodeText(guarded.expression!, sourceFile));
+      if (!fallback?.expression) continue;
+
+      return {
+        kind: "cache-contract",
+        caller: enclosingCaller(returned),
+        factory,
+        cacheBinding: boundedNodeText(cache, sourceFile),
+        keyExpression: boundedNodeText(key, sourceFile),
+        keyParameters,
+        omittedResultParameters,
+        guardExpression: boundedNodeText(guard.expression, sourceFile),
+        guardedReturnExpression: boundedNodeText(guarded.expression, sourceFile),
+        fallbackReturnExpression: boundedNodeText(fallback.expression, sourceFile),
+        location: locationOf(call, sourceFile),
+        guardLocation: locationOf(guard.expression, sourceFile),
+        fallbackLocation: locationOf(fallback, sourceFile),
+      };
+    }
+  }
+  return undefined;
+}
+
+function returnedCallExpression(expression: ts.Expression): ts.CallExpression | undefined {
+  let current = unwrapExpression(expression);
+  while (ts.isAwaitExpression(current)) current = unwrapExpression(current.expression);
+  return ts.isCallExpression(current) ? current : undefined;
+}
+
+function enclosingFunction(node: ts.Node): ts.FunctionLikeDeclaration | undefined {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (isFunctionBoundary(current)) return current;
+    current = current.parent;
+  }
+  return undefined;
+}
+
+function referencedNames(node: ts.Node, candidates: ReadonlySet<string>): string[] {
+  const names = new Set<string>();
+  const visit = (current: ts.Node): void => {
+    if (ts.isIdentifier(current)
+      && candidates.has(current.text)
+      && isValueIdentifierReference(current)) {
+      names.add(current.text);
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return [...names].sort();
+}
+
+function directFunctionReturns(
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+): ts.ReturnStatement[] {
+  const returns: ts.ReturnStatement[] = [];
+  const visit = (node: ts.Node): void => {
+    if (node !== callback.body && isFunctionBoundary(node)) return;
+    if (ts.isReturnStatement(node)) {
+      returns.push(node);
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(callback.body);
+  return returns;
+}
+
+function enclosingIfsWithin(
+  node: ts.Node,
+  boundary: ts.ArrowFunction | ts.FunctionExpression,
+): ts.IfStatement[] {
+  const statements: ts.IfStatement[] = [];
+  let current: ts.Node | undefined = node.parent;
+  while (current && current !== boundary) {
+    if (ts.isIfStatement(current) && containsPosition(current.thenStatement, node)) statements.push(current);
+    current = current.parent;
+  }
+  return statements;
 }
 
 function extractErrorIdentityMappings(sourceFile: ts.SourceFile): ErrorIdentityMapping[] {
@@ -1299,7 +1461,7 @@ function containsPosition(container: ts.Node, node: ts.Node): boolean {
   return container.getFullStart() <= node.getFullStart() && container.getEnd() >= node.getEnd();
 }
 
-function isFunctionBoundary(node: ts.Node): boolean {
+function isFunctionBoundary(node: ts.Node): node is ts.FunctionLikeDeclaration {
   return ts.isFunctionDeclaration(node)
     || ts.isFunctionExpression(node)
     || ts.isArrowFunction(node)

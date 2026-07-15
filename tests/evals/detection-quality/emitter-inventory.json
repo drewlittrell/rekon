@@ -214,9 +214,9 @@
     {
       "ruleId": "semantic.cacheIntegrity",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic finding classified as cache-integrity",
-      "jurisdiction": "production source selected for semantic file understanding where cached derived output is visibly read and written",
-      "remediationUnit": "source file and cache-entry integrity boundary"
+      "evidence": "current source-matched semantic finding or deterministic cache_flow fact proving that a memoized result branch depends on an outer parameter omitted from its key",
+      "jurisdiction": "production source selected for semantic file understanding where cached derived output is visibly read and written, plus getFactoryWithDefault callbacks with parameter-sensitive return branches",
+      "remediationUnit": "source file and cache-entry or cache-key contract boundary"
     },
     {
       "ruleId": "semantic.cleanupCompleteness",

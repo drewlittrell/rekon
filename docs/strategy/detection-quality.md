@@ -227,13 +227,20 @@ Resource-lifetime coverage also includes request-scoped closures attached to
 reusable socket listeners from inside request socket callbacks. The
 docker-modem buggy revision is retained by independent judgment, while moving
 the timeout listener to the request clears the fixed revision. Resource
-lifetime now has two independent positive pairs; every other semantic class has
-one. All seven remain below the five-adjudication usefulness minimum, which is
-recorded in the compact baseline rather than reduced to fit the available data.
+lifetime now has two independent positive pairs.
 
-Cross-call cache contracts remain unmodeled. File-local semantic analysis does
-not yet distinguish partial-disk and complete-network cache guarantees, and
-prompt wording without paired capture is not treated as coverage.
+Cross-call cache contracts are modeled through deterministic `cache_flow`
+evidence rather than prompt wording. The extractor requires a returned
+`getFactoryWithDefault` call whose key references at least one outer parameter,
+a callback return branch that references another outer parameter absent from
+that key, and a distinct later return. Policy emits the key and branch contract
+as `semantic.cacheIntegrity`; autonomous judgment still decides whether the
+cross-call sequence is a material defect. The pinned Yarn metadata pair retains
+the buggy package-identity cache and clears after disk and network caches are
+separated. Cache integrity and resource lifetime now have two independent
+positive pairs; the other semantic classes have one. All seven remain below
+the five-adjudication usefulness minimum, which is recorded in the compact
+baseline rather than reduced to fit the available data.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

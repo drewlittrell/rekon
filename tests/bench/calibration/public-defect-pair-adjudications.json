@@ -70,6 +70,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Rekon emits semantic.resourceLifetime from structured evidence that a request-scoped closure is attached to a connection-lived socket inside the request's socket callback. Moving the timeout listener to the request removes the cross-lifetime retention evidence in the fixed revision."
+    },
+    {
+      "pairId": "yarn-metadata-cache-boundary",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon emits semantic.cacheIntegrity from structured evidence that getPackageMetadata memoizes by package identity while a version-specific result branch depends on version outside the key. Independent judgment retains the buggy cross-call contract as verification-required, while separating disk and network caches removes the evidence in the fixed revision."
     }
   ]
 }

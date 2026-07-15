@@ -33,6 +33,7 @@ Current rule families:
 - `typescript.functionComplexity`
 - `repository.checkFailure`
 - `security.scannerResult`
+- `semantic.cacheIntegrity`
 - `semantic.resourceLifetime`
 - `similarity.duplicateCandidate`
 - `imports.noNodeModulesRelativeImports`
@@ -81,6 +82,12 @@ stores a lookup result, exits conditionally after selection, and returns that
 mutable selection after iteration. An unconditional first-match exit stays
 silent. Intended provider precedence remains an autonomous judgment or focused
 verification question.
+
+Cache-integrity policy consumes `cache_flow` facts when a memoized callback can
+return different results based on an outer parameter absent from the key. It
+emits a semantic claim with the key, omitted parameters, guard, and fallback
+locations. Cross-call ordering and user-visible impact remain autonomous
+judgment or focused verification questions.
 
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same
@@ -222,7 +229,8 @@ built-in rule metadata. The package also exports
 `evaluateDeclaredOwnershipRules` and
 `OWNERSHIP_DOES_NOT_OWN_EVALUATOR_ID` for rulebook-aware integrations, plus
 `evaluateResourceLifetimeSignals` and `SEMANTIC_RESOURCE_LIFETIME_RULE_ID` for
-cross-file lifetime evaluation.
+cross-file lifetime evaluation. `evaluateCacheIntegritySignals` supports
+structured cache-key contract evaluation.
 
 ## Import Boundary
 

@@ -54,6 +54,12 @@
       "directory": "docker-modem",
       "url": "https://github.com/apocas/docker-modem.git",
       "license": "Apache-2.0"
+    },
+    {
+      "id": "yarn",
+      "directory": "yarn",
+      "url": "https://github.com/yarnpkg/berry.git",
+      "license": "BSD-2-Clause"
     }
   ],
   "pairs": [
@@ -253,6 +259,25 @@
       },
       "affectedPaths": ["lib/modem.js"],
       "testPaths": []
+    },
+    {
+      "id": "yarn-metadata-cache-boundary",
+      "repository": "yarn",
+      "buggyCommit": "e135fc407d3389924e2237dfa4006a41800380d7",
+      "fixedCommit": "b6afce3549dacd9e135f30a0e281a67abe70bf61",
+      "upstream": {
+        "fixUrl": "https://github.com/yarnpkg/berry/pull/6101",
+        "proofUrls": ["https://github.com/yarnpkg/berry/issues/5989"],
+        "summary": "A package-level memoization key omitted the requested version and could reuse partial disk metadata across calls that required different version coverage."
+      },
+      "claim": {
+        "category": "cache-integrity",
+        "proof": "upstream-regression-test",
+        "summary": "A process cache could return incomplete package metadata for a later version-specific request sharing the same package identity."
+      },
+      "structuredEvidence": "cache-contract",
+      "affectedPaths": ["packages/plugin-npm/sources/npmHttpUtils.ts"],
+      "testPaths": ["packages/acceptance-tests/pkg-tests-specs/sources/features/resolutionCache.test.ts"]
     }
   ]
 }

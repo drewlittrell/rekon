@@ -9,6 +9,7 @@ import { performance } from "node:perf_hooks";
 
 import { buildSemanticFileUnderstandingReport } from "../packages/capability-model/dist/index.js";
 import {
+  extractCacheContractEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
@@ -23,6 +24,7 @@ import {
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
   SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
   SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+  evaluateCacheIntegritySignals,
   evaluateDependencyResolutionSignals,
   evaluateErrorPropagationSignals,
   evaluateResourceLifetimeSignals,
@@ -99,6 +101,10 @@ for (const pair of selectedPairs) {
   if (!repository) throw new Error(`Unknown repository ${pair.repository} for ${pair.id}.`);
   if (pair.claim.category === "dependency-resolution") {
     runs.push(...await evaluateDependencyResolutionPair(pair, repository));
+    continue;
+  }
+  if (pair.claim.category === "cache-integrity" && pair.structuredEvidence === "cache-contract") {
+    runs.push(...await evaluateCacheContractPair(pair, repository));
     continue;
   }
   if (pair.claim.category === "error-propagation") {
@@ -360,6 +366,139 @@ async function evaluateDependencyResolutionPair(pair, repository) {
       },
     }));
     const matching = evaluateDependencyResolutionSignals(facts, evidenceRef);
+    const changedLines = changedLineNumbers(text, counterpartText);
+    const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
+      assessment,
+      changedLines,
+      problemClass: pair.claim.category,
+    }));
+    const judgmentResults = [];
+    for (const assessment of defectMatching) {
+      const sources = [{ path, text, sha256 }];
+      const judgmentCompletion = await provider.completeJson({
+        task: "policy.assessment-judgment",
+        schemaName: "AssessmentJudgmentResult",
+        prompt: buildAssessmentJudgmentPrompt({ assessment, sources, maxSourceChars: 24000 }),
+        model: config.model,
+        ...(config.effort ? { effort: config.effort } : {}),
+        maxOutputTokens: Math.min(options.maxOutputTokens, 1200),
+        jsonSchema: ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+      });
+      if (!judgmentCompletion.ok) {
+        judgmentResults.push({ verdict: "failed", confidence: 0, evidenceCount: 0, usage: {}, error: judgmentCompletion.error });
+        continue;
+      }
+      const judgment = coerceAssessmentJudgment({
+        assessment,
+        sources,
+        result: judgmentCompletion.data && typeof judgmentCompletion.data === "object"
+          ? judgmentCompletion.data
+          : undefined,
+      });
+      judgmentResults.push({
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+        evidenceCount: judgment.evidence.length,
+        usage: judgmentCompletion.usage ?? {},
+      });
+    }
+    const usage = sumUsage(judgmentResults.map((entry) => entry.usage));
+    const defectRetained = judgmentResults.some(
+      (entry) => entry.verdict === "confirmed" || entry.verdict === "verification_required",
+    );
+    const defectCleared = defectMatching.length === 0
+      || (judgmentResults.length === defectMatching.length
+        && judgmentResults.every((entry) => entry.verdict === "rejected"));
+    pairRuns.push({
+      pairId: pair.id,
+      revision,
+      path,
+      problemClass: pair.claim.category,
+      status: "ok",
+      classCandidateEmitted: matching.length > 0,
+      defectEmitted: defectMatching.length > 0,
+      matchingAssessments: matching.length,
+      defectMatchingAssessments: defectMatching.length,
+      defectRetained,
+      defectCleared,
+      judgments: judgmentResults.map(({ verdict, confidence, evidenceCount, error }) => ({
+        verdict,
+        confidence,
+        evidenceCount,
+        ...(error ? { error } : {}),
+      })),
+      changedLineCount: changedLines.size,
+      sourceEvidenceCount: matching.reduce(
+        (total, assessment) => total + (Array.isArray(assessment.details?.sourceEvidence) ? assessment.details.sourceEvidence.length : 0),
+        0,
+      ),
+      candidateMetadata: matching.map((assessment) => ({
+        findingId: assessment.id,
+        changedLineCoverage: assessmentChangedLineCoverage(assessment, changedLines),
+        structuredAnchorMatch: assessmentMatchesDefectEvidence({
+          assessment,
+          changedLines,
+          problemClass: pair.claim.category,
+        }),
+        evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
+          ? assessment.details.sourceEvidence.map((entry) => ({
+              path: entry.path,
+              lineStart: entry.lineStart,
+              lineEnd: entry.lineEnd,
+              changedLineOverlap: assessmentOverlapsChangedLines(
+                { details: { sourceEvidence: [entry] } },
+                changedLines,
+              ),
+            }))
+          : [],
+      })),
+      provider: config.provider,
+      model: config.model,
+      usage,
+      currentCostUsd: estimateUsageCost(usage, config.pricing),
+    });
+  }
+  return pairRuns;
+}
+
+async function evaluateCacheContractPair(pair, repository) {
+  if (pair.affectedPaths.length !== 1) {
+    throw new Error(`${pair.id}: cache-contract calibration requires exactly one fix path.`);
+  }
+  const pairRuns = [];
+  const path = pair.affectedPaths[0];
+  const evidenceRef = { type: "EvidenceGraph", id: `eval-${pair.id}`, schemaVersion: "0.1.0" };
+
+  for (const revision of ["buggy", "fixed"]) {
+    process.stderr.write(`[semantic-problem-emitter-eval] ${pair.id}:${revision}:${path}\n`);
+    const commit = revision === "buggy" ? pair.buggyCommit : pair.fixedCommit;
+    const counterpartCommit = revision === "buggy" ? pair.fixedCommit : pair.buggyCommit;
+    const [text, counterpartText] = await Promise.all([
+      fetchText(rawGitHubUrl(repository.url, commit, path), options.timeoutMs),
+      fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
+    ]);
+    const sha256 = createHash("sha256").update(text).digest("hex");
+    const cacheFlow = extractCacheContractEvidence({ path, content: text });
+    const facts = cacheFlow.map((entry) => ({
+      kind: "cache_flow",
+      subject: `${path}:${entry.caller}:${entry.cacheBinding}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        factory: entry.factory,
+        cacheBinding: entry.cacheBinding,
+        keyExpression: entry.keyExpression,
+        keyParameters: entry.keyParameters,
+        omittedResultParameters: entry.omittedResultParameters,
+        guardExpression: entry.guardExpression,
+        guardedReturnExpression: entry.guardedReturnExpression,
+        fallbackReturnExpression: entry.fallbackReturnExpression,
+        location: entry.location,
+        guardLocation: entry.guardLocation,
+        fallbackLocation: entry.fallbackLocation,
+      },
+    }));
+    const matching = evaluateCacheIntegritySignals(facts, evidenceRef);
     const changedLines = changedLineNumbers(text, counterpartText);
     const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
       assessment,
