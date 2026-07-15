@@ -207,8 +207,8 @@
     {
       "ruleId": "semantic.dependencyResolution",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic finding classified as dependency-resolution",
-      "jurisdiction": "production source selected for semantic file understanding where multiple visible candidates have precedence or overwrite semantics",
+      "evidence": "deterministic dependency_flow facts identify a loop-selected candidate, conditional exit, and post-loop return of the mutable selection",
+      "jurisdiction": "production JavaScript and TypeScript source where repeated dependency lookup can replace a selected candidate before return",
       "remediationUnit": "source file and dependency-selection control flow"
     },
     {
@@ -228,8 +228,8 @@
     {
       "ruleId": "semantic.errorPropagation",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic finding classified as error-propagation, informed by deterministic throw guards and identities",
-      "jurisdiction": "production JavaScript and TypeScript source selected for semantic file understanding where visible failure causes and downstream identity handling can be compared",
+      "evidence": "deterministic error_flow facts identify a compound guard, its thrown identity, and distinct downstream identity mappings in current source",
+      "jurisdiction": "production JavaScript and TypeScript source where visible failure causes and downstream identity handling can be compared",
       "remediationUnit": "source file and error-routing control flow"
     },
     {
@@ -245,6 +245,13 @@
       "evidence": "cross-file resource_flow facts identify request-scoped values retained on connection-owned state without a matching release in a fresh EvidenceGraph",
       "jurisdiction": "production JavaScript and TypeScript source where socket, connection, or server state retains visible request/reply objects",
       "remediationUnit": "connection-owned resource key and its request lifecycle boundary"
+    },
+    {
+      "ruleId": "semantic.scopeResolution",
+      "outputKinds": ["semantic_claim"],
+      "evidence": "current source-matched semantic finding informed by a deterministic scope-model classifier and its unmodeled lexical boundaries",
+      "jurisdiction": "JavaScript and TypeScript source transformers with visible identifier rewriting, scope resolution, and lexical-boundary classifiers",
+      "remediationUnit": "source file and identifier-scope boundary"
     },
     {
       "ruleId": "dead_code.unreferenced",

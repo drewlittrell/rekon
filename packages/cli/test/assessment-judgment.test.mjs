@@ -67,6 +67,28 @@ test("judgment prompt distinguishes fail-fast cleanup from all-settled cleanup",
 
   assert.match(prompt, /fail-fast aggregation/);
   assert.match(prompt, /all-settled behavior/);
+  assert.match(prompt, /Promise\.allSettled is not such evidence/);
+  assert.match(prompt, /explicit throw or return/);
+  assert.match(prompt, /uncited helper might throw synchronously/);
+  assert.match(prompt, /guarded later hook/);
+});
+
+test("judgment prompt requires a returned mutable selection for dependency resolution", () => {
+  const dependencyAssessment = {
+    ...assessment,
+    ruleId: "semantic.dependencyResolution",
+    type: "semantic.dependencyResolution",
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: dependencyAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /stores an eligible candidate/);
+  assert.match(prompt, /returns the mutable selection/);
+  assert.match(prompt, /first eligible candidate exits unconditionally/);
+  assert.match(prompt, /order-sensitive resolution regression/);
 });
 
 test("judgment prompt requires both merged identity and downstream handling for error propagation", () => {
@@ -83,6 +105,8 @@ test("judgment prompt requires both merged identity and downstream handling for 
 
   assert.match(prompt, /distinct visible failure causes share the wrong error identity/);
   assert.match(prompt, /downstream source/);
+  assert.match(prompt, /Use verification_required, not insufficient_evidence/);
+  assert.match(prompt, /runtime ordering or reachability/);
   assert.match(prompt, /separate guards preserve separate error identities/);
 });
 
@@ -119,6 +143,24 @@ test("judgment prompt keeps resource retention autonomous without inventing runt
   assert.match(prompt, /complete graph with no matching explicit release/);
   assert.match(prompt, /Use verification_required/);
   assert.match(prompt, /lifecycle or heap-retention check rather than human inspection/);
+});
+
+test("judgment prompt requires a transformer consequence for scope resolution", () => {
+  const scopeAssessment = {
+    ...assessment,
+    ruleId: "semantic.scopeResolution",
+    type: "semantic.scopeResolution",
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: scopeAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /implements identifier binding or rewriting/);
+  assert.match(prompt, /unbound or misbound reference/);
+  assert.match(prompt, /ordinary switches, local shadowing, generic AST traversal/);
+  assert.match(prompt, /focused transform-output or regression-test check/);
 });
 
 test("coercion accepts exact source evidence and derives canonical line coordinates", () => {

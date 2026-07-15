@@ -31,6 +31,7 @@
     "semantic.errorPropagation": { "minimumUsefulness": 0.75 },
     "semantic.optionPropagation": { "minimumUsefulness": 0.75 },
     "semantic.resourceLifetime": { "minimumUsefulness": 0.75 },
+    "semantic.scopeResolution": { "minimumUsefulness": 0.75 },
     "similarity.duplicateCandidate": { "minimumUsefulness": 0.75 },
     "typescript.asyncArrayCallback": { "minimumUsefulness": 0.75 },
     "typescript.asyncPromiseExecutor": { "minimumUsefulness": 0.75 },

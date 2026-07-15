@@ -336,6 +336,7 @@ function coerceSemanticUnderstanding(
         || f.problemClass === "cleanup-completeness"
         || f.problemClass === "error-propagation"
         || f.problemClass === "option-propagation"
+        || f.problemClass === "scope-resolution"
         || f.problemClass === "other"
       ) {
         finding.problemClass = f.problemClass;

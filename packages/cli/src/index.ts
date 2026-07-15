@@ -62,6 +62,7 @@ import verifyCapability, {
 import jsTsCapability, {
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
+  extractScopeResolutionEvidence,
   loadAgentScratchSegments,
 } from "@rekon/capability-js-ts";
 import memoryCapability from "@rekon/capability-memory";
@@ -11608,6 +11609,7 @@ function createSemanticFileUnderstandingAdapter(
       language,
       errorControlFlow: extractErrorControlFlowEvidence({ path: filePath, content: fileText }),
       optionPropagation: extractOptionPropagationEvidence({ path: filePath, content: fileText }),
+      scopeResolution: extractScopeResolutionEvidence({ path: filePath, content: fileText }),
     });
 
     const routed = await router.completeJson(

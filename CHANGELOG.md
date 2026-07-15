@@ -4,15 +4,22 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
-- Added source-grounded semantic emitters for dependency-resolution,
-  cache-integrity, cleanup-completeness, error-propagation, and
-  option-propagation candidates, plus a cross-file resource-lifetime emitter.
+- Added bounded emitters for dependency resolution, cache integrity, cleanup
+  completeness, error propagation, option propagation, resource lifetime, and
+  scope resolution. Source-grounded semantic analysis handles cache, cleanup,
+  option, and scope claims; structured EvidenceGraph policy handles dependency,
+  error, and cross-file resource claims.
   The JS/TS evidence pack now preserves throw
-  locations, identities, and enclosing guards plus option spread, override,
+  locations, identities, enclosing guards, and downstream identity mappings;
+  scope classifiers and lexical boundaries; plus option spread, override,
   fallback, callback, connection-retention, and explicit-release context.
-- Updated semantic file understanding to `semantic-file-understanding-v3` and
-  assessment judgment to `assessment-judge-v5` with error-routing,
-  option-precedence, and autonomous resource-lifetime guidance.
+  Dependency-flow evidence records lookup selection, conditional loop exit, and
+  post-loop return behavior so first-match resolution defects do not depend on
+  semantic-emitter sampling.
+- Updated semantic file understanding to `semantic-file-understanding-v4` and
+  assessment judgment to `assessment-judge-v6` with error-routing,
+  option-precedence, scope-resolution, and autonomous resource-lifetime
+  guidance.
   The paired benchmark applies independent judgment, requires every affected
   buggy path, and uses changed-line evidence density plus a structured
   compound-guard anchor without suppressing unrelated same-class candidates.

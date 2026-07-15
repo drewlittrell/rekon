@@ -7017,6 +7017,7 @@ export const SEMANTIC_FILE_PROBLEM_CLASSES = [
   "cleanup-completeness",
   "error-propagation",
   "option-propagation",
+  "scope-resolution",
   "other",
 ] as const;
 
@@ -7410,7 +7411,7 @@ export function validateSemanticFileUnderstandingReport(
       ) {
         issues.push({
           path: `${path}.problemClass`,
-          message: "Expected dependency-resolution, cache-integrity, cleanup-completeness, error-propagation, option-propagation, or other when present.",
+          message: "Expected dependency-resolution, cache-integrity, cleanup-completeness, error-propagation, option-propagation, scope-resolution, or other when present.",
         });
       }
       if (typeof finding.message !== "string") issues.push({ path: `${path}.message`, message: "Expected a string." });

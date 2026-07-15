@@ -9,8 +9,10 @@ import { performance } from "node:perf_hooks";
 
 import { buildSemanticFileUnderstandingReport } from "../packages/capability-model/dist/index.js";
 import {
+  extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
+  extractScopeResolutionEvidence,
   extractResourceLifetimeEvidence,
 } from "../packages/capability-js-ts/dist/index.js";
 import {
@@ -19,7 +21,10 @@ import {
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
   SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+  evaluateDependencyResolutionSignals,
+  evaluateErrorPropagationSignals,
   evaluateResourceLifetimeSignals,
   evaluateSemanticFileCandidates,
 } from "../packages/capability-policy/dist/index.js";
@@ -59,6 +64,7 @@ const problemRules = new Map([
   ["cleanup-completeness", SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID],
   ["error-propagation", SEMANTIC_ERROR_PROPAGATION_RULE_ID],
   ["option-propagation", SEMANTIC_OPTION_PROPAGATION_RULE_ID],
+  ["scope-resolution", SEMANTIC_SCOPE_RESOLUTION_RULE_ID],
   ["resource-lifetime", SEMANTIC_RESOURCE_LIFETIME_RULE_ID],
 ]);
 const requestedPairs = new Set(options.pairs);
@@ -91,6 +97,14 @@ const runs = [];
 for (const pair of selectedPairs) {
   const repository = repositories.get(pair.repository);
   if (!repository) throw new Error(`Unknown repository ${pair.repository} for ${pair.id}.`);
+  if (pair.claim.category === "dependency-resolution") {
+    runs.push(...await evaluateDependencyResolutionPair(pair, repository));
+    continue;
+  }
+  if (pair.claim.category === "error-propagation") {
+    runs.push(...await evaluateErrorPropagationPair(pair, repository));
+    continue;
+  }
   if (pair.claim.category === "resource-lifetime") {
     runs.push(...await evaluateResourceLifetimePair(pair, repository));
     continue;
@@ -108,12 +122,14 @@ for (const pair of selectedPairs) {
       const sha256 = createHash("sha256").update(text).digest("hex");
       const errorControlFlow = extractErrorControlFlowEvidence({ path, content: text });
       const optionPropagation = extractOptionPropagationEvidence({ path, content: text });
+      const scopeResolution = extractScopeResolutionEvidence({ path, content: text });
       const prompt = buildSemanticFileUnderstandingPrompt({
         filePath: path,
         fileText: text,
         language: "typescript",
         errorControlFlow,
         optionPropagation,
+        scopeResolution,
       });
       const startedAt = performance.now();
       const result = await provider.completeJson({
@@ -166,6 +182,7 @@ for (const pair of selectedPairs) {
         changedLines,
         problemClass: pair.claim.category,
         errorControlFlow,
+        scopeResolution,
       }));
       const judgmentResults = [];
       for (const assessment of defectMatching) {
@@ -246,6 +263,7 @@ for (const pair of selectedPairs) {
             changedLines,
             problemClass: pair.claim.category,
             errorControlFlow,
+            scopeResolution,
           }) && assessmentChangedLineCoverage(assessment, changedLines)
             < MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE,
           evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
@@ -306,6 +324,278 @@ else {
   process.stdout.write(`Report: ${outputPath}\n`);
 }
 if (report.summary.failed > 0 || report.summary.errors > 0) process.exitCode = 1;
+
+async function evaluateDependencyResolutionPair(pair, repository) {
+  if (pair.affectedPaths.length !== 1) {
+    throw new Error(`${pair.id}: dependency-resolution calibration requires exactly one fix path.`);
+  }
+  const pairRuns = [];
+  const path = pair.affectedPaths[0];
+  const evidenceRef = { type: "EvidenceGraph", id: `eval-${pair.id}`, schemaVersion: "0.1.0" };
+
+  for (const revision of ["buggy", "fixed"]) {
+    process.stderr.write(`[semantic-problem-emitter-eval] ${pair.id}:${revision}:${path}\n`);
+    const commit = revision === "buggy" ? pair.buggyCommit : pair.fixedCommit;
+    const counterpartCommit = revision === "buggy" ? pair.fixedCommit : pair.buggyCommit;
+    const [text, counterpartText] = await Promise.all([
+      fetchText(rawGitHubUrl(repository.url, commit, path), options.timeoutMs),
+      fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
+    ]);
+    const sha256 = createHash("sha256").update(text).digest("hex");
+    const dependencyFlow = extractDependencyResolutionEvidence({ path, content: text });
+    const facts = dependencyFlow.map((entry) => ({
+      kind: "dependency_flow",
+      subject: `${path}:${entry.caller}:${entry.selectedBinding}:${entry.selectionLocation.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        selectedBinding: entry.selectedBinding,
+        candidateExpression: entry.candidateExpression,
+        collectionExpression: entry.collectionExpression,
+        exitKind: entry.exitKind,
+        ...(entry.exitCondition ? { exitCondition: entry.exitCondition } : {}),
+        returnedAfterLoop: entry.returnedAfterLoop,
+        selectionLocation: entry.selectionLocation,
+        ...(entry.exitLocation ? { exitLocation: entry.exitLocation } : {}),
+      },
+    }));
+    const matching = evaluateDependencyResolutionSignals(facts, evidenceRef);
+    const changedLines = changedLineNumbers(text, counterpartText);
+    const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
+      assessment,
+      changedLines,
+      problemClass: pair.claim.category,
+    }));
+    const judgmentResults = [];
+    for (const assessment of defectMatching) {
+      const sources = [{ path, text, sha256 }];
+      const judgmentCompletion = await provider.completeJson({
+        task: "policy.assessment-judgment",
+        schemaName: "AssessmentJudgmentResult",
+        prompt: buildAssessmentJudgmentPrompt({ assessment, sources, maxSourceChars: 24000 }),
+        model: config.model,
+        ...(config.effort ? { effort: config.effort } : {}),
+        maxOutputTokens: Math.min(options.maxOutputTokens, 1200),
+        jsonSchema: ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+      });
+      if (!judgmentCompletion.ok) {
+        judgmentResults.push({ verdict: "failed", confidence: 0, evidenceCount: 0, usage: {}, error: judgmentCompletion.error });
+        continue;
+      }
+      const judgment = coerceAssessmentJudgment({
+        assessment,
+        sources,
+        result: judgmentCompletion.data && typeof judgmentCompletion.data === "object"
+          ? judgmentCompletion.data
+          : undefined,
+      });
+      judgmentResults.push({
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+        evidenceCount: judgment.evidence.length,
+        usage: judgmentCompletion.usage ?? {},
+      });
+    }
+    const usage = sumUsage(judgmentResults.map((entry) => entry.usage));
+    const defectRetained = judgmentResults.some(
+      (entry) => entry.verdict === "confirmed" || entry.verdict === "verification_required",
+    );
+    const defectCleared = defectMatching.length === 0
+      || (judgmentResults.length === defectMatching.length
+        && judgmentResults.every((entry) => entry.verdict === "rejected"));
+    pairRuns.push({
+      pairId: pair.id,
+      revision,
+      path,
+      problemClass: pair.claim.category,
+      status: "ok",
+      classCandidateEmitted: matching.length > 0,
+      defectEmitted: defectMatching.length > 0,
+      matchingAssessments: matching.length,
+      defectMatchingAssessments: defectMatching.length,
+      defectRetained,
+      defectCleared,
+      judgments: judgmentResults.map(({ verdict, confidence, evidenceCount, error }) => ({
+        verdict,
+        confidence,
+        evidenceCount,
+        ...(error ? { error } : {}),
+      })),
+      changedLineCount: changedLines.size,
+      sourceEvidenceCount: matching.reduce(
+        (total, assessment) => total + (Array.isArray(assessment.details?.sourceEvidence) ? assessment.details.sourceEvidence.length : 0),
+        0,
+      ),
+      candidateMetadata: matching.map((assessment) => ({
+        findingId: assessment.id,
+        changedLineCoverage: assessmentChangedLineCoverage(assessment, changedLines),
+        structuredAnchorMatch: assessmentMatchesDefectEvidence({
+          assessment,
+          changedLines,
+          problemClass: pair.claim.category,
+        }),
+        evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
+          ? assessment.details.sourceEvidence.map((entry) => ({
+              path: entry.path,
+              lineStart: entry.lineStart,
+              lineEnd: entry.lineEnd,
+              changedLineOverlap: assessmentOverlapsChangedLines(
+                { details: { sourceEvidence: [entry] } },
+                changedLines,
+              ),
+            }))
+          : [],
+      })),
+      provider: config.provider,
+      model: config.model,
+      usage,
+      currentCostUsd: estimateUsageCost(usage, config.pricing),
+    });
+  }
+  return pairRuns;
+}
+
+async function evaluateErrorPropagationPair(pair, repository) {
+  if (pair.affectedPaths.length !== 1) {
+    throw new Error(`${pair.id}: error-propagation calibration requires exactly one fix path.`);
+  }
+  const pairRuns = [];
+  const path = pair.affectedPaths[0];
+  const evidenceRef = { type: "EvidenceGraph", id: `eval-${pair.id}`, schemaVersion: "0.1.0" };
+
+  for (const revision of ["buggy", "fixed"]) {
+    process.stderr.write(`[semantic-problem-emitter-eval] ${pair.id}:${revision}:${path}\n`);
+    const commit = revision === "buggy" ? pair.buggyCommit : pair.fixedCommit;
+    const counterpartCommit = revision === "buggy" ? pair.fixedCommit : pair.buggyCommit;
+    const [text, counterpartText] = await Promise.all([
+      fetchText(rawGitHubUrl(repository.url, commit, path), options.timeoutMs),
+      fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
+    ]);
+    const sha256 = createHash("sha256").update(text).digest("hex");
+    const errorControlFlow = extractErrorControlFlowEvidence({ path, content: text });
+    const facts = errorControlFlow.map((entry) => ({
+      kind: "error_flow",
+      subject: `${path}:${entry.caller}:${entry.action}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        action: entry.action,
+        ...(entry.errorName ? { errorName: entry.errorName } : {}),
+        ...(entry.errorIdentity ? { errorIdentity: entry.errorIdentity } : {}),
+        expressionKind: entry.expressionKind,
+        guards: entry.guards,
+        identityMappings: entry.identityMappings,
+        line: entry.location.line,
+        column: entry.location.column,
+      },
+    }));
+    const matching = evaluateErrorPropagationSignals(facts, evidenceRef);
+    const changedLines = changedLineNumbers(text, counterpartText);
+    const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
+      assessment,
+      changedLines,
+      problemClass: pair.claim.category,
+      errorControlFlow,
+    }));
+    const judgmentResults = [];
+    for (const assessment of defectMatching) {
+      const sources = [{ path, text, sha256 }];
+      const judgmentCompletion = await provider.completeJson({
+        task: "policy.assessment-judgment",
+        schemaName: "AssessmentJudgmentResult",
+        prompt: buildAssessmentJudgmentPrompt({
+          assessment,
+          sources,
+          maxSourceChars: 24000,
+        }),
+        model: config.model,
+        ...(config.effort ? { effort: config.effort } : {}),
+        maxOutputTokens: Math.min(options.maxOutputTokens, 1200),
+        jsonSchema: ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+      });
+      if (!judgmentCompletion.ok) {
+        judgmentResults.push({
+          verdict: "failed",
+          confidence: 0,
+          evidenceCount: 0,
+          usage: {},
+          error: judgmentCompletion.error,
+        });
+        continue;
+      }
+      const judgment = coerceAssessmentJudgment({
+        assessment,
+        sources,
+        result: judgmentCompletion.data && typeof judgmentCompletion.data === "object"
+          ? judgmentCompletion.data
+          : undefined,
+      });
+      judgmentResults.push({
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+        evidenceCount: judgment.evidence.length,
+        usage: judgmentCompletion.usage ?? {},
+      });
+    }
+    const usage = sumUsage(judgmentResults.map((entry) => entry.usage));
+    const defectRetained = judgmentResults.some(
+      (entry) => entry.verdict === "confirmed" || entry.verdict === "verification_required",
+    );
+    const defectCleared = defectMatching.length === 0
+      || (judgmentResults.length === defectMatching.length
+        && judgmentResults.every((entry) => entry.verdict === "rejected"));
+    pairRuns.push({
+      pairId: pair.id,
+      revision,
+      path,
+      problemClass: pair.claim.category,
+      status: "ok",
+      classCandidateEmitted: matching.length > 0,
+      defectEmitted: defectMatching.length > 0,
+      matchingAssessments: matching.length,
+      defectMatchingAssessments: defectMatching.length,
+      defectRetained,
+      defectCleared,
+      judgments: judgmentResults.map(({ verdict, confidence, evidenceCount, error }) => ({
+        verdict,
+        confidence,
+        evidenceCount,
+        ...(error ? { error } : {}),
+      })),
+      changedLineCount: changedLines.size,
+      sourceEvidenceCount: matching.reduce(
+        (total, assessment) => total + (Array.isArray(assessment.details?.sourceEvidence) ? assessment.details.sourceEvidence.length : 0),
+        0,
+      ),
+      candidateMetadata: matching.map((assessment) => ({
+        findingId: assessment.id,
+        changedLineCoverage: assessmentChangedLineCoverage(assessment, changedLines),
+        structuredAnchorMatch: assessmentMatchesDefectEvidence({
+          assessment,
+          changedLines,
+          problemClass: pair.claim.category,
+          errorControlFlow,
+        }),
+        evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
+          ? assessment.details.sourceEvidence.map((entry) => ({
+              path: entry.path,
+              lineStart: entry.lineStart,
+              lineEnd: entry.lineEnd,
+              changedLineOverlap: assessmentOverlapsChangedLines(
+                { details: { sourceEvidence: [entry] } },
+                changedLines,
+              ),
+            }))
+          : [],
+      })),
+      provider: config.provider,
+      model: config.model,
+      usage,
+      currentCostUsd: estimateUsageCost(usage, config.pricing),
+    });
+  }
+  return pairRuns;
+}
 
 async function evaluateResourceLifetimePair(pair, repository) {
   if (pair.affectedPaths.length !== 1) {

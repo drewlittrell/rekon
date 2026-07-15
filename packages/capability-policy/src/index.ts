@@ -42,6 +42,8 @@ import { FUNCTION_COMPLEXITY_RULE_ID, evaluateFunctionComplexity } from "./funct
 import { IMPORT_CYCLE_RULE_ID, evaluateImportCycleGraph, loadLatestImportGraph } from "./import-cycles.js";
 import { DEPENDENCY_HUB_RULE_ID, evaluateDependencyHubs } from "./dependency-hubs.js";
 import { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } from "./resource-lifetime.js";
+import { evaluateErrorPropagationSignals } from "./error-propagation.js";
+import { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
 import { loadFreshComplexityCoverage } from "./complexity-coverage.js";
 import {
   compileEffectiveCapabilityOntology,
@@ -63,6 +65,7 @@ import {
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
   applyAssessmentJudgments,
   evaluateSemanticFileCandidates,
   readCurrentRepoSource,
@@ -82,6 +85,36 @@ type EvidenceGraphLike = {
     confidence: number;
   }>;
 };
+
+type SourceRange = { path: string; lineStart: number; lineEnd: number };
+
+function overlapsStructuredSemanticAssessment(
+  assessment: Assessment,
+  structured: readonly Assessment[],
+): boolean {
+  const candidateRanges = assessmentSourceRanges(assessment);
+  if (!assessment.ruleId || candidateRanges.length === 0) return false;
+  return structured.some((direct) =>
+    direct.ruleId === assessment.ruleId
+    && assessmentSourceRanges(direct).some((directRange) =>
+      candidateRanges.some((candidateRange) =>
+        candidateRange.path === directRange.path
+        && candidateRange.lineStart <= directRange.lineEnd
+        && directRange.lineStart <= candidateRange.lineEnd)));
+}
+
+function assessmentSourceRanges(assessment: Assessment): SourceRange[] {
+  const evidence = assessment.details?.sourceEvidence;
+  if (!Array.isArray(evidence)) return [];
+  return evidence.flatMap((entry): SourceRange[] => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const value = entry as Record<string, unknown>;
+    if (typeof value.path !== "string" || !Number.isInteger(value.lineStart)) return [];
+    const lineStart = value.lineStart as number;
+    const lineEnd = Number.isInteger(value.lineEnd) ? value.lineEnd as number : lineStart;
+    return [{ path: value.path, lineStart, lineEnd }];
+  });
+}
 
 async function retainCurrentSemanticDebtEntries(reportLike: unknown, repoRoot: string): Promise<unknown> {
   if (!reportLike || typeof reportLike !== "object" || Array.isArray(reportLike)) return reportLike;
@@ -149,6 +182,7 @@ export const BUILT_IN_POLICY_RULES = [
   SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
   SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
   "imports.noDistImports",
   "imports.noNodeModulesRelativeImports",
@@ -174,6 +208,8 @@ export { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capabil
 export { NAMING_CONTRACT_RULE_ID, evaluateNamingContract, splitPascalTokens } from "./naming-contract.js";
 export { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 export { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } from "./resource-lifetime.js";
+export { evaluateErrorPropagationSignals } from "./error-propagation.js";
+export { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
@@ -313,6 +349,16 @@ export const policyEvaluator: Evaluator = {
           evidenceComplete: graph.header.freshness?.status === "fresh",
         })
       : [];
+    const errorPropagationAssessments = !disabledRules.has(SEMANTIC_ERROR_PROPAGATION_RULE_ID)
+      ? evaluateErrorPropagationSignals(graph.facts, evidenceRef)
+      : [];
+    const dependencyResolutionAssessments = !disabledRules.has(SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID)
+      ? evaluateDependencyResolutionSignals(graph.facts, evidenceRef)
+      : [];
+    const structuredSemanticAssessments = [
+      ...errorPropagationAssessments,
+      ...dependencyResolutionAssessments,
+    ];
     const grammarDivergence = !disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID)
       ? await grammarDivergenceSignals(graph, input, artifacts, evidenceRef)
       : { findings: [], assessments: [] };
@@ -333,6 +379,8 @@ export const policyEvaluator: Evaluator = {
     const rawAssessments: Assessment[] = [
       ...complexityAssessments,
       ...resourceLifetimeAssessments,
+      ...errorPropagationAssessments,
+      ...dependencyResolutionAssessments,
       ...importGraphAssessments,
       ...evaluateSourceQualitySignals(graph.facts, evidenceRef)
         .filter((assessment) => !assessment.ruleId || !disabledRules.has(assessment.ruleId))
@@ -360,7 +408,9 @@ export const policyEvaluator: Evaluator = {
       })),
       ...deadCodeResult.risks,
       ...semanticDebtClaims,
-      ...semanticFileCandidates.assessments,
+      ...semanticFileCandidates.assessments.filter(
+        (assessment) => !overlapsStructuredSemanticAssessment(assessment, structuredSemanticAssessments),
+      ),
       ...embeddingDuplicationOpportunities,
       ...repositoryChecks.assessments,
       ...securityScans.assessments,

@@ -5,9 +5,11 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 
 import capability, {
+  extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
+  extractScopeResolutionEvidence,
   jsTsProvider,
 } from "../dist/index.js";
 
@@ -264,6 +266,7 @@ test("JS/TS provider detects inverse listener delegation and partial allowlist v
 
 test("error-control-flow evidence distinguishes merged and identity-specific guards", async () => {
   const buggySource = [
+    "const classify = error => ({ aborted: error?.name === 'AbortError', condition: error?.name === 'ConditionError' });",
     "export function run(conditionResult: boolean, signal: AbortSignal) {",
     "  if (conditionResult === false || signal.aborted) {",
     "    throw { name: 'ConditionError', message: 'condition failed' };",
@@ -271,6 +274,7 @@ test("error-control-flow evidence distinguishes merged and identity-specific gua
     "}",
   ].join("\n");
   const fixedSource = [
+    "const classify = error => ({ aborted: error?.name === 'AbortError', condition: error?.name === 'ConditionError' });",
     "export function run(conditionResult: boolean, signal: AbortSignal) {",
     "  if (conditionResult === false) {",
     "    throw { name: 'ConditionError', message: 'condition failed' };",
@@ -291,8 +295,12 @@ test("error-control-flow evidence distinguishes merged and identity-specific gua
     operator: "or",
     terms: ["conditionResult === false", "signal.aborted"],
     polarity: "when-true",
-    location: { line: 2, column: 3 },
+    location: { line: 3, column: 3 },
   });
+  assert.deepEqual(buggy[0].identityMappings.map((mapping) => [mapping.identity, mapping.property]), [
+    ["AbortError", "aborted"],
+    ["ConditionError", "condition"],
+  ]);
 
   const fixed = extractErrorControlFlowEvidence({ path: "src/fixed.ts", content: fixedSource });
   assert.deepEqual(fixed.map((entry) => ({
@@ -313,7 +321,51 @@ test("error-control-flow evidence distinguishes merged and identity-specific gua
     assert.equal(facts.length, 2);
     assert.equal(new Set(facts.map((fact) => fact.subject)).size, 2);
     assert.deepEqual(facts.map((fact) => fact.value.errorIdentity).sort(), ["AbortError", "ConditionError"]);
+    assert.ok(facts.every((fact) => fact.value.identityMappings.length === 2));
     assert.ok(facts.every((fact) => fact.provenance.line === fact.value.line));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("dependency-flow evidence distinguishes conditional overwrite from first-match exit", async () => {
+  const buggySource = [
+    "export function resolve(children, name) {",
+    "  let selected = null;",
+    "  for (const child of children) {",
+    "    if (!child.providers.has(name)) continue;",
+    "    selected = child.providers.get(name)!;",
+    "    if (!selected.pending) break;",
+    "  }",
+    "  return selected;",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource.replace("if (!selected.pending) break;", "break;");
+
+  const buggy = extractDependencyResolutionEvidence({ path: "src/buggy.ts", content: buggySource });
+  assert.equal(buggy.length, 1);
+  assert.equal(buggy[0].caller, "resolve");
+  assert.equal(buggy[0].selectedBinding, "selected");
+  assert.equal(buggy[0].candidateExpression, "child.providers.get(name)");
+  assert.equal(buggy[0].exitKind, "conditional-break");
+  assert.equal(buggy[0].exitCondition, "!selected.pending");
+  assert.equal(buggy[0].returnedAfterLoop, true);
+
+  const fixed = extractDependencyResolutionEvidence({ path: "src/fixed.ts", content: fixedSource });
+  assert.equal(fixed.length, 1);
+  assert.equal(fixed[0].exitKind, "unconditional-break");
+  assert.equal(fixed[0].returnedAfterLoop, true);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-dependency-flow-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "buggy.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "dependency_flow");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.exitKind, "conditional-break");
+    assert.equal(facts[0].value.returnedAfterLoop, true);
+    assert.equal(facts[0].provenance.line, facts[0].value.selectionLocation.line);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -432,6 +484,59 @@ test("resource-flow evidence links request retention to an explicit connection r
       ["retain", "socket._meta"],
     ]);
     assert.ok(facts.every((fact) => fact.provenance.line === fact.value.line));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("scope-model evidence records lexical boundaries used by identifier rewriting", async () => {
+  const buggySource = [
+    "const blockNodeTypeRE = /^BlockStatement$|^For(?:In|Of)?Statement$/;",
+    "function setScope(node, name) { scopeMap.set(node, name); }",
+    "function isInScope(name, parents) { return parents.some(node => scopeMap.get(node) === name); }",
+    "function findParentScope(parents, isVar = false) { return parents.find(isVar ? isFunction : isBlock); }",
+    "function walk(node) {",
+    "  if (node.type === 'SwitchCase') onStatements(node.consequent);",
+    "  if (node.type === 'VariableDeclarator') findParentScope(parentStack, varKind === 'var');",
+    "  onIdentifier(node);",
+    "  output.overwrite(node.start, node.end, replacement);",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource
+    .replace("^BlockStatement$|", "^BlockStatement$|^SwitchStatement$|")
+    .replace("function walk(node) {", [
+      "function isSkippedParent(node, parent) {",
+      "  return parent.type === 'SwitchStatement' && node === parent.discriminant;",
+      "}",
+      "function walk(node) {",
+    ].join("\n"));
+
+  const buggy = extractScopeResolutionEvidence({ path: "src/transform.ts", content: buggySource });
+  assert.equal(buggy.length, 1);
+  assert.equal(buggy[0].classifierName, "blockNodeTypeRE");
+  assert.deepEqual(buggy[0].unmodeledLexicalBoundaries, ["SwitchStatement"]);
+  assert.equal(buggy[0].rewritesIdentifiers, true);
+  assert.equal(buggy[0].excludesSwitchDiscriminant, false);
+
+  const fixed = extractScopeResolutionEvidence({ path: "src/transform.ts", content: fixedSource });
+  assert.equal(fixed.length, 1);
+  assert.deepEqual(fixed[0].unmodeledLexicalBoundaries, []);
+  assert.equal(fixed[0].excludesSwitchDiscriminant, true);
+  assert.deepEqual(extractScopeResolutionEvidence({
+    path: "src/ordinary.ts",
+    content: "switch (value) { case 1: { const local = value; break; } }",
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-scope-model-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "transform.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "scope_model");
+    assert.equal(facts.length, 1);
+    assert.deepEqual(facts[0].value.unmodeledLexicalBoundaries, ["SwitchStatement"]);
+    assert.equal(facts[0].value.classifierName, "blockNodeTypeRE");
+    assert.equal(facts[0].provenance.line, facts[0].value.line);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

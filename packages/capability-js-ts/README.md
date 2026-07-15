@@ -51,9 +51,13 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
-- `event_flow`, `state_access`, `error_flow`, `option_flow`, and `resource_flow` for narrow
+- `event_flow`, `state_access`, `dependency_flow`, `error_flow`, `option_flow`,
+  `resource_flow`, and `scope_model` for narrow
   deterministic behavior signals; option-flow facts preserve spread sources,
   overrides, fallbacks, and callback context without classifying them as defects.
+  Error-flow facts preserve visible error-identity mappings. Scope-model facts
+  describe identifier-rewriting classifiers and lexical boundaries rather than
+  treating ordinary language constructs as defects.
   Resource-flow facts identify request/reply objects stored on connection-owned
   state and matching explicit releases; they do not claim runtime reachability
 
@@ -66,8 +70,10 @@ projection, evaluation, resolver fallback, and docs.
 
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
-`extractErrorControlFlowEvidence()` and `extractOptionPropagationEvidence()`
-expose structured observations used by Rekon's semantic prompt pipeline.
+`extractDependencyResolutionEvidence()`, `extractErrorControlFlowEvidence()`,
+`extractOptionPropagationEvidence()`, and `extractScopeResolutionEvidence()`
+expose structured observations used by Rekon's policy and semantic judgment
+pipeline.
 `extractResourceLifetimeEvidence()` exposes the retain/release observations
 joined by policy across a complete EvidenceGraph.
 

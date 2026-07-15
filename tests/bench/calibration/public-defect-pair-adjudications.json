@@ -4,9 +4,9 @@
     {
       "pairId": "vite-ssr-switch-scope",
       "claimVerdict": "valid",
-      "coverage": "unrelated-signal",
-      "recommendedAction": "evidence-source",
-      "rationale": "The persistent dead-code, complexity, and type-escape assessments do not describe the transform's incorrect scope model. Proving this defect requires transform-specific output or regression-test evidence; a generic switch-scope rule would accuse ordinary correct code."
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon now emits semantic.scopeResolution from structured evidence about the transform's identifier-rewriting scope classifier. The buggy revision identifies SwitchStatement as an unmodeled lexical boundary, while the fixed classifier includes it and leaves the switch discriminant outside that scope; ordinary switch statements remain outside this emitter's jurisdiction."
     },
     {
       "pairId": "nest-shutdown-cleanup-completeness",

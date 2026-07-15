@@ -48,9 +48,11 @@ they may collide with built-ins.
 | `entry_point` | manifest or convention-backed repository root |
 | `event_flow` | literal event emission or subscription |
 | `state_access` | direct call through a recognized imported state SDK |
-| `error_flow` | explicit throw or rethrow with source location, thrown identity, and enclosing branch guards where available |
+| `dependency_flow` | candidate selected from a lookup inside iteration, including exit condition and post-loop return behavior |
+| `error_flow` | explicit throw or rethrow with source location, thrown identity, enclosing branch guards, and visible downstream identity mappings where available |
 | `option_flow` | same-name option override after an object spread, including fallback and callback context where available |
 | `resource_flow` | request/reply retention on socket, connection, or server-owned state, or an explicit release of that resource key |
+| `scope_model` | source-transform scope classifier, resolver functions, modeled node kinds, and unmodeled lexical boundaries used during identifier rewriting |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |
 | `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, validation, listener-lifecycle, async-control-flow, or test-hygiene risk signal |
 

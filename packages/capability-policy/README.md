@@ -69,6 +69,19 @@ stored on connection-owned state and no matching explicit release exists.
 Partial evidence graphs remain silent, and the claim still requires autonomous
 judgment or runtime verification before it can be treated as a defect.
 
+Error-propagation policy compares compound throw guards with deterministic
+error-identity mappings in the same source file. It emits a semantic claim only
+when distinct visible causes are merged under one identity, leaving runtime
+ordering and externally visible behavior to autonomous judgment or focused
+verification. Scope-resolution candidates remain bounded to source transformers
+that expose both identifier rewriting and a lexical-boundary classifier.
+
+Dependency-resolution policy consumes `dependency_flow` facts only when a loop
+stores a lookup result, exits conditionally after selection, and returns that
+mutable selection after iteration. An unconditional first-match exit stays
+silent. Intended provider precedence remains an autonomous judgment or focused
+verification question.
+
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same
 normalized diagnostic is reproduced by two distinct runs on the current

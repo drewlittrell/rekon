@@ -49,7 +49,7 @@ test("assessment-judgment eval dry run exposes cost and coverage without credent
     "gpt-5.6-luna@low",
     "claude-sonnet-5@low",
   ]);
-  assert.deepEqual(payload.emitterGapClasses, ["scope-resolution"]);
+  assert.deepEqual(payload.emitterGapClasses, []);
 });
 
 function visit(value, inspect) {

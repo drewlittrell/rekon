@@ -230,7 +230,7 @@ judgments needed to interpret them live under `tests/bench/calibration/`.
 ### Semantic problem emitters
 
 The dependency-resolution, cache-integrity, cleanup-completeness,
-error-propagation, option-propagation, and cross-file resource-lifetime
+error-propagation, option-propagation, scope-resolution, and cross-file resource-lifetime
 emitters have a bounded live paired check:
 
 ```bash
@@ -244,9 +244,10 @@ candidates through the production assessment judge, requires every affected
 buggy path to be retained, and requires fixed defects to be cleared. Defect
 identity normally uses changed-line evidence density so one contextual citation
 cannot turn an unrelated same-class candidate into the repaired defect. The
-error-propagation pair additionally accepts a changed compound throw guard
-backed by deterministic guard and error-identity evidence because its downstream
-handling evidence is necessarily distributed. The durable aggregate is
+error-propagation pair uses deterministic compound-guard and downstream
+identity-mapping evidence before autonomous judgment. The scope-resolution pair
+uses a structured classifier anchor so ordinary switch statements do not enter
+its jurisdiction. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 
 ## Corpus retention

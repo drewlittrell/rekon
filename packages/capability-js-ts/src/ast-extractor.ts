@@ -165,6 +165,13 @@ export type ErrorControlFlowGuard = {
   location: AstLocation;
 };
 
+export type ErrorIdentityMapping = {
+  identity: string;
+  property: string;
+  expression: string;
+  location: AstLocation;
+};
+
 export type ErrorControlFlowEvidence = {
   kind: "error";
   caller: string;
@@ -173,6 +180,7 @@ export type ErrorControlFlowEvidence = {
   errorIdentity?: string;
   expressionKind: "identifier" | "object" | "constructor" | "other";
   guards: ErrorControlFlowGuard[];
+  identityMappings: ErrorIdentityMapping[];
   location: AstLocation;
 };
 
@@ -205,12 +213,41 @@ export type ResourceLifetimeEvidence = {
   location: AstLocation;
 };
 
+export type ScopeResolutionEvidence = {
+  kind: "scope-model";
+  classifierName: string;
+  classifierExpression: string;
+  resolverFunctions: string[];
+  modeledNodeKinds: string[];
+  unmodeledLexicalBoundaries: string[];
+  handlesSwitchCases: boolean;
+  rewritesIdentifiers: boolean;
+  excludesSwitchDiscriminant: boolean;
+  location: AstLocation;
+};
+
+export type DependencyResolutionEvidence = {
+  kind: "dependency-selection";
+  caller: string;
+  selectedBinding: string;
+  candidateExpression: string;
+  collectionExpression: string;
+  exitKind: "conditional-break" | "unconditional-break" | "none";
+  exitCondition?: string;
+  returnedAfterLoop: boolean;
+  selectionLocation: AstLocation;
+  exitLocation?: AstLocation;
+  location: AstLocation;
+};
+
 type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
   | ErrorControlFlowEvidence
   | OptionPropagationEvidence
-  | ResourceLifetimeEvidence;
+  | ResourceLifetimeEvidence
+  | ScopeResolutionEvidence
+  | DependencyResolutionEvidence;
 
 export interface AstExtractionResult {
   language: AstLanguage;
@@ -288,6 +325,20 @@ export function extractResourceLifetimeEvidence(input: AstExtractionInput): Reso
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ResourceLifetimeEvidence => record.kind === "resource-lifetime",
+  );
+}
+
+export function extractScopeResolutionEvidence(input: AstExtractionInput): ScopeResolutionEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is ScopeResolutionEvidence => record.kind === "scope-model",
+  );
+}
+
+export function extractDependencyResolutionEvidence(input: AstExtractionInput): DependencyResolutionEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is DependencyResolutionEvidence => record.kind === "dependency-selection",
   );
 }
 
@@ -558,6 +609,7 @@ function extractCallRecords(sourceFile: ts.SourceFile): AstCallRecord[] {
 
 function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   const records: AstFlowRecord[] = [];
+  const identityMappings = extractErrorIdentityMappings(sourceFile);
 
   const visitFlows = (node: ts.Node, context: { caller: string; className?: string; caughtName?: string }): void => {
     let childContext = context;
@@ -615,6 +667,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
         ...(error.errorIdentity ? { errorIdentity: error.errorIdentity } : {}),
         expressionKind: error.expressionKind,
         guards: enclosingErrorGuards(node, sourceFile),
+        identityMappings,
         location: locationOf(node, sourceFile),
       });
     }
@@ -623,7 +676,251 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   };
 
   visitFlows(sourceFile, { caller: "__module__" });
+  records.push(...dependencyResolutionRecords(sourceFile));
+  records.push(...scopeResolutionRecords(sourceFile));
   return records;
+}
+
+function extractErrorIdentityMappings(sourceFile: ts.SourceFile): ErrorIdentityMapping[] {
+  const mappings: ErrorIdentityMapping[] = [];
+  const visitMappings = (node: ts.Node): void => {
+    if (ts.isPropertyAssignment(node)) {
+      const property = methodNameText(node.name);
+      const initializer = unwrapParenthesized(node.initializer);
+      if (property && ts.isBinaryExpression(initializer)
+        && (initializer.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken
+          || initializer.operatorToken.kind === ts.SyntaxKind.EqualsEqualsToken)) {
+        const left = unwrapParenthesized(initializer.left);
+        const right = unwrapParenthesized(initializer.right);
+        const identity = identityComparison(left, right) ?? identityComparison(right, left);
+        if (identity) {
+          mappings.push({
+            identity,
+            property,
+            expression: boundedNodeText(initializer, sourceFile),
+            location: locationOf(initializer, sourceFile),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visitMappings);
+  };
+  visitMappings(sourceFile);
+  return mappings.sort((left, right) => left.location.line - right.location.line || left.property.localeCompare(right.property));
+}
+
+function identityComparison(candidate: ts.Expression, identity: ts.Expression): string | undefined {
+  const path = memberPath(candidate);
+  if (!path || path.at(-1) !== "name" || !ts.isStringLiteralLike(identity)) return undefined;
+  return /Error$/u.test(identity.text) ? identity.text : undefined;
+}
+
+function dependencyResolutionRecords(sourceFile: ts.SourceFile): DependencyResolutionEvidence[] {
+  const records: DependencyResolutionEvidence[] = [];
+  const visitLoops = (node: ts.Node): void => {
+    if (ts.isForOfStatement(node) || ts.isForInStatement(node) || ts.isForStatement(node)) {
+      const selection = candidateSelectionAssignment(node.statement, sourceFile);
+      if (selection) {
+        const exit = loopExitAfterSelection(node.statement, selection.node, sourceFile);
+        records.push({
+          kind: "dependency-selection",
+          caller: enclosingCaller(node),
+          selectedBinding: selection.binding,
+          candidateExpression: selection.expression,
+          collectionExpression: ts.isForStatement(node)
+            ? boundedNodeText(node.condition ?? node, sourceFile)
+            : boundedNodeText(node.expression, sourceFile),
+          exitKind: exit.kind,
+          ...(exit.condition ? { exitCondition: exit.condition } : {}),
+          returnedAfterLoop: bindingReturnedAfterLoop(node, selection.binding),
+          selectionLocation: locationOf(selection.node, sourceFile),
+          ...(exit.node ? { exitLocation: locationOf(exit.node, sourceFile) } : {}),
+          location: locationOf(node, sourceFile),
+        });
+      }
+    }
+    ts.forEachChild(node, visitLoops);
+  };
+  visitLoops(sourceFile);
+  return records;
+}
+
+function candidateSelectionAssignment(
+  body: ts.Statement,
+  sourceFile: ts.SourceFile,
+): { node: ts.BinaryExpression; binding: string; expression: string } | undefined {
+  let match: { node: ts.BinaryExpression; binding: string; expression: string } | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== body && (isFunctionBoundary(node) || isLoopStatement(node)))) return;
+    if (ts.isBinaryExpression(node)
+      && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      && ts.isIdentifier(node.left)) {
+      const right = unwrapExpression(node.right);
+      if (ts.isCallExpression(right)
+        && ts.isPropertyAccessExpression(right.expression)
+        && right.expression.name.text === "get") {
+        match = {
+          node,
+          binding: node.left.text,
+          expression: boundedNodeText(right, sourceFile),
+        };
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return match;
+}
+
+function loopExitAfterSelection(
+  body: ts.Statement,
+  selection: ts.BinaryExpression,
+  sourceFile: ts.SourceFile,
+): { kind: DependencyResolutionEvidence["exitKind"]; condition?: string; node?: ts.BreakStatement } {
+  const breaks: Array<{ node: ts.BreakStatement; condition?: string }> = [];
+  const visit = (node: ts.Node): void => {
+    if (node !== body && (isFunctionBoundary(node) || isLoopStatement(node))) return;
+    if (ts.isBreakStatement(node) && !node.label && node.getStart(sourceFile) > selection.getStart(sourceFile)) {
+      let current: ts.Node | undefined = node.parent;
+      let condition: string | undefined;
+      while (current && current !== body) {
+        if (ts.isIfStatement(current)) {
+          condition = boundedNodeText(current.expression, sourceFile);
+          break;
+        }
+        current = current.parent;
+      }
+      breaks.push({ node, ...(condition ? { condition } : {}) });
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  const exit = breaks.sort((left, right) => left.node.getStart(sourceFile) - right.node.getStart(sourceFile))[0];
+  if (!exit) return { kind: "none" };
+  return {
+    kind: exit.condition ? "conditional-break" : "unconditional-break",
+    ...(exit.condition ? { condition: exit.condition } : {}),
+    node: exit.node,
+  };
+}
+
+function bindingReturnedAfterLoop(loop: ts.IterationStatement, binding: string): boolean {
+  if (!ts.isBlock(loop.parent)) return false;
+  const index = loop.parent.statements.indexOf(loop);
+  if (index < 0) return false;
+  return loop.parent.statements.slice(index + 1).some((statement) => containsReturnedBinding(statement, binding));
+}
+
+function containsReturnedBinding(node: ts.Node, binding: string): boolean {
+  if (isFunctionBoundary(node)) return false;
+  if (ts.isReturnStatement(node) && node.expression) {
+    const expression = unwrapExpression(node.expression);
+    return ts.isIdentifier(expression) && expression.text === binding;
+  }
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found) found = containsReturnedBinding(child, binding);
+  });
+  return found;
+}
+
+function enclosingCaller(node: ts.Node): string {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (ts.isFunctionDeclaration(current)) return current.name?.text ?? "default";
+    if (ts.isMethodDeclaration(current)) return methodNameText(current.name) ?? "__anonymous__";
+    if (ts.isConstructorDeclaration(current)) return "constructor";
+    if ((ts.isArrowFunction(current) || ts.isFunctionExpression(current))
+      && ts.isVariableDeclaration(current.parent)
+      && ts.isIdentifier(current.parent.name)) {
+      return current.parent.name.text;
+    }
+    current = current.parent;
+  }
+  return "__module__";
+}
+
+function isLoopStatement(node: ts.Node): node is ts.IterationStatement {
+  return ts.isForStatement(node)
+    || ts.isForInStatement(node)
+    || ts.isForOfStatement(node)
+    || ts.isWhileStatement(node)
+    || ts.isDoStatement(node);
+}
+
+function unwrapExpression(expression: ts.Expression): ts.Expression {
+  let current = expression;
+  while (ts.isParenthesizedExpression(current)
+    || ts.isAsExpression(current)
+    || ts.isTypeAssertionExpression(current)
+    || ts.isNonNullExpression(current)) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function scopeResolutionRecords(sourceFile: ts.SourceFile): ScopeResolutionEvidence[] {
+  const text = sourceFile.text;
+  const resolverFunctions = new Set<string>();
+  const classifiers: Array<{ name: string; expression: string; location: AstLocation }> = [];
+
+  const visitScopeModel = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && node.name && /(?:scope|binding)/iu.test(node.name.text)) {
+      resolverFunctions.add(node.name.text);
+    } else if (
+      ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && node.initializer
+    ) {
+      if (
+        (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))
+        && /(?:scope|binding)/iu.test(node.name.text)
+      ) {
+        resolverFunctions.add(node.name.text);
+      }
+      const expression = boundedNodeText(node.initializer, sourceFile);
+      if (
+        /(?:block|scope)/iu.test(node.name.text)
+        && /BlockStatement/u.test(expression)
+        && (ts.isRegularExpressionLiteral(node.initializer) || ts.isStringLiteralLike(node.initializer))
+      ) {
+        classifiers.push({
+          name: node.name.text,
+          expression,
+          location: locationOf(node.name, sourceFile),
+        });
+      }
+    }
+    ts.forEachChild(node, visitScopeModel);
+  };
+  visitScopeModel(sourceFile);
+
+  const handlesSwitchCases = /\bSwitchCase\b/u.test(text);
+  const routesDeclarations = /\bVariableDeclarator\b/u.test(text) && /\bfindParentScope\b/u.test(text);
+  const rewritesIdentifiers = /\bonIdentifier\b/u.test(text) && /\b(?:overwrite|replace|rewrite|update)\b/iu.test(text);
+  if (!handlesSwitchCases || !routesDeclarations || !rewritesIdentifiers || resolverFunctions.size < 2) return [];
+
+  return classifiers.map((classifier) => {
+    const modeledNodeKinds = [...new Set(
+      classifier.expression.match(/[A-Z][A-Za-z]*(?:Statement|Block|Case|Declaration|Expression)/gu) ?? [],
+    )].sort();
+    const modelsSwitch = classifier.expression.includes("SwitchStatement");
+    return {
+      kind: "scope-model",
+      classifierName: classifier.name,
+      classifierExpression: classifier.expression,
+      resolverFunctions: [...resolverFunctions].sort(),
+      modeledNodeKinds,
+      unmodeledLexicalBoundaries: modelsSwitch ? [] : ["SwitchStatement"],
+      handlesSwitchCases,
+      rewritesIdentifiers,
+      excludesSwitchDiscriminant: modelsSwitch
+        && /(?:SwitchStatement[\s\S]{0,240}discriminant|discriminant[\s\S]{0,240}SwitchStatement)/u.test(text),
+      location: classifier.location,
+    };
+  });
 }
 
 const RESOURCE_OWNER_KINDS = new Set(["socket", "connection", "server"] as const);

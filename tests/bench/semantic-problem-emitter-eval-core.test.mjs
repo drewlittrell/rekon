@@ -150,6 +150,33 @@ test("resource-lifetime defect identity accepts structured cross-file retention 
   }), false);
 });
 
+test("scope-resolution defect identity accepts a cited structured classifier anchor", () => {
+  const assessment = {
+    details: {
+      sourceEvidence: [
+        { lineStart: 40, lineEnd: 40 },
+        { lineStart: 10, lineEnd: 15 },
+      ],
+    },
+  };
+  const scopeResolution = [{
+    unmodeledLexicalBoundaries: ["SwitchStatement"],
+    location: { line: 40, column: 7 },
+  }];
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set([40]),
+    problemClass: "scope-resolution",
+    scopeResolution,
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set([40]),
+    problemClass: "scope-resolution",
+    scopeResolution: [{ ...scopeResolution[0], unmodeledLexicalBoundaries: [] }],
+  }), false);
+});
+
 test("paired emission requires defect evidence in every affected buggy path", () => {
   const pair = {
     id: "cleanup-pair",

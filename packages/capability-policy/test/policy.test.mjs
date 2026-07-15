@@ -11,10 +11,13 @@ import policyCapability, {
   SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
   SEMANTIC_ERROR_PROPAGATION_RULE_ID,
   SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
   SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
   SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   applyAssessmentJudgments,
   evaluateDependencyAuditReports,
+  evaluateDependencyResolutionSignals,
+  evaluateErrorPropagationSignals,
   evaluateSemanticFileCandidates,
   evaluateResourceLifetimeSignals,
 } from "../dist/index.js";
@@ -256,6 +259,7 @@ test("semantic problem classes map to stable assessment rules without changing g
     "await Promise.all(cleanupHandlers);",
     "if (conditionFailed || signal.aborted) throw { name: 'ConditionError' };",
     "return withOtpHandling({ operation: otp => publish({ ...publishOptions, otp }) });",
+    "const blockNodeTypeRE = /^BlockStatement$/;",
     "return cachedCode;",
   ].join("\n");
   const source = {
@@ -305,6 +309,12 @@ test("semantic problem classes map to stable assessment rules without changing g
       },
       {
         ...baseFinding,
+        id: "incorrect-scope-model",
+        problemClass: "scope-resolution",
+        sourceEvidence: ["const blockNodeTypeRE = /^BlockStatement$/;"],
+      },
+      {
+        ...baseFinding,
         id: "other",
         problemClass: "other",
         sourceEvidence: ["return cachedCode;"],
@@ -319,6 +329,7 @@ test("semantic problem classes map to stable assessment rules without changing g
     SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
     SEMANTIC_ERROR_PROPAGATION_RULE_ID,
     SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+    SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
     SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   ].sort());
   assert.equal(
@@ -340,6 +351,10 @@ test("semantic problem classes map to stable assessment rules without changing g
   assert.equal(
     assessments.find((assessment) => assessment.ruleId === SEMANTIC_OPTION_PROPAGATION_RULE_ID).type,
     SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+  );
+  assert.equal(
+    assessments.find((assessment) => assessment.ruleId === SEMANTIC_SCOPE_RESOLUTION_RULE_ID).type,
+    SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
   );
 });
 
@@ -396,6 +411,77 @@ test("resource lifetime requires complete cross-file retention evidence without 
   }], ref, { evidenceComplete: true }).length, 0);
 });
 
+test("structured error propagation requires a merged guard and distinct mapped identities", () => {
+  const ref = { type: "EvidenceGraph", id: "error-flow", schemaVersion: "0.1.0" };
+  const mappings = [
+    { identity: "AbortError", property: "aborted", expression: "error?.name === 'AbortError'", location: { line: 10, column: 14 } },
+    { identity: "ConditionError", property: "condition", expression: "error?.name === 'ConditionError'", location: { line: 11, column: 16 } },
+  ];
+  const facts = [{
+    kind: "error_flow",
+    value: {
+      source: "src/thunk.ts",
+      caller: "run",
+      errorIdentity: "ConditionError",
+      guards: [{
+        expression: "conditionResult === false || signal.aborted",
+        operator: "or",
+        terms: ["conditionResult === false", "signal.aborted"],
+        location: { line: 40, column: 3 },
+      }],
+      identityMappings: mappings,
+    },
+  }];
+
+  const assessments = evaluateErrorPropagationSignals(facts, ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_ERROR_PROPAGATION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "merged-error-identity");
+  assert.deepEqual(assessments[0].details.identityMappings.map((mapping) => mapping.identity), [
+    "AbortError",
+    "ConditionError",
+  ]);
+  assert.deepEqual(evaluateErrorPropagationSignals([{
+    ...facts[0],
+    value: {
+      ...facts[0].value,
+      guards: [{ expression: "conditionResult === false", operator: "single", terms: ["conditionResult === false"], location: { line: 40, column: 3 } }],
+    },
+  }], ref), []);
+});
+
+test("structured dependency resolution requires conditional exit and post-loop selection", () => {
+  const ref = { type: "EvidenceGraph", id: "dependency-flow", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "dependency_flow",
+    value: {
+      source: "src/injector.ts",
+      caller: "lookup",
+      selectedBinding: "selected",
+      candidateExpression: "providers.get(name)",
+      collectionExpression: "children",
+      exitKind: "conditional-break",
+      exitCondition: "!selected.pending",
+      returnedAfterLoop: true,
+      selectionLocation: { line: 20, column: 5 },
+      exitLocation: { line: 21, column: 28 },
+    },
+  };
+
+  const assessments = evaluateDependencyResolutionSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "conditional-candidate-overwrite");
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, exitKind: "unconditional-break", exitCondition: undefined },
+  }], ref), []);
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, returnedAfterLoop: false },
+  }], ref), []);
+});
+
 test("current high-confidence judgments confirm or reject matching candidates without mutating unrelated assessments", () => {
   const evidence = { type: "EvidenceGraph", id: "evidence-1", schemaVersion: "0.1.0" };
   const sourceAssessmentRef = { type: "AssessmentReport", id: "assessment-source", schemaVersion: "0.1.0" };
@@ -438,7 +524,7 @@ test("current high-confidence judgments confirm or reject matching candidates wi
       mode: "auto",
       provider: "mock",
       model: "mock-model",
-      promptVersion: "assessment-judge-v5",
+      promptVersion: "assessment-judge-v6",
       coercionVersion: "assessment-judgment-v2",
       maxCandidates: 3,
       maxSourceChars: 24000,

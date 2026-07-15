@@ -132,15 +132,25 @@ export function buildAssessmentJudgmentPrompt(input: {
 }
 
 function assessmentSpecificRules(assessment: Assessment): string[] {
+  if (assessment.ruleId === "semantic.dependencyResolution") {
+    return [
+      "- For dependency resolution, retain only when a loop stores an eligible candidate, can continue after that selection, and returns the mutable selection after iteration so a later candidate can replace an earlier match.",
+      "- Use verification_required when that overwrite structure is visible but the intended provider precedence or candidate eligibility contract is external; recommend an order-sensitive resolution regression.",
+      "- Reject the claim when the first eligible candidate exits unconditionally, when the stored selection is not returned, or when source proves last-match precedence is intentional.",
+    ];
+  }
   if (assessment.ruleId === "semantic.cleanupCompleteness") {
     return [
       "- For cleanup completeness, visible fail-fast aggregation before later lifecycle cleanup can support retention even when runtime proof is still required.",
+      "- Retain only when cited source shows the exit mechanism before a later obligation: Promise.all, an explicit throw or return, or an unguarded awaited cleanup whose rejection exits the function. Promise.allSettled is not such evidence because rejected member promises become result entries.",
       "- Reject the claim when peer cleanup uses all-settled behavior and later cleanup calls are insulated so each visible obligation is still attempted.",
+      "- Do not retain a fixed-path claim by speculating that an uncited helper might throw synchronously when current source shows all-settled peer cleanup, non-throwing rejection handling, and a guarded later hook.",
     ];
   }
   if (assessment.ruleId === "semantic.errorPropagation") {
     return [
       "- For error propagation, retain only when distinct visible failure causes share the wrong error identity and downstream source treats that identity differently enough to mislabel, suppress, or skip a valid failure path.",
+      "- Use verification_required, not insufficient_evidence, when exact current source shows both the merged error identity and downstream identity-specific handling but runtime ordering or reachability still needs a focused regression check. Use insufficient_evidence only when one of those source mechanisms is absent.",
       "- Reject the claim when separate guards preserve separate error identities or when the cited downstream source does not distinguish those identities.",
     ];
   }
@@ -156,6 +166,13 @@ function assessmentSpecificRules(assessment: Assessment): string[] {
       "- For resource lifetime, retain the claim only when current source visibly stores request-scoped objects on socket, connection, or server-owned state and the assessment came from a complete graph with no matching explicit release.",
       "- Use verification_required when the ownership mismatch is visible but runtime reachability beyond request completion is not proven; recommend a focused lifecycle or heap-retention check rather than human inspection.",
       "- Reject the claim when current source shows the owner is request-scoped, the retained value cannot include the named request objects, or a matching release is visible.",
+    ];
+  }
+  if (assessment.ruleId === "semantic.scopeResolution") {
+    return [
+      "- For scope resolution, retain the claim only when current source implements identifier binding or rewriting, visibly assigns a declaration to the wrong language scope, and that mismatch can change whether a reference is rewritten or bound.",
+      "- Confirm only when the incorrect scope boundary and resulting unbound or misbound reference both follow from the cited source. Use verification_required when the transformer consequence is credible but requires a focused transform-output or regression-test check.",
+      "- Reject the claim for ordinary switches, local shadowing, generic AST traversal, or when the scope classifier includes the relevant lexical boundary and excludes expressions evaluated outside it.",
     ];
   }
   return [];

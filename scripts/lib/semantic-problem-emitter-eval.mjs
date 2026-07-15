@@ -69,6 +69,16 @@ export function assessmentMatchesDefectEvidence(input) {
       && Array.isArray(input.assessment?.details?.retentionEvidence)
       && input.assessment.details.retentionEvidence.length > 0;
   }
+  if (input.problemClass === "scope-resolution") {
+    const anchorLines = new Set(
+      (input.scopeResolution ?? [])
+        .filter((entry) => Array.isArray(entry.unmodeledLexicalBoundaries)
+          && entry.unmodeledLexicalBoundaries.length > 0)
+        .map((entry) => entry.location?.line)
+        .filter((line) => Number.isInteger(line) && input.changedLines.has(line)),
+    );
+    return anchorLines.size > 0 && assessmentOverlapsChangedLines(input.assessment, anchorLines);
+  }
   if (input.problemClass !== "error-propagation") return false;
   const anchorLines = new Set(
     (input.errorControlFlow ?? [])

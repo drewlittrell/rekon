@@ -75,11 +75,16 @@ export {
   type AstSymbolKind,
   type ErrorControlFlowGuard,
   type ErrorControlFlowEvidence,
+  type ErrorIdentityMapping,
+  type DependencyResolutionEvidence,
   type OptionPropagationEvidence,
   type ResourceLifetimeEvidence,
+  type ScopeResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractDependencyResolutionEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
+  extractScopeResolutionEvidence,
 } from "./ast-extractor.js";
 export { collectTypeScriptDiagnostics, type TypeScriptDiagnosticEvidence } from "./typescript-diagnostics.js";
 export {
@@ -1190,6 +1195,7 @@ function factsFromAstResult(
         ...(flow.errorIdentity ? { errorIdentity: flow.errorIdentity } : {}),
         expressionKind: flow.expressionKind,
         guards: flow.guards,
+        identityMappings: flow.identityMappings,
         line: flow.location.line,
         column: flow.location.column,
         extractionMethod: "ast" as const,
@@ -1233,6 +1239,43 @@ function factsFromAstResult(
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "scope-model") {
+      facts.push(fact("scope_model", `${path}:${flow.classifierName}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        classifierName: flow.classifierName,
+        classifierExpression: flow.classifierExpression,
+        resolverFunctions: flow.resolverFunctions,
+        modeledNodeKinds: flow.modeledNodeKinds,
+        unmodeledLexicalBoundaries: flow.unmodeledLexicalBoundaries,
+        handlesSwitchCases: flow.handlesSwitchCases,
+        rewritesIdentifiers: flow.rewritesIdentifiers,
+        excludesSwitchDiscriminant: flow.excludesSwitchDiscriminant,
+        line: flow.location.line,
+        column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "dependency-selection") {
+      facts.push(fact("dependency_flow", `${path}:${flow.caller}:${flow.selectedBinding}:${flow.selectionLocation.line}`, {
+        source: path,
+        caller: flow.caller,
+        selectedBinding: flow.selectedBinding,
+        candidateExpression: flow.candidateExpression,
+        collectionExpression: flow.collectionExpression,
+        exitKind: flow.exitKind,
+        ...(flow.exitCondition ? { exitCondition: flow.exitCondition } : {}),
+        returnedAfterLoop: flow.returnedAfterLoop,
+        selectionLocation: flow.selectionLocation,
+        ...(flow.exitLocation ? { exitLocation: flow.exitLocation } : {}),
+        line: flow.location.line,
+        column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.selectionLocation.line));
       continue;
     }
     const binding = allImportBindings.get(flow.root);

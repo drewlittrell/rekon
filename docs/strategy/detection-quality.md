@@ -174,6 +174,13 @@ candidate rather than suppressing it. Changed-line overlap is an evaluation
 identity check only and does not gate production assessments. The compact
 baseline is `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 
+Dependency-resolution emission is now stabilized by deterministic
+`dependency_flow` facts: a loop-selected lookup result, the exit condition
+after selection, and whether the mutable selection is returned after the loop.
+Policy emits only the conditional-overwrite shape; the fixed unconditional
+first-match exit remains silent. The semantic judge still decides whether the
+visible overwrite mechanism conflicts with intended provider precedence.
+
 The second batch adds `cleanup-completeness`. All three affected Nest shutdown
 hook implementations emit source-matched candidates on the buggy revision and
 remain clean after all-settled cleanup and guarded module hooks are introduced.
@@ -183,11 +190,12 @@ changed-line evidence density for defect identity, so contextual citations do
 not make an unrelated same-class candidate count as the upstream defect.
 
 The third batch adds `error-propagation`. Deterministic JS/TS evidence now
-records throw locations, enclosing branch guards, and thrown identities. The
-semantic pass combines those observations with source-matched downstream
-handling, allowing the Redux abort pair to identify the merged failure identity
-on the buggy revision while leaving the separate fixed branches clean. A
-compound guard alone remains insufficient production evidence.
+records throw locations, enclosing branch guards, thrown identities, and
+visible downstream identity mappings. Policy combines those observations into
+a structured semantic claim, allowing the Redux abort pair to identify the
+merged failure identity on the buggy revision while leaving the separate fixed
+branches clean. A compound guard alone remains insufficient production
+evidence, and runtime ordering remains an autonomous verification question.
 
 The fourth batch adds `option-propagation`. Deterministic JS/TS evidence records
 same-name overrides after option spreads, including callback ownership and
@@ -206,6 +214,14 @@ retention has no matching release. Independent judgment keeps runtime
 reachability explicit. The buggy Fastify keep-alive revision is retained as a
 verification requirement, while the fixed response-boundary release suppresses
 the candidate.
+
+The sixth batch adds `scope-resolution` without introducing a generic switch
+rule. Deterministic `scope_model` facts describe source-transform scope
+classifiers, identifier resolvers, modeled node kinds, and unmodeled lexical
+boundaries. Semantic analysis is limited to files that visibly rewrite
+identifiers. The buggy Vite revision identifies `SwitchStatement` as an
+unmodeled boundary, while the fixed classifier includes it and keeps the switch
+discriminant outside the switch scope.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,
@@ -227,8 +243,9 @@ outcomes, and cost $0.098537. `claude-sonnet-5` at low effort accepted 13 of 18,
 incorrectly rejected one buggy case, and cost $0.285882 at its introductory
 rate. This is a task-specific nine-pair result, not a general model ranking.
 At the time of that judgment-model run, seven candidate classes were emitter
-gaps. The calibrated problem emitters reduce the current gap to one: scope
-resolution. The
+gaps. All seven now have bounded emitters with paired public-defect calibration;
+this closes the recorded emitter queue without making historical finding count
+a target. The
 durable aggregate is
 `tests/bench/calibration/assessment-judgment-model-baseline.json`.
 

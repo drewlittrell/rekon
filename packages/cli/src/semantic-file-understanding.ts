@@ -1,6 +1,10 @@
-import type { ErrorControlFlowEvidence, OptionPropagationEvidence } from "@rekon/capability-js-ts";
+import type {
+  ErrorControlFlowEvidence,
+  OptionPropagationEvidence,
+  ScopeResolutionEvidence,
+} from "@rekon/capability-js-ts";
 
-export const SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION = "semantic-file-understanding-v3";
+export const SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION = "semantic-file-understanding-v4";
 
 export const SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA: Record<string, unknown> = {
   type: "object",
@@ -53,6 +57,7 @@ export const SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA: Record<string, unknown> = 
               "cleanup-completeness",
               "error-propagation",
               "option-propagation",
+              "scope-resolution",
               "other",
             ],
           },
@@ -85,9 +90,11 @@ export function buildSemanticFileUnderstandingPrompt(input: {
   language?: string;
   errorControlFlow?: ErrorControlFlowEvidence[];
   optionPropagation?: OptionPropagationEvidence[];
+  scopeResolution?: ScopeResolutionEvidence[];
 }): string {
   const errorControlFlow = renderErrorControlFlow(input.errorControlFlow ?? []);
   const optionPropagation = renderOptionPropagation(input.optionPropagation ?? []);
+  const scopeResolution = renderScopeResolution(input.scopeResolution ?? []);
   return [
     "Analyze one source file for codebase intelligence.",
     "Return only one JSON object matching the supplied schema.",
@@ -103,10 +110,11 @@ export function buildSemanticFileUnderstandingPrompt(input: {
     "- Findings are source-grounded candidates for independent judgment, not proven defects.",
     "- dependency-resolution: use only when visible control flow considers multiple eligible providers, bindings, or candidates and can let a later candidate replace or outrank an earlier authoritative match. Do not flag ordinary lookup, iteration, or dispatch without a visible precedence or overwrite risk.",
     "- cache-integrity: use only when visible code can consume cached derived output without checking that the entry is complete and intact, or when a non-atomic write can leave an accepted partial entry. Do not assume every cache needs an embedded digest or flag a cache merely because invalidation is implemented elsewhere.",
-    "- cleanup-completeness: use only when visible lifecycle or resource-cleanup code has multiple required cleanup obligations and one rejection or early exit can prevent later cleanup from being attempted. A lifecycle dispatcher that fail-fast awaits peer hooks before later hook groups or a module-level hook is a candidate because one rejection can skip those visible later calls. Do not flag Promise.all or thrown cleanup errors when fail-fast behavior is intentional or no later cleanup obligation is visible.",
-    "- error-propagation: use only when visible control flow merges distinct failure causes under one thrown identity and current source shows that downstream handling distinguishes those identities, causing a valid failure path to be mislabeled, suppressed, or skipped. A compound guard alone is not enough. Do not flag code that maps distinct causes to separate error identities or intentionally handles them the same way.",
+    "- cleanup-completeness: use only when visible lifecycle or resource-cleanup code has multiple required cleanup obligations and one rejection or early exit can prevent later cleanup from being attempted. The candidate must cite a visible exit mechanism before a later obligation, such as Promise.all, an explicit throw or return, or an unguarded awaited cleanup whose rejection exits the function. Promise.allSettled does not reject merely because an input promise rejects and is not fail-fast evidence. Return no cleanup candidate when rejected results are handled without throwing and each later visible hook is guarded so it is still attempted. Do not speculate that a called helper throws synchronously unless current source shows that path.",
+    "- error-propagation: use only when visible control flow merges distinct failure causes under one thrown identity and current source shows that downstream handling distinguishes those identities, causing a valid failure path to be mislabeled, suppressed, or skipped. When deterministic error-control-flow evidence shows an OR guard with non-equivalent causes mapped to one error identity and current source later compares distinct error identities, emit a candidate unless source proves the causes intentionally share handling. A compound guard alone is not enough. Do not flag code that maps distinct causes to separate error identities or intentionally handles them the same way.",
     "- For error-propagation evidence, cite only the minimal source lines that show the merged guard, thrown identity, downstream identity mapping, and handling consequence. Prefer individual property or guard lines over entire object or condition blocks.",
-    "- option-propagation: use when a callback parameter replaces the same option from a spread configuration object without a fallback before the receiving operation. When current source proves the callback value can be absent, describe the loss directly. When the callback contract is imported or otherwise not visible, emit a medium candidate only if deterministic option-flow evidence identifies the callback owner, callback parameter, spread source, and destructive override; require verification of callback optionality in suggestedFollowUp. A spread followed by an ordinary local override is not enough. Do not flag a deliberate non-optional override or a nullish fallback that preserves the configured value.",
+    "- option-propagation: use when a callback parameter replaces the same option from a spread configuration object without a fallback before the receiving operation. When current source proves the callback value can be absent, describe the loss directly. When the callback contract is imported or otherwise not visible, emit a medium verification candidate whenever deterministic option-flow evidence identifies the callback owner, callback parameter, spread source, and destructive override; require verification of callback optionality in suggestedFollowUp. A comment that undefined is equivalent to an absent property does not prove that replacing an existing spread value is safe. A spread followed by an ordinary local override is not enough. Do not flag a deliberate non-optional override or a nullish fallback that preserves the configured value.",
+    "- scope-resolution: use only when deterministic scope-model evidence is supplied with a non-empty unmodeledLexicalBoundaries list, this file implements identifier binding or source rewriting, and current source connects that missing boundary to a concrete rewrite or binding consequence such as leaving a replaced import reference unbound. If the deterministic record has no unmodeled lexical boundary, return no scope-resolution finding for that classifier. Do not flag ordinary switch statements, local shadowing, AST traversal, or a scope-node list without a visible resolver or transformer consequence.",
     "- other: use for a different material engineering problem directly supported by this file.",
     "- Return no finding when the source does not directly support a material problem candidate.",
     "- Every finding must cite one or more exact excerpts copied from the supplied source.",
@@ -117,9 +125,33 @@ export function buildSemanticFileUnderstandingPrompt(input: {
     `File path: ${input.filePath}`,
     ...errorControlFlow,
     ...optionPropagation,
+    ...scopeResolution,
     "File contents:",
     input.fileText,
   ].filter((line) => line.length > 0).join("\n");
+}
+
+function renderScopeResolution(evidence: ScopeResolutionEvidence[]): string[] {
+  if (evidence.length === 0) return [];
+  const bounded = evidence.slice(0, 12).map((entry) => ({
+    classifierName: entry.classifierName,
+    classifierExpression: entry.classifierExpression,
+    resolverFunctions: entry.resolverFunctions,
+    modeledNodeKinds: entry.modeledNodeKinds,
+    unmodeledLexicalBoundaries: entry.unmodeledLexicalBoundaries,
+    handlesSwitchCases: entry.handlesSwitchCases,
+    rewritesIdentifiers: entry.rewritesIdentifiers,
+    excludesSwitchDiscriminant: entry.excludesSwitchDiscriminant,
+    line: entry.location.line,
+  }));
+  return [
+    "Deterministic scope-model evidence (AST observations, not findings):",
+    JSON.stringify(bounded),
+    ...(evidence.length > bounded.length
+      ? [`Scope-model evidence truncated to ${bounded.length} of ${evidence.length} records.`]
+      : []),
+    "Use these records only to inspect a visible identifier resolver or source transformer. Emit scope-resolution only for a record with a non-empty unmodeledLexicalBoundaries list and only when current source also shows how declarations are routed through the classifier and how a reference rewrite can change. A record with no unmodeled lexical boundary is negative evidence for this class. Cite source excerpts, not this evidence block.",
+  ];
 }
 
 function renderOptionPropagation(evidence: OptionPropagationEvidence[]): string[] {
@@ -163,6 +195,12 @@ function renderErrorControlFlow(evidence: ErrorControlFlowEvidence[]): string[] 
       terms: guard.terms,
       polarity: guard.polarity,
       line: guard.location.line,
+    })),
+    identityMappings: entry.identityMappings.map((mapping) => ({
+      identity: mapping.identity,
+      property: mapping.property,
+      expression: mapping.expression,
+      line: mapping.location.line,
     })),
   }));
   return [

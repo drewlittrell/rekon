@@ -298,6 +298,13 @@ test("25. semantic problem classes survive coercion while unknown classes remain
         sourceEvidence: ["export const existing = \"ok\";"],
       },
       {
+        id: "incorrect-transform-scope",
+        problemClass: "scope-resolution",
+        severity: "high",
+        message: "The transformer assigns case-local declarations to function scope.",
+        sourceEvidence: ["export const existing = \"ok\";"],
+      },
+      {
         id: "unknown-class",
         problemClass: "invented-class",
         severity: "low",
@@ -312,7 +319,8 @@ test("25. semantic problem classes survive coercion while unknown classes remain
   assert.equal(report.findings[1].problemClass, "cleanup-completeness");
   assert.equal(report.findings[2].problemClass, "error-propagation");
   assert.equal(report.findings[3].problemClass, "option-propagation");
-  assert.equal(report.findings[4].problemClass, undefined);
+  assert.equal(report.findings[4].problemClass, "scope-resolution");
+  assert.equal(report.findings[5].problemClass, undefined);
   assert.equal(validateSemanticFileUnderstandingReport(report).ok, true);
   const tampered = {
     ...report,
@@ -341,6 +349,20 @@ test("26. production semantic prompt and schema define bounded problem classes",
         polarity: "when-true",
         location: { line: 3, column: 1 },
       }],
+      identityMappings: [
+        {
+          identity: "AbortError",
+          property: "aborted",
+          expression: "error?.name === 'AbortError'",
+          location: { line: 8, column: 12 },
+        },
+        {
+          identity: "ConditionError",
+          property: "condition",
+          expression: "error?.name === 'ConditionError'",
+          location: { line: 9, column: 14 },
+        },
+      ],
     }],
     optionPropagation: [{
       kind: "option-override",
@@ -357,18 +379,42 @@ test("26. production semantic prompt and schema define bounded problem classes",
       location: { line: 5, column: 52 },
       objectLocation: { line: 5, column: 31 },
     }],
+    scopeResolution: [{
+      kind: "scope-model",
+      classifierName: "blockNodeTypeRE",
+      classifierExpression: "/^BlockStatement$/",
+      resolverFunctions: ["findParentScope", "isInScope", "setScope"],
+      modeledNodeKinds: ["BlockStatement"],
+      unmodeledLexicalBoundaries: ["SwitchStatement"],
+      handlesSwitchCases: true,
+      rewritesIdentifiers: true,
+      excludesSwitchDiscriminant: false,
+      location: { line: 7, column: 7 },
+    }],
   });
   assert.match(prompt, /dependency-resolution/);
   assert.match(prompt, /cache-integrity/);
   assert.match(prompt, /cleanup-completeness/);
   assert.match(prompt, /error-propagation/);
   assert.match(prompt, /option-propagation/);
+  assert.match(prompt, /scope-resolution/);
+  assert.match(prompt, /implements identifier binding or source rewriting/);
   assert.match(prompt, /Deterministic error-control-flow evidence/);
   assert.match(prompt, /conditionFailed \|\| signal\.aborted/);
+  assert.match(prompt, /identityMappings/);
+  assert.match(prompt, /AbortError/);
+  assert.match(prompt, /OR guard with non-equivalent causes mapped to one error identity/);
   assert.match(prompt, /Deterministic option-flow evidence/);
   assert.match(prompt, /publishOptions/);
   assert.match(prompt, /medium verification candidate/);
-  assert.equal(SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION, "semantic-file-understanding-v3");
+  assert.match(prompt, /undefined is equivalent to an absent property/);
+  assert.match(prompt, /Do not speculate that a called helper throws synchronously/);
+  assert.match(prompt, /Promise\.allSettled does not reject merely because an input promise rejects/);
+  assert.match(prompt, /candidate must cite a visible exit mechanism/);
+  assert.match(prompt, /Deterministic scope-model evidence/);
+  assert.match(prompt, /unmodeledLexicalBoundaries/);
+  assert.match(prompt, /SwitchStatement/);
+  assert.equal(SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION, "semantic-file-understanding-v4");
   assert.match(prompt, /not proven defects/);
   const findingSchema = SEMANTIC_FILE_UNDERSTANDING_JSON_SCHEMA.properties.findings.items;
   assert.deepEqual(findingSchema.properties.problemClass.enum, [
@@ -377,6 +423,7 @@ test("26. production semantic prompt and schema define bounded problem classes",
     "cleanup-completeness",
     "error-propagation",
     "option-propagation",
+    "scope-resolution",
     "other",
   ]);
   assert.ok(findingSchema.required.includes("problemClass"));
