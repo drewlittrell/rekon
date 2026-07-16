@@ -238,9 +238,16 @@ as `semantic.cacheIntegrity`; autonomous judgment still decides whether the
 cross-call sequence is a material defect. The pinned Yarn metadata pair retains
 the buggy package-identity cache and clears after disk and network caches are
 separated. Cache integrity and resource lifetime now have two independent
-positive pairs; the other semantic classes have one. All seven remain below
-the five-adjudication usefulness minimum, which is recorded in the compact
-baseline rather than reduced to fit the available data.
+positive pairs.
+
+Cleanup wait contracts are also modeled through deterministic `cleanup_flow`
+evidence. The extractor is limited to explicit lifecycle function names and
+visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
+retains both premature-close paths and clears when both use all-settled waits.
+Cache integrity, cleanup completeness, and resource lifetime now have two
+independent positive pairs; the other semantic classes have one. All seven
+remain below the five-adjudication usefulness minimum, which is recorded in the
+compact baseline rather than reduced to fit the available data.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

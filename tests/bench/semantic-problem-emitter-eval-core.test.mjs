@@ -150,6 +150,39 @@ test("resource-lifetime defect identity accepts structured cross-file retention 
   }), false);
 });
 
+test("cleanup-completeness defect identity accepts a changed structured wait anchor", () => {
+  const assessment = {
+    details: {
+      structuredMechanism: "fail-fast-aggregate",
+      sourceEvidence: [
+        { lineStart: 42, lineEnd: 42 },
+        { lineStart: 43, lineEnd: 43 },
+        { lineStart: 44, lineEnd: 44 },
+        { lineStart: 45, lineEnd: 45 },
+        { lineStart: 46, lineEnd: 46 },
+        { lineStart: 47, lineEnd: 47 },
+      ],
+    },
+  };
+  const changedLines = new Set([42]);
+  assert.ok(assessmentChangedLineCoverage(assessment, changedLines) < MIN_DEFECT_EVIDENCE_CHANGED_LINE_COVERAGE);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines,
+    problemClass: "cleanup-completeness",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: { details: { ...assessment.details, structuredMechanism: "unknown" } },
+    changedLines,
+    problemClass: "cleanup-completeness",
+  }), false);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set([99]),
+    problemClass: "cleanup-completeness",
+  }), false);
+});
+
 test("scope-resolution defect identity accepts a cited structured classifier anchor", () => {
   const assessment = {
     details: {

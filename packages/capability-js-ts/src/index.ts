@@ -77,12 +77,14 @@ export {
   type ErrorControlFlowEvidence,
   type ErrorIdentityMapping,
   type CacheContractEvidence,
+  type CleanupCompletenessEvidence,
   type DependencyResolutionEvidence,
   type OptionPropagationEvidence,
   type ResourceLifetimeEvidence,
   type ScopeResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractCacheContractEvidence,
+  extractCleanupCompletenessEvidence,
   extractDependencyResolutionEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
@@ -1258,6 +1260,19 @@ function factsFromAstResult(
         location: flow.location,
         guardLocation: flow.guardLocation,
         fallbackLocation: flow.fallbackLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "cleanup-contract") {
+      facts.push(fact("cleanup_flow", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        obligations: flow.obligations,
+        location: flow.location,
+        obligationLocations: flow.obligationLocations,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

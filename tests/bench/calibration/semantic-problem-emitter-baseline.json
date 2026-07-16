@@ -1,13 +1,13 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-07-15T23:24:18.919Z",
+  "generatedAt": "2026-07-16T00:51:32.502Z",
   "pricingAsOf": "2026-07-15",
   "corpus": {
     "catalogVersion": "1.0.0",
-    "pairCount": 9,
-    "caseCount": 24,
+    "pairCount": 10,
+    "caseCount": 28,
     "sourceRetention": "none",
-    "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+resource-flow-anchor-v1+dependency-flow-anchor-v1+scope-model-anchor-v1",
+    "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+resource-flow-anchor-v1+dependency-flow-anchor-v1+scope-model-anchor-v1+cleanup-flow-anchor-v1",
     "minimumChangedLineCoverage": 0.2,
     "minimumUsefulnessAdjudications": 5,
     "semanticPromptVersion": "semantic-file-understanding-v4",
@@ -21,17 +21,17 @@
     "effort": "low"
   },
   "summary": {
-    "passedPairs": 9,
+    "passedPairs": 10,
     "failedPairs": 0,
     "errors": 0,
     "usage": {
-      "inputTokens": 90051,
-      "cachedInputTokens": 73716,
-      "cacheWriteInputTokens": 16257,
-      "outputTokens": 14890,
-      "reasoningTokens": 2700
+      "inputTokens": 99545,
+      "cachedInputTokens": 9607,
+      "cacheWriteInputTokens": 89854,
+      "outputTokens": 15964,
+      "reasoningTokens": 2774
     },
-    "currentCostUsd": 0.117111
+    "currentCostUsd": 0.209146
   },
   "classCoverage": [
     {
@@ -44,7 +44,7 @@
     {
       "ruleId": "semantic.cleanupCompleteness",
       "problemClass": "cleanup-completeness",
-      "positivePairs": 1,
+      "positivePairs": 2,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
@@ -92,6 +92,18 @@
       "buggyDefectPaths": 1,
       "buggyRetainedPaths": 1,
       "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "vite-cleanup-premature-exit",
+      "problemClass": "cleanup-completeness",
+      "requiredBuggyPaths": 2,
+      "buggyDefectPaths": 2,
+      "buggyRetainedPaths": 2,
+      "fixedEvaluatedPaths": 2,
       "fixedDefectPaths": 0,
       "fixedUnclearedPaths": 0,
       "fixedSameClassCandidate": false,

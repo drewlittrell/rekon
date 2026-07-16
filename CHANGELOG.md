@@ -8,7 +8,7 @@ All notable changes to Rekon are documented here.
   completeness, error propagation, option propagation, resource lifetime, and
   scope resolution. Source-grounded semantic analysis handles cache-entry,
   cleanup, option, and scope claims; structured EvidenceGraph policy handles
-  cache-key, dependency, error, and cross-file resource claims.
+  cache-key, cleanup-wait, dependency, error, and cross-file resource claims.
   The JS/TS evidence pack now preserves throw
   locations, identities, enclosing guards, and downstream identity mappings;
   scope classifiers and lexical boundaries; plus option spread, override,
@@ -18,15 +18,16 @@ All notable changes to Rekon are documented here.
   semantic-emitter sampling.
 - Added deterministic `cache_flow` evidence for parameter-sensitive memoization
   contracts. Policy now identifies `getFactoryWithDefault` callbacks whose
-  return branch depends on an outer parameter omitted from the cache key. An
-  eleventh pinned public defect pair validates the Yarn metadata-cache defect
-  before and after its upstream fix; the source-free semantic baseline passes
-  nine pairs, with cache integrity and resource lifetime at two independent
-  positive pairs each.
+  return branch depends on an outer parameter omitted from the cache key. The
+  pinned Yarn pair validates this contract before and after its upstream fix.
+- Added deterministic `cleanup_flow` evidence for explicit lifecycle functions
+  with fail-fast aggregate or sequential waits. The pinned Vite pair validates
+  both mechanisms before and after their upstream fix. The source-free semantic
+  baseline now passes ten pairs; cache integrity, cleanup completeness, and
+  resource lifetime each have two independent positive pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
-  attached to reusable socket listeners. A tenth pinned public defect pair
-  validates the docker-modem listener-retention mechanism before and after its
-  upstream fix and establishes a second independent resource-lifetime pair.
+  attached to reusable socket listeners. The pinned docker-modem pair validates
+  the listener-retention mechanism before and after its upstream fix.
 - Updated semantic file understanding to `semantic-file-understanding-v4` and
   assessment judgment to `assessment-judge-v6` with error-routing,
   option-precedence, scope-resolution, and autonomous resource-lifetime

@@ -16,6 +16,7 @@ import policyCapability, {
   SEMANTIC_PROBLEM_CANDIDATE_RULE_ID,
   applyAssessmentJudgments,
   evaluateCacheIntegritySignals,
+  evaluateCleanupCompletenessSignals,
   evaluateDependencyAuditReports,
   evaluateDependencyResolutionSignals,
   evaluateErrorPropagationSignals,
@@ -520,6 +521,51 @@ test("cache integrity requires a result parameter omitted from the cache key", (
   assert.deepEqual(evaluateCacheIntegritySignals([{
     ...fact,
     value: { ...fact.value, factory: "unrelated.callback" },
+  }], ref), []);
+});
+
+test("cleanup completeness requires multiple visible lifecycle obligations", () => {
+  const ref = { type: "EvidenceGraph", id: "evidence-cleanup", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "cleanup_flow",
+    value: {
+      source: "src/server.ts",
+      caller: "close",
+      mechanism: "fail-fast-aggregate",
+      obligations: ["watcher.close()", "socket.close()", "closeHttpServer()"],
+      location: { line: 42, column: 13 },
+      obligationLocations: [
+        { line: 43, column: 9 },
+        { line: 44, column: 9 },
+        { line: 45, column: 9 },
+      ],
+    },
+  };
+
+  const assessments = evaluateCleanupCompletenessSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "fail-fast-aggregate");
+  assert.deepEqual(assessments[0].details.sourceEvidence.map((entry) => entry.lineStart), [42, 43, 44, 45]);
+  assert.equal(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, mechanism: "sequential-unhandled-awaits" },
+  }], ref).length, 1);
+  assert.deepEqual(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, obligations: ["watcher.close()"] },
+  }], ref), []);
+  assert.deepEqual(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, source: "tests/server.test.ts" },
+  }], ref), []);
+  assert.deepEqual(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, mechanism: "all-settled" },
+  }], ref), []);
+  assert.deepEqual(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, caller: "run" },
   }], ref), []);
 });
 

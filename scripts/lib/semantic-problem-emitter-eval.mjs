@@ -69,6 +69,11 @@ export function assessmentMatchesDefectEvidence(input) {
       && Array.isArray(input.assessment?.details?.retentionEvidence)
       && input.assessment.details.retentionEvidence.length > 0;
   }
+  if (input.problemClass === "cleanup-completeness") {
+    return (input.assessment?.details?.structuredMechanism === "fail-fast-aggregate"
+      || input.assessment?.details?.structuredMechanism === "sequential-unhandled-awaits")
+      && assessmentOverlapsChangedLines(input.assessment, input.changedLines);
+  }
   if (input.problemClass === "scope-resolution") {
     const anchorLines = new Set(
       (input.scopeResolution ?? [])

@@ -256,6 +256,15 @@ export type CacheContractEvidence = {
   fallbackLocation: AstLocation;
 };
 
+export type CleanupCompletenessEvidence = {
+  kind: "cleanup-contract";
+  caller: string;
+  mechanism: "fail-fast-aggregate" | "sequential-unhandled-awaits";
+  obligations: string[];
+  location: AstLocation;
+  obligationLocations: AstLocation[];
+};
+
 type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
@@ -264,7 +273,8 @@ type AstFlowRecord =
   | ResourceLifetimeEvidence
   | ScopeResolutionEvidence
   | DependencyResolutionEvidence
-  | CacheContractEvidence;
+  | CacheContractEvidence
+  | CleanupCompletenessEvidence;
 
 export interface AstExtractionResult {
   language: AstLanguage;
@@ -363,6 +373,13 @@ export function extractCacheContractEvidence(input: AstExtractionInput): CacheCo
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is CacheContractEvidence => record.kind === "cache-contract",
+  );
+}
+
+export function extractCleanupCompletenessEvidence(input: AstExtractionInput): CleanupCompletenessEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is CleanupCompletenessEvidence => record.kind === "cleanup-contract",
   );
 }
 
@@ -703,9 +720,162 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
 
   visitFlows(sourceFile, { caller: "__module__" });
   records.push(...cacheContractRecords(sourceFile));
+  records.push(...cleanupCompletenessRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   return records;
+}
+
+const CLEANUP_CALLER_NAMES = new Set([
+  "cleanup",
+  "close",
+  "destroy",
+  "disconnect",
+  "dispose",
+  "finalize",
+  "shutdown",
+  "stop",
+  "teardown",
+  "terminate",
+]);
+
+function cleanupCompletenessRecords(sourceFile: ts.SourceFile): CleanupCompletenessEvidence[] {
+  const records: CleanupCompletenessEvidence[] = [];
+  const promiseIsShadowed = hasLocalPromiseBinding(sourceFile);
+  const visitFunctions = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      const caller = functionLikeName(node);
+      if (caller && CLEANUP_CALLER_NAMES.has(caller.toLowerCase())) {
+        records.push(...cleanupCompletenessRecordsForBody(node.body, caller, sourceFile, promiseIsShadowed));
+      }
+    }
+    ts.forEachChild(node, visitFunctions);
+  };
+  visitFunctions(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line || left.caller.localeCompare(right.caller));
+}
+
+function cleanupCompletenessRecordsForBody(
+  body: ts.Block,
+  caller: string,
+  sourceFile: ts.SourceFile,
+  promiseIsShadowed: boolean,
+): CleanupCompletenessEvidence[] {
+  const aggregates: CleanupCompletenessEvidence[] = [];
+  const unhandledAwaits: Array<{ expression: ts.Expression; location: AstLocation }> = [];
+
+  for (const statement of body.statements) {
+    const awaited = directAwaitExpression(statement);
+    if (!awaited) continue;
+    const expression = unwrapExpression(awaited.expression);
+    const aggregate = promiseAllOperands(expression);
+    if (aggregate && promiseIsShadowed) continue;
+    if (aggregate && aggregate.length >= 2) {
+      aggregates.push({
+        kind: "cleanup-contract",
+        caller,
+        mechanism: "fail-fast-aggregate",
+        obligations: aggregate.map((entry) => boundedNodeText(entry, sourceFile)),
+        location: locationOf(expression, sourceFile),
+        obligationLocations: aggregate.map((entry) => locationOf(entry, sourceFile)),
+      });
+      continue;
+    }
+    if (!isRejectionInsulatedExpression(expression, promiseIsShadowed)) {
+      unhandledAwaits.push({ expression, location: locationOf(expression, sourceFile) });
+    }
+  }
+
+  if (aggregates.length > 0 || unhandledAwaits.length < 2) return aggregates;
+  return [{
+    kind: "cleanup-contract",
+    caller,
+    mechanism: "sequential-unhandled-awaits",
+    obligations: unhandledAwaits.map((entry) => boundedNodeText(entry.expression, sourceFile)),
+    location: unhandledAwaits[0]!.location,
+    obligationLocations: unhandledAwaits.map((entry) => entry.location),
+  }];
+}
+
+function directAwaitExpression(statement: ts.Statement): ts.AwaitExpression | undefined {
+  if (!ts.isExpressionStatement(statement)) return undefined;
+  const expression = unwrapExpression(statement.expression);
+  return ts.isAwaitExpression(expression) ? expression : undefined;
+}
+
+function promiseAllOperands(expression: ts.Expression): ts.Expression[] | undefined {
+  const call = unwrapExpression(expression);
+  if (!ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression)) return undefined;
+  if (!ts.isIdentifier(call.expression.expression)
+    || call.expression.expression.text !== "Promise"
+    || call.expression.name.text !== "all") {
+    return undefined;
+  }
+  const argument = call.arguments[0];
+  return argument && ts.isArrayLiteralExpression(argument) ? [...argument.elements] : undefined;
+}
+
+function isRejectionInsulatedExpression(expression: ts.Expression, promiseIsShadowed: boolean): boolean {
+  const call = unwrapExpression(expression);
+  if (!ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression)) return false;
+  if (call.expression.name.text === "catch") return true;
+  return !promiseIsShadowed
+    && call.expression.name.text === "allSettled"
+    && ts.isIdentifier(call.expression.expression)
+    && call.expression.expression.text === "Promise";
+}
+
+function functionLikeName(node: ts.FunctionLikeDeclaration): string | undefined {
+  if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
+    return node.name ? methodNameText(node.name) : undefined;
+  }
+  if ((ts.isArrowFunction(node) || ts.isFunctionExpression(node))) {
+    if (ts.isVariableDeclaration(node.parent) && ts.isIdentifier(node.parent.name)) return node.parent.name.text;
+    if (ts.isPropertyAssignment(node.parent)) return methodNameText(node.parent.name);
+  }
+  return undefined;
+}
+
+function hasLocalPromiseBinding(sourceFile: ts.SourceFile): boolean {
+  let found = false;
+  const visitBindings = (node: ts.Node): void => {
+    if (found) return;
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && bindingContainsName(node.name, "Promise")) {
+      found = true;
+      return;
+    }
+    if ((ts.isFunctionDeclaration(node)
+      || ts.isFunctionExpression(node)
+      || ts.isClassDeclaration(node)
+      || ts.isClassExpression(node)
+      || ts.isEnumDeclaration(node))
+      && node.name?.text === "Promise") {
+      found = true;
+      return;
+    }
+    if (ts.isImportClause(node) && node.name?.text === "Promise") {
+      found = true;
+      return;
+    }
+    if ((ts.isImportSpecifier(node) || ts.isNamespaceImport(node)) && node.name.text === "Promise") {
+      found = true;
+      return;
+    }
+    if (ts.isImportEqualsDeclaration(node) && node.name.text === "Promise") {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visitBindings);
+  };
+  visitBindings(sourceFile);
+  return found;
+}
+
+function bindingContainsName(name: ts.BindingName, expected: string): boolean {
+  if (ts.isIdentifier(name)) return name.text === expected;
+  return name.elements.some((element) =>
+    ts.isBindingElement(element) && bindingContainsName(element.name, expected));
 }
 
 function cacheContractRecords(sourceFile: ts.SourceFile): CacheContractEvidence[] {

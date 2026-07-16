@@ -34,6 +34,7 @@ Current rule families:
 - `repository.checkFailure`
 - `security.scannerResult`
 - `semantic.cacheIntegrity`
+- `semantic.cleanupCompleteness`
 - `semantic.resourceLifetime`
 - `similarity.duplicateCandidate`
 - `imports.noNodeModulesRelativeImports`
@@ -88,6 +89,11 @@ return different results based on an outer parameter absent from the key. It
 emits a semantic claim with the key, omitted parameters, guard, and fallback
 locations. Cross-call ordering and user-visible impact remain autonomous
 judgment or focused verification questions.
+
+Cleanup-completeness policy consumes `cleanup_flow` facts from explicit
+lifecycle functions. It distinguishes fail-fast aggregate and sequential wait
+mechanisms, while leaving actual rejection behavior and retained runtime state
+to autonomous judgment or focused verification.
 
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same

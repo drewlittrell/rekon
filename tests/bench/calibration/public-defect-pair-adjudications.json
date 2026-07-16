@@ -9,6 +9,13 @@
       "rationale": "Rekon now emits semantic.scopeResolution from structured evidence about the transform's identifier-rewriting scope classifier. The buggy revision identifies SwitchStatement as an unmodeled lexical boundary, while the fixed classifier includes it and leaves the switch discriminant outside that scope; ordinary switch statements remain outside this emitter's jurisdiction."
     },
     {
+      "pairId": "vite-cleanup-premature-exit",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Rekon emits semantic.cleanupCompleteness from structured lifecycle-wait evidence in both affected close paths. Independent judgment confirms the sequential buggy path and retains the aggregate path for verification, while both all-settled fixed paths remain clean."
+    },
+    {
       "pairId": "nest-shutdown-cleanup-completeness",
       "claimVerdict": "valid",
       "coverage": "captured",

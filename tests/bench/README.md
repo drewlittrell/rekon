@@ -234,7 +234,9 @@ error-propagation, option-propagation, scope-resolution, and resource-lifetime
 emitters have a bounded live paired check. Resource-lifetime coverage includes
 both retained connection state and request closures attached to reusable socket
 listeners. Cache-integrity coverage includes both compiled-output integrity and
-a parameter-sensitive cross-call cache contract.
+a parameter-sensitive cross-call cache contract. Cleanup-completeness coverage
+includes semantic shutdown-hook analysis and structured lifecycle wait
+contracts.
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -251,7 +253,9 @@ error-propagation pair uses deterministic compound-guard and downstream
 identity-mapping evidence before autonomous judgment. The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The Yarn cache pair uses deterministic `cache_flow` evidence
-that a result-shaping parameter is absent from the memoization key. The durable aggregate is
+that a result-shaping parameter is absent from the memoization key. The Vite
+cleanup pair uses deterministic `cleanup_flow` evidence so only explicit
+lifecycle wait contracts enter the structured path. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 That aggregate also records positive-pair counts against the five-adjudication
 minimum. Resource lifetime and cache integrity currently have two independent

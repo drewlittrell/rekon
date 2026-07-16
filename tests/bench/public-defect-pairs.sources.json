@@ -82,6 +82,27 @@
       "testPaths": ["packages/vite/src/node/ssr/__tests__/ssrTransform.spec.ts"]
     },
     {
+      "id": "vite-cleanup-premature-exit",
+      "repository": "vite",
+      "buggyCommit": "bb235b21a432dd503758add9148134e8acbd21ad",
+      "fixedCommit": "45b170ed88d3cdf59d3da6f82738d06c149fd3a7",
+      "upstream": {
+        "fixUrl": "https://github.com/vitejs/vite/pull/11245",
+        "summary": "Lifecycle close operations could reject before all visible cleanup work had settled."
+      },
+      "claim": {
+        "category": "cleanup-completeness",
+        "proof": "upstream-reproduction",
+        "summary": "Fail-fast aggregate and sequential waits allowed server or optimizer close to exit prematurely after one rejection."
+      },
+      "structuredEvidence": "cleanup-contract",
+      "affectedPaths": [
+        "packages/vite/src/node/optimizer/optimizer.ts",
+        "packages/vite/src/node/server/index.ts"
+      ],
+      "testPaths": []
+    },
+    {
       "id": "nest-shutdown-cleanup-completeness",
       "repository": "nest",
       "buggyCommit": "cc6f43bfd052c771e2cecd6ae2616cd50c92bc03",

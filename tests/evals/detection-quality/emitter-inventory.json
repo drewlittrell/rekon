@@ -221,8 +221,8 @@
     {
       "ruleId": "semantic.cleanupCompleteness",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic finding classified as cleanup-completeness",
-      "jurisdiction": "production source selected for semantic file understanding where visible lifecycle cleanup obligations can be skipped after an earlier failure",
+      "evidence": "current source-matched semantic finding or structured cleanup_flow lifecycle-wait contract",
+      "jurisdiction": "production source selected for semantic file understanding, plus explicit lifecycle functions with visible fail-fast aggregate or sequential waits",
       "remediationUnit": "source file and lifecycle cleanup sequence"
     },
     {

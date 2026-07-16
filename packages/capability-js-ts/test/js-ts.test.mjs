@@ -6,6 +6,7 @@ import test from "node:test";
 
 import capability, {
   extractCacheContractEvidence,
+  extractCleanupCompletenessEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractOptionPropagationEvidence,
@@ -605,6 +606,87 @@ test("cache-contract evidence identifies result parameters omitted from a memoiz
     assert.deepEqual(facts[0].value.omittedResultParameters, ["version"]);
     assert.deepEqual(facts[0].value.guardLocation, { line: 5, column: 9 });
     assert.equal(facts[0].provenance.line, 3);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("cleanup-contract evidence identifies lifecycle waits that can finish prematurely", async () => {
+  const aggregateSource = [
+    "export function createServer() {",
+    "  return {",
+    "    async close() {",
+    "      await Promise.all([watcher.close(), socket.close(), closeHttpServer()]);",
+    "      state.urls = null;",
+    "    },",
+    "  };",
+    "}",
+  ].join("\n");
+  const sequentialSource = [
+    "export function createOptimizer() {",
+    "  async function close() {",
+    "    await discovery.catch(() => {});",
+    "    await postScanResult;",
+    "    await optimizingResult;",
+    "  }",
+    "  return { close };",
+    "}",
+  ].join("\n");
+
+  assert.deepEqual(extractCleanupCompletenessEvidence({ path: "src/server.ts", content: aggregateSource }), [{
+    kind: "cleanup-contract",
+    caller: "close",
+    mechanism: "fail-fast-aggregate",
+    obligations: ["watcher.close()", "socket.close()", "closeHttpServer()"],
+    location: { line: 4, column: 13 },
+    obligationLocations: [
+      { line: 4, column: 26 },
+      { line: 4, column: 43 },
+      { line: 4, column: 59 },
+    ],
+  }]);
+  assert.deepEqual(extractCleanupCompletenessEvidence({ path: "src/optimizer.ts", content: sequentialSource }), [{
+    kind: "cleanup-contract",
+    caller: "close",
+    mechanism: "sequential-unhandled-awaits",
+    obligations: ["postScanResult", "optimizingResult"],
+    location: { line: 4, column: 11 },
+    obligationLocations: [
+      { line: 4, column: 11 },
+      { line: 5, column: 11 },
+    ],
+  }]);
+  assert.deepEqual(extractCleanupCompletenessEvidence({
+    path: "src/server.ts",
+    content: aggregateSource.replace("Promise.all", "Promise.allSettled"),
+  }), []);
+  assert.deepEqual(extractCleanupCompletenessEvidence({
+    path: "src/work.ts",
+    content: "async function run() { await Promise.all([one(), two()]); }",
+  }), []);
+  assert.deepEqual(extractCleanupCompletenessEvidence({
+    path: "src/close.ts",
+    content: "async function close() { await one().catch(ignore); await two().catch(ignore); }",
+  }), []);
+  assert.deepEqual(extractCleanupCompletenessEvidence({
+    path: "src/close.ts",
+    content: "const Promise = customPromise; async function close() { await Promise.all([one(), two()]); await three(); }",
+  }), []);
+  assert.deepEqual(extractCleanupCompletenessEvidence({
+    path: "src/close.ts",
+    content: "async function close() { await Promise.allSettled([one(), two()]); await three(); }",
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-cleanup-contract-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "server.ts"), aggregateSource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "cleanup_flow");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.mechanism, "fail-fast-aggregate");
+    assert.deepEqual(facts[0].value.obligations, ["watcher.close()", "socket.close()", "closeHttpServer()"]);
+    assert.equal(facts[0].provenance.line, 4);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

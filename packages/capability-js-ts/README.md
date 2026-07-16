@@ -51,7 +51,7 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
-- `event_flow`, `state_access`, `cache_flow`, `dependency_flow`, `error_flow`,
+- `event_flow`, `state_access`, `cache_flow`, `cleanup_flow`, `dependency_flow`, `error_flow`,
   `option_flow`, `resource_flow`, and `scope_model` for narrow
   deterministic behavior signals; option-flow facts preserve spread sources,
   overrides, fallbacks, and callback context without classifying them as defects.
@@ -63,7 +63,9 @@ Ordinary unused locals and public declarations remain outside this signal.
   explicit releases; they do not claim runtime reachability. Cache-flow facts
   identify `getFactoryWithDefault` callbacks whose return branch depends on an
   outer function parameter omitted from the cache key; they do not infer call
-  order or runtime impact.
+  order or runtime impact. Cleanup-flow facts identify fail-fast aggregate or
+  sequential waits inside explicit lifecycle functions; they do not prove that
+  an obligation rejects at runtime.
 
 ## Lifecycle Fit
 
@@ -74,7 +76,8 @@ projection, evaluation, resolver fallback, and docs.
 
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
-`extractCacheContractEvidence()`, `extractDependencyResolutionEvidence()`,
+`extractCacheContractEvidence()`, `extractCleanupCompletenessEvidence()`,
+`extractDependencyResolutionEvidence()`,
 `extractErrorControlFlowEvidence()`,
 `extractOptionPropagationEvidence()`, and `extractScopeResolutionEvidence()`
 expose structured observations used by Rekon's policy and semantic judgment
@@ -118,7 +121,10 @@ concern.
 Cache-contract evidence is limited to a returned `getFactoryWithDefault` call
 with a parameter-backed key, a distinct guarded return that reads another outer
 parameter, and a later fallback return. Other memoization APIs remain absent
-rather than guessed.
+from this evidence. Cleanup-contract evidence is limited to exact lifecycle
+function names and visible `Promise.all` or multiple uninsulated direct awaits.
+All-settled and individually caught waits remain silent rather than being
+classified as incomplete cleanup.
 
 Local async calls are reported only when an unshadowed, locally declared async
 function is used as a bare statement. Focused tests and direct `process.env`

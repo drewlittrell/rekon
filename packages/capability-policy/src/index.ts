@@ -45,6 +45,7 @@ import { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } f
 import { evaluateErrorPropagationSignals } from "./error-propagation.js";
 import { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
 import { evaluateCacheIntegritySignals } from "./cache-integrity.js";
+import { evaluateCleanupCompletenessSignals } from "./cleanup-completeness.js";
 import { loadFreshComplexityCoverage } from "./complexity-coverage.js";
 import {
   compileEffectiveCapabilityOntology,
@@ -212,6 +213,7 @@ export { SEMANTIC_RESOURCE_LIFETIME_RULE_ID, evaluateResourceLifetimeSignals } f
 export { evaluateErrorPropagationSignals } from "./error-propagation.js";
 export { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
 export { evaluateCacheIntegritySignals } from "./cache-integrity.js";
+export { evaluateCleanupCompletenessSignals } from "./cleanup-completeness.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
@@ -360,8 +362,12 @@ export const policyEvaluator: Evaluator = {
     const cacheIntegrityAssessments = !disabledRules.has(SEMANTIC_CACHE_INTEGRITY_RULE_ID)
       ? evaluateCacheIntegritySignals(graph.facts, evidenceRef)
       : [];
+    const cleanupCompletenessAssessments = !disabledRules.has(SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID)
+      ? evaluateCleanupCompletenessSignals(graph.facts, evidenceRef)
+      : [];
     const structuredSemanticAssessments = [
       ...cacheIntegrityAssessments,
+      ...cleanupCompletenessAssessments,
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
     ];
@@ -386,6 +392,7 @@ export const policyEvaluator: Evaluator = {
       ...complexityAssessments,
       ...resourceLifetimeAssessments,
       ...cacheIntegrityAssessments,
+      ...cleanupCompletenessAssessments,
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
       ...importGraphAssessments,
