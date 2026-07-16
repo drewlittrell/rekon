@@ -221,9 +221,9 @@
     {
       "ruleId": "semantic.cleanupCompleteness",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic finding or structured cleanup_flow lifecycle-wait contract",
-      "jurisdiction": "production source selected for semantic file understanding, plus explicit lifecycle functions with visible fail-fast aggregate or sequential waits",
-      "remediationUnit": "source file and lifecycle cleanup sequence"
+      "evidence": "current source-matched semantic finding or deterministic cleanup_flow fact for a lifecycle-wait contract or superseded React effect continuation",
+      "jurisdiction": "production source selected for semantic file understanding, explicit lifecycle functions with visible fail-fast aggregate or sequential waits, and dependency-bearing React effects whose Promise aggregate continuation updates component state without returned cleanup",
+      "remediationUnit": "source file and lifecycle cleanup or effect-continuation sequence"
     },
     {
       "ruleId": "semantic.errorPropagation",

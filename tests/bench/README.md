@@ -237,7 +237,9 @@ listeners, plus terminal XHR listeners that remain attached after completion.
 Cache-integrity coverage includes both compiled-output integrity and a
 parameter-sensitive cross-call cache contract, plus rejected Promises retained
 by lazy member caches. Cleanup-completeness coverage includes semantic
-shutdown-hook analysis and structured lifecycle wait contracts.
+shutdown-hook analysis, structured lifecycle wait contracts, and
+dependency-bearing React effects whose Promise aggregate continuation updates
+state without returned cleanup.
 Dependency-resolution coverage includes both conditional candidate overwrite
 and iterated candidate bypass through a generic token lookup.
 Option-propagation coverage includes callback-backed spread overrides and
@@ -283,12 +285,16 @@ that a result-shaping parameter is absent from the memoization key. The
 LaunchDarkly cache pair uses deterministic `cache_flow` evidence for a rejected
 Promise retained by a lazy request cache. The Vite cleanup pair uses
 deterministic `cleanup_flow` evidence so only explicit lifecycle wait contracts
-enter the structured path. The durable aggregate is
+enter the structured path. The Automerge cleanup pair uses deterministic
+`cleanup_flow` evidence for a dependency-bearing React effect whose Promise
+aggregate continuation can update state after a newer effect supersedes it.
+The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`. That aggregate
 also records positive-pair counts against the five-adjudication minimum. Cache
-integrity has three independent positive pairs; the other classes remain at
-their recorded counts and all are still `insufficient-evidence`. Token and cost
-totals apply only to the ten pairs previously run through the model API.
+integrity, cleanup completeness, error propagation, option propagation, and
+resource lifetime have three independent positive pairs; dependency resolution
+and scope resolution have two. All are still `insufficient-evidence`. Token and
+cost totals apply only to the ten pairs previously run through the model API.
 
 ## Corpus retention
 

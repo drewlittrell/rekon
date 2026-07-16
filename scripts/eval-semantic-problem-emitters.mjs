@@ -9,6 +9,7 @@ import { performance } from "node:perf_hooks";
 
 import { buildSemanticFileUnderstandingReport } from "../packages/capability-model/dist/index.js";
 import {
+  extractAsyncEffectContinuationEvidence,
   extractCacheContractEvidence,
   extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
@@ -121,7 +122,9 @@ for (const pair of selectedPairs) {
     runs.push(...await evaluateCacheIntegrityPair(pair, repository));
     continue;
   }
-  if (pair.claim.category === "cleanup-completeness" && pair.structuredEvidence === "cleanup-contract") {
+  if (pair.claim.category === "cleanup-completeness"
+    && (pair.structuredEvidence === "cleanup-contract"
+      || pair.structuredEvidence === "async-effect-continuation")) {
     runs.push(...await evaluateCleanupContractPair(pair, repository));
     continue;
   }
@@ -974,18 +977,35 @@ async function evaluateCleanupContractPair(pair, repository) {
         fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
       ]);
       const sha256 = createHash("sha256").update(text).digest("hex");
-      const cleanupFlow = extractCleanupCompletenessEvidence({ path, content: text });
+      const cleanupFlow = pair.structuredEvidence === "async-effect-continuation"
+        ? extractAsyncEffectContinuationEvidence({ path, content: text })
+        : extractCleanupCompletenessEvidence({ path, content: text });
       const facts = cleanupFlow.map((entry) => ({
         kind: "cleanup_flow",
         subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
-        value: {
-          source: path,
-          caller: entry.caller,
-          mechanism: entry.mechanism,
-          obligations: entry.obligations,
-          location: entry.location,
-          obligationLocations: entry.obligationLocations,
-        },
+        value: pair.structuredEvidence === "async-effect-continuation"
+          ? {
+              source: path,
+              caller: entry.caller,
+              mechanism: entry.mechanism,
+              hook: entry.hook,
+              promiseMethod: entry.promiseMethod,
+              dependencies: entry.dependencies,
+              stateSetters: entry.stateSetters,
+              aggregateExpression: entry.aggregateExpression,
+              location: entry.location,
+              continuationLocation: entry.continuationLocation,
+              setterLocations: entry.setterLocations,
+              dependencyLocation: entry.dependencyLocation,
+            }
+          : {
+              source: path,
+              caller: entry.caller,
+              mechanism: entry.mechanism,
+              obligations: entry.obligations,
+              location: entry.location,
+              obligationLocations: entry.obligationLocations,
+            },
       }));
       const matching = evaluateCleanupCompletenessSignals(facts, evidenceRef);
       const changedLines = changedLineNumbers(text, counterpartText);

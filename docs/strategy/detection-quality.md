@@ -307,12 +307,19 @@ Cleanup wait contracts are also modeled through deterministic `cleanup_flow`
 evidence. The extractor is limited to explicit lifecycle function names and
 visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
 retains both premature-close paths and clears when both use all-settled waits.
-All seven semantic classes have at least two independent positive pairs; cache
-integrity, error propagation, and resource lifetime have three. All remain below the
-five-adjudication usefulness minimum, which is recorded in the compact baseline
-rather than reduced to fit the available data. Its token and cost totals cover
-the ten model-adjudicated pairs only; seven newer pairs are recorded separately
-as direct source review.
+A second cleanup mechanism covers dependency-bearing React effects. The
+extractor requires named React `useEffect` and `useState` imports, a global
+`Promise.all` or `Promise.allSettled` continuation that updates component
+state, and no returned cleanup. The pinned Automerge pair retains the stale
+continuation on the buggy revision and clears after cleanup prevents a
+superseded URL set from overwriting newer state.
+All seven semantic classes have at least two independent positive pairs. Cache
+integrity, cleanup completeness, error propagation, option propagation, and
+resource lifetime have three; dependency resolution and scope resolution have
+two. All remain below the five-adjudication usefulness minimum, which is
+recorded in the compact baseline rather than reduced to fit the available data.
+Its token and cost totals cover the ten model-adjudicated pairs only; nine newer
+pairs are recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

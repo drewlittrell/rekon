@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 
 import capability, {
+  extractAsyncEffectContinuationEvidence,
   extractCacheContractEvidence,
   extractCleanupCompletenessEvidence,
   extractDependencyCandidateBypassEvidence,
@@ -1259,6 +1260,87 @@ test("cleanup-contract evidence identifies lifecycle waits that can finish prema
     assert.equal(facts[0].value.mechanism, "fail-fast-aggregate");
     assert.deepEqual(facts[0].value.obligations, ["watcher.close()", "socket.close()", "closeHttpServer()"]);
     assert.equal(facts[0].provenance.line, 4);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("cleanup-flow evidence identifies superseded React effect continuations without cleanup", async () => {
+  const buggySource = [
+    "import { useEffect, useState } from 'react';",
+    "export function useItems(ids) {",
+    "  const [items, setItems] = useState([]);",
+    "  const pending = ids.map(load);",
+    "  useEffect(() => {",
+    "    void Promise.allSettled(pending).then(results => {",
+    "      setItems(results);",
+    "    });",
+    "  }, [ids]);",
+    "  return items;",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource
+    .replace("  useEffect(() => {", "  useEffect(() => {\n    let active = true;")
+    .replace("      setItems(results);", "      if (!active) return;\n      setItems(results);")
+    .replace("  }, [ids]);", "    return () => { active = false; };\n  }, [ids]);");
+
+  assert.deepEqual(extractAsyncEffectContinuationEvidence({
+    path: "src/useItems.ts",
+    content: buggySource,
+  }), [{
+    kind: "async-effect-continuation",
+    caller: "useItems",
+    mechanism: "superseded-effect-continuation",
+    hook: "useEffect",
+    promiseMethod: "allSettled",
+    dependencies: ["ids"],
+    stateSetters: ["setItems"],
+    aggregateExpression: "Promise.allSettled(pending)",
+    location: { line: 5, column: 3 },
+    continuationLocation: { line: 6, column: 10 },
+    setterLocations: [{ line: 7, column: 7 }],
+    dependencyLocation: { line: 9, column: 6 },
+  }]);
+  assert.deepEqual(extractAsyncEffectContinuationEvidence({
+    path: "src/useItems.ts",
+    content: fixedSource,
+  }), []);
+  assert.deepEqual(extractAsyncEffectContinuationEvidence({
+    path: "src/useItems.ts",
+    content: buggySource.replace("[ids]);", "[]);"),
+  }), []);
+  assert.deepEqual(extractAsyncEffectContinuationEvidence({
+    path: "src/useItems.ts",
+    content: buggySource.replace("from 'react'", "from './hooks.js'"),
+  }), []);
+  assert.deepEqual(extractAsyncEffectContinuationEvidence({
+    path: "src/useItems.ts",
+    content: buggySource.replace(
+      "const [items, setItems] = useState([]);",
+      "const items = []; const setItems = updateItems;",
+    ),
+  }), []);
+  assert.deepEqual(extractAsyncEffectContinuationEvidence({
+    path: "src/useItems.ts",
+    content: `const Promise = customPromise;\n${buggySource}`,
+  }), []);
+  assert.deepEqual(extractAsyncEffectContinuationEvidence({
+    path: "src/useItems.ts",
+    content: buggySource.replace("Promise.allSettled(pending)", "Promise.resolve(pending)"),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-async-effect-cleanup-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "useItems.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) =>
+        fact.kind === "cleanup_flow"
+        && fact.value.mechanism === "superseded-effect-continuation");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.caller, "useItems");
+    assert.deepEqual(facts[0].value.stateSetters, ["setItems"]);
+    assert.equal(facts[0].provenance.line, 5);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

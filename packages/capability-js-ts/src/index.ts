@@ -81,6 +81,7 @@ export {
   type CacheContractEvidence,
   type PromiseCacheRejectionEvidence,
   type CleanupCompletenessEvidence,
+  type AsyncEffectContinuationEvidence,
   type DependencyCandidateBypassEvidence,
   type DependencyResolutionEvidence,
   type OptionFalsyDefaultEvidence,
@@ -96,6 +97,7 @@ export {
   extractCacheContractEvidence,
   extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
+  extractAsyncEffectContinuationEvidence,
   extractDependencyCandidateBypassEvidence,
   extractDependencyResolutionEvidence,
   extractOptionFalsyDefaultEvidence,
@@ -1399,6 +1401,25 @@ function factsFromAstResult(
         obligations: flow.obligations,
         location: flow.location,
         obligationLocations: flow.obligationLocations,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "async-effect-continuation") {
+      facts.push(fact("cleanup_flow", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        hook: flow.hook,
+        promiseMethod: flow.promiseMethod,
+        dependencies: flow.dependencies,
+        stateSetters: flow.stateSetters,
+        aggregateExpression: flow.aggregateExpression,
+        location: flow.location,
+        continuationLocation: flow.continuationLocation,
+        setterLocations: flow.setterLocations,
+        dependencyLocation: flow.dependencyLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

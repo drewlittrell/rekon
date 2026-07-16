@@ -90,6 +90,7 @@ The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
 `extractCacheContractEvidence()`, `extractPromiseCacheRejectionEvidence()`,
 `extractCleanupCompletenessEvidence()`,
+`extractAsyncEffectContinuationEvidence()`,
 `extractDependencyCandidateBypassEvidence()`,
 `extractDependencyResolutionEvidence()`,
 `extractErrorControlFlowEvidence()`,
@@ -165,6 +166,12 @@ remain absent. Cleanup-contract evidence is limited to exact lifecycle function
 names and visible `Promise.all` or multiple uninsulated direct awaits.
 All-settled and individually caught waits remain silent rather than being
 classified as incomplete cleanup.
+Async-effect continuation evidence is limited to named `useEffect` and
+`useState` imports from React, a non-empty dependency array, a global
+`Promise.all` or `Promise.allSettled` continuation, and a continuation call to
+a state setter created by that component's `useState`. Effects that return
+cleanup, use an empty dependency array, call non-React hooks or non-state
+setters, shadow `Promise`, or use other Promise methods remain silent.
 
 Candidate-bypass evidence is limited to resolver-like callbacks observed in
 `map` or `flatMap`. It requires a candidate-derived guard and a generic

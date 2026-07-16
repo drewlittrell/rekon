@@ -96,6 +96,12 @@
       "directory": "langfuse",
       "url": "https://github.com/langfuse/langfuse.git",
       "license": "MIT"
+    },
+    {
+      "id": "automerge-repo",
+      "directory": "automerge-repo",
+      "url": "https://github.com/automerge/automerge-repo.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -496,6 +502,24 @@
       "structuredEvidence": "request-signal-forwarding",
       "affectedPaths": ["packages/shared/src/server/llm/secureLlmFetch.ts"],
       "testPaths": ["worker/src/__tests__/secureLlmFetch.test.ts"]
+    },
+    {
+      "id": "automerge-superseded-effect-continuation",
+      "repository": "automerge-repo",
+      "buggyCommit": "84f59916b9604ea5bc55923666c6c9aebd7299cb",
+      "fixedCommit": "313363330aeb36ca42060f2dad6fc6ef2318aab2",
+      "upstream": {
+        "fixUrl": "https://github.com/automerge/automerge-repo/pull/697",
+        "summary": "A superseded useDocHandles effect could settle after a newer URL set and overwrite the current handle map because the async continuation was not invalidated during effect cleanup."
+      },
+      "claim": {
+        "category": "cleanup-completeness",
+        "proof": "upstream-regression-test",
+        "summary": "An older async effect run could overwrite state produced by a newer dependency set."
+      },
+      "structuredEvidence": "async-effect-continuation",
+      "affectedPaths": ["packages/automerge-repo-react-hooks/src/useDocHandles.ts"],
+      "testPaths": ["packages/automerge-repo-react-hooks/test/useDocHandles.test.tsx"]
     }
   ]
 }

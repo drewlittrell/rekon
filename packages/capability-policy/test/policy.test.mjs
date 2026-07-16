@@ -927,6 +927,52 @@ test("cleanup completeness requires multiple visible lifecycle obligations", () 
   }], ref), []);
 });
 
+test("cleanup completeness identifies superseded async effect continuations without cleanup", () => {
+  const ref = { type: "EvidenceGraph", id: "effect-cleanup", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "cleanup_flow",
+    value: {
+      source: "src/useItems.ts",
+      caller: "useItems",
+      mechanism: "superseded-effect-continuation",
+      hook: "useEffect",
+      promiseMethod: "allSettled",
+      dependencies: ["ids"],
+      stateSetters: ["setItems"],
+      aggregateExpression: "Promise.allSettled(pending)",
+      location: { line: 10, column: 3 },
+      continuationLocation: { line: 12, column: 10 },
+      setterLocations: [{ line: 13, column: 7 }],
+      dependencyLocation: { line: 15, column: 6 },
+    },
+  };
+
+  const assessments = evaluateCleanupCompletenessSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID);
+  assert.equal(assessments[0].impact, "medium");
+  assert.equal(assessments[0].details.structuredMechanism, "superseded-effect-continuation");
+  assert.deepEqual(assessments[0].details.sourceEvidence, [
+    { path: "src/useItems.ts", lineStart: 10, lineEnd: 10 },
+    { path: "src/useItems.ts", lineStart: 12, lineEnd: 12 },
+    { path: "src/useItems.ts", lineStart: 13, lineEnd: 13 },
+    { path: "src/useItems.ts", lineStart: 15, lineEnd: 15 },
+  ]);
+  assert.equal(assessments[0].details.cleanupMatch, "absent-in-effect");
+  assert.deepEqual(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, dependencies: [] },
+  }], ref), []);
+  assert.deepEqual(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, stateSetters: [] },
+  }], ref), []);
+  assert.deepEqual(evaluateCleanupCompletenessSignals([{
+    ...fact,
+    value: { ...fact.value, source: "test/useItems.test.ts" },
+  }], ref), []);
+});
+
 test("current high-confidence judgments confirm or reject matching candidates without mutating unrelated assessments", () => {
   const evidence = { type: "EvidenceGraph", id: "evidence-1", schemaVersion: "0.1.0" };
   const sourceAssessmentRef = { type: "AssessmentReport", id: "assessment-source", schemaVersion: "0.1.0" };

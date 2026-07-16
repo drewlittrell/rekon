@@ -18,6 +18,20 @@ type CleanupFlow = {
   obligationLines: number[];
 };
 
+type AsyncEffectFlow = {
+  path: string;
+  caller: string;
+  hook: string;
+  promiseMethod: "all" | "allSettled";
+  dependencies: string[];
+  stateSetters: string[];
+  aggregateExpression: string;
+  effectLine: number;
+  continuationLine: number;
+  setterLines: number[];
+  dependencyLine: number;
+};
+
 const CLEANUP_CALLER_NAMES = new Set([
   "cleanup",
   "close",
@@ -35,12 +49,18 @@ export function evaluateCleanupCompletenessSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
 ): Assessment[] {
-  return facts
-    .filter((fact) => fact.kind === "cleanup_flow")
+  const cleanupFacts = facts.filter((fact) => fact.kind === "cleanup_flow");
+  const lifecycleAssessments = cleanupFacts
     .map(parseCleanupFlow)
     .filter((flow): flow is CleanupFlow => flow !== undefined && !isNonProductionPath(flow.path))
-    .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
     .map((flow) => cleanupCompletenessAssessment(flow, evidenceRef));
+  const asyncEffectAssessments = cleanupFacts
+    .map(parseAsyncEffectFlow)
+    .filter((flow): flow is AsyncEffectFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => asyncEffectAssessment(flow, evidenceRef));
+  return [...lifecycleAssessments, ...asyncEffectAssessments].sort((left, right) =>
+    (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
+      || firstEvidenceLine(left) - firstEvidenceLine(right));
 }
 
 function cleanupCompletenessAssessment(flow: CleanupFlow, evidenceRef: ArtifactRef): Assessment {
@@ -90,6 +110,72 @@ function cleanupCompletenessAssessment(flow: CleanupFlow, evidenceRef: ArtifactR
   };
 }
 
+function asyncEffectAssessment(flow: AsyncEffectFlow, evidenceRef: ArtifactRef): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    hook: flow.hook,
+    promiseMethod: flow.promiseMethod,
+    dependencies: flow.dependencies,
+    stateSetters: flow.stateSetters,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID}:${flow.path}:${fingerprint}`;
+  const setters = flow.stateSetters.join(", ");
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+    impact: "medium",
+    title: `Possible superseded effect update in ${flow.path}`,
+    description:
+      `${flow.caller} starts ${flow.aggregateExpression} inside ${flow.hook} with dependencies [${flow.dependencies.join(", ")}], then calls ${setters} from the continuation without returning effect cleanup. If dependencies change before settlement, an older continuation can overwrite state produced by a newer effect run.`,
+    subjects: [flow.path, flow.caller, ...flow.stateSetters],
+    files: [flow.path],
+    ruleId: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+    suggestedAction:
+      `Rerender with changed dependencies before ${flow.aggregateExpression} settles, then invalidate or abort the superseded continuation in the effect cleanup before calling ${setters}.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.9,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a React-imported effect with non-empty dependencies, a global Promise aggregate continuation, a useState-derived setter call, and no returned cleanup; settlement ordering and user-visible impact still require verification.",
+    },
+    details: {
+      problemClass: "cleanup-completeness",
+      structuredMechanism: "superseded-effect-continuation",
+      caller: flow.caller,
+      hook: flow.hook,
+      promiseMethod: flow.promiseMethod,
+      dependencies: flow.dependencies,
+      stateSetters: flow.stateSetters,
+      aggregateExpression: flow.aggregateExpression,
+      sourceEvidence: uniqueLines([
+        flow.effectLine,
+        flow.continuationLine,
+        ...flow.setterLines,
+        flow.dependencyLine,
+      ]).map((line) => ({
+        path: flow.path,
+        lineStart: line,
+        lineEnd: line,
+      })),
+      continuationEvidence: [{
+        path: flow.path,
+        caller: flow.caller,
+        hook: flow.hook,
+        promiseMethod: flow.promiseMethod,
+        dependencies: flow.dependencies,
+        stateSetters: flow.stateSetters,
+        line: flow.continuationLine,
+      }],
+      cleanupMatch: "absent-in-effect",
+    },
+  };
+}
+
 function parseCleanupFlow(fact: EvidenceFactLike): CleanupFlow | undefined {
   const { value } = fact;
   if (typeof value.source !== "string" || typeof value.caller !== "string"
@@ -108,6 +194,45 @@ function parseCleanupFlow(fact: EvidenceFactLike): CleanupFlow | undefined {
     obligations,
     locationLine,
     obligationLines,
+  };
+}
+
+function parseAsyncEffectFlow(fact: EvidenceFactLike): AsyncEffectFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "superseded-effect-continuation"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.hook !== "string"
+    || (value.promiseMethod !== "all" && value.promiseMethod !== "allSettled")
+    || typeof value.aggregateExpression !== "string") {
+    return undefined;
+  }
+  const dependencies = stringArray(value.dependencies);
+  const stateSetters = stringArray(value.stateSetters);
+  const effectLine = locationLineOf(value.location);
+  const continuationLine = locationLineOf(value.continuationLocation);
+  const setterLines = locationLinesOf(value.setterLocations);
+  const dependencyLine = locationLineOf(value.dependencyLocation);
+  if (dependencies.length === 0
+    || stateSetters.length === 0
+    || !effectLine
+    || !continuationLine
+    || setterLines.length === 0
+    || !dependencyLine) {
+    return undefined;
+  }
+  return {
+    path: value.source,
+    caller: value.caller,
+    hook: value.hook,
+    promiseMethod: value.promiseMethod,
+    dependencies,
+    stateSetters,
+    aggregateExpression: value.aggregateExpression,
+    effectLine,
+    continuationLine,
+    setterLines,
+    dependencyLine,
   };
 }
 
@@ -131,4 +256,15 @@ function locationLineOf(value: unknown): number | undefined {
 
 function uniqueLines(lines: readonly number[]): number[] {
   return [...new Set(lines)].sort((left, right) => left - right);
+}
+
+function firstEvidenceLine(assessment: Assessment): number {
+  const sourceEvidence = assessment.details?.sourceEvidence;
+  if (!Array.isArray(sourceEvidence)) return Number.MAX_SAFE_INTEGER;
+  const first = sourceEvidence[0];
+  if (!first || typeof first !== "object" || Array.isArray(first)) return Number.MAX_SAFE_INTEGER;
+  const lineStart = (first as { lineStart?: unknown }).lineStart;
+  return typeof lineStart === "number" && Number.isInteger(lineStart)
+    ? lineStart
+    : Number.MAX_SAFE_INTEGER;
 }

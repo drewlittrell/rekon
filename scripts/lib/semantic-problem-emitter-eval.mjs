@@ -70,6 +70,10 @@ export function assessmentMatchesDefectEvidence(input) {
       && input.assessment.details.retentionEvidence.length > 0;
   }
   if (input.problemClass === "cleanup-completeness") {
+    if (input.assessment?.details?.structuredMechanism === "superseded-effect-continuation") {
+      return Array.isArray(input.assessment?.details?.continuationEvidence)
+        && input.assessment.details.continuationEvidence.length > 0;
+    }
     return (input.assessment?.details?.structuredMechanism === "fail-fast-aggregate"
       || input.assessment?.details?.structuredMechanism === "sequential-unhandled-awaits")
       && assessmentOverlapsChangedLines(input.assessment, input.changedLines);

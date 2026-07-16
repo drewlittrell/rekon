@@ -226,6 +226,44 @@ test("cleanup-completeness defect identity accepts a changed structured wait anc
   }), false);
 });
 
+test("cleanup-completeness defect identity accepts a superseded effect continuation when the fix adds cleanup", () => {
+  const assessment = {
+    details: {
+      structuredMechanism: "superseded-effect-continuation",
+      continuationEvidence: [{
+        path: "src/useItems.ts",
+        caller: "useItems",
+        hook: "useEffect",
+        promiseMethod: "allSettled",
+        dependencies: ["ids"],
+        stateSetters: ["setItems"],
+        line: 12,
+      }],
+      sourceEvidence: [
+        { lineStart: 10, lineEnd: 10 },
+        { lineStart: 12, lineEnd: 12 },
+        { lineStart: 13, lineEnd: 13 },
+      ],
+    },
+  };
+  assert.equal(assessmentChangedLineCoverage(assessment, new Set()), 0);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "cleanup-completeness",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: { details: { ...assessment.details, continuationEvidence: [] } },
+    changedLines: new Set(),
+    problemClass: "cleanup-completeness",
+  }), false);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "resource-lifetime",
+  }), false);
+});
+
 test("scope-resolution defect identity accepts a cited structured classifier anchor", () => {
   const assessment = {
     details: {

@@ -140,6 +140,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Direct source review confirms that normalizeFetchInput constructed a temporary Request from the caller input and init, spread the caller init into returned options, then replaced its signal with request.signal. Rekon emits semantic.optionPropagation on that derived-signal handoff and clears when the fixed revision forwards the caller-owned signal; upstream tests verify exact signal identity and cancellation of an in-flight body read."
+    },
+    {
+      "pairId": "automerge-superseded-effect-continuation",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that useDocHandles started Promise.allSettled inside a dependency-bearing React effect and called the useState-derived setHandleMap from its continuation without returning cleanup. Rekon emits semantic.cleanupCompleteness on that superseded-effect path and clears after the fixed revision invalidates the old continuation during cleanup; the upstream regression rerenders before the first lookup resolves and verifies the stale URL set cannot overwrite the current map."
     }
   ]
 }

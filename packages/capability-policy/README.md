@@ -123,8 +123,11 @@ verification questions.
 
 Cleanup-completeness policy consumes `cleanup_flow` facts from explicit
 lifecycle functions. It distinguishes fail-fast aggregate and sequential wait
-mechanisms, while leaving actual rejection behavior and retained runtime state
-to autonomous judgment or focused verification.
+mechanisms. It also recognizes dependency-bearing React effects whose
+`Promise.all` or `Promise.allSettled` continuation updates component state
+without returned cleanup. Actual rejection behavior, effect scheduling, and
+retained runtime state remain autonomous judgment or focused verification
+questions.
 
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same

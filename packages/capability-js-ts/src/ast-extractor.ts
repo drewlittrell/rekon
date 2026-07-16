@@ -381,6 +381,21 @@ export type CleanupCompletenessEvidence = {
   obligationLocations: AstLocation[];
 };
 
+export type AsyncEffectContinuationEvidence = {
+  kind: "async-effect-continuation";
+  caller: string;
+  mechanism: "superseded-effect-continuation";
+  hook: string;
+  promiseMethod: "all" | "allSettled";
+  dependencies: string[];
+  stateSetters: string[];
+  aggregateExpression: string;
+  location: AstLocation;
+  continuationLocation: AstLocation;
+  setterLocations: AstLocation[];
+  dependencyLocation: AstLocation;
+};
+
 type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
@@ -398,7 +413,8 @@ type AstFlowRecord =
   | DependencyCandidateBypassEvidence
   | CacheContractEvidence
   | PromiseCacheRejectionEvidence
-  | CleanupCompletenessEvidence;
+  | CleanupCompletenessEvidence
+  | AsyncEffectContinuationEvidence;
 
 export interface AstExtractionResult {
   language: AstLanguage;
@@ -568,6 +584,15 @@ export function extractCleanupCompletenessEvidence(input: AstExtractionInput): C
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is CleanupCompletenessEvidence => record.kind === "cleanup-contract",
+  );
+}
+
+export function extractAsyncEffectContinuationEvidence(
+  input: AstExtractionInput,
+): AsyncEffectContinuationEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is AsyncEffectContinuationEvidence => record.kind === "async-effect-continuation",
   );
 }
 
@@ -926,6 +951,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...cacheContractRecords(sourceFile));
   records.push(...promiseCacheRejectionRecords(sourceFile));
   records.push(...cleanupCompletenessRecords(sourceFile));
+  records.push(...asyncEffectContinuationRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
   records.push(...promiseEventErrorBridgeRecords(sourceFile));
@@ -1006,6 +1032,227 @@ function cleanupCompletenessRecordsForBody(
     location: unhandledAwaits[0]!.location,
     obligationLocations: unhandledAwaits.map((entry) => entry.location),
   }];
+}
+
+function asyncEffectContinuationRecords(sourceFile: ts.SourceFile): AsyncEffectContinuationEvidence[] {
+  if (hasLocalPromiseBinding(sourceFile)) return [];
+  const effectHooks = reactNamedImportBindings(sourceFile, "useEffect");
+  const stateHooks = reactNamedImportBindings(sourceFile, "useState");
+  if (effectHooks.size === 0 || stateHooks.size === 0) return [];
+
+  const records: AsyncEffectContinuationEvidence[] = [];
+  const visitFunctions = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      const caller = functionLikeName(node);
+      const stateSetters = caller
+        ? reactStateSetterBindings(node.body, stateHooks)
+        : new Set<string>();
+      if (caller && stateSetters.size > 0) {
+        records.push(...asyncEffectContinuationRecordsForFunction(
+          node.body,
+          caller,
+          effectHooks,
+          stateSetters,
+          sourceFile,
+        ));
+      }
+    }
+    ts.forEachChild(node, visitFunctions);
+  };
+  visitFunctions(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line
+      || left.caller.localeCompare(right.caller)
+      || left.stateSetters.join(",").localeCompare(right.stateSetters.join(",")));
+}
+
+function reactNamedImportBindings(sourceFile: ts.SourceFile, importedName: string): Set<string> {
+  const bindings = new Set<string>();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement)
+      || !ts.isStringLiteral(statement.moduleSpecifier)
+      || statement.moduleSpecifier.text !== "react"
+      || !statement.importClause?.namedBindings
+      || !ts.isNamedImports(statement.importClause.namedBindings)) {
+      continue;
+    }
+    for (const element of statement.importClause.namedBindings.elements) {
+      if ((element.propertyName?.text ?? element.name.text) === importedName) {
+        bindings.add(element.name.text);
+      }
+    }
+  }
+  return bindings;
+}
+
+function reactStateSetterBindings(
+  body: ts.Block,
+  stateHooks: ReadonlySet<string>,
+): Set<string> {
+  const setters = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (node !== body && isFunctionBoundary(node)) return;
+    if (ts.isVariableDeclaration(node)
+      && ts.isArrayBindingPattern(node.name)
+      && node.initializer) {
+      const initializer = unwrapExpression(node.initializer);
+      const setter = node.name.elements[1];
+      if (ts.isCallExpression(initializer)
+        && ts.isIdentifier(initializer.expression)
+        && stateHooks.has(initializer.expression.text)
+        && setter
+        && ts.isBindingElement(setter)
+        && ts.isIdentifier(setter.name)) {
+        setters.add(setter.name.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return setters;
+}
+
+function asyncEffectContinuationRecordsForFunction(
+  body: ts.Block,
+  caller: string,
+  effectHooks: ReadonlySet<string>,
+  stateSetters: ReadonlySet<string>,
+  sourceFile: ts.SourceFile,
+): AsyncEffectContinuationEvidence[] {
+  const records: AsyncEffectContinuationEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (node !== body && isFunctionBoundary(node)) return;
+    if (ts.isCallExpression(node)
+      && ts.isIdentifier(node.expression)
+      && effectHooks.has(node.expression.text)) {
+      records.push(...asyncEffectContinuationRecordsForCall(
+        node,
+        caller,
+        stateSetters,
+        sourceFile,
+      ));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return records;
+}
+
+function asyncEffectContinuationRecordsForCall(
+  effectCall: ts.CallExpression,
+  caller: string,
+  stateSetters: ReadonlySet<string>,
+  sourceFile: ts.SourceFile,
+): AsyncEffectContinuationEvidence[] {
+  const callbackNode = effectCall.arguments[0];
+  const dependenciesNode = effectCall.arguments[1];
+  if (!callbackNode || !dependenciesNode) return [];
+  const callback = unwrapExpression(callbackNode);
+  const dependencies = unwrapExpression(dependenciesNode);
+  if ((!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback))
+    || !ts.isBlock(callback.body)
+    || !ts.isArrayLiteralExpression(dependencies)
+    || dependencies.elements.length === 0
+    || effectReturnsCleanup(callback)) {
+    return [];
+  }
+  const dependencyValues = dependencies.elements
+    .filter((entry): entry is ts.Expression => ts.isExpression(entry))
+    .map((entry) => boundedNodeText(entry, sourceFile));
+  if (dependencyValues.length === 0) return [];
+
+  const records: AsyncEffectContinuationEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (node !== callback.body && isFunctionBoundary(node)) return;
+    if (ts.isCallExpression(node)) {
+      const aggregate = promiseAggregateThen(node);
+      if (aggregate) {
+        const setterCalls = stateSetterCalls(aggregate.continuation, stateSetters);
+        if (setterCalls.length > 0) {
+          records.push({
+            kind: "async-effect-continuation",
+            caller,
+            mechanism: "superseded-effect-continuation",
+            hook: ts.isIdentifier(effectCall.expression) ? effectCall.expression.text : "useEffect",
+            promiseMethod: aggregate.method,
+            dependencies: dependencyValues,
+            stateSetters: [...new Set(setterCalls.map((call) =>
+              ts.isIdentifier(call.expression) ? call.expression.text : ""))]
+              .filter(Boolean)
+              .sort(),
+            aggregateExpression: boundedNodeText(aggregate.aggregate, sourceFile),
+            location: locationOf(effectCall, sourceFile),
+            continuationLocation: locationOf(node, sourceFile),
+            setterLocations: setterCalls.map((call) => locationOf(call, sourceFile)),
+            dependencyLocation: locationOf(dependencies, sourceFile),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(callback.body);
+  return records;
+}
+
+function effectReturnsCleanup(callback: ts.ArrowFunction | ts.FunctionExpression): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found || (node !== callback.body && isFunctionBoundary(node))) return;
+    if (ts.isReturnStatement(node) && node.expression) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(callback.body);
+  return found;
+}
+
+function promiseAggregateThen(call: ts.CallExpression): {
+  aggregate: ts.CallExpression;
+  continuation: ts.ArrowFunction | ts.FunctionExpression;
+  method: "all" | "allSettled";
+} | undefined {
+  if (!ts.isPropertyAccessExpression(call.expression)
+    || call.expression.name.text !== "then") {
+    return undefined;
+  }
+  const aggregate = unwrapExpression(call.expression.expression);
+  const continuationNode = call.arguments[0];
+  if (!ts.isCallExpression(aggregate)
+    || !ts.isPropertyAccessExpression(aggregate.expression)
+    || !ts.isIdentifier(aggregate.expression.expression)
+    || aggregate.expression.expression.text !== "Promise"
+    || (aggregate.expression.name.text !== "all" && aggregate.expression.name.text !== "allSettled")
+    || !continuationNode) {
+    return undefined;
+  }
+  const continuation = unwrapExpression(continuationNode);
+  if (!ts.isArrowFunction(continuation) && !ts.isFunctionExpression(continuation)) return undefined;
+  return {
+    aggregate,
+    continuation,
+    method: aggregate.expression.name.text,
+  };
+}
+
+function stateSetterCalls(
+  continuation: ts.ArrowFunction | ts.FunctionExpression,
+  stateSetters: ReadonlySet<string>,
+): ts.CallExpression[] {
+  const calls: ts.CallExpression[] = [];
+  const visit = (node: ts.Node): void => {
+    if (node !== continuation.body && isFunctionBoundary(node)) return;
+    if (ts.isCallExpression(node)
+      && ts.isIdentifier(node.expression)
+      && stateSetters.has(node.expression.text)) {
+      calls.push(node);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(continuation.body);
+  return calls;
 }
 
 function directAwaitExpression(statement: ts.Statement): ts.AwaitExpression | undefined {

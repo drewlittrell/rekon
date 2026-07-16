@@ -7,6 +7,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "vite-ssr-switch-scope": "semantic.scopeResolution",
   "vite-rsc-shadowed-binding": "semantic.scopeResolution",
   "nest-shutdown-cleanup-completeness": "semantic.cleanupCompleteness",
+  "automerge-superseded-effect-continuation": "semantic.cleanupCompleteness",
   "nest-import-first-match": "semantic.dependencyResolution",
   "nest-resolve-each-candidate-bypass": "semantic.dependencyResolution",
   "playwright-compilation-cache-integrity": "semantic.cacheIntegrity",
