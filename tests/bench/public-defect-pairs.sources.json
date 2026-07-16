@@ -60,6 +60,12 @@
       "directory": "yarn",
       "url": "https://github.com/yarnpkg/berry.git",
       "license": "BSD-2-Clause"
+    },
+    {
+      "id": "webpack",
+      "directory": "webpack",
+      "url": "https://github.com/webpack/webpack.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -270,6 +276,29 @@
         "pnpm11/releasing/commands/test/publish/batchPublish.test.ts",
         "pnpm11/releasing/commands/test/publish/otp.test.ts",
         "pnpm/crates/publish/src/publish_packed_pkg/tests.rs"
+      ]
+    },
+    {
+      "id": "webpack-falsy-option-defaults",
+      "repository": "webpack",
+      "buggyCommit": "9211be0f7a04feb45e1074e6cf848a657dd82ebc",
+      "fixedCommit": "c2dd27f98ef78dcba423b12519f6e467c1467e2e",
+      "upstream": {
+        "fixUrl": "https://github.com/webpack/webpack/pull/20823",
+        "summary": "Logical-OR defaults replaced explicit false plugin options with truthy defaults."
+      },
+      "claim": {
+        "category": "option-propagation",
+        "proof": "upstream-regression-test",
+        "summary": "Progress and manifest plugin options could not disable behavior whose default was true."
+      },
+      "structuredEvidence": "option-falsy-default",
+      "affectedPaths": [
+        "lib/ManifestPlugin.js",
+        "lib/ProgressPlugin.js"
+      ],
+      "testPaths": [
+        "test/ProgressPlugin.test.js"
       ]
     },
     {

@@ -46,6 +46,7 @@ import { evaluateErrorPropagationSignals } from "./error-propagation.js";
 import { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
 import { evaluateCacheIntegritySignals } from "./cache-integrity.js";
 import { evaluateCleanupCompletenessSignals } from "./cleanup-completeness.js";
+import { evaluateOptionPropagationSignals } from "./option-propagation.js";
 import { loadFreshComplexityCoverage } from "./complexity-coverage.js";
 import {
   compileEffectiveCapabilityOntology,
@@ -214,6 +215,7 @@ export { evaluateErrorPropagationSignals } from "./error-propagation.js";
 export { evaluateDependencyResolutionSignals } from "./dependency-resolution.js";
 export { evaluateCacheIntegritySignals } from "./cache-integrity.js";
 export { evaluateCleanupCompletenessSignals } from "./cleanup-completeness.js";
+export { evaluateOptionPropagationSignals } from "./option-propagation.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
@@ -365,11 +367,15 @@ export const policyEvaluator: Evaluator = {
     const cleanupCompletenessAssessments = !disabledRules.has(SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID)
       ? evaluateCleanupCompletenessSignals(graph.facts, evidenceRef)
       : [];
+    const optionPropagationAssessments = !disabledRules.has(SEMANTIC_OPTION_PROPAGATION_RULE_ID)
+      ? evaluateOptionPropagationSignals(graph.facts, evidenceRef)
+      : [];
     const structuredSemanticAssessments = [
       ...cacheIntegrityAssessments,
       ...cleanupCompletenessAssessments,
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
+      ...optionPropagationAssessments,
     ];
     const grammarDivergence = !disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID)
       ? await grammarDivergenceSignals(graph, input, artifacts, evidenceRef)
@@ -395,6 +401,7 @@ export const policyEvaluator: Evaluator = {
       ...cleanupCompletenessAssessments,
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
+      ...optionPropagationAssessments,
       ...importGraphAssessments,
       ...evaluateSourceQualitySignals(graph.facts, evidenceRef)
         .filter((assessment) => !assessment.ruleId || !disabledRules.has(assessment.ruleId))

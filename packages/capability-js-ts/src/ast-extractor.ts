@@ -214,6 +214,21 @@ export type OptionPropagationEvidence = {
   objectLocation: AstLocation;
 };
 
+export type OptionFalsyDefaultEvidence = {
+  kind: "option-falsy-default";
+  caller: string;
+  mechanism: "truthy-default-overrides-falsy";
+  property: string;
+  optionContainer: string;
+  optionExpression: string;
+  defaultExpression: string;
+  defaultSource: string;
+  defaultValue: true;
+  location: AstLocation;
+  optionLocation: AstLocation;
+  defaultLocation: AstLocation;
+};
+
 export type ResourceLifetimeEvidence = {
   kind: "resource-lifetime";
   action: "retain" | "release";
@@ -300,6 +315,7 @@ type AstFlowRecord =
   | ErrorControlFlowEvidence
   | ErrorReasonPropagationEvidence
   | OptionPropagationEvidence
+  | OptionFalsyDefaultEvidence
   | ResourceLifetimeEvidence
   | ScopeResolutionEvidence
   | DependencyResolutionEvidence
@@ -383,6 +399,13 @@ export function extractOptionPropagationEvidence(input: AstExtractionInput): Opt
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is OptionPropagationEvidence => record.kind === "option-override",
+  );
+}
+
+export function extractOptionFalsyDefaultEvidence(input: AstExtractionInput): OptionFalsyDefaultEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is OptionFalsyDefaultEvidence => record.kind === "option-falsy-default",
   );
 }
 
@@ -697,6 +720,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   const records: AstFlowRecord[] = [];
   const identityMappings = extractErrorIdentityMappings(sourceFile);
   const undefinedIsShadowed = hasLocalValueBinding(sourceFile, "undefined");
+  const truthyBooleanDefaults = collectTruthyBooleanDefaults(sourceFile);
 
   const visitFlows = (node: ts.Node, context: { caller: string; className?: string; caughtName?: string }): void => {
     let childContext = context;
@@ -722,9 +746,18 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
       records.push(...optionPropagationRecords(node, sourceFile, context.caller));
     }
 
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-      const resource = resourceLifetimeAssignment(node, sourceFile, context.caller);
-      if (resource) records.push(resource);
+    if (ts.isBinaryExpression(node)) {
+      const falsyDefault = optionFalsyDefaultRecord(
+        node,
+        truthyBooleanDefaults,
+        sourceFile,
+        context.caller,
+      );
+      if (falsyDefault) records.push(falsyDefault);
+      if (node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        const resource = resourceLifetimeAssignment(node, sourceFile, context.caller);
+        if (resource) records.push(resource);
+      }
     } else if (ts.isDeleteExpression(node)) {
       const resource = resourceLifetimeDelete(node, sourceFile, context.caller);
       if (resource) records.push(resource);
@@ -1695,6 +1728,69 @@ function optionPropagationRecords(
     });
   }
   return records;
+}
+
+function collectTruthyBooleanDefaults(sourceFile: ts.SourceFile): Set<string> {
+  const defaults = new Set<string>();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)
+      || !(statement.declarationList.flags & ts.NodeFlags.Const)) {
+      continue;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name)
+        || !declaration.initializer
+        || !ts.isObjectLiteralExpression(unwrapParenthesized(declaration.initializer))) {
+        continue;
+      }
+      const object = unwrapParenthesized(declaration.initializer) as ts.ObjectLiteralExpression;
+      for (const property of object.properties) {
+        if (!ts.isPropertyAssignment(property)) continue;
+        const name = methodNameText(property.name);
+        if (name && unwrapParenthesized(property.initializer).kind === ts.SyntaxKind.TrueKeyword) {
+          defaults.add(`${declaration.name.text}.${name}`);
+        }
+      }
+    }
+  }
+  return defaults;
+}
+
+function optionFalsyDefaultRecord(
+  expression: ts.BinaryExpression,
+  truthyBooleanDefaults: ReadonlySet<string>,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): OptionFalsyDefaultEvidence | undefined {
+  if (expression.operatorToken.kind !== ts.SyntaxKind.BarBarToken) return undefined;
+  const option = unwrapParenthesized(expression.left);
+  const fallback = unwrapParenthesized(expression.right);
+  const optionPath = memberPath(option);
+  if (!optionPath || optionPath.length < 2) return undefined;
+  const property = optionPath.at(-1)!;
+  const optionContainerPath = optionPath.slice(0, -1);
+  if (!/^(?:options?|opts)$/iu.test(optionContainerPath.at(-1) ?? "")) return undefined;
+
+  const fallbackPath = memberPath(fallback);
+  const literalTrue = fallback.kind === ts.SyntaxKind.TrueKeyword;
+  const declaredTruthyDefault = fallbackPath?.at(-1) === property
+    && truthyBooleanDefaults.has(fallbackPath.join("."));
+  if (!literalTrue && !declaredTruthyDefault) return undefined;
+
+  return {
+    kind: "option-falsy-default",
+    caller,
+    mechanism: "truthy-default-overrides-falsy",
+    property,
+    optionContainer: optionContainerPath.join("."),
+    optionExpression: boundedNodeText(option, sourceFile),
+    defaultExpression: boundedNodeText(fallback, sourceFile),
+    defaultSource: literalTrue ? "literal" : fallbackPath!.slice(0, -1).join("."),
+    defaultValue: true,
+    location: locationOf(expression, sourceFile),
+    optionLocation: locationOf(option, sourceFile),
+    defaultLocation: locationOf(fallback, sourceFile),
+  };
 }
 
 function optionOverride(

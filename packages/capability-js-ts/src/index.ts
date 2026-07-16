@@ -81,6 +81,7 @@ export {
   type CleanupCompletenessEvidence,
   type DependencyCandidateBypassEvidence,
   type DependencyResolutionEvidence,
+  type OptionFalsyDefaultEvidence,
   type OptionPropagationEvidence,
   type ResourceLifetimeEvidence,
   type ScopeResolutionEvidence,
@@ -90,6 +91,7 @@ export {
   extractCleanupCompletenessEvidence,
   extractDependencyCandidateBypassEvidence,
   extractDependencyResolutionEvidence,
+  extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
   extractScopeResolutionEvidence,
@@ -1245,6 +1247,25 @@ function factsFromAstResult(
         ...(flow.callbackOwner ? { callbackOwner: flow.callbackOwner } : {}),
         line: flow.location.line,
         column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "option-falsy-default") {
+      facts.push(fact("option_flow", `${path}:${flow.caller}:${flow.property}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        property: flow.property,
+        optionContainer: flow.optionContainer,
+        optionExpression: flow.optionExpression,
+        defaultExpression: flow.defaultExpression,
+        defaultSource: flow.defaultSource,
+        defaultValue: flow.defaultValue,
+        location: flow.location,
+        optionLocation: flow.optionLocation,
+        defaultLocation: flow.defaultLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

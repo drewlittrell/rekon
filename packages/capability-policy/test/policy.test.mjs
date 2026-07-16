@@ -20,6 +20,7 @@ import policyCapability, {
   evaluateDependencyAuditReports,
   evaluateDependencyResolutionSignals,
   evaluateErrorPropagationSignals,
+  evaluateOptionPropagationSignals,
   evaluateSemanticFileCandidates,
   evaluateResourceLifetimeSignals,
 } from "../dist/index.js";
@@ -565,6 +566,48 @@ test("structured dependency resolution identifies an iterated candidate bypass",
   assert.deepEqual(evaluateDependencyResolutionSignals([{
     ...fact,
     value: { ...fact.value, source: "tests/abstract-resolver.test.ts" },
+  }], ref), []);
+});
+
+test("structured option propagation identifies truthy defaults that override false", () => {
+  const ref = { type: "EvidenceGraph", id: "option-falsy-default", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "option_flow",
+    value: {
+      source: "src/plugin.js",
+      caller: "ProgressPlugin.constructor",
+      mechanism: "truthy-default-overrides-falsy",
+      property: "modules",
+      optionContainer: "options",
+      optionExpression: "options.modules",
+      defaultExpression: "DEFAULT_OPTIONS.modules",
+      defaultSource: "DEFAULT_OPTIONS",
+      defaultValue: true,
+      location: { line: 181, column: 24 },
+      optionLocation: { line: 181, column: 24 },
+      defaultLocation: { line: 181, column: 43 },
+    },
+  };
+
+  const assessments = evaluateOptionPropagationSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_OPTION_PROPAGATION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "truthy-default-overrides-falsy");
+  assert.equal(assessments[0].details.optionExpression, fact.value.optionExpression);
+  assert.deepEqual(assessments[0].details.sourceEvidence, [
+    { path: "src/plugin.js", lineStart: 181, lineEnd: 181 },
+  ]);
+  assert.deepEqual(evaluateOptionPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, defaultValue: false },
+  }], ref), []);
+  assert.deepEqual(evaluateOptionPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, mechanism: "logical-or-fallback" },
+  }], ref), []);
+  assert.deepEqual(evaluateOptionPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, source: "test/plugin.test.js" },
   }], ref), []);
 });
 

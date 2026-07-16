@@ -220,6 +220,14 @@ judgment keeps external callback or option contracts explicit as verification
 requirements. Both buggy pnpm publish paths are retained while both fixed
 fallback paths remain clean.
 
+A second option mechanism records logical-OR defaulting only when an option
+member falls back to literal `true` or a same-property local default visibly
+declared as `true` in a top-level `const` object. The pinned webpack pair emits
+on both affected plugin files where explicit false values were coerced back to
+true and clears after presence-aware defaulting. Direct source review and the
+upstream regression test supply the judgment; generic logical-OR expressions
+remain outside the extractor's jurisdiction.
+
 The fifth batch closes the resource-lifetime gap with cross-file evidence rather
 than a generic assignment detector. Deterministic `resource_flow` facts record
 request/reply objects retained on socket, connection, or server-owned state and
@@ -260,13 +268,13 @@ evidence. The extractor is limited to explicit lifecycle function names and
 visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
 retains both premature-close paths and clears when both use all-settled waits.
 Cache integrity, cleanup completeness, dependency resolution, error
-propagation, and resource lifetime now have two independent positive pairs; the
-other semantic classes have one.
+propagation, option propagation, and resource lifetime now have two independent
+positive pairs; scope resolution has one.
 All seven remain below the five-adjudication usefulness minimum, which is
 recorded in the compact baseline rather than reduced to fit the available
 data. Its token and cost totals cover the ten model-adjudicated pairs only; the
-Nest candidate-bypass and Playwright error-reason pairs are recorded separately
-as direct source review.
+Nest candidate-bypass, Playwright error-reason, and webpack falsy-option pairs
+are recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

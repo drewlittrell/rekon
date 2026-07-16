@@ -238,6 +238,8 @@ a parameter-sensitive cross-call cache contract. Cleanup-completeness coverage
 includes semantic shutdown-hook analysis and structured lifecycle wait
 contracts. Dependency-resolution coverage includes both conditional candidate
 overwrite and iterated candidate bypass through a generic token lookup.
+Option-propagation coverage includes callback-backed spread overrides and
+logical-OR defaulting that coerces explicit false values.
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -258,6 +260,8 @@ structured evidence for a supplied cause hidden behind a default message and
 is currently adjudicated by direct review of pinned source and upstream tests.
 The Nest candidate-bypass pair uses the same direct-review boundary and
 structured `dependency_flow` evidence.
+The webpack falsy-option pair uses direct review and structured `option_flow`
+evidence bounded to visible boolean `true` defaults.
 The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The Yarn cache pair uses deterministic `cache_flow` evidence
@@ -267,8 +271,8 @@ lifecycle wait contracts enter the structured path. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 That aggregate also records positive-pair counts against the five-adjudication
 minimum. Resource lifetime, cache integrity, cleanup completeness, dependency
-resolution, and error propagation currently have two independent positive
-pairs; the other semantic classes have one each, so all remain
+resolution, error propagation, and option propagation currently have two
+independent positive pairs; scope resolution has one, so all remain
 `insufficient-evidence`. Token and cost totals apply only to the ten pairs
 previously run through the model API.
 

@@ -90,6 +90,12 @@ unconditional first-match exit and candidate-specific returns stay silent.
 Intended provider precedence remains an autonomous judgment or focused
 verification question.
 
+Option-propagation policy recognizes an option member combined through logical
+OR with a visible same-property boolean `true` default. The assessment records
+that explicit false is coerced to the default, while leaving the option's
+intended contract and runtime impact to autonomous judgment or focused
+verification.
+
 Cache-integrity policy consumes `cache_flow` facts when a memoized callback can
 return different results based on an outer parameter absent from the key. It
 emits a semantic claim with the key, omitted parameters, guard, and fallback

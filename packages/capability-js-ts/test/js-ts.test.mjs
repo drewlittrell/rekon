@@ -11,6 +11,7 @@ import capability, {
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
+  extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
   extractScopeResolutionEvidence,
@@ -551,6 +552,98 @@ test("option-flow evidence distinguishes destructive overrides from spread-prese
     assert.equal(facts[0].value.callbackOwner, "withOtpHandling");
     assert.equal(facts[0].value.preservesSpreadValue, false);
     assert.equal(facts[0].provenance.line, facts[0].value.line);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("option-flow evidence identifies truthy defaults that override explicit false", async () => {
+  const buggySource = [
+    "const DEFAULT_OPTIONS = {",
+    "  modules: true,",
+    "  profile: false,",
+    "};",
+    "class Plugin {",
+    "  constructor(options = {}) {",
+    "    this.showModules = options.modules || DEFAULT_OPTIONS.modules;",
+    "    this.profile = options.profile || DEFAULT_OPTIONS.profile;",
+    "  }",
+    "  apply() {",
+    "    const entrypoints = this.options.entrypoints || true;",
+    "    const enabled = this.options.enabled ?? true;",
+    "  }",
+    "}",
+  ].join("\n");
+  const fixedSource = [
+    "const DEFAULT_OPTIONS = { modules: true, profile: false };",
+    "class Plugin {",
+    "  constructor(options = {}) {",
+    "    const merged = { ...DEFAULT_OPTIONS, ...options };",
+    "    this.showModules = merged.modules;",
+    "  }",
+    "  apply() {",
+    "    const entrypoints = this.options.entrypoints !== undefined ? this.options.entrypoints : true;",
+    "  }",
+    "}",
+  ].join("\n");
+
+  const evidence = extractOptionFalsyDefaultEvidence({ path: "src/plugin.js", content: buggySource });
+  assert.equal(evidence.length, 2);
+  assert.deepEqual(evidence.map((entry) => ({
+    caller: entry.caller,
+    mechanism: entry.mechanism,
+    property: entry.property,
+    optionContainer: entry.optionContainer,
+    optionExpression: entry.optionExpression,
+    defaultExpression: entry.defaultExpression,
+    defaultSource: entry.defaultSource,
+    defaultValue: entry.defaultValue,
+  })), [
+    {
+      caller: "Plugin.constructor",
+      mechanism: "truthy-default-overrides-falsy",
+      property: "modules",
+      optionContainer: "options",
+      optionExpression: "options.modules",
+      defaultExpression: "DEFAULT_OPTIONS.modules",
+      defaultSource: "DEFAULT_OPTIONS",
+      defaultValue: true,
+    },
+    {
+      caller: "Plugin.apply",
+      mechanism: "truthy-default-overrides-falsy",
+      property: "entrypoints",
+      optionContainer: "this.options",
+      optionExpression: "this.options.entrypoints",
+      defaultExpression: "true",
+      defaultSource: "literal",
+      defaultValue: true,
+    },
+  ]);
+  assert.deepEqual(extractOptionFalsyDefaultEvidence({ path: "src/plugin.js", content: fixedSource }), []);
+  assert.deepEqual(extractOptionFalsyDefaultEvidence({
+    path: "src/config.js",
+    content: "const DEFAULT_OPTIONS = { enabled: true }; const value = config.enabled || DEFAULT_OPTIONS.enabled;",
+  }), []);
+  assert.deepEqual(extractOptionFalsyDefaultEvidence({
+    path: "src/options.js",
+    content: "const DEFAULT_OPTIONS = { other: true }; const value = options.enabled || DEFAULT_OPTIONS.other;",
+  }), []);
+  assert.deepEqual(extractOptionFalsyDefaultEvidence({
+    path: "src/scoped-options.js",
+    content: "function read(options) { const DEFAULT_OPTIONS = { enabled: true }; return options.enabled || DEFAULT_OPTIONS.enabled; }",
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-option-default-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "plugin.js"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "option_flow"
+        && fact.value.mechanism === "truthy-default-overrides-falsy");
+    assert.equal(facts.length, 2);
+    assert.deepEqual(facts.map((fact) => fact.value.property), ["modules", "entrypoints"]);
+    assert.ok(facts.every((fact) => fact.provenance.line === fact.value.location.line));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

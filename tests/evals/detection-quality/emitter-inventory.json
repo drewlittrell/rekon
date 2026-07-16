@@ -235,8 +235,8 @@
     {
       "ruleId": "semantic.optionPropagation",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic finding classified as option-propagation, informed by deterministic spread, override, fallback, and callback context",
-      "jurisdiction": "production JavaScript and TypeScript source selected for semantic file understanding where an existing option and a potentially absent override can be compared",
+      "evidence": "current source-matched semantic findings informed by spread and callback context, plus deterministic option_flow facts for logical-OR fallback to a visible same-property boolean true default",
+      "jurisdiction": "production JavaScript and TypeScript option handoffs, including option members whose explicit false value can be replaced by a visible truthy default",
       "remediationUnit": "source file and option-precedence handoff"
     },
     {
