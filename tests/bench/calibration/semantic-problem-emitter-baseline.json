@@ -1,11 +1,11 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-07-16T18:05:13Z",
+  "generatedAt": "2026-07-16T18:18:16Z",
   "pricingAsOf": "2026-07-15",
   "corpus": {
     "catalogVersion": "1.0.0",
-    "pairCount": 13,
-    "caseCount": 36,
+    "pairCount": 14,
+    "caseCount": 38,
     "sourceRetention": "none",
     "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+resource-flow-anchor-v1+dependency-flow-anchor-v1+scope-model-anchor-v1+cleanup-flow-anchor-v1",
     "minimumChangedLineCoverage": 0.2,
@@ -15,7 +15,7 @@
     "judgmentCoercionVersion": "assessment-judgment-v2",
     "judgmentCoverage": {
       "modelApiPairs": 10,
-      "agentSourceReviewPairs": 3
+      "agentSourceReviewPairs": 4
     }
   },
   "model": {
@@ -26,7 +26,7 @@
     "appliesToPairs": 10
   },
   "summary": {
-    "passedPairs": 13,
+    "passedPairs": 14,
     "failedPairs": 0,
     "errors": 0,
     "usageScope": "model-api-pairs-only",
@@ -85,7 +85,7 @@
     {
       "ruleId": "semantic.scopeResolution",
       "problemClass": "scope-resolution",
-      "positivePairs": 1,
+      "positivePairs": 2,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     }
@@ -94,6 +94,19 @@
     {
       "pairId": "vite-ssr-switch-scope",
       "problemClass": "scope-resolution",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "vite-rsc-shadowed-binding",
+      "problemClass": "scope-resolution",
+      "judgmentMode": "agent-source-review",
       "requiredBuggyPaths": 1,
       "buggyDefectPaths": 1,
       "buggyRetainedPaths": 1,

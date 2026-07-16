@@ -240,6 +240,8 @@ contracts. Dependency-resolution coverage includes both conditional candidate
 overwrite and iterated candidate bypass through a generic token lookup.
 Option-propagation coverage includes callback-backed spread overrides and
 logical-OR defaulting that coerces explicit false values.
+Scope-resolution coverage includes missing lexical boundaries and name-only
+binding ownership that cannot distinguish shadowed reference occurrences.
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -262,6 +264,8 @@ The Nest candidate-bypass pair uses the same direct-review boundary and
 structured `dependency_flow` evidence.
 The webpack falsy-option pair uses direct review and structured `option_flow`
 evidence bounded to visible boolean `true` defaults.
+The Vite RSC shadowing pair uses direct review and structured `scope_model`
+evidence for name-only owner lookup.
 The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The Yarn cache pair uses deterministic `cache_flow` evidence
@@ -270,11 +274,9 @@ cleanup pair uses deterministic `cleanup_flow` evidence so only explicit
 lifecycle wait contracts enter the structured path. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 That aggregate also records positive-pair counts against the five-adjudication
-minimum. Resource lifetime, cache integrity, cleanup completeness, dependency
-resolution, error propagation, and option propagation currently have two
-independent positive pairs; scope resolution has one, so all remain
-`insufficient-evidence`. Token and cost totals apply only to the ten pairs
-previously run through the model API.
+minimum. Every semantic class currently has two independent positive pairs, so
+all remain `insufficient-evidence`. Token and cost totals apply only to the ten
+pairs previously run through the model API.
 
 ## Corpus retention
 

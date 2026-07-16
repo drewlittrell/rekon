@@ -246,6 +246,13 @@ identifiers. The buggy Vite revision identifies `SwitchStatement` as an
 unmodeled boundary, while the fixed classifier includes it and keeps the switch
 discriminant outside the switch scope.
 
+A second scope mechanism covers binding transforms that select captured values
+from a set of reference names and resolve each name from one scope anchor. That
+shape cannot distinguish separate reference occurrences with the same name.
+The pinned Vite RSC pair retains the name-only lookup on the buggy revision and
+clears after occurrence-level reference-to-declaration mapping is introduced.
+Direct review of the source and upstream shadowing tests supplies the judgment.
+
 Resource-lifetime coverage also includes request-scoped closures attached to
 reusable socket listeners from inside request socket callbacks. The
 docker-modem buggy revision is retained by independent judgment, while moving
@@ -267,14 +274,12 @@ Cleanup wait contracts are also modeled through deterministic `cleanup_flow`
 evidence. The extractor is limited to explicit lifecycle function names and
 visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
 retains both premature-close paths and clears when both use all-settled waits.
-Cache integrity, cleanup completeness, dependency resolution, error
-propagation, option propagation, and resource lifetime now have two independent
-positive pairs; scope resolution has one.
+All seven semantic classes now have two independent positive pairs.
 All seven remain below the five-adjudication usefulness minimum, which is
 recorded in the compact baseline rather than reduced to fit the available
 data. Its token and cost totals cover the ten model-adjudicated pairs only; the
-Nest candidate-bypass, Playwright error-reason, and webpack falsy-option pairs
-are recorded separately as direct source review.
+Nest candidate-bypass, Playwright error-reason, Vite RSC shadowing, and webpack
+falsy-option pairs are recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

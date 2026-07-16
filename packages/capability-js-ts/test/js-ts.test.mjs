@@ -14,6 +14,7 @@ import capability, {
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
+  extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
   jsTsProvider,
 } from "../dist/index.js";
@@ -954,6 +955,81 @@ test("scope-model evidence records lexical boundaries used by identifier rewriti
     assert.deepEqual(facts[0].value.unmodeledLexicalBoundaries, ["SwitchStatement"]);
     assert.equal(facts[0].value.classifierName, "blockNodeTypeRE");
     assert.equal(facts[0].provenance.line, facts[0].value.line);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("scope-model evidence identifies name-only reference ownership in binding transforms", async () => {
+  const buggySource = [
+    "export function transformHoistInlineDirective(ast) {",
+    "  const analyzed = analyze(ast);",
+    "  walk(ast, {",
+    "    enter(node) {",
+    "      const scope = analyzed.map.get(node);",
+    "      const bindVars = [...scope.references].filter((ref) => {",
+    "        const owner = scope.find_owner(ref);",
+    "        return owner && owner !== scope && owner !== analyzed.scope;",
+    "      });",
+    "      return bindVars;",
+    "    },",
+    "  });",
+    "}",
+  ].join("\n");
+  const fixedSource = [
+    "export function transformHoistInlineDirective(ast) {",
+    "  const scopeTree = buildScopeTree(ast);",
+    "  walk(ast, {",
+    "    enter(node) {",
+    "      const bindVars = getBindVars(node, scopeTree);",
+    "      return bindVars;",
+    "    },",
+    "  });",
+    "}",
+  ].join("\n");
+
+  const evidence = extractScopeNameResolutionEvidence({ path: "src/hoist.ts", content: buggySource });
+  assert.equal(evidence.length, 1);
+  assert.deepEqual({
+    mechanism: evidence[0].mechanism,
+    caller: evidence[0].caller,
+    bindTarget: evidence[0].bindTarget,
+    scopeBinding: evidence[0].scopeBinding,
+    analysisExpression: evidence[0].analysisExpression,
+    referenceCollection: evidence[0].referenceCollection,
+    referenceParameter: evidence[0].referenceParameter,
+    ownerLookup: evidence[0].ownerLookup,
+  }, {
+    mechanism: "name-only-reference-owner",
+    caller: "transformHoistInlineDirective",
+    bindTarget: "bindVars",
+    scopeBinding: "scope",
+    analysisExpression: "analyzed.map.get(node)",
+    referenceCollection: "scope.references",
+    referenceParameter: "ref",
+    ownerLookup: "scope.find_owner(ref)",
+  });
+  assert.deepEqual(extractScopeNameResolutionEvidence({ path: "src/hoist.ts", content: fixedSource }), []);
+  assert.deepEqual(extractScopeNameResolutionEvidence({
+    path: "src/ordinary.ts",
+    content: buggySource.replace("bindVars", "references"),
+  }), []);
+  assert.deepEqual(extractScopeNameResolutionEvidence({
+    path: "src/no-map.ts",
+    content: buggySource.replace("analyzed.map.get(node)", "analyzed.scope"),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-scope-name-resolution-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "hoist.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "scope_model"
+        && fact.value.mechanism === "name-only-reference-owner");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.bindTarget, "bindVars");
+    assert.equal(facts[0].value.ownerLookup, "scope.find_owner(ref)");
+    assert.equal(facts[0].provenance.line, facts[0].value.location.line);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

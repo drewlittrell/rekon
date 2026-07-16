@@ -253,6 +253,22 @@ export type ScopeResolutionEvidence = {
   location: AstLocation;
 };
 
+export type ScopeNameResolutionEvidence = {
+  kind: "scope-name-resolution";
+  mechanism: "name-only-reference-owner";
+  caller: string;
+  bindTarget: string;
+  scopeBinding: string;
+  analysisExpression: string;
+  referenceCollection: string;
+  referenceParameter: string;
+  ownerLookup: string;
+  location: AstLocation;
+  analysisLocation: AstLocation;
+  collectionLocation: AstLocation;
+  ownerLookupLocation: AstLocation;
+};
+
 export type DependencyResolutionEvidence = {
   kind: "dependency-selection";
   caller: string;
@@ -318,6 +334,7 @@ type AstFlowRecord =
   | OptionFalsyDefaultEvidence
   | ResourceLifetimeEvidence
   | ScopeResolutionEvidence
+  | ScopeNameResolutionEvidence
   | DependencyResolutionEvidence
   | DependencyCandidateBypassEvidence
   | CacheContractEvidence
@@ -420,6 +437,13 @@ export function extractScopeResolutionEvidence(input: AstExtractionInput): Scope
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ScopeResolutionEvidence => record.kind === "scope-model",
+  );
+}
+
+export function extractScopeNameResolutionEvidence(input: AstExtractionInput): ScopeNameResolutionEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is ScopeNameResolutionEvidence => record.kind === "scope-name-resolution",
   );
 }
 
@@ -808,6 +832,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
+  records.push(...scopeNameResolutionRecords(sourceFile));
   return records;
 }
 
@@ -1499,6 +1524,143 @@ function scopeResolutionRecords(sourceFile: ts.SourceFile): ScopeResolutionEvide
       location: classifier.location,
     };
   });
+}
+
+function scopeNameResolutionRecords(sourceFile: ts.SourceFile): ScopeNameResolutionEvidence[] {
+  const records: ScopeNameResolutionEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      const record = scopeNameResolutionRecord(node, sourceFile);
+      if (record) records.push(record);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line || left.bindTarget.localeCompare(right.bindTarget));
+}
+
+function scopeNameResolutionRecord(
+  declaration: ts.VariableDeclaration,
+  sourceFile: ts.SourceFile,
+): ScopeNameResolutionEvidence | undefined {
+  if (!ts.isIdentifier(declaration.name)
+    || !/(?:bind|captur|closure).*(?:var|ref|name)|(?:var|ref|name).*(?:bind|captur|closure)/iu.test(declaration.name.text)
+    || !declaration.initializer) {
+    return undefined;
+  }
+  const initializer = unwrapExpression(declaration.initializer);
+  if (!ts.isCallExpression(initializer)
+    || !ts.isPropertyAccessExpression(initializer.expression)
+    || initializer.expression.name.text !== "filter") {
+    return undefined;
+  }
+  const collection = unwrapExpression(initializer.expression.expression);
+  if (!ts.isArrayLiteralExpression(collection)) return undefined;
+  const spread = collection.elements.find(ts.isSpreadElement);
+  const collectionPath = spread ? memberPath(unwrapExpression(spread.expression)) : undefined;
+  if (!spread || !collectionPath || collectionPath.length !== 2 || collectionPath[1] !== "references") {
+    return undefined;
+  }
+  const scopeBinding = collectionPath[0]!;
+  const callbackArgument = initializer.arguments[0];
+  if (!callbackArgument) return undefined;
+  const callback = unwrapExpression(callbackArgument);
+  if (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback)) {
+    return undefined;
+  }
+  const parameter = callback.parameters[0];
+  if (!parameter || !ts.isIdentifier(parameter.name)) return undefined;
+  const referenceParameter = parameter.name.text;
+  const ownerLookup = findNameOnlyOwnerLookup(callback, scopeBinding, referenceParameter);
+  if (!ownerLookup) return undefined;
+
+  const boundary = enclosingFunction(declaration);
+  if (!boundary?.body || !ts.isBlock(boundary.body)) return undefined;
+  const scopeDeclaration = findVariableDeclaration(boundary.body, scopeBinding);
+  const analysis = scopeDeclaration?.initializer
+    ? returnedCallExpression(scopeDeclaration.initializer)
+    : undefined;
+  const analysisPath = analysis ? memberPath(analysis.expression) : undefined;
+  if (!scopeDeclaration?.initializer
+    || !analysis
+    || analysisPath?.at(-1) !== "get"
+    || !analysisPath.slice(0, -1).some((part) => /^(?:map|scopes?)$/iu.test(part))) {
+    return undefined;
+  }
+
+  return {
+    kind: "scope-name-resolution",
+    mechanism: "name-only-reference-owner",
+    caller: scopeTransformCaller(declaration),
+    bindTarget: declaration.name.text,
+    scopeBinding,
+    analysisExpression: boundedNodeText(scopeDeclaration.initializer, sourceFile),
+    referenceCollection: collectionPath.join("."),
+    referenceParameter,
+    ownerLookup: boundedNodeText(ownerLookup, sourceFile),
+    location: locationOf(declaration, sourceFile),
+    analysisLocation: locationOf(scopeDeclaration.initializer, sourceFile),
+    collectionLocation: locationOf(spread.expression, sourceFile),
+    ownerLookupLocation: locationOf(ownerLookup, sourceFile),
+  };
+}
+
+function findNameOnlyOwnerLookup(
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+  scopeBinding: string,
+  referenceParameter: string,
+): ts.CallExpression | undefined {
+  let match: ts.CallExpression | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== callback.body && isFunctionBoundary(node))) return;
+    if (ts.isCallExpression(node)) {
+      const path = memberPath(node.expression);
+      const firstArgument = node.arguments[0];
+      if (!firstArgument) {
+        ts.forEachChild(node, visit);
+        return;
+      }
+      const first = unwrapExpression(firstArgument);
+      if (path?.length === 2
+        && path[0] === scopeBinding
+        && /^(?:find_owner|findOwner)$/u.test(path[1]!)
+        && ts.isIdentifier(first)
+        && first.text === referenceParameter) {
+        match = node;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(callback.body);
+  return match;
+}
+
+function findVariableDeclaration(body: ts.Block, name: string): ts.VariableDeclaration | undefined {
+  let match: ts.VariableDeclaration | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
+      match = node;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return match;
+}
+
+function scopeTransformCaller(node: ts.Node): string {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (isFunctionBoundary(current)) {
+      const name = functionLikeName(current);
+      if (name && /(?:transform|hoist|scope|bind)/iu.test(name)) return name;
+    }
+    current = current.parent;
+  }
+  return enclosingCaller(node);
 }
 
 const RESOURCE_OWNER_KINDS = new Set(["socket", "connection", "server"] as const);

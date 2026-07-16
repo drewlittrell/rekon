@@ -84,6 +84,7 @@ export {
   type OptionFalsyDefaultEvidence,
   type OptionPropagationEvidence,
   type ResourceLifetimeEvidence,
+  type ScopeNameResolutionEvidence,
   type ScopeResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
@@ -94,6 +95,7 @@ export {
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
+  extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
 } from "./ast-extractor.js";
 export { collectTypeScriptDiagnostics, type TypeScriptDiagnosticEvidence } from "./typescript-diagnostics.js";
@@ -1333,6 +1335,26 @@ function factsFromAstResult(
         excludesSwitchDiscriminant: flow.excludesSwitchDiscriminant,
         line: flow.location.line,
         column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "scope-name-resolution") {
+      facts.push(fact("scope_model", `${path}:${flow.caller}:${flow.bindTarget}:${flow.location.line}`, {
+        source: path,
+        mechanism: flow.mechanism,
+        caller: flow.caller,
+        bindTarget: flow.bindTarget,
+        scopeBinding: flow.scopeBinding,
+        analysisExpression: flow.analysisExpression,
+        referenceCollection: flow.referenceCollection,
+        referenceParameter: flow.referenceParameter,
+        ownerLookup: flow.ownerLookup,
+        location: flow.location,
+        analysisLocation: flow.analysisLocation,
+        collectionLocation: flow.collectionLocation,
+        ownerLookupLocation: flow.ownerLookupLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

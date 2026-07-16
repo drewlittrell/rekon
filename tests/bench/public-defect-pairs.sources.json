@@ -66,6 +66,12 @@
       "directory": "webpack",
       "url": "https://github.com/webpack/webpack.git",
       "license": "MIT"
+    },
+    {
+      "id": "vite-plugin-react",
+      "directory": "vite-plugin-react",
+      "url": "https://github.com/vitejs/vite-plugin-react.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -86,6 +92,28 @@
       },
       "affectedPaths": ["packages/vite/src/node/ssr/ssrTransform.ts"],
       "testPaths": ["packages/vite/src/node/ssr/__tests__/ssrTransform.spec.ts"]
+    },
+    {
+      "id": "vite-rsc-shadowed-binding",
+      "repository": "vite-plugin-react",
+      "buggyCommit": "c8fc4c682d1c1716d385a28629025f0bbc5fdb3d",
+      "fixedCommit": "623eadfa7f90dfe152a9240c483d8542d189c292",
+      "upstream": {
+        "fixUrl": "https://github.com/vitejs/vite-plugin-react/pull/1170",
+        "summary": "The RSC hoist transform resolved closure bindings by reference name from one scope anchor, so fully shadowed locals could be captured as outer values."
+      },
+      "claim": {
+        "category": "scope-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "A server function could bind an outer variable even when every reference with that name resolved to a local shadowing declaration."
+      },
+      "structuredEvidence": "scope-name-resolution",
+      "affectedPaths": [
+        "packages/plugin-rsc/src/transforms/hoist.ts"
+      ],
+      "testPaths": [
+        "packages/plugin-rsc/src/transforms/hoist.test.ts"
+      ]
     },
     {
       "id": "vite-cleanup-premature-exit",

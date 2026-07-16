@@ -19,6 +19,7 @@ import {
   extractOptionPropagationEvidence,
   extractScopeResolutionEvidence,
   extractResourceLifetimeEvidence,
+  extractScopeNameResolutionEvidence,
 } from "../packages/capability-js-ts/dist/index.js";
 import {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
@@ -34,6 +35,7 @@ import {
   evaluateErrorPropagationSignals,
   evaluateOptionPropagationSignals,
   evaluateResourceLifetimeSignals,
+  evaluateScopeResolutionSignals,
   evaluateSemanticFileCandidates,
 } from "../packages/capability-policy/dist/index.js";
 import {
@@ -124,6 +126,11 @@ for (const pair of selectedPairs) {
   if (pair.claim.category === "option-propagation"
     && pair.structuredEvidence === "option-falsy-default") {
     runs.push(...await evaluateOptionPropagationPair(pair, repository));
+    continue;
+  }
+  if (pair.claim.category === "scope-resolution"
+    && pair.structuredEvidence === "scope-name-resolution") {
+    runs.push(...await evaluateScopeResolutionPair(pair, repository));
     continue;
   }
   if (pair.claim.category === "resource-lifetime") {
@@ -631,6 +638,148 @@ async function evaluateOptionPropagationPair(pair, repository) {
         currentCostUsd: estimateUsageCost(usage, config.pricing),
       });
     }
+  }
+  return pairRuns;
+}
+
+async function evaluateScopeResolutionPair(pair, repository) {
+  if (pair.affectedPaths.length !== 1) {
+    throw new Error(`${pair.id}: scope-name-resolution calibration requires exactly one fix path.`);
+  }
+  const pairRuns = [];
+  const path = pair.affectedPaths[0];
+  const evidenceRef = { type: "EvidenceGraph", id: `eval-${pair.id}`, schemaVersion: "0.1.0" };
+
+  for (const revision of ["buggy", "fixed"]) {
+    process.stderr.write(`[semantic-problem-emitter-eval] ${pair.id}:${revision}:${path}\n`);
+    const commit = revision === "buggy" ? pair.buggyCommit : pair.fixedCommit;
+    const counterpartCommit = revision === "buggy" ? pair.fixedCommit : pair.buggyCommit;
+    const [text, counterpartText] = await Promise.all([
+      fetchText(rawGitHubUrl(repository.url, commit, path), options.timeoutMs),
+      fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
+    ]);
+    const sha256 = createHash("sha256").update(text).digest("hex");
+    const scopeFlow = extractScopeNameResolutionEvidence({ path, content: text });
+    const facts = scopeFlow.map((entry) => ({
+      kind: "scope_model",
+      subject: `${path}:${entry.caller}:${entry.bindTarget}:${entry.location.line}`,
+      value: {
+        source: path,
+        mechanism: entry.mechanism,
+        caller: entry.caller,
+        bindTarget: entry.bindTarget,
+        scopeBinding: entry.scopeBinding,
+        analysisExpression: entry.analysisExpression,
+        referenceCollection: entry.referenceCollection,
+        referenceParameter: entry.referenceParameter,
+        ownerLookup: entry.ownerLookup,
+        location: entry.location,
+        analysisLocation: entry.analysisLocation,
+        collectionLocation: entry.collectionLocation,
+        ownerLookupLocation: entry.ownerLookupLocation,
+      },
+    }));
+    const matching = evaluateScopeResolutionSignals(facts, evidenceRef);
+    const changedLines = changedLineNumbers(text, counterpartText);
+    const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
+      assessment,
+      changedLines,
+      problemClass: pair.claim.category,
+    }));
+    const judgmentResults = [];
+    for (const assessment of defectMatching) {
+      const sources = [{ path, text, sha256 }];
+      const judgmentCompletion = await provider.completeJson({
+        task: "policy.assessment-judgment",
+        schemaName: "AssessmentJudgmentResult",
+        prompt: buildAssessmentJudgmentPrompt({ assessment, sources, maxSourceChars: 24000 }),
+        model: config.model,
+        ...(config.effort ? { effort: config.effort } : {}),
+        maxOutputTokens: Math.min(options.maxOutputTokens, 1200),
+        jsonSchema: ASSESSMENT_JUDGMENT_JSON_SCHEMA,
+      });
+      if (!judgmentCompletion.ok) {
+        judgmentResults.push({
+          verdict: "failed",
+          confidence: 0,
+          evidenceCount: 0,
+          usage: {},
+          error: judgmentCompletion.error,
+        });
+        continue;
+      }
+      const judgment = coerceAssessmentJudgment({
+        assessment,
+        sources,
+        result: judgmentCompletion.data && typeof judgmentCompletion.data === "object"
+          ? judgmentCompletion.data
+          : undefined,
+      });
+      judgmentResults.push({
+        verdict: judgment.verdict,
+        confidence: judgment.confidence,
+        evidenceCount: judgment.evidence.length,
+        usage: judgmentCompletion.usage ?? {},
+      });
+    }
+    const usage = sumUsage(judgmentResults.map((entry) => entry.usage));
+    const defectRetained = judgmentResults.some(
+      (entry) => entry.verdict === "confirmed" || entry.verdict === "verification_required",
+    );
+    const defectCleared = defectMatching.length === 0
+      || (judgmentResults.length === defectMatching.length
+        && judgmentResults.every((entry) => entry.verdict === "rejected"));
+    pairRuns.push({
+      pairId: pair.id,
+      revision,
+      path,
+      problemClass: pair.claim.category,
+      status: "ok",
+      classCandidateEmitted: matching.length > 0,
+      defectEmitted: defectMatching.length > 0,
+      matchingAssessments: matching.length,
+      defectMatchingAssessments: defectMatching.length,
+      defectRetained,
+      defectCleared,
+      judgments: judgmentResults.map(({ verdict, confidence, evidenceCount, error }) => ({
+        verdict,
+        confidence,
+        evidenceCount,
+        ...(error ? { error } : {}),
+      })),
+      changedLineCount: changedLines.size,
+      sourceEvidenceCount: matching.reduce(
+        (total, assessment) =>
+          total + (Array.isArray(assessment.details?.sourceEvidence)
+            ? assessment.details.sourceEvidence.length
+            : 0),
+        0,
+      ),
+      candidateMetadata: matching.map((assessment) => ({
+        findingId: assessment.id,
+        changedLineCoverage: assessmentChangedLineCoverage(assessment, changedLines),
+        structuredAnchorMatch: assessmentMatchesDefectEvidence({
+          assessment,
+          changedLines,
+          problemClass: pair.claim.category,
+        }),
+        evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
+          ? assessment.details.sourceEvidence.map((entry) => ({
+              path: entry.path,
+              lineStart: entry.lineStart,
+              lineEnd: entry.lineEnd,
+              changedLineOverlap: assessmentOverlapsChangedLines(
+                { details: { sourceEvidence: [entry] } },
+                changedLines,
+              ),
+            }))
+          : [],
+      })),
+      provider: config.provider,
+      model: config.model,
+      usage,
+      currentCostUsd: estimateUsageCost(usage, config.pricing),
+    });
   }
   return pairRuns;
 }

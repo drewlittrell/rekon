@@ -249,8 +249,8 @@
     {
       "ruleId": "semantic.scopeResolution",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic finding informed by a deterministic scope-model classifier and its unmodeled lexical boundaries",
-      "jurisdiction": "JavaScript and TypeScript source transformers with visible identifier rewriting, scope resolution, and lexical-boundary classifiers",
+      "evidence": "deterministic scope_model facts identify unmodeled lexical boundaries or binding transforms that resolve reference names from one scope anchor",
+      "jurisdiction": "JavaScript and TypeScript source transformers with visible identifier rewriting, lexical-boundary classification, or name-only binding ownership",
       "remediationUnit": "source file and identifier-scope boundary"
     },
     {

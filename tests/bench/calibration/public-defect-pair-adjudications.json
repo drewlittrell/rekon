@@ -9,6 +9,13 @@
       "rationale": "Rekon now emits semantic.scopeResolution from structured evidence about the transform's identifier-rewriting scope classifier. The buggy revision identifies SwitchStatement as an unmodeled lexical boundary, while the fixed classifier includes it and leaves the switch discriminant outside that scope; ordinary switch statements remain outside this emitter's jurisdiction."
     },
     {
+      "pairId": "vite-rsc-shadowed-binding",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that the RSC hoist transform collected reference names and called find_owner for each name from one scope anchor, which could not distinguish fully shadowed local occurrences from outer bindings. Rekon emits semantic.scopeResolution on that name-only mechanism and stays silent after the transform resolves concrete identifier occurrences to declaring scopes; upstream shadowing tests verify when values must and must not be captured."
+    },
+    {
       "pairId": "vite-cleanup-premature-exit",
       "claimVerdict": "valid",
       "coverage": "captured",

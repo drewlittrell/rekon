@@ -47,6 +47,7 @@ import { evaluateDependencyResolutionSignals } from "./dependency-resolution.js"
 import { evaluateCacheIntegritySignals } from "./cache-integrity.js";
 import { evaluateCleanupCompletenessSignals } from "./cleanup-completeness.js";
 import { evaluateOptionPropagationSignals } from "./option-propagation.js";
+import { evaluateScopeResolutionSignals } from "./scope-resolution.js";
 import { loadFreshComplexityCoverage } from "./complexity-coverage.js";
 import {
   compileEffectiveCapabilityOntology,
@@ -216,6 +217,7 @@ export { evaluateDependencyResolutionSignals } from "./dependency-resolution.js"
 export { evaluateCacheIntegritySignals } from "./cache-integrity.js";
 export { evaluateCleanupCompletenessSignals } from "./cleanup-completeness.js";
 export { evaluateOptionPropagationSignals } from "./option-propagation.js";
+export { evaluateScopeResolutionSignals } from "./scope-resolution.js";
 
 export { DEBT_MARKERS_RULE_ID, evaluateDebtMarkers } from "./debt-markers.js";
 export { DEBT_SEMANTIC_RULE_ID, corroborateSemanticDebtClaims, evaluateSemanticDebt, evaluateSemanticDebtClaims } from "./debt-semantic.js";
@@ -370,12 +372,16 @@ export const policyEvaluator: Evaluator = {
     const optionPropagationAssessments = !disabledRules.has(SEMANTIC_OPTION_PROPAGATION_RULE_ID)
       ? evaluateOptionPropagationSignals(graph.facts, evidenceRef)
       : [];
+    const scopeResolutionAssessments = !disabledRules.has(SEMANTIC_SCOPE_RESOLUTION_RULE_ID)
+      ? evaluateScopeResolutionSignals(graph.facts, evidenceRef)
+      : [];
     const structuredSemanticAssessments = [
       ...cacheIntegrityAssessments,
       ...cleanupCompletenessAssessments,
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
       ...optionPropagationAssessments,
+      ...scopeResolutionAssessments,
     ];
     const grammarDivergence = !disabledRules.has(GRAMMAR_DIVERGENCE_RULE_ID)
       ? await grammarDivergenceSignals(graph, input, artifacts, evidenceRef)
@@ -402,6 +408,7 @@ export const policyEvaluator: Evaluator = {
       ...errorPropagationAssessments,
       ...dependencyResolutionAssessments,
       ...optionPropagationAssessments,
+      ...scopeResolutionAssessments,
       ...importGraphAssessments,
       ...evaluateSourceQualitySignals(graph.facts, evidenceRef)
         .filter((assessment) => !assessment.ruleId || !disabledRules.has(assessment.ruleId))

@@ -23,6 +23,7 @@ import policyCapability, {
   evaluateOptionPropagationSignals,
   evaluateSemanticFileCandidates,
   evaluateResourceLifetimeSignals,
+  evaluateScopeResolutionSignals,
 } from "../dist/index.js";
 import {
   assessmentJudgmentSignature,
@@ -608,6 +609,47 @@ test("structured option propagation identifies truthy defaults that override fal
   assert.deepEqual(evaluateOptionPropagationSignals([{
     ...fact,
     value: { ...fact.value, source: "test/plugin.test.js" },
+  }], ref), []);
+});
+
+test("structured scope resolution identifies name-only owner lookup", () => {
+  const ref = { type: "EvidenceGraph", id: "scope-name-resolution", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "scope_model",
+    value: {
+      source: "src/hoist.ts",
+      mechanism: "name-only-reference-owner",
+      caller: "transformHoistInlineDirective",
+      bindTarget: "bindVars",
+      scopeBinding: "scope",
+      analysisExpression: "analyzed.map.get(node)",
+      referenceCollection: "scope.references",
+      referenceParameter: "ref",
+      ownerLookup: "scope.find_owner(ref)",
+      location: { line: 85, column: 9 },
+      analysisLocation: { line: 74, column: 23 },
+      collectionLocation: { line: 85, column: 27 },
+      ownerLookupLocation: { line: 90, column: 25 },
+    },
+  };
+
+  const assessments = evaluateScopeResolutionSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_SCOPE_RESOLUTION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "name-only-reference-owner");
+  assert.equal(assessments[0].details.ownerLookup, fact.value.ownerLookup);
+  assert.deepEqual(assessments[0].details.sourceEvidence.map((entry) => entry.lineStart), [74, 85, 90]);
+  assert.deepEqual(evaluateScopeResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, mechanism: "reference-occurrence-owner" },
+  }], ref), []);
+  assert.deepEqual(evaluateScopeResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, ownerLookupLocation: undefined },
+  }], ref), []);
+  assert.deepEqual(evaluateScopeResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, source: "tests/hoist.test.ts" },
   }], ref), []);
 });
 

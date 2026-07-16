@@ -59,8 +59,9 @@ Ordinary unused locals and public declarations remain outside this signal.
   Error-flow facts preserve visible error-identity mappings and Error-like
   constructions that keep a cause while selecting the constructor's default
   message. Scope-model facts describe identifier-rewriting classifiers and
-  lexical boundaries rather than treating ordinary language constructs as
-  defects.
+  lexical boundaries, plus binding transforms that resolve reference names from
+  one scope anchor rather than tracking individual occurrences. They remain
+  evidence rather than defects.
   Resource-flow facts identify request/reply objects stored on connection-owned
   state, request-scoped closures attached to connection sockets, and matching
   explicit releases; they do not claim runtime reachability. Cache-flow facts
@@ -87,7 +88,7 @@ The default export is a Rekon capability definition. Its manifest declares the
 `extractErrorControlFlowEvidence()`,
 `extractErrorReasonPropagationEvidence()`,
 `extractOptionFalsyDefaultEvidence()`, `extractOptionPropagationEvidence()`,
-and `extractScopeResolutionEvidence()`
+`extractScopeNameResolutionEvidence()`, and `extractScopeResolutionEvidence()`
 expose structured observations used by Rekon's policy and semantic judgment
 pipeline.
 `extractResourceLifetimeEvidence()` exposes the retain/release observations
@@ -145,6 +146,11 @@ Candidate-bypass evidence is limited to resolver-like callbacks observed in
 `this.get`, `find`, `lookup`, or `resolve` call that uses an outer selector but
 not the current candidate. Candidate-specific returns and non-iterated helpers
 remain silent.
+
+Name-only scope evidence is limited to binding or capture variables built by
+filtering a visible `scope.references` collection and calling `find_owner` or
+`findOwner` for each reference name from a scope returned by a map lookup.
+Occurrence-aware reference maps and ordinary scope reads remain silent.
 
 Local async calls are reported only when an unshadowed, locally declared async
 function is used as a bare statement. Focused tests and direct `process.env`

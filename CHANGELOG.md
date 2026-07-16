@@ -18,6 +18,10 @@ All notable changes to Rekon are documented here.
   post-loop return behavior, plus iterated provider candidates bypassed by a
   generic token lookup. The pinned Nest candidate-bypass pair validates the
   second mechanism through direct source review and upstream regression tests.
+- Added deterministic `scope_model` evidence for binding transforms that resolve
+  reference names from one scope anchor. Policy preserves the shadowing risk as
+  an assessment. The pinned Vite RSC pair validates the name-only mechanism
+  before and after occurrence-level scope resolution.
 - Added deterministic `option_flow` evidence for logical-OR fallback from an
   option member to a visible same-property boolean `true` default. Policy now
   preserves the resulting falsy-option coercion as an assessment. The pinned
@@ -29,15 +33,15 @@ All notable changes to Rekon are documented here.
 - Added deterministic `cleanup_flow` evidence for explicit lifecycle functions
   with fail-fast aggregate or sequential waits. The pinned Vite pair validates
   both mechanisms before and after their upstream fix. The source-free semantic
-  baseline now passes thirteen pairs; cache integrity, cleanup completeness,
-  dependency resolution, error propagation, option propagation, and resource
-  lifetime each have two independent positive pairs.
+  baseline now passes fourteen pairs; all seven semantic classes have two
+  independent positive pairs.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.
-  Direct source review covers the Playwright, Nest candidate-bypass, and webpack
-  falsy-option pairs while model API calibration is deferred; existing token
-  and cost totals remain scoped to the ten prior model-adjudicated pairs.
+  Direct source review covers the Playwright, Nest candidate-bypass, Vite RSC
+  shadowing, and webpack falsy-option pairs while model API calibration is
+  deferred; existing token and cost totals remain scoped to the ten prior
+  model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.

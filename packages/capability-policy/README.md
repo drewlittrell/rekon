@@ -96,6 +96,12 @@ that explicit false is coerced to the default, while leaving the option's
 intended contract and runtime impact to autonomous judgment or focused
 verification.
 
+Scope-resolution policy recognizes binding transforms that iterate reference
+names and resolve each owner from one scope anchor. It records the possibility
+that distinct shadowed occurrences are collapsed into one name-level decision;
+actual transform output remains an autonomous judgment or focused verification
+question.
+
 Cache-integrity policy consumes `cache_flow` facts when a memoized callback can
 return different results based on an outer parameter absent from the key. It
 emits a semantic claim with the key, omitted parameters, guard, and fallback
