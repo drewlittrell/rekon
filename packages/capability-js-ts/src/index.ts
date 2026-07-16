@@ -75,6 +75,7 @@ export {
   type AstSymbolKind,
   type ErrorControlFlowGuard,
   type ErrorControlFlowEvidence,
+  type ErrorReasonPropagationEvidence,
   type ErrorIdentityMapping,
   type CacheContractEvidence,
   type CleanupCompletenessEvidence,
@@ -83,6 +84,7 @@ export {
   type ResourceLifetimeEvidence,
   type ScopeResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractErrorReasonPropagationEvidence,
   extractCacheContractEvidence,
   extractCleanupCompletenessEvidence,
   extractDependencyResolutionEvidence,
@@ -1202,6 +1204,23 @@ function factsFromAstResult(
         identityMappings: flow.identityMappings,
         line: flow.location.line,
         column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "error-reason") {
+      facts.push(fact("error_flow", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        action: "construct" as const,
+        mechanism: flow.mechanism,
+        errorIdentity: flow.errorIdentity,
+        messageExpression: flow.messageExpression,
+        causeExpression: flow.causeExpression,
+        location: flow.location,
+        messageLocation: flow.messageLocation,
+        causeLocation: flow.causeLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

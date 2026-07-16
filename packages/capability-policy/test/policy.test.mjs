@@ -452,6 +452,48 @@ test("structured error propagation requires a merged guard and distinct mapped i
   }], ref), []);
 });
 
+test("structured error propagation identifies a cause hidden by a default message", () => {
+  const ref = { type: "EvidenceGraph", id: "error-reason", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "error_flow",
+    value: {
+      source: "src/dispatcher.ts",
+      caller: "DispatcherConnection.dispatch",
+      action: "construct",
+      mechanism: "cause-with-default-message",
+      errorIdentity: "AbortError",
+      messageExpression: "undefined",
+      causeExpression: "params.reason",
+      location: { line: 313, column: 78 },
+      messageLocation: { line: 313, column: 93 },
+      causeLocation: { line: 313, column: 113 },
+    },
+  };
+
+  const assessments = evaluateErrorPropagationSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_ERROR_PROPAGATION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "cause-with-default-message");
+  assert.equal(assessments[0].details.causeExpression, "params.reason");
+  assert.deepEqual(assessments[0].details.sourceEvidence, [{
+    path: "src/dispatcher.ts",
+    lineStart: 313,
+    lineEnd: 313,
+  }]);
+  assert.deepEqual(evaluateErrorPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, messageExpression: "params.reason" },
+  }], ref), []);
+  assert.deepEqual(evaluateErrorPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, errorIdentity: "Envelope" },
+  }], ref), []);
+  assert.deepEqual(evaluateErrorPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, source: "tests/dispatcher.test.ts" },
+  }], ref), []);
+});
+
 test("structured dependency resolution requires conditional exit and post-loop selection", () => {
   const ref = { type: "EvidenceGraph", id: "dependency-flow", schemaVersion: "0.1.0" };
   const fact = {

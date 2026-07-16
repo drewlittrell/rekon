@@ -184,6 +184,18 @@ export type ErrorControlFlowEvidence = {
   location: AstLocation;
 };
 
+export type ErrorReasonPropagationEvidence = {
+  kind: "error-reason";
+  caller: string;
+  mechanism: "cause-with-default-message";
+  errorIdentity: string;
+  messageExpression: string;
+  causeExpression: string;
+  location: AstLocation;
+  messageLocation: AstLocation;
+  causeLocation: AstLocation;
+};
+
 export type OptionPropagationEvidence = {
   kind: "option-override";
   caller: string;
@@ -269,6 +281,7 @@ type AstFlowRecord =
   | { kind: "event"; caller: string; action: "emit" | "subscribe"; eventName: string; receiver: string; location: AstLocation }
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
   | ErrorControlFlowEvidence
+  | ErrorReasonPropagationEvidence
   | OptionPropagationEvidence
   | ResourceLifetimeEvidence
   | ScopeResolutionEvidence
@@ -338,6 +351,13 @@ export function extractErrorControlFlowEvidence(input: AstExtractionInput): Erro
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ErrorControlFlowEvidence => record.kind === "error",
+  );
+}
+
+export function extractErrorReasonPropagationEvidence(input: AstExtractionInput): ErrorReasonPropagationEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is ErrorReasonPropagationEvidence => record.kind === "error-reason",
   );
 }
 
@@ -651,6 +671,7 @@ function extractCallRecords(sourceFile: ts.SourceFile): AstCallRecord[] {
 function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   const records: AstFlowRecord[] = [];
   const identityMappings = extractErrorIdentityMappings(sourceFile);
+  const undefinedIsShadowed = hasLocalValueBinding(sourceFile, "undefined");
 
   const visitFlows = (node: ts.Node, context: { caller: string; className?: string; caughtName?: string }): void => {
     let childContext = context;
@@ -682,6 +703,11 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
     } else if (ts.isDeleteExpression(node)) {
       const resource = resourceLifetimeDelete(node, sourceFile, context.caller);
       if (resource) records.push(resource);
+    }
+
+    if (ts.isNewExpression(node) && !undefinedIsShadowed) {
+      const reasonPropagation = errorReasonPropagationRecord(node, sourceFile, context.caller);
+      if (reasonPropagation) records.push(reasonPropagation);
     }
 
     if (ts.isCallExpression(node)) {
@@ -838,10 +864,14 @@ function functionLikeName(node: ts.FunctionLikeDeclaration): string | undefined 
 }
 
 function hasLocalPromiseBinding(sourceFile: ts.SourceFile): boolean {
+  return hasLocalValueBinding(sourceFile, "Promise");
+}
+
+function hasLocalValueBinding(sourceFile: ts.SourceFile, expected: string): boolean {
   let found = false;
   const visitBindings = (node: ts.Node): void => {
     if (found) return;
-    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && bindingContainsName(node.name, "Promise")) {
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && bindingContainsName(node.name, expected)) {
       found = true;
       return;
     }
@@ -850,19 +880,19 @@ function hasLocalPromiseBinding(sourceFile: ts.SourceFile): boolean {
       || ts.isClassDeclaration(node)
       || ts.isClassExpression(node)
       || ts.isEnumDeclaration(node))
-      && node.name?.text === "Promise") {
+      && node.name?.text === expected) {
       found = true;
       return;
     }
-    if (ts.isImportClause(node) && node.name?.text === "Promise") {
+    if (ts.isImportClause(node) && node.name?.text === expected) {
       found = true;
       return;
     }
-    if ((ts.isImportSpecifier(node) || ts.isNamespaceImport(node)) && node.name.text === "Promise") {
+    if ((ts.isImportSpecifier(node) || ts.isNamespaceImport(node)) && node.name.text === expected) {
       found = true;
       return;
     }
-    if (ts.isImportEqualsDeclaration(node) && node.name.text === "Promise") {
+    if (ts.isImportEqualsDeclaration(node) && node.name.text === expected) {
       found = true;
       return;
     }
@@ -1582,6 +1612,58 @@ function classifyThrownExpression(expression: ts.Expression | undefined): {
     return { ...(errorIdentity ? { errorIdentity } : {}), expressionKind: "object" };
   }
   return { expressionKind: "other" };
+}
+
+function errorReasonPropagationRecord(
+  expression: ts.NewExpression,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): ErrorReasonPropagationEvidence | undefined {
+  const constructorPath = memberPath(expression.expression);
+  const errorIdentity = constructorPath?.at(-1);
+  if (!errorIdentity || !/(?:Error|Exception)$/u.test(errorIdentity)) return undefined;
+  const message = expression.arguments?.[0];
+  const options = expression.arguments?.[1];
+  if (!message) return undefined;
+  const messageValue = unwrapExpression(message);
+  if (!ts.isIdentifier(messageValue) || messageValue.text !== "undefined") {
+    return undefined;
+  }
+  if (!options) return undefined;
+  const optionsValue = unwrapExpression(options);
+  if (!ts.isObjectLiteralExpression(optionsValue)) return undefined;
+  const cause = objectPropertyExpression(optionsValue, "cause");
+  if (!cause) return undefined;
+  const causeValue = unwrapExpression(cause);
+  if (ts.isIdentifier(causeValue) && causeValue.text === "undefined") {
+    return undefined;
+  }
+  return {
+    kind: "error-reason",
+    caller,
+    mechanism: "cause-with-default-message",
+    errorIdentity,
+    messageExpression: boundedNodeText(message, sourceFile),
+    causeExpression: boundedNodeText(cause, sourceFile),
+    location: locationOf(expression, sourceFile),
+    messageLocation: locationOf(message, sourceFile),
+    causeLocation: locationOf(cause, sourceFile),
+  };
+}
+
+function objectPropertyExpression(
+  object: ts.ObjectLiteralExpression,
+  propertyName: string,
+): ts.Expression | undefined {
+  for (const property of object.properties) {
+    if (ts.isPropertyAssignment(property) && methodNameText(property.name) === propertyName) {
+      return property.initializer;
+    }
+    if (ts.isShorthandPropertyAssignment(property) && property.name.text === propertyName) {
+      return property.name;
+    }
+  }
+  return undefined;
 }
 
 function stringPropertyValue(object: ts.ObjectLiteralExpression, propertyName: string): string | undefined {

@@ -51,7 +51,7 @@ they may collide with built-ins.
 | `cache_flow` | memoized callback result whose branch depends on an outer parameter omitted from the cache key |
 | `cleanup_flow` | lifecycle function with multiple visible cleanup obligations and a fail-fast wait shape |
 | `dependency_flow` | candidate selected from a lookup inside iteration, including exit condition and post-loop return behavior |
-| `error_flow` | explicit throw or rethrow with source location, thrown identity, enclosing branch guards, and visible downstream identity mappings where available |
+| `error_flow` | explicit throw/rethrow control flow, or an Error-like construction that preserves a cause while selecting the default message |
 | `option_flow` | same-name option override after an object spread, including fallback and callback context where available |
 | `resource_flow` | request/reply retention on connection-owned state, a request-scoped closure attached to a socket listener, or an explicit release of that resource key |
 | `scope_model` | source-transform scope classifier, resolver functions, modeled node kinds, and unmodeled lexical boundaries used during identifier rewriting |

@@ -13,6 +13,7 @@ import {
   extractCleanupCompletenessEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractErrorReasonPropagationEvidence,
   extractOptionPropagationEvidence,
   extractScopeResolutionEvidence,
   extractResourceLifetimeEvidence,
@@ -742,6 +743,7 @@ async function evaluateErrorPropagationPair(pair, repository) {
     ]);
     const sha256 = createHash("sha256").update(text).digest("hex");
     const errorControlFlow = extractErrorControlFlowEvidence({ path, content: text });
+    const errorReasonPropagation = extractErrorReasonPropagationEvidence({ path, content: text });
     const facts = errorControlFlow.map((entry) => ({
       kind: "error_flow",
       subject: `${path}:${entry.caller}:${entry.action}:${entry.location.line}`,
@@ -757,7 +759,22 @@ async function evaluateErrorPropagationPair(pair, repository) {
         line: entry.location.line,
         column: entry.location.column,
       },
-    }));
+    })).concat(errorReasonPropagation.map((entry) => ({
+      kind: "error_flow",
+      subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        action: "construct",
+        mechanism: entry.mechanism,
+        errorIdentity: entry.errorIdentity,
+        messageExpression: entry.messageExpression,
+        causeExpression: entry.causeExpression,
+        location: entry.location,
+        messageLocation: entry.messageLocation,
+        causeLocation: entry.causeLocation,
+      },
+    })));
     const matching = evaluateErrorPropagationSignals(facts, evidenceRef);
     const changedLines = changedLineNumbers(text, counterpartText);
     const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({

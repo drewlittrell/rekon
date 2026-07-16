@@ -244,13 +244,18 @@ npm run eval:semantic-problem-emitters -- --pair nest-import-first-match
 ```
 
 The runner fetches affected files directly from pinned public revisions and
-retains no source, prompts, excerpts, or model prose. It sends fix-related
-candidates through the production assessment judge, requires every affected
-buggy path to be retained, and requires fixed defects to be cleared. Defect
+retains no source, prompts, excerpts, or model prose. Model-backed runs send
+fix-related candidates through the production assessment judge. The checked-in
+baseline may instead record direct source review while emitters are being
+calibrated. Both modes require every affected buggy path to be retained and
+fixed defects to be cleared. Defect
 identity normally uses changed-line evidence density so one contextual citation
 cannot turn an unrelated same-class candidate into the repaired defect. The
-error-propagation pair uses deterministic compound-guard and downstream
-identity-mapping evidence before autonomous judgment. The scope-resolution pair
+Redux error-propagation pair uses deterministic compound-guard and downstream
+identity-mapping evidence. The Playwright error-propagation pair uses
+structured evidence for a supplied cause hidden behind a default message and
+is currently adjudicated by direct review of pinned source and upstream tests.
+The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The Yarn cache pair uses deterministic `cache_flow` evidence
 that a result-shaping parameter is absent from the memoization key. The Vite
@@ -258,9 +263,10 @@ cleanup pair uses deterministic `cleanup_flow` evidence so only explicit
 lifecycle wait contracts enter the structured path. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 That aggregate also records positive-pair counts against the five-adjudication
-minimum. Resource lifetime and cache integrity currently have two independent
-positive pairs; the other semantic classes have one each, so all remain
-`insufficient-evidence`.
+minimum. Resource lifetime, cache integrity, cleanup completeness, and error
+propagation currently have two independent positive pairs; the other semantic
+classes have one each, so all remain `insufficient-evidence`. Token and cost
+totals apply only to the ten pairs previously run through the model API.
 
 ## Corpus retention
 

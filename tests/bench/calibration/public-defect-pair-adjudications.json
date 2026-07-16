@@ -51,6 +51,13 @@
       "rationale": "Rekon now emits semantic.cacheIntegrity from current source-matched evidence on the buggy compiled-code read/write path. The upstream defect is absent from fix-related lines after integrity verification is added; a separate JSON sidecar candidate remains an independent assessment rather than being hidden by the benchmark."
     },
     {
+      "pairId": "playwright-abort-reason-propagation",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that the buggy dispatcher constructs AbortError with params.reason only as cause while explicitly selecting its generic default message. Rekon emits semantic.errorPropagation on that changed constructor; passing the reason as the message removes the structured evidence in the fixed revision, and the upstream click and assertion tests verify the reason reaches API errors and call logs."
+    },
+    {
       "pairId": "pnpm-publish-otp-propagation",
       "claimVerdict": "valid",
       "coverage": "captured",

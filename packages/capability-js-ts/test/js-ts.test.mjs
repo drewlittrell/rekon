@@ -9,6 +9,7 @@ import capability, {
   extractCleanupCompletenessEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractErrorReasonPropagationEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
   extractScopeResolutionEvidence,
@@ -325,6 +326,60 @@ test("error-control-flow evidence distinguishes merged and identity-specific gua
     assert.deepEqual(facts.map((fact) => fact.value.errorIdentity).sort(), ["AbortError", "ConditionError"]);
     assert.ok(facts.every((fact) => fact.value.identityMappings.length === 2));
     assert.ok(facts.every((fact) => fact.provenance.line === fact.value.line));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("error-reason evidence identifies cause values hidden behind a default message", async () => {
+  const buggySource = [
+    "export async function dispatch(params) {",
+    "  await controller.abort(new AbortError(undefined, { cause: params.reason }));",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource.replace(
+    "new AbortError(undefined, { cause: params.reason })",
+    "new AbortError(params.reason)",
+  );
+
+  const evidence = extractErrorReasonPropagationEvidence({ path: "src/dispatcher.ts", content: buggySource });
+  assert.equal(evidence.length, 1);
+  assert.deepEqual(evidence[0], {
+    kind: "error-reason",
+    caller: "dispatch",
+    mechanism: "cause-with-default-message",
+    errorIdentity: "AbortError",
+    messageExpression: "undefined",
+    causeExpression: "params.reason",
+    location: { line: 2, column: 26 },
+    messageLocation: { line: 2, column: 41 },
+    causeLocation: { line: 2, column: 61 },
+  });
+  assert.deepEqual(extractErrorReasonPropagationEvidence({ path: "src/dispatcher.ts", content: fixedSource }), []);
+  assert.deepEqual(extractErrorReasonPropagationEvidence({
+    path: "src/dispatcher.ts",
+    content: "new Envelope(undefined, { cause: params.reason });",
+  }), []);
+  assert.deepEqual(extractErrorReasonPropagationEvidence({
+    path: "src/dispatcher.ts",
+    content: "new AbortError(undefined, { cause: undefined });",
+  }), []);
+  assert.deepEqual(extractErrorReasonPropagationEvidence({
+    path: "src/dispatcher.ts",
+    content: "function dispatch(undefined) { return new AbortError(undefined, { cause: params.reason }); }",
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-error-reason-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "dispatcher.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "error_flow");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.action, "construct");
+    assert.equal(facts[0].value.mechanism, "cause-with-default-message");
+    assert.equal(facts[0].value.causeExpression, "params.reason");
+    assert.equal(facts[0].provenance.line, 2);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

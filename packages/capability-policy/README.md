@@ -75,8 +75,12 @@ Error-propagation policy compares compound throw guards with deterministic
 error-identity mappings in the same source file. It emits a semantic claim only
 when distinct visible causes are merged under one identity, leaving runtime
 ordering and externally visible behavior to autonomous judgment or focused
-verification. Scope-resolution candidates remain bounded to source transformers
-that expose both identifier rewriting and a lexical-boundary classifier.
+verification. It also recognizes Error-like constructions that preserve a
+meaningful cause but explicitly select the constructor's default message.
+Those claims leave downstream cause handling and message visibility to the
+same verification boundary. Scope-resolution candidates remain bounded to
+source transformers that expose both identifier rewriting and a
+lexical-boundary classifier.
 
 Dependency-resolution policy consumes `dependency_flow` facts only when a loop
 stores a lookup result, exits conditionally after selection, and returns that

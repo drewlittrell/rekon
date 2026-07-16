@@ -23,8 +23,15 @@ All notable changes to Rekon are documented here.
 - Added deterministic `cleanup_flow` evidence for explicit lifecycle functions
   with fail-fast aggregate or sequential waits. The pinned Vite pair validates
   both mechanisms before and after their upstream fix. The source-free semantic
-  baseline now passes ten pairs; cache integrity, cleanup completeness, and
-  resource lifetime each have two independent positive pairs.
+  baseline now passes eleven pairs; cache integrity, cleanup completeness,
+  error propagation, and resource lifetime each have two independent positive
+  pairs.
+- Added deterministic error-reason evidence for Error-like constructors that
+  retain a meaningful cause while selecting a default message. The pinned
+  Playwright pair validates the mechanism before and after its upstream fix.
+  Direct source review covers the new pair while model API calibration is
+  deferred; existing token and cost totals remain scoped to the ten prior
+  model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.

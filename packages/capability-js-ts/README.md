@@ -55,9 +55,11 @@ Ordinary unused locals and public declarations remain outside this signal.
   `option_flow`, `resource_flow`, and `scope_model` for narrow
   deterministic behavior signals; option-flow facts preserve spread sources,
   overrides, fallbacks, and callback context without classifying them as defects.
-  Error-flow facts preserve visible error-identity mappings. Scope-model facts
-  describe identifier-rewriting classifiers and lexical boundaries rather than
-  treating ordinary language constructs as defects.
+  Error-flow facts preserve visible error-identity mappings and Error-like
+  constructions that keep a cause while selecting the constructor's default
+  message. Scope-model facts describe identifier-rewriting classifiers and
+  lexical boundaries rather than treating ordinary language constructs as
+  defects.
   Resource-flow facts identify request/reply objects stored on connection-owned
   state, request-scoped closures attached to connection sockets, and matching
   explicit releases; they do not claim runtime reachability. Cache-flow facts
@@ -79,6 +81,7 @@ The default export is a Rekon capability definition. Its manifest declares the
 `extractCacheContractEvidence()`, `extractCleanupCompletenessEvidence()`,
 `extractDependencyResolutionEvidence()`,
 `extractErrorControlFlowEvidence()`,
+`extractErrorReasonPropagationEvidence()`,
 `extractOptionPropagationEvidence()`, and `extractScopeResolutionEvidence()`
 expose structured observations used by Rekon's policy and semantic judgment
 pipeline.
@@ -110,9 +113,12 @@ Function metrics include executable statement count, physical size, cyclomatic
 complexity, nesting, and distinct call fan-out. They are evidence, not defects.
 Call evidence does not infer receiver types. State access requires a direct
 binding from a recognized state SDK; event flow requires a literal event name;
-error flow requires explicit throw syntax. Option flow records only same-name
-property overrides after a spread and leaves optionality and materiality to
-semantic judgment. Resource flow is limited to visible request/reply values on
+error control flow requires explicit throw syntax. Error-reason evidence is
+limited to Error-like constructors called with global `undefined` as the
+message and a meaningful inline `cause`; explicit messages, shadowed
+`undefined`, and non-error constructors stay quiet. Option flow records only
+same-name property overrides after a spread and leaves optionality and
+materiality to semantic judgment. Resource flow is limited to visible request/reply values on
 socket, connection, or server-owned properties; request-scoped closures
 attached to sockets inside request socket callbacks; and explicit null,
 undefined, or delete releases. Cross-file completeness remains a policy

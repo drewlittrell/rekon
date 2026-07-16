@@ -26,17 +26,34 @@ type ErrorFlow = {
   identityMappings: IdentityMapping[];
 };
 
+type ErrorReasonFlow = {
+  path: string;
+  caller: string;
+  errorIdentity: string;
+  causeExpression: string;
+  locationLine: number;
+  causeLine: number;
+};
+
 export function evaluateErrorPropagationSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
 ): Assessment[] {
-  return facts
-    .filter((fact) => fact.kind === "error_flow")
+  const errorFacts = facts.filter((fact) => fact.kind === "error_flow");
+  const mergedIdentityAssessments = errorFacts
     .map(parseErrorFlow)
     .filter((flow): flow is ErrorFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .filter(hasMergedIdentityConsequence)
     .sort((left, right) => left.path.localeCompare(right.path) || left.guardLine - right.guardLine)
     .map((flow) => errorPropagationAssessment(flow, evidenceRef));
+  const hiddenReasonAssessments = errorFacts
+    .map(parseErrorReasonFlow)
+    .filter((flow): flow is ErrorReasonFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
+    .map((flow) => hiddenReasonAssessment(flow, evidenceRef));
+  return [...mergedIdentityAssessments, ...hiddenReasonAssessments].sort((left, right) =>
+    (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
+      || firstEvidenceLine(left) - firstEvidenceLine(right));
 }
 
 function hasMergedIdentityConsequence(flow: ErrorFlow): boolean {
@@ -104,6 +121,49 @@ function errorPropagationAssessment(flow: ErrorFlow, evidenceRef: ArtifactRef): 
   };
 }
 
+function hiddenReasonAssessment(flow: ErrorReasonFlow, evidenceRef: ArtifactRef): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    errorIdentity: flow.errorIdentity,
+    causeExpression: flow.causeExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_ERROR_PROPAGATION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    impact: "medium",
+    title: `Possible hidden error reason in ${flow.path}`,
+    description:
+      `${flow.caller} constructs ${flow.errorIdentity} with ${flow.causeExpression} as its cause while passing undefined for the message. If the constructor supplies generic message text, consumers that surface only the message can lose the supplied reason; constructor and consumer behavior remain to be verified.`,
+    subjects: [flow.path, flow.caller, flow.errorIdentity, flow.causeExpression],
+    files: [flow.path],
+    ruleId: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    suggestedAction:
+      "Exercise the failure through its public API and logs. Preserve the cause, but supply message text derived from the reason when callers depend on message-level diagnostics.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.86,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves that a meaningful cause expression is paired with an undefined message in an Error-like constructor; constructor defaults, downstream cause handling, and user-visible impact still require verification.",
+    },
+    details: {
+      problemClass: "error-propagation",
+      structuredMechanism: "cause-with-default-message",
+      caller: flow.caller,
+      errorIdentity: flow.errorIdentity,
+      causeExpression: flow.causeExpression,
+      sourceEvidence: [...new Set([flow.locationLine, flow.causeLine])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
+}
+
 function parseErrorFlow(fact: EvidenceFactLike): ErrorFlow | undefined {
   const { value } = fact;
   if (typeof value.source !== "string" || typeof value.caller !== "string" || typeof value.errorIdentity !== "string") {
@@ -136,6 +196,33 @@ function parseErrorFlow(fact: EvidenceFactLike): ErrorFlow | undefined {
   };
 }
 
+function parseErrorReasonFlow(fact: EvidenceFactLike): ErrorReasonFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "cause-with-default-message"
+    || value.action !== "construct"
+    || value.messageExpression !== "undefined"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.errorIdentity !== "string"
+    || !/(?:Error|Exception)$/u.test(value.errorIdentity)
+    || typeof value.causeExpression !== "string"
+    || value.causeExpression.length === 0
+    || value.causeExpression === "undefined") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const causeLine = locationLineOf(value.causeLocation);
+  if (!locationLine || !causeLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    errorIdentity: value.errorIdentity,
+    causeExpression: value.causeExpression,
+    locationLine,
+    causeLine,
+  };
+}
+
 function parseIdentityMapping(value: unknown): IdentityMapping | undefined {
   if (!isRecord(value) || typeof value.identity !== "string" || typeof value.property !== "string"
     || typeof value.expression !== "string" || !isRecord(value.location) || !Number.isInteger(value.location.line)) {
@@ -151,4 +238,18 @@ function parseIdentityMapping(value: unknown): IdentityMapping | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function locationLineOf(value: unknown): number | undefined {
+  if (!isRecord(value) || !Number.isInteger(value.line) || (value.line as number) < 1) return undefined;
+  return value.line as number;
+}
+
+function firstEvidenceLine(assessment: Assessment): number {
+  const sourceEvidence = assessment.details?.sourceEvidence;
+  if (!Array.isArray(sourceEvidence)) return Number.MAX_SAFE_INTEGER;
+  const first = sourceEvidence[0];
+  return isRecord(first) && Number.isInteger(first.lineStart)
+    ? first.lineStart as number
+    : Number.MAX_SAFE_INTEGER;
 }

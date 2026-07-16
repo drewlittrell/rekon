@@ -197,6 +197,13 @@ merged failure identity on the buggy revision while leaving the separate fixed
 branches clean. A compound guard alone remains insufficient production
 evidence, and runtime ordering remains an autonomous verification question.
 
+Error propagation also covers Error-like constructors that preserve a supplied
+cause while explicitly selecting the constructor's default message. The pinned
+Playwright pair emits this evidence when an abort reason is hidden behind
+generic message text and clears when the reason becomes the message. The pair
+was adjudicated by direct review of the pinned source and upstream regression
+tests; model comparison is deferred until the emitter set is stable.
+
 The fourth batch adds `option-propagation`. Deterministic JS/TS evidence records
 same-name overrides after option spreads, including callback ownership and
 whether a nullish fallback preserves the spread value. Semantic analysis emits
@@ -244,10 +251,12 @@ Cleanup wait contracts are also modeled through deterministic `cleanup_flow`
 evidence. The extractor is limited to explicit lifecycle function names and
 visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
 retains both premature-close paths and clears when both use all-settled waits.
-Cache integrity, cleanup completeness, and resource lifetime now have two
-independent positive pairs; the other semantic classes have one. All seven
-remain below the five-adjudication usefulness minimum, which is recorded in the
-compact baseline rather than reduced to fit the available data.
+Cache integrity, cleanup completeness, error propagation, and resource lifetime
+now have two independent positive pairs; the other semantic classes have one.
+All seven remain below the five-adjudication usefulness minimum, which is
+recorded in the compact baseline rather than reduced to fit the available
+data. Its token and cost totals cover the ten model-adjudicated pairs only; the
+Playwright error-reason pair is recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

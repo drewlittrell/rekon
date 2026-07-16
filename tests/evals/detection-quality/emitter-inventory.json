@@ -228,8 +228,8 @@
     {
       "ruleId": "semantic.errorPropagation",
       "outputKinds": ["semantic_claim"],
-      "evidence": "deterministic error_flow facts identify a compound guard, its thrown identity, and distinct downstream identity mappings in current source",
-      "jurisdiction": "production JavaScript and TypeScript source where visible failure causes and downstream identity handling can be compared",
+      "evidence": "deterministic error_flow facts identify either a compound guard with distinct downstream identity mappings or an Error-like construction that keeps a meaningful cause behind a default message",
+      "jurisdiction": "production JavaScript and TypeScript source where visible failure causes, message construction, and downstream identity handling can be compared",
       "remediationUnit": "source file and error-routing control flow"
     },
     {
