@@ -19,6 +19,7 @@ import {
   extractPromiseEventErrorBridgeEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
+  extractRequestSignalForwardingEvidence,
   extractScopeResolutionEvidence,
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
@@ -129,7 +130,8 @@ for (const pair of selectedPairs) {
     continue;
   }
   if (pair.claim.category === "option-propagation"
-    && pair.structuredEvidence === "option-falsy-default") {
+    && (pair.structuredEvidence === "option-falsy-default"
+      || pair.structuredEvidence === "request-signal-forwarding")) {
     runs.push(...await evaluateOptionPropagationPair(pair, repository));
     continue;
   }
@@ -522,24 +524,44 @@ async function evaluateOptionPropagationPair(pair, repository) {
         fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
       ]);
       const sha256 = createHash("sha256").update(text).digest("hex");
-      const optionFlow = extractOptionFalsyDefaultEvidence({ path, content: text });
+      const optionFlow = pair.structuredEvidence === "request-signal-forwarding"
+        ? extractRequestSignalForwardingEvidence({ path, content: text })
+        : extractOptionFalsyDefaultEvidence({ path, content: text });
       const facts = optionFlow.map((entry) => ({
         kind: "option_flow",
-        subject: `${path}:${entry.caller}:${entry.property}:${entry.location.line}`,
-        value: {
-          source: path,
-          caller: entry.caller,
-          mechanism: entry.mechanism,
-          property: entry.property,
-          optionContainer: entry.optionContainer,
-          optionExpression: entry.optionExpression,
-          defaultExpression: entry.defaultExpression,
-          defaultSource: entry.defaultSource,
-          defaultValue: entry.defaultValue,
-          location: entry.location,
-          optionLocation: entry.optionLocation,
-          defaultLocation: entry.defaultLocation,
-        },
+        subject: pair.structuredEvidence === "request-signal-forwarding"
+          ? `${path}:${entry.caller}:${entry.requestBinding}:${entry.location.line}`
+          : `${path}:${entry.caller}:${entry.property}:${entry.location.line}`,
+        value: pair.structuredEvidence === "request-signal-forwarding"
+          ? {
+              source: path,
+              caller: entry.caller,
+              mechanism: entry.mechanism,
+              requestBinding: entry.requestBinding,
+              inputParameter: entry.inputParameter,
+              initParameter: entry.initParameter,
+              requestExpression: entry.requestExpression,
+              forwardedSignal: entry.forwardedSignal,
+              outputPath: entry.outputPath,
+              normalizedMembers: entry.normalizedMembers,
+              location: entry.location,
+              requestLocation: entry.requestLocation,
+              outputLocation: entry.outputLocation,
+            }
+          : {
+              source: path,
+              caller: entry.caller,
+              mechanism: entry.mechanism,
+              property: entry.property,
+              optionContainer: entry.optionContainer,
+              optionExpression: entry.optionExpression,
+              defaultExpression: entry.defaultExpression,
+              defaultSource: entry.defaultSource,
+              defaultValue: entry.defaultValue,
+              location: entry.location,
+              optionLocation: entry.optionLocation,
+              defaultLocation: entry.defaultLocation,
+            },
       }));
       const matching = evaluateOptionPropagationSignals(facts, evidenceRef);
       const changedLines = changedLineNumbers(text, counterpartText);

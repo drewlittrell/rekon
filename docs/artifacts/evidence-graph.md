@@ -52,7 +52,7 @@ they may collide with built-ins.
 | `cleanup_flow` | lifecycle function with multiple visible cleanup obligations and a fail-fast wait shape |
 | `dependency_flow` | candidate selection inside iteration, including conditional overwrite or a generic lookup that bypasses the current provider candidate |
 | `error_flow` | explicit throw/rethrow control flow, an Error-like construction that preserves a cause while selecting the default message, or a Promise/event bridge with no same-emitter error edge |
-| `option_flow` | option precedence, including same-name spread overrides and logical-OR fallback to a visible same-property boolean true default |
+| `option_flow` | option precedence, including same-name spread overrides, logical-OR fallback to a visible same-property boolean true default, and temporary `Request` signals forwarded in place of caller-owned abort signals |
 | `resource_flow` | connection-owned request retention, request closures attached to socket listeners, terminal XHR listeners without visible detachment, or explicit release evidence |
 | `scope_model` | source-transform scope classifiers and binding resolution, including unmodeled lexical boundaries or name-only reference ownership |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |

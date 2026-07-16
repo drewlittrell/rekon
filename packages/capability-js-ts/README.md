@@ -96,6 +96,7 @@ The default export is a Rekon capability definition. Its manifest declares the
 `extractErrorReasonPropagationEvidence()`,
 `extractPromiseEventErrorBridgeEvidence()`,
 `extractOptionFalsyDefaultEvidence()`, `extractOptionPropagationEvidence()`,
+`extractRequestSignalForwardingEvidence()`,
 `extractScopeNameResolutionEvidence()`, and `extractScopeResolutionEvidence()`
 expose structured observations used by Rekon's policy and semantic judgment
 pipeline.
@@ -139,8 +140,11 @@ the same emitter that reaches reject. Other event shapes stay quiet, and
 whether the emitter can fail remains a policy or judgment concern. Option flow
 records same-name property overrides after a spread and logical-OR defaults
 from an option member to literal `true` or a same-property boolean `true` value
-in a top-level `const` defaults object. Other fallback expressions stay quiet,
-and materiality remains a policy or judgment concern.
+in a top-level `const` defaults object. It also records a temporary global
+`Request(input, init)` whose returned options spread the same `init`, normalize
+multiple fields from that request, and forward `request.signal`. Direct
+caller-signal forwarding, shadowed `Request` bindings, and incomplete
+normalizers stay quiet. Materiality remains a policy or judgment concern.
 Resource flow is limited to visible request/reply values on
 socket, connection, or server-owned properties; request-scoped closures
 attached to sockets inside request socket callbacks; and explicit null,

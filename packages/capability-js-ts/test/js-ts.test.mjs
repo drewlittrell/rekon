@@ -15,6 +15,7 @@ import capability, {
   extractPromiseCacheRejectionEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
+  extractRequestSignalForwardingEvidence,
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
@@ -749,6 +750,85 @@ test("option-flow evidence identifies truthy defaults that override explicit fal
     assert.equal(facts.length, 2);
     assert.deepEqual(facts.map((fact) => fact.value.property), ["modules", "entrypoints"]);
     assert.ok(facts.every((fact) => fact.provenance.line === fact.value.location.line));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("option-flow evidence identifies temporary Request signals forwarded instead of caller signals", async () => {
+  const buggySource = [
+    "async function normalizeFetchInput(input, init) {",
+    "  const request = new Request(input, init);",
+    "  return {",
+    "    url: request.url,",
+    "    options: {",
+    "      ...init,",
+    "      method: request.method,",
+    "      headers: request.headers,",
+    "      signal: request.signal,",
+    "    },",
+    "  };",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource.replace(
+    "signal: request.signal",
+    "signal: init?.signal ?? (input instanceof Request ? input.signal : null)",
+  );
+
+  assert.deepEqual(extractRequestSignalForwardingEvidence({
+    path: "src/secure-fetch.ts",
+    content: buggySource,
+  }), [{
+    kind: "request-signal-forwarding",
+    caller: "normalizeFetchInput",
+    mechanism: "derived-request-signal-forwarded",
+    requestBinding: "request",
+    inputParameter: "input",
+    initParameter: "init",
+    requestExpression: "new Request(input, init)",
+    forwardedSignal: "request.signal",
+    outputPath: "options.signal",
+    normalizedMembers: ["headers", "method"],
+    location: { line: 9, column: 7 },
+    requestLocation: { line: 2, column: 9 },
+    outputLocation: { line: 5, column: 14 },
+  }]);
+  assert.deepEqual(extractRequestSignalForwardingEvidence({
+    path: "src/secure-fetch.ts",
+    content: fixedSource,
+  }), []);
+  assert.deepEqual(extractRequestSignalForwardingEvidence({
+    path: "src/no-spread.ts",
+    content: buggySource.replace("      ...init,\n", ""),
+  }), []);
+  assert.deepEqual(extractRequestSignalForwardingEvidence({
+    path: "src/not-normalizing.ts",
+    content: buggySource.replace("      headers: request.headers,\n", ""),
+  }), []);
+  assert.deepEqual(extractRequestSignalForwardingEvidence({
+    path: "src/shadowed.ts",
+    content: `const Request = class Request {};\n${buggySource}`,
+  }), []);
+  assert.deepEqual(extractRequestSignalForwardingEvidence({
+    path: "src/unrelated-input.ts",
+    content: buggySource.replace(
+      "  const request = new Request(input, init);",
+      "  const source = input;\n  const request = new Request(source, init);",
+    ),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-request-signal-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "secure-fetch.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) =>
+        fact.kind === "option_flow"
+        && fact.value.mechanism === "derived-request-signal-forwarded");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.forwardedSignal, "request.signal");
+    assert.deepEqual(facts[0].value.normalizedMembers, ["headers", "method"]);
+    assert.equal(facts[0].provenance.line, 9);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -31,6 +31,11 @@ All notable changes to Rekon are documented here.
   option member to a visible same-property boolean `true` default. Policy now
   preserves the resulting falsy-option coercion as an assessment. The pinned
   webpack pair validates both affected plugin files before and after the fix.
+- Added deterministic `option_flow` evidence for request normalizers that
+  replace a caller-owned abort signal with a temporary `Request` signal. The
+  public `extractRequestSignalForwardingEvidence()` helper exposes the
+  handoff, and the pinned Langfuse pair validates caller-signal identity and
+  in-flight cancellation before and after the fix.
 - Added deterministic `cache_flow` evidence for parameter-sensitive memoization
   contracts. Policy now identifies `getFactoryWithDefault` callbacks whose
   return branch depends on an outer parameter omitted from the cache key. The
@@ -43,17 +48,17 @@ All notable changes to Rekon are documented here.
 - Added deterministic `cleanup_flow` evidence for explicit lifecycle functions
   with fail-fast aggregate or sequential waits. The pinned Vite pair validates
   both mechanisms before and after their upstream fix. The source-free semantic
-  baseline now passes seventeen pairs. Cache integrity, error propagation, and
-  resource lifetime have three independent positive pairs; the other four
-  semantic classes have two.
+  baseline now passes eighteen pairs. Cache integrity, error propagation,
+  option propagation, and resource lifetime have three independent positive
+  pairs; the other three semantic classes have two.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.
   Direct source review covers the Playwright, VS Code event bridge, Nest
   candidate-bypass, Vite RSC shadowing, webpack falsy-option, and LaunchDarkly
-  rejected-Promise-cache and Sentry terminal-listener pairs while model API
-  calibration is deferred; existing token and cost totals remain scoped to the
-  ten prior model-adjudicated pairs.
+  rejected-Promise-cache, Sentry terminal-listener, and Langfuse abort-signal
+  pairs while model API calibration is deferred; existing token and cost totals
+  remain scoped to the ten prior model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.

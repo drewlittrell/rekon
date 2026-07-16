@@ -85,6 +85,7 @@ export {
   type DependencyResolutionEvidence,
   type OptionFalsyDefaultEvidence,
   type OptionPropagationEvidence,
+  type RequestSignalForwardingEvidence,
   type ResourceLifetimeEvidence,
   type TerminalEventListenerEvidence,
   type ScopeNameResolutionEvidence,
@@ -99,6 +100,7 @@ export {
   extractDependencyResolutionEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
+  extractRequestSignalForwardingEvidence,
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
@@ -1291,6 +1293,26 @@ function factsFromAstResult(
         location: flow.location,
         optionLocation: flow.optionLocation,
         defaultLocation: flow.defaultLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "request-signal-forwarding") {
+      facts.push(fact("option_flow", `${path}:${flow.caller}:${flow.requestBinding}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        requestBinding: flow.requestBinding,
+        inputParameter: flow.inputParameter,
+        initParameter: flow.initParameter,
+        requestExpression: flow.requestExpression,
+        forwardedSignal: flow.forwardedSignal,
+        outputPath: flow.outputPath,
+        normalizedMembers: flow.normalizedMembers,
+        location: flow.location,
+        requestLocation: flow.requestLocation,
+        outputLocation: flow.outputLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

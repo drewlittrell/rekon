@@ -269,6 +269,9 @@ The Nest candidate-bypass pair uses the same direct-review boundary and
 structured `dependency_flow` evidence.
 The webpack falsy-option pair uses direct review and structured `option_flow`
 evidence bounded to visible boolean `true` defaults.
+The Langfuse abort-signal pair uses direct review and structured `option_flow`
+evidence for a temporary `Request` signal forwarded after caller options are
+spread into a normalized request.
 The Vite RSC shadowing pair uses direct review and structured `scope_model`
 evidence for name-only owner lookup.
 The Sentry XHR pair uses direct review and source-local `resource_flow` evidence

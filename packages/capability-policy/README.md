@@ -102,7 +102,10 @@ Option-propagation policy recognizes an option member combined through logical
 OR with a visible same-property boolean `true` default. The assessment records
 that explicit false is coerced to the default, while leaving the option's
 intended contract and runtime impact to autonomous judgment or focused
-verification.
+verification. It also recognizes request normalizers that spread caller
+options but forward a temporary `Request` signal instead of the caller-owned
+abort signal. Signal identity and runtime cancellation remain explicit
+verification boundaries.
 
 Scope-resolution policy recognizes binding transforms that iterate reference
 names and resolve each owner from one scope anchor. It records the possibility

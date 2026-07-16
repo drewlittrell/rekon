@@ -241,6 +241,22 @@ export type OptionFalsyDefaultEvidence = {
   defaultLocation: AstLocation;
 };
 
+export type RequestSignalForwardingEvidence = {
+  kind: "request-signal-forwarding";
+  caller: string;
+  mechanism: "derived-request-signal-forwarded";
+  requestBinding: string;
+  inputParameter: string;
+  initParameter: string;
+  requestExpression: string;
+  forwardedSignal: string;
+  outputPath: "options.signal";
+  normalizedMembers: string[];
+  location: AstLocation;
+  requestLocation: AstLocation;
+  outputLocation: AstLocation;
+};
+
 export type ResourceLifetimeEvidence = {
   kind: "resource-lifetime";
   action: "retain" | "release";
@@ -373,6 +389,7 @@ type AstFlowRecord =
   | PromiseEventErrorBridgeEvidence
   | OptionPropagationEvidence
   | OptionFalsyDefaultEvidence
+  | RequestSignalForwardingEvidence
   | ResourceLifetimeEvidence
   | TerminalEventListenerEvidence
   | ScopeResolutionEvidence
@@ -475,6 +492,15 @@ export function extractOptionFalsyDefaultEvidence(input: AstExtractionInput): Op
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is OptionFalsyDefaultEvidence => record.kind === "option-falsy-default",
+  );
+}
+
+export function extractRequestSignalForwardingEvidence(
+  input: AstExtractionInput,
+): RequestSignalForwardingEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is RequestSignalForwardingEvidence => record.kind === "request-signal-forwarding",
   );
 }
 
@@ -903,6 +929,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
   records.push(...promiseEventErrorBridgeRecords(sourceFile));
+  records.push(...requestSignalForwardingRecords(sourceFile));
   records.push(...terminalEventListenerRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   records.push(...scopeNameResolutionRecords(sourceFile));
@@ -2321,6 +2348,149 @@ function optionFalsyDefaultRecord(
     optionLocation: locationOf(option, sourceFile),
     defaultLocation: locationOf(fallback, sourceFile),
   };
+}
+
+function requestSignalForwardingRecords(sourceFile: ts.SourceFile): RequestSignalForwardingEvidence[] {
+  if (hasLocalValueBinding(sourceFile, "Request")) return [];
+  const records: RequestSignalForwardingEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      records.push(...requestSignalForwardingRecordsForFunction(node, sourceFile));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line
+      || left.caller.localeCompare(right.caller)
+      || left.requestBinding.localeCompare(right.requestBinding));
+}
+
+function requestSignalForwardingRecordsForFunction(
+  fn: ts.FunctionLikeDeclaration,
+  sourceFile: ts.SourceFile,
+): RequestSignalForwardingEvidence[] {
+  if (!fn.body || !ts.isBlock(fn.body)) return [];
+  const parameterNames = new Set(fn.parameters.flatMap((parameter) =>
+    ts.isIdentifier(parameter.name) ? [parameter.name.text] : []));
+  if (parameterNames.size < 2) return [];
+
+  const declarations: ts.VariableDeclaration[] = [];
+  const returns: ts.ReturnStatement[] = [];
+  const collect = (node: ts.Node): void => {
+    if (node !== fn.body && isFunctionBoundary(node)) return;
+    if (ts.isVariableDeclaration(node)) declarations.push(node);
+    if (ts.isReturnStatement(node)) returns.push(node);
+    ts.forEachChild(node, collect);
+  };
+  collect(fn.body);
+
+  const records: RequestSignalForwardingEvidence[] = [];
+  for (const declaration of declarations) {
+    if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue;
+    const initializer = unwrapExpression(declaration.initializer);
+    if (!ts.isNewExpression(initializer)
+      || !ts.isIdentifier(initializer.expression)
+      || initializer.expression.text !== "Request"
+      || initializer.arguments?.length !== 2) {
+      continue;
+    }
+    const input = unwrapExpression(initializer.arguments[0]!);
+    const init = unwrapExpression(initializer.arguments[1]!);
+    if (!ts.isIdentifier(input) || !parameterNames.has(input.text)
+      || !ts.isIdentifier(init) || !parameterNames.has(init.text)) {
+      continue;
+    }
+
+    for (const statement of returns) {
+      const record = requestSignalForwardingRecord({
+        statement,
+        requestBinding: declaration.name.text,
+        inputParameter: input.text,
+        initParameter: init.text,
+        requestExpression: boundedNodeText(initializer, sourceFile),
+        requestLocation: locationOf(declaration, sourceFile),
+        caller: functionLikeName(fn) ?? enclosingCaller(fn),
+        sourceFile,
+      });
+      if (record) records.push(record);
+    }
+  }
+  return records;
+}
+
+function requestSignalForwardingRecord(input: {
+  statement: ts.ReturnStatement;
+  requestBinding: string;
+  inputParameter: string;
+  initParameter: string;
+  requestExpression: string;
+  requestLocation: AstLocation;
+  caller: string;
+  sourceFile: ts.SourceFile;
+}): RequestSignalForwardingEvidence | undefined {
+  if (!input.statement.expression) return undefined;
+  const returned = unwrapExpression(input.statement.expression);
+  if (!ts.isObjectLiteralExpression(returned)) return undefined;
+  const optionsProperty = returned.properties.find((property) =>
+    ts.isPropertyAssignment(property) && methodNameText(property.name) === "options");
+  if (!optionsProperty || !ts.isPropertyAssignment(optionsProperty)) return undefined;
+  const options = unwrapExpression(optionsProperty.initializer);
+  if (!ts.isObjectLiteralExpression(options)) return undefined;
+  const spreadsCallerInit = options.properties.some((property) =>
+    ts.isSpreadAssignment(property)
+      && ts.isIdentifier(unwrapExpression(property.expression))
+      && (unwrapExpression(property.expression) as ts.Identifier).text === input.initParameter);
+  if (!spreadsCallerInit) return undefined;
+
+  const signalProperty = options.properties.find((property) =>
+    ts.isPropertyAssignment(property) && methodNameText(property.name) === "signal");
+  if (!signalProperty || !ts.isPropertyAssignment(signalProperty)) return undefined;
+  const signalExpression = unwrapExpression(signalProperty.initializer);
+  if (memberPath(signalExpression)?.join(".") !== `${input.requestBinding}.signal`) return undefined;
+
+  const normalizedMembers = requestMembersReferencedByOptions(
+    options,
+    input.requestBinding,
+    signalProperty,
+  );
+  if (normalizedMembers.length < 2) return undefined;
+  return {
+    kind: "request-signal-forwarding",
+    caller: input.caller,
+    mechanism: "derived-request-signal-forwarded",
+    requestBinding: input.requestBinding,
+    inputParameter: input.inputParameter,
+    initParameter: input.initParameter,
+    requestExpression: input.requestExpression,
+    forwardedSignal: boundedNodeText(signalExpression, input.sourceFile),
+    outputPath: "options.signal",
+    normalizedMembers,
+    location: locationOf(signalProperty, input.sourceFile),
+    requestLocation: input.requestLocation,
+    outputLocation: locationOf(options, input.sourceFile),
+  };
+}
+
+function requestMembersReferencedByOptions(
+  options: ts.ObjectLiteralExpression,
+  requestBinding: string,
+  signalProperty: ts.PropertyAssignment,
+): string[] {
+  const members = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (node !== options && isFunctionBoundary(node)) return;
+    if (node === signalProperty) return;
+    if (ts.isPropertyAccessExpression(node)) {
+      const path = memberPath(node);
+      if (path?.[0] === requestBinding && path.length >= 2) {
+        members.add(path.slice(1).join("."));
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(options);
+  return [...members].sort();
 }
 
 function optionOverride(

@@ -16,6 +16,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "redux-toolkit-pre-pending-abort": "semantic.errorPropagation",
   "pnpm-publish-otp-propagation": "semantic.optionPropagation",
   "webpack-falsy-option-defaults": "semantic.optionPropagation",
+  "langfuse-derived-abort-signal-forwarding": "semantic.optionPropagation",
   "fastify-keep-alive-meta-leak": "semantic.resourceLifetime",
   "vitest-typecheck-worker-off": "events.inverseListenerDelegation",
   "nextjs-cache-handler-name-validation": "validation.partialAllowlistMatch",

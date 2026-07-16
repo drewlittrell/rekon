@@ -701,6 +701,64 @@ test("structured option propagation identifies truthy defaults that override fal
   }], ref), []);
 });
 
+test("structured option propagation identifies temporary Request signals forwarded to callers", () => {
+  const ref = { type: "EvidenceGraph", id: "derived-request-signal", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "option_flow",
+    value: {
+      source: "packages/shared/src/server/llm/secureLlmFetch.ts",
+      caller: "normalizeFetchInput",
+      mechanism: "derived-request-signal-forwarded",
+      requestBinding: "request",
+      inputParameter: "input",
+      initParameter: "init",
+      requestExpression: "new Request(input, init)",
+      forwardedSignal: "request.signal",
+      outputPath: "options.signal",
+      normalizedMembers: ["headers", "method", "text"],
+      requestLocation: { line: 75, column: 9 },
+      outputLocation: { line: 80, column: 14 },
+      location: { line: 91, column: 7 },
+    },
+  };
+
+  const assessments = evaluateOptionPropagationSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_OPTION_PROPAGATION_RULE_ID);
+  assert.equal(assessments[0].impact, "high");
+  assert.equal(assessments[0].details.structuredMechanism, "derived-request-signal-forwarded");
+  assert.equal(assessments[0].details.forwardedSignal, "request.signal");
+  assert.deepEqual(assessments[0].details.sourceEvidence, [
+    {
+      path: "packages/shared/src/server/llm/secureLlmFetch.ts",
+      lineStart: 75,
+      lineEnd: 75,
+    },
+    {
+      path: "packages/shared/src/server/llm/secureLlmFetch.ts",
+      lineStart: 80,
+      lineEnd: 80,
+    },
+    {
+      path: "packages/shared/src/server/llm/secureLlmFetch.ts",
+      lineStart: 91,
+      lineEnd: 91,
+    },
+  ]);
+  assert.deepEqual(evaluateOptionPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, outputPath: "headers.signal" },
+  }], ref), []);
+  assert.deepEqual(evaluateOptionPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, normalizedMembers: ["method"] },
+  }], ref), []);
+  assert.deepEqual(evaluateOptionPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, source: "test/secureLlmFetch.test.ts" },
+  }], ref), []);
+});
+
 test("structured scope resolution identifies name-only owner lookup", () => {
   const ref = { type: "EvidenceGraph", id: "scope-name-resolution", schemaVersion: "0.1.0" };
   const fact = {

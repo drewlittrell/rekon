@@ -133,6 +133,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Direct source review confirms that XHR instrumentation registered a named readystatechange handler, used readyState === 4 as its terminal completion branch, and never detached the same handler. Rekon emits semantic.resourceLifetime on that one-shot listener retention and clears after the fixed revision removes it after completion reporting; upstream tests verify removal at state 4 and preserve completion behavior and the onreadystatechange proxy path."
+    },
+    {
+      "pairId": "langfuse-derived-abort-signal-forwarding",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that normalizeFetchInput constructed a temporary Request from the caller input and init, spread the caller init into returned options, then replaced its signal with request.signal. Rekon emits semantic.optionPropagation on that derived-signal handoff and clears when the fixed revision forwards the caller-owned signal; upstream tests verify exact signal identity and cancellation of an in-flight body read."
     }
   ]
 }

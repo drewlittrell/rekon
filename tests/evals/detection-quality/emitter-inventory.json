@@ -235,8 +235,8 @@
     {
       "ruleId": "semantic.optionPropagation",
       "outputKinds": ["semantic_claim"],
-      "evidence": "current source-matched semantic findings informed by spread and callback context, plus deterministic option_flow facts for logical-OR fallback to a visible same-property boolean true default",
-      "jurisdiction": "production JavaScript and TypeScript option handoffs, including option members whose explicit false value can be replaced by a visible truthy default",
+      "evidence": "current source-matched semantic findings informed by spread and callback context, plus deterministic option_flow facts for logical-OR fallback to a visible same-property boolean true default or a temporary Request signal forwarded in place of the caller-owned abort signal",
+      "jurisdiction": "production JavaScript and TypeScript option handoffs, including explicit false values replaced by truthy defaults and request normalizers that replace caller signal identity",
       "remediationUnit": "source file and option-precedence handoff"
     },
     {

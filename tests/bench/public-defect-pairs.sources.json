@@ -90,6 +90,12 @@
       "directory": "sentry-javascript",
       "url": "https://github.com/getsentry/sentry-javascript.git",
       "license": "MIT"
+    },
+    {
+      "id": "langfuse",
+      "directory": "langfuse",
+      "url": "https://github.com/langfuse/langfuse.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -472,6 +478,24 @@
       "structuredEvidence": "terminal-event-listener",
       "affectedPaths": ["packages/browser-utils/src/instrument/xhr.ts"],
       "testPaths": ["packages/browser-utils/test/instrument/xhr.test.ts"]
+    },
+    {
+      "id": "langfuse-derived-abort-signal-forwarding",
+      "repository": "langfuse",
+      "buggyCommit": "2606d5bf9d5d30937d39892d0e9ca7d3772a161a",
+      "fixedCommit": "2fa3ff420aa3bfdab0cb604dcc905e84e5824969",
+      "upstream": {
+        "fixUrl": "https://github.com/langfuse/langfuse/pull/14876",
+        "summary": "Request normalization forwarded a temporary Request's derived signal instead of the caller-owned abort signal, allowing cancellation to stop propagating after the temporary Request was collected."
+      },
+      "claim": {
+        "category": "option-propagation",
+        "proof": "upstream-regression-test",
+        "summary": "A caller timeout could fail to cancel an in-flight secure LLM request because normalization replaced the original abort signal identity."
+      },
+      "structuredEvidence": "request-signal-forwarding",
+      "affectedPaths": ["packages/shared/src/server/llm/secureLlmFetch.ts"],
+      "testPaths": ["worker/src/__tests__/secureLlmFetch.test.ts"]
     }
   ]
 }

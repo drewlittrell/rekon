@@ -237,6 +237,15 @@ true and clears after presence-aware defaulting. Direct source review and the
 upstream regression test supply the judgment; generic logical-OR expressions
 remain outside the extractor's jurisdiction.
 
+A third option mechanism records a request normalizer only when it constructs a
+temporary global `Request` from function input and init parameters, spreads the
+same init into returned options, normalizes multiple fields from the temporary
+request, and forwards `request.signal`. The pinned Langfuse pair emits on the
+derived abort-signal handoff and clears when the caller-owned signal is
+forwarded. Upstream tests prove signal identity and cancellation of an
+in-flight body read; other request wrappers remain outside the extractor's
+jurisdiction.
+
 The fifth batch closes the resource-lifetime gap with cross-file evidence rather
 than a generic assignment detector. Deterministic `resource_flow` facts record
 request/reply objects retained on socket, connection, or server-owned state and
